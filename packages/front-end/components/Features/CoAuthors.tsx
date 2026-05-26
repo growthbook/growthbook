@@ -6,6 +6,7 @@ import {
   FeatureRevisionInterface,
   RevisionLog,
 } from "shared/types/feature-revision";
+import { useUser } from "@/services/UserContext";
 import EventUser from "@/components/Avatar/EventUser";
 
 // Actions that carry no content change — excluded when deriving co-authors from logs.
@@ -29,38 +30,31 @@ interface Props extends MarginProps {
 
 export default function CoAuthors({ rev, logs, ...marginProps }: Props) {
   const [open, setOpen] = useState(false);
+  const { users } = useUser();
 
   const createdById =
     rev.createdBy?.type === "dashboard" ? rev.createdBy.id : null;
 
-  const storedContributors = (rev.contributors ?? []).filter(
-    (c): c is NonNullable<typeof c> => c != null,
-  );
+  // contributors is now string[] (user IDs). For older revisions that lack
+  // the field, fall back to deriving from content-bearing log entries.
+  const storedIds = (rev.contributors ?? []).filter(Boolean);
 
-  const derivedContributors =
-    storedContributors.length === 0 && logs
+  const coAuthorIds =
+    storedIds.length === 0 && logs
       ? logs
           .filter(
             (l) =>
               !NON_CONTENT_ACTIONS.has(l.action) &&
-              l.user?.type === "dashboard",
+              l.user?.type === "dashboard" &&
+              l.user.id !== createdById,
           )
-          .map((l) => l.user!)
-          .filter(
-            (u, i, arr) =>
-              u.type === "dashboard" &&
-              arr.findIndex((x) => x.type === "dashboard" && x.id === u.id) ===
-                i,
-          )
-      : storedContributors;
+          .map((l) => (l.user as { id: string }).id)
+          .filter((id, i, arr) => arr.indexOf(id) === i)
+      : storedIds.filter((id) => id !== createdById);
 
-  const coAuthors = derivedContributors.filter(
-    (c) => !(c.type === "dashboard" && c.id === createdById),
-  );
+  if (coAuthorIds.length === 0) return null;
 
-  if (coAuthors.length === 0) return null;
-
-  const label = `Co-author${coAuthors.length > 1 ? "s" : ""} (${coAuthors.length})`;
+  const label = `Co-author${coAuthorIds.length > 1 ? "s" : ""} (${coAuthorIds.length})`;
 
   return (
     <Box {...marginProps}>
@@ -85,17 +79,23 @@ export default function CoAuthors({ rev, logs, ...marginProps }: Props) {
       </div>
       {open && (
         <Flex direction="column" gap="2" mt="2" ml="3">
-          {coAuthors.map((c) =>
-            c.type === "dashboard" || c.type === "api_key" ? (
+          {coAuthorIds.map((id) => {
+            const u = users.get(id);
+            return (
               <EventUser
-                user={c}
+                user={{
+                  type: "dashboard",
+                  id,
+                  name: u?.name || "",
+                  email: u?.email || "",
+                }}
                 display="avatar-name-email"
                 size="sm"
                 wrap={true}
-                key={c.type === "dashboard" ? c.id : c.apiKey}
+                key={id}
               />
-            ) : null,
-          )}
+            );
+          })}
         </Flex>
       )}
     </Box>

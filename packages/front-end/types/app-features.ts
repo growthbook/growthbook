@@ -38,7 +38,6 @@ export type AppFeatures = {
   "datasource-pipeline-mode": boolean;
   "fact-tables": boolean;
   "health-tab": boolean;
-  "github-integration": boolean;
   "pylon-config": Record<string, unknown>;
   "no-access-role-type": boolean;
   "quantile-metrics": boolean;
@@ -116,4 +115,6 @@ export type AppFeatures = {
   "pro-signup-flow": boolean;
   "kb-ff": boolean;
   "events-forwarder": boolean;
+  "enable-error-tracking": boolean;
+  "managed-warehouse-diagnostics": boolean;
 };

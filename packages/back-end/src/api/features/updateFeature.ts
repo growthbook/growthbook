@@ -239,8 +239,10 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     for (const [env, envSettings] of Object.entries(incomingEnvs)) {
       if (!envSettings.rules) continue;
       const converted = fromApiEnvSettingsRulesToFeatureEnvSettingsRules(
+        req.context,
         feature,
         envSettings.rules,
+        feature.rules ?? [],
       );
       // Stamp ids before flattening — `flattenV1ToV2Rules` groups by id and
       // drops id-less rules. Without this, v1 clients that omit ids would

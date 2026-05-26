@@ -38,6 +38,7 @@ import {
   generateVariationId,
   useAttributeSchema,
   useEnvironments,
+  validateUnregisteredAttributes,
 } from "@/services/features";
 import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
 import { hasOpenAIKey, hasMistralKey, hasGoogleAIKey } from "@/services/env";
@@ -202,6 +203,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] =
     useState(false);
   const [autoRefreshResults, setAutoRefreshResults] = useState(true);
+  const [useSameSeedAsOriginal, setUseSameSeedAsOriginal] = useState(false);
 
   const { datasources, getDatasourceById, refreshTags, project, projects } =
     useDefinitions();
@@ -262,6 +264,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const [conditionKey, forceConditionRender] = useIncrementer();
 
   const attributeSchema = useAttributeSchema(false, project);
+  // Unfiltered schema for client-side validation — lets us tell apart
+  // truly-unknown attributes from attributes that exist but are scoped to
+  // other projects, matching the back-end's project-scope-aware check.
+  const allAttributesSchema = useAttributeSchema(false);
   const hashAttributes =
     attributeSchema?.filter((a) => a.hashAttribute)?.map((a) => a.property) ||
     [];
@@ -337,6 +343,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 variations:
                   initialValue.phases[lastPhase].variations ??
                   toPhaseVariations(initialExpVariations),
+                // Clear seed when duplicating to generate a fresh one on the backend
+                ...(duplicate ? { seed: undefined } : {}),
               },
             ]
           : [
@@ -506,6 +514,23 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         throw new Error("Prerequisite targeting issues must be resolved");
       }
 
+      // Opt-in client-side pre-flight — catches typo'd experiment attributes
+      // before the network round-trip, same wording as the back-end error.
+      validateUnregisteredAttributes(
+        {
+          hashAttribute: (data as { hashAttribute?: string }).hashAttribute,
+          fallbackAttribute: (data as { fallbackAttribute?: string })
+            .fallbackAttribute,
+          condition: data.phases[0].condition,
+        },
+        "experiment",
+        {
+          attributeSchema: allAttributesSchema,
+          requireRegisteredAttributes: settings.requireRegisteredAttributes,
+          project: data.project || project || undefined,
+        },
+      );
+
       // bandits
       if (
         data.type === "multi-armed-bandit" &&
@@ -539,6 +564,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       }
     }
 
+    if (duplicate && data.phases?.[0]) {
+      data.phases[0].seed = useSameSeedAsOriginal
+        ? initialValue?.phases?.[lastPhase]?.seed
+        : undefined;
+    }
+
     const body = JSON.stringify(data);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -548,6 +579,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     }
     if (duplicate && initialValue?.id) {
       params.originalId = initialValue.id;
+      if (useSameSeedAsOriginal) {
+        params.allowSameSeedAsOriginal = true;
+      }
     }
 
     if (autoRefreshResults && isImport) {
@@ -941,6 +975,21 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 setLinkNameWithTrackingKey(false);
               }}
             />
+            {duplicate && (
+              <Box mb="4">
+                <Checkbox
+                  label="Use same randomization seed as original experiment"
+                  value={useSameSeedAsOriginal}
+                  setValue={(v) => setUseSameSeedAsOriginal(v)}
+                  error={
+                    useSameSeedAsOriginal
+                      ? "Can introduce bias if the original experiment influenced user behavior."
+                      : undefined
+                  }
+                  errorLevel="warning"
+                />
+              </Box>
+            )}
             {!isBandit && (
               <Field
                 label="Hypothesis"

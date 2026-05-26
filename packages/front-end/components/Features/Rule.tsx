@@ -1,10 +1,13 @@
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import {
+  FeatureRevisionInterface,
+  MinimalFeatureRevisionInterface,
+} from "shared/types/feature-revision";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import React, { forwardRef, ReactElement, useState } from "react";
+import React, { forwardRef, ReactElement, useMemo, useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { filterEnvironmentsByFeature } from "shared/util";
+import { filterEnvironmentsByFeature, getReviewSetting } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { RiAlertLine } from "react-icons/ri";
 import { RxCircleBackslash } from "react-icons/rx";
@@ -19,6 +22,8 @@ import {
   PiTrash,
   PiCaretUp,
   PiCaretDown,
+  PiCaretDoubleUp,
+  PiCaretDoubleDown,
 } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { format as formatTimeZone } from "date-fns-tz";
@@ -46,10 +51,16 @@ import {
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import HelperText from "@/ui/HelperText";
 import Badge from "@/ui/Badge";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RuleEnvScopeBadges from "@/components/Features/RuleEnvScopeBadges";
 import RuleCard from "@/components/Features/RuleCard";
+import DraftSelectorForChanges, {
+  DraftMode,
+} from "@/components/Features/DraftSelectorForChanges";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Callout from "@/ui/Callout";
 import SafeRolloutSummary from "@/components/Features/SafeRolloutSummary";
@@ -85,6 +96,21 @@ function formatSimpleScheduleLabel(rs: RampScheduleInterface): string {
   return "USING SCHEDULE";
 }
 
+// Returns the scheduled enable date for a rule whose ramp is queued to flip it
+// from disabled → enabled. We don't filter by past-vs-future: a pending draft
+// schedule whose startDate has drifted into the past is still "queued to enable
+// on publish", and we want to surface that date in the disabled badge and
+// require confirmation before manual enable.
+function getRampEnableDate(
+  rampSchedule: RampScheduleInterface | undefined,
+): Date | null {
+  if (!rampSchedule) return null;
+  const { status, startDate } = rampSchedule;
+  if (!startDate) return null;
+  if (status !== "ready" && status !== "pending") return null;
+  return new Date(startDate);
+}
+
 function formatRemainingDuration(totalSeconds: number): string {
   if (totalSeconds < 60) return `${Math.round(totalSeconds)}s`;
   const minutes = totalSeconds / 60;
@@ -117,7 +143,7 @@ function computeRemainingTime(
 
   const currentIsApproval =
     rs.currentStepIndex >= 0 &&
-    rs.steps[rs.currentStepIndex]?.trigger.type === "approval";
+    rs.steps[rs.currentStepIndex]?.trigger?.type === "approval";
   const nextIdx =
     rs.status === "pending-approval" ||
     (rs.status === "paused" && currentIsApproval)
@@ -125,11 +151,11 @@ function computeRemainingTime(
       : rs.currentStepIndex + 1; // works for -1 → 0
   for (let i = nextIdx; i < rs.steps.length; i++) {
     const trigger = rs.steps[i].trigger;
-    if (trigger.type === "interval") {
+    if (trigger?.type === "interval") {
       seconds += trigger.seconds;
-    } else if (trigger.type === "approval") {
+    } else if (trigger?.type === "approval") {
       manualApprovals++;
-    } else if (trigger.type === "scheduled") {
+    } else if (trigger?.type === "scheduled") {
       seconds += Math.max(0, (new Date(trigger.at).getTime() - now) / 1000);
     }
   }
@@ -165,6 +191,7 @@ interface SortableProps {
   hideInactive?: boolean;
   isDraft: boolean;
   holdout: HoldoutInterface | undefined;
+  revisionList: MinimalFeatureRevisionInterface[];
   rampSchedule?: RampScheduleInterface;
   draftRevision?: FeatureRevisionInterface | null;
   // True when rendered under the all-environments view. The `environment`
@@ -177,6 +204,11 @@ interface SortableProps {
   // rule cannot move in that direction.
   onMoveUp?: () => void;
   onMoveDown?: () => void;
+  onMoveToTop?: () => void;
+  onMoveToBottom?: () => void;
+  // True when the draft has this rule disabled but the live feature has it enabled.
+  // Surfaces a warning so users don't accidentally revert a schedule-driven enable.
+  liveEnabledDraftDisabled?: boolean;
 }
 
 type RuleProps = SortableProps &
@@ -235,11 +267,15 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       hideInactive,
       isDraft,
       holdout,
+      revisionList,
       rampSchedule,
       draftRevision,
       isAllEnvsView,
       onMoveUp,
       onMoveDown,
+      onMoveToTop,
+      onMoveToBottom,
+      liveEnabledDraftDisabled,
       ...props
     },
     ref,
@@ -251,8 +287,41 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const [safeRolloutStatusModalOpen, setSafeRolloutStatusModalOpen] =
       useState(false);
     const [dropdownOpen, setDropdownOpen] = useState(false);
+    const [showDeleteRuleModal, setShowDeleteRuleModal] = useState(false);
     const [rampApproveLoading, setRampApproveLoading] = useState(false);
     const [rampApproveError, setRampApproveError] = useState("");
+    const defaultDraft = useDefaultDraft(revisionList);
+    const [deleteMode, setDeleteMode] = useState<DraftMode>(
+      defaultDraft != null ? "existing" : "new",
+    );
+    const [deleteSelectedDraft, setDeleteSelectedDraft] = useState<
+      number | null
+    >(defaultDraft);
+    const settings = useOrgSettings();
+
+    const toggleRuleEnabled = async () => {
+      setDropdownOpen(false);
+      track(rule.enabled ? "Disable Feature Rule" : "Enable Feature Rule", {
+        ruleIndex: i,
+        environment,
+        type: rule.type,
+      });
+      const res = await apiCall<{ version: number }>(
+        `/feature/${feature.id}/${version}/rule`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            ruleId: rule.id,
+            rule: {
+              ...rule,
+              enabled: !rule.enabled,
+            },
+          }),
+        },
+      );
+      await mutate();
+      res.version && setVersion(res.version);
+    };
 
     const attributeMap = useAttributeMap(feature.project);
     const attributesWithVersionStringOperatorMismatches =
@@ -297,6 +366,16 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       permissionsUtil.canViewFeatureModal(feature.project) &&
       permissionsUtil.canManageFeatureDrafts(feature);
 
+    const gatedEnvSet: Set<string> | "all" | "none" = useMemo(() => {
+      const raw = settings?.requireReviews;
+      if (raw === true) return "all";
+      if (!Array.isArray(raw)) return "none";
+      const reviewSetting = getReviewSetting(raw, feature);
+      if (!reviewSetting?.requireReviewOn) return "none";
+      const envList = reviewSetting.environments ?? [];
+      return envList.length === 0 ? "all" : new Set(envList);
+    }, [settings?.requireReviews, feature]);
+
     const isInactive = isRuleInactive(rule, experimentsMap);
 
     const hasCondition =
@@ -315,6 +394,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       experimentsMap,
       isDraft,
       unreachable,
+      rampSchedule,
     });
 
     if (hideInactive && isInactive) {
@@ -437,6 +517,55 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
 
     const contents = (
       <Box {...props} ref={ref}>
+        {showDeleteRuleModal && (
+          <ModalStandard
+            trackingEventModalType="delete-feature-rule"
+            header="Delete rule"
+            size="lg"
+            close={() => setShowDeleteRuleModal(false)}
+            open={true}
+            cta="Save deletion"
+            ctaColor="red"
+            submit={async () => {
+              track("Delete Feature Rule", {
+                ruleIndex: i,
+                environment,
+                type: rule.type,
+              });
+              const targetVersion =
+                deleteMode === "existing" && deleteSelectedDraft != null
+                  ? deleteSelectedDraft
+                  : feature.version;
+              const res = await apiCall<{ version: number }>(
+                `/feature/${feature.id}/${targetVersion}/rule`,
+                {
+                  method: "DELETE",
+                  body: JSON.stringify({ ruleId: rule.id }),
+                },
+              );
+              await mutate();
+              res.version && setVersion(res.version);
+            }}
+          >
+            <Box style={{ minHeight: 300 }}>
+              <DraftSelectorForChanges
+                feature={feature}
+                revisionList={revisionList}
+                mode={deleteMode}
+                setMode={setDeleteMode}
+                selectedDraft={deleteSelectedDraft}
+                setSelectedDraft={setDeleteSelectedDraft}
+                canAutoPublish={false}
+                gatedEnvSet={gatedEnvSet}
+                triggerPrefix="Rule deletion will be"
+              />
+              <Text as="p" mb="2">
+                This rule will be removed when the revision is published. The
+                live feature will not change until then.
+              </Text>
+            </Box>
+          </ModalStandard>
+        )}
         <RuleCard
           index={holdout ? globalRuleIdx + 2 : globalRuleIdx + 1}
           sideColor={info.sideColor}
@@ -552,42 +681,46 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       </DropdownMenuItem>
                     )}
                     <DropdownMenuItem
-                      onClick={async () => {
-                        track(
-                          rule.enabled
-                            ? "Disable Feature Rule"
-                            : "Enable Feature Rule",
-                          {
-                            ruleIndex: i,
-                            environment,
-                            type: rule.type,
-                          },
-                        );
-                        const res = await apiCall<{ version: number }>(
-                          `/feature/${feature.id}/${version}/rule`,
-                          {
-                            method: "PUT",
-                            body: JSON.stringify({
-                              ruleId: rule.id,
-                              rule: {
-                                ...rule,
-                                enabled: !rule.enabled,
-                              },
-                            }),
-                          },
-                        );
-                        await mutate();
-                        res.version && setVersion(res.version);
-                        setDropdownOpen(false);
-                      }}
+                      onClick={
+                        !rule.enabled && getRampEnableDate(rampSchedule)
+                          ? undefined
+                          : toggleRuleEnabled
+                      }
+                      confirmation={(() => {
+                        const d = !rule.enabled
+                          ? getRampEnableDate(rampSchedule)
+                          : null;
+                        if (!d) return undefined;
+                        return {
+                          confirmationTitle: "Enable rule now?",
+                          getConfirmationContent: async () =>
+                            `This rule is scheduled to go live on ${fmtScheduleDate(d)}. Enabling now bypasses the schedule and will set the rule live immediately.`,
+                          cta: "Enable now",
+                          ctaColor: "violet",
+                          submit: toggleRuleEnabled,
+                        };
+                      })()}
                     >
                       {rule.enabled ? "Disable" : "Enable"}
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
-                  {(onMoveUp || onMoveDown) && (
+                  {(onMoveUp ||
+                    onMoveDown ||
+                    onMoveToTop ||
+                    onMoveToBottom) && (
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuGroup>
+                        {onMoveToTop && (
+                          <DropdownMenuItem
+                            onClick={() => {
+                              onMoveToTop();
+                              setDropdownOpen(false);
+                            }}
+                          >
+                            <PiCaretDoubleUp /> Move to top
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem
                           disabled={!onMoveUp}
                           onClick={() => {
@@ -610,6 +743,16 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                         >
                           <PiCaretDown /> Move down
                         </DropdownMenuItem>
+                        {onMoveToBottom && (
+                          <DropdownMenuItem
+                            onClick={() => {
+                              onMoveToBottom();
+                              setDropdownOpen(false);
+                            }}
+                          >
+                            <PiCaretDoubleDown /> Move to bottom
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuGroup>
                     </>
                   )}
@@ -917,28 +1060,16 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       color="red"
-                      confirmation={{
-                        confirmationTitle: "Delete Rule",
-                        cta: "Delete",
-                        submit: async () => {
-                          track("Delete Feature Rule", {
-                            ruleIndex: i,
-                            environment,
-                            type: rule.type,
-                          });
-                          const res = await apiCall<{ version: number }>(
-                            `/feature/${feature.id}/${version}/rule`,
-                            {
-                              method: "DELETE",
-                              body: JSON.stringify({ ruleId: rule.id }),
-                            },
-                          );
-                          await mutate();
-                          res.version && setVersion(res.version);
-                        },
+                      onClick={() => {
+                        setDeleteMode(
+                          defaultDraft != null ? "existing" : "new",
+                        );
+                        setDeleteSelectedDraft(defaultDraft);
+                        setShowDeleteRuleModal(true);
+                        setDropdownOpen(false);
                       }}
                     >
-                      Delete
+                      Delete rule
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
                 </DropdownMenu>
@@ -946,6 +1077,13 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             </Flex>
           </Flex>
           <Box>{info.callout}</Box>
+          {liveEnabledDraftDisabled && (
+            <Callout status="warning" mt="3" size="sm">
+              This rule is <strong>enabled</strong> in the live feature but{" "}
+              <strong>disabled</strong> in this draft. Publishing may revert a
+              schedule-driven enable.
+            </Callout>
+          )}
           {rampSchedule?.status === "pending-approval" &&
             rampSchedule.currentStepIndex >= 0 &&
             rampSchedule.steps[rampSchedule.currentStepIndex]
@@ -1216,11 +1354,13 @@ export function getRuleMetaInfo({
   experimentsMap,
   isDraft,
   unreachable,
+  rampSchedule,
 }: {
   rule: FeatureRule;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
   isDraft: boolean;
   unreachable?: boolean;
+  rampSchedule?: RampScheduleInterface;
 }): RuleMetaInfo {
   const linkedExperiment =
     rule.type === "experiment-ref"
@@ -1241,6 +1381,35 @@ export function getRuleMetaInfo({
     rule.scheduleRules.at(-1)?.timestamp !== null;
 
   if (!rule.enabled) {
+    const rampEnableDate = getRampEnableDate(rampSchedule);
+    if (rampEnableDate) {
+      // A pending draft schedule whose startDate has drifted into the past
+      // still hasn't fired — once published, the backend treats startDate as
+      // a one-shot gate and enables immediately. Showing the stale date is
+      // confusing; surface the actual semantics instead.
+      const inPast = rampEnableDate.getTime() <= Date.now();
+      const label = inPast
+        ? "Disabled · enables on publish"
+        : `Disabled \u00b7 enables ${fmtScheduleDate(rampEnableDate)}`;
+      const title = inPast
+        ? "Rule will be enabled by its schedule on the next publish"
+        : `Rule will be enabled by its schedule on ${rampEnableDate.toLocaleDateString()}`;
+      return {
+        pill: (
+          <Badge
+            color="gray"
+            title={title}
+            label={
+              <>
+                <RxCircleBackslash />
+                {label}
+              </>
+            }
+          />
+        ),
+        sideColor: "disabled",
+      };
+    }
     return {
       pill: (
         <Badge

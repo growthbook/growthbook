@@ -125,7 +125,7 @@ export default function ResultMoreMenu({
   const { hasCommercialFeature } = useUser();
   const canEdit = permissionsUtil.canViewExperimentModal(project);
 
-  const { latest, snapshot } = useSnapshot();
+  const { latestSummary: latest, snapshot } = useSnapshot();
 
   const canDownloadJupyterNotebook =
     hasData && supportsNotebooks && notebookUrl && notebookFilename;

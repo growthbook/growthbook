@@ -1864,19 +1864,23 @@ async function cleanupOrphanedRampSchedules(
     if (!allRamps) return;
 
     for (const ramp of allRamps) {
-      const remainingTargets = (ramp?.targets ?? []).filter(
+      const originalTargets = ramp?.targets ?? [];
+      if (originalTargets.length === 0 || !ramp?.id) continue;
+      const remainingTargets = originalTargets.filter(
         (target: RampScheduleInterface["targets"][0]) => {
           if (!target?.ruleId) return false;
           return !deletedStems.has(stemRuleId(target.ruleId));
         },
       );
 
-      if (
-        remainingTargets.length === 0 &&
-        (ramp?.targets ?? []).length > 0 &&
-        ramp?.id
-      ) {
+      if (remainingTargets.length === 0) {
         await context.models?.rampSchedules?.deleteById?.(ramp.id);
+      } else if (remainingTargets.length !== originalTargets.length) {
+        // Some targets were orphaned by the delete; prune them so the schedule
+        // doesn't fail trying to resolve a deleted ruleId on its next fire.
+        await context.models?.rampSchedules?.updateById?.(ramp.id, {
+          targets: remainingTargets,
+        });
       }
     }
   } catch (error) {

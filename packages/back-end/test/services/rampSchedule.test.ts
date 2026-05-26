@@ -28,6 +28,7 @@ import {
   rollbackToStep,
   advanceUntilBlocked,
   completeRollout,
+  applyRampStartActions,
 } from "back-end/src/services/rampSchedule";
 
 // ---------------------------------------------------------------------------
@@ -858,6 +859,114 @@ describe("advanceStep — interval step", () => {
     const [, updates] = updateById.mock.calls[0];
     expect(updates.nextStepAt).not.toBeNull();
   });
+
+  // Pre-start (-1) → step 0 transition: the published patch must include
+  // enabled:true alongside step 0's targeting/coverage. Without this fold,
+  // the rule would briefly be live with its pre-ramp state before step 0
+  // overwrote it.
+  it("folds enabled:true into step 0's patch on the pre-start → step 0 transition", async () => {
+    const { ctx } = makeContext({ currentStepIndex: -1 });
+    const schedule = makeSchedule({ currentStepIndex: -1 });
+    await advanceStep(ctx as never, schedule);
+
+    expect(mockPublishRevision).toHaveBeenCalledTimes(1);
+    const [, , , forceResult] = mockPublishRevision.mock.calls[0];
+    const rules: FeatureRule[] = forceResult.rules ?? [];
+    const patched = rules.find((r) => r.id === RULE_ID);
+    expect(patched?.enabled).toBe(true);
+    // The step-0 coverage patch is still applied.
+    expect((patched as { coverage?: number })?.coverage).toBe(0.3);
+  });
+
+  // Subsequent step transitions don't fold enable — the rule was already
+  // enabled by step 0 and we shouldn't be re-asserting it on every step.
+  it("does not re-fold enabled:true on subsequent step transitions", async () => {
+    // Start the rule disabled so we can detect whether the fold ran.
+    mockGetFeature.mockResolvedValueOnce(
+      makeFeature([
+        {
+          id: RULE_ID,
+          uid: "ruid_" + RULE_ID,
+          allEnvironments: false,
+          environments: ["production"],
+          type: "rollout" as const,
+          coverage: 0.3,
+          hashAttribute: "id",
+          enabled: false,
+          condition: "",
+        },
+      ]) as never,
+    );
+    const { ctx } = makeContext({ currentStepIndex: 0 });
+    await advanceStep(ctx as never, makeSchedule({ currentStepIndex: 0 }));
+
+    expect(mockPublishRevision).toHaveBeenCalledTimes(1);
+    const [, , , forceResult] = mockPublishRevision.mock.calls[0];
+    const rules: FeatureRule[] = forceResult.rules ?? [];
+    const patched = rules.find((r) => r.id === RULE_ID);
+    // Patch only carries the step-1 fields; enabled is left untouched.
+    expect(patched?.enabled).toBe(false);
+  });
+});
+
+describe("applyRampStartActions", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetFeature.mockResolvedValue(makeFeature() as never);
+    mockCreateRevision.mockResolvedValue(makeRevision() as never);
+    mockPublishRevision.mockResolvedValue(makeFeature() as never);
+  });
+
+  // For simple schedules (no steps), this is the only place the rule gets
+  // enabled — no advanceStep will run.
+  it("enables active feature targets for a 0-step schedule", async () => {
+    const schedule = makeSchedule({ steps: [], currentStepIndex: -1 });
+    const { ctx } = makeContext({ steps: [], currentStepIndex: -1 });
+
+    await applyRampStartActions(ctx as never, schedule);
+
+    expect(mockPublishRevision).toHaveBeenCalledTimes(1);
+    const [, , , forceResult] = mockPublishRevision.mock.calls[0];
+    const rules: FeatureRule[] = forceResult.rules ?? [];
+    const patched = rules.find((r) => r.id === RULE_ID);
+    expect(patched?.enabled).toBe(true);
+  });
+
+  // For steps>0 schedules, advanceStep's pre-start fold owns enabling so the
+  // rule lands in the same revision as step 0's targeting/coverage. Avoid a
+  // redundant publish here.
+  it("is a no-op for schedules with steps", async () => {
+    const schedule = makeSchedule({ currentStepIndex: -1 });
+    const { ctx } = makeContext({ currentStepIndex: -1 });
+
+    await applyRampStartActions(ctx as never, schedule);
+
+    expect(mockPublishRevision).not.toHaveBeenCalled();
+  });
+
+  // Skip targets that are inactive or non-feature so we don't accidentally
+  // resurrect a detached target.
+  it("skips inactive and non-feature targets", async () => {
+    const schedule = makeSchedule({
+      steps: [],
+      currentStepIndex: -1,
+      targets: [
+        {
+          id: TARGET_ID,
+          entityType: "feature",
+          entityId: FEATURE_ID,
+          ruleId: RULE_ID,
+          environment: "production",
+          status: "inactive",
+        },
+      ],
+    });
+    const { ctx } = makeContext();
+
+    await applyRampStartActions(ctx as never, schedule);
+
+    expect(mockPublishRevision).not.toHaveBeenCalled();
+  });
 });
 
 describe("advanceStep — approval step", () => {
@@ -1257,6 +1366,137 @@ describe("advanceUntilBlocked", () => {
     expect(callCount).toBe(1);
     const [, updates] = updateById.mock.calls[0];
     expect(updates.status).toBe("pending-approval");
+  });
+
+  // ------------------------------------------------------------------------
+  // 0-step ("simple") schedules — "enable on date" or "enable on publish"
+  // ------------------------------------------------------------------------
+
+  it("0-step + no endCondition: completes and deletes the schedule (terminal — no remaining work)", async () => {
+    const schedule = makeSchedule({
+      currentStepIndex: -1,
+      nextStepAt: null,
+      status: "running",
+      steps: [],
+    });
+    const deleteById = jest.fn().mockResolvedValue(undefined);
+    const updateById = jest
+      .fn()
+      .mockImplementation(
+        (_id: string, updates: Partial<RampScheduleInterface>) => ({
+          ...schedule,
+          ...updates,
+        }),
+      );
+    const ctx = {
+      org: { id: ORG_ID, settings: {} },
+      auditUser: { type: "system" },
+      environments: [],
+      permissions: {},
+      models: {
+        rampSchedules: { updateById, getById: jest.fn(), deleteById },
+      },
+    };
+
+    await advanceUntilBlocked(ctx as never, schedule, new Date());
+
+    // completeRollout transitions to "completed" before we delete.
+    expect(updateById).toHaveBeenCalled();
+    const [, updates] = updateById.mock.calls[0];
+    expect(updates.status).toBe("completed");
+    expect(deleteById).toHaveBeenCalledWith(schedule.id);
+  });
+
+  it("0-step + future endCondition: stays running (still has work to do)", async () => {
+    const future = new Date(Date.now() + 24 * 60 * 60_000);
+    const schedule = makeSchedule({
+      currentStepIndex: -1,
+      nextStepAt: null,
+      status: "running",
+      steps: [],
+      endCondition: { trigger: { type: "scheduled" as const, at: future } },
+    });
+    const deleteById = jest.fn().mockResolvedValue(undefined);
+    const updateById = jest.fn();
+    const ctx = {
+      org: { id: ORG_ID, settings: {} },
+      auditUser: { type: "system" },
+      environments: [],
+      permissions: {},
+      models: {
+        rampSchedules: { updateById, getById: jest.fn(), deleteById },
+      },
+    };
+
+    await advanceUntilBlocked(ctx as never, schedule, new Date());
+
+    expect(deleteById).not.toHaveBeenCalled();
+    expect(updateById).not.toHaveBeenCalled();
+  });
+
+  it("0-step + past endCondition: completes via the endCondition path (does not auto-delete)", async () => {
+    const past = new Date(Date.now() - 60_000);
+    const schedule = makeSchedule({
+      currentStepIndex: -1,
+      nextStepAt: null,
+      status: "running",
+      steps: [],
+      endCondition: { trigger: { type: "scheduled" as const, at: past } },
+    });
+    const deleteById = jest.fn().mockResolvedValue(undefined);
+    const updateById = jest
+      .fn()
+      .mockImplementation(
+        (_id: string, updates: Partial<RampScheduleInterface>) => ({
+          ...schedule,
+          ...updates,
+        }),
+      );
+    const ctx = {
+      org: { id: ORG_ID, settings: {} },
+      auditUser: { type: "system" },
+      environments: [],
+      permissions: {},
+      models: {
+        rampSchedules: { updateById, getById: jest.fn(), deleteById },
+      },
+    };
+
+    await advanceUntilBlocked(ctx as never, schedule, new Date());
+
+    // Windowed schedules keep a history record after completion.
+    expect(deleteById).not.toHaveBeenCalled();
+    const [, updates] = updateById.mock.calls[0];
+    expect(updates.status).toBe("completed");
+  });
+
+  // ------------------------------------------------------------------------
+  // Defensive unstuck — multi-step ramp transitioned to "running" but step 0
+  // not yet due (callsite forgot to set nextStepAt=now).
+  // ------------------------------------------------------------------------
+
+  it("defensively enables rules when a multi-step ramp is 'running' but step 0 isn't due", async () => {
+    const future = new Date(Date.now() + 60_000);
+    const schedule = makeSchedule({
+      currentStepIndex: -1,
+      nextStepAt: future,
+      status: "running",
+    });
+    const { ctx } = makeContext({
+      currentStepIndex: -1,
+      nextStepAt: future,
+      status: "running",
+    });
+
+    await advanceUntilBlocked(ctx as never, schedule, new Date());
+
+    // executeStepActions publishes a revision with enabled:true even though
+    // step 0 hasn't fired — would-be stuck rule is unstuck.
+    expect(mockPublishRevision).toHaveBeenCalled();
+    const [, , , forceResult] = mockPublishRevision.mock.calls[0];
+    const rules: FeatureRule[] = forceResult.rules ?? [];
+    const patched = rules.find((r) => r.id === RULE_ID);
+    expect(patched?.enabled).toBe(true);
   });
 });
 
