@@ -93,6 +93,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import { allConnectionsSupportBucketingV2 } from "@/components/Experiment/HashVersionSelector";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { formatRemainingDuration } from "@/components/Features/Rule";
 import { Popover } from "@/ui/Popover";
@@ -4046,11 +4047,16 @@ export default function RampScheduleSection({
                             </DropdownMenu>
                           </Box>
                         </Flex>
-                        {hashVersionSdkWarning && (
-                          <HelperText status="warning" size="sm" mb="0" mt="1">
-                            Some SDK connections may not support V2 hashing.
-                            Unsupported SDKs will fall back to V1 automatically.
-                          </HelperText>
+                        {hashVersion === 2 && (
+                          <SDKCapabilityWarning
+                            as="helperText"
+                            capability="bucketingV2"
+                            project={feature?.project}
+                            someMessage="Some of your SDK Connections may not support V2 hashing."
+                            noneMessage="None of your SDK Connections support V2 hashing."
+                            mb="0"
+                            mt="1"
+                          />
                         )}
                       </>
                     )}

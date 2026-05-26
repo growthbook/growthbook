@@ -17,6 +17,7 @@ import {
 } from "@/ui/DropdownMenu";
 import { allConnectionsSupportBucketingV2 } from "@/components/Experiment/HashVersionSelector";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
 
 export interface Props {
   value: number;
@@ -256,11 +257,16 @@ export default function RolloutPercentInput({
                         </DropdownMenu>
                       </Box>
                     </Flex>
-                    {hashVersionSdkWarning && (
-                      <HelperText status="warning" size="sm" mb="0" mt="1">
-                        Some SDK connections may not support V2 hashing.
-                        Unsupported SDKs will fall back to V1 automatically.
-                      </HelperText>
+                    {hashVersion === 2 && (
+                      <SDKCapabilityWarning
+                        as="helperText"
+                        capability="bucketingV2"
+                        project={project}
+                        someMessage="Some of your SDK Connections may not support V2 hashing."
+                        noneMessage="None of your SDK Connections support V2 hashing."
+                        mb="0"
+                        mt="1"
+                      />
                     )}
                   </>
                 )}

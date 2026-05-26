@@ -651,9 +651,29 @@ export async function notifySafeRolloutChange({
   }
 
   const rule = getSafeRolloutRuleFromFeature(feature, updatedSafeRollout.id);
-  const ruleEnvironments = rule?.allEnvironments
-    ? Object.keys(feature.environmentSettings)
-    : (rule?.environments ?? []);
+
+  let ruleEnvironments: string[];
+  if (rule) {
+    ruleEnvironments = rule.allEnvironments
+      ? Object.keys(feature.environmentSettings)
+      : (rule.environments ?? []);
+  } else if (updatedSafeRollout.rampScheduleId) {
+    // Ramp-linked SRs monitor a rollout rule, not a safe-rollout rule.
+    // Derive environments from the ramp schedule's active target, falling back
+    // to all feature environments when the target covers all environments
+    // (environment === null).
+    const rampSchedule = await context.models.rampSchedules.getById(
+      updatedSafeRollout.rampScheduleId,
+    );
+    const activeTarget = rampSchedule?.targets.find(
+      (t) => t.status === "active",
+    );
+    ruleEnvironments = activeTarget?.environment
+      ? [activeTarget.environment]
+      : Object.keys(feature.environmentSettings);
+  } else {
+    ruleEnvironments = [];
+  }
   const notificationData = {
     featureId: feature.id,
     safeRolloutId: updatedSafeRollout.id,

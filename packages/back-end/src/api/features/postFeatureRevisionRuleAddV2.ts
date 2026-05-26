@@ -11,7 +11,10 @@ import type { FeatureRule, SafeRolloutRule } from "shared/validators";
 import { resetReviewOnChange } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
 import { getLatestPhaseVariations } from "shared/experiments";
-import { toApiRevisionV2 } from "back-end/src/services/features";
+import {
+  toApiRevisionV2,
+  addIdsToFlatRules,
+} from "back-end/src/services/features";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getFeature } from "back-end/src/models/FeatureModel";
@@ -173,6 +176,10 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
         environments?: string[];
       };
     const rule = buildRuleFromInput(baseRuleInput as RuleCreateInput, uuidv4());
+
+    // Backfill seed for rollout rules to ensure ramp-monitored payload
+    // stability — consistent with the write-time backfill in addIdsToFlatRules.
+    addIdsToFlatRules([rule as FeatureRule], feature.id);
 
     validateRuleConditions(rule);
     // Opt-in registered-attribute check before any side effects (safe-rollout

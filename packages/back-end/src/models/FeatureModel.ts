@@ -43,6 +43,7 @@ import { DiffResult } from "shared/types/events/diff";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import {
   generateRuleId,
+  addIdsToFlatRules,
   getApiFeatureObj,
   getNextScheduledUpdate,
   getSavedGroupMap,
@@ -1480,6 +1481,11 @@ export async function applyRevisionChanges(
 
   if (result.rules !== undefined) {
     changes.rules = result.rules;
+    // Ensure every rollout rule that's being published has a seed — required
+    // for ramp-monitored payload stability. Rules created before the
+    // seed-backfill was introduced (or attached to a ramp for the first time)
+    // get seed = rule.id here so they match the SDK's featureId fallback.
+    addIdsToFlatRules(changes.rules, feature.id);
     hasChanges = true;
   }
 
@@ -2069,6 +2075,15 @@ async function applyDetachRampActions(
           (t) => stemRuleId(t.ruleId ?? "") !== actionStem,
         );
         if (action.deleteScheduleWhenEmpty && remainingTargets.length === 0) {
+          // Stop the linked SafeRollout before deletion so it doesn't continue
+          // taking snapshots against a ramp that no longer exists.
+          if (existing.safeRolloutId) {
+            await syncLinkedSafeRolloutForRampState(
+              context,
+              { ...existing, status: "rolled-back" },
+              "stopped",
+            );
+          }
           await context.models.rampSchedules.deleteById(existing.id);
         } else {
           await context.models.rampSchedules.updateById(existing.id, {
