@@ -95,14 +95,17 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
   // For `strategy: "publish"` the revert produces real content changes, so the
   // permission model mirrors postSavedGroupRevisionPublish — including its
   // per-revision gate, so a metadata-only revert isn't blocked when the org has
-  // `requireMetadataReview` disabled.
+  // `requireMetadataReview` disabled. Hoisted so the merge call can record the
+  // accurate bypass flag.
+  let approvalRequired = false;
+  let canBypass = false;
   if (isPublish) {
-    const approvalRequired = adapter.isApprovalRequiredForRevision
+    approvalRequired = adapter.isApprovalRequiredForRevision
       ? adapter.isApprovalRequiredForRevision(req.context, {
           target: { proposedChanges: patchOps },
         } as unknown as Revision)
       : adapter.isApprovalRequired(req.context);
-    const canBypass =
+    canBypass =
       !!req.organization.settings?.restApiBypassesReviews ||
       adapter.canBypassApproval(
         req.context,
@@ -161,7 +164,7 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
     draft.id,
     req.context.userId,
     {
-      bypass: adapter.isApprovalRequired(req.context),
+      bypass: approvalRequired && canBypass,
     },
   );
 

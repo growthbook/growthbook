@@ -114,10 +114,12 @@ export const updateSavedGroup = createApiRequestHandler(
     }
     // Scope the bypass permission to the *existing* group's projects so a
     // `projects` move can't be paired with bypass-merge to launder a permission gap.
-    const canBypass = adapter.canBypassApproval(
-      req.context,
-      savedGroup as Parameters<typeof adapter.canBypassApproval>[1],
-    );
+    const canBypass =
+      !!req.organization.settings?.restApiBypassesReviews ||
+      adapter.canBypassApproval(
+        req.context,
+        savedGroup as Parameters<typeof adapter.canBypassApproval>[1],
+      );
     if (!canBypass) {
       req.context.permissions.throwPermissionError();
     }

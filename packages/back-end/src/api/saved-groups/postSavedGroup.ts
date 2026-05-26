@@ -47,9 +47,11 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
       }
       // Scope the bypass permission to the *target* projects so a caller with
       // bypass in some projects can't create one in projects they can't bypass.
-      const canBypass = adapter.canBypassApproval(req.context, {
-        projects: projects ?? [],
-      } as Parameters<typeof adapter.canBypassApproval>[1]);
+      const canBypass =
+        !!req.organization.settings?.restApiBypassesReviews ||
+        adapter.canBypassApproval(req.context, {
+          projects: projects ?? [],
+        } as Parameters<typeof adapter.canBypassApproval>[1]);
       if (!canBypass) {
         req.context.permissions.throwPermissionError();
       }
