@@ -2484,11 +2484,7 @@ export async function toExperimentApiInterface(
     templateId: experiment.templateId || undefined,
     statusUpdateSchedule: experiment.statusUpdateSchedule
       ? {
-          ...(experiment.statusUpdateSchedule.startAt
-            ? {
-                startAt: experiment.statusUpdateSchedule.startAt.toISOString(),
-              }
-            : {}),
+          startAt: experiment.statusUpdateSchedule.startAt.toISOString(),
         }
       : experiment.statusUpdateSchedule,
     // Only "start" is produced for experiments; updateExperimentStatus.ts

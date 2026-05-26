@@ -9383,7 +9383,10 @@ paths:
                       format: date-time
                       description: >-
                         ISO datetime when the experiment should start. Must be
-                        in the future.
+                        in the future. Setting or clearing this field
+                        invalidates any existing staged start
+                        (`nextScheduledStatusUpdate`); call POST
+                        /experiments/{id}/start to stage the new schedule.
                       type: string
                   required:
                     - startAt
@@ -27111,11 +27114,21 @@ components:
           type: string
         statusUpdateSchedule:
           anyOf:
-            - type: object
+            - description: >-
+                Schedule a future start for a draft experiment. Only `startAt`
+                is currently supported.
+              type: object
               properties:
                 startAt:
                   format: date-time
+                  description: >-
+                    ISO datetime when the experiment should start. Must be in
+                    the future. Setting or clearing this field invalidates any
+                    existing staged start (`nextScheduledStatusUpdate`); call
+                    POST /experiments/{id}/start to stage the new schedule.
                   type: string
+              required:
+                - startAt
               additionalProperties: false
             - type: 'null'
         nextScheduledStatusUpdate:
@@ -27806,11 +27819,22 @@ components:
               type: string
             statusUpdateSchedule:
               anyOf:
-                - type: object
+                - description: >-
+                    Schedule a future start for a draft experiment. Only
+                    `startAt` is currently supported.
+                  type: object
                   properties:
                     startAt:
                       format: date-time
+                      description: >-
+                        ISO datetime when the experiment should start. Must be
+                        in the future. Setting or clearing this field
+                        invalidates any existing staged start
+                        (`nextScheduledStatusUpdate`); call POST
+                        /experiments/{id}/start to stage the new schedule.
                       type: string
+                  required:
+                    - startAt
                   additionalProperties: false
                 - type: 'null'
             nextScheduledStatusUpdate:
