@@ -1,11 +1,10 @@
 import { existsSync, readFileSync } from "fs";
 import path from "path";
 import { Router, Request, RequestHandler } from "express";
-import rateLimit from "express-rate-limit";
 import bodyParser from "body-parser";
 import * as Sentry from "@sentry/node";
-import { parseEnvInt } from "shared/util";
 import authenticateApiRequestMiddleware from "back-end/src/middleware/authenticateApiRequestMiddleware";
+import { apiStyleRateLimiter } from "back-end/src/middleware/apiStyleRateLimiter";
 import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricGroupModel } from "back-end/src/models/MetricGroupModel";
@@ -17,7 +16,7 @@ import { RampScheduleModel } from "back-end/src/models/RampScheduleModel";
 import { ModelClass } from "back-end/src/services/context";
 import { getBuild } from "back-end/src/util/build";
 import { ApiRequestLocals } from "back-end/types/api";
-import { IS_CLOUD, SENTRY_DSN } from "back-end/src/util/secrets";
+import { SENTRY_DSN } from "back-end/src/util/secrets";
 import { featureRoutes } from "./features/features.router";
 import { featureV2Routes } from "./features/features.v2.router";
 import { experimentsRoutes } from "./experiments/experiments.router";
@@ -105,23 +104,9 @@ if (SENTRY_DSN) {
   }) as RequestHandler);
 }
 
-const API_RATE_LIMIT_MAX = parseEnvInt(process.env.API_RATE_LIMIT_MAX, 60, {
-  min: 1,
-  name: "API_RATE_LIMIT_MAX",
-});
-const overallRateLimit = IS_CLOUD ? 60 : API_RATE_LIMIT_MAX;
-// Rate limit API keys to 60 requests per minute
+// Rate limit API keys to 60 requests per minute (configurable via API_RATE_LIMIT_MAX)
 router.use(
-  rateLimit({
-    windowMs: 60 * 1000,
-    max: API_RATE_LIMIT_MAX,
-    standardHeaders: true,
-    legacyHeaders: false,
-    keyGenerator: (req) => (req as Request & ApiRequestLocals).apiKey,
-    message: {
-      message: `Too many requests, limit to ${overallRateLimit} per minute`,
-    },
-  }),
+  apiStyleRateLimiter((req) => (req as Request & ApiRequestLocals).apiKey),
 );
 
 // Index health check route. Registered at both `/` (mounted at `/api/`) and

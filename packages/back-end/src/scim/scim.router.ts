@@ -1,5 +1,7 @@
-import { Router, RequestHandler } from "express";
+import { Router, Request, RequestHandler } from "express";
 import authenticateApiRequestMiddleware from "back-end/src/middleware/authenticateApiRequestMiddleware";
+import { apiStyleRateLimiter } from "back-end/src/middleware/apiStyleRateLimiter";
+import { ApiRequestLocals } from "back-end/types/api";
 import usersRouter from "./users/users.router";
 import groupsRouter from "./groups/groups.router";
 import scimMiddleware from "./middleware/scimMiddleware";
@@ -7,6 +9,9 @@ import scimMiddleware from "./middleware/scimMiddleware";
 const router = Router();
 
 router.use(authenticateApiRequestMiddleware as RequestHandler);
+router.use(
+  apiStyleRateLimiter((req) => (req as Request & ApiRequestLocals).apiKey),
+);
 router.use(scimMiddleware as RequestHandler);
 
 // API endpoints
