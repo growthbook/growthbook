@@ -90,18 +90,23 @@ export function draftStatusDots(
 export function draftStatusTooltip(
   counts: Partial<Record<string, number>>,
 ): React.ReactNode {
-  const ordered: Array<[ActiveDraftStatus, string]> = [
-    ["changes-requested", "with changes requested"],
-    ["pending-review", "pending review"],
-    ["approved", "approved"],
-    ["draft", "draft"],
+  const ordered: Array<[ActiveDraftStatus, (n: number) => string]> = [
+    [
+      "changes-requested",
+      (n) =>
+        `${n} ${n === 1 ? "revision" : "revisions"} with changes requested`,
+    ],
+    [
+      "pending-review",
+      (n) => `${n} ${n === 1 ? "revision" : "revisions"} pending approval`,
+    ],
+    ["approved", (n) => `${n} approved ${n === 1 ? "revision" : "revisions"}`],
+    ["draft", (n) => `${n} draft ${n === 1 ? "revision" : "revisions"}`],
   ];
-  const lines = ordered.flatMap(([status, label]) => {
+  const lines = ordered.flatMap(([status, fmt]) => {
     const n = counts[status] ?? 0;
     if (!n) return [];
-    return [
-      { status, text: `${n} ${n === 1 ? "revision" : "revisions"} ${label}` },
-    ];
+    return [{ status, text: fmt(n) }];
   });
   if (!lines.length) return null;
   return (

@@ -413,37 +413,35 @@ export default function FeaturesPage() {
                             const dots = draftStatusDots(draftEntry);
                             if (!dots.length) return null;
                             return (
-                              <Flex
-                                align="center"
-                                justify="center"
-                                gap="1"
-                                style={{
-                                  width: "100%",
-                                  height: "100%",
-                                  minHeight: 36,
-                                }}
+                              <Tooltip
+                                flipTheme={false}
+                                body={draftStatusTooltip(draftEntry)}
                               >
-                                <Tooltip
-                                  flipTheme={false}
-                                  body={draftStatusTooltip(draftEntry)}
+                                <Flex
+                                  align="center"
+                                  justify="center"
+                                  gap="1"
+                                  style={{
+                                    width: "100%",
+                                    height: "100%",
+                                    padding: "0 4px",
+                                  }}
                                 >
-                                  <Flex align="center" gap="1">
-                                    {dots.map((bg) => (
-                                      <span
-                                        key={bg}
-                                        style={{
-                                          display: "block",
-                                          width: 8,
-                                          height: 8,
-                                          borderRadius: "50%",
-                                          flexShrink: 0,
-                                          background: bg,
-                                        }}
-                                      />
-                                    ))}
-                                  </Flex>
-                                </Tooltip>
-                              </Flex>
+                                  {dots.map((bg) => (
+                                    <span
+                                      key={bg}
+                                      style={{
+                                        display: "block",
+                                        width: 8,
+                                        height: 8,
+                                        borderRadius: "50%",
+                                        flexShrink: 0,
+                                        background: bg,
+                                      }}
+                                    />
+                                  ))}
+                                </Flex>
+                              </Tooltip>
                             );
                           })()
                         : null}
