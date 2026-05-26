@@ -1,4 +1,5 @@
 import { isEqual } from "lodash";
+import { Revision } from "shared/enterprise";
 import { validateCondition } from "shared/util";
 import { updateSavedGroupValidator } from "shared/validators";
 import { UpdateSavedGroupProps } from "shared/types/saved-group";
@@ -9,7 +10,6 @@ import { BadRequestError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
 import {
   buildPatchOps,
-  createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 
@@ -102,7 +102,19 @@ export const updateSavedGroup = createApiRequestHandler(
   }
 
   const adapter = getAdapter("saved-group");
-  const approvalRequired = adapter.isApprovalRequired(req.context);
+
+  // Build the patch ops up front so the approval gate can honour the
+  // saved-group adapter's metadata-only shortcut (`requireMetadataReview`),
+  // matching POST .../revisions/{version}/publish. Without this, a
+  // metadata-only change (name/owner/description) in an org that exempts
+  // metadata from review would be blocked here even though publishing the
+  // same change via a revision would be allowed.
+  const patchOps = buildPatchOps(fieldsToUpdate as Record<string, unknown>);
+  const approvalRequired = adapter.isApprovalRequiredForRevision
+    ? adapter.isApprovalRequiredForRevision(req.context, {
+        target: { proposedChanges: patchOps },
+      } as unknown as Revision)
+    : adapter.isApprovalRequired(req.context);
 
   if (approvalRequired) {
     if (!bypassApproval) {
@@ -136,20 +148,22 @@ export const updateSavedGroup = createApiRequestHandler(
       },
     );
 
-    const patchOps = buildPatchOps(fieldsToUpdate as Record<string, unknown>);
-    const revision = await createOrUpdateRevision(
-      req.context,
-      "saved-group",
-      savedGroup as unknown as Record<string, unknown> & { id: string },
-      patchOps,
-      { forceCreate: true },
-    );
-
+    // Persist the live change first, then record it as a single already-merged
+    // revision. A draft-then-merge would be two non-transactional writes: if
+    // the merge failed after the update landed, the draft would be stranded
+    // and could never be published ("no changes detected" against the
+    // now-updated live entity). Updating first also matches the precedence in
+    // revision.controller.ts — persisting the real change takes priority over
+    // revision bookkeeping.
     const updatedSavedGroup = await req.context.models.savedGroups.update(
       savedGroup,
       fieldsToUpdate,
     );
-    await req.context.models.revisions.merge(revision.id, req.context.userId, {
+    await req.context.models.revisions.createMerged({
+      type: "saved-group",
+      id: savedGroup.id,
+      snapshot: savedGroup as unknown as Record<string, unknown>,
+      proposedChanges: patchOps,
       bypass: true,
     });
 

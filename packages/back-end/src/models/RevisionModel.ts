@@ -854,4 +854,64 @@ export class RevisionModel extends BaseClass {
       } as unknown as CreateProps<Revision>),
     );
   }
+
+  /**
+   * Create a revision that is already in `merged` status in a single write.
+   *
+   * Bypass-merge flows (e.g. PUT /saved-groups/:id) would otherwise have to
+   * create a draft and then `merge` it as two separate, non-transactional DB
+   * writes — if the merge failed after the entity was already updated, the
+   * draft would be stranded and could never be published ("no changes
+   * detected" against the now-updated live entity). Recording the merged
+   * revision in one write removes that window. Callers must persist the live
+   * entity change *before* calling this so the merged revision is a faithful
+   * record of a change that has actually landed.
+   */
+  async createMerged(params: {
+    type: RevisionTargetType;
+    id: string;
+    snapshot: Record<string, unknown>;
+    proposedChanges: JsonPatchOperation[];
+    bypass?: boolean;
+    title?: string;
+    revertedFrom?: string;
+  }) {
+    const cleanedSnapshot = getAdapter(params.type).buildSnapshot(
+      params.snapshot,
+    );
+    const userId = this.context.userId;
+    const now = new Date();
+
+    return this.createWithVersionRetry(() =>
+      this.create({
+        target: {
+          type: params.type,
+          id: params.id,
+          snapshot: cleanedSnapshot,
+          proposedChanges: params.proposedChanges,
+        },
+        title: params.title,
+        revertedFrom: params.revertedFrom,
+        status: "merged",
+        authorId: userId,
+        reviews: [],
+        resolution: {
+          action: "merged",
+          userId,
+          dateCreated: now,
+        },
+        activityLog: [
+          {
+            id: uniqid("act_"),
+            userId,
+            action: "merged",
+            description: params.bypass
+              ? "Merged revision (bypass)"
+              : "Merged revision",
+            dateCreated: now,
+          },
+        ],
+      } as unknown as CreateProps<Revision>),
+    );
+  }
 }
