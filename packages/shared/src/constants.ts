@@ -76,6 +76,7 @@ export const OWNER_JOB_TITLES = {
 export const USAGE_INTENTS = {
   featureFlags: "Feature Flags",
   experiments: "Experiments",
+  productAnalytics: "Product Analytics",
 } as const;
 
 // Health

@@ -17,6 +17,7 @@ import { useRouter } from "next/router";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { date } from "shared/dates";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
@@ -118,6 +119,10 @@ export default function ResultsTab({
   const permissionsUtil = usePermissionsUtil();
   const { organization } = useUser();
   const project = getProjectById(experiment.project || "");
+  const isDemoExperiment =
+    !!experiment.project &&
+    experiment.project ===
+      getDemoDatasourceProjectIdForOrganization(organization.id);
 
   const { settings: scopedSettings } = getScopedSettings({
     organization,
@@ -430,7 +435,7 @@ export default function ResultsTab({
           )}
         </div>
       </div>
-      {snapshot && (
+      {snapshot && !isDemoExperiment && (
         <div className="appbox mt-4">
           <div className="row mx-2 py-3 d-flex align-items-center">
             <div className="col ml-2">

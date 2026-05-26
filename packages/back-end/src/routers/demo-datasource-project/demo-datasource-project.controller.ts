@@ -75,7 +75,6 @@ const DEMO_DATASOURCE_PARAMS: PostgresConnectionParams = {
   defaultSchema: "sample",
 };
 
-const ASSET_OWNER = "";
 const DEMO_TAGS = ["growthbook-demo"];
 
 // Metric constants
@@ -240,7 +239,7 @@ export const postDemoDatasourceProject = async (
       id: demoFactTableId,
       name: "purchases",
       description: "",
-      owner: ASSET_OWNER,
+      owner: context.userId,
       tags: DEMO_TAGS,
       userIdTypes: ["user_id"],
       sql: "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\namount AS value,\nbrowser,\ncountry\nFROM purchases",
@@ -285,7 +284,7 @@ export const postDemoDatasourceProject = async (
           ...(m.metricType === "retention"
             ? { id: `fact__demo-d7-purchase-retention` }
             : {}),
-          owner: ASSET_OWNER,
+          owner: context.userId,
           datasource: datasource.id,
           projects: [project.id],
           tags: DEMO_TAGS,
@@ -322,7 +321,7 @@ export const postDemoDatasourceProject = async (
 
     const ratioMetric = await context.models.factMetrics.create({
       ...DEMO_RATIO_METRIC,
-      owner: ASSET_OWNER,
+      owner: context.userId,
       datasource: datasource.id,
       projects: [project.id],
       tags: DEMO_TAGS,
@@ -388,12 +387,10 @@ export const postDemoDatasourceProject = async (
     > = {
       name: DEMO_DATA_EXPERIMENT_ID,
       trackingKey: DEMO_DATA_EXPERIMENT_ID,
-      description: `**THIS IS A DEMO EXPERIMENT USED FOR DEMONSTRATION PURPOSES ONLY**
-
-Experiment to test impact of a different 'Add to Cart' CTA design.
+      description: `Experiment to test impact of a different 'Add to Cart' CTA design.
 Treatment shows a larger 'Add to Cart' CTA, but with the same functionality.`,
       hypothesis: `We predict the treatment will increase Purchase metrics and have uncertain effects on Retention.`,
-      owner: ASSET_OWNER,
+      owner: context.userId,
       datasource: datasource.id,
       project: project.id,
       goalMetrics,
@@ -456,7 +453,7 @@ Treatment shows a larger 'Add to Cart' CTA, but with the same functionality.`,
       dateUpdated: new Date(),
       description:
         "Controls add to cart CTA. Employees forced to see new CTA, other users randomly assigned to either the control or treatment.",
-      owner: ASSET_OWNER,
+      owner: context.userId,
       valueType: "boolean",
       defaultValue: "false",
       tags: DEMO_TAGS,

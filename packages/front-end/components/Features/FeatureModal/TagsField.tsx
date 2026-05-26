@@ -1,14 +1,25 @@
-import { FC } from "react";
+import { FC, useState } from "react";
 import TagsInput from "@/components/Tags/TagsInput";
+import Link from "@/ui/Link";
 
 const TagsField: FC<{
   value: string[];
   onChange: (tags: string[]) => void;
 }> = ({ value, onChange }) => {
+  const [expanded, setExpanded] = useState(value.length > 0);
+
+  if (!expanded) {
+    return (
+      <div className="form-group">
+        <Link onClick={() => setExpanded(true)}>+ tags</Link>
+      </div>
+    );
+  }
+
   return (
     <div className="form-group">
       <label>Tags</label>
-      <TagsInput value={value} onChange={onChange} />
+      <TagsInput value={value} onChange={onChange} autoFocus />
     </div>
   );
 };

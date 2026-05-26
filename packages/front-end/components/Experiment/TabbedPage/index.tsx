@@ -419,6 +419,13 @@ export default function TabbedPage({
   const showMetricGroupPromo = (): boolean => {
     if (metricGroups.length) return false;
 
+    if (
+      experiment.project ===
+      getDemoDatasourceProjectIdForOrganization(organization.id)
+    ) {
+      return false;
+    }
+
     // only show if there are atleast 2 metrics in any section
     if (
       experiment.goalMetrics.length > 2 ||

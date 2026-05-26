@@ -2,12 +2,14 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { PiCaretDown } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import Link from "@/ui/Link";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import ImportExperimentModal from "@/components/Experiment/ImportExperimentModal";
 import { useExperiments } from "@/hooks/useExperiments";
+import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import LinkButton from "@/ui/LinkButton";
@@ -42,7 +44,14 @@ const isExperimentListTab = (value: string): value is ExperimentListTab => {
 };
 
 const ExperimentsPage = (): React.ReactElement => {
-  const { ready, project, projects } = useDefinitions();
+  const { ready, project, projects, datasources } = useDefinitions();
+  const { organization } = useUser();
+  const demoProjectId = getDemoDatasourceProjectIdForOrganization(
+    organization.id || "",
+  );
+  const hasNonDemoDatasource = datasources.some(
+    (d) => !d.projects?.includes(demoProjectId),
+  );
 
   const initialHashRef = useRef(
     globalThis?.window ? window.location.hash.slice(1) : "",
@@ -122,11 +131,7 @@ const ExperimentsPage = (): React.ReactElement => {
   }, [activeTab, items]);
 
   if (error) {
-    return (
-      <div className="alert alert-danger">
-        An error occurred: {error.message}
-      </div>
-    );
+    return <Callout status="error">An error occurred: {error.message}</Callout>;
   }
   if (loading || !ready) {
     return <LoadingOverlay />;
@@ -163,7 +168,15 @@ const ExperimentsPage = (): React.ReactElement => {
       {canAddExperiment && (
         <>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => setOpenImportExperimentModal(true)}>
+          <DropdownMenuItem
+            onClick={() => setOpenImportExperimentModal(true)}
+            disabled={!hasNonDemoDatasource}
+            tooltip={
+              !hasNonDemoDatasource
+                ? "Connect a data source to import existing experiments."
+                : undefined
+            }
+          >
             Import Existing Experiment
           </DropdownMenuItem>
         </>

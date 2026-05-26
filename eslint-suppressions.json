@@ -1761,11 +1761,6 @@
       "count": 1
     }
   },
-  "packages/front-end/pages/experiments/index.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
   "packages/front-end/pages/experiments/lookup.tsx": {
     "local/no-alert-classname": {
       "count": 1

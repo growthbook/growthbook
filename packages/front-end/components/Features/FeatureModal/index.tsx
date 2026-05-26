@@ -7,8 +7,8 @@ import {
 import React, { ReactElement } from "react";
 import { validateFeatureValue } from "shared/util";
 import { PiInfo } from "react-icons/pi";
-import { Box } from "@radix-ui/themes";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
+import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -21,7 +21,6 @@ import {
 } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useWatching } from "@/services/WatchProvider";
-import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import {
@@ -198,6 +197,8 @@ export default function FeatureModal({
   );
   const { projectId: demoProjectId } = useDemoDataSourceProject();
   const { apiCall } = useAuth();
+  const { features: allFeatures } = useFeatureMetaInfo();
+  const showHoldoutSelect = allFeatures.length >= 5;
 
   const valueType = form.watch("valueType") as FeatureValueType;
   const environmentSettings = form.watch("environmentSettings");
@@ -326,19 +327,16 @@ export default function FeatureModal({
           </>
         )}
 
-        <TagsField
-          value={form.watch("tags") || []}
-          onChange={(tags) => form.setValue("tags", tags)}
-        />
-
-        <HoldoutSelect
-          selectedProject={selectedProject}
-          selectedHoldoutId={form.watch("holdout")?.id}
-          setHoldout={(holdoutId) => {
-            form.setValue("holdout", { id: holdoutId, value: "" });
-          }}
-          formType="feature"
-        />
+        {showHoldoutSelect && (
+          <HoldoutSelect
+            selectedProject={selectedProject}
+            selectedHoldoutId={form.watch("holdout")?.id}
+            setHoldout={(holdoutId) => {
+              form.setValue("holdout", { id: holdoutId, value: "" });
+            }}
+            formType="feature"
+          />
+        )}
 
         {!featureToDuplicate && (
           <ValueTypeField
@@ -394,17 +392,6 @@ export default function FeatureModal({
           }}
         />
 
-        <div className="mb-4">
-          <label>Description</label>
-          <Box mt="1">
-            <MarkdownInput
-              value={form.watch("description") || ""}
-              setValue={(value) => form.setValue("description", value)}
-              autofocus={!featureToDuplicate?.description?.length}
-            />
-          </Box>
-        </div>
-
         {hasCommercialFeature("custom-metadata") &&
           customFields &&
           customFields?.length > 0 && (
@@ -420,6 +407,11 @@ export default function FeatureModal({
               />
             </div>
           )}
+
+        <TagsField
+          value={form.watch("tags") || []}
+          onChange={(tags) => form.setValue("tags", tags)}
+        />
       </FormProvider>
     </Modal>
   );
