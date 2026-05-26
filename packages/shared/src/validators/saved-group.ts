@@ -25,6 +25,21 @@ export const savedGroupValidator = z
   })
   .strict();
 
+// Single source of truth for the saved-group fields that revision-aware code
+// paths (revert, applyChanges, etc.) are allowed to mutate. Derived from
+// savedGroupValidator so it cannot drift from the schema.
+export const savedGroupUpdatableFieldsSchema = savedGroupValidator.pick({
+  groupName: true,
+  owner: true,
+  values: true,
+  condition: true,
+  attributeKey: true,
+  description: true,
+  projects: true,
+  useEmptyListGroup: true,
+  archived: true,
+});
+
 export const postSavedGroupBodyValidator = z.object({
   groupName: z.string(),
   owner: ownerInputField,

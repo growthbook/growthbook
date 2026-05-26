@@ -140,8 +140,7 @@ export const updateSavedGroup = createApiRequestHandler(
       "saved-group",
       savedGroup as unknown as Record<string, unknown> & { id: string },
       patchOps,
-      false,
-      true,
+      { forceCreate: true },
     );
 
     await req.context.models.savedGroups.update(savedGroup, fieldsToUpdate);

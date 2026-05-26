@@ -9,7 +9,7 @@ export const postSavedGroupRevisionDiscard = createApiRequestHandler(
   postSavedGroupRevisionDiscardValidator,
 )(async (req) => {
   const savedGroup = await req.context.models.savedGroups.getById(
-    req.params.id,
+    req.params.savedGroupId,
   );
   if (!savedGroup) {
     throw new NotFoundError("Could not find saved group");
@@ -34,7 +34,7 @@ export const postSavedGroupRevisionDiscard = createApiRequestHandler(
     if (
       !getAdapter("saved-group").canUpdate(
         req.context,
-        revision.target.snapshot as Record<string, unknown>,
+        savedGroup as Record<string, unknown>,
       )
     ) {
       req.context.permissions.throwPermissionError();

@@ -19,7 +19,7 @@ export const putSavedGroupRevisionMetadata = createApiRequestHandler(
   putSavedGroupRevisionMetadataValidator,
 )(async (req) => {
   const savedGroup = await req.context.models.savedGroups.getById(
-    req.params.id,
+    req.params.savedGroupId,
   );
   if (!savedGroup) {
     throw new NotFoundError("Could not find saved group");
@@ -96,11 +96,7 @@ export const putSavedGroupRevisionMetadata = createApiRequestHandler(
       "saved-group",
       savedGroup as unknown as Record<string, unknown> & { id: string },
       patchOps,
-      false,
-      false,
-      undefined,
-      undefined,
-      revision.id,
+      { revisionId: revision.id },
     );
 
     return {

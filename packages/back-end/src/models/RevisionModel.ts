@@ -848,6 +848,7 @@ export class RevisionModel extends BaseClass {
     snapshot: Record<string, unknown>;
     proposedChanges: JsonPatchOperation[];
     title?: string;
+    comment?: string;
     revertedFrom?: string;
   }) {
     // Normalize the snapshot before validation runs in `_createOne`.
@@ -867,6 +868,7 @@ export class RevisionModel extends BaseClass {
           snapshot: cleanedSnapshot,
         },
         title: target.title,
+        comment: target.comment,
         revertedFrom: target.revertedFrom,
         status: "draft",
         authorId: this.context.userId,

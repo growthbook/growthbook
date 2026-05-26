@@ -17,7 +17,7 @@ import { namedSchema } from "./openapi-helpers";
 
 // ---- Shared param schemas ----
 
-const idParams = z.object({ id: z.string() });
+const savedGroupIdParams = z.object({ savedGroupId: z.string() });
 
 /** Version param that also accepts the literal string "new" to auto-create a draft. */
 export const savedGroupRevisionVersionParam = z.union([
@@ -25,11 +25,11 @@ export const savedGroupRevisionVersionParam = z.union([
   z.literal("new"),
 ]);
 
-const revisionParams = idParams.extend({
+const revisionParams = savedGroupIdParams.extend({
   version: savedGroupRevisionVersionParam,
 });
 
-const revisionParamsStrict = idParams.extend({
+const revisionParamsStrict = savedGroupIdParams.extend({
   version: z.coerce.number().int(),
 });
 
@@ -162,11 +162,7 @@ const mergeConflictSchema = z
 
 export const listSavedGroupRevisionsValidator = {
   method: "get" as const,
-  // Sits at the saved-groups collection root rather than `/revisions` so it
-  // mirrors the entity-scoped layout used elsewhere (e.g. /v2/features/...).
-  // Router order MUST register this before `GET /saved-groups/:id`, otherwise
-  // the literal `revisions` would be captured as `id` and fail validation.
-  path: "/saved-groups/revisions",
+  path: "/saved-groups-revisions",
   operationId: "listSavedGroupRevisions",
   summary: "List saved-group revisions across the organization",
   description:
@@ -204,13 +200,13 @@ export const listSavedGroupRevisionsValidator = {
 
 export const getSavedGroupRevisionsValidator = {
   method: "get" as const,
-  path: "/saved-groups/:id/revisions",
+  path: "/saved-groups-revisions/:savedGroupId",
   operationId: "getSavedGroupRevisions",
   summary: "List revisions for a saved group",
   description:
     "Returns a paginated list of revisions for this saved group, sorted newest-first. Optionally filtered by status, author, or the calling user's involvement.",
   tags: ["saved-group-revisions"],
-  paramsSchema: idParams,
+  paramsSchema: savedGroupIdParams,
   bodySchema: z.never(),
   querySchema: z
     .object({
@@ -232,18 +228,18 @@ export const getSavedGroupRevisionsValidator = {
       revisions: z.array(apiSavedGroupRevisionValidator),
     })
     .extend(apiPaginationFieldsValidator.shape),
-  exampleRequest: { params: { id: "grp_abc123" } },
+  exampleRequest: { params: { savedGroupId: "grp_abc123" } },
 };
 
 export const getSavedGroupRevisionLatestValidator = {
   method: "get" as const,
-  path: "/saved-groups/:id/revisions/latest",
+  path: "/saved-groups-revisions/:savedGroupId/latest",
   operationId: "getSavedGroupRevisionLatest",
   summary: "Get the most recent active draft revision",
   description:
     "Returns the most recently updated open (non-merged, non-discarded) revision for the saved group. Returns 404 if there is no active draft. Pass `mine=true` to restrict to drafts authored by the calling user (requires a user-scoped API key).",
   tags: ["saved-group-revisions"],
-  paramsSchema: idParams,
+  paramsSchema: savedGroupIdParams,
   bodySchema: z.never(),
   querySchema: z
     .object({
@@ -253,27 +249,27 @@ export const getSavedGroupRevisionLatestValidator = {
     })
     .strict(),
   responseSchema: revisionResponse,
-  exampleRequest: { params: { id: "grp_abc123" } },
+  exampleRequest: { params: { savedGroupId: "grp_abc123" } },
 };
 
 export const getSavedGroupRevisionValidator = {
   method: "get" as const,
-  path: "/saved-groups/:id/revisions/:version",
+  path: "/saved-groups-revisions/:savedGroupId/:version",
   operationId: "getSavedGroupRevision",
   summary: "Get a single saved group revision",
   description:
-    "Returns the revision at the specified version for this saved group. Use `GET /saved-groups/{id}/revisions/latest` for the most recent active draft.",
+    "Returns the revision at the specified version for this saved group. Use `GET /saved-groups-revisions/{savedGroupId}/latest` for the most recent active draft.",
   tags: ["saved-group-revisions"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z.never(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
-  exampleRequest: { params: { id: "grp_abc123", version: 3 } },
+  exampleRequest: { params: { savedGroupId: "grp_abc123", version: 3 } },
 };
 
 export const getSavedGroupRevisionMergeStatusValidator = {
   method: "get" as const,
-  path: "/saved-groups/:id/revisions/:version/merge-status",
+  path: "/saved-groups-revisions/:savedGroupId/:version/merge-status",
   operationId: "getSavedGroupRevisionMergeStatus",
   summary: "Get merge status for a draft revision",
   description:
@@ -296,13 +292,13 @@ export const getSavedGroupRevisionMergeStatusValidator = {
 
 export const postSavedGroupRevisionValidator = {
   method: "post" as const,
-  path: "/saved-groups/:id/revisions",
+  path: "/saved-groups-revisions/:savedGroupId",
   operationId: "postSavedGroupRevision",
   summary: "Create a draft revision",
   description:
     "Creates a new draft revision branched from the current live saved group. A saved group can have multiple concurrent drafts; use this to start an isolated line of edits.",
   tags: ["saved-group-revisions"],
-  paramsSchema: idParams,
+  paramsSchema: savedGroupIdParams,
   bodySchema: z
     .object({
       title: z.string().optional(),
@@ -315,7 +311,7 @@ export const postSavedGroupRevisionValidator = {
 
 export const postSavedGroupRevisionDiscardValidator = {
   method: "post" as const,
-  path: "/saved-groups/:id/revisions/:version/discard",
+  path: "/saved-groups-revisions/:savedGroupId/:version/discard",
   operationId: "postSavedGroupRevisionDiscard",
   summary: "Discard a draft revision",
   description:
@@ -333,7 +329,7 @@ export const postSavedGroupRevisionDiscardValidator = {
 
 export const postSavedGroupRevisionPublishValidator = {
   method: "post" as const,
-  path: "/saved-groups/:id/revisions/:version/publish",
+  path: "/saved-groups-revisions/:savedGroupId/:version/publish",
   operationId: "postSavedGroupRevisionPublish",
   summary: "Publish a draft revision",
   description:
@@ -347,7 +343,7 @@ export const postSavedGroupRevisionPublishValidator = {
 
 export const postSavedGroupRevisionRevertValidator = {
   method: "post" as const,
-  path: "/saved-groups/:id/revisions/:version/revert",
+  path: "/saved-groups-revisions/:savedGroupId/:version/revert",
   operationId: "postSavedGroupRevisionRevert",
   summary: "Revert the saved group to a prior revision",
   description:
@@ -367,7 +363,7 @@ export const postSavedGroupRevisionRevertValidator = {
 
 export const postSavedGroupRevisionRebaseValidator = {
   method: "post" as const,
-  path: "/saved-groups/:id/revisions/:version/rebase",
+  path: "/saved-groups-revisions/:savedGroupId/:version/rebase",
   operationId: "postSavedGroupRevisionRebase",
   summary: "Rebase a draft revision onto the current live saved group",
   description:
@@ -395,7 +391,7 @@ export const postSavedGroupRevisionRebaseValidator = {
 
 export const postSavedGroupRevisionRequestReviewValidator = {
   method: "post" as const,
-  path: "/saved-groups/:id/revisions/:version/request-review",
+  path: "/saved-groups-revisions/:savedGroupId/:version/request-review",
   operationId: "postSavedGroupRevisionRequestReview",
   summary: "Request review for a draft revision",
   description:
@@ -409,7 +405,7 @@ export const postSavedGroupRevisionRequestReviewValidator = {
 
 export const postSavedGroupRevisionSubmitReviewValidator = {
   method: "post" as const,
-  path: "/saved-groups/:id/revisions/:version/submit-review",
+  path: "/saved-groups-revisions/:savedGroupId/:version/submit-review",
   operationId: "postSavedGroupRevisionSubmitReview",
   summary: "Submit a review on a draft revision",
   description:
@@ -430,7 +426,7 @@ export const postSavedGroupRevisionSubmitReviewValidator = {
 
 export const putSavedGroupRevisionMetadataValidator = {
   method: "put" as const,
-  path: "/saved-groups/:id/revisions/:version/metadata",
+  path: "/saved-groups-revisions/:savedGroupId/:version/metadata",
   operationId: "putSavedGroupRevisionMetadata",
   summary: "Update saved group metadata in a draft revision",
   description:
@@ -452,7 +448,7 @@ export const putSavedGroupRevisionMetadataValidator = {
 
 export const putSavedGroupRevisionConditionValidator = {
   method: "put" as const,
-  path: "/saved-groups/:id/revisions/:version/condition",
+  path: "/saved-groups-revisions/:savedGroupId/:version/condition",
   operationId: "putSavedGroupRevisionCondition",
   summary: "Update the condition of a condition saved group draft revision",
   description:
@@ -473,7 +469,7 @@ export const putSavedGroupRevisionConditionValidator = {
 
 export const putSavedGroupRevisionValuesValidator = {
   method: "put" as const,
-  path: "/saved-groups/:id/revisions/:version/values",
+  path: "/saved-groups-revisions/:savedGroupId/:version/values",
   operationId: "putSavedGroupRevisionValues",
   summary: "Replace the values list in a list saved group draft revision",
   description:
@@ -492,7 +488,7 @@ export const putSavedGroupRevisionValuesValidator = {
 
 export const putSavedGroupRevisionArchiveValidator = {
   method: "put" as const,
-  path: "/saved-groups/:id/revisions/:version/archive",
+  path: "/saved-groups-revisions/:savedGroupId/:version/archive",
   operationId: "putSavedGroupRevisionArchive",
   summary: "Stage an archive/unarchive in a draft revision",
   description:
@@ -511,7 +507,7 @@ export const putSavedGroupRevisionArchiveValidator = {
 
 export const postSavedGroupRevisionItemsAddValidator = {
   method: "post" as const,
-  path: "/saved-groups/:id/revisions/:version/items/add",
+  path: "/saved-groups-revisions/:savedGroupId/:version/items/add",
   operationId: "postSavedGroupRevisionItemsAdd",
   summary: "Append items to a list saved group draft revision",
   description:
@@ -530,7 +526,7 @@ export const postSavedGroupRevisionItemsAddValidator = {
 
 export const postSavedGroupRevisionItemsRemoveValidator = {
   method: "post" as const,
-  path: "/saved-groups/:id/revisions/:version/items/remove",
+  path: "/saved-groups-revisions/:savedGroupId/:version/items/remove",
   operationId: "postSavedGroupRevisionItemsRemove",
   summary: "Remove items from a list saved group draft revision",
   description:

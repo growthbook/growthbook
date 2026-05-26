@@ -20,7 +20,7 @@ export const putSavedGroupRevisionCondition = createApiRequestHandler(
   putSavedGroupRevisionConditionValidator,
 )(async (req) => {
   const savedGroup = await req.context.models.savedGroups.getById(
-    req.params.id,
+    req.params.savedGroupId,
   );
   if (!savedGroup) {
     throw new NotFoundError("Could not find saved group");
@@ -70,11 +70,7 @@ export const putSavedGroupRevisionCondition = createApiRequestHandler(
       "saved-group",
       savedGroup as unknown as Record<string, unknown> & { id: string },
       patchOps,
-      false,
-      false,
-      undefined,
-      undefined,
-      revision.id,
+      { revisionId: revision.id },
     );
 
     return {

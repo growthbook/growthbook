@@ -13117,7 +13117,7 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"name":"interal-users","values":["userId-123","userId-345","userId-678"],"attributeKey":"userId","owner":""}'
-  /v1/saved-groups/revisions:
+  /v1/saved-groups-revisions:
     get:
       operationId: listSavedGroupRevisions
       summary: List saved-group revisions across the organization
@@ -13200,7 +13200,7 @@ paths:
         - lang: cURL
           source: >-
             curl -X GET
-            'https://api.growthbook.io/api/v1/saved-groups/revisions' \
+            'https://api.growthbook.io/api/v1/saved-groups-revisions' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/saved-groups/{id}:
     get:
@@ -13321,7 +13321,7 @@ paths:
             curl -X DELETE
             'https://api.growthbook.io/api/v1/saved-groups/abc123' \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/saved-groups/{id}/revisions:
+  /v1/saved-groups-revisions/{savedGroupId}:
     get:
       operationId: getSavedGroupRevisions
       summary: List revisions for a saved group
@@ -13332,7 +13332,7 @@ paths:
       tags:
         - saved-group-revisions
       parameters:
-        - name: id
+        - name: savedGroupId
           in: path
           required: true
           description: ''
@@ -13409,7 +13409,7 @@ paths:
         - lang: cURL
           source: >-
             curl -X GET
-            'https://api.growthbook.io/api/v1/saved-groups/grp_abc123/revisions'
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/grp_abc123'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
     post:
@@ -13422,7 +13422,7 @@ paths:
       tags:
         - saved-group-revisions
       parameters:
-        - name: id
+        - name: savedGroupId
           in: path
           required: true
           description: ''
@@ -13456,9 +13456,10 @@ paths:
         - lang: cURL
           source: >-
             curl -X POST
-            'https://api.growthbook.io/api/v1/saved-groups/{id}/revisions' \
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}'
+            \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/saved-groups/{id}/revisions/latest:
+  /v1/saved-groups-revisions/{savedGroupId}/latest:
     get:
       operationId: getSavedGroupRevisionLatest
       summary: Get the most recent active draft revision
@@ -13470,7 +13471,7 @@ paths:
       tags:
         - saved-group-revisions
       parameters:
-        - name: id
+        - name: savedGroupId
           in: path
           required: true
           description: ''
@@ -13511,21 +13512,21 @@ paths:
         - lang: cURL
           source: >-
             curl -X GET
-            'https://api.growthbook.io/api/v1/saved-groups/grp_abc123/revisions/latest'
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/grp_abc123/latest'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/saved-groups/{id}/revisions/{version}:
+  /v1/saved-groups-revisions/{savedGroupId}/{version}:
     get:
       operationId: getSavedGroupRevision
       summary: Get a single saved group revision
       description: >-
         Returns the revision at the specified version for this saved group. Use
-        `GET /saved-groups/{id}/revisions/latest` for the most recent active
-        draft.
+        `GET /saved-groups-revisions/{savedGroupId}/latest` for the most recent
+        active draft.
       tags:
         - saved-group-revisions
       parameters:
-        - name: id
+        - name: savedGroupId
           in: path
           required: true
           description: ''
@@ -13548,10 +13549,10 @@ paths:
         - lang: cURL
           source: >-
             curl -X GET
-            'https://api.growthbook.io/api/v1/saved-groups/grp_abc123/revisions/3'
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/grp_abc123/3'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/saved-groups/{id}/revisions/{version}/metadata:
+  /v1/saved-groups-revisions/{savedGroupId}/{version}/metadata:
     put:
       operationId: putSavedGroupRevisionMetadata
       summary: Update saved group metadata in a draft revision
@@ -13562,7 +13563,7 @@ paths:
       tags:
         - saved-group-revisions
       parameters:
-        - name: id
+        - name: savedGroupId
           in: path
           required: true
           description: ''
@@ -13620,10 +13621,10 @@ paths:
         - lang: cURL
           source: >-
             curl -X PUT
-            'https://api.growthbook.io/api/v1/saved-groups/{id}/revisions/{version}/metadata'
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/metadata'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/saved-groups/{id}/revisions/{version}/condition:
+  /v1/saved-groups-revisions/{savedGroupId}/{version}/condition:
     put:
       operationId: putSavedGroupRevisionCondition
       summary: Update the condition of a condition saved group draft revision
@@ -13633,7 +13634,7 @@ paths:
       tags:
         - saved-group-revisions
       parameters:
-        - name: id
+        - name: savedGroupId
           in: path
           required: true
           description: ''
@@ -13681,10 +13682,10 @@ paths:
         - lang: cURL
           source: >-
             curl -X PUT
-            'https://api.growthbook.io/api/v1/saved-groups/{id}/revisions/{version}/condition'
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/condition'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/saved-groups/{id}/revisions/{version}/values:
+  /v1/saved-groups-revisions/{savedGroupId}/{version}/values:
     put:
       operationId: putSavedGroupRevisionValues
       summary: Replace the values list in a list saved group draft revision
@@ -13696,7 +13697,7 @@ paths:
       tags:
         - saved-group-revisions
       parameters:
-        - name: id
+        - name: savedGroupId
           in: path
           required: true
           description: ''
@@ -13745,10 +13746,10 @@ paths:
         - lang: cURL
           source: >-
             curl -X PUT
-            'https://api.growthbook.io/api/v1/saved-groups/{id}/revisions/{version}/values'
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/values'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/saved-groups/{id}/revisions/{version}/archive:
+  /v1/saved-groups-revisions/{savedGroupId}/{version}/archive:
     put:
       operationId: putSavedGroupRevisionArchive
       summary: Stage an archive/unarchive in a draft revision
@@ -13759,7 +13760,7 @@ paths:
       tags:
         - saved-group-revisions
       parameters:
-        - name: id
+        - name: savedGroupId
           in: path
           required: true
           description: ''
@@ -13806,10 +13807,10 @@ paths:
         - lang: cURL
           source: >-
             curl -X PUT
-            'https://api.growthbook.io/api/v1/saved-groups/{id}/revisions/{version}/archive'
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/archive'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/saved-groups/{id}/revisions/{version}/items/add:
+  /v1/saved-groups-revisions/{savedGroupId}/{version}/items/add:
     post:
       operationId: postSavedGroupRevisionItemsAdd
       summary: Append items to a list saved group draft revision
@@ -13821,7 +13822,7 @@ paths:
       tags:
         - saved-group-revisions
       parameters:
-        - name: id
+        - name: savedGroupId
           in: path
           required: true
           description: ''
@@ -13870,10 +13871,10 @@ paths:
         - lang: cURL
           source: >-
             curl -X POST
-            'https://api.growthbook.io/api/v1/saved-groups/{id}/revisions/{version}/items/add'
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/items/add'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/saved-groups/{id}/revisions/{version}/items/remove:
+  /v1/saved-groups-revisions/{savedGroupId}/{version}/items/remove:
     post:
       operationId: postSavedGroupRevisionItemsRemove
       summary: Remove items from a list saved group draft revision
@@ -13883,7 +13884,7 @@ paths:
       tags:
         - saved-group-revisions
       parameters:
-        - name: id
+        - name: savedGroupId
           in: path
           required: true
           description: ''
@@ -13932,10 +13933,10 @@ paths:
         - lang: cURL
           source: >-
             curl -X POST
-            'https://api.growthbook.io/api/v1/saved-groups/{id}/revisions/{version}/items/remove'
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/items/remove'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/saved-groups/{id}/revisions/{version}/request-review:
+  /v1/saved-groups-revisions/{savedGroupId}/{version}/request-review:
     post:
       operationId: postSavedGroupRevisionRequestReview
       summary: Request review for a draft revision
@@ -13945,7 +13946,7 @@ paths:
       tags:
         - saved-group-revisions
       parameters:
-        - name: id
+        - name: savedGroupId
           in: path
           required: true
           description: ''
@@ -13976,10 +13977,10 @@ paths:
         - lang: cURL
           source: >-
             curl -X POST
-            'https://api.growthbook.io/api/v1/saved-groups/{id}/revisions/{version}/request-review'
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/request-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/saved-groups/{id}/revisions/{version}/submit-review:
+  /v1/saved-groups-revisions/{savedGroupId}/{version}/submit-review:
     post:
       operationId: postSavedGroupRevisionSubmitReview
       summary: Submit a review on a draft revision
@@ -13990,7 +13991,7 @@ paths:
       tags:
         - saved-group-revisions
       parameters:
-        - name: id
+        - name: savedGroupId
           in: path
           required: true
           description: ''
@@ -14031,10 +14032,10 @@ paths:
         - lang: cURL
           source: >-
             curl -X POST
-            'https://api.growthbook.io/api/v1/saved-groups/{id}/revisions/{version}/submit-review'
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/submit-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/saved-groups/{id}/revisions/{version}/merge-status:
+  /v1/saved-groups-revisions/{savedGroupId}/{version}/merge-status:
     get:
       operationId: getSavedGroupRevisionMergeStatus
       summary: Get merge status for a draft revision
@@ -14045,7 +14046,7 @@ paths:
       tags:
         - saved-group-revisions
       parameters:
-        - name: id
+        - name: savedGroupId
           in: path
           required: true
           description: ''
@@ -14091,10 +14092,10 @@ paths:
         - lang: cURL
           source: >-
             curl -X GET
-            'https://api.growthbook.io/api/v1/saved-groups/{id}/revisions/{version}/merge-status'
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/merge-status'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/saved-groups/{id}/revisions/{version}/rebase:
+  /v1/saved-groups-revisions/{savedGroupId}/{version}/rebase:
     post:
       operationId: postSavedGroupRevisionRebase
       summary: Rebase a draft revision onto the current live saved group
@@ -14108,7 +14109,7 @@ paths:
       tags:
         - saved-group-revisions
       parameters:
-        - name: id
+        - name: savedGroupId
           in: path
           required: true
           description: ''
@@ -14159,10 +14160,10 @@ paths:
         - lang: cURL
           source: >-
             curl -X POST
-            'https://api.growthbook.io/api/v1/saved-groups/{id}/revisions/{version}/rebase'
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/rebase'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/saved-groups/{id}/revisions/{version}/publish:
+  /v1/saved-groups-revisions/{savedGroupId}/{version}/publish:
     post:
       operationId: postSavedGroupRevisionPublish
       summary: Publish a draft revision
@@ -14173,7 +14174,7 @@ paths:
       tags:
         - saved-group-revisions
       parameters:
-        - name: id
+        - name: savedGroupId
           in: path
           required: true
           description: ''
@@ -14204,10 +14205,10 @@ paths:
         - lang: cURL
           source: >-
             curl -X POST
-            'https://api.growthbook.io/api/v1/saved-groups/{id}/revisions/{version}/publish'
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/publish'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/saved-groups/{id}/revisions/{version}/discard:
+  /v1/saved-groups-revisions/{savedGroupId}/{version}/discard:
     post:
       operationId: postSavedGroupRevisionDiscard
       summary: Discard a draft revision
@@ -14217,7 +14218,7 @@ paths:
       tags:
         - saved-group-revisions
       parameters:
-        - name: id
+        - name: savedGroupId
           in: path
           required: true
           description: ''
@@ -14250,10 +14251,10 @@ paths:
         - lang: cURL
           source: >-
             curl -X POST
-            'https://api.growthbook.io/api/v1/saved-groups/{id}/revisions/{version}/discard'
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/discard'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/saved-groups/{id}/revisions/{version}/revert:
+  /v1/saved-groups-revisions/{savedGroupId}/{version}/revert:
     post:
       operationId: postSavedGroupRevisionRevert
       summary: Revert the saved group to a prior revision
@@ -14263,7 +14264,7 @@ paths:
       tags:
         - saved-group-revisions
       parameters:
-        - name: id
+        - name: savedGroupId
           in: path
           required: true
           description: ''
@@ -14303,7 +14304,7 @@ paths:
         - lang: cURL
           source: >-
             curl -X POST
-            'https://api.growthbook.io/api/v1/saved-groups/{id}/revisions/{version}/revert'
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/revert'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/organizations:

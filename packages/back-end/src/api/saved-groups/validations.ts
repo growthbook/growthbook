@@ -66,9 +66,11 @@ async function createBlankDraft(
     "saved-group",
     savedGroup as unknown as Record<string, unknown> & { id: string },
     [],
-    false,
-    true,
-    options.title,
+    {
+      forceCreate: true,
+      title: options.title,
+      comment: options.comment,
+    },
   );
 }
 

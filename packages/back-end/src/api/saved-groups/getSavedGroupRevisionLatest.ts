@@ -9,7 +9,7 @@ export const getSavedGroupRevisionLatest = createApiRequestHandler(
   getSavedGroupRevisionLatestValidator,
 )(async (req) => {
   const savedGroup = await req.context.models.savedGroups.getById(
-    req.params.id,
+    req.params.savedGroupId,
   );
   if (!savedGroup) {
     throw new NotFoundError("Could not find saved group");

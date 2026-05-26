@@ -1,7 +1,10 @@
 import { isEqual } from "lodash";
 import { JsonPatchOperation } from "shared/enterprise";
 import { SavedGroupInterface } from "shared/types/saved-group";
-import { postSavedGroupRevisionRevertValidator } from "shared/validators";
+import {
+  postSavedGroupRevisionRevertValidator,
+  savedGroupUpdatableFieldsSchema,
+} from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
@@ -13,23 +16,11 @@ import {
 import { loadRevisionByVersion } from "./validations";
 import { toApiSavedGroupRevision } from "./toApiSavedGroupRevision";
 
-const REVERTABLE_FIELDS = [
-  "groupName",
-  "owner",
-  "values",
-  "condition",
-  "attributeKey",
-  "description",
-  "projects",
-  "useEmptyListGroup",
-  "archived",
-] as const;
-
 export const postSavedGroupRevisionRevert = createApiRequestHandler(
   postSavedGroupRevisionRevertValidator,
 )(async (req) => {
   const savedGroup = await req.context.models.savedGroups.getById(
-    req.params.id,
+    req.params.savedGroupId,
   );
   if (!savedGroup) {
     throw new NotFoundError("Could not find saved group");
@@ -75,7 +66,7 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
   // the current live entity. Fields equal to live are omitted so we don't
   // create no-op activity-log churn.
   const fieldsToUpdate: Record<string, unknown> = {};
-  for (const field of REVERTABLE_FIELDS) {
+  for (const field of Object.keys(savedGroupUpdatableFieldsSchema.shape)) {
     const targetValue = (targetState as Record<string, unknown>)[field];
     const liveValue = (savedGroup as unknown as Record<string, unknown>)[field];
     if (targetValue !== undefined && !isEqual(targetValue, liveValue)) {
@@ -140,10 +131,11 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
     "saved-group",
     savedGroup as unknown as Record<string, unknown> & { id: string },
     patchOps,
-    false,
-    true,
-    req.body.title ?? defaultTitle,
-    targetRevision.id,
+    {
+      forceCreate: true,
+      title: req.body.title ?? defaultTitle,
+      revertedFrom: targetRevision.id,
+    },
   );
 
   if (!isPublish) {

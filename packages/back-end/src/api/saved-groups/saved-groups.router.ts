@@ -29,8 +29,6 @@ export const savedGroupsRoutes: OpenApiRoute[] = [
   // Saved-group CRUD
   listSavedGroups,
   postSavedGroup,
-  // MUST precede getSavedGroup: GET /saved-groups/revisions would otherwise be
-  // matched by GET /saved-groups/:id with `id = "revisions"`.
   listSavedGroupRevisions,
   getSavedGroup,
   updateSavedGroup,
