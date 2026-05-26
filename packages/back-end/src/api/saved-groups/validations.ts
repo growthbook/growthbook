@@ -1,4 +1,3 @@
-import { isEqual } from "lodash";
 import {
   ID_LIST_DATATYPES,
   validateCondition,
@@ -311,20 +310,6 @@ export function buildRevisionStatusFilter(
   return parts.length === 1 ? parts[0] : parts;
 }
 
-/**
- * Build a deduplicated values array from the existing draft state, applying
- * the supplied transform. Used by the items/add and items/remove handlers
- * to compose changes on top of any existing pending draft so that successive
- * add/remove calls accumulate.
- */
-export function buildItemsValues(
-  draftState: SavedGroupInterface,
-  transform: (currentValues: string[]) => string[],
-): string[] {
-  const currentValues = draftState.values ?? [];
-  return transform(currentValues);
-}
-
 export function dedupeValues(values: string[]): string[] {
   return [...new Set(values)];
 }
@@ -343,18 +328,4 @@ export function pickNewDraftMetadata(body: {
     title: body.revisionTitle,
     comment: body.revisionComment,
   };
-}
-
-/**
- * Best-effort guard against double-applying changes that match the current
- * draft state. Avoids creating no-op activity log entries when callers
- * re-submit the same payload.
- */
-export function changesMatchCurrentDraft(
-  draftState: SavedGroupInterface,
-  changes: Record<string, unknown>,
-): boolean {
-  return Object.entries(changes).every(([key, value]) => {
-    return isEqual((draftState as Record<string, unknown>)[key], value);
-  });
 }

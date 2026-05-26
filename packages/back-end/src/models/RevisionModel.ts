@@ -477,6 +477,17 @@ export class RevisionModel extends BaseClass {
     } as Record<string, unknown>);
   }
 
+  async hasAnyByTarget(
+    entityType: RevisionTargetType,
+    entityId: string,
+  ): Promise<boolean> {
+    const count = await this._countDocuments({
+      "target.type": entityType,
+      "target.id": entityId,
+    } as Record<string, unknown>);
+    return count > 0;
+  }
+
   async getOpenByTargetAndAuthor(
     entityType: RevisionTargetType,
     entityId: string,

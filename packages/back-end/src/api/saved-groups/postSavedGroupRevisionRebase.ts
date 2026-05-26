@@ -58,9 +58,8 @@ export const postSavedGroupRevisionRebase = createApiRequestHandler(
   const strategies = req.body.conflictResolutions ?? {};
   const customValues = req.body.customValues;
 
-  // All conflicting fields must have an explicit strategy. Mirrors PR #5607's
-  // public rebase endpoint: a missing strategy is a 400 — the operation is
-  // not implicitly resolved.
+  // All conflicting fields must have an explicit strategy: a missing strategy
+  // is a 400 — the operation is not implicitly resolved.
   for (const conflict of conflicts) {
     const strategy = strategies[conflict.field];
     if (

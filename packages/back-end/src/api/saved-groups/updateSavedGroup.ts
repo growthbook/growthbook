@@ -123,7 +123,7 @@ export const updateSavedGroup = createApiRequestHandler(
     }
 
     // Route the bypass change through the revision system so the action lands
-    // in `Revision.activityLog`. Mirrors the internal controller's bypass branch.
+    // in `Revision.activityLog`.
     await ensureLiveRevisionExists(
       req.context,
       "saved-group",
@@ -143,17 +143,20 @@ export const updateSavedGroup = createApiRequestHandler(
       { forceCreate: true },
     );
 
-    await req.context.models.savedGroups.update(savedGroup, fieldsToUpdate);
+    const updatedSavedGroup = await req.context.models.savedGroups.update(
+      savedGroup,
+      fieldsToUpdate,
+    );
     await req.context.models.revisions.merge(revision.id, req.context.userId, {
       bypass: true,
     });
 
-    const refreshed = await req.context.models.savedGroups.getById(
-      savedGroup.id,
-    );
     return {
       savedGroup: await resolveOwnerEmail(
-        req.context.models.savedGroups.toApiInterface(refreshed ?? savedGroup),
+        req.context.models.savedGroups.toApiInterface({
+          ...savedGroup,
+          ...updatedSavedGroup,
+        }),
         req.context,
       ),
     };

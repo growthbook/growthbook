@@ -4,7 +4,7 @@ import {
   createApiRequestHandler,
   validatePagination,
 } from "back-end/src/util/handler";
-import { NotFoundError } from "back-end/src/util/errors";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { API_ALLOW_SKIP_PAGINATION } from "back-end/src/util/secrets";
 import {
   assertUserScopedKeyForMine,
@@ -26,14 +26,12 @@ export const getSavedGroupRevisions = createApiRequestHandler(
   assertUserScopedKeyForMine(req.context, mine);
 
   if (mine && req.query.author) {
-    // The two filters are mutually exclusive — passing both is almost
-    // certainly a caller mistake. Mirrors PR #5607 listRevisions.
-    throw new Error("`mine` and `author` cannot be used together");
+    throw new BadRequestError("`mine` and `author` cannot be used together");
   }
 
   const skipPagination = stringToBoolean(req.query.skipPagination?.toString());
   if (skipPagination && !API_ALLOW_SKIP_PAGINATION) {
-    throw new Error(
+    throw new BadRequestError(
       "skipPagination is not allowed. Set API_ALLOW_SKIP_PAGINATION=true in API environment variables. Self-hosted only.",
     );
   }

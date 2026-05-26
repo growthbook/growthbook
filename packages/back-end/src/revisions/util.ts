@@ -7,7 +7,6 @@ import {
   RevisionTargetType,
   normalizeProposedChanges,
 } from "shared/enterprise";
-import { SavedGroupInterface } from "shared/types/saved-group";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { getAdapter } from "back-end/src/revisions/index";
@@ -32,11 +31,11 @@ export async function ensureLiveRevisionExists(
     dateCreated?: Date;
   },
 ): Promise<void> {
-  const existing = await context.models.revisions.getByTarget(
+  const alreadyExists = await context.models.revisions.hasAnyByTarget(
     entityType,
     entity.id,
   );
-  if (existing.length > 0) return;
+  if (alreadyExists) return;
 
   const authorId = entity.owner || context.userId;
   const snapshot = getAdapter(entityType).buildSnapshot(entity);
@@ -274,22 +273,4 @@ export async function createOrUpdateRevision(
     comment,
     revertedFrom,
   });
-}
-
-/**
- * @deprecated Use `createOrUpdateRevision` with `entityType: "saved-group"` instead.
- */
-export async function createOrUpdateSavedGroupRevision(
-  context: ReqContext | ApiReqContext,
-  savedGroup: SavedGroupInterface,
-  proposedChanges: JsonPatchOperation[],
-  options: CreateOrUpdateRevisionOptions = {},
-): Promise<Revision> {
-  return createOrUpdateRevision(
-    context,
-    "saved-group",
-    savedGroup as unknown as Record<string, unknown> & { id: string },
-    proposedChanges,
-    options,
-  );
 }

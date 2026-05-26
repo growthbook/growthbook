@@ -61,7 +61,7 @@ export const postSavedGroupRevisionItemsAdd = createApiRequestHandler(
     }
 
     // Stack the change on top of the current draft state so successive
-    // add/remove calls accumulate. Mirrors the internal /add-items handler.
+    // add/remove calls accumulate.
     const draftState = applyRevisionToSnapshot(revision);
     const baseValues = draftState.values ?? [];
     const newValues = dedupeValues([...baseValues, ...req.body.items]);

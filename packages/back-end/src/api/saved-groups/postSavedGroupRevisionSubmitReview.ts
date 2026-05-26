@@ -35,8 +35,7 @@ export const postSavedGroupRevisionSubmitReview = createApiRequestHandler(
 
   const { decision, comment } = req.body;
 
-  // Block the author from any non-comment review action — copied verbatim
-  // from PR #5607's postFeatureRevisionSubmitReview.ts.
+  // Block the author from any non-comment review action.
   if (revision.authorId === req.context.userId && decision !== "comment") {
     throw new BadRequestError("Cannot submit a review on a draft you created");
   }
