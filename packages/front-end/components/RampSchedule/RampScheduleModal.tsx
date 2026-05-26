@@ -48,10 +48,7 @@ function buildStepsForAllTargets(
     const existingStep = existingSteps[i];
     const actions = targets.map((t) => {
       const ruleId = t.ruleId ?? "";
-      const base = buildPatch(s.patch, ruleId, s.monitored) as Record<
-        string,
-        unknown
-      >;
+      const base = buildPatch(s.patch, ruleId) as Record<string, unknown>;
       // Preserve savedGroups/prerequisites from existing actions — they are
       // edited via the per-rule surface, not from this shared editor.
       const existingAction = existingStep?.actions?.find(
