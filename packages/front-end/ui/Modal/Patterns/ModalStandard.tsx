@@ -104,6 +104,7 @@ export default function ModalStandard({
       }}
       size={size}
       dismissable={dismissable ?? !submit}
+      hasDescription={!!subheader}
       trackingEventModalType={trackingEventModalType}
       trackingEventModalSource={trackingEventModalSource}
       allowlistedTrackingEventProps={allowlistedTrackingEventProps}
