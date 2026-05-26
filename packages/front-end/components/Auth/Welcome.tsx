@@ -129,6 +129,9 @@ export default function Welcome({
       <p>Let&apos;s get started with some experimentation</p>
     );
 
+  const ctaText = hero?.cta?.trim();
+  const ctaLink = hero?.link?.trim();
+
   const leftside = (
     <Flex direction="column" justify="between" height="100%" p="6">
       <Box>
@@ -169,17 +172,17 @@ export default function Welcome({
                   {hero.body}
                 </Text>
               )}
-              {hero.cta && hero.link && (
+              {ctaText && ctaLink && (
                 <Box mt="5" mb="5">
                   <WhiteButton
                     variant="outline"
                     size="md"
                     fullWidth={false}
                     onClick={() =>
-                      window.open(hero.link, "_blank", "noopener,noreferrer")
+                      window.open(ctaLink, "_blank", "noopener,noreferrer")
                     }
                   >
-                    {hero.cta}
+                    {ctaText}
                   </WhiteButton>
                 </Box>
               )}
