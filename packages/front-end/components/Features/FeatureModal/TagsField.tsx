@@ -19,7 +19,11 @@ const TagsField: FC<{
   return (
     <div className="form-group">
       <label>Tags</label>
-      <TagsInput value={value} onChange={onChange} autoFocus />
+      <TagsInput
+        value={value}
+        onChange={onChange}
+        autoFocus={value.length === 0}
+      />
     </div>
   );
 };
