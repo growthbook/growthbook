@@ -1292,19 +1292,12 @@ export async function getFeatureRevisionsByFeatureIds(
   return revisionsByFeatureId;
 }
 
-// Higher number = higher priority. When a feature has multiple active
-// revisions, surface the most actionable one.
-const DRAFT_STATUS_PRIORITY: Record<ActiveDraftStatus, number> = {
-  "changes-requested": 4,
-  "pending-review": 3,
-  approved: 2,
-  draft: 1,
-};
+export type DraftStatusCounts = Partial<Record<ActiveDraftStatus, number>>;
 
 export async function getActiveDraftStates(
   orgId: string,
   featureIds?: string[],
-): Promise<Record<string, { status: ActiveDraftStatus; version: number }>> {
+): Promise<Record<string, DraftStatusCounts>> {
   const q: Record<string, unknown> = {
     organization: orgId,
     status: { $in: ACTIVE_DRAFT_STATUSES },
@@ -1315,22 +1308,15 @@ export async function getActiveDraftStates(
   const docs = await FeatureRevisionModel.find(q, {
     featureId: 1,
     status: 1,
-    version: 1,
     _id: 0,
   });
 
-  const result: Record<string, { status: ActiveDraftStatus; version: number }> =
-    {};
+  const result: Record<string, DraftStatusCounts> = {};
   for (const doc of docs) {
     const fid = doc.featureId;
     const status = doc.status as ActiveDraftStatus;
-    const existing = result[fid];
-    if (
-      !existing ||
-      DRAFT_STATUS_PRIORITY[status] > DRAFT_STATUS_PRIORITY[existing.status]
-    ) {
-      result[fid] = { status, version: doc.version };
-    }
+    if (!result[fid]) result[fid] = {};
+    result[fid][status] = (result[fid][status] ?? 0) + 1;
   }
   return result;
 }

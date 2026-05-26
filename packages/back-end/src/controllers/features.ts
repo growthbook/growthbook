@@ -140,6 +140,7 @@ import {
   discardRevision,
   getActiveDraft,
   getActiveDraftStates,
+  DraftStatusCounts,
   getMinimalRevisions,
   getRevision,
   getRevisionsByVersions,
@@ -5727,7 +5728,7 @@ export async function getFeatureDraftStates(
   res: Response<
     {
       status: 200;
-      features: Record<string, { status: string; version: number }>;
+      features: Record<string, DraftStatusCounts>;
     },
     EventUserForResponseLocals
   >,
