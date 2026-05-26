@@ -14,7 +14,7 @@ import {
   PiPencilSimpleFill,
   PiWarningFill,
 } from "react-icons/pi";
-import { format } from "date-fns";
+import { format } from "date-fns-tz";
 import { PreLaunchChecklist } from "@/components/Experiment/PreLaunchChecklist";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -194,7 +194,7 @@ export default function SetupTabOverview({
                 {experiment.statusUpdateSchedule?.startAt
                   ? format(
                       new Date(experiment.statusUpdateSchedule.startAt),
-                      "MMM d, yyyy 'at' h:mm a",
+                      "MMM d, yyyy 'at' h:mm a (z)",
                     )
                   : ""}{" "}
                 <PiPencilSimpleFill className="ml-1" />
