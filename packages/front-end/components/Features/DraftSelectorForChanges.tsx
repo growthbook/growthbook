@@ -84,7 +84,7 @@ export default function DraftSelectorForChanges({
     revisions: FeatureRevisionInterface[];
   }>(
     `/feature/${feature.id}/revisions?versions=${feature.version},${draftVersionForFetch ?? 0}`,
-    { shouldRun: () => draftVersionForFetch != null },
+    { shouldRun: () => draftVersionForFetch !== null },
   );
 
   // Org-level approval scope for badge coloring; independent of this action's gating.
@@ -162,7 +162,7 @@ export default function DraftSelectorForChanges({
         setVersion={setSelectedDraft}
         draftsOnly
       />
-      {affectedEnvs != null && (
+      {!!affectedEnvs && (
         <AffectedEnvironmentsBadges
           label="Affected in this draft:"
           affectedEnvs={affectedEnvs}

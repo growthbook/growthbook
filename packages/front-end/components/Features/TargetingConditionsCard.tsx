@@ -37,7 +37,7 @@ export function TargetingConditionsCard({
       <Flex direction="column" gap="4">
         {children}
       </Flex>
-      {addButton != null && (
+      {!!addButton && (
         <Box
           style={{ alignSelf: "flex-start" }}
           pt={slimMode ? "1" : "2"}
@@ -147,7 +147,7 @@ export function ConditionRow({
             </Box>
           )}
           <Box style={{ flex: "1 1 0", minWidth: 0 }}>{attributeSlot}</Box>
-          {removeSlot != undefined && (
+          {!!removeSlot && (
             <Box flexShrink="0" pt="3">
               {removeSlot}
             </Box>

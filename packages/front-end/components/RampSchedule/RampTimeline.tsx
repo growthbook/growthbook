@@ -462,7 +462,7 @@ function NodePopoverContent({
         )
       ) : (
         <>
-          {interval != null && (
+          {interval !== null && interval !== undefined && (
             <Box mb="2">
               <PopoverEffectRow label={monitored ? "Min hold" : "Hold"}>
                 <Text size="small">
@@ -494,7 +494,7 @@ function NodePopoverContent({
               </PopoverEffectRow>
             </Box>
           )}
-          {holdConditions?.minSampleSize != null && (
+          {!!holdConditions?.minSampleSize && (
             <Box mb="2">
               <PopoverEffectRow label="Min. sample">
                 <Text size="small">
@@ -507,7 +507,8 @@ function NodePopoverContent({
       )}
 
       {isActive &&
-        interval != null &&
+        interval !== null &&
+        interval !== undefined &&
         !monitored &&
         (() => {
           if (!rs.nextStepAt) return null;
@@ -785,7 +786,7 @@ export default function RampTimeline({
   const { steps, status, startDate, targets } = rs;
   // activatingRevisionVersion is now per-target; find the first target that has one
   const activatingRevisionVersion = targets.find(
-    (t) => t.activatingRevisionVersion != null,
+    (t) => !!t.activatingRevisionVersion,
   )?.activatingRevisionVersion;
   const doneCount = completedNodeCount(rs);
 
@@ -981,7 +982,7 @@ export default function RampTimeline({
   const revisionSublabel = (
     <>
       {sublabelLine(<Text size="small">awaiting publish</Text>)}
-      {activatingRevisionVersion != null &&
+      {!!activatingRevisionVersion &&
         sublabelLine(
           <Text size="small">Revision {activatingRevisionVersion}</Text>,
         )}

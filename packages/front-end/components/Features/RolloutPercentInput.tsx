@@ -82,7 +82,7 @@ export default function RolloutPercentInput({
   }, [seed, hashVersion, hashVersionSdkWarning]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const rampHasSubMaxCoverage =
-    rampSchedule != null &&
+    !!rampSchedule &&
     [
       ...rampSchedule.steps.flatMap((s) => s.actions),
       ...(rampSchedule.endActions ?? []),

@@ -476,8 +476,7 @@ export function computeNextStepAt(
   const phaseStart = schedule.phaseStartedAt ?? schedule.startedAt ?? now;
   let total = 0;
   for (let i = 0; i <= stepIndex; i++) {
-    const interval = schedule.steps[i]?.interval;
-    if (interval != null) total += interval;
+    total += schedule.steps[i]?.interval ?? 0;
   }
   return new Date(phaseStart.getTime() + total * 1000);
 }
@@ -575,8 +574,7 @@ export function computePhaseStartAfterApproval(
   // Rebase so the next interval is measured from approval time.
   let total = 0;
   for (let i = 0; i < nextStepIndex; i++) {
-    const interval = schedule.steps[i]?.interval;
-    if (interval != null) total += interval;
+    total += schedule.steps[i]?.interval ?? 0;
   }
   return new Date(now.getTime() - total * 1000);
 }
@@ -774,7 +772,7 @@ export async function advanceStep(
 
   const now = new Date();
   const isMonitoredStep = step.monitored === true;
-  const hasInterval = step.interval != null;
+  const hasInterval = step.interval !== null && step.interval !== undefined;
 
   const effective = computeEffectivePatch(schedule, nextStepIndex);
 
@@ -827,7 +825,11 @@ export async function advanceStep(
   );
 
   let monitoredStepDueAt: Date | null = null;
-  if (isMonitoredStep && step.interval != null) {
+  if (
+    isMonitoredStep &&
+    step.interval !== null &&
+    step.interval !== undefined
+  ) {
     monitoredStepDueAt = new Date(now.getTime() + step.interval * 1000);
   }
 
@@ -1059,8 +1061,7 @@ export async function resumeSchedule(
         const currentStepIndex = schedule.currentStepIndex;
         let sumBefore = 0;
         for (let i = 0; i < currentStepIndex; i++) {
-          const interval = schedule.steps[i]?.interval;
-          if (interval != null) sumBefore += interval;
+          sumBefore += schedule.steps[i]?.interval ?? 0;
         }
         const freshPhaseStart = new Date(now.getTime() - sumBefore * 1000);
         resumeUpdates.phaseStartedAt = freshPhaseStart;
@@ -1184,8 +1185,7 @@ export async function jumpSchedule(
     if (targetStepIndex <= 0) return now;
     let elapsed = 0;
     for (let i = 0; i < targetStepIndex; i++) {
-      const interval = schedule.steps[i]?.interval;
-      if (interval != null) elapsed += interval;
+      elapsed += schedule.steps[i]?.interval ?? 0;
     }
     return new Date(now.getTime() - elapsed * 1000);
   })();
@@ -1313,8 +1313,7 @@ export async function advanceScheduleManually(
     const nextStepIndex = schedule.currentStepIndex + 1;
     let elapsed = 0;
     for (let i = 0; i < nextStepIndex; i++) {
-      const interval = schedule.steps[i]?.interval;
-      if (interval != null) elapsed += interval;
+      elapsed += schedule.steps[i]?.interval ?? 0;
     }
     const freshPhaseStart = new Date(now.getTime() - elapsed * 1000);
     scheduleToAdvance = await ctx.models.rampSchedules.updateById(schedule.id, {

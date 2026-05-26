@@ -749,8 +749,8 @@ function RuleFieldDiffs({
         <ValueChangedField
           key={`var-${i}`}
           label={`Variation ${i} value`}
-          pre={pv != null ? formatValue(pv.value) : null}
-          post={nv != null ? formatValue(nv.value) : null}
+          pre={pv !== null && pv !== undefined ? formatValue(pv.value) : null}
+          post={nv !== null && nv !== undefined ? formatValue(nv.value) : null}
         />,
       );
     }
@@ -976,7 +976,8 @@ export function renderFeatureDefaultValue(
   post: string,
 ): ReactNode | null {
   if (pre === post) return null;
-  const preFormatted = pre != null ? formatValue(pre) : null;
+  const preFormatted =
+    pre !== null && pre !== undefined ? formatValue(pre) : null;
   const postFormatted = formatValue(post);
   return <ValueChangedField pre={preFormatted} post={postFormatted} />;
 }

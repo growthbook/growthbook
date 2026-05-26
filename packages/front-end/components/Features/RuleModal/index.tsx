@@ -231,7 +231,7 @@ export default function RuleModal({
   // When true, the ramp section should open as "off" so users don't think
   // the schedule is still active. Re-enabling and saving will clear the detach.
   const hasPendingDetach =
-    rule?.id != null &&
+    !!rule?.id &&
     (draftRevision?.rampActions ?? []).some(
       (a) =>
         a.mode === "detach" && stemRuleId(a.ruleId) === stemRuleId(rule.id),
@@ -315,7 +315,7 @@ export default function RuleModal({
   const defaultDraft = useDefaultDraft(revisionList);
 
   const [draftMode, setDraftMode] = useState<DraftMode>(
-    defaultDraft != null ? "existing" : "new",
+    defaultDraft !== null ? "existing" : "new",
   );
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
@@ -323,7 +323,7 @@ export default function RuleModal({
 
   // Determines which draft/revision to target in the API call.
   const targetVersion =
-    draftMode === "existing" && selectedDraft != null
+    draftMode === "existing" && selectedDraft !== null
       ? selectedDraft
       : feature.version;
 

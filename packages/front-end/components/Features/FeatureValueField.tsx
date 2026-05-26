@@ -311,7 +311,7 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
 }): ReactElement {
   const uuid = useId();
 
-  const isset = value != null;
+  const isset = value !== null && value !== undefined;
 
   let containerClassName = "";
   let labelClassName = "";

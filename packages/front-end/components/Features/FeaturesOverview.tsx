@@ -722,7 +722,7 @@ export default function FeaturesOverview({
             (r) =>
               r.status === "published" &&
               r.version !== feature.version &&
-              r.datePublished != null &&
+              !!r.datePublished &&
               new Date(r.datePublished).getTime() < livePublishedAt,
           )
           .sort((a, b) => {

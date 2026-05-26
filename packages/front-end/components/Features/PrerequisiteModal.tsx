@@ -79,7 +79,7 @@ export default function PrerequisiteModal({
   const defaultDraft = useDefaultDraft(revisionList);
 
   const [mode, setMode] = useState<DraftMode>(
-    defaultDraft != null ? "existing" : "new",
+    defaultDraft !== null ? "existing" : "new",
   );
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
@@ -282,7 +282,7 @@ export default function PrerequisiteModal({
         await mutate();
         const resolvedVersion =
           res?.draftVersion ?? (mode === "existing" ? selectedDraft : null);
-        if (resolvedVersion != null) setVersion(resolvedVersion);
+        if (resolvedVersion !== null) setVersion(resolvedVersion);
       })}
     >
       <DraftSelectorForChanges

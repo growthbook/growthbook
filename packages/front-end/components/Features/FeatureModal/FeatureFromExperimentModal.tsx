@@ -404,7 +404,7 @@ export default function FeatureFromExperimentModal({
 
         const autoPublish = existing && draftMode === "publish";
         const draftVersion =
-          existing && draftMode === "existing" && selectedDraft != null
+          existing && draftMode === "existing" && selectedDraft !== null
             ? selectedDraft
             : undefined;
         const forceNewDraft = !existing || draftMode === "new";

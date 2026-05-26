@@ -144,7 +144,8 @@ export function isHoldingNow(rampSchedule: RampScheduleInterface): boolean {
   if (
     rampSchedule.status === "running" &&
     step?.monitored &&
-    step.interval != null &&
+    step.interval !== null &&
+    step.interval !== undefined &&
     rampSchedule.currentStepEnteredAt
   ) {
     const stepEnteredAt = getValidDate(rampSchedule.currentStepEnteredAt);
@@ -168,7 +169,8 @@ export function isNearingStepEnd(
   if (
     rampSchedule.status === "running" &&
     step?.monitored &&
-    step.interval != null &&
+    step.interval !== null &&
+    step.interval !== undefined &&
     rampSchedule.currentStepEnteredAt
   ) {
     const stepEnteredAt = getValidDate(rampSchedule.currentStepEnteredAt);
