@@ -5,6 +5,7 @@ import {
   draftDiffersFromLive,
   fillRevisionFromFeature,
   filterEnvironmentsByFeature,
+  getEnvsFromRampSchedule,
   liveRevisionFromFeature,
 } from "shared/util";
 import type { ApiRequestLocals } from "back-end/types/api";
@@ -108,7 +109,28 @@ export async function publishFeatureRevision(
   const effectiveRevision = {
     ...filledLive,
     ...mergeResult.result,
+    // rampActions live on the draft revision; autoMerge doesn't carry them
+    // through MergeResultChanges, so we must re-attach them explicitly so
+    // that checkIfRevisionNeedsReview can inspect the ramp-schedule changes.
+    rampActions: revision.rampActions,
   };
+
+  // For ramp `update` actions, the live schedule's step patches may include
+  // environments that the new draft removes. Build a map so the review check
+  // can union old+new environments and catch the "removing env" direction.
+  const liveRampScheduleEnvs = new Map<string, string[] | "all">();
+  for (const action of revision.rampActions ?? []) {
+    if (action.mode !== "update") continue;
+    const liveSchedule = await req.context.models.rampSchedules.getById(
+      action.rampScheduleId,
+    );
+    if (liveSchedule) {
+      liveRampScheduleEnvs.set(
+        action.rampScheduleId,
+        getEnvsFromRampSchedule(liveSchedule),
+      );
+    }
+  }
 
   const requiresReview = checkIfRevisionNeedsReview({
     feature,
@@ -118,6 +140,7 @@ export async function publishFeatureRevision(
     settings: req.organization.settings,
     requireApprovalsLicensed:
       req.context.hasPremiumFeature("require-approvals"),
+    liveRampScheduleEnvs,
   });
 
   // Bypass via restApiBypassesReviews or bypassApprovalChecks.

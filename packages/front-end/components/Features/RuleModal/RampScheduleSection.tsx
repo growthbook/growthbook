@@ -3746,6 +3746,15 @@ export default function RampScheduleSection({
               .join(", ");
           };
 
+          const formatActionLabel = (
+            action: "warn" | "hold" | "rollback" | undefined,
+          ) =>
+            action === "rollback"
+              ? "Roll back"
+              : action === "warn"
+                ? "Warn only"
+                : "Hold step (default)";
+
           return (
             <>
               <Text size="small" weight="medium" mb="1">
@@ -3782,6 +3791,23 @@ export default function RampScheduleSection({
                     ? "Yes"
                     : "No"}
                 </ReadOnlySettingRow>
+                {hashAttribute && (
+                  <ReadOnlySettingRow label="Sample by">
+                    {hashAttribute}
+                  </ReadOnlySettingRow>
+                )}
+                {(seed || hashVersion === 1) && (
+                  <>
+                    {seed && (
+                      <ReadOnlySettingRow label="Seed">
+                        {seed}
+                      </ReadOnlySettingRow>
+                    )}
+                    <ReadOnlySettingRow label="Hashing">
+                      {hashVersion === 1 ? "V1 (Legacy)" : "V2 (Preferred)"}
+                    </ReadOnlySettingRow>
+                  </>
+                )}
               </Box>
 
               <Text size="small" weight="medium" mb="1">
@@ -3828,6 +3854,23 @@ export default function RampScheduleSection({
                       {monitoringConfig.updateScheduleMinutes
                         ? `Every ${monitoringConfig.updateScheduleMinutes} min`
                         : "Default"}
+                    </ReadOnlySettingRow>
+                    <ReadOnlySettingRow label="SRM detected">
+                      {formatActionLabel(monitoringConfig.srmAction)}
+                    </ReadOnlySettingRow>
+                    <ReadOnlySettingRow label="No traffic">
+                      {formatActionLabel(monitoringConfig.noTrafficAction)}
+                      {(monitoringConfig.noTrafficGracePeriodHours ?? null) !==
+                        null && (
+                        <Text size="small" color="text-low" ml="1">
+                          ({monitoringConfig.noTrafficGracePeriodHours}h grace)
+                        </Text>
+                      )}
+                    </ReadOnlySettingRow>
+                    <ReadOnlySettingRow label="Multiple exposures">
+                      {formatActionLabel(
+                        monitoringConfig.multipleExposureAction,
+                      )}
                     </ReadOnlySettingRow>
                   </>
                 ) : (

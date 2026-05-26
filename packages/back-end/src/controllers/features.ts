@@ -18,6 +18,7 @@ import {
   getDependentExperiments,
   getDependentFeatures,
   getRulesForEnvironment,
+  getEnvsFromRampSchedule,
   isFeatureStale,
   IsFeatureStaleResult,
   mergeRevision,
@@ -1336,8 +1337,28 @@ export async function postFeaturePublish(
         ...filledLive,
         ...mergeResult.result,
         rules: mergeResult.result.rules ?? filledLive.rules ?? [],
+        // rampActions live on the draft; autoMerge doesn't carry them through
+        // MergeResultChanges, so re-attach them for the review gate check.
+        rampActions: revision.rampActions,
       }
     : { ...revision, ...fillRevisionFromFeature(revision, feature) };
+
+  // For ramp `update` actions, the live schedule may have step patches that
+  // target environments the draft removes. Build a lookup so the review check
+  // can catch the "removing env" direction as well as adding.
+  const liveRampScheduleEnvs = new Map<string, string[] | "all">();
+  for (const action of revision.rampActions ?? []) {
+    if (action.mode !== "update") continue;
+    const liveSchedule = await context.models.rampSchedules.getById(
+      action.rampScheduleId,
+    );
+    if (liveSchedule) {
+      liveRampScheduleEnvs.set(
+        action.rampScheduleId,
+        getEnvsFromRampSchedule(liveSchedule),
+      );
+    }
+  }
 
   const requiresReview = checkIfRevisionNeedsReview({
     feature,
@@ -1346,6 +1367,7 @@ export async function postFeaturePublish(
     allEnvironments: environmentIds,
     settings: org.settings,
     requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
+    liveRampScheduleEnvs,
   });
   if (!adminOverride && requiresReview && revision.status !== "approved") {
     throw new Error("needs review before publishing");
