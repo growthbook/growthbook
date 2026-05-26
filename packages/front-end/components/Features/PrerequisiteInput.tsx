@@ -999,7 +999,7 @@ export default function PrerequisiteInput({
                     <PrerequisiteAlerts
                       environments={environments}
                       project={parentFeature.project || ""}
-                      size="sm"
+                      size="small"
                       mb="0"
                     />
                   )}
