@@ -71,6 +71,7 @@ export default function StandardRuleFields({
   setScheduleType,
   envScope,
   isLiveRule,
+  isNew,
   onRuleCyclicChange,
 }: {
   ruleType: "force" | "rollout";
@@ -90,12 +91,14 @@ export default function StandardRuleFields({
   setScheduleType: (t: ScheduleType) => void;
   envScope: EnvScopeProps;
   isLiveRule?: boolean;
+  isNew?: boolean;
   onRuleCyclicChange?: (result: RuleCyclicResult) => void;
 }) {
   const form = useFormContext();
   const [advancedOptionsOpen, setadvancedOptionsOpen] = useState(
     !!form.watch("seed") ||
-      (form.watch("hashVersion") !== undefined &&
+      (!isNew &&
+        form.watch("hashVersion") !== undefined &&
         form.watch("hashVersion") !== 2),
   );
   const attributeSchema = useAttributeSchema(false, feature.project);
@@ -413,6 +416,7 @@ export default function StandardRuleFields({
               setSeed={(v: string) => form.setValue("seed", v)}
               featureId={feature.id}
               isLiveRule={isLiveRule}
+              isNew={isNew}
               advancedOpen={advancedOptionsOpen}
               setAdvancedOpen={setadvancedOptionsOpen}
             />

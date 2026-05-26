@@ -40,6 +40,7 @@ export interface Props {
   advancedOpen?: boolean;
   setAdvancedOpen?: (v: boolean) => void;
   isLiveRule?: boolean;
+  isNew?: boolean;
   /** When provided, the advanced section is also shown if any ramp step or end action has coverage < 100%. */
   rampSchedule?: RampScheduleInterface;
 }
@@ -63,6 +64,7 @@ export default function RolloutPercentInput({
   advancedOpen,
   setAdvancedOpen,
   isLiveRule,
+  isNew,
   rampSchedule,
 }: Props) {
   const filteredAttributes = attributeSchema?.filter(
@@ -76,7 +78,11 @@ export default function RolloutPercentInput({
 
   useEffect(() => {
     if (!setAdvancedOpen) return;
-    if (seed || hashVersion === 1 || hashVersionSdkWarning) {
+    // For new rules, v1 is the org-safe default — don't expand just because it
+    // was auto-selected. Only expand when the user has actively customised the
+    // seed, when there's an SDK compatibility warning, or when editing an
+    // existing rule that already uses v1 (so they're aware of the legacy choice).
+    if (seed || hashVersionSdkWarning || (!isNew && hashVersion === 1)) {
       setAdvancedOpen(true);
     }
   }, [seed, hashVersion, hashVersionSdkWarning]); // eslint-disable-line react-hooks/exhaustive-deps

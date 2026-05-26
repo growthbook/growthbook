@@ -1797,6 +1797,7 @@ export default function RuleModal({
               setScheduleType={setScheduleType}
               envScope={envScopeProps!}
               isLiveRule={isLiveRule}
+              isNew={mode === "create"}
               onRuleCyclicChange={onRuleCyclicChange}
             />
           </Page>
