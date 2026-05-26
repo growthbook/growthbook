@@ -36,6 +36,7 @@ import {
   createFactTable,
   getFactTableMap,
 } from "back-end/src/models/FactTableModel";
+import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
 
 // region Constants for Demo Datasource
 
@@ -235,14 +236,14 @@ export const postDemoDatasourceProject = async (
     );
 
     // Create fact table
-    await createFactTable(context, {
+    const demoFactTable = await createFactTable(context, {
       id: demoFactTableId,
       name: "purchases",
       description: "",
       owner: ASSET_OWNER,
       tags: DEMO_TAGS,
       userIdTypes: ["user_id"],
-      sql: "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\namount AS value\nFROM purchases",
+      sql: "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\namount AS value,\nbrowser,\ncountry\nFROM purchases",
       eventName: "purchases",
       datasource: datasource.id,
       projects: [project.id],
@@ -260,8 +261,21 @@ export const postDemoDatasourceProject = async (
           datatype: "number",
           numberFormat: "currency",
         },
+        {
+          column: "browser",
+          datatype: "string",
+        },
+        {
+          column: "country",
+          datatype: "string",
+        },
       ],
+      columnRefreshPending: true,
     });
+
+    // Kick off a column refresh so string columns get topValues populated
+    // for autocomplete dropdowns in filters and Group By.
+    await queueFactTableColumnsRefresh(demoFactTable);
 
     // Create metrics
     const metrics = await Promise.all(

@@ -127,7 +127,6 @@ import { dataExportRouter } from "./routers/data-export/data-export.router";
 import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/demo-datasource-project.router";
 import { environmentRouter } from "./routers/environment/environment.router";
 import { teamRouter } from "./routers/teams/teams.router";
-import { githubIntegrationRouter } from "./routers/github-integration/github-integration.router";
 import { urlRedirectRouter } from "./routers/url-redirects/url-redirects.router";
 import { metricAnalysisRouter } from "./routers/metric-analysis/metric-analysis.router";
 import { metricGroupRouter } from "./routers/metric-group/metric-group.router";
@@ -648,6 +647,10 @@ app.get(
   "/experiment/:id/snapshot/:phase/:dimension",
   experimentsController.getSnapshotWithDimension,
 );
+app.get(
+  "/experiment/:id/snapshot-summary/:phase",
+  experimentsController.getSnapshotSummary,
+);
 app.post("/experiment/:id/snapshot", experimentsController.postSnapshot);
 app.post(
   "/experiment/:id/banditSnapshot",
@@ -681,6 +684,14 @@ app.post(
   experimentsController.postExperimentFeatureValues,
 );
 app.post("/experiment/:id/status", experimentsController.postExperimentStatus);
+app.post(
+  "/experiment/:id/approve-scheduled-start",
+  experimentsController.postApproveScheduledExperimentStart,
+);
+app.post(
+  "/experiment/:id/unschedule-start",
+  experimentsController.postUnapproveScheduledExperimentStart,
+);
 app.put(
   "/experiment/:id/phase/:phase",
   experimentsController.putExperimentPhase,
@@ -993,7 +1004,6 @@ app.use(eventWebHooksRouter);
 
 // Slack integration
 app.use("/integrations/slack", slackIntegrationRouter);
-app.use("/integrations/github", githubIntegrationRouter);
 
 // Data Export
 app.use("/data-export", dataExportRouter);
