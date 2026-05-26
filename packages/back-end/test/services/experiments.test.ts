@@ -17,6 +17,7 @@ import {
   putMetricApiPayloadIsValid,
   putMetricApiPayloadToMetricInterface,
   updateExperimentApiPayloadToInterface,
+  validateStatusUpdateSchedule,
 } from "back-end/src/services/experiments";
 
 describe("experiments utils", () => {
@@ -1658,5 +1659,40 @@ describe("normalizeStatusUpdateScheduleChanges", () => {
     normalizeStatusUpdateScheduleChanges(experiment, changes);
 
     expect(changes.nextScheduledStatusUpdate).toBeUndefined();
+  });
+});
+
+describe("validateStatusUpdateSchedule", () => {
+  it("throws when experiment type is bandit and a schedule is provided", () => {
+    expect(() =>
+      validateStatusUpdateSchedule("multi-armed-bandit", {
+        startAt: "2099-01-01T00:00:00Z",
+      }),
+    ).toThrow("Bandit experiments do not support scheduled starts.");
+  });
+
+  it("throws when startAt is in the past", () => {
+    expect(() =>
+      validateStatusUpdateSchedule("standard", {
+        startAt: "2000-01-01T00:00:00Z",
+      }),
+    ).toThrow("statusUpdateSchedule.startAt must be in the future");
+  });
+
+  it("throws when effective type changes to bandit and a schedule exists", () => {
+    const effectiveType = "multi-armed-bandit";
+    expect(() =>
+      validateStatusUpdateSchedule(effectiveType, {
+        startAt: "2099-01-01T00:00:00Z",
+      }),
+    ).toThrow("Bandit experiments do not support scheduled starts.");
+  });
+
+  it("does not throw for a valid future startAt on a standard experiment", () => {
+    expect(() =>
+      validateStatusUpdateSchedule("standard", {
+        startAt: "2099-01-01T00:00:00Z",
+      }),
+    ).not.toThrow();
   });
 });

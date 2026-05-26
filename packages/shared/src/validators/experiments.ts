@@ -1126,8 +1126,7 @@ const postExperimentBody = z
           .meta({ format: "date-time" })
           .describe(
             "ISO datetime when the experiment should start. Must be in the future.",
-          )
-          .optional(),
+          ),
       })
       .describe(
         "Schedule a future start for a draft experiment. Only `startAt` is currently supported.",
@@ -1313,8 +1312,7 @@ const updateExperimentBody = z
           .meta({ format: "date-time" })
           .describe(
             "ISO datetime when the experiment should start. Must be in the future. Setting or clearing this field invalidates any existing staged start (`nextScheduledStatusUpdate`); call POST /experiments/{id}/start to stage the new schedule.",
-          )
-          .optional(),
+          ),
       })
       .describe(
         "Schedule a future start for a draft experiment. Set to `null` to remove the schedule. Provide `{ startAt }` to set or update it. Only `startAt` is currently supported.",

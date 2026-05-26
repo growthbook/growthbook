@@ -9385,6 +9385,8 @@ paths:
                         ISO datetime when the experiment should start. Must be
                         in the future.
                       type: string
+                  required:
+                    - startAt
                   additionalProperties: false
               required:
                 - trackingKey
@@ -9979,6 +9981,8 @@ paths:
                             (`nextScheduledStatusUpdate`); call POST
                             /experiments/{id}/start to stage the new schedule.
                           type: string
+                      required:
+                        - startAt
                       additionalProperties: false
                     - type: 'null'
               additionalProperties: false
