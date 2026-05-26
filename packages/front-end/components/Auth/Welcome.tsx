@@ -13,13 +13,13 @@ import Callout from "@/ui/Callout";
 import WelcomeFrame from "./WelcomeFrame";
 
 type LoginHeroContent = {
-  type: string;
   headline: string;
+  type?: string;
   subhead?: string;
-  body: string;
-  image: string;
-  cta: string;
-  link: string;
+  body?: string;
+  image?: string;
+  cta?: string;
+  link?: string;
 };
 
 export default function Welcome({
@@ -45,7 +45,7 @@ export default function Welcome({
   const [welcomeMsgIndex] = useState(Math.floor(Math.random() * 4));
   const { pathname } = useRouter();
   const hero = useFeatureValue<LoginHeroContent | null>(
-    "login-ff-test-1",
+    "login-page-content",
     null,
   );
 
@@ -141,7 +141,7 @@ export default function Welcome({
         </a>
       </Box>
       <Box>
-        {hero?.body ? (
+        {hero?.headline ? (
           <>
             {hero.image && (
               <img
@@ -151,9 +151,11 @@ export default function Welcome({
               />
             )}
             <Box>
-              <Text as="span" size="small" textTransform="uppercase">
-                -- {hero.type} --
-              </Text>
+              {hero.type && (
+                <Text as="span" size="small" textTransform="uppercase">
+                  -- {hero.type} --
+                </Text>
+              )}
               <Heading size="x-large" weight="medium" as="h2" mt="4" mb="4">
                 {hero.headline}
               </Heading>
@@ -162,11 +164,13 @@ export default function Welcome({
                   {hero.subhead}
                 </Heading>
               )}
-              <Text as="span" size="medium" weight="regular">
-                {hero.body}
-              </Text>
-              <Box mt="5" mb="5">
-                {hero.cta && hero.link && (
+              {hero.body && (
+                <Text as="span" size="medium" weight="regular">
+                  {hero.body}
+                </Text>
+              )}
+              {hero.cta && hero.link && (
+                <Box mt="5" mb="5">
                   <WhiteButton
                     variant="outline"
                     size="md"
@@ -177,8 +181,8 @@ export default function Welcome({
                   >
                     {hero.cta}
                   </WhiteButton>
-                )}
-              </Box>
+                </Box>
+              )}
             </Box>
           </>
         ) : (
