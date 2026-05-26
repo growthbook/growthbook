@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ApiErrorCode } from "shared/validators";
 import { ApiRequest, RequestSchemas } from "back-end/src/util/handler";
 
 export const crudActions = [
@@ -32,6 +33,8 @@ export type CustomApiHandler<
   validator: RequestSchemas<ParamsSchema, BodySchema, QuerySchema>;
   zodReturnObject: ReturnShape;
   summary: string; // For generating docs, e.g. "Get all dashboards for an experiment"
+  /** Error codes this endpoint may throw, used to generate OpenAPI error response schemas. */
+  possibleErrors?: readonly ApiErrorCode[];
   reqHandler: (
     req: ApiRequest<
       z.infer<ReturnShape>,

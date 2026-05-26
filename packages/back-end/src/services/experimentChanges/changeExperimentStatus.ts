@@ -30,10 +30,14 @@ import {
 } from "back-end/src/services/experiments";
 import {
   formatPendingDraftFailureMessage,
-  PendingDraftFailure,
   PendingDraftPublishResult,
   publishPendingFeatureDraftsForExperiment,
 } from "back-end/src/services/experiment-feature";
+import {
+  ChecklistIncompleteError,
+  InvalidStatusError,
+  PendingDraftPublishFailedError,
+} from "back-end/src/util/errors";
 
 export type StartChecklistItemStatus = {
   key: string;
@@ -322,11 +326,10 @@ export async function executeExperimentStart(
     experiment,
   );
   if (publishResult.failed.length > 0) {
-    const err = new Error(
+    throw new PendingDraftPublishFailedError(
       formatPendingDraftFailureMessage(publishResult.failed),
-    ) as Error & { failedFeatureDrafts?: PendingDraftFailure[] };
-    err.failedFeatureDrafts = publishResult.failed;
-    throw err;
+      publishResult.failed,
+    );
   }
 
   // Build a default phase if the experiment has none so getChangesToStartExperiment
@@ -415,7 +418,11 @@ export async function startExperiment({
   );
 
   if (experiment.status !== "draft") {
-    throw new Error("invalid_status: Experiment must be in draft status");
+    throw new InvalidStatusError(
+      "Experiment must be in draft status",
+      experiment.status,
+      ["draft"],
+    );
   }
 
   const checklistItems = await getExperimentStartChecklistStatus(
@@ -426,10 +433,9 @@ export async function startExperiment({
     (item) => item.required && item.status === "incomplete",
   );
   if (incompleteRequiredItems.length > 0 && !skipChecklist) {
-    throw new Error(
-      `checklist_incomplete: ${incompleteRequiredItems
-        .map((i) => i.key)
-        .join(", ")}`,
+    throw new ChecklistIncompleteError(
+      "Experiment cannot be started: required checklist items are incomplete",
+      incompleteRequiredItems,
     );
   }
 
@@ -556,12 +562,14 @@ export async function stopExperiment({
     input.experimentId,
   );
 
-  if (
-    experiment.status !== "running" &&
-    !(allowAlreadyStopped && experiment.status === "stopped")
-  ) {
-    throw new Error(
-      "invalid_status: Can only stop an experiment in running status",
+  const expectedStopStatuses = allowAlreadyStopped
+    ? ["running", "stopped"]
+    : ["running"];
+  if (!expectedStopStatuses.includes(experiment.status)) {
+    throw new InvalidStatusError(
+      `Can only stop an experiment in ${expectedStopStatuses.join(" or ")} status`,
+      experiment.status,
+      expectedStopStatuses,
     );
   }
   if (input.dateEnded && Number.isNaN(new Date(input.dateEnded).getTime())) {
@@ -686,8 +694,10 @@ export async function modifyTemporaryRollout({
     input.experimentId,
   );
   if (experiment.status !== "stopped") {
-    throw new Error(
-      "invalid_status: Can only modify temporary rollout for stopped experiments",
+    throw new InvalidStatusError(
+      "Can only modify temporary rollout for stopped experiments",
+      experiment.status,
+      ["stopped"],
     );
   }
 

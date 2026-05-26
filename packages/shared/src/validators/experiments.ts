@@ -1566,6 +1566,7 @@ export const updateExperimentValidator = {
   tags: ["experiments"],
   method: "post" as const,
   path: "/experiments/:id",
+  possibleErrors: ["pending_draft_publish_failed"] as const,
 };
 
 export const postExperimentStartValidator = {
@@ -1591,6 +1592,11 @@ export const postExperimentStartValidator = {
   exampleRequest: {
     params: { id: "exp_abc123" },
   },
+  possibleErrors: [
+    "checklist_incomplete",
+    "pending_draft_publish_failed",
+    "invalid_status",
+  ] as const,
 };
 
 export const postExperimentStartChecklistManualCompleteValidator = {
@@ -1636,6 +1642,7 @@ export const postExperimentStopValidator = {
         "Reached desired sample size with statistically significant positive lift; shipping treatment",
     },
   },
+  possibleErrors: ["invalid_status"] as const,
 };
 
 export const postExperimentModifyTemporaryRolloutValidator = {
@@ -1658,6 +1665,7 @@ export const postExperimentModifyTemporaryRolloutValidator = {
       enableTemporaryRollout: false,
     },
   },
+  possibleErrors: ["invalid_status"] as const,
 };
 
 export const postExperimentSnapshotValidator = {

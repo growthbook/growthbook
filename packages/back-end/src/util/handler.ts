@@ -1,12 +1,12 @@
 import { Request, RequestHandler } from "express";
 import { z, ZodType, ZodNever, output } from "zod";
-import { ApiPaginationFields } from "shared/validators";
+import { ApiPaginationFields, ApiErrorCode } from "shared/validators";
 import { UserInterface } from "shared/types/user";
 import { OrganizationInterface } from "shared/types/organization";
 import { HttpVerb } from "back-end/src/api/apiModelHandlers";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiErrorResponse, ApiRequestLocals } from "back-end/types/api";
-import { ConflictError } from "./errors";
+import { ApiError, MergeConflictError } from "./errors";
 import { IS_MULTI_ORG } from "./secrets";
 
 export type ApiRequest<
@@ -68,6 +68,8 @@ export type ApiEndpointSpec<
    * now, no removal date) or `"@<unix-timestamp>"` (deprecated as of that date).
    */
   deprecationDate?: string;
+  /** Error codes this endpoint may throw, used to generate OpenAPI error response schemas. */
+  possibleErrors?: readonly ApiErrorCode[];
 };
 
 function validate<T extends ZodType>(
@@ -150,6 +152,8 @@ export type OpenApiRoute<
     z.infer<ResponseSchema>
   >;
   excludeFromSpec?: boolean;
+  /** Error codes this endpoint may throw, used to generate OpenAPI error response schemas. */
+  possibleErrors?: readonly ApiErrorCode[];
 };
 
 export function createApiRequestHandler<
@@ -177,6 +181,7 @@ export function createApiRequestHandler<
     version,
     deprecated,
     deprecationDate,
+    possibleErrors,
   } = data;
 
   return (
@@ -239,9 +244,15 @@ export function createApiRequestHandler<
           return res.status(200).json(result);
         } catch (e) {
           const body: ApiErrorResponse = { message: e.message };
-          // Surface the structured conflicts so clients can react to them.
-          if (e instanceof ConflictError && e.conflicts) {
-            body.conflicts = e.conflicts;
+          if (e instanceof ApiError) {
+            body.code = e.code;
+            body.details = e.details;
+            // Transitional back-compat: mirror conflicts to top level so existing
+            // external clients of feature-revision publish/rebase don't break.
+            // TODO: remove once clients are reading `details.conflicts` instead.
+            if (e instanceof MergeConflictError) {
+              body.conflicts = e.details.conflicts;
+            }
           }
           return res.status(e.status || 400).json(body);
         }
@@ -275,6 +286,7 @@ export function createApiRequestHandler<
       },
       handler: wrappedHandler,
       excludeFromSpec,
+      possibleErrors,
     };
 
     return route;
