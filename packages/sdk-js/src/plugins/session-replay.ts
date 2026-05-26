@@ -130,29 +130,19 @@ const RESUME_STALENESS_MS = 15 * 60 * 1000;
 const AUTH_FAILURE_LIMIT = 3;
 
 /**
- * Session lifecycle, flush cadence, and transport thresholds. Intentionally
- * NOT exposed through the plugin options — letting customers tweak these
- * would break implicit contracts elsewhere in the system: storage retention
- * windows, billing units, the replay-viewer UI's idea of a single playback,
- * server-side staleness windows, ingest-side rate and body-size budgeting,
- * and the fetch keepalive 64KB body limit. Tune here when the product needs
- * to change, not per-customer.
  *
  * IDLE_TIMEOUT_MS — how long the user can be idle (no mouse, keyboard,
  * scroll, or touch) before the current session is finalized and a new
- * one starts on the next interaction. 15 minutes matches what PostHog
- * and Statsig ship as their default.
+ * one starts on the next interaction.
  *
  * MAX_DURATION_MS — hard cap on a single session's wall-clock length.
  * When exceeded the session is finalized and a new one begins
- * automatically, even if the user is still active. 30 minutes keeps any
- * one playback to a reasonable length and ensures a long-running tab
- * eventually rotates regardless of interaction.
+ * automatically, even if the user is still active.
  *
  * FLUSH_INTERVAL_MS — periodic flush cadence. A flush also fires before
  * any event that would push the buffer past FLUSH_BYTE_SIZE, so this is
  * the upper bound on how stale buffered events can be before being
- * shipped. 60s is the same cadence PostHog and Statsig ship.
+ * shipped.
  *
  * FLUSH_BYTE_SIZE — flush before any event whose addition would push the
  * approximate serialized buffer size past this. Computed as the running
@@ -164,15 +154,10 @@ const AUTH_FAILURE_LIMIT = 3;
  *
  * MAX_BUFFERED_EVENTS — hard cap on the in-memory event buffer. New events
  * are dropped once the cap is hit so the buffer can't grow without bound
- * if every flush is failing (e.g. user offline). Should be well above
- * normal pre-flush event counts — under healthy conditions a flush fires
- * long before this trips.
+ * if every flush is failing (e.g. user offline).
  *
  * COMPRESS_REQUESTS — gzip the request body via the browser's native
- * CompressionStream before POSTing. The ingest endpoint sees
- * Content-Encoding: gzip and express.json inflates transparently — no
- * server change required. Falls back to uncompressed JSON when
- * CompressionStream is unavailable (older Safari) or throws.
+ * CompressionStream before POSTing. T
  */
 const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
 const MAX_DURATION_MS = 30 * 60 * 1000;
