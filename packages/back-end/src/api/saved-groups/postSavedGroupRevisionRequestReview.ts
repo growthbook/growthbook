@@ -33,9 +33,12 @@ export const postSavedGroupRevisionRequestReview = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
-  if (revision.status !== "draft") {
+  // Allow both `draft` and `changes-requested` so an author can re-submit a
+  // revision after a reviewer requested changes (changes-requested →
+  // pending-review). Without this, a changes-requested revision is stuck.
+  if (revision.status !== "draft" && revision.status !== "changes-requested") {
     throw new BadRequestError(
-      `Can only request review on a draft (status is "${revision.status}")`,
+      `Can only request review on a draft or changes-requested revision (status is "${revision.status}")`,
     );
   }
 

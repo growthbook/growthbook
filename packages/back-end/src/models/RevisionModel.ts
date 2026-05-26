@@ -544,8 +544,17 @@ export class RevisionModel extends BaseClass {
     const existing = await this.getById(id);
     if (!existing) throw new Error("Revision not found");
 
-    if (existing.status !== "draft") {
-      throw new Error("Only draft revisions can be submitted for review");
+    // `changes-requested` is also re-submittable: after a reviewer requests
+    // changes and the author edits the revision, this is the transition back
+    // into `pending-review`. (Saved-group edits don't auto-reset the status the
+    // way feature edits do, so this is the only path out of changes-requested.)
+    if (
+      existing.status !== "draft" &&
+      existing.status !== "changes-requested"
+    ) {
+      throw new Error(
+        "Only draft or changes-requested revisions can be submitted for review",
+      );
     }
 
     return this.update(existing, {
