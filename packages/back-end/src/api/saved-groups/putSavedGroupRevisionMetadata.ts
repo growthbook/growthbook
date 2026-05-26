@@ -84,8 +84,12 @@ export const putSavedGroupRevisionMetadata = createApiRequestHandler(
     if (Object.keys(fieldsToUpdate).length === 0) {
       // No-op: drop any auto-created draft so we don't leave one stranded.
       await discardIfJustCreated(req.context, revision, created);
+      // Re-fetch the revision so the returned status reflects the actual
+      // DB state ("discarded") rather than the stale in-memory "draft".
+      const closed =
+        (await req.context.models.revisions.getById(revision.id)) ?? revision;
       return {
-        revision: await toApiSavedGroupRevision(revision, req.context),
+        revision: await toApiSavedGroupRevision(closed, req.context),
       };
     }
 

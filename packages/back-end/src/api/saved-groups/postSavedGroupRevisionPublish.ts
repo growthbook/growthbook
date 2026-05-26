@@ -104,14 +104,31 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
       (savedGroup as unknown as Record<string, unknown>)[key],
     );
   });
+
+  // No diff between the revision's desired state and the live entity. This is
+  // either a genuine no-op publish, OR a recovery retry after a partial failure
+  // where a previous publish ran `applyChanges` but then failed before `merge`
+  // landed — leaving the entity updated and this revision stranded as a draft.
+  // In both cases there's nothing to write to the entity, so just finish
+  // merging the revision. This closes the partial-failure window: the stranded
+  // draft self-heals on retry instead of being permanently un-publishable, and
+  // we skip a redundant entity write (and its no-op audit entry).
   if (!hasChanges) {
-    throw new BadRequestError(
-      "Cannot publish: no changes detected in this revision",
+    const merged = await req.context.models.revisions.merge(
+      revision.id,
+      req.context.userId,
+      { bypass: isBypass },
     );
+    return {
+      revision: await toApiSavedGroupRevision(merged, req.context),
+    };
   }
 
   // Two-step merge — same ordering rationale as the internal /revision/:id/merge
-  // handler. See revision.controller.ts for the failure-mode discussion.
+  // handler. See revision.controller.ts for the failure-mode discussion. A
+  // partial failure here (applyChanges lands, merge throws) leaves the entity
+  // updated and the revision open; a retry hits the no-op branch above and
+  // completes the merge, so the draft can't be permanently stranded.
   await adapter.applyChanges(
     req.context,
     savedGroup as unknown as Record<string, unknown>,
