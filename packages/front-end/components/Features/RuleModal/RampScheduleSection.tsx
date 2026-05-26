@@ -1636,6 +1636,7 @@ export default function RampScheduleSection({
                   >
                     <Field
                       style={{ width: COL.coverage, minHeight: 38 }}
+                      containerClassName="mb-0"
                       type="number"
                       min="0"
                       max="100"
@@ -1858,6 +1859,7 @@ export default function RampScheduleSection({
                             >
                               <Field
                                 style={{ width: COL.coverage, minHeight: 38 }}
+                                containerClassName="mb-0"
                                 type="number"
                                 min={minCov}
                                 max={maxCov}
@@ -1990,6 +1992,7 @@ export default function RampScheduleSection({
                           <>
                             <Field
                               style={{ minHeight: 38 }}
+                              containerClassName="mb-0"
                               type="number"
                               min="0"
                               step="any"

@@ -776,7 +776,6 @@ export async function advanceStep(
 
   const effective = computeEffectivePatch(schedule, nextStepIndex);
 
-  // Pre-start → step 0 transition: fold enabled:true into the first-step patch
   // so the rule becomes visible in the same revision as its targeting/coverage.
   // Otherwise the rule would briefly be live with pre-ramp state.
   if (schedule.currentStepIndex < 0) {

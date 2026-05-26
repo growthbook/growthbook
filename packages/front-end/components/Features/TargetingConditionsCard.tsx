@@ -53,8 +53,10 @@ export function TargetingConditionsCard({
     return (
       <Box
         className={clsx("gb-condition-group-card", className)}
-        p="2"
+        py="2"
         style={{
+          paddingLeft: 5,
+          paddingRight: 5,
           border: "1px solid var(--gray-a3)",
           borderRadius: "var(--radius-2)",
         }}
