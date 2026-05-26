@@ -1210,6 +1210,9 @@ export async function addFeatureRule(
   if (!rule.id) {
     rule.id = generateRuleId();
   }
+  if (rule.type === "rollout" && !rule.seed) {
+    rule.seed = rule.id;
+  }
 
   const applicableEnvs = getEnvironmentIdsFromOrg(context.org);
   const isAllEnvs =

@@ -887,8 +887,10 @@ export function getFeatureDefinition({
           const monitorInfo = rampMonitoredRuleMap?.get(r.id);
 
           // Monitored rollout rules need hashAttribute + seed to emit experiment-mode
-          // payload (tracking key, stable bucketing). If seed is missing, fall back
-          // to feature.id at payload build time (do not persist a model backfill).
+          // payload (tracking key, stable bucketing). Fall back to feature.id (matches
+          // the SDK's own `rule.seed || featureId` fallback for force-coverage rules)
+          // for older rules that predate the seed-at-write-time backfill.
+          // New rules always have seed persisted as rule.id via addIdsToFlatRules.
           if (monitorInfo && r.hashAttribute) {
             const monitoredSeed = r.seed || feature.id;
             // Reuse rollout bucketing so monitored steps do not cause variation hopping.

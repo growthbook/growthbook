@@ -1608,6 +1608,9 @@ export function addIdsToRules(
         if (!r.id) {
           r.id = generateRuleId();
         }
+        if (r.type === "rollout" && !r.seed) {
+          r.seed = r.id;
+        }
       });
     }
   });
@@ -1623,6 +1626,13 @@ export function addIdsToFlatRules(
     }
     if (!r.id) {
       r.id = generateRuleId();
+    }
+    // Rollout rules without an explicit seed default to their rule ID.
+    // This ensures the SDK (which falls back to rule.id when no seed is sent)
+    // and the monitored-ramp payload both bucket users identically, preventing
+    // variation hopping when a rule transitions between monitored/unmonitored.
+    if (r.type === "rollout" && !r.seed) {
+      r.seed = r.id;
     }
   });
 }
