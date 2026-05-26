@@ -356,31 +356,7 @@ You may also differentiate your streaming host URL from your API host by setting
 
 ### Streaming in ReactNative
 
-You need to install a polyfill for SSE to use streaming in a ReactNative application:
-
-```bash npm2yarn
-npm install --save eventsource
-```
-
-The, tell GrowthBook to use this polyfill:
-
-```js
-const { setPolyfills } = require("@growthbook/growthbook");
-
-// Configure GrowthBook to use the eventsource library
-setPolyfills({
-  EventSource: require("eventsource"),
-});
-```
-
-And finally, you can simply pass `streaming: true` into your init calls:
-
-```ts
-gb.init({
-  streaming: true,
-  // Other options...
-})
-```
+Please refer to React Native [documentation](https://docs.growthbook.io/lib/react-native#streaming-updates) if you need to integrate streaming in React Native applications.
 
 ## Remote Evaluation
 
