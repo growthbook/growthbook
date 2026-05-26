@@ -618,7 +618,7 @@ export const deleteFeatureRevisionRuleRampScheduleV2Validator = {
 
 export const listRevisionsV2Validator = {
   method: "get" as const,
-  path: "/features/revisions",
+  path: "/revisions",
   operationId: "listRevisionsV2",
   summary: "List feature revisions",
   description:
