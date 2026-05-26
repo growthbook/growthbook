@@ -87,12 +87,15 @@ export const postSavedGroupRevisionRebase = createApiRequestHandler(
     seenFields.add(field);
 
     if (!conflictFields.has(field)) {
-      const proposedValue =
-        op.op === "replace" || op.op === "add" ? op.value : undefined;
-      if (
-        proposedValue !== undefined &&
-        !isEqual(proposedValue, liveSnapshot[field])
-      ) {
+      // Saved-group revisions only ever produce replace/add ops (buildPatchOps).
+      // A remove/move/copy op would be dropped by the value comparison below,
+      // silently losing intent — fail loud if that invariant is ever broken.
+      if (op.op !== "replace" && op.op !== "add") {
+        throw new Error(
+          `Unsupported patch op "${op.op}" in saved-group revision rebase`,
+        );
+      }
+      if (!isEqual(op.value, liveSnapshot[field])) {
         newOps.push(op);
       }
       continue;

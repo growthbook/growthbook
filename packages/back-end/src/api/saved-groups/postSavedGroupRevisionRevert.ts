@@ -1,5 +1,5 @@
 import { isEqual } from "lodash";
-import { JsonPatchOperation } from "shared/enterprise";
+import { JsonPatchOperation, Revision } from "shared/enterprise";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import {
   postSavedGroupRevisionRevertValidator,
@@ -55,8 +55,9 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
   }
 
   // Reconstruct the saved-group state at the time of the historical revision.
-  // The revision's snapshot represents the state immediately AFTER it was
-  // merged, so applying its proposedChanges yields the post-merge state.
+  // `target.snapshot` is the base state captured when the revision was created
+  // (before its changes were applied), so applying its proposedChanges yields
+  // the post-merge state.
   const targetState = applyPatchToSnapshot(
     targetRevision.target.snapshot as SavedGroupInterface,
     targetRevision.target.proposedChanges,
@@ -83,11 +84,24 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
   const strategy = req.body.strategy ?? "draft";
   const isPublish = strategy === "publish";
 
-  // Bypass the approval gate is REQUIRED for `strategy: "publish"` — a revert
-  // produces real content changes, so the permission model has to mirror
-  // postSavedGroupRevisionPublish.
+  const patchOps: JsonPatchOperation[] = Object.entries(fieldsToUpdate).map(
+    ([key, value]) => ({
+      op: "replace" as const,
+      path: `/${key}`,
+      value,
+    }),
+  );
+
+  // For `strategy: "publish"` the revert produces real content changes, so the
+  // permission model mirrors postSavedGroupRevisionPublish — including its
+  // per-revision gate, so a metadata-only revert isn't blocked when the org has
+  // `requireMetadataReview` disabled.
   if (isPublish) {
-    const approvalRequired = adapter.isApprovalRequired(req.context);
+    const approvalRequired = adapter.isApprovalRequiredForRevision
+      ? adapter.isApprovalRequiredForRevision(req.context, {
+          target: { proposedChanges: patchOps },
+        } as unknown as Revision)
+      : adapter.isApprovalRequired(req.context);
     const canBypass =
       !!req.organization.settings?.restApiBypassesReviews ||
       adapter.canBypassApproval(
@@ -111,14 +125,6 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
       owner?: string;
       dateCreated?: Date;
     },
-  );
-
-  const patchOps: JsonPatchOperation[] = Object.entries(fieldsToUpdate).map(
-    ([key, value]) => ({
-      op: "replace" as const,
-      path: `/${key}`,
-      value,
-    }),
   );
 
   const defaultTitle = `Revert to v${req.params.version}`;
