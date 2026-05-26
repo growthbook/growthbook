@@ -174,12 +174,10 @@ function PopoverPatchDisplay({
   actions,
   syntheticEnabled,
   afterCoverage,
-  monitored,
 }: {
   actions: RampStepAction[];
   syntheticEnabled?: boolean;
   afterCoverage?: ReactNode;
-  monitored?: boolean;
 }) {
   const coverageItems: ReactNode[] = [];
   const additionalItems: ReactNode[] = [];
@@ -190,9 +188,7 @@ function PopoverPatchDisplay({
     const k = (s: string) => `${ai}-${s}`;
 
     if (p.coverage !== null && p.coverage !== undefined) {
-      const displayCov = monitored
-        ? Math.round((p.coverage * 100) / 2)
-        : Math.round(p.coverage * 100);
+      const displayCov = Math.round(p.coverage * 100);
       coverageItems.push(
         <PopoverEffectRow key={k("cov")} label="Rollout %">
           {displayCov}%
@@ -525,7 +521,6 @@ function NodePopoverContent({
       <PopoverPatchDisplay
         actions={actions}
         syntheticEnabled={syntheticEnabled}
-        monitored={monitored}
         afterCoverage={
           ctaLabel && hasCtaHandler ? (
             <Box mt="2" mb="1">

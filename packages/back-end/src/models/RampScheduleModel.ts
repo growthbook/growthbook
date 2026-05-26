@@ -954,11 +954,14 @@ export class RampScheduleModel extends BaseClass {
     Map<string, RampMonitoredRuleInfo>
   > {
     // SDK payloads need monitored rollout rules rendered as experiments.
+    // Include `paused` so rules keep experiment shape when a monitored step is
+    // held (guardrail, min-sample, approval gate) — users are still bucketed
+    // and removing experiment shape during a hold would lose tracking continuity.
     // Include the legacy `pending-approval` value during the migration window
     // so we don't drop monitored rules from docs that have not yet been
     // written back through the JIT status migration.
     const schedules = await this._find({
-      status: { $in: ["running", "pending-approval"] },
+      status: { $in: ["running", "paused", "pending-approval"] },
     });
     const map = new Map<string, RampMonitoredRuleInfo>();
     for (const schedule of schedules) {

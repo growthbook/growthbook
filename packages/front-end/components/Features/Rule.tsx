@@ -512,7 +512,11 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
           </Button>,
         );
       }
-      if (isAwaitingApproval(rampSchedule)) {
+      // RampMonitoringCTAs owns the "Approve Step" CTA when the current step is
+      // monitored — skip adding it here to avoid a duplicate button.
+      const approvalHandledByMonitoringCTAs =
+        !!safeRollout && !locked && isOnMonitoredStep(rampSchedule);
+      if (isAwaitingApproval(rampSchedule) && !approvalHandledByMonitoringCTAs) {
         ruleCtas.push(
           <Button
             key="ramp-approve"

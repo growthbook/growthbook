@@ -916,14 +916,18 @@ export function getFeatureDefinition({
             rule.coverage = clampedCoverage;
 
             // Use explicit contiguous ranges so that:
-            //   variation 0 (treatment) = [0, coverage)      — full rollout population
-            //   variation 1 (control)   = [coverage, 2*coverage) capped at 1.0
-            // This maximises statistical power: all rollout users are in treatment,
-            // and an equal-sized (or as large as possible) outside group serves as
-            // control via passthrough. Using explicit ranges rather than
-            // coverage+weights avoids the non-contiguous buckets that getBucketRanges
-            // would generate, which caused users in the rollout to lose the feature
-            // when monitoring activated.
+            //   treatment (var 0) = [0, coverage)          — full rollout population
+            //   control   (var 1) = [coverage, 2·coverage) — equal-sized when coverage ≤ 0.5,
+            //                       capped at 1.0 for coverage > 0.5 (control shrinks)
+            // When coverage = 1.0 the condition below is false, so no ranges are
+            // set; the SDK falls back to getBucketRanges with weights [0.5,0.5]
+            // which restores a symmetric [0,0.5)/[0.5,1.0) split.
+            //
+            // Tradeoff: keeping treatment = [0, coverage) preserves rollout bucketing
+            // across unmonitored↔monitored transitions (no variation hopping on state
+            // change). The cost is that step-ups shift control group boundaries —
+            // users newly added to treatment were previously in the control arm.
+            // This is inherent to the "treatment = rollout population" invariant.
             const controlEnd = Math.min(1, clampedCoverage * 2);
             if (clampedCoverage < 1) {
               rule.ranges = [

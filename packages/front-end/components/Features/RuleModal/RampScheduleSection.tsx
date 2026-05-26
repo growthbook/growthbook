@@ -394,14 +394,11 @@ function isEmptyConditionValue(value: string | null | undefined): boolean {
 export function buildPatch(
   patch: UIStepPatch,
   ruleId: string,
-  monitored?: boolean,
 ): RampStepAction["patch"] {
   const out: RampStepAction["patch"] = { ruleId };
 
   if (patch.coverage !== undefined)
-    out.coverage = monitored
-      ? (patch.coverage * 2) / 100
-      : patch.coverage / 100;
+    out.coverage = patch.coverage / 100;
   if (patch.condition !== undefined) {
     // `null` sentinel means "clear targeting" explicitly.
     if (patch.condition === null) {
@@ -517,7 +514,7 @@ export function buildRampSteps(
   ruleId: string,
 ) {
   return steps.map((s) => {
-    const patch = buildPatch(s.patch, ruleId, s.monitored);
+    const patch = buildPatch(s.patch, ruleId);
     const hasInterval = s.triggerType === "interval";
     // Pure approval steps always emit `requiresApproval: true` in
     // holdConditions; composite (interval + approval) preserves any
@@ -4210,13 +4207,12 @@ export default function RampScheduleSection({
 
 export function reconstructUIPatch(
   patch?: FeatureRulePatch | null,
-  monitored?: boolean,
 ): UIStepPatch {
   if (!patch) return {};
   const p: UIStepPatch = {};
   if ((patch.coverage ?? null) !== null)
     p.coverage = Math.round(
-      monitored ? (patch.coverage! * 100) / 2 : patch.coverage! * 100,
+      patch.coverage! * 100,
     );
   if ("condition" in patch) {
     const condition = patch.condition;
@@ -4246,7 +4242,7 @@ export function reconstructUIPatch(
 }
 
 export function reconstructUIStep(step: RampStep): UIStep {
-  const patch = reconstructUIPatch(step.actions[0]?.patch, step.monitored);
+  const patch = reconstructUIPatch(step.actions[0]?.patch);
   const additionalEffectsOpen = VALID_STEP_FIELDS.some(
     (f) => patch[f] !== undefined,
   );

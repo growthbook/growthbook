@@ -20,6 +20,8 @@ import {
   findMatchingTemplate,
   templateToSectionState,
   defaultRampSectionState,
+  buildPatch,
+  reconstructUIPatch,
   type RampSectionState,
 } from "@/components/Features/RuleModal/RampScheduleSection";
 
@@ -361,5 +363,102 @@ describe("templateToSectionState", () => {
     const restored = templateToSectionState(template);
     // The structural match should hold
     expect(findMatchingTemplate(restored, [template])).toBe("tmpl_1");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildPatch / reconstructUIPatch — coverage conversion
+// ---------------------------------------------------------------------------
+// These two functions are the single source of truth for the UI ↔ backend
+// coverage translation. The conversion must be:
+//   UI value (integer 1–50 for monitored, 1–100 for unmonitored)
+//   → backend fraction: ui / 100  (same formula for both modes)
+//   → payload ranges: [[0, c), [c, 2c)] with c = backend fraction
+//
+// The intent is that UI "40%" on a monitored step means 40% treatment /
+// 40% control / 20% unenrolled, matching the equivalent unmonitored rollout.
+// A previous (incorrect) implementation multiplied by 2 before dividing by 100,
+// producing coverage=0.8 for UI=40 → 80% treatment / 20% control.
+// ---------------------------------------------------------------------------
+
+describe("buildPatch — UI→backend coverage conversion", () => {
+  const RULE = "rule_1";
+
+  it("monitored: UI 40 → backend coverage 0.4 (not 0.8)", () => {
+    const patch = buildPatch({ coverage: 40 }, RULE);
+    expect(patch.coverage).toBeCloseTo(0.4);
+  });
+
+  it("monitored: UI 25 → backend coverage 0.25", () => {
+    const patch = buildPatch({ coverage: 25 }, RULE);
+    expect(patch.coverage).toBeCloseTo(0.25);
+  });
+
+  it("monitored: UI 50 (max) → backend coverage 0.5, not 1.0", () => {
+    const patch = buildPatch({ coverage: 50 }, RULE);
+    expect(patch.coverage).toBeCloseTo(0.5);
+  });
+
+  it("unmonitored: UI 40 → backend coverage 0.4 (unchanged)", () => {
+    const patch = buildPatch({ coverage: 40 }, RULE);
+    expect(patch.coverage).toBeCloseTo(0.4);
+  });
+
+  it("unmonitored: UI 100 → backend coverage 1.0", () => {
+    const patch = buildPatch({ coverage: 100 }, RULE);
+    expect(patch.coverage).toBeCloseTo(1.0);
+  });
+
+  it("monitored and unmonitored produce the same backend value for the same UI input", () => {
+    const mon = buildPatch({ coverage: 30 }, RULE);
+    const unmon = buildPatch({ coverage: 30 }, RULE);
+    expect(mon.coverage).toBeCloseTo(unmon.coverage!);
+  });
+
+  it("omits coverage when not in patch", () => {
+    const patch = buildPatch({}, RULE);
+    expect(patch.coverage).toBeUndefined();
+  });
+});
+
+describe("reconstructUIPatch — backend→UI coverage conversion", () => {
+  it("monitored: backend 0.4 → UI 40 (not 20)", () => {
+    const ui = reconstructUIPatch({ ruleId: "r", coverage: 0.4 });
+    expect(ui.coverage).toBe(40);
+  });
+
+  it("monitored: backend 0.25 → UI 25", () => {
+    const ui = reconstructUIPatch({ ruleId: "r", coverage: 0.25 });
+    expect(ui.coverage).toBe(25);
+  });
+
+  it("monitored: backend 0.5 (max) → UI 50", () => {
+    const ui = reconstructUIPatch({ ruleId: "r", coverage: 0.5 });
+    expect(ui.coverage).toBe(50);
+  });
+
+  it("unmonitored: backend 0.4 → UI 40", () => {
+    const ui = reconstructUIPatch({ ruleId: "r", coverage: 0.4 });
+    expect(ui.coverage).toBe(40);
+  });
+
+  it("round-trips: buildPatch then reconstructUIPatch returns the original UI value", () => {
+    for (const uiInput of [1, 10, 25, 40, 50]) {
+      const backend = buildPatch({ coverage: uiInput }, "r");
+      const restored = reconstructUIPatch(
+        { ruleId: "r", coverage: backend.coverage },
+      );
+      expect(restored.coverage).toBe(uiInput);
+    }
+  });
+
+  it("round-trips for unmonitored steps", () => {
+    for (const uiInput of [1, 25, 50, 75, 100]) {
+      const backend = buildPatch({ coverage: uiInput }, "r");
+      const restored = reconstructUIPatch(
+        { ruleId: "r", coverage: backend.coverage },
+      );
+      expect(restored.coverage).toBe(uiInput);
+    }
   });
 });

@@ -259,4 +259,89 @@ describe("rampScheduleValidator — invalid documents", () => {
     );
     expect(result.success).toBe(false);
   });
+
+  it("rejects a monitored step with coverage > 0.5", () => {
+    const result = rampScheduleValidator.safeParse(
+      makeSchedule({
+        steps: [
+          {
+            interval: 60,
+            monitored: true,
+            actions: [
+              {
+                targetType: "feature-rule",
+                targetId: "t1",
+                patch: { ruleId: "r1", coverage: 0.6 },
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a monitored step with coverage = 0.51", () => {
+    const result = rampScheduleValidator.safeParse(
+      makeSchedule({
+        steps: [
+          {
+            interval: 60,
+            monitored: true,
+            actions: [
+              {
+                targetType: "feature-rule",
+                targetId: "t1",
+                patch: { ruleId: "r1", coverage: 0.51 },
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts a monitored step with coverage exactly 0.5", () => {
+    const result = rampScheduleValidator.safeParse(
+      makeSchedule({
+        steps: [
+          {
+            interval: 60,
+            monitored: true,
+            actions: [
+              {
+                targetType: "feature-rule",
+                targetId: "t1",
+                patch: { ruleId: "r1", coverage: 0.5 },
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts an unmonitored step with coverage > 0.5", () => {
+    // The cap only applies to monitored steps
+    const result = rampScheduleValidator.safeParse(
+      makeSchedule({
+        steps: [
+          {
+            interval: 60,
+            monitored: false,
+            actions: [
+              {
+                targetType: "feature-rule",
+                targetId: "t1",
+                patch: { ruleId: "r1", coverage: 0.8 },
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(result.success).toBe(true);
+  });
 });

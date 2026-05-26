@@ -3506,17 +3506,16 @@ paths:
                                 type: string
                               coverage:
                                 description: >-
-                                  Traffic fraction (0–1). For monitored steps,
-                                  this is the total experiment enrollment (not
-                                  the fraction seeing variation 1). The
-                                  experiment splits enrolled traffic 50/50
-                                  between control and variation, so variation-1
-                                  exposure is coverage/2. For example,
-                                  coverage=0.8 means 40% of users see variation
-                                  1. The SDK uses hash-based filters (not
-                                  coverage) on the experiment rule to keep
-                                  bucketing consistent across monitored and
-                                  unmonitored transitions.
+                                  Traffic fraction (0–1). For monitored steps
+                                  the rollout rule is promoted to an experiment:
+                                  treatment = [0, coverage), control =
+                                  [coverage, 2·coverage). Both arms are
+                                  equal-sized when coverage ≤ 0.5; the REST API
+                                  enforces coverage ≤ 0.5 on monitored steps to
+                                  guarantee this. The SDK uses explicit hash
+                                  ranges on bucketingV2 clients to keep
+                                  bucketing stable across monitored/unmonitored
+                                  transitions.
                                 anyOf:
                                   - type: number
                                     minimum: 0
@@ -3610,17 +3609,16 @@ paths:
                                     coverage:
                                       description: >-
                                         Traffic fraction (0–1). For monitored
-                                        steps, this is the total experiment
-                                        enrollment (not the fraction seeing
-                                        variation 1). The experiment splits
-                                        enrolled traffic 50/50 between control
-                                        and variation, so variation-1 exposure
-                                        is coverage/2. For example, coverage=0.8
-                                        means 40% of users see variation 1. The
-                                        SDK uses hash-based filters (not
-                                        coverage) on the experiment rule to keep
-                                        bucketing consistent across monitored
-                                        and unmonitored transitions.
+                                        steps the rollout rule is promoted to an
+                                        experiment: treatment = [0, coverage),
+                                        control = [coverage, 2·coverage). Both
+                                        arms are equal-sized when coverage ≤
+                                        0.5; the REST API enforces coverage ≤
+                                        0.5 on monitored steps to guarantee
+                                        this. The SDK uses explicit hash ranges
+                                        on bucketingV2 clients to keep bucketing
+                                        stable across monitored/unmonitored
+                                        transitions.
                                       anyOf:
                                         - type: number
                                           minimum: 0
@@ -3721,17 +3719,16 @@ paths:
                                 type: string
                               coverage:
                                 description: >-
-                                  Traffic fraction (0–1). For monitored steps,
-                                  this is the total experiment enrollment (not
-                                  the fraction seeing variation 1). The
-                                  experiment splits enrolled traffic 50/50
-                                  between control and variation, so variation-1
-                                  exposure is coverage/2. For example,
-                                  coverage=0.8 means 40% of users see variation
-                                  1. The SDK uses hash-based filters (not
-                                  coverage) on the experiment rule to keep
-                                  bucketing consistent across monitored and
-                                  unmonitored transitions.
+                                  Traffic fraction (0–1). For monitored steps
+                                  the rollout rule is promoted to an experiment:
+                                  treatment = [0, coverage), control =
+                                  [coverage, 2·coverage). Both arms are
+                                  equal-sized when coverage ≤ 0.5; the REST API
+                                  enforces coverage ≤ 0.5 on monitored steps to
+                                  guarantee this. The SDK uses explicit hash
+                                  ranges on bucketingV2 clients to keep
+                                  bucketing stable across monitored/unmonitored
+                                  transitions.
                                 anyOf:
                                   - type: number
                                     minimum: 0
@@ -4099,17 +4096,16 @@ paths:
                                 type: string
                               coverage:
                                 description: >-
-                                  Traffic fraction (0–1). For monitored steps,
-                                  this is the total experiment enrollment (not
-                                  the fraction seeing variation 1). The
-                                  experiment splits enrolled traffic 50/50
-                                  between control and variation, so variation-1
-                                  exposure is coverage/2. For example,
-                                  coverage=0.8 means 40% of users see variation
-                                  1. The SDK uses hash-based filters (not
-                                  coverage) on the experiment rule to keep
-                                  bucketing consistent across monitored and
-                                  unmonitored transitions.
+                                  Traffic fraction (0–1). For monitored steps
+                                  the rollout rule is promoted to an experiment:
+                                  treatment = [0, coverage), control =
+                                  [coverage, 2·coverage). Both arms are
+                                  equal-sized when coverage ≤ 0.5; the REST API
+                                  enforces coverage ≤ 0.5 on monitored steps to
+                                  guarantee this. The SDK uses explicit hash
+                                  ranges on bucketingV2 clients to keep
+                                  bucketing stable across monitored/unmonitored
+                                  transitions.
                                 anyOf:
                                   - type: number
                                     minimum: 0
@@ -4203,17 +4199,16 @@ paths:
                                     coverage:
                                       description: >-
                                         Traffic fraction (0–1). For monitored
-                                        steps, this is the total experiment
-                                        enrollment (not the fraction seeing
-                                        variation 1). The experiment splits
-                                        enrolled traffic 50/50 between control
-                                        and variation, so variation-1 exposure
-                                        is coverage/2. For example, coverage=0.8
-                                        means 40% of users see variation 1. The
-                                        SDK uses hash-based filters (not
-                                        coverage) on the experiment rule to keep
-                                        bucketing consistent across monitored
-                                        and unmonitored transitions.
+                                        steps the rollout rule is promoted to an
+                                        experiment: treatment = [0, coverage),
+                                        control = [coverage, 2·coverage). Both
+                                        arms are equal-sized when coverage ≤
+                                        0.5; the REST API enforces coverage ≤
+                                        0.5 on monitored steps to guarantee
+                                        this. The SDK uses explicit hash ranges
+                                        on bucketingV2 clients to keep bucketing
+                                        stable across monitored/unmonitored
+                                        transitions.
                                       anyOf:
                                         - type: number
                                           minimum: 0
@@ -4314,17 +4309,16 @@ paths:
                                 type: string
                               coverage:
                                 description: >-
-                                  Traffic fraction (0–1). For monitored steps,
-                                  this is the total experiment enrollment (not
-                                  the fraction seeing variation 1). The
-                                  experiment splits enrolled traffic 50/50
-                                  between control and variation, so variation-1
-                                  exposure is coverage/2. For example,
-                                  coverage=0.8 means 40% of users see variation
-                                  1. The SDK uses hash-based filters (not
-                                  coverage) on the experiment rule to keep
-                                  bucketing consistent across monitored and
-                                  unmonitored transitions.
+                                  Traffic fraction (0–1). For monitored steps
+                                  the rollout rule is promoted to an experiment:
+                                  treatment = [0, coverage), control =
+                                  [coverage, 2·coverage). Both arms are
+                                  equal-sized when coverage ≤ 0.5; the REST API
+                                  enforces coverage ≤ 0.5 on monitored steps to
+                                  guarantee this. The SDK uses explicit hash
+                                  ranges on bucketingV2 clients to keep
+                                  bucketing stable across monitored/unmonitored
+                                  transitions.
                                 anyOf:
                                   - type: number
                                     minimum: 0
@@ -4718,16 +4712,15 @@ paths:
                             type: string
                           coverage:
                             description: >-
-                              Traffic fraction (0–1). For monitored steps, this
-                              is the total experiment enrollment (not the
-                              fraction seeing variation 1). The experiment
-                              splits enrolled traffic 50/50 between control and
-                              variation, so variation-1 exposure is coverage/2.
-                              For example, coverage=0.8 means 40% of users see
-                              variation 1. The SDK uses hash-based filters (not
-                              coverage) on the experiment rule to keep bucketing
-                              consistent across monitored and unmonitored
-                              transitions.
+                              Traffic fraction (0–1). For monitored steps the
+                              rollout rule is promoted to an experiment:
+                              treatment = [0, coverage), control = [coverage,
+                              2·coverage). Both arms are equal-sized when
+                              coverage ≤ 0.5; the REST API enforces coverage ≤
+                              0.5 on monitored steps to guarantee this. The SDK
+                              uses explicit hash ranges on bucketingV2 clients
+                              to keep bucketing stable across
+                              monitored/unmonitored transitions.
                             anyOf:
                               - type: number
                                 minimum: 0
@@ -4820,17 +4813,16 @@ paths:
                                   type: string
                                 coverage:
                                   description: >-
-                                    Traffic fraction (0–1). For monitored steps,
-                                    this is the total experiment enrollment (not
-                                    the fraction seeing variation 1). The
-                                    experiment splits enrolled traffic 50/50
-                                    between control and variation, so
-                                    variation-1 exposure is coverage/2. For
-                                    example, coverage=0.8 means 40% of users see
-                                    variation 1. The SDK uses hash-based filters
-                                    (not coverage) on the experiment rule to
-                                    keep bucketing consistent across monitored
-                                    and unmonitored transitions.
+                                    Traffic fraction (0–1). For monitored steps
+                                    the rollout rule is promoted to an
+                                    experiment: treatment = [0, coverage),
+                                    control = [coverage, 2·coverage). Both arms
+                                    are equal-sized when coverage ≤ 0.5; the
+                                    REST API enforces coverage ≤ 0.5 on
+                                    monitored steps to guarantee this. The SDK
+                                    uses explicit hash ranges on bucketingV2
+                                    clients to keep bucketing stable across
+                                    monitored/unmonitored transitions.
                                   anyOf:
                                     - type: number
                                       minimum: 0
@@ -4931,16 +4923,15 @@ paths:
                             type: string
                           coverage:
                             description: >-
-                              Traffic fraction (0–1). For monitored steps, this
-                              is the total experiment enrollment (not the
-                              fraction seeing variation 1). The experiment
-                              splits enrolled traffic 50/50 between control and
-                              variation, so variation-1 exposure is coverage/2.
-                              For example, coverage=0.8 means 40% of users see
-                              variation 1. The SDK uses hash-based filters (not
-                              coverage) on the experiment rule to keep bucketing
-                              consistent across monitored and unmonitored
-                              transitions.
+                              Traffic fraction (0–1). For monitored steps the
+                              rollout rule is promoted to an experiment:
+                              treatment = [0, coverage), control = [coverage,
+                              2·coverage). Both arms are equal-sized when
+                              coverage ≤ 0.5; the REST API enforces coverage ≤
+                              0.5 on monitored steps to guarantee this. The SDK
+                              uses explicit hash ranges on bucketingV2 clients
+                              to keep bucketing stable across
+                              monitored/unmonitored transitions.
                             anyOf:
                               - type: number
                                 minimum: 0
@@ -7724,17 +7715,16 @@ paths:
                                 type: string
                               coverage:
                                 description: >-
-                                  Traffic fraction (0–1). For monitored steps,
-                                  this is the total experiment enrollment (not
-                                  the fraction seeing variation 1). The
-                                  experiment splits enrolled traffic 50/50
-                                  between control and variation, so variation-1
-                                  exposure is coverage/2. For example,
-                                  coverage=0.8 means 40% of users see variation
-                                  1. The SDK uses hash-based filters (not
-                                  coverage) on the experiment rule to keep
-                                  bucketing consistent across monitored and
-                                  unmonitored transitions.
+                                  Traffic fraction (0–1). For monitored steps
+                                  the rollout rule is promoted to an experiment:
+                                  treatment = [0, coverage), control =
+                                  [coverage, 2·coverage). Both arms are
+                                  equal-sized when coverage ≤ 0.5; the REST API
+                                  enforces coverage ≤ 0.5 on monitored steps to
+                                  guarantee this. The SDK uses explicit hash
+                                  ranges on bucketingV2 clients to keep
+                                  bucketing stable across monitored/unmonitored
+                                  transitions.
                                 anyOf:
                                   - type: number
                                     minimum: 0
@@ -7828,17 +7818,16 @@ paths:
                                     coverage:
                                       description: >-
                                         Traffic fraction (0–1). For monitored
-                                        steps, this is the total experiment
-                                        enrollment (not the fraction seeing
-                                        variation 1). The experiment splits
-                                        enrolled traffic 50/50 between control
-                                        and variation, so variation-1 exposure
-                                        is coverage/2. For example, coverage=0.8
-                                        means 40% of users see variation 1. The
-                                        SDK uses hash-based filters (not
-                                        coverage) on the experiment rule to keep
-                                        bucketing consistent across monitored
-                                        and unmonitored transitions.
+                                        steps the rollout rule is promoted to an
+                                        experiment: treatment = [0, coverage),
+                                        control = [coverage, 2·coverage). Both
+                                        arms are equal-sized when coverage ≤
+                                        0.5; the REST API enforces coverage ≤
+                                        0.5 on monitored steps to guarantee
+                                        this. The SDK uses explicit hash ranges
+                                        on bucketingV2 clients to keep bucketing
+                                        stable across monitored/unmonitored
+                                        transitions.
                                       anyOf:
                                         - type: number
                                           minimum: 0
@@ -7939,17 +7928,16 @@ paths:
                                 type: string
                               coverage:
                                 description: >-
-                                  Traffic fraction (0–1). For monitored steps,
-                                  this is the total experiment enrollment (not
-                                  the fraction seeing variation 1). The
-                                  experiment splits enrolled traffic 50/50
-                                  between control and variation, so variation-1
-                                  exposure is coverage/2. For example,
-                                  coverage=0.8 means 40% of users see variation
-                                  1. The SDK uses hash-based filters (not
-                                  coverage) on the experiment rule to keep
-                                  bucketing consistent across monitored and
-                                  unmonitored transitions.
+                                  Traffic fraction (0–1). For monitored steps
+                                  the rollout rule is promoted to an experiment:
+                                  treatment = [0, coverage), control =
+                                  [coverage, 2·coverage). Both arms are
+                                  equal-sized when coverage ≤ 0.5; the REST API
+                                  enforces coverage ≤ 0.5 on monitored steps to
+                                  guarantee this. The SDK uses explicit hash
+                                  ranges on bucketingV2 clients to keep
+                                  bucketing stable across monitored/unmonitored
+                                  transitions.
                                 anyOf:
                                   - type: number
                                     minimum: 0
@@ -8319,17 +8307,16 @@ paths:
                                 type: string
                               coverage:
                                 description: >-
-                                  Traffic fraction (0–1). For monitored steps,
-                                  this is the total experiment enrollment (not
-                                  the fraction seeing variation 1). The
-                                  experiment splits enrolled traffic 50/50
-                                  between control and variation, so variation-1
-                                  exposure is coverage/2. For example,
-                                  coverage=0.8 means 40% of users see variation
-                                  1. The SDK uses hash-based filters (not
-                                  coverage) on the experiment rule to keep
-                                  bucketing consistent across monitored and
-                                  unmonitored transitions.
+                                  Traffic fraction (0–1). For monitored steps
+                                  the rollout rule is promoted to an experiment:
+                                  treatment = [0, coverage), control =
+                                  [coverage, 2·coverage). Both arms are
+                                  equal-sized when coverage ≤ 0.5; the REST API
+                                  enforces coverage ≤ 0.5 on monitored steps to
+                                  guarantee this. The SDK uses explicit hash
+                                  ranges on bucketingV2 clients to keep
+                                  bucketing stable across monitored/unmonitored
+                                  transitions.
                                 anyOf:
                                   - type: number
                                     minimum: 0
@@ -8423,17 +8410,16 @@ paths:
                                     coverage:
                                       description: >-
                                         Traffic fraction (0–1). For monitored
-                                        steps, this is the total experiment
-                                        enrollment (not the fraction seeing
-                                        variation 1). The experiment splits
-                                        enrolled traffic 50/50 between control
-                                        and variation, so variation-1 exposure
-                                        is coverage/2. For example, coverage=0.8
-                                        means 40% of users see variation 1. The
-                                        SDK uses hash-based filters (not
-                                        coverage) on the experiment rule to keep
-                                        bucketing consistent across monitored
-                                        and unmonitored transitions.
+                                        steps the rollout rule is promoted to an
+                                        experiment: treatment = [0, coverage),
+                                        control = [coverage, 2·coverage). Both
+                                        arms are equal-sized when coverage ≤
+                                        0.5; the REST API enforces coverage ≤
+                                        0.5 on monitored steps to guarantee
+                                        this. The SDK uses explicit hash ranges
+                                        on bucketingV2 clients to keep bucketing
+                                        stable across monitored/unmonitored
+                                        transitions.
                                       anyOf:
                                         - type: number
                                           minimum: 0
@@ -8534,17 +8520,16 @@ paths:
                                 type: string
                               coverage:
                                 description: >-
-                                  Traffic fraction (0–1). For monitored steps,
-                                  this is the total experiment enrollment (not
-                                  the fraction seeing variation 1). The
-                                  experiment splits enrolled traffic 50/50
-                                  between control and variation, so variation-1
-                                  exposure is coverage/2. For example,
-                                  coverage=0.8 means 40% of users see variation
-                                  1. The SDK uses hash-based filters (not
-                                  coverage) on the experiment rule to keep
-                                  bucketing consistent across monitored and
-                                  unmonitored transitions.
+                                  Traffic fraction (0–1). For monitored steps
+                                  the rollout rule is promoted to an experiment:
+                                  treatment = [0, coverage), control =
+                                  [coverage, 2·coverage). Both arms are
+                                  equal-sized when coverage ≤ 0.5; the REST API
+                                  enforces coverage ≤ 0.5 on monitored steps to
+                                  guarantee this. The SDK uses explicit hash
+                                  ranges on bucketingV2 clients to keep
+                                  bucketing stable across monitored/unmonitored
+                                  transitions.
                                 anyOf:
                                   - type: number
                                     minimum: 0
@@ -8942,16 +8927,15 @@ paths:
                             type: string
                           coverage:
                             description: >-
-                              Traffic fraction (0–1). For monitored steps, this
-                              is the total experiment enrollment (not the
-                              fraction seeing variation 1). The experiment
-                              splits enrolled traffic 50/50 between control and
-                              variation, so variation-1 exposure is coverage/2.
-                              For example, coverage=0.8 means 40% of users see
-                              variation 1. The SDK uses hash-based filters (not
-                              coverage) on the experiment rule to keep bucketing
-                              consistent across monitored and unmonitored
-                              transitions.
+                              Traffic fraction (0–1). For monitored steps the
+                              rollout rule is promoted to an experiment:
+                              treatment = [0, coverage), control = [coverage,
+                              2·coverage). Both arms are equal-sized when
+                              coverage ≤ 0.5; the REST API enforces coverage ≤
+                              0.5 on monitored steps to guarantee this. The SDK
+                              uses explicit hash ranges on bucketingV2 clients
+                              to keep bucketing stable across
+                              monitored/unmonitored transitions.
                             anyOf:
                               - type: number
                                 minimum: 0
@@ -9044,17 +9028,16 @@ paths:
                                   type: string
                                 coverage:
                                   description: >-
-                                    Traffic fraction (0–1). For monitored steps,
-                                    this is the total experiment enrollment (not
-                                    the fraction seeing variation 1). The
-                                    experiment splits enrolled traffic 50/50
-                                    between control and variation, so
-                                    variation-1 exposure is coverage/2. For
-                                    example, coverage=0.8 means 40% of users see
-                                    variation 1. The SDK uses hash-based filters
-                                    (not coverage) on the experiment rule to
-                                    keep bucketing consistent across monitored
-                                    and unmonitored transitions.
+                                    Traffic fraction (0–1). For monitored steps
+                                    the rollout rule is promoted to an
+                                    experiment: treatment = [0, coverage),
+                                    control = [coverage, 2·coverage). Both arms
+                                    are equal-sized when coverage ≤ 0.5; the
+                                    REST API enforces coverage ≤ 0.5 on
+                                    monitored steps to guarantee this. The SDK
+                                    uses explicit hash ranges on bucketingV2
+                                    clients to keep bucketing stable across
+                                    monitored/unmonitored transitions.
                                   anyOf:
                                     - type: number
                                       minimum: 0
@@ -9155,16 +9138,15 @@ paths:
                             type: string
                           coverage:
                             description: >-
-                              Traffic fraction (0–1). For monitored steps, this
-                              is the total experiment enrollment (not the
-                              fraction seeing variation 1). The experiment
-                              splits enrolled traffic 50/50 between control and
-                              variation, so variation-1 exposure is coverage/2.
-                              For example, coverage=0.8 means 40% of users see
-                              variation 1. The SDK uses hash-based filters (not
-                              coverage) on the experiment rule to keep bucketing
-                              consistent across monitored and unmonitored
-                              transitions.
+                              Traffic fraction (0–1). For monitored steps the
+                              rollout rule is promoted to an experiment:
+                              treatment = [0, coverage), control = [coverage,
+                              2·coverage). Both arms are equal-sized when
+                              coverage ≤ 0.5; the REST API enforces coverage ≤
+                              0.5 on monitored steps to guarantee this. The SDK
+                              uses explicit hash ranges on bucketingV2 clients
+                              to keep bucketing stable across
+                              monitored/unmonitored transitions.
                             anyOf:
                               - type: number
                                 minimum: 0
@@ -17638,17 +17620,16 @@ paths:
                                   type: string
                                 coverage:
                                   description: >-
-                                    Traffic fraction (0–1). For monitored steps,
-                                    this is the total experiment enrollment (not
-                                    the fraction seeing variation 1). The
-                                    experiment splits enrolled traffic 50/50
-                                    between control and variation, so
-                                    variation-1 exposure is coverage/2. For
-                                    example, coverage=0.8 means 40% of users see
-                                    variation 1. The SDK uses hash-based filters
-                                    (not coverage) on the experiment rule to
-                                    keep bucketing consistent across monitored
-                                    and unmonitored transitions.
+                                    Traffic fraction (0–1). For monitored steps
+                                    the rollout rule is promoted to an
+                                    experiment: treatment = [0, coverage),
+                                    control = [coverage, 2·coverage). Both arms
+                                    are equal-sized when coverage ≤ 0.5; the
+                                    REST API enforces coverage ≤ 0.5 on
+                                    monitored steps to guarantee this. The SDK
+                                    uses explicit hash ranges on bucketingV2
+                                    clients to keep bucketing stable across
+                                    monitored/unmonitored transitions.
                                   anyOf:
                                     - type: number
                                       minimum: 0
@@ -17774,16 +17755,15 @@ paths:
                             type: string
                           coverage:
                             description: >-
-                              Traffic fraction (0–1). For monitored steps, this
-                              is the total experiment enrollment (not the
-                              fraction seeing variation 1). The experiment
-                              splits enrolled traffic 50/50 between control and
-                              variation, so variation-1 exposure is coverage/2.
-                              For example, coverage=0.8 means 40% of users see
-                              variation 1. The SDK uses hash-based filters (not
-                              coverage) on the experiment rule to keep bucketing
-                              consistent across monitored and unmonitored
-                              transitions.
+                              Traffic fraction (0–1). For monitored steps the
+                              rollout rule is promoted to an experiment:
+                              treatment = [0, coverage), control = [coverage,
+                              2·coverage). Both arms are equal-sized when
+                              coverage ≤ 0.5; the REST API enforces coverage ≤
+                              0.5 on monitored steps to guarantee this. The SDK
+                              uses explicit hash ranges on bucketingV2 clients
+                              to keep bucketing stable across
+                              monitored/unmonitored transitions.
                             anyOf:
                               - type: number
                                 minimum: 0
@@ -17882,16 +17862,15 @@ paths:
                             type: string
                           coverage:
                             description: >-
-                              Traffic fraction (0–1). For monitored steps, this
-                              is the total experiment enrollment (not the
-                              fraction seeing variation 1). The experiment
-                              splits enrolled traffic 50/50 between control and
-                              variation, so variation-1 exposure is coverage/2.
-                              For example, coverage=0.8 means 40% of users see
-                              variation 1. The SDK uses hash-based filters (not
-                              coverage) on the experiment rule to keep bucketing
-                              consistent across monitored and unmonitored
-                              transitions.
+                              Traffic fraction (0–1). For monitored steps the
+                              rollout rule is promoted to an experiment:
+                              treatment = [0, coverage), control = [coverage,
+                              2·coverage). Both arms are equal-sized when
+                              coverage ≤ 0.5; the REST API enforces coverage ≤
+                              0.5 on monitored steps to guarantee this. The SDK
+                              uses explicit hash ranges on bucketingV2 clients
+                              to keep bucketing stable across
+                              monitored/unmonitored transitions.
                             anyOf:
                               - type: number
                                 minimum: 0
@@ -27498,11 +27477,13 @@ paths:
                       monitored:
                         description: >-
                           When true, this step runs A/B traffic analysis while
-                          active. Enrolled users are split 50/50 between control
-                          and variation, so a coverage of 1.0 means 50% of users
-                          see the variation. The SDK uses hash-based filters on
-                          the experiment rule to prevent bucketing shifts across
-                          monitored/unmonitored transitions.
+                          active. Treatment = [0, coverage), control =
+                          [coverage, 2·coverage). At coverage ≤ 0.5 both arms
+                          are equal-sized; the UI caps monitored-step coverage
+                          at 0.5 to enforce the 50/50 split. The SDK uses
+                          explicit hash ranges on the experiment rule to prevent
+                          bucketing shifts across monitored/unmonitored
+                          transitions.
                         type: boolean
                       holdConditions:
                         type: object
@@ -27530,17 +27511,16 @@ paths:
                                   type: string
                                 coverage:
                                   description: >-
-                                    Traffic fraction (0–1). For monitored steps,
-                                    this is the total experiment enrollment (not
-                                    the fraction seeing variation 1). The
-                                    experiment splits enrolled traffic 50/50
-                                    between control and variation, so
-                                    variation-1 exposure is coverage/2. For
-                                    example, coverage=0.8 means 40% of users see
-                                    variation 1. The SDK uses hash-based filters
-                                    (not coverage) on the experiment rule to
-                                    keep bucketing consistent across monitored
-                                    and unmonitored transitions.
+                                    Traffic fraction (0–1). For monitored steps
+                                    the rollout rule is promoted to an
+                                    experiment: treatment = [0, coverage),
+                                    control = [coverage, 2·coverage). Both arms
+                                    are equal-sized when coverage ≤ 0.5; the
+                                    REST API enforces coverage ≤ 0.5 on
+                                    monitored steps to guarantee this. The SDK
+                                    uses explicit hash ranges on bucketingV2
+                                    clients to keep bucketing stable across
+                                    monitored/unmonitored transitions.
                                   anyOf:
                                     - type: number
                                       minimum: 0
@@ -27789,11 +27769,13 @@ paths:
                       monitored:
                         description: >-
                           When true, this step runs A/B traffic analysis while
-                          active. Enrolled users are split 50/50 between control
-                          and variation, so a coverage of 1.0 means 50% of users
-                          see the variation. The SDK uses hash-based filters on
-                          the experiment rule to prevent bucketing shifts across
-                          monitored/unmonitored transitions.
+                          active. Treatment = [0, coverage), control =
+                          [coverage, 2·coverage). At coverage ≤ 0.5 both arms
+                          are equal-sized; the UI caps monitored-step coverage
+                          at 0.5 to enforce the 50/50 split. The SDK uses
+                          explicit hash ranges on the experiment rule to prevent
+                          bucketing shifts across monitored/unmonitored
+                          transitions.
                         type: boolean
                       holdConditions:
                         type: object
@@ -27821,17 +27803,16 @@ paths:
                                   type: string
                                 coverage:
                                   description: >-
-                                    Traffic fraction (0–1). For monitored steps,
-                                    this is the total experiment enrollment (not
-                                    the fraction seeing variation 1). The
-                                    experiment splits enrolled traffic 50/50
-                                    between control and variation, so
-                                    variation-1 exposure is coverage/2. For
-                                    example, coverage=0.8 means 40% of users see
-                                    variation 1. The SDK uses hash-based filters
-                                    (not coverage) on the experiment rule to
-                                    keep bucketing consistent across monitored
-                                    and unmonitored transitions.
+                                    Traffic fraction (0–1). For monitored steps
+                                    the rollout rule is promoted to an
+                                    experiment: treatment = [0, coverage),
+                                    control = [coverage, 2·coverage). Both arms
+                                    are equal-sized when coverage ≤ 0.5; the
+                                    REST API enforces coverage ≤ 0.5 on
+                                    monitored steps to guarantee this. The SDK
+                                    uses explicit hash ranges on bucketingV2
+                                    clients to keep bucketing stable across
+                                    monitored/unmonitored transitions.
                                   anyOf:
                                     - type: number
                                       minimum: 0
@@ -28217,17 +28198,16 @@ paths:
                                   type: string
                                 coverage:
                                   description: >-
-                                    Traffic fraction (0–1). For monitored steps,
-                                    this is the total experiment enrollment (not
-                                    the fraction seeing variation 1). The
-                                    experiment splits enrolled traffic 50/50
-                                    between control and variation, so
-                                    variation-1 exposure is coverage/2. For
-                                    example, coverage=0.8 means 40% of users see
-                                    variation 1. The SDK uses hash-based filters
-                                    (not coverage) on the experiment rule to
-                                    keep bucketing consistent across monitored
-                                    and unmonitored transitions.
+                                    Traffic fraction (0–1). For monitored steps
+                                    the rollout rule is promoted to an
+                                    experiment: treatment = [0, coverage),
+                                    control = [coverage, 2·coverage). Both arms
+                                    are equal-sized when coverage ≤ 0.5; the
+                                    REST API enforces coverage ≤ 0.5 on
+                                    monitored steps to guarantee this. The SDK
+                                    uses explicit hash ranges on bucketingV2
+                                    clients to keep bucketing stable across
+                                    monitored/unmonitored transitions.
                                   anyOf:
                                     - type: number
                                       minimum: 0
@@ -28337,16 +28317,15 @@ paths:
                             type: string
                           coverage:
                             description: >-
-                              Traffic fraction (0–1). For monitored steps, this
-                              is the total experiment enrollment (not the
-                              fraction seeing variation 1). The experiment
-                              splits enrolled traffic 50/50 between control and
-                              variation, so variation-1 exposure is coverage/2.
-                              For example, coverage=0.8 means 40% of users see
-                              variation 1. The SDK uses hash-based filters (not
-                              coverage) on the experiment rule to keep bucketing
-                              consistent across monitored and unmonitored
-                              transitions.
+                              Traffic fraction (0–1). For monitored steps the
+                              rollout rule is promoted to an experiment:
+                              treatment = [0, coverage), control = [coverage,
+                              2·coverage). Both arms are equal-sized when
+                              coverage ≤ 0.5; the REST API enforces coverage ≤
+                              0.5 on monitored steps to guarantee this. The SDK
+                              uses explicit hash ranges on bucketingV2 clients
+                              to keep bucketing stable across
+                              monitored/unmonitored transitions.
                             anyOf:
                               - type: number
                                 minimum: 0
@@ -28429,16 +28408,15 @@ paths:
                             type: string
                           coverage:
                             description: >-
-                              Traffic fraction (0–1). For monitored steps, this
-                              is the total experiment enrollment (not the
-                              fraction seeing variation 1). The experiment
-                              splits enrolled traffic 50/50 between control and
-                              variation, so variation-1 exposure is coverage/2.
-                              For example, coverage=0.8 means 40% of users see
-                              variation 1. The SDK uses hash-based filters (not
-                              coverage) on the experiment rule to keep bucketing
-                              consistent across monitored and unmonitored
-                              transitions.
+                              Traffic fraction (0–1). For monitored steps the
+                              rollout rule is promoted to an experiment:
+                              treatment = [0, coverage), control = [coverage,
+                              2·coverage). Both arms are equal-sized when
+                              coverage ≤ 0.5; the REST API enforces coverage ≤
+                              0.5 on monitored steps to guarantee this. The SDK
+                              uses explicit hash ranges on bucketingV2 clients
+                              to keep bucketing stable across
+                              monitored/unmonitored transitions.
                             anyOf:
                               - type: number
                                 minimum: 0
@@ -29923,16 +29901,15 @@ components:
                               type: string
                             coverage:
                               description: >-
-                                Traffic fraction (0–1). For monitored steps,
-                                this is the total experiment enrollment (not the
-                                fraction seeing variation 1). The experiment
-                                splits enrolled traffic 50/50 between control
-                                and variation, so variation-1 exposure is
-                                coverage/2. For example, coverage=0.8 means 40%
-                                of users see variation 1. The SDK uses
-                                hash-based filters (not coverage) on the
-                                experiment rule to keep bucketing consistent
-                                across monitored and unmonitored transitions.
+                                Traffic fraction (0–1). For monitored steps the
+                                rollout rule is promoted to an experiment:
+                                treatment = [0, coverage), control = [coverage,
+                                2·coverage). Both arms are equal-sized when
+                                coverage ≤ 0.5; the REST API enforces coverage ≤
+                                0.5 on monitored steps to guarantee this. The
+                                SDK uses explicit hash ranges on bucketingV2
+                                clients to keep bucketing stable across
+                                monitored/unmonitored transitions.
                               anyOf:
                                 - type: number
                                   minimum: 0
@@ -30026,17 +30003,15 @@ components:
                                   coverage:
                                     description: >-
                                       Traffic fraction (0–1). For monitored
-                                      steps, this is the total experiment
-                                      enrollment (not the fraction seeing
-                                      variation 1). The experiment splits
-                                      enrolled traffic 50/50 between control and
-                                      variation, so variation-1 exposure is
-                                      coverage/2. For example, coverage=0.8
-                                      means 40% of users see variation 1. The
-                                      SDK uses hash-based filters (not coverage)
-                                      on the experiment rule to keep bucketing
-                                      consistent across monitored and
-                                      unmonitored transitions.
+                                      steps the rollout rule is promoted to an
+                                      experiment: treatment = [0, coverage),
+                                      control = [coverage, 2·coverage). Both
+                                      arms are equal-sized when coverage ≤ 0.5;
+                                      the REST API enforces coverage ≤ 0.5 on
+                                      monitored steps to guarantee this. The SDK
+                                      uses explicit hash ranges on bucketingV2
+                                      clients to keep bucketing stable across
+                                      monitored/unmonitored transitions.
                                     anyOf:
                                       - type: number
                                         minimum: 0
@@ -30137,16 +30112,15 @@ components:
                               type: string
                             coverage:
                               description: >-
-                                Traffic fraction (0–1). For monitored steps,
-                                this is the total experiment enrollment (not the
-                                fraction seeing variation 1). The experiment
-                                splits enrolled traffic 50/50 between control
-                                and variation, so variation-1 exposure is
-                                coverage/2. For example, coverage=0.8 means 40%
-                                of users see variation 1. The SDK uses
-                                hash-based filters (not coverage) on the
-                                experiment rule to keep bucketing consistent
-                                across monitored and unmonitored transitions.
+                                Traffic fraction (0–1). For monitored steps the
+                                rollout rule is promoted to an experiment:
+                                treatment = [0, coverage), control = [coverage,
+                                2·coverage). Both arms are equal-sized when
+                                coverage ≤ 0.5; the REST API enforces coverage ≤
+                                0.5 on monitored steps to guarantee this. The
+                                SDK uses explicit hash ranges on bucketingV2
+                                clients to keep bucketing stable across
+                                monitored/unmonitored transitions.
                               anyOf:
                                 - type: number
                                   minimum: 0
@@ -30331,16 +30305,15 @@ components:
                               type: string
                             coverage:
                               description: >-
-                                Traffic fraction (0–1). For monitored steps,
-                                this is the total experiment enrollment (not the
-                                fraction seeing variation 1). The experiment
-                                splits enrolled traffic 50/50 between control
-                                and variation, so variation-1 exposure is
-                                coverage/2. For example, coverage=0.8 means 40%
-                                of users see variation 1. The SDK uses
-                                hash-based filters (not coverage) on the
-                                experiment rule to keep bucketing consistent
-                                across monitored and unmonitored transitions.
+                                Traffic fraction (0–1). For monitored steps the
+                                rollout rule is promoted to an experiment:
+                                treatment = [0, coverage), control = [coverage,
+                                2·coverage). Both arms are equal-sized when
+                                coverage ≤ 0.5; the REST API enforces coverage ≤
+                                0.5 on monitored steps to guarantee this. The
+                                SDK uses explicit hash ranges on bucketingV2
+                                clients to keep bucketing stable across
+                                monitored/unmonitored transitions.
                               anyOf:
                                 - type: number
                                   minimum: 0
@@ -30434,17 +30407,15 @@ components:
                                   coverage:
                                     description: >-
                                       Traffic fraction (0–1). For monitored
-                                      steps, this is the total experiment
-                                      enrollment (not the fraction seeing
-                                      variation 1). The experiment splits
-                                      enrolled traffic 50/50 between control and
-                                      variation, so variation-1 exposure is
-                                      coverage/2. For example, coverage=0.8
-                                      means 40% of users see variation 1. The
-                                      SDK uses hash-based filters (not coverage)
-                                      on the experiment rule to keep bucketing
-                                      consistent across monitored and
-                                      unmonitored transitions.
+                                      steps the rollout rule is promoted to an
+                                      experiment: treatment = [0, coverage),
+                                      control = [coverage, 2·coverage). Both
+                                      arms are equal-sized when coverage ≤ 0.5;
+                                      the REST API enforces coverage ≤ 0.5 on
+                                      monitored steps to guarantee this. The SDK
+                                      uses explicit hash ranges on bucketingV2
+                                      clients to keep bucketing stable across
+                                      monitored/unmonitored transitions.
                                     anyOf:
                                       - type: number
                                         minimum: 0
@@ -30545,16 +30516,15 @@ components:
                               type: string
                             coverage:
                               description: >-
-                                Traffic fraction (0–1). For monitored steps,
-                                this is the total experiment enrollment (not the
-                                fraction seeing variation 1). The experiment
-                                splits enrolled traffic 50/50 between control
-                                and variation, so variation-1 exposure is
-                                coverage/2. For example, coverage=0.8 means 40%
-                                of users see variation 1. The SDK uses
-                                hash-based filters (not coverage) on the
-                                experiment rule to keep bucketing consistent
-                                across monitored and unmonitored transitions.
+                                Traffic fraction (0–1). For monitored steps the
+                                rollout rule is promoted to an experiment:
+                                treatment = [0, coverage), control = [coverage,
+                                2·coverage). Both arms are equal-sized when
+                                coverage ≤ 0.5; the REST API enforces coverage ≤
+                                0.5 on monitored steps to guarantee this. The
+                                SDK uses explicit hash ranges on bucketingV2
+                                clients to keep bucketing stable across
+                                monitored/unmonitored transitions.
                               anyOf:
                                 - type: number
                                   minimum: 0
@@ -31087,16 +31057,15 @@ components:
                               type: string
                             coverage:
                               description: >-
-                                Traffic fraction (0–1). For monitored steps,
-                                this is the total experiment enrollment (not the
-                                fraction seeing variation 1). The experiment
-                                splits enrolled traffic 50/50 between control
-                                and variation, so variation-1 exposure is
-                                coverage/2. For example, coverage=0.8 means 40%
-                                of users see variation 1. The SDK uses
-                                hash-based filters (not coverage) on the
-                                experiment rule to keep bucketing consistent
-                                across monitored and unmonitored transitions.
+                                Traffic fraction (0–1). For monitored steps the
+                                rollout rule is promoted to an experiment:
+                                treatment = [0, coverage), control = [coverage,
+                                2·coverage). Both arms are equal-sized when
+                                coverage ≤ 0.5; the REST API enforces coverage ≤
+                                0.5 on monitored steps to guarantee this. The
+                                SDK uses explicit hash ranges on bucketingV2
+                                clients to keep bucketing stable across
+                                monitored/unmonitored transitions.
                               anyOf:
                                 - type: number
                                   minimum: 0
@@ -31190,17 +31159,15 @@ components:
                                   coverage:
                                     description: >-
                                       Traffic fraction (0–1). For monitored
-                                      steps, this is the total experiment
-                                      enrollment (not the fraction seeing
-                                      variation 1). The experiment splits
-                                      enrolled traffic 50/50 between control and
-                                      variation, so variation-1 exposure is
-                                      coverage/2. For example, coverage=0.8
-                                      means 40% of users see variation 1. The
-                                      SDK uses hash-based filters (not coverage)
-                                      on the experiment rule to keep bucketing
-                                      consistent across monitored and
-                                      unmonitored transitions.
+                                      steps the rollout rule is promoted to an
+                                      experiment: treatment = [0, coverage),
+                                      control = [coverage, 2·coverage). Both
+                                      arms are equal-sized when coverage ≤ 0.5;
+                                      the REST API enforces coverage ≤ 0.5 on
+                                      monitored steps to guarantee this. The SDK
+                                      uses explicit hash ranges on bucketingV2
+                                      clients to keep bucketing stable across
+                                      monitored/unmonitored transitions.
                                     anyOf:
                                       - type: number
                                         minimum: 0
@@ -31301,16 +31268,15 @@ components:
                               type: string
                             coverage:
                               description: >-
-                                Traffic fraction (0–1). For monitored steps,
-                                this is the total experiment enrollment (not the
-                                fraction seeing variation 1). The experiment
-                                splits enrolled traffic 50/50 between control
-                                and variation, so variation-1 exposure is
-                                coverage/2. For example, coverage=0.8 means 40%
-                                of users see variation 1. The SDK uses
-                                hash-based filters (not coverage) on the
-                                experiment rule to keep bucketing consistent
-                                across monitored and unmonitored transitions.
+                                Traffic fraction (0–1). For monitored steps the
+                                rollout rule is promoted to an experiment:
+                                treatment = [0, coverage), control = [coverage,
+                                2·coverage). Both arms are equal-sized when
+                                coverage ≤ 0.5; the REST API enforces coverage ≤
+                                0.5 on monitored steps to guarantee this. The
+                                SDK uses explicit hash ranges on bucketingV2
+                                clients to keep bucketing stable across
+                                monitored/unmonitored transitions.
                               anyOf:
                                 - type: number
                                   minimum: 0
@@ -31495,16 +31461,15 @@ components:
                               type: string
                             coverage:
                               description: >-
-                                Traffic fraction (0–1). For monitored steps,
-                                this is the total experiment enrollment (not the
-                                fraction seeing variation 1). The experiment
-                                splits enrolled traffic 50/50 between control
-                                and variation, so variation-1 exposure is
-                                coverage/2. For example, coverage=0.8 means 40%
-                                of users see variation 1. The SDK uses
-                                hash-based filters (not coverage) on the
-                                experiment rule to keep bucketing consistent
-                                across monitored and unmonitored transitions.
+                                Traffic fraction (0–1). For monitored steps the
+                                rollout rule is promoted to an experiment:
+                                treatment = [0, coverage), control = [coverage,
+                                2·coverage). Both arms are equal-sized when
+                                coverage ≤ 0.5; the REST API enforces coverage ≤
+                                0.5 on monitored steps to guarantee this. The
+                                SDK uses explicit hash ranges on bucketingV2
+                                clients to keep bucketing stable across
+                                monitored/unmonitored transitions.
                               anyOf:
                                 - type: number
                                   minimum: 0
@@ -31598,17 +31563,15 @@ components:
                                   coverage:
                                     description: >-
                                       Traffic fraction (0–1). For monitored
-                                      steps, this is the total experiment
-                                      enrollment (not the fraction seeing
-                                      variation 1). The experiment splits
-                                      enrolled traffic 50/50 between control and
-                                      variation, so variation-1 exposure is
-                                      coverage/2. For example, coverage=0.8
-                                      means 40% of users see variation 1. The
-                                      SDK uses hash-based filters (not coverage)
-                                      on the experiment rule to keep bucketing
-                                      consistent across monitored and
-                                      unmonitored transitions.
+                                      steps the rollout rule is promoted to an
+                                      experiment: treatment = [0, coverage),
+                                      control = [coverage, 2·coverage). Both
+                                      arms are equal-sized when coverage ≤ 0.5;
+                                      the REST API enforces coverage ≤ 0.5 on
+                                      monitored steps to guarantee this. The SDK
+                                      uses explicit hash ranges on bucketingV2
+                                      clients to keep bucketing stable across
+                                      monitored/unmonitored transitions.
                                     anyOf:
                                       - type: number
                                         minimum: 0
@@ -31709,16 +31672,15 @@ components:
                               type: string
                             coverage:
                               description: >-
-                                Traffic fraction (0–1). For monitored steps,
-                                this is the total experiment enrollment (not the
-                                fraction seeing variation 1). The experiment
-                                splits enrolled traffic 50/50 between control
-                                and variation, so variation-1 exposure is
-                                coverage/2. For example, coverage=0.8 means 40%
-                                of users see variation 1. The SDK uses
-                                hash-based filters (not coverage) on the
-                                experiment rule to keep bucketing consistent
-                                across monitored and unmonitored transitions.
+                                Traffic fraction (0–1). For monitored steps the
+                                rollout rule is promoted to an experiment:
+                                treatment = [0, coverage), control = [coverage,
+                                2·coverage). Both arms are equal-sized when
+                                coverage ≤ 0.5; the REST API enforces coverage ≤
+                                0.5 on monitored steps to guarantee this. The
+                                SDK uses explicit hash ranges on bucketingV2
+                                clients to keep bucketing stable across
+                                monitored/unmonitored transitions.
                               anyOf:
                                 - type: number
                                   minimum: 0
@@ -35447,14 +35409,14 @@ components:
                     type: string
                   coverage:
                     description: >-
-                      Traffic fraction (0–1). For monitored steps, this is the
-                      total experiment enrollment (not the fraction seeing
-                      variation 1). The experiment splits enrolled traffic 50/50
-                      between control and variation, so variation-1 exposure is
-                      coverage/2. For example, coverage=0.8 means 40% of users
-                      see variation 1. The SDK uses hash-based filters (not
-                      coverage) on the experiment rule to keep bucketing
-                      consistent across monitored and unmonitored transitions.
+                      Traffic fraction (0–1). For monitored steps the rollout
+                      rule is promoted to an experiment: treatment = [0,
+                      coverage), control = [coverage, 2·coverage). Both arms are
+                      equal-sized when coverage ≤ 0.5; the REST API enforces
+                      coverage ≤ 0.5 on monitored steps to guarantee this. The
+                      SDK uses explicit hash ranges on bucketingV2 clients to
+                      keep bucketing stable across monitored/unmonitored
+                      transitions.
                     anyOf:
                       - type: number
                         minimum: 0
@@ -35546,10 +35508,12 @@ components:
               monitored:
                 description: >-
                   When true, this step runs A/B traffic analysis while active.
-                  Enrolled users are split 50/50 between control and variation,
-                  so a coverage of 1.0 means 50% of users see the variation. The
-                  SDK uses hash-based filters on the experiment rule to prevent
-                  bucketing shifts across monitored/unmonitored transitions.
+                  Treatment = [0, coverage), control = [coverage, 2·coverage).
+                  At coverage ≤ 0.5 both arms are equal-sized; the UI caps
+                  monitored-step coverage at 0.5 to enforce the 50/50 split. The
+                  SDK uses explicit hash ranges on the experiment rule to
+                  prevent bucketing shifts across monitored/unmonitored
+                  transitions.
                 type: boolean
               holdConditions:
                 type: object
@@ -35577,15 +35541,14 @@ components:
                           type: string
                         coverage:
                           description: >-
-                            Traffic fraction (0–1). For monitored steps, this is
-                            the total experiment enrollment (not the fraction
-                            seeing variation 1). The experiment splits enrolled
-                            traffic 50/50 between control and variation, so
-                            variation-1 exposure is coverage/2. For example,
-                            coverage=0.8 means 40% of users see variation 1. The
-                            SDK uses hash-based filters (not coverage) on the
-                            experiment rule to keep bucketing consistent across
-                            monitored and unmonitored transitions.
+                            Traffic fraction (0–1). For monitored steps the
+                            rollout rule is promoted to an experiment: treatment
+                            = [0, coverage), control = [coverage, 2·coverage).
+                            Both arms are equal-sized when coverage ≤ 0.5; the
+                            REST API enforces coverage ≤ 0.5 on monitored steps
+                            to guarantee this. The SDK uses explicit hash ranges
+                            on bucketingV2 clients to keep bucketing stable
+                            across monitored/unmonitored transitions.
                           anyOf:
                             - type: number
                               minimum: 0
@@ -35679,14 +35642,14 @@ components:
                     type: string
                   coverage:
                     description: >-
-                      Traffic fraction (0–1). For monitored steps, this is the
-                      total experiment enrollment (not the fraction seeing
-                      variation 1). The experiment splits enrolled traffic 50/50
-                      between control and variation, so variation-1 exposure is
-                      coverage/2. For example, coverage=0.8 means 40% of users
-                      see variation 1. The SDK uses hash-based filters (not
-                      coverage) on the experiment rule to keep bucketing
-                      consistent across monitored and unmonitored transitions.
+                      Traffic fraction (0–1). For monitored steps the rollout
+                      rule is promoted to an experiment: treatment = [0,
+                      coverage), control = [coverage, 2·coverage). Both arms are
+                      equal-sized when coverage ≤ 0.5; the REST API enforces
+                      coverage ≤ 0.5 on monitored steps to guarantee this. The
+                      SDK uses explicit hash ranges on bucketingV2 clients to
+                      keep bucketing stable across monitored/unmonitored
+                      transitions.
                     anyOf:
                       - type: number
                         minimum: 0
@@ -38272,10 +38235,12 @@ components:
               monitored:
                 description: >-
                   When true, this step runs A/B traffic analysis while active.
-                  Enrolled users are split 50/50 between control and variation,
-                  so a coverage of 1.0 means 50% of users see the variation. The
-                  SDK uses hash-based filters on the experiment rule to prevent
-                  bucketing shifts across monitored/unmonitored transitions.
+                  Treatment = [0, coverage), control = [coverage, 2·coverage).
+                  At coverage ≤ 0.5 both arms are equal-sized; the UI caps
+                  monitored-step coverage at 0.5 to enforce the 50/50 split. The
+                  SDK uses explicit hash ranges on the experiment rule to
+                  prevent bucketing shifts across monitored/unmonitored
+                  transitions.
                 type: boolean
               holdConditions:
                 type: object
@@ -38303,15 +38268,14 @@ components:
                           type: string
                         coverage:
                           description: >-
-                            Traffic fraction (0–1). For monitored steps, this is
-                            the total experiment enrollment (not the fraction
-                            seeing variation 1). The experiment splits enrolled
-                            traffic 50/50 between control and variation, so
-                            variation-1 exposure is coverage/2. For example,
-                            coverage=0.8 means 40% of users see variation 1. The
-                            SDK uses hash-based filters (not coverage) on the
-                            experiment rule to keep bucketing consistent across
-                            monitored and unmonitored transitions.
+                            Traffic fraction (0–1). For monitored steps the
+                            rollout rule is promoted to an experiment: treatment
+                            = [0, coverage), control = [coverage, 2·coverage).
+                            Both arms are equal-sized when coverage ≤ 0.5; the
+                            REST API enforces coverage ≤ 0.5 on monitored steps
+                            to guarantee this. The SDK uses explicit hash ranges
+                            on bucketingV2 clients to keep bucketing stable
+                            across monitored/unmonitored transitions.
                           anyOf:
                             - type: number
                               minimum: 0
@@ -40769,14 +40733,13 @@ components:
               type: string
             coverage:
               description: >-
-                Traffic fraction (0–1). For monitored steps, this is the total
-                experiment enrollment (not the fraction seeing variation 1). The
-                experiment splits enrolled traffic 50/50 between control and
-                variation, so variation-1 exposure is coverage/2. For example,
-                coverage=0.8 means 40% of users see variation 1. The SDK uses
-                hash-based filters (not coverage) on the experiment rule to keep
-                bucketing consistent across monitored and unmonitored
-                transitions.
+                Traffic fraction (0–1). For monitored steps the rollout rule is
+                promoted to an experiment: treatment = [0, coverage), control =
+                [coverage, 2·coverage). Both arms are equal-sized when coverage
+                ≤ 0.5; the REST API enforces coverage ≤ 0.5 on monitored steps
+                to guarantee this. The SDK uses explicit hash ranges on
+                bucketingV2 clients to keep bucketing stable across
+                monitored/unmonitored transitions.
               anyOf:
                 - type: number
                   minimum: 0
@@ -40864,10 +40827,11 @@ components:
         monitored:
           description: >-
             When true, this step runs A/B traffic analysis while active.
-            Enrolled users are split 50/50 between control and variation, so a
-            coverage of 1.0 means 50% of users see the variation. The SDK uses
-            hash-based filters on the experiment rule to prevent bucketing
-            shifts across monitored/unmonitored transitions.
+            Treatment = [0, coverage), control = [coverage, 2·coverage). At
+            coverage ≤ 0.5 both arms are equal-sized; the UI caps monitored-step
+            coverage at 0.5 to enforce the 50/50 split. The SDK uses explicit
+            hash ranges on the experiment rule to prevent bucketing shifts
+            across monitored/unmonitored transitions.
           type: boolean
         holdConditions:
           type: object
@@ -40895,14 +40859,14 @@ components:
                     type: string
                   coverage:
                     description: >-
-                      Traffic fraction (0–1). For monitored steps, this is the
-                      total experiment enrollment (not the fraction seeing
-                      variation 1). The experiment splits enrolled traffic 50/50
-                      between control and variation, so variation-1 exposure is
-                      coverage/2. For example, coverage=0.8 means 40% of users
-                      see variation 1. The SDK uses hash-based filters (not
-                      coverage) on the experiment rule to keep bucketing
-                      consistent across monitored and unmonitored transitions.
+                      Traffic fraction (0–1). For monitored steps the rollout
+                      rule is promoted to an experiment: treatment = [0,
+                      coverage), control = [coverage, 2·coverage). Both arms are
+                      equal-sized when coverage ≤ 0.5; the REST API enforces
+                      coverage ≤ 0.5 on monitored steps to guarantee this. The
+                      SDK uses explicit hash ranges on bucketingV2 clients to
+                      keep bucketing stable across monitored/unmonitored
+                      transitions.
                     anyOf:
                       - type: number
                         minimum: 0

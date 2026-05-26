@@ -15,7 +15,6 @@ export default function RolloutSummary({
   coverage,
   feature,
   hashAttribute,
-  monitored,
 }: {
   value: string;
   coverage: number;
@@ -23,7 +22,7 @@ export default function RolloutSummary({
   hashAttribute: string;
   monitored?: boolean;
 }) {
-  const displayCoverage = monitored ? coverage / 2 : coverage;
+  const displayCoverage = coverage;
   const type = feature.valueType;
   return (
     <Box>

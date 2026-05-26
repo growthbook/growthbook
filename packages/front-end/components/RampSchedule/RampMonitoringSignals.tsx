@@ -585,7 +585,7 @@ export interface RampHealthOverview {
 export function isOnMonitoredStep(
   rampSchedule: RampScheduleInterface,
 ): boolean {
-  if (rampSchedule.status !== "running") return false;
+  if (!["running", "paused"].includes(rampSchedule.status)) return false;
   const step = rampSchedule.steps[rampSchedule.currentStepIndex];
   return !!step?.monitored;
 }

@@ -15,7 +15,7 @@ export const featureRulePatch = z.object({
     .max(1)
     .nullish()
     .describe(
-      "Traffic fraction (0–1). For monitored steps, this is the total experiment enrollment (not the fraction seeing variation 1). The experiment splits enrolled traffic 50/50 between control and variation, so variation-1 exposure is coverage/2. For example, coverage=0.8 means 40% of users see variation 1. The SDK uses hash-based filters (not coverage) on the experiment rule to keep bucketing consistent across monitored and unmonitored transitions.",
+      "Traffic fraction (0–1). For monitored steps the rollout rule is promoted to an experiment: treatment = [0, coverage), control = [coverage, 2·coverage). Both arms are equal-sized when coverage ≤ 0.5; the REST API enforces coverage ≤ 0.5 on monitored steps to guarantee this. The SDK uses explicit hash ranges on bucketingV2 clients to keep bucketing stable across monitored/unmonitored transitions.",
     ),
   condition: z.string().nullish(),
   savedGroups: z.array(savedGroupTargeting).nullish(),
@@ -252,6 +252,18 @@ export const rampScheduleValidator = baseSchema
             path: ["steps", i],
           });
         }
+        if (
+          action.patch.coverage !== undefined &&
+          action.patch.coverage !== null &&
+          action.patch.coverage > 0.5
+        ) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message:
+              "Monitored steps must have coverage ≤ 0.5 (50%). Higher values produce an asymmetric treatment/control split. Use 0.5 for a full 50/50 experiment.",
+            path: ["steps", i],
+          });
+        }
       }
     }
   });
@@ -337,7 +349,7 @@ const apiRampStepCommon = {
     .boolean()
     .optional()
     .describe(
-      "When true, this step runs A/B traffic analysis while active. Enrolled users are split 50/50 between control and variation, so a coverage of 1.0 means 50% of users see the variation. The SDK uses hash-based filters on the experiment rule to prevent bucketing shifts across monitored/unmonitored transitions.",
+      "When true, this step runs A/B traffic analysis while active. Treatment = [0, coverage), control = [coverage, 2·coverage). At coverage ≤ 0.5 both arms are equal-sized; the UI caps monitored-step coverage at 0.5 to enforce the 50/50 split. The SDK uses explicit hash ranges on the experiment rule to prevent bucketing shifts across monitored/unmonitored transitions.",
     ),
   holdConditions: stepHoldConditions.optional(),
 };
