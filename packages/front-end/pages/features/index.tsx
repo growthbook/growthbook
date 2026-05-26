@@ -1,21 +1,16 @@
-import NextLink from "next/link";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
 import { Box, Flex } from "@radix-ui/themes";
+import { FaRegCircleCheck, FaRegCircleXmark } from "react-icons/fa6";
 import { FeatureInterface } from "shared/types/feature";
 import { date, datetime } from "shared/dates";
 import { featureHasEnvironment } from "shared/util";
-import {
-  FaTriangleExclamation,
-  FaRegCircleCheck,
-  FaRegCircleXmark,
-} from "react-icons/fa6";
-import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import Link from "@/ui/Link";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import FeatureModal from "@/components/Features/FeatureModal";
+import { featureStatusColors } from "@/components/Features/FeaturesOverview";
 import track from "@/services/track";
 import RealTimeFeatureGraph from "@/components/Features/RealTimeFeatureGraph";
 import {
@@ -26,7 +21,7 @@ import {
 import { tagFilterOnClick, tagLinkProps } from "@/services/search";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Pagination from "@/components/Pagination";
+import Pagination from "@/ui/Pagination";
 import SortedTags from "@/components/Tags/SortedTags";
 import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -41,28 +36,56 @@ import LinkButton from "@/ui/LinkButton";
 import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import EmptyState from "@/components/EmptyState";
-import ProjectBadges from "@/components/ProjectBadges";
 import FeatureSearchFilters from "@/components/Search/FeatureSearchFilters";
 import { useAuth } from "@/services/auth";
 import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useFeaturesStatus } from "@/hooks/useFeaturesStatus";
 import { useFeatureDraftStates } from "@/hooks/useFeatureDraftStates";
 import { useFeatureStaleStates } from "@/hooks/useFeatureStaleStates";
+import ProjectBadges from "@/components/ProjectBadges";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
+import { TruncateMiddleWithTooltip } from "@/ui/TruncateMiddleWithTooltip";
 import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;
-const HEADER_HEIGHT_PX = 55;
+
+// Feature table column widths (shared by header and body for alignment)
+const FEATURE_TABLE_COLUMN_WIDTH = {
+  WATCHING: 40,
+  FEATURE_KEY_MAX: 200,
+  TAGS: 160,
+  DATA_TYPE_MIN: 80,
+  RECENT_USAGE: 170,
+} as const;
+
+function valueTypeLabel(
+  valueType: "boolean" | "string" | "number" | "json",
+): string {
+  const labels: Record<string, string> = {
+    boolean: "Boolean",
+    string: "String",
+    number: "Number",
+    json: "JSON",
+  };
+  return labels[valueType] ?? valueType;
+}
 
 export default function FeaturesPage() {
   const router = useRouter();
   const { organization } = useUser();
   const { data: sdkConnectionData } = useSDKConnections();
   const permissionsUtil = usePermissionsUtil();
-  const { apiCall } = useAuth();
   const [modalOpen, setModalOpen] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
   const [featureToDuplicate, setFeatureToDuplicate] =
     useState<FeatureInterface | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const { apiCall } = useAuth();
 
   const showGraphs = useFeature("feature-list-realtime-graphs").on;
 
@@ -92,17 +115,22 @@ export default function FeaturesPage() {
   const draftHook = useFeatureDraftStates();
   const staleHook = useFeatureStaleStates();
 
-  const { searchInputProps, items, SortableTH, setSearchValue, syntaxFilters } =
-    useFeatureSearch({
-      allFeatures: allFeatures as unknown as FeatureInterface[],
-      environments,
-      environmentStatus: statusHook.environmentStatus,
-      draftStates: draftHook.draftStates,
-      staleStates: staleHook.staleStates,
-      filterResults: !showArchived
-        ? (items) => items.filter((f) => !f.archived)
-        : undefined,
-    });
+  const {
+    searchInputProps,
+    items,
+    SortableTableColumnHeader,
+    setSearchValue,
+    syntaxFilters,
+  } = useFeatureSearch({
+    allFeatures: allFeatures as unknown as FeatureInterface[],
+    environments,
+    environmentStatus: statusHook.environmentStatus,
+    draftStates: draftHook.draftStates,
+    staleStates: staleHook.staleStates,
+    filterResults: !showArchived
+      ? (items) => items.filter((f) => !f.archived)
+      : undefined,
+  });
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
@@ -176,19 +204,13 @@ export default function FeaturesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibleIdsKey]);
 
-  // Reset featureToDuplicate when modal closes
-  useEffect(() => {
-    if (modalOpen) return;
-    setFeatureToDuplicate(null);
-  }, [modalOpen]);
-
   const renderFeaturesTable = () => {
     return (
       allFeatures.length > 0 && (
         <Box>
-          <Box className="mb-2 align-items-center">
+          <Box mb="2">
             <Flex justify="between" mb="3" gap="3" align="center">
-              <Box className="relative" width="40%">
+              <Box width="40%" style={{ position: "relative" }}>
                 <Field
                   placeholder="Search..."
                   type="search"
@@ -205,86 +227,136 @@ export default function FeaturesPage() {
             </Flex>
           </Box>
 
-          <table className="table gbtable appbox">
-            <thead
-              className="sticky-top shadow-sm"
-              style={{ top: HEADER_HEIGHT_PX + "px", zIndex: 900 }}
-            >
-              <tr>
-                <th></th>
-                <SortableTH field="id">Feature Key</SortableTH>
-                {showProjectColumn && <th>Project</th>}
-                <SortableTH field="tags">Tags</SortableTH>
-                {toggleEnvs.map((en) => (
-                  <th key={en.id} className="text-center">
-                    {en.id}
-                  </th>
-                ))}
-                <th>Type</th>
-                <th>Version</th>
-                <SortableTH field="dateUpdated">Last Updated</SortableTH>
-                {showGraphs && (
-                  <th>
-                    Recent Usage{" "}
-                    <Tooltip body="Client-side feature evaluations for the past 30 minutes. Blue means the feature was 'on', Gray means it was 'off'." />
-                  </th>
+          <Table variant="list" stickyHeader roundedCorners>
+            <TableHeader>
+              <TableRow>
+                <TableColumnHeader
+                  style={{ width: FEATURE_TABLE_COLUMN_WIDTH.WATCHING }}
+                />
+                <SortableTableColumnHeader
+                  field="id"
+                  style={{
+                    maxWidth: FEATURE_TABLE_COLUMN_WIDTH.FEATURE_KEY_MAX,
+                  }}
+                >
+                  Feature Key
+                </SortableTableColumnHeader>
+                {showProjectColumn && (
+                  <TableColumnHeader>Project</TableColumnHeader>
                 )}
-                <th>Stale</th>
-                <th style={{ width: 30 }}></th>
-              </tr>
-            </thead>
-            <tbody>
+                <TableColumnHeader
+                  style={{ maxWidth: FEATURE_TABLE_COLUMN_WIDTH.TAGS }}
+                >
+                  Tags
+                </TableColumnHeader>
+                {toggleEnvs.map((en) => (
+                  <TableColumnHeader
+                    key={en.id}
+                    style={{ textAlign: "center" }}
+                  >
+                    {en.id}
+                  </TableColumnHeader>
+                ))}
+                <TableColumnHeader>Data Type</TableColumnHeader>
+                <TableColumnHeader>Changes</TableColumnHeader>
+                <SortableTableColumnHeader field="dateUpdated">
+                  Last Modified
+                </SortableTableColumnHeader>
+                {showGraphs && (
+                  <TableColumnHeader>
+                    Recent Usage{" "}
+                    <Tooltip
+                      flipTheme={false}
+                      body="Client-side feature evaluations for the past 30 minutes. Blue means the feature was 'on', Gray means it was 'off'."
+                    />
+                  </TableColumnHeader>
+                )}
+                <TableColumnHeader>Stale</TableColumnHeader>
+                <TableColumnHeader style={{ width: 30 }} />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {featureItems.map((feature) => {
-                const version = feature.version;
                 const draftEntry = draftHook.draftStates[feature.id];
 
                 return (
-                  <tr
+                  <TableRow
                     key={feature.id}
-                    className={clsx("hover-highlight", {
-                      "text-muted": feature.archived,
-                    })}
+                    style={{
+                      color: feature.archived ? "var(--gray-11)" : undefined,
+                    }}
                   >
-                    <td data-title="Watching status:" className="watching">
+                    <TableCell className="watching">
                       <WatchButton
                         item={feature.id}
                         itemType="feature"
                         type="icon"
                       />
-                    </td>
-                    <td className="p-0">
-                      <NextLink
+                    </TableCell>
+                    <TableCell
+                      style={{
+                        padding: "var(--space-0)",
+                        maxWidth: FEATURE_TABLE_COLUMN_WIDTH.FEATURE_KEY_MAX,
+                      }}
+                    >
+                      <Link
                         href={`/features/${feature.id}`}
-                        className={clsx("featurename d-block p-2", {
-                          "text-muted": feature.archived,
-                        })}
+                        className="featurename"
+                        style={{
+                          padding: "var(--space-3)",
+                          display: "block",
+                          color: feature.archived
+                            ? "var(--gray-11)"
+                            : undefined,
+                        }}
                       >
-                        {feature.id}
-                      </NextLink>
-                    </td>
+                        <TruncateMiddleWithTooltip
+                          text={feature.id}
+                          maxChars={23}
+                          maxWidth={FEATURE_TABLE_COLUMN_WIDTH.FEATURE_KEY_MAX}
+                          flipTheme={false}
+                        />
+                      </Link>
+                    </TableCell>
                     {showProjectColumn && (
-                      <td>
+                      <TableCell>
                         {feature.project ? (
                           <ProjectBadges
                             resourceType="feature"
                             projectIds={[feature.project]}
                           />
                         ) : null}
-                      </td>
+                      </TableCell>
                     )}
-                    <td>
-                      <SortedTags
-                        tags={feature?.tags || []}
-                        useFlex={true}
-                        {...tagLinkProps("features")}
-                        onTagClick={tagFilterOnClick(
-                          searchInputProps.value,
-                          setSearchValue,
-                        )}
-                      />
-                    </td>
+                    <TableCell
+                      style={{
+                        width: FEATURE_TABLE_COLUMN_WIDTH.TAGS,
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
+                        className="tags-cell-content"
+                        style={{
+                          minWidth: 0,
+                          maxWidth: "100%",
+                          overflow: "hidden",
+                        }}
+                      >
+                        <SortedTags
+                          tags={feature?.tags || []}
+                          useFlex={true}
+                          maxVisibleTags={1}
+                          truncateTagChars={15}
+                          {...tagLinkProps("features")}
+                          onTagClick={tagFilterOnClick(
+                            searchInputProps.value,
+                            setSearchValue,
+                          )}
+                        />
+                      </div>
+                    </TableCell>
                     {toggleEnvs.map((en) => (
-                      <td key={en.id}>
+                      <TableCell key={en.id}>
                         <Flex align="center" justify="center">
                           {featureHasEnvironment(
                             feature as unknown as FeatureInterface,
@@ -297,6 +369,7 @@ export default function FeaturesPage() {
                                 ] ?? false;
                               return (
                                 <Tooltip
+                                  flipTheme={false}
                                   body={
                                     enabled
                                       ? `${en.id}: enabled`
@@ -306,50 +379,73 @@ export default function FeaturesPage() {
                                   {enabled ? (
                                     <FaRegCircleCheck
                                       style={{
-                                        color: "var(--green-9)",
+                                        color: featureStatusColors.on,
                                         fontSize: 18,
                                       }}
+                                      aria-hidden
                                     />
                                   ) : (
                                     <FaRegCircleXmark
                                       style={{
-                                        color: "var(--gray-8)",
+                                        color: featureStatusColors.offMuted,
                                         fontSize: 18,
                                       }}
+                                      aria-hidden
                                     />
                                   )}
                                 </Tooltip>
                               );
                             })()}
                         </Flex>
-                      </td>
+                      </TableCell>
                     ))}
-                    <td>{feature.valueType}</td>
-                    <td style={{ textAlign: "center" }}>
-                      {version}
+                    <TableCell
+                      style={{
+                        minWidth: FEATURE_TABLE_COLUMN_WIDTH.DATA_TYPE_MIN,
+                      }}
+                    >
+                      {valueTypeLabel(feature.valueType)}
+                    </TableCell>
+                    <TableCell
+                      style={{ textAlign: "center", verticalAlign: "middle" }}
+                    >
                       {draftEntry ? (
-                        <Tooltip body="This feature has an active draft that has not been published yet">
-                          <FaTriangleExclamation
-                            className="text-warning ml-1"
-                            style={{ marginTop: -3 }}
+                        <Tooltip
+                          flipTheme={false}
+                          body="This feature has an active draft that has not been published yet"
+                        >
+                          <span
+                            style={{
+                              display: "inline-block",
+                              width: 8,
+                              height: 8,
+                              borderRadius: "50%",
+                              background: "var(--red-9)",
+                              flexShrink: 0,
+                            }}
+                            aria-hidden
                           />
                         </Tooltip>
                       ) : null}
-                    </td>
-                    <td title={datetime(feature.dateUpdated)}>
+                    </TableCell>
+                    <TableCell title={datetime(feature.dateUpdated)}>
                       {date(feature.dateUpdated)}
-                    </td>
+                    </TableCell>
                     {showGraphs && (
-                      <td style={{ width: 170 }}>
+                      <TableCell
+                        style={{
+                          width: FEATURE_TABLE_COLUMN_WIDTH.RECENT_USAGE,
+                        }}
+                      >
                         {!feature.archived && (
                           <RealTimeFeatureGraph
                             data={usage?.[feature.id]?.realtime || []}
                             yDomain={usageDomain}
                           />
                         )}
-                      </td>
+                      </TableCell>
                     )}
-                    <td>
+                    <TableCell style={{ textAlign: "left" }}>
                       {!feature.archived && (
                         <StaleFeatureIcon
                           context="list"
@@ -362,8 +458,8 @@ export default function FeaturesPage() {
                           }}
                         />
                       )}
-                    </td>
-                    <td>
+                    </TableCell>
+                    <TableCell style={{ width: 30 }}>
                       <MoreMenu>
                         {permissionsUtil.canCreateFeature(feature) &&
                         permissionsUtil.canManageFeatureDrafts({
@@ -371,6 +467,7 @@ export default function FeaturesPage() {
                         }) ? (
                           <button
                             className="dropdown-item"
+                            type="button"
                             onClick={async () => {
                               const res = await apiCall<{
                                 feature: FeatureInterface;
@@ -383,17 +480,26 @@ export default function FeaturesPage() {
                           </button>
                         ) : null}
                       </MoreMenu>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
               {!items.length && (
-                <tr>
-                  <td colSpan={7}>No matching features</td>
-                </tr>
+                <TableRow>
+                  <TableCell
+                    colSpan={
+                      8 +
+                      (showProjectColumn ? 1 : 0) +
+                      toggleEnvs.length +
+                      (showGraphs ? 1 : 0)
+                    }
+                  >
+                    No matching features
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
           {Math.ceil(items.length / NUM_PER_PAGE) > 1 && (
             <Pagination
               numItemsTotal={items.length}
@@ -436,11 +542,7 @@ export default function FeaturesPage() {
   }, [project, projects, permissionsUtil]);
 
   if (error) {
-    return (
-      <div className="alert alert-danger">
-        An error occurred: {error.message}
-      </div>
-    );
+    return <Callout status="error">An error occurred: {error.message}</Callout>;
   }
   if (loading) {
     return <LoadingOverlay />;
@@ -475,28 +577,31 @@ export default function FeaturesPage() {
   const toggleEnvs = environments.filter((en) => en.toggleOnList);
 
   return (
-    <div className="contents container pagecontents">
+    <Box className="contents pagecontents" style={{ margin: "0 auto" }}>
       {modalOpen && (
         <FeatureModal
           cta={featureToDuplicate ? "Duplicate" : "Create"}
-          close={() => setModalOpen(false)}
+          close={() => {
+            setModalOpen(false);
+            setFeatureToDuplicate(null);
+          }}
+          featureToDuplicate={featureToDuplicate || undefined}
           onSuccess={async (feature) => {
             const url = `/features/${feature.id}${
               hasFeatures ? "?new" : "?first&new"
             }`;
             router.push(url);
             mutate();
+            setFeatureToDuplicate(null);
           }}
-          featureToDuplicate={featureToDuplicate || undefined}
         />
       )}
-
-      <div className="row my-3">
-        <div className="col">
+      <Flex align="center" justify="between" gap="3" my="3">
+        <Box style={{ flex: 1 }}>
           <h1>Features</h1>
-        </div>
+        </Box>
         {!showSetUpFlow && canViewFeatureModal && canCreateFeatures && (
-          <div className="col-auto">
+          <Box>
             <Button
               onClick={() => {
                 setModalOpen(true);
@@ -507,12 +612,12 @@ export default function FeaturesPage() {
             >
               Add Feature
             </Button>
-          </div>
+          </Box>
         )}
-      </div>
-      <div className="mt-3">
+      </Flex>
+      <Box mt="3">
         <CustomMarkdown page={"featureList"} />
-      </div>
+      </Box>
       {!hasFeatures ? (
         <>
           <EmptyState
@@ -572,6 +677,6 @@ export default function FeaturesPage() {
           </TabsContent>
         </Tabs>
       )}
-    </div>
+    </Box>
   );
 }
