@@ -1961,11 +1961,18 @@ async function createRampSchedulesForRevision(
     // not yet started. Transition ready → running inline so the rule is
     // enabled immediately when this revision publishes rather than waiting
     // for the next poller tick.
+    //
+    // Thread the pre-built auditEvent ("config-edited") into the schedule
+    // object so startReadyScheduleNow appends "started" on top of it,
+    // preserving full audit history parity with the direct-edit path.
     if (
       updateAction.startDate === null &&
       existingSchedule?.status === "ready"
     ) {
-      await startReadyScheduleNow(context, existingSchedule, {
+      const scheduleForStart = auditEvent.eventHistory
+        ? { ...existingSchedule, eventHistory: auditEvent.eventHistory }
+        : existingSchedule;
+      await startReadyScheduleNow(context, scheduleForStart, {
         ...contentUpdates,
         cutoffDate: nextCutoffDate,
       });

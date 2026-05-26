@@ -129,7 +129,10 @@ export class SafeRolloutSnapshotModel extends BaseClass {
           this.context,
           updatedSafeRollout,
         );
-        return;
+        // Fall through: ramp-linked safe rollouts still need webhook/notification
+        // events for data-quality signals (SRM, multiple exposures, ship, rollback).
+        // evaluateRampScheduleAfterSafeRolloutSnapshot handles the mechanical ramp
+        // action (pause/advance/rollback) but does not fire customer notifications.
       }
 
       const notificationTriggered = await notifySafeRolloutChange({
