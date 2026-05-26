@@ -19,7 +19,7 @@ import {
   ReportInterface,
 } from "shared/types/report";
 import { HoldoutInterfaceStringDates } from "shared/validators";
-import { format } from "date-fns";
+import { format } from "date-fns-tz";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
@@ -813,7 +813,10 @@ export default function ExperimentHeader({
                     }}
                   >
                     Starts{" "}
-                    {format(nextScheduledStartDate, "MMM d, yyyy 'at' h:mm a")}{" "}
+                    {format(
+                      nextScheduledStartDate,
+                      "MMM d, yyyy 'at' h:mm a (z)",
+                    )}{" "}
                     {editSchedule && <PiPencilSimpleFill className="ml-1" />}
                   </Button>
                 ) : experiment.status === "draft" ? (
