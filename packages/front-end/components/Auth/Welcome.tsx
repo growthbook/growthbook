@@ -172,20 +172,22 @@ export default function Welcome({
                   {hero.body}
                 </Text>
               )}
-              {ctaText && ctaLink && /^https?:\/\//i.test(ctaLink) && (
-                <Box mt="5" mb="5">
-                  <WhiteButton
-                    variant="outline"
-                    size="md"
-                    fullWidth={false}
-                    onClick={() =>
-                      window.open(ctaLink, "_blank", "noopener,noreferrer")
-                    }
-                  >
-                    {ctaText}
-                  </WhiteButton>
-                </Box>
-              )}
+              {ctaText &&
+                ctaLink &&
+                /^(https?:\/\/|mailto:)/i.test(ctaLink) && (
+                  <Box mt="5" mb="5">
+                    <WhiteButton
+                      variant="outline"
+                      size="md"
+                      fullWidth={false}
+                      onClick={() =>
+                        window.open(ctaLink, "_blank", "noopener,noreferrer")
+                      }
+                    >
+                      {ctaText}
+                    </WhiteButton>
+                  </Box>
+                )}
             </Box>
           </>
         ) : (
