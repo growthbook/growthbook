@@ -327,8 +327,19 @@ describe("isOnMonitoredStep", () => {
     expect(isOnMonitoredStep(makeSchedule())).toBe(true);
   });
 
-  it("returns false when status is not running", () => {
-    expect(isOnMonitoredStep(makeSchedule({ status: "paused" }))).toBe(false);
+  it("returns true for a paused schedule on a monitored step", () => {
+    expect(isOnMonitoredStep(makeSchedule({ status: "paused" }))).toBe(true);
+  });
+
+  it("returns false for terminal statuses", () => {
+    for (const status of [
+      "pending",
+      "ready",
+      "completed",
+      "rolled-back",
+    ] as const) {
+      expect(isOnMonitoredStep(makeSchedule({ status }))).toBe(false);
+    }
   });
 
   it("returns false when the current step is not monitored", () => {

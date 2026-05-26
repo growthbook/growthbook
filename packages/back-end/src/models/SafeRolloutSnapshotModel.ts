@@ -155,31 +155,37 @@ export class SafeRolloutSnapshotModel extends BaseClass {
         );
       }
 
-      const feature = await getFeature(this.context, safeRollout.featureId);
-      if (!feature) {
-        throw new Error("Feature not found");
-      }
-      // Locate the safe-rollout rule by safeRolloutId on the flat rules array.
-      const matchingRule = (feature.rules ?? []).find(
-        (r) => r.type === "safe-rollout" && r.safeRolloutId === safeRollout.id,
-      );
-      if (!matchingRule) {
-        throw new Error("Rule not found");
-      }
+      // Ramp-linked SRs monitor a rollout rule — there is no safe-rollout type
+      // rule on the feature, so feature/rule lookup and checkAndRollbackSafeRollout
+      // only apply to standalone (non-ramp) SRs.
+      if (!safeRollout.rampScheduleId) {
+        const feature = await getFeature(this.context, safeRollout.featureId);
+        if (!feature) {
+          throw new Error("Feature not found");
+        }
+        // Locate the safe-rollout rule by safeRolloutId on the flat rules array.
+        const matchingRule = (feature.rules ?? []).find(
+          (r) =>
+            r.type === "safe-rollout" && r.safeRolloutId === safeRollout.id,
+        );
+        if (!matchingRule) {
+          throw new Error("Rule not found");
+        }
 
-      const status = await checkAndRollbackSafeRollout({
-        context: this.context,
-        updatedSafeRollout,
-        safeRolloutSnapshot: updatedDoc,
-        ruleId: matchingRule.id,
-        feature,
-      });
-      // update the ramp up Schedule if the status is running and the ramp up is enabled and not completed
-      if (status === "running") {
-        await updateRampUpSchedule({
+        const status = await checkAndRollbackSafeRollout({
           context: this.context,
-          safeRollout,
+          updatedSafeRollout,
+          safeRolloutSnapshot: updatedDoc,
+          ruleId: matchingRule.id,
+          feature,
         });
+        // update the ramp up Schedule if the status is running and the ramp up is enabled and not completed
+        if (status === "running") {
+          await updateRampUpSchedule({
+            context: this.context,
+            safeRollout,
+          });
+        }
       }
     }
   }
