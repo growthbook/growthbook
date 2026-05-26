@@ -92,6 +92,7 @@ type RootProps = TrackingEventModalProps & {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   size?: Size;
+  dismissable?: boolean;
   children: ReactNode;
 };
 
@@ -99,6 +100,7 @@ function Root({
   open,
   onOpenChange,
   size = "md",
+  dismissable = false,
   trackingEventModalType,
   trackingEventModalSource,
   allowlistedTrackingEventProps = {},
@@ -168,6 +170,12 @@ function Root({
         size={getRadixSize(size)}
         maxWidth={getMaxWidth(size)}
         maxHeight="85vh"
+        onEscapeKeyDown={(e) => {
+          if (!dismissable) e.preventDefault();
+        }}
+        onPointerDownOutside={(e) => {
+          if (!dismissable) e.preventDefault();
+        }}
         style={
           {
             display: "flex",

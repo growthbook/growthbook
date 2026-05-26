@@ -37,6 +37,7 @@ export type Props = TrackingEventModalProps & {
   size?: Size;
   submit?: () => void | Promise<void>;
   trackOnSubmit?: boolean;
+  dismissable?: boolean;
   // Optional button rendered on the left side of the footer. Use for
   // destructive or out-of-flow actions that shouldn't be the primary CTA.
   secondaryAction?: ReactNode;
@@ -65,6 +66,7 @@ export default function ModalStandard({
   trackingEventModalSource,
   allowlistedTrackingEventProps = {},
   trackOnSubmit = true,
+  dismissable,
 }: Props) {
   const content = (
     <>
@@ -101,6 +103,7 @@ export default function ModalStandard({
         if (!nextOpen) close();
       }}
       size={size}
+      dismissable={dismissable ?? !submit}
       trackingEventModalType={trackingEventModalType}
       trackingEventModalSource={trackingEventModalSource}
       allowlistedTrackingEventProps={allowlistedTrackingEventProps}
