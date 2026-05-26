@@ -101,7 +101,7 @@ function Root({
   onOpenChange,
   size = "md",
   dismissable = false,
-  hasDescription = true,
+  hasDescription = false,
   trackingEventModalType,
   trackingEventModalSource,
   allowlistedTrackingEventProps = {},
