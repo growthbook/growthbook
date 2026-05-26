@@ -9373,6 +9373,19 @@ paths:
                     required:
                       - slices
                     additionalProperties: false
+                statusUpdateSchedule:
+                  description: >-
+                    Schedule a future start for a draft experiment. Only
+                    `startAt` is currently supported.
+                  type: object
+                  properties:
+                    startAt:
+                      format: date-time
+                      description: >-
+                        ISO datetime when the experiment should start. Must be
+                        in the future.
+                      type: string
+                  additionalProperties: false
               required:
                 - trackingKey
                 - name
@@ -9960,11 +9973,11 @@ paths:
                         startAt:
                           format: date-time
                           description: >-
-                            ISO datetime when the experiment should start.
-                            Setting or clearing this field invalidates any
-                            existing staged start (`nextScheduledStatusUpdate`);
-                            call POST /experiments/{id}/start to stage the new
-                            schedule.
+                            ISO datetime when the experiment should start. Must
+                            be in the future. Setting or clearing this field
+                            invalidates any existing staged start
+                            (`nextScheduledStatusUpdate`); call POST
+                            /experiments/{id}/start to stage the new schedule.
                           type: string
                       additionalProperties: false
                     - type: 'null'
@@ -10055,7 +10068,10 @@ paths:
   /v1/experiments/{id}/start:
     post:
       operationId: postExperimentStart
-      summary: Start an experiment
+      summary: Start/Stage an experiment
+      description: >-
+        Starts an experiment or stages it for a future start if a
+        `statusUpdateSchedule` is set on the experiment.
       tags:
         - experiments
       parameters:

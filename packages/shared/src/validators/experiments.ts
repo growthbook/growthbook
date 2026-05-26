@@ -1119,6 +1119,20 @@ const postExperimentBody = z
       .optional(),
     customFields: z.record(z.string(), z.string()).optional(),
     customMetricSlices: apiCustomMetricSlices.optional(),
+    statusUpdateSchedule: z
+      .object({
+        startAt: z
+          .string()
+          .meta({ format: "date-time" })
+          .describe(
+            "ISO datetime when the experiment should start. Must be in the future.",
+          )
+          .optional(),
+      })
+      .describe(
+        "Schedule a future start for a draft experiment. Only `startAt` is currently supported.",
+      )
+      .optional(),
   })
   .strict();
 
@@ -1298,7 +1312,7 @@ const updateExperimentBody = z
           .string()
           .meta({ format: "date-time" })
           .describe(
-            "ISO datetime when the experiment should start. Setting or clearing this field invalidates any existing staged start (`nextScheduledStatusUpdate`); call POST /experiments/{id}/start to stage the new schedule.",
+            "ISO datetime when the experiment should start. Must be in the future. Setting or clearing this field invalidates any existing staged start (`nextScheduledStatusUpdate`); call POST /experiments/{id}/start to stage the new schedule.",
           )
           .optional(),
       })
@@ -1583,7 +1597,9 @@ export const postExperimentStartValidator = {
         .optional(),
     })
     .strict(),
-  summary: "Start an experiment",
+  summary: "Start/Stage an experiment",
+  description:
+    "Starts an experiment or stages it for a future start if a `statusUpdateSchedule` is set on the experiment.",
   operationId: "postExperimentStart",
   tags: ["experiments"],
   method: "post" as const,

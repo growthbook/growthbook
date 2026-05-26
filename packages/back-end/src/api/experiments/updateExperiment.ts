@@ -14,6 +14,7 @@ import {
   normalizeStatusUpdateScheduleChanges,
   toExperimentApiInterface,
   updateExperimentApiPayloadToInterface,
+  validateStatusUpdateSchedule,
   validateVariationIds,
 } from "back-end/src/services/experiments";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
@@ -272,7 +273,11 @@ export const updateExperiment = createApiRequestHandler(
     req.organization,
   );
 
-  normalizeStatusUpdateScheduleChanges(experiment, changes);
+  if (req.body.statusUpdateSchedule) {
+    const effectiveType = req.body.type ?? experiment.type ?? "standard";
+    validateStatusUpdateSchedule(effectiveType, req.body.statusUpdateSchedule);
+    normalizeStatusUpdateScheduleChanges(experiment, changes);
+  }
 
   const isStartingFromDraft =
     experiment.status === "draft" && changes.status === "running";
