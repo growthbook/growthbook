@@ -56,7 +56,7 @@ export default function SavedGroupTargetingField({
 }: Props) {
   const { savedGroups, getSavedGroupById } = useDefinitions();
 
-  const { unsupportedConnections, hasLargeSavedGroupFeature } =
+  const { unsupportedConnections, hasLargeSavedGroupFeature, connections } =
     useLargeSavedGroupSupport(project);
 
   const savedGroupsLabel =
@@ -199,6 +199,7 @@ export default function SavedGroupTargetingField({
             <LargeSavedGroupPerformanceWarning
               hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
               unsupportedConnections={unsupportedConnections}
+              connections={connections}
             />
           </Box>
         )

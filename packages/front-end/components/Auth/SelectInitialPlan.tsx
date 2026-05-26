@@ -1,4 +1,4 @@
-import { FC, useState, useCallback, useEffect, useRef } from "react";
+import { FC, useState, useCallback } from "react";
 import { useRouter } from "next/router";
 import { Box, Flex } from "@radix-ui/themes";
 import {
@@ -23,7 +23,6 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBInfo } from "@/components/Icons";
 import Checkbox from "@/ui/Checkbox";
 import Button from "@/components/Button";
-import LoadingOverlay from "@/components/LoadingOverlay";
 import track from "@/services/track";
 import WelcomeFrame from "./WelcomeFrame";
 
@@ -210,7 +209,6 @@ const SelectInitialPlan: FC = () => {
           getBillingData={() => billingForm.getValues()}
           onSuccess={() => handleNext()}
           onBack={handleBack}
-          loading={loading}
           setLoading={setLoading}
           setError={setError}
         />
@@ -320,7 +318,6 @@ type ProPaymentStepProps = {
   onSuccess: () => void;
   onBack: () => void;
   setLoading: (v: boolean) => void;
-  loading: boolean;
   setError: (v: string | null) => void;
 };
 
@@ -330,81 +327,12 @@ const ProPaymentStep: FC<ProPaymentStepProps> = ({
   onSuccess,
   onBack,
   setLoading,
-  loading,
   setError,
 }) => {
-  const { apiCall } = useAuth();
-  const [clientSecret, setClientSecret] = useState<string | undefined>(
-    undefined,
-  );
-  const cancelledRef = useRef(false);
-
-  const fetchSetupIntent = useCallback(() => {
-    cancelledRef.current = false;
-    setLoading(true);
-    setError(null);
-    apiCall<{ clientSecret: string }>("/subscription/setup-intent", {
-      method: "POST",
-    })
-      .then((res) => {
-        if (!cancelledRef.current && res?.clientSecret) {
-          setClientSecret(res.clientSecret);
-        }
-      })
-      .catch((e) => {
-        if (!cancelledRef.current) {
-          const message =
-            e instanceof Error
-              ? e.message
-              : typeof e === "string"
-                ? e
-                : "Failed to start setup";
-          setError(message);
-        }
-      })
-      .finally(() => {
-        if (!cancelledRef.current) setLoading(false);
-      });
-  }, [apiCall, setLoading, setError]);
-
-  useEffect(() => {
-    fetchSetupIntent();
-    return () => {
-      cancelledRef.current = true;
-    };
-  }, [fetchSetupIntent]);
-
-  if (loading && !clientSecret) {
-    return <LoadingOverlay />;
-  }
-
-  if (!clientSecret) {
-    return (
-      <div style={{ maxWidth: "500px" }}>
-        <Heading as="h2" mb="3">
-          Add payment method
-        </Heading>
-        <Flex gap="2" width="100%" justify="between">
-          <Button color="secondary" onClick={onBack}>
-            Back
-          </Button>
-          <Button
-            color="primary"
-            onClick={() => {
-              track("Initial signup: retry setup intent");
-              setError(null);
-              fetchSetupIntent();
-            }}
-          >
-            Retry
-          </Button>
-        </Flex>
-      </div>
-    );
-  }
-
+  // StripeProvider now owns the load-Stripe-then-create-Radar-session-then-
+  // fetch-SetupIntent flow, so this component just renders it directly.
   return (
-    <StripeProvider initialClientSecret={clientSecret}>
+    <StripeProvider setupIntentEndpoint="/subscription/setup-intent">
       <ProPaymentFormInner
         getBillingData={getBillingData}
         onSuccess={onSuccess}

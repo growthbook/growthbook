@@ -424,9 +424,6 @@ importers:
       snowflake-sdk:
         specifier: 2.3.3
         version: 2.3.3(asn1.js@5.4.1)(encoding@0.1.13)
-      ssrf-req-filter:
-        specifier: ^1.1.1
-        version: 1.1.1
       string-env-interpolation:
         specifier: ^1.0.1
         version: 1.0.1
@@ -9283,10 +9280,6 @@ packages:
     resolution: {integrity: sha512-0KI/607xoxSToH7GjN1FfSbLoU0+btTicjsQSWQlh/hZykN8KpmMf7uYwPW3R+akZ6R/w18ZlXSHBYXiYUPO3g==}
     engines: {node: '>= 0.10'}
 
-  ipaddr.js@2.2.0:
-    resolution: {integrity: sha512-Ag3wB2o37wslZS19hZqorUnrnzSkpOVy+IiiDEiTqNubEYpYuHWIf6K4psgN2ZWKExS4xhVCrRVfb/wfW8fWJA==}
-    engines: {node: '>= 10'}
-
   is-absolute@1.0.0:
     resolution: {integrity: sha512-dOWoqflvcydARa360Gvv18DZ/gRuHKi2NU/wU5X1ZFzdYfH29nkiNZsF3mp4OJ3H4yo9Mx8A/uAGNzpzPN3yBA==}
     engines: {node: '>=0.10.0'}
@@ -12180,9 +12173,6 @@ packages:
   sqlstring@2.3.3:
     resolution: {integrity: sha512-qC9iz2FlN7DQl3+wjwn3802RTyjCx7sDvfQEXchwa6CWOx07/WVfh91gBmQ9fahw8snwGEWU3xGzOt4tFyHLxg==}
     engines: {node: '>= 0.6'}
-
-  ssrf-req-filter@1.1.1:
-    resolution: {integrity: sha512-z0duj5tuvr5YetayhTdQWHf5gEncHvY6nL1HoqiFaF0gfK8Gc3VpTlxvAf4DaOVwcoczfqsL97H5TJRfYFtEYg==}
 
   ssri@13.0.1:
     resolution: {integrity: sha512-QUiRf1+u9wPTL/76GTYlKttDEBWV1ga9ZXW8BG6kfdeyyM8LGPix9gROyg9V2+P0xNyF3X2Go526xKFdMZrHSQ==}
@@ -23871,8 +23861,6 @@ snapshots:
 
   ipaddr.js@1.9.1: {}
 
-  ipaddr.js@2.2.0: {}
-
   is-absolute@1.0.0:
     dependencies:
       is-relative: 1.0.0
@@ -27569,10 +27557,6 @@ snapshots:
       nearley: 2.20.1
 
   sqlstring@2.3.3: {}
-
-  ssrf-req-filter@1.1.1:
-    dependencies:
-      ipaddr.js: 2.2.0
 
   ssri@13.0.1:
     dependencies:
