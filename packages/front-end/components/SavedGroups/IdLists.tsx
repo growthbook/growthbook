@@ -60,7 +60,7 @@ export default function IdLists({ groups, mutate }: Props) {
       )
     : idLists;
 
-  const { hasLargeSavedGroupFeature, unsupportedConnections } =
+  const { hasLargeSavedGroupFeature, unsupportedConnections, connections } =
     useLargeSavedGroupSupport();
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
 
@@ -141,6 +141,7 @@ export default function IdLists({ groups, mutate }: Props) {
             <LargeSavedGroupPerformanceWarning
               hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
               unsupportedConnections={unsupportedConnections}
+              connections={connections}
               openUpgradeModal={() => setUpgradeModal(true)}
             />
           </Box>

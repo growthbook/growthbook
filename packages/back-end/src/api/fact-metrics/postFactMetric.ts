@@ -50,12 +50,26 @@ export async function getCreateMetricPropsFromBody(
     ...otherFields
   } = body;
 
+  // Set the correct column based on metric type
+  let column: string;
+  if (body.metricType === "proportion" || body.metricType === "retention") {
+    column = "$$distinctUsers";
+  } else if (body.metricType === "dailyParticipation") {
+    column = "$$distinctDates";
+  } else {
+    column = body.numerator.column || "$$distinctUsers";
+  }
+
   const cleanedNumerator = FactMetricModel.migrateColumnRef({
     ...numerator,
-    column:
-      body.metricType === "proportion" || body.metricType === "retention"
-        ? "$$distinctUsers"
-        : body.numerator.column || "$$distinctUsers",
+    column,
+    // Clear aggregation for metric types that use special columns
+    aggregation:
+      body.metricType === "proportion" ||
+      body.metricType === "retention" ||
+      body.metricType === "dailyParticipation"
+        ? undefined
+        : numerator.aggregation,
   });
 
   const data: CreateFactMetricProps = {

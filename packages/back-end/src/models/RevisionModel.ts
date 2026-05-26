@@ -12,6 +12,7 @@ import {
 import type { CreateProps, UpdateProps } from "shared/types/base-model";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 import { getAdapter } from "back-end/src/revisions/index";
+import { createWithVersionRetry } from "back-end/src/util/mongo.util";
 
 // Derived from the validator so the two can't drift apart.
 const VALID_ACTIVITY_LOG_ACTIONS: ReadonlySet<ActivityLogEntry["action"]> =
@@ -73,38 +74,6 @@ const BaseClass = MakeModelClass({
   ],
 });
 
-const DUPLICATE_KEY_ERROR_CODE = 11000;
-const MAX_VERSION_RETRY_ATTEMPTS = 5;
-
-/**
- * Detect MongoDB duplicate-key errors across the various shapes the driver and
- * mongoose can produce: top-level `code`, `writeErrors[].code`, and
- * `BulkWriteError`/`MongoServerError` instances. We deliberately match by code
- * (11000) rather than by error class name so we catch wrapped variants too.
- */
-function isDuplicateKeyError(err: unknown): boolean {
-  if (typeof err !== "object" || err === null) return false;
-  const e = err as {
-    code?: unknown;
-    writeErrors?: { code?: unknown }[];
-    name?: unknown;
-    message?: unknown;
-  };
-  if (e.code === DUPLICATE_KEY_ERROR_CODE) return true;
-  if (
-    Array.isArray(e.writeErrors) &&
-    e.writeErrors.some((we) => we?.code === DUPLICATE_KEY_ERROR_CODE)
-  ) {
-    return true;
-  }
-  // Last-resort match — the driver always includes "E11000" in the message
-  // for duplicate-key errors, regardless of which wrapper class is thrown.
-  if (typeof e.message === "string" && e.message.includes("E11000")) {
-    return true;
-  }
-  return false;
-}
-
 export class RevisionModel extends BaseClass {
   /**
    * Retry a create operation on duplicate-key error. The unique
@@ -114,20 +83,12 @@ export class RevisionModel extends BaseClass {
    * against the now-larger set of existing revisions.
    *
    * IMPORTANT: All revision-creating call sites (including
-   * `dangerousCreateBypassPermission`) must go through this wrapper. The
-   * provided `op` is invoked at most MAX_VERSION_RETRY_ATTEMPTS times.
+   * `dangerousCreateBypassPermission`) must go through this wrapper. Delegates
+   * to the shared `createWithVersionRetry` util so the retry semantics stay
+   * in lockstep with `FeatureRevisionModel.createRevision`.
    */
-  public async createWithVersionRetry<R>(op: () => Promise<R>): Promise<R> {
-    let lastErr: unknown;
-    for (let attempt = 0; attempt < MAX_VERSION_RETRY_ATTEMPTS; attempt++) {
-      try {
-        return await op();
-      } catch (err) {
-        if (!isDuplicateKeyError(err)) throw err;
-        lastErr = err;
-      }
-    }
-    throw lastErr;
+  public createWithVersionRetry<R>(op: () => Promise<R>): Promise<R> {
+    return createWithVersionRetry(op);
   }
 
   /**
@@ -172,6 +133,8 @@ export class RevisionModel extends BaseClass {
     userId: string,
   ): { status?: Revision["status"]; resetEntry?: ActivityLogEntry } {
     if (existing.status !== "approved") return {};
+    if (!this.context.hasPremiumFeature("require-approvals")) return {};
+
     const settings = getApprovalFlowSettings(
       this.context.org.settings?.approvalFlows,
       existing.target.type,

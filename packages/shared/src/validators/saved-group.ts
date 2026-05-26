@@ -257,6 +257,40 @@ export const updateSavedGroupValidator = {
   },
 };
 
+export const archiveSavedGroupValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({
+      savedGroup: apiSavedGroupValidator,
+    })
+    .strict(),
+  summary: "Archive a single saved group",
+  operationId: "archiveSavedGroup",
+  tags: ["saved-groups"],
+  method: "post" as const,
+  path: "/saved-groups/:id/archive",
+  exampleRequest: { params: { id: "abc123" } },
+};
+
+export const unarchiveSavedGroupValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({
+      savedGroup: apiSavedGroupValidator,
+    })
+    .strict(),
+  summary: "Unarchive a single saved group",
+  operationId: "unarchiveSavedGroup",
+  tags: ["saved-groups"],
+  method: "post" as const,
+  path: "/saved-groups/:id/unarchive",
+  exampleRequest: { params: { id: "abc123" } },
+};
+
 export const deleteSavedGroupValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),

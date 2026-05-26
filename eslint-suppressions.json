@@ -272,7 +272,7 @@
       "count": 2
     },
     "no-restricted-imports": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/Experiment/NewPhaseForm.tsx": {
@@ -349,9 +349,6 @@
     }
   },
   "packages/front-end/components/Experiment/TabbedPage/ExperimentHeader.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    },
     "no-restricted-imports": {
       "count": 1
     }
@@ -370,11 +367,6 @@
     }
   },
   "packages/front-end/components/Experiment/TabbedPage/RunningExperimentDecisionBanner.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Experiment/TabbedPage/StartExperimentModal.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -749,7 +741,7 @@
   },
   "packages/front-end/components/GeneralSettings/ExperimentSettings/StickyBucketingSettings.tsx": {
     "no-restricted-imports": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/GeneralSettings/ExperimentSettings/index.tsx": {
@@ -898,9 +890,6 @@
   "packages/front-end/components/Holdout/NewHoldoutForm.tsx": {
     "local/no-alert-classname": {
       "count": 2
-    },
-    "no-restricted-imports": {
-      "count": 1
     }
   },
   "packages/front-end/components/HomePage/DiscussionFeed.tsx": {

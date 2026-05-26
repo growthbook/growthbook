@@ -22,6 +22,10 @@ import {
   inferSchemaField,
   inferSchemaFields,
   inferSimpleSchemaFromValue,
+  extractConditionAttributeKeys,
+  findUnregisteredAttributes,
+  categorizeUnregisteredAttributes,
+  getRequireRegisteredAttributesSettings,
   ruleAppliesToEnv,
   ruleFootprint,
   getRulesForEnvironment,
@@ -1473,6 +1477,232 @@ describe("validateCondition", () => {
       success: true,
       empty: false,
     });
+  });
+});
+
+describe("extractConditionAttributeKeys", () => {
+  it("returns empty for nullish / non-object input", () => {
+    expect(extractConditionAttributeKeys(undefined)).toEqual([]);
+    expect(extractConditionAttributeKeys(null)).toEqual([]);
+    expect(extractConditionAttributeKeys("string")).toEqual([]);
+    expect(extractConditionAttributeKeys({})).toEqual([]);
+  });
+
+  it("extracts bare equality keys", () => {
+    expect(
+      extractConditionAttributeKeys({ userId: "abc", country: "US" }).sort(),
+    ).toEqual(["country", "userId"]);
+  });
+
+  it("skips operator keys ($eq, $gte, $in, $elemMatch)", () => {
+    expect(
+      extractConditionAttributeKeys({
+        age: { $gte: 18, $lte: 99 },
+        country: { $in: ["US", "CA"] },
+        roles: { $elemMatch: { $eq: "admin" } },
+      }).sort(),
+    ).toEqual(["age", "country", "roles"]);
+  });
+
+  it("treats $inGroup / $notInGroup as operators, not attributes", () => {
+    expect(
+      extractConditionAttributeKeys({
+        userId: { $inGroup: "sg_123" },
+        tenant: { $notInGroup: "sg_456" },
+      }).sort(),
+    ).toEqual(["tenant", "userId"]);
+  });
+
+  it("recurses into $and / $or / $nor / $not", () => {
+    expect(
+      extractConditionAttributeKeys({
+        $and: [{ userId: "x" }, { $or: [{ plan: "free" }, { plan: "trial" }] }],
+        $nor: [{ banned: true }],
+        $not: { archived: true },
+      }).sort(),
+    ).toEqual(["archived", "banned", "plan", "userId"]);
+  });
+
+  it("deduplicates repeated attribute keys", () => {
+    expect(
+      extractConditionAttributeKeys({
+        $or: [{ plan: "free" }, { plan: "trial" }, { plan: "paid" }],
+      }),
+    ).toEqual(["plan"]);
+  });
+
+  it("keeps dot-notation keys intact (caller checks root segment)", () => {
+    expect(
+      extractConditionAttributeKeys({ "user.id": "x", "user.role": "admin" }),
+    ).toEqual(["user.id", "user.role"]);
+  });
+});
+
+describe("findUnregisteredAttributes", () => {
+  const schema = [
+    { property: "userId", datatype: "string" as const },
+    { property: "country", datatype: "string" as const },
+    { property: "user", datatype: "string" as const },
+    {
+      property: "legacyId",
+      datatype: "string" as const,
+      archived: true,
+    },
+  ];
+
+  it("returns empty when every key is registered and active", () => {
+    expect(findUnregisteredAttributes(["userId", "country"], schema)).toEqual(
+      [],
+    );
+  });
+
+  it("flags truly unknown keys", () => {
+    expect(
+      findUnregisteredAttributes(["userId", "accountUUID"], schema),
+    ).toEqual(["accountUUID"]);
+  });
+
+  it("flags archived attributes as unregistered", () => {
+    expect(findUnregisteredAttributes(["legacyId"], schema)).toEqual([
+      "legacyId",
+    ]);
+  });
+
+  it("treats dot-notation keys as registered via their root segment", () => {
+    expect(
+      findUnregisteredAttributes(["user.id", "user.role"], schema),
+    ).toEqual([]);
+  });
+
+  it("deduplicates repeated bad keys in the output", () => {
+    expect(
+      findUnregisteredAttributes(["typo", "typo", "other_typo"], schema),
+    ).toEqual(["typo", "other_typo"]);
+  });
+
+  it("treats undefined schema as empty (everything unregistered)", () => {
+    expect(findUnregisteredAttributes(["userId"], undefined)).toEqual([
+      "userId",
+    ]);
+  });
+});
+
+describe("categorizeUnregisteredAttributes", () => {
+  const schema = [
+    { property: "userId", datatype: "string" as const },
+    {
+      property: "country",
+      datatype: "string" as const,
+      projects: ["proj_one"],
+    },
+    {
+      property: "betaFlag",
+      datatype: "string" as const,
+      projects: ["proj_two", "proj_three"],
+    },
+    {
+      property: "legacyId",
+      datatype: "string" as const,
+      archived: true,
+    },
+  ];
+
+  it("returns empty buckets when every key is registered for the project", () => {
+    expect(
+      categorizeUnregisteredAttributes(
+        ["userId", "country"],
+        schema,
+        "proj_one",
+      ),
+    ).toEqual({ unknown: [], outOfProject: [] });
+  });
+
+  it("flags truly unknown keys as unknown", () => {
+    expect(
+      categorizeUnregisteredAttributes(["typo"], schema, "proj_one"),
+    ).toEqual({ unknown: ["typo"], outOfProject: [] });
+  });
+
+  it("flags attributes scoped to other projects as outOfProject", () => {
+    expect(
+      categorizeUnregisteredAttributes(["betaFlag"], schema, "proj_one"),
+    ).toEqual({ unknown: [], outOfProject: ["betaFlag"] });
+  });
+
+  it("includes both buckets when input has a mix", () => {
+    expect(
+      categorizeUnregisteredAttributes(
+        ["userId", "betaFlag", "typo"],
+        schema,
+        "proj_one",
+      ),
+    ).toEqual({ unknown: ["typo"], outOfProject: ["betaFlag"] });
+  });
+
+  it("matches multi-project context if any project overlaps", () => {
+    expect(
+      categorizeUnregisteredAttributes(["betaFlag"], schema, [
+        "proj_one",
+        "proj_two",
+      ]),
+    ).toEqual({ unknown: [], outOfProject: [] });
+  });
+
+  it("treats archived attributes as unknown, not outOfProject", () => {
+    expect(
+      categorizeUnregisteredAttributes(["legacyId"], schema, "proj_one"),
+    ).toEqual({ unknown: ["legacyId"], outOfProject: [] });
+  });
+
+  it("does not produce outOfProject entries when no project context is provided", () => {
+    expect(categorizeUnregisteredAttributes(["betaFlag"], schema)).toEqual({
+      unknown: [],
+      outOfProject: [],
+    });
+  });
+});
+
+describe("getRequireRegisteredAttributesSettings", () => {
+  it("treats undefined / null / false / missing as fully off", () => {
+    for (const v of [undefined, null, false]) {
+      expect(getRequireRegisteredAttributesSettings(v)).toEqual({
+        isOn: false,
+        requireProjectScoping: false,
+      });
+    }
+  });
+
+  it("normalizes legacy boolean true to strict mode (preserves prior behavior)", () => {
+    // Older orgs only had the boolean and were already getting project-scoped
+    // checks. Migrating them to { isOn:false } or
+    // { requireProjectScoping:false } would silently relax their guards.
+    expect(getRequireRegisteredAttributesSettings(true)).toEqual({
+      isOn: true,
+      requireProjectScoping: true,
+    });
+  });
+
+  it("passes through the canonical object shape", () => {
+    expect(
+      getRequireRegisteredAttributesSettings({
+        isOn: true,
+        requireProjectScoping: false,
+      }),
+    ).toEqual({ isOn: true, requireProjectScoping: false });
+    expect(
+      getRequireRegisteredAttributesSettings({
+        isOn: false,
+        requireProjectScoping: true,
+      }),
+    ).toEqual({ isOn: false, requireProjectScoping: true });
+  });
+
+  it("defaults requireProjectScoping to true when missing on the object (strict default)", () => {
+    expect(
+      getRequireRegisteredAttributesSettings({
+        isOn: true,
+      } as unknown as { isOn: boolean; requireProjectScoping: boolean }),
+    ).toEqual({ isOn: true, requireProjectScoping: true });
   });
 });
 
