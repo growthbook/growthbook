@@ -111,8 +111,12 @@ export const advanceSingleRampSchedule = async (
     let current = schedule;
 
     if (current.status === "pending") {
-      const activatingVersion = current.targets[0]?.activatingRevisionVersion;
-      if (activatingVersion != null) {
+      const activatingVersion = current.targets.find(
+        (t) =>
+          t.activatingRevisionVersion !== undefined &&
+          t.activatingRevisionVersion !== null,
+      )?.activatingRevisionVersion;
+      if (activatingVersion !== undefined && activatingVersion !== null) {
         const feature = current.entityId
           ? await getFeature(context, current.entityId)
           : undefined;

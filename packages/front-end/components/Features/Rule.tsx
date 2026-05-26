@@ -164,10 +164,10 @@ function computeRemainingTime(
     : rs.currentStepIndex + 1;
   for (let i = nextIdx; i < rs.steps.length; i++) {
     const step = rs.steps[i];
-    if (step.interval != null) {
+    if (step?.interval) {
       seconds += step.interval;
     }
-    if (step.holdConditions?.requiresApproval) {
+    if (step?.holdConditions?.requiresApproval) {
       manualApprovals++;
     }
   }
@@ -313,7 +313,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
 
     const defaultDraft = useDefaultDraft(revisionList);
     const [deleteMode, setDeleteMode] = useState<DraftMode>(
-      defaultDraft != null ? "existing" : "new",
+      defaultDraft !== null ? "existing" : "new",
     );
     const [deleteSelectedDraft, setDeleteSelectedDraft] = useState<
       number | null
@@ -352,10 +352,9 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       );
 
     // Number by global flat index; fall back to `i` mid-drag.
-    const flatIdx =
-      rule.id != null
-        ? (feature.rules ?? []).findIndex((r) => r.id === rule.id)
-        : -1;
+    const flatIdx = rule.id
+      ? (feature.rules ?? []).findIndex((r) => r.id === rule.id)
+      : -1;
     const globalRuleIdx = flatIdx === -1 ? i : flatIdx;
 
     let title: string | ReactElement =
@@ -600,7 +599,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 type: rule.type,
               });
               const targetVersion =
-                deleteMode === "existing" && deleteSelectedDraft != null
+                deleteMode === "existing" && deleteSelectedDraft !== null
                   ? deleteSelectedDraft
                   : feature.version;
               const res = await apiCall<{ version: number }>(
@@ -894,9 +893,9 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                 tipPosition="left"
                                 body={`Cannot start while ramp is pending.${
                                   rampSchedule.targets.find(
-                                    (t) => t.activatingRevisionVersion != null,
-                                  )?.activatingRevisionVersion != null
-                                    ? ` Publish Revision ${rampSchedule.targets.find((t) => t.activatingRevisionVersion != null)?.activatingRevisionVersion} first.`
+                                    (t) => !!t.activatingRevisionVersion,
+                                  )?.activatingRevisionVersion
+                                    ? ` Publish Revision ${rampSchedule.targets.find((t) => !!t.activatingRevisionVersion)?.activatingRevisionVersion} first.`
                                     : ""
                                 }`}
                               >
@@ -1156,7 +1155,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       color="red"
                       onClick={() => {
                         setDeleteMode(
-                          defaultDraft != null ? "existing" : "new",
+                          defaultDraft !== null ? "existing" : "new",
                         );
                         setDeleteSelectedDraft(defaultDraft);
                         setShowDeleteRuleModal(true);
@@ -1186,7 +1185,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 <strong>Approval Notes:</strong>{" "}
                 {
                   rampSchedule.steps[rampSchedule.currentStepIndex]
-                    .approvalNotes
+                    ?.approvalNotes
                 }
               </Callout>
             )}
@@ -1246,7 +1245,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 feature={feature}
                 hashAttribute={rule.hashAttribute || ""}
                 monitored={
-                  rampSchedule?.currentStepIndex != null &&
+                  rampSchedule?.currentStepIndex !== undefined &&
+                  rampSchedule.currentStepIndex >= 0 &&
                   rampSchedule.steps[rampSchedule.currentStepIndex]?.monitored
                 }
               />

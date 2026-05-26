@@ -1752,9 +1752,11 @@ async function createRampSchedulesForRevision(
           : undefined;
 
     const explicitSteps = Array.isArray(action.steps) ? action.steps : [];
-    // Whether the caller explicitly provided steps (even as an empty array to
-    // clear all steps on a simple-schedule). When false on an update action,
+    // Whether the caller explicitly provided steps (only when at least one step
+    // is present, or a template is used). When false on an update action,
     // fall back to the existing schedule's steps to avoid wiping them.
+    // Note: steps: [] is treated as "not provided" — an empty array does NOT
+    // clear existing steps.
     const stepsExplicit = explicitSteps.length > 0 || !!template;
     const steps: RampScheduleInterface["steps"] =
       explicitSteps.length > 0

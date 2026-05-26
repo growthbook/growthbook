@@ -1833,7 +1833,7 @@ export async function approveAndPublishStep(
   const feature = await getFeature(ctx, schedule.entityId);
   if (!feature) return { code: "feature_not_found" };
 
-  if (!ctx.permissions.canUpdateFeature(feature, {})) {
+  if (!ctx.permissions.canUpdateFeature(feature, feature)) {
     return { code: "permission_denied", detail: "Cannot update this feature" };
   }
   if (!ctx.permissions.canReviewFeatureDrafts(feature)) {

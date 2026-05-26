@@ -934,15 +934,6 @@ export class RampScheduleModel extends BaseClass {
     );
   }
 
-  public async getActiveSchedules(): Promise<RampScheduleInterface[]> {
-    // Include the legacy `pending-approval` value so the agenda can still pick
-    // up docs that haven't been written back through the JIT status migration
-    // yet. Migration normalizes the in-memory value to `running` on read.
-    return this._find({
-      status: { $in: ["running", "pending", "pending-approval"] },
-    });
-  }
-
   public async findByActivatingRevision(
     featureId: string,
     version: number,
@@ -986,22 +977,6 @@ export class RampScheduleModel extends BaseClass {
       }
     }
     return map;
-  }
-
-  public async agendaFindDueScheduleIds(now: Date): Promise<string[]> {
-    const docs = await this._find(
-      {
-        $or: [
-          { nextProcessAt: { $ne: null, $lte: now } },
-          {
-            status: "pending",
-            "targets.activatingRevisionVersion": { $exists: true, $ne: null },
-          },
-        ],
-      },
-      { bypassReadPermissionChecks: true, projection: { id: 1 } },
-    );
-    return docs.map((d) => d.id);
   }
 
   /**

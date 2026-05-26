@@ -171,7 +171,7 @@ async function evaluateMonitoredStep(
       const configuredHours =
         schedule.monitoringConfig?.noTrafficGracePeriodHours ?? null;
       const gracePeriodMs =
-        configuredHours != null
+        configuredHours !== null
           ? configuredHours * 60 * 60 * 1000
           : MONITORING_NO_TRAFFIC_GRACE_PERIOD_MS;
       const elapsedMs = now.getTime() - monitoringStartDate.getTime();
