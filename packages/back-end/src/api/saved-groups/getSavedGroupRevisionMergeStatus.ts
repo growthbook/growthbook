@@ -1,5 +1,8 @@
 import { getSavedGroupRevisionMergeStatusValidator } from "shared/validators";
-import { checkMergeConflicts } from "shared/enterprise";
+import {
+  checkMergeConflicts,
+  normalizeProposedChanges,
+} from "shared/enterprise";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { NotFoundError } from "back-end/src/util/errors";
@@ -34,7 +37,7 @@ export const getSavedGroupRevisionMergeStatus = createApiRequestHandler(
   const result = checkMergeConflicts(
     baseSnapshot,
     liveSnapshot,
-    revision.target.proposedChanges,
+    normalizeProposedChanges(revision.target.proposedChanges),
   );
 
   return {

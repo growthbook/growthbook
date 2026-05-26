@@ -46,7 +46,7 @@ function activityLogToApi(entries: ActivityLogEntry[] | undefined) {
 }
 
 function toIsoString(d: Date | string | undefined): string {
-  if (!d) return new Date(0).toISOString();
+  if (d == null) return new Date(0).toISOString();
   if (typeof d === "string") return d;
   return d.toISOString();
 }

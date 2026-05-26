@@ -131,42 +131,47 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
   );
 
   const defaultTitle = `Revert to v${req.params.version}`;
-
-  // Always create a fresh revision for revert — even in `publish` mode — so
-  // there's a clear audit-log entry of the revert, distinct from any other
-  // pending draft from the same author.
-  const draft = await createOrUpdateRevision(
-    req.context,
-    "saved-group",
-    savedGroup as unknown as Record<string, unknown> & { id: string },
-    patchOps,
-    {
-      forceCreate: true,
-      title: req.body.title ?? defaultTitle,
-      revertedFrom: targetRevision.id,
-    },
-  );
+  const title = req.body.title ?? defaultTitle;
 
   if (!isPublish) {
+    // Create a fresh draft for review — distinct from any other pending draft
+    // from the same author so the revert has a clear audit-log entry.
+    const draft = await createOrUpdateRevision(
+      req.context,
+      "saved-group",
+      savedGroup as unknown as Record<string, unknown> & { id: string },
+      patchOps,
+      {
+        forceCreate: true,
+        title,
+        revertedFrom: targetRevision.id,
+      },
+    );
     return {
       revision: await toApiSavedGroupRevision(draft, req.context),
     };
   }
 
-  // Apply changes immediately, then mark the freshly created draft as merged.
+  // Apply changes to the live entity first, then record the revert as a single
+  // already-merged revision. A draft-then-merge would be two non-transactional
+  // writes: if the merge failed after applyChanges landed, the draft would be
+  // stranded and could never be published ("no changes detected" against the
+  // now-updated entity). createMerged closes that window.
   await adapter.applyChanges(
     req.context,
     savedGroup as unknown as Record<string, unknown>,
     fieldsToUpdate,
   );
 
-  const merged = await req.context.models.revisions.merge(
-    draft.id,
-    req.context.userId,
-    {
-      bypass: approvalRequired && canBypass,
-    },
-  );
+  const merged = await req.context.models.revisions.createMerged({
+    type: "saved-group",
+    id: savedGroup.id,
+    snapshot: savedGroup as unknown as Record<string, unknown>,
+    proposedChanges: patchOps,
+    bypass: approvalRequired && canBypass,
+    title,
+    revertedFrom: targetRevision.id,
+  });
 
   return {
     revision: await toApiSavedGroupRevision(merged, req.context),
