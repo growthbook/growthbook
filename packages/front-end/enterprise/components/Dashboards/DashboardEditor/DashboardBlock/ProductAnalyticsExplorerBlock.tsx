@@ -48,7 +48,7 @@ export default function ProductAnalyticsExplorerBlock({
   );
 
   return (
-    <Flex direction="column" style={{ height: 500 }} gap="2">
+    <Flex direction="column" gap="2" style={{ height: "100%" }}>
       {shouldShowTable ? (
         <ExplorerDataTable
           exploration={data.exploration}
