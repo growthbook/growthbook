@@ -14,6 +14,7 @@ import {
   normalizeStatusUpdateScheduleChanges,
   toExperimentApiInterface,
   updateExperimentApiPayloadToInterface,
+  validateStatusUpdateSchedule,
   validateVariationIds,
 } from "back-end/src/services/experiments";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
@@ -259,6 +260,11 @@ export const updateExperiment = createApiRequestHandler(
       undefined,
       experiment.project,
     );
+  }
+
+  if (req.body.statusUpdateSchedule) {
+    const effectiveType = req.body.type ?? experiment.type ?? "standard";
+    validateStatusUpdateSchedule(effectiveType, req.body.statusUpdateSchedule);
   }
 
   const resolvedOwner = await resolveOwnerToUserId(req.body.owner, req.context);
