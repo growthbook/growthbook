@@ -74,6 +74,6 @@ export async function testEventForwarderWarehouseColumnProbeValidity(
       requiredColumns,
     );
   } catch (e) {
-    return e.message;
+    return e instanceof Error ? e.message : String(e);
   }
 }
