@@ -24,12 +24,14 @@ import {
   ConflictError,
   NotFoundError,
 } from "back-end/src/util/errors";
+import { canUseRestApiBypassSetting } from "./reviewBypass";
 
 export async function publishFeatureRevision(
   req: Pick<ApiRequestLocals, "context" | "organization" | "audit"> & {
     params: { id: string; version: number };
     body: { comment?: string };
   },
+  canUseRestApiBypass: boolean,
 ) {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
@@ -103,9 +105,10 @@ export async function publishFeatureRevision(
       req.context.hasPremiumFeature("require-approvals"),
   });
 
-  // Bypass via restApiBypassesReviews or bypassApprovalChecks.
+  // Bypass via restApiBypassesReviews (API keys/PATs only — JWT-backed REST
+  // calls should behave like dashboard actions) or bypassApprovalChecks.
   const canBypass =
-    !!req.organization.settings?.restApiBypassesReviews ||
+    canUseRestApiBypass ||
     req.context.permissions.canBypassApprovalChecks(feature);
 
   if (requiresReview && revision.status !== "approved" && !canBypass) {
@@ -181,6 +184,9 @@ export async function publishFeatureRevision(
 export const postFeatureRevisionPublish = createApiRequestHandler(
   postFeatureRevisionPublishValidator,
 )(async (req) => {
-  const { feature, revision } = await publishFeatureRevision(req);
+  const { feature, revision } = await publishFeatureRevision(
+    req,
+    canUseRestApiBypassSetting(req),
+  );
   return { revision: toApiRevision(revision, req.context, feature) };
 });

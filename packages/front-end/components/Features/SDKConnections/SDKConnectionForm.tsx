@@ -30,6 +30,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import { isCloud } from "@/services/env";
@@ -102,6 +103,7 @@ export default function SDKConnectionForm({
 
   const { apiCall } = useAuth();
   const router = useRouter();
+  const { requireProjectForSdkConnections } = useOrgSettings();
 
   const { hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
@@ -291,6 +293,9 @@ export default function SDKConnectionForm({
     form.watch("projects") || [],
     [...filteredProjects, ...disallowedProjects],
   );
+  const requireProjectSelection =
+    !!requireProjectForSdkConnections &&
+    (!edit || (initialValue.projects?.length ?? 0) > 0);
 
   if (initialValue.projects) {
     initialValue.projects.forEach((p) => {
@@ -628,6 +633,7 @@ export default function SDKConnectionForm({
           value={form.watch("projects") || []}
           onChange={(projects) => form.setValue("projects", projects)}
           disabled={initialValue.managedBy?.type === "vercel"}
+          required={requireProjectSelection}
           options={projectsOptions}
           sort={false}
           closeMenuOnSelect={true}
@@ -645,6 +651,12 @@ export default function SDKConnectionForm({
             );
           }}
         />
+        {requireProjectSelection && (
+          <HelperText status="info" size="sm" mt="2">
+            Your organization requires SDK Connections to belong to at least one
+            project.
+          </HelperText>
+        )}
         {disallowedProjects.length > 0 && (
           <div className="text-danger mt-2 small px-1">
             <FaExclamationTriangle className="mr-1" />
