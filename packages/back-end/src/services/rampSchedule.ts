@@ -2117,6 +2117,11 @@ export async function updateRampSteps(
       `Cannot edit steps on a running schedule. Pause the schedule first.`,
     );
   }
+  if (["completed", "rolled-back"].includes(schedule.status)) {
+    throw new Error(
+      `Cannot edit steps on a terminal schedule (status: "${schedule.status}"). Restart the schedule first.`,
+    );
+  }
   const finalSteps = incomingSteps;
 
   // Q9: clamp currentStepIndex when editing a paused schedule whose step
