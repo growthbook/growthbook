@@ -163,27 +163,35 @@ export async function insertMetric(
   context: ReqContext | ApiReqContext,
   metric: Partial<MetricInterface>,
 ) {
+  const metricWithOrganization = {
+    ...metric,
+    organization: context.org.id,
+  };
+
   if (usingFileConfig() && !ALLOW_CREATE_METRICS) {
     throw new Error("Cannot add new metrics. Metrics managed by config.yml");
   }
 
-  if (metric.managedBy === "api" && context.auditUser?.type !== "api_key") {
+  if (
+    metricWithOrganization.managedBy === "api" &&
+    context.auditUser?.type !== "api_key"
+  ) {
     throw new Error(
       "Cannot mark a metric as managed by the API outside of the API.",
     );
   }
 
-  if (metric.managedBy === "admin") {
+  if (metricWithOrganization.managedBy === "admin") {
     throw new Error(
       "We have deprecated support for marking Legacy Metrics as Official via the UI. We suggest using Fact Metrics instead.",
     );
   }
 
-  if (!context.permissions.canCreateMetric(metric)) {
+  if (!context.permissions.canCreateMetric(metricWithOrganization)) {
     context.permissions.throwPermissionError();
   }
 
-  const created = toInterface(await MetricModel.create(metric));
+  const created = toInterface(await MetricModel.create(metricWithOrganization));
   await audit.logCreate(context, created);
   return created;
 }
@@ -195,7 +203,12 @@ export async function insertMetrics(
   if (usingFileConfig() && !ALLOW_CREATE_METRICS) {
     throw new Error("Cannot add metrics. Metrics managed by config.yml");
   }
-  for (const metric of metrics) {
+  const metricsWithOrganization = metrics.map((metric) => ({
+    ...metric,
+    organization: context.org.id,
+  }));
+
+  for (const metric of metricsWithOrganization) {
     if (metric.managedBy === "api" && context.auditUser?.type !== "api_key") {
       throw new Error(
         "Cannot mark a metric as managed by the API outside of the API.",
@@ -210,7 +223,9 @@ export async function insertMetrics(
       context.permissions.throwPermissionError();
     }
   }
-  const created = (await MetricModel.insertMany(metrics)).map(toInterface);
+  const created = (await MetricModel.insertMany(metricsWithOrganization)).map(
+    toInterface,
+  );
   for (const metric of created) {
     await audit.logAutocreate(context, metric);
   }

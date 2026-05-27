@@ -201,6 +201,10 @@ export default {
     plan: "enterprise",
     displayName: "Require Project For Features Setting",
   },
+  "require-project-for-sdk-connections-setting": {
+    plan: "enterprise",
+    displayName: "Require Project For Sdk Connections Setting",
+  },
   "retention-metrics": {
     plan: "pro",
     displayName: "Retention Metrics",

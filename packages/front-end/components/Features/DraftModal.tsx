@@ -189,6 +189,9 @@ export default function DraftModal({
           ...(mergeResult.result.prerequisites !== undefined
             ? { prerequisites: mergeResult.result.prerequisites }
             : {}),
+          ...(mergeResult.result.archived !== undefined
+            ? { archived: mergeResult.result.archived }
+            : {}),
           ...("holdout" in mergeResult.result
             ? { holdout: mergeResult.result.holdout }
             : {}),
