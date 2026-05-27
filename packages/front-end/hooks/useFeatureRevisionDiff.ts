@@ -16,6 +16,7 @@ import {
   renderFeatureHoldoutSection,
   getFeatureHoldoutBadges,
   renderFeatureArchived,
+  featureArchivedChanged,
 } from "@/components/Features/FeatureDiffRenders";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 import { useEnvironments } from "@/services/features";
@@ -154,10 +155,7 @@ export function useFeatureRevisionDiff({
     // 0. Archive status — a top-level revision field (not part of the metadata
     // envelope), so it needs its own section. Guard with `?? false` so sparse
     // legacy revisions (archived === undefined) don't produce a phantom diff.
-    if (
-      draft.archived !== undefined &&
-      (current.archived ?? false) !== (draft.archived ?? false)
-    ) {
+    if (featureArchivedChanged(current.archived, draft.archived)) {
       const archivedRender = renderFeatureArchived(
         current.archived,
         draft.archived,
