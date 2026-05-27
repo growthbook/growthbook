@@ -149,7 +149,7 @@ export default function EditFeatureFlagValuesModal({
       phaseVariations.map((v, i) => ({
         id: v.id,
         name: v.name,
-        description: v.description ?? "",
+        description: v.description,
         key: v.key,
         screenshots: v.screenshots ?? [],
         weight: latestPhase?.variationWeights?.[i] ?? 0,

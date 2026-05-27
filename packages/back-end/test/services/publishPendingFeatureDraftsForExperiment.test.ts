@@ -213,6 +213,8 @@ describe("publishPendingFeatureDraftsForExperiment", () => {
 
     expect(mockDiscardRevision).toHaveBeenCalledTimes(1);
     expect(mockPublishRevision).not.toHaveBeenCalled();
+    expect(mockRemovePending).toHaveBeenCalledTimes(1);
+    expect(mockRemovePending).toHaveBeenCalledWith(ctx, "exp_1", "j2-test", 6);
     expect(result.published).toEqual([]);
     expect(result.failed).toEqual([]);
   });
