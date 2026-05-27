@@ -367,9 +367,19 @@ app.get(
 // mount the router at /api — yielding /api/v1/<route> and /api/v2/<route>.
 app.use(
   "/api",
-  // TODO add authentication
+  // Authentication is done via Auth headers and not cookies,
+  // so we can safely allow any origin
   cors({
     origin: "*",
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Organization",
+      "X-SSO-Connection-ID",
+    ],
+    credentials: false,
+    maxAge: 86400,
   }),
   apiRouter,
 );
