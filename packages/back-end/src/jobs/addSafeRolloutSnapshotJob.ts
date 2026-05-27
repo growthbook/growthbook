@@ -7,15 +7,9 @@ import { getFeature } from "back-end/src/models/FeatureModel";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { createSafeRolloutSnapshot } from "back-end/src/services/safeRolloutSnapshots";
 import { COLLECTION_NAME } from "back-end/src/models/SafeRolloutModel";
-import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource";
-import { SafeRolloutResultsQueryRunner } from "back-end/src/queryRunners/SafeRolloutResultsQueryRunner";
 
 const UPDATE_SINGLE_SAFE_ROLLOUT_SNAPSHOT = "updateSingleSafeRolloutSnapshot";
 const QUEUE_SAFE_ROLLOUT_SNAPSHOT_UPDATES = "queueSafeRolloutSnapshotUpdates";
-
-// A snapshot running longer than this is considered hung and will be killed so
-// a fresh one can start. Separate from the configured update interval.
-const HUNG_QUERY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 
 type UpdateSingleSafeRolloutSnapshotJob = Job<{
   safeRollout: SafeRolloutInterface;
@@ -87,47 +81,18 @@ const updateSingleSafeRolloutSnapshot = async (
       });
 
     if (latestSnapshot?.status === "running") {
-      const runningForMs =
-        Date.now() - (latestSnapshot.runStarted?.getTime() ?? Date.now());
-
-      if (runningForMs < HUNG_QUERY_TIMEOUT_MS) {
-        // Query is in-flight and not hung. Defer the next attempt by the
-        // configured interval so we check again after it should have finished.
-        // The effective interval becomes max(configuredInterval, queryDuration)
-        // naturally, with no artificial floor.
-        const intervalMs =
-          (safeRollout.updateScheduleMinutes ?? 60) * 60 * 1000;
-        await context.models.safeRollout.update(safeRollout, {
-          nextSnapshotAttempt: new Date(Date.now() + intervalMs),
-        });
-        logger.debug(
-          `SafeRollout ${id}: snapshot still running (${Math.round(runningForMs / 1000)}s), deferring next attempt by ${intervalMs / 60000}min`,
-        );
-        return;
-      }
-
-      // Query has been running longer than the hang timeout — kill it and
-      // start fresh so the safe rollout can resume producing results.
-      logger.warn(
-        `SafeRollout ${id}: snapshot ${latestSnapshot.id} has been running for ${Math.round(runningForMs / 60000)}min (>${HUNG_QUERY_TIMEOUT_MS / 60000}min hang threshold), killing and restarting`,
+      // Query is still in-flight. Defer rather than stack — the effective
+      // interval becomes max(configuredInterval, actualQueryDuration) naturally.
+      // Zombie queries (heartbeat lost, orphaned DAG) are handled system-wide
+      // by expireOldQueries, so no manual kill is needed here.
+      const intervalMs = (safeRollout.updateScheduleMinutes ?? 60) * 60 * 1000;
+      await context.models.safeRollout.update(safeRollout, {
+        nextSnapshotAttempt: new Date(Date.now() + intervalMs),
+      });
+      logger.debug(
+        `SafeRollout ${id}: snapshot still running, deferring next attempt by ${intervalMs / 60000}min`,
       );
-      try {
-        const integration = await getIntegrationFromDatasourceId(
-          context,
-          latestSnapshot.settings.datasourceId,
-        );
-        const hungRunner = new SafeRolloutResultsQueryRunner(
-          context,
-          latestSnapshot,
-          integration,
-        );
-        await hungRunner.cancelQueries();
-      } catch (cancelErr) {
-        logger.warn(
-          cancelErr,
-          `Failed to cancel hung snapshot ${latestSnapshot.id} for SafeRollout ${id} — proceeding with fresh snapshot anyway`,
-        );
-      }
+      return;
     }
 
     logger.info("Start Refreshing Results for SafeRollout " + id);
