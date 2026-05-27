@@ -46,6 +46,9 @@ export function draftStatusDotColor(status: string): string {
       return "var(--green-9)";
     case "draft":
       return "var(--amber-9)";
+    case "merged":
+    case "discarded":
+      return "var(--gray-9)";
     default:
       return "var(--red-9)"; // pending-review, changes-requested
   }
@@ -135,14 +138,13 @@ export function draftStatusTooltip(
 }
 
 export function revisionStatusLabel(
-  status: MinimalFeatureRevisionInterface["status"] | "live",
+  status: MinimalFeatureRevisionInterface["status"] | "live" | "merged",
 ): string {
   switch (status) {
     case "live":
       return "Live";
     case "draft":
       return "Draft";
-
     case "pending-review":
       return "Pending review";
     case "approved":
@@ -151,6 +153,8 @@ export function revisionStatusLabel(
       return "Changes requested";
     case "discarded":
       return "Discarded";
+    case "merged":
+      return "Locked";
     case "published":
       return "Locked";
     default:

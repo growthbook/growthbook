@@ -52,7 +52,6 @@ import Table, {
   TableColumnHeader,
   TableCell,
 } from "@/ui/Table";
-import { TruncateMiddleWithTooltip } from "@/ui/TruncateMiddleWithTooltip";
 import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;
@@ -60,7 +59,6 @@ const NUM_PER_PAGE = 20;
 // Feature table column widths (shared by header and body for alignment)
 const FEATURE_TABLE_COLUMN_WIDTH = {
   WATCHING: 40,
-  FEATURE_KEY_MAX: 200,
   TAGS: 160,
   DATA_TYPE_MIN: 80,
   RECENT_USAGE: 170,
@@ -214,6 +212,7 @@ export default function FeaturesPage() {
                 <Field
                   placeholder="Search..."
                   type="search"
+                  containerClassName="mb-0"
                   {...searchInputProps}
                 />
               </Box>
@@ -235,9 +234,7 @@ export default function FeaturesPage() {
                 />
                 <SortableTableColumnHeader
                   field="id"
-                  style={{
-                    maxWidth: FEATURE_TABLE_COLUMN_WIDTH.FEATURE_KEY_MAX,
-                  }}
+                  style={{ width: "20%" }}
                 >
                   Feature Key
                 </SortableTableColumnHeader>
@@ -297,7 +294,6 @@ export default function FeaturesPage() {
                     <TableCell
                       style={{
                         padding: "var(--space-0)",
-                        maxWidth: FEATURE_TABLE_COLUMN_WIDTH.FEATURE_KEY_MAX,
                       }}
                     >
                       <Link
@@ -311,12 +307,7 @@ export default function FeaturesPage() {
                             : undefined,
                         }}
                       >
-                        <TruncateMiddleWithTooltip
-                          text={feature.id}
-                          maxChars={23}
-                          maxWidth={FEATURE_TABLE_COLUMN_WIDTH.FEATURE_KEY_MAX}
-                          flipTheme={false}
-                        />
+                        {feature.id}
                       </Link>
                     </TableCell>
                     {showProjectColumn && (
@@ -590,7 +581,7 @@ export default function FeaturesPage() {
           }}
         />
       )}
-      <Flex align="center" justify="between" gap="3" my="3">
+      <Flex align="center" justify="between" gap="3" mt="4" mb="2">
         <Box style={{ flex: 1 }}>
           <h1>Features</h1>
         </Box>
