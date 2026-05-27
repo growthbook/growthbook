@@ -113,6 +113,7 @@ export const revisionValidator = z.object({
   authorId: z.string(),
   version: z.number().optional(), // Optional for backward compatibility with existing revisions
   title: z.string().optional(),
+  comment: z.string().optional(), // Optional free-form context supplied at draft creation
   revertedFrom: z.string().optional(), // ID of the revision this is reverting
   target: revisionTargetValidator,
   status: z.enum(revisionStatus),

@@ -156,6 +156,7 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
       description: savedGroup.description,
       projects: savedGroup.projects || [],
       archived: !!savedGroup.archived,
+      useEmptyListGroup: savedGroup.useEmptyListGroup,
     };
   }
 }

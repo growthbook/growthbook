@@ -267,7 +267,7 @@
       "count": 2
     },
     "no-restricted-imports": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/Experiment/NewPhaseForm.tsx": {
@@ -736,7 +736,7 @@
   },
   "packages/front-end/components/GeneralSettings/ExperimentSettings/StickyBucketingSettings.tsx": {
     "no-restricted-imports": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/GeneralSettings/ExperimentSettings/index.tsx": {
@@ -885,9 +885,6 @@
   "packages/front-end/components/Holdout/NewHoldoutForm.tsx": {
     "local/no-alert-classname": {
       "count": 2
-    },
-    "no-restricted-imports": {
-      "count": 1
     }
   },
   "packages/front-end/components/HomePage/DiscussionFeed.tsx": {
@@ -1007,11 +1004,6 @@
   },
   "packages/front-end/components/MetricDrilldown/MetricDrilldownSlices.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Metrics/MetricGroupsList.tsx": {
-    "local/no-alert-classname": {
       "count": 1
     }
   },
@@ -1656,11 +1648,6 @@
       "count": 1
     }
   },
-  "packages/front-end/enterprise/components/Dashboards/DashboardEditor/index.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
   "packages/front-end/enterprise/components/Dashboards/DashboardModal.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -1797,11 +1784,6 @@
       "count": 2
     },
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/features/index.tsx": {
-    "local/no-alert-classname": {
       "count": 1
     }
   },

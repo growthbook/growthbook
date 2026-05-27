@@ -28,6 +28,7 @@ import { NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
+import { canUseRestApiBypassSetting } from "./reviewBypass";
 
 export async function revertFeatureCore(
   context: ApiReqContext,
@@ -36,6 +37,7 @@ export async function revertFeatureCore(
   params: { id: string },
   body: { revision: number; comment?: string },
   audit: (input: AuditInterfaceInput) => Promise<void>,
+  canUseRestApiBypass: boolean,
 ) {
   const feature = await getFeature(context, params.id);
   if (!feature) {
@@ -195,10 +197,10 @@ export async function revertFeatureCore(
     );
   }
 
-  // Bypass via restApiBypassesReviews or bypassApprovalChecks.
+  // Bypass via restApiBypassesReviews (API keys/PATs only — JWT-backed REST
+  // calls should behave like dashboard actions) or bypassApprovalChecks.
   const canBypass =
-    !!context.org.settings?.restApiBypassesReviews ||
-    context.permissions.canBypassApprovalChecks(feature);
+    canUseRestApiBypass || context.permissions.canBypassApprovalChecks(feature);
 
   if (!canBypass) {
     const liveRevision = await getRevision({
@@ -281,6 +283,7 @@ export const revertFeature = createApiRequestHandler(revertFeatureValidator)(
       req.params,
       req.body,
       req.audit,
+      canUseRestApiBypassSetting(req),
     );
     return {
       feature: await resolveOwnerEmail(getApiFeatureObj(data), req.context),
