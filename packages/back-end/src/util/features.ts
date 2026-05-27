@@ -960,6 +960,10 @@ export function getFeatureDefinition({
                 ]
               : [{ key: "0" }, { key: "1", passthrough: true }];
             rule.phase = "0";
+            // Sticky bucketing must be disabled for monitored steps: the ranges
+            // shift as coverage increases, and a stale sticky-bucket assignment
+            // would lock a user to the wrong arm or prevent new enrollment.
+            rule.disableStickyBucketing = true;
             if (includeExperimentNames)
               rule.name = `${feature.id} - Monitored Ramp`;
           } else {

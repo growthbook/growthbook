@@ -145,6 +145,7 @@ describe("ramp-monitored SDK payload", () => {
       expect(rule.seed).toBe("test-seed");
       expect(rule.key).toBe("ramp_rs_abc");
       expect(rule.phase).toBe("0");
+      expect(rule.disableStickyBucketing).toBe(true);
     });
 
     it("clamps coverage above 1", () => {
