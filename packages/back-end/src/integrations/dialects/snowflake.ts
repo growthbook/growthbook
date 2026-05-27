@@ -18,22 +18,10 @@ export const snowflakeDialect: SqlDialect = {
   hllAggregate: (col: string) => `HLL_ACCUMULATE(${col})`,
   hllReaggregate: (col: string) => `HLL_COMBINE(${col})`,
   hllCardinality: (col: string) => `HLL_ESTIMATE(${col})`,
-  // Snowflake has no native KLL sketch; we approximate via the t-digest
-  // family (APPROX_PERCENTILE_ACCUMULATE/COMBINE/ESTIMATE). t-digest state
-  // is returned as an OBJECT (JSON), so quantileSketch storage columns use
-  // OBJECT (not BINARY like HLL — see getDataType below). Quantile results
-  // will differ slightly from BigQuery's KLL_QUANTILES for the same input.
-  //
-  // quantileSketchExtractQuantiles is intentionally NOT overridden here: the
-  // only consumer is quantileSketchRankApprox, and the obvious implementation
-  // (ARRAY_CONSTRUCT of per-grid-point APPROX_PERCENTILE_ESTIMATE calls)
-  // can't be used inside a scalar subquery whose FROM is TABLE(FLATTEN(...))
-  // when the array depends on outer-row columns — Snowflake's optimizer
-  // refuses to decorrelate ("Unsupported subquery type cannot be
-  // evaluated"). We work around that in quantileSketchRankApprox below;
-  // falling through to baseDialect.quantileSketchExtractQuantiles (which
-  // throws) signals clearly that the primitive isn't safely usable outside
-  // that path.
+  // Snowflake uses the t-digest family (APPROX_PERCENTILE_ACCUMULATE/COMBINE/ESTIMATE) to
+  // approximate quantiles.
+  // t-digest state is returned as an OBJECT (JSON), so quantileSketch storage columns use
+  // OBJECT (not BINARY like HLL — see getDataType below).
   quantileSketchInit: (col: string) => `APPROX_PERCENTILE_ACCUMULATE(${col})`,
   quantileSketchMergePartial: (col: string) =>
     `APPROX_PERCENTILE_COMBINE(${col})`,
@@ -45,26 +33,25 @@ export const snowflakeDialect: SqlDialect = {
     nEventsCol: string,
     numQuantiles: number,
   ) => {
-    // The BigQuery shape — SELECT COUNT(*) FROM UNNEST(cdf_array) WHERE p <
-    // threshold — doesn't translate to Snowflake. Both `sketchCol` (per-user
-    // sketch) and `thresholdCol` (per-variation/dimension quantile) are
-    // outer-row references, and Snowflake can't decorrelate a scalar
-    // subquery whose FROM clause is TABLE(FLATTEN(input => <expr referencing
-    // outer columns>)). Same family of restriction as the
-    // unpivotLabeledPairs failures noted further down.
+    // Estimate the fraction of the sketch's distribution that lies below
+    // `thresholdCol` by sampling the inverse CDF at numQuantiles+1 evenly
+    // spaced points (p = 0, 1/n, 2/n, ..., 1) and counting how many of those
+    // quantile estimates fall below the threshold. Multiply by nEventsCol /
+    // numQuantiles to convert that fraction into an approximate event count.
     //
-    // Instead of materializing the (n+1)-point CDF array and counting below
-    // the threshold via a subquery, unroll the count into a sum of CASE
-    // WHEN expressions evaluated entirely in the outer row's scope — no
-    // subquery, no correlation. Each grid point becomes a single
-    // APPROX_PERCENTILE_ESTIMATE call directly in the SELECT list, costing
-    // numQuantiles+1 t-digest evaluations per row (vs BigQuery's single
-    // batch call), but row-level cost is still linear in numQuantiles.
+    // The expression is unrolled into a sum of CASE WHEN terms — each grid
+    // point is its own APPROX_PERCENTILE_ESTIMATE call in the SELECT list —
+    // rather than built from a CDF array scanned by a subquery. Snowflake
+    // can't decorrelate a scalar subquery whose FROM clause references outer
+    // columns (e.g. TABLE(FLATTEN(input => <expr using sketchCol>))), and
+    // both sketchCol and thresholdCol are outer-row references here. Same
+    // family of restriction as the unpivotLabeledPairs failures noted
+    // further down. Per-row cost is linear in numQuantiles.
     //
     // NULL-handling: if the sketch is NULL, every APPROX_PERCENTILE_ESTIMATE
-    // returns NULL, so each CASE WHEN takes the ELSE 0 branch (NULL < x is
-    // unknown/false). The sum is 0, and COALESCE is a no-op. The COALESCE
-    // only fires when nEventsCol is NULL (0 * NULL = NULL).
+    // returns NULL, so each CASE WHEN takes the ELSE 0 branch (NULL <
+    // threshold is unknown/false). The sum is 0 and COALESCE is a no-op.
+    // The COALESCE only fires when nEventsCol is NULL (0 * NULL = NULL).
     const sumBelow = Array.from(
       { length: numQuantiles + 1 },
       (_, i) =>

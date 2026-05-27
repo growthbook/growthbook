@@ -13,9 +13,9 @@ export function getAlterNewIncrementalUnitsQuery(
   // schema is not the pipeline's write schema. Use the fully-qualified target
   // everywhere except BigQuery to remove that footgun.
   const renameTarget =
-    dialect.formatDialect === "bigquery"
-      ? params.unitsTableName
-      : params.unitsTableFullName;
+    dialect.formatDialect === "snowflake"
+      ? params.unitsTableFullName
+      : params.unitsTableName;
   return format(
     `
       ALTER TABLE ${params.unitsTempTableFullName} RENAME TO ${renameTarget}
