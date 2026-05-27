@@ -20,13 +20,16 @@ jest.mock("back-end/src/models/SdkConnectionModel", () => ({
 const mockedEdit = editSDKConnection as jest.Mock;
 const mockedFind = findSDKConnectionById as jest.Mock;
 
-const buildRevision = (proposedChanges: JsonPatchOperation[]): Revision =>
+const buildRevision = (
+  proposedChanges: JsonPatchOperation[],
+  snapshot: Record<string, unknown> = {},
+): Revision =>
   ({
     id: "rev-1",
     target: {
       type: "sdk-connection",
       id: "sdk-1",
-      snapshot: {} as Record<string, unknown>,
+      snapshot,
       proposedChanges,
     },
     status: "draft",
@@ -79,6 +82,8 @@ function makeContext(overrides: {
   approvalRequired?: boolean;
   hasRequireApprovals?: boolean;
   requireMetadataReview?: boolean;
+  // Custom scoped rules; takes precedence over the approvalRequired shorthand.
+  rules?: Record<string, unknown>[];
   permissions?: Partial<Record<string, (...args: unknown[]) => boolean>>;
 }): Context {
   const permissions = {
@@ -87,21 +92,22 @@ function makeContext(overrides: {
     canBypassApprovalChecks: () => true,
     ...(overrides.permissions ?? {}),
   };
+  const sdkConnections =
+    overrides.rules ??
+    (overrides.approvalRequired
+      ? [
+          {
+            required: true,
+            ...(overrides.requireMetadataReview !== undefined
+              ? { requireMetadataReview: overrides.requireMetadataReview }
+              : {}),
+          },
+        ]
+      : [{ required: false }]);
   return {
     org: {
       settings: {
-        approvalFlows: overrides.approvalRequired
-          ? {
-              sdkConnections: [
-                {
-                  required: true,
-                  ...(overrides.requireMetadataReview !== undefined
-                    ? { requireMetadataReview: overrides.requireMetadataReview }
-                    : {}),
-                },
-              ],
-            }
-          : { sdkConnections: [{ required: false }] },
+        approvalFlows: { sdkConnections },
       },
     },
     permissions,
@@ -265,6 +271,89 @@ describe("sdkConnectionAdapter", () => {
         sdkConnectionAdapter.isApprovalRequiredForRevision!(
           ctx,
           buildRevision(contentChange),
+        ),
+      ).toBe(false);
+    });
+  });
+
+  describe("isApprovalRequiredForRevision — condition scoping", () => {
+    const contentChange: JsonPatchOperation[] = [
+      { op: "replace", path: "/encryptPayload", value: true },
+    ];
+    // Rule gated to the production environment only.
+    const prodRule = [
+      {
+        required: true,
+        condition: JSON.stringify({ environment: "production" }),
+      },
+    ];
+
+    it("requires approval when the connection scope matches the rule condition", () => {
+      const ctx = makeContext({ rules: prodRule });
+      expect(
+        sdkConnectionAdapter.isApprovalRequiredForRevision!(
+          ctx,
+          buildRevision(contentChange, { environment: "production" }),
+        ),
+      ).toBe(true);
+    });
+
+    it("does NOT require approval when the connection is out of the rule's scope", () => {
+      const ctx = makeContext({ rules: prodRule });
+      expect(
+        sdkConnectionAdapter.isApprovalRequiredForRevision!(
+          ctx,
+          buildRevision(contentChange, { environment: "staging" }),
+        ),
+      ).toBe(false);
+    });
+
+    it("requires approval when the revision MOVES the connection into a gated scope", () => {
+      const ctx = makeContext({ rules: prodRule });
+      // Baseline is out of scope (staging), but the change moves it to production.
+      expect(
+        sdkConnectionAdapter.isApprovalRequiredForRevision!(
+          ctx,
+          buildRevision(
+            [{ op: "replace", path: "/environment", value: "production" }],
+            { environment: "staging" },
+          ),
+        ),
+      ).toBe(true);
+    });
+
+    it("supports $or conditions across project and environment", () => {
+      const ctx = makeContext({
+        rules: [
+          {
+            required: true,
+            condition: JSON.stringify({
+              $or: [
+                { environment: "production" },
+                { projects: { $elemMatch: { $eq: "prj-secure" } } },
+              ],
+            }),
+          },
+        ],
+      });
+      // Matches via project, even though environment is staging.
+      expect(
+        sdkConnectionAdapter.isApprovalRequiredForRevision!(
+          ctx,
+          buildRevision(contentChange, {
+            environment: "staging",
+            projects: ["prj-secure"],
+          }),
+        ),
+      ).toBe(true);
+      // Neither branch matches.
+      expect(
+        sdkConnectionAdapter.isApprovalRequiredForRevision!(
+          ctx,
+          buildRevision(contentChange, {
+            environment: "staging",
+            projects: ["prj-other"],
+          }),
         ),
       ).toBe(false);
     });

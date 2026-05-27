@@ -5,8 +5,10 @@ import {
 } from "shared/types/sdk-connection";
 import {
   Revision,
-  getApprovalFlowSettings,
+  applyTopLevelPatchOps,
+  getSdkConnectionApprovalRule,
   isSdkConnectionRevisionMetadataOnly,
+  orgHasAnySdkConnectionApproval,
 } from "shared/enterprise";
 import {
   SDKConnectionRevisionSnapshot,
@@ -77,10 +79,13 @@ function canEditSdkConnection(
   return context.permissions.canUpdateSDKConnection(snapshot, {});
 }
 
+// Type-level check (no specific connection): does the org use SDK-connection
+// approvals at all? Per-connection scoping is applied in
+// isApprovalRequiredForRevision and in the controller.
 function isSdkConnectionApprovalRequired(context: Context): boolean {
   return (
     context.hasPremiumFeature("require-approvals") &&
-    !!context.org.settings?.approvalFlows?.sdkConnections?.[0]?.required
+    orgHasAnySdkConnectionApproval(context.org.settings?.approvalFlows)
   );
 }
 
@@ -146,23 +151,32 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
       return isSdkConnectionApprovalRequired(context);
     },
 
-    // Per-revision gate: when the org has approval enabled but disabled the
-    // `requireMetadataReview` toggle, a revision whose proposed changes only
-    // touch metadata (the name) can skip review. Mirrors the metadata-only
-    // autoPublish shortcut in PUT /sdk-connections/:id so the generic
-    // /revision/:id/merge endpoint reaches the same conclusion.
+    // Per-revision gate. Approval is scoped by the matched rule's `condition`
+    // (project / environment / etc.). We check both the baseline snapshot and
+    // the proposed state so a revision that moves the connection into (or out
+    // of) a gated scope is still reviewed. When the matched rule has
+    // `requireMetadataReview` disabled, a metadata-only (name) change can skip
+    // review — mirroring the autoPublish shortcut in PUT /sdk-connections/:id.
     isApprovalRequiredForRevision(
       context: Context,
       revision: Revision,
     ): boolean {
       if (!context.hasPremiumFeature("require-approvals")) return false;
 
-      const settings = getApprovalFlowSettings(
-        context.org.settings?.approvalFlows,
-        "sdk-connection",
-      );
-      if (!settings?.required) return false;
-      const metadataReviewRequired = settings.requireMetadataReview ?? true;
+      const approvalFlows = context.org.settings?.approvalFlows;
+      const baseline = revision.target
+        .snapshot as SDKConnectionRevisionSnapshot;
+      const proposed = applyTopLevelPatchOps(
+        baseline as unknown as Record<string, unknown>,
+        revision.target.proposedChanges,
+      ) as unknown as SDKConnectionRevisionSnapshot;
+
+      const rule =
+        getSdkConnectionApprovalRule(approvalFlows, baseline) ??
+        getSdkConnectionApprovalRule(approvalFlows, proposed);
+      if (!rule) return false;
+
+      const metadataReviewRequired = rule.requireMetadataReview ?? true;
       if (metadataReviewRequired) return true;
       return !isSdkConnectionRevisionMetadataOnly(
         revision.target.proposedChanges,

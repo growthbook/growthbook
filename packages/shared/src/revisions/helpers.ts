@@ -1,4 +1,5 @@
 import isEqual from "lodash/isEqual";
+import { evalCondition } from "@growthbook/growthbook";
 import type {
   ApprovalFlowConfiguration,
   ApprovalFlowConfigurations,
@@ -102,6 +103,85 @@ export const isSdkConnectionRevisionMetadataOnly = (
     return !!field && SDK_CONNECTION_METADATA_FIELDS.has(field);
   });
 };
+
+// ---------------------------------------------------------------------------
+// SDK-connection approval scoping (condition-based, SDK-connection only)
+//
+// Each SDK-connection approval rule may carry a `condition` — the same
+// Mongo-style format used for saved-group / targeting conditions — evaluated by
+// the SDK's `evalCondition` against the connection's attributes. This lets
+// admins scope "require approval" to e.g. specific environments and/or
+// projects with full AND/OR flexibility. Saved groups and features do NOT use
+// these helpers.
+// ---------------------------------------------------------------------------
+
+/**
+ * Attributes an SDK-connection approval `condition` is evaluated against. The
+ * full flattened connection snapshot is passed through, so a condition can
+ * reference any connection field; `projects` / `environment` are the primary
+ * intended targets.
+ */
+export type SdkConnectionApprovalScope = {
+  projects?: string[];
+  environment?: string;
+  [key: string]: unknown;
+};
+
+/**
+ * Whether an approval rule's scoping condition matches a connection. A missing
+ * or empty (`{}`) condition matches everything. A malformed condition does NOT
+ * match — rules are validated on save, so this only guards against a broken
+ * rule unexpectedly gating (or bricking) edits.
+ */
+export const sdkConnectionMatchesApprovalCondition = (
+  condition: string | undefined,
+  scope: SdkConnectionApprovalScope,
+): boolean => {
+  if (!condition || condition === "{}") return true;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(condition);
+  } catch {
+    return false;
+  }
+  if (!parsed || typeof parsed !== "object") return false;
+  const attributes = {
+    ...scope,
+    projects: scope.projects ?? [],
+    environment: scope.environment ?? "",
+  };
+  return evalCondition(
+    attributes,
+    parsed as Parameters<typeof evalCondition>[1],
+  );
+};
+
+/**
+ * The first enabled SDK-connection approval rule whose condition matches the
+ * given connection scope, or undefined if none require approval for it. The
+ * matched rule supplies the per-rule settings (requireMetadataReview, etc.).
+ */
+export const getSdkConnectionApprovalRule = (
+  approvalFlows: ApprovalFlowConfigurations | undefined,
+  scope: SdkConnectionApprovalScope,
+): ApprovalFlowConfiguration | undefined => {
+  const rules = approvalFlows?.sdkConnections;
+  if (!rules?.length) return undefined;
+  return rules.find(
+    (rule) =>
+      rule.required &&
+      sdkConnectionMatchesApprovalCondition(rule.condition, scope),
+  );
+};
+
+/**
+ * Whether the org has *any* enabled SDK-connection approval rule (ignoring
+ * scope). Used for type-level "does this org use SDK-connection approvals at
+ * all" decisions, e.g. the approvals inbox / badge query.
+ */
+export const orgHasAnySdkConnectionApproval = (
+  approvalFlows: ApprovalFlowConfigurations | undefined,
+): boolean => !!approvalFlows?.sdkConnections?.some((rule) => rule.required);
 
 /**
  * Returns true when `userId` contributed to the revision and the entity-type's

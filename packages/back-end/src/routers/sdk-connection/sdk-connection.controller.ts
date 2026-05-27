@@ -12,12 +12,7 @@ import {
   WebhookSummary,
 } from "shared/types/webhook";
 import { createSdkWebhookValidator } from "shared/validators";
-import {
-  Revision,
-  SDK_CONNECTION_METADATA_FIELDS,
-  getApprovalFlowSettings,
-  normalizeProposedChanges,
-} from "shared/enterprise";
+import { Revision, normalizeProposedChanges } from "shared/enterprise";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
@@ -33,7 +28,6 @@ import {
 import { validateRequireProjectForSdkConnections } from "back-end/src/api/sdk-connections/validations";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import {
-  isRevisionRequired,
   createOrUpdateRevision,
   buildPatchOps,
   applyPatchToSnapshot,
@@ -203,7 +197,6 @@ export const putSDKConnection = async (
     proposed.remoteEvalEnabled = false;
   }
 
-  const approvalRequired = isRevisionRequired(context, "sdk-connection", id);
   const updatableFields = getAdapter("sdk-connection").getUpdatableFields();
 
   // The flattened, secret-free view of the live connection used as the diff
@@ -292,44 +285,35 @@ export const putSDKConnection = async (
     },
   );
 
+  const adapter = getAdapter("sdk-connection");
+
+  // Whether THIS revision needs approval is decided entirely by the adapter,
+  // which evaluates the scoping condition (project / environment / etc.) and
+  // the metadata-review exemption against the revision. The controller never
+  // evaluates conditions itself.
+  const needsApproval =
+    adapter.isApprovalRequiredForRevision?.(context, revision) ??
+    adapter.isApprovalRequired(context);
+
   if (wantsMerge) {
-    // Delegate to the adapter so the multi-project bypass rule has a single
-    // source of truth (also used by the generic revision controller).
-    const canBypass = getAdapter("sdk-connection").canBypassApproval(
+    // The multi-project bypass rule also lives in the adapter (single source of
+    // truth, shared with the generic revision controller).
+    const canBypass = adapter.canBypassApproval(
       context,
       connection as unknown as Record<string, unknown>,
     );
 
-    // bypassApproval is an explicit admin override — enforce server-side.
-    if (bypassApproval && approvalRequired && !canBypass) {
+    // bypassApproval / autoPublish may only skip a genuinely-required review
+    // when the caller can bypass approvals across the connection's projects.
+    if ((bypassApproval || autoPublish) && needsApproval && !canBypass) {
       context.permissions.throwPermissionError();
     }
 
-    // autoPublish is the "metadata-only shortcut": it lets non-admins publish
-    // immediately when the org has disabled metadata review. It must NOT be
-    // usable to bypass full review — enforce server-side that it's only
-    // honoured when (a) the change is metadata-only AND metadata review is
-    // disabled, or (b) the caller has the admin bypass permission.
-    if (autoPublish && approvalRequired && !canBypass) {
-      const isMetadataOnlyChange =
-        Object.keys(fieldsToUpdate).length > 0 &&
-        Object.keys(fieldsToUpdate).every((k) =>
-          SDK_CONNECTION_METADATA_FIELDS.has(k),
-        );
-      const metadataReviewRequired =
-        getApprovalFlowSettings(org.settings?.approvalFlows, "sdk-connection")
-          ?.requireMetadataReview ?? true;
-      if (!isMetadataOnlyChange || metadataReviewRequired) {
-        context.permissions.throwPermissionError();
-      }
-    }
-
-    const canImmediatelyMerge =
-      !approvalRequired || bypassApproval || autoPublish;
+    const canImmediatelyMerge = !needsApproval || bypassApproval || autoPublish;
 
     if (canImmediatelyMerge) {
       // Only record a bypass when the caller used the explicit admin override.
-      const isBypass = approvalRequired && bypassApproval;
+      const isBypass = needsApproval && bypassApproval;
 
       await editSDKConnection(
         context,
@@ -349,7 +333,7 @@ export const putSDKConnection = async (
 
   return res.status(202).json({
     status: 202,
-    requiresApproval: approvalRequired,
+    requiresApproval: needsApproval,
     revision,
   });
 };
