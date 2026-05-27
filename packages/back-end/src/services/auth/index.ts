@@ -189,6 +189,17 @@ export async function processJWT(
         undefined;
 
       if (req.organization) {
+        if (req.organization.suspended && !req.superAdmin) {
+          if (!(req.method === "GET" && req.path === "/organization")) {
+            res.status(403).json({
+              status: 403,
+              message:
+                "Account Suspended. Please contact your account executive or support@growthbook.io for assistance.",
+            });
+            return;
+          }
+        }
+
         if (
           !req.superAdmin &&
           !req.organization.members.filter((m) => m.id === req.userId).length

@@ -394,6 +394,7 @@ export interface OrganizationInterface {
   customRoles?: Role[];
   deactivatedRoles?: string[];
   disabled?: boolean;
+  suspended?: boolean;
   setupEventTracker?: string;
 }
 
