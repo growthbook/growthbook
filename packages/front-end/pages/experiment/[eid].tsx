@@ -108,7 +108,7 @@ const ExperimentPage = (): ReactElement => {
   const runningExperimentStatus = getRunningExperimentResultStatus(experiment);
 
   const canEditExperiment =
-    permissionsUtil.canViewExperimentModal(experiment.project) &&
+    permissionsUtil.canUpdateExperiment(experiment, {}) &&
     !experiment.archived;
 
   let canRunExperiment = !experiment.archived;

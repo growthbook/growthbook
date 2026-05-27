@@ -4,10 +4,10 @@ import {
   FeatureInterface,
   FeatureValueType,
 } from "shared/types/feature";
-import React, { ReactElement } from "react";
+import React, { ReactElement, useState } from "react";
 import { validateFeatureValue } from "shared/util";
 import { PiInfo } from "react-icons/pi";
-import { Box } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useAuth } from "@/services/auth";
@@ -35,6 +35,8 @@ import useProjectOptions from "@/hooks/useProjectOptions";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import SelectField from "@/components/Forms/SelectField";
 import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
+import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
 import TagsField from "./TagsField";
@@ -179,6 +181,11 @@ export default function FeatureModal({
       ? initialCustomFields
       : undefined,
   });
+
+  const [showDescription, setShowDescription] = useState(
+    !!defaultValues.description?.length,
+  );
+  const [showTags, setShowTags] = useState(!!defaultValues.tags?.length);
 
   const form = useForm({ defaultValues });
 
@@ -412,10 +419,38 @@ export default function FeatureModal({
             </div>
           )}
 
-        <TagsField
-          value={form.watch("tags") || []}
-          onChange={(tags) => form.setValue("tags", tags)}
-        />
+        <Flex direction="column" mt="3">
+          {showTags && (
+            <TagsField
+              value={form.watch("tags") || []}
+              onChange={(tags) => form.setValue("tags", tags)}
+              autoFocus={!defaultValues.tags?.length}
+            />
+          )}
+          {showDescription && (
+            <div className="form-group" style={{ width: "100%" }}>
+              <label>Description</label>
+              <Box mt="1">
+                <MarkdownInput
+                  value={form.watch("description") || ""}
+                  setValue={(description) =>
+                    form.setValue("description", description)
+                  }
+                  autofocus={!defaultValues.description?.length}
+                />
+              </Box>
+            </div>
+          )}
+
+          <Flex gap="4">
+            {!showTags && <Link onClick={() => setShowTags(true)}>+ tags</Link>}
+            {!showDescription && (
+              <Link onClick={() => setShowDescription(true)}>
+                + description
+              </Link>
+            )}
+          </Flex>
+        </Flex>
       </FormProvider>
     </Modal>
   );
