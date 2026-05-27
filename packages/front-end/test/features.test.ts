@@ -297,6 +297,43 @@ describe("json <-> conds", () => {
     expect(condToJson(conds, attributeMap)).toEqual(json);
   });
 
+  it("str_arr - $includesAnyOf", () => {
+    const json = stringify({
+      str_arr: { $elemMatch: { $in: ["foo", "bar"] } },
+    });
+    const conds = [
+      [{ field: "str_arr", operator: "$includesAnyOf", value: "foo, bar" }],
+    ];
+    expect(jsonToConds(json, attributeMap)).toEqual(conds);
+    expect(condToJson(conds, attributeMap)).toEqual(json);
+  });
+  it("str_arr - $notIncludesAnyOf", () => {
+    const json = stringify({
+      str_arr: { $not: { $elemMatch: { $in: ["foo", "bar"] } } },
+    });
+    const conds = [
+      [
+        {
+          field: "str_arr",
+          operator: "$notIncludesAnyOf",
+          value: "foo, bar",
+        },
+      ],
+    ];
+    expect(jsonToConds(json, attributeMap)).toEqual(conds);
+    expect(condToJson(conds, attributeMap)).toEqual(json);
+  });
+  it("num_arr - $includesAnyOf parses numbers", () => {
+    const json = stringify({
+      num_arr: { $elemMatch: { $in: [1, 2, 3] } },
+    });
+    const conds = [
+      [{ field: "num_arr", operator: "$includesAnyOf", value: "1, 2, 3" }],
+    ];
+    expect(jsonToConds(json, attributeMap)).toEqual(conds);
+    expect(condToJson(conds, attributeMap)).toEqual(json);
+  });
+
   it("$or operator", () => {
     const json = stringify({ $or: [{ num: 10 }, { num: 20 }] });
     const conds = [

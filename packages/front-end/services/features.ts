@@ -1239,6 +1239,20 @@ export function jsonToConds(
                 value: v["$eq"] + "",
               });
             }
+            if ("$in" in v && Array.isArray(v["$in"])) {
+              const items = v["$in"] as unknown[];
+              if (
+                items.every(
+                  (x) => typeof x !== "object" && !(x + "").includes(","),
+                )
+              ) {
+                return conds.push({
+                  field,
+                  operator: "$includesAnyOf",
+                  value: items.join(", "),
+                });
+              }
+            }
           }
           valid = false;
           return;
@@ -1269,6 +1283,20 @@ export function jsonToConds(
                     operator: "$notIncludes",
                     value: m["$eq"] + "",
                   });
+                }
+                if ("$in" in m && Array.isArray(m["$in"])) {
+                  const items = m["$in"] as unknown[];
+                  if (
+                    items.every(
+                      (x) => typeof x !== "object" && !(x + "").includes(","),
+                    )
+                  ) {
+                    return conds.push({
+                      field,
+                      operator: "$notIncludesAnyOf",
+                      value: items.join(", "),
+                    });
+                  }
                 }
               }
             }
@@ -1428,6 +1456,22 @@ export function condToJson(
         obj[field]["$not"] = {
           $elemMatch: {
             $eq: parseValue(value, attributes.get(field)?.datatype),
+          },
+        };
+      } else if (operator === "$includesAnyOf") {
+        obj[field]["$elemMatch"] = {
+          $in: value
+            .split(",")
+            .map((x) => parseValue(x.trim(), attributes.get(field)?.datatype)),
+        };
+      } else if (operator === "$notIncludesAnyOf") {
+        obj[field]["$not"] = {
+          $elemMatch: {
+            $in: value
+              .split(",")
+              .map((x) =>
+                parseValue(x.trim(), attributes.get(field)?.datatype),
+              ),
           },
         };
       } else if (operator === "$empty") {
