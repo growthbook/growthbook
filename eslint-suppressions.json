@@ -44,11 +44,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Auth/Welcome.tsx": {
-    "local/no-alert-classname": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/AutoGenerateMetricsModal.tsx": {
     "local/no-alert-classname": {
       "count": 5
@@ -1651,11 +1646,6 @@
   "packages/front-end/enterprise/components/Dashboards/DashboardEditor/DashboardViewQueriesButton.tsx": {
     "no-restricted-imports": {
       "count": 1
-    }
-  },
-  "packages/front-end/enterprise/components/Dashboards/DashboardEditor/index.tsx": {
-    "no-restricted-imports": {
-      "count": 2
     }
   },
   "packages/front-end/enterprise/components/Dashboards/DashboardModal.tsx": {

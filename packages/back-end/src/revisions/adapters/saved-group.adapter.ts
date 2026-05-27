@@ -5,7 +5,10 @@ import {
   getApprovalFlowSettings,
   isSavedGroupRevisionMetadataOnly,
 } from "shared/enterprise";
-import { savedGroupValidator } from "shared/validators";
+import {
+  savedGroupValidator,
+  savedGroupUpdatableFieldsSchema,
+} from "shared/validators";
 import type { Context } from "back-end/src/models/BaseModel";
 import { EntityRevisionAdapter } from "back-end/src/revisions/EntityRevisionAdapter";
 
@@ -17,17 +20,9 @@ const SNAPSHOT_ALLOWED_KEYS = Object.keys(savedGroupValidator.shape) as Array<
   keyof SavedGroupInterface
 >;
 
-const UPDATABLE_FIELDS = new Set<string>([
-  "groupName",
-  "owner",
-  "values",
-  "condition",
-  "attributeKey",
-  "description",
-  "projects",
-  "useEmptyListGroup",
-  "archived",
-]);
+const UPDATABLE_FIELDS: ReadonlySet<string> = new Set(
+  Object.keys(savedGroupUpdatableFieldsSchema.shape),
+);
 
 // User must be able to bypass approval in EVERY project the saved group
 // belongs to (treats the empty-projects case as the global "" project).

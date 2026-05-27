@@ -32,6 +32,7 @@ import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fie
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import { validateEnvKeys } from "./postFeature";
 import { validateCustomFields, validateRuleAttributes } from "./validations";
+import { canBypassReviewChecks } from "./reviewBypass";
 import {
   assertValidHoldout,
   assertValidProjectId,
@@ -192,9 +193,9 @@ export const updateFeatureV2 = createApiRequestHandler(
     );
   }
 
-  const canBypass =
-    !!req.context.org.settings?.restApiBypassesReviews ||
-    req.context.permissions.canBypassApprovalChecks(feature);
+  // JWT-backed REST calls should behave like dashboard actions: the org-level
+  // REST bypass setting only applies to API keys/PATs.
+  const canBypass = canBypassReviewChecks(req, feature);
 
   const newTagsForDiff = updates.tags;
 
