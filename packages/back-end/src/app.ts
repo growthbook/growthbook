@@ -269,18 +269,20 @@ app.use(async (req, res, next) => {
 // Visual Designer js file (does not require JWT or cors)
 app.get("/js/:key.js", getExperimentsScript);
 
-// increase max payload json size to 2mb (10mb for the api screenshot upload)
+// increase max payload json size to 2mb (10mb for the api screenshot
+// upload + visual-editor AI image gen — the latter accepts a base64-
+// encoded reference image which can push body size into the 5–7 MB
+// range for a high-res input image).
 app.use((req, res, next) => {
   const isScreenshotUpload =
     req.method === "POST" &&
     /^\/api\/v1\/experiments\/[^/]+\/variation\/[^/]+\/screenshot\/upload$/.test(
       req.path,
     );
-  bodyParser.json({ limit: isScreenshotUpload ? "10mb" : "2mb" })(
-    req,
-    res,
-    next,
-  );
+  const isVisualEditorImageGen =
+    req.method === "POST" && req.path === "/api/v1/visual-editor/ai/image-gen";
+  const needsLargeBody = isScreenshotUpload || isVisualEditorImageGen;
+  bodyParser.json({ limit: needsLargeBody ? "10mb" : "2mb" })(req, res, next);
 });
 
 // Public API routes (does not require JWT, does require cors with origin = *)

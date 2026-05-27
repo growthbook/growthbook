@@ -125,6 +125,7 @@
     "python-shell": "^3.0.0",
     "saslprep": "^1.0.0",
     "scim2-parse-filter": "^0.2.8",
+    "sharp": "^0.34.5",
     "shared": "workspace:*",
     "snowflake-sdk": "2.3.3",
     "ssrf-req-filter": "^1.1.1",

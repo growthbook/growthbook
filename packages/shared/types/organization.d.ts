@@ -248,6 +248,23 @@ export interface OrganizationSettings {
   embeddingModel?: EmbeddingModel;
   /** @deprecated */
   openAIDefaultModel?: AIModel;
+  // Per-surface overrides for the Visual Editor extension. Falls back to
+  // defaultAIModel (text) / GEMINI_IMAGE_MODEL env var (image) when unset.
+  // Image model is a free string rather than an AIModel union because
+  // image-gen models live in a separate Gemini-specific namespace
+  // (gemini-2.5-flash-image and successors) that doesn't overlap with the
+  // text-model union — and the cadence of new Gemini image versions
+  // shouldn't require a schema change to try.
+  visualEditorAIModel?: AIModel;
+  visualEditorImageModel?: string;
+  // Free-text brand guidelines / additional context appended to the
+  // system prompt for both AI text edits and AI image gen in the
+  // Visual Editor extension. Examples: "We're a B2B SaaS company with
+  // a minimalist design. Brand colors are #6E56CF and #1F2D5C. Use
+  // sentence case for buttons." This gives admins one place to anchor
+  // the AI's tone / visual identity without re-typing it in every
+  // prompt.
+  visualEditorAIContext?: string;
   implementationTypes?: ImplementationType[];
   attributionModel?: AttributionModel;
   sequentialTestingEnabled?: boolean;

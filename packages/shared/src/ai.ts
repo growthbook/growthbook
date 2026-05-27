@@ -130,6 +130,9 @@ export const AI_PROMPT_TYPES = [
   "visual-changeset-copy-transform-energetic",
   "visual-changeset-copy-transform-concise",
   "visual-changeset-copy-transform-humorous",
+  "visual-editor-ai-edit",
+  "visual-editor-ai-suggestions",
+  "visual-editor-ai-image-gen",
   "product-analytics-chat",
 ] as const;
 export type AIPromptType = (typeof AI_PROMPT_TYPES)[number];
@@ -163,6 +166,9 @@ export const AI_PROMPT_DEFAULTS: Record<AIPromptType, string> = {
   "visual-changeset-copy-transform-energetic": "", // Always uses the default prompt set in postCopyTransform.ts
   "visual-changeset-copy-transform-concise": "", // Always uses the default prompt set in postCopyTransform.ts
   "visual-changeset-copy-transform-humorous": "", // Always uses the default prompt set in postCopyTransform.ts
+  "visual-editor-ai-edit": "", // Always uses the default prompt set in postAIEdit.ts
+  "visual-editor-ai-suggestions": "", // Always uses the default prompt set in postAISuggestions.ts
+  "visual-editor-ai-image-gen": "", // Image generation does not currently use a text prompt template
   "product-analytics-chat": "",
 };
 
