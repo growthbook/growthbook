@@ -6,6 +6,7 @@ import {
   GetObjectCommand,
   CopyObjectCommand,
   DeleteObjectCommand,
+  HeadObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { createPresignedPost } from "@aws-sdk/s3-presigned-post";
@@ -399,6 +400,21 @@ export async function promoteFile(
 
   if (UPLOAD_METHOD === "s3") {
     const client = getS3Client(cfg.s3Region);
+    // MetadataDirective: REPLACE drops ALL of the source object's
+    // metadata — including its Content-Type. If we don't explicitly set
+    // ContentType on the copy, S3 defaults the destination to
+    // `binary/octet-stream`, which makes browsers offer the image as a
+    // download instead of rendering it. Worse, the destination is served
+    // with `immutable` cache headers, so a CDN would cache the wrong
+    // content type effectively forever. Read the source's content type
+    // first and echo it onto the copy so the promoted object matches a
+    // direct upload.
+    const head = await client.send(
+      new HeadObjectCommand({
+        Bucket: cfg.s3Bucket,
+        Key: srcKey,
+      }),
+    );
     // S3 CopySource is `<bucket>/<key>` URL-encoded. The SDK handles
     // basic encoding for us but we still need to URI-encode any
     // characters that aren't ASCII-safe — the key path comes from
@@ -410,8 +426,10 @@ export async function promoteFile(
         CopySource: `${cfg.s3Bucket}/${encodeURIComponent(srcKey).replace(/%2F/g, "/")}`,
         Key: destKey,
         // REPLACE so the destination picks up the configured cache
-        // headers + content type rather than inheriting from source.
+        // headers rather than inheriting from source — but that also
+        // wipes the source Content-Type, so we re-supply it below.
         MetadataDirective: "REPLACE",
+        ...(head.ContentType ? { ContentType: head.ContentType } : {}),
         ...(cfg.cacheControl ? { CacheControl: cfg.cacheControl } : {}),
       }),
     );

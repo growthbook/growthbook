@@ -30,16 +30,21 @@ const bodySchema = z
     // if the caller hasn't passed one explicitly.
     pageUrl: z.string().url(),
     // The URL the experiment will run on in production. We accept either
-    // a simple pattern (string + type) or a full pattern object.
+    // a simple pattern (string + type) or a full pattern object. The
+    // array is capped (and each pattern bounded) because the whole list
+    // is persisted on the experiment and re-evaluated by the SDK on every
+    // page load — there's no real-world targeting need for more than a
+    // handful, so the cap exists purely to reject pathological input.
     urlPatterns: z
       .array(
         z.object({
           include: z.boolean().default(true),
           type: z.enum(["simple", "regex"]).default("simple"),
-          pattern: z.string().min(1),
+          pattern: z.string().min(1).max(2000),
         }),
       )
-      .min(1),
+      .min(1)
+      .max(100),
     project: z.string().optional(),
     // Optional richer fields the user can prefill if they want — purely
     // pass-through to createExperiment.

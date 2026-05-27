@@ -136,16 +136,37 @@ type GeminiResponse = {
 
 // Cache the model-list lookup per process — it only runs when we 404 and
 // we don't want to spam Google's models endpoint on every failed call.
+// Failures are cached too (negative caching), otherwise a misconfigured
+// deployment that 404s on *every* image-gen would fire a models-API probe
+// on every single request and quickly exhaust Google's (low) list-models
+// quota — turning one bad config into a rate-limit cascade. We keep the
+// negative TTL short so the list still recovers from transient blips
+// without a process restart; successful lookups cache much longer since
+// the available-models set changes rarely.
 let cachedAvailableImageModels: string[] | null = null;
+let imageModelsCacheExpiresAt = 0;
+const MODEL_LIST_TTL_MS = 10 * 60 * 1000; // 10 min for successful lookups
+const MODEL_LIST_NEGATIVE_TTL_MS = 60 * 1000; // 1 min for failures
 
 async function listAvailableImageModels(): Promise<string[]> {
-  if (cachedAvailableImageModels) return cachedAvailableImageModels;
+  if (
+    cachedAvailableImageModels !== null &&
+    Date.now() < imageModelsCacheExpiresAt
+  ) {
+    return cachedAvailableImageModels;
+  }
   try {
     const res = await fetch(
       "https://generativelanguage.googleapis.com/v1beta/models",
       { headers: { "x-goog-api-key": GEMINI_API_KEY } },
     );
-    if (!res.ok) return [];
+    if (!res.ok) {
+      // Negative-cache so a persistently-broken endpoint can't trigger a
+      // models-API probe on every failed image-gen request.
+      cachedAvailableImageModels = [];
+      imageModelsCacheExpiresAt = Date.now() + MODEL_LIST_NEGATIVE_TTL_MS;
+      return cachedAvailableImageModels;
+    }
     const j = (await res.json()) as {
       models?: {
         name?: string;
@@ -163,10 +184,15 @@ async function listAvailableImageModels(): Promise<string[]> {
       .map((m) => (m.name ?? "").replace(/^models\//, ""))
       .filter(Boolean);
     cachedAvailableImageModels = candidates;
+    imageModelsCacheExpiresAt = Date.now() + MODEL_LIST_TTL_MS;
     return candidates;
   } catch (e) {
     logger.warn({ err: e }, "[visual-editor-ai] listModels failed");
-    return [];
+    // Negative-cache transient errors too, for the same quota-protection
+    // reason as the non-2xx path above.
+    cachedAvailableImageModels = [];
+    imageModelsCacheExpiresAt = Date.now() + MODEL_LIST_NEGATIVE_TTL_MS;
+    return cachedAvailableImageModels;
   }
 }
 

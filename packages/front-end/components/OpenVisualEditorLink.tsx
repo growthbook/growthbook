@@ -1,7 +1,7 @@
 import { FC, useMemo, useState } from "react";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { PiArrowSquareOut } from "react-icons/pi";
-import { getApiHost } from "@/services/env";
+import { getApiHost, getAppOrigin } from "@/services/env";
 import track from "@/services/track";
 import { appendQueryParamsToURL } from "@/services/utils";
 import { AuthContextValue, useAuth } from "@/services/auth";
@@ -117,6 +117,10 @@ export async function openVisualEditor({
         data: {
           apiHost,
           apiKey,
+          // Teach the extension our app origin so its "Connect with
+          // GrowthBook" button knows where to reopen for future reconnects
+          // (the app origin can differ from apiHost, e.g. on self-hosted).
+          appOrigin: getAppOrigin(),
         },
       },
       window.location.origin,
