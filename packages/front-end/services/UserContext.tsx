@@ -550,6 +550,16 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         permissions.canDeleteFactMetric,
       );
 
+      permissions.canCreateHoldout = wrapByProjects(
+        permissions.canCreateHoldout,
+      );
+      permissions.canDeleteHoldout = wrapByProjects(
+        permissions.canDeleteHoldout,
+      );
+      permissions.canViewHoldoutModal = wrapByProjectString(
+        permissions.canViewHoldoutModal,
+      );
+
       return permissions;
     }
     return new Permissions(basePermissions);

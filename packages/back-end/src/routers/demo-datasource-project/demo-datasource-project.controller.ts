@@ -516,8 +516,8 @@ Treatment shows a larger 'Add to Cart' CTA, but with the same functionality.`,
       project,
       experiment: createdExperiment,
     });
-    const analysisSettings: ExperimentSnapshotAnalysisSettings = getDefaultExperimentAnalysisSettings(
-      {
+    const analysisSettings: ExperimentSnapshotAnalysisSettings =
+      getDefaultExperimentAnalysisSettings({
         statsEngine: org.settings?.statsEngine || DEFAULT_STATS_ENGINE,
         experiment: createdExperiment,
         organization: org,
@@ -526,8 +526,7 @@ Treatment shows a larger 'Add to Cart' CTA, but with the same functionality.`,
         postStratificationEnabled:
           scopedSettings.postStratificationEnabled.value,
         pValueThreshold: scopedSettings.pValueThreshold.value,
-      },
-    );
+      });
 
     const metricMap = await getMetricMap(context);
     const factTableMap = await getFactTableMap(context);

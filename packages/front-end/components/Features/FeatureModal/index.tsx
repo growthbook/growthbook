@@ -7,6 +7,7 @@ import {
 import React, { ReactElement } from "react";
 import { validateFeatureValue } from "shared/util";
 import { PiInfo } from "react-icons/pi";
+import { Box } from "@radix-ui/themes";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useAuth } from "@/services/auth";
@@ -383,15 +384,17 @@ export default function FeatureModal({
           />
         )}
 
-        <EnvironmentSelect
-          environmentSettings={environmentSettings}
-          environments={environments}
-          project={selectedProject}
-          setValue={(env, on) => {
-            environmentSettings[env.id].enabled = on;
-            form.setValue("environmentSettings", environmentSettings);
-          }}
-        />
+        <Box className="appbox bg-light" px="4" pt="4" pb="1" mb="3">
+          <EnvironmentSelect
+            environmentSettings={environmentSettings}
+            environments={environments}
+            project={selectedProject}
+            setValue={(env, on) => {
+              environmentSettings[env.id].enabled = on;
+              form.setValue("environmentSettings", environmentSettings);
+            }}
+          />
+        </Box>
 
         {hasCommercialFeature("custom-metadata") &&
           customFields &&
