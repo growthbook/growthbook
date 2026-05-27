@@ -906,34 +906,44 @@ export function getFeatureDefinition({
               getJSONValue(feature.valueType, defaultValue),
             ];
             rule.weights = [0.5, 0.5];
-            // coverage is in STRICT_FEATURE_RULE_KEYS so it reaches all SDKs,
-            // including those that don't support bucketingV2 and therefore never
-            // receive `ranges`. For bucketingV2 SDKs, `ranges` takes precedence
-            // (the SDK uses experiment.ranges || getBucketRanges(...)). For older
-            // SDKs, `coverage` at least gates enrollment to ~coverage% of users
-            // (via getBucketRanges non-contiguous buckets) rather than enrolling
-            // 100% with no gate at all.
-            rule.coverage = clampedCoverage;
+            // `ranges` is the source of truth for enrollment. We do not set
+            // `coverage` because with non-adjacent ranges [0,c),[0.5,0.5+c) the
+            // coverage value would not correctly reflect total enrollment for old
+            // SDKs that fall back to getBucketRanges(). Old SDKs without
+            // bucketingV2 will enroll all eligible users rather than the correct
+            // subset; monitored ramp steps require bucketingV2 for correct behavior.
 
-            // Use explicit contiguous ranges so that:
-            //   treatment (var 0) = [0, coverage)          — full rollout population
-            //   control   (var 1) = [coverage, 2·coverage) — equal-sized when coverage ≤ 0.5,
-            //                       capped at 1.0 for coverage > 0.5 (control shrinks)
-            // When coverage = 1.0 the condition below is false, so no ranges are
-            // set; the SDK falls back to getBucketRanges with weights [0.5,0.5]
-            // which restores a symmetric [0,0.5)/[0.5,1.0) split.
+            // Use explicit ranges so that:
+            //   treatment (var 0) = [0, coverage)    — full rollout population
+            //   control   (var 1) = [0.5, 0.5+coverage) — non-adjacent, equal-sized
             //
-            // Tradeoff: keeping treatment = [0, coverage) preserves rollout bucketing
-            // across unmonitored↔monitored transitions (no variation hopping on state
-            // change). The cost is that step-ups shift control group boundaries —
-            // users newly added to treatment were previously in the control arm.
-            // This is inherent to the "treatment = rollout population" invariant.
-            const controlEnd = Math.min(1, clampedCoverage * 2);
+            // Placing control at [0.5, 0.5+coverage) keeps the arms disjoint and
+            // stable across step-ups: when coverage increases from C₁ → C₂, only
+            // users in [C₁, C₂) (treatment) and [0.5+C₁, 0.5+C₂) (control) are
+            // newly enrolled — no existing user changes arm.
+            //
+            // The REST API caps monitored-step coverage at 0.5, so control end
+            // (0.5+coverage ≤ 1.0) never overflows the hash space. At exactly
+            // 0.5 this yields [0,0.5],[0.5,1.0] — the full hash space, split evenly.
+            //
+            // For coverage > 0.5 (API-rejected for monitored steps but handled
+            // gracefully): fall back to contiguous [0,c],[c,min(1,2c)].
+            //
+            // When coverage = 1.0 no ranges are set; weights=[0.5,0.5] with no
+            // ranges lets the SDK compute the symmetric split via getBucketRanges.
             if (clampedCoverage < 1) {
-              rule.ranges = [
-                [0, clampedCoverage] as [number, number],
-                [clampedCoverage, controlEnd] as [number, number],
-              ];
+              if (clampedCoverage <= 0.5) {
+                rule.ranges = [
+                  [0, clampedCoverage] as [number, number],
+                  [0.5, 0.5 + clampedCoverage] as [number, number],
+                ];
+              } else {
+                const controlEnd = Math.min(1, clampedCoverage * 2);
+                rule.ranges = [
+                  [0, clampedCoverage] as [number, number],
+                  [clampedCoverage, controlEnd] as [number, number],
+                ];
+              }
             }
 
             rule.hashAttribute = r.hashAttribute;

@@ -133,12 +133,10 @@ describe("ramp-monitored SDK payload", () => {
       expect(rule.force).toBeUndefined();
       expect(rule.variations).toEqual([true, false]);
       expect(rule.weights).toEqual([0.5, 0.5]);
-      expect(rule.force).toBeUndefined();
-      expect(rule.variations).toEqual([true, false]);
-      expect(rule.weights).toEqual([0.5, 0.5]);
-      expect(rule.coverage).toBe(0.8);
+      expect(rule.coverage).toBeUndefined(); // ranges only — no coverage fallback
       expect(rule.filters).toBeUndefined();
-      // Explicit contiguous ranges: treatment=[0, c], control=[c, min(1, 2c)] for c=0.8
+      // coverage=0.8 > 0.5: falls back to contiguous [0,c],[c,min(1,2c)]
+      // (the API rejects coverage > 0.5 on monitored steps; this is graceful degradation)
       expect(rule.ranges).toEqual([
         [0, 0.8],
         [0.8, 1.0],
@@ -167,7 +165,7 @@ describe("ramp-monitored SDK payload", () => {
       } as Partial<FeatureInterface>);
       const def = getDefinition(feature, monitoredMap("rule_1"));
       const rule = def!.rules![0];
-      expect(rule.coverage).toBe(1);
+      expect(rule.coverage).toBeUndefined(); // no coverage or ranges at 100%
       expect(rule.ranges).toBeUndefined();
       expect(rule.filters).toBeUndefined();
     });
@@ -227,7 +225,7 @@ describe("ramp-monitored SDK payload", () => {
       expect(rule.variations).toEqual([true, false]);
       expect(rule.filters).toBeUndefined();
       expect(rule.ranges).toBeUndefined();
-      expect(rule.coverage).toBe(1);
+      expect(rule.coverage).toBeUndefined(); // no coverage or ranges at 100%
     });
 
     it("falls back to standard rollout when rule has no hashAttribute", () => {
@@ -340,16 +338,18 @@ describe("ramp-monitored SDK payload", () => {
         capabilities: ["bucketingV2"],
       });
       const rule = def!.rules![0];
+      // coverage=0.8 > 0.5 → fallback contiguous formula
       expect(rule.ranges).toEqual([
         [0, 0.8],
         [0.8, 1.0],
       ]);
       expect(rule.seed).toBe("test-seed");
       expect(rule.hashVersion).toBe(1); // old rule has no hashVersion → falls back to 1
-      expect(rule.coverage).toBe(0.8); // present as a fallback sentinel but overridden by ranges
+      expect(rule.coverage).toBeUndefined(); // ranges only — no coverage fallback
     });
 
     it("monitored experiment inherits hashVersion:2 from the rollout rule", () => {
+      // coverage=0.4 ≤ 0.5 → non-adjacent formula: treatment=[0,0.4), control=[0.5,0.9)
       const feature = makeRolloutFeature({
         rules: [
           {
@@ -379,15 +379,15 @@ describe("ramp-monitored SDK payload", () => {
       expect(rule.hashVersion).toBe(2);
       expect(rule.ranges).toEqual([
         [0, 0.4],
-        [0.4, 0.8],
+        [0.5, 0.9],
       ]);
     });
 
-    it("non-bucketingV2 SDK receives coverage as enrollment gate but no ranges or seed", () => {
-      // Without bucketingV2, ranges/seed/meta/phase are stripped. coverage remains
-      // (it's a STRICT key) so enrollment is bounded to ~coverage% rather than 100%.
-      // The hash will differ from the rollout (key used instead of seed) but that is
-      // unavoidable; this is the best-effort fallback for very old SDKs.
+    it("non-bucketingV2 SDK receives no coverage or ranges (monitored steps require bucketingV2)", () => {
+      // Without bucketingV2, ranges/seed/meta/phase are stripped. coverage is not
+      // set on monitored steps (non-adjacent ranges make it meaningless), so old
+      // SDKs will enroll all eligible users. Correct monitored-step behavior
+      // requires a bucketingV2-capable SDK.
       const def = getFeatureDefinition({
         feature: makeRolloutFeature(),
         environment: "production",
@@ -400,7 +400,7 @@ describe("ramp-monitored SDK payload", () => {
       const rule = def!.rules![0];
       expect(rule.ranges).toBeUndefined();
       expect(rule.seed).toBeUndefined();
-      expect(rule.coverage).toBe(0.8); // still sent — limits enrollment to ~80% via getBucketRanges
+      expect(rule.coverage).toBeUndefined();
       expect(rule.variations).toEqual([true, false]);
     });
   });
@@ -426,7 +426,6 @@ describe("ramp-monitored SDK payload", () => {
     }
 
     function makeMonitoredPayload(coverage: number): FeatureDefinition {
-      const controlEnd = Math.min(1, coverage * 2);
       const rule: FeatureDefinitionRule = {
         variations: [TREATMENT, CONTROL],
         weights: [0.5, 0.5],
@@ -437,10 +436,20 @@ describe("ramp-monitored SDK payload", () => {
         phase: "0",
       };
       if (coverage < 1) {
-        rule.ranges = [
-          [0, coverage],
-          [coverage, controlEnd],
-        ];
+        if (coverage <= 0.5) {
+          // treatment=[0, c), control=[0.5, 0.5+c) — stable step-up bucketing
+          rule.ranges = [
+            [0, coverage],
+            [0.5, 0.5 + coverage],
+          ];
+        } else {
+          // coverage > 0.5: API-blocked for monitored steps, fallback formula
+          const controlEnd = Math.min(1, coverage * 2);
+          rule.ranges = [
+            [0, coverage],
+            [coverage, controlEnd],
+          ];
+        }
       }
       return {
         defaultValue: CONTROL,
@@ -641,20 +650,25 @@ describe("ramp-monitored SDK payload", () => {
       const coverages = [0.25, 0.5, 0.75];
 
       for (const coverage of coverages) {
-        const controlEnd = Math.min(1, coverage * 2);
+        const ranges: [number, number][] | undefined =
+          coverage >= 1
+            ? undefined
+            : coverage <= 0.5
+              ? [
+                  [0, coverage],
+                  [0.5, 0.5 + coverage],
+                ]
+              : [
+                  [0, coverage],
+                  [coverage, Math.min(1, coverage * 2)],
+                ];
         const payload: FeatureDefinition = {
           defaultValue: CONTROL,
           rules: [
             {
               variations: [TREATMENT, CONTROL],
               weights: [0.5, 0.5],
-              ranges:
-                coverage < 1
-                  ? [
-                      [0, coverage],
-                      [coverage, controlEnd],
-                    ]
-                  : undefined,
+              ranges,
               hashAttribute: "id",
               seed: SEED,
               key: "ramp_test",
@@ -730,6 +744,82 @@ describe("ramp-monitored SDK payload", () => {
           if (result.value === TREATMENT) {
             wasTreatment = true;
           }
+        }
+      }
+    });
+
+    it("rollout treatment space and monitored variation-0 space are identical (bijection)", () => {
+      // The treatment arm [0, coverage) is shared by both rollout and monitored
+      // experiment variation 0. This verifies BOTH directions:
+      //   rollout treatment  → monitored var-0
+      //   monitored var-0    → rollout treatment
+      // (var-1 passthrough means source="experiment" only fires for var-0)
+      const userIds = Array.from({ length: 500 }, (_, i) => `bijection_${i}`);
+      const coverage = 0.3;
+
+      const rolloutPayload = makeRolloutPayload(coverage);
+      const monitoredPayload = makeMonitoredPayload(coverage);
+
+      for (const userId of userIds) {
+        const rolloutResult = evaluateForUser(userId, {
+          [FEATURE_ID]: rolloutPayload,
+        });
+        const monitoredResult = evaluateForUser(userId, {
+          [FEATURE_ID]: monitoredPayload,
+        });
+
+        const inRollout = rolloutResult.value === TREATMENT;
+        // passthrough on var-1: source="experiment" iff the user landed in var-0
+        const inMonitoredVar0 = monitoredResult.source === "experiment";
+
+        expect(inRollout).toBe(inMonitoredVar0);
+      }
+    });
+
+    it("control arm is monotonically enrolled: step-up never drops or re-exposes existing control users", () => {
+      // With non-adjacent ranges [0,C),[0.5,0.5+C), the control arm [0.5, 0.5+C)
+      // strictly grows as C increases. A user who entered control at C₁ is still
+      // in control at any C₂ > C₁ — they never exit and are never re-assigned.
+      // Only users in [0.5+C₁, 0.5+C₂) are newly enrolled at the higher step.
+      const userIds = Array.from({ length: 500 }, (_, i) => `ctrl_mono_${i}`);
+      const stepCoverages = [0.1, 0.2, 0.3, 0.4, 0.5]; // all ≤ 0.5 → non-adjacent formula
+
+      // Use non-passthrough variations so we can distinguish control-arm users
+      // from truly unenrolled users (both would show "defaultValue" with passthrough).
+      function makeNonPassthroughPayload(coverage: number): FeatureDefinition {
+        return {
+          defaultValue: "unenrolled",
+          rules: [
+            {
+              variations: [TREATMENT, "control_arm"],
+              weights: [0.5, 0.5],
+              hashAttribute: "id",
+              seed: SEED,
+              key: "ctrl_mono_test",
+              meta: [{ key: "0" }, { key: "1" }],
+              phase: "0",
+              ranges: [
+                [0, coverage],
+                [0.5, 0.5 + coverage],
+              ],
+            },
+          ],
+        };
+      }
+
+      for (const userId of userIds) {
+        let wasControl = false;
+        for (const cov of stepCoverages) {
+          const result = evaluateForUser(userId, {
+            [FEATURE_ID]: makeNonPassthroughPayload(cov),
+          });
+          const isControl =
+            result.source === "experiment" && result.value === "control_arm";
+          if (wasControl) {
+            // Once assigned to control, coverage increases must keep them in control
+            expect(isControl).toBe(true);
+          }
+          if (isControl) wasControl = true;
         }
       }
     });

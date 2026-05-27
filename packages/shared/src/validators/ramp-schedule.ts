@@ -15,7 +15,7 @@ export const featureRulePatch = z.object({
     .max(1)
     .nullish()
     .describe(
-      "Traffic fraction (0–1). For monitored steps the rollout rule is promoted to an experiment: treatment = [0, coverage), control = [coverage, 2·coverage). Both arms are equal-sized when coverage ≤ 0.5; the REST API enforces coverage ≤ 0.5 on monitored steps to guarantee this. The SDK uses explicit hash ranges on bucketingV2 clients to keep bucketing stable across monitored/unmonitored transitions.",
+      "Traffic fraction (0–1). For monitored steps the rollout rule is promoted to an experiment: treatment = [0, coverage), control = [0.5, 0.5+coverage). Both arms are equal-sized and non-adjacent, so a step-up only adds new users to each arm — no existing user changes group. The REST API enforces coverage ≤ 0.5 on monitored steps so control end never exceeds 1.0. The SDK uses explicit hash ranges on bucketingV2 clients to keep bucketing stable across monitored/unmonitored transitions.",
     ),
   condition: z.string().nullish(),
   savedGroups: z.array(savedGroupTargeting).nullish(),
@@ -349,7 +349,7 @@ const apiRampStepCommon = {
     .boolean()
     .optional()
     .describe(
-      "When true, this step runs A/B traffic analysis while active. Treatment = [0, coverage), control = [coverage, 2·coverage). At coverage ≤ 0.5 both arms are equal-sized; the UI caps monitored-step coverage at 0.5 to enforce the 50/50 split. The SDK uses explicit hash ranges on the experiment rule to prevent bucketing shifts across monitored/unmonitored transitions.",
+      "When true, this step runs A/B traffic analysis while active. Treatment = [0, coverage), control = [0.5, 0.5+coverage). Arms are equal-sized and non-adjacent: step-ups only add users, never reassign existing ones. The UI caps monitored-step coverage at 0.5 so control end never exceeds 1.0. The SDK uses explicit hash ranges on the experiment rule to prevent bucketing shifts across monitored/unmonitored transitions.",
     ),
   holdConditions: stepHoldConditions.optional(),
 };
