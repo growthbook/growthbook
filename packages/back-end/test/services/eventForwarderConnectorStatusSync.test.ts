@@ -3,15 +3,11 @@ import {
   mapLicenseConnectorPhaseToEventForwarderStatus,
   syncEventForwarderStatusFromLicenseServer,
 } from "back-end/src/services/eventForwarderConnectorStatusSync";
-import {
-  postEventForwarderStatusToLicenseServer,
-  postInitialEventForwarderSchematizationPingToLicenseServer,
-} from "back-end/src/enterprise/licenseUtil";
+import { postEventForwarderStatusToLicenseServer } from "back-end/src/enterprise/licenseUtil";
 import { queueDelayedEventForwarderWarehouseSyncForDatasource } from "back-end/src/services/eventForwarderWarehouseSync";
 
 jest.mock("back-end/src/enterprise/licenseUtil", () => ({
   postEventForwarderStatusToLicenseServer: jest.fn(),
-  postInitialEventForwarderSchematizationPingToLicenseServer: jest.fn(),
 }));
 
 jest.mock("back-end/src/services/eventForwarderWarehouseSync", () => ({
@@ -22,10 +18,6 @@ const statusMock =
   postEventForwarderStatusToLicenseServer as jest.MockedFunction<
     typeof postEventForwarderStatusToLicenseServer
   >;
-const initialPingMock =
-  postInitialEventForwarderSchematizationPingToLicenseServer as jest.MockedFunction<
-    typeof postInitialEventForwarderSchematizationPingToLicenseServer
-  >;
 const warehouseSyncMock =
   queueDelayedEventForwarderWarehouseSyncForDatasource as jest.MockedFunction<
     typeof queueDelayedEventForwarderWarehouseSyncForDatasource
@@ -34,6 +26,7 @@ const warehouseSyncMock =
 function efConfig(
   overrides: Partial<{
     status: string;
+    initialWarehouseSyncQueued: boolean;
     initialGbUpdatePingSent: boolean;
   }> = {},
 ) {
@@ -48,6 +41,7 @@ function efConfig(
     topic: "gb-events-org1-ds1",
     schemaId: 10,
     connectorName: "connector_1",
+    initialWarehouseSyncQueued: undefined,
     initialGbUpdatePingSent: undefined,
     ...overrides,
   };
@@ -102,10 +96,10 @@ describe("syncEventForwarderStatusFromLicenseServer", () => {
       confluentState: "RUNNING",
       phase: "ready",
     });
-    initialPingMock.mockResolvedValue({ ok: true });
+    warehouseSyncMock.mockResolvedValue(undefined);
   });
 
-  it("sends initial schematization ping when connector becomes ready", async () => {
+  it("queues initial warehouse sync when connector becomes ready", async () => {
     const update = jest.fn().mockResolvedValue(undefined);
     const context = {
       org: { id: "org1" },
@@ -115,25 +109,34 @@ describe("syncEventForwarderStatusFromLicenseServer", () => {
 
     await syncEventForwarderStatusFromLicenseServer(context, config as never);
 
-    expect(initialPingMock).toHaveBeenCalledWith({
-      organizationId: "org1",
-      datasourceId: "ds_1",
-      topic: "gb-events-org1-ds1",
-      schemaId: 10,
-    });
-    expect(update).toHaveBeenCalledWith(
-      expect.objectContaining({ id: "efc_1" }),
-      expect.objectContaining({ initialGbUpdatePingSent: true }),
-    );
     expect(warehouseSyncMock).toHaveBeenCalledWith(
       expect.objectContaining({
         org: expect.objectContaining({ id: "org1" }),
       }),
       "ds_1",
     );
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "efc_1" }),
+      expect.objectContaining({ initialWarehouseSyncQueued: true }),
+    );
   });
 
-  it("skips initial ping when already sent", async () => {
+  it("skips initial warehouse sync when already queued", async () => {
+    const update = jest.fn().mockResolvedValue(undefined);
+    const context = {
+      org: { id: "org1" },
+      models: { eventForwarderConfigs: { update } },
+    } as never;
+
+    await syncEventForwarderStatusFromLicenseServer(
+      context,
+      efConfig({ status: "ready", initialWarehouseSyncQueued: true }) as never,
+    );
+
+    expect(warehouseSyncMock).not.toHaveBeenCalled();
+  });
+
+  it("skips initial warehouse sync when legacy ping flag is set", async () => {
     const update = jest.fn().mockResolvedValue(undefined);
     const context = {
       org: { id: "org1" },
@@ -145,11 +148,11 @@ describe("syncEventForwarderStatusFromLicenseServer", () => {
       efConfig({ status: "ready", initialGbUpdatePingSent: true }) as never,
     );
 
-    expect(initialPingMock).not.toHaveBeenCalled();
+    expect(warehouseSyncMock).not.toHaveBeenCalled();
   });
 
-  it("does not set initialGbUpdatePingSent when ping fails", async () => {
-    initialPingMock.mockRejectedValue(new Error("kafka down"));
+  it("does not set initialWarehouseSyncQueued when queue fails", async () => {
+    warehouseSyncMock.mockRejectedValue(new Error("queue failed"));
     const update = jest.fn().mockResolvedValue(undefined);
     const context = {
       org: { id: "org1" },
@@ -163,7 +166,7 @@ describe("syncEventForwarderStatusFromLicenseServer", () => {
 
     expect(update).not.toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ initialGbUpdatePingSent: true }),
+      expect.objectContaining({ initialWarehouseSyncQueued: true }),
     );
   });
 });

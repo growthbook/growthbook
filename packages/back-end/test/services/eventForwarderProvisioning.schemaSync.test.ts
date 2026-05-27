@@ -13,8 +13,8 @@ jest.mock("back-end/src/enterprise/licenseUtil", () => ({
 
 jest.mock("back-end/src/services/eventForwarderFactTable", () => ({
   ensureEventForwarderEventsFactTable: jest.fn(),
+  queueDelayedFactTableColumnsRefreshForDatasource: jest.fn(),
   queueDelayedFactTableColumnsRefreshForEventForwarderDatasources: jest.fn(),
-  queueEventForwarderEventsFactTablesColumnsRefresh: jest.fn(),
 }));
 
 describe("syncEventForwarderSchemasAfterAttributeSchemaChange", () => {
@@ -22,18 +22,22 @@ describe("syncEventForwarderSchemasAfterAttributeSchemaChange", () => {
     postUpdateEventForwarderSchemaToLicenseServer as jest.MockedFunction<
       typeof postUpdateEventForwarderSchemaToLicenseServer
     >;
-  const queueDelayedMock =
+  const factTablesRefreshMock =
     queueDelayedFactTableColumnsRefreshForEventForwarderDatasources as jest.MockedFunction<
       typeof queueDelayedFactTableColumnsRefreshForEventForwarderDatasources
     >;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    updateSchemaMock.mockResolvedValue({ schemaId: 99, schemaChanged: true });
-    queueDelayedMock.mockResolvedValue(undefined);
+    updateSchemaMock.mockResolvedValue({
+      schemaId: 99,
+      schemaChanged: true,
+      newFieldNames: ["country"],
+    });
+    factTablesRefreshMock.mockResolvedValue(undefined);
   });
 
-  it("queues delayed refresh when any forwarder schema changed", async () => {
+  it("queues delayed fact table refresh when any forwarder schema changed", async () => {
     const update = jest.fn().mockResolvedValue(undefined);
     const context = {
       org: { id: "org1", settings: { attributeSchema: [] } },
@@ -60,11 +64,15 @@ describe("syncEventForwarderSchemasAfterAttributeSchemaChange", () => {
     ]);
 
     expect(updateSchemaMock).toHaveBeenCalled();
-    expect(queueDelayedMock).toHaveBeenCalledWith(context);
+    expect(factTablesRefreshMock).toHaveBeenCalledWith(context);
   });
 
-  it("skips delayed refresh when no forwarder schema changed", async () => {
-    updateSchemaMock.mockResolvedValue({ schemaId: 1, schemaChanged: false });
+  it("skips fact table refresh when no forwarder schema changed", async () => {
+    updateSchemaMock.mockResolvedValue({
+      schemaId: 1,
+      schemaChanged: false,
+      newFieldNames: [],
+    });
     const context = {
       org: { id: "org1", settings: { attributeSchema: [] } },
       models: {
@@ -89,6 +97,6 @@ describe("syncEventForwarderSchemasAfterAttributeSchemaChange", () => {
       { property: "country", datatype: "string" },
     ]);
 
-    expect(queueDelayedMock).not.toHaveBeenCalled();
+    expect(factTablesRefreshMock).not.toHaveBeenCalled();
   });
 });

@@ -117,12 +117,11 @@ const DataSourcePage: FC = () => {
    */
   const updateDataSourceSettings = useCallback(
     async (dataSource: DataSourceInterfaceWithParams) => {
-      const updates = {
-        settings: dataSource.settings,
-      };
       await apiCall(`/datasource/${dataSource.id}`, {
         method: "PUT",
-        body: JSON.stringify(updates),
+        body: JSON.stringify({
+          settings: dataSource.settings,
+        }),
       });
       await mutateDefinitions({});
     },
@@ -447,7 +446,6 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                       onRefresh={async () => {
                         await mutateDefinitions({});
                       }}
-                      onSave={updateDataSourceSettings}
                     />
                   </Frame>
                 )}

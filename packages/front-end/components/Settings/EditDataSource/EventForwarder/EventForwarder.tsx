@@ -1,9 +1,7 @@
 import { useCallback, useRef, useState } from "react";
-import cloneDeep from "lodash/cloneDeep";
 import {
   DEFAULT_EVENT_FORWARDER_BIGQUERY_TABLE_NAME,
   DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME,
-  EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS,
   formatBigQueryEventForwarderDestination,
   formatSnowflakeEventForwarderDestination,
   parseBigQueryEventForwarderDestination,
@@ -35,11 +33,7 @@ import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import {
-  DropdownMenu,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from "@/ui/DropdownMenu";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Modal from "@/ui/Modal";
 import ModalForm, { useModalForm } from "@/ui/Modal/ModalForm";
@@ -53,10 +47,7 @@ type Props = {
   dataSource: DataSourceInterfaceWithParams;
   canEdit?: boolean;
   onRefresh: () => Promise<void>;
-  onSave: (dataSource: DataSourceInterfaceWithParams) => Promise<void>;
 };
-
-type SyncState = "idle" | "syncing" | "done" | "error";
 
 type EventForwarderDatasourceDraft = {
   type: "bigquery" | "snowflake";
@@ -478,12 +469,9 @@ export default function EventForwarder({
   dataSource,
   canEdit = true,
   onRefresh,
-  onSave,
 }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [syncState, setSyncState] = useState<SyncState>("idle");
-  const [syncError, setSyncError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const { apiCall } = useAuth();
   const eventForwarderConfig = dataSource.eventForwarderConfig;
@@ -491,27 +479,6 @@ export default function EventForwarder({
   const handleRefresh = useCallback(async () => {
     await onRefresh();
   }, [onRefresh]);
-
-  const handleSyncWarehouseSchema = useCallback(async () => {
-    setSyncState("syncing");
-    setSyncError(null);
-    try {
-      await apiCall(
-        `/datasource/${dataSource.id}/event-forwarder/schematization-sync`,
-        { method: "POST" },
-      );
-      await new Promise((resolve) =>
-        setTimeout(resolve, EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS),
-      );
-      await onSave(cloneDeep<DataSourceInterfaceWithParams>(dataSource));
-      setSyncState("done");
-    } catch (e) {
-      setSyncError(e instanceof Error ? e.message : "Sync failed");
-      setSyncState("error");
-    } finally {
-      window.setTimeout(() => setSyncState("idle"), 3000);
-    }
-  }, [apiCall, dataSource, onSave]);
 
   const { isProvisioning, isError, pollTimedOut, taskErrors } =
     useEventForwarderProvisioningPoll({
@@ -605,18 +572,6 @@ export default function EventForwarder({
                 open={menuOpen}
                 onOpenChange={setMenuOpen}
               >
-                {isReady ? (
-                  <DropdownMenuItem
-                    disabled={syncState === "syncing"}
-                    onClick={async () => {
-                      setMenuOpen(false);
-                      await handleSyncWarehouseSchema();
-                    }}
-                  >
-                    Sync warehouse schema
-                  </DropdownMenuItem>
-                ) : null}
-                {isReady ? <DropdownMenuSeparator /> : null}
                 <DropdownMenuItem
                   color={isReady ? "red" : undefined}
                   onClick={async () => {
@@ -646,18 +601,6 @@ export default function EventForwarder({
         Forward SDK event data from GrowthBook to this datasource for downstream
         analysis and diagnostics.
       </p>
-
-      {syncState === "done" ? (
-        <Callout status="success" mt="3">
-          Warehouse schema sync completed. Event Forwarder queries were
-          re-validated.
-        </Callout>
-      ) : null}
-      {syncState === "error" && syncError ? (
-        <Callout status="error" mt="3">
-          {syncError}
-        </Callout>
-      ) : null}
 
       {!eventForwarderConfig ? (
         <Callout status="info">

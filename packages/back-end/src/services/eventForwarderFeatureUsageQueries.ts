@@ -130,13 +130,18 @@ export async function ensureEventForwarderFeatureUsageQuery(
     ...buildEventForwarderFeatureUsageQuery(sqlParams),
   };
 
-  await updateDataSource(context, datasource, {
-    settings: {
-      ...raw.settings,
-      queries: {
-        ...raw.settings?.queries,
-        featureUsage: [...existing, managedQuery],
+  await updateDataSource(
+    context,
+    datasource,
+    {
+      settings: {
+        ...raw.settings,
+        queries: {
+          ...raw.settings?.queries,
+          featureUsage: [...existing, managedQuery],
+        },
       },
     },
-  });
+    { skipEventForwarderManagedValidation: true },
+  );
 }

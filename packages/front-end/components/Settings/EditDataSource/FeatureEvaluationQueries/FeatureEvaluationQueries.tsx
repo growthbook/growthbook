@@ -31,6 +31,7 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
   canEdit = true,
 }) => {
   const [uiMode, setUiMode] = useState<UIMode>("view");
+  const [validatingQuery, setValidatingQuery] = useState(false);
 
   const permissionsUtil = usePermissionsUtil();
   canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);
@@ -89,6 +90,16 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
       }
 
       await onSave(copy);
+    },
+    [dataSource, onSave],
+  );
+
+  const handleValidate = useCallback(
+    () => async () => {
+      const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
+      setValidatingQuery(true);
+      await onSave(copy);
+      setValidatingQuery(false);
     },
     [dataSource, onSave],
   );
@@ -159,7 +170,15 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
         <Box p="2">
           {featureUsageQuery.error ? (
             <Callout status="error" mb="3">
-              {featureUsageQuery.error}
+              This query had an error with it the last time it ran:{" "}
+              <Box className="font-weight-bold" py="2">
+                {featureUsageQuery.error}
+              </Box>
+              <Box mt="3">
+                <Button onClick={handleValidate()} loading={validatingQuery}>
+                  Check it again.
+                </Button>
+              </Box>
             </Callout>
           ) : null}
           <Code
