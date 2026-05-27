@@ -6,12 +6,7 @@ export function getAlterNewIncrementalUnitsQuery(
   dialect: SqlDialect,
   params: AlterNewIncrementalUnitsQueryParams,
 ): string {
-  // BigQuery requires the rename target to be a bare table name and resolves
-  // it within the source table's dataset. Most other engines (Snowflake,
-  // Postgres, etc.) resolve a bare target against the session's current
-  // schema instead — which silently breaks when the connection's default
-  // schema is not the pipeline's write schema. Use the fully-qualified target
-  // everywhere except BigQuery to remove that footgun.
+  // Snowflake requires the rename target to be a fully-qualified table name.
   const renameTarget =
     dialect.formatDialect === "snowflake"
       ? params.unitsTableFullName
