@@ -396,10 +396,15 @@ export const postSubmit = async (
     return res.status(404).json({ message: "Revision not found" });
   }
 
-  // Can only submit drafts
-  if (existingRevision.status !== "draft") {
+  // Can submit drafts, and re-submit revisions after changes were requested
+  // (changes-requested → pending-review).
+  if (
+    existingRevision.status !== "draft" &&
+    existingRevision.status !== "changes-requested"
+  ) {
     return res.status(400).json({
-      message: "Only draft revisions can be submitted for review",
+      message:
+        "Only draft or changes-requested revisions can be submitted for review",
     });
   }
 

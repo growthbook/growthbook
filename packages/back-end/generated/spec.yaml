@@ -209,6 +209,17 @@ tags:
     description: >-
       Defined sets of attribute values which can be used with feature rules for
       targeting features at particular users.
+  - name: saved-group-revisions
+    x-displayName: Saved Group Revisions
+    description: >-
+      Draft revisions for saved groups, including pending changes, approvals,
+      and lifecycle (publish, discard, revert).
+
+
+      Most callers can interact with these endpoints via shorthand actions
+      (`/items/add`, `/items/remove`, single-field PUTs) instead of authoring
+      JSON Patch ops directly. Pass `version: "new"` on edit endpoints to
+      auto-create a draft.
   - name: organizations
     x-displayName: Organizations
     description: >-
@@ -458,6 +469,19 @@ tags:
   - name: SavedGroup_model
     x-displayName: Saved Group
     description: <SchemaDefinition schemaRef="#/components/schemas/SavedGroup" />
+  - name: SavedGroupRevision_model
+    x-displayName: Saved Group Revision
+    description: <SchemaDefinition schemaRef="#/components/schemas/SavedGroupRevision" />
+  - name: SavedGroupRevisionActivityLogEntry_model
+    x-displayName: Saved Group Revision Activity Log Entry
+    description: >-
+      <SchemaDefinition
+      schemaRef="#/components/schemas/SavedGroupRevisionActivityLogEntry" />
+  - name: SavedGroupRevisionReview_model
+    x-displayName: Saved Group Revision Review
+    description: >-
+      <SchemaDefinition
+      schemaRef="#/components/schemas/SavedGroupRevisionReview" />
   - name: ScheduleRule_model
     x-displayName: Schedule Rule
     description: <SchemaDefinition schemaRef="#/components/schemas/ScheduleRule" />
@@ -13342,6 +13366,14 @@ paths:
                   type: array
                   items:
                     type: string
+                bypassApproval:
+                  description: >-
+                    Set to true to skip the approval flow when the org requires
+                    approvals on saved groups. Requires the
+                    `bypassApprovalChecks` permission on every project the saved
+                    group belongs to. When the org does not require approvals,
+                    this flag has no effect.
+                  type: boolean
               required:
                 - name
               additionalProperties: false
@@ -13364,6 +13396,91 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"name":"interal-users","values":["userId-123","userId-345","userId-678"],"attributeKey":"userId","owner":""}'
+  /v1/saved-groups-revisions:
+    get:
+      operationId: listSavedGroupRevisions
+      summary: List saved-group revisions across the organization
+      description: >-
+        Returns a paginated list of revisions across all saved groups in the
+        organization, sorted newest-first. Optionally filtered by saved group,
+        status, author, or the calling user's involvement.
+      tags:
+        - saved-group-revisions
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/skipPagination'
+        - $ref: '#/components/parameters/savedGroupId'
+        - name: status
+          in: query
+          description: >-
+            Filter by revision status. Accepts a comma-separated list, or the
+            literal `open` for non-merged/non-discarded revisions.
+          schema:
+            description: >-
+              Filter by revision status. Accepts a comma-separated list, or the
+              literal `open` for non-merged/non-discarded revisions.
+            type: string
+        - $ref: '#/components/parameters/author'
+        - name: mine
+          in: query
+          description: >-
+            If true, return only revisions authored by the calling user.
+            Requires a user-scoped API key. Mutually exclusive with `author`.
+          schema:
+            description: >-
+              If true, return only revisions authored by the calling user.
+              Requires a user-scoped API key. Mutually exclusive with `author`.
+            anyOf:
+              - type: string
+                const: 'true'
+              - type: string
+                const: 'false'
+              - type: string
+                const: '0'
+              - type: string
+                const: '1'
+              - type: boolean
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revisions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SavedGroupRevision'
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  count:
+                    type: integer
+                  total:
+                    type: integer
+                  hasMore:
+                    type: boolean
+                  nextOffset:
+                    anyOf:
+                      - type: integer
+                      - type: 'null'
+                required:
+                  - revisions
+                  - limit
+                  - offset
+                  - count
+                  - total
+                  - hasMore
+                  - nextOffset
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/saved-groups-revisions' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/saved-groups/{id}:
     get:
       operationId: getSavedGroup
@@ -13429,6 +13546,14 @@ paths:
                   type: array
                   items:
                     type: string
+                bypassApproval:
+                  description: >-
+                    Set to true to skip the approval flow when the org requires
+                    approvals on saved groups. Requires the
+                    `bypassApprovalChecks` permission on the saved group's
+                    existing projects. When the org does not require approvals,
+                    this flag has no effect.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -13526,6 +13651,992 @@ paths:
           source: >-
             curl -X POST
             'https://api.growthbook.io/api/v1/saved-groups/abc123/unarchive' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/saved-groups-revisions/{savedGroupId}:
+    get:
+      operationId: getSavedGroupRevisions
+      summary: List revisions for a saved group
+      description: >-
+        Returns a paginated list of revisions for this saved group, sorted
+        newest-first. Optionally filtered by status, author, or the calling
+        user's involvement.
+      tags:
+        - saved-group-revisions
+      parameters:
+        - name: savedGroupId
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/skipPagination'
+        - name: status
+          in: query
+          description: >-
+            Filter by revision status. Accepts a comma-separated list, or the
+            literal `open` for non-merged/non-discarded revisions.
+          schema:
+            description: >-
+              Filter by revision status. Accepts a comma-separated list, or the
+              literal `open` for non-merged/non-discarded revisions.
+            type: string
+        - $ref: '#/components/parameters/author'
+        - name: mine
+          in: query
+          description: >-
+            If true, return only revisions authored by the calling user.
+            Requires a user-scoped API key. Mutually exclusive with `author`.
+          schema:
+            description: >-
+              If true, return only revisions authored by the calling user.
+              Requires a user-scoped API key. Mutually exclusive with `author`.
+            anyOf:
+              - type: string
+                const: 'true'
+              - type: string
+                const: 'false'
+              - type: string
+                const: '0'
+              - type: string
+                const: '1'
+              - type: boolean
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revisions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SavedGroupRevision'
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  count:
+                    type: integer
+                  total:
+                    type: integer
+                  hasMore:
+                    type: boolean
+                  nextOffset:
+                    anyOf:
+                      - type: integer
+                      - type: 'null'
+                required:
+                  - revisions
+                  - limit
+                  - offset
+                  - count
+                  - total
+                  - hasMore
+                  - nextOffset
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/grp_abc123'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    post:
+      operationId: postSavedGroupRevision
+      summary: Create a draft revision
+      description: >-
+        Creates a new draft revision branched from the current live saved group.
+        A saved group can have multiple concurrent drafts; use this to start an
+        isolated line of edits.
+      tags:
+        - saved-group-revisions
+      parameters:
+        - name: savedGroupId
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                comment:
+                  type: string
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SavedGroupRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/saved-groups-revisions/{savedGroupId}/latest:
+    get:
+      operationId: getSavedGroupRevisionLatest
+      summary: Get the most recent active draft revision
+      description: >-
+        Returns the most recently updated open (non-merged, non-discarded)
+        revision for the saved group. Returns 404 if there is no active draft.
+        Pass `mine=true` to restrict to drafts authored by the calling user
+        (requires a user-scoped API key).
+      tags:
+        - saved-group-revisions
+      parameters:
+        - name: savedGroupId
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - name: mine
+          in: query
+          description: >-
+            If true, return only the most recent active draft authored by the
+            calling user. Requires a user-scoped API key.
+          schema:
+            description: >-
+              If true, return only the most recent active draft authored by the
+              calling user. Requires a user-scoped API key.
+            anyOf:
+              - type: string
+                const: 'true'
+              - type: string
+                const: 'false'
+              - type: string
+                const: '0'
+              - type: string
+                const: '1'
+              - type: boolean
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SavedGroupRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/grp_abc123/latest'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/saved-groups-revisions/{savedGroupId}/{version}:
+    get:
+      operationId: getSavedGroupRevision
+      summary: Get a single saved group revision
+      description: >-
+        Returns the revision at the specified version for this saved group. Use
+        `GET /saved-groups-revisions/{savedGroupId}/latest` for the most recent
+        active draft.
+      tags:
+        - saved-group-revisions
+      parameters:
+        - name: savedGroupId
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SavedGroupRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/grp_abc123/3'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/saved-groups-revisions/{savedGroupId}/{version}/metadata:
+    put:
+      operationId: putSavedGroupRevisionMetadata
+      summary: Update saved group metadata in a draft revision
+      description: >-
+        Stages metadata changes (name, owner, description, projects) on the
+        draft. Pass `version: "new"` to auto-create a draft. The change is only
+        applied to the live saved group when the revision is merged.
+      tags:
+        - saved-group-revisions
+      parameters:
+        - name: savedGroupId
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            anyOf:
+              - type: integer
+              - type: string
+                const: new
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                revisionTitle:
+                  type: string
+                revisionComment:
+                  type: string
+                name:
+                  type: string
+                owner:
+                  description: >-
+                    The userId or email address of the owner. If an email
+                    address is provided, it will be used to look up the userId
+                    of the matching organization member. If an ID is provided,
+                    it will be validated as existing in the organization.
+                  type: string
+                description:
+                  type: string
+                projects:
+                  type: array
+                  items:
+                    type: string
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SavedGroupRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/metadata'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/saved-groups-revisions/{savedGroupId}/{version}/condition:
+    put:
+      operationId: putSavedGroupRevisionCondition
+      summary: Update the condition of a condition saved group draft revision
+      description: >-
+        Stages a new JSON-encoded condition for the draft. Only valid for
+        `condition` saved groups. Pass `version: "new"` to auto-create a draft.
+      tags:
+        - saved-group-revisions
+      parameters:
+        - name: savedGroupId
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            anyOf:
+              - type: integer
+              - type: string
+                const: new
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                revisionTitle:
+                  type: string
+                revisionComment:
+                  type: string
+                condition:
+                  description: The JSON-encoded condition for the saved group
+                  type: string
+              required:
+                - condition
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SavedGroupRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/condition'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/saved-groups-revisions/{savedGroupId}/{version}/values:
+    put:
+      operationId: putSavedGroupRevisionValues
+      summary: Replace the values list in a list saved group draft revision
+      description: >-
+        Replaces the entire `values` array atomically. Only valid for `list`
+        saved groups. For safe concurrent updates against a draft, prefer `POST
+        .../items/add` and `POST .../items/remove`. Pass `version: "new"` to
+        auto-create a draft.
+      tags:
+        - saved-group-revisions
+      parameters:
+        - name: savedGroupId
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            anyOf:
+              - type: integer
+              - type: string
+                const: new
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                revisionTitle:
+                  type: string
+                revisionComment:
+                  type: string
+                values:
+                  type: array
+                  items:
+                    type: string
+              required:
+                - values
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SavedGroupRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/values'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/saved-groups-revisions/{savedGroupId}/{version}/archive:
+    put:
+      operationId: putSavedGroupRevisionArchive
+      summary: Stage an archive/unarchive in a draft revision
+      description: >-
+        Stages an archive or unarchive on the draft. Pass `version: "new"` to
+        auto-create a draft. Archived saved groups can be permanently deleted
+        via `DELETE /saved-groups/{id}` once the archive is published.
+      tags:
+        - saved-group-revisions
+      parameters:
+        - name: savedGroupId
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            anyOf:
+              - type: integer
+              - type: string
+                const: new
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                revisionTitle:
+                  type: string
+                revisionComment:
+                  type: string
+                archived:
+                  type: boolean
+              required:
+                - archived
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SavedGroupRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/archive'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/saved-groups-revisions/{savedGroupId}/{version}/items/add:
+    post:
+      operationId: postSavedGroupRevisionItemsAdd
+      summary: Append items to a list saved group draft revision
+      description: >-
+        Appends the provided items (deduplicated) to the draft's `values` array.
+        Only valid for `list` saved groups. Pass `version: "new"` to auto-create
+        a draft. Duplicate items are merged on top of any existing draft, so
+        multiple successive add/remove calls accumulate.
+      tags:
+        - saved-group-revisions
+      parameters:
+        - name: savedGroupId
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            anyOf:
+              - type: integer
+              - type: string
+                const: new
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                revisionTitle:
+                  type: string
+                revisionComment:
+                  type: string
+                items:
+                  type: array
+                  items:
+                    type: string
+              required:
+                - items
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SavedGroupRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/items/add'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/saved-groups-revisions/{savedGroupId}/{version}/items/remove:
+    post:
+      operationId: postSavedGroupRevisionItemsRemove
+      summary: Remove items from a list saved group draft revision
+      description: >-
+        Removes the provided items from the draft's `values` array. Only valid
+        for `list` saved groups. Pass `version: "new"` to auto-create a draft.
+      tags:
+        - saved-group-revisions
+      parameters:
+        - name: savedGroupId
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            anyOf:
+              - type: integer
+              - type: string
+                const: new
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                revisionTitle:
+                  type: string
+                revisionComment:
+                  type: string
+                items:
+                  type: array
+                  items:
+                    type: string
+              required:
+                - items
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SavedGroupRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/items/remove'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/saved-groups-revisions/{savedGroupId}/{version}/request-review:
+    post:
+      operationId: postSavedGroupRevisionRequestReview
+      summary: Request review for a draft revision
+      description: >-
+        Moves the draft from `draft` into `pending-review`. Notifies reviewers
+        per the org's approval-flow settings.
+      tags:
+        - saved-group-revisions
+      parameters:
+        - name: savedGroupId
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SavedGroupRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/request-review'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/saved-groups-revisions/{savedGroupId}/{version}/submit-review:
+    post:
+      operationId: postSavedGroupRevisionSubmitReview
+      summary: Submit a review on a draft revision
+      description: >-
+        Submits an `approve`, `request-changes`, or `comment` review on the
+        revision. Authors and contributors cannot submit `approve` reviews on
+        their own drafts when the org has `blockSelfApproval` enabled.
+      tags:
+        - saved-group-revisions
+      parameters:
+        - name: savedGroupId
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                decision:
+                  type: string
+                  enum:
+                    - approve
+                    - request-changes
+                    - comment
+                comment:
+                  type: string
+              required:
+                - decision
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SavedGroupRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/submit-review'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/saved-groups-revisions/{savedGroupId}/{version}/merge-status:
+    get:
+      operationId: getSavedGroupRevisionMergeStatus
+      summary: Get merge status for a draft revision
+      description: >-
+        Runs a dry-run merge of the draft against the current live saved group
+        and returns any conflicts. Use this before publishing to preview changes
+        and detect conflicting edits.
+      tags:
+        - saved-group-revisions
+      parameters:
+        - name: savedGroupId
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  hasConflicts:
+                    type: boolean
+                  conflicts:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        field:
+                          type: string
+                        baseValue: {}
+                        liveValue: {}
+                        proposedValue: {}
+                      required:
+                        - field
+                        - baseValue
+                        - liveValue
+                        - proposedValue
+                      additionalProperties: false
+                  canAutoMerge:
+                    type: boolean
+                required:
+                  - success
+                  - hasConflicts
+                  - conflicts
+                  - canAutoMerge
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/merge-status'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/saved-groups-revisions/{savedGroupId}/{version}/rebase:
+    post:
+      operationId: postSavedGroupRevisionRebase
+      summary: Rebase a draft revision onto the current live saved group
+      description: >-
+        Updates the draft's base snapshot to the current live state, applying
+        the draft's changes on top. Supply `conflictResolutions` to resolve any
+        conflicting fields. Strategies are `overwrite` (use the draft's value),
+        `discard` (keep the live value), or `union` (merge arrays — use only on
+        `values`). Optimistic locking is not enforced by this endpoint; callers
+        who need strict locking should call `merge-status` before and after.
+      tags:
+        - saved-group-revisions
+      parameters:
+        - name: savedGroupId
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                conflictResolutions:
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: string
+                    enum:
+                      - overwrite
+                      - discard
+                      - union
+                customValues:
+                  description: >-
+                    Custom values to use for `union` strategy fields. Keyed by
+                    field name.
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: array
+                    items: {}
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SavedGroupRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/rebase'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/saved-groups-revisions/{savedGroupId}/{version}/publish:
+    post:
+      operationId: postSavedGroupRevisionPublish
+      summary: Publish a draft revision
+      description: >-
+        Publishes a draft revision, making it the live state of the saved group.
+        Blocked if the org requires approvals and the revision is not approved
+        (callers with the bypass-approval permission may still publish).
+      tags:
+        - saved-group-revisions
+      parameters:
+        - name: savedGroupId
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SavedGroupRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/publish'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/saved-groups-revisions/{savedGroupId}/{version}/discard:
+    post:
+      operationId: postSavedGroupRevisionDiscard
+      summary: Discard a draft revision
+      description: >-
+        Permanently discards a draft revision. Only open revisions (not merged
+        or already-discarded) can be discarded.
+      tags:
+        - saved-group-revisions
+      parameters:
+        - name: savedGroupId
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SavedGroupRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/discard'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/saved-groups-revisions/{savedGroupId}/{version}/revert:
+    post:
+      operationId: postSavedGroupRevisionRevert
+      summary: Revert the saved group to a prior revision
+      description: >-
+        Creates a new draft (or immediately publishes) whose content matches the
+        specified historical revision.
+      tags:
+        - saved-group-revisions
+      parameters:
+        - name: savedGroupId
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                strategy:
+                  type: string
+                  enum:
+                    - draft
+                    - publish
+                title:
+                  type: string
+                comment:
+                  type: string
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SavedGroupRevision'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/revert'
+            \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/organizations:
     get:
@@ -18285,6 +19396,31 @@ paths:
                                 type: string
                               snapshotId:
                                 type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 23
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 24
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
                               content:
                                 type: string
                             required:
@@ -18304,6 +19440,31 @@ paths:
                                 type: string
                               snapshotId:
                                 type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 23
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 24
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
                               experimentId:
                                 type: string
                               showDescription:
@@ -18336,6 +19497,31 @@ paths:
                                 type: string
                               snapshotId:
                                 type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 23
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 24
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
                               experimentId:
                                 type: string
                               metricIds:
@@ -18416,6 +19602,31 @@ paths:
                                 type: string
                               snapshotId:
                                 type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 23
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 24
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
                               experimentId:
                                 type: string
                               dimensionId:
@@ -18499,6 +19710,31 @@ paths:
                                 type: string
                               snapshotId:
                                 type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 23
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 24
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
                               experimentId:
                                 type: string
                               metricId:
@@ -18566,6 +19802,31 @@ paths:
                                 type: string
                               snapshotId:
                                 type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 23
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 24
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
                               experimentId:
                                 type: string
                               showTable:
@@ -18591,6 +19852,31 @@ paths:
                                 type: string
                               snapshotId:
                                 type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 23
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 24
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
                               savedQueryId:
                                 type: string
                               dataVizConfigIndex:
@@ -18617,6 +19903,31 @@ paths:
                                 type: string
                               snapshotId:
                                 type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 23
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 24
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
                               factMetricId:
                                 type: string
                               visualizationType:
@@ -18699,6 +20010,31 @@ paths:
                                 type: string
                               snapshotId:
                                 type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 23
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 24
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
                               factMetricId:
                                 type: string
                               visualizationType:
@@ -18783,6 +20119,31 @@ paths:
                                 type: string
                               snapshotId:
                                 type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 23
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 24
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
                               content:
                                 type: string
                             required:
@@ -18811,6 +20172,31 @@ paths:
                                 type: string
                               snapshotId:
                                 type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 23
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 24
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
                               experimentId:
                                 type: string
                               showDescription:
@@ -18852,6 +20238,31 @@ paths:
                                 type: string
                               snapshotId:
                                 type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 23
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 24
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
                               experimentId:
                                 type: string
                               metricIds:
@@ -18941,6 +20352,31 @@ paths:
                                 type: string
                               snapshotId:
                                 type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 23
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 24
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
                               experimentId:
                                 type: string
                               dimensionId:
@@ -19033,6 +20469,31 @@ paths:
                                 type: string
                               snapshotId:
                                 type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 23
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 24
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
                               experimentId:
                                 type: string
                               metricId:
@@ -19109,6 +20570,31 @@ paths:
                                 type: string
                               snapshotId:
                                 type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 23
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 24
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
                               experimentId:
                                 type: string
                               showTable:
@@ -19143,6 +20629,31 @@ paths:
                                 type: string
                               snapshotId:
                                 type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 23
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 24
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
                               savedQueryId:
                                 type: string
                               dataVizConfigIndex:
@@ -19178,6 +20689,31 @@ paths:
                                 type: string
                               snapshotId:
                                 type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 23
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 24
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
                               explorerAnalysisId:
                                 type: string
                               config:
@@ -19464,6 +21000,31 @@ paths:
                                 type: string
                               snapshotId:
                                 type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 23
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 24
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
                               explorerAnalysisId:
                                 type: string
                               config:
@@ -19759,6 +21320,31 @@ paths:
                                 type: string
                               snapshotId:
                                 type: string
+                              layout:
+                                type: object
+                                properties:
+                                  x:
+                                    type: integer
+                                    minimum: 0
+                                    maximum: 23
+                                  'y':
+                                    type: integer
+                                    minimum: 0
+                                  w:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 24
+                                  h:
+                                    type: integer
+                                    minimum: 1
+                                  static:
+                                    type: boolean
+                                required:
+                                  - x
+                                  - 'y'
+                                  - w
+                                  - h
+                                additionalProperties: false
                               explorerAnalysisId:
                                 type: string
                               config:
@@ -20164,6 +21750,31 @@ paths:
                             type: string
                           snapshotId:
                             type: string
+                          layout:
+                            type: object
+                            properties:
+                              x:
+                                type: integer
+                                minimum: 0
+                                maximum: 23
+                              'y':
+                                type: integer
+                                minimum: 0
+                              w:
+                                type: integer
+                                minimum: 1
+                                maximum: 24
+                              h:
+                                type: integer
+                                minimum: 1
+                              static:
+                                type: boolean
+                            required:
+                              - x
+                              - 'y'
+                              - w
+                              - h
+                            additionalProperties: false
                           content:
                             type: string
                         required:
@@ -20183,6 +21794,31 @@ paths:
                             type: string
                           snapshotId:
                             type: string
+                          layout:
+                            type: object
+                            properties:
+                              x:
+                                type: integer
+                                minimum: 0
+                                maximum: 23
+                              'y':
+                                type: integer
+                                minimum: 0
+                              w:
+                                type: integer
+                                minimum: 1
+                                maximum: 24
+                              h:
+                                type: integer
+                                minimum: 1
+                              static:
+                                type: boolean
+                            required:
+                              - x
+                              - 'y'
+                              - w
+                              - h
+                            additionalProperties: false
                           experimentId:
                             type: string
                           showDescription:
@@ -20215,6 +21851,31 @@ paths:
                             type: string
                           snapshotId:
                             type: string
+                          layout:
+                            type: object
+                            properties:
+                              x:
+                                type: integer
+                                minimum: 0
+                                maximum: 23
+                              'y':
+                                type: integer
+                                minimum: 0
+                              w:
+                                type: integer
+                                minimum: 1
+                                maximum: 24
+                              h:
+                                type: integer
+                                minimum: 1
+                              static:
+                                type: boolean
+                            required:
+                              - x
+                              - 'y'
+                              - w
+                              - h
+                            additionalProperties: false
                           experimentId:
                             type: string
                           metricIds:
@@ -20295,6 +21956,31 @@ paths:
                             type: string
                           snapshotId:
                             type: string
+                          layout:
+                            type: object
+                            properties:
+                              x:
+                                type: integer
+                                minimum: 0
+                                maximum: 23
+                              'y':
+                                type: integer
+                                minimum: 0
+                              w:
+                                type: integer
+                                minimum: 1
+                                maximum: 24
+                              h:
+                                type: integer
+                                minimum: 1
+                              static:
+                                type: boolean
+                            required:
+                              - x
+                              - 'y'
+                              - w
+                              - h
+                            additionalProperties: false
                           experimentId:
                             type: string
                           dimensionId:
@@ -20378,6 +22064,31 @@ paths:
                             type: string
                           snapshotId:
                             type: string
+                          layout:
+                            type: object
+                            properties:
+                              x:
+                                type: integer
+                                minimum: 0
+                                maximum: 23
+                              'y':
+                                type: integer
+                                minimum: 0
+                              w:
+                                type: integer
+                                minimum: 1
+                                maximum: 24
+                              h:
+                                type: integer
+                                minimum: 1
+                              static:
+                                type: boolean
+                            required:
+                              - x
+                              - 'y'
+                              - w
+                              - h
+                            additionalProperties: false
                           experimentId:
                             type: string
                           metricId:
@@ -20445,6 +22156,31 @@ paths:
                             type: string
                           snapshotId:
                             type: string
+                          layout:
+                            type: object
+                            properties:
+                              x:
+                                type: integer
+                                minimum: 0
+                                maximum: 23
+                              'y':
+                                type: integer
+                                minimum: 0
+                              w:
+                                type: integer
+                                minimum: 1
+                                maximum: 24
+                              h:
+                                type: integer
+                                minimum: 1
+                              static:
+                                type: boolean
+                            required:
+                              - x
+                              - 'y'
+                              - w
+                              - h
+                            additionalProperties: false
                           experimentId:
                             type: string
                           showTable:
@@ -20470,6 +22206,31 @@ paths:
                             type: string
                           snapshotId:
                             type: string
+                          layout:
+                            type: object
+                            properties:
+                              x:
+                                type: integer
+                                minimum: 0
+                                maximum: 23
+                              'y':
+                                type: integer
+                                minimum: 0
+                              w:
+                                type: integer
+                                minimum: 1
+                                maximum: 24
+                              h:
+                                type: integer
+                                minimum: 1
+                              static:
+                                type: boolean
+                            required:
+                              - x
+                              - 'y'
+                              - w
+                              - h
+                            additionalProperties: false
                           savedQueryId:
                             type: string
                           dataVizConfigIndex:
@@ -20496,6 +22257,31 @@ paths:
                             type: string
                           snapshotId:
                             type: string
+                          layout:
+                            type: object
+                            properties:
+                              x:
+                                type: integer
+                                minimum: 0
+                                maximum: 23
+                              'y':
+                                type: integer
+                                minimum: 0
+                              w:
+                                type: integer
+                                minimum: 1
+                                maximum: 24
+                              h:
+                                type: integer
+                                minimum: 1
+                              static:
+                                type: boolean
+                            required:
+                              - x
+                              - 'y'
+                              - w
+                              - h
+                            additionalProperties: false
                           factMetricId:
                             type: string
                           visualizationType:
@@ -25201,6 +26987,17 @@ components:
       schema:
         description: Specify a specific visual change
         type: string
+    savedGroupId:
+      name: savedGroupId
+      in: query
+      description: >-
+        Restrict results to revisions for a single saved group. When omitted,
+        returns revisions across every saved group the caller can read.
+      schema:
+        description: >-
+          Restrict results to revisions for a single saved group. When omitted,
+          returns revisions across every saved group the caller can read.
+        type: string
     search:
       name: search
       in: query
@@ -28879,12 +30676,311 @@ components:
             type: string
         archived:
           type: boolean
+        useEmptyListGroup:
+          type: boolean
       required:
         - id
         - type
         - dateCreated
         - dateUpdated
         - name
+      additionalProperties: false
+    SavedGroupRevision:
+      type: object
+      properties:
+        id:
+          type: string
+        version:
+          type: integer
+        title:
+          type: string
+        status:
+          type: string
+          enum:
+            - draft
+            - pending-review
+            - approved
+            - changes-requested
+            - merged
+            - discarded
+        authorId:
+          type: string
+        authorEmail:
+          type: string
+        contributors:
+          type: array
+          items:
+            type: string
+        revertedFrom:
+          type: string
+        reviews:
+          type: array
+          items:
+            $ref: '#/components/schemas/SavedGroupRevisionReview'
+        activityLog:
+          type: array
+          items:
+            $ref: '#/components/schemas/SavedGroupRevisionActivityLogEntry'
+        resolution:
+          type: object
+          properties:
+            action:
+              type: string
+              enum:
+                - merged
+                - discarded
+            userId:
+              type: string
+            dateCreated:
+              format: date-time
+              type: string
+          required:
+            - action
+            - userId
+            - dateCreated
+          additionalProperties: false
+        dateCreated:
+          format: date-time
+          type: string
+        dateUpdated:
+          format: date-time
+          type: string
+        baseSavedGroup:
+          $ref: '#/components/schemas/SavedGroup'
+        proposedSavedGroup:
+          $ref: '#/components/schemas/SavedGroup'
+        proposedChanges:
+          type: array
+          items:
+            anyOf:
+              - type: object
+                properties:
+                  op:
+                    type: string
+                    const: add
+                  path:
+                    type: string
+                  value: {}
+                required:
+                  - op
+                  - path
+                  - value
+                additionalProperties: false
+              - type: object
+                properties:
+                  op:
+                    type: string
+                    const: remove
+                  path:
+                    type: string
+                required:
+                  - op
+                  - path
+                additionalProperties: false
+              - type: object
+                properties:
+                  op:
+                    type: string
+                    const: replace
+                  path:
+                    type: string
+                  value: {}
+                required:
+                  - op
+                  - path
+                  - value
+                additionalProperties: false
+              - type: object
+                properties:
+                  op:
+                    type: string
+                    const: move
+                  from:
+                    type: string
+                  path:
+                    type: string
+                required:
+                  - op
+                  - from
+                  - path
+                additionalProperties: false
+              - type: object
+                properties:
+                  op:
+                    type: string
+                    const: copy
+                  from:
+                    type: string
+                  path:
+                    type: string
+                required:
+                  - op
+                  - from
+                  - path
+                additionalProperties: false
+              - type: object
+                properties:
+                  op:
+                    type: string
+                    const: test
+                  path:
+                    type: string
+                  value: {}
+                required:
+                  - op
+                  - path
+                  - value
+                additionalProperties: false
+      required:
+        - id
+        - status
+        - authorId
+        - reviews
+        - activityLog
+        - dateCreated
+        - dateUpdated
+        - baseSavedGroup
+        - proposedSavedGroup
+        - proposedChanges
+      additionalProperties: false
+    SavedGroupRevisionReview:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        decision:
+          type: string
+          enum:
+            - approve
+            - request-changes
+            - comment
+        comment:
+          type: string
+        dateCreated:
+          format: date-time
+          type: string
+      required:
+        - id
+        - userId
+        - decision
+        - dateCreated
+      additionalProperties: false
+    SavedGroupRevisionActivityLogEntry:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        action:
+          type: string
+          enum:
+            - created
+            - updated
+            - reviewed
+            - approved
+            - requested-changes
+            - commented
+            - merged
+            - discarded
+            - reopened
+        description:
+          anyOf:
+            - type: string
+            - type: 'null'
+        proposedChangesSnapshot:
+          type: array
+          items:
+            anyOf:
+              - type: object
+                properties:
+                  op:
+                    type: string
+                    const: add
+                  path:
+                    type: string
+                  value: {}
+                required:
+                  - op
+                  - path
+                  - value
+                additionalProperties: false
+              - type: object
+                properties:
+                  op:
+                    type: string
+                    const: remove
+                  path:
+                    type: string
+                required:
+                  - op
+                  - path
+                additionalProperties: false
+              - type: object
+                properties:
+                  op:
+                    type: string
+                    const: replace
+                  path:
+                    type: string
+                  value: {}
+                required:
+                  - op
+                  - path
+                  - value
+                additionalProperties: false
+              - type: object
+                properties:
+                  op:
+                    type: string
+                    const: move
+                  from:
+                    type: string
+                  path:
+                    type: string
+                required:
+                  - op
+                  - from
+                  - path
+                additionalProperties: false
+              - type: object
+                properties:
+                  op:
+                    type: string
+                    const: copy
+                  from:
+                    type: string
+                  path:
+                    type: string
+                required:
+                  - op
+                  - from
+                  - path
+                additionalProperties: false
+              - type: object
+                properties:
+                  op:
+                    type: string
+                    const: test
+                  path:
+                    type: string
+                  value: {}
+                required:
+                  - op
+                  - path
+                  - value
+                additionalProperties: false
+        targetSnapshot: {}
+        dateCreated:
+          format: date-time
+          type: string
+      required:
+        - id
+        - userId
+        - action
+        - dateCreated
       additionalProperties: false
     Organization:
       type: object
@@ -30765,6 +32861,22 @@ components:
               additionalProperties: false
         title:
           type: string
+        grid:
+          type: object
+          properties:
+            cols:
+              default: 24
+              type: integer
+              minimum: 1
+              maximum: 24
+            rowHeight:
+              default: 40
+              type: integer
+              minimum: 8
+          required:
+            - cols
+            - rowHeight
+          additionalProperties: false
         projects:
           type: array
           items:
@@ -30802,6 +32914,31 @@ components:
                     type: string
                   snapshotId:
                     type: string
+                  layout:
+                    type: object
+                    properties:
+                      x:
+                        type: integer
+                        minimum: 0
+                        maximum: 23
+                      'y':
+                        type: integer
+                        minimum: 0
+                      w:
+                        type: integer
+                        minimum: 1
+                        maximum: 24
+                      h:
+                        type: integer
+                        minimum: 1
+                      static:
+                        type: boolean
+                    required:
+                      - x
+                      - 'y'
+                      - w
+                      - h
+                    additionalProperties: false
                   factMetricId:
                     type: string
                   visualizationType:
@@ -30886,6 +33023,31 @@ components:
                     type: string
                   snapshotId:
                     type: string
+                  layout:
+                    type: object
+                    properties:
+                      x:
+                        type: integer
+                        minimum: 0
+                        maximum: 23
+                      'y':
+                        type: integer
+                        minimum: 0
+                      w:
+                        type: integer
+                        minimum: 1
+                        maximum: 24
+                      h:
+                        type: integer
+                        minimum: 1
+                      static:
+                        type: boolean
+                    required:
+                      - x
+                      - 'y'
+                      - w
+                      - h
+                    additionalProperties: false
                   content:
                     type: string
                 required:
@@ -30914,6 +33076,31 @@ components:
                     type: string
                   snapshotId:
                     type: string
+                  layout:
+                    type: object
+                    properties:
+                      x:
+                        type: integer
+                        minimum: 0
+                        maximum: 23
+                      'y':
+                        type: integer
+                        minimum: 0
+                      w:
+                        type: integer
+                        minimum: 1
+                        maximum: 24
+                      h:
+                        type: integer
+                        minimum: 1
+                      static:
+                        type: boolean
+                    required:
+                      - x
+                      - 'y'
+                      - w
+                      - h
+                    additionalProperties: false
                   experimentId:
                     type: string
                   showDescription:
@@ -30955,6 +33142,31 @@ components:
                     type: string
                   snapshotId:
                     type: string
+                  layout:
+                    type: object
+                    properties:
+                      x:
+                        type: integer
+                        minimum: 0
+                        maximum: 23
+                      'y':
+                        type: integer
+                        minimum: 0
+                      w:
+                        type: integer
+                        minimum: 1
+                        maximum: 24
+                      h:
+                        type: integer
+                        minimum: 1
+                      static:
+                        type: boolean
+                    required:
+                      - x
+                      - 'y'
+                      - w
+                      - h
+                    additionalProperties: false
                   experimentId:
                     type: string
                   metricIds:
@@ -31044,6 +33256,31 @@ components:
                     type: string
                   snapshotId:
                     type: string
+                  layout:
+                    type: object
+                    properties:
+                      x:
+                        type: integer
+                        minimum: 0
+                        maximum: 23
+                      'y':
+                        type: integer
+                        minimum: 0
+                      w:
+                        type: integer
+                        minimum: 1
+                        maximum: 24
+                      h:
+                        type: integer
+                        minimum: 1
+                      static:
+                        type: boolean
+                    required:
+                      - x
+                      - 'y'
+                      - w
+                      - h
+                    additionalProperties: false
                   experimentId:
                     type: string
                   dimensionId:
@@ -31136,6 +33373,31 @@ components:
                     type: string
                   snapshotId:
                     type: string
+                  layout:
+                    type: object
+                    properties:
+                      x:
+                        type: integer
+                        minimum: 0
+                        maximum: 23
+                      'y':
+                        type: integer
+                        minimum: 0
+                      w:
+                        type: integer
+                        minimum: 1
+                        maximum: 24
+                      h:
+                        type: integer
+                        minimum: 1
+                      static:
+                        type: boolean
+                    required:
+                      - x
+                      - 'y'
+                      - w
+                      - h
+                    additionalProperties: false
                   experimentId:
                     type: string
                   metricId:
@@ -31212,6 +33474,31 @@ components:
                     type: string
                   snapshotId:
                     type: string
+                  layout:
+                    type: object
+                    properties:
+                      x:
+                        type: integer
+                        minimum: 0
+                        maximum: 23
+                      'y':
+                        type: integer
+                        minimum: 0
+                      w:
+                        type: integer
+                        minimum: 1
+                        maximum: 24
+                      h:
+                        type: integer
+                        minimum: 1
+                      static:
+                        type: boolean
+                    required:
+                      - x
+                      - 'y'
+                      - w
+                      - h
+                    additionalProperties: false
                   experimentId:
                     type: string
                   showTable:
@@ -31246,6 +33533,31 @@ components:
                     type: string
                   snapshotId:
                     type: string
+                  layout:
+                    type: object
+                    properties:
+                      x:
+                        type: integer
+                        minimum: 0
+                        maximum: 23
+                      'y':
+                        type: integer
+                        minimum: 0
+                      w:
+                        type: integer
+                        minimum: 1
+                        maximum: 24
+                      h:
+                        type: integer
+                        minimum: 1
+                      static:
+                        type: boolean
+                    required:
+                      - x
+                      - 'y'
+                      - w
+                      - h
+                    additionalProperties: false
                   savedQueryId:
                     type: string
                   dataVizConfigIndex:
@@ -31281,6 +33593,31 @@ components:
                     type: string
                   snapshotId:
                     type: string
+                  layout:
+                    type: object
+                    properties:
+                      x:
+                        type: integer
+                        minimum: 0
+                        maximum: 23
+                      'y':
+                        type: integer
+                        minimum: 0
+                      w:
+                        type: integer
+                        minimum: 1
+                        maximum: 24
+                      h:
+                        type: integer
+                        minimum: 1
+                      static:
+                        type: boolean
+                    required:
+                      - x
+                      - 'y'
+                      - w
+                      - h
+                    additionalProperties: false
                   explorerAnalysisId:
                     type: string
                   config:
@@ -31567,6 +33904,31 @@ components:
                     type: string
                   snapshotId:
                     type: string
+                  layout:
+                    type: object
+                    properties:
+                      x:
+                        type: integer
+                        minimum: 0
+                        maximum: 23
+                      'y':
+                        type: integer
+                        minimum: 0
+                      w:
+                        type: integer
+                        minimum: 1
+                        maximum: 24
+                      h:
+                        type: integer
+                        minimum: 1
+                      static:
+                        type: boolean
+                    required:
+                      - x
+                      - 'y'
+                      - w
+                      - h
+                    additionalProperties: false
                   explorerAnalysisId:
                     type: string
                   config:
@@ -31862,6 +34224,31 @@ components:
                     type: string
                   snapshotId:
                     type: string
+                  layout:
+                    type: object
+                    properties:
+                      x:
+                        type: integer
+                        minimum: 0
+                        maximum: 23
+                      'y':
+                        type: integer
+                        minimum: 0
+                      w:
+                        type: integer
+                        minimum: 1
+                        maximum: 24
+                      h:
+                        type: integer
+                        minimum: 1
+                      static:
+                        type: boolean
+                    required:
+                      - x
+                      - 'y'
+                      - w
+                      - h
+                    additionalProperties: false
                   explorerAnalysisId:
                     type: string
                   config:
@@ -34771,6 +37158,7 @@ x-tagGroups:
       - sdk-connections
       - visual-changesets
       - saved-groups
+      - saved-group-revisions
       - organizations
       - members
       - code-references
@@ -34847,6 +37235,9 @@ x-tagGroups:
       - Report_model
       - Safe Rollout Rule_model
       - SavedGroup_model
+      - SavedGroupRevision_model
+      - SavedGroupRevisionActivityLogEntry_model
+      - SavedGroupRevisionReview_model
       - ScheduleRule_model
       - SdkConnection_model
       - Segment_model

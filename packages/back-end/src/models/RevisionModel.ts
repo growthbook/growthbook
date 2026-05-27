@@ -361,11 +361,19 @@ export class RevisionModel extends BaseClass {
     return { revisions, total };
   }
 
-  /** Same permission/count caveat as `getAllPaginated`. */
+  /**
+   * Same permission/count caveat as `getAllPaginated`.
+   *
+   * `entityId` / `authorId` are optional filters layered on top of the
+   * type-scoped query — used by the cross-entity REST listing endpoints
+   * (e.g. `GET /v1/saved-groups/revisions?savedGroupId=...&author=...`).
+   */
   async getByTargetTypePaginated(
     entityType: RevisionTargetType,
     opts: {
       status?: string | string[];
+      entityId?: string;
+      authorId?: string;
       limit?: number;
       skip?: number;
     } = {},
@@ -374,6 +382,8 @@ export class RevisionModel extends BaseClass {
     const statusFilter = this.buildStatusFilter(opts.status);
     const filter = {
       "target.type": entityType,
+      ...(opts.entityId ? { "target.id": opts.entityId } : {}),
+      ...(opts.authorId ? { authorId: opts.authorId } : {}),
       ...(statusFilter ? { status: statusFilter } : {}),
     } as Record<string, unknown>;
 
@@ -430,6 +440,17 @@ export class RevisionModel extends BaseClass {
     } as Record<string, unknown>);
   }
 
+  async hasAnyByTarget(
+    entityType: RevisionTargetType,
+    entityId: string,
+  ): Promise<boolean> {
+    const count = await this._countDocuments({
+      "target.type": entityType,
+      "target.id": entityId,
+    } as Record<string, unknown>);
+    return count > 0;
+  }
+
   async getOpenByTargetAndAuthor(
     entityType: RevisionTargetType,
     entityId: string,
@@ -443,14 +464,97 @@ export class RevisionModel extends BaseClass {
     } as Record<string, unknown>);
   }
 
+  /** Look up a single revision by entity type, entity id, and 1-based version. */
+  async getByTargetAndVersion(
+    entityType: RevisionTargetType,
+    entityId: string,
+    version: number,
+  ) {
+    return this._findOne({
+      "target.type": entityType,
+      "target.id": entityId,
+      version,
+    } as Record<string, unknown>);
+  }
+
+  /**
+   * Most-recently-updated open revision for the entity (any author). When
+   * `authorId` is supplied, restrict to revisions authored by that user — the
+   * `?mine=true` query path. Used by the public `revisions/latest` endpoint.
+   */
+  async getLatestOpenByTarget(
+    entityType: RevisionTargetType,
+    entityId: string,
+    options: { authorId?: string } = {},
+  ) {
+    const filter: Record<string, unknown> = {
+      "target.type": entityType,
+      "target.id": entityId,
+      status: { $nin: ["merged", "discarded"] },
+    };
+    if (options.authorId) {
+      filter.authorId = options.authorId;
+    }
+    const results = await this._find(filter, {
+      sort: { dateUpdated: -1, id: -1 },
+      limit: 1,
+    });
+    return results[0] ?? null;
+  }
+
+  /**
+   * Paginated revisions for a single entity. Mirrors `getByTargetTypePaginated`
+   * but adds an entity-id filter and optional author/mine filters used by the
+   * per-entity list endpoint.
+   */
+  async getByTargetPaginated(
+    entityType: RevisionTargetType,
+    entityId: string,
+    opts: {
+      status?: string | string[];
+      authorId?: string;
+      limit?: number;
+      skip?: number;
+    } = {},
+  ): Promise<{ revisions: Revision[]; total: number }> {
+    const { limit, skip } = opts;
+    const statusFilter = this.buildStatusFilter(opts.status);
+    const filter: Record<string, unknown> = {
+      "target.type": entityType,
+      "target.id": entityId,
+      ...(statusFilter ? { status: statusFilter } : {}),
+      ...(opts.authorId ? { authorId: opts.authorId } : {}),
+    };
+
+    const [revisions, total] = await Promise.all([
+      this._find(filter, {
+        limit,
+        skip,
+        sort: { dateCreated: -1, id: -1 },
+      }),
+      this._countDocuments(filter),
+    ]);
+
+    return { revisions, total };
+  }
+
   // Review
 
   async submitForReview(id: string, userId: string) {
     const existing = await this.getById(id);
     if (!existing) throw new Error("Revision not found");
 
-    if (existing.status !== "draft") {
-      throw new Error("Only draft revisions can be submitted for review");
+    // `changes-requested` is also re-submittable: after a reviewer requests
+    // changes and the author edits the revision, this is the transition back
+    // into `pending-review`. (Saved-group edits don't auto-reset the status the
+    // way feature edits do, so this is the only path out of changes-requested.)
+    if (
+      existing.status !== "draft" &&
+      existing.status !== "changes-requested"
+    ) {
+      throw new Error(
+        "Only draft or changes-requested revisions can be submitted for review",
+      );
     }
 
     return this.update(existing, {
@@ -727,6 +831,7 @@ export class RevisionModel extends BaseClass {
     snapshot: Record<string, unknown>;
     proposedChanges: JsonPatchOperation[];
     title?: string;
+    comment?: string;
     revertedFrom?: string;
   }) {
     // Normalize the snapshot before validation runs in `_createOne`.
@@ -746,6 +851,7 @@ export class RevisionModel extends BaseClass {
           snapshot: cleanedSnapshot,
         },
         title: target.title,
+        comment: target.comment,
         revertedFrom: target.revertedFrom,
         status: "draft",
         authorId: this.context.userId,
@@ -754,6 +860,66 @@ export class RevisionModel extends BaseClass {
         // CreateProps strips fields generated by BaseModel (id, version,
         // dateCreated, dateUpdated). beforeCreate assigns the version, and
         // BaseModel fills in the rest, so the cast bridges the gap.
+      } as unknown as CreateProps<Revision>),
+    );
+  }
+
+  /**
+   * Create a revision that is already in `merged` status in a single write.
+   *
+   * Bypass-merge flows (e.g. PUT /saved-groups/:id) would otherwise have to
+   * create a draft and then `merge` it as two separate, non-transactional DB
+   * writes — if the merge failed after the entity was already updated, the
+   * draft would be stranded and could never be published ("no changes
+   * detected" against the now-updated live entity). Recording the merged
+   * revision in one write removes that window. Callers must persist the live
+   * entity change *before* calling this so the merged revision is a faithful
+   * record of a change that has actually landed.
+   */
+  async createMerged(params: {
+    type: RevisionTargetType;
+    id: string;
+    snapshot: Record<string, unknown>;
+    proposedChanges: JsonPatchOperation[];
+    bypass?: boolean;
+    title?: string;
+    revertedFrom?: string;
+  }) {
+    const cleanedSnapshot = getAdapter(params.type).buildSnapshot(
+      params.snapshot,
+    );
+    const userId = this.context.userId;
+    const now = new Date();
+
+    return this.createWithVersionRetry(() =>
+      this.create({
+        target: {
+          type: params.type,
+          id: params.id,
+          snapshot: cleanedSnapshot,
+          proposedChanges: params.proposedChanges,
+        },
+        title: params.title,
+        revertedFrom: params.revertedFrom,
+        status: "merged",
+        authorId: userId,
+        reviews: [],
+        resolution: {
+          action: "merged",
+          userId,
+          dateCreated: now,
+        },
+        activityLog: [
+          {
+            id: uniqid("act_"),
+            userId,
+            action: "merged",
+            description: params.bypass
+              ? "Merged revision (bypass)"
+              : "Merged revision",
+            dateCreated: now,
+          },
+        ],
       } as unknown as CreateProps<Revision>),
     );
   }
