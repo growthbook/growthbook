@@ -36,7 +36,6 @@ export async function setRuleRampSchedule(
     // All remaining fields are forwarded as the inline schedule definition.
     [k: string]: unknown;
   },
-  docLinkVersion: "v1" | "v2",
 ) {
   const feature = await getFeature(context, params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
@@ -100,7 +99,7 @@ export async function setRuleRampSchedule(
     if (liveSchedules.length > 0) {
       throw new BadRequestError(
         `Rule "${canonicalRuleId}" already has a live ramp schedule.` +
-          ` Update it via PUT /api/${docLinkVersion}/ramp-schedules/${liveSchedules[0].id}.`,
+          ` Update it via PUT /api/v1/ramp-schedules/${liveSchedules[0].id}.`,
       );
     }
 
@@ -181,7 +180,6 @@ export const putFeatureRevisionRuleRampSchedule = createApiRequestHandler(
     req.organization,
     req.params,
     req.body,
-    "v1",
   );
   return { revision: toApiRevision(revision, req.context, feature) };
 });

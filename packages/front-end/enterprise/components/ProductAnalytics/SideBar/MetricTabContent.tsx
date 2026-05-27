@@ -168,7 +168,13 @@ export default function MetricTabContent() {
       <Button
         size="sm"
         variant="outline"
-        disabled={draftExploreState.chartType === "bigNumber"}
+        // Big-number charts can only display a single metric, so cap the
+        // dataset at 1. The first metric must still be addable - otherwise a
+        // brand-new block with chartType=bigNumber has no way to ever get any
+        // metric configured.
+        disabled={
+          draftExploreState.chartType === "bigNumber" && values.length >= 1
+        }
         onClick={() => addValueToDataset("metric")}
       >
         <Flex align="center" gap="2">

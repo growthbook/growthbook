@@ -190,7 +190,7 @@ export const checkSDKConnectionProxyStatus = async (
     throw new Error("Could not find SDK Connection");
   }
 
-  const result = await testProxyConnection(connection);
+  const result = await testProxyConnection(context, connection, true);
 
   res.status(200).json({
     status: 200,
