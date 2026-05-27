@@ -15,7 +15,8 @@ import {
 } from "shared/util";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
-import { PiPlusCircleFill } from "react-icons/pi";
+import { PiArrowsClockwise, PiPlusCircleFill } from "react-icons/pi";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -41,6 +42,7 @@ import {
 } from "@/ui/DropdownMenu";
 import Link from "@/ui/Link";
 import { getDefaultVariationValue } from "@/services/features";
+import Button from "@/ui/Button";
 
 export interface Props {
   feature: FeatureInterface;
@@ -214,6 +216,17 @@ export default function EditFeatureFlagValuesModal({
 
   const watchedVariations = form.watch("variations");
 
+  const weights = (watchedVariations ?? []).map((v) => Number(v?.weight) || 0);
+  const isEqualWeights =
+    weights.length === 0 ||
+    weights.every((w) => Math.abs(w - weights[0]) < 0.0001);
+
+  const setEqualWeights = () => {
+    getEqualWeights(fields.length).forEach((w, i) => {
+      form.setValue(`variations.${i}.weight`, w);
+    });
+  };
+
   const rebalanceWeights = (i: number, newDecimal: number) => {
     const currentWeights = (form.getValues("variations") ?? []).map(
       (v) => Number(v?.weight) || 0,
@@ -376,6 +389,23 @@ export default function EditFeatureFlagValuesModal({
       ) : (
         <>
           <Flex direction="column" gap="3" pt="2">
+            {isEditingVariations && !isEqualWeights && (
+              <Flex justify="end">
+                <Tooltip
+                  body="Assign equal weights to all variations"
+                  tipPosition="top"
+                >
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    onClick={setEqualWeights}
+                    icon={<PiArrowsClockwise size={12} />}
+                  >
+                    Set equal splits
+                  </Button>
+                </Tooltip>
+              </Flex>
+            )}
             {fields.map((field, i) => {
               const row = watchedVariations?.[i] ?? field;
               const rowWeight = Number(row?.weight) || 0;
