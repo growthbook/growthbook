@@ -154,6 +154,21 @@ export class RevisionModel extends BaseClass {
   }
 
   /**
+   * Gate the review/approval workflow behind the commercial `require-approvals`
+   * feature. Revision *tracking* (drafts, history, immediate merges) stays free;
+   * only the review actions — submitting for review and approving / requesting
+   * changes — are enterprise-gated. Applies to every entity type that uses the
+   * revision system.
+   */
+  private requireApprovalsLicense(): void {
+    if (!this.context.hasPremiumFeature("require-approvals")) {
+      this.context.throwPlanDoesNotAllowError(
+        "Reviewing and approving revisions requires a commercial license",
+      );
+    }
+  }
+
+  /**
    * Delegate read permission to the underlying target entity's read check via adapter.
    */
   protected canRead(doc: Revision): boolean {
@@ -541,6 +556,7 @@ export class RevisionModel extends BaseClass {
   // Review
 
   async submitForReview(id: string, userId: string) {
+    this.requireApprovalsLicense();
     const existing = await this.getById(id);
     if (!existing) throw new Error("Revision not found");
 
@@ -583,6 +599,7 @@ export class RevisionModel extends BaseClass {
     decision: ReviewDecision,
     comment: string,
   ) {
+    this.requireApprovalsLicense();
     const existing = await this.getById(id);
     if (!existing) throw new Error("Revision not found");
 

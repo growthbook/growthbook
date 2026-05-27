@@ -266,9 +266,17 @@ export const canUserReviewEntity = ({
 
   // Extension point: add a new `case` here when introducing a new RevisionTargetType
   // that requires custom reviewer logic beyond the default `canEditEntity` check.
-  if (entityType === "saved-group" || entityType === "sdk-connection") {
-    // For saved groups / SDK connections: anyone who can edit can review
-    // (except the author, checked above)
+  if (entityType === "saved-group") {
+    // Anyone who can edit can review (except the author, checked above).
+    return !!canEditEntity;
+  }
+  if (entityType === "sdk-connection") {
+    // Reviewing/approving an SDK-connection revision requires the same
+    // permission as creating or updating the connection — i.e.
+    // `manageSDKConnections` on the connection's projects + environment. The
+    // caller passes that result in as `canEditEntity` (computed via
+    // `canUpdateSDKConnection`), and the server enforces the same check in the
+    // revision controller's review/merge paths via the adapter's `canUpdate`.
     return !!canEditEntity;
   }
   // case "feature": return !!canEditEntity;  ← add future entity types here

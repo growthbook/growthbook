@@ -143,6 +143,84 @@ describe("revisions helpers", () => {
     });
   });
 
+  describe("canUserReviewEntity - sdk-connection", () => {
+    const sdkRevision = createRevision({
+      authorId: "user-author",
+      target: {
+        type: "sdk-connection",
+        id: "sdk-1",
+        snapshot: { environment: "production", projects: ["prj-1"] },
+        proposedChanges: [],
+      } as unknown as Revision["target"],
+    });
+    const flows: ApprovalFlowConfigurations = {
+      savedGroups: [],
+      sdkConnections: [{ required: true, requireMetadataReview: true }],
+    };
+
+    it("can review when they can edit the connection and are not the author", () => {
+      expect(
+        canUserReviewEntity({
+          entityType: "sdk-connection",
+          revision: sdkRevision,
+          entity: {},
+          approvalFlowSettings: flows,
+          userId: "user-reviewer",
+          canEditEntity: true,
+        }),
+      ).toBe(true);
+    });
+
+    it("cannot review when they cannot edit the connection (no manageSDKConnections)", () => {
+      expect(
+        canUserReviewEntity({
+          entityType: "sdk-connection",
+          revision: sdkRevision,
+          entity: {},
+          approvalFlowSettings: flows,
+          userId: "user-reviewer",
+          canEditEntity: false,
+        }),
+      ).toBe(false);
+    });
+
+    it("cannot review their own revision", () => {
+      expect(
+        canUserReviewEntity({
+          entityType: "sdk-connection",
+          revision: sdkRevision,
+          entity: {},
+          approvalFlowSettings: flows,
+          userId: "user-author",
+          canEditEntity: true,
+        }),
+      ).toBe(false);
+    });
+
+    it("cannot review a merged revision", () => {
+      const merged = createRevision({
+        authorId: "user-author",
+        status: "merged",
+        target: {
+          type: "sdk-connection",
+          id: "sdk-1",
+          snapshot: { environment: "production", projects: ["prj-1"] },
+          proposedChanges: [],
+        } as unknown as Revision["target"],
+      });
+      expect(
+        canUserReviewEntity({
+          entityType: "sdk-connection",
+          revision: merged,
+          entity: {},
+          approvalFlowSettings: flows,
+          userId: "user-reviewer",
+          canEditEntity: true,
+        }),
+      ).toBe(false);
+    });
+  });
+
   describe("checkMergeConflicts", () => {
     it("returns success when there are no conflicts", () => {
       const base = { name: "old", value: 1 };
