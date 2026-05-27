@@ -13,7 +13,6 @@ import { FaMagic } from "react-icons/fa";
 import clsx from "clsx";
 import format from "date-fns/format";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
-import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import Switch from "@/ui/Switch";
@@ -43,7 +42,7 @@ import DatePicker from "@/components/DatePicker";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
-import useSDKConnections from "@/hooks/useSDKConnections";
+import SDKCapabilityWarning from "./SDKCapabilityWarning";
 import {
   TargetingConditionsCard,
   ConditionRow,
@@ -1350,48 +1349,24 @@ export function CaseInsensitiveRegexWarning({
   value: string;
   project?: string;
 }) {
-  const { data: sdkConnectionsData } = useSDKConnections();
-  // Check if conditions use case-insensitive operators
-  // In valid JSON, operators are always quoted, so we only check for quoted versions
   const hasCaseInsensitiveOperator =
     value.includes('"$regexi"') ||
     value.includes('"$notRegexi"') ||
     value.includes('"$ini"') ||
     value.includes('"$nini"') ||
     value.includes('"$alli"');
-  const hasSDKWithCaseInsensitive = getConnectionsSDKCapabilities({
-    connections: sdkConnectionsData?.connections ?? [],
-    project,
-  }).includes("caseInsensitiveMembership");
-  const hasSDKWithNoCaseInsensitive = !getConnectionsSDKCapabilities({
-    connections: sdkConnectionsData?.connections ?? [],
-    mustMatchAllConnections: true,
-    project,
-  }).includes("caseInsensitiveMembership");
 
-  if (!hasCaseInsensitiveOperator || !hasSDKWithNoCaseInsensitive) {
+  if (!hasCaseInsensitiveOperator) {
     return null;
   }
 
   return (
-    <Callout
-      status={hasSDKWithCaseInsensitive ? "warning" : "error"}
+    <SDKCapabilityWarning
+      capability="caseInsensitiveMembership"
+      project={project}
+      someMessage="Some of your SDK Connections in this project may not support case-insensitive operators."
+      noneMessage="None of your SDK Connections in this project support case-insensitive operators. Either upgrade your SDKs or use case-sensitive operators instead."
       mt="2"
-      size="sm"
-    >
-      {hasSDKWithCaseInsensitive
-        ? "Some of your SDK Connections in this project may not support case-insensitive operators."
-        : "None of your SDK Connections in this project support case-insensitive operators. Either upgrade your SDKs or use case-sensitive operators instead."}
-      <Link
-        href={"/sdks"}
-        weight="bold"
-        className="pl-2"
-        rel="noreferrer"
-        target="_blank"
-      >
-        View SDKs
-        <PiArrowSquareOut className="ml-1" />
-      </Link>
-    </Callout>
+    />
   );
 }

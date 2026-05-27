@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { format } from "date-fns";
+import { format } from "date-fns-tz";
 import { useState } from "react";
 import { Flex } from "@radix-ui/themes";
 import Modal, { useModalContext } from "@/ui/Modal";
@@ -120,7 +120,7 @@ export default function StartExperimentModal({
 
   const subHeader =
     hasSchedule && parsedScheduledDate
-      ? `Scheduled to start ${format(parsedScheduledDate, "MMM d, yyyy 'at' h:mm a")}`
+      ? `Scheduled to start ${format(parsedScheduledDate, "MMM d, yyyy 'at' h:mm a (z)")}`
       : null;
 
   const primaryAction = useScheduledFlow
@@ -191,7 +191,7 @@ export default function StartExperimentModal({
             <Callout status="warning" mb="3">
               The scheduled start date{" "}
               <Text weight="semibold">
-                {format(parsedScheduledDate, "MMM d, yyyy 'at' h:mm a")}
+                {format(parsedScheduledDate, "MMM d, yyyy 'at' h:mm a (z)")}
               </Text>{" "}
               has passed. Click <Text weight="semibold">Start Now</Text> to
               start the experiment immediately, or close this modal and update

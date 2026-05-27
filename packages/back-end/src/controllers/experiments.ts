@@ -61,6 +61,7 @@ import {
   updateExperimentAndSync,
   validateVariationIds,
   validateExperimentData,
+  validateStatusUpdateSchedule,
 } from "back-end/src/services/experiments";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
@@ -1687,6 +1688,11 @@ export async function postExperiment(
       });
       return;
     }
+  }
+
+  if (data.statusUpdateSchedule) {
+    const effectiveType = data.type ?? experiment.type ?? "standard";
+    validateStatusUpdateSchedule(effectiveType, data.statusUpdateSchedule);
   }
 
   const keys: (keyof ExperimentInterface)[] = [
