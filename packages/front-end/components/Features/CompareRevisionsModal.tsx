@@ -109,6 +109,7 @@ function revisionToDiffInput(
     rules: Array.isArray(r.rules) ? r.rules : [],
     environmentsEnabled: r.environmentsEnabled ?? fallback?.environmentsEnabled,
     prerequisites: r.prerequisites ?? fallback?.prerequisites,
+    archived: r.archived ?? fallback?.archived,
     holdout: r.holdout !== undefined ? r.holdout : (fallback?.holdout ?? null),
     metadata: normalizeRevisionMetadata(r.metadata) ?? fallback?.metadata,
     rampActions: r.rampActions ?? undefined,

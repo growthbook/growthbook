@@ -1406,23 +1406,33 @@ export function renderFeatureRulesSection(
   return <FeatureRulesSection pre={pre} post={post} />;
 }
 
+// Renders a single "active → archived" change row. Shared by the audit-history
+// Settings section and the draft/review "Archive status" diff so both views
+// represent an archive change identically. Returns null when unchanged.
+export function renderFeatureArchived(
+  pre: boolean | undefined,
+  post: boolean | undefined,
+): ReactNode | null {
+  if (post === undefined || (pre ?? false) === (post ?? false)) return null;
+  return (
+    <ChangeField
+      label="Archived"
+      changed
+      oldNode={(pre ?? false) ? "archived" : "active"}
+      newNode={post ? "archived" : "active"}
+    />
+  );
+}
+
 export function renderFeatureMetadataSection(
   pre: FeaturePartial,
   post: Partial<FeatureInterface>,
 ): ReactNode | null {
   const rows: ReactNode[] = [];
 
-  if (!isEqual(pre?.archived, post.archived) && post.archived !== undefined) {
-    const wasArchived = pre?.archived ?? false;
-    rows.push(
-      <ChangeField
-        key="archived"
-        label="Archived"
-        changed
-        oldNode={wasArchived ? "archived" : "active"}
-        newNode={post.archived ? "archived" : "active"}
-      />,
-    );
+  const archivedRow = renderFeatureArchived(pre?.archived, post.archived);
+  if (archivedRow) {
+    rows.push(<div key="archived">{archivedRow}</div>);
   }
 
   if ((pre?.owner || "") !== (post.owner || "") && post.owner !== undefined) {
