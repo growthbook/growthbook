@@ -1641,12 +1641,8 @@ main.main {
   }
 
   .intro-side {
-    background-color: colors.$purple;
-    background: radial-gradient(
-      at 50% 100%,
-      rgba(109, 18, 228, 0.75),
-      rgb(15, 1, 94)
-    );
+    background: url("/images/login-background.png") lightgray 50% / cover
+      no-repeat;
     color: #fff;
     padding-bottom: 30px;
     vertical-align: middle;
@@ -3743,6 +3739,86 @@ input:disabled {
 .dashboard-disabled {
   opacity: 50%;
   pointer-events: none;
+}
+
+// react-grid-layout overrides for dashboard blocks
+.dashboard-grid {
+  position: relative;
+
+  // Make sure each grid item is a clean stacking context so the inner
+  // .appbox shadow/border don't get clipped by RGL's positioning. Also need
+  // position:relative so the disabled-resize tooltip overlay can absolutely
+  // position itself in the corner where RGL renders the handle.
+  .dashboard-grid-item {
+    height: 100%;
+    width: 100%;
+    position: relative;
+  }
+
+  // RGL adds .react-resizable-handle on every item; only show it while the
+  // user is actively editing the dashboard. In view/share mode the block is
+  // a static container.
+  .react-resizable-handle {
+    display: none;
+  }
+  &.is-editing .react-resizable-handle {
+    display: block;
+  }
+
+  // Tone down the default Tabler-style resize handle so it blends in with
+  // the Radix violet palette.
+  &.is-editing .react-resizable-handle::after {
+    border-color: var(--violet-9);
+  }
+
+  // When resizing is disabled (edit drawer is open) keep the handle visible
+  // but dimmed, and let the sibling overlay capture hover so we can surface
+  // a tooltip explaining why it's inactive.
+  &.is-resize-disabled .react-resizable-handle {
+    opacity: 0.35;
+    pointer-events: none;
+  }
+
+  // The placeholder RGL shows under a dragging block - match the violet
+  // accent and round the corners to look like an inset block outline.
+  .react-grid-placeholder {
+    background: var(--violet-a4) !important;
+    border: 2px dashed var(--violet-9);
+    border-radius: 6px;
+    opacity: 1 !important;
+  }
+}
+
+// Transparent overlay rendered over the bottom-right corner of a block while
+// the edit drawer is open. Sits on Tooltip's own trigger <span> so Popper
+// anchors correctly. `display: block` is required because <span> is inline
+// by default, which would collapse the overlay.
+.dashboard-resize-handle-disabled-overlay {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  display: block;
+  width: 22px;
+  height: 22px;
+  cursor: not-allowed;
+  z-index: 3;
+}
+
+// Drag handle inside the block toolbar.
+.dashboard-block-drag-handle {
+  cursor: grab;
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+// Inner block container needs to fill the RGL cell so resizing the block
+// shrinks/grows the content area, not just the outer wrapper.
+.dashboard-block.appbox {
+  height: 100%;
+  width: 100%;
+  margin-bottom: 0;
 }
 
 .opacity-0 {
