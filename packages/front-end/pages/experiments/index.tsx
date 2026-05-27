@@ -97,7 +97,7 @@ const ExperimentsPage = (): React.ReactElement => {
     items,
     searchInputProps,
     isFiltered,
-    SortableTH,
+    SortableTableColumnHeader,
     syntaxFilters,
     setSearchValue,
   } = useExperimentSearch({
@@ -299,7 +299,7 @@ const ExperimentsPage = (): React.ReactElement => {
                   <TabsContent value="all">
                     <ExperimentsListTable
                       tab="all"
-                      SortableTH={SortableTH}
+                      SortableTableColumnHeader={SortableTableColumnHeader}
                       filtered={filtered}
                       isFiltered={isFiltered}
                       project={project}
@@ -307,26 +307,22 @@ const ExperimentsPage = (): React.ReactElement => {
                       setSearchValue={setSearchValue}
                     />
                   </TabsContent>
-                  {["running", "drafts", "stopped", "archived"].map(
-                    (tabValue) => {
-                      if (tabValue === "archived" && !hasArchived) return null;
-                      return (
-                        <TabsContent value={tabValue} key={tabValue}>
-                          <ExperimentsListTable
-                            tab={tabValue}
-                            SortableTH={SortableTH}
-                            filtered={filtered.filter(
-                              (e) => e.tab === tabValue,
-                            )}
-                            isFiltered={isFiltered}
-                            project={project}
-                            searchValue={searchInputProps.value}
-                            setSearchValue={setSearchValue}
-                          />
-                        </TabsContent>
-                      );
-                    },
-                  )}
+                  {["running", "drafts", "stopped", "archived"].map((tab) => {
+                    if (tab === "archived" && !hasArchived) return null;
+                    return (
+                      <TabsContent value={tab} key={tab}>
+                        <ExperimentsListTable
+                          tab={tab}
+                          SortableTableColumnHeader={SortableTableColumnHeader}
+                          filtered={filtered.filter((e) => e.tab === tab)}
+                          isFiltered={isFiltered}
+                          project={project}
+                          searchValue={searchInputProps.value}
+                          setSearchValue={setSearchValue}
+                        />
+                      </TabsContent>
+                    );
+                  })}
                 </Tabs>
               </>
             )

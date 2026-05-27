@@ -205,6 +205,8 @@ const EXPERIMENT_SECTION_KEYS: Record<
   tags: "metadata",
   project: "metadata",
   status: "metadata",
+  statusUpdateSchedule: "metadata",
+  nextScheduledStatusUpdate: "metadata",
   winner: "metadata",
   owner: "metadata",
   type: "metadata",

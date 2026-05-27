@@ -14,8 +14,10 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   postExperimentApiPayloadToInterface,
   toExperimentApiInterface,
+  validateStatusUpdateSchedule,
   validateVariationIds,
 } from "back-end/src/services/experiments";
+import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   resolveOwnerToUserId,
@@ -263,6 +265,35 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     ) {
       throw new Error(
         "lookbackOverride is only allowed when attributionModel is 'lookbackOverride'",
+      );
+    }
+
+    if (payload.statusUpdateSchedule) {
+      validateStatusUpdateSchedule(
+        payload.type ?? "standard",
+        payload.statusUpdateSchedule,
+      );
+    }
+
+    // Opt-in attribute registration check (org-level setting). Applies to the
+    // experiment's hashAttribute/fallbackAttribute and every phase's condition.
+    assertRegisteredAttributes(
+      req.context,
+      {
+        hashAttribute: payload.hashAttribute,
+        fallbackAttribute: payload.fallbackAttribute,
+      },
+      "experiment",
+      undefined,
+      payload.project,
+    );
+    for (const phase of payload.phases ?? []) {
+      assertRegisteredAttributes(
+        req.context,
+        { condition: phase.condition },
+        "experiment phase",
+        undefined,
+        payload.project,
       );
     }
 

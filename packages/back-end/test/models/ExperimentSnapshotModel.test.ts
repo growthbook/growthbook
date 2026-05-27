@@ -6,7 +6,8 @@ import {
 } from "shared/types/experiment-snapshot";
 import { buildAnalysisKey } from "shared/snapshot-analysis-chunks";
 import {
-  getLatestSnapshot,
+  getLatestSuccessfulSnapshot,
+  getLatestSnapshotStatus,
   createExperimentSnapshotModel,
   updateSnapshot,
   addOrUpdateSnapshotAnalysis,
@@ -14,7 +15,6 @@ import {
   updateSnapshotAnalysis,
   findSnapshotById,
 } from "back-end/src/models/ExperimentSnapshotModel";
-import type { ExperimentSnapshotDocument } from "back-end/src/models/ExperimentSnapshotModel";
 import type { Context } from "back-end/src/models/BaseModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { ExperimentSnapshotAnalysisChunkModel } from "back-end/src/models/ExperimentSnapshotAnalysisChunkModel";
@@ -425,16 +425,16 @@ describe("ExperimentSnapshotModel", () => {
     );
   });
 
-  describe("getLatestSnapshot", () => {
+  describe("getLatestSnapshotStatus", () => {
     const experiment = "exp_shadow_test";
     const phase = 0;
 
     it("does not let errored scheduled snapshots shadow in-progress manual refreshes", async () => {
       // Multi-replica scenario: a scheduled job on a broken replica wrote
       // an errored snapshot AFTER the user kicked off a manual refresh on
-      // a healthy replica. Without the fix, the UI poll (type=undefined,
-      // withResults=false) would return the scheduled error instead of
-      // the user's running snapshot.
+      // a healthy replica. Without the override, the UI poll (type=undefined)
+      // would return the scheduled error instead of the user's running
+      // snapshot.
 
       // User's manual refresh — started first, still running
       const manual = snapshotFactory.build({
@@ -464,11 +464,10 @@ describe("ExperimentSnapshotModel", () => {
         context: snapshotTestContext,
       });
 
-      const result = await getLatestSnapshot({
+      const result = await getLatestSnapshotStatus({
         context: snapshotTestContext,
         experiment,
         phase,
-        withResults: false,
         // type intentionally omitted — this is what the UI poll sends
       });
 
@@ -504,11 +503,10 @@ describe("ExperimentSnapshotModel", () => {
         context: snapshotTestContext,
       });
 
-      const result = await getLatestSnapshot({
+      const result = await getLatestSnapshotStatus({
         context: snapshotTestContext,
         experiment,
         phase,
-        withResults: false,
       });
 
       expect(result?.id).toBe(runningFromSchedule.id);
@@ -543,56 +541,14 @@ describe("ExperimentSnapshotModel", () => {
         context: snapshotTestContext,
       });
 
-      const result = await getLatestSnapshot({
+      const result = await getLatestSnapshotStatus({
         context: snapshotTestContext,
         experiment,
         phase,
-        withResults: false,
       });
 
       expect(result?.id).toBe(scheduledError.id);
       expect(result?.triggeredBy).toBe("schedule");
-      expect(result?.status).toBe("error");
-    });
-
-    it("does not apply the override when beforeSnapshot is passed", async () => {
-      const running = snapshotFactory.build({
-        experiment,
-        phase,
-        type: "standard",
-        triggeredBy: "manual",
-        status: "running",
-        dateCreated: new Date("2024-01-01T12:00:00Z"),
-      });
-      await createExperimentSnapshotModel({
-        data: running,
-        context: snapshotTestContext,
-      });
-
-      const scheduledError = snapshotFactory.build({
-        experiment,
-        phase,
-        type: "standard",
-        triggeredBy: "schedule",
-        status: "error",
-        dateCreated: new Date("2024-01-01T12:05:00Z"),
-      });
-      await createExperimentSnapshotModel({
-        data: scheduledError,
-        context: snapshotTestContext,
-      });
-
-      const result = await getLatestSnapshot({
-        context: snapshotTestContext,
-        experiment,
-        phase,
-        withResults: false,
-        beforeSnapshot: {
-          dateCreated: new Date("2024-01-01T12:10:00Z"),
-        } as unknown as ExperimentSnapshotDocument,
-      });
-
-      expect(result?.id).toBe(scheduledError.id);
       expect(result?.status).toBe("error");
     });
 
@@ -624,11 +580,10 @@ describe("ExperimentSnapshotModel", () => {
         context: snapshotTestContext,
       });
 
-      const result = await getLatestSnapshot({
+      const result = await getLatestSnapshotStatus({
         context: snapshotTestContext,
         experiment,
         phase,
-        withResults: false,
       });
 
       expect(result?.id).toBe(scheduled.id);
@@ -651,11 +606,10 @@ describe("ExperimentSnapshotModel", () => {
         context: snapshotTestContext,
       });
 
-      const result = await getLatestSnapshot({
+      const result = await getLatestSnapshotStatus({
         context: snapshotTestContext,
         experiment,
         phase,
-        withResults: false,
       });
 
       expect(result?.id).toBe(manualError.id);
@@ -680,20 +634,26 @@ describe("ExperimentSnapshotModel", () => {
         context: snapshotTestContext,
       });
 
-      const result = await getLatestSnapshot({
+      const result = await getLatestSnapshotStatus({
         context: snapshotTestContext,
         experiment,
         phase,
-        withResults: false,
         type: "standard",
       });
 
       expect(result?.id).toBe(scheduled.id);
       expect(result?.status).toBe("error");
     });
+  });
 
-    it("never returns scheduled errors from withResults=true (status filter already excludes them)", async () => {
-      // Sanity check: withResults=true already filters to status="success".
+  describe("getLatestSuccessfulSnapshot", () => {
+    const experiment = "exp_shadow_test";
+    const phase = 0;
+
+    it("never returns scheduled errors (status filter excludes them)", async () => {
+      // Sanity check: the success-only function should always pick the
+      // latest status="success" snapshot and skip errors entirely, even
+      // when an error is newer than the success.
       const scheduledError = snapshotFactory.build({
         experiment,
         phase,
@@ -720,11 +680,10 @@ describe("ExperimentSnapshotModel", () => {
         context: snapshotTestContext,
       });
 
-      const result = await getLatestSnapshot({
+      const result = await getLatestSuccessfulSnapshot({
         context: snapshotTestContext,
         experiment,
         phase,
-        withResults: true,
       });
 
       expect(result?.id).toBe(scheduledSuccess.id);

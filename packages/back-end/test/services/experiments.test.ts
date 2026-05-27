@@ -10,12 +10,14 @@ import { ExperimentInterface } from "shared/types/experiment";
 import { OrganizationInterface } from "shared/types/organization";
 import {
   applyVariationWeightsToLatestPhase,
+  normalizeStatusUpdateScheduleChanges,
   postExperimentApiPayloadToInterface,
   postMetricApiPayloadIsValid,
   postMetricApiPayloadToMetricInterface,
   putMetricApiPayloadIsValid,
   putMetricApiPayloadToMetricInterface,
   updateExperimentApiPayloadToInterface,
+  validateStatusUpdateSchedule,
 } from "back-end/src/services/experiments";
 
 describe("experiments utils", () => {
@@ -1519,5 +1521,178 @@ describe("putMetricApiPayloadToMetricInterface", () => {
         (changes as { assignmentQueryId?: string }).assignmentQueryId,
       ).toBe(undefined);
     });
+  });
+});
+
+describe("normalizeStatusUpdateScheduleChanges", () => {
+  function makeExperiment(
+    overrides: Partial<ExperimentInterface> = {},
+  ): ExperimentInterface {
+    return {
+      id: "exp_123",
+      organization: "org_123",
+      trackingKey: "exp_123",
+      name: "Test",
+      type: "standard",
+      status: "draft",
+      owner: "",
+      tags: [],
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      archived: false,
+      autoSnapshots: false,
+      hashAttribute: "id",
+      hashVersion: 2,
+      disableStickyBucketing: false,
+      variations: [],
+      phases: [],
+      goalMetrics: [],
+      secondaryMetrics: [],
+      guardrailMetrics: [],
+      regressionAdjustmentEnabled: false,
+      sequentialTestingEnabled: false,
+      shareLevel: "organization",
+      linkedFeatures: [],
+      hasVisualChangesets: false,
+      hasURLRedirects: false,
+      nextScheduledStatusUpdate: null,
+      statusUpdateSchedule: null,
+      ...overrides,
+    } as unknown as ExperimentInterface;
+  }
+
+  it("null clears both schedule and staged start", () => {
+    const experiment = makeExperiment({
+      statusUpdateSchedule: { startAt: new Date("2099-01-01") },
+      nextScheduledStatusUpdate: {
+        type: "start",
+        date: new Date("2099-01-01"),
+      },
+    });
+    const changes: Partial<ExperimentInterface> = {
+      statusUpdateSchedule: null,
+    };
+
+    normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+    expect(changes.statusUpdateSchedule).toBeNull();
+    expect(changes.nextScheduledStatusUpdate).toBeNull();
+  });
+
+  it("valid future startAt sets schedule and clears any staged start", () => {
+    const future = new Date("2099-06-01T12:00:00Z");
+    const experiment = makeExperiment({
+      nextScheduledStatusUpdate: {
+        type: "start",
+        date: new Date("2099-01-01"),
+      },
+    });
+    const changes: Partial<ExperimentInterface> = {
+      statusUpdateSchedule: { startAt: future },
+    };
+
+    normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+    expect((changes.statusUpdateSchedule as { startAt: Date }).startAt).toEqual(
+      future,
+    );
+    expect(changes.nextScheduledStatusUpdate).toBeNull();
+  });
+
+  it("object with no startAt clears both schedule and staged start", () => {
+    const experiment = makeExperiment({
+      statusUpdateSchedule: { startAt: new Date("2099-01-01") },
+      nextScheduledStatusUpdate: {
+        type: "start",
+        date: new Date("2099-01-01"),
+      },
+    });
+    const changes: Partial<ExperimentInterface> = {
+      statusUpdateSchedule: {} as { startAt: Date },
+    };
+
+    normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+    expect(changes.statusUpdateSchedule).toBeNull();
+    expect(changes.nextScheduledStatusUpdate).toBeNull();
+  });
+
+  it("status moving out of draft clears a pending staged start when no schedule key is present", () => {
+    const experiment = makeExperiment({
+      status: "draft",
+      nextScheduledStatusUpdate: {
+        type: "start",
+        date: new Date("2099-01-01"),
+      },
+    });
+    const changes: Partial<ExperimentInterface> = { status: "running" };
+
+    normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+    expect(changes.nextScheduledStatusUpdate).toBeNull();
+  });
+
+  it("status staying draft does not clear a pending staged start", () => {
+    const experiment = makeExperiment({
+      status: "draft",
+      nextScheduledStatusUpdate: {
+        type: "start",
+        date: new Date("2099-01-01"),
+      },
+    });
+    const changes: Partial<ExperimentInterface> = { status: "draft" };
+
+    normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+    expect(changes.nextScheduledStatusUpdate).toBeUndefined();
+  });
+
+  it("no schedule key and no status change leaves changes untouched", () => {
+    const experiment = makeExperiment({
+      nextScheduledStatusUpdate: {
+        type: "start",
+        date: new Date("2099-01-01"),
+      },
+    });
+    const changes: Partial<ExperimentInterface> = { name: "renamed" };
+
+    normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+    expect(changes.nextScheduledStatusUpdate).toBeUndefined();
+  });
+});
+
+describe("validateStatusUpdateSchedule", () => {
+  it("throws when experiment type is bandit and a schedule is provided", () => {
+    expect(() =>
+      validateStatusUpdateSchedule("multi-armed-bandit", {
+        startAt: "2099-01-01T00:00:00Z",
+      }),
+    ).toThrow("Bandit experiments do not support scheduled starts.");
+  });
+
+  it("throws when startAt is in the past", () => {
+    expect(() =>
+      validateStatusUpdateSchedule("standard", {
+        startAt: "2000-01-01T00:00:00Z",
+      }),
+    ).toThrow("statusUpdateSchedule.startAt must be in the future");
+  });
+
+  it("throws when effective type changes to bandit and a schedule exists", () => {
+    const effectiveType = "multi-armed-bandit";
+    expect(() =>
+      validateStatusUpdateSchedule(effectiveType, {
+        startAt: "2099-01-01T00:00:00Z",
+      }),
+    ).toThrow("Bandit experiments do not support scheduled starts.");
+  });
+
+  it("does not throw for a valid future startAt on a standard experiment", () => {
+    expect(() =>
+      validateStatusUpdateSchedule("standard", {
+        startAt: "2099-01-01T00:00:00Z",
+      }),
+    ).not.toThrow();
   });
 });

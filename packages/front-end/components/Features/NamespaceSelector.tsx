@@ -5,21 +5,19 @@ import { FaPlusCircle } from "react-icons/fa";
 import { PiWarningCircle, PiXBold } from "react-icons/pi";
 import omit from "lodash/omit";
 import { Namespaces } from "shared/types/organization";
-import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
 import useApi from "@/hooks/useApi";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { NamespaceApiResponse } from "@/pages/namespaces";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import useSDKConnections from "@/hooks/useSDKConnections";
 import { findGaps } from "@/services/features";
 import Field from "@/components/Forms/Field";
 import SelectField, { SingleValue } from "@/components/Forms/SelectField";
-import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
+import SDKCapabilityWarning from "./SDKCapabilityWarning";
 import NamespaceUsageGraph from "./NamespaceUsageGraph";
 import {
   normalizeRangeAfterLowerChange,
@@ -94,14 +92,6 @@ export default function NamespaceSelector({
 }: Props) {
   const { data, error } = useApi<NamespaceApiResponse>(
     `/organization/namespaces`,
-  );
-  const { data: sdkConnectionsData } = useSDKConnections();
-  const hasIncompatibleConnections = useMemo(
-    () =>
-      (sdkConnectionsData?.connections ?? []).some(
-        (c) => !getConnectionSDKCapabilities(c).includes("namespacesV2"),
-      ),
-    [sdkConnectionsData],
   );
   const { namespaces } = useOrgSettings();
   const [rangeDrafts, setRangeDrafts] = useState<Record<string, string>>({});
@@ -485,13 +475,14 @@ export default function NamespaceSelector({
                   attribute.
                 </HelperText>
               )}
-              {hasIncompatibleConnections &&
-                selectedNamespace?.format === "multiRange" && (
-                  <Callout status="warning" mb="3" size="sm">
-                    Some of your SDK Connections may not support multi-range
-                    namespaces.
-                  </Callout>
-                )}
+              {selectedNamespace?.format === "multiRange" && (
+                <SDKCapabilityWarning
+                  capability="namespacesV2"
+                  someMessage="Some of your SDK Connections may not support multi-range namespaces."
+                  noneMessage="None of your SDK Connections support multi-range namespaces."
+                  mb="3"
+                />
+              )}
 
               <NamespaceUsageGraph
                 namespace={namespace}

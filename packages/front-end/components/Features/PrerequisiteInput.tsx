@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useState, type ReactNode } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { FeatureInterface, FeaturePrerequisite } from "shared/types/feature";
 import { getDefaultPrerequisiteCondition } from "shared/util";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
@@ -58,6 +64,11 @@ import {
   withOperatorCaseInsensitivity,
 } from "./ConditionInput";
 
+export interface RuleCyclicResult {
+  wouldBeCyclic: boolean;
+  cyclicFeatureId: string | null;
+}
+
 interface Props {
   value: FeaturePrerequisite[];
   setValue: (prerequisites: FeaturePrerequisite[]) => void;
@@ -70,6 +81,7 @@ interface Props {
   label?: string;
   labelActions?: ReactNode;
   locked?: boolean;
+  onRuleCyclicChange?: (result: RuleCyclicResult) => void;
 }
 
 export default function PrerequisiteInput({
@@ -84,6 +96,7 @@ export default function PrerequisiteInput({
   label = "Target by Prerequisite Features",
   labelActions,
   locked,
+  onRuleCyclicChange,
 }: Props) {
   const { features: featureNames } = useFeatureMetaInfo({
     includeDefaultValue: true,
@@ -167,16 +180,15 @@ export default function PrerequisiteInput({
   const hasTargetFeature = !!targetFeatureId;
 
   const featureIdsToFetch = useMemo(() => {
-    if (isSingleEnvironment && hasTargetFeature) {
-      const selectedIds = value.map((v) => v.id).filter(Boolean);
-      const dropdownIds = featureNames
-        .filter((f) => f.id !== feature?.id)
-        .map((f) => f.id);
-      return [...new Set([...selectedIds, ...dropdownIds])];
-    } else {
-      return value.map((v) => v.id).filter(Boolean);
+    if (value.length === 0) {
+      return [];
     }
-  }, [isSingleEnvironment, hasTargetFeature, value, featureNames, feature?.id]);
+    const selectedIds = value.map((v) => v.id).filter(Boolean);
+    const dropdownIds = featureNames
+      .filter((f) => f.id !== feature?.id)
+      .map((f) => f.id);
+    return [...new Set([...selectedIds, ...dropdownIds])];
+  }, [value, featureNames, feature?.id]);
 
   const { results: batchStates, loading: batchStatesLoading } =
     useBatchPrerequisiteStates({
@@ -207,6 +219,36 @@ export default function PrerequisiteInput({
     });
     return cyclic;
   }, [batchStates]);
+
+  // Derive rule-level cyclic state from the batch wouldBeCyclic flags.
+  const prevCyclicRef = useRef<{
+    wouldBeCyclic: boolean;
+    cyclicFeatureId: string | null;
+  }>({
+    wouldBeCyclic: false,
+    cyclicFeatureId: null,
+  });
+  useEffect(() => {
+    if (!onRuleCyclicChange) return;
+    let result: { wouldBeCyclic: boolean; cyclicFeatureId: string | null } = {
+      wouldBeCyclic: false,
+      cyclicFeatureId: null,
+    };
+    for (const v of value) {
+      if (v.id && wouldBeCyclicStates[v.id]) {
+        result = { wouldBeCyclic: true, cyclicFeatureId: v.id };
+        break;
+      }
+    }
+    const prev = prevCyclicRef.current;
+    if (
+      prev.wouldBeCyclic !== result.wouldBeCyclic ||
+      prev.cyclicFeatureId !== result.cyclicFeatureId
+    ) {
+      prevCyclicRef.current = result;
+      onRuleCyclicChange(result);
+    }
+  }, [onRuleCyclicChange, value, wouldBeCyclicStates]);
 
   const prereqStatesArr = useMemo(
     () =>
@@ -259,9 +301,7 @@ export default function PrerequisiteInput({
       const cyclic = targetEnv
         ? featureStates[targetEnv]?.state === "cyclic"
         : false;
-      const wouldBeCyclic = targetEnv
-        ? wouldBeCyclicStates[f.id] || false
-        : false;
+      const wouldBeCyclic = wouldBeCyclicStates[f.id] || false;
 
       const states = targetEnv
         ? [featureStates[targetEnv]].filter(Boolean)
@@ -495,12 +535,17 @@ export default function PrerequisiteInput({
                             disabled={locked}
                             value={v.id}
                             onChange={(featureId) => {
+                              const meta = featureNames.find(
+                                (f) => f.id === featureId,
+                              );
+                              const condition = getDefaultPrerequisiteCondition(
+                                meta
+                                  ? { valueType: meta.valueType }
+                                  : undefined,
+                              );
                               setValue([
                                 ...value.slice(0, i),
-                                {
-                                  id: featureId,
-                                  condition: "",
-                                },
+                                { id: featureId, condition },
                                 ...value.slice(i + 1),
                               ]);
                             }}
@@ -827,12 +872,17 @@ export default function PrerequisiteInput({
                             disabled={locked}
                             value={v.id}
                             onChange={(featureId) => {
+                              const meta = featureNames.find(
+                                (f) => f.id === featureId,
+                              );
+                              const condition = getDefaultPrerequisiteCondition(
+                                meta
+                                  ? { valueType: meta.valueType }
+                                  : undefined,
+                              );
                               setValue([
                                 ...value.slice(0, i),
-                                {
-                                  id: featureId,
-                                  condition: "",
-                                },
+                                { id: featureId, condition },
                                 ...value.slice(i + 1),
                               ]);
                             }}
@@ -949,7 +999,7 @@ export default function PrerequisiteInput({
                     <PrerequisiteAlerts
                       environments={environments}
                       project={parentFeature.project || ""}
-                      size="sm"
+                      size="small"
                       mb="0"
                     />
                   )}

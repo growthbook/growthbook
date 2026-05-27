@@ -132,6 +132,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   // v2: rules live on feature.rules (flat array), sourced from the API's
   // per-env payload stamped with single-env scope.
   feature.rules = buildFeatureRulesFromApiEnvSettings(
+    req.context,
     feature,
     orgEnvs,
     req.body.environments ?? {},
