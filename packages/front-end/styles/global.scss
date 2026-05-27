@@ -1612,12 +1612,8 @@ main.main {
   }
 
   .intro-side {
-    background-color: colors.$purple;
-    background: radial-gradient(
-      at 50% 100%,
-      rgba(109, 18, 228, 0.75),
-      rgb(15, 1, 94)
-    );
+    background: url("/images/login-background.png") lightgray 50% / cover
+      no-repeat;
     color: #fff;
     padding-bottom: 30px;
     vertical-align: middle;
