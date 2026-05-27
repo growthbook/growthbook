@@ -13,7 +13,6 @@ import {
   postRestartEventForwarderToLicenseServer,
   postResumeEventForwarderToLicenseServer,
   postTeardownEventForwarderToLicenseServer,
-  postInitialEventForwarderSchematizationPingToLicenseServer,
   postUpdateEventForwarderCredentialsToLicenseServer,
   postUpdateEventForwarderSchemaToLicenseServer,
 } from "back-end/src/enterprise/licenseUtil";
@@ -21,9 +20,12 @@ import { decryptEventForwarderConfigModel } from "back-end/src/services/eventFor
 import { resolveBigQueryEventForwarderTableName } from "back-end/src/services/eventForwarderBqTableResolution";
 import { testEventForwarderWriteAccess } from "back-end/src/services/eventForwarderWriteAccessValidation";
 import { initializeDatasourceUserIdTypesFromOrgAttributeSchema } from "back-end/src/services/eventForwarderUserIdTypes";
-import { ensureEventForwarderEventsFactTable } from "back-end/src/services/eventForwarderFactTable";
+import {
+  ensureEventForwarderEventsFactTable,
+  queueDelayedFactTableColumnsRefreshForDatasource,
+  queueDelayedFactTableColumnsRefreshForEventForwarderDatasources,
+} from "back-end/src/services/eventForwarderFactTable";
 import { ensureEventForwarderFeatureUsageQuery } from "back-end/src/services/eventForwarderFeatureUsageQueries";
-import { queueEventForwarderWarehouseSync } from "back-end/src/jobs/pollEventForwarderWarehouseSync";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 
@@ -436,14 +438,9 @@ export async function resumeEventForwarderThroughLicenseServer(
     );
 
     if (schemaUpdate.schemaChanged) {
-      await queueEventForwarderWarehouseSync(
+      await queueDelayedFactTableColumnsRefreshForDatasource(
         context,
         eventForwarderConfig.datasourceId,
-        {
-          pingKind: "manual",
-          schemaChanged: true,
-          newColumnNames: schemaUpdate.newFieldNames,
-        },
       );
     }
   } catch (error) {
@@ -464,61 +461,6 @@ export async function resumeEventForwarderThroughLicenseServer(
 
     throw new Error(message);
   }
-}
-
-/**
- * Manually evolves the forwarder schema (if needed) and always sends a gb-update
- * ping so Confluent sinks re-schematize warehouse tables.
- */
-export async function syncEventForwarderSchematizationThroughLicenseServer(
-  context: ReqContext,
-  eventForwarderConfig: EventForwarderConfigInterface,
-): Promise<{ schemaChanged: boolean; pingSent: boolean }> {
-  if (eventForwarderConfig.status !== "ready") {
-    throw new Error("Only ready event forwarders can sync schematization");
-  }
-
-  const topic = eventForwarderConfig.topic?.trim();
-  if (!topic) {
-    throw new Error("Cannot sync schematization without a forwarder topic");
-  }
-
-  const attributeSchema = context.org.settings?.attributeSchema ?? [];
-  const schemaUpdate = await updateEventForwarderSchemaThroughLicenseServer(
-    context,
-    eventForwarderConfig,
-    attributeSchema,
-  );
-
-  const refreshed =
-    await context.models.eventForwarderConfigs.dangerousGetByDatasourceIdBypassPermission(
-      eventForwarderConfig.datasourceId,
-    );
-  const schemaId = refreshed?.schemaId ?? eventForwarderConfig.schemaId;
-  if (schemaId <= 0) {
-    throw new Error("Cannot sync schematization without a valid schema id");
-  }
-
-  await postInitialEventForwarderSchematizationPingToLicenseServer({
-    organizationId: context.org.id,
-    datasourceId: eventForwarderConfig.datasourceId,
-    topic,
-    schemaId,
-  });
-
-  await queueEventForwarderWarehouseSync(
-    context,
-    eventForwarderConfig.datasourceId,
-    {
-      pingKind: "manual",
-      schemaChanged: schemaUpdate.schemaChanged,
-      newColumnNames: schemaUpdate.schemaChanged
-        ? schemaUpdate.newFieldNames
-        : undefined,
-    },
-  );
-
-  return { schemaChanged: schemaUpdate.schemaChanged, pingSent: true };
 }
 
 /**
@@ -545,19 +487,11 @@ export async function syncEventForwarderSchemasAfterAttributeSchemaChange(
     ),
   );
 
-  await Promise.all(
-    configs.map(async (config, index) => {
-      const schemaUpdate = schemaUpdateResults[index];
-      if (!schemaUpdate.schemaChanged) {
-        return;
-      }
-      await queueEventForwarderWarehouseSync(context, config.datasourceId, {
-        pingKind: "manual",
-        schemaChanged: true,
-        newColumnNames: schemaUpdate.newFieldNames,
-      });
-    }),
-  );
+  if (schemaUpdateResults.some((result) => result.schemaChanged)) {
+    await queueDelayedFactTableColumnsRefreshForEventForwarderDatasources(
+      context,
+    );
+  }
 }
 
 /**

@@ -8,6 +8,7 @@ import { EventForwarderConfigInterface } from "shared/validators";
 import {
   buildEventForwarderEventsFactTableColumns,
   buildEventForwarderEventsFactTableSql,
+  EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS,
   getEventForwarderEventsFactTableId,
   getEventForwarderEventsFactTableName,
 } from "shared/util";
@@ -22,7 +23,10 @@ import {
   decryptEventForwarderConfigModel,
   getEventForwarderSinkTypeForDatasource,
 } from "back-end/src/services/eventForwarderConfig";
-import { queueFactTableColumnsRefresh } from "back-end/src/jobs/refreshFactTableColumns";
+import {
+  queueFactTableColumnsRefresh,
+  queueFactTableColumnsRefreshAt,
+} from "back-end/src/jobs/refreshFactTableColumns";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 
@@ -64,6 +68,56 @@ export async function queueEventForwarderEventsFactTablesColumnsRefresh(
       await queueFactTableColumnsRefresh(factTable);
     }),
   );
+}
+
+export async function queueDelayedFactTableColumnsRefreshForDatasource(
+  context: ReqContext,
+  datasourceId: string,
+  delayMs = EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS,
+): Promise<void> {
+  const datasource = await getDataSourceById(context, datasourceId);
+  if (!datasource) {
+    return;
+  }
+
+  const factTable = await getEventForwarderEventsFactTableForDatasource(
+    context,
+    datasource,
+  );
+  if (!factTable) {
+    return;
+  }
+
+  await queueFactTableColumnsRefreshAt(
+    factTable,
+    new Date(Date.now() + delayMs),
+  );
+}
+
+export async function queueDelayedFactTableColumnsRefreshForEventForwarderDatasources(
+  context: ReqContext,
+  delayMs = EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS,
+): Promise<void> {
+  const configs = await context.models.eventForwarderConfigs.getAll();
+  const datasourceIds = new Set(configs.map((config) => config.datasourceId));
+  const runAt = new Date(Date.now() + delayMs);
+
+  for (const datasourceId of datasourceIds) {
+    const datasource = await getDataSourceById(context, datasourceId);
+    if (!datasource) {
+      continue;
+    }
+
+    const factTable = await getEventForwarderEventsFactTableForDatasource(
+      context,
+      datasource,
+    );
+    if (!factTable) {
+      continue;
+    }
+
+    await queueFactTableColumnsRefreshAt(factTable, runAt);
+  }
 }
 
 export async function ensureEventForwarderEventsFactTable(

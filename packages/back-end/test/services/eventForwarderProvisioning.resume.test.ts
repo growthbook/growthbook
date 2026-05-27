@@ -3,7 +3,7 @@ import {
   postResumeEventForwarderToLicenseServer,
   postUpdateEventForwarderSchemaToLicenseServer,
 } from "back-end/src/enterprise/licenseUtil";
-import { queueEventForwarderWarehouseSync } from "back-end/src/jobs/pollEventForwarderWarehouseSync";
+import { queueDelayedFactTableColumnsRefreshForDatasource } from "back-end/src/services/eventForwarderFactTable";
 
 jest.mock("back-end/src/enterprise/licenseUtil", () => ({
   postPauseEventForwarderToLicenseServer: jest.fn(),
@@ -14,8 +14,10 @@ jest.mock("back-end/src/enterprise/licenseUtil", () => ({
   postUpdateEventForwarderSchemaToLicenseServer: jest.fn(),
 }));
 
-jest.mock("back-end/src/jobs/pollEventForwarderWarehouseSync", () => ({
-  queueEventForwarderWarehouseSync: jest.fn(),
+jest.mock("back-end/src/services/eventForwarderFactTable", () => ({
+  ensureEventForwarderEventsFactTable: jest.fn(),
+  queueDelayedFactTableColumnsRefreshForDatasource: jest.fn(),
+  queueDelayedFactTableColumnsRefreshForEventForwarderDatasources: jest.fn(),
 }));
 
 const resumeRemoteMock =
@@ -26,10 +28,11 @@ const updateSchemaMock =
   postUpdateEventForwarderSchemaToLicenseServer as jest.MockedFunction<
     typeof postUpdateEventForwarderSchemaToLicenseServer
   >;
-const warehouseSyncMock =
-  queueEventForwarderWarehouseSync as jest.MockedFunction<
-    typeof queueEventForwarderWarehouseSync
+const factTableRefreshMock =
+  queueDelayedFactTableColumnsRefreshForDatasource as jest.MockedFunction<
+    typeof queueDelayedFactTableColumnsRefreshForDatasource
   >;
+
 describe("resumeEventForwarderThroughLicenseServer", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -39,7 +42,7 @@ describe("resumeEventForwarderThroughLicenseServer", () => {
       schemaChanged: false,
       newFieldNames: [],
     });
-    warehouseSyncMock.mockResolvedValue(undefined);
+    factTableRefreshMock.mockResolvedValue(undefined);
   });
 
   const config = {
@@ -73,10 +76,10 @@ describe("resumeEventForwarderThroughLicenseServer", () => {
         schemaId: 10,
       }),
     );
-    expect(warehouseSyncMock).not.toHaveBeenCalled();
+    expect(factTableRefreshMock).not.toHaveBeenCalled();
   });
 
-  it("queues warehouse sync poll when schema evolved on resume", async () => {
+  it("queues delayed fact table refresh when schema evolved on resume", async () => {
     updateSchemaMock.mockResolvedValue({
       schemaId: 11,
       schemaChanged: true,
@@ -90,10 +93,6 @@ describe("resumeEventForwarderThroughLicenseServer", () => {
 
     await resumeEventForwarderThroughLicenseServer(context, config);
 
-    expect(warehouseSyncMock).toHaveBeenCalledWith(context, "ds_1", {
-      pingKind: "manual",
-      schemaChanged: true,
-      newColumnNames: ["plan"],
-    });
+    expect(factTableRefreshMock).toHaveBeenCalledWith(context, "ds_1");
   });
 });

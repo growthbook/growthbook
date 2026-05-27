@@ -466,7 +466,6 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                       onRefresh={async () => {
                         await mutateDefinitions({});
                       }}
-                      onSave={updateDataSourceSettings}
                     />
                   </Frame>
                 )}
