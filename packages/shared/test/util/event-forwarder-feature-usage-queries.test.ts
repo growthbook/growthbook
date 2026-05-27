@@ -50,12 +50,14 @@ describe("buildEventForwarderFeatureUsageQuerySql", () => {
     );
   });
 
-  it("has no WHERE clause for Snowflake", () => {
+  it("has no WHERE clause for Snowflake and uppercases source columns", () => {
     const sql = buildEventForwarderFeatureUsageQuerySql({
       sinkType: "snowflake",
       tableRef: "MY_DB.PUBLIC.FEATURE_USAGE",
     });
 
+    expect(sql).toContain("TIMESTAMP AS timestamp");
+    expect(sql).toContain("FEATURE_KEY AS feature_key");
     expect(sql).toContain("FROM MY_DB.PUBLIC.FEATURE_USAGE");
     expect(sql).not.toContain("WHERE");
   });

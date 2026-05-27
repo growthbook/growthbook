@@ -30,7 +30,7 @@ import {
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 
-async function findEventForwarderEventsFactTableForDatasourceId(
+export async function getEventForwarderEventsFactTableForDatasource(
   context: ReqContext,
   datasource: DataSourceInterface,
 ) {
@@ -57,7 +57,7 @@ export async function queueEventForwarderEventsFactTablesColumnsRefresh(
         return;
       }
 
-      const factTable = await findEventForwarderEventsFactTableForDatasourceId(
+      const factTable = await getEventForwarderEventsFactTableForDatasource(
         context,
         datasource,
       );
@@ -80,7 +80,7 @@ export async function queueDelayedFactTableColumnsRefreshForDatasource(
     return;
   }
 
-  const factTable = await findEventForwarderEventsFactTableForDatasourceId(
+  const factTable = await getEventForwarderEventsFactTableForDatasource(
     context,
     datasource,
   );
@@ -108,7 +108,7 @@ export async function queueDelayedFactTableColumnsRefreshForEventForwarderDataso
       continue;
     }
 
-    const factTable = await findEventForwarderEventsFactTableForDatasourceId(
+    const factTable = await getEventForwarderEventsFactTableForDatasource(
       context,
       datasource,
     );
@@ -133,7 +133,7 @@ export async function ensureEventForwarderEventsFactTable(
     return;
   }
 
-  const existing = await findEventForwarderEventsFactTableForDatasourceId(
+  const existing = await getEventForwarderEventsFactTableForDatasource(
     context,
     datasource,
   );
@@ -240,7 +240,7 @@ export async function deleteEventForwarderEventsFactTableForDatasource(
     return;
   }
 
-  const factTable = await findEventForwarderEventsFactTableForDatasourceId(
+  const factTable = await getEventForwarderEventsFactTableForDatasource(
     context,
     datasource,
   );

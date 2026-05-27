@@ -4,10 +4,10 @@ import type { CreateColumnProps } from "shared/types/fact-table";
 export const EVENT_FORWARDER_AVRO_PARTITION_FIELD = "received_at" as const;
 
 /**
- * EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY — delay after schematization ping before
- * refreshing fact table columns and re-validating managed exposure / feature usage
- * queries. Increase here if warehouse tables need longer to materialize
- * (currently 1 min; was 5 min).
+ * EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY — delay after connector ready (or schema
+ * evolve) before refreshing fact table columns and re-validating managed
+ * exposure / feature usage queries. Increase here if warehouse tables need
+ * longer to materialize (currently 1 min).
  */
 export const EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS = 1 * 60 * 1000;
 
