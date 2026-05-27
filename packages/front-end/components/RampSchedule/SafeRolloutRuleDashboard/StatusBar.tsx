@@ -1,10 +1,15 @@
 import { useMemo, useState } from "react";
-import { Box, Flex, Separator } from "@radix-ui/themes";
+import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
 import { RampScheduleInterface, SafeRolloutInterface } from "shared/validators";
 import { formatShortAgo, getValidDate } from "shared/dates";
 import { getSafeRolloutSnapshotAnalysis } from "shared/util";
 import { SafeRolloutSnapshotInterface } from "shared/types/safe-rollout";
-import { PiCaretDownBold, PiLightning, PiLightningSlash } from "react-icons/pi";
+import {
+  PiCaretDownBold,
+  PiDatabase,
+  PiLightning,
+  PiLightningSlash,
+} from "react-icons/pi";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
 import useApi from "@/hooks/useApi";
@@ -227,7 +232,7 @@ export function MonitoringControls({
           ? null
           : "Current step is not monitored";
 
-  const [queriesModalOpen, setQueriesModalOpen] = useState(false);
+  const [queriesOpen, setQueriesOpen] = useState(false);
   const [refreshError, setRefreshError] = useState("");
 
   const latestSnap = latest ?? snapshot;
@@ -393,6 +398,61 @@ export function MonitoringControls({
           )}
           {showMonitoringControls && (
             <Flex align="center" gap="3">
+              {latestSnap &&
+                latestSnap.queries.length > 0 &&
+                (() => {
+                  const hasError =
+                    !!latestSnap.error ||
+                    latestSnap.queries.some((q) => q.status === "failed");
+                  const isRunning = latestSnap.queries.some(
+                    (q) => q.status === "running",
+                  );
+                  return (
+                    <Tooltip
+                      body={
+                        hasError
+                          ? "Query error — click to inspect"
+                          : isRunning
+                            ? "Queries running — click to inspect"
+                            : "View queries"
+                      }
+                      tipMinWidth="50"
+                    >
+                      <div
+                        style={{
+                          position: "relative",
+                          display: "inline-flex",
+                          alignItems: "center",
+                        }}
+                      >
+                        <IconButton
+                          variant="ghost"
+                          color="violet"
+                          size="1"
+                          onClick={() => setQueriesOpen(true)}
+                          aria-label="View queries"
+                          style={{ marginTop: "auto", marginBottom: "auto" }}
+                        >
+                          <PiDatabase size={16} />
+                        </IconButton>
+                        {hasError && (
+                          <span
+                            style={{
+                              position: "absolute",
+                              top: 1,
+                              right: 1,
+                              width: 8,
+                              height: 8,
+                              borderRadius: "50%",
+                              background: "var(--red-9)",
+                              pointerEvents: "none",
+                            }}
+                          />
+                        )}
+                      </div>
+                    </Tooltip>
+                  );
+                })()}
               {canRunQueries && (
                 <RunQueriesButton
                   cta="Update"
@@ -436,12 +496,12 @@ export function MonitoringControls({
         </Callout>
       )}
 
-      {queriesModalOpen && latestSnap && (
+      {queriesOpen && latestSnap && (
         <AsyncQueriesModal
           queries={latestSnap.queries.map((q) => q.query)}
           savedQueries={[]}
           error={latestSnap.error ?? undefined}
-          close={() => setQueriesModalOpen(false)}
+          close={() => setQueriesOpen(false)}
         />
       )}
     </>
