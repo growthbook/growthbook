@@ -110,15 +110,18 @@ export function validateRequireProjectForSdkConnections(
 ) {
   if (!org.settings?.requireProjectForSdkConnections) return;
 
+  const message =
+    "SDK Connection is required to be associated with at least one project";
+
   if (!existingProjects) {
     if (!projects?.length) {
-      throw new Error("Must specify a project for new SDK Connections");
+      throw new Error(message);
     }
     return;
   }
 
   if (existingProjects.length > 0 && projects?.length === 0) {
-    throw new Error("Must specify a project");
+    throw new Error(message);
   }
 }
 

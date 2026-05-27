@@ -103,7 +103,9 @@ describe("sdk-connections validations", () => {
           orgWithRequiredProjects,
           undefined,
         );
-      }).toThrow("Must specify a project for new SDK Connections");
+      }).toThrow(
+        "SDK Connection is required to be associated with at least one project",
+      );
     });
 
     it("fails when removing projects from an existing scoped SDK Connection", () => {
@@ -113,7 +115,9 @@ describe("sdk-connections validations", () => {
           [],
           ["project-1"],
         );
-      }).toThrow("Must specify a project");
+      }).toThrow(
+        "SDK Connection is required to be associated with at least one project",
+      );
     });
 
     it("allows updating existing project-less SDK Connections", () => {
@@ -122,6 +126,16 @@ describe("sdk-connections validations", () => {
           orgWithRequiredProjects,
           [],
           [],
+        );
+      }).not.toThrow();
+    });
+
+    it("allows updating scoped SDK Connections without changing projects", () => {
+      expect(() => {
+        validateRequireProjectForSdkConnections(
+          orgWithRequiredProjects,
+          undefined,
+          ["project-1"],
         );
       }).not.toThrow();
     });

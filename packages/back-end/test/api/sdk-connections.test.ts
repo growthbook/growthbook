@@ -414,7 +414,8 @@ describe("sdk-connections API", () => {
 
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
-        message: "Must specify a project for new SDK Connections",
+        message:
+          "SDK Connection is required to be associated with at least one project",
       });
     });
 
@@ -434,7 +435,10 @@ describe("sdk-connections API", () => {
         .set("Authorization", "Bearer foo");
 
       expect(response.status).toBe(400);
-      expect(response.body).toEqual({ message: "Must specify a project" });
+      expect(response.body).toEqual({
+        message:
+          "SDK Connection is required to be associated with at least one project",
+      });
     });
 
     it("allows updating existing project-less sdk-connections", async () => {

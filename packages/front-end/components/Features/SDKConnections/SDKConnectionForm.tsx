@@ -624,11 +624,6 @@ export default function SDKConnectionForm({
               edit ? "update" : "create"
             } SDK Connections.`}
           />
-          {requireProjectSelection && (
-            <span className="text-danger ml-1" aria-hidden="true">
-              *
-            </span>
-          )}
         </label>
         <MultiSelectField
           placeholder={
@@ -658,8 +653,8 @@ export default function SDKConnectionForm({
         />
         {requireProjectSelection && (
           <HelperText status="info" size="sm" mt="2">
-            Your organization requires SDK Connections to be scoped to at least
-            one project.
+            Your organization requires SDK Connections to belong to at least one
+            project.
           </HelperText>
         )}
         {disallowedProjects.length > 0 && (
