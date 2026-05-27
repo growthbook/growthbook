@@ -14,6 +14,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   postExperimentApiPayloadToInterface,
   toExperimentApiInterface,
+  validateStatusUpdateSchedule,
   validateVariationIds,
 } from "back-end/src/services/experiments";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
@@ -264,6 +265,13 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     ) {
       throw new Error(
         "lookbackOverride is only allowed when attributionModel is 'lookbackOverride'",
+      );
+    }
+
+    if (payload.statusUpdateSchedule) {
+      validateStatusUpdateSchedule(
+        payload.type ?? "standard",
+        payload.statusUpdateSchedule,
       );
     }
 

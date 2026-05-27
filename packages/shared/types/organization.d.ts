@@ -270,6 +270,7 @@ export interface OrganizationSettings {
   featureKeyExample?: string; // Example Key of feature flag (e.g. "feature-20240201-name")
   featureRegexValidator?: string; // Regex to validate feature flag name (e.g. ^.+-\d{8}-.+$)
   requireProjectForFeatures?: boolean;
+  requireProjectForSdkConnections?: boolean;
   // When true, saving a feature rule or experiment rejects hashAttribute,
   // fallbackAttribute, or condition keys that don't appear (unarchived) in
   // attributeSchema. Prevents typo'd attributes silently never matching at

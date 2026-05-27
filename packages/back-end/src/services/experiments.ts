@@ -82,6 +82,7 @@ import {
   ApiExperimentMetric,
   ApiExperimentResults,
   ApiMetric,
+  ExperimentType,
 } from "shared/validators";
 import { Dimension } from "shared/types/integrations";
 import {
@@ -210,8 +211,8 @@ export async function createMetric(
     dateUpdated: new Date(),
   });
 
-  if (data.tags && data.organization) {
-    await addTags(data.organization, data.tags);
+  if (data.tags) {
+    await addTags(context.org.id, data.tags);
   }
 
   return metric;
@@ -2483,11 +2484,7 @@ export async function toExperimentApiInterface(
     templateId: experiment.templateId || undefined,
     statusUpdateSchedule: experiment.statusUpdateSchedule
       ? {
-          ...(experiment.statusUpdateSchedule.startAt
-            ? {
-                startAt: experiment.statusUpdateSchedule.startAt.toISOString(),
-              }
-            : {}),
+          startAt: experiment.statusUpdateSchedule.startAt.toISOString(),
         }
       : experiment.statusUpdateSchedule,
     // Only "start" is produced for experiments; updateExperimentStatus.ts
@@ -3720,6 +3717,10 @@ export function postExperimentApiPayloadToInterface(
     ...(payload.defaultDashboardId !== undefined
       ? { defaultDashboardId: payload.defaultDashboardId }
       : {}),
+    statusUpdateSchedule:
+      payload.statusUpdateSchedule && payload.statusUpdateSchedule.startAt
+        ? { startAt: getValidDate(payload.statusUpdateSchedule.startAt) }
+        : undefined,
   };
 
   const { settings } = getScopedSettings({
@@ -3890,6 +3891,22 @@ function resolveExperimentUpdateVariationsAndPhases(
   };
 }
 
+export function validateStatusUpdateSchedule(
+  experimentType: ExperimentType,
+  statusUpdateSchedule: ExperimentInterfaceStringDates["statusUpdateSchedule"],
+): void {
+  if (experimentType === "multi-armed-bandit" && statusUpdateSchedule) {
+    throw new Error("Bandit experiments do not support scheduled starts.");
+  }
+  if (
+    statusUpdateSchedule &&
+    statusUpdateSchedule.startAt &&
+    getValidDate(statusUpdateSchedule.startAt) <= new Date()
+  ) {
+    throw new Error("statusUpdateSchedule.startAt must be in the future");
+  }
+}
+
 /**
  * Normalize `statusUpdateSchedule` / `nextScheduledStatusUpdate` on an in-progress
  * Changeset:
@@ -3905,13 +3922,6 @@ export function normalizeStatusUpdateScheduleChanges(
   changes: Changeset,
 ): void {
   if ("statusUpdateSchedule" in changes) {
-    const effectiveType = changes.type ?? experiment.type;
-    if (
-      effectiveType === "multi-armed-bandit" &&
-      !!changes.statusUpdateSchedule
-    ) {
-      throw new Error("Bandit experiments do not support scheduled starts.");
-    }
     const incoming = changes.statusUpdateSchedule;
     if (incoming === null) {
       changes.statusUpdateSchedule = null;
