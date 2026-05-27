@@ -26,7 +26,6 @@ import {
 } from "@/components/GetStarted/FeaturedCards";
 import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import YouTubeLightBox from "@/components/GetStarted/YoutubeLightbox";
-import OverviewCard from "@/components/GetStarted/OverviewCard";
 import WorkspaceLinks from "@/components/GetStarted/WorkspaceLinks";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
@@ -385,43 +384,6 @@ const GetStartedAndHomePage = (): React.ReactElement => {
                       </Link>{" "}
                       <PiArrowSquareOut />
                     </Callout>
-                  )}
-
-                  {!showDataScientistView && (
-                    <Box mb="6">
-                      <Box mb="3">
-                        <Text size="1" weight="bold">
-                          PRODUCT OVERVIEW
-                        </Text>
-                      </Box>
-
-                      <Flex
-                        direction={{ initial: "column", sm: "row" }}
-                        gap="4"
-                      >
-                        <OverviewCard
-                          imgUrl="/images/get-started/thumbnails/intro-to-growthbook.svg"
-                          hoverText="Launch Video Player"
-                          onClick={() => setShowVideoId("b4xUnDGRKRQ")}
-                          playTime={5}
-                          type="video"
-                        />
-
-                        <OverviewCard
-                          imgUrl="/images/get-started/thumbnails/quantile-metrics-blog.png"
-                          hoverText="View Blog Post"
-                          href="https://blog.growthbook.io/measuring-a-b-test-impacts-on-website-latency-using-quantile-metrics-in-growthbook/"
-                          type="link"
-                        />
-
-                        <OverviewCard
-                          imgUrl="/images/get-started/thumbnails/4.3-release.png"
-                          hoverText="View Blog Post"
-                          href="https://blog.growthbook.io/growthbook-version-4-3/"
-                          type="link"
-                        />
-                      </Flex>
-                    </Box>
                   )}
 
                   {showDataScientistView && (

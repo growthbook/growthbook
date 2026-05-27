@@ -49,9 +49,7 @@ export default function UpgradeModal({
     useState(false);
   const [showCloudEnterpriseTrialSuccess, setShowCloudEnterpriseTrialSuccess] =
     useState(false);
-  const [cloudProUpgradeSetup, setCloudProUpgradeSetup] = useState<{
-    clientSecret: string;
-  } | null>(null);
+  const [showCloudProUpgrade, setShowCloudProUpgrade] = useState(false);
   const [showCloudProTrial, setShowCloudProTrial] = useState(false);
   const [showCloudProTrialSuccess, setShowCloudProTrialSuccess] =
     useState(false);
@@ -144,13 +142,10 @@ export default function UpgradeModal({
           setError("Unknown response");
         }
       } else if (useInlineUpgradeForm) {
-        // Sets up in-app upgrade
-        const { clientSecret } = await apiCall<{
-          clientSecret: string;
-        }>(`/subscription/setup-intent`, {
-          method: "POST",
-        });
-        setCloudProUpgradeSetup({ clientSecret });
+        // Sets up in-app upgrade. StripeProvider will load Stripe.js, create
+        // a Radar session, and fetch the SetupIntent client secret itself
+        // so the Radar session ID is tied to the SetupIntent.
+        setShowCloudProUpgrade(true);
         setLoading(false);
       } else {
         // Otherwise, this creates a new checkout session and will redirect to the Stripe checkout page
@@ -762,10 +757,10 @@ export default function UpgradeModal({
           header={`🎉 Your 14-day Enterprise Trial starts now!`}
           isTrial={true}
         />
-      ) : cloudProUpgradeSetup ? (
-        <StripeProvider initialClientSecret={cloudProUpgradeSetup.clientSecret}>
+      ) : showCloudProUpgrade ? (
+        <StripeProvider setupIntentEndpoint="/subscription/setup-intent">
           <CloudProUpgradeModal
-            close={() => setCloudProUpgradeSetup(null)}
+            close={() => setShowCloudProUpgrade(false)}
             closeParent={close}
           />
         </StripeProvider>

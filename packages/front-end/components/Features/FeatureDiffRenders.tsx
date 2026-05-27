@@ -1406,23 +1406,44 @@ export function renderFeatureRulesSection(
   return <FeatureRulesSection pre={pre} post={post} />;
 }
 
+// True when the archived flag meaningfully changed. Treats `undefined` as
+// `false` so legacy audit events (archived field absent) don't register as a
+// change. Shared by the render and badge paths so they can never drift.
+export function featureArchivedChanged(
+  pre: boolean | undefined,
+  post: boolean | undefined,
+): boolean {
+  return post !== undefined && (pre ?? false) !== (post ?? false);
+}
+
+// Renders a single "active → archived" change row. Shared by the audit-history
+// Settings section and the draft/review "Archive status" diff so both views
+// represent an archive change identically. Returns null when unchanged.
+export function renderFeatureArchived(
+  pre: boolean | undefined,
+  post: boolean | undefined,
+): ReactElement | null {
+  if (!featureArchivedChanged(pre, post)) return null;
+  return (
+    <ChangeField
+      key="archived"
+      label="Archived"
+      changed
+      oldNode={(pre ?? false) ? "archived" : "active"}
+      newNode={post ? "archived" : "active"}
+    />
+  );
+}
+
 export function renderFeatureMetadataSection(
   pre: FeaturePartial,
   post: Partial<FeatureInterface>,
 ): ReactNode | null {
   const rows: ReactNode[] = [];
 
-  if (!isEqual(pre?.archived, post.archived) && post.archived !== undefined) {
-    const wasArchived = pre?.archived ?? false;
-    rows.push(
-      <ChangeField
-        key="archived"
-        label="Archived"
-        changed
-        oldNode={wasArchived ? "archived" : "active"}
-        newNode={post.archived ? "archived" : "active"}
-      />,
-    );
+  const archivedRow = renderFeatureArchived(pre?.archived, post.archived);
+  if (archivedRow) {
+    rows.push(archivedRow);
   }
 
   if ((pre?.owner || "") !== (post.owner || "") && post.owner !== undefined) {
@@ -1504,7 +1525,7 @@ export function getFeatureMetadataBadges(
   post: Partial<FeatureInterface>,
 ): DiffBadge[] {
   const badges: DiffBadge[] = [];
-  if (!isEqual(pre?.archived, post.archived) && post.archived !== undefined) {
+  if (featureArchivedChanged(pre?.archived, post.archived)) {
     badges.push({
       label: post.archived ? "Archived" : "Unarchived",
       action: "archive",
