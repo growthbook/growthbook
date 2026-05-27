@@ -23,6 +23,7 @@ import {
   findSDKConnectionsByOrganization,
   testProxyConnection,
 } from "back-end/src/models/SdkConnectionModel";
+import { validateRequireProjectForSdkConnections } from "back-end/src/api/sdk-connections/validations";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 
 export const getSDKConnections = async (
@@ -54,6 +55,8 @@ export const postSDKConnection = async (
   if (!context.permissions.canCreateSDKConnection(params)) {
     context.permissions.throwPermissionError();
   }
+
+  validateRequireProjectForSdkConnections(org, params.projects);
 
   let encryptPayload = false;
   if (orgHasPremiumFeature(org, "encrypt-features-endpoint")) {
@@ -110,6 +113,12 @@ export const putSDKConnection = async (
   if (!context.permissions.canUpdateSDKConnection(connection, req.body)) {
     context.permissions.throwPermissionError();
   }
+
+  validateRequireProjectForSdkConnections(
+    context.org,
+    req.body.projects,
+    connection.projects,
+  );
 
   let encryptPayload = req.body.encryptPayload || false;
   const encryptionPermitted = orgHasPremiumFeature(
