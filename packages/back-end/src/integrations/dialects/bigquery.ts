@@ -156,6 +156,21 @@ export const bigQueryDialect: SqlDialect = {
     const raw = `JSON_VALUE(${jsonCol}, '$.${path}')`;
     return isNumeric ? `CAST(${raw} AS FLOAT64)` : raw;
   },
+  // BigQuery uses `IGNORE NULLS` in aggregates rather than `FILTER (WHERE …)`.
+  arrayAggSorted: (col: string) =>
+    `ARRAY_AGG(${col} IGNORE NULLS ORDER BY ${col})`,
+  // BQ supports `ANY_VALUE(x HAVING MIN y)` natively — picks an `x` value
+  // from the row that has the minimum `y`. Pair with `IGNORE NULLS` so
+  // rows where the timestamp is NULL don't dominate.
+  argMinByTimestamp: (valueCol: string, tsCol: string) =>
+    `ANY_VALUE(${valueCol} HAVING MIN ${tsCol} IGNORE NULLS)`,
+  arrayMinInRange: (col, lowerBound, upperBound) => {
+    const conditions: string[] = [];
+    if (lowerBound) conditions.push(`t >= ${lowerBound}`);
+    if (upperBound) conditions.push(`t <= ${upperBound}`);
+    const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+    return `(SELECT MIN(t) FROM UNNEST(${col}) AS t ${where})`;
+  },
   getDataType: (dataType: DataType): string => {
     switch (dataType) {
       case "string":

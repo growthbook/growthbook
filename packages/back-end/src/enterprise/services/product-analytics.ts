@@ -129,6 +129,29 @@ export async function runProductAnalyticsExploration(
     }
   } else if (dataset.type === "data_source") {
     // Nothing to fetch or verify
+  } else if (dataset.type === "funnel") {
+    // Load every fact table referenced by any funnel step. We don't fold
+    // ids into a Set first because the order in `dataset.steps` is
+    // significant for SQL generation; getFactTablesByIds dedupes for us.
+    const factTableIds = Array.from(
+      new Set(dataset.steps.map((s) => s.factTable).filter(Boolean)),
+    );
+    if (factTableIds.length === 0) {
+      throw new BadRequestError("Funnel steps require fact tables");
+    }
+    const factTables = await getFactTablesByIds(context, factTableIds);
+    factTables.forEach((ft) => factTableMap.set(ft.id, ft));
+    for (const id of factTableIds) {
+      const ft = factTableMap.get(id);
+      if (!ft) {
+        throw new NotFoundError(`Fact table ${id} not found`);
+      }
+      if (ft.datasource !== datasource.id) {
+        throw new BadRequestError(
+          "Funnel fact tables must belong to the same datasource as the exploration",
+        );
+      }
+    }
   } else {
     throw new BadRequestError("Invalid dataset type");
   }
@@ -192,6 +215,7 @@ const DATASET_TYPE_PATH: Record<ExplorationConfig["dataset"]["type"], string> =
     metric: "metrics",
     fact_table: "fact-table",
     data_source: "data-source",
+    funnel: "funnel",
   };
 
 export function getProductAnalyticsExplorationUrl(config: ExplorationConfig) {

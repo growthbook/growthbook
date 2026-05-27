@@ -1907,15 +1907,5 @@
     "no-restricted-imports": {
       "count": 1
     }
-  },
-  "packages/sdk-js/rollup.config.mjs": {
-    "prettier/prettier": {
-      "count": 1
-    }
-  },
-  "packages/sdk-react/rollup.config.mjs": {
-    "prettier/prettier": {
-      "count": 2
-    }
   }
 }
