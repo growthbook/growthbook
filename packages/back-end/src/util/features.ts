@@ -906,45 +906,20 @@ export function getFeatureDefinition({
               getJSONValue(feature.valueType, defaultValue),
             ];
             rule.weights = [0.5, 0.5];
-            // `ranges` is the source of truth for enrollment. We do not set
-            // `coverage` because with non-adjacent ranges [0,c),[0.5,0.5+c) the
-            // coverage value would not correctly reflect total enrollment for old
-            // SDKs that fall back to getBucketRanges(). Old SDKs without
-            // bucketingV2 will enroll all eligible users rather than the correct
-            // subset; monitored ramp steps require bucketingV2 for correct behavior.
-
-            // Use explicit ranges so that:
-            //   treatment (var 0) = [0, coverage)    — full rollout population
-            //   control   (var 1) = [0.5, 0.5+coverage) — non-adjacent, equal-sized
+            // Set coverage = 2 * step.coverage so getBucketRanges naturally
+            // produces the non-adjacent layout:
+            //   treatment (var 0) = [0, step.coverage)
+            //   control   (var 1) = [0.5, 0.5 + step.coverage)
             //
-            // Placing control at [0.5, 0.5+coverage) keeps the arms disjoint and
-            // stable across step-ups: when coverage increases from C₁ → C₂, only
-            // users in [C₁, C₂) (treatment) and [0.5+C₁, 0.5+C₂) (control) are
-            // newly enrolled — no existing user changes arm.
+            // getBucketRanges accumulates start by raw weight (0.5), not by
+            // coverage*weight, so the control arm always starts at 0.5 regardless
+            // of coverage. This keeps arms disjoint and monotonically enrolled:
+            // on a step-up from C₁ → C₂ only users in [C₁,C₂) and [0.5+C₁,0.5+C₂)
+            // are newly enrolled — no existing user changes arm.
             //
-            // The REST API caps monitored-step coverage at 0.5, so control end
-            // (0.5+coverage ≤ 1.0) never overflows the hash space. At exactly
-            // 0.5 this yields [0,0.5],[0.5,1.0] — the full hash space, split evenly.
-            //
-            // For coverage > 0.5 (API-rejected for monitored steps but handled
-            // gracefully): fall back to contiguous [0,c],[c,min(1,2c)].
-            //
-            // When coverage = 1.0 no ranges are set; weights=[0.5,0.5] with no
-            // ranges lets the SDK compute the symmetric split via getBucketRanges.
-            if (clampedCoverage < 1) {
-              if (clampedCoverage <= 0.5) {
-                rule.ranges = [
-                  [0, clampedCoverage] as [number, number],
-                  [0.5, 0.5 + clampedCoverage] as [number, number],
-                ];
-              } else {
-                const controlEnd = Math.min(1, clampedCoverage * 2);
-                rule.ranges = [
-                  [0, clampedCoverage] as [number, number],
-                  [clampedCoverage, controlEnd] as [number, number],
-                ];
-              }
-            }
+            // Works identically for old SDKs (no bucketingV2) since they call the
+            // same getBucketRanges fallback with this coverage value.
+            rule.coverage = Math.min(clampedCoverage * 2, 1);
 
             rule.hashAttribute = r.hashAttribute;
             rule.seed = monitoredSeed;

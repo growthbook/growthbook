@@ -1,5 +1,5 @@
 import { FeatureInterface } from "shared/types/feature";
-import { FeatureDefinition, FeatureDefinitionRule } from "shared/types/sdk";
+import { FeatureDefinition } from "shared/types/sdk";
 import { GrowthBook } from "@growthbook/growthbook";
 import { getFeatureDefinition } from "back-end/src/util/features";
 import { RampMonitoredRuleInfo } from "back-end/src/models/RampScheduleModel";
@@ -69,6 +69,43 @@ function monitoredMap(
   ]);
 }
 
+describe("getBucketRanges non-adjacent layout (coverage = 2 * step.coverage)", () => {
+  // The server sets rule.coverage = min(step.coverage * 2, 1).
+  // SDK's getBucketRanges(n, coverage, weights) accumulates `start` by raw weight,
+  // not coverage*weight, so with weights=[0.5,0.5]:
+  //   var0: start=0.0, end = 0   + coverage*0.5 = step.coverage
+  //   var1: start=0.5, end = 0.5 + coverage*0.5 = 0.5 + step.coverage
+  // This is the formula (from sdk-js/src/util.ts):
+  //   let cumulative = 0;
+  //   weights.map(w => { start = cumulative; cumulative += w; return [start, start + coverage*w]; })
+  function simulateBucketRanges(
+    ruleCoverage: number,
+  ): [[number, number], [number, number]] {
+    const weights = [0.5, 0.5];
+    const cov = Math.min(Math.max(ruleCoverage, 0), 1);
+    let cumulative = 0;
+    return weights.map((w) => {
+      const start = cumulative;
+      cumulative += w;
+      return [start, start + cov * w] as [number, number];
+    }) as [[number, number], [number, number]];
+  }
+
+  it.each([
+    [0.1, 0.2, [0, 0.1], [0.5, 0.6]],
+    [0.25, 0.5, [0, 0.25], [0.5, 0.75]],
+    [0.4, 0.8, [0, 0.4], [0.5, 0.9]],
+    [0.5, 1.0, [0, 0.5], [0.5, 1.0]], // max valid monitored-step coverage
+  ])(
+    "step.coverage=%p → rule.coverage=%p → treatment=%p, control=%p",
+    (stepCov, ruleCov, expectedTreatment, expectedControl) => {
+      const ranges = simulateBucketRanges(ruleCov);
+      expect(ranges[0]).toEqual(expectedTreatment);
+      expect(ranges[1]).toEqual(expectedControl);
+    },
+  );
+});
+
 describe("ramp-monitored SDK payload", () => {
   describe("map lookup and conversion", () => {
     it("produces a standard rollout when no map is provided", () => {
@@ -126,26 +163,50 @@ describe("ramp-monitored SDK payload", () => {
       expect(rule.variations).toBeUndefined();
     });
 
-    it("converts to experiment with contiguous ranges when map matches rule id", () => {
+    it("converts to experiment rule when map matches rule id", () => {
+      // Default fixture has step.coverage=0.8 (API-rejected for monitored steps,
+      // graceful degradation). coverage=min(0.8*2,1)=1 → SDK uses full hash space.
       const def = getDefinition(makeRolloutFeature(), monitoredMap("rule_1"));
       const rule = def!.rules![0];
 
       expect(rule.force).toBeUndefined();
       expect(rule.variations).toEqual([true, false]);
       expect(rule.weights).toEqual([0.5, 0.5]);
-      expect(rule.coverage).toBeUndefined(); // ranges only — no coverage fallback
+      expect(rule.coverage).toBe(1); // min(0.8*2, 1)=1
+      expect(rule.ranges).toBeUndefined(); // no explicit ranges — SDK uses getBucketRanges
       expect(rule.filters).toBeUndefined();
-      // coverage=0.8 > 0.5: falls back to contiguous [0,c],[c,min(1,2c)]
-      // (the API rejects coverage > 0.5 on monitored steps; this is graceful degradation)
-      expect(rule.ranges).toEqual([
-        [0, 0.8],
-        [0.8, 1.0],
-      ]);
       expect(rule.hashAttribute).toBe("id");
       expect(rule.seed).toBe("test-seed");
       expect(rule.key).toBe("ramp_rs_abc");
       expect(rule.phase).toBe("0");
       expect(rule.disableStickyBucketing).toBe(true);
+    });
+
+    it("coverage=2*step.coverage produces non-adjacent arms via getBucketRanges", () => {
+      // With step.coverage=0.25: rule.coverage=0.5
+      // getBucketRanges(2, 0.5, [0.5,0.5]) → [0,0.25],[0.5,0.75]
+      // treatment matches rollout [0,0.25); control is non-adjacent [0.5,0.75)
+      const feature = makeRolloutFeature({
+        rules: [
+          {
+            type: "rollout",
+            id: "rule_1",
+            description: "",
+            enabled: true,
+            value: "true",
+            coverage: 0.25,
+            hashAttribute: "id",
+            seed: "test-seed",
+            allEnvironments: true,
+          },
+        ],
+      } as Partial<FeatureInterface>);
+      const def = getDefinition(feature, monitoredMap("rule_1"));
+      const rule = def!.rules![0];
+
+      expect(rule.coverage).toBe(0.5); // 0.25 * 2
+      expect(rule.ranges).toBeUndefined();
+      expect(rule.weights).toEqual([0.5, 0.5]);
     });
 
     it("clamps coverage above 1", () => {
@@ -166,7 +227,7 @@ describe("ramp-monitored SDK payload", () => {
       } as Partial<FeatureInterface>);
       const def = getDefinition(feature, monitoredMap("rule_1"));
       const rule = def!.rules![0];
-      expect(rule.coverage).toBeUndefined(); // no coverage or ranges at 100%
+      expect(rule.coverage).toBe(1); // min(1.5*2, 1) = 1
       expect(rule.ranges).toBeUndefined();
       expect(rule.filters).toBeUndefined();
     });
@@ -226,7 +287,7 @@ describe("ramp-monitored SDK payload", () => {
       expect(rule.variations).toEqual([true, false]);
       expect(rule.filters).toBeUndefined();
       expect(rule.ranges).toBeUndefined();
-      expect(rule.coverage).toBeUndefined(); // no coverage or ranges at 100%
+      expect(rule.coverage).toBe(1); // min(1.0*2, 1) = 1
     });
 
     it("falls back to standard rollout when rule has no hashAttribute", () => {
@@ -278,7 +339,8 @@ describe("ramp-monitored SDK payload", () => {
       expect(rule.variations).toEqual([true, false]);
       expect(rule.seed).toBe("rule_1");
       expect(rule.filters).toBeUndefined();
-      expect(rule.ranges).toBeDefined();
+      expect(rule.coverage).toBe(1); // min(0.5*2, 1) = 1
+      expect(rule.ranges).toBeUndefined();
     });
 
     it("falls back to feature.id as payload seed when monitored rollout has no seed (pre-backfill rule)", () => {
@@ -307,7 +369,8 @@ describe("ramp-monitored SDK payload", () => {
       // SDK fallback: rule.seed || featureId = feature.id (not rule.id)
       expect(rule.seed).toBe(feature.id);
       expect(rule.filters).toBeUndefined();
-      expect(rule.ranges).toBeDefined();
+      expect(rule.coverage).toBe(1); // min(0.5*2, 1) = 1
+      expect(rule.ranges).toBeUndefined();
     });
 
     it("includes experiment name when includeExperimentNames is set", () => {
@@ -328,7 +391,9 @@ describe("ramp-monitored SDK payload", () => {
       ]);
     });
 
-    it("bucketingV2 SDK receives ranges and seed (ranges takes precedence over coverage)", () => {
+    it("bucketingV2 SDK receives coverage=2*step.coverage and seed", () => {
+      // Default fixture step.coverage=0.8 (API-rejected >0.5, graceful degradation)
+      // rule.coverage = min(0.8*2, 1) = 1; no explicit ranges.
       const def = getFeatureDefinition({
         feature: makeRolloutFeature(),
         environment: "production",
@@ -339,18 +404,15 @@ describe("ramp-monitored SDK payload", () => {
         capabilities: ["bucketingV2"],
       });
       const rule = def!.rules![0];
-      // coverage=0.8 > 0.5 → fallback contiguous formula
-      expect(rule.ranges).toEqual([
-        [0, 0.8],
-        [0.8, 1.0],
-      ]);
+      expect(rule.ranges).toBeUndefined();
+      expect(rule.coverage).toBe(1); // min(0.8*2, 1)
       expect(rule.seed).toBe("test-seed");
       expect(rule.hashVersion).toBe(1); // old rule has no hashVersion → falls back to 1
-      expect(rule.coverage).toBeUndefined(); // ranges only — no coverage fallback
     });
 
     it("monitored experiment inherits hashVersion:2 from the rollout rule", () => {
-      // coverage=0.4 ≤ 0.5 → non-adjacent formula: treatment=[0,0.4), control=[0.5,0.9)
+      // step.coverage=0.4 → rule.coverage=0.8; getBucketRanges(2,0.8,[0.5,0.5])
+      // produces treatment=[0,0.4), control=[0.5,0.9) — non-adjacent, stable bucketing
       const feature = makeRolloutFeature({
         rules: [
           {
@@ -378,17 +440,13 @@ describe("ramp-monitored SDK payload", () => {
       });
       const rule = def!.rules![0];
       expect(rule.hashVersion).toBe(2);
-      expect(rule.ranges).toEqual([
-        [0, 0.4],
-        [0.5, 0.9],
-      ]);
+      expect(rule.coverage).toBe(0.8); // 0.4 * 2
+      expect(rule.ranges).toBeUndefined();
     });
 
-    it("non-bucketingV2 SDK receives no coverage or ranges (monitored steps require bucketingV2)", () => {
-      // Without bucketingV2, ranges/seed/meta/phase are stripped. coverage is not
-      // set on monitored steps (non-adjacent ranges make it meaningless), so old
-      // SDKs will enroll all eligible users. Correct monitored-step behavior
-      // requires a bucketingV2-capable SDK.
+    it("non-bucketingV2 SDK receives coverage=2*step.coverage (old SDKs use same getBucketRanges)", () => {
+      // coverage is a STRICT key so it reaches all SDKs. Old SDKs call the same
+      // getBucketRanges with this value and get the correct non-adjacent arms.
       const def = getFeatureDefinition({
         feature: makeRolloutFeature(),
         environment: "production",
@@ -401,7 +459,7 @@ describe("ramp-monitored SDK payload", () => {
       const rule = def!.rules![0];
       expect(rule.ranges).toBeUndefined();
       expect(rule.seed).toBeUndefined();
-      expect(rule.coverage).toBeUndefined();
+      expect(rule.coverage).toBe(1); // min(0.8*2,1); present as STRICT key for old SDKs
       expect(rule.variations).toEqual([true, false]);
     });
   });
@@ -427,34 +485,23 @@ describe("ramp-monitored SDK payload", () => {
     }
 
     function makeMonitoredPayload(coverage: number): FeatureDefinition {
-      const rule: FeatureDefinitionRule = {
-        variations: [TREATMENT, CONTROL],
-        weights: [0.5, 0.5],
-        hashAttribute: "id",
-        seed: SEED,
-        key: "ramp_test",
-        meta: [{ key: "0" }, { key: "1", passthrough: true }],
-        phase: "0",
-      };
-      if (coverage < 1) {
-        if (coverage <= 0.5) {
-          // treatment=[0, c), control=[0.5, 0.5+c) — stable step-up bucketing
-          rule.ranges = [
-            [0, coverage],
-            [0.5, 0.5 + coverage],
-          ];
-        } else {
-          // coverage > 0.5: API-blocked for monitored steps, fallback formula
-          const controlEnd = Math.min(1, coverage * 2);
-          rule.ranges = [
-            [0, coverage],
-            [coverage, controlEnd],
-          ];
-        }
-      }
+      // Mirror the server: coverage = min(step.coverage * 2, 1).
+      // getBucketRanges(2, 2c, [0.5,0.5]) naturally produces
+      //   treatment=[0, c)  control=[0.5, 0.5+c)  — non-adjacent, stable bucketing.
       return {
         defaultValue: CONTROL,
-        rules: [rule],
+        rules: [
+          {
+            variations: [TREATMENT, CONTROL],
+            weights: [0.5, 0.5],
+            coverage: Math.min(coverage * 2, 1),
+            hashAttribute: "id",
+            seed: SEED,
+            key: "ramp_test",
+            meta: [{ key: "0" }, { key: "1", passthrough: true }],
+            phase: "0",
+          },
+        ],
       };
     }
 
@@ -651,25 +698,14 @@ describe("ramp-monitored SDK payload", () => {
       const coverages = [0.25, 0.5, 0.75];
 
       for (const coverage of coverages) {
-        const ranges: [number, number][] | undefined =
-          coverage >= 1
-            ? undefined
-            : coverage <= 0.5
-              ? [
-                  [0, coverage],
-                  [0.5, 0.5 + coverage],
-                ]
-              : [
-                  [0, coverage],
-                  [coverage, Math.min(1, coverage * 2)],
-                ];
+        // Mirror server: rule.coverage = min(step.coverage * 2, 1)
         const payload: FeatureDefinition = {
           defaultValue: CONTROL,
           rules: [
             {
               variations: [TREATMENT, CONTROL],
               weights: [0.5, 0.5],
-              ranges,
+              coverage: Math.min(coverage * 2, 1),
               hashAttribute: "id",
               seed: SEED,
               key: "ramp_test",
@@ -689,14 +725,17 @@ describe("ramp-monitored SDK payload", () => {
           }
         }
 
-        // Treatment arm = coverage%, control arm = min(coverage, 1-coverage)%
+        // rule.coverage = min(step.coverage * 2, 1)
+        // getBucketRanges(2, ruleCoverage, [0.5, 0.5]):
+        //   treatment arm = [0, ruleCoverage/2) = [0, step.coverage) capped at 0.5
+        //   control arm   = [0.5, 0.5 + ruleCoverage/2) capped at 0.5
+        const effectiveArm = Math.min(coverage, 0.5);
         const treatmentRate = treatmentCount / userIds.length;
-        const expectedControl = Math.min(coverage, 1 - coverage);
         const controlRate = controlCount / userIds.length;
-        expect(treatmentRate).toBeGreaterThan(coverage - 0.05);
-        expect(treatmentRate).toBeLessThan(coverage + 0.05);
-        expect(controlRate).toBeGreaterThan(expectedControl - 0.05);
-        expect(controlRate).toBeLessThan(expectedControl + 0.05);
+        expect(treatmentRate).toBeGreaterThan(effectiveArm - 0.05);
+        expect(treatmentRate).toBeLessThan(effectiveArm + 0.05);
+        expect(controlRate).toBeGreaterThan(effectiveArm - 0.05);
+        expect(controlRate).toBeLessThan(effectiveArm + 0.05);
       }
     });
 
@@ -794,15 +833,12 @@ describe("ramp-monitored SDK payload", () => {
             {
               variations: [TREATMENT, "control_arm"],
               weights: [0.5, 0.5],
+              coverage: Math.min(coverage * 2, 1), // mirror server formula
               hashAttribute: "id",
               seed: SEED,
               key: "ctrl_mono_test",
               meta: [{ key: "0" }, { key: "1" }],
               phase: "0",
-              ranges: [
-                [0, coverage],
-                [0.5, 0.5 + coverage],
-              ],
             },
           ],
         };
@@ -858,8 +894,7 @@ describe("ramp-monitored SDK payload", () => {
     it("users in rollout treatment stay in treatment during monitored step with hashVersion: 2", () => {
       const userIds = Array.from({ length: 200 }, (_, i) => `user_v2_${i}`);
       const rolloutCoverage = 0.4;
-      const monitoredCoverage = 0.8;
-      const controlEnd = Math.min(1, monitoredCoverage * 2);
+      const monitoredCoverage = 0.8; // >0.5 graceful degradation; rule.coverage=min(1.6,1)=1
 
       const rolloutPayload: FeatureDefinition = {
         defaultValue: CONTROL,
@@ -880,16 +915,13 @@ describe("ramp-monitored SDK payload", () => {
           {
             variations: [TREATMENT, CONTROL],
             weights: [0.5, 0.5],
+            coverage: Math.min(monitoredCoverage * 2, 1), // mirror server formula
             hashAttribute: "id",
             seed: SEED,
             key: "ramp_test_v2",
             meta: [{ key: "0" }, { key: "1", passthrough: true }],
             phase: "0",
             hashVersion: 2,
-            ranges: [
-              [0, monitoredCoverage],
-              [monitoredCoverage, controlEnd],
-            ],
           },
         ],
       };
