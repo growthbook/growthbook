@@ -79,7 +79,7 @@ const postRampScheduleValidator = {
           monitoringMode: z.enum(["auto", "manual"]).optional(),
           autoUpdate: z.boolean().optional(),
           autoRollback: z.boolean().optional(),
-          updateScheduleMinutes: z.number().positive().optional().nullable(),
+          updateScheduleMinutes: z.number().min(10).optional().nullable(),
           srmAction: z.enum(["warn", "hold", "rollback"]).optional(),
           noTrafficAction: z.enum(["warn", "hold", "rollback"]).optional(),
           multipleExposureAction: z

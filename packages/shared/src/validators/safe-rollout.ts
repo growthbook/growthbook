@@ -74,7 +74,7 @@ const safeRollout = createSafeRolloutValidator.extend({
 
   trackingKey: z.string().optional(),
 
-  updateScheduleMinutes: z.number().positive().optional(),
+  updateScheduleMinutes: z.number().min(10).optional(),
 });
 export const safeRolloutValidator = baseSchema
   .extend(safeRollout.shape)

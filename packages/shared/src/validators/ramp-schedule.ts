@@ -57,7 +57,7 @@ export const rampMonitoringConfig = z.object({
   exposureQueryId: z.string(),
   guardrailMetricIds: z.array(z.string()),
   signalMetricIds: z.array(z.string()).optional(),
-  updateScheduleMinutes: z.number().positive().optional().nullable(),
+  updateScheduleMinutes: z.number().min(10).optional().nullable(),
   monitoringMode: rampMonitoringMode.optional(),
   autoUpdate: z.boolean().optional(),
   srmAction: experimentHealthAction.optional(),

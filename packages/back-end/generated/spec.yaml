@@ -3856,7 +3856,7 @@ paths:
                         updateScheduleMinutes:
                           anyOf:
                             - type: number
-                              exclusiveMinimum: 0
+                              minimum: 10
                             - type: 'null'
                         monitoringMode:
                           type: string
@@ -4450,7 +4450,7 @@ paths:
                         updateScheduleMinutes:
                           anyOf:
                             - type: number
-                              exclusiveMinimum: 0
+                              minimum: 10
                             - type: 'null'
                         monitoringMode:
                           type: string
@@ -5069,7 +5069,7 @@ paths:
                     updateScheduleMinutes:
                       anyOf:
                         - type: number
-                          exclusiveMinimum: 0
+                          minimum: 10
                         - type: 'null'
                     monitoringMode:
                       type: string
@@ -8079,7 +8079,7 @@ paths:
                         updateScheduleMinutes:
                           anyOf:
                             - type: number
-                              exclusiveMinimum: 0
+                              minimum: 10
                             - type: 'null'
                         monitoringMode:
                           type: string
@@ -8675,7 +8675,7 @@ paths:
                         updateScheduleMinutes:
                           anyOf:
                             - type: number
-                              exclusiveMinimum: 0
+                              minimum: 10
                             - type: 'null'
                         monitoringMode:
                           type: string
@@ -9298,7 +9298,7 @@ paths:
                     updateScheduleMinutes:
                       anyOf:
                         - type: number
-                          exclusiveMinimum: 0
+                          minimum: 10
                         - type: 'null'
                     monitoringMode:
                       type: string
@@ -19153,7 +19153,7 @@ paths:
                         updateScheduleMinutes:
                           anyOf:
                             - type: number
-                              exclusiveMinimum: 0
+                              minimum: 10
                             - type: 'null'
                         monitoringMode:
                           type: string
@@ -20143,7 +20143,7 @@ paths:
                           updateScheduleMinutes:
                             anyOf:
                               - type: number
-                                exclusiveMinimum: 0
+                                minimum: 10
                               - type: 'null'
                           monitoringMode:
                             type: string
@@ -20493,7 +20493,7 @@ paths:
                           updateScheduleMinutes:
                             anyOf:
                               - type: number
-                                exclusiveMinimum: 0
+                                minimum: 10
                               - type: 'null'
                           monitoringMode:
                             type: string
@@ -20723,7 +20723,7 @@ paths:
                 updateScheduleMinutes:
                   anyOf:
                     - type: number
-                      exclusiveMinimum: 0
+                      minimum: 10
                     - type: 'null'
                 monitoringMode:
                   type: string
@@ -20904,7 +20904,7 @@ paths:
                           updateScheduleMinutes:
                             anyOf:
                               - type: number
-                                exclusiveMinimum: 0
+                                minimum: 10
                               - type: 'null'
                           monitoringMode:
                             type: string
@@ -21257,7 +21257,7 @@ paths:
                           updateScheduleMinutes:
                             anyOf:
                               - type: number
-                                exclusiveMinimum: 0
+                                minimum: 10
                               - type: 'null'
                           monitoringMode:
                             type: string
@@ -29506,7 +29506,7 @@ paths:
                         updateScheduleMinutes:
                           anyOf:
                             - type: number
-                              exclusiveMinimum: 0
+                              minimum: 10
                             - type: 'null'
                         monitoringMode:
                           type: string
@@ -29800,7 +29800,7 @@ paths:
                         updateScheduleMinutes:
                           anyOf:
                             - type: number
-                              exclusiveMinimum: 0
+                              minimum: 10
                             - type: 'null'
                         monitoringMode:
                           type: string
@@ -30364,7 +30364,7 @@ paths:
                         updateScheduleMinutes:
                           anyOf:
                             - type: number
-                              exclusiveMinimum: 0
+                              minimum: 10
                             - type: 'null'
                         monitoringMode:
                           type: string
@@ -32093,7 +32093,7 @@ components:
                       updateScheduleMinutes:
                         anyOf:
                           - type: number
-                            exclusiveMinimum: 0
+                            minimum: 10
                           - type: 'null'
                       monitoringMode:
                         type: string
@@ -32504,7 +32504,7 @@ components:
                       updateScheduleMinutes:
                         anyOf:
                           - type: number
-                            exclusiveMinimum: 0
+                            minimum: 10
                           - type: 'null'
                       monitoringMode:
                         type: string
@@ -33263,7 +33263,7 @@ components:
                       updateScheduleMinutes:
                         anyOf:
                           - type: number
-                            exclusiveMinimum: 0
+                            minimum: 10
                           - type: 'null'
                       monitoringMode:
                         type: string
@@ -33674,7 +33674,7 @@ components:
                       updateScheduleMinutes:
                         anyOf:
                           - type: number
-                            exclusiveMinimum: 0
+                            minimum: 10
                           - type: 'null'
                       monitoringMode:
                         type: string
@@ -38033,7 +38033,7 @@ components:
                 updateScheduleMinutes:
                   anyOf:
                     - type: number
-                      exclusiveMinimum: 0
+                      minimum: 10
                     - type: 'null'
                 monitoringMode:
                   type: string
@@ -40925,7 +40925,7 @@ components:
                 updateScheduleMinutes:
                   anyOf:
                     - type: number
-                      exclusiveMinimum: 0
+                      minimum: 10
                     - type: 'null'
                 monitoringMode:
                   type: string

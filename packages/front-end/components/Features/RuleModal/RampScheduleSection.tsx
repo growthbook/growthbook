@@ -2777,7 +2777,7 @@ export default function RampScheduleSection({
 
     const updateScheduleMinutes =
       minStepSeconds < orgCadenceSeconds
-        ? Math.max(1, Math.floor(minStepSeconds / 60))
+        ? Math.max(10, Math.floor(minStepSeconds / 60))
         : null;
 
     const effectiveCadenceHours =
@@ -3083,7 +3083,8 @@ export default function RampScheduleSection({
                   if (!v || v <= 0) {
                     patchMonitoring({ updateScheduleMinutes: null });
                   } else {
-                    const clamped = Math.min(168, v);
+                    // min 10 minutes (≈0.1667h), max 168h; stored in minutes
+                    const clamped = Math.max(10 / 60, Math.min(168, v));
                     patchMonitoring({
                       updateScheduleMinutes: Math.round(clamped * 60),
                     });
