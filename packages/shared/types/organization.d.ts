@@ -213,6 +213,7 @@ export type ApprovalFlowConfiguration = {
 
 export type ApprovalFlowConfigurations = {
   savedGroups: ApprovalFlowConfiguration[];
+  sdkConnections?: ApprovalFlowConfiguration[];
 };
 
 export interface OrganizationSettings {

@@ -30,6 +30,8 @@ export const getApprovalFlowSettings = (
   switch (entityType) {
     case "saved-group":
       return approvalFlows.savedGroups?.[0];
+    case "sdk-connection":
+      return approvalFlows.sdkConnections?.[0];
     // case "feature": return approvalFlows.features?.[0];  ← add future entity types here
     default:
       return undefined;
@@ -74,6 +76,34 @@ export const isSavedGroupRevisionMetadataOnly = (
 };
 
 /**
+ * Top-level SDK-connection fields that count as "metadata" for the
+ * `requireMetadataReview` gate. Almost every SDK-connection field affects the
+ * generated payload, so only the display name is treated as metadata.
+ * Archiving is intentionally excluded — it's a significant state change that
+ * always goes through review when approval is enabled.
+ */
+export const SDK_CONNECTION_METADATA_FIELDS: ReadonlySet<string> = new Set([
+  "name",
+]);
+
+/**
+ * Returns true when every proposed change in the revision touches an
+ * SDK-connection metadata field (per `SDK_CONNECTION_METADATA_FIELDS`). An
+ * empty proposed-changes list returns false — there's nothing to publish, so
+ * the "metadata-only shortcut" doesn't apply.
+ */
+export const isSdkConnectionRevisionMetadataOnly = (
+  proposedChanges: JsonPatchOperation[] | unknown,
+): boolean => {
+  const ops = normalizeProposedChanges(proposedChanges);
+  if (ops.length === 0) return false;
+  return ops.every((op) => {
+    const field = op.path.split("/")[1];
+    return !!field && SDK_CONNECTION_METADATA_FIELDS.has(field);
+  });
+};
+
+/**
  * Returns true when `userId` contributed to the revision and the entity-type's
  * `blockSelfApproval` setting is enabled — meaning the user must NOT be allowed
  * to approve.
@@ -111,6 +141,8 @@ export const getRevisionKey = (
   switch (entityType) {
     case "saved-group":
       return "saved-groups";
+    case "sdk-connection":
+      return "sdk-connections";
     // case "feature": return "features";  ← add future entity types here
     default:
       return null;
@@ -154,8 +186,9 @@ export const canUserReviewEntity = ({
 
   // Extension point: add a new `case` here when introducing a new RevisionTargetType
   // that requires custom reviewer logic beyond the default `canEditEntity` check.
-  if (entityType === "saved-group") {
-    // For saved groups: anyone who can edit can review (except the author, checked above)
+  if (entityType === "saved-group" || entityType === "sdk-connection") {
+    // For saved groups / SDK connections: anyone who can edit can review
+    // (except the author, checked above)
     return !!canEditEntity;
   }
   // case "feature": return !!canEditEntity;  ← add future entity types here

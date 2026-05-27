@@ -47,6 +47,82 @@ export const apiSdkConnectionValidator = namedSchema(
 
 export type ApiSdkConnection = z.infer<typeof apiSdkConnectionValidator>;
 
+// ---------------------------------------------------------------------------
+// Revision/approval-flow schemas
+// ---------------------------------------------------------------------------
+
+// The shape stored as a revision snapshot for an SDK connection. It is a
+// flattened, secret-free projection of SDKConnectionInterface:
+//   - `proxy` is flattened to `proxyEnabled` / `proxyHost` so it lines up with
+//     the EditSDKConnectionParams the merge step ultimately writes.
+//   - secret/system fields (`encryptionKey`, `key`, the proxy signing key,
+//     `connected`, `managedBy`) are intentionally omitted.
+// Strict so the adapter's snapshot whitelist can't silently drift from this.
+export const sdkConnectionSnapshotValidator = z
+  .object({
+    id: z.string(),
+    organization: z.string(),
+    name: z.string(),
+    eventTracker: z.string().optional(),
+    languages: z.array(z.string()),
+    sdkVersion: z.string().optional(),
+    environment: z.string(),
+    projects: z.array(z.string()),
+    encryptPayload: z.boolean(),
+    hashSecureAttributes: z.boolean().optional(),
+    includeVisualExperiments: z.boolean().optional(),
+    includeDraftExperiments: z.boolean().optional(),
+    includeExperimentNames: z.boolean().optional(),
+    includeRedirectExperiments: z.boolean().optional(),
+    includeRuleIds: z.boolean().optional(),
+    includeProjectIdInMetadata: z.boolean().optional(),
+    includeCustomFieldsInMetadata: z.boolean().optional(),
+    allowedCustomFieldsInMetadata: z.array(z.string()).optional(),
+    includeTagsInMetadata: z.boolean().optional(),
+    remoteEvalEnabled: z.boolean().optional(),
+    savedGroupReferencesEnabled: z.boolean().optional(),
+    proxyEnabled: z.boolean().optional(),
+    proxyHost: z.string().optional(),
+    archived: z.boolean().optional(),
+    dateCreated: z.date(),
+    dateUpdated: z.date(),
+  })
+  .strict();
+
+export type SDKConnectionRevisionSnapshot = z.infer<
+  typeof sdkConnectionSnapshotValidator
+>;
+
+// Single source of truth for the SDK-connection fields a revision is allowed to
+// mutate when applying changes to the live connection. Derived from the
+// snapshot schema so it cannot drift. The keys line up with
+// EditSDKConnectionParams.
+export const sdkConnectionUpdatableFieldsSchema =
+  sdkConnectionSnapshotValidator.pick({
+    name: true,
+    eventTracker: true,
+    languages: true,
+    sdkVersion: true,
+    environment: true,
+    projects: true,
+    encryptPayload: true,
+    hashSecureAttributes: true,
+    includeVisualExperiments: true,
+    includeDraftExperiments: true,
+    includeExperimentNames: true,
+    includeRedirectExperiments: true,
+    includeRuleIds: true,
+    includeProjectIdInMetadata: true,
+    includeCustomFieldsInMetadata: true,
+    allowedCustomFieldsInMetadata: true,
+    includeTagsInMetadata: true,
+    remoteEvalEnabled: true,
+    savedGroupReferencesEnabled: true,
+    proxyEnabled: true,
+    proxyHost: true,
+    archived: true,
+  });
+
 // Corresponds to payload-schemas/PostSdkConnectionPayload.yaml
 const postSdkConnectionBody = z
   .object({

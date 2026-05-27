@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { savedGroupValidator } from "./saved-group";
+import { sdkConnectionSnapshotValidator } from "./sdk-connections";
 
 export const revisionStatus = [
   "draft",
@@ -34,7 +35,7 @@ export type Review = z.infer<typeof reviewValidator>;
 // 4. Create packages/back-end/src/revisions/adapters/feature.adapter.ts
 // 5. Register it in packages/back-end/src/revisions/index.ts registry
 // 6. Extend getRevisionKey / canUserReviewEntity switches in shared/src/revisions/helpers.ts
-export const revisionTargetType = ["saved-group"] as const;
+export const revisionTargetType = ["saved-group", "sdk-connection"] as const;
 export type RevisionTargetType = (typeof revisionTargetType)[number];
 
 export const jsonPatchOperationValidator = z.discriminatedUnion("op", [
@@ -100,10 +101,21 @@ export type RevisionSavedGroupTarget = z.infer<
   typeof revisionSavedGroupTargetValidator
 >;
 
+export const revisionSdkConnectionTargetValidator = z.object({
+  type: z.literal("sdk-connection"),
+  id: z.string(),
+  snapshot: sdkConnectionSnapshotValidator,
+  proposedChanges: z.array(jsonPatchOperationValidator),
+});
+export type RevisionSdkConnectionTarget = z.infer<
+  typeof revisionSdkConnectionTargetValidator
+>;
+
 // Extension point: add new revisionXxxTargetValidator entries here as new entity types are added.
 // Each validator must have a unique `type` literal and a `snapshot` field with the entity's schema.
 export const revisionTargetValidator = z.discriminatedUnion("type", [
   revisionSavedGroupTargetValidator,
+  revisionSdkConnectionTargetValidator,
   // revisionFeatureTargetValidator,  ← add future entity types here
 ]);
 export type RevisionTarget = z.infer<typeof revisionTargetValidator>;

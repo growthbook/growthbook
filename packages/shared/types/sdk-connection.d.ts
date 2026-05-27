@@ -33,7 +33,9 @@ export type EditSDKConnectionParams = {
   allowedCustomFieldsInMetadata?: string[];
   includeTagsInMetadata?: boolean;
   remoteEvalEnabled?: boolean;
+  savedGroupReferencesEnabled?: boolean;
   eventTracker?: string;
+  archived?: boolean;
 };
 export type CreateSDKConnectionParams = {
   organization: string;
@@ -101,6 +103,7 @@ export interface SDKConnectionInterface {
 
   remoteEvalEnabled?: boolean;
   savedGroupReferencesEnabled?: boolean;
+  archived?: boolean;
   managedBy?: ManagedBy;
 }
 
