@@ -3,6 +3,7 @@ import {
   autoMerge,
   getMatchingRules,
   MatchingRule,
+  mergeResultHasChanges,
   resetReviewOnChange,
   checkIfRevisionNeedsReview,
 } from "shared/util";
@@ -25,7 +26,10 @@ import {
   getFeature,
   publishRevision,
 } from "back-end/src/models/FeatureModel";
-import { getRevision } from "back-end/src/models/FeatureRevisionModel";
+import {
+  discardRevision,
+  getRevision,
+} from "back-end/src/models/FeatureRevisionModel";
 import { removePendingFeatureDraftFromExperiment } from "back-end/src/models/ExperimentModel";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
@@ -453,6 +457,15 @@ export async function publishPendingFeatureDraftsForExperiment(
       );
       failed.push({ featureId, revisionVersion, reason: "merge-conflict" });
       break;
+    }
+
+    if (!mergeResultHasChanges(mergeResult)) {
+      logger.info(
+        { experimentId: experiment.id, featureId, revisionVersion },
+        "Discarding no-op pending feature draft on experiment start",
+      );
+      await discardRevision(context, revision, context.auditUser);
+      continue;
     }
 
     try {
