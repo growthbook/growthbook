@@ -21440,29 +21440,17 @@ paths:
       operationId: updateRampScheduleSteps
       summary: Update ramp schedule steps
       description: >
-        Replaces the steps array for a ramp schedule.
-
-
-        **Running schedules apply partial updates per step position:**
-
-        - **Past steps** (already executed): ignored — incoming changes are
-        dropped.
-
-        - **Current step** (executing now): only `holdConditions` and
-        `approvalNotes` are applied; `interval` and `monitored` are preserved.
-
-        - **Future steps**: fully replaced.
-
-
-        The `applied` object in the response reports exactly which indices were
-        fully applied, partially applied, or skipped.
+        Fully replaces the steps array for a ramp schedule. Only allowed when
+        the schedule is in a non-running, non-terminal state (`ready`,
+        `pending`, or `paused`). Pause a running schedule first; restart a
+        terminal schedule first.
 
 
         **Step actions** (coverage/targeting patches) are not accepted here —
         they change the SDK payload and must go through a feature revision
-        draft. Use `PUT
+        draft. Existing step actions are preserved for each position. Use `PUT
         /v2/features/:id/revisions/:version/rules/:ruleId/ramp-schedule` to
-        modify step actions.
+        modify coverage/targeting.
       tags:
         - ramp-schedules
       parameters:
@@ -21539,11 +21527,8 @@ paths:
                 properties:
                   rampSchedule:
                     $ref: '#/components/schemas/RampSchedule'
-                  applied:
-                    $ref: '#/components/schemas/applied'
                 required:
                   - rampSchedule
-                  - applied
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
@@ -43462,33 +43447,6 @@ components:
             - locked
       required:
         - mode
-      additionalProperties: false
-    applied:
-      type: object
-      properties:
-        fullyApplied:
-          description: Step indices where all incoming fields were applied (future steps).
-          type: array
-          items:
-            type: number
-        partiallyApplied:
-          description: >-
-            Step indices where only `holdConditions` and `approvalNotes` were
-            applied because the step is currently executing.
-          type: array
-          items:
-            type: number
-        skipped:
-          description: >-
-            Step indices where incoming changes were ignored because the step
-            has already executed (index < currentStepIndex).
-          type: array
-          items:
-            type: number
-      required:
-        - fullyApplied
-        - partiallyApplied
-        - skipped
       additionalProperties: false
   securitySchemes:
     bearerAuth:
