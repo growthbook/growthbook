@@ -68,7 +68,6 @@ import OfficialResourceModal from "@/components/OfficialResourceModal";
 import { useUser } from "@/services/UserContext";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { DocLink } from "@/components/DocLink";
-import Callout from "@/ui/Callout";
 import Code from "@/components/SyntaxHighlighting/Code";
 import {
   isMergeAggregationMetric,
@@ -200,7 +199,7 @@ export default function FactMetricPage() {
   );
   const { apiCall } = useAuth();
 
-  const { hasCommercialFeature, organization, getOwnerDisplay } = useUser();
+  const { hasCommercialFeature, getOwnerDisplay } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -544,22 +543,20 @@ export default function FactMetricPage() {
             open={openDropdown}
             onOpenChange={setOpenDropdown}
           >
-            {canEdit && (
-              <DropdownMenuItem
-                onClick={() => {
-                  setOpenDropdown(false);
-                  setEditOpen("open");
-                }}
-                disabled={editViaApiOnly}
+            <DropdownMenuItem
+              onClick={() => {
+                setOpenDropdown(false);
+                setEditOpen("open");
+              }}
+              disabled={!canEdit || editViaApiOnly}
+            >
+              <Tooltip
+                content={REST_API_ONLY_EDIT_MESSAGE}
+                enabled={editViaApiOnly}
               >
-                <Tooltip
-                  content={REST_API_ONLY_EDIT_MESSAGE}
-                  enabled={editViaApiOnly}
-                >
-                  <span>Edit Metric</span>
-                </Tooltip>
-              </DropdownMenuItem>
-            )}
+                <span>Edit Metric</span>
+              </Tooltip>
+            </DropdownMenuItem>
             {canEdit &&
             !factMetric.managedBy &&
             permissionsUtil.canCreateOfficialResources(factMetric) &&
@@ -629,7 +626,7 @@ export default function FactMetricPage() {
                     All Projects
                   </Text>
                 )}
-                {canEdit && (
+                {canEdit ? (
                   <Link
                     onClick={(e) => {
                       e.preventDefault();
@@ -638,6 +635,10 @@ export default function FactMetricPage() {
                   >
                     <GBEdit />
                   </Link>
+                ) : (
+                  <span style={{ opacity: 0.4, cursor: "not-allowed" }}>
+                    <GBEdit />
+                  </span>
                 )}
               </Flex>
             }
@@ -650,10 +651,14 @@ export default function FactMetricPage() {
               <Text weight="regular" color="text-mid">
                 {getOwnerDisplay(factMetric.owner) || "None"}
               </Text>
-              {canEdit && (
+              {canEdit ? (
                 <Link onClick={() => setEditOwnerModal(true)}>
                   <GBEdit />
                 </Link>
+              ) : (
+                <span style={{ opacity: 0.4, cursor: "not-allowed" }}>
+                  <GBEdit />
+                </span>
               )}
             </Flex>
           }
@@ -671,24 +676,26 @@ export default function FactMetricPage() {
         />
       </Flex>
       <Box mt="3" mb="3">
-        {factMetric.tags?.length || canEdit ? (
-          <Flex align="center" gap="1">
-            <Text weight="medium">Tags:</Text>
-            {factMetric.tags?.length ? (
-              <SortedTags
-                tags={factMetric.tags}
-                useFlex
-                shouldShowEllipsis={false}
-                {...tagLinkProps("metrics")}
-              />
-            ) : null}
-            {canEdit && (
-              <Link onClick={() => setEditTagsModal(true)}>
-                <GBEdit />
-              </Link>
-            )}
-          </Flex>
-        ) : null}
+        <Flex align="center" gap="1">
+          <Text weight="medium">Tags:</Text>
+          {factMetric.tags?.length ? (
+            <SortedTags
+              tags={factMetric.tags}
+              useFlex
+              shouldShowEllipsis={false}
+              {...tagLinkProps("metrics")}
+            />
+          ) : null}
+          {canEdit ? (
+            <Link onClick={() => setEditTagsModal(true)}>
+              <GBEdit />
+            </Link>
+          ) : (
+            <span style={{ opacity: 0.4, cursor: "not-allowed" }}>
+              <GBEdit />
+            </span>
+          )}
+        </Flex>
       </Box>
 
       <div className="row">

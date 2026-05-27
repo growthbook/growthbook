@@ -435,33 +435,122 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   ]);
 
   const permissionsUtil = useMemo(() => {
-    const basePermissions: UserPermissions = currentOrg?.currentUserPermissions || {
-      global: {
-        permissions: {},
-        limitAccessByEnvironment: false,
-        environments: [],
-      },
-      projects: {},
-    };
+    const basePermissions: UserPermissions =
+      currentOrg?.currentUserPermissions || {
+        global: {
+          permissions: {},
+          limitAccessByEnvironment: false,
+          environments: [],
+        },
+        projects: {},
+      };
 
-    // Inject a project-scoped readonly role for the sample data project. The
+    // Inject a project-scoped role for the sample data project. The
     // permissions system already supports per-project role overrides, so this
     // gives us the existing readonly UX everywhere with no per-page tweaks.
+    //
+    // We start from readonly, then grant just the permissions needed to
+    // explore the sample data — running queries plus updating features,
+    // experiments, and fact metrics. We then patch the create/delete entry
+    // points below to keep new-resource CTAs disabled (the underlying
+    // permission can't separate update from create/delete).
     const orgId = currentOrg?.organization?.id;
     const org = currentOrg?.organization;
     if (orgId && org) {
       const demoProjectId = getDemoDatasourceProjectIdForOrganization(orgId);
-      return new Permissions({
+      const permissions = new Permissions({
         ...basePermissions,
         projects: {
           ...basePermissions.projects,
           [demoProjectId]: {
-            permissions: roleToPermissionMap("readonly", org),
+            permissions: {
+              ...roleToPermissionMap("readonly", org),
+              runQueries: true,
+              // Allow editing existing features/experiments/fact metrics.
+              manageFeatures: true,
+              manageFeatureDrafts: true,
+              canReview: true,
+              createAnalyses: true,
+              manageFactMetrics: true,
+              // Allow publishing the resulting changes.
+              publishFeatures: true,
+              runExperiments: true,
+            },
             limitAccessByEnvironment: false,
             environments: [],
           },
         },
       });
+
+      // Block create/delete on the demo project — the granted permissions above
+      // gate update + create + delete equally, so we patch the create/delete
+      // call sites to keep "Add ..." CTAs disabled across the app.
+      const targetsDemoProject = (project?: string) =>
+        project === demoProjectId;
+      const projectsTargetDemoOnly = (projects?: string[]) =>
+        !!projects?.length && projects.every((p) => p === demoProjectId);
+
+      const wrapByProject =
+        <T extends { project?: string }, R extends boolean>(
+          original: (arg: T) => R,
+        ) =>
+        (arg: T) =>
+          (targetsDemoProject(arg.project) ? false : original(arg)) as R;
+
+      const wrapByProjects =
+        <T extends { projects?: string[] }, R extends boolean>(
+          original: (arg: T) => R,
+        ) =>
+        (arg: T) =>
+          (projectsTargetDemoOnly(arg.projects) ? false : original(arg)) as R;
+
+      const wrapByProjectString =
+        (
+          original: (
+            project?: string,
+            allProjects?: { id: string }[],
+          ) => boolean,
+        ) =>
+        (project?: string, allProjects?: { id: string }[]) =>
+          targetsDemoProject(project) ? false : original(project, allProjects);
+
+      permissions.canCreateFeature = wrapByProject(
+        permissions.canCreateFeature,
+      );
+      permissions.canDeleteFeature = wrapByProject(
+        permissions.canDeleteFeature,
+      );
+      permissions.canViewFeatureModal = wrapByProjectString(
+        permissions.canViewFeatureModal,
+      );
+
+      permissions.canCreateExperiment = wrapByProject(
+        permissions.canCreateExperiment,
+      );
+      permissions.canDeleteExperiment = wrapByProject(
+        permissions.canDeleteExperiment,
+      );
+      permissions.canViewExperimentModal = wrapByProjectString(
+        permissions.canViewExperimentModal,
+      );
+      permissions.canCreateExperimentTemplate = wrapByProject(
+        permissions.canCreateExperimentTemplate,
+      );
+      permissions.canDeleteExperimentTemplate = wrapByProject(
+        permissions.canDeleteExperimentTemplate,
+      );
+      permissions.canViewExperimentTemplateModal = wrapByProjectString(
+        permissions.canViewExperimentTemplateModal,
+      );
+
+      permissions.canCreateFactMetric = wrapByProjects(
+        permissions.canCreateFactMetric,
+      );
+      permissions.canDeleteFactMetric = wrapByProjects(
+        permissions.canDeleteFactMetric,
+      );
+
+      return permissions;
     }
     return new Permissions(basePermissions);
   }, [currentOrg?.currentUserPermissions, currentOrg?.organization]);

@@ -4,10 +4,8 @@ import {
   getDemoDataSourceFeatureId,
   getDemoDatasourceProjectIdForOrganization,
 } from "shared/demo-datasource";
-import {
-  DEFAULT_P_VALUE_THRESHOLD,
-  DEFAULT_STATS_ENGINE,
-} from "shared/constants";
+import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import { getScopedSettings } from "shared/settings";
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { PostgresConnectionParams } from "shared/types/integrations/postgres";
 import { DataSourceSettings } from "shared/types/datasource";
@@ -26,7 +24,10 @@ import {
   createExperiment,
   getAllExperiments,
 } from "back-end/src/models/ExperimentModel";
-import { createSnapshot } from "back-end/src/services/experiments";
+import {
+  createSnapshot,
+  getDefaultExperimentAnalysisSettings,
+} from "back-end/src/services/experiments";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { createFeature } from "back-end/src/models/FeatureModel";
@@ -506,15 +507,27 @@ Treatment shows a larger 'Add to Cart' CTA, but with the same functionality.`,
 
     await createFeature(context, featureToCreate);
 
-    const analysisSettings: ExperimentSnapshotAnalysisSettings = {
-      statsEngine: org.settings?.statsEngine || DEFAULT_STATS_ENGINE,
-      differenceType: "relative",
-      dimensions: [],
-      pValueThreshold:
-        org.settings?.pValueThreshold ?? DEFAULT_P_VALUE_THRESHOLD,
-      numGoalMetrics: goalMetrics.length,
-      numGuardrailMetrics: createdExperiment.guardrailMetrics?.length ?? 0,
-    };
+    // Use the same helper the runtime uses so the snapshot's analysis
+    // settings line up with what the front-end will compute when checking
+    // for stale results — otherwise the experiment shows as "Outdated"
+    // immediately after creation.
+    const { settings: scopedSettings } = getScopedSettings({
+      organization: org,
+      project,
+      experiment: createdExperiment,
+    });
+    const analysisSettings: ExperimentSnapshotAnalysisSettings = getDefaultExperimentAnalysisSettings(
+      {
+        statsEngine: org.settings?.statsEngine || DEFAULT_STATS_ENGINE,
+        experiment: createdExperiment,
+        organization: org,
+        regressionAdjustmentEnabled:
+          createdExperiment.regressionAdjustmentEnabled,
+        postStratificationEnabled:
+          scopedSettings.postStratificationEnabled.value,
+        pValueThreshold: scopedSettings.pValueThreshold.value,
+      },
+    );
 
     const metricMap = await getMetricMap(context);
     const factTableMap = await getFactTableMap(context);

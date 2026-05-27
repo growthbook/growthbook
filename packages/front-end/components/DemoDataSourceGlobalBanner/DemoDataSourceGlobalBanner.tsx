@@ -1,4 +1,5 @@
 import React, { FC, useCallback, useMemo, useState } from "react";
+import { useRouter } from "next/router";
 import { PiCaretDownFill } from "react-icons/pi";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { deleteDemoDatasource } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
@@ -21,6 +22,7 @@ export const DemoDataSourceGlobalBanner: FC<
 > = ({ ready, currentProjectIsDemo, demoProjectId, onDeleted }) => {
   const { apiCall, orgId } = useAuth();
   const { mutateDefinitions, project, projects, setProject } = useDefinitions();
+  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
 
@@ -36,6 +38,9 @@ export const DemoDataSourceGlobalBanner: FC<
         setProject(nextProject);
       }
       setOpen(false);
+      // Avoid stranding the user on a now-deleted resource page (e.g. the
+      // sample experiment) — send them home.
+      router.push("/");
       onDeleted?.();
     } catch (e) {
       setError(
@@ -50,6 +55,7 @@ export const DemoDataSourceGlobalBanner: FC<
     orgId,
     project,
     projects,
+    router,
     setProject,
   ]);
 
@@ -81,8 +87,8 @@ export const DemoDataSourceGlobalBanner: FC<
               <div style={{ maxWidth: 360 }}>
                 <p>
                   If you are done with this sample data, you can delete it here
-                  and all of the associated features, metrics, data sources,
-                  and experiments will be deleted as well.
+                  and all of the associated features, metrics, data sources, and
+                  experiments will be deleted as well.
                 </p>
                 {error && (
                   <Callout status="error" mb="2">
