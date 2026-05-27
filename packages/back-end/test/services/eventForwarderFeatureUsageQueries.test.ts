@@ -98,6 +98,7 @@ describe("ensureEventForwarderFeatureUsageQuery", () => {
           },
         }),
       },
+      { skipEventForwarderManagedValidation: true },
     );
 
     const featureUsage =
