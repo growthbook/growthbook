@@ -9,7 +9,11 @@ import {
   createOrganization,
   hasOrganization,
 } from "back-end/src/models/OrganizationModel";
-import { IS_CLOUD, IS_LOCALHOST } from "back-end/src/util/secrets";
+import {
+  DISABLE_REGISTRATION,
+  IS_CLOUD,
+  IS_LOCALHOST,
+} from "back-end/src/util/secrets";
 import {
   deleteAuthCookies,
   getAuthConnection,
@@ -219,6 +223,14 @@ export async function postRegister(
   req: Request<any, any, { email: unknown; name: unknown; password: unknown }>,
   res: Response,
 ) {
+  if (DISABLE_REGISTRATION) {
+    return res.status(403).json({
+      status: 403,
+      message:
+        "Registration is disabled. Please contact your administrator for an invitation.",
+    });
+  }
+
   const { email, name, password } = req.body;
 
   if (
