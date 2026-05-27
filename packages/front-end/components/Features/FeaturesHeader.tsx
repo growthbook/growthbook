@@ -31,7 +31,6 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Owner from "@/components/Avatar/Owner";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
-import Callout from "@/ui/Callout";
 import Metadata from "@/ui/Metadata";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import Link from "@/ui/Link";

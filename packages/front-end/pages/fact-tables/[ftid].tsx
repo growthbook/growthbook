@@ -41,7 +41,6 @@ import {
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import { useUser } from "@/services/UserContext";
-import Callout from "@/ui/Callout";
 import Modal from "@/components/Modal";
 import HistoryTable from "@/components/HistoryTable";
 
@@ -78,7 +77,7 @@ export default function FactTablePage() {
   const { apiCall } = useAuth();
 
   const permissionsUtil = usePermissionsUtil();
-  const { hasCommercialFeature, organization, getOwnerDisplay } = useUser();
+  const { hasCommercialFeature, getOwnerDisplay } = useUser();
 
   const {
     getFactTableById,

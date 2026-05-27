@@ -212,8 +212,7 @@ const NeedingAttention = (): React.ReactElement | null => {
           revision.featureMeta &&
           revision.featureMeta.dateCreated <= revision.dateCreated &&
           // Scope to the currently selected project
-          (!currentProject ||
-            revision.featureMeta.project === currentProject)
+          (!currentProject || revision.featureMeta.project === currentProject)
         ) {
           result.push({
             ...revision,

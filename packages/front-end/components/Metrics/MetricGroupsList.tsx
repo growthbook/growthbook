@@ -89,10 +89,7 @@ const MetricGroupsList: FC = () => {
           Create groups of metrics that can be ordered and added to experiments
         </p>
         <Box mt="3">
-          <Button
-            disabled={!canCreate}
-            onClick={() => setOpenModal(true)}
-          >
+          <Button disabled={!canCreate} onClick={() => setOpenModal(true)}>
             Add Metric Group
           </Button>
         </Box>

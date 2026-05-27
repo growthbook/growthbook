@@ -211,10 +211,7 @@ const DataSourcesPage: FC = () => {
           >
             <Button
               disabled={
-                !permissionsUtil.canViewCreateDataSourceModal(
-                  project,
-                  projects,
-                )
+                !permissionsUtil.canViewCreateDataSourceModal(project, projects)
               }
               onClick={() => setNewModalData({})}
               ml="2"

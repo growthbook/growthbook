@@ -226,10 +226,7 @@ export const TemplatesPage = ({
         </LinkButton>
       }
       rightButton={
-        <Button
-          disabled={!canCreate}
-          onClick={() => setOpenTemplateModal({})}
-        >
+        <Button disabled={!canCreate} onClick={() => setOpenTemplateModal({})}>
           Create Template
         </Button>
       }
