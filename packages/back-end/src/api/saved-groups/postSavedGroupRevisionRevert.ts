@@ -161,6 +161,7 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
     req.context,
     savedGroup as unknown as Record<string, unknown>,
     fieldsToUpdate,
+    { isRevert: true },
   );
 
   const merged = await req.context.models.revisions.createMerged({
