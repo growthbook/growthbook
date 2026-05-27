@@ -3,7 +3,7 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
-import { FaAngleRight, FaExclamationTriangle } from "react-icons/fa";
+import { FaAngleRight } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { experimentHasLiveLinkedChanges } from "shared/util";
 import { ReactNode, useEffect, useRef, useState } from "react";
@@ -11,7 +11,7 @@ import { MdRocketLaunch } from "react-icons/md";
 import clsx from "clsx";
 import Collapsible from "react-collapsible";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { PiCheck, PiEye, PiLink } from "react-icons/pi";
+import { PiCheck, PiEye, PiLink, PiPencilSimpleFill } from "react-icons/pi";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   ExperimentSnapshotReportArgs,
@@ -19,7 +19,7 @@ import {
   ReportInterface,
 } from "shared/types/report";
 import { HoldoutInterfaceStringDates } from "shared/validators";
-import { format } from "date-fns";
+import { format } from "date-fns-tz";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
@@ -59,6 +59,7 @@ import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
 import AddToHoldoutModal from "@/components/Experiment/holdout/AddToHoldoutModal";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import RemoveFromHoldoutModal from "@/components/Experiment/holdout/RemoveFromHoldoutModal";
+import EditScheduleModal from "@/components/Experiment/EditScheduleModal";
 import ProjectTagBar from "./ProjectTagBar";
 import EditExperimentInfoModal, {
   FocusSelector,
@@ -92,7 +93,7 @@ export interface Props {
   linkedFeatures: LinkedFeatureInfo[];
   holdout?: HoldoutInterfaceStringDates;
   showDashboardView: boolean;
-  editHoldoutSchedule?: (() => void) | null;
+  editSchedule?: (() => void) | null;
 }
 
 const datasourcesWithoutHealthData = new Set(["mixpanel", "google_analytics"]);
@@ -153,7 +154,7 @@ export default function ExperimentHeader({
   linkedFeatures,
   holdout,
   showDashboardView,
-  editHoldoutSchedule,
+  editSchedule,
 }: Props) {
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
@@ -214,6 +215,7 @@ export default function ExperimentHeader({
   const hasMultiplePhases = phases.length > 1;
 
   const [showStartExperiment, setShowStartExperiment] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
 
   const hasMultiArmedBanditFeature = hasCommercialFeature(
     "multi-armed-bandits",
@@ -334,6 +336,18 @@ export default function ExperimentHeader({
     setTab("results");
   }
 
+  async function approveScheduledExperimentStart() {
+    await apiCall(`/experiment/${experiment.id}/approve-scheduled-start`, {
+      method: "POST",
+    });
+    await mutate();
+
+    track("Approve Scheduled Experiment Start", {
+      source: "experiment-start-banner",
+      action: "main CTA",
+    });
+  }
+
   useEffect(() => {
     if (experiment.shareLevel !== shareLevel) {
       setSaveShareLevelStatus("loading");
@@ -409,7 +423,7 @@ export default function ExperimentHeader({
   const showEditHoldoutScheduleButton =
     isHoldout &&
     canEditExperiment &&
-    editHoldoutSchedule &&
+    editSchedule &&
     experiment.status !== "stopped" &&
     !experiment.archived;
 
@@ -418,6 +432,13 @@ export default function ExperimentHeader({
     Object.values(holdout?.statusUpdateSchedule ?? {}).some(
       (value) => value !== null,
     );
+  const hasExperimentSchedule = !!experiment.statusUpdateSchedule?.startAt;
+  const nextScheduledStartDate =
+    experiment.nextScheduledStatusUpdate?.type === "start" &&
+    experiment.nextScheduledStatusUpdate?.date
+      ? new Date(experiment.nextScheduledStatusUpdate.date)
+      : null;
+  const checklistReady = checklistItemsRemaining === 0;
 
   const runningExperimentDecisionBanner =
     experiment.status === "running" && !isHoldout && runningExperimentStatus ? (
@@ -501,14 +522,15 @@ export default function ExperimentHeader({
               <strong>{isBandit ? "Experiment" : "Bandit"}</strong>?
             </p>
             {!isBandit && experiment.goalMetrics.length > 0 && (
-              <div className="alert alert-warning">
+              <Callout status="warning">
                 <Collapsible
                   trigger={
-                    <div>
-                      <FaExclamationTriangle className="mr-2" />
-                      Some of your experiment settings may be altered. More info{" "}
-                      <FaAngleRight className="chevron" />
-                    </div>
+                    <Flex justify="between" gap="1">
+                      Some of your experiment settings may be altered.{" "}
+                      <Box>
+                        <FaAngleRight className="chevron" />
+                      </Box>
+                    </Flex>
                   }
                   transitionTime={100}
                 >
@@ -549,7 +571,7 @@ export default function ExperimentHeader({
                     </li>
                   </ul>
                 </Collapsible>
-              </div>
+              </Callout>
             )}
           </div>
         </Modal>
@@ -647,11 +669,19 @@ export default function ExperimentHeader({
           experiment={experiment}
           close={() => setShowStartExperiment(false)}
           startExperiment={startExperiment}
+          scheduleExperiment={approveScheduledExperimentStart}
           checklistItemsRemaining={checklistItemsRemaining || 0}
           checklistHardBlockerCount={checklistHardBlockerCount}
           isHoldout={isHoldout}
         />
       )}
+      {showScheduleModal && !isHoldout ? (
+        <EditScheduleModal
+          experiment={experiment}
+          close={() => setShowScheduleModal(false)}
+          mutate={mutate}
+        />
+      ) : null}
       {showTemplateForm && (
         <TemplateForm
           onClose={() => setShowTemplateForm(false)}
@@ -775,6 +805,20 @@ export default function ExperimentHeader({
                     runningExperimentStatus={runningExperimentStatus}
                     holdout={holdout}
                   />
+                ) : experiment.status === "draft" && nextScheduledStartDate ? (
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      if (editSchedule) setShowScheduleModal(true);
+                    }}
+                  >
+                    Starts{" "}
+                    {format(
+                      nextScheduledStartDate,
+                      "MMM d, yyyy 'at' h:mm a (z)",
+                    )}{" "}
+                    {editSchedule && <PiPencilSimpleFill className="ml-1" />}
+                  </Button>
                 ) : experiment.status === "draft" ? (
                   <Tooltip
                     shouldDisplay={
@@ -786,10 +830,9 @@ export default function ExperimentHeader({
                     }
                     body="Add at least one live Linked Feature, Visual Editor change, or URL Redirect before starting."
                   >
-                    <button
-                      className="btn btn-teal"
-                      onClick={(e) => {
-                        e.preventDefault();
+                    <Button
+                      variant={checklistReady ? "solid" : "soft"}
+                      onClick={() => {
                         setShowStartExperiment(true);
                       }}
                       disabled={
@@ -799,10 +842,14 @@ export default function ExperimentHeader({
                           linkedFeatures,
                         )
                       }
+                      icon={
+                        hasExperimentSchedule ? undefined : <MdRocketLaunch />
+                      }
                     >
-                      Start {holdout ? "Holdout" : "Experiment"}{" "}
-                      <MdRocketLaunch />
-                    </button>
+                      {hasExperimentSchedule
+                        ? "Approve for Scheduled Start"
+                        : `Start ${isHoldout ? "Holdout" : "Experiment"}`}
+                    </Button>
                   </Tooltip>
                 ) : null}
                 {experiment.status === "stopped" && experiment.results ? (
@@ -874,7 +921,7 @@ export default function ExperimentHeader({
                 {showEditHoldoutScheduleButton && (
                   <DropdownMenuItem
                     onClick={() => {
-                      editHoldoutSchedule();
+                      editSchedule();
                       setDropdownOpen(false);
                     }}
                   >

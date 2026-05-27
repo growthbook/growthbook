@@ -111,6 +111,7 @@ export async function clearRuleRampSchedule(
         mode: "detach",
         ruleId: canonicalRuleId,
         rampScheduleId: liveSchedules[0].id,
+        deleteScheduleWhenEmpty: true,
       };
       newRampActions = [...filtered, detach];
     }

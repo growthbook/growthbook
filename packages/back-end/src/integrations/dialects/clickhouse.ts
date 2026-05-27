@@ -67,4 +67,21 @@ if(
       metricTable,
       where,
     ),
+  // Use binding names distinct from the outer SELECT aliases (column_name,
+  // value) to avoid ClickHouse's "Duplicate alias in ARRAY JOIN" error.
+  unpivotLabeledPairs: (pairs) => {
+    const namesArr = pairs.map((p) => `'${p.keyLiteral}'`).join(", ");
+    const valsArr = pairs.map((p) => p.valueSql).join(", ");
+    return {
+      fromContinuation: `ARRAY JOIN
+        [${namesArr}] AS __col_name,
+        [${valsArr}] AS __col_value`,
+      keyExpr: "__col_name",
+      valueExpr: "__col_value",
+    };
+  },
+
+  // ClickHouse's LENGTH returns bytes (not characters); that's stricter
+  // than JS .length but fine for the document-size guard.
+  stringLength: (column: string) => `length(${column})`,
 };

@@ -29,6 +29,12 @@ const apiRuleScopeExtension = z
       .describe(
         "The environment IDs this rule is active in. Populated when `allEnvironments` is false.",
       ),
+    pendingRamp: z
+      .enum(["create", "detach"])
+      .optional()
+      .describe(
+        'Present on draft revisions only. "create" means a ramp schedule will be created for this rule on publish. "detach" means an existing live ramp schedule will be removed on publish. Use PUT/DELETE .../rules/{ruleId}/ramp-schedule to modify.',
+      ),
   })
   .strict();
 
@@ -236,7 +242,11 @@ const postFeaturePrerequisite = z.object({
 });
 
 const apiScheduleRule = z.object({
-  timestamp: z.string().nullable(),
+  timestamp: z
+    .string()
+    .datetime({ offset: true })
+    .nullable()
+    .describe('ISO 8601 date-time, e.g. "2025-06-01T00:00:00Z".'),
   enabled: z.boolean(),
 });
 

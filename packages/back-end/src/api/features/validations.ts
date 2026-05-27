@@ -10,6 +10,7 @@ import { validateCondition } from "shared/util";
 import type { FeatureInterface } from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { getSavedGroupMap } from "back-end/src/services/features";
+import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
   createRevision,
@@ -30,10 +31,25 @@ type InlineRampScheduleInput = z.infer<typeof inlineRampScheduleInput>;
 function normalizeRevisionRampCreateAction(
   input: z.infer<typeof apiRevisionRampCreateAction>,
 ): RevisionRampCreateAction {
+  const endCondition: RevisionRampCreateAction["endCondition"] = input
+    .endCondition?.trigger
+    ? {
+        trigger: {
+          ...input.endCondition.trigger,
+          at: new Date(input.endCondition.trigger.at),
+        },
+      }
+    : input.endCondition
+      ? { trigger: undefined }
+      : undefined;
+
   return {
     ...input,
     steps: (input.steps ?? []).map((s) => ({
-      trigger: s.trigger,
+      trigger:
+        s.trigger.type === "scheduled"
+          ? { ...s.trigger, at: new Date(s.trigger.at) }
+          : s.trigger,
       actions: (s.actions ?? []).map((a) => ({
         targetType: a.targetType ?? ("feature-rule" as const),
         targetId: a.targetId ?? "",
@@ -48,6 +64,7 @@ function normalizeRevisionRampCreateAction(
       patch:
         a.patch as RevisionRampCreateAction["steps"][number]["actions"][number]["patch"],
     })),
+    endCondition,
   };
 }
 
@@ -301,6 +318,31 @@ export function validateRuleConditions(
     }
   }
   validatePrerequisiteConditions(rule.prerequisites ?? []);
+}
+
+// Opt-in check (org setting `requireRegisteredAttributes`): rejects rules
+// whose hashAttribute, fallbackAttribute, or condition field names aren't
+// declared in the org's attributeSchema. Prevents typo'd attributes from
+// silently shipping dead targeting.
+export function validateRuleAttributes(
+  rule: Partial<Pick<FeatureRule, "condition">> & {
+    hashAttribute?: string;
+    fallbackAttribute?: string;
+  },
+  context: ApiReqContext,
+  project?: string,
+): void {
+  assertRegisteredAttributes(
+    context,
+    {
+      hashAttribute: rule.hashAttribute,
+      fallbackAttribute: rule.fallbackAttribute,
+      condition: rule.condition,
+    },
+    "rule",
+    undefined,
+    project,
+  );
 }
 
 export function validatePrerequisiteConditions(

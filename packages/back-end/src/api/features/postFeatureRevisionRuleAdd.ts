@@ -41,6 +41,7 @@ import {
   normalizeInlineRampSchedule,
   buildScheduleRampAction,
   resolveOrCreateRevision,
+  validateRuleAttributes,
   validateRuleConditions,
   validateRuleReferences,
 } from "./validations";
@@ -198,18 +199,32 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
         }
 
         if (needsHoldoutCheck && feature.holdout?.id) {
+          if (experiment.status !== "draft") {
+            throw new BadRequestError(
+              `Cannot add experiment rule: this feature uses a holdout, so the experiment must be in "draft" status (currently "${experiment.status}").`,
+            );
+          }
           const expHasLinkedChanges =
             (experiment.linkedFeatures?.length ?? 0) > 0 ||
             experiment.hasURLRedirects ||
             experiment.hasVisualChangesets;
-          if (
-            experiment.status !== "draft" ||
-            (experiment.holdoutId &&
-              experiment.holdoutId !== feature.holdout.id) ||
-            expHasLinkedChanges
-          ) {
+          if (expHasLinkedChanges) {
             throw new BadRequestError(
-              "Failed to create experiment rule. Experiment has linked changes, is not in draft status, or is not linked to the same holdout as the feature.",
+              `Cannot add experiment rule: this feature uses a holdout, but the experiment already has linked features, URL redirects, or visual changesets. Unlink them first.`,
+            );
+          }
+          if (
+            experiment.holdoutId &&
+            experiment.holdoutId !== feature.holdout.id
+          ) {
+            const featureHoldout = await req.context.models.holdout.getById(
+              feature.holdout.id,
+            );
+            const expHoldout = experiment.holdoutId
+              ? await req.context.models.holdout.getById(experiment.holdoutId)
+              : null;
+            throw new BadRequestError(
+              `Cannot add experiment rule: experiment belongs to holdout "${expHoldout?.name || experiment.holdoutId}" but this feature uses holdout "${featureHoldout?.name || feature.holdout.id}".`,
             );
           }
 
@@ -242,6 +257,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
 
     // Validate condition JSON and references before any DB writes.
     validateRuleConditions(rule);
+    validateRuleAttributes(rule, req.context, feature.project);
     await validateRuleReferences(rule, req.context);
 
     if (ruleInput.type === "safe-rollout" && rule.type === "safe-rollout") {

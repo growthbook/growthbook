@@ -15,6 +15,7 @@ import * as Sentry from "@sentry/node";
 import { parseEnvInt, stringToBoolean } from "shared/util";
 import { populationDataRouter } from "back-end/src/routers/population-data/population-data.router";
 import decisionCriteriaRouter from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.router";
+import { revisionRouter } from "back-end/src/routers/revision/revision.router";
 import { usingFileConfig } from "./init/config";
 import { AuthRequest } from "./types/AuthRequest";
 import {
@@ -126,7 +127,6 @@ import { dataExportRouter } from "./routers/data-export/data-export.router";
 import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/demo-datasource-project.router";
 import { environmentRouter } from "./routers/environment/environment.router";
 import { teamRouter } from "./routers/teams/teams.router";
-import { githubIntegrationRouter } from "./routers/github-integration/github-integration.router";
 import { urlRedirectRouter } from "./routers/url-redirects/url-redirects.router";
 import { metricAnalysisRouter } from "./routers/metric-analysis/metric-analysis.router";
 import { metricGroupRouter } from "./routers/metric-group/metric-group.router";
@@ -367,9 +367,19 @@ app.get(
 // mount the router at /api — yielding /api/v1/<route> and /api/v2/<route>.
 app.use(
   "/api",
-  // TODO add authentication
+  // Authentication is done via Auth headers and not cookies,
+  // so we can safely allow any origin
   cors({
     origin: "*",
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Organization",
+      "X-SSO-Connection-ID",
+    ],
+    credentials: false,
+    maxAge: 86400,
   }),
   apiRouter,
 );
@@ -647,6 +657,10 @@ app.get(
   "/experiment/:id/snapshot/:phase/:dimension",
   experimentsController.getSnapshotWithDimension,
 );
+app.get(
+  "/experiment/:id/snapshot-summary/:phase",
+  experimentsController.getSnapshotSummary,
+);
 app.post("/experiment/:id/snapshot", experimentsController.postSnapshot);
 app.post(
   "/experiment/:id/banditSnapshot",
@@ -680,6 +694,14 @@ app.post(
   experimentsController.postExperimentFeatureValues,
 );
 app.post("/experiment/:id/status", experimentsController.postExperimentStatus);
+app.post(
+  "/experiment/:id/approve-scheduled-start",
+  experimentsController.postApproveScheduledExperimentStart,
+);
+app.post(
+  "/experiment/:id/unschedule-start",
+  experimentsController.postUnapproveScheduledExperimentStart,
+);
 app.put(
   "/experiment/:id/phase/:phase",
   experimentsController.putExperimentPhase,
@@ -816,6 +838,12 @@ app.use("/projects", projectRouter);
 
 app.use(factTableRouter);
 
+// Must be registered before mounting revisionRouter — the router's GET /:id
+// catch-all would otherwise consume this path and resolve `id = "feature"`.
+app.get("/revision/feature", featuresController.getDraftandReviewRevisions);
+
+app.use("/revision", revisionRouter);
+
 app.use("/demo-datasource-project", demoDatasourceProjectRouter);
 
 // Features
@@ -908,7 +936,6 @@ app.post(
   "/feature/:id/:version/comment",
   featuresController.postFeatureReviewOrComment,
 );
-app.get("/revision/feature", featuresController.getDraftandReviewRevisions);
 
 // Data Sources
 app.get("/datasources", datasourcesController.getDataSources);
@@ -987,7 +1014,6 @@ app.use(eventWebHooksRouter);
 
 // Slack integration
 app.use("/integrations/slack", slackIntegrationRouter);
-app.use("/integrations/github", githubIntegrationRouter);
 
 // Data Export
 app.use("/data-export", dataExportRouter);

@@ -53,6 +53,7 @@ import {
   determineNextBanditSchedule,
   getLinkedChangeEnvironmentStates,
   getLinkedFeatureInfo,
+  normalizeStatusUpdateScheduleChanges,
   resetExperimentBanditSettings,
   SnapshotAnalysisParams,
   createExperimentSnapshot,
@@ -60,10 +61,14 @@ import {
   updateExperimentAndSync,
   validateVariationIds,
   validateExperimentData,
+  validateStatusUpdateSchedule,
 } from "back-end/src/services/experiments";
+import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
+  approveScheduledExperimentStart,
   startExperiment,
   stopExperiment,
+  unapproveScheduledExperimentStart,
 } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import {
   createExperiment,
@@ -89,7 +94,8 @@ import {
 import {
   deleteSnapshotById,
   findSnapshotById,
-  getLatestSnapshot,
+  getLatestSuccessfulSnapshot,
+  getLatestSnapshotStatus,
   updateSnapshot,
   updateSnapshotsOnPhaseDelete,
 } from "back-end/src/models/ExperimentSnapshotModel";
@@ -252,7 +258,7 @@ export async function postAIExperimentAnalysis(
 
   const phase = experiment.phases.length - 1;
   const snapshot =
-    (await getLatestSnapshot({
+    (await getLatestSuccessfulSnapshot({
       context,
       experiment: experiment.id,
       phase,
@@ -837,7 +843,7 @@ export async function getExperimentPublic(
   const phase = experiment.phases.length - 1;
 
   const snapshot =
-    (await getLatestSnapshot({
+    (await getLatestSuccessfulSnapshot({
       context,
       experiment: experiment.id,
       phase,
@@ -873,19 +879,17 @@ export async function getExperimentPublic(
   });
 }
 
-async function _getSnapshot({
+async function _getSuccessfulSnapshot({
   context,
   experiment,
   phase,
   dimension,
-  withResults = true,
   type,
 }: {
   context: ReqContext | ApiReqContext;
   experiment: string;
   phase?: string;
   dimension?: string;
-  withResults?: boolean;
   type?: SnapshotType;
 }) {
   const experimentObj = await getExperimentById(context, experiment);
@@ -903,12 +907,11 @@ async function _getSnapshot({
     phase = String(experimentObj.phases.length - 1);
   }
 
-  return await getLatestSnapshot({
+  return await getLatestSuccessfulSnapshot({
     context,
     experiment: experimentObj.id,
     phase: parseInt(phase),
     dimension,
-    withResults,
     type,
   });
 }
@@ -925,25 +928,17 @@ export async function getSnapshotWithDimension(
   const { id, phase, dimension } = req.params;
   const type = req.query?.type || undefined;
 
-  const snapshot = await _getSnapshot({
+  const snapshot = await _getSuccessfulSnapshot({
     context,
     experiment: id,
     phase,
     dimension,
-    type,
-  });
-  const latest = await _getSnapshot({
-    context,
-    experiment: id,
-    phase,
-    dimension,
-    withResults: false,
     type,
   });
   const dimensionless =
     snapshot?.dimension === ""
       ? snapshot
-      : await _getSnapshot({
+      : await _getSuccessfulSnapshot({
           context,
           experiment: id,
           phase,
@@ -953,7 +948,6 @@ export async function getSnapshotWithDimension(
   res.status(200).json({
     status: 200,
     snapshot,
-    latest,
     dimensionless,
   });
 }
@@ -969,18 +963,56 @@ export async function getSnapshot(
   const { id, phase } = req.params;
   const type = req.query?.type || undefined;
 
-  const snapshot = await _getSnapshot({ context, experiment: id, phase, type });
-  const latest = await _getSnapshot({
+  const snapshot = await _getSuccessfulSnapshot({
     context,
     experiment: id,
     phase,
-    withResults: false,
     type,
   });
 
   res.status(200).json({
     status: 200,
     snapshot,
+  });
+}
+
+// Refresh-status lookup used by the UI to render queries/error/status for
+// the most recent (success/running/error) snapshot. Returns only the
+// `SnapshotStatusSummary` fields, skipping the per-metric chunk decode that
+// dominates the full snapshot endpoint for experiments with many metrics.
+export async function getSnapshotSummary(
+  req: AuthRequest<
+    null,
+    { id: string; phase: string },
+    { dimension?: string; type?: SnapshotType }
+  >,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id, phase } = req.params;
+  const dimension = req.query?.dimension || undefined;
+  const type = req.query?.type || undefined;
+
+  const experimentObj = await getExperimentById(context, id);
+  if (!experimentObj) {
+    throw new Error("Experiment not found");
+  }
+  if (experimentObj.organization !== context.org.id) {
+    throw new Error("You do not have access to view this experiment");
+  }
+
+  const phaseNum = phase ? parseInt(phase) : experimentObj.phases.length - 1;
+
+  const latest = await getLatestSnapshotStatus({
+    context,
+    experiment: experimentObj.id,
+    phase: phaseNum,
+    dimension,
+    type,
+  });
+
+  res.status(200).json({
+    status: 200,
     latest,
   });
 }
@@ -1061,6 +1093,7 @@ export async function postExperiments(
       allowDuplicateTrackingKey?: boolean;
       originalId?: string;
       autoRefreshResults?: boolean;
+      allowSameSeedAsOriginal?: boolean;
     }
   >,
   res: Response<
@@ -1106,6 +1139,28 @@ export async function postExperiments(
   }
 
   const { metricIds, datasource, invalidMetricIds } = result;
+
+  // Opt-in attribute registration check (org-level setting). Applies before
+  // any DB writes so a typo'd attribute is rejected outright.
+  assertRegisteredAttributes(
+    context,
+    {
+      hashAttribute: data.hashAttribute,
+      fallbackAttribute: data.fallbackAttribute,
+    },
+    "experiment",
+    undefined,
+    data.project,
+  );
+  for (const phase of data.phases ?? []) {
+    assertRegisteredAttributes(
+      context,
+      { condition: phase.condition },
+      "experiment phase",
+      undefined,
+      data.project,
+    );
+  }
 
   const experimentType = data.type ?? "standard";
   const holdoutId = data.holdoutId;
@@ -1206,6 +1261,20 @@ export async function postExperiments(
     holdoutId: holdoutId || undefined,
     customMetricSlices: data.customMetricSlices,
   };
+
+  // When duplicating an experiment, always remove seed from phases so
+  // bucket assignment is independent from the source experiment.
+  // The NewExperimentForm should already have cleared the seed, but this
+  // ensures that the seed is always removed when duplicating an
+  // experiment.
+  if (req.query.originalId && !req.query.allowSameSeedAsOriginal) {
+    obj.phases = obj.phases.map((phase) => {
+      return {
+        ...phase,
+        seed: undefined,
+      };
+    });
+  }
   const { settings } = getScopedSettings({
     organization: org,
   });
@@ -1397,6 +1466,27 @@ export async function postExperiment(
 
   if (!context.permissions.canUpdateExperiment(experiment, req.body)) {
     context.permissions.throwPermissionError();
+  }
+
+  // Opt-in attribute registration check (org-level setting).
+  assertRegisteredAttributes(
+    context,
+    {
+      hashAttribute: data.hashAttribute,
+      fallbackAttribute: data.fallbackAttribute,
+    },
+    "experiment",
+    undefined,
+    experiment.project,
+  );
+  for (const phase of data.phases ?? []) {
+    assertRegisteredAttributes(
+      context,
+      { condition: phase.condition },
+      "experiment phase",
+      undefined,
+      experiment.project,
+    );
   }
 
   // FIXME: We skip validation because project is updated in a different place than where
@@ -1600,6 +1690,11 @@ export async function postExperiment(
     }
   }
 
+  if (data.statusUpdateSchedule) {
+    const effectiveType = data.type ?? experiment.type ?? "standard";
+    validateStatusUpdateSchedule(effectiveType, data.statusUpdateSchedule);
+  }
+
   const keys: (keyof ExperimentInterface)[] = [
     "trackingKey",
     "owner",
@@ -1627,6 +1722,7 @@ export async function postExperiment(
     "decisionFrameworkSettings",
     "variations",
     "status",
+    "statusUpdateSchedule",
     "results",
     "analysis",
     "winner",
@@ -1637,6 +1733,7 @@ export async function postExperiment(
     "releasedVariationId",
     "excludeFromPayload",
     "autoSnapshots",
+    "disableAutoSnapshots",
     "project",
     "regressionAdjustmentEnabled",
     "postStratificationEnabled",
@@ -1678,6 +1775,7 @@ export async function postExperiment(
       key === "metricOverrides" ||
       key === "lookbackOverride" ||
       key === "variations" ||
+      key === "statusUpdateSchedule" ||
       key === "customFields" ||
       key === "customMetricSlices"
     ) {
@@ -1690,6 +1788,8 @@ export async function postExperiment(
       (changes as any)[key] = data[key];
     }
   });
+
+  normalizeStatusUpdateScheduleChanges(experiment, changes);
 
   // Coerce lookbackOverride date value when type is "date"
   if (changes.lookbackOverride?.type === "date") {
@@ -2185,6 +2285,12 @@ export async function postExperimentStatus(
 
   changes.status = status;
 
+  // Clear any pending scheduled status update when manually changing status so
+  // the Agenda job doesn't act on a stale approval.
+  if (experiment.nextScheduledStatusUpdate) {
+    changes.nextScheduledStatusUpdate = null;
+  }
+
   const updated = await updateExperiment({
     context,
     experiment,
@@ -2203,6 +2309,75 @@ export async function postExperimentStatus(
   res.status(200).json({
     status: 200,
   });
+}
+
+export async function postApproveScheduledExperimentStart(
+  req: AuthRequest<null, { id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+
+  try {
+    const { experiment, updated } = await approveScheduledExperimentStart({
+      context,
+      experimentId: id,
+      skipChecklist: true,
+    });
+
+    await req.audit({
+      event: "experiment.update",
+      entity: {
+        object: "experiment",
+        id: experiment.id,
+      },
+      details: auditDetailsUpdate(experiment, updated),
+    });
+
+    res.status(200).json({
+      status: 200,
+      experiment: updated,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message || "Failed to approve scheduled experiment start",
+    });
+  }
+}
+
+export async function postUnapproveScheduledExperimentStart(
+  req: AuthRequest<null, { id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+
+  try {
+    const { experiment, updated } = await unapproveScheduledExperimentStart({
+      context,
+      experimentId: id,
+    });
+
+    await req.audit({
+      event: "experiment.update",
+      entity: {
+        object: "experiment",
+        id: experiment.id,
+      },
+      details: auditDetailsUpdate(experiment, updated),
+    });
+
+    res.status(200).json({
+      status: 200,
+      experiment: updated,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message || "Failed to unschedule experiment start",
+    });
+  }
 }
 
 type PostExperimentStopBody = {
@@ -2409,6 +2584,15 @@ export async function putExperimentPhase(
     context.permissions.throwPermissionError();
   }
 
+  // Opt-in attribute registration check (org-level setting).
+  assertRegisteredAttributes(
+    context,
+    { condition: phase.condition },
+    "experiment phase",
+    undefined,
+    experiment.project,
+  );
+
   phase.dateStarted = phase.dateStarted
     ? getValidDate(phase.dateStarted + ":00Z")
     : new Date();
@@ -2519,6 +2703,19 @@ export async function postExperimentTargeting(
   ) {
     context.permissions.throwPermissionError();
   }
+
+  // Opt-in attribute registration check (org-level setting).
+  assertRegisteredAttributes(
+    context,
+    {
+      hashAttribute,
+      fallbackAttribute,
+      condition,
+    },
+    "experiment",
+    undefined,
+    experiment.project,
+  );
 
   const phases = [...experiment.phases];
 
@@ -2669,6 +2866,15 @@ export async function postExperimentPhase(
   ) {
     context.permissions.throwPermissionError();
   }
+
+  // Opt-in attribute registration check (org-level setting).
+  assertRegisteredAttributes(
+    context,
+    { condition: data.condition },
+    "experiment phase",
+    undefined,
+    experiment.project,
+  );
 
   const date = dateStarted ? getValidDate(dateStarted + ":00Z") : new Date();
 

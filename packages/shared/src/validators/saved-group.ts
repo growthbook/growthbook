@@ -21,8 +21,24 @@ export const savedGroupValidator = z
     description: z.string().optional(),
     projects: z.array(z.string()).optional(),
     useEmptyListGroup: z.boolean().optional(),
+    archived: z.boolean().optional(),
   })
   .strict();
+
+// Single source of truth for the saved-group fields that revision-aware code
+// paths (revert, applyChanges, etc.) are allowed to mutate. Derived from
+// savedGroupValidator so it cannot drift from the schema.
+export const savedGroupUpdatableFieldsSchema = savedGroupValidator.pick({
+  groupName: true,
+  owner: true,
+  values: true,
+  condition: true,
+  attributeKey: true,
+  description: true,
+  projects: true,
+  useEmptyListGroup: true,
+  archived: true,
+});
 
 export const postSavedGroupBodyValidator = z.object({
   groupName: z.string(),
@@ -42,6 +58,7 @@ export const putSavedGroupBodyValidator = z.object({
   condition: z.string().optional(),
   description: z.string().optional(),
   projects: z.string().array().optional(),
+  archived: z.boolean().optional(),
 });
 
 // --- External API validators (correspond to YAML specs) ---
@@ -78,6 +95,8 @@ export const apiSavedGroupValidator = namedSchema(
         .optional(),
       description: z.string().optional(),
       projects: z.array(z.string()).optional(),
+      archived: z.boolean().optional(),
+      useEmptyListGroup: z.boolean().optional(),
     })
     .strict(),
 );
@@ -114,6 +133,12 @@ const postSavedGroupBody = z
       .optional(),
     owner: ownerInputField.optional(),
     projects: z.array(z.string()).optional(),
+    bypassApproval: z
+      .boolean()
+      .describe(
+        "Set to true to skip the approval flow when the org requires approvals on saved groups. Requires the `bypassApprovalChecks` permission on every project the saved group belongs to. When the org does not require approvals, this flag has no effect.",
+      )
+      .optional(),
   })
   .strict();
 
@@ -135,6 +160,12 @@ const updateSavedGroupBody = z
       .optional(),
     owner: ownerInputField.optional(),
     projects: z.array(z.string()).optional(),
+    bypassApproval: z
+      .boolean()
+      .describe(
+        "Set to true to skip the approval flow when the org requires approvals on saved groups. Requires the `bypassApprovalChecks` permission on the saved group's existing projects. When the org does not require approvals, this flag has no effect.",
+      )
+      .optional(),
   })
   .strict();
 
@@ -224,6 +255,40 @@ export const updateSavedGroupValidator = {
     params: { id: "abc123" },
     body: { values: ["userId-123", "userId-345"] },
   },
+};
+
+export const archiveSavedGroupValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({
+      savedGroup: apiSavedGroupValidator,
+    })
+    .strict(),
+  summary: "Archive a single saved group",
+  operationId: "archiveSavedGroup",
+  tags: ["saved-groups"],
+  method: "post" as const,
+  path: "/saved-groups/:id/archive",
+  exampleRequest: { params: { id: "abc123" } },
+};
+
+export const unarchiveSavedGroupValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({
+      savedGroup: apiSavedGroupValidator,
+    })
+    .strict(),
+  summary: "Unarchive a single saved group",
+  operationId: "unarchiveSavedGroup",
+  tags: ["saved-groups"],
+  method: "post" as const,
+  path: "/saved-groups/:id/unarchive",
+  exampleRequest: { params: { id: "abc123" } },
 };
 
 export const deleteSavedGroupValidator = {

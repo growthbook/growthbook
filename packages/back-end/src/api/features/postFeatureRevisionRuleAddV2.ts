@@ -35,6 +35,7 @@ import {
   normalizeInlineRampSchedule,
   buildScheduleRampAction,
   resolveOrCreateRevision,
+  validateRuleAttributes,
   validateRuleConditions,
   validateRuleReferences,
 } from "./validations";
@@ -57,6 +58,12 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
   const { schedule } = req.body;
   const inlineRampSchedule = req.body.rampSchedule;
   const ruleInput = req.body.rule as RuleCreateInputV2;
+
+  if (inlineRampSchedule && (schedule?.startDate || schedule?.endDate)) {
+    throw new BadRequestError(
+      "rampSchedule and schedule are mutually exclusive. Provide one or the other, not both.",
+    );
+  }
 
   const { revision, created } = await resolveOrCreateRevision(
     req.context,
@@ -109,18 +116,32 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
         }
 
         if (needsHoldoutCheck && feature.holdout?.id) {
+          if (experiment.status !== "draft") {
+            throw new BadRequestError(
+              `Cannot add experiment rule: this feature uses a holdout, so the experiment must be in "draft" status (currently "${experiment.status}").`,
+            );
+          }
           const expHasLinkedChanges =
             (experiment.linkedFeatures?.length ?? 0) > 0 ||
             experiment.hasURLRedirects ||
             experiment.hasVisualChangesets;
-          if (
-            experiment.status !== "draft" ||
-            (experiment.holdoutId &&
-              experiment.holdoutId !== feature.holdout.id) ||
-            expHasLinkedChanges
-          ) {
+          if (expHasLinkedChanges) {
             throw new BadRequestError(
-              "Failed to create experiment rule. Experiment has linked changes, is not in draft status, or is not linked to the same holdout as the feature.",
+              `Cannot add experiment rule: this feature uses a holdout, but the experiment already has linked features, URL redirects, or visual changesets. Unlink them first.`,
+            );
+          }
+          if (
+            experiment.holdoutId &&
+            experiment.holdoutId !== feature.holdout.id
+          ) {
+            const featureHoldout = await req.context.models.holdout.getById(
+              feature.holdout.id,
+            );
+            const expHoldout = experiment.holdoutId
+              ? await req.context.models.holdout.getById(experiment.holdoutId)
+              : null;
+            throw new BadRequestError(
+              `Cannot add experiment rule: experiment belongs to holdout "${expHoldout?.name || experiment.holdoutId}" but this feature uses holdout "${featureHoldout?.name || feature.holdout.id}".`,
             );
           }
           if (!experiment.holdoutId) {
@@ -154,6 +175,10 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
     const rule = buildRuleFromInput(baseRuleInput as RuleCreateInput, uuidv4());
 
     validateRuleConditions(rule);
+    // Opt-in registered-attribute check before any side effects (safe-rollout
+    // create, revision update). New rules have no baseline, so this validates
+    // every attribute-bearing field on the incoming rule.
+    validateRuleAttributes(rule, req.context, feature.project);
     await validateRuleReferences(rule, req.context);
 
     if (ruleInput.type === "safe-rollout" && rule.type === "safe-rollout") {
@@ -210,16 +235,33 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
       (rule as SafeRolloutRule).safeRolloutId = safeRollout.id;
     }
 
+    const usesLegacyScheduling =
+      ruleInput.type === "experiment-ref" || ruleInput.type === "safe-rollout";
+
+    if (usesLegacyScheduling && inlineRampSchedule) {
+      throw new BadRequestError(
+        `rampSchedule is not supported for ${ruleInput.type} rules. Use "schedule" instead.`,
+      );
+    }
+
     let resolvedRampAction = inlineRampSchedule
       ? normalizeInlineRampSchedule(inlineRampSchedule, rule.id)
       : undefined;
     if (!resolvedRampAction && (schedule?.startDate || schedule?.endDate)) {
-      if (schedule.startDate) rule.enabled = false;
-      resolvedRampAction = buildScheduleRampAction(
-        rule.id,
-        schedule.startDate,
-        schedule.endDate,
-      );
+      if (usesLegacyScheduling) {
+        rule.scheduleRules = [
+          { enabled: true, timestamp: schedule.startDate ?? null },
+          { enabled: false, timestamp: schedule.endDate ?? null },
+        ];
+        rule.scheduleType = "schedule";
+      } else {
+        if (schedule.startDate) rule.enabled = false;
+        resolvedRampAction = buildScheduleRampAction(
+          rule.id,
+          schedule.startDate,
+          schedule.endDate,
+        );
+      }
     }
 
     // V2: stamp scope from the rule's own allEnvironments/environments fields.

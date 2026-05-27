@@ -20,6 +20,7 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import ProjectBadges from "@/components/ProjectBadges";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import SavedGroupForm from "./SavedGroupForm";
 import SavedGroupDeleteModal from "./SavedGroupDeleteModal";
 import SavedGroupRowMenu from "./SavedGroupRowMenu";
@@ -34,6 +35,9 @@ export default function IdLists({ groups, mutate }: Props) {
     useState<null | Partial<SavedGroupInterface>>(null);
   const [deleteModal, setDeleteModal] =
     useState<SavedGroupWithoutValues | null>(null);
+  const settings = useOrgSettings();
+  const approvalFlowRequired =
+    settings.approvalFlows?.savedGroups?.[0]?.required ?? false;
   const { project, projects } = useDefinitions();
   const { getOwnerDisplay } = useUser();
 
@@ -56,7 +60,7 @@ export default function IdLists({ groups, mutate }: Props) {
       )
     : idLists;
 
-  const { hasLargeSavedGroupFeature, unsupportedConnections } =
+  const { hasLargeSavedGroupFeature, unsupportedConnections, connections } =
     useLargeSavedGroupSupport();
   const [upgradeModal, setUpgradeModal] = useState<boolean>(false);
 
@@ -113,6 +117,7 @@ export default function IdLists({ groups, mutate }: Props) {
             close={() => setSavedGroupForm(null)}
             current={savedGroupForm}
             type="list"
+            approvalFlowRequired={approvalFlowRequired}
           />
         )}
         <Flex align="center" justify="between" mb="1">
@@ -136,6 +141,7 @@ export default function IdLists({ groups, mutate }: Props) {
             <LargeSavedGroupPerformanceWarning
               hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
               unsupportedConnections={unsupportedConnections}
+              connections={connections}
               openUpgradeModal={() => setUpgradeModal(true)}
             />
           </Box>
@@ -167,13 +173,15 @@ export default function IdLists({ groups, mutate }: Props) {
                   return (
                     <tr key={s.id}>
                       <td>
-                        <Link
-                          className="link-purple"
-                          key={s.id}
-                          href={`/saved-groups/${s.id}`}
-                        >
-                          {s.groupName}
-                        </Link>
+                        <Flex align="center" gap="2">
+                          <Link
+                            className="link-purple"
+                            key={s.id}
+                            href={`/saved-groups/${s.id}`}
+                          >
+                            {s.groupName}
+                          </Link>
+                        </Flex>
                       </td>
                       <td>{s.attributeKey}</td>
                       <td>{truncateString(s.description || "", 40)}</td>
@@ -192,7 +200,12 @@ export default function IdLists({ groups, mutate }: Props) {
                       <td style={{ width: 30 }}>
                         <SavedGroupRowMenu
                           canUpdate={canUpdate(s)}
-                          canDelete={canDeleteSavedGroup(s)}
+                          canDelete={canDeleteSavedGroup(s) && !!s.archived}
+                          deleteDisabledReason={
+                            canDeleteSavedGroup(s) && !s.archived
+                              ? "Archive this saved group before deleting"
+                              : undefined
+                          }
                           onEdit={() => setSavedGroupForm(s)}
                           onDelete={() => setDeleteModal(s)}
                         />
@@ -202,7 +215,7 @@ export default function IdLists({ groups, mutate }: Props) {
                 })}
                 {!items.length && isFiltered && (
                   <tr>
-                    <td colSpan={7} align={"center"}>
+                    <td colSpan={6} align={"center"}>
                       No matching saved groups
                     </td>
                   </tr>

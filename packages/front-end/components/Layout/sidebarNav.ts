@@ -245,6 +245,11 @@ export const navlinks: SidebarLinkProps[] = [
         path: /^settings\/customfields/,
       },
       {
+        name: "Custom Markdown",
+        href: "/settings/custom-markdown",
+        path: /^settings\/custom-markdown/,
+      },
+      {
         name: "API Keys",
         href: "/settings/keys",
         path: /^settings\/keys/,
@@ -271,14 +276,6 @@ export const navlinks: SidebarLinkProps[] = [
         path: /^integrations\/slack/,
         filter: ({ permissionsUtils }) =>
           permissionsUtils.canManageIntegrations(),
-      },
-      {
-        name: "GitHub",
-        href: "/integrations/github",
-        path: /^integrations\/github/,
-        filter: ({ permissionsUtils, gb }) =>
-          permissionsUtils.canManageIntegrations() &&
-          !!gb?.isOn("github-integration"),
       },
       {
         name: "Import your data",
