@@ -15,7 +15,9 @@ import {
   createNewQueryFromCached,
   getQueriesByIds,
   getRecentQuery,
+  markPendingQueriesAsFailed,
   updateQuery,
+  updateQueryIfQueued,
   updateQueryIfRunning,
 } from "back-end/src/models/QueryModel";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
@@ -580,94 +582,119 @@ export abstract class QueryRunner<
   }
 
   public async cancelQueries(): Promise<void> {
-    // Only cancel if it's currently running or queued
     if (
-      this.model.queries.some(
+      !this.model.queries.some(
         (q) => q.status === "running" || q.status === "queued",
       )
     ) {
-      const runningIds = this.model.queries
-        .filter((q) => q.status === "running")
-        .map((q) => q.query);
+      return;
+    }
 
-      if (runningIds.length) {
-        const queryDocs = await getQueriesByIds(
-          this.context,
-          runningIds,
-          false,
-        );
+    // Pointer status lags Mongo (the polling runner pushes updates), so a
+    // "queued" pointer can have a "running" Mongo doc with externalId set.
+    // Take both and let Mongo decide what's still cancellable.
+    const pendingIds = this.model.queries
+      .filter((q) => q.status === "running" || q.status === "queued")
+      .map((q) => q.query);
 
-        // Some "running" docs are pointers to a previously-started in-flight
-        // query (see `createNewQueryFromCached`). Those copies share the
-        // upstream datasource job with the original via `cachedQueryUsed`
-        // and never have their own `externalId` set — only the original
-        // doc does, populated by the integration's `runQuery`/poller.
-        // Chase one hop to find the real id so we can actually cancel the
-        // upstream job. `cachedQueryUsed` always points at the original
-        // (not a copy of a copy), so a single lookup is sufficient.
-        const cachedSourceIds = Array.from(
-          new Set(
-            queryDocs
-              .map((q) => q.cachedQueryUsed)
-              .filter((id): id is string => Boolean(id)),
-          ),
-        );
-        const cachedSourceDocs = cachedSourceIds.length
-          ? await getQueriesByIds(this.context, cachedSourceIds, false)
-          : [];
-        const cachedSourceById = new Map(
-          cachedSourceDocs.map((q) => [q.id, q]),
-        );
+    // Mark failed BEFORE issuing warehouse cancels. The original runner is
+    // still alive with pending timers; paired with updateQueryIfQueued in
+    // executeQuery, this stops a queued query from being promoted (and
+    // firing a fresh external job) while parallel cancel calls are in
+    // flight. Also reflects the cancel in the queries-log UI immediately.
+    if (pendingIds.length) {
+      const affected = await markPendingQueriesAsFailed(
+        this.context,
+        pendingIds,
+        "Query cancelled by user",
+      );
+      logger.info(
+        { modelId: this.model.id, affected, attempted: pendingIds.length },
+        "Marked queries as cancelled in Mongo",
+      );
 
-        // Resolve each running query's external job id along with any
-        // metadata the integration attached at submission time.
-        // Cached copies share their upstream's id and metadata.
-        type ExternalJob = {
-          id: string;
-          metadata?: Record<string, string>;
-        };
-        const externalJobs: ExternalJob[] = queryDocs.flatMap((q) => {
-          if (q.externalId) {
-            return [{ id: q.externalId, metadata: q.externalIdMetadata }];
+      const queryDocs = await getQueriesByIds(this.context, pendingIds, false);
+
+      // Cached copies (createNewQueryFromCached) share their upstream's
+      // externalId via cachedQueryUsed; chase one hop to find it.
+      const cachedSourceIds = Array.from(
+        new Set(
+          queryDocs
+            .map((q) => q.cachedQueryUsed)
+            .filter((id): id is string => Boolean(id)),
+        ),
+      );
+      const cachedSourceDocs = cachedSourceIds.length
+        ? await getQueriesByIds(this.context, cachedSourceIds, false)
+        : [];
+      const cachedSourceById = new Map(cachedSourceDocs.map((q) => [q.id, q]));
+
+      // Dedupe by externalId so cached copies don't trigger duplicate cancels.
+      type ExternalJob = { id: string; metadata?: Record<string, string> };
+      const externalJobsById = new Map<string, ExternalJob>();
+      for (const q of queryDocs) {
+        if (q.externalId) {
+          if (!externalJobsById.has(q.externalId)) {
+            externalJobsById.set(q.externalId, {
+              id: q.externalId,
+              metadata: q.externalIdMetadata,
+            });
           }
-          if (q.cachedQueryUsed) {
-            const source = cachedSourceById.get(q.cachedQueryUsed);
-            if (source?.externalId) {
-              return [
-                { id: source.externalId, metadata: source.externalIdMetadata },
-              ];
-            }
+          continue;
+        }
+        if (q.cachedQueryUsed) {
+          const source = cachedSourceById.get(q.cachedQueryUsed);
+          if (source?.externalId && !externalJobsById.has(source.externalId)) {
+            externalJobsById.set(source.externalId, {
+              id: source.externalId,
+              metadata: source.externalIdMetadata,
+            });
           }
-          return [];
-        });
-
-        if (externalJobs.length) {
-          await promiseAllChunks(
-            externalJobs.map(({ id, metadata }) => {
-              return async () => {
-                if (!this.integration.cancelQuery) return;
-                try {
-                  await this.integration.cancelQuery(id, metadata);
-                } catch (e) {
-                  logger.debug(`Failed to cancel query - ${e.message}`);
-                }
-              };
-            }),
-            5,
-          );
         }
       }
+      const externalJobs = [...externalJobsById.values()];
+      logger.info(
+        {
+          datasourceId: this.integration.datasource.id,
+          modelId: this.model.id,
+          externalJobs: externalJobs.map((j) => ({
+            id: j.id,
+            metadataKeys: j.metadata ? Object.keys(j.metadata) : [],
+          })),
+        },
+        `Cancelling ${externalJobs.length} external jobs`,
+      );
 
-      this.clearAllTimers();
-      const newModel = await this.updateModel({
-        queries: [],
-        status: "failed",
-        error: "",
-      });
-      this.model = newModel;
-
-      this.setStatus("finished", "Queries cancelled by user");
+      if (externalJobs.length) {
+        await promiseAllChunks(
+          externalJobs.map(({ id, metadata }) => {
+            return async () => {
+              if (!this.integration.cancelQuery) return;
+              try {
+                await this.integration.cancelQuery(id, metadata);
+              } catch (e) {
+                const msg = e instanceof Error ? e.message : String(e);
+                logger.warn(
+                  { err: e, externalId: id },
+                  `Failed to cancel external job: ${msg}`,
+                );
+              }
+            };
+          }),
+          5,
+        );
+      }
     }
+
+    this.clearAllTimers();
+    const newModel = await this.updateModel({
+      queries: [],
+      status: "failed",
+      error: "",
+    });
+    this.model = newModel;
+
+    this.setStatus("finished", "Queries cancelled by user");
   }
 
   public queueQueryExecution(
@@ -747,11 +774,23 @@ export abstract class QueryRunner<
     // Run the query in the background
     logger.debug(`Start executing query in background: ${doc.id}`);
     if (doc.status !== "running") {
-      await updateQuery(this.context, doc, {
+      // Conditional promote: bail if a concurrent cancel marked the doc
+      // failed after this run was scheduled — otherwise we'd fire a fresh
+      // external job for a cancelled query.
+      const promoted = await updateQueryIfQueued(this.context, doc, {
         startedAt: new Date(),
         status: "running",
         heartbeat: new Date(),
       });
+      if (!promoted) {
+        clearInterval(timer);
+        logger.info(
+          { queryId: doc.id, modelId: this.model.id },
+          "Skipping execution — query no longer queued (likely cancelled)",
+        );
+        this.onQueryFinish();
+        return;
+      }
     }
 
     const setExternalId = async (

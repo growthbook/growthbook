@@ -147,10 +147,8 @@ export interface QueryInterface {
   cachedQueryUsed?: string;
   statistics?: QueryStatistics;
   externalId?: string;
-  // Side-data the integration needs to manage the external job after submission,
-  // such as the BigQuery job location. Used by `integration.cancelQuery` so cancel
-  // can target the right region/scope. Optional; integrations that don't need it
-  // can leave this unset.
+  // Integration-specific side-data for managing the external job (e.g.
+  // BigQuery job location). Passed back to cancelQuery.
   externalIdMetadata?: Record<string, string>;
   hasChunkedResults?: boolean;
 }
