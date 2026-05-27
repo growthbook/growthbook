@@ -4,10 +4,14 @@ import {
   ExplorationConfig,
   ProductAnalyticsExploration,
   ExplorationCacheQuery,
+  ProductAnalyticsRunRequestBody,
+  ProductAnalyticsRunComparisonPayload,
   type AIChatFeedbackEntry,
   type AIChatFeedbackRating,
 } from "shared/validators";
+import { computeExplorationComparisonPayload } from "shared/enterprise";
 import { QueryInterface } from "shared/types/query";
+import type { FactMetricInterface } from "shared/types/fact-table";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { NotFoundError } from "back-end/src/util/errors";
@@ -63,7 +67,7 @@ export const deleteChat = async (
 
 export const postProductAnalyticsRun = async (
   req: AuthRequest<
-    { config: ExplorationConfig },
+    ProductAnalyticsRunRequestBody,
     unknown,
     ExplorationCacheQuery
   >,
@@ -71,23 +75,81 @@ export const postProductAnalyticsRun = async (
     status: 200;
     exploration: ProductAnalyticsExploration | null;
     query: QueryInterface | null;
+    comparison?: ProductAnalyticsRunComparisonPayload & {
+      query: QueryInterface | null;
+    };
   }>,
 ) => {
   const context = getContextFromReq(req);
+  const cacheOpts = { cache: req.query.cache };
+  const { config, previousTimeFrame } = req.body;
 
-  const exploration = await runProductAnalyticsExploration(
-    context,
-    req.body.config,
-    { cache: req.query.cache },
+  async function resolveQuery(
+    exploration: ProductAnalyticsExploration | null,
+  ): Promise<QueryInterface | null> {
+    const queryId = exploration?.queries?.[0]?.query;
+    return queryId ? await getQueryById(context, queryId) : null;
+  }
+
+  if (!previousTimeFrame) {
+    const exploration = await runProductAnalyticsExploration(
+      context,
+      config,
+      cacheOpts,
+    );
+    const query = await resolveQuery(exploration);
+    return res.status(200).json({
+      status: 200,
+      exploration,
+      query,
+    });
+  }
+
+  const comparisonConfig: ExplorationConfig = {
+    ...config,
+    dateRange: previousTimeFrame,
+  };
+
+  const [exploration, comparisonExploration] = await Promise.all([
+    runProductAnalyticsExploration(context, config, cacheOpts),
+    runProductAnalyticsExploration(context, comparisonConfig, cacheOpts),
+  ]);
+
+  const query = await resolveQuery(exploration);
+  const comparisonQuery = await resolveQuery(comparisonExploration);
+
+  const metricIds =
+    config.dataset.type === "metric"
+      ? config.dataset.values
+          .map((v) => v.metricId)
+          .filter((id): id is string => Boolean(id))
+      : [];
+  const metrics = metricIds.length
+    ? await context.models.factMetrics.getByIds(metricIds)
+    : [];
+  const metricsById = new Map(metrics.map((m) => [m.id, m]));
+  const getFactMetricById = (id: string): FactMetricInterface | null =>
+    metricsById.get(id) ?? null;
+
+  const comparisonPayload = computeExplorationComparisonPayload(
+    exploration,
+    comparisonExploration,
+    config,
+    previousTimeFrame,
+    getFactMetricById,
   );
-
-  const queryId = exploration?.queries?.[0]?.query;
-  const query = queryId ? await getQueryById(context, queryId) : null;
 
   return res.status(200).json({
     status: 200,
     exploration,
     query,
+    comparison: {
+      exploration: comparisonPayload.exploration,
+      query: comparisonQuery,
+      previousPeriod: comparisonPayload.previousPeriod,
+      bigNumberTrends: comparisonPayload.bigNumberTrends,
+      tableTrendsByRow: comparisonPayload.tableTrendsByRow,
+    },
   });
 };
 

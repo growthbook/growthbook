@@ -4,6 +4,7 @@ import EChartsReact from "echarts-for-react";
 import type {
   ExplorationConfig,
   ProductAnalyticsExploration,
+  ProductAnalyticsRunComparisonPayload,
 } from "shared/validators";
 import { isManagedWarehousePendingQueryError } from "shared/util";
 import {
@@ -30,6 +31,18 @@ import HelperText from "@/ui/HelperText";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
+import {
+  buildAlignedComparisonOverlayForExplorer,
+  buildComparisonOverlaySeriesMaps,
+  buildExplorerChartComparisonSeriesList,
+  buildExplorerCompareSparseFlatBarSeries,
+  computeBigNumberComparisonTrends,
+  getComparisonPeriodLabels,
+  sortProductAnalyticsTooltipAxisItems,
+  supportsAlwaysOnComparisonOverlay,
+  buildExplorerChartTooltipFormatter,
+} from "@/enterprise/components/ProductAnalytics/comparison-chart";
+import ComparisonTrendLabel from "@/enterprise/components/ProductAnalytics/ComparisonTrendLabel";
 
 const CHART_ID = "explorer-chart";
 
@@ -45,6 +58,14 @@ const CHART_COLORS = [
   "#6b7280",
 ];
 
+const COMPARISON_SERIES_COLORS = [
+  "#d97706",
+  "#a8a29e",
+  "#fbbf24",
+  "#9ca3af",
+  "#78716c",
+];
+
 // Simple number formatter
 function formatNumber(value: number): string {
   if (Math.abs(value) >= 1000000) {
@@ -55,27 +76,59 @@ function formatNumber(value: number): string {
   return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
-function getSeriesTitle(
-  config: ExplorationConfig | null,
-  valueIndex: number,
-  fallback: string,
-): string {
-  return config?.dataset?.values?.[valueIndex]?.name ?? fallback;
+function seriesNameFromEChartsSeriesConfig(s: unknown): string | undefined {
+  if (
+    s &&
+    typeof s === "object" &&
+    "name" in s &&
+    typeof (s as { name: unknown }).name === "string"
+  ) {
+    return (s as { name: string }).name;
+  }
+  return undefined;
+}
+
+/** Legend + series list order: group each metric’s current then previous (same as axis tooltip). */
+function sortSeriesConfigsForCompareLegendOrder(
+  seriesConfigs: unknown[],
+  comparisonPeriodLabels: {
+    currentLabel: string;
+    previousLabel: string;
+  },
+): unknown[] {
+  const tagged = seriesConfigs.map((cfg) => ({
+    cfg,
+    seriesName: seriesNameFromEChartsSeriesConfig(cfg) ?? "",
+  }));
+  return sortProductAnalyticsTooltipAxisItems(
+    tagged,
+    comparisonPeriodLabels,
+  ).map((row) => row.cfg);
 }
 
 export default function ExplorerChart({
   exploration,
+  comparisonExploration = null,
+  compareEnabled = false,
   error,
   submittedExploreState,
   loading,
   animate = true,
+  submittedPreviousTimeFrame = null,
+  serverBigNumberTrends = null,
 }: {
   exploration: ProductAnalyticsExploration | null;
+  comparisonExploration?: ProductAnalyticsExploration | null;
+  compareEnabled?: boolean;
   error: string | null;
   submittedExploreState: ExplorationConfig;
   loading: boolean;
   /** When false, ECharts entry animations are disabled (e.g. for already-seen charts). */
   animate?: boolean;
+  submittedPreviousTimeFrame?: ExplorationConfig["dateRange"] | null;
+  serverBigNumberTrends?:
+    | ProductAnalyticsRunComparisonPayload["bigNumberTrends"]
+    | null;
 }) {
   const { theme } = useAppearanceUITheme();
   const textColor = theme === "dark" ? "#FFFFFF" : "#1F2D5C";
@@ -106,12 +159,71 @@ export default function ExplorerChart({
     return sharedUnit ? `Per ${sharedUnit}` : "Per unit";
   }, [submittedExploreState, getFactMetricById, renderOpts.showAs]);
 
+  const bigNumberComparisonTrends = useMemo(() => {
+    if (!compareEnabled) return null;
+    if (serverBigNumberTrends?.length) {
+      return serverBigNumberTrends.map((t) =>
+        t
+          ? {
+              currentValue: t.currentValue,
+              previousValue: t.previousValue,
+              pctChange: t.pctChangeFraction,
+            }
+          : null,
+      );
+    }
+    return computeBigNumberComparisonTrends(
+      exploration,
+      comparisonExploration,
+      submittedExploreState,
+      getFactMetricById,
+    );
+  }, [
+    compareEnabled,
+    exploration,
+    comparisonExploration,
+    submittedExploreState,
+    getFactMetricById,
+    serverBigNumberTrends,
+  ]);
+
+  const bigNumberCards = useMemo(() => {
+    if (
+      !exploration?.result?.rows?.length ||
+      submittedExploreState.chartType !== "bigNumber"
+    ) {
+      return null;
+    }
+    const row = exploration.result.rows[0];
+    const valuesMeta = submittedExploreState.dataset?.values ?? [];
+    return valuesMeta.map((v, metricIndex) => {
+      const cell = row?.values[metricIndex];
+      const value = cell
+        ? getEffectiveMetricValue(cell, {
+            showAs: renderOpts.showAs,
+            isRatio: renderOpts.isRatioByIndex[metricIndex] ?? false,
+          })
+        : 0;
+      return {
+        value,
+        label: v.name?.trim() ? v.name : `Metric ${metricIndex + 1}`,
+      };
+    });
+  }, [
+    exploration?.result?.rows,
+    submittedExploreState,
+    renderOpts.showAs,
+    renderOpts.isRatioByIndex,
+  ]);
+
   // Transform ProductAnalyticsResult + exploreState to ECharts format
   const chartConfig = useMemo(() => {
     if (
       !exploration?.result?.rows?.length ||
       !submittedExploreState ||
-      ["table", "timeseries-table"].includes(submittedExploreState.chartType)
+      ["table", "timeseries-table", "bigNumber"].includes(
+        submittedExploreState.chartType,
+      )
     )
       return null;
     const rows = exploration.result.rows;
@@ -127,77 +239,18 @@ export default function ExplorerChart({
         )
       : null;
     const chartType = submittedExploreState.chartType;
+    const firstDimensionIsDate =
+      submittedExploreState.dimensions?.[0]?.dimensionType === "date";
     const isHorizontalBar =
       chartType === "horizontalBar" || chartType === "stackedHorizontalBar";
     const isStacked =
       chartType === "stackedBar" || chartType === "stackedHorizontalBar";
 
-    if (chartType === "bigNumber") {
-      const firstValue = rows[0]?.values[0];
-      const value = firstValue
-        ? getEffectiveMetricValue(firstValue, {
-            showAs: renderOpts.showAs,
-            isRatio: renderOpts.isRatioByIndex[0] ?? false,
-          })
-        : 0;
-      return { type: "bigNumber" as const, value };
-    }
-
-    // 1. Collect all unique dates/categories (X-axis) and data points
-    const uniqueXValues = new Set<string>();
-    // Map structure: { "seriesKey": { "xValue": value } }
-    const dataMap: Record<string, Record<string, number>> = {};
-    // Track metadata for each series key to build the final series config
-    const seriesMeta: Record<string, { metricId: string; name: string }> = {};
+    const { uniqueXValues, dataMap, seriesMeta } =
+      buildComparisonOverlaySeriesMaps(rows, submittedExploreState, renderOpts);
 
     const numMetrics = submittedExploreState?.dataset?.values?.length ?? 0;
     const numDimensions = submittedExploreState?.dimensions?.length ?? 0;
-
-    rows.forEach((row) => {
-      // First dimension is the X-axis value (Date or Category)
-      const xValue = row.dimensions[0] || "";
-      uniqueXValues.add(xValue);
-
-      // Remaining dimensions form the group key
-      const groupParts = row.dimensions.slice(1);
-      const groupKey = groupParts.length > 0 ? groupParts.join(" - ") : "";
-
-      row.values.forEach((v, valueIndex) => {
-        // Create a unique key for this series: Value index + Group
-        const seriesKey = JSON.stringify({ i: valueIndex, g: groupKey });
-
-        if (!dataMap[seriesKey]) {
-          dataMap[seriesKey] = {};
-
-          // Construct a friendly name using the config's value name by index
-          const metricName = getSeriesTitle(
-            submittedExploreState,
-            valueIndex,
-            v.metricId,
-          );
-          let name: string;
-          if (groupKey) {
-            if (numMetrics > 1) {
-              name = `${metricName} (${groupKey})`;
-            } else {
-              name = groupKey;
-            }
-          } else {
-            name = metricName;
-          }
-
-          seriesMeta[seriesKey] = {
-            metricId: v.metricId,
-            name,
-          };
-        }
-
-        dataMap[seriesKey][xValue] = getEffectiveMetricValue(v, {
-          showAs: renderOpts.showAs,
-          isRatio: renderOpts.isRatioByIndex[valueIndex] ?? false,
-        });
-      });
-    });
 
     // 2. Compute cumulative totals for sorting
     const seriesTotals: Record<string, number> = {};
@@ -234,70 +287,135 @@ export default function ExplorerChart({
 
     // 3. Build Series (ordered by cumulative total, highest first)
     const seriesColor = (i: number) => CHART_COLORS[i % CHART_COLORS.length];
+    const comparisonSeriesColor = (i: number) =>
+      COMPARISON_SERIES_COLORS[i % COMPARISON_SERIES_COLORS.length];
 
-    const seriesConfigs = sortedSeriesKeys.map((seriesKey, idx) => {
-      const { name } = seriesMeta[seriesKey];
-      const seriesDataMap = dataMap[seriesKey];
-
-      if (
-        ["bar", "stackedBar", "stackedHorizontalBar", "horizontalBar"].includes(
-          chartType,
+    const compareOverlayActive =
+      compareEnabled &&
+      Boolean(comparisonExploration?.result?.rows?.length) &&
+      supportsAlwaysOnComparisonOverlay(chartType);
+    const comparisonPeriodLabels = compareOverlayActive
+      ? getComparisonPeriodLabels(
+          submittedExploreState.dateRange,
+          submittedPreviousTimeFrame ?? undefined,
         )
-      ) {
-        // Single metric + single dimension: one series with itemStyle per bar so each bar gets a different color (no grouping)
-        if (numMetrics === 1 && numDimensions === 1) {
-          const data = sortedXValues.map((x, i) => ({
-            value: seriesDataMap[x] ?? 0,
-            itemStyle: { color: seriesColor(i) },
-          }));
-          return { name, data, type: "bar" as const };
-        }
-        const data = sortedXValues.map((x) => seriesDataMap[x] ?? 0);
-        return {
-          name,
-          data,
-          color: seriesColor(idx),
-          type: "bar" as const,
-          stack: isStacked ? "stack" : undefined,
-        };
+      : null;
+
+    const alignedComparisonOverlay =
+      compareOverlayActive && comparisonExploration?.result?.rows?.length
+        ? buildAlignedComparisonOverlayForExplorer({
+            sortedXValues,
+            comparisonRows: comparisonExploration.result.rows,
+            submittedExploreState,
+            renderOpts,
+            sortedSeriesKeys,
+            firstDimensionIsDate,
+          })
+        : null;
+    const alignedComparisonDataForCurrent =
+      alignedComparisonOverlay?.alignedMap ?? null;
+
+    const sparseFlatCompareBars =
+      compareOverlayActive &&
+      !isStacked &&
+      (chartType === "bar" || chartType === "horizontalBar") &&
+      Boolean(alignedComparisonDataForCurrent) &&
+      Boolean(comparisonPeriodLabels);
+
+    const showLineAreaCompareTooltipDates =
+      (chartType === "line" || chartType === "area") &&
+      compareOverlayActive &&
+      Boolean(comparisonPeriodLabels) &&
+      Boolean(alignedComparisonOverlay) &&
+      firstDimensionIsDate;
+
+    let categoryAxisValues: string[] = sortedXValues;
+    let seriesConfigs: unknown[];
+
+    if (sparseFlatCompareBars && alignedComparisonDataForCurrent) {
+      const built = buildExplorerCompareSparseFlatBarSeries({
+        sourceSortedXValues: sortedXValues,
+        sourceSeriesKeys: sortedSeriesKeys,
+        sourceSeriesMeta: seriesMeta,
+        currentDataMap: dataMap,
+        previousDataMap: alignedComparisonDataForCurrent,
+        comparisonPeriodLabels: comparisonPeriodLabels!,
+        seriesColor,
+        comparisonSeriesColor,
+        animate,
+      });
+      seriesConfigs = built.series;
+      categoryAxisValues = built.flatCategoryData;
+      if (comparisonPeriodLabels && seriesConfigs.length > 1) {
+        seriesConfigs = sortSeriesConfigsForCompareLegendOrder(
+          seriesConfigs,
+          comparisonPeriodLabels,
+        );
+      }
+    } else {
+      seriesConfigs = buildExplorerChartComparisonSeriesList({
+        chartType,
+        sourceDataMap: dataMap,
+        sourceSeriesMeta: seriesMeta,
+        sourceSeriesKeys: sortedSeriesKeys,
+        sourceSortedXValues: sortedXValues,
+        numMetrics,
+        numDimensions,
+        isStacked,
+        compareOverlayActive,
+        comparisonPeriodLabels,
+        seriesColor,
+        comparisonSeriesColor,
+        animate,
+      });
+
+      if (compareOverlayActive && alignedComparisonDataForCurrent) {
+        seriesConfigs = [
+          ...seriesConfigs,
+          ...buildExplorerChartComparisonSeriesList({
+            chartType,
+            sourceDataMap: alignedComparisonDataForCurrent,
+            sourceSeriesMeta: seriesMeta,
+            sourceSeriesKeys: sortedSeriesKeys,
+            sourceSortedXValues: sortedXValues,
+            numMetrics,
+            numDimensions,
+            isStacked,
+            compareOverlayActive,
+            comparisonPeriodLabels,
+            previous: true,
+            seriesColor,
+            comparisonSeriesColor,
+            animate,
+          }),
+        ];
       }
 
-      if (chartType === "line" || chartType === "area") {
-        const data = sortedXValues.map((x) => [
-          new Date(x).getTime(),
-          seriesDataMap[x] ?? 0,
-        ]);
-        const lineConfig = {
-          name,
-          data,
-          color: seriesColor(idx),
-          type: "line" as const,
-          animation: animate,
-          animationDuration: animate ? 300 : 0,
-          animationEasing: "linear" as const,
-          symbol: "circle" as const,
-          symbolSize: 4,
-        };
-        if (chartType === "line") return lineConfig;
-        if (chartType === "area")
-          return { ...lineConfig, areaStyle: {}, stack: "stack" };
+      if (comparisonPeriodLabels && seriesConfigs.length > 1) {
+        seriesConfigs = sortSeriesConfigsForCompareLegendOrder(
+          seriesConfigs,
+          comparisonPeriodLabels,
+        );
       }
-    });
+    }
 
-    const axisPointerLabelFormatter = resolvedGranularity
-      ? (params: { value: string | number }) => {
-          const date =
-            typeof params.value === "number"
-              ? new Date(params.value)
-              : new Date(String(params.value));
-          return formatDateByGranularity(date, resolvedGranularity);
-        }
-      : undefined;
+    const legendShow = seriesConfigs.length > 0;
+
+    const axisPointerLabelFormatter =
+      resolvedGranularity && !sparseFlatCompareBars
+        ? (params: { value: string | number }) => {
+            const date =
+              typeof params.value === "number"
+                ? new Date(params.value)
+                : new Date(String(params.value));
+            return formatDateByGranularity(date, resolvedGranularity);
+          }
+        : undefined;
 
     // Define the category axis (shows the dimension labels)
     const categoryAxis = {
       type: chartType === "line" || chartType === "area" ? "time" : "category",
-      data: sortedXValues,
+      data: categoryAxisValues,
       nameLocation: "middle" as const,
       nameTextStyle: {
         fontSize: 14,
@@ -343,41 +461,17 @@ export default function ExplorerChart({
     const xAxis = isHorizontalBar ? valueAxis : categoryAxis;
     const yAxis = isHorizontalBar ? categoryAxis : valueAxis;
 
-    // Build a custom tooltip formatter that applies granularity-aware date formatting
-    const tooltipFormatter = resolvedGranularity
-      ? (params: unknown) => {
-          const items = (Array.isArray(params) ? params : [params]) as {
-            axisValue: string | number;
-            marker: string;
-            seriesName: string;
-            value: number | [number, number];
-          }[];
-          if (!items.length) return "";
-
-          // axisValue is a timestamp (ms) for time axis, raw string for category axis
-          const rawAxisValue = items[0].axisValue;
-          const date =
-            typeof rawAxisValue === "number"
-              ? new Date(rawAxisValue)
-              : new Date(String(rawAxisValue));
-          const header = formatDateByGranularity(date, resolvedGranularity);
-
-          const seriesRows = items
-            .map((item) => {
-              const numValue = Array.isArray(item.value)
-                ? item.value[1]
-                : item.value;
-              const formatted =
-                typeof numValue === "number"
-                  ? formatNumber(numValue)
-                  : String(numValue);
-              return `<div style="display:flex;justify-content:space-between;gap:16px"><span>${item.marker}${item.seriesName}</span><span><b>${formatted}</b></span></div>`;
-            })
-            .join("");
-
-          return `<div><div style="margin-bottom:4px">${header}</div>${seriesRows}</div>`;
-        }
-      : undefined;
+    const tooltipFormatter = buildExplorerChartTooltipFormatter({
+      resolvedGranularity,
+      compositeCategoryAxisTooltip: sparseFlatCompareBars,
+      firstDimensionIsDate,
+      comparisonPeriodLabels,
+      showLineAreaCompareTooltipDates,
+      alignedComparisonOverlay,
+      sortedXValues,
+      seriesConfigsLength: seriesConfigs.length,
+      formatNumber,
+    });
 
     return {
       tooltip: {
@@ -399,11 +493,13 @@ export default function ExplorerChart({
         formatter: tooltipFormatter,
       },
       legend: {
-        show: seriesConfigs.length > 1,
+        show: legendShow,
+        type: "plain",
+        left: "center",
         top: 8,
-        padding: [8, 0, 8, 0],
+        width: "88%",
+        padding: [8, 0, 20, 0],
         textStyle: { color: textColor },
-        type: "scroll",
       },
       xAxis,
       yAxis,
@@ -411,7 +507,10 @@ export default function ExplorerChart({
     };
   }, [
     exploration?.result?.rows,
+    comparisonExploration?.result?.rows,
+    compareEnabled,
     submittedExploreState,
+    submittedPreviousTimeFrame,
     renderOpts,
     textColor,
     gridLineColor,
@@ -475,23 +574,72 @@ export default function ExplorerChart({
             The query ran successfully, but no data was returned.
           </Text>
         </Flex>
-      ) : chartConfig?.type === "bigNumber" ? (
+      ) : bigNumberCards && bigNumberCards.length > 0 ? (
         <Flex
+          direction="column"
           p="4"
-          style={{ flex: 1, minHeight: 0 }}
-          align="center"
-          justify="center"
+          style={{ flex: 1, minHeight: 0, minWidth: 0 }}
         >
-          <BigValueChart
-            value={chartConfig.value}
-            formatter={formatNumber}
-            label={submittedExploreState?.dataset?.values?.[0]?.name}
-          />
+          <Box
+            style={{
+              display: "grid",
+              flex: 1,
+              minHeight: 0,
+              width: "100%",
+              height: "100%",
+              gridTemplateColumns:
+                "repeat(auto-fit, minmax(min(100%, max(11rem, calc((100% - 3rem) / 4))), 1fr))",
+              gridAutoRows: "minmax(0, 1fr)",
+              gap: "var(--space-4)",
+              alignItems: "stretch",
+            }}
+          >
+            {bigNumberCards.map((card, metricIndex) => {
+              const trend = bigNumberComparisonTrends?.[metricIndex];
+              return (
+                <Box
+                  key={`${card.label}-${metricIndex}`}
+                  style={{
+                    minWidth: 0,
+                    minHeight: 0,
+                    height: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: "#ffffff",
+                    borderRadius: "var(--radius-4)",
+                    boxShadow:
+                      theme === "dark"
+                        ? "0 1px 3px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.25)"
+                        : "var(--shadow-3)",
+                    padding: "var(--space-4)",
+                  }}
+                >
+                  <BigValueChart
+                    value={card.value}
+                    formatter={formatNumber}
+                    label={card.label}
+                    compact
+                    compareSlot={
+                      trend ? (
+                        <ComparisonTrendLabel
+                          trend={trend}
+                          priorValueScale={0.5}
+                        />
+                      ) : undefined
+                    }
+                  />
+                </Box>
+              );
+            })}
+          </Box>
         </Flex>
       ) : chartConfig ? (
         <Box style={{ flex: 1, minHeight: 0, position: "relative" }}>
           <EChartsReact
-            key={JSON.stringify(chartConfig)}
+            key={`${submittedExploreState.chartType}:${JSON.stringify(chartConfig)}`}
+            notMerge
             option={{
               ...chartConfig,
               ...(animate ? {} : { animation: false }),
@@ -503,7 +651,7 @@ export default function ExplorerChart({
                     ? "10%"
                     : "8%",
                 right: "5%",
-                top: chartConfig.legend?.show ? 52 : "8%",
+                top: chartConfig.legend?.show ? 58 : "8%",
                 bottom: "10%",
               },
             }}

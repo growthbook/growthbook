@@ -1,7 +1,19 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  useMemo,
+} from "react";
 import { Flex } from "@radix-ui/themes";
 import { format } from "date-fns";
 import { dateRangePredefined, lookbackUnit } from "shared/validators";
+import {
+  buildFixedSpanComparisonOptions,
+  getInclusiveUtcCalendarDayCount,
+  isUtcYyyyMmDdWithinInclusiveRange,
+  type FixedSpanDateBounds,
+} from "shared/enterprise";
 import { getValidDateOffsetByUTC } from "shared/dates";
 import { Select, SelectItem } from "@/ui/Select";
 import Field from "@/components/Forms/Field";
@@ -18,13 +30,22 @@ const PREDEFINED_LABELS: Record<(typeof dateRangePredefined)[number], string> =
     customDateRange: "Custom Date Range",
   };
 
-interface DateRangePickerProps {
-  shouldWrap?: boolean;
+function boundsToDates(bounds: FixedSpanDateBounds): { from: Date; to: Date } {
+  return {
+    from: getValidDateOffsetByUTC(bounds.startDate),
+    to: getValidDateOffsetByUTC(bounds.endDate),
+  };
 }
 
-export default function DateRangePicker({
+function calendarDayToYyyyMmDd(day: Date): string {
+  return format(day, "yyyy-MM-dd");
+}
+
+function DefaultDateRangePickerContent({
   shouldWrap = false,
-}: DateRangePickerProps = {}) {
+}: {
+  shouldWrap?: boolean;
+}) {
   const { draftExploreState, setDraftExploreState } = useExplorerContext();
   const { dateRange } = draftExploreState;
 
@@ -46,7 +67,6 @@ export default function DateRangePicker({
     const isValid = parsed !== null && parsed >= 1 && !isNaN(parsed);
 
     if (!isValid) {
-      // Revert to last valid value - don't update state, just clear local state
       setLocalLookbackValue(null);
       latestLookbackRef.current = "";
       return;
@@ -195,4 +215,194 @@ export default function DateRangePicker({
       )}
     </Flex>
   );
+}
+
+type ChoosingState = {
+  anchorYyyyMmDd: string;
+  before: FixedSpanDateBounds;
+  after: FixedSpanDateBounds;
+};
+
+function ComparisonPreviousRangePicker({
+  shouldWrap = false,
+}: {
+  shouldWrap?: boolean;
+}) {
+  const { draftExploreState, setDraftExploreState, compareEnabled } =
+    useExplorerContext();
+
+  const previousTimeFrame = draftExploreState.previousTimeFrame;
+
+  const dr = draftExploreState.dateRange;
+  const primaryStart = dr.startDate;
+  const primaryEnd = dr.endDate;
+
+  const primaryBoundsKey =
+    primaryStart && primaryEnd ? `${primaryStart}|${primaryEnd}` : null;
+
+  const [choosing, setChoosing] = useState<ChoosingState | null>(null);
+
+  useEffect(() => {
+    setChoosing(null);
+  }, [primaryBoundsKey]);
+
+  const spanDays = useMemo(() => {
+    if (!primaryStart || !primaryEnd) return 0;
+    return getInclusiveUtcCalendarDayCount(primaryStart, primaryEnd);
+  }, [primaryStart, primaryEnd]);
+
+  const commitBounds = useCallback(
+    (bounds: FixedSpanDateBounds) => {
+      if (!previousTimeFrame) return;
+      setDraftExploreState((prev) => ({
+        ...prev,
+        previousTimeFrame: {
+          ...previousTimeFrame,
+          predefined: "customDateRange" as const,
+          startDate: bounds.startDate,
+          endDate: bounds.endDate,
+        },
+      }));
+      setChoosing(null);
+    },
+    [previousTimeFrame, setDraftExploreState],
+  );
+
+  const handleDayPick = useCallback(
+    (day: Date) => {
+      if (!primaryStart || !primaryEnd || spanDays < 1 || !previousTimeFrame) {
+        return;
+      }
+
+      const dayStr = calendarDayToYyyyMmDd(day);
+      const currentStart = previousTimeFrame.startDate;
+      const currentEnd = previousTimeFrame.endDate;
+
+      if (!choosing) {
+        if (
+          currentStart &&
+          currentEnd &&
+          isUtcYyyyMmDdWithinInclusiveRange(dayStr, currentStart, currentEnd)
+        ) {
+          return;
+        }
+        const options = buildFixedSpanComparisonOptions(dayStr, spanDays);
+        setChoosing({
+          anchorYyyyMmDd: dayStr,
+          before: options.before,
+          after: options.after,
+        });
+        return;
+      }
+
+      const { before, after } = choosing;
+      const inBefore = isUtcYyyyMmDdWithinInclusiveRange(
+        dayStr,
+        before.startDate,
+        before.endDate,
+      );
+      const inAfter = isUtcYyyyMmDdWithinInclusiveRange(
+        dayStr,
+        after.startDate,
+        after.endDate,
+      );
+
+      if (inBefore && inAfter) {
+        commitBounds(after);
+      } else if (inBefore) {
+        commitBounds(before);
+      } else if (inAfter) {
+        commitBounds(after);
+      } else {
+        const options = buildFixedSpanComparisonOptions(dayStr, spanDays);
+        setChoosing({
+          anchorYyyyMmDd: dayStr,
+          before: options.before,
+          after: options.after,
+        });
+      }
+    },
+    [
+      choosing,
+      commitBounds,
+      previousTimeFrame,
+      primaryEnd,
+      primaryStart,
+      spanDays,
+    ],
+  );
+
+  const fixedSpanMode = useMemo(() => {
+    if (!previousTimeFrame?.startDate || !previousTimeFrame.endDate) {
+      return undefined;
+    }
+
+    if (choosing) {
+      return {
+        phase: "choosing" as const,
+        anchorDate: getValidDateOffsetByUTC(choosing.anchorYyyyMmDd),
+        candidateRanges: [
+          boundsToDates(choosing.before),
+          boundsToDates(choosing.after),
+        ],
+        onDayPick: handleDayPick,
+      };
+    }
+
+    return {
+      phase: "committed" as const,
+      onDayPick: handleDayPick,
+    };
+  }, [choosing, handleDayPick, previousTimeFrame]);
+
+  if (
+    !compareEnabled ||
+    dr.predefined !== "customDateRange" ||
+    !primaryStart ||
+    !primaryEnd ||
+    !previousTimeFrame ||
+    !previousTimeFrame.startDate ||
+    !previousTimeFrame.endDate ||
+    spanDays < 1
+  ) {
+    return null;
+  }
+
+  return (
+    <Flex
+      align="center"
+      gap="2"
+      wrap={shouldWrap ? "wrap" : undefined}
+      width={shouldWrap ? "100%" : undefined}
+      style={{ minWidth: 0 }}
+    >
+      <DatePicker
+        containerClassName="mb-0"
+        compact
+        wrapRangeInputs={shouldWrap}
+        date={getValidDateOffsetByUTC(previousTimeFrame.startDate)}
+        date2={getValidDateOffsetByUTC(previousTimeFrame.endDate)}
+        setDate={() => {}}
+        setDate2={() => {}}
+        fixedSpanMode={fixedSpanMode}
+        precision="date"
+      />
+    </Flex>
+  );
+}
+
+export interface DateRangePickerProps {
+  shouldWrap?: boolean;
+  /** Comparison window (no preset dropdown); dates are free-form. */
+  variant?: "default" | "comparison";
+}
+
+export default function DateRangePicker({
+  shouldWrap = false,
+  variant = "default",
+}: DateRangePickerProps = {}) {
+  if (variant === "comparison") {
+    return <ComparisonPreviousRangePicker shouldWrap={shouldWrap} />;
+  }
+  return <DefaultDateRangePickerContent shouldWrap={shouldWrap} />;
 }
