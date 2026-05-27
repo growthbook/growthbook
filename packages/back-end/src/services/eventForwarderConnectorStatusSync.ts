@@ -8,7 +8,6 @@ import {
   EventForwarderLicenseConnectorPhase,
   EventForwarderLicenseConnectorStatus,
   postEventForwarderStatusToLicenseServer,
-  postInitialEventForwarderSchematizationPingToLicenseServer,
 } from "back-end/src/enterprise/licenseUtil";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
@@ -45,34 +44,31 @@ export function buildEventForwarderStatusResponse(
   };
 }
 
-async function sendInitialSchematizationPingIfNeeded(
+function hasInitialWarehouseSyncQueued(
+  eventForwarderConfig: EventForwarderConfigInterface,
+): boolean {
+  return (
+    eventForwarderConfig.initialWarehouseSyncQueued === true ||
+    eventForwarderConfig.initialGbUpdatePingSent === true
+  );
+}
+
+async function queueInitialWarehouseSyncIfNeeded(
   context: ReqContext,
   eventForwarderConfig: EventForwarderConfigInterface,
 ): Promise<boolean> {
-  if (eventForwarderConfig.initialGbUpdatePingSent) {
-    return false;
-  }
-
-  const topic = eventForwarderConfig.topic?.trim();
-  const schemaId = eventForwarderConfig.schemaId;
-  if (!topic || schemaId <= 0) {
+  if (hasInitialWarehouseSyncQueued(eventForwarderConfig)) {
     return false;
   }
 
   try {
-    await postInitialEventForwarderSchematizationPingToLicenseServer({
-      organizationId: context.org.id,
-      datasourceId: eventForwarderConfig.datasourceId,
-      topic,
-      schemaId,
-    });
-    await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
-      initialGbUpdatePingSent: true,
-    });
     await queueDelayedEventForwarderWarehouseSyncForDatasource(
       context,
       eventForwarderConfig.datasourceId,
     );
+    await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
+      initialWarehouseSyncQueued: true,
+    });
     return true;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
@@ -83,7 +79,7 @@ async function sendInitialSchematizationPingIfNeeded(
         datasourceId: eventForwarderConfig.datasourceId,
         error: message,
       },
-      "Failed to publish initial event forwarder schematization ping",
+      "Failed to queue initial event forwarder warehouse sync",
     );
     return false;
   }
@@ -122,7 +118,7 @@ export async function syncEventForwarderStatusFromLicenseServer(
       });
     }
 
-    await sendInitialSchematizationPingIfNeeded(context, eventForwarderConfig);
+    await queueInitialWarehouseSyncIfNeeded(context, eventForwarderConfig);
   } else if (response.status === "error") {
     const lastProvisioningError =
       response.message || "Event forwarder connector failed";

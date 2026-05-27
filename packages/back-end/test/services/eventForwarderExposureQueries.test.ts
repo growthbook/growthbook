@@ -4,9 +4,13 @@ import { ensureEventForwarderExposureQueries } from "back-end/src/services/event
 import * as DataSourceModel from "back-end/src/models/DataSourceModel";
 import * as EventForwarderConfig from "back-end/src/services/eventForwarderConfig";
 import { encryptParams } from "back-end/src/services/datasource";
+import { queueDelayedEventForwarderWarehouseSyncForDatasource } from "back-end/src/services/eventForwarderWarehouseSync";
 
 jest.mock("back-end/src/models/DataSourceModel");
 jest.mock("back-end/src/services/eventForwarderConfig");
+jest.mock("back-end/src/services/eventForwarderWarehouseSync", () => ({
+  queueDelayedEventForwarderWarehouseSyncForDatasource: jest.fn(),
+}));
 
 const mockedGetRaw =
   DataSourceModel.getRawDataSourceById as jest.MockedFunction<
@@ -21,6 +25,10 @@ const mockedUpdate = DataSourceModel.updateDataSource as jest.MockedFunction<
 const mockedDecrypt =
   EventForwarderConfig.decryptEventForwarderConfigModel as jest.MockedFunction<
     typeof EventForwarderConfig.decryptEventForwarderConfigModel
+  >;
+const mockedQueueWarehouseSync =
+  queueDelayedEventForwarderWarehouseSyncForDatasource as jest.MockedFunction<
+    typeof queueDelayedEventForwarderWarehouseSyncForDatasource
   >;
 
 function ds(
@@ -118,6 +126,7 @@ describe("ensureEventForwarderExposureQueries", () => {
           },
         }),
       },
+      { skipEventForwarderManagedValidation: true },
     );
   });
 
@@ -164,6 +173,7 @@ describe("ensureEventForwarderExposureQueries", () => {
           },
         }),
       },
+      { skipEventForwarderManagedValidation: true },
     );
 
     const exposure =
@@ -172,6 +182,10 @@ describe("ensureEventForwarderExposureQueries", () => {
     expect(exposure[0].query).toContain("experiment_viewed");
     expect(exposure[0].query).toContain("received_at BETWEEN");
     expect(exposure[0].query).not.toContain("experiment_id LIKE");
+    expect(mockedQueueWarehouseSync).toHaveBeenCalledWith(
+      expect.anything(),
+      "ds_1",
+    );
   });
 
   it("creates Snowflake exposure queries without WHERE clause", async () => {
@@ -238,6 +252,7 @@ describe("ensureEventForwarderExposureQueries", () => {
     );
 
     expect(mockedUpdate).not.toHaveBeenCalled();
+    expect(mockedQueueWarehouseSync).not.toHaveBeenCalled();
   });
 
   it("appends only missing identifier types without overwriting existing", async () => {
@@ -333,6 +348,7 @@ describe("ensureEventForwarderExposureQueries", () => {
           },
         }),
       },
+      { skipEventForwarderManagedValidation: true },
     );
 
     const exposure =
@@ -386,6 +402,7 @@ describe("ensureEventForwarderExposureQueries", () => {
           },
         }),
       },
+      { skipEventForwarderManagedValidation: true },
     );
   });
 

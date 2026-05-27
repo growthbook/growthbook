@@ -17,6 +17,7 @@ import {
   updateDataSource,
 } from "back-end/src/models/DataSourceModel";
 import { decryptEventForwarderConfigModel } from "back-end/src/services/eventForwarderConfig";
+import { queueDelayedEventForwarderWarehouseSyncForDatasource } from "back-end/src/services/eventForwarderWarehouseSync";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
@@ -150,13 +151,23 @@ export async function ensureEventForwarderExposureQueries(
     return;
   }
 
-  await updateDataSource(context, datasource, {
-    settings: {
-      ...raw.settings,
-      queries: {
-        ...raw.settings?.queries,
-        exposure: merged,
+  await updateDataSource(
+    context,
+    datasource,
+    {
+      settings: {
+        ...raw.settings,
+        queries: {
+          ...raw.settings?.queries,
+          exposure: merged,
+        },
       },
     },
-  });
+    { skipEventForwarderManagedValidation: true },
+  );
+
+  await queueDelayedEventForwarderWarehouseSyncForDatasource(
+    context,
+    eventForwarderConfig.datasourceId,
+  );
 }
