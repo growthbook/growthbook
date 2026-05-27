@@ -1167,24 +1167,12 @@ export type EventForwarderSchemaUpdateParams = {
 
 export async function postUpdateEventForwarderSchemaToLicenseServer(
   params: EventForwarderSchemaUpdateParams,
-): Promise<{ schemaId: number; schemaChanged: boolean }> {
-  const url = `${LICENSE_SERVER_URL}event-forwarder/update-schema`;
-  return callLicenseServer({
-    url,
-    body: JSON.stringify({
-      ...params,
-      cloudSecret: process.env.CLOUD_SECRET,
-    }),
-  });
-}
-
-export async function postInitialEventForwarderSchematizationPingToLicenseServer(params: {
-  organizationId: string;
-  datasourceId: string;
-  topic: string;
+): Promise<{
   schemaId: number;
-}): Promise<{ ok: true }> {
-  const url = `${LICENSE_SERVER_URL}event-forwarder/initial-schematization-ping`;
+  schemaChanged: boolean;
+  newFieldNames: string[];
+}> {
+  const url = `${LICENSE_SERVER_URL}event-forwarder/update-schema`;
   return callLicenseServer({
     url,
     body: JSON.stringify({

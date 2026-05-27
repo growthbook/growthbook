@@ -13,7 +13,6 @@ import {
   postRestartEventForwarderToLicenseServer,
   postResumeEventForwarderToLicenseServer,
   postTeardownEventForwarderToLicenseServer,
-  postInitialEventForwarderSchematizationPingToLicenseServer,
   postUpdateEventForwarderCredentialsToLicenseServer,
   postUpdateEventForwarderSchemaToLicenseServer,
 } from "back-end/src/enterprise/licenseUtil";
@@ -27,7 +26,6 @@ import {
   queueDelayedFactTableColumnsRefreshForEventForwarderDatasources,
 } from "back-end/src/services/eventForwarderFactTable";
 import { ensureEventForwarderFeatureUsageQuery } from "back-end/src/services/eventForwarderFeatureUsageQueries";
-import { queueDelayedEventForwarderWarehouseSyncForDatasource } from "back-end/src/services/eventForwarderWarehouseSync";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 
@@ -433,13 +431,13 @@ export async function resumeEventForwarderThroughLicenseServer(
     });
 
     const attributeSchema = context.org.settings?.attributeSchema ?? [];
-    const schemaChanged = await updateEventForwarderSchemaThroughLicenseServer(
+    const schemaUpdate = await updateEventForwarderSchemaThroughLicenseServer(
       context,
       { ...eventForwarderConfig, status: "ready" },
       attributeSchema,
     );
 
-    if (schemaChanged) {
+    if (schemaUpdate.schemaChanged) {
       await queueDelayedFactTableColumnsRefreshForDatasource(
         context,
         eventForwarderConfig.datasourceId,
@@ -466,54 +464,6 @@ export async function resumeEventForwarderThroughLicenseServer(
 }
 
 /**
- * Manually evolves the forwarder schema (if needed) and always sends a gb-update
- * ping so Confluent sinks re-schematize warehouse tables.
- */
-export async function syncEventForwarderSchematizationThroughLicenseServer(
-  context: ReqContext,
-  eventForwarderConfig: EventForwarderConfigInterface,
-): Promise<{ schemaChanged: boolean; pingSent: boolean }> {
-  if (eventForwarderConfig.status !== "ready") {
-    throw new Error("Only ready event forwarders can sync schematization");
-  }
-
-  const topic = eventForwarderConfig.topic?.trim();
-  if (!topic) {
-    throw new Error("Cannot sync schematization without a forwarder topic");
-  }
-
-  const attributeSchema = context.org.settings?.attributeSchema ?? [];
-  const schemaChanged = await updateEventForwarderSchemaThroughLicenseServer(
-    context,
-    eventForwarderConfig,
-    attributeSchema,
-  );
-
-  const refreshed =
-    await context.models.eventForwarderConfigs.dangerousGetByDatasourceIdBypassPermission(
-      eventForwarderConfig.datasourceId,
-    );
-  const schemaId = refreshed?.schemaId ?? eventForwarderConfig.schemaId;
-  if (schemaId <= 0) {
-    throw new Error("Cannot sync schematization without a valid schema id");
-  }
-
-  await postInitialEventForwarderSchematizationPingToLicenseServer({
-    organizationId: context.org.id,
-    datasourceId: eventForwarderConfig.datasourceId,
-    topic,
-    schemaId,
-  });
-
-  await queueDelayedEventForwarderWarehouseSyncForDatasource(
-    context,
-    eventForwarderConfig.datasourceId,
-  );
-
-  return { schemaChanged, pingSent: true };
-}
-
-/**
  * After persisting attribute schema changes, evolves Confluent Schema Registry
  * for each event forwarder when the org has at least one forwarder config row.
  * Individual configs may still be skipped inside
@@ -527,7 +477,7 @@ export async function syncEventForwarderSchemasAfterAttributeSchemaChange(
   if (configs.length === 0) {
     return;
   }
-  const schemaChangedResults = await Promise.all(
+  const schemaUpdateResults = await Promise.all(
     configs.map((config) =>
       updateEventForwarderSchemaThroughLicenseServer(
         context,
@@ -537,7 +487,7 @@ export async function syncEventForwarderSchemasAfterAttributeSchemaChange(
     ),
   );
 
-  if (schemaChangedResults.some(Boolean)) {
+  if (schemaUpdateResults.some((result) => result.schemaChanged)) {
     await queueDelayedFactTableColumnsRefreshForEventForwarderDatasources(
       context,
     );
@@ -551,13 +501,18 @@ export async function syncEventForwarderSchemasAfterAttributeSchemaChange(
  * Records a "schema_update_error" status on failure but does not throw, so the
  * caller's operation (attribute save) is never rolled back.
  */
+export type EventForwarderSchemaUpdateResult = {
+  schemaChanged: boolean;
+  newFieldNames: string[];
+};
+
 export async function updateEventForwarderSchemaThroughLicenseServer(
   context: ReqContext,
   eventForwarderConfig: EventForwarderConfigInterface,
   attributeSchema: SDKAttributeSchema,
-): Promise<boolean> {
+): Promise<EventForwarderSchemaUpdateResult> {
   if (eventForwarderConfig.status !== "ready") {
-    return false;
+    return { schemaChanged: false, newFieldNames: [] };
   }
 
   try {
@@ -577,7 +532,10 @@ export async function updateEventForwarderSchemaThroughLicenseServer(
       lastProvisioningError: "",
     });
 
-    return result.schemaChanged;
+    return {
+      schemaChanged: result.schemaChanged,
+      newFieldNames: result.newFieldNames,
+    };
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unknown schema update error";
@@ -595,7 +553,7 @@ export async function updateEventForwarderSchemaThroughLicenseServer(
     });
   }
 
-  return false;
+  return { schemaChanged: false, newFieldNames: [] };
 }
 
 /**

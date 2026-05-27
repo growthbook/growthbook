@@ -47,20 +47,18 @@ export function buildEventForwarderFeatureUsageQuerySql({
   sinkType: "bigquery" | "snowflake";
   tableRef: string;
 }): string {
-  const select = `SELECT
+  if (sinkType === "bigquery") {
+    return `SELECT
   timestamp AS timestamp,
   feature_key AS feature_key
-FROM ${tableRef}`;
-
-  // TODO(event-forwarder): append org attribute / hash-identifier columns here
-  // when we want them in feature evaluation diagnostics.
-
-  if (sinkType === "bigquery") {
-    return `${select}
+FROM ${tableRef}
 WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{endDate}}'`;
   }
 
-  return select;
+  return `SELECT
+  TIMESTAMP AS timestamp,
+  FEATURE_KEY AS feature_key
+FROM ${tableRef}`;
 }
 
 export type GenerateEventForwarderFeatureUsageQueryParams =
