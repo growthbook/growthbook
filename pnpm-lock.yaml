@@ -36,6 +36,9 @@ overrides:
   picomatch@4: ^4.0.4
   prismjs@1: ^1.30.0
   qs@6: ^6.15.0
+  uuid@8: ^11.1.1
+  uuid@9: ^11.1.1
+  uuid@10: ^11.1.1
   vite: ^6.0.0
   yaml@1: ^1.10.3
 
@@ -886,8 +889,8 @@ importers:
         specifier: ^5.3.0
         version: 5.4.0
       uuid:
-        specifier: ^9.0.0
-        version: 9.0.1
+        specifier: ^14.0.0
+        version: 14.0.0
       zod:
         specifier: ^4.1.12
         version: 4.1.12
@@ -12916,16 +12919,12 @@ packages:
     resolution: {integrity: sha512-pMZTvIkT1d+TFGvDOqodOclx0QWkkgi6Tdoa8gC8ffGAAqz9pzPTZWAybbsHHoED/ztMtkv/VoYTYyShUn81hA==}
     engines: {node: '>= 0.4.0'}
 
+  uuid@11.1.1:
+    resolution: {integrity: sha512-vIYxrBCC/N/K+Js3qSN88go7kIfNPssr/hHCesKCQNAjmgvYS2oqr69kIufEG+O4+PfezOH4EbIeHCfFov8ZgQ==}
+    hasBin: true
+
   uuid@14.0.0:
     resolution: {integrity: sha512-Qo+uWgilfSmAhXCMav1uYFynlQO7fMFiMVZsQqZRMIXp0O7rR7qjkj+cPvBHLgBqi960QCoo/PH2/6ZtVqKvrg==}
-    hasBin: true
-
-  uuid@8.3.2:
-    resolution: {integrity: sha512-+NYs2QeMWy+GWFOEm9xnn6HCDp0l7QBD7ml8zLUmJ+93Q5NF0NocErnwkTkXVFNiX3/fpC6afS8Dhb/gz7R7eg==}
-    hasBin: true
-
-  uuid@9.0.1:
-    resolution: {integrity: sha512-b+1eJOlsR9K8HJpow9Ok3fiWOWSIcIzXodvv0rQjVoOVNpWMpxf1wZNpt4y9h10odCNrqnYp1OBzRktckBe3sA==}
     hasBin: true
 
   v8-compile-cache-lib@3.0.1:
@@ -14487,7 +14486,7 @@ snapshots:
     dependencies:
       '@azure/msal-common': 15.13.0
       jsonwebtoken: 9.0.3
-      uuid: 8.3.2
+      uuid: 11.1.1
 
   '@azure/storage-blob@12.26.0':
     dependencies:
@@ -15340,7 +15339,7 @@ snapshots:
       openid-client: 5.6.5
       proxy-agent: 6.5.0
       thrift: 0.16.0
-      uuid: 9.0.1
+      uuid: 11.1.1
       winston: 3.11.0
     transitivePeerDependencies:
       - bufferutil
@@ -15859,7 +15858,7 @@ snapshots:
       retry-request: 4.2.2
       stream-events: 1.0.5
       teeny-request: 7.2.0(encoding@0.1.13)
-      uuid: 8.3.2
+      uuid: 11.1.1
       xdg-basedir: 4.0.0
     transitivePeerDependencies:
       - encoding
@@ -15881,7 +15880,7 @@ snapshots:
       p-limit: 3.1.0
       retry-request: 7.0.2(encoding@0.1.13)
       teeny-request: 9.0.0(encoding@0.1.13)
-      uuid: 8.3.2
+      uuid: 11.1.1
     transitivePeerDependencies:
       - encoding
       - supports-color
@@ -18484,7 +18483,7 @@ snapshots:
   '@sentry/webpack-plugin@5.1.1(encoding@0.1.13)':
     dependencies:
       '@sentry/bundler-plugin-core': 5.1.1(encoding@0.1.13)
-      uuid: 9.0.1
+      uuid: 11.1.1
     transitivePeerDependencies:
       - encoding
       - supports-color
@@ -23188,7 +23187,7 @@ snapshots:
       https-proxy-agent: 7.0.6
       is-stream: 2.0.1
       node-fetch: 2.7.0(encoding@0.1.13)
-      uuid: 9.0.1
+      uuid: 11.1.1
     transitivePeerDependencies:
       - encoding
       - supports-color
@@ -23449,7 +23448,7 @@ snapshots:
       google-auth-library: 6.1.6(encoding@0.1.13)
       qs: 6.15.0
       url-template: 2.0.8
-      uuid: 8.3.2
+      uuid: 11.1.1
     transitivePeerDependencies:
       - encoding
       - supports-color
@@ -27475,7 +27474,7 @@ snapshots:
       open: 7.4.2
       simple-lru-cache: 0.0.2
       toml: 3.0.0
-      uuid: 8.3.2
+      uuid: 11.1.1
       winston: 3.11.0
     transitivePeerDependencies:
       - aws-crt
@@ -27907,7 +27906,7 @@ snapshots:
       https-proxy-agent: 5.0.1
       node-fetch: 2.7.0(encoding@0.1.13)
       stream-events: 1.0.5
-      uuid: 8.3.2
+      uuid: 11.1.1
     transitivePeerDependencies:
       - encoding
       - supports-color
@@ -27918,7 +27917,7 @@ snapshots:
       https-proxy-agent: 5.0.1
       node-fetch: 2.7.0(encoding@0.1.13)
       stream-events: 1.0.5
-      uuid: 9.0.1
+      uuid: 11.1.1
     transitivePeerDependencies:
       - encoding
       - supports-color
@@ -28402,11 +28401,9 @@ snapshots:
 
   utils-merge@1.0.1: {}
 
+  uuid@11.1.1: {}
+
   uuid@14.0.0: {}
-
-  uuid@8.3.2: {}
-
-  uuid@9.0.1: {}
 
   v8-compile-cache-lib@3.0.1:
     optional: true
