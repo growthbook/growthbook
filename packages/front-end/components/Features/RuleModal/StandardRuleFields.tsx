@@ -12,7 +12,9 @@ import { NewExperimentRefRule, useAttributeSchema } from "@/services/features";
 import LegacyScheduleInputs from "@/components/Features/LegacyScheduleInputs";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import ConditionInput from "@/components/Features/ConditionInput";
-import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
+import PrerequisiteInput, {
+  type RuleCyclicResult,
+} from "@/components/Features/PrerequisiteInput";
 import RadioGroup from "@/ui/RadioGroup";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useUser } from "@/services/UserContext";
@@ -78,6 +80,8 @@ export default function StandardRuleFields({
   setScheduleType,
   pendingDetach,
   envScope,
+  isLiveRule,
+  onRuleCyclicChange,
 }: {
   ruleType: "force" | "rollout";
   feature: FeatureInterface;
@@ -96,6 +100,8 @@ export default function StandardRuleFields({
   setScheduleType: (t: ScheduleType) => void;
   pendingDetach?: boolean;
   envScope: EnvScopeProps;
+  isLiveRule?: boolean;
+  onRuleCyclicChange?: (result: RuleCyclicResult) => void;
 }) {
   const form = useFormContext();
   const [advancedOptionsOpen, setadvancedOptionsOpen] = useState(
@@ -118,10 +124,12 @@ export default function StandardRuleFields({
     scheduleType === "ramp" &&
     (!ruleRampSchedule || ruleRampSchedule.status === "pending");
 
-  // Ramp exists in the DB and is not yet in a terminal state. Everything ramp-related
-  // is locked — including the coverage/hash/seed widget.
+  // Ramp-up (with steps) exists and is not yet in a terminal state. Locks
+  // targeting + coverage since the ramp steps own those fields. Standard
+  // schedules (no steps) never lock targeting.
   const rampNotComplete =
     !!ruleRampSchedule &&
+    ruleRampSchedule.steps.length > 0 &&
     !["completed", "rolled-back", "pending"].includes(ruleRampSchedule.status);
 
   const hasLegacySchedule = (
@@ -301,6 +309,16 @@ export default function StandardRuleFields({
                 setState={setRampSectionState}
               />
             )}
+            {isLiveRule &&
+              form.watch("enabled") &&
+              rampSectionState.startDate &&
+              new Date(rampSectionState.startDate).getTime() > Date.now() && (
+                <Callout status="warning" mt="4">
+                  This rule is currently enabled and will remain live until the
+                  schedule starts. Disable the rule first if you don&apos;t want
+                  it serving traffic before then.
+                </Callout>
+              )}
           </Box>
         )}
 
@@ -330,6 +348,16 @@ export default function StandardRuleFields({
                 environments={environments}
               />
             )}
+            {isLiveRule &&
+              form.watch("enabled") &&
+              rampSectionState.startDate &&
+              new Date(rampSectionState.startDate).getTime() > Date.now() && (
+                <Callout status="warning" mt="4">
+                  This rule is currently enabled and will remain live until the
+                  schedule starts. Disable the rule first if you don&apos;t want
+                  it serving traffic before then.
+                </Callout>
+              )}
           </>
         )}
       </div>
@@ -410,6 +438,7 @@ export default function StandardRuleFields({
                 setPrerequisiteTargetingSdkIssues
               }
               label="Target by Prerequisite Features"
+              onRuleCyclicChange={onRuleCyclicChange}
             />
           )}
         </>

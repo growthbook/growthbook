@@ -15,7 +15,6 @@ import {
   checkIfRevisionNeedsReview,
   resetReviewOnChange,
   getAffectedEnvsForExperiment,
-  getDefaultPrerequisiteCondition,
   getDependentExperiments,
   getDependentFeatures,
   getRulesForEnvironment,
@@ -38,6 +37,7 @@ import {
   SafeRolloutRule,
   ACTIVE_DRAFT_STATUSES,
   RevisionMetadata,
+  RevisionRampAction,
   RevisionRampCreateAction,
   RevisionRampDetachAction,
 } from "shared/validators";
@@ -67,6 +67,7 @@ import {
   PostFeatureRuleBody,
   PutFeatureRuleBody,
 } from "shared/types/feature-rule";
+import { getValidDate } from "shared/dates";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getContextForAgendaJobByOrgId,
@@ -108,6 +109,7 @@ import {
   getDraftRevision,
   assertCanAutoPublish,
 } from "back-end/src/services/features";
+import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
   moveFlatRule,
   stampRuleForEnvs,
@@ -146,13 +148,17 @@ import {
   submitReviewAndComments,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
-import { getEnabledEnvironments } from "back-end/src/util/features";
+import {
+  buildFeatureLookups,
+  getEnabledEnvironments,
+} from "back-end/src/util/features";
 import { ReqContext } from "back-end/types/request";
 import {
   findSDKConnectionByKey,
   markSDKConnectionUsed,
 } from "back-end/src/models/SdkConnectionModel";
 import { logger } from "back-end/src/util/logger";
+import { yieldEventLoop } from "back-end/src/util/yield";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import {
   CACHE_CONTROL_MAX_AGE,
@@ -181,6 +187,7 @@ import { getAllCodeRefsForFeature } from "back-end/src/models/FeatureCodeRefs";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
 import { getChangesToStartExperiment } from "back-end/src/services/experiments";
+import { approveScheduledExperimentStart } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import {
   formatPendingDraftFailureMessage,
   PendingDraftPublishResult,
@@ -194,6 +201,11 @@ import {
   validateCustomFieldsForSection,
 } from "back-end/src/util/custom-fields";
 import { getInitialFeatureJsonSchema } from "back-end/src/util/feature-json-schema";
+import {
+  advanceUntilBlocked,
+  applyRampStartActions,
+  computeNextProcessAt,
+} from "back-end/src/services/rampSchedule";
 
 /**
  * Routes an envelope change through the revision system.
@@ -1107,7 +1119,7 @@ export async function postFeatureReviewOrComment(
       : undefined;
     if (reviewSetting?.blockSelfApproval) {
       const isSelfApproval = (revision.contributors ?? []).some(
-        (c) => c != null && "id" in c && c.id === context.userId,
+        (id) => id === context.userId,
       );
       if (isSelfApproval) {
         throw new Error("You cannot approve a draft you contributed to.");
@@ -1359,11 +1371,14 @@ export async function postFeaturePublish(
     context.permissions.throwPermissionError();
   }
 
-  // If publishing experiments along with this draft, ensure they are valid
+  // If publishing experiments along with this draft, ensure they are valid.
+  // Experiments with a future statusUpdateSchedule.startAt are routed through
+  // approveScheduledExperimentStart instead of starting immediately.
   const experimentsToUpdate: {
     experiment: ExperimentInterface;
     changes: Changeset;
   }[] = [];
+  const experimentsToApproveSchedule: ExperimentInterface[] = [];
   if (publishExperimentIds && publishExperimentIds.length) {
     const experiments = await getExperimentsByIds(
       context,
@@ -1392,7 +1407,20 @@ export async function postFeaturePublish(
       context.permissions.throwPermissionError();
     }
 
-    for (const experiment of experiments) {
+    const now = new Date();
+    const startNowExperiments: ExperimentInterface[] = [];
+    for (const exp of experiments) {
+      const startAt = exp.statusUpdateSchedule?.startAt
+        ? getValidDate(exp.statusUpdateSchedule.startAt)
+        : null;
+      if (startAt && startAt > now) {
+        experimentsToApproveSchedule.push(exp);
+      } else {
+        startNowExperiments.push(exp);
+      }
+    }
+
+    for (const experiment of startNowExperiments) {
       try {
         const changes = await getChangesToStartExperiment(context, experiment);
 
@@ -1406,10 +1434,35 @@ export async function postFeaturePublish(
       }
     }
 
+    // Permission gate for scheduled-approval bucket — mirrors the check in
+    // approveScheduledExperimentStart so the request fails before we publish
+    // the feature revision instead of after.
+    for (const experiment of experimentsToApproveSchedule) {
+      if (!context.permissions.canUpdateExperiment(experiment, {})) {
+        context.permissions.throwPermissionError();
+      }
+      const linkedFeatures = await getFeaturesByIds(
+        context,
+        experiment.linkedFeatures || [],
+      );
+      const schedEnvs = getAffectedEnvsForExperiment({
+        experiment,
+        orgEnvironments: context.org.settings?.environments || [],
+        linkedFeatures,
+      });
+      if (
+        schedEnvs.length > 0 &&
+        !context.permissions.canRunExperiment(experiment, schedEnvs)
+      ) {
+        context.permissions.throwPermissionError();
+      }
+    }
+
     // Pre-flight: check for merge conflicts in OTHER pending feature drafts
-    // for each experiment being started. The current feature's conflict is
-    // already guarded above by the mergeResult.success check.
-    for (const experiment of experiments) {
+    // for each experiment being started immediately. Scheduled-approval
+    // experiments defer the pending-draft publish to the agenda job, which
+    // runs its own merge check at start time.
+    for (const experiment of startNowExperiments) {
       const otherDrafts = (experiment.pendingFeatureDrafts ?? []).filter(
         (d) => d.featureId !== feature.id,
       );
@@ -1522,6 +1575,28 @@ export async function postFeaturePublish(
     });
   }
 
+  // Approve scheduled starts for experiments whose `statusUpdateSchedule.startAt`
+  // is in the future. The agenda job will publish their other pending feature
+  // drafts and transition the experiment to running when the scheduled time
+  // is reached, so we intentionally don't call publishPendingFeatureDraftsForExperiment
+  // here.
+  for (const experiment of experimentsToApproveSchedule) {
+    const { updated } = await approveScheduledExperimentStart({
+      context,
+      experimentId: experiment.id,
+      skipChecklist: true,
+    });
+
+    await req.audit({
+      event: "experiment.update",
+      entity: {
+        object: "experiment",
+        id: experiment.id,
+      },
+      details: auditDetailsUpdate(experiment, updated),
+    });
+  }
+
   res.status(200).json({
     status: 200,
   });
@@ -1564,6 +1639,10 @@ export async function postFeatureRevert(
     context.permissions.throwPermissionError();
   }
 
+  // Intentionally no assertRegisteredAttributes() call here — reverting
+  // restores a previously-published state as-is, which may reference
+  // attributes that have since been archived or removed.
+
   // Heal pre-revert drift so the diff against `revision` reflects the true
   // live state. Without this, a feature stuck at an older version's rules
   // (e.g. via the legacy env.rules JIT-migration shadow) can make the
@@ -1580,6 +1659,7 @@ export async function postFeatureRevert(
     { throwOnFailure: true },
   );
 
+  // Compute the diff (what actually changes on the feature doc) and check publish permissions per-change.
   const mergeChanges: MergeResultChanges = {};
   const allEnabledEnvs = Array.from(
     getEnabledEnvironments(feature, environmentIds),
@@ -2031,6 +2111,21 @@ export async function postFeatureRule(
     context.permissions.throwPermissionError();
   }
 
+  // Opt-in attribute registration check before any side effects (safe-rollout
+  // create, holdout linking, revision update).
+  assertRegisteredAttributes(
+    context,
+    {
+      hashAttribute: (rule as { hashAttribute?: string }).hashAttribute,
+      fallbackAttribute: (rule as { fallbackAttribute?: string })
+        .fallbackAttribute,
+      condition: rule.condition,
+    },
+    "rule",
+    undefined,
+    feature.project,
+  );
+
   if (rule.type === "safe-rollout") {
     const environment = selectedEnvironments[0];
     if (!environment) {
@@ -2089,18 +2184,30 @@ export async function postFeatureRule(
   // experiment-ref rules
   if (rule.type === "experiment-ref" && feature.holdout?.id) {
     const experiment = await getExperimentById(context, rule.experimentId);
-    const expHasLinkedChanges =
-      (experiment?.linkedFeatures?.length ?? 0) > 0 ||
-      experiment?.hasURLRedirects ||
-      experiment?.hasVisualChangesets;
 
-    if (
-      experiment?.status !== "draft" ||
-      (experiment?.holdoutId && experiment.holdoutId !== feature.holdout.id) ||
-      expHasLinkedChanges
-    ) {
+    if (experiment?.status !== "draft") {
       throw new Error(
-        "Failed to create experiment rule. Experiment has linked changes, is not in draft status, or is not linked to the same holdout as the feature.",
+        `Cannot add experiment rule: this feature uses a holdout, so the experiment must be in "draft" status (currently "${experiment?.status ?? "unknown"}").`,
+      );
+    }
+    const expHasLinkedChanges =
+      (experiment.linkedFeatures?.length ?? 0) > 0 ||
+      experiment.hasURLRedirects ||
+      experiment.hasVisualChangesets;
+    if (expHasLinkedChanges) {
+      throw new Error(
+        `Cannot add experiment rule: this feature uses a holdout, but the experiment already has linked features, URL redirects, or visual changesets. Unlink them first.`,
+      );
+    }
+    if (experiment.holdoutId && experiment.holdoutId !== feature.holdout.id) {
+      const featureHoldout = await context.models.holdout.getById(
+        feature.holdout.id,
+      );
+      const expHoldout = experiment.holdoutId
+        ? await context.models.holdout.getById(experiment.holdoutId)
+        : null;
+      throw new Error(
+        `Cannot add experiment rule: experiment belongs to holdout "${expHoldout?.name || experiment.holdoutId}" but this feature uses holdout "${featureHoldout?.name || feature.holdout.id}".`,
       );
     }
 
@@ -3118,7 +3225,22 @@ export async function putFeatureRule(
   const revision = await getDraftRevision(context, feature, parseInt(version));
 
   const existingRules = cloneDeep(revision.rules ?? []);
-  const existingRule = existingRules.find((r) => r.id === ruleId);
+  let existingRule = existingRules.find((r) => r.id === ruleId);
+
+  // Stale-draft case: the rule was published to live after this draft was
+  // created (draft.baseVersion < the version where the rule was added), so
+  // the draft never picked it up. The modal still surfaces the rule (it's in
+  // feature.rules), so failing here surprises the user. Pull the live rule
+  // into the draft so the edit applies; autoMerge will reconcile cleanly at
+  // publish (live already has the rule with the same id).
+  if (!existingRule) {
+    const liveRule = (feature.rules ?? []).find((r) => r.id === ruleId);
+    if (liveRule) {
+      existingRules.push(cloneDeep(liveRule));
+      existingRule = existingRules[existingRules.length - 1];
+    }
+  }
+
   if (!existingRule) throw new Error("Unknown rule");
 
   // Audit/review scope is the rule's own env scope.
@@ -3133,6 +3255,28 @@ export async function putFeatureRule(
     defaultValueChanged: false,
     settings: org?.settings,
   });
+
+  // Opt-in attribute registration check — only validate fields that actually
+  // changed from the revision so pre-existing violations don't block unrelated edits.
+  // v2 stores rules in a flat list keyed by id; `existingRule` (above) is the
+  // pre-edit baseline for the same rule we're now patching.
+  assertRegisteredAttributes(
+    context,
+    {
+      hashAttribute: (rule as { hashAttribute?: string }).hashAttribute,
+      fallbackAttribute: (rule as { fallbackAttribute?: string })
+        .fallbackAttribute,
+      condition: rule.condition,
+    },
+    "rule",
+    {
+      hashAttribute: (existingRule as { hashAttribute?: string }).hashAttribute,
+      fallbackAttribute: (existingRule as { fallbackAttribute?: string })
+        .fallbackAttribute,
+      condition: existingRule.condition,
+    },
+    feature.project,
+  );
 
   let rampActionsUpdate:
     | RevisionRampCreateAction
@@ -3256,11 +3400,10 @@ export async function putFeatureRule(
           actions: (step.actions ?? []).map(remapT1),
         }));
       }
-      if ("startDate" in rampSchedulePayload) {
-        updates.startDate = rampSchedulePayload.startDate
-          ? new Date(rampSchedulePayload.startDate)
-          : null;
-      }
+      // Process endCondition/endActions before startDate so the "start now"
+      // path below (clear startDate while status is "ready") carries any
+      // simultaneously-submitted end fields through `...updates` instead of
+      // silently dropping them.
       if (rampSchedulePayload.endCondition !== undefined) {
         const ec = rampSchedulePayload.endCondition;
         if (!ec) {
@@ -3276,6 +3419,63 @@ export async function putFeatureRule(
       if (rampSchedulePayload.endActions !== undefined) {
         updates.endActions = rampSchedulePayload.endActions.map(remapT1);
       }
+      if ("startDate" in rampSchedulePayload) {
+        const nextStartDate = rampSchedulePayload.startDate
+          ? new Date(rampSchedulePayload.startDate)
+          : null;
+        // Clearing startDate on a "ready" schedule means "start now" —
+        // transition to running and apply start actions so the rule enables.
+        if (nextStartDate === null && existing.status === "ready") {
+          const now = new Date();
+          const initialNextStepAt = existing.steps.length > 0 ? now : null;
+          await context.models.rampSchedules.updateById(existing.id, {
+            ...updates,
+            startDate: null,
+            status: "running",
+            startedAt: now,
+            phaseStartedAt: now,
+            nextStepAt: initialNextStepAt,
+            nextProcessAt: computeNextProcessAt({
+              status: "running",
+              nextStepAt: initialNextStepAt,
+              endCondition:
+                updates.endCondition !== undefined
+                  ? (updates.endCondition as typeof existing.endCondition)
+                  : existing.endCondition,
+            }),
+          });
+          const refreshed = await context.models.rampSchedules.getById(
+            existing.id,
+          );
+          if (refreshed) {
+            // For simple schedules this enables the rule. For ramps with steps
+            // it's a no-op — advanceUntilBlocked will fire step 0 (which folds
+            // enabled:true into the same revision as the step's patches).
+            await applyRampStartActions(context, refreshed);
+            await advanceUntilBlocked(context, refreshed, now);
+          }
+          // The "start now" path is a live operation on the schedule, not a
+          // draft edit — skip the rest of the update block (which would
+          // overwrite our status/startedAt updates) and return the current
+          // draft version directly so the frontend stays in sync.
+          res.status(200).json({
+            status: 200,
+            version: revision.version,
+          });
+          return;
+        }
+        updates.startDate = nextStartDate;
+      }
+      updates.nextProcessAt = computeNextProcessAt({
+        status: existing.status,
+        nextStepAt: existing.nextStepAt,
+        endCondition: (updates.endCondition !== undefined
+          ? updates.endCondition
+          : existing.endCondition) as typeof existing.endCondition,
+        startDate: (updates.startDate !== undefined
+          ? updates.startDate
+          : existing.startDate) as typeof existing.startDate,
+      });
       await context.models.rampSchedules.updateById(existing.id, updates);
     }
   }
@@ -3682,7 +3882,18 @@ export async function deleteFeatureRule(
       ? environmentIds
       : (rule.environments ?? []);
 
-  const changes = { rules: nextRules };
+  // Strip any pending ramp actions for the deleted rule so publish doesn't
+  // create a schedule doc that would be immediately cleaned up as orphaned.
+  // Mirrors the REST handler's behavior.
+  const changes: { rules: FeatureRule[]; rampActions?: RevisionRampAction[] } =
+    { rules: nextRules };
+  const existingRampActions = revision.rampActions ?? [];
+  const filteredRampActions = existingRampActions.filter(
+    (a) => a.ruleId !== ruleId,
+  );
+  if (filteredRampActions.length !== existingRampActions.length) {
+    changes.rampActions = filteredRampActions;
+  }
 
   const resetReview = resetReviewOnChange({
     feature,
@@ -5057,17 +5268,6 @@ export async function postBatchPrerequisiteStates(
     featureIds: string[];
     environments: string[];
     baseFeatureId?: string;
-    checkPrerequisite?: {
-      id: string;
-      condition: string;
-      prerequisiteIndex?: number;
-    };
-    checkRulePrerequisites?: {
-      environment: string;
-      // Omit for "new rule" checks (virtually appended).
-      ruleId?: string;
-      prerequisites: FeaturePrerequisite[];
-    };
   }>,
   res: Response<
     {
@@ -5079,57 +5279,26 @@ export async function postBatchPrerequisiteStates(
           wouldBeCyclic: boolean;
         }
       >;
-      checkPrerequisiteCyclic?: {
-        wouldBeCyclic: boolean;
-        cyclicFeatureId: string | null;
-      };
-      checkRulePrerequisitesCyclic?: {
-        wouldBeCyclic: boolean;
-        cyclicFeatureId: string | null;
-      };
     },
     EventUserForResponseLocals
   >,
 ) {
   const context = getContextFromReq(req);
-  const {
-    featureIds,
-    environments,
-    baseFeatureId,
-    checkPrerequisite,
-    checkRulePrerequisites,
-  } = req.body;
+  const { featureIds, environments, baseFeatureId } = req.body;
 
-  // featureIds is required unless we're only doing cycle checks
-  if (
-    (!featureIds || !featureIds.length) &&
-    !checkPrerequisite &&
-    !checkRulePrerequisites
-  ) {
+  if (!featureIds || !featureIds.length) {
     throw new Error("Must provide featureIds");
   }
   if (!environments || !environments.length) {
     throw new Error("Must provide environments");
   }
 
-  // If baseFeatureId provided, fetch the feature and perform cyclic checks
   let baseFeature: FeatureInterface | null = null;
-  let revision: FeatureRevisionInterface | null = null;
-
   if (baseFeatureId) {
     baseFeature = await getFeature(context, baseFeatureId);
-
     if (!baseFeature) {
       throw new Error("Could not find base feature");
     }
-
-    revision = await getRevision({
-      context,
-      organization: context.org.id,
-      featureId: baseFeatureId,
-      feature: baseFeature,
-      version: baseFeature.version,
-    });
   }
 
   return await evaluateBatchPrerequisiteStates({
@@ -5137,48 +5306,102 @@ export async function postBatchPrerequisiteStates(
     featureIds,
     environments,
     baseFeature,
-    revision,
-    checkPrerequisite,
-    checkRulePrerequisites,
     res,
   });
 }
 
-// Shared logic for evaluating batch prerequisite states
+function buildPrerequisiteAdjacency(
+  features: FeatureInterface[],
+  environments: string[],
+): Map<string, Set<string>> {
+  const adj = new Map<string, Set<string>>();
+  for (const f of features) {
+    const deps = new Set<string>();
+    for (const p of f.prerequisites || []) {
+      deps.add(p.id);
+    }
+    for (const rule of f.rules ?? []) {
+      const applies =
+        rule.allEnvironments ||
+        (rule.environments || []).some((e) => environments.includes(e));
+      if (!applies) continue;
+      for (const p of rule.prerequisites ?? []) {
+        deps.add(p.id);
+      }
+    }
+    if (deps.size > 0) {
+      adj.set(f.id, deps);
+    }
+  }
+  return adj;
+}
+
+// Returns the set of features that transitively depend on targetId.
+function computeAncestors(
+  targetId: string,
+  adjacency: Map<string, Set<string>>,
+): Set<string> {
+  const reverse = new Map<string, Set<string>>();
+  for (const [featureId, deps] of adjacency) {
+    for (const dep of deps) {
+      let set = reverse.get(dep);
+      if (!set) {
+        set = new Set();
+        reverse.set(dep, set);
+      }
+      set.add(featureId);
+    }
+  }
+
+  const ancestors = new Set<string>();
+  const queue = [targetId];
+  while (queue.length > 0) {
+    const current = queue.pop()!;
+    const dependents = reverse.get(current);
+    if (!dependents) continue;
+    for (const dep of dependents) {
+      if (!ancestors.has(dep)) {
+        ancestors.add(dep);
+        queue.push(dep);
+      }
+    }
+  }
+  return ancestors;
+}
+
 async function evaluateBatchPrerequisiteStates({
   context,
   featureIds,
   environments,
   baseFeature,
-  revision,
-  checkPrerequisite,
-  checkRulePrerequisites,
   res,
 }: {
   context: ReqContext;
   featureIds: string[];
   environments: string[];
   baseFeature: FeatureInterface | null;
-  revision: FeatureRevisionInterface | null;
-  checkPrerequisite?: {
-    id: string;
-    condition: string;
-    prerequisiteIndex?: number;
-  };
-  checkRulePrerequisites?: {
-    environment: string;
-    ruleId?: string;
-    prerequisites: FeaturePrerequisite[];
-  };
   res: Response;
 }) {
-  const optionFeatures = featureIds.length
-    ? await getFeaturesByIds(context, featureIds)
-    : [];
-  const featuresMap = new Map(optionFeatures.map((f) => [f.id, f]));
+  // Load all org features so the adjacency graph is complete for cycle
+  // detection (cross-project intermediaries, etc.). State evaluation is
+  // still bounded to the requested featureIds.
+  const allFeatures = await getAllFeatures(context, {});
+  const featuresMap = new Map<string, FeatureInterface>(
+    allFeatures.map((f) => [f.id, f]),
+  );
 
-  const sharedFeaturesMap = new Map<string, FeatureInterface>();
-  optionFeatures.forEach((f) => sharedFeaturesMap.set(f.id, f));
+  const stateCache = new Map<string, PrerequisiteStateResult>();
+
+  let ancestorsOfBase: Set<string> | null = null;
+  if (baseFeature) {
+    const graphFeatures = [...allFeatures];
+    if (!featuresMap.has(baseFeature.id)) {
+      graphFeatures.push(baseFeature);
+    }
+
+    const adjacency = buildPrerequisiteAdjacency(graphFeatures, environments);
+    ancestorsOfBase = computeAncestors(baseFeature.id, adjacency);
+  }
 
   const results: Record<
     string,
@@ -5188,7 +5411,9 @@ async function evaluateBatchPrerequisiteStates({
     }
   > = {};
 
-  for (const featureId of featureIds) {
+  for (let i = 0; i < featureIds.length; i++) {
+    await yieldEventLoop(i);
+    const featureId = featureIds[i];
     const optionFeature = featuresMap.get(featureId);
     if (!optionFeature) continue;
 
@@ -5198,86 +5423,15 @@ async function evaluateBatchPrerequisiteStates({
         context,
         optionFeature,
         env,
-        sharedFeaturesMap,
+        featuresMap,
+        false,
+        stateCache,
       );
     }
 
-    // Skip cyclic check if no baseFeature
-    let wouldBeCyclic = false;
-    if (baseFeature) {
-      const testFeature = cloneDeep(baseFeature);
-      if (revision) {
-        // Overlay draft rules so cycle detection walks the draft's prereqs.
-        testFeature.rules = revision.rules ?? [];
-      }
-      testFeature.prerequisites = [
-        ...(testFeature.prerequisites || []),
-        {
-          id: featureId,
-          condition: getDefaultPrerequisiteCondition(),
-        },
-      ];
-
-      const cyclicCheckMap = new Map<string, FeatureInterface>();
-      cyclicCheckMap.set(baseFeature.id, baseFeature);
-      optionFeatures.forEach((f) => cyclicCheckMap.set(f.id, f));
-
-      const checkCyclicAsync = async (
-        f: FeatureInterface,
-      ): Promise<boolean> => {
-        const visited = new Set<string>();
-        const visiting = new Set<string>();
-
-        const visit = async (
-          feature: FeatureInterface,
-          depth: number = 0,
-        ): Promise<boolean> => {
-          if (depth >= PREREQUISITE_MAX_DEPTH) return true;
-          if (visiting.has(feature.id)) return true;
-          if (visited.has(feature.id)) return false;
-
-          visiting.add(feature.id);
-
-          const prerequisiteIds: string[] = (feature.prerequisites || []).map(
-            (p) => p.id,
-          );
-          // Only rules whose scope intersects org-enabled environments.
-          for (const rule of feature.rules ?? []) {
-            const applies =
-              rule.allEnvironments ||
-              (rule.environments || []).some((e) => environments.includes(e));
-            if (!applies) continue;
-            if (rule?.prerequisites?.length) {
-              prerequisiteIds.push(...rule.prerequisites.map((p) => p.id));
-            }
-          }
-
-          for (const prerequisiteId of prerequisiteIds) {
-            let prereqFeature = cyclicCheckMap.get(prerequisiteId);
-            if (!prereqFeature) {
-              const features = await getFeaturesByIds(context, [
-                prerequisiteId,
-              ]);
-              prereqFeature = features[0];
-              if (prereqFeature) {
-                cyclicCheckMap.set(prerequisiteId, prereqFeature);
-              }
-            }
-            if (prereqFeature && (await visit(prereqFeature, depth + 1))) {
-              return true;
-            }
-          }
-
-          visiting.delete(feature.id);
-          visited.add(feature.id);
-          return false;
-        };
-
-        return visit(f, 0);
-      };
-
-      wouldBeCyclic = await checkCyclicAsync(testFeature);
-    }
+    const wouldBeCyclic = ancestorsOfBase
+      ? ancestorsOfBase.has(featureId)
+      : false;
 
     results[featureId] = {
       states,
@@ -5285,161 +5439,9 @@ async function evaluateBatchPrerequisiteStates({
     };
   }
 
-  const checkCyclicWithJIT = async (
-    testFeature: FeatureInterface,
-    testRevision?: FeatureRevisionInterface | null,
-  ): Promise<[boolean, string | null]> => {
-    // Skip cyclic check when no base feature is provided (e.g. experiments)
-    if (!baseFeature) {
-      return [false, null];
-    }
-
-    const cyclicCheckMap = new Map<string, FeatureInterface>();
-    cyclicCheckMap.set(baseFeature.id, baseFeature);
-    optionFeatures.forEach((f) => cyclicCheckMap.set(f.id, f));
-
-    const visited = new Set<string>();
-    const stack = new Set<string>();
-
-    const visit = async (
-      feature: FeatureInterface,
-      depth: number = 0,
-    ): Promise<[boolean, string | null]> => {
-      if (depth >= PREREQUISITE_MAX_DEPTH) return [true, feature.id];
-      if (stack.has(feature.id)) return [true, feature.id];
-      if (visited.has(feature.id)) return [false, null];
-
-      stack.add(feature.id);
-      visited.add(feature.id);
-
-      const prerequisiteIds: string[] = (feature.prerequisites || []).map(
-        (p) => p.id,
-      );
-
-      // Prefer draft rules for the target feature, else the live feature.
-      const rulesToScan: FeatureRule[] =
-        testRevision && feature.id === testFeature.id
-          ? (testRevision.rules ?? [])
-          : (feature.rules ?? []);
-      for (const rule of rulesToScan) {
-        const applies =
-          rule.allEnvironments ||
-          (rule.environments || []).some((e) => environments.includes(e));
-        if (!applies) continue;
-        if (rule?.prerequisites?.length) {
-          prerequisiteIds.push(...rule.prerequisites.map((p) => p.id));
-        }
-      }
-
-      for (const prerequisiteId of prerequisiteIds) {
-        let prereqFeature = cyclicCheckMap.get(prerequisiteId);
-        if (!prereqFeature) {
-          const features = await getFeaturesByIds(context, [prerequisiteId]);
-          prereqFeature = features[0];
-          if (prereqFeature) {
-            cyclicCheckMap.set(prerequisiteId, prereqFeature);
-          }
-        }
-        if (prereqFeature) {
-          const [isCyclic, cyclicId] = await visit(prereqFeature, depth + 1);
-          if (isCyclic) {
-            return [true, cyclicId || prerequisiteId];
-          }
-        }
-      }
-
-      stack.delete(feature.id);
-      return [false, null];
-    };
-
-    return visit(testFeature, 0);
-  };
-
-  let checkPrerequisiteCyclic:
-    | { wouldBeCyclic: boolean; cyclicFeatureId: string | null }
-    | undefined;
-  if (checkPrerequisite && baseFeature) {
-    const testFeature = cloneDeep(baseFeature);
-    const testRevision = revision ? cloneDeep(revision) : null;
-
-    if (testRevision) {
-      testFeature.rules = testRevision.rules ?? [];
-    }
-
-    if (
-      checkPrerequisite.prerequisiteIndex !== undefined &&
-      testFeature.prerequisites?.[checkPrerequisite.prerequisiteIndex]
-    ) {
-      testFeature.prerequisites[checkPrerequisite.prerequisiteIndex] = {
-        id: checkPrerequisite.id,
-        condition: checkPrerequisite.condition,
-      };
-    } else {
-      testFeature.prerequisites = [
-        ...(testFeature.prerequisites || []),
-        {
-          id: checkPrerequisite.id,
-          condition: checkPrerequisite.condition,
-        },
-      ];
-    }
-
-    const [wouldBeCyclic, cyclicFeatureId] = await checkCyclicWithJIT(
-      testFeature,
-      testRevision,
-    );
-
-    checkPrerequisiteCyclic = { wouldBeCyclic, cyclicFeatureId };
-  }
-
-  let checkRulePrerequisitesCyclic:
-    | { wouldBeCyclic: boolean; cyclicFeatureId: string | null }
-    | undefined;
-  if (checkRulePrerequisites && baseFeature) {
-    const testFeature = cloneDeep(baseFeature);
-    const testRevision = revision ? cloneDeep(revision) : null;
-
-    if (testRevision) {
-      // Splice the proposed prereqs into the existing rule, or append a
-      // virtual rule scoped to `environment` for "new rule" checks.
-      testFeature.rules = testRevision.rules ?? [];
-
-      const { environment, ruleId, prerequisites } = checkRulePrerequisites;
-      const flat: FeatureRule[] = testRevision.rules ?? [];
-      const flatIdx = ruleId ? flat.findIndex((r) => r.id === ruleId) : -1;
-      if (flatIdx >= 0) {
-        flat[flatIdx] = {
-          ...flat[flatIdx],
-          prerequisites: prerequisites || [],
-        } as FeatureRule;
-        testRevision.rules = flat;
-      } else {
-        const newRule = stampRuleForEnvs(
-          {
-            type: "force",
-            value: "",
-            enabled: true,
-            prerequisites: prerequisites || [],
-          } as FeatureRule,
-          [environment],
-        );
-        testRevision.rules = [...flat, newRule];
-      }
-    }
-
-    const [wouldBeCyclic, cyclicFeatureId] = await checkCyclicWithJIT(
-      testFeature,
-      testRevision,
-    );
-
-    checkRulePrerequisitesCyclic = { wouldBeCyclic, cyclicFeatureId };
-  }
-
   res.status(200).json({
     status: 200,
     results,
-    ...(checkPrerequisiteCyclic && { checkPrerequisiteCyclic }),
-    ...(checkRulePrerequisitesCyclic && { checkRulePrerequisitesCyclic }),
   });
 }
 
@@ -5453,24 +5455,27 @@ type PrerequisiteStateResult = {
   value: PrerequisiteValue;
 };
 
-// Async version of evaluatePrerequisiteState with JIT feature loading for cross-project prerequisites
 async function evaluatePrerequisiteStateAsync(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   env: string,
   existingFeaturesMap?: Map<string, FeatureInterface>,
   skipRootConditions: boolean = false,
+  stateCache?: Map<string, PrerequisiteStateResult>,
 ): Promise<PrerequisiteStateResult> {
-  // Use provided map or start with an empty one
+  const cacheKey = `${feature.id}:${env}`;
+  if (stateCache && !skipRootConditions) {
+    const cached = stateCache.get(cacheKey);
+    if (cached) return cached;
+  }
+
   const featuresMap =
     existingFeaturesMap || new Map<string, FeatureInterface>();
 
-  // Add the current feature to the map if not already present
   if (!featuresMap.has(feature.id)) {
     featuresMap.set(feature.id, feature);
   }
 
-  // Check for cyclic dependencies first
   const visited = new Set<string>();
   const visiting = new Set<string>();
 
@@ -5488,7 +5493,6 @@ async function evaluatePrerequisiteStateAsync(
     for (const prereq of prerequisites) {
       let prereqFeature = featuresMap.get(prereq.id);
       if (!prereqFeature) {
-        // JIT load the feature
         const features = await getFeaturesByIds(context, [prereq.id]);
         prereqFeature = features[0];
         if (prereqFeature) {
@@ -5506,7 +5510,9 @@ async function evaluatePrerequisiteStateAsync(
   };
 
   if (await checkCyclic(feature, 0)) {
-    return { state: "cyclic", value: null };
+    const result: PrerequisiteStateResult = { state: "cyclic", value: null };
+    if (stateCache && !skipRootConditions) stateCache.set(cacheKey, result);
+    return result;
   }
 
   let isTopLevel = true;
@@ -5518,7 +5524,13 @@ async function evaluatePrerequisiteStateAsync(
     if (depth >= PREREQUISITE_MAX_DEPTH) {
       return { state: "cyclic", value: null };
     }
-    // 1. Current environment toggles take priority
+
+    if (!isTopLevel && stateCache) {
+      const innerKey = `${f.id}:${env}`;
+      const cached = stateCache.get(innerKey);
+      if (cached) return cached;
+    }
+
     if (!f.environmentSettings[env]) {
       return { state: "deterministic", value: null };
     }
@@ -5526,11 +5538,9 @@ async function evaluatePrerequisiteStateAsync(
       return { state: "deterministic", value: null };
     }
 
-    // 2. Determine default feature state
     let state: PrerequisiteState = "deterministic";
     let value: PrerequisiteValue = f.defaultValue;
 
-    // Cast value to correct format for evaluation
     if (f.valueType === "boolean") {
       value = f.defaultValue !== "false";
     } else if (f.valueType === "number") {
@@ -5544,7 +5554,6 @@ async function evaluatePrerequisiteStateAsync(
     }
 
     if (!skipRootConditions || !isTopLevel) {
-      // Any enabled rule scoped to this env makes the state conditional.
       const envRules = getRulesForEnvironment(f.rules ?? [], env);
       if (envRules.filter((r) => !!r.enabled).length) {
         state = "conditional";
@@ -5552,13 +5561,11 @@ async function evaluatePrerequisiteStateAsync(
       }
     }
 
-    // 3. If the feature has prerequisites, traverse all nodes
     isTopLevel = false;
     const prerequisites = f.prerequisites || [];
     for (const prereq of prerequisites) {
       let prereqFeature = featuresMap.get(prereq.id);
       if (!prereqFeature) {
-        // JIT load the feature
         const features = await getFeaturesByIds(context, [prereq.id]);
         prereqFeature = features[0];
         if (prereqFeature) {
@@ -5593,10 +5600,16 @@ async function evaluatePrerequisiteStateAsync(
       }
     }
 
-    return { state, value };
+    const result = { state, value };
+    if (stateCache && !isTopLevel) {
+      stateCache.set(`${f.id}:${env}`, result);
+    }
+    return result;
   };
 
-  return visit(feature, 0);
+  const result = await visit(feature, 0);
+  if (stateCache && !skipRootConditions) stateCache.set(cacheKey, result);
+  return result;
 }
 
 function evalDeterministicPrereqValueBackend(
@@ -5713,7 +5726,6 @@ export async function getFeaturesStaleStates(
     }),
   ]);
 
-  // Map most-recent draft date per feature
   const mostRecentDraftDateByFeatureId = new Map<string, Date>();
   for (const rev of draftRevisions) {
     const existing = mostRecentDraftDateByFeatureId.get(rev.featureId);
@@ -5727,13 +5739,18 @@ export async function getFeaturesStaleStates(
     ? allFeatures.filter((f) => featureIds.includes(f.id))
     : allFeatures;
 
+  const lookups = buildFeatureLookups(allFeatures, allExperiments);
+
   const computedAt = new Date().toISOString();
   const result: Record<
     string,
     IsFeatureStaleResult & { neverStale: boolean; computedAt: string }
   > = {};
 
-  for (const feature of targetFeatures) {
+  for (let i = 0; i < targetFeatures.length; i++) {
+    await yieldEventLoop(i);
+    const feature = targetFeatures[i];
+
     const applicableEnvIds = getEnvironments(context.org)
       .filter(
         (env) =>
@@ -5746,10 +5763,8 @@ export async function getFeaturesStaleStates(
     const staleResult = isFeatureStale({
       feature,
       features: allFeatures,
-      experiments: allExperiments as unknown as Parameters<
-        typeof isFeatureStale
-      >[0]["experiments"],
       environments: applicableEnvIds,
+      ...lookups,
       mostRecentDraftDate:
         mostRecentDraftDateByFeatureId.get(feature.id) ?? null,
     });
@@ -5824,25 +5839,34 @@ export async function getFeaturesDependents(
     getAllExperiments(context, { includeArchived: true }),
   ]);
 
+  const { featuresMap, reverseDependencyIndex, experiments } =
+    buildFeatureLookups(allFeatures, allExperiments);
+
   const dependents: Record<
     string,
     { features: string[]; experiments: { id: string; name: string }[] }
   > = {};
 
-  for (const featureId of featureIds) {
-    const feature = allFeatures.find((f) => f.id === featureId);
+  for (let i = 0; i < featureIds.length; i++) {
+    await yieldEventLoop(i);
+    const featureId = featureIds[i];
+    const feature = featuresMap.get(featureId);
     if (!feature) {
       dependents[featureId] = { features: [], experiments: [] };
       continue;
     }
     dependents[featureId] = {
-      features: getDependentFeatures(feature, allFeatures, allEnvIds),
-      experiments: getDependentExperiments(
+      features: getDependentFeatures(
         feature,
-        allExperiments as unknown as Parameters<
-          typeof getDependentExperiments
-        >[1],
-      ).map((e) => ({ id: e.id, name: e.name })),
+        allFeatures,
+        allEnvIds,
+        reverseDependencyIndex,
+        featuresMap,
+      ),
+      experiments: getDependentExperiments(feature, experiments).map((e) => ({
+        id: e.id,
+        name: e.name,
+      })),
     };
   }
 

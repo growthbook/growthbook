@@ -131,6 +131,7 @@ export abstract class QueryRunner<
   } = {};
   private useCache: boolean;
   private pendingTimers: Record<string, NodeJS.Timeout> = {};
+  private lockHeartbeatTimer: null | NodeJS.Timeout = null;
   private finishedQueryMapCache: QueryMap = new Map();
 
   public constructor(
@@ -188,6 +189,24 @@ export abstract class QueryRunner<
     return this.pendingTimers[id] !== undefined;
   }
 
+  // Called periodically while the runner is active. Override to refresh an
+  // external lock; default is a no-op.
+  protected onHeartbeat(): void {}
+
+  private startLockHeartbeat(): void {
+    if (this.lockHeartbeatTimer) return;
+    this.lockHeartbeatTimer = setInterval(() => {
+      this.onHeartbeat();
+    }, 30000);
+  }
+
+  private stopLockHeartbeat(): void {
+    if (this.lockHeartbeatTimer) {
+      clearInterval(this.lockHeartbeatTimer);
+      this.lockHeartbeatTimer = null;
+    }
+  }
+
   async onQueryFinish() {
     if (!this.timer) {
       logger.debug(
@@ -197,9 +216,30 @@ export abstract class QueryRunner<
       );
       this.timer = setTimeout(async () => {
         this.timer = null;
+        // Fetch the latest model in its own try so we can distinguish
+        // "model is gone or unreadable" from a genuine refresh failure.
+        // The most common cause of getLatestModel throwing here is a
+        // concurrent cancel: cancelSnapshot constructs its own runner
+        // instance to call cancelQueries() and then deletes the snapshot,
+        // so this (separate) instance never sees the status flip and only
+        // learns about the cancellation when getLatestModel returns null.
+        // There's nothing useful to refresh in that case; if instead this
+        // was a transient DB error, one of the other onQueryFinish call
+        // sites will retry on the next query state change.
+        let latest: Model;
         try {
           logger.debug("Getting latest model for " + this.model.id);
-          this.model = await this.getLatestModel();
+          latest = await this.getLatestModel();
+        } catch (e) {
+          logger.debug(
+            `Skipping refresh for ${this.model.id}: ${
+              e instanceof Error ? e.message : String(e)
+            }`,
+          );
+          return;
+        }
+        this.model = latest;
+        try {
           const queryMap = await this.refreshQueryStatuses();
           await this.startReadyQueries(queryMap);
         } catch (e) {
@@ -290,6 +330,24 @@ export abstract class QueryRunner<
       this.setStatus("finished", error, result);
     } else {
       this.setStatus("running");
+      // Schedule one more pass through refreshQueryStatuses/startReadyQueries
+      // now that the full `queries` array has been persisted to the model.
+      //
+      // This closes a race: queries with no dependencies are executed
+      // fire-and-forget inside startQueries() (see startQuery's readyToRun
+      // branch). If one of them is very fast (e.g. a DROP TABLE during a
+      // Full Refresh), it can finish — and its onQueryFinish 1-second timer
+      // can fire — while startQueries() is still generating SQL for the
+      // remaining queries and before updateModel() above has written them.
+      // That early timer reloads the model, sees no running/queued queries,
+      // and gives up. Once startQueries() finally returns, nothing re-arms
+      // the timer, so every other query in the DAG stays "queued" forever.
+      //
+      // Calling onQueryFinish() here guarantees at least one refresh happens
+      // after the DAG is visible in the persisted model. If the timer from
+      // the early-finishing query is still pending this is a no-op; if it
+      // already fired and found nothing, this re-arms it with the real DAG.
+      this.onQueryFinish();
     }
 
     return newModel;
@@ -307,7 +365,12 @@ export abstract class QueryRunner<
     this.error = error;
     this.result = result;
 
+    if (this.status === "running") {
+      this.startLockHeartbeat();
+    }
+
     if (this.status === "finished") {
+      this.stopLockHeartbeat();
       this.emitter.emit(FINISH_EVENT);
     }
   }
@@ -437,9 +500,23 @@ export abstract class QueryRunner<
         (q) => q.status === "running" || q.status === "queued",
       )
     ) {
-      logger.debug(
-        "No running or queued queries for " + this.model.id + ", return",
-      );
+      if (this.status !== "finished") {
+        // Being asked to refresh a non-terminal runner whose persisted model
+        // has no active queries is unexpected. It most likely means a query
+        // finished (and its onQueryFinish timer fired) before startAnalysis()
+        // persisted the full `queries` array. Historically this was only a
+        // debug log, which made the resulting "snapshot stuck running forever"
+        // failure mode invisible. Log at warn so it surfaces; the post-persist
+        // onQueryFinish() in startAnalysis() will re-drive the DAG.
+        logger.warn(
+          `No running or queued queries for ${this.model.id} but runner status is "${this.status}". ` +
+            `Likely a query finished before the full query DAG was persisted; a follow-up refresh is scheduled.`,
+        );
+      } else {
+        logger.debug(
+          "No running or queued queries for " + this.model.id + ", return",
+        );
+      }
       return new Map();
     }
 
@@ -520,7 +597,37 @@ export abstract class QueryRunner<
           false,
         );
 
-        const externalIds = queryDocs.map((q) => q.externalId).filter(Boolean);
+        // Some "running" docs are pointers to a previously-started in-flight
+        // query (see `createNewQueryFromCached`). Those copies share the
+        // upstream datasource job with the original via `cachedQueryUsed`
+        // and never have their own `externalId` set — only the original
+        // doc does, populated by the integration's `runQuery`/poller.
+        // Chase one hop to find the real id so we can actually cancel the
+        // upstream job. `cachedQueryUsed` always points at the original
+        // (not a copy of a copy), so a single lookup is sufficient.
+        const cachedSourceIds = Array.from(
+          new Set(
+            queryDocs
+              .map((q) => q.cachedQueryUsed)
+              .filter((id): id is string => Boolean(id)),
+          ),
+        );
+        const cachedSourceDocs = cachedSourceIds.length
+          ? await getQueriesByIds(this.context, cachedSourceIds, false)
+          : [];
+        const cachedSourceById = new Map(
+          cachedSourceDocs.map((q) => [q.id, q]),
+        );
+
+        const externalIds = queryDocs
+          .map((q) => {
+            if (q.externalId) return q.externalId;
+            if (q.cachedQueryUsed) {
+              return cachedSourceById.get(q.cachedQueryUsed)?.externalId;
+            }
+            return undefined;
+          })
+          .filter((id): id is string => Boolean(id));
 
         if (externalIds.length) {
           await promiseAllChunks(

@@ -31,7 +31,7 @@ import { getEnvironmentIdsFromOrg } from "back-end/src/services/organizations";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import { validateEnvKeys } from "./postFeature";
-import { validateCustomFields } from "./validations";
+import { validateCustomFields, validateRuleAttributes } from "./validations";
 import { canBypassReviewChecks } from "./reviewBypass";
 import {
   assertValidHoldout,
@@ -131,6 +131,16 @@ export const updateFeatureV2 = createApiRequestHandler(
 
   let inboundFlatRules: FeatureRule[] | null = null;
   if (req.body.rules != null) {
+    // Opt-in registered-attribute check on each replacement rule before any
+    // DB writes. `mapV2ApiRuleToFeatureRule` doesn't validate, so we cover
+    // flat v2 rules explicitly here (env-rules go through `fromApiEnvSettings…`).
+    for (const rule of req.body.rules) {
+      validateRuleAttributes(
+        rule as Parameters<typeof validateRuleAttributes>[0],
+        req.context,
+        feature.project,
+      );
+    }
     inboundFlatRules = req.body.rules.map((rule) =>
       mapV2ApiRuleToFeatureRule(rule, feature),
     );

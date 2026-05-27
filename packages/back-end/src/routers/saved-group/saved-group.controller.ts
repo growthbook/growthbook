@@ -1,8 +1,6 @@
 import type { Response } from "express";
 import { isEqual } from "lodash";
 import {
-  featuresReferencingSavedGroups,
-  experimentsReferencingSavedGroups,
   formatByteSizeString,
   SAVED_GROUP_SIZE_LIMIT_BYTES,
   ID_LIST_DATATYPES,
@@ -30,8 +28,10 @@ import {
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import { getAdapter } from "back-end/src/revisions";
-import { getAllFeatures } from "back-end/src/models/FeatureModel";
-import { getAllExperiments } from "back-end/src/models/ExperimentModel";
+import {
+  loadSavedGroupReferences,
+  totalSavedGroupReferences,
+} from "back-end/src/services/savedGroups";
 
 // region POST /saved-groups
 
@@ -305,8 +305,10 @@ export const postSavedGroupAddItems = async (
     "saved-group",
     savedGroup as unknown as Record<string, unknown> & { id: string },
     [{ op: "replace", path: "/values", value: newValues }],
-    false, // replaceChanges
-    !approvalRequired, // forceCreate: keep any pre-existing draft untouched
+    {
+      // replaceChanges: false (default) — merge with any existing proposed ops
+      forceCreate: !approvalRequired, // keep any pre-existing draft untouched
+    },
   );
 
   // When approval isn't required, merge the revision immediately so the
@@ -447,8 +449,10 @@ export const postSavedGroupRemoveItems = async (
     "saved-group",
     savedGroup as unknown as Record<string, unknown> & { id: string },
     [{ op: "replace", path: "/values", value: newValues }],
-    false, // replaceChanges
-    !approvalRequired, // forceCreate: keep any pre-existing draft untouched
+    {
+      // replaceChanges: false (default) — merge with any existing proposed ops
+      forceCreate: !approvalRequired, // keep any pre-existing draft untouched
+    },
   );
 
   // When approval isn't required, merge the revision immediately so the
@@ -649,6 +653,33 @@ export const putSavedGroup = async (
     fieldsToUpdate.archived = archived;
   }
 
+  // Block archive when the saved group is still referenced. Same gate as the
+  // REST archive endpoint and the front-end SavedGroupArchiveModal — it keeps
+  // the invariant that archived groups have no references, so they're
+  // naturally excluded from the SDK payload's `filterUsedSavedGroups` without
+  // needing a separate scrub step. Only the archive transition is blocked;
+  // unarchiving is always allowed.
+  if (fieldsToUpdate.archived === true && !comparisonBase.archived) {
+    const refs = await loadSavedGroupReferences(context, id);
+    if (refs && totalSavedGroupReferences(refs) > 0) {
+      const parts: string[] = [];
+      if (refs.features.length) {
+        parts.push(`${refs.features.length} feature(s)`);
+      }
+      if (refs.experiments.length) {
+        parts.push(`${refs.experiments.length} experiment(s)`);
+      }
+      if (refs.savedGroups.length) {
+        parts.push(`${refs.savedGroups.length} other saved group(s)`);
+      }
+      throw new Error(
+        `Cannot archive saved group: it is still referenced by ${parts.join(
+          ", ",
+        )}. Remove these references first.`,
+      );
+    }
+  }
+
   const forceCreateRevision = req.query.forceCreateRevision === "1";
   const bypassApproval = req.query.bypassApproval === "1";
   const autoPublish = req.query.autoPublish === "1";
@@ -693,12 +724,15 @@ export const putSavedGroup = async (
     "saved-group",
     savedGroup as unknown as Record<string, unknown> & { id: string },
     patchOps,
-    false, // replaceChanges = false to merge with existing proposed changes
-    wantsMerge || forceCreateRevision, // forceCreate when publishing or creating a fresh draft
-    title,
-    revertedFrom,
-    // Only update a specific draft revision when we're staying in draft mode
-    wantsDraft && !bypassApproval && !autoPublish ? revisionId : undefined,
+    {
+      // replaceChanges: false (default) — merge with existing proposed changes
+      forceCreate: wantsMerge || forceCreateRevision, // when publishing or creating a fresh draft
+      title,
+      revertedFrom,
+      // Only update a specific draft revision when we're staying in draft mode
+      revisionId:
+        wantsDraft && !bypassApproval && !autoPublish ? revisionId : undefined,
+    },
   );
 
   if (wantsMerge) {
@@ -873,70 +907,15 @@ export const getSavedGroupReferences = async (
   const { id } = req.params;
   const context = getContextFromReq(req);
 
-  const allSavedGroups = await context.models.savedGroups.getAll();
-  const targetGroup = allSavedGroups.find((sg) => sg.id === id);
-  if (!targetGroup) {
+  const refs = await loadSavedGroupReferences(context, id);
+  if (!refs) {
     res.status(404).json({ message: "Saved group not found" });
     return;
   }
 
-  // Saved groups whose condition string directly references this group (one level of chaining)
-  const savedGroupsReferencingTarget = allSavedGroups.filter(
-    (sg) => sg.id !== id && sg.condition?.includes(id),
-  );
-
-  const savedGroupsToCheck = [targetGroup, ...savedGroupsReferencingTarget];
-
-  const environments = context.org.settings?.environments || [];
-
-  const [allFeatures, allExperiments] = await Promise.all([
-    getAllFeatures(context, {}),
-    getAllExperiments(context, {}),
-  ]);
-
-  const featureRefMap = featuresReferencingSavedGroups({
-    savedGroups: savedGroupsToCheck,
-    features: allFeatures,
-    environments,
-  });
-
-  const experimentRefMap = experimentsReferencingSavedGroups({
-    savedGroups: savedGroupsToCheck,
-    experiments: allExperiments,
-  });
-
-  const featuresSet = new Map<
-    string,
-    { id: string; name: string; project?: string }
-  >();
-  const experimentsSet = new Map<
-    string,
-    { id: string; name: string; project?: string; projects?: string[] }
-  >();
-
-  for (const sg of savedGroupsToCheck) {
-    for (const f of featureRefMap[sg.id] ?? []) {
-      featuresSet.set(f.id, { id: f.id, name: f.id, project: f.project });
-    }
-    for (const e of experimentRefMap[sg.id] ?? []) {
-      experimentsSet.set(e.id, {
-        id: e.id,
-        name: e.name,
-        project: (e as { project?: string }).project,
-        projects: (e as { projects?: string[] }).projects,
-      });
-    }
-  }
-
   return res.status(200).json({
     status: 200,
-    features: Array.from(featuresSet.values()),
-    experiments: Array.from(experimentsSet.values()),
-    savedGroups: savedGroupsReferencingTarget.map((sg) => ({
-      id: sg.id,
-      groupName: sg.groupName,
-      projects: sg.projects,
-    })),
+    ...refs,
   });
 };
 
