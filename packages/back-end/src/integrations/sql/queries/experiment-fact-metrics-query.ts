@@ -27,7 +27,7 @@ import { getMetricData } from "back-end/src/integrations/sql/fact-metrics/metric
 import { processActivationMetric } from "back-end/src/integrations/sql/processing/process-activation-metric";
 import { processDimensions } from "back-end/src/integrations/sql/processing/process-dimensions";
 import { getQuantileGridColumns } from "back-end/src/integrations/sql/columns/quantile-grid-columns";
-import { getKllQuantileGridColumns } from "back-end/src/integrations/sql/columns/kll-quantile-grid-columns";
+import { getQuantileSketchGridColumns } from "back-end/src/integrations/sql/columns/quantile-sketch-grid-columns";
 
 export function getExperimentFactMetricsQuery(
   dialect: SqlDialect,
@@ -328,7 +328,7 @@ export function getExperimentFactMetricsQuery(
                   data.numeratorSourceIndex === f.index;
 
                 const kllMergeColumns = isKllMergeNumerator
-                  ? `, ${dialect.kllMergePartial(`umj.${data.alias}_value`)} AS ${data.alias}_user_sketch`
+                  ? `, ${dialect.quantileSketchMergePartial(`umj.${data.alias}_value`)} AS ${data.alias}_user_sketch`
                   : "";
 
                 const numeratorValueColumn =
@@ -429,10 +429,10 @@ export function getExperimentFactMetricsQuery(
         ${eventQuantileData
           .map((data) =>
             data.isKllMerge
-              ? getKllQuantileGridColumns(
+              ? getQuantileSketchGridColumns(
                   dialect,
                   data.metricQuantileSettings,
-                  dialect.kllMergePartial(
+                  dialect.quantileSketchMergePartial(
                     eqmReadsFromBase
                       ? `m.${data.alias}_user_sketch`
                       : `m.${data.alias}_value`,
@@ -474,7 +474,7 @@ export function getExperimentFactMetricsQuery(
         const kllMergeResolutionCols = factTableKllMergeMetrics
           .map(
             (data) =>
-              `, ${dialect.kllRankApprox(
+              `, ${dialect.quantileSketchRankApprox(
                 `base.${data.alias}_user_sketch`,
                 `qm.${data.alias}_quantile`,
                 `base.${data.alias}_n_events`,
