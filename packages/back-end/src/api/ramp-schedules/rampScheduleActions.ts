@@ -1106,30 +1106,13 @@ export const updateStepsRampSchedule = createApiRequestHandler({
   }),
   responseSchema: z.object({
     rampSchedule: apiRampScheduleInterface,
-    applied: z.object({
-      fullyApplied: z
-        .array(z.number())
-        .describe(
-          "Step indices where all incoming fields were applied (future steps).",
-        ),
-      partiallyApplied: z
-        .array(z.number())
-        .describe(
-          "Step indices where only `holdConditions` and `approvalNotes` were applied because the step is currently executing.",
-        ),
-      skipped: z
-        .array(z.number())
-        .describe(
-          "Step indices where incoming changes were ignored because the step has already executed (index < currentStepIndex).",
-        ),
-    }),
   }),
   method: "put" as const,
   path: "/ramp-schedules/:id/steps",
   operationId: "updateRampScheduleSteps",
   summary: "Update ramp schedule steps",
   description:
-    "Replaces the steps array for a ramp schedule.\n\n**Running schedules apply partial updates per step position:**\n- **Past steps** (already executed): ignored — incoming changes are dropped.\n- **Current step** (executing now): only `holdConditions` and `approvalNotes` are applied; `interval` and `monitored` are preserved.\n- **Future steps**: fully replaced.\n\nThe `applied` object in the response reports exactly which indices were fully applied, partially applied, or skipped.\n\n**Step actions** (coverage/targeting patches) are not accepted here — they change the SDK payload and must go through a feature revision draft. Use `PUT /v2/features/:id/revisions/:version/rules/:ruleId/ramp-schedule` to modify step actions.\n",
+    "Fully replaces the steps array for a ramp schedule. Only allowed when the schedule is **not** running — pause the schedule first if it is active.\n\n**Step actions** (coverage/targeting patches) are not accepted here — they change the SDK payload and must go through a feature revision draft. Existing step actions are preserved for each position. Use `PUT /v2/features/:id/revisions/:version/rules/:ruleId/ramp-schedule` to modify coverage/targeting.\n",
   tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
@@ -1149,21 +1132,13 @@ export const updateStepsRampSchedule = createApiRequestHandler({
     }),
   );
 
-  const { schedule: updated, mergeResult } = await updateRampSteps(
+  const { schedule: updated } = await updateRampSteps(
     req.context,
     schedule,
     incomingSteps,
   );
 
-  return {
-    rampSchedule: rampScheduleToApiInterface(updated),
-    applied: {
-      fullyApplied:
-        mergeResult?.appliedIndices ?? req.body.steps.map((_, i) => i),
-      partiallyApplied: mergeResult?.partialIndices ?? [],
-      skipped: mergeResult?.skippedIndices ?? [],
-    },
-  };
+  return { rampSchedule: rampScheduleToApiInterface(updated) };
 });
 
 export const refreshMonitoringRampSchedule = createApiRequestHandler({

@@ -2057,58 +2057,49 @@ export function mergeStepsForRunningSchedule(
   incomingSteps: RampScheduleInterface["steps"],
 ): { steps: RampScheduleInterface["steps"]; result: StepMergeResult } {
   const currentIdx = schedule.currentStepIndex;
+
+  // The incoming array is a full replacement for the future portion of the
+  // schedule. Past steps are immutable and must remain addressable, so the
+  // caller must include at least currentIdx+1 steps (positions 0..currentIdx).
+  const minRequired = Math.max(0, currentIdx + 1);
+  if (incomingSteps.length < minRequired) {
+    throw new Error(
+      `Steps array must contain at least ${minRequired} step(s) — schedule is at step index ${currentIdx} and past/current steps cannot be truncated.`,
+    );
+  }
+
   const appliedIndices: number[] = [];
   const partialIndices: number[] = [];
   const skippedIndices: number[] = [];
 
-  const merged: RampScheduleInterface["steps"] = schedule.steps.map(
-    (existing, idx) => {
-      const incoming = incomingSteps[idx];
-
-      if (idx < currentIdx) {
-        if (incoming) skippedIndices.push(idx);
-        return existing;
-      }
-
-      if (idx === currentIdx) {
-        if (!incoming) return existing;
-        partialIndices.push(idx);
-        return {
-          ...existing,
-          holdConditions: incoming.holdConditions,
-          approvalNotes: incoming.approvalNotes,
-        };
-      }
-
-      // Future step — fully editable.
-      // Preserve existing actions when caller omits them (avoids accidentally
-      // clearing coverage patches that require a revision to change).
-      if (!incoming) {
-        // incomingSteps is shorter than the existing array at this position.
-        // Trailing future steps that the caller did not provide are preserved
-        // rather than deleted. This is intentional: on a running schedule you
-        // cannot delete a future step by simply omitting it — you must
-        // explicitly replace it with a different step. If you want to remove a
-        // future step, send a steps array that includes a replacement for it.
-        // Callers can check `applied.skipped` in the response to see which
-        // indices were not touched.
-        skippedIndices.push(idx);
-        return existing;
-      }
-      appliedIndices.push(idx);
-      return {
-        ...incoming,
-        actions:
-          incoming.actions.length > 0 ? incoming.actions : existing.actions,
-      };
-    },
-  );
-
-  // Append genuinely new future steps (beyond the current steps.length).
-  for (let i = schedule.steps.length; i < incomingSteps.length; i++) {
-    merged.push(incomingSteps[i]);
-    appliedIndices.push(i);
+  // Past steps: always taken from the existing schedule; caller-provided values
+  // at these positions are silently discarded and reported in skippedIndices.
+  for (let i = 0; i < currentIdx; i++) {
+    if (incomingSteps[i]) skippedIndices.push(i);
   }
+  const pastSteps = schedule.steps.slice(0, currentIdx);
+
+  // Current step: only holdConditions and approvalNotes are editable.
+  let currentStep = schedule.steps[currentIdx];
+  const incomingCurrent = incomingSteps[currentIdx];
+  if (currentStep && incomingCurrent) {
+    partialIndices.push(currentIdx);
+    currentStep = {
+      ...currentStep,
+      holdConditions: incomingCurrent.holdConditions,
+      approvalNotes: incomingCurrent.approvalNotes,
+    };
+  }
+
+  // Future steps: full replacement from incoming (including appending new steps).
+  const futureSteps = incomingSteps.slice(currentIdx + 1).map((step, rel) => {
+    appliedIndices.push(currentIdx + 1 + rel);
+    return step;
+  });
+
+  const merged: RampScheduleInterface["steps"] = currentStep
+    ? [...pastSteps, currentStep, ...futureSteps]
+    : [...pastSteps, ...futureSteps];
 
   return {
     steps: merged,
@@ -2120,20 +2111,13 @@ export async function updateRampSteps(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
   incomingSteps: RampScheduleInterface["steps"],
-): Promise<{
-  schedule: RampScheduleInterface;
-  mergeResult: StepMergeResult | null;
-}> {
-  let finalSteps: RampScheduleInterface["steps"];
-  let mergeResult: StepMergeResult | null = null;
-
+): Promise<{ schedule: RampScheduleInterface }> {
   if (schedule.status === "running") {
-    const merged = mergeStepsForRunningSchedule(schedule, incomingSteps);
-    finalSteps = merged.steps;
-    mergeResult = merged.result;
-  } else {
-    finalSteps = incomingSteps;
+    throw new Error(
+      `Cannot edit steps on a running schedule. Pause the schedule first.`,
+    );
   }
+  const finalSteps = incomingSteps;
 
   // Q9: clamp currentStepIndex when editing a paused schedule whose step
   // count shrank below the current index.
@@ -2161,5 +2145,5 @@ export async function updateRampSteps(
   const ensured = await ensureSafeRolloutForMonitoredRamp(ctx, updated);
   await syncLinkedSafeRolloutForRampState(ctx, ensured);
 
-  return { schedule: ensured, mergeResult };
+  return { schedule: ensured };
 }
