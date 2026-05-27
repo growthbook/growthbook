@@ -14,6 +14,7 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import NewHoldoutForm from "@/components/Holdout/NewHoldoutForm";
 import { useAddComputedFields, useSearch } from "@/services/search";
@@ -193,20 +194,23 @@ const HoldoutsPage = (): React.ReactElement => {
               <h1>Holdouts</h1>
             </div>
             <div style={{ flex: 1 }} />
-            {canAdd && (
-              <div className="col-auto">
-                <PremiumTooltip tipPosition="left" commercialFeature="holdouts">
+            <div className="col-auto">
+              <PremiumTooltip tipPosition="left" commercialFeature="holdouts">
+                <Tooltip
+                  body="You don't have permission to add holdouts in this project."
+                  shouldDisplay={hasHoldoutFeature && !canAdd}
+                >
                   <Button
                     onClick={() => {
                       setOpenNewHoldoutModal(true);
                     }}
-                    disabled={!hasHoldoutFeature}
+                    disabled={!hasHoldoutFeature || !canAdd}
                   >
                     Add Holdout
                   </Button>
-                </PremiumTooltip>
-              </div>
-            )}
+                </Tooltip>
+              </PremiumTooltip>
+            </div>
           </div>
           {!hasHoldoutsCreated ? (
             <EmptyState
@@ -223,22 +227,25 @@ const HoldoutsPage = (): React.ReactElement => {
                 </LinkButton>
               }
               rightButton={
-                canAdd ? (
-                  <PremiumTooltip
-                    tipPosition="left"
-                    popperStyle={{ top: 15 }}
-                    commercialFeature="holdouts"
+                <PremiumTooltip
+                  tipPosition="left"
+                  popperStyle={{ top: 15 }}
+                  commercialFeature="holdouts"
+                >
+                  <Tooltip
+                    body="You don't have permission to add holdouts in this project."
+                    shouldDisplay={hasHoldoutFeature && !canAdd}
                   >
                     <Button
                       onClick={() => {
                         setOpenNewHoldoutModal(true);
                       }}
-                      disabled={!hasHoldoutFeature}
+                      disabled={!hasHoldoutFeature || !canAdd}
                     >
                       Add Holdout
                     </Button>
-                  </PremiumTooltip>
-                ) : null
+                  </Tooltip>
+                </PremiumTooltip>
               }
             />
           ) : (

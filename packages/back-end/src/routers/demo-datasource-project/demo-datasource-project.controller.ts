@@ -470,38 +470,39 @@ Treatment shows a larger 'Add to Cart' CTA, but with the same functionality.`,
       featureToCreate.environmentSettings[env] = {
         enabled: true,
       };
-      featureToCreate.rules.push(
-        {
-          type: "force",
-          description: "",
-          id: `${getDemoDataSourceFeatureId()}-employee-force-rule-${env}`,
-          allEnvironments: false,
-          environments: [env],
-          value: "true",
-          condition: `{"is_employee":true}`,
-          enabled: true,
-        },
-        {
-          type: "experiment-ref",
-          description: "",
-          id: `${getDemoDataSourceFeatureId()}-exp-rule-${env}`,
-          allEnvironments: false,
-          environments: [env],
-          enabled: true,
-          experimentId: createdExperiment.id,
-          variations: [
-            {
-              variationId: "v0",
-              value: "false",
-            },
-            {
-              variationId: "v1",
-              value: "true",
-            },
-          ],
-        },
-      );
     });
+    // Single rules array tagged for all environments — avoids per-env duplicates.
+    featureToCreate.rules.push(
+      {
+        type: "force",
+        description: "",
+        id: `${getDemoDataSourceFeatureId()}-employee-force-rule`,
+        allEnvironments: true,
+        environments: [],
+        value: "true",
+        condition: `{"is_employee":true}`,
+        enabled: true,
+      },
+      {
+        type: "experiment-ref",
+        description: "",
+        id: `${getDemoDataSourceFeatureId()}-exp-rule`,
+        allEnvironments: true,
+        environments: [],
+        enabled: true,
+        experimentId: createdExperiment.id,
+        variations: [
+          {
+            variationId: "v0",
+            value: "false",
+          },
+          {
+            variationId: "v1",
+            value: "true",
+          },
+        ],
+      },
+    );
 
     await createFeature(context, featureToCreate);
 

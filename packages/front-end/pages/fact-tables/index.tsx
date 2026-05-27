@@ -24,7 +24,6 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Switch from "@/ui/Switch";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
-import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import LinkButton from "@/ui/LinkButton";
 import Table, {
   TableBody,
@@ -57,12 +56,9 @@ export default function FactTablesPage() {
   const router = useRouter();
   const { getOwnerDisplay } = useUser();
 
-  const { demoDataSourceId } = useDemoDataSourceProject();
-
   const hasDatasource = datasources.some(
     (d) =>
       d.properties?.queryLanguage === "sql" &&
-      d.id !== demoDataSourceId &&
       isProjectListValidForProject(d.projects, project),
   );
 

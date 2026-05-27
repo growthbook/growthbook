@@ -6,7 +6,6 @@ import {
   FactTableInterface,
   FactMetricInterface,
 } from "shared/types/fact-table";
-import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
@@ -42,7 +41,6 @@ import {
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import { useUser } from "@/services/UserContext";
-import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import Callout from "@/ui/Callout";
 import Modal from "@/components/Modal";
 import HistoryTable from "@/components/HistoryTable";
@@ -238,24 +236,6 @@ export default function FactTablePage() {
           { display: factTable.name },
         ]}
       />
-
-      {factTable.projects?.includes(
-        getDemoDatasourceProjectIdForOrganization(organization.id),
-      ) && (
-        <Callout status="info" mb="4">
-          <Flex align="center" justify="between" gap="3">
-            <div>
-              This Fact Table is part of our sample dataset. You can safely
-              delete this once you are done exploring.
-            </div>
-            <DeleteDemoDatasourceButton
-              onDelete={() => router.push("/fact-tables")}
-              source="fact-table"
-              asLink
-            />
-          </Flex>
-        </Callout>
-      )}
 
       {factTable.archived && (
         <div className="alert alert-secondary mb-2">

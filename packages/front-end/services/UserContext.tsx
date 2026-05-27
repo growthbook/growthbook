@@ -34,7 +34,12 @@ import {
   setTag as sentrySetTag,
 } from "@sentry/nextjs";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
-import { Permissions, userHasPermission } from "shared/permissions";
+import {
+  Permissions,
+  roleToPermissionMap,
+  userHasPermission,
+} from "shared/permissions";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { getValidDate } from "shared/dates";
 import sha256 from "crypto-js/sha256";
 import { AgreementType } from "shared/validators";
@@ -430,17 +435,36 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   ]);
 
   const permissionsUtil = useMemo(() => {
-    return new Permissions(
-      currentOrg?.currentUserPermissions || {
-        global: {
-          permissions: {},
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-        projects: {},
+    const basePermissions: UserPermissions = currentOrg?.currentUserPermissions || {
+      global: {
+        permissions: {},
+        limitAccessByEnvironment: false,
+        environments: [],
       },
-    );
-  }, [currentOrg?.currentUserPermissions]);
+      projects: {},
+    };
+
+    // Inject a project-scoped readonly role for the sample data project. The
+    // permissions system already supports per-project role overrides, so this
+    // gives us the existing readonly UX everywhere with no per-page tweaks.
+    const orgId = currentOrg?.organization?.id;
+    const org = currentOrg?.organization;
+    if (orgId && org) {
+      const demoProjectId = getDemoDatasourceProjectIdForOrganization(orgId);
+      return new Permissions({
+        ...basePermissions,
+        projects: {
+          ...basePermissions.projects,
+          [demoProjectId]: {
+            permissions: roleToPermissionMap("readonly", org),
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      });
+    }
+    return new Permissions(basePermissions);
+  }, [currentOrg?.currentUserPermissions, currentOrg?.organization]);
 
   const getUserDisplay = useCallback(
     (id: string, fallback = true) => {
