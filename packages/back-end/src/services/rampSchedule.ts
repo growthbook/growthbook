@@ -1386,6 +1386,21 @@ export async function jumpAheadToStep(
   jumpTarget: number,
 ): Promise<RampScheduleInterface> {
   const effective = computeEffectivePatch(schedule, jumpTarget);
+
+  // Mirror advanceStep: if the schedule hasn't started yet, inject enabled:true
+  // so the rule becomes visible in the same patch as its first coverage value.
+  if (schedule.currentStepIndex < 0) {
+    for (const target of schedule.targets) {
+      if (target.status !== "active" || target.entityType !== "feature") {
+        continue;
+      }
+      const existing = effective.get(target.id) ?? {
+        ruleId: target.ruleId ?? "",
+      };
+      effective.set(target.id, { ...existing, enabled: true });
+    }
+  }
+
   const jumpActions: RampStepAction[] = [...effective.entries()].map(
     ([targetId, patch]) => ({
       targetType: "feature-rule" as const,
@@ -1434,6 +1449,20 @@ export async function completeRollout(
   opts: { disableActiveTargets?: boolean } = {},
 ): Promise<RampScheduleInterface> {
   const effective = computeEffectivePatch(schedule, schedule.steps.length);
+
+  // Mirror advanceStep: if the schedule was never started, inject enabled:true
+  // so the rule is not left permanently disabled after completion.
+  if (schedule.currentStepIndex < 0) {
+    for (const target of schedule.targets) {
+      if (target.status !== "active" || target.entityType !== "feature") {
+        continue;
+      }
+      const existing = effective.get(target.id) ?? {
+        ruleId: target.ruleId ?? "",
+      };
+      effective.set(target.id, { ...existing, enabled: true });
+    }
+  }
 
   if (opts.disableActiveTargets) {
     for (const target of schedule.targets) {

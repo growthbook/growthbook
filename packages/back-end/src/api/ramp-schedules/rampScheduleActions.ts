@@ -28,6 +28,7 @@ import {
   resumeSchedule,
   setRampMonitoringMode,
   startSchedule,
+  syncLinkedSafeRolloutForRampState,
   updateRampLockdownConfig,
   updateRampMonitoringConfig,
   updateRampSteps,
@@ -243,7 +244,7 @@ export const approveStepRampSchedule = createApiRequestHandler({
     event: "rampSchedule.step-approved",
     entity: { object: "rampSchedule", id: schedule.id },
     details: JSON.stringify({
-      stepIndex: schedule.currentStepIndex,
+      stepIndex: updated.currentStepIndex,
       stepApproval: updated.stepApproval,
     }),
   });
@@ -447,6 +448,15 @@ export const ejectTargetRampSchedule = createApiRequestHandler({
   }
 
   if (remaining.length === 0) {
+    // Stop the linked SafeRollout before deleting so agenda ticks don't keep
+    // firing against a now-deleted parent schedule.
+    if (schedule.safeRolloutId) {
+      await syncLinkedSafeRolloutForRampState(
+        req.context,
+        { ...schedule, status: "rolled-back" },
+        "stopped",
+      );
+    }
     await req.context.models.rampSchedules.deleteById(schedule.id);
     return { deleted: true, rampScheduleId: schedule.id };
   }
