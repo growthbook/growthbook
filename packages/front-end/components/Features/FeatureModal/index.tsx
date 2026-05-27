@@ -197,8 +197,10 @@ export default function FeatureModal({
   );
   const { projectId: demoProjectId } = useDemoDataSourceProject();
   const { apiCall } = useAuth();
+  // During early onboarding the holdouts promo is noise. We still want to show
+  // the real holdout selector if the org has set holdouts up.
   const { features: allFeatures } = useFeatureMetaInfo();
-  const showHoldoutSelect = allFeatures.length >= 5;
+  const hideHoldoutPromo = allFeatures.length < 5;
 
   const valueType = form.watch("valueType") as FeatureValueType;
   const environmentSettings = form.watch("environmentSettings");
@@ -327,16 +329,15 @@ export default function FeatureModal({
           </>
         )}
 
-        {showHoldoutSelect && (
-          <HoldoutSelect
-            selectedProject={selectedProject}
-            selectedHoldoutId={form.watch("holdout")?.id}
-            setHoldout={(holdoutId) => {
-              form.setValue("holdout", { id: holdoutId, value: "" });
-            }}
-            formType="feature"
-          />
-        )}
+        <HoldoutSelect
+          selectedProject={selectedProject}
+          selectedHoldoutId={form.watch("holdout")?.id}
+          setHoldout={(holdoutId) => {
+            form.setValue("holdout", { id: holdoutId, value: "" });
+          }}
+          formType="feature"
+          hideEmptyStatePromo={hideHoldoutPromo}
+        />
 
         {!featureToDuplicate && (
           <ValueTypeField
