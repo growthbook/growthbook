@@ -11,6 +11,7 @@ import { GrowthBookProvider } from "@growthbook/growthbook-react";
 import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
 import { Inter } from "next/font/google";
 import { Container } from "@radix-ui/themes";
+import { growthbookErrorTrackingPlugin } from "@/services/growthbook/plugins";
 import { OrganizationMessagesContainer } from "@/components/OrganizationMessages/OrganizationMessages";
 import { DemoDataSourceGlobalBannerContainer } from "@/components/DemoDataSourceGlobalBanner/DemoDataSourceGlobalBanner";
 import { PageHeadProvider } from "@/components/Layout/PageHead";
@@ -22,6 +23,7 @@ import {
   DefinitionsProvider,
 } from "@/services/DefinitionsContext";
 import {
+  getGrowthBookBuild,
   getIngestorHost,
   initEnv,
   inTelemetryDebugMode,
@@ -111,7 +113,14 @@ function App({
       },
       dedupeKeyAttributes: ["id", "organizationId"],
     })(growthbook);
-  }, [ready]);
+
+    // Register after growthbookTrackingPlugin (required for warehouse ingest).
+    growthbookErrorTrackingPlugin({
+      enable: isTelemetryEnabled(),
+      getRelease: () => getGrowthBookBuild().sha || undefined,
+      getTransaction: () => router.asPath,
+    })(growthbook);
+  }, [ready, router.asPath]);
 
   useEffect(() => {
     // Load feature definitions JSON from GrowthBook API

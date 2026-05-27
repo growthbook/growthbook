@@ -1,7 +1,12 @@
-import { EVENT_GROWTHBOOK_ERROR } from "../core";
-import type { Attributes, UserContext } from "../types/growthbook";
-import { GrowthBook } from "../GrowthBook";
-import { GrowthBookClient, UserScopedGrowthBook } from "../GrowthBookClient";
+import {
+  GrowthBook,
+  GrowthBookClient,
+  UserScopedGrowthBook,
+} from "@growthbook/growthbook";
+import type { Attributes, UserContext } from "@growthbook/growthbook";
+
+/** Managed warehouse `errors` table — must match sdk-js `EVENT_GROWTHBOOK_ERROR`. */
+export const GROWTHBOOK_ERROR_EVENT = "GrowthBook Error";
 
 export type ErrorTrackingStackFrame = {
   filename?: string;
@@ -200,7 +205,7 @@ async function logError({
   });
 
   if (gb instanceof GrowthBook || gb instanceof UserScopedGrowthBook) {
-    await gb.logEvent(EVENT_GROWTHBOOK_ERROR, eventProps);
+    await gb.logEvent(GROWTHBOOK_ERROR_EVENT, eventProps);
     return;
   }
 
@@ -211,7 +216,7 @@ async function logError({
       );
       return;
     }
-    gb.logEvent(EVENT_GROWTHBOOK_ERROR, eventProps, userContext);
+    gb.logEvent(GROWTHBOOK_ERROR_EVENT, eventProps, userContext);
   }
 }
 
