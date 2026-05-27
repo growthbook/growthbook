@@ -316,6 +316,87 @@ describe("dataSourceModel", () => {
       }
       expect(new_updates).toEqual(updates);
     });
+
+    it("should skip validation for event forwarder managed exposure queries when skipEventForwarderManagedValidation is true", async () => {
+      mockedTestQueryValidity.mockResolvedValue("Table not found");
+      const updates: Partial<DataSourceSettings> = {
+        queries: {
+          exposure: [
+            {
+              id: "user_id",
+              userIdType: "user_id",
+              dimensions: [],
+              name: "user_id",
+              description: "",
+              query: "SELECT user_id FROM experiment_viewed",
+              managedBy: "api",
+            },
+          ],
+        },
+      };
+      const new_updates = await validateExposureQueriesAndAddMissingIds(
+        context,
+        datasource,
+        updates,
+        false,
+        true,
+      );
+      expect(testQueryValidity).not.toHaveBeenCalled();
+      expect(new_updates.queries?.exposure?.[0].error).toBeUndefined();
+    });
+
+    it("should validate event forwarder managed exposure queries when forceCheckValidity is true", async () => {
+      mockedTestQueryValidity.mockResolvedValue("Table not found");
+      const updates: Partial<DataSourceSettings> = {
+        queries: {
+          exposure: [
+            {
+              id: "user_id",
+              userIdType: "user_id",
+              dimensions: [],
+              name: "user_id",
+              description: "",
+              query: "SELECT user_id FROM experiment_viewed",
+              managedBy: "api",
+            },
+          ],
+        },
+      };
+      const new_updates = await validateExposureQueriesAndAddMissingIds(
+        context,
+        datasource,
+        updates,
+        true,
+      );
+      expect(testQueryValidity).toHaveBeenCalled();
+      expect(new_updates.queries?.exposure?.[0].error).toBe("Table not found");
+    });
+
+    it("should validate event forwarder managed exposure queries on user settings save", async () => {
+      mockedTestQueryValidity.mockResolvedValue("Table not found");
+      const updates: Partial<DataSourceSettings> = {
+        queries: {
+          exposure: [
+            {
+              id: "user_id",
+              userIdType: "user_id",
+              dimensions: [],
+              name: "user_id",
+              description: "",
+              query: "SELECT user_id FROM experiment_viewed",
+              managedBy: "api",
+            },
+          ],
+        },
+      };
+      const new_updates = await validateExposureQueriesAndAddMissingIds(
+        context,
+        datasource,
+        updates,
+      );
+      expect(testQueryValidity).toHaveBeenCalled();
+      expect(new_updates.queries?.exposure?.[0].error).toBe("Table not found");
+    });
   });
 
   describe("updateDataSource", () => {

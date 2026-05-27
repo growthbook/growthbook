@@ -2,7 +2,11 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { cloneDeep, isEqual } from "lodash";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
-import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
+import {
+  isEventForwarderManagedExposureQuery,
+  isEventForwarderManagedFeatureUsageQuery,
+  isManagedWarehouseAwaitingProvisioning,
+} from "shared/util";
 import {
   DataSourceInterface,
   DataSourceParams,
@@ -366,12 +370,25 @@ export async function validateExposureQueriesAndAddMissingIds(
   datasource: DataSourceInterface,
   updates: Partial<DataSourceSettings>,
   forceCheckValidity: boolean = false,
+  skipEventForwarderManagedValidation: boolean = false,
 ): Promise<Partial<DataSourceSettings>> {
   const updatesCopy = cloneDeep(updates);
   if (updatesCopy.queries?.exposure) {
     await Promise.all(
       updatesCopy.queries.exposure.map(async (exposure) => {
         if (isManagedWarehouseAwaitingProvisioning(datasource)) {
+          if (!exposure.id) {
+            exposure.id = uniqid("exq_");
+          }
+          exposure.error = undefined;
+          return;
+        }
+
+        if (
+          skipEventForwarderManagedValidation &&
+          isEventForwarderManagedExposureQuery(exposure) &&
+          !forceCheckValidity
+        ) {
           if (!exposure.id) {
             exposure.id = uniqid("exq_");
           }
@@ -410,6 +427,15 @@ export async function validateExposureQueriesAndAddMissingIds(
     await Promise.all(
       updatesCopy.queries.featureUsage.map(async (featureUsage) => {
         if (isManagedWarehouseAwaitingProvisioning(datasource)) {
+          featureUsage.error = undefined;
+          return;
+        }
+
+        if (
+          skipEventForwarderManagedValidation &&
+          isEventForwarderManagedFeatureUsageQuery(featureUsage) &&
+          !forceCheckValidity
+        ) {
           featureUsage.error = undefined;
           return;
         }
@@ -457,6 +483,10 @@ export async function updateDataSource(
   context: ReqContext | ApiReqContext,
   datasource: DataSourceInterface,
   updates: Partial<DataSourceInterface>,
+  options?: {
+    forceCheckValidity?: boolean;
+    skipEventForwarderManagedValidation?: boolean;
+  },
 ) {
   if (usingFileConfig()) {
     throw new Error("Cannot update. Data sources managed by config.yml");
@@ -467,6 +497,8 @@ export async function updateDataSource(
       context,
       datasource,
       updates.settings,
+      options?.forceCheckValidity ?? false,
+      options?.skipEventForwarderManagedValidation ?? false,
     );
   }
   if (!hasActualChanges(datasource, updates)) {

@@ -106,7 +106,6 @@ export const ExperimentAssignmentQueries: FC<
     () => async () => {
       const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
       setValidatingQuery(true);
-      // Resaving the document as-is will automatically revalidate any queries in error state
       await onSave(copy);
       setValidatingQuery(false);
     },
@@ -224,7 +223,7 @@ export const ExperimentAssignmentQueries: FC<
                         >
                           Check it again.
                         </Button>
-                        {canEdit && (
+                        {canEdit && !isManaged && (
                           <Button
                             onClick={handleActionClicked(idx, "edit")}
                             style={{ marginLeft: "1rem" }}
