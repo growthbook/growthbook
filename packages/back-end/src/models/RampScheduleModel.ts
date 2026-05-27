@@ -739,6 +739,9 @@ export class RampScheduleModel extends BaseClass {
       patch?: unknown;
     }): RampStepAction => {
       const tid = action.targetId;
+      // "t1" is a sentinel meaning "resolve to the active target at apply-time"
+      // rather than a literal stored target id. Any other non-empty string is
+      // treated as a real target id that must exist in schedule.targets.
       if (tid && tid !== "t1") {
         if (!schedule.targets.some((t) => t.id === tid)) {
           throw new Error(
@@ -957,9 +960,8 @@ export class RampScheduleModel extends BaseClass {
     // Include `paused` so rules keep experiment shape when a monitored step is
     // held (guardrail, min-sample, approval gate) — users are still bucketed
     // and removing experiment shape during a hold would lose tracking continuity.
-    // Include the legacy `pending-approval` value during the migration window
-    // so we don't drop monitored rules from docs that have not yet been
-    // written back through the JIT status migration.
+    // Also include the legacy `pending-approval` value for docs that predate
+    // the derived-status model and have not yet been migrated.
     const schedules = await this._find({
       status: { $in: ["running", "paused", "pending-approval"] },
     });

@@ -35,7 +35,9 @@ const BaseClass = MakeModelClass({
 });
 
 export class SafeRolloutSnapshotModel extends BaseClass {
-  // TODO: fix permissions
+  // Snapshots are created/updated/deleted by the job scheduler, not user
+  // actions, so permission checks are bypassed here. There is no external
+  // API endpoint that exposes these mutations directly.
   protected canCreate() {
     return true;
   }

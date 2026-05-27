@@ -2153,6 +2153,15 @@ async function cleanupOrphanedRampSchedules(
       );
 
       if (remainingTargets.length === 0) {
+        // Stop the linked SafeRollout before deletion so it doesn't continue
+        // taking snapshots against a ramp that no longer exists.
+        if (ramp.safeRolloutId) {
+          await syncLinkedSafeRolloutForRampState(
+            context,
+            { ...ramp, status: "rolled-back" },
+            "stopped",
+          );
+        }
         await context.models?.rampSchedules?.deleteById?.(ramp.id);
       } else if (remainingTargets.length !== originalTargets.length) {
         // Some targets were orphaned by the delete; prune them so the schedule
