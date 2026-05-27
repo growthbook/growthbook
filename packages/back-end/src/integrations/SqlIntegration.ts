@@ -193,6 +193,9 @@ export default abstract class SqlIntegration
     metadata?: QueryMetadata,
   ): Promise<QueryResponse>;
   async cancelQuery(externalId: string): Promise<void> {
+    // SqlIntegration cancel is a no-op by default — only warehouses with
+    // remote job control (BigQuery, Athena, Snowflake, Presto/Trino) override.
+    // The interface's optional `metadata` arg is ignored here.
     logger.debug(`Cancel query: ${externalId} - not implemented`);
   }
   abstract getSensitiveParamKeys(): string[];

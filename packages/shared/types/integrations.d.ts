@@ -27,7 +27,14 @@ export interface PipelineIntegration {
   getDropUnitsTableQuery(params: { fullTablePath: string }): string;
 }
 
-export type ExternalIdCallback = (id: string) => Promise<void>;
+// Integrations can optionally attach metadata alongside the external job/query id
+// (e.g. BigQuery job location, Snowflake account url, Athena workgroup). The
+// metadata is persisted on the Query document and passed back to
+// `integration.cancelQuery` so cancel can target the right region/scope.
+export type ExternalIdCallback = (
+  id: string,
+  metadata?: Record<string, string>,
+) => Promise<void>;
 
 export type DataType =
   | "string"

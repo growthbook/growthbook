@@ -61,16 +61,28 @@ export default class BigQuery extends SqlIntegration {
     });
   }
 
-  async cancelQuery(externalId: string): Promise<void> {
+  async cancelQuery(
+    externalId: string,
+    metadata?: Record<string, string>,
+  ): Promise<void> {
     const client = this.getClient();
-    const job = client.job(externalId);
 
-    // Attempt to cancel job
+    // The BigQuery API requires the job's location for cancel/get calls except
+    // for the US and EU multi-region locations. For any single-region dataset
+    // (e.g. us-central1, europe-west1, asia-northeast1) we must pass the
+    // location explicitly or the call returns 404. We persist the location in
+    // `externalIdMetadata` when the job is created (see runQuery below);
+    // historical jobs missing this fall back to the library default.
+    const location = metadata?.location;
+    const job = location
+      ? client.job(externalId, { location })
+      : client.job(externalId);
+
     const [apiResult] = await job.cancel();
     logger.debug(
-      `Cancelled BigQuery job ${externalId} - ${JSON.stringify(
-        apiResult.job?.status,
-      )}`,
+      `Cancelled BigQuery job ${externalId}${
+        location ? ` (location=${location})` : ""
+      } - ${JSON.stringify(apiResult.job?.status)}`,
     );
   }
 
@@ -96,7 +108,13 @@ export default class BigQuery extends SqlIntegration {
     });
 
     if (setExternalId && job.id) {
-      await setExternalId(job.id);
+      // job.location is populated by the BigQuery client from the API response
+      // after createQueryJob resolves. Persisting it lets cancelQuery target
+      // the correct region for single-region datasets.
+      await setExternalId(
+        job.id,
+        job.location ? { location: job.location } : undefined,
+      );
     }
 
     const [rows, _, queryResultsResponse] = await job.getQueryResults();

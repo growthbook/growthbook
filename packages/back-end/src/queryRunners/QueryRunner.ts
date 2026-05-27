@@ -619,23 +619,35 @@ export abstract class QueryRunner<
           cachedSourceDocs.map((q) => [q.id, q]),
         );
 
-        const externalIds = queryDocs
-          .map((q) => {
-            if (q.externalId) return q.externalId;
-            if (q.cachedQueryUsed) {
-              return cachedSourceById.get(q.cachedQueryUsed)?.externalId;
+        // Resolve each running query's external job id along with any
+        // metadata the integration attached at submission time.
+        // Cached copies share their upstream's id and metadata.
+        type ExternalJob = {
+          id: string;
+          metadata?: Record<string, string>;
+        };
+        const externalJobs: ExternalJob[] = queryDocs.flatMap((q) => {
+          if (q.externalId) {
+            return [{ id: q.externalId, metadata: q.externalIdMetadata }];
+          }
+          if (q.cachedQueryUsed) {
+            const source = cachedSourceById.get(q.cachedQueryUsed);
+            if (source?.externalId) {
+              return [
+                { id: source.externalId, metadata: source.externalIdMetadata },
+              ];
             }
-            return undefined;
-          })
-          .filter((id): id is string => Boolean(id));
+          }
+          return [];
+        });
 
-        if (externalIds.length) {
+        if (externalJobs.length) {
           await promiseAllChunks(
-            externalIds.map((id) => {
+            externalJobs.map(({ id, metadata }) => {
               return async () => {
-                if (!id || !this.integration.cancelQuery) return;
+                if (!this.integration.cancelQuery) return;
                 try {
-                  await this.integration.cancelQuery(id);
+                  await this.integration.cancelQuery(id, metadata);
                 } catch (e) {
                   logger.debug(`Failed to cancel query - ${e.message}`);
                 }
@@ -742,9 +754,13 @@ export abstract class QueryRunner<
       });
     }
 
-    const setExternalId = async (id: string) => {
+    const setExternalId = async (
+      id: string,
+      metadata?: Record<string, string>,
+    ) => {
       await updateQuery(this.context, doc, {
         externalId: id,
+        ...(metadata ? { externalIdMetadata: metadata } : {}),
       });
     };
 

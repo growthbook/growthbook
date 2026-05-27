@@ -40,6 +40,7 @@ const querySchema = new mongoose.Schema({
   finishedAt: Date,
   heartbeat: Date,
   externalId: String,
+  externalIdMetadata: {},
   result: {},
   rawResult: [],
   hasChunkedResults: Boolean,
