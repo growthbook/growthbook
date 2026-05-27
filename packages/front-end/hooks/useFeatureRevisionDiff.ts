@@ -16,7 +16,6 @@ import {
   renderFeatureHoldoutSection,
   getFeatureHoldoutBadges,
   renderFeatureArchived,
-  featureArchivedChanged,
 } from "@/components/Features/FeatureDiffRenders";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 import { useEnvironments } from "@/services/features";
@@ -153,27 +152,26 @@ export function useFeatureRevisionDiff({
     const diffs: FeatureRevisionDiff[] = [];
 
     // 0. Archive status — a top-level revision field (not part of the metadata
-    // envelope), so it needs its own section. Guard with `?? false` so sparse
-    // legacy revisions (archived === undefined) don't produce a phantom diff.
-    if (featureArchivedChanged(current.archived, draft.archived)) {
-      const archivedRender = renderFeatureArchived(
-        current.archived,
-        draft.archived,
-      );
-      if (archivedRender) {
-        diffs.push({
-          title: "Archive status",
-          a: (current.archived ?? false) ? "archived" : "active",
-          b: draft.archived ? "archived" : "active",
-          customRender: archivedRender,
-          badges: [
-            {
-              label: draft.archived ? "Archived" : "Unarchived",
-              action: "archive",
-            },
-          ],
-        });
-      }
+    // envelope), so it needs its own section. renderFeatureArchived returns null
+    // when unchanged (treating undefined as false), so it doubles as the guard —
+    // no separate change check needed.
+    const archivedRender = renderFeatureArchived(
+      current.archived,
+      draft.archived,
+    );
+    if (archivedRender) {
+      diffs.push({
+        title: "Archive status",
+        a: (current.archived ?? false) ? "archived" : "active",
+        b: draft.archived ? "archived" : "active",
+        customRender: archivedRender,
+        badges: [
+          {
+            label: draft.archived ? "Archived" : "Unarchived",
+            action: "archive",
+          },
+        ],
+      });
     }
 
     // 1. Settings (metadata)
