@@ -232,10 +232,7 @@ export default function FeaturesPage() {
                 <TableColumnHeader
                   style={{ width: FEATURE_TABLE_COLUMN_WIDTH.WATCHING }}
                 />
-                <SortableTableColumnHeader
-                  field="id"
-                  style={{ width: "20%" }}
-                >
+                <SortableTableColumnHeader field="id" style={{ width: "20%" }}>
                   Feature Key
                 </SortableTableColumnHeader>
                 {showProjectColumn && (

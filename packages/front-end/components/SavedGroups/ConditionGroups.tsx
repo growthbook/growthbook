@@ -117,10 +117,7 @@ export default function ConditionGroups({ groups, mutate }: Props) {
         return has;
       },
       owner: (item) => item.ownerNameDisplay,
-      project: (item) => [
-        ...(item.projects ?? []),
-        ...item.projectNames,
-      ],
+      project: (item) => [...(item.projects ?? []), ...item.projectNames],
     },
   });
 

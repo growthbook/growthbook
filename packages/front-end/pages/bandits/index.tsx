@@ -21,7 +21,13 @@ import ExperimentSearchFilters from "@/components/Search/ExperimentSearchFilters
 import ExperimentsListTable from "@/components/Experiment/ExperimentsListTable";
 import useURLHash from "@/hooks/useURLHash";
 
-const BANDIT_LIST_TABS = ["all", "running", "drafts", "stopped", "archived"] as const;
+const BANDIT_LIST_TABS = [
+  "all",
+  "running",
+  "drafts",
+  "stopped",
+  "archived",
+] as const;
 type BanditListTab = (typeof BANDIT_LIST_TABS)[number];
 const isBanditListTab = (v: string): v is BanditListTab =>
   BANDIT_LIST_TABS.includes(v as BanditListTab);
@@ -34,8 +40,7 @@ const ExperimentsPage = (): React.ReactElement => {
   );
   const hasInitialValidHash = isBanditListTab(initialHashRef.current);
   const [urlTab, setTab] = useURLHash<BanditListTab>(BANDIT_LIST_TABS);
-  const tab: BanditListTab =
-    urlTab && isBanditListTab(urlTab) ? urlTab : "all";
+  const tab: BanditListTab = urlTab && isBanditListTab(urlTab) ? urlTab : "all";
   const [storedTab, setStoredTab] = useLocalStorage<BanditListTab>(
     "bandits-list-tab",
     "all",
@@ -66,7 +71,6 @@ const ExperimentsPage = (): React.ReactElement => {
 
   const { hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
-
 
   const { watchedExperiments } = useWatching();
 
@@ -222,15 +226,17 @@ const ExperimentsPage = (): React.ReactElement => {
                           {tabValue.slice(0, 1).toUpperCase()}
                           {tabValue.slice(1)}
                           {tabValue !== "archived" && (
-                            <span style={{
-                              marginLeft: "var(--space-2)",
-                              background: "var(--gray-3)",
-                              border: "1px solid var(--gray-6)",
-                              borderRadius: "var(--radius-2)",
-                              padding: "0 var(--space-2)",
-                              fontSize: "var(--font-size-1)",
-                              color: "var(--gray-11)",
-                            }}>
+                            <span
+                              style={{
+                                marginLeft: "var(--space-2)",
+                                background: "var(--gray-3)",
+                                border: "1px solid var(--gray-6)",
+                                borderRadius: "var(--radius-2)",
+                                padding: "0 var(--space-2)",
+                                fontSize: "var(--font-size-1)",
+                                color: "var(--gray-11)",
+                              }}
+                            >
                               {tabCounts[tabValue] || 0}
                             </span>
                           )}
@@ -240,13 +246,7 @@ const ExperimentsPage = (): React.ReactElement => {
                   )}
                 </TabsList>
               </Box>
-              <Flex
-                gap="4"
-                align="center"
-                justify="between"
-                mb="4"
-                wrap="wrap"
-              >
+              <Flex gap="4" align="center" justify="between" mb="4" wrap="wrap">
                 <Box flexBasis="300px" flexShrink="0">
                   <Field
                     placeholder="Search..."

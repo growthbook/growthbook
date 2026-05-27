@@ -114,14 +114,25 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
                 <WatchButton item={e.id} itemType="experiment" type="icon" />
               </TableCell>
               <TableCell style={{ padding: "var(--space-0)" }}>
-                <Link href={`${hrefBase}/${e.id}`} style={{ display: "block", padding: "var(--space-3)", color: "var(--gray-12)" }}>
+                <Link
+                  href={`${hrefBase}/${e.id}`}
+                  style={{
+                    display: "block",
+                    padding: "var(--space-3)",
+                    color: "var(--gray-12)",
+                  }}
+                >
                   <div style={{ display: "flex", flexDirection: "column" }}>
                     <div style={{ display: "flex", alignItems: "center" }}>
                       <span className="testname">{e.name}</span>
                       {e.hasVisualChangesets ? (
                         <Tooltip
                           flipTheme={false}
-                          style={{ display: "flex", alignItems: "center", marginLeft: "var(--space-2)" }}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            marginLeft: "var(--space-2)",
+                          }}
                           body="Visual experiment"
                         >
                           <RxDesktop className="text-blue" />
@@ -130,7 +141,11 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
                       {(e.linkedFeatures || []).length > 0 ? (
                         <Tooltip
                           flipTheme={false}
-                          style={{ display: "flex", alignItems: "center", marginLeft: "var(--space-2)" }}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            marginLeft: "var(--space-2)",
+                          }}
                           body="Linked Feature Flag"
                         >
                           <BsFlag className="text-blue" />
@@ -139,22 +154,31 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
                       {e.hasURLRedirects ? (
                         <Tooltip
                           flipTheme={false}
-                          style={{ display: "flex", alignItems: "center", marginLeft: "var(--space-2)" }}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            marginLeft: "var(--space-2)",
+                          }}
                           body="URL Redirect experiment"
                         >
                           <PiShuffle className="text-blue" />
                         </Tooltip>
                       ) : null}
                     </div>
-                    {isFiltered && e.trackingKey && e.trackingKey !== e.name && (
-                      <span
-                        className="testid"
-                        title="Experiment Id"
-                        style={{ fontSize: "var(--font-size-1)", color: "var(--gray-10)" }}
-                      >
-                        {e.trackingKey}
-                      </span>
-                    )}
+                    {isFiltered &&
+                      e.trackingKey &&
+                      e.trackingKey !== e.name && (
+                        <span
+                          className="testid"
+                          title="Experiment Id"
+                          style={{
+                            fontSize: "var(--font-size-1)",
+                            color: "var(--gray-10)",
+                          }}
+                        >
+                          {e.trackingKey}
+                        </span>
+                      )}
                   </div>
                 </Link>
               </TableCell>
