@@ -3,10 +3,7 @@
  * (see managed-clickhouse/* routes there).
  */
 import type { AIPromptType } from "shared/ai";
-import type {
-  DataSourceParams,
-  MaterializedColumn,
-} from "shared/types/datasource";
+import type { MaterializedColumn } from "shared/types/datasource";
 import type { DailyUsage } from "shared/types/organization";
 import { dailyUsageForOrgResponseValidator } from "shared/validators";
 import type { RequestInit, Response } from "node-fetch";
@@ -141,27 +138,6 @@ async function postManagedClickhouseJson<T>(
   }
 }
 
-/**
- * Provision a managed ClickHouse user/database/tables for the org via the
- * license server. The second arg is accepted for parity with the in-process
- * implementation in `clickhouse.ts`, but is intentionally not sent over the
- * wire: the license server reads `materializedColumns` from the org's
- * datasource record itself.
- */
-export async function createClickhouseUser(
-  orgId: string,
-  _materializedColumns: MaterializedColumn[] = [],
-): Promise<DataSourceParams> {
-  const res = await postManagedClickhouse("provision", { orgId });
-  return (await res.json()) as DataSourceParams;
-}
-
-/**
- * Drop & recreate the org's managed ClickHouse database/tables via the license
- * server. `materializedColumns` is accepted for parity with the in-process
- * implementation but is not sent: the license server reads it from the
- * datasource record itself.
- */
 export async function dangerousRecreateClickhouseTables(
   orgId: string,
 ): Promise<void> {
