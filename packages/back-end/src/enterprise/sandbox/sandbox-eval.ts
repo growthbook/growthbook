@@ -3,6 +3,7 @@ import { RequestInit } from "node-fetch";
 import { CustomHookInterface, CustomHookType } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { ExperimentInterface } from "shared/types/experiment";
 import { parseEnvInt } from "shared/util";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import { IS_CLOUD } from "back-end/src/util/secrets";
@@ -75,6 +76,24 @@ export async function runValidateFeatureRevisionHooks({
       feature,
       revision: original,
     },
+  );
+}
+
+export async function runValidateExperimentHooks({
+  context,
+  experiment,
+  original,
+}: {
+  context: ReqContextClass;
+  experiment: ExperimentInterface;
+  original: ExperimentInterface | null;
+}): Promise<void> {
+  return _runCustomHooks(
+    context,
+    "validateExperiment",
+    { experiment },
+    experiment.project || "",
+    original ? { experiment: original } : undefined,
   );
 }
 
