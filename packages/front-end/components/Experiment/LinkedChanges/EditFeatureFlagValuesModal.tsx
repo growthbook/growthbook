@@ -219,7 +219,7 @@ export default function EditFeatureFlagValuesModal({
   // don't contain the rule. Lock the dropdown to the one draft that does.
   const ruleOnlyOnDraft =
     linkedFeatureInfo.state === "draft" &&
-    !linkedFeatureInfo.liveHasMatchingRule &&
+    linkedFeatureInfo.liveHasMatchingRule === false &&
     linkedFeatureInfo.draftRevisionVersion != null;
 
   const initialMode: DraftMode =
