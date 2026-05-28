@@ -27,6 +27,7 @@ export type eventSchema = {
   label: string;
   types?: DataSourceType[];
   options?: SchemaOption[];
+  description?: string;
   logo?: string;
   helpLink?: string;
   popular?: boolean;
@@ -39,6 +40,8 @@ export const eventSchemas: eventSchema[] = [
     label: "Google Analytics v4",
     types: ["bigquery"],
     logo: "/images/3rd-party-logos/ga4.png",
+    description:
+      "We track user activity with GA4. Note: Requires setting up a BigQuery daily or streaming export.",
     popular: true,
     helpLink: "https://support.google.com/analytics/answer/9358801?hl=en",
   },
