@@ -9,7 +9,7 @@ describe("getDimensionOptions", () => {
       settings: {
         pipelineSettings: {
           allowWriting: true,
-          mode: "ephemeral",
+          mode: "incremental",
           writeDataset: "gb",
         },
         queries: {
@@ -41,7 +41,6 @@ describe("getDimensionOptions", () => {
       incrementalRefresh: null,
       precomputedDimensions: ["precomputed:browser"],
       precomputedUnitDimensionIds: ["dim_country"],
-      hasPipelineModeFeature: true,
       datasource,
       dimensions,
       exposureQueryId: "eq_1",

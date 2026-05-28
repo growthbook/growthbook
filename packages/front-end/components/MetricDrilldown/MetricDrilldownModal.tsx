@@ -27,7 +27,7 @@ import {
 import Modal from "@/components/Modal";
 import {
   ExperimentTableRow,
-  getHonoredPrecomputedUnitDimensionIds,
+  getPrecomputedUnitDimensionIds,
 } from "@/services/experiments";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Link from "@/ui/Link";
@@ -36,7 +36,6 @@ import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import {
@@ -202,8 +201,6 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
   isReportContext,
 }) => {
   const { isAuthenticated } = useAuth();
-  const { hasCommercialFeature } = useUser();
-  const { getDatasourceById } = useDefinitions();
   const { analysis, experiment } = useSnapshot();
 
   const liveResults = useMemo(() => {
@@ -260,13 +257,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
     !dimensionInfo ||
     isDimensionPrecomputed(
       dimensionInfo.id,
-      getHonoredPrecomputedUnitDimensionIds(
-        experiment?.precomputedUnitDimensionIds,
-        experiment?.datasource
-          ? getDatasourceById(experiment.datasource)
-          : undefined,
-        hasCommercialFeature("pipeline-mode"),
-      ),
+      getPrecomputedUnitDimensionIds(experiment),
     );
   const hideTimeSeries = isReportContext || !hasDimensionTimeSeries;
   const [visibleSliceTimeSeriesRowIds, setVisibleSliceTimeSeriesRowIds] =

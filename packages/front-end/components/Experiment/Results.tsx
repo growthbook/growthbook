@@ -29,9 +29,8 @@ import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
 import StatusBanner from "@/components/Experiment/StatusBanner";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { trackSnapshot } from "@/services/track";
-import { getHonoredPrecomputedUnitDimensionIds } from "@/services/experiments";
+import { getPrecomputedUnitDimensionIds } from "@/services/experiments";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useUser } from "@/services/UserContext";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
@@ -134,15 +133,8 @@ const Results: FC<{
 
   const permissionsUtil = usePermissionsUtil();
   const { getDatasourceById } = useDefinitions();
-  const { hasCommercialFeature } = useUser();
-  const honoredPrecomputedUnitDimensionIds =
-    getHonoredPrecomputedUnitDimensionIds(
-      experiment.precomputedUnitDimensionIds,
-      experiment.datasource
-        ? getDatasourceById(experiment.datasource)
-        : undefined,
-      hasCommercialFeature("pipeline-mode"),
-    );
+  const precomputedUnitDimensionIds =
+    getPrecomputedUnitDimensionIds(experiment);
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const hasValidStatsEngine =
@@ -214,7 +206,7 @@ const Results: FC<{
 
   // cannot re-aggregate quantile metrics across pre-computed dimensions
   const showErrorsOnQuantileMetrics = analysis?.settings?.dimensions.some((d) =>
-    isDimensionPrecomputed(d, honoredPrecomputedUnitDimensionIds),
+    isDimensionPrecomputed(d, precomputedUnitDimensionIds),
   );
 
   const datasource = experiment.datasource

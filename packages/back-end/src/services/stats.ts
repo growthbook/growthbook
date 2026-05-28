@@ -56,10 +56,6 @@ import { checkSrm, chi2pvalue } from "back-end/src/util/stats";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { logger } from "back-end/src/util/logger";
 import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
-import {
-  filterParentQueryMap,
-  parseUnitDimQueryName,
-} from "back-end/src/queryRunners/unitDimensionQueryNaming";
 import { updateSnapshotAnalysis } from "back-end/src/models/ExperimentSnapshotModel";
 import { Context } from "back-end/src/models/BaseModel";
 import {
@@ -399,11 +395,6 @@ export function getMetricsAndQueryDataForStatsEngine(
   // One query for each metric (or group of metrics)
   else {
     queryData.forEach((query, key) => {
-      // Skip precomputed unit dimension queries
-      // while they are executed here, they are used by per–unit-dimension analyses
-      if (parseUnitDimQueryName(key)) {
-        return;
-      }
       // Multi-metric query
       if (
         key.match(/group_/) ||
@@ -658,9 +649,8 @@ export async function analyzeExperimentResults({
   results: ExperimentReportResults[];
   banditResult?: BanditResult;
 }> {
-  const parentQueryData = filterParentQueryMap(queryData);
   const mdat = getMetricsAndQueryDataForStatsEngine(
-    parentQueryData,
+    queryData,
     metricMap,
     snapshotSettings,
   );

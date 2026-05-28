@@ -161,11 +161,7 @@ import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 import { LegacyMetricAnalysisQueryRunner } from "back-end/src/queryRunners/LegacyMetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
-import { QueryMap, getQueryMap } from "back-end/src/queryRunners/QueryRunner";
-import {
-  buildUnitDimensionQueryMap,
-  filterParentQueryMap,
-} from "back-end/src/queryRunners/unitDimensionQueryNaming";
+import { getQueryMap } from "back-end/src/queryRunners/QueryRunner";
 import {
   FactTableMap,
   getFactTableMap,
@@ -182,8 +178,8 @@ import { updateExperimentDashboards } from "back-end/src/enterprise/services/das
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import {
-  getEligiblePrecomputedUnitDimensionIds,
   getExposureQueryEligibleDimensions,
+  isIncrementalRefreshEnabledForSnapshot,
 } from "back-end/src/services/dimensions";
 import { ConcurrentIncrementalRefreshError } from "back-end/src/util/errors";
 import { validateIncrementalPipeline } from "back-end/src/enterprise/services/data-pipeline";
@@ -467,7 +463,6 @@ export function getSnapshotSettings({
   reweight,
   datasource,
   useStickyBucketing,
-  eligiblePrecomputedUnitDimensionIds = [],
 }: {
   experiment: ExperimentInterface;
   phaseIndex: number;
@@ -485,7 +480,6 @@ export function getSnapshotSettings({
   reweight?: boolean;
   datasource?: DataSourceInterface;
   useStickyBucketing?: boolean;
-  eligiblePrecomputedUnitDimensionIds?: string[];
 }): ExperimentSnapshotSettings {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
@@ -531,19 +525,6 @@ export function getSnapshotSettings({
         slices: d.specifiedSlices,
       })) ?? [];
   }
-
-  // Configured unit dimensions are carried on a dedicated settings field, NOT
-  // folded into `dimensions`. The runner materializes one `dim_unit_<id>`
-  // column per id in the shared units table and runs isolated per-dim metric
-  // queries; folding them into `dimensions` would instead cross-product every
-  // unit dim into every parent metric query.
-  const precomputedUnitDimensionIds =
-    snapshotType === "standard" &&
-    experiment.type !== "multi-armed-bandit" &&
-    !dimension &&
-    eligiblePrecomputedUnitDimensionIds.length > 0
-      ? eligiblePrecomputedUnitDimensionIds
-      : [];
 
   // expand metric groups and scrub unjoinable metrics
   let goalMetrics = expandMetricGroups(
@@ -741,7 +722,6 @@ export function getSnapshotSettings({
     queryFilter: experiment.queryFilter || "",
     datasourceId: experiment.datasource || "",
     dimensions: dimensions,
-    precomputedUnitDimensionIds,
     startDate: phase.dateStarted,
     endDate: phase.dateEnded || new Date(),
     experimentId: experiment.trackingKey || experiment.id,
@@ -1217,26 +1197,6 @@ export type SnapshotQueryRunnerKind =
   | "incremental"
   | "incremental-exploratory";
 
-function isIncrementalRefreshEnabledForSnapshot({
-  datasource,
-  experiment,
-}: {
-  datasource: DataSourceInterface;
-  experiment: ExperimentInterface;
-}): boolean {
-  return (
-    datasource.settings.pipelineSettings?.mode === "incremental" &&
-    !datasource.settings.pipelineSettings?.excludedExperimentIds?.includes(
-      experiment.id,
-    ) &&
-    (datasource.settings.pipelineSettings?.includedExperimentIds ===
-      undefined ||
-      datasource.settings.pipelineSettings?.includedExperimentIds.includes(
-        experiment.id,
-      ))
-  );
-}
-
 export function getSnapshotQueryRunnerKind({
   allowIncrementalRefresh,
   isExperimentCompatibleWithIncrementalRefresh,
@@ -1398,18 +1358,6 @@ export async function planSnapshot({
     !incrementalRefreshModel ||
     !incrementalRefreshModel.unitsTableFullName;
 
-  const requestedPrecomputedUnitDimensionIds =
-    experiment.precomputedUnitDimensionIds ?? [];
-  const eligiblePrecomputedUnitDimensionIds =
-    !dimension && requestedPrecomputedUnitDimensionIds.length > 0
-      ? await getEligiblePrecomputedUnitDimensionIds({
-          context,
-          experiment,
-          datasource,
-          dimensionIds: requestedPrecomputedUnitDimensionIds,
-        })
-      : [];
-
   const snapshotSettings = getSnapshotSettings({
     experiment,
     phaseIndex,
@@ -1429,7 +1377,6 @@ export async function planSnapshot({
     useStickyBucketing:
       organization.settings?.useStickyBucketing &&
       !experiment.disableStickyBucketing,
-    eligiblePrecomputedUnitDimensionIds,
   });
 
   const data: ExperimentSnapshotInterface = {
@@ -1501,12 +1448,17 @@ export async function createSnapshotFromPlan({
   experiment,
   metricMap,
   factTableMap,
+  batchLockToken,
 }: {
   plan: PlannedExperimentSnapshot;
   context: ReqContext | ApiReqContext;
   experiment: ExperimentInterface;
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
+  // When set, this incremental-exploratory snapshot runs under a shared lock
+  // already held by a coordinator (parallel exploratory batch). It skips its
+  // own acquire/release; the coordinator owns the lock lifecycle + heartbeat.
+  batchLockToken?: string;
 }): Promise<ExperimentSnapshotQueryRunner> {
   const datasource = await getDataSourceById(context, experiment.datasource);
   if (!datasource) {
@@ -1521,9 +1473,14 @@ export async function createSnapshotFromPlan({
   // manual Update) from racing on those tables and producing empty or
   // malformed results. The "results" runner writes only to per-snapshot
   // ephemeral tables, so it does not need this lock.
+  // In batch mode a coordinator already holds the lock under `batchLockToken`,
+  // so the per-snapshot acquire/release is skipped.
+  const isBatchExploratory =
+    plan.runnerKind === "incremental-exploratory" && !!batchLockToken;
   const needsIncrementalRefreshLock =
-    plan.runnerKind === "incremental" ||
-    plan.runnerKind === "incremental-exploratory";
+    (plan.runnerKind === "incremental" ||
+      plan.runnerKind === "incremental-exploratory") &&
+    !isBatchExploratory;
 
   let hasIncrementalRefreshLock = false;
   if (needsIncrementalRefreshLock) {
@@ -1639,6 +1596,7 @@ export async function createSnapshotFromPlan({
         ...analysisProps,
         experimentId: experiment.id,
         incrementalRefreshStartTime: new Date(),
+        incrementalRefreshLockToken: batchLockToken,
       });
     } else {
       await (queryRunner as ExperimentResultsQueryRunner).startAnalysis(
@@ -2130,36 +2088,6 @@ async function getSnapshotAnalyses(
   return analysisParamsMap;
 }
 
-// Loads the query results needed to run gbstats for the given analyses. For
-// unit-dimension analyses (whose queries live under a `unitdim:<dim>:` prefix
-// on the parent snapshot), the map is filtered + renamed so gbstats sees the
-// bare metric keys it expects.
-async function getQueryMapForAnalysis(
-  context: ReqContext | ApiReqContext,
-  snapshot: ExperimentSnapshotInterface,
-  analysisSettingsList: ExperimentSnapshotAnalysisSettings[],
-): Promise<QueryMap> {
-  const queryMap = await getQueryMap(context, snapshot.queries);
-  const dimensionId = analysisSettingsList[0]?.dimensions[0];
-  if (
-    dimensionId &&
-    snapshot.settings.precomputedUnitDimensionIds?.includes(dimensionId)
-  ) {
-    const unitDimQueryMap = buildUnitDimensionQueryMap(queryMap, dimensionId);
-    if (unitDimQueryMap.size === 0) {
-      // The parent snapshot lists this unit dimension in its settings but
-      // has no `unitdim:<id>:` query results — either the snapshot predates
-      // this feature or its unit-dim queries were pruned/failed. Refreshing
-      // the snapshot will repopulate them.
-      throw new Error(
-        `Snapshot is missing query results for unit dimension "${dimensionId}". Refresh the experiment results to recompute.`,
-      );
-    }
-    return unitDimQueryMap;
-  }
-  return filterParentQueryMap(queryMap);
-}
-
 export async function createSnapshotAnalyses(
   params: SnapshotAnalysisParams[],
   context: ReqContext,
@@ -2208,9 +2136,7 @@ export async function createSnapshotAnalysis(
   });
 
   // Format data correctly
-  const queryMap = await getQueryMapForAnalysis(context, snapshot, [
-    analysisSettings,
-  ]);
+  const queryMap = await getQueryMap(context, snapshot.queries);
 
   // Run the analysis
   const { results } = await analyzeExperimentResults({
@@ -2272,11 +2198,7 @@ export async function createSnapshotAnalysesBatched(
     }),
   );
 
-  const queryMap = await getQueryMapForAnalysis(
-    context,
-    snapshot,
-    analysisSettingsList,
-  );
+  const queryMap = await getQueryMap(context, snapshot.queries);
 
   // Single gbstats call -- all analyses share the same queryResults and
   // metric settings, so we can use a single python process

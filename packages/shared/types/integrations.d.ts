@@ -386,6 +386,10 @@ export interface IncrementalRefreshStatisticsQueryParams {
   activationMetric: ExperimentMetricInterface | null;
   dimensionsForPrecomputation: ExperimentDimensionWithSpecifiedSlices[];
   dimensionsForAnalysis: Dimension[];
+  // Unit (user) dimension ids that are already materialized as dim_unit_<id>
+  // columns on the units table. These are read directly from the column rather
+  // than re-joining the dimension source at analysis time.
+  precomputedUnitDimensionIds?: string[];
   factTableMap: FactTableMap;
   metricSourceTableFullName: string;
   metricSourceCovariateTableFullName: string | null;

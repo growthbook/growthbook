@@ -722,7 +722,6 @@ describe("ExperimentSnapshotModel", () => {
       snapshot.settings = {
         ...snapshot.settings,
         dimensions: [{ id: "precomputed:country" }],
-        precomputedUnitDimensionIds: ["dim_country"],
       };
       mockSuccessfulExperimentLoad(snapshot.experiment);
 

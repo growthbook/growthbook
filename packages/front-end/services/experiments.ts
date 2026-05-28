@@ -854,7 +854,7 @@ export function convertExperimentToTemplate(
   return template;
 }
 
-export function datasourceHasWritableEphemeralPipeline(
+export function datasourceHasWritableIncrementalPipeline(
   datasource: DataSourceInterfaceWithParams | null | undefined,
   hasPipelineModeFeature: boolean,
 ): boolean {
@@ -862,23 +862,22 @@ export function datasourceHasWritableEphemeralPipeline(
   return (
     !!datasource?.properties?.supportsWritingTables &&
     !!pipelineSettings?.allowWriting &&
-    pipelineSettings?.mode === "ephemeral" &&
+    pipelineSettings?.mode === "incremental" &&
     !!pipelineSettings?.writeDataset &&
     hasPipelineModeFeature
   );
 }
 
-export function getHonoredPrecomputedUnitDimensionIds(
-  precomputedUnitDimensionIds: string[] | undefined,
-  datasource: DataSourceInterfaceWithParams | null | undefined,
-  hasPipelineModeFeature: boolean,
+// Unit dimensions are "available" once the post-run exploratory batch has
+// materialized their time series; that availability is tracked on the
+// experiment analysis summary rather than derived from datasource pipeline
+// capabilities.
+export function getPrecomputedUnitDimensionIds(
+  experiment:
+    | Pick<ExperimentInterfaceStringDates, "analysisSummary">
+    | undefined,
 ): string[] {
-  if (
-    !datasourceHasWritableEphemeralPipeline(datasource, hasPipelineModeFeature)
-  ) {
-    return [];
-  }
-  return precomputedUnitDimensionIds ?? [];
+  return experiment?.analysisSummary?.precomputedUnitDimensions ?? [];
 }
 
 export function getIsExperimentIncludedInIncrementalRefresh(

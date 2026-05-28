@@ -334,6 +334,9 @@ export const experimentAnalysisSummary = z
     health: experimentAnalysisSummaryHealth.optional(),
     resultsStatus: experimentAnalysisSummaryResultsStatus.optional(),
     precomputedDimensions: z.array(z.string()).optional(),
+    // Unit (user) dimension ids that have materialized time series available
+    // from the most recent successful exploratory batch.
+    precomputedUnitDimensions: z.array(z.string()).optional(),
   })
   .strict();
 
@@ -1144,7 +1147,7 @@ const postExperimentBody = z
     precomputedUnitDimensionIds: z
       .array(z.string())
       .describe(
-        "A list of unit dimension ids that will be calculated every update and generate timeseries data. Requires the datasource to have pipeline mode enabled.",
+        "A list of unit dimension ids that will be calculated every update and generate timeseries data. Requires the datasource to have incremental pipeline mode enabled.",
       )
       .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
       .optional(),
@@ -1350,7 +1353,7 @@ const updateExperimentBody = z
     precomputedUnitDimensionIds: z
       .array(z.string())
       .describe(
-        "A list of unit dimension ids that will be calculated every update and generate timeseries data. Requires the datasource to have pipeline mode enabled.",
+        "A list of unit dimension ids that will be calculated every update and generate timeseries data. Requires the datasource to have incremental pipeline mode enabled.",
       )
       .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
       .optional(),

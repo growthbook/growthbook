@@ -186,18 +186,16 @@ describe("updateExperimentAnalysisTimeSeries dimension gate", () => {
     ).rejects.toThrow(/unsupported dimension: dim_country/);
   });
 
-  it("accepts a unit-dim analysis when the parent snapshot precomputed that unit dimension", async () => {
+  it("accepts a unit-dim analysis when the experiment precomputed that unit dimension", async () => {
     const context = makeContext();
     await expect(
       updateExperimentAnalysisTimeSeries({
         context: context as never,
-        experiment: makeExperiment(),
-        experimentSnapshot: makeSnapshot({
-          settings: {
-            ...makeSnapshot().settings,
-            precomputedUnitDimensionIds: ["dim_country"],
-          },
-        }),
+        experiment: {
+          ...makeExperiment(),
+          precomputedUnitDimensionIds: ["dim_country"],
+        },
+        experimentSnapshot: makeSnapshot(),
         analyses: [
           makeAnalysis({
             differenceType: "relative",

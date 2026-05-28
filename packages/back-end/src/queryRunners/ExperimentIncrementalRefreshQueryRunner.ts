@@ -13,6 +13,7 @@ import {
   IncrementalRefreshMetricSourceInterface,
 } from "shared/validators";
 import {
+  UserDimension,
   ExperimentAggregateUnitsQueryResponseRows,
   ExternalIdCallback,
   InsertMetricSourceDataQueryParams,
@@ -48,7 +49,12 @@ import {
   getMetricSettingsHashForIncrementalRefresh,
   validateIncrementalPipeline,
 } from "back-end/src/enterprise/services/data-pipeline";
-import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
+import {
+  getEligiblePrecomputedUnitDimensionIds,
+  getExposureQueryEligibleDimensions,
+} from "back-end/src/services/dimensions";
+import { parseDimension } from "back-end/src/services/experiments";
+import { runIncrementalUnitDimensionExploratoryBatch } from "back-end/src/services/experimentIncrementalUnitDimensions";
 import { chunkMetrics } from "back-end/src/services/experimentQueries/experimentQueries";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { applyMetricOverrides } from "back-end/src/util/integration";
@@ -372,12 +378,32 @@ const startExperimentIncrementalRefreshQueries = async (
     nVariations: params.variationNames.length,
   });
 
+  // Configured "always-computed" unit dimensions are materialized as
+  // dim_unit_<id> columns on the shared units table so that the per-dimension
+  // exploratory snapshots kicked off after the main run can read them directly.
+  const experiment = await getExperimentById(context, experimentId);
+  const eligibleUnitDimensionIds = experiment
+    ? await getEligiblePrecomputedUnitDimensionIds({
+        context,
+        experiment,
+        datasource: integration.datasource,
+        dimensionIds: experiment.precomputedUnitDimensionIds ?? [],
+      })
+    : [];
+  const unitDimensionsToPrecompute: UserDimension[] = (
+    await Promise.all(
+      eligibleUnitDimensionIds.map((id) =>
+        parseDimension(id, undefined, org.id),
+      ),
+    )
+  ).filter((d): d is UserDimension => d !== null && d.type === "user");
+
   const unitQueryParams: UpdateExperimentIncrementalUnitsQueryParams = {
     unitsTableFullName: unitsTableFullName,
     unitsTempTableFullName: unitsTempTableFullName,
     settings: snapshotSettings,
     activationMetric: null, // TODO(incremental-refresh): activation metric
-    dimensions: eligibleDimensions,
+    dimensions: [...eligibleDimensions, ...unitDimensionsToPrecompute],
     segment: segmentObj,
     incrementalRefreshStartTime: params.incrementalRefreshStartTime,
     factTableMap: params.factTableMap,
@@ -498,6 +524,9 @@ const startExperimentIncrementalRefreshQueries = async (
                   snapshotSettings,
                 ),
               unitsDimensions: eligibleDimensions.map((d) => d.id),
+              precomputedUnitDimensions: unitDimensionsToPrecompute.map(
+                (d) => d.dimension.id,
+              ),
             },
           );
         if (lockHeld !== true) {
@@ -1131,6 +1160,33 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
           this.context.logger.warn(
             e,
             "Failed to release incremental refresh lock on terminal status",
+          ),
+        );
+    }
+
+    // After the main (dimensionless, standard) incremental run succeeds and its
+    // lock is released, kick off the per-unit-dimension exploratory snapshots
+    // under a shared batch lock. Guard against re-entry for exploratory /
+    // dimension-scoped / bandit runs.
+    if (
+      snapshotStatus === "success" &&
+      this.model.type === "standard" &&
+      !this.model.dimension
+    ) {
+      getExperimentById(this.context, this.model.experiment)
+        .then((experiment) => {
+          if (!experiment || experiment.type === "multi-armed-bandit") {
+            return;
+          }
+          return runIncrementalUnitDimensionExploratoryBatch({
+            context: this.context,
+            experiment,
+          });
+        })
+        .catch((e) =>
+          this.context.logger.error(
+            e,
+            "Failed to run unit dimension exploratory batch after incremental refresh",
           ),
         );
     }

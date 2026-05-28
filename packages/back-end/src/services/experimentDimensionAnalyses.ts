@@ -19,8 +19,10 @@ const EAGER_DIMENSION_CONCURRENCY = 3;
 
 /**
  * After a successful standard snapshot, runs gbstats analyses for every
- * precomputed experiment and unit dimension on the snapshot, then persists
- * their dimension time series.
+ * precomputed (post-stratification) experiment dimension on the snapshot, then
+ * persists their dimension time series. Precomputed unit dimensions are handled
+ * separately via per-dimension exploratory snapshots (see the incremental
+ * runner's post-run orchestrator).
  */
 export async function runEagerExperimentAndUnitDimensionsAnalyses({
   context,
@@ -32,7 +34,7 @@ export async function runEagerExperimentAndUnitDimensionsAnalyses({
   experimentSnapshot: ExperimentSnapshotInterface;
 }) {
   try {
-    // Snapshots with dimension (unit dimension) already have their analyses populated
+    // Snapshots scoped to a dimension already have their analyses populated
     if (
       experimentSnapshot.dimension !== null &&
       experimentSnapshot.dimension !== ""
@@ -40,24 +42,13 @@ export async function runEagerExperimentAndUnitDimensionsAnalyses({
       return;
     }
 
-    const precomputedUnitDimensionIds =
-      experimentSnapshot.settings.precomputedUnitDimensionIds ?? [];
     const precomputedDimensionIds = new Set<string>();
 
     (experimentSnapshot.settings.dimensions ?? []).forEach((dimension) => {
-      if (isDimensionPrecomputed(dimension.id, precomputedUnitDimensionIds)) {
+      if (isDimensionPrecomputed(dimension.id, [])) {
         precomputedDimensionIds.add(dimension.id);
       }
     });
-
-    if (
-      experimentSnapshot.type === "standard" &&
-      experiment.type !== "multi-armed-bandit"
-    ) {
-      precomputedUnitDimensionIds.forEach((dimensionId) => {
-        precomputedDimensionIds.add(dimensionId);
-      });
-    }
 
     if (precomputedDimensionIds.size === 0) {
       return;

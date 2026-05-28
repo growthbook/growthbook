@@ -27,7 +27,7 @@ import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
-import { getHonoredPrecomputedUnitDimensionIds } from "@/services/experiments";
+import { getPrecomputedUnitDimensionIds } from "@/services/experiments";
 import track from "@/services/track";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
@@ -117,16 +117,10 @@ export default function ResultsTab({
     useSnapshot();
 
   const permissionsUtil = usePermissionsUtil();
-  const { organization, hasCommercialFeature } = useUser();
+  const { organization } = useUser();
   const project = getProjectById(experiment.project || "");
-  const honoredPrecomputedUnitDimensionIds =
-    getHonoredPrecomputedUnitDimensionIds(
-      experiment.precomputedUnitDimensionIds,
-      experiment.datasource
-        ? getDatasourceById(experiment.datasource)
-        : undefined,
-      hasCommercialFeature("pipeline-mode"),
-    );
+  const precomputedUnitDimensionIds =
+    getPrecomputedUnitDimensionIds(experiment);
 
   const { settings: scopedSettings } = getScopedSettings({
     organization,
@@ -176,7 +170,7 @@ export default function ResultsTab({
       ...prev,
       dimension: isDimensionPrecomputed(
         prev.dimension,
-        honoredPrecomputedUnitDimensionIds,
+        precomputedUnitDimensionIds,
       )
         ? ""
         : prev.dimension,
@@ -187,7 +181,7 @@ export default function ResultsTab({
   }, [
     setAnalysisBarSettings,
     setAnalysisSettings,
-    honoredPrecomputedUnitDimensionIds,
+    precomputedUnitDimensionIds,
   ]);
 
   const endDate =

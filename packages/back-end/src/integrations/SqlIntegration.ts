@@ -76,6 +76,7 @@ import {
   CreateMetricSourceTableQueryParams,
   InsertMetricSourceDataQueryParams,
   DimensionColumnData,
+  UserDimension,
   DropMetricSourceCovariateTableQueryParams,
   MaxTimestampQueryResponse,
   ExperimentFactMetricsQueryResponseRows,
@@ -1508,7 +1509,7 @@ export default abstract class SqlIntegration
     exposureQuery: ExposureQuery;
     activationMetric: ExperimentMetricInterface | null;
     experimentDimensions: ExperimentDimension[];
-    unitDimensions: Dimension[];
+    unitDimensions: UserDimension[];
   } {
     const { settings, activationMetric: activationMetricDoc } = params;
 
@@ -1523,7 +1524,7 @@ export default abstract class SqlIntegration
       settings,
     );
 
-    const { experimentDimensions } = processDimensions(
+    const { experimentDimensions, unitDimensions } = processDimensions(
       this.getSqlDialect(),
       params.dimensions,
       settings,
@@ -1534,15 +1535,19 @@ export default abstract class SqlIntegration
       activationMetric,
       experimentDimensions,
       exposureQuery,
-      unitDimensions: params.dimensions,
+      unitDimensions,
     };
   }
 
   getCreateExperimentIncrementalUnitsQuery(
     params: CreateExperimentIncrementalUnitsQueryParams,
   ): string {
-    const { exposureQuery, activationMetric, experimentDimensions } =
-      this.parseExperimentParams(params);
+    const {
+      exposureQuery,
+      activationMetric,
+      experimentDimensions,
+      unitDimensions,
+    } = this.parseExperimentParams(params);
 
     return format(
       `
@@ -1562,6 +1567,12 @@ export default abstract class SqlIntegration
             `, dim_exp_${d.id} ${this.getSqlDialect().getDataType("string")}`,
         )
         .join("\n")}
+      ${unitDimensions
+        .map(
+          (d) =>
+            `, dim_unit_${d.dimension.id} ${this.getSqlDialect().getDataType("string")}`,
+        )
+        .join("\n")}
       , max_timestamp ${this.getSqlDialect().getDataType("timestamp")}
     )
     ${this.createTablePartitions(["max_timestamp"])}
@@ -1574,8 +1585,12 @@ export default abstract class SqlIntegration
     params: UpdateExperimentIncrementalUnitsQueryParams,
   ): string {
     const { settings, segment, factTableMap } = params;
-    const { exposureQuery, activationMetric, experimentDimensions } =
-      this.parseExperimentParams(params);
+    const {
+      exposureQuery,
+      activationMetric,
+      experimentDimensions,
+      unitDimensions,
+    } = this.parseExperimentParams(params);
 
     const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
       this.getSqlDialect(),
@@ -1585,6 +1600,8 @@ export default abstract class SqlIntegration
           [exposureQuery.userIdType],
           // activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
           segment ? [segment.userIdType || "user_id"] : [],
+          // Unit dimensions are joined by their own user id type
+          ...unitDimensions.map((d) => [d.dimension.userIdType]),
         ],
         from: settings.startDate,
         to: settings.endDate,
@@ -1697,6 +1714,16 @@ export default abstract class SqlIntegration
             FROM __filteredNewExposures
           )
         )
+        ${unitDimensions
+          .map(
+            (d) =>
+              `, __dim_unit_${d.dimension.id} AS (${getDimensionCTE(
+                d.dimension,
+                baseIdType,
+                idJoinMap,
+              )})`,
+          )
+          .join("\n")}
         , __experimentUnits AS (
           SELECT
             e.${baseIdType} AS ${baseIdType}
@@ -1713,7 +1740,22 @@ export default abstract class SqlIntegration
               , ${getDimensionValuePerUnit(this.getSqlDialect(), d, "dim_exp_")} AS dim_exp_${d.id}`,
               )
               .join("\n")}
+            ${unitDimensions
+              .map(
+                (d) => `
+              , ${getDimensionValuePerUnit(this.getSqlDialect(), d)} AS dim_unit_${d.dimension.id}`,
+              )
+              .join("\n")}
           FROM __jointExposures e
+          ${unitDimensions
+            .map(
+              (
+                d,
+              ) => `LEFT JOIN __dim_unit_${d.dimension.id} __dim_unit_${d.dimension.id} ON (
+            ${this.getSqlDialect().castToString(`__dim_unit_${d.dimension.id}.${baseIdType}`)} = e.${baseIdType}
+          )`,
+            )
+            .join("\n")}
           GROUP BY
             ${baseIdType}
         )
@@ -1723,6 +1765,9 @@ export default abstract class SqlIntegration
           , first_exposure_timestamp
           ${activationMetric ? `, first_activation_timestamp` : ""}
           ${experimentDimensions.map((d) => `, dim_exp_${d.id}`).join("\n")}
+          ${unitDimensions
+            .map((d) => `, dim_unit_${d.dimension.id}`)
+            .join("\n")}
           , max_timestamp
         FROM __experimentUnits
       )
@@ -2423,13 +2468,30 @@ export default abstract class SqlIntegration
     }
 
     // exploratory dimensions
-    const { experimentDimensions, unitDimensions, dateDimension } =
-      processDimensions(
-        this.getSqlDialect(),
-        params.dimensionsForAnalysis,
-        params.settings,
-        params.activationMetric,
-      );
+    const {
+      experimentDimensions,
+      unitDimensions: allUnitDimensions,
+      dateDimension,
+    } = processDimensions(
+      this.getSqlDialect(),
+      params.dimensionsForAnalysis,
+      params.settings,
+      params.activationMetric,
+    );
+
+    // Unit dimensions already materialized as dim_unit_<id> columns on the
+    // units table are read straight from the column (like experiment
+    // dimensions). The rest are joined from the dimension source at analysis
+    // time.
+    const precomputedUnitDimensionIdSet = new Set(
+      params.precomputedUnitDimensionIds ?? [],
+    );
+    const unitDimensions = allUnitDimensions.filter(
+      (d) => !precomputedUnitDimensionIdSet.has(d.dimension.id),
+    );
+    const precomputedUnitDimensions = allUnitDimensions.filter((d) =>
+      precomputedUnitDimensionIdSet.has(d.dimension.id),
+    );
 
     const idTypeObjects = [
       [exposureQuery.userIdType],
@@ -2476,10 +2538,17 @@ export default abstract class SqlIntegration
       ? getDimensionCol(this.getSqlDialect(), dateDimension)
       : undefined;
 
+    // Precomputed unit dimensions live in the dim_unit_<id> column on the units
+    // table, so they read like experiment dimension columns.
+    const precomputedUnitDimensionCols = precomputedUnitDimensions.map((d) =>
+      getDimensionCol(this.getSqlDialect(), d),
+    );
+
     const nonUnitDimensionCols = [
       ...experimentDimensionCols,
       ...(dateDimensionCol ? [dateDimensionCol] : []),
       ...precomputedDimensionCols,
+      ...precomputedUnitDimensionCols,
     ];
     const allDimensionCols = [...nonUnitDimensionCols, ...unitDimensionCols];
     // TODO(incremental-refresh): Handle activation metric in dimensions

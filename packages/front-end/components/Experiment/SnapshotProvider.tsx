@@ -16,6 +16,9 @@ import {
 import { getSnapshotAnalysis } from "shared/util";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
+import { getPrecomputedUnitDimensionIds } from "@/services/experiments";
+
+export { getPrecomputedUnitDimensionIds };
 
 const snapshotContext = React.createContext<{
   experiment?: ExperimentInterfaceStringDates;
@@ -83,38 +86,6 @@ export function getPrecomputedDimensions(
   // the dimensionless snapshot
   if (snapshot?.type !== "standard" && dimensionless?.type === "standard") {
     return dimensionless.settings.dimensions.map((d) => d.id) ?? [];
-  }
-
-  return [];
-}
-
-export function getPrecomputedUnitDimensionIds(
-  experiment: ExperimentInterfaceStringDates | undefined,
-  snapshot: ExperimentSnapshotInterface | undefined,
-  dimensionless: ExperimentSnapshotInterface | undefined,
-): string[] {
-  const getSnapshotUnitDimensionIds = (
-    snapshot: ExperimentSnapshotInterface,
-  ) => {
-    const experimentUnitDimensionIds = experiment?.precomputedUnitDimensionIds;
-    const snapshotUnitDimensionIds =
-      snapshot.settings.precomputedUnitDimensionIds ?? [];
-
-    return experimentUnitDimensionIds
-      ? snapshotUnitDimensionIds.filter((id) =>
-          experimentUnitDimensionIds.includes(id),
-        )
-      : snapshotUnitDimensionIds;
-  };
-
-  if (snapshot?.type === "standard" && !snapshot?.dimension) {
-    return getSnapshotUnitDimensionIds(snapshot);
-  }
-
-  // if snapshot is not the latest standard, then show dimensions from
-  // the dimensionless snapshot
-  if (snapshot?.type !== "standard" && dimensionless?.type === "standard") {
-    return getSnapshotUnitDimensionIds(dimensionless);
   }
 
   return [];
@@ -278,11 +249,7 @@ export default function SnapshotProvider({
           data?.snapshot,
           data?.dimensionless,
         ),
-        precomputedUnitDimensionIds: getPrecomputedUnitDimensionIds(
-          experiment,
-          data?.snapshot,
-          data?.dimensionless,
-        ),
+        precomputedUnitDimensionIds: getPrecomputedUnitDimensionIds(experiment),
         setPhase,
         setDimension,
         setAnalysisSettings,
@@ -387,11 +354,7 @@ export function LocalSnapshotProvider({
           localSnapshot,
           localSnapshot,
         ),
-        precomputedUnitDimensionIds: getPrecomputedUnitDimensionIds(
-          experiment,
-          localSnapshot,
-          localSnapshot,
-        ),
+        precomputedUnitDimensionIds: getPrecomputedUnitDimensionIds(experiment),
         setPhase: () => {
           // phase is fixed
         },

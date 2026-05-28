@@ -53,6 +53,10 @@ export type ExperimentIncrementalRefreshExploratoryQueryParams = {
   queryParentId: string;
   // Incremental Refresh specific
   incrementalRefreshStartTime: Date;
+  // When set, this snapshot runs under a shared coordinator-held batch lock
+  // (parallel exploratory snapshots). The token is used for fencing instead of
+  // this snapshot's id, and the coordinator owns the heartbeat + release.
+  incrementalRefreshLockToken?: string;
 };
 
 export const startExperimentIncrementalRefreshExploratoryQueries = async (
@@ -110,6 +114,22 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     );
   }
 
+  // Unit (user) dimensions must be materialized as dim_unit_<id> columns on the
+  // units table before they can be read by the exploratory statistics query.
+  const precomputedUnitDimensionIds =
+    incrementalRefreshModel.precomputedUnitDimensions ?? [];
+  const missingUnitDimensions = dimensionObjs.filter(
+    (d) =>
+      d.type === "user" &&
+      !precomputedUnitDimensionIds.includes(d.dimension.id),
+  );
+
+  if (missingUnitDimensions.length) {
+    throw new Error(
+      `Selected unit dimensions are not materialized on the units table; required for exploratory analysis.`,
+    );
+  }
+
   const unitsTableFullName = incrementalRefreshModel.unitsTableFullName;
 
   if (!unitsTableFullName) {
@@ -118,7 +138,11 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     );
   }
 
-  const executionId = params.queryParentId;
+  // Under a batch lock, fence on the coordinator's shared token so all parallel
+  // exploratory snapshots in the batch pass the fence while the coordinator
+  // holds the lock.
+  const executionId =
+    params.incrementalRefreshLockToken ?? params.queryParentId;
 
   // Wraps a `run` callback with an execution-fence check. The exploratory
   // runner only reads the shared per-experiment pipeline tables, but it holds
@@ -199,6 +223,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
       // unused in exploratory analysis, use dimensionsForAnalysis instead
       dimensionsForPrecomputation: [],
       dimensionsForAnalysis: dimensionObjs,
+      precomputedUnitDimensionIds,
       factTableMap: params.factTableMap,
       metricSourceTableFullName: existingSource.tableFullName,
       metricSourceCovariateTableFullName:
@@ -233,6 +258,9 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
 > {
   private variationNames: string[] = [];
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
+  // Set when running under a shared coordinator-held batch lock. The
+  // coordinator owns the heartbeat and release, so this runner skips both.
+  private incrementalRefreshLockToken?: string;
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(
@@ -241,6 +269,11 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
   }
 
   protected override onHeartbeat(): void {
+    // Under a batch lock the coordinator refreshes the heartbeat on the shared
+    // token, so individual snapshots must not touch it (they don't hold it).
+    if (this.incrementalRefreshLockToken) {
+      return;
+    }
     this.context.models.incrementalRefresh
       .touchLockHeartbeat(this.model.experiment, this.model.id)
       .catch((e) =>
@@ -256,6 +289,7 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
   ): Promise<Queries> {
     this.metricMap = params.metricMap;
     this.variationNames = params.variationNames;
+    this.incrementalRefreshLockToken = params.incrementalRefreshLockToken;
     if (params.experimentQueryMetadata) {
       this.integration.setAdditionalQueryMetadata?.(
         params.experimentQueryMetadata,
@@ -376,7 +410,8 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
     // Release the incremental refresh lock on any terminal status. This runner
     // acquires the lock (see createSnapshotFromPlan) so that it does not read
     // the shared pipeline tables while an incremental refresh is mutating them.
-    if (updates.status !== "running") {
+    // Under a batch lock the coordinator owns the release, so skip it here.
+    if (updates.status !== "running" && !this.incrementalRefreshLockToken) {
       await this.context.models.incrementalRefresh
         .releaseLock(this.model.experiment, this.model.id)
         .catch((e) =>

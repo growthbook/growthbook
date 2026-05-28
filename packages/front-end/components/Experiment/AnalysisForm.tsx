@@ -40,7 +40,7 @@ import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import DatePicker from "@/components/DatePicker";
 import {
-  datasourceHasWritableEphemeralPipeline,
+  datasourceHasWritableIncrementalPipeline,
   getIsExperimentIncludedInIncrementalRefresh,
 } from "@/services/experiments";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -288,13 +288,17 @@ const AnalysisForm: FC<{
         .map((d) => ({ label: d.name, value: d.id })),
     [dimensions, datasourceField, exposureQuery],
   );
-  const datasourceHasWritableEphemeralPipelineEnabled = useMemo(
+  const datasourceHasWritableIncrementalPipelineEnabled = useMemo(
     () =>
-      datasourceHasWritableEphemeralPipeline(
+      datasourceHasWritableIncrementalPipeline(
         datasource,
         hasPipelineModeFeature,
-      ),
-    [datasource, hasPipelineModeFeature],
+      ) && isExperimentIncludedInIncrementalRefresh,
+    [
+      datasource,
+      hasPipelineModeFeature,
+      isExperimentIncludedInIncrementalRefresh,
+    ],
   );
 
   if (upgradeModal) {
@@ -313,7 +317,7 @@ const AnalysisForm: FC<{
     form.watch("secondaryMetrics").length > 0;
   const hasEligiblePrecomputedUnitDimensions =
     precomputedUnitDimensionOptions.length > 0 &&
-    datasourceHasWritableEphemeralPipelineEnabled;
+    datasourceHasWritableIncrementalPipelineEnabled;
   const hasAdvancedSettings = !isBandit && !isHoldout;
   const selectedPrecomputedUnitDimensionIds =
     form.watch("precomputedUnitDimensionIds") || [];

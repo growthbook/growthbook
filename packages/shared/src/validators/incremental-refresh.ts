@@ -29,6 +29,9 @@ const incrementalRefresh = z
     unitsTableFullName: z.string().nullable(),
     unitsMaxTimestamp: z.date().nullable(),
     unitsDimensions: z.array(z.string()),
+    // Unit (user) dimension ids materialized as dim_unit_<id> columns on the
+    // units table. Read by the per-dimension exploratory snapshots.
+    precomputedUnitDimensions: z.array(z.string()).optional(),
 
     // Experiment Settings Hash
     experimentSettingsHash: z.string().nullable(),
