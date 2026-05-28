@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { evaluateFeatures } from "@growthbook/proxy-eval";
 import { cloneDeep, isEqual, omit } from "lodash";
 import { v4 as uuidv4 } from "uuid";
+import { z } from "zod";
 import {
   SDKConnectionInterface,
   SDKLanguage,
@@ -40,6 +41,8 @@ import {
   RevisionRampAction,
   RevisionRampCreateAction,
   RevisionRampDetachAction,
+  clipboardFeatureRule,
+  clipboardSafeRolloutSettings,
 } from "shared/validators";
 import { FeatureUsageLookback } from "shared/types/integrations";
 import {
@@ -142,6 +145,7 @@ import {
   getRevisionsByVersions,
   getFeaturePageRevisions,
   getRevisionsByStatus,
+  hardDeleteRevision,
   markRevisionAsReviewRequested,
   normalizeRulesInputToV2,
   ReviewSubmittedType,
@@ -3558,6 +3562,388 @@ export async function postFeatureCreateDraft(
         version: newDraft.version,
         baseVersion: newDraft.baseVersion,
         comment: newDraft.comment,
+      }),
+    })
+    .catch((e) =>
+      logger.error(e, "Failed to write audit log for revision.create"),
+    );
+
+  await dispatchFeatureRevisionEvent(
+    context,
+    feature,
+    newDraft,
+    "revision.created",
+    {},
+  );
+
+  return res.status(200).json({
+    status: 200,
+    draftVersion: newDraft.version,
+  });
+}
+
+const featureImportDraftBodySchema = z
+  .object({
+    rules: z.array(clipboardFeatureRule),
+    environmentsEnabled: z.record(z.string(), z.boolean()),
+    // Keyed by the SOURCE safeRolloutId referenced from the rules. The
+    // backend creates a fresh SafeRollout per safe-rollout rule using these
+    // settings and rewrites rule.safeRolloutId. Optional for backward compat
+    // with older payloads, but safe-rollout rules will fail import without
+    // a matching entry.
+    safeRolloutSettings: z
+      .record(z.string(), clipboardSafeRolloutSettings)
+      .optional(),
+    title: z.string().optional(),
+    comment: z.string().optional(),
+  })
+  .strict();
+
+export async function postFeatureImportDraft(
+  req: AuthRequest<unknown, { id: string }>,
+  res: Response<
+    { status: 200; draftVersion: number },
+    EventUserForResponseLocals
+  >,
+) {
+  const { id } = req.params;
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const result = featureImportDraftBodySchema.safeParse(req.body);
+
+  if (!result.success) {
+    // Surface the first Zod issue so a structural mismatch (unknown rule
+    // shape, missing required field, etc.) is diagnosable from the client
+    // error and server logs instead of a bare "invalid payload".
+    const firstIssue = result.error.issues[0];
+    const issueDetail = firstIssue
+      ? `${firstIssue.path.join(".") || "<root>"}: ${firstIssue.message}`
+      : "unknown";
+    throw new Error(`Invalid feature import draft payload — ${issueDetail}`);
+  }
+
+  const { rules, environmentsEnabled, safeRolloutSettings, title, comment } =
+    result.data;
+  const feature = await getFeature(context, id);
+
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  const allEnvironments = getEnvironments(org);
+  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
+  const environmentIds = environments.map((e) => e.id);
+  const orgEnvironmentIds = new Set(allEnvironments.map((e) => e.id));
+
+  // Drop env keys that aren't applicable to this feature's project — the
+  // client sends every org env, but project env-scoping may shrink the valid
+  // set. Anything outside the org entirely is a real error from a stale or
+  // hostile client.
+  Object.keys(environmentsEnabled).forEach((env) => {
+    if (!orgEnvironmentIds.has(env)) {
+      throw new Error(`Invalid environment: ${env}`);
+    }
+  });
+  const filteredEnvironmentsEnabled = Object.fromEntries(
+    Object.entries(environmentsEnabled).filter(([env]) =>
+      environmentIds.includes(env),
+    ),
+  );
+
+  // Mirrors postFeatureCreateDraft — this endpoint only ever creates an
+  // unpublished draft. Publish-permission is enforced when the draft is
+  // actually published, not at draft-creation time.
+  if (
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canManageFeatureDrafts(feature)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  const importedRules = cloneDeep(rules);
+  addIdsToFlatRules(importedRules, feature.id);
+
+  // Enforce the destination org's opt-in attribute-registration policy on
+  // every imported rule. Mirrors postFeatureRule's call so a clipboard
+  // import can't smuggle in attributes the single-rule add path would
+  // reject. Per-rule loop because each rule has its own hash/fallback/
+  // condition tuple.
+  for (const r of importedRules) {
+    assertRegisteredAttributes(
+      context,
+      {
+        hashAttribute: (r as { hashAttribute?: string }).hashAttribute,
+        fallbackAttribute: (r as { fallbackAttribute?: string })
+          .fallbackAttribute,
+        condition: r.condition,
+      },
+      "rule",
+      undefined,
+      feature.project,
+    );
+  }
+
+  // Auto-create destination SafeRollouts for each safe-rollout rule using
+  // the source settings carried in the envelope. Safe rollouts are
+  // per-feature, so cross-org id mapping doesn't make sense — instead we
+  // mint fresh SafeRollouts owned by the importing feature and rewrite
+  // rule.safeRolloutId to point at them. Destination-specific refs
+  // (datasource, exposure query, guardrails) are carried as-is and may need
+  // user fix-up post-import.
+  //
+  // Gate on the destination org's safe-rollout entitlement (the same gate
+  // postFeatureRule enforces on single-rule add) so importing a feature
+  // with safe-rollout rules into a non-premium org fails cleanly instead
+  // of silently bypassing entitlement. We deliberately skip
+  // validateCreateSafeRolloutFields here: it asserts that datasourceId /
+  // exposureQueryId / guardrailMetricIds exist in the destination, which
+  // would always fail for cross-org imports. The user fixes those refs on
+  // the auto-created SafeRollout via the destination's safe-rollout UI
+  // post-import.
+  const hasAnySafeRolloutRule = importedRules.some(
+    (r) => r.type === "safe-rollout",
+  );
+  if (hasAnySafeRolloutRule && !context.hasPremiumFeature("safe-rollout")) {
+    throw new Error(
+      "This feature contains a Safe Rollout rule, which requires a paid plan in the destination organization.",
+    );
+  }
+  const createdSafeRolloutIds: string[] = [];
+  try {
+    for (const r of importedRules) {
+      if (r.type !== "safe-rollout") continue;
+      const sourceId = r.safeRolloutId;
+      const sourceSettings = sourceId
+        ? safeRolloutSettings?.[sourceId]
+        : undefined;
+      if (!sourceSettings) {
+        throw new Error(
+          `Safe-rollout rule references safeRolloutId "${sourceId}" but no matching safeRolloutSettings were provided in the import payload. Re-export from the source instance.`,
+        );
+      }
+      // SafeRollout docs are single-env, but the rule itself can apply to
+      // all envs (allEnvironments: true) or a list. Pick the env the
+      // destination SafeRollout doc lives in:
+      //   - rule.environments.length === 1 → that env (faithful to source)
+      //   - allEnvironments: true → first applicable env (the rule still
+      //     evaluates in all envs at SDK runtime; only analysis is scoped)
+      // Anything else (multi-env list) is a configuration the standard
+      // create flow forbids; refuse import rather than silently picking.
+      let ruleEnv: string | undefined;
+      if (r.allEnvironments) {
+        ruleEnv = environmentIds[0];
+        if (!ruleEnv) {
+          throw new Error(
+            "Cannot import an allEnvironments safe-rollout rule because this feature's project has no environments.",
+          );
+        }
+      } else if (r.environments?.length === 1) {
+        ruleEnv = r.environments[0];
+      } else {
+        throw new Error(
+          "Safe-rollout rules must be scoped to all environments or to a single environment to be imported.",
+        );
+      }
+      if (!environmentIds.includes(ruleEnv)) {
+        throw new Error(
+          `Safe-rollout rule references environment "${ruleEnv}" which is not available in this feature's project.`,
+        );
+      }
+      // Ramp schedule structure carries across; runtime step / completion
+      // state is reset so the destination starts fresh.
+      const rampSteps = sourceSettings.rampUpSchedule?.steps?.length
+        ? sourceSettings.rampUpSchedule.steps
+        : [
+            { percent: 0.1 },
+            { percent: 0.25 },
+            { percent: 0.5 },
+            { percent: 0.75 },
+            { percent: 1 },
+          ];
+      r.seed = r.seed || uuidv4();
+      r.trackingKey =
+        r.trackingKey || `${SAFE_ROLLOUT_TRACKING_KEY_PREFIX}${uuidv4()}`;
+      const created = await context.models.safeRollout.create({
+        datasourceId: sourceSettings.datasourceId,
+        exposureQueryId: sourceSettings.exposureQueryId,
+        guardrailMetricIds: sourceSettings.guardrailMetricIds,
+        maxDuration: sourceSettings.maxDuration,
+        autoRollback: sourceSettings.autoRollback,
+        autoSnapshots: sourceSettings.autoSnapshots,
+        environment: ruleEnv,
+        featureId: feature.id,
+        status: r.status ?? "running",
+        rampUpSchedule: {
+          enabled: sourceSettings.rampUpSchedule?.enabled ?? false,
+          step: 0,
+          steps: rampSteps,
+          rampUpCompleted: false,
+          nextUpdate: undefined,
+        },
+      });
+      if (!created) throw new Error("Failed to create safe rollout on import");
+      createdSafeRolloutIds.push(created.id);
+      r.safeRolloutId = created.id;
+    }
+  } catch (e) {
+    // Roll back any SafeRollouts we created before the failure so a
+    // partial import doesn't leave dangling docs in the destination.
+    for (const srId of createdSafeRolloutIds) {
+      try {
+        await context.models.safeRollout.deleteById(srId);
+      } catch (delErr) {
+        logger.warn(
+          delErr,
+          `Failed to clean up safe rollout ${srId} after import error`,
+        );
+      }
+    }
+    throw e;
+  }
+
+  let newDraft: Awaited<ReturnType<typeof createRevision>>;
+  try {
+    newDraft = await createRevision({
+      context,
+      feature,
+      user: context.auditUser,
+      baseVersion: feature.version,
+      comment: comment ?? "",
+      title,
+      environments: environmentIds,
+      publish: false,
+      changes: {
+        rules: importedRules,
+        environmentsEnabled: filteredEnvironmentsEnabled,
+      },
+      org,
+      canBypassApprovalChecks: false,
+    });
+  } catch (e) {
+    // If revision creation fails after we've created SafeRollouts, those
+    // SafeRollouts would otherwise orphan in the destination (the
+    // upstream feature gets archived+deleted by the frontend rollback,
+    // but unlinkFeatureFromAllExperiments doesn't touch safe rollouts).
+    for (const srId of createdSafeRolloutIds) {
+      try {
+        await context.models.safeRollout.deleteById(srId);
+      } catch (delErr) {
+        logger.warn(
+          delErr,
+          `Failed to clean up safe rollout ${srId} after revision-create error`,
+        );
+      }
+    }
+    throw e;
+  }
+
+  // Reconcile experiment linkage for any experiment-ref rules in the
+  // imported draft — mirrors the bookkeeping that postFeatureRule does on
+  // single-rule add. Without this, experiments don't list the feature as a
+  // linked implementation and the draft isn't queued for auto-publish.
+  //
+  // We resolve experiment existence up front so a missing experiment (an
+  // unmapped reference from the source org) doesn't pollute the feature's
+  // `linkedExperiments` with dangling ids — `addLinkedFeatureToExperiment`
+  // already no-ops for missing experiments but `addLinkedExperiment` does
+  // not, so they have to be gated together.
+  //
+  // If linkage fails, we surface the failure as a hard error so the UI
+  // doesn't show "success" while bookkeeping is partly broken. We also
+  // delete any SafeRollouts we created here, because the frontend rollback
+  // (archive + delete the feature) cascades to revisions and audit but
+  // does NOT touch SafeRollouts — without manual cleanup they'd orphan in
+  // the DB. The frontend then handles feature/draft cleanup as usual.
+  const experimentRefIds = new Set<string>();
+  for (const r of importedRules) {
+    if (r.type === "experiment-ref" && r.experimentId) {
+      experimentRefIds.add(r.experimentId);
+    }
+  }
+  const presentExperiments = await getExperimentsByIds(context, [
+    ...experimentRefIds,
+  ]);
+  const presentExperimentById = new Map(
+    presentExperiments.map((e) => [e.id, e]),
+  );
+  try {
+    for (const experimentId of experimentRefIds) {
+      const experiment = presentExperimentById.get(experimentId);
+      if (!experiment) continue;
+      await addLinkedFeatureToExperiment(
+        context,
+        experimentId,
+        feature.id,
+        experiment,
+      );
+      await addLinkedExperiment(feature, experimentId);
+      await addPendingFeatureDraftToExperiment(
+        context,
+        experimentId,
+        feature.id,
+        newDraft.version,
+      );
+    }
+  } catch (linkErr) {
+    // Hard-delete the just-created draft so its rules — which reference
+    // the SafeRollouts we're about to remove — can't be applied even if
+    // the frontend's archive+delete rollback never runs (browser crash,
+    // lost connectivity, etc.). We use hard-delete (not discardRevision)
+    // because this revision was created seconds ago and has no audit
+    // history worth keeping, and a discarded revision would still carry
+    // the dangling safeRolloutId references the bot flagged.
+    //
+    // Order matters: drop the revision first so it can't reference the
+    // SafeRollouts at the moment we're deleting them. Then we explicitly
+    // clear any pendingFeatureDrafts that partial linkage may have
+    // written for this version, since hard-delete doesn't trigger
+    // syncFeatureExperimentLinkages the way discardRevision does.
+    try {
+      await hardDeleteRevision(context.org.id, feature.id, newDraft.version);
+    } catch (delErr) {
+      logger.warn(
+        delErr,
+        `Failed to delete import draft for ${feature.id} after linkage error`,
+      );
+    }
+    for (const experimentId of experimentRefIds) {
+      try {
+        await removePendingFeatureDraftFromExperiment(
+          context,
+          experimentId,
+          feature.id,
+          newDraft.version,
+        );
+      } catch (pdrErr) {
+        logger.warn(
+          pdrErr,
+          `Failed to clear pending draft link from experiment ${experimentId} after linkage error`,
+        );
+      }
+    }
+    for (const srId of createdSafeRolloutIds) {
+      try {
+        await context.models.safeRollout.deleteById(srId);
+      } catch (delErr) {
+        logger.warn(
+          delErr,
+          `Failed to clean up safe rollout ${srId} after linkage error`,
+        );
+      }
+    }
+    throw linkErr;
+  }
+
+  void req
+    .audit({
+      event: "feature.revision.create",
+      entity: { object: "feature", id: feature.id },
+      details: auditDetailsCreate({
+        featureId: feature.id,
+        version: newDraft.version,
+        baseVersion: newDraft.baseVersion,
+        comment: newDraft.comment,
+        importedRules: importedRules.length,
       }),
     })
     .catch((e) =>

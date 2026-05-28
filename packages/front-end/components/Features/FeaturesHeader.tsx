@@ -8,8 +8,9 @@ import { filterEnvironmentsByFeature, isDefined } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiEye, PiWarning } from "react-icons/pi";
-import { HoldoutInterface } from "shared/validators";
+import { HoldoutInterface, SafeRolloutInterface } from "shared/validators";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import { useUser } from "@/services/UserContext";
@@ -45,12 +46,15 @@ import {
   DropdownSubMenu,
 } from "@/ui/DropdownMenu";
 import { useFeatureStaleStates } from "@/hooks/useFeatureStaleStates";
+import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useScrollPosition } from "@/hooks/useScrollPosition";
+import { buildFeatureConfigurationClipboardPayload } from "@/services/feature-configuration-clipboard";
 import FeatureArchiveModal from "./FeatureArchiveModal";
 import FeatureDeleteModal from "./FeatureDeleteModal";
 import AddToHoldoutModal from "./AddToHoldoutModal";
 export default function FeaturesHeader({
   feature,
+  baseFeature,
   mutate,
   setVersion,
   version,
@@ -60,8 +64,15 @@ export default function FeaturesHeader({
   setEditFeatureInfoModal,
   holdout,
   isReadOnly = false,
+  experiments,
+  safeRollouts,
 }: {
   feature: FeatureInterface;
+  // The live (published) feature, separate from `feature` which is the
+  // mergeRevision output for the currently-viewed revision. Used by "Copy
+  // feature configuration" so the clipboard always reflects the live config
+  // rather than whichever draft the user happens to be inspecting.
+  baseFeature: FeatureInterface;
   mutate: () => Promise<unknown>;
   setVersion: (version: number) => void;
   version: number | null;
@@ -71,6 +82,8 @@ export default function FeaturesHeader({
   setEditFeatureInfoModal: (open: boolean) => void;
   holdout: HoldoutInterface | undefined;
   isReadOnly?: boolean;
+  experiments?: ExperimentInterfaceStringDates[];
+  safeRollouts?: SafeRolloutInterface[];
 }) {
   const router = useRouter();
   const projectId = feature?.project;
@@ -82,6 +95,9 @@ export default function FeaturesHeader({
   const [addToHoldoutModal, setAddToHoldoutModal] = useState(false);
   const [archiveModal, setArchiveModal] = useState(false);
   const [deleteModal, setDeleteModal] = useState(false);
+  const [copyFeatureConfigMessage, setCopyFeatureConfigMessage] = useState<
+    { kind: "success" } | { kind: "error"; message: string } | null
+  >(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [staleStatusOpen, setStaleStatusOpen] = useState(false);
   const [showImplementation, setShowImplementation] = useState(firstFeature);
@@ -114,9 +130,17 @@ export default function FeaturesHeader({
     getProjectById,
     project: currentProject,
     projects,
+    savedGroups,
   } = useDefinitions();
   const { holdouts } = useHoldouts(feature.project);
   const holdoutsEnabled = hasCommercialFeature("holdouts");
+  // Loaded so the "Copy feature configuration" action can attach
+  // descriptions for any prerequisite-feature references in the clipboard
+  // payload. Deliberately unfiltered by project — prerequisites can be
+  // cross-project (see getPrerequisiteStates' JIT load comment in
+  // features.ts), and filtering here would silently drop those names from
+  // the import-side mapping context.
+  const { features: allFeaturesForCopy } = useFeatureMetaInfo();
 
   const staleHook = useFeatureStaleStates();
   const staleData = staleHook.getStaleState(feature.id);
@@ -187,6 +211,82 @@ export default function FeaturesHeader({
     await staleHook.fetchSome([feature.id]);
   };
 
+  useEffect(() => {
+    if (!copyFeatureConfigMessage) return;
+
+    const timer = window.setTimeout(() => {
+      setCopyFeatureConfigMessage(null);
+    }, 3000);
+
+    return () => window.clearTimeout(timer);
+  }, [copyFeatureConfigMessage]);
+
+  const copyFeatureConfiguration = async () => {
+    setDropdownOpen(false);
+    try {
+      // Enrich the clipboard payload with the source org's names for any
+      // referenced experiments / saved groups / safe rollouts so the import-
+      // time mapping UI can show useful context to the destination user.
+      const experimentsLookup = new Map(
+        (experiments ?? []).map((e) => [
+          e.id,
+          { name: e.name, hypothesis: e.hypothesis },
+        ]),
+      );
+      const savedGroupsLookup = new Map(
+        savedGroups.map((sg) => [
+          sg.id,
+          {
+            groupName: sg.groupName,
+            type: sg.type,
+            attributeKey: sg.attributeKey,
+          },
+        ]),
+      );
+      // Pass the full SafeRolloutInterface so the importer has the source
+      // settings (datasource, exposure query, guardrails, max duration,
+      // rollback config, ramp schedule) to seed fresh destination
+      // SafeRollouts. Runtime state is dropped on the way out by the
+      // clipboard service.
+      const safeRolloutsLookup = new Map(
+        (safeRollouts ?? []).map((sr) => [sr.id, sr]),
+      );
+      const environmentsLookup = new Map(
+        allEnvironments.map((env) => [
+          env.id,
+          { description: env.description },
+        ]),
+      );
+      const featuresLookup = new Map(
+        allFeaturesForCopy.map((f) => [f.id, { description: f.description }]),
+      );
+
+      // Always serialize the LIVE feature (`baseFeature`) — when viewing a
+      // non-live revision, the `feature` prop is `mergeRevision(baseFeature,
+      // revision)` output, which would export draft/historical rules instead
+      // of what's currently published.
+      await navigator.clipboard.writeText(
+        buildFeatureConfigurationClipboardPayload(baseFeature, {
+          experiments: experimentsLookup,
+          savedGroups: savedGroupsLookup,
+          safeRollouts: safeRolloutsLookup,
+          features: featuresLookup,
+          environments: environmentsLookup,
+        }),
+      );
+      setCopyFeatureConfigMessage({ kind: "success" });
+    } catch (err) {
+      // Surface the specific build error (e.g. missing safe-rollout
+      // settings) so the user knows whether to retry or report a bug,
+      // rather than the previous opaque "unable to copy" toast.
+      const message =
+        err instanceof Error && err.message
+          ? err.message
+          : "Unable to copy feature configuration to clipboard.";
+      setCopyFeatureConfigMessage({ kind: "error", message });
+    }
+  };
+
   const project = getProjectById(projectId || "");
   const projectName = project?.name || null;
   const projectIsDeReferenced = projectId && !projectName;
@@ -249,6 +349,11 @@ export default function FeaturesHeader({
           >
             Audit history
           </DropdownMenuItem>
+          {canEdit && (
+            <DropdownMenuItem onClick={copyFeatureConfiguration}>
+              Copy feature configuration
+            </DropdownMenuItem>
+          )}
           <DropdownSubMenu
             trigger={
               <Flex
@@ -398,6 +503,16 @@ export default function FeaturesHeader({
                   />
                 </Flex>
               </Flex>
+            </Callout>
+          )}
+          {copyFeatureConfigMessage?.kind === "success" && (
+            <Callout status="success" mb="3">
+              Feature configuration copied to clipboard.
+            </Callout>
+          )}
+          {copyFeatureConfigMessage?.kind === "error" && (
+            <Callout status="error" mb="3">
+              {copyFeatureConfigMessage.message}
             </Callout>
           )}
 

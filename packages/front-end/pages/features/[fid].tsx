@@ -144,6 +144,7 @@ export default function FeaturePage() {
         />
         <FeaturesHeader
           feature={feature}
+          baseFeature={baseFeature}
           mutate={refreshData}
           setVersion={setVersion}
           version={version}
@@ -157,6 +158,8 @@ export default function FeaturePage() {
             (revision.status === "published" &&
               revision.version !== feature.version)
           }
+          experiments={experiments}
+          safeRollouts={safeRollouts}
         />
 
         {tab === "overview" && (
