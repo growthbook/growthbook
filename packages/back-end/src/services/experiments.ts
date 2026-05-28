@@ -4297,11 +4297,7 @@ export async function getLinkedFeatureInfo(
       //      legacy path where a draft is introducing the rule for the first
       //      time (experiment not yet started).
       const activeDrafts = revisions
-        .filter(
-          (r) =>
-            DRAFT_REVISION_STATUSES.includes(r.status) &&
-            r.version > feature.version,
-        )
+        .filter((r) => DRAFT_REVISION_STATUSES.includes(r.status))
         .sort((a, b) => b.version - a.version);
 
       let matchedDraftRevision: (typeof revisions)[0] | undefined;
