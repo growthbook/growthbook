@@ -42,6 +42,12 @@ import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useFeaturesStatus } from "@/hooks/useFeaturesStatus";
 import { useFeatureDraftStates } from "@/hooks/useFeatureDraftStates";
 import { useFeatureStaleStates } from "@/hooks/useFeatureStaleStates";
+import { useFeatureContentSearch } from "@/hooks/useFeatureContentSearch";
+import type { ContentSearchParams } from "@/hooks/useFeatureContentSearch";
+import type { SyntaxFilter } from "@/services/search";
+import { useFeatureRampStates } from "@/hooks/useFeatureRampStates";
+import { useFeatureDependencyIndex } from "@/hooks/useFeatureDependencyIndex";
+import { useFeatureExperimentStates } from "@/hooks/useFeatureExperimentStates";
 import ProjectBadges from "@/components/ProjectBadges";
 import Table, {
   TableHeader,
@@ -54,6 +60,37 @@ import { TruncateMiddleWithTooltip } from "@/ui/TruncateMiddleWithTooltip";
 import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;
+
+const CONTENT_SEARCH_PREFIXES: {
+  prefix: string;
+  paramKey: keyof ContentSearchParams;
+}[] = [
+  { prefix: "value:", paramKey: "valueContains" },
+  { prefix: "attribute:", paramKey: "attribute" },
+  { prefix: "saved-group:", paramKey: "savedGroup" },
+  { prefix: "experiment:", paramKey: "experiment" },
+  { prefix: "bandit:", paramKey: "bandit" },
+];
+
+function extractContentSearchFromSyntax(syntaxFilters: SyntaxFilter[]): {
+  params: ContentSearchParams;
+  hasTokens: string[];
+} {
+  const params: ContentSearchParams = {};
+  const hasTokens: string[] = [];
+  for (const filter of syntaxFilters) {
+    if (filter.field !== "has") continue;
+    for (const val of filter.values) {
+      for (const { prefix, paramKey } of CONTENT_SEARCH_PREFIXES) {
+        if (val.startsWith(prefix)) {
+          params[paramKey] = decodeURIComponent(val.slice(prefix.length));
+          hasTokens.push(val);
+        }
+      }
+    }
+  }
+  return { params, hasTokens };
+}
 
 // Feature table column widths (shared by header and body for alignment)
 const FEATURE_TABLE_COLUMN_WIDTH = {
@@ -114,6 +151,19 @@ export default function FeaturesPage() {
   const statusHook = useFeaturesStatus();
   const draftHook = useFeatureDraftStates();
   const staleHook = useFeatureStaleStates();
+  const rampHook = useFeatureRampStates();
+  const dependencyHook = useFeatureDependencyIndex();
+  const experimentHook = useFeatureExperimentStates();
+
+  const [contentSearchMatchingIds, setContentSearchMatchingIds] =
+    useState<Set<string> | null>(null);
+  const [contentSearchHasTokens, setContentSearchHasTokens] = useState<
+    string[]
+  >([]);
+
+  const baseFilter = !showArchived
+    ? (items: FeatureInterface[]) => items.filter((f) => !f.archived)
+    : undefined;
 
   const {
     searchInputProps,
@@ -127,10 +177,27 @@ export default function FeaturesPage() {
     environmentStatus: statusHook.environmentStatus,
     draftStates: draftHook.draftStates,
     staleStates: staleHook.staleStates,
-    filterResults: !showArchived
-      ? (items) => items.filter((f) => !f.archived)
-      : undefined,
+    rampStates: rampHook.rampStates,
+    dependencyIndex: dependencyHook.dependencyIndex,
+    experimentStates: experimentHook.experimentStates,
+    filterResults: baseFilter,
+    contentSearchMatchingIds,
+    contentSearchHasTokens,
   });
+
+  const { params: contentSearchParams, hasTokens } = useMemo(
+    () => extractContentSearchFromSyntax(syntaxFilters),
+    [syntaxFilters],
+  );
+  const contentSearch = useFeatureContentSearch(contentSearchParams);
+
+  useEffect(() => {
+    setContentSearchMatchingIds(contentSearch.matchingIds);
+  }, [contentSearch.matchingIds]);
+
+  useEffect(() => {
+    setContentSearchHasTokens(hasTokens);
+  }, [hasTokens]);
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
@@ -178,6 +245,18 @@ export default function FeaturesPage() {
       (f.field === "is" && f.values.includes("stale")) ||
       (f.field === "has" && f.values.includes("stale-env")),
   );
+  const hasRampFilter = syntaxFilters.some(
+    (f) => f.field === "has" && f.values.includes("ramp-schedule"),
+  );
+  const hasDependentsFilter = syntaxFilters.some(
+    (f) => f.field === "has" && f.values.includes("dependents"),
+  );
+  const hasExperimentStateFilter = syntaxFilters.some(
+    (f) =>
+      (f.field === "has" &&
+        (f.values.includes("bandits") || f.values.includes("temp-rollout"))) ||
+      f.field === "bandit",
+  );
 
   useEffect(() => {
     if (hasEnvFilter) statusHook.fetchAll();
@@ -193,6 +272,21 @@ export default function FeaturesPage() {
     if (hasStaleFilter) staleHook.fetchAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasStaleFilter]);
+
+  useEffect(() => {
+    if (hasRampFilter) rampHook.fetchAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasRampFilter]);
+
+  useEffect(() => {
+    if (hasDependentsFilter) dependencyHook.fetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasDependentsFilter]);
+
+  useEffect(() => {
+    if (hasExperimentStateFilter) experimentHook.fetchAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasExperimentStateFilter]);
 
   // fetchSome for visible features when no bulk filter is active
   useEffect(() => {

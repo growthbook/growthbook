@@ -198,6 +198,11 @@ export function useFeatureSearch({
   environmentStatus,
   draftStates,
   staleStates,
+  rampStates,
+  dependencyIndex,
+  experimentStates,
+  contentSearchMatchingIds,
+  contentSearchHasTokens,
 }: {
   allFeatures: FeatureInterface[];
   defaultSortField?:
@@ -220,6 +225,11 @@ export function useFeatureSearch({
       envResults?: Record<string, { stale: boolean }>;
     }
   >;
+  rampStates?: Record<string, unknown>;
+  dependencyIndex?: Set<string> | null;
+  experimentStates?: Record<string, { hasTempRollout: boolean }>;
+  contentSearchMatchingIds?: Set<string> | null;
+  contentSearchHasTokens?: string[];
 }) {
   const { getOwnerDisplay } = useUser();
   const { getProjectById } = useDefinitions();
@@ -276,11 +286,25 @@ export function useFeatureSearch({
           );
           if (hasSomeStaleEnvs) has.push("stale-env");
         }
-
-        // TODO: restore has:experiment/rollout/force/rule/prerequisites/savedgroup filters
-        // once rules are denormalized to a top-level rules[] field with an `environments`
-        // property (collapsing per-environment rules into a single scannable array).
-
+        const meta = item as FeatureInterface & {
+          hasPrerequisites?: boolean;
+          hasSavedGroups?: boolean;
+        };
+        if (meta.hasPrerequisites) has.push("prerequisites");
+        if (meta.hasSavedGroups) has.push("savedgroup", "savedgroups");
+        if (item.linkedExperiments?.length) has.push("experiments");
+        if (rampStates?.[item.id]) has.push("ramp-schedule");
+        if (dependencyIndex?.has(item.id)) has.push("dependents");
+        const expState = experimentStates?.[item.id];
+        if (expState?.hasTempRollout) has.push("temp-rollout");
+        if (
+          contentSearchHasTokens?.length &&
+          (contentSearchMatchingIds === null ||
+            contentSearchMatchingIds === undefined ||
+            contentSearchMatchingIds.has(item.id))
+        ) {
+          has.push(...contentSearchHasTokens);
+        }
         return has;
       },
       key: (item) => item.id,
