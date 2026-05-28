@@ -9,6 +9,7 @@ import { PiCaretDown, PiWarningFill } from "react-icons/pi";
 import { amber } from "@radix-ui/colors";
 import React, {
   ReactElement,
+  forwardRef,
   useCallback,
   useEffect,
   useState,
@@ -212,122 +213,129 @@ type DropdownItemProps = {
   style?: React.CSSProperties;
 } & MarginProps;
 
-export function DropdownMenuItem({
-  children,
-  disabled = false,
-  shortcut,
-  color,
-  onClick,
-  confirmation,
-  tooltip,
-  ...props
-}: DropdownItemProps) {
-  if (color === "default") {
-    color = undefined;
-  }
-  const visibilityContext = useContext(DropdownVisibilityContext);
-  const [confirming, setConfirming] = useState(false);
-  const [confirmationContent, setConfirmationContent] = useState<
-    string | ReactElement | null
-  >(null);
-  useEffect(() => {
-    if (!confirming || !confirmation || !confirmation.getConfirmationContent)
-      return;
-    confirmation
-      .getConfirmationContent()
-      .then((c) => setConfirmationContent(c))
-      .catch((e) => console.error(e));
-  }, [confirming, confirmation]);
+export const DropdownMenuItem = forwardRef<HTMLDivElement, DropdownItemProps>(
+  function DropdownMenuItem(
+    {
+      children,
+      disabled = false,
+      shortcut,
+      color,
+      onClick,
+      confirmation,
+      tooltip,
+      ...props
+    },
+    ref,
+  ) {
+    if (color === "default") {
+      color = undefined;
+    }
+    const visibilityContext = useContext(DropdownVisibilityContext);
+    const [confirming, setConfirming] = useState(false);
+    const [confirmationContent, setConfirmationContent] = useState<
+      string | ReactElement | null
+    >(null);
+    useEffect(() => {
+      if (!confirming || !confirmation || !confirmation.getConfirmationContent)
+        return;
+      confirmation
+        .getConfirmationContent()
+        .then((c) => setConfirmationContent(c))
+        .catch((e) => console.error(e));
+    }, [confirming, confirmation]);
 
-  const [error, setError] = useState<null | string>(null);
-  const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<null | string>(null);
+    const [loading, setLoading] = useState(false);
 
-  // Get hideDropdown, showDropdown, and closeDropdown from confirmation prop or context
-  // Context is the primary source (provided by DropdownMenu), but can be overridden
-  const hideDropdown =
-    confirmation?.hideDropdown ?? visibilityContext?.hideDropdown;
-  const showDropdown =
-    confirmation?.showDropdown ?? visibilityContext?.showDropdown;
-  const closeDropdown =
-    confirmation?.closeDropdown ?? visibilityContext?.closeDropdown;
+    // Get hideDropdown, showDropdown, and closeDropdown from confirmation prop or context
+    // Context is the primary source (provided by DropdownMenu), but can be overridden
+    const hideDropdown =
+      confirmation?.hideDropdown ?? visibilityContext?.hideDropdown;
+    const showDropdown =
+      confirmation?.showDropdown ?? visibilityContext?.showDropdown;
+    const closeDropdown =
+      confirmation?.closeDropdown ?? visibilityContext?.closeDropdown;
 
-  const handleClose = () => {
-    setConfirming(false);
-    showDropdown?.();
-    closeDropdown?.();
-  };
+    const handleClose = () => {
+      setConfirming(false);
+      showDropdown?.();
+      closeDropdown?.();
+    };
 
-  const menuItem = (
-    <RadixDropdownMenu.Item
-      disabled={disabled || !!error || !!loading}
-      onSelect={async (event) => {
-        event.preventDefault();
-        if (confirmation) {
-          if (!hideDropdown || !showDropdown) {
-            console.error(
-              "confirmation requires hideDropdown and showDropdown. Ensure DropdownMenuItem is used within a DropdownMenu component.",
-            );
+    const menuItem = (
+      <RadixDropdownMenu.Item
+        ref={ref}
+        disabled={disabled || !!error || !!loading}
+        onSelect={async (event) => {
+          event.preventDefault();
+          if (confirmation) {
+            if (!hideDropdown || !showDropdown) {
+              console.error(
+                "confirmation requires hideDropdown and showDropdown. Ensure DropdownMenuItem is used within a DropdownMenu component.",
+              );
+              return;
+            }
+            hideDropdown();
+            setConfirming(true);
             return;
           }
-          hideDropdown();
-          setConfirming(true);
-          return;
-        }
-        if (onClick) {
-          setError(null);
-          setLoading(true);
-          try {
-            await onClick(event);
-          } catch (e) {
-            setError(e.message);
-            console.error(e);
+          if (onClick) {
+            setError(null);
+            setLoading(true);
+            try {
+              await onClick(event);
+            } catch (e) {
+              setError(e.message);
+              console.error(e);
+            }
+            setLoading(false);
           }
-          setLoading(false);
-        }
-      }}
-      color={color}
-      shortcut={shortcut}
-      {...props}
-    >
-      {loading || error ? (
-        <Flex as="div" justify="between" align="center">
-          <Box as="span" className={loading ? "font-italic" : ""}>
-            {children}
-          </Box>
-          <Box width="14px" className="ml-3">
-            {loading ? <LoadingSpinner /> : null}
-            {error ? (
-              <Tooltip body={`Error: ${error}. Exit menu and try again.`}>
-                <PiWarningFill color={amber.amber11} />
-              </Tooltip>
-            ) : null}
-          </Box>
-        </Flex>
-      ) : (
-        children
-      )}
-    </RadixDropdownMenu.Item>
-  );
+        }}
+        color={color}
+        shortcut={shortcut}
+        {...props}
+      >
+        {loading || error ? (
+          <Flex as="div" justify="between" align="center">
+            <Box as="span" className={loading ? "font-italic" : ""}>
+              {children}
+            </Box>
+            <Box width="14px" className="ml-3">
+              {loading ? <LoadingSpinner /> : null}
+              {error ? (
+                <Tooltip body={`Error: ${error}. Exit menu and try again.`}>
+                  <PiWarningFill color={amber.amber11} />
+                </Tooltip>
+              ) : null}
+            </Box>
+          </Flex>
+        ) : (
+          children
+        )}
+      </RadixDropdownMenu.Item>
+    );
 
-  return (
-    <>
-      {confirmation && confirming && (
-        <ModalStandard
-          trackingEventModalType=""
-          header={confirmation.confirmationTitle}
-          close={handleClose}
-          open={true}
-          cta={confirmation.cta}
-          ctaColor={confirmation.ctaColor ?? "red"}
-          submit={confirmation.submit}
-        >
-          {confirmationContent ?? "Are you sure? This action cannot be undone."}
-        </ModalStandard>
-      )}
-      {tooltip ? <Tooltip body={tooltip}>{menuItem}</Tooltip> : menuItem}
-    </>
-  );
-}
+    return (
+      <>
+        {confirmation && confirming && (
+          <ModalStandard
+            trackingEventModalType=""
+            header={confirmation.confirmationTitle}
+            close={handleClose}
+            open={true}
+            cta={confirmation.cta}
+            ctaColor={confirmation.ctaColor ?? "red"}
+            submit={confirmation.submit}
+          >
+            {confirmationContent ??
+              "Are you sure? This action cannot be undone."}
+          </ModalStandard>
+        )}
+        {tooltip ? <Tooltip body={tooltip}>{menuItem}</Tooltip> : menuItem}
+      </>
+    );
+  },
+);
 
 type DropdownMenuLabelProps = React.ComponentProps<
   typeof RadixDropdownMenu.Label
