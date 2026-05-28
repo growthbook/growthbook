@@ -44,20 +44,6 @@ export function isExperimentIncrementalEnabled(
   return true;
 }
 
-/**
- * True when the data source has any experiments configured to use incremental
- * refresh — either by setting `mode === "incremental"` or by opting individual
- * experiments in. Used by the UI to decide whether to run incremental
- * permission validation before saving.
- */
-export function pipelineRequiresIncrementalConfig(
-  settings: DataSourcePipelineSettings | undefined,
-): boolean {
-  if (!settings) return false;
-  if (settings.mode === "incremental") return true;
-  return (settings.incrementalOptInExperimentIds?.length ?? 0) > 0;
-}
-
 export type PipelineValidationResult = {
   result: "success" | "skipped" | "failed";
   resultMessage?: string;

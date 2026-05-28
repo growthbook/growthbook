@@ -6,6 +6,7 @@ import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
 import {
   DataSourceInterface,
   DataSourceParams,
+  DataSourcePipelineSettings,
   DataSourceSettings,
   DataSourceType,
 } from "shared/types/datasource";
@@ -307,6 +308,8 @@ export async function createDataSource(
     true,
   );
 
+  validatePipelineSettingsInvariants(settings.pipelineSettings);
+
   const model = (await DataSourceModel.create(
     datasource,
   )) as DataSourceDocument;
@@ -395,13 +398,14 @@ export function hasActualChanges(
 // existing customers updating an unrelated field on a data source with
 // pre-existing (potentially non-strict) pipeline settings aren't affected.
 function validatePipelineSettingsInvariants(
-  settings: Partial<DataSourceSettings>,
+  pipelineSettings: DataSourcePipelineSettings | undefined,
 ) {
-  const pipelineSettings = settings.pipelineSettings;
   if (!pipelineSettings) return;
 
   const optInCount =
-    pipelineSettings.incrementalOptInExperimentIds?.length ?? 0;
+    pipelineSettings.mode === "ephemeral"
+      ? (pipelineSettings.incrementalOptInExperimentIds?.length ?? 0)
+      : 0;
   if (optInCount === 0) return;
 
   if (!pipelineSettings.allowWriting) {
@@ -431,7 +435,7 @@ export async function updateDataSource(
       datasource,
       updates.settings,
     );
-    validatePipelineSettingsInvariants(updates.settings);
+    validatePipelineSettingsInvariants(updates.settings.pipelineSettings);
   }
   if (!hasActualChanges(datasource, updates)) {
     return;

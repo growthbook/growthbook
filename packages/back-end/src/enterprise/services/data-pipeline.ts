@@ -63,10 +63,6 @@ export async function validateIncrementalPipeline({
     );
   }
 
-  // Check if this experiment is enabled for incremental refresh on the
-  // data source. This covers both the default `mode === "incremental"`
-  // case (with include/exclude scoping) and the per-experiment
-  // `incrementalOptInExperimentIds` case.
   const settings = integration.datasource.settings;
   if (
     !isExperimentIncrementalEnabled(settings.pipelineSettings, experiment.id)
