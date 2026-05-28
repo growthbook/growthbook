@@ -76,45 +76,61 @@ declare global {
   }
 }
 
-function generateSessionId(): string {
-  return typeof crypto !== "undefined" && crypto.randomUUID
-    ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
 /**
- * sessionStorage payload owned by this plugin. The id field mirrors the
- * shared session_id propagated through `gb.attributes` (typically by
- * autoAttributesPlugin); chunkIndex and startedAt let this plugin resume
- * across page reloads without overwriting prior chunks in S3.
- *
- * Format kept small so JSON.parse cost on every startRecording is trivial.
+ * sessionStorage payload for resuming across page reloads. sessionId mirrors
+ * the shared session_id from gb.getAttributes() and is kept here purely as a
+ * cache key — so we can detect when autoAttributesPlugin has issued a new
+ * session and reset chunkIndex rather than continuing the old sequence.
+ * chunkIndex, sessionStartedAt, and lastChunkAt are the replay plugin's own
+ * bookkeeping and are not owned by any other plugin.
  */
 type PersistedReplayState = {
   sessionId: string;
   sessionStartedAt: number;
   lastChunkIndex: number;
-  // Epoch ms of the most recent successful chunk send. The resume check
-  // in startRecording refuses to resume into a session whose last chunk
-  // was more than RESUME_STALENESS_MS ago — that limits a session's
-  // recorded duration to actual periods of activity instead of total
-  // wall-clock span (a tab left open for an hour with one keystroke
-  // every 50 min would otherwise become one 1-hour session with mostly
-  // dead air).
   lastChunkAt: number;
 };
 
 const REPLAY_STORAGE_KEY = "gb_session_replay";
 
 /**
- * Maximum idle gap between chunks before a resume is rejected and a
- * fresh session is minted. Roughly aligned with IDLE_TIMEOUT_MS plus a
- * buffer for the gap between rotation and the next interaction that
- * restarts recording. Sessions that span longer than this between
- * chunks are almost certainly logical session boundaries, not "the
- * same user continuing the same task."
+ * Maximum idle gap between successful chunk sends before a resume across a
+ * page reload is rejected and a fresh session starts. Aligned with
+ * IDLE_TIMEOUT_MS plus buffer for the gap between rotation and the next
+ * interaction that triggers recording again.
  */
 const RESUME_STALENESS_MS = 15 * 60 * 1000;
+
+function readPersistedReplayState(): PersistedReplayState | null {
+  if (typeof sessionStorage === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(REPLAY_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PersistedReplayState;
+    if (
+      typeof parsed?.sessionId !== "string" ||
+      !parsed.sessionId ||
+      typeof parsed.sessionStartedAt !== "number" ||
+      typeof parsed.lastChunkIndex !== "number" ||
+      typeof parsed.lastChunkAt !== "number"
+    ) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writePersistedReplayState(state: PersistedReplayState): void {
+  if (typeof sessionStorage === "undefined") return;
+  try {
+    sessionStorage.setItem(REPLAY_STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // sessionStorage disabled — resume-across-reloads won't work but
+    // within-page recording is unaffected.
+  }
+}
 
 /**
  * Circuit breaker for auth failures. When the ingest endpoint returns
@@ -165,53 +181,6 @@ const FLUSH_INTERVAL_MS = 60_000;
 const FLUSH_BYTE_SIZE = 256 * 1024;
 const MAX_BUFFERED_EVENTS = 500;
 const COMPRESS_REQUESTS = true;
-
-function readPersistedReplayState(): PersistedReplayState | null {
-  if (typeof sessionStorage === "undefined") return null;
-  try {
-    const raw = sessionStorage.getItem(REPLAY_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as PersistedReplayState;
-    if (
-      typeof parsed?.sessionId !== "string" ||
-      !parsed.sessionId ||
-      typeof parsed.sessionStartedAt !== "number" ||
-      typeof parsed.lastChunkIndex !== "number" ||
-      typeof parsed.lastChunkAt !== "number"
-    ) {
-      return null;
-    }
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-function writePersistedReplayState(state: PersistedReplayState): void {
-  if (typeof sessionStorage === "undefined") return;
-  try {
-    sessionStorage.setItem(REPLAY_STORAGE_KEY, JSON.stringify(state));
-  } catch {
-    // sessionStorage disabled — accept the resume-across-reloads regression
-    // silently. Within a single page load the closure-level state still works.
-  }
-}
-
-/**
- * Read the shared `session_id` from the SDK's attributes (set by
- * autoAttributesPlugin). Returns "" if the SDK isn't ready, attributes
- * aren't set, or the value isn't a usable string.
- */
-function readSharedSessionId(gb: GrowthBook | null): string {
-  if (!gb) return "";
-  try {
-    const attrs = gb.getAttributes();
-    const id = (attrs as { session_id?: unknown })?.session_id;
-    return typeof id === "string" && id ? id : "";
-  } catch {
-    return "";
-  }
-}
 
 export function sessionReplayPlugin({
   trackingHost = "",
@@ -568,34 +537,30 @@ export function sessionReplayPlugin({
     // bail BEFORE rrweb starts so no events are even generated.
     if (userOptedOutOfTracking()) return;
 
-    const sharedSessionId = readSharedSessionId(gbRef);
+    const { session_id } = gbRef?.getAttributes() || {};
+    if (!session_id || typeof session_id !== "string") return;
+
     const persisted = readPersistedReplayState();
-    // Resume only when (a) the shared session id from auto-attributes
-    // matches the persisted one AND (b) the persisted state's most
-    // recent chunk is recent enough to count as the same logical
-    // session. Without the staleness check, a tab left open between
-    // bursts of activity would accumulate a single session_id whose
-    // wall-clock duration far exceeds its actual recorded content —
-    // the list UI shows a 1-hour session that plays back in 2 minutes
-    // of activity scattered across long dead-air gaps.
     const now = Date.now();
+    // Resume when the persisted session_id matches the current one (same
+    // logical session, no new id minted by autoAttributesPlugin) and the
+    // last successful chunk was recent enough to count as continuous activity.
     const canResume =
-      sharedSessionId &&
       persisted !== null &&
-      persisted.sessionId === sharedSessionId &&
+      persisted.sessionId === session_id &&
       now - persisted.lastChunkAt < RESUME_STALENESS_MS;
 
     if (canResume) {
-      sessionId = persisted.sessionId;
+      sessionId = session_id;
       sessionStartedAt = persisted.sessionStartedAt;
       chunkIndex = persisted.lastChunkIndex + 1;
     } else {
-      sessionId = sharedSessionId || generateSessionId();
+      sessionId = session_id;
       chunkIndex = 0;
       sessionStartedAt = now;
       writePersistedReplayState({
-        sessionId,
-        sessionStartedAt,
+        sessionId: session_id,
+        sessionStartedAt: now,
         lastChunkIndex: -1,
         lastChunkAt: now,
       });
