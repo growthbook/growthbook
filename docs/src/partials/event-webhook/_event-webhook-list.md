@@ -2483,6 +2483,10 @@ Triggered when a warning condition is detected on an experiment
             experimentId: string;
             threshold: number;
         } | {
+            type: "no-data";
+            experimentName: string;
+            experimentId: string;
+        } | {
             type: "scheduled-status-update-failed";
             experimentName: string;
             experimentId: string;
