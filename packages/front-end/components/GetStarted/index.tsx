@@ -38,6 +38,7 @@ import AdvancedFeaturesCard from "@/components/GetStarted/AdvancedFeaturesCard";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import FeatureModal from "@/components/Features/FeatureModal";
 import { isCloud } from "@/services/env";
+import { isExperimentationLeaning } from "@/services/onboarding";
 import { DocSection } from "@/components/DocLink";
 import { AppFeatures } from "@/types/app-features";
 import useApi from "@/hooks/useApi";
@@ -154,13 +155,8 @@ const GetStartedAndHomePage = (): React.ReactElement => {
   const hasExperiments = data?.hasExperiments || false;
   const orgIsUsingFeatureOrExperiment = hasFeatures || hasExperiments;
 
-  const intentToExperiment =
-    organization?.demographicData?.ownerUsageIntents?.includes("experiments") ||
-    organization?.demographicData?.ownerUsageIntents?.length === 0 ||
-    !organization?.demographicData?.ownerUsageIntents; // If no intents, assume interest in experimentation
-
   const showDataScientistView =
-    intentToExperiment &&
+    isExperimentationLeaning(organization?.demographicData) &&
     isCloud() &&
     gb.isOn("experimentation-focused-onboarding");
 
