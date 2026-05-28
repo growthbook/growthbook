@@ -50,6 +50,7 @@ import {
   isFactMetric,
   isFactMetricId,
   isMetricJoinable,
+  isRatioMetric,
   isPrecomputedDimension,
   parseSliceMetricId,
   setAdjustedCIs,
@@ -2630,6 +2631,19 @@ export function toSnapshotApiInterface(
         },
         metrics: Array.from(metricIds).map((m) => {
           const metricName = getMetricName(m);
+          // Only ratio metrics carry a meaningful `denominator` from the
+          // stats engine — for them we must preserve the literal value
+          // (including 0, which signals "no qualifying denominator events").
+          // For proportion/mean/count/quantile metrics, the variation user
+          // count is the correct denominator.
+          const metric = baseMetricsById.get(parseSliceMetricId(m).baseMetricId);
+          const denominatorMetric =
+            metric && !isFactMetric(metric) && metric.denominator
+              ? metricsById.get(metric.denominator)
+              : undefined;
+          const isRatio = metric
+            ? isRatioMetric(metric, denominatorMetric)
+            : false;
           return {
             metricId: m,
             ...(metricName ? { metricName } : null),
@@ -2645,7 +2659,9 @@ export function toSnapshotApiInterface(
                     engine:
                       analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE,
                     numerator: safeFloat(data?.value),
-                    denominator: safeFloat(data?.denominator || data?.users),
+                    denominator: safeFloat(
+                      isRatio ? data?.denominator : data?.users,
+                    ),
                     mean: safeFloat(data?.stats?.mean),
                     stddev: safeFloat(data?.stats?.stddev),
                     percentChange: safeFloat(data?.expected),
