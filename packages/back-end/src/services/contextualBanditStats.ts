@@ -157,24 +157,20 @@ function buildPythonContextualBanditSettings(
     analysisWeights.length === numVariations
       ? analysisWeights
       : Array(numVariations).fill(1 / numVariations);
-  const firstContextWeights = Object.values(
-    settings.current_weights_by_context,
-  )[0];
-  const currentWeights =
-    firstContextWeights?.length === numVariations
-      ? firstContextWeights
-      : fallbackWeights;
 
   return {
     var_names: settings.var_names,
     var_ids: settings.var_ids,
-    current_weights: currentWeights,
+    // `current_weights` is inherited from BanditSettingsForStatsEngine and
+    // unused by the contextual code path (which reads
+    // `current_contextual_weights` instead). Kept populated with a sensible
+    // fallback so the parent dataclass invariant still holds.
+    current_weights: fallbackWeights,
+    current_contextual_weights: settings.current_weights_by_context,
     reweight: settings.reweight,
     decision_metric: decisionMetricId,
     bandit_weights_seed: settings.bandit_weights_seed,
-    is_contextual: true,
     attributes: settings.contextual_attributes.map(contextualBanditAttrCol),
-    current_contextual_weights: settings.current_weights_by_context,
     max_leaves: settings.max_leaves,
   };
 }

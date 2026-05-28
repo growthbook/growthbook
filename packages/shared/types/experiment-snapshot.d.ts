@@ -184,9 +184,14 @@ export interface SnapshotBanditSettings {
   }[];
   useFirstExposure?: boolean;
   windowSettings?: MetricWindowSettings;
-  /** From `ExperimentInterface.banditIsContextual` at snapshot time. */
+  /**
+   * True when the snapshot is a contextual-bandit run. Set by
+   * `buildExperimentSnapshotSettingsForCb` from the CB doc — NOT from
+   * `ExperimentInterface.banditIsContextual`, which was migrated to
+   * `experiment.type === "contextual-bandit"` in `util/migrations.ts:760-774`.
+   */
   banditIsContextual?: boolean;
-  /** From the experiment's exposure query `targetingAttributeColumns` at snapshot time. */
+  /** Targeting attribute column aliases from the experiment's exposure query at snapshot time. */
   targetingAttributeColumns?: string[];
 }
 

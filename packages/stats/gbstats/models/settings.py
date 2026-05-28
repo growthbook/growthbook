@@ -83,6 +83,12 @@ class ContextualBanditSettingsForStatsEngine(BanditSettingsForStatsEngine):
         default_factory=list
     )  # columns that are used to create context keys; not column values
     max_leaves: int = 12
+    # Per-context current weights, keyed by contextId. The TS orchestrator
+    # populates this from CB.phases[phase].currentLeafWeights so the Python
+    # tree fitter can warm-start each leaf with the right prior. Distinct
+    # from the inherited single-vector `current_weights`, which only the
+    # non-contextual code path consumes.
+    current_contextual_weights: Dict[str, List[float]] = field(default_factory=dict)
 
     def __post_init__(self):
         if not self.attributes:
@@ -158,7 +164,14 @@ def get_bandit_settings(data: Dict[str, Any]) -> Optional[BanditSettingsForStats
 def get_contextual_bandit_settings(
     data: Dict[str, Any],
 ) -> Optional[ContextualBanditSettingsForStatsEngine]:
-    """Build :class:`ContextualBanditSettingsForStatsEngine` from ``data["contextual_bandit_settings"]``."""
+    """Build :class:`ContextualBanditSettingsForStatsEngine` from ``data["contextual_bandit_settings"]``.
+
+    Raises :class:`TypeError`/:class:`ValueError` if the payload doesn't match
+    the dataclass shape — failing loudly here is intentional. Silently
+    returning ``None`` on a wire-format mismatch causes
+    ``process_experiment_results`` to fall through to the standard analysis
+    path with no contextual output, which is invisible to the caller.
+    """
     raw_payload = data.get("contextual_bandit_settings")
     if raw_payload is None:
         return None
@@ -171,8 +184,4 @@ def get_contextual_bandit_settings(
     }
     seed = int(raw.get("bandit_weights_seed", 100))
     kwargs["bandit_weights_rng"] = np.random.default_rng(seed)
-    kwargs.setdefault("current_contextual_weights", {})
-    try:
-        return ContextualBanditSettingsForStatsEngine(**kwargs)
-    except (TypeError, ValueError):
-        return None
+    return ContextualBanditSettingsForStatsEngine(**kwargs)

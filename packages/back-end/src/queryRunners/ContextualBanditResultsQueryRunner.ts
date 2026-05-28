@@ -8,24 +8,24 @@ import {
   ContextualBanditSnapshotSettings,
 } from "shared/validators";
 import { deriveContextId } from "shared/util";
-import { attributeConditionFromMetricRow } from "shared/experiments";
+import {
+  attributeConditionFromMetricRow,
+  ExperimentMetricInterface,
+  isFactMetric,
+} from "shared/experiments";
 import { ExperimentMetricQueryResponseRows } from "shared/types/integrations";
 import { ExposureQuery } from "shared/types/datasource";
+import { MetricInterface } from "shared/types/metric";
+import type { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
 import {
   attributesToCondition,
+  buildExperimentSnapshotSettingsForCb,
   enforceContextCap,
   getContextualBanditSettingsForStatsEngine,
   persistContextualBanditEvent,
 } from "back-end/src/services/contextualBandits";
-import {
-  executeContextualBanditQuery,
-  getContextualBanditQuerySql,
-} from "back-end/src/services/contextualBanditSql";
-import {
-  loadContextualBanditSnapshotContext,
-  type ContextualBanditSnapshotContext,
-} from "back-end/src/services/contextualBanditQueries";
-import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import { getMetricMap } from "back-end/src/models/MetricModel";
+import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import {
   ContextualBanditResult,
   runContextualStatsEngine,
@@ -61,7 +61,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
   private variationNames: string[] = [];
   private cachedCb?: ContextualBanditInterface;
   private cachedExposureQuery?: ExposureQuery;
-  private cachedQueryContext?: ContextualBanditSnapshotContext;
+  private cachedMetricMap?: Map<string, ExperimentMetricInterface>;
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(
@@ -75,27 +75,59 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
     this.snapshotSettings = params.snapshotSettings;
     this.variationNames = params.variationNames;
 
-    const cb = await this.loadCbDoc();
-    const eaq = this.loadExposureQuery();
-    const sql = await getContextualBanditQuerySql(
-      this.context,
-      cb,
-      this.integration.datasource,
-      eaq,
+    // Side-effect: ensure the parent CB doc resolves before the SQL runs.
+    await this.loadCbDoc();
+    this.loadExposureQuery();
+
+    const expSnapshotSettings = buildExperimentSnapshotSettingsForCb(
+      this.snapshotSettings,
     );
+    const decisionMetricId = this.snapshotSettings.goalMetrics[0];
+    if (!decisionMetricId) {
+      throw new Error("Contextual bandit snapshot is missing a goal metric");
+    }
+
+    const metricMap = await this.getMetricMapCached();
+    const decisionMetric = metricMap.get(decisionMetricId);
+    if (!decisionMetric) {
+      throw new Error(
+        `Contextual bandit decision metric not found: ${decisionMetricId}`,
+      );
+    }
+    if (isFactMetric(decisionMetric)) {
+      // The CB v1 SQL path uses the legacy `getExperimentMetricQuery`. Fact
+      // metrics flow through `getExperimentFactMetricsQuery`, which we have
+      // not yet wired into the parallel CB pipeline. Fail loudly so the
+      // orchestrator surfaces a clear error instead of silently producing
+      // empty rows.
+      throw new Error(
+        `Contextual bandit decision metric must be a legacy metric for v1 (got fact metric ${decisionMetricId})`,
+      );
+    }
+
+    const factTableMap = await getFactTableMap(this.context);
+
+    const sql = this.integration.getExperimentMetricQuery({
+      settings: expSnapshotSettings,
+      metric: decisionMetric as MetricInterface,
+      denominatorMetrics: [],
+      activationMetric: null,
+      dimensions: [],
+      segment: null,
+      factTableMap,
+      unitsSource: "exposureQuery",
+    });
 
     return [
       await this.startQuery({
         name: CONTEXTUAL_BANDIT_ROWS_QUERY_NAME,
         query: sql,
         dependencies: [],
-        run: async (query) => {
-          const { rows } = await executeContextualBanditQuery(
-            this.context,
-            cb,
-            this.integration.datasource,
-            eaq,
+        run: async (query, setExternalId, queryMetadata) => {
+          const { rows } = await this.integration.runExperimentMetricQuery(
             query,
+            setExternalId,
+            queryMetadata,
           );
           return { rows };
         },
@@ -188,7 +220,23 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       currentWeightsByContext,
     );
 
-    const queryContext = await this.ensureQueryContext();
+    const expSnapshotSettings = buildExperimentSnapshotSettingsForCb(
+      this.snapshotSettings,
+    );
+    const decisionMetricId = this.snapshotSettings.goalMetrics[0];
+    if (!decisionMetricId) {
+      throw new Error("Contextual bandit snapshot is missing a goal metric");
+    }
+    const metricMap = await this.getMetricMapCached();
+    const analysisSettings: ExperimentSnapshotAnalysisSettings = {
+      dimensions: [],
+      statsEngine: "bayesian",
+      differenceType: "relative",
+      baselineVariationIndex: 0,
+      numGoalMetrics: 1,
+      numGuardrailMetrics: 0,
+    };
+
     const coverage = this.snapshotSettings.variations.reduce(
       (sum, v) => sum + v.weight,
       0,
@@ -201,18 +249,14 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       (phaseEnd - phaseStart) / (1000 * 60 * 60 * 24),
       1 / 24,
     );
-    const decisionMetricId = this.snapshotSettings.goalMetrics[0];
-    if (!decisionMetricId) {
-      throw new Error("Contextual bandit snapshot is missing a goal metric");
-    }
 
     return runContextualStatsEngine(statsSettings, trimmed, {
       snapshotId: this.model.id,
       sql: queryDoc.query,
       decisionMetricId,
-      snapshotSettings: queryContext.snapshotSettings,
-      analysisSettings: queryContext.analysisSettings,
-      metricMap: queryContext.metricMap,
+      snapshotSettings: expSnapshotSettings,
+      analysisSettings,
+      metricMap,
       variations: this.snapshotSettings.variations.map((v, i) => ({
         id: v.id,
         name: this.variationNames[i] ?? v.id,
@@ -333,36 +377,11 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
     return eaq;
   }
 
-  private async loadQueryContext(
-    cb: ContextualBanditInterface,
-    eaq: ExposureQuery,
-  ): Promise<ContextualBanditSnapshotContext> {
-    const experiment = await getExperimentById(
-      this.context,
-      this.snapshotSettings!.experimentId,
-    );
-    if (!experiment) {
-      throw new Error(
-        `Experiment not found: ${this.snapshotSettings!.experimentId}`,
-      );
-    }
-    return loadContextualBanditSnapshotContext(
-      this.context,
-      experiment,
-      this.snapshotSettings!.phase,
-      cb,
-      this.integration.datasource,
-      eaq,
-    );
-  }
-
-  private async ensureQueryContext(): Promise<ContextualBanditSnapshotContext> {
-    if (this.cachedQueryContext) {
-      return this.cachedQueryContext;
-    }
-    const cb = await this.loadCbDoc();
-    const eaq = this.loadExposureQuery();
-    this.cachedQueryContext = await this.loadQueryContext(cb, eaq);
-    return this.cachedQueryContext;
+  private async getMetricMapCached(): Promise<
+    Map<string, ExperimentMetricInterface>
+  > {
+    if (this.cachedMetricMap) return this.cachedMetricMap;
+    this.cachedMetricMap = await getMetricMap(this.context);
+    return this.cachedMetricMap;
   }
 }

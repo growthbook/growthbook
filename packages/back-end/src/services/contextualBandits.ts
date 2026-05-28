@@ -16,7 +16,10 @@
 // decision.
 
 import { ExperimentInterface } from "shared/types/experiment";
-import { SnapshotStatusSummary } from "shared/types/experiment-snapshot";
+import type {
+  ExperimentSnapshotSettings,
+  SnapshotStatusSummary,
+} from "shared/types/experiment-snapshot";
 import type { ContextualBanditSnapshot } from "shared/types/stats";
 import { ExposureQuery } from "shared/types/datasource";
 import {
@@ -27,7 +30,10 @@ import {
 } from "shared/validators";
 import { deriveContextId } from "shared/util";
 import { contextualBanditAttrCol } from "shared/experiments";
-import { CONTEXTUAL_BANDIT_COMBINED_ATTRIBUTE_VALUE } from "shared/constants";
+import {
+  CONTEXTUAL_BANDIT_COMBINED_ATTRIBUTE_VALUE,
+  DEFAULT_PROPER_PRIOR_STDDEV,
+} from "shared/constants";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -403,6 +409,64 @@ export function buildContextualBanditSnapshotSettings(
 }
 
 /**
+ * Translates the parallel-pipeline `ContextualBanditSnapshotSettings` into the
+ * shape `SqlIntegration.getExperimentMetricQuery` expects.
+ *
+ * Sets `banditSettings.banditIsContextual = true` and
+ * `banditSettings.targetingAttributeColumns` so the contextual-bandit CTEs in
+ * `contextual-bandit-experiment-units-cte.ts` fire on the warehouse side.
+ *
+ * The source of `banditIsContextual` is the CB snapshot doc — NOT
+ * `ExperimentInterface.banditIsContextual`, which was migrated to
+ * `experiment.type === "contextual-bandit"` in `util/migrations.ts:760-774`.
+ */
+export function buildExperimentSnapshotSettingsForCb(
+  cbSnapshotSettings: ContextualBanditSnapshotSettings,
+): ExperimentSnapshotSettings {
+  const decisionMetric = cbSnapshotSettings.goalMetrics[0] ?? "";
+  return {
+    experimentId: cbSnapshotSettings.experimentId,
+    queryFilter: "",
+    datasourceId: cbSnapshotSettings.datasourceId,
+    exposureQueryId: cbSnapshotSettings.exposureQueryId,
+    startDate: cbSnapshotSettings.startDate,
+    endDate: cbSnapshotSettings.endDate ?? new Date(),
+    goalMetrics: cbSnapshotSettings.goalMetrics,
+    secondaryMetrics: cbSnapshotSettings.secondaryMetrics,
+    guardrailMetrics: [],
+    activationMetric: null,
+    // The CB-side `metricSettings` is a loose `Record<string, unknown>` keyed
+    // by metric id; the standard pipeline expects an array of typed
+    // `MetricForSnapshot` entries. CB v1 doesn't apply per-metric overrides
+    // at SQL gen time, so an empty array is the safe default. Tighten when
+    // CB plan D1.1 lands.
+    metricSettings: [],
+    variations: cbSnapshotSettings.variations,
+    dimensions: [],
+    coverage: cbSnapshotSettings.variations.reduce((s, v) => s + v.weight, 0),
+    segment: "",
+    skipPartialData: false,
+    attributionModel: "firstExposure",
+    regressionAdjustmentEnabled: false,
+    defaultMetricPriorSettings: {
+      override: false,
+      proper: false,
+      mean: 0,
+      stddev: DEFAULT_PROPER_PRIOR_STDDEV,
+    },
+    banditSettings: {
+      banditIsContextual: true,
+      targetingAttributeColumns: cbSnapshotSettings.contextualAttributes,
+      reweight: cbSnapshotSettings.reweight,
+      decisionMetric,
+      seed: cbSnapshotSettings.banditWeightsSeed,
+      currentWeights: cbSnapshotSettings.variations.map((v) => v.weight),
+      historicalWeights: [],
+    },
+  };
+}
+
+/**
  * Builds the settings object passed to the stats engine.
  *
  * SMITH: the `tree_model` enum and the dataclass fields here must stay in
@@ -474,7 +538,7 @@ export function enforceContextCap<
     if (!toMerge.has(r.contextId)) {
       return r;
     }
-    const row = { ...r, contextId: catchAll };
+    const row: Record<string, unknown> = { ...r, contextId: catchAll };
     if (attributeColumns?.length) {
       for (const attr of attributeColumns) {
         row[contextualBanditAttrCol(attr)] =
@@ -482,7 +546,7 @@ export function enforceContextCap<
         row[attr] = CONTEXTUAL_BANDIT_COMBINED_ATTRIBUTE_VALUE;
       }
     }
-    return row;
+    return row as T;
   });
 
   return { rows: merged, trimmed: true };

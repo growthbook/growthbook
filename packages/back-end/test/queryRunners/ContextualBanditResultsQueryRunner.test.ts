@@ -11,8 +11,6 @@ import {
   ContextualBanditResultsQueryRunner,
 } from "back-end/src/queryRunners/ContextualBanditResultsQueryRunner";
 import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
-import { loadContextualBanditSnapshotContext } from "back-end/src/services/contextualBanditQueries";
-import { getContextualBanditQuerySql } from "back-end/src/services/contextualBanditSql";
 import {
   ContextualBanditResult,
   runContextualStatsEngine,
@@ -20,25 +18,12 @@ import {
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { ReqContext } from "back-end/types/api";
 
-// Swap the runner's two stub seams (SQL + Python stats) for jest.fn so we can
-// exercise the row-tagging / context-cap / settings-building glue without
-// depending on the real bodies. The orchestrator-module mock keeps the pure
-// helpers (attributesToCondition, enforceContextCap,
-// getContextualBanditSettingsForStatsEngine) real and intercepts only the
-// side-effecting `persistContextualBanditEvent`.
-jest.mock("back-end/src/services/contextualBanditSql", () => ({
-  getContextualBanditQuerySql: jest.fn(),
-  executeContextualBanditQuery: jest.fn(),
-}));
-jest.mock("back-end/src/services/contextualBanditQueries", () => {
-  const actual = jest.requireActual(
-    "back-end/src/services/contextualBanditQueries",
-  );
-  return {
-    ...actual,
-    loadContextualBanditSnapshotContext: jest.fn(),
-  };
-});
+// Swap the runner's two stub seams (Python stats engine + the orchestrator's
+// side-effect entry point) for jest.fn so we can exercise the row-tagging /
+// context-cap / settings-building glue without depending on the real bodies.
+// The SQL pass now goes straight through `integration.getExperimentMetricQuery`
+// / `integration.runExperimentMetricQuery`, both of which are stubbed on the
+// fake integration object directly.
 jest.mock("back-end/src/services/contextualBanditStats", () => ({
   runContextualStatsEngine: jest.fn(),
 }));
@@ -49,17 +34,29 @@ jest.mock("back-end/src/services/contextualBandits", () => {
     persistContextualBanditEvent: jest.fn(),
   };
 });
+jest.mock("back-end/src/models/MetricModel", () => ({
+  getMetricMap: jest.fn().mockResolvedValue(
+    new Map([
+      [
+        "met_g1",
+        // Minimal legacy metric stub — `isFactMetric` short-circuits on the
+        // absence of `metricType`, which is all `startQueries` checks.
+        {
+          id: "met_g1",
+          name: "Goal",
+          datasource: "ds_1",
+          type: "count",
+        },
+      ],
+    ]),
+  ),
+}));
+jest.mock("back-end/src/models/FactTableModel", () => ({
+  getFactTableMap: jest.fn().mockResolvedValue(new Map()),
+}));
 
 import { persistContextualBanditEvent } from "back-end/src/services/contextualBandits";
 
-const getContextualBanditQuerySqlMock =
-  getContextualBanditQuerySql as jest.MockedFunction<
-    typeof getContextualBanditQuerySql
-  >;
-const loadContextualBanditSnapshotContextMock =
-  loadContextualBanditSnapshotContext as jest.MockedFunction<
-    typeof loadContextualBanditSnapshotContext
-  >;
 const runContextualStatsEngineMock =
   runContextualStatsEngine as jest.MockedFunction<
     typeof runContextualStatsEngine
@@ -176,6 +173,10 @@ function makeIntegration(): SourceIntegrationInterface {
         },
       },
     },
+    getExperimentMetricQuery: jest
+      .fn()
+      .mockReturnValue("-- contextual-bandit metric SQL"),
+    runExperimentMetricQuery: jest.fn().mockResolvedValue({ rows: [] }),
   } as unknown as SourceIntegrationInterface;
 }
 
@@ -216,11 +217,12 @@ function makeContext(cb: ContextualBanditInterface): ReqContext {
 function newRunner(
   context: ReqContext,
   model: ContextualBanditSnapshotInterface = makeCbsModel(),
+  integration: SourceIntegrationInterface = makeIntegration(),
 ): ContextualBanditResultsQueryRunner {
   return new ContextualBanditResultsQueryRunner(
     context,
     model,
-    makeIntegration(),
+    integration,
     false,
   );
 }
@@ -283,28 +285,6 @@ describe("ContextualBanditResultsQueryRunner", () => {
         ],
       };
       runContextualStatsEngineMock.mockResolvedValueOnce(fitted);
-
-      const queryContext = {
-        snapshotSettings: {
-          goalMetrics: ["met_g1"],
-          metricSettings: [],
-          regressionAdjustmentEnabled: false,
-        } as never,
-        analysisSettings: {
-          statsEngine: "bayesian",
-          dimensions: [],
-          baselineVariationIndex: 0,
-          numGoalMetrics: 1,
-        } as never,
-        metricMap: new Map(),
-        factTableMap: new Map(),
-        decisionMetric: { id: "met_g1", name: "Goal" } as never,
-      };
-      loadContextualBanditSnapshotContextMock.mockResolvedValueOnce(
-        queryContext,
-      );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (runner as any).cachedQueryContext = queryContext;
 
       const result = await runner.runAnalysis(queryMap);
 
@@ -435,24 +415,39 @@ describe("ContextualBanditResultsQueryRunner", () => {
   });
 
   describe("startQueries seam", () => {
-    it("generates SQL via getContextualBanditQuerySql for persistence on the QueryDoc", async () => {
+    it("generates SQL via integration.getExperimentMetricQuery and registers the query", async () => {
       const cb = makeCb();
       const context = makeContext(cb);
       const integration = makeIntegration();
+      // Bypass the abstract base class's `startQuery` bookkeeping by stubbing
+      // it on the runner instance — we only care that the integration call
+      // shape is correct here.
+      const runner = newRunner(context, makeCbsModel(), integration);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (runner as any).startQuery = jest
+        .fn()
+        .mockImplementation(async (q: { name: string; query: string }) => ({
+          name: q.name,
+          query: q.query,
+        }));
 
-      getContextualBanditQuerySqlMock.mockResolvedValueOnce(
-        "-- contextual-bandit mock rows for cbs_1",
-      );
+      const queries = await runner.startQueries({
+        snapshotSettings: makeSnapshotSettings(),
+        variationNames: ["Control", "Treatment"],
+      });
 
-      const sql = await getContextualBanditQuerySqlMock(
-        context,
-        cb,
-        integration.datasource,
-        integration.datasource.settings.queries.exposure[0],
-        "cbs_1",
-      );
-
-      expect(sql).toBe("-- contextual-bandit mock rows for cbs_1");
+      expect(integration.getExperimentMetricQuery).toHaveBeenCalledTimes(1);
+      const callArgs = (integration.getExperimentMetricQuery as jest.Mock).mock
+        .calls[0][0];
+      expect(callArgs.settings.experimentId).toBe("exp_1");
+      expect(callArgs.settings.banditSettings.banditIsContextual).toBe(true);
+      expect(
+        callArgs.settings.banditSettings.targetingAttributeColumns,
+      ).toEqual(["country"]);
+      expect(callArgs.metric.id).toBe("met_g1");
+      expect(callArgs.unitsSource).toBe("exposureQuery");
+      expect(queries).toHaveLength(1);
+      expect(queries[0].name).toBe(CONTEXTUAL_BANDIT_ROWS_QUERY_NAME);
     });
   });
 });
