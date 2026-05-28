@@ -1,17 +1,25 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { FeatureInterface } from "shared/types/feature";
-import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import {
+  FeatureRevisionInterface,
+  MinimalFeatureRevisionInterface,
+} from "shared/types/feature-revision";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
-import { ExperimentRefVariation, Screenshot } from "shared/validators";
+import {
+  ExperimentRefRule,
+  ExperimentRefVariation,
+  Screenshot,
+} from "shared/validators";
 import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
 import {
   validateFeatureValue,
   getReviewSetting,
   generateVariationId,
+  naiveFlattenV1Rules,
 } from "shared/util";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
@@ -55,6 +63,7 @@ export interface Props {
 
 type FeatureRevisionResponse = {
   revisionList: MinimalFeatureRevisionInterface[];
+  revisions: FeatureRevisionInterface[];
 };
 
 type VariationRow = {
@@ -136,6 +145,27 @@ export default function EditFeatureFlagValuesModal({
     `/feature/${feature.id}`,
   );
   const revisionList = data?.revisionList ?? [];
+
+  // Mirror the back-end eligibility check in validateExperimentFeatureUpdates:
+  // a draft is selectable only if it contains an experiment-ref rule for this
+  // experiment. Otherwise submit fails with an opaque server-side error.
+  // Defensively union in linkedFeatureInfo.draftRevisionVersion so the
+  // default-selected draft is never hidden by a stale/empty revisions list.
+  const eligibleDraftVersions = useMemo(() => {
+    const set = new Set<number>();
+    for (const r of data?.revisions ?? []) {
+      const hasRefRule = naiveFlattenV1Rules(r.rules).some(
+        (rule) =>
+          rule.type === "experiment-ref" &&
+          (rule as ExperimentRefRule).experimentId === experiment.id,
+      );
+      if (hasRefRule) set.add(r.version);
+    }
+    if (linkedFeatureInfo.draftRevisionVersion != null) {
+      set.add(linkedFeatureInfo.draftRevisionVersion);
+    }
+    return set;
+  }, [data?.revisions, experiment.id, linkedFeatureInfo.draftRevisionVersion]);
 
   const latestPhase = experiment.phases?.[experiment.phases.length - 1];
 
@@ -308,6 +338,7 @@ export default function EditFeatureFlagValuesModal({
               ? "This experiment rule is added in this draft revision. Changes will be saved to it."
               : undefined
           }
+          eligibleDraftVersions={eligibleDraftVersions}
         />
       }
       submit={form.handleSubmit(async (values) => {
