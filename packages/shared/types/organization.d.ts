@@ -186,6 +186,7 @@ export type SDKAttribute = {
   format?: SDKAttributeFormat;
   projects?: string[];
   disableEqualityConditions?: boolean;
+  documentationUrl?: string;
   tags?: string[];
 };
 

@@ -12,6 +12,11 @@ export const postAttribute = createApiRequestHandler(postAttributeValidator)(
       ...req.body,
       ...(await validatePayload(req.context, req.body)),
     };
+    // Empty-string documentationUrl is normalized to undefined by the
+    // validator; omit the key so we don't persist a placeholder.
+    if (attribute.documentationUrl === undefined) {
+      delete attribute.documentationUrl;
+    }
 
     const org = req.context.org;
 

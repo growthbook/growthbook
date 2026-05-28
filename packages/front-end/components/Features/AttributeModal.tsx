@@ -59,6 +59,7 @@ export default function AttributeModal({ close, attribute }: Props) {
         ? current?.format || ""
         : "") as SDKAttributeFormat,
       enum: current?.enum || "",
+      documentationUrl: current?.documentationUrl || "",
       hashAttribute: !!current?.hashAttribute,
       disableEqualityConditions: current?.disableEqualityConditions || false,
       tags: current?.tags || [],
@@ -143,6 +144,9 @@ export default function AttributeModal({ close, attribute }: Props) {
           property: value.property,
           datatype: value.datatype,
           description: value.description,
+          // Always include the key so an empty input clears any previously
+          // stored URL on the back-end (the validator normalizes "" to undefined).
+          documentationUrl: value.documentationUrl ?? "",
           projects: value.projects,
           format: value.format,
           enum: value.enum,
@@ -195,6 +199,24 @@ export default function AttributeModal({ close, attribute }: Props) {
       <TagsField
         value={form.watch("tags") || []}
         onChange={(tags) => form.setValue("tags", tags)}
+      />
+      <Field
+        label={
+          <>
+            Documentation URL <small className="text-muted">(optional)</small>
+          </>
+        }
+        placeholder="https://..."
+        type="url"
+        {...form.register("documentationUrl", {
+          validate: (val) => {
+            if (!val) return true;
+            return val.startsWith("http://") || val.startsWith("https://")
+              ? true
+              : "URL must start with http:// or https://";
+          },
+        })}
+        error={form.formState.errors.documentationUrl?.message}
       />
       {projects?.length > 0 && (
         <div className="form-group">
