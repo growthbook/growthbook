@@ -60,6 +60,7 @@ export type SchemaFormat =
   | "firebase"
   | "keen"
   | "clevertap"
+  | "eventForwarder"
   | "custom";
 
 export type AutoFactTableSchemas = "segment" | "rudderstack" | "amplitude";
