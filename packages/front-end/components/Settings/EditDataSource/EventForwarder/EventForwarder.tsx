@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   DEFAULT_EVENT_FORWARDER_BIGQUERY_TABLE_NAME,
   DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME,
@@ -7,6 +7,7 @@ import {
   parseBigQueryEventForwarderDestination,
   parseSnowflakeEventForwarderDestination,
   stripLeadingUtf8ByteOrderMark,
+  supportsEventForwarder,
   tryDeriveSnowflakeAccessUrlFromAccount,
 } from "shared/util";
 import {
@@ -22,6 +23,7 @@ import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { Box, Card, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import BigQueryEventForwarderForm from "@/components/Settings/BigQueryEventForwarderForm";
 import SnowflakeEventForwarderForm from "@/components/Settings/SnowflakeEventForwarderForm";
@@ -38,6 +40,7 @@ import ConfirmDialog from "@/ui/ConfirmDialog";
 import Modal from "@/ui/Modal";
 import ModalForm, { useModalForm } from "@/ui/Modal/ModalForm";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { DocLink } from "@/components/DocLink";
 import {
   PROVISIONING_TIMEOUT_MESSAGE,
   useEventForwarderProvisioningPoll,
@@ -47,6 +50,7 @@ type Props = {
   dataSource: DataSourceInterfaceWithParams;
   canEdit?: boolean;
   onRefresh: () => Promise<void>;
+  autoOpenSetup?: boolean;
 };
 
 type EventForwarderDatasourceDraft = {
@@ -469,12 +473,33 @@ export default function EventForwarder({
   dataSource,
   canEdit = true,
   onRefresh,
+  autoOpenSetup = false,
 }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const autoOpenedRef = useRef(false);
   const { apiCall } = useAuth();
   const eventForwarderConfig = dataSource.eventForwarderConfig;
+  const eventsForwarderFeatureEnabled = useFeatureIsOn("events-forwarder");
+
+  useEffect(() => {
+    if (autoOpenedRef.current) return;
+    if (
+      autoOpenSetup &&
+      canEdit &&
+      !eventForwarderConfig &&
+      eventsForwarderFeatureEnabled
+    ) {
+      autoOpenedRef.current = true;
+      setShowEditModal(true);
+    }
+  }, [
+    autoOpenSetup,
+    canEdit,
+    eventForwarderConfig,
+    eventsForwarderFeatureEnabled,
+  ]);
 
   const handleRefresh = useCallback(async () => {
     await onRefresh();
@@ -487,7 +512,7 @@ export default function EventForwarder({
       onRefresh: handleRefresh,
     });
 
-  if (dataSource.type !== "bigquery" && dataSource.type !== "snowflake") {
+  if (!supportsEventForwarder(dataSource)) {
     return null;
   }
 
@@ -598,21 +623,38 @@ export default function EventForwarder({
       </Flex>
 
       <p>
-        Forward SDK event data from GrowthBook to this datasource for downstream
-        analysis and diagnostics.
+        Event Forwarder streams SDK event data from GrowthBook directly into
+        this datasource so you can query and analyze it alongside the rest of
+        your warehouse data. More information available on our docs.
+        <DocLink docSection="eventForwarder">Event Forwarder Docs</DocLink>
       </p>
 
       {!eventForwarderConfig ? (
-        <Callout status="info">
-          Event Forwarder is not configured for this datasource.
-          {canEdit ? (
-            <Box mt="3">
-              <Button onClick={() => setShowEditModal(true)}>
-                Set Up Event Forwarder
-              </Button>
-            </Box>
-          ) : null}
-        </Callout>
+        eventsForwarderFeatureEnabled ? (
+          <Callout status="info">
+            Event Forwarder is not configured for this datasource.
+            {canEdit ? (
+              <Box mt="3">
+                <Button onClick={() => setShowEditModal(true)}>
+                  Set Up Event Forwarder
+                </Button>
+              </Box>
+            ) : null}
+          </Callout>
+        ) : (
+          <Callout status="info">
+            To enable Event Forwarder for your organization, contact your
+            account manager or reach out to{" "}
+            <a
+              href="mailto:sales@growthbook.io"
+              target="_blank"
+              rel="noreferrer"
+            >
+              sales@growthbook.io
+            </a>
+            .
+          </Callout>
+        )
       ) : isPaused ? (
         <Callout status="info" mb="3">
           To remove the Event Forwarder, contact your account manager.
