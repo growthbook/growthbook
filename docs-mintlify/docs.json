@@ -71,6 +71,7 @@
                 "group": "Governance & Lifecycle",
                 "pages": [
                   "features/publishing-and-approval-flows",
+                  "features/search-filters",
                   "features/stale-detection",
                   "features/code-references",
                   "features/diagnostics",

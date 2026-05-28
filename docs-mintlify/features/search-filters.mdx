@@ -1,0 +1,88 @@
+---
+title: "Search and Filter Features"
+sidebarTitle: "Search & Filter"
+description: "Find feature flags fast with dropdown filters and a search syntax for values, attributes, saved groups, experiments, and more."
+---
+
+The features list supports dropdown filters and a search syntax for narrowing down flags by what they reference. Use it to audit prerequisites, find every flag that uses a specific attribute, locate flags tied to an experiment, or hunt down a literal value buried in a rule.
+
+## Filter Dropdowns
+
+Open the **Features** page and use the dropdowns above the table. Each dropdown writes a token into the search box, so filters compose with anything you type by hand.
+
+- **type** — Filter by feature value type (boolean, string, number, JSON).
+- **environment** — Toggle **On** / **Off** per environment.
+- **contains** — Filter by what a flag references (see below).
+- **more** — Archived, draft, stale, and stale-detection-disabled flags.
+
+## Contains Filters
+
+The **contains** dropdown is split into two sections.
+
+### Has...
+
+Show only flags that have at least one of the following. These are quick yes/no filters.
+
+| Filter | Matches features that... |
+| --- | --- |
+| Prerequisites | Have one or more [prerequisite](/features/prerequisites) flags. |
+| Dependents | Are used as a prerequisite by another flag. |
+| Saved groups | Reference a [saved group](/features/targeting) in any rule. |
+| Experiments & bandits | Have a linked experiment or bandit. |
+| Temp experiment rollouts | Have an active temporary rollout from a running experiment. |
+| Active ramp-ups & schedules | Have a rule with an active scheduled change or in-progress ramp-up. |
+
+### Contains specific...
+
+Pick a specific entity and only see flags that reference it. Picking a row reveals an input or selector.
+
+| Filter | What you select | What matches |
+| --- | --- | --- |
+| Value | Free text | Any default value or rule value (force, rollout, experiment, safe rollout) containing the text, case-insensitive. |
+| Attribute | An attribute from your SDK schema | Flags whose rules target, hash on, or fall back to that attribute. |
+| Saved Group | A saved group | Flags that reference that saved group in any rule. |
+| Experiment | An experiment linked to any flag | Flags linked to that experiment. |
+| Bandit | A [bandit](/bandits) linked to any flag | Flags linked to that bandit. |
+
+<Note>
+The Value, Attribute, and Saved Group filters scan both live rules and active draft revisions, so a match can mean the reference only exists in an unpublished draft.
+</Note>
+
+## Search Syntax
+
+Filters are stored as tokens in the search box, and you can type them directly. Combine multiple tokens with spaces; they're AND-ed together.
+
+```text
+has:prerequisites has:value:checkout-v2 on:production
+```
+
+The tokens used by the contains dropdown:
+
+| Token | Example | Meaning |
+| --- | --- | --- |
+| `has:prerequisites` | `has:prerequisites` | Has at least one prerequisite. |
+| `has:dependents` | `has:dependents` | Is a prerequisite for another flag. |
+| `has:savedgroup` | `has:savedgroup` | References any saved group. |
+| `has:experiments` | `has:experiments` | Has a linked experiment or bandit. |
+| `has:temp-rollout` | `has:temp-rollout` | Has a temporary experiment rollout. |
+| `has:ramp-schedule` | `has:ramp-schedule` | Has an active ramp-up or schedule. |
+| `has:value:<text>` | `has:value:red` | A rule or default value contains `red`. |
+| `has:attribute:<id>` | `has:attribute:user_id` | A rule uses the `user_id` attribute. |
+| `has:saved-group:<id>` | `has:saved-group:sg_abc123` | A rule references that saved group. |
+| `has:experiment:<id>` | `has:experiment:exp_abc123` | The flag is linked to that experiment. |
+| `has:bandit:<id>` | `has:bandit:exp_abc123` | The flag is linked to that bandit. |
+
+Other tokens already supported by the page:
+
+- `on:<env>` / `off:<env>` — Flag is on or off in the given environment. Comma-separate multiple envs.
+- `is:archived`, `is:stale`, `is:stale-disabled`, `has:draft`, `has:stale-env` — Status filters from the **more** dropdown.
+
+<Tip>
+Bookmark a filtered URL to save a search. The tokens are encoded into the query string, so the same filters reload when you return.
+</Tip>
+
+## What's Next
+
+- [Stale Feature Detection](/features/stale-detection) — Pair `has:value:` searches with stale filters to plan cleanup.
+- [Prerequisites](/features/prerequisites) — `has:prerequisites` and `has:dependents` help you map flag dependencies.
+- [Code References](/features/code-references) — Once you've found a flag, jump to where it's used in code.
