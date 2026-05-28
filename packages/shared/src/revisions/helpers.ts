@@ -1,5 +1,4 @@
 import isEqual from "lodash/isEqual";
-import { evalCondition } from "@growthbook/growthbook";
 import type {
   ApprovalFlowConfiguration,
   ApprovalFlowConfigurations,
@@ -105,61 +104,49 @@ export const isSdkConnectionRevisionMetadataOnly = (
 };
 
 // ---------------------------------------------------------------------------
-// SDK-connection approval scoping (condition-based, SDK-connection only)
+// SDK-connection approval scoping (project + environment, SDK-connection only)
 //
-// Each SDK-connection approval rule may carry a `condition` — the same
-// Mongo-style format used for saved-group / targeting conditions — evaluated by
-// the SDK's `evalCondition` against the connection's attributes. This lets
-// admins scope "require approval" to e.g. specific environments and/or
-// projects with full AND/OR flexibility. Saved groups and features do NOT use
-// these helpers.
+// Mirrors how Features scope `requireReviews`: each rule carries optional
+// `projects` / `environments` arrays. A rule applies to a connection when the
+// connection's project(s) match the rule's `projects` (empty = all projects)
+// AND its environment matches the rule's `environments` (empty = all
+// environments). Multiple rules OR together. Saved groups and features do NOT
+// use these helpers.
 // ---------------------------------------------------------------------------
 
-/**
- * Attributes an SDK-connection approval `condition` is evaluated against. The
- * full flattened connection snapshot is passed through, so a condition can
- * reference any connection field; `projects` / `environment` are the primary
- * intended targets.
- */
 export type SdkConnectionApprovalScope = {
   projects?: string[];
   environment?: string;
-  [key: string]: unknown;
 };
 
 /**
- * Whether an approval rule's scoping condition matches a connection. A missing
- * or empty (`{}`) condition matches everything. A malformed condition does NOT
- * match — rules are validated on save, so this only guards against a broken
- * rule unexpectedly gating (or bricking) edits.
+ * Whether an approval rule's project/environment scope matches a connection.
+ * An empty (or omitted) `projects`/`environments` on the rule means "all".
+ * Mirrors the feature `getReviewSetting` (project) + `checkEnvironmentsMatch`
+ * (environment) logic, extended to a connection's `projects` array.
  */
-export const sdkConnectionMatchesApprovalCondition = (
-  condition: string | undefined,
+export const sdkConnectionMatchesApprovalScope = (
+  rule: Pick<ApprovalFlowConfiguration, "projects" | "environments">,
   scope: SdkConnectionApprovalScope,
 ): boolean => {
-  if (!condition || condition === "{}") return true;
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(condition);
-  } catch {
-    return false;
-  }
-  if (!parsed || typeof parsed !== "object") return false;
-  const attributes = {
-    ...scope,
-    projects: scope.projects ?? [],
-    environment: scope.environment ?? "",
-  };
-  return evalCondition(
-    attributes,
-    parsed as Parameters<typeof evalCondition>[1],
-  );
+  const ruleProjects = rule.projects ?? [];
+  const connProjects = scope.projects ?? [];
+  const projectMatch =
+    ruleProjects.length === 0 ||
+    connProjects.some((p) => ruleProjects.includes(p));
+
+  const ruleEnvironments = rule.environments ?? [];
+  const envMatch =
+    ruleEnvironments.length === 0 ||
+    (!!scope.environment && ruleEnvironments.includes(scope.environment));
+
+  return projectMatch && envMatch;
 };
 
 /**
- * The first enabled SDK-connection approval rule whose condition matches the
- * given connection scope, or undefined if none require approval for it. The
- * matched rule supplies the per-rule settings (requireMetadataReview, etc.).
+ * The first enabled SDK-connection approval rule whose project/environment
+ * scope matches the given connection, or undefined if none require approval for
+ * it. The matched rule supplies the per-rule settings (requireMetadataReview, etc.).
  */
 export const getSdkConnectionApprovalRule = (
   approvalFlows: ApprovalFlowConfigurations | undefined,
@@ -168,9 +155,7 @@ export const getSdkConnectionApprovalRule = (
   const rules = approvalFlows?.sdkConnections;
   if (!rules?.length) return undefined;
   return rules.find(
-    (rule) =>
-      rule.required &&
-      sdkConnectionMatchesApprovalCondition(rule.condition, scope),
+    (rule) => rule.required && sdkConnectionMatchesApprovalScope(rule, scope),
   );
 };
 

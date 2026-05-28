@@ -1,20 +1,16 @@
-import { SavedGroupInterface } from "shared/types/saved-group";
 import { useMemo, useState } from "react";
-import { Revision } from "shared/enterprise";
-import Text from "@/ui/Text";
-import Callout from "@/ui/Callout";
-import LoadingSpinner from "@/components/LoadingSpinner";
-import Modal from "@/components/Modal";
+import { Revision, getSdkConnectionApprovalRule } from "shared/enterprise";
+import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import Modal from "@/ui/Modal";
 import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useSavedGroupReferences } from "@/hooks/useSavedGroupReferences";
 import DraftSelector, { DraftMode } from "@/components/DraftSelector";
 import RevisionDropdown from "@/components/Revision/RevisionDropdown";
-import SavedGroupReferencesList from "./SavedGroupReferencesList";
 
-interface SavedGroupArchiveModalProps {
-  savedGroup: SavedGroupInterface;
+interface SDKConnectionArchiveModalProps {
+  connection: SDKConnectionInterface;
   close: () => void;
   openRevisions: Revision[];
   allRevisions: Revision[];
@@ -23,36 +19,35 @@ interface SavedGroupArchiveModalProps {
   selectFlow?: (revision: Revision | null) => void;
 }
 
-export default function SavedGroupArchiveModal({
-  savedGroup,
+export default function SDKConnectionArchiveModal({
+  connection,
   close,
   openRevisions,
   allRevisions,
   mutate,
   onRevisionCreated,
   selectFlow,
-}: SavedGroupArchiveModalProps) {
+}: SDKConnectionArchiveModalProps) {
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
+  const { hasCommercialFeature } = useUser();
 
-  const { references, loading } = useSavedGroupReferences(savedGroup.id);
-  const totalReferences =
-    (references?.features.length ?? 0) +
-    (references?.experiments.length ?? 0) +
-    (references?.savedGroups.length ?? 0);
+  const isArchived = connection.archived;
 
-  const isArchived = savedGroup.archived;
+  const canBypass = connection.projects?.length
+    ? connection.projects.every((p) =>
+        permissionsUtil.canBypassApprovalChecks({ project: p || "" }),
+      )
+    : permissionsUtil.canBypassApprovalChecks({ project: "" });
 
-  const canBypass =
-    savedGroup.projects && savedGroup.projects.length > 0
-      ? savedGroup.projects.every((proj) =>
-          permissionsUtil.canBypassApprovalChecks({ project: proj || "" }),
-        )
-      : permissionsUtil.canBypassApprovalChecks({ project: "" });
-
-  const approvalRequired =
-    settings.approvalFlows?.savedGroups?.[0]?.required ?? false;
+  const matchedRule = hasCommercialFeature("require-approvals")
+    ? getSdkConnectionApprovalRule(settings.approvalFlows, {
+        projects: connection.projects,
+        environment: connection.environment,
+      })
+    : undefined;
+  const approvalRequired = !!matchedRule;
 
   // Archive/unarchive always requires review when approval flows are enabled
   const archiveGated = approvalRequired;
@@ -90,12 +85,12 @@ export default function SavedGroupArchiveModal({
       }`
     : null;
 
-  const canSubmit = !loading && totalReferences === 0;
-
   return (
     <Modal
       trackingEventModalType=""
-      header={isArchived ? "Unarchive Saved Group" : "Archive Saved Group"}
+      header={
+        isArchived ? "Unarchive SDK Connection" : "Archive SDK Connection"
+      }
       size="lg"
       close={close}
       open={true}
@@ -127,7 +122,7 @@ export default function SavedGroupArchiveModal({
           params.set("forceCreateRevision", "1");
         }
 
-        const url = `/saved-groups/${savedGroup.id}${params.toString() ? `?${params.toString()}` : ""}`;
+        const url = `/sdk-connections/${connection.id}${params.toString() ? `?${params.toString()}` : ""}`;
 
         const res = await apiCall<{
           status: number;
@@ -147,7 +142,6 @@ export default function SavedGroupArchiveModal({
         mutate();
         close();
       }}
-      ctaEnabled={canSubmit}
       useRadixButton={true}
     >
       <DraftSelector
@@ -159,7 +153,7 @@ export default function SavedGroupArchiveModal({
         existingDraftLabel={existingDraftLabel}
         revisionDropdown={
           <RevisionDropdown
-            entityId={savedGroup.id}
+            entityId={connection.id}
             allRevisions={allRevisions}
             selectedRevisionId={selectedDraftId}
             onSelectRevision={(rev) => setSelectedDraftId(rev?.id ?? null)}
@@ -168,38 +162,16 @@ export default function SavedGroupArchiveModal({
           />
         }
       />
-      {loading ? (
-        <Text color="text-disabled">
-          <LoadingSpinner /> Checking saved group references...
-        </Text>
-      ) : totalReferences > 0 ? (
-        <>
-          <Callout status="error" mb="4">
-            <Text as="p" weight="semibold" mb="2">
-              Cannot {isArchived ? "unarchive" : "archive"} saved group
-            </Text>
-            <Text as="p" mb="0">
-              Before you can {isArchived ? "unarchive" : "archive"} this saved
-              group, you will need to remove any references to it. Check the
-              following item
-              {totalReferences > 1 && "s"} below:
-            </Text>
-          </Callout>
-          <SavedGroupReferencesList
-            features={references?.features ?? []}
-            experiments={references?.experiments ?? []}
-            savedGroups={references?.savedGroups ?? []}
-          />
-        </>
-      ) : isArchived ? (
+      {isArchived ? (
         <p>
-          Are you sure you want to continue? This will make the saved group
+          Are you sure you want to continue? This will make the SDK connection
           active again.
         </p>
       ) : (
         <p>
-          Are you sure you want to continue? This will make the saved group
-          inactive and it will no longer be usable in features and experiments.
+          Are you sure you want to continue? This will make the SDK connection
+          inactive and it will no longer serve feature flags to your
+          application.
         </p>
       )}
     </Modal>

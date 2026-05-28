@@ -1,11 +1,6 @@
 import React, { ReactElement, useState } from "react";
 import { WebhookInterface } from "shared/types/webhook";
-import {
-  FaCheck,
-  FaExclamationTriangle,
-  FaInfoCircle,
-  FaPaperPlane,
-} from "react-icons/fa";
+import { FaCheck, FaExclamationTriangle, FaInfoCircle } from "react-icons/fa";
 import { ago } from "shared/dates";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import useApi from "@/hooks/useApi";
@@ -17,7 +12,6 @@ import { useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import Button from "@/ui/Button";
-import OldButton from "@/components/Button";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { DocLink } from "@/components/DocLink";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -25,6 +19,13 @@ import ClickToReveal from "@/components/Settings/ClickToReveal";
 import Badge from "@/ui/Badge";
 import { capitalizeFirstLetter } from "@/services/utils";
 import Callout from "@/ui/Callout";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 
 const payloadFormatLabels: Record<string, string | ReactElement> = {
   standard: "Standard",
@@ -69,20 +70,22 @@ export default function SdkWebhooks({
   const renderTableRows = () => {
     // only render table if there is data to show
     return data?.webhooks?.map((webhook) => (
-      <tr key={webhook.name}>
-        <td style={{ minWidth: 150 }}>
-          {webhook.name}
-          {webhook.managedBy?.type ? (
-            <div>
-              <Badge
-                label={`Managed by ${capitalizeFirstLetter(
-                  webhook.managedBy.type,
-                )}`}
-              />
-            </div>
-          ) : null}
-        </td>
-        <td
+      <TableRow key={webhook.name}>
+        <TableCell style={{ minWidth: 150 }}>
+          <div>
+            {webhook.name}
+            {webhook.managedBy?.type ? (
+              <div>
+                <Badge
+                  label={`Managed by ${capitalizeFirstLetter(
+                    webhook.managedBy.type,
+                  )}`}
+                />
+              </div>
+            ) : null}
+          </div>
+        </TableCell>
+        <TableCell
           style={{
             wordBreak: "break-word",
             overflowWrap: "anywhere",
@@ -93,15 +96,15 @@ export default function SdkWebhooks({
           ) : (
             <code className="text-main small">{webhook.endpoint}</code>
           )}
-        </td>
-        <td className="text-main">
+        </TableCell>
+        <TableCell>
           {webhook.managedBy?.type ? (
             <em className="text-muted">hidden</em>
           ) : (
             <span className="small">{webhook.httpMethod}</span>
           )}
-        </td>
-        <td className="text-main">
+        </TableCell>
+        <TableCell>
           {webhook.managedBy?.type ? (
             <em className="text-muted">hidden</em>
           ) : (
@@ -109,8 +112,8 @@ export default function SdkWebhooks({
               {payloadFormatLabels?.[webhook?.payloadFormat ?? "standard"]}
             </span>
           )}
-        </td>
-        <td className="nowrap">
+        </TableCell>
+        <TableCell>
           {webhook.signingKey && !webhook.managedBy?.type ? (
             <ClickToReveal
               valueWhenHidden="wk_abc123def456ghi789"
@@ -119,8 +122,8 @@ export default function SdkWebhooks({
           ) : (
             <em className="text-muted">hidden</em>
           )}
-        </td>
-        <td>
+        </TableCell>
+        <TableCell>
           {webhook.disabled ? (
             <Tooltip
               className="ml-1"
@@ -141,58 +144,71 @@ export default function SdkWebhooks({
                 </Callout>
               }
             >
-              <span className="text-danger">
-                <FaExclamationTriangle /> disabled
-              </span>
+              <Badge
+                label={
+                  <>
+                    <FaExclamationTriangle className="mr-1" />
+                    Disabled
+                  </>
+                }
+                color="red"
+                variant="soft"
+              />
             </Tooltip>
           ) : webhook.error ? (
-            <>
-              <Tooltip
-                className="ml-1"
-                innerClassName="pb-3"
-                usePortal={true}
-                body={
-                  <Callout key={webhook.id} status="error">
-                    <div style={{ wordBreak: "break-all" }}>
-                      {webhook.error}
-                    </div>
-                  </Callout>
+            <Tooltip
+              className="ml-1"
+              innerClassName="pb-3"
+              usePortal={true}
+              body={
+                <Callout key={webhook.id} status="error">
+                  <div style={{ wordBreak: "break-all" }}>{webhook.error}</div>
+                </Callout>
+              }
+            >
+              <Badge
+                label={
+                  <>
+                    <FaExclamationTriangle className="mr-1" />
+                    Error
+                  </>
                 }
-              >
-                <span className="text-danger">
-                  <FaExclamationTriangle /> error
-                </span>
-              </Tooltip>
-            </>
+                color="red"
+                variant="soft"
+              />
+            </Tooltip>
           ) : webhook.lastSuccess ? (
-            <em className="small">
-              <FaCheck className="text-success" /> {ago(webhook.lastSuccess)}
-            </em>
+            <Badge
+              label={
+                <>
+                  <FaCheck className="mr-1" />
+                  {ago(webhook.lastSuccess)}
+                </>
+              }
+              color="green"
+              variant="soft"
+            />
           ) : (
-            <em>never fired</em>
+            <Badge label="Never fired" color="gray" variant="soft" />
           )}
-        </td>
-        <td>
-          <OldButton
-            color="outline-primary"
-            className="btn-sm"
-            style={{ width: 80 }}
-            disabled={!canUpdateWebhook}
-            onClick={async () => {
-              await apiCall(`/sdk-webhooks/${webhook.id}/test`, {
-                method: "post",
-              });
-              mutate();
-            }}
-          >
-            <FaPaperPlane className="mr-1" />
-            Test
-          </OldButton>
-        </td>
-        <td className="px-0">
+        </TableCell>
+        <TableCell>
           {!webhook.managedBy?.type ? (
             <div className="col-auto mr-1">
               <MoreMenu>
+                {canUpdateWebhook ? (
+                  <button
+                    className="dropdown-item"
+                    onClick={async () => {
+                      await apiCall(`/sdk-webhooks/${webhook.id}/test`, {
+                        method: "post",
+                      });
+                      mutate();
+                    }}
+                  >
+                    Test
+                  </button>
+                ) : null}
                 {canUpdateWebhook ? (
                   <button
                     className="dropdown-item"
@@ -221,8 +237,8 @@ export default function SdkWebhooks({
               </MoreMenu>
             </div>
           ) : null}
-        </td>
-      </tr>
+        </TableCell>
+      </TableRow>
     ));
   };
   const renderAddWebhookButton = () => (
@@ -269,22 +285,25 @@ export default function SdkWebhooks({
 
   const renderTable = () => {
     return (
-      <div className="gb-webhook-table-container mb-2">
-        <table className="table appbox gbtable mb-0">
-          <thead>
-            <tr>
-              <th>Webhook</th>
-              <th>Endpoint</th>
-              <th>Method</th>
-              <th style={{ width: 130 }}>Format</th>
-              <th>Shared Secret</th>
-              <th style={{ width: 125 }}>Last Success</th>
-              <th />
-              <th className="px-0" style={{ width: 35 }} />
-            </tr>
-          </thead>
-          <tbody>{renderTableRows()}</tbody>
-        </table>
+      <div className="mb-2">
+        <Table variant="list">
+          <TableHeader>
+            <TableRow>
+              <TableColumnHeader>Webhook</TableColumnHeader>
+              <TableColumnHeader>Endpoint</TableColumnHeader>
+              <TableColumnHeader>Method</TableColumnHeader>
+              <TableColumnHeader style={{ width: 130 }}>
+                Format
+              </TableColumnHeader>
+              <TableColumnHeader>Shared Secret</TableColumnHeader>
+              <TableColumnHeader style={{ width: 125 }}>
+                Last Success
+              </TableColumnHeader>
+              <TableColumnHeader style={{ width: 35 }} />
+            </TableRow>
+          </TableHeader>
+          <TableBody>{renderTableRows()}</TableBody>
+        </Table>
       </div>
     );
   };

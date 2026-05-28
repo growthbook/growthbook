@@ -3,6 +3,7 @@ import {
   SDKConnectionInterface,
   SDKLanguage,
 } from "shared/types/sdk-connection";
+import { Revision } from "shared/enterprise";
 import { useForm } from "react-hook-form";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
@@ -49,6 +50,8 @@ import Checkbox from "@/ui/Checkbox";
 import Text from "@/ui/Text";
 import HelperText from "@/ui/HelperText";
 import Callout from "@/ui/Callout";
+import DraftSelector, { DraftMode } from "@/components/DraftSelector";
+import RevisionDropdown from "@/components/Revision/RevisionDropdown";
 import SDKLanguageSelector from "./SDKLanguageSelector";
 import {
   LanguageType,
@@ -89,6 +92,14 @@ export default function SDKConnectionForm({
   mutate,
   autoCloseOnSubmit = true,
   cta = "Save",
+  onRevisionCreated,
+  openRevisions,
+  allRevisions,
+  selectedRevision,
+  onSelectRevision,
+  approvalRequired,
+  canAutoPublish,
+  metadataReviewRequired = true,
 }: {
   initialValue?: Partial<SDKConnectionInterface>;
   edit: boolean;
@@ -96,6 +107,14 @@ export default function SDKConnectionForm({
   mutate: () => void;
   autoCloseOnSubmit?: boolean;
   cta?: string;
+  onRevisionCreated?: (revision: Revision) => void;
+  openRevisions?: Revision[];
+  allRevisions?: Revision[];
+  selectedRevision?: Revision | null;
+  onSelectRevision?: (revision: Revision | null) => void;
+  approvalRequired?: boolean;
+  canAutoPublish?: boolean;
+  metadataReviewRequired?: boolean;
 }) {
   const environments = useEnvironments();
   const { project, projects, getProjectById } = useDefinitions();
@@ -137,6 +156,32 @@ export default function SDKConnectionForm({
   };
 
   const [languageError, setLanguageError] = useState<string | null>(null);
+
+  // Revision/approval state (only relevant in edit mode). When approval isn't
+  // required we default to publishing immediately; otherwise we target the
+  // caller's selected revision (if any) or create a new draft.
+  const [draftMode, setDraftMode] = useState<DraftMode>(() =>
+    !approvalRequired ? "publish" : selectedRevision ? "existing" : "new",
+  );
+  const [selectedDraftId, setSelectedDraftId] = useState<string | null>(
+    selectedRevision?.id ?? null,
+  );
+
+  // Metadata-only revision flow: approval is required but metadata review is
+  // off, so the publish-now affordance is hidden here (publishing happens from
+  // the page-level controls) and the selector uses revision terminology.
+  const metadataOnlyRevisionFlow =
+    !!approvalRequired && !metadataReviewRequired;
+
+  // The form is "revision-aware" whenever the caller wired the revision props
+  // (the SDK connection page does so in edit mode when the revision/approval
+  // feature is active). When aware, route the PUT through revisions and show
+  // the draft selector at the top of the modal — the same as the Features and
+  // Saved Groups edit modals.
+  const revisionAware =
+    edit &&
+    !!initialValue.id &&
+    (approvalRequired !== undefined || onRevisionCreated !== undefined);
 
   const form = useForm({
     defaultValues: {
@@ -425,10 +470,46 @@ export default function SDKConnectionForm({
         };
 
         if (edit) {
-          await apiCall(`/sdk-connections/${initialValue.id}`, {
+          // Only route through the revision-aware params when the caller wired
+          // up revision support. Without those props we keep the simplest
+          // behavior: a plain PUT then mutate (the backend still returns a
+          // revision in that case, which we simply ignore).
+          // Build query params based on the user's selector choice, mirroring
+          // the saved-groups flow.
+          const params = new URLSearchParams();
+          if (revisionAware) {
+            if (draftMode === "publish") {
+              params.set("autoPublish", "1");
+              if (approvalRequired && canAutoPublish) {
+                params.set("bypassApproval", "1");
+              }
+            } else if (draftMode === "existing" && selectedDraftId) {
+              params.set("revisionId", selectedDraftId);
+            } else {
+              params.set("forceCreateRevision", "1");
+            }
+          }
+
+          const queryString = params.toString();
+          const url = `/sdk-connections/${initialValue.id}${
+            queryString ? `?${queryString}` : ""
+          }`;
+
+          const res = await apiCall<{
+            status: number;
+            requiresApproval?: boolean;
+            revision?: Revision;
+          }>(url, {
             method: "PUT",
             body: JSON.stringify(body),
           });
+
+          if (res?.revision) {
+            onRevisionCreated?.(res.revision);
+            if (draftMode === "new" || draftMode === "existing") {
+              onSelectRevision?.(res.revision);
+            }
+          }
           mutate();
         } else {
           const res = await apiCall<{ connection: SDKConnectionInterface }>(
@@ -466,6 +547,28 @@ export default function SDKConnectionForm({
       open={true}
       cta={cta}
     >
+      {revisionAware && initialValue.id && (
+        <DraftSelector
+          hasActiveDrafts={(openRevisions?.length ?? 0) > 0}
+          mode={draftMode}
+          setMode={setDraftMode}
+          canAutoPublish={canAutoPublish ?? true}
+          approvalRequired={!!approvalRequired}
+          metadataOnly={metadataOnlyRevisionFlow}
+          defaultExpanded={!canAutoPublish}
+          revisionDropdown={
+            <RevisionDropdown
+              entityId={initialValue.id}
+              allRevisions={allRevisions ?? []}
+              selectedRevisionId={selectedDraftId}
+              onSelectRevision={(rev) => setSelectedDraftId(rev?.id ?? null)}
+              draftsOnly
+              requiresApproval={false}
+            />
+          }
+        />
+      )}
+
       <Field label="Name" {...form.register("name")} required />
 
       <div className="mb-4">

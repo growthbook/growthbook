@@ -70,6 +70,50 @@ export default function ApprovalFlowSettings() {
     });
   }, [requireReviewsWatched]);
 
+  // SDK Connections scope state
+  const [showSdkProjectScope, setShowSdkProjectScope] = useState<
+    Record<number, boolean>
+  >(() => {
+    const raw = form.getValues("approvalFlows.sdkConnections");
+    const rules: { projects?: string[]; environments?: string[] }[] =
+      Array.isArray(raw) ? raw : [];
+    return Object.fromEntries(
+      rules.map((r, i) => [i, !!(r.projects?.length ?? 0)]),
+    );
+  });
+
+  const [showSdkEnvScope, setShowSdkEnvScope] = useState<
+    Record<number, boolean>
+  >(() => {
+    const raw = form.getValues("approvalFlows.sdkConnections");
+    const rules: { environments?: string[] }[] = Array.isArray(raw) ? raw : [];
+    return Object.fromEntries(
+      rules.map((r, i) => [i, !!(r.environments?.length ?? 0)]),
+    );
+  });
+
+  const sdkConnectionsWatched = form.watch("approvalFlows.sdkConnections");
+  useEffect(() => {
+    if (!Array.isArray(sdkConnectionsWatched)) return;
+    setShowSdkEnvScope((prev) => {
+      const next = { ...prev };
+      sdkConnectionsWatched.forEach((r, i) => {
+        if ((r.environments?.length ?? 0) > 0) next[i] = true;
+      });
+      return next;
+    });
+    setShowSdkProjectScope((prev) => {
+      const next = { ...prev };
+      sdkConnectionsWatched.forEach((r, i) => {
+        if ((r.projects?.length ?? 0) > 0) next[i] = true;
+      });
+      return next;
+    });
+  }, [sdkConnectionsWatched]);
+
+  const rawSdkRules = form.watch("approvalFlows.sdkConnections");
+  const sdkRules = Array.isArray(rawSdkRules) ? rawSdkRules : [];
+
   return (
     <Frame>
       <Flex gap="4">
@@ -373,6 +417,211 @@ export default function ApprovalFlowSettings() {
                     />
                   </Flex>
                 )}
+              </>
+            )}
+          </Frame>
+        </Box>
+
+        <Box width="100%">
+          <Frame p="3" mb="0">
+            <Heading as="h4" size="small" weight="semibold" mb="4">
+              SDK Connections
+            </Heading>
+
+            <Text as="p" size="medium" mb="4" color="text-low">
+              All changes to SDK Connections are tracked as revisions. Requiring
+              approvals adds a review step before any change goes live. Scope a
+              rule to specific projects or environments to require approval only
+              for matching connections.
+            </Text>
+
+            {hasRequireApprovals && (
+              <>
+                {sdkRules.map((_, i) => (
+                  <Box key={`sdk-connection-approval-flow-${i}`} mb="3">
+                    <Checkbox
+                      id={`sdk-connections-require-${i}`}
+                      label="Require approval to modify SDK Connections"
+                      value={
+                        !!form.watch(
+                          `approvalFlows.sdkConnections.${i}.required`,
+                        )
+                      }
+                      setValue={(v) =>
+                        form.setValue(
+                          `approvalFlows.sdkConnections.${i}.required`,
+                          v,
+                        )
+                      }
+                    />
+                    {!!form.watch(
+                      `approvalFlows.sdkConnections.${i}.required`,
+                    ) && (
+                      <Flex direction="column" gap="3" mt="2" ml="5">
+                        <Flex direction="column" gap="3" mb="3">
+                          {showSdkProjectScope[i] ? (
+                            <MultiSelectField
+                              id={`sdk-projects-${i}`}
+                              label="Projects"
+                              labelClassName="font-weight-semibold"
+                              containerClassName="mb-0"
+                              value={
+                                form.watch(
+                                  `approvalFlows.sdkConnections.${i}.projects`,
+                                ) || []
+                              }
+                              onChange={(v) =>
+                                form.setValue(
+                                  `approvalFlows.sdkConnections.${i}.projects`,
+                                  v,
+                                )
+                              }
+                              options={projects.map((p) => ({
+                                value: p.id,
+                                label: p.name,
+                              }))}
+                              placeholder="All Projects"
+                            />
+                          ) : (
+                            <Link
+                              onClick={() =>
+                                setShowSdkProjectScope((prev) => ({
+                                  ...prev,
+                                  [i]: true,
+                                }))
+                              }
+                            >
+                              <PiPlus /> For specific projects
+                            </Link>
+                          )}
+                          {showSdkEnvScope[i] ? (
+                            <MultiSelectField
+                              id={`sdk-environments-${i}`}
+                              label="Specific environments"
+                              labelClassName="font-weight-semibold"
+                              containerClassName="mb-0"
+                              value={
+                                form.watch(
+                                  `approvalFlows.sdkConnections.${i}.environments`,
+                                ) || []
+                              }
+                              onChange={(v) =>
+                                form.setValue(
+                                  `approvalFlows.sdkConnections.${i}.environments`,
+                                  v,
+                                )
+                              }
+                              options={environments.map((e) => ({
+                                value: e.id,
+                                label: e.id,
+                              }))}
+                              placeholder="All environments (leave blank to gate all)"
+                            />
+                          ) : (
+                            <Link
+                              onClick={() =>
+                                setShowSdkEnvScope((prev) => ({
+                                  ...prev,
+                                  [i]: true,
+                                }))
+                              }
+                            >
+                              <PiPlus /> For specific environments
+                            </Link>
+                          )}
+                        </Flex>
+                        <Box mt="2">
+                          <Text
+                            as="label"
+                            size="medium"
+                            weight="semibold"
+                            mb="2"
+                          >
+                            Require approval for
+                          </Text>
+                          <Flex direction="column" gap="2" align="start">
+                            <Checkbox
+                              id={`sdk-connections-values-config-${i}`}
+                              label="Values and configuration"
+                              value={true}
+                              disabled={true}
+                              setValue={() => undefined}
+                            />
+                            <Checkbox
+                              id={`sdk-connections-metadata-review-${i}`}
+                              label="Name changes only"
+                              value={
+                                form.watch(
+                                  `approvalFlows.sdkConnections.${i}.requireMetadataReview`,
+                                ) !== false
+                              }
+                              setValue={(v) =>
+                                form.setValue(
+                                  `approvalFlows.sdkConnections.${i}.requireMetadataReview`,
+                                  v,
+                                )
+                              }
+                            />
+                          </Flex>
+                        </Box>
+                        <Checkbox
+                          id={`sdk-connections-reset-review-on-change-${i}`}
+                          label="Reset review on changes"
+                          description="If a draft is modified after being approved, the approval is revoked and a new review is required before publishing."
+                          value={
+                            !!form.watch(
+                              `approvalFlows.sdkConnections.${i}.resetReviewOnChange`,
+                            )
+                          }
+                          setValue={(v) =>
+                            form.setValue(
+                              `approvalFlows.sdkConnections.${i}.resetReviewOnChange`,
+                              v,
+                            )
+                          }
+                        />
+                        <Checkbox
+                          id={`sdk-connections-block-self-approval-${i}`}
+                          label="Require approval from a non-editor"
+                          description="Anyone who edited the draft is blocked from approving it. A separate reviewer must approve before publishing."
+                          value={
+                            !!form.watch(
+                              `approvalFlows.sdkConnections.${i}.blockSelfApproval`,
+                            )
+                          }
+                          setValue={(v) =>
+                            form.setValue(
+                              `approvalFlows.sdkConnections.${i}.blockSelfApproval`,
+                              v,
+                            )
+                          }
+                        />
+                      </Flex>
+                    )}
+                    <Box mt="2">
+                      <Link
+                        color="red"
+                        onClick={() => {
+                          const next = [...sdkRules];
+                          next.splice(i, 1);
+                          form.setValue("approvalFlows.sdkConnections", next);
+                        }}
+                      >
+                        Remove rule
+                      </Link>
+                    </Box>
+                  </Box>
+                ))}
+                <Link
+                  onClick={() =>
+                    form.setValue("approvalFlows.sdkConnections", [
+                      ...sdkRules,
+                      { required: true, requireMetadataReview: true },
+                    ])
+                  }
+                >
+                  <PiPlus /> Add approval rule
+                </Link>
               </>
             )}
           </Frame>

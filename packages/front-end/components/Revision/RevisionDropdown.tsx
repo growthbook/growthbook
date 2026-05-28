@@ -19,7 +19,7 @@ import RevisionLabel, {
 } from "@/components/Features/RevisionLabel";
 
 export interface Props {
-  savedGroupId: string;
+  entityId: string;
   allRevisions: Revision[];
   selectedRevisionId: string | null;
   onSelectRevision: (revision: Revision | null) => void;
@@ -77,8 +77,8 @@ function RevisionRow({
   );
 }
 
-export default function SavedGroupRevisionDropdown({
-  savedGroupId,
+export default function RevisionDropdown({
+  entityId,
   allRevisions,
   selectedRevisionId,
   onSelectRevision,
@@ -105,7 +105,7 @@ export default function SavedGroupRevisionDropdown({
   }, [open]);
 
   const [showDiscarded, setShowDiscarded] = useLocalStorage(
-    `savedGroupRevisionDropdown__showDiscarded__${savedGroupId}`,
+    `revisionDropdown__showDiscarded__${entityId}`,
     false,
   );
 

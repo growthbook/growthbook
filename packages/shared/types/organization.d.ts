@@ -209,14 +209,12 @@ export type ApprovalFlowConfiguration = {
   // TODO: Should we add support for these additional settings?
   canBypassReview?: boolean;
   resetReviewOnChange?: boolean;
-  // Optional scoping condition (used by SDK connections). A JSON-encoded
-  // Mongo-style condition (the same format as saved-group / targeting
-  // conditions) evaluated by the SDK's `evalCondition` against the resource's
-  // attributes (e.g. `projects`, `environment`). Omitted/empty (`{}`) means the
-  // rule applies to all resources. This lets admins express scopes like
-  // `{ "environment": "production" }` or
-  // `{ "$or": [{ "environment": "production" }, { "projects": { "$elemMatch": { "$eq": "prj_x" } } }] }`.
-  condition?: string;
+  // Optional project / environment scope (used by SDK connections, mirroring
+  // feature `requireReviews`). An omitted/empty array means "all". A rule
+  // applies when the resource's project(s) match `projects` AND its environment
+  // matches `environments`. Multiple rules OR together.
+  projects?: string[];
+  environments?: string[];
 };
 
 export type ApprovalFlowConfigurations = {

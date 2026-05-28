@@ -88,6 +88,15 @@ export function buildSavedGroupRevisionUrl(
   return base;
 }
 
+export function buildSDKConnectionRevisionUrl(
+  sdkConnectionId: string,
+  revision?: Pick<Revision, "version"> | null,
+): string {
+  const base = `/sdks/${sdkConnectionId}`;
+  if (revision?.version != null) return `${base}?v=${revision.version}`;
+  return base;
+}
+
 export function RevisionStatusDot({
   hasOpenRevisions,
 }: {

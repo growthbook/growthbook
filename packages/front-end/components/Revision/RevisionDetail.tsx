@@ -9,7 +9,6 @@ import {
   applyTopLevelPatchOps,
   isUserBlockedFromApproving,
 } from "shared/enterprise";
-import { SavedGroupInterface } from "shared/types/saved-group";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import { useUser } from "@/services/UserContext";
@@ -40,6 +39,7 @@ interface RevisionDetailProps<T> {
   diffConfig: RevisionDiffConfig<T>;
   allRevisions?: Revision[];
   requiresApproval?: boolean;
+  canReview: boolean;
   closeModal?: () => void;
 }
 
@@ -53,6 +53,7 @@ function RevisionDetail<T>({
   diffConfig,
   allRevisions = [],
   requiresApproval = true,
+  canReview,
   closeModal,
 }: RevisionDetailProps<T>) {
   const { getUserDisplay, userId, user, organization, hasCommercialFeature } =
@@ -160,12 +161,7 @@ function RevisionDetail<T>({
     }
   };
 
-  const canUserReview =
-    !!userId &&
-    permissionsUtil.canUpdateSavedGroup(
-      currentState as SavedGroupInterface,
-      {},
-    );
+  const canUserReview = !!userId && canReview;
   const isRevisionAuthor = !!userId && revision.authorId === userId;
   const isBlockedContributor =
     !!userId &&
@@ -199,10 +195,9 @@ function RevisionDetail<T>({
   });
 
   // Prepare diff data
-  const baseSnapshot =
-    revision.status === "merged"
-      ? (revision.target.snapshot as T)
-      : (currentState as T);
+  // Always use revision.target.snapshot as the base, since proposedChanges
+  // are patches against that snapshot (not against the current live state)
+  const baseSnapshot = revision.target.snapshot as T;
 
   const proposedSnapshot = applyTopLevelPatchOps(
     baseSnapshot as Record<string, unknown>,
@@ -228,12 +223,12 @@ function RevisionDetail<T>({
     }
   };
 
-  const savedGroupProjects = (currentState as SavedGroupInterface).projects;
+  const projects = (currentState as { projects?: string[] }).projects;
   const canBypass =
     isOpen &&
     (user?.role === "admin" ||
-      (savedGroupProjects?.length
-        ? savedGroupProjects.every((project) =>
+      (projects?.length
+        ? projects.every((project) =>
             permissionsUtil.canBypassApprovalChecks({ project: project || "" }),
           )
         : permissionsUtil.canBypassApprovalChecks({ project: "" })));
@@ -245,17 +240,11 @@ function RevisionDetail<T>({
     if (diffs.length === 0) return false;
     // If approval is not required, allow publishing drafts directly
     if (!requiresApproval) {
-      return permissionsUtil.canUpdateSavedGroup(
-        currentState as SavedGroupInterface,
-        {},
-      );
+      return canReview;
     }
     // If approval is required, check for approval or bypass
     if (revision.status !== "approved" && !bypassApproval) return false;
-    return permissionsUtil.canUpdateSavedGroup(
-      currentState as SavedGroupInterface,
-      {},
-    );
+    return canReview;
   };
 
   const getActivityLabel = (

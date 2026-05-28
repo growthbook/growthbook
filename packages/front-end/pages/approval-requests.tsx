@@ -24,7 +24,10 @@ import {
   FilterDropdown,
   useSearchFiltersBase,
 } from "@/components/Search/SearchFilters";
-import { buildSavedGroupRevisionUrl } from "@/components/Revision/revisionUtils";
+import {
+  buildSavedGroupRevisionUrl,
+  buildSDKConnectionRevisionUrl,
+} from "@/components/Revision/revisionUtils";
 import { useRevisions } from "@/hooks/useRevisions";
 import useApi from "@/hooks/useApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -93,6 +96,7 @@ function getEntityTypeLabel(entityType: string): string {
   const labels: Record<string, string> = {
     "saved-group": "Saved Group",
     feature: "Feature",
+    "sdk-connection": "SDK Connection",
   };
   return labels[entityType] || entityType;
 }
@@ -155,15 +159,20 @@ function renderApprovalStatus(status: RevisionStatus) {
 }
 
 function revisionToRow(revision: Revision): ApprovalRow {
-  const entityName =
-    revision.target.type === "saved-group"
-      ? revision.target.snapshot?.groupName || revision.target.id
-      : revision.target.id;
+  let entityName: string;
+  let projects: string[];
+  let url: string;
 
-  const projects =
-    revision.target.type === "saved-group"
-      ? (revision.target.snapshot?.projects ?? [])
-      : [];
+  if (revision.target.type === "saved-group") {
+    entityName = revision.target.snapshot?.groupName || revision.target.id;
+    projects = revision.target.snapshot?.projects ?? [];
+    url = buildSavedGroupRevisionUrl(revision.target.id, revision);
+  } else {
+    // sdk-connection (and any future entity types added to the union)
+    entityName = revision.target.snapshot?.name || revision.target.id;
+    projects = revision.target.snapshot?.projects ?? [];
+    url = buildSDKConnectionRevisionUrl(revision.target.id, revision);
+  }
 
   return {
     id: revision.id,
@@ -175,7 +184,7 @@ function revisionToRow(revision: Revision): ApprovalRow {
     authorDisplay: "",
     status: revision.status,
     dateCreated: new Date(revision.dateCreated).getTime(),
-    url: buildSavedGroupRevisionUrl(revision.target.id, revision),
+    url,
     projects,
   };
 }
@@ -357,6 +366,16 @@ const ApprovalRequests: FC = () => {
         return permissionsUtil.canUpdateSavedGroup(
           { projects: row.projects },
           { projects: row.projects },
+        );
+      }
+      if (row.entityType === "sdk-connection") {
+        // Reviewing an SDK-connection revision requires the same permission as
+        // updating the connection. We don't have the environment on the row,
+        // so we pass an empty string which is equivalent to "any environment"
+        // for the permission check when no specific environment restriction applies.
+        return permissionsUtil.canUpdateSDKConnection(
+          { projects: row.projects, environment: "" },
+          { projects: row.projects, environment: "" },
         );
       }
       return false;

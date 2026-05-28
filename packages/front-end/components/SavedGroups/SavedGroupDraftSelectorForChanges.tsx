@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import { Revision } from "shared/enterprise";
 import DraftSelector, { DraftMode } from "@/components/DraftSelector";
-import SavedGroupRevisionDropdown from "./SavedGroupRevisionDropdown";
+import RevisionDropdown from "@/components/Revision/RevisionDropdown";
 
 export type { DraftMode };
 
@@ -67,8 +67,8 @@ export default function SavedGroupDraftSelectorForChanges({
     : null;
 
   const revisionDropdown = (
-    <SavedGroupRevisionDropdown
-      savedGroupId={savedGroup.id}
+    <RevisionDropdown
+      entityId={savedGroup.id}
       allRevisions={allRevisions}
       selectedRevisionId={selectedDraftId}
       onSelectRevision={(rev) => setSelectedDraftId(rev?.id ?? null)}

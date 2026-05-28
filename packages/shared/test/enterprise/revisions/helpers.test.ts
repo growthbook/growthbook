@@ -10,7 +10,7 @@ import {
   getApprovalFlowSettings,
   isUserBlockedFromApproving,
   isSavedGroupRevisionMetadataOnly,
-  sdkConnectionMatchesApprovalCondition,
+  sdkConnectionMatchesApprovalScope,
   getSdkConnectionApprovalRule,
   orgHasAnySdkConnectionApproval,
 } from "../../../src/revisions/helpers";
@@ -891,72 +891,57 @@ describe("revisions helpers", () => {
     });
   });
 
-  describe("SDK connection approval scoping (condition-based)", () => {
-    describe("sdkConnectionMatchesApprovalCondition", () => {
-      it("matches all when condition is missing or empty", () => {
+  describe("SDK connection approval scoping (project + environment)", () => {
+    describe("sdkConnectionMatchesApprovalScope", () => {
+      it("matches all when the rule has no projects/environments", () => {
         expect(
-          sdkConnectionMatchesApprovalCondition(undefined, {
-            environment: "staging",
-          }),
+          sdkConnectionMatchesApprovalScope({}, { environment: "staging" }),
         ).toBe(true);
         expect(
-          sdkConnectionMatchesApprovalCondition("{}", { environment: "x" }),
+          sdkConnectionMatchesApprovalScope(
+            { projects: [], environments: [] },
+            { environment: "x", projects: ["p"] },
+          ),
         ).toBe(true);
       });
 
-      it("evaluates an environment condition", () => {
-        const cond = JSON.stringify({ environment: "production" });
+      it("matches on environment (empty = all)", () => {
+        const rule = { environments: ["production"] };
         expect(
-          sdkConnectionMatchesApprovalCondition(cond, {
+          sdkConnectionMatchesApprovalScope(rule, {
             environment: "production",
           }),
         ).toBe(true);
         expect(
-          sdkConnectionMatchesApprovalCondition(cond, {
-            environment: "staging",
-          }),
+          sdkConnectionMatchesApprovalScope(rule, { environment: "staging" }),
         ).toBe(false);
       });
 
-      it("evaluates a project membership condition against the projects array", () => {
-        const cond = JSON.stringify({
-          projects: { $elemMatch: { $eq: "prj-secure" } },
-        });
+      it("matches when any of the connection's projects intersects the rule", () => {
+        const rule = { projects: ["prj-secure"] };
         expect(
-          sdkConnectionMatchesApprovalCondition(cond, {
+          sdkConnectionMatchesApprovalScope(rule, {
             projects: ["prj-a", "prj-secure"],
           }),
         ).toBe(true);
         expect(
-          sdkConnectionMatchesApprovalCondition(cond, { projects: ["prj-a"] }),
+          sdkConnectionMatchesApprovalScope(rule, { projects: ["prj-a"] }),
         ).toBe(false);
       });
 
-      it("supports $or across environment and projects", () => {
-        const cond = JSON.stringify({
-          $or: [
-            { environment: "production" },
-            { projects: { $elemMatch: { $eq: "prj-secure" } } },
-          ],
-        });
+      it("requires BOTH project and environment to match when both are set", () => {
+        const rule = { projects: ["prj-a"], environments: ["production"] };
         expect(
-          sdkConnectionMatchesApprovalCondition(cond, {
-            environment: "staging",
-            projects: ["prj-secure"],
+          sdkConnectionMatchesApprovalScope(rule, {
+            projects: ["prj-a"],
+            environment: "production",
           }),
         ).toBe(true);
+        // project matches but environment doesn't
         expect(
-          sdkConnectionMatchesApprovalCondition(cond, {
+          sdkConnectionMatchesApprovalScope(rule, {
+            projects: ["prj-a"],
             environment: "staging",
-            projects: ["prj-other"],
-          }),
-        ).toBe(false);
-      });
-
-      it("does not match a malformed condition", () => {
-        expect(
-          sdkConnectionMatchesApprovalCondition("{ not json", {
-            environment: "production",
           }),
         ).toBe(false);
       });
@@ -969,13 +954,13 @@ describe("revisions helpers", () => {
           {
             required: true,
             requireMetadataReview: false,
-            condition: JSON.stringify({ environment: "production" }),
+            environments: ["production"],
           },
           { required: true, requireMetadataReview: true },
         ],
       };
 
-      it("returns the first enabled rule whose condition matches", () => {
+      it("returns the first enabled rule whose scope matches", () => {
         const rule = getSdkConnectionApprovalRule(flows, {
           environment: "production",
         });
@@ -997,7 +982,7 @@ describe("revisions helpers", () => {
             {
               required: true,
               requireMetadataReview: true,
-              condition: JSON.stringify({ environment: "production" }),
+              environments: ["production"],
             },
           ],
         };

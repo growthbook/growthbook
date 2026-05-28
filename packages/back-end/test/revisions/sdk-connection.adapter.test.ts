@@ -276,19 +276,14 @@ describe("sdkConnectionAdapter", () => {
     });
   });
 
-  describe("isApprovalRequiredForRevision — condition scoping", () => {
+  describe("isApprovalRequiredForRevision — project/environment scoping", () => {
     const contentChange: JsonPatchOperation[] = [
       { op: "replace", path: "/encryptPayload", value: true },
     ];
     // Rule gated to the production environment only.
-    const prodRule = [
-      {
-        required: true,
-        condition: JSON.stringify({ environment: "production" }),
-      },
-    ];
+    const prodRule = [{ required: true, environments: ["production"] }];
 
-    it("requires approval when the connection scope matches the rule condition", () => {
+    it("requires approval when the connection scope matches the rule", () => {
       const ctx = makeContext({ rules: prodRule });
       expect(
         sdkConnectionAdapter.isApprovalRequiredForRevision!(
@@ -322,31 +317,19 @@ describe("sdkConnectionAdapter", () => {
       ).toBe(true);
     });
 
-    it("supports $or conditions across project and environment", () => {
+    it("matches a project-scoped rule when any of the connection's projects intersect", () => {
       const ctx = makeContext({
-        rules: [
-          {
-            required: true,
-            condition: JSON.stringify({
-              $or: [
-                { environment: "production" },
-                { projects: { $elemMatch: { $eq: "prj-secure" } } },
-              ],
-            }),
-          },
-        ],
+        rules: [{ required: true, projects: ["prj-secure"] }],
       });
-      // Matches via project, even though environment is staging.
       expect(
         sdkConnectionAdapter.isApprovalRequiredForRevision!(
           ctx,
           buildRevision(contentChange, {
             environment: "staging",
-            projects: ["prj-secure"],
+            projects: ["prj-a", "prj-secure"],
           }),
         ),
       ).toBe(true);
-      // Neither branch matches.
       expect(
         sdkConnectionAdapter.isApprovalRequiredForRevision!(
           ctx,
