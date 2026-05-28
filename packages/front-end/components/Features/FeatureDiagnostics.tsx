@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { OrganizationSettings } from "shared/types/organization";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
+  getActiveFeatureUsageQuery,
   isProjectListValidForProject,
   isManagedWarehouseAwaitingProvisioning,
 } from "shared/util";
@@ -66,7 +67,8 @@ function getDatasourceInitialFormValue(
   const initialId =
     validDatasources.find(
       (d) =>
-        (d.type === "growthbook_clickhouse" &&
+        (getActiveFeatureUsageQuery(d.settings?.queries?.featureUsage) &&
+          d.type === "growthbook_clickhouse" &&
           !isManagedWarehouseAwaitingProvisioning(d)) ||
         (d.settings.queries?.featureUsage &&
           d.settings.queries?.featureUsage.length > 0),
@@ -132,6 +134,7 @@ export default function FeatureDiagnostics({
   // Regular datasources need a configured featureUsage query.
   const datasourceHasFeatureUsageQuery =
     datasource &&
+    !!getActiveFeatureUsageQuery(datasource?.settings?.queries?.featureUsage) &&
     !awaitingProvisioning &&
     (datasource.type === "growthbook_clickhouse" ||
       (datasource.settings.queries?.featureUsage &&

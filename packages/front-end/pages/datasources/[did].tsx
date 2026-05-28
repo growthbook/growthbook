@@ -1,7 +1,10 @@
 import { useRouter } from "next/router";
-import React, { FC, useCallback, useState } from "react";
+import React, { FC, useCallback, useEffect, useState } from "react";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
+import {
+  isManagedWarehouseAwaitingProvisioning,
+  supportsEventForwarder,
+} from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -40,6 +43,7 @@ import { useCombinedMetrics } from "@/components/Metrics/MetricsList";
 import { FeatureEvaluationQueries } from "@/components/Settings/EditDataSource/FeatureEvaluationQueries/FeatureEvaluationQueries";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import EventForwarder from "@/components/Settings/EditDataSource/EventForwarder/EventForwarder";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import HistoryTable from "@/components/HistoryTable";
 
@@ -58,6 +62,10 @@ const DataSourcePage: FC = () => {
   const [viewSqlExplorer, setViewSqlExplorer] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [auditModal, setAuditModal] = useState(false);
+  const [
+    deleteBlockedByEventForwarderModalOpen,
+    setDeleteBlockedByEventForwarderModalOpen,
+  ] = useState(false);
   const router = useRouter();
 
   const {
@@ -70,6 +78,19 @@ const DataSourcePage: FC = () => {
   } = useDefinitions();
   const { did } = router.query as { did: string };
   const d = getDatasourceById(did);
+
+  const autoOpenEventForwarderSetup = router.query.setupEventForwarder === "1";
+
+  useEffect(() => {
+    if (autoOpenEventForwarderSetup) {
+      router.replace({ pathname: router.pathname, query: { did } }, undefined, {
+        shallow: true,
+      });
+    }
+    // Only strip the query param once on initial mount; downstream auto-open
+    // logic in <EventForwarder> reads the prop value captured here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const combinedMetrics = useCombinedMetrics({});
   const metrics = combinedMetrics.filter((m) => m.datasource === did);
@@ -90,6 +111,8 @@ const DataSourcePage: FC = () => {
   const canDelete =
     (d && permissionsUtil.canDeleteDataSource(d) && !hasFileConfig()) || false;
 
+  const deleteBlockedByEventForwarder = Boolean(d?.eventForwarderConfig);
+
   const canUpdateConnectionParams =
     (d &&
       !isManagedWarehouse &&
@@ -109,12 +132,11 @@ const DataSourcePage: FC = () => {
    */
   const updateDataSourceSettings = useCallback(
     async (dataSource: DataSourceInterfaceWithParams) => {
-      const updates = {
-        settings: dataSource.settings,
-      };
       await apiCall(`/datasource/${dataSource.id}`, {
         method: "PUT",
-        body: JSON.stringify(updates),
+        body: JSON.stringify({
+          settings: dataSource.settings,
+        }),
       });
       await mutateDefinitions({});
     },
@@ -143,6 +165,7 @@ const DataSourcePage: FC = () => {
 
   const supportsSQL = d.properties?.queryLanguage === "sql";
   const supportsEvents = d.properties?.events || false;
+  const datasourceSupportsEventForwarder = supportsEventForwarder(d);
 
   return (
     <div className="container pagecontents">
@@ -268,23 +291,35 @@ const DataSourcePage: FC = () => {
               {canDelete && (
                 <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    color="red"
-                    confirmation={{
-                      confirmationTitle: `Delete "${d.name}" Datasource`,
-                      cta: "Delete",
-                      submit: async () => {
-                        await apiCall(`/datasource/${d.id}`, {
-                          method: "DELETE",
-                        });
-                        mutateDefinitions({});
-                        router.push("/datasources");
-                      },
-                      closeDropdown: () => setDropdownOpen(false),
-                    }}
-                  >
-                    Delete
-                  </DropdownMenuItem>
+                  {deleteBlockedByEventForwarder ? (
+                    <DropdownMenuItem
+                      color="red"
+                      onClick={() => {
+                        setDeleteBlockedByEventForwarderModalOpen(true);
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      Delete
+                    </DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem
+                      color="red"
+                      confirmation={{
+                        confirmationTitle: `Delete "${d.name}" Datasource`,
+                        cta: "Delete",
+                        submit: async () => {
+                          await apiCall(`/datasource/${d.id}`, {
+                            method: "DELETE",
+                          });
+                          mutateDefinitions({});
+                          router.push("/datasources");
+                        },
+                        closeDropdown: () => setDropdownOpen(false),
+                      }}
+                    >
+                      Delete
+                    </DropdownMenuItem>
+                  )}
                 </>
               )}
             </DropdownMenu>
@@ -434,6 +469,19 @@ mixpanel.init('YOUR PROJECT TOKEN', {
               )
             ) : (
               <>
+                {datasourceSupportsEventForwarder && (
+                  <Frame>
+                    <EventForwarder
+                      dataSource={d}
+                      canEdit={canUpdateDataSourceSettings}
+                      onRefresh={async () => {
+                        await mutateDefinitions({});
+                      }}
+                      autoOpenSetup={autoOpenEventForwarderSetup}
+                    />
+                  </Frame>
+                )}
+
                 {d.dateUpdated === d.dateCreated &&
                   d?.settings?.schemaFormat !== "custom" && (
                     <Callout status="info" mt="4" mb="4">
@@ -544,6 +592,19 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           size="lg"
         >
           <HistoryTable type={"datasource"} id={d.id} />
+        </ModalStandard>
+      )}
+      {deleteBlockedByEventForwarderModalOpen && (
+        <ModalStandard
+          trackingEventModalType=""
+          open={true}
+          header={`Cannot delete "${d.name}"`}
+          close={() => setDeleteBlockedByEventForwarderModalOpen(false)}
+        >
+          <Text>
+            Please contact your account manager to remove the Event Forwarder
+            first; after that, you can delete this data source here.
+          </Text>
         </ModalStandard>
       )}
     </div>

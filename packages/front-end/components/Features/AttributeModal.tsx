@@ -18,6 +18,7 @@ import { useUser } from "@/services/UserContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
+import useApi from "@/hooks/useApi";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
@@ -48,6 +49,13 @@ export default function AttributeModal({ close, attribute }: Props) {
 
   const schema = useAttributeSchema(true);
   const current = schema.find((s) => s.property === attribute);
+  const { data: eventForwarderData } = useApi<{
+    status: 200;
+    hasReadyEventForwarder: boolean;
+  }>("/event-forwarder/connected", {
+    shouldRun: () => !!attribute,
+  });
+  const isEventForwarderStatusLoading = !!attribute && !eventForwarderData;
 
   const form = useForm<SDKAttribute>({
     defaultValues: {
@@ -99,11 +107,24 @@ export default function AttributeModal({ close, attribute }: Props) {
         { projects: selectedProjects },
       )
     : permissionsUtil.canCreateAttribute({ projects: selectedProjects });
-  const ctaDisabledMessage = !hasProjectPermission
-    ? !selectedProjects.length && projectOptions.length > 0
-      ? "Select a project to continue."
-      : `You don't have permission to ${attribute ? "update" : "create"} attributes.`
-    : undefined;
+  const disableEventForwarderLockedFields =
+    !!attribute &&
+    (isEventForwarderStatusLoading ||
+      eventForwarderData?.hasReadyEventForwarder ||
+      false);
+  const eventForwarderLockedFieldsMessage = isEventForwarderStatusLoading
+    ? "Checking Event Forwarder status."
+    : "Attribute name and data type can't be changed while an Event Forwarder is configured.";
+  let ctaDisabledMessage: string | undefined;
+  if (!hasProjectPermission) {
+    if (!selectedProjects.length && projectOptions.length > 0) {
+      ctaDisabledMessage = "Select a project to continue.";
+    } else {
+      ctaDisabledMessage = `You don't have permission to ${
+        attribute ? "update" : "create"
+      } attributes.`;
+    }
+  }
 
   return (
     <Modal
@@ -175,6 +196,12 @@ export default function AttributeModal({ close, attribute }: Props) {
         }
         required={true}
         {...form.register("property")}
+        disabled={disableEventForwarderLockedFields}
+        helpText={
+          disableEventForwarderLockedFields
+            ? eventForwarderLockedFieldsMessage
+            : undefined
+        }
       />
       {attribute && form.watch("property") !== attribute ? (
         <Callout status="warning">
@@ -226,6 +253,7 @@ export default function AttributeModal({ close, attribute }: Props) {
         onChange={(datatype: SDKAttributeType) =>
           form.setValue("datatype", datatype)
         }
+        disabled={disableEventForwarderLockedFields}
         sort={false}
         options={[
           { value: "boolean", label: "Boolean" },
@@ -252,6 +280,11 @@ export default function AttributeModal({ close, attribute }: Props) {
         }}
         helpText={
           <>
+            {disableEventForwarderLockedFields && (
+              <div className="text-muted">
+                {eventForwarderLockedFieldsMessage}
+              </div>
+            )}
             {["secureString", "secureString[]"].includes(datatype) && (
               <div className="text-muted">
                 <PremiumTooltip

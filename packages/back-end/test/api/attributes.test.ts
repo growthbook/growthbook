@@ -1,13 +1,24 @@
 import request from "supertest";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { setupApp } from "./api.setup";
 
 jest.mock("back-end/src/models/OrganizationModel", () => ({
   updateOrganization: jest.fn(),
 }));
+jest.mock("back-end/src/enterprise", () => ({
+  orgHasPremiumFeature: jest.fn(),
+}));
 
 describe("attributes API", () => {
   const { app, auditMock, setReqContext } = setupApp();
+  const orgHasPremiumFeatureMock = orgHasPremiumFeature as jest.MockedFunction<
+    typeof orgHasPremiumFeature
+  >;
+
+  beforeEach(() => {
+    orgHasPremiumFeatureMock.mockReturnValue(true);
+  });
 
   afterEach(async () => {
     jest.clearAllMocks();
@@ -177,6 +188,9 @@ describe("attributes API", () => {
         projects: {
           getAll: () => [{ id: "proj1" }, { id: "proj2" }, { id: "proj3" }],
         },
+        eventForwarderConfigs: {
+          getAll: () => [],
+        },
       },
       org: {
         id: "org1",
@@ -328,6 +342,9 @@ describe("attributes API", () => {
         projects: {
           getAll: () => [{ id: "bla" }],
         },
+        eventForwarderConfigs: {
+          getAll: () => [],
+        },
       },
       org: {
         id: "org1",
@@ -368,11 +385,117 @@ describe("attributes API", () => {
     expect(auditMock).not.toHaveBeenCalledWith();
   });
 
+  it("can update unlocked attribute fields when an event forwarder exists", async () => {
+    setReqContext({
+      models: {
+        projects: {
+          getAll: () => [{ id: "bla" }],
+        },
+        eventForwarderConfigs: {
+          getAll: () => [{ status: "ready" }],
+        },
+      },
+      org: {
+        id: "org1",
+        settings: {
+          attributeSchema: [
+            {
+              property: "attr1",
+              datatype: "string[]",
+              projects: ["bla"],
+            },
+          ],
+        },
+      },
+      permissions: {
+        canUpdateAttribute: () => true,
+        throwPermissionError: () => {
+          throw new Error("permission error");
+        },
+      },
+    });
+
+    const response = await request(app)
+      .put("/api/v1/attributes/attr1")
+      .send({
+        description: "bla",
+      })
+      .set("Authorization", "Bearer foo");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      attribute: {
+        property: "attr1",
+        datatype: "string[]",
+        projects: ["bla"],
+        description: "bla",
+      },
+    });
+    expect(updateOrganization).toHaveBeenCalledWith("org1", {
+      settings: {
+        attributeSchema: [
+          {
+            property: "attr1",
+            datatype: "string[]",
+            projects: ["bla"],
+            description: "bla",
+          },
+        ],
+      },
+    });
+  });
+
+  it("refuses to update attribute data type when an event forwarder exists (not only ready)", async () => {
+    setReqContext({
+      models: {
+        projects: {
+          getAll: () => [{ id: "bla" }],
+        },
+        eventForwarderConfigs: {
+          getAll: () => [{ status: "pending" }],
+        },
+      },
+      org: {
+        id: "org1",
+        settings: {
+          attributeSchema: [
+            {
+              property: "attr1",
+              datatype: "string[]",
+              projects: ["bla"],
+            },
+          ],
+        },
+      },
+      permissions: {
+        canUpdateAttribute: () => true,
+      },
+    });
+
+    const response = await request(app)
+      .put("/api/v1/attributes/attr1")
+      .send({
+        datatype: "string",
+      })
+      .set("Authorization", "Bearer foo");
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      message:
+        "Attribute data type can't be changed while an Event Forwarder is configured.",
+    });
+    expect(updateOrganization).not.toHaveBeenCalledWith();
+    expect(auditMock).not.toHaveBeenCalledWith();
+  });
+
   it("can create attributes", async () => {
     setReqContext({
       models: {
         projects: {
           getAll: () => [{ id: "proj1" }, { id: "proj2" }, { id: "proj3" }],
+        },
+        eventForwarderConfigs: {
+          getAll: () => [],
         },
       },
       org: {
@@ -441,6 +564,50 @@ describe("attributes API", () => {
         object: "attribute",
       },
       event: "attribute.create",
+    });
+  });
+
+  it("allows attribute create when events-forwarder commercial feature is disabled and no forwarder exists", async () => {
+    orgHasPremiumFeatureMock.mockReturnValue(false);
+    setReqContext({
+      throwPlanDoesNotAllowError: (message: string): never => {
+        throw new Error(message);
+      },
+      models: {
+        projects: {
+          getAll: () => [{ id: "proj1" }, { id: "proj2" }, { id: "proj3" }],
+        },
+        eventForwarderConfigs: {
+          getAll: () => [],
+        },
+      },
+      org: {
+        id: "org1",
+        settings: {
+          attributeSchema: [],
+        },
+      },
+      permissions: {
+        canCreateAttribute: () => true,
+      },
+    });
+
+    const response = await request(app)
+      .post("/api/v1/attributes")
+      .send({
+        property: "attr3",
+        datatype: "boolean",
+        projects: ["proj1"],
+      })
+      .set("Authorization", "Bearer foo");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      attribute: {
+        property: "attr3",
+        datatype: "boolean",
+        projects: ["proj1"],
+      },
     });
   });
 

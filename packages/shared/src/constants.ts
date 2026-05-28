@@ -255,6 +255,7 @@ export const entityEvents = {
   sqlResultChunk: ["create", "update", "delete"],
   rampSchedule: ["create", "update", "delete"],
   rampScheduleTemplate: ["create", "update", "delete"],
+  eventForwarderConfig: ["create", "update", "delete", "teardownFailure"],
 } as const;
 
 export const entityTypes = Object.keys(entityEvents) as [keyof EntityEvents];

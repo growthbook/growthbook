@@ -1,6 +1,9 @@
 import type { Response } from "express";
 import { SDKAttribute } from "shared/types/organization";
-import { extractConditionAttributeKeys } from "shared/util";
+import {
+  attributeUpdateAffectsEventForwarderFactTableColumns,
+  extractConditionAttributeKeys,
+} from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
@@ -8,8 +11,11 @@ import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
+import { syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema } from "back-end/src/services/eventForwarderUserIdTypes";
+import { syncEventForwarderSchemasAfterAttributeSchemaChange } from "back-end/src/services/eventForwarderProvisioning";
+import { hasAnyEventForwarderConfig } from "back-end/src/services/eventForwarderConfig";
+import { queueEventForwarderEventsFactTablesColumnsRefresh } from "back-end/src/services/eventForwarderFactTable";
 import { yieldEventLoop } from "back-end/src/util/yield";
-
 export const postAttribute = async (
   req: AuthRequest<SDKAttribute>,
   res: Response<{ status: number }>,
@@ -37,12 +43,30 @@ export const postAttribute = async (
     ...(tags.length > 0 && { tags }),
   };
 
+  const updatedAttributeSchema = [...attributeSchema, newAttribute];
+
   await updateOrganization(org.id, {
     settings: {
       ...org.settings,
-      attributeSchema: [...attributeSchema, newAttribute],
+      attributeSchema: updatedAttributeSchema,
     },
   });
+
+  // Update the Confluent Schema Registry for orgs with event forwarder configs.
+  // Uses the updated schema so the new attribute is included in the registration.
+  // Errors are recorded on the EventForwarderConfig record and do not fail this request.
+  if (await hasAnyEventForwarderConfig(context)) {
+    if (newAttribute.hashAttribute) {
+      await syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema(
+        context,
+        updatedAttributeSchema,
+      );
+    }
+    await syncEventForwarderSchemasAfterAttributeSchemaChange(
+      context,
+      updatedAttributeSchema,
+    );
+  }
 
   await req.audit({
     event: "attribute.create",
@@ -52,11 +76,7 @@ export const postAttribute = async (
     },
     details: auditDetailsUpdate(
       { settings: { attributeSchema } },
-      {
-        settings: {
-          attributeSchema: [...attributeSchema, newAttribute],
-        },
-      },
+      { settings: { attributeSchema: updatedAttributeSchema } },
     ),
   });
   return res.status(200).json({
@@ -85,6 +105,19 @@ export const putAttribute = async (
   }
 
   const existing = attributeSchema[index];
+
+  const hasEventForwarder = await hasAnyEventForwarderConfig(context);
+  if (
+    hasEventForwarder &&
+    (attributeFields.property !== existing.property ||
+      (attributeFields.datatype !== undefined &&
+        attributeFields.datatype !== existing.datatype))
+  ) {
+    context.throwBadRequestError(
+      "Attribute name and data type can't be changed while an Event Forwarder is configured.",
+    );
+  }
+
   // Only pass `projects` when the client actually sent it — passing
   // `{ projects: undefined }` would be interpreted as a request to scope the
   // attribute globally and incorrectly deny project-scoped users.
@@ -126,6 +159,27 @@ export const putAttribute = async (
       attributeSchema,
     },
   });
+
+  if (
+    hasEventForwarder &&
+    attributeFields.hashAttribute === true &&
+    !existing.hashAttribute
+  ) {
+    await syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema(
+      context,
+      attributeSchema,
+    );
+  }
+
+  if (
+    hasEventForwarder &&
+    attributeUpdateAffectsEventForwarderFactTableColumns(
+      existing,
+      attributeSchema[index],
+    )
+  ) {
+    await queueEventForwarderEventsFactTablesColumnsRefresh(context);
+  }
 
   await req.audit({
     event: "attribute.update",

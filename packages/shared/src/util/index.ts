@@ -25,6 +25,12 @@ import {
 import { HoldoutInterfaceStringDates } from "../validators/holdout";
 import { featureHasEnvironment } from "./features";
 
+export * from "./strings";
+export * from "./bigquery-table-name";
+export * from "./snowflake-table-name";
+export * from "./event-forwarder-destination";
+export * from "./event-forwarder-snowflake-url";
+export * from "./event-forwarder-access-signature";
 export * from "./features";
 export * from "./managedWarehouse";
 export * from "./saved-groups";
@@ -35,6 +41,10 @@ export * from "./types";
 export * from "./errors";
 export * from "./namespaces";
 export * from "./custom-fields";
+export * from "./datasource";
+export * from "./event-forwarder-fact-table";
+export * from "./event-forwarder-exposure-queries";
+export * from "./event-forwarder-feature-usage-queries";
 
 export const DEFAULT_ENVIRONMENT_IDS = ["production", "dev", "staging", "test"];
 

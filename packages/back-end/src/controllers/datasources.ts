@@ -1,7 +1,9 @@
 import { Response } from "express";
 import cloneDeep from "lodash/cloneDeep";
+import isEqual from "lodash/isEqual";
 import * as bq from "@google-cloud/bigquery";
 import { SQL_ROW_LIMIT } from "shared/sql";
+import { isEventForwarderAllowedUserIdTypesChange } from "shared/util";
 import {
   PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES,
   getPipelineValidationCreateTableQuery,
@@ -10,9 +12,18 @@ import {
   type PipelineValidationResults,
 } from "shared/enterprise";
 import { TemplateVariables } from "shared/types/sql";
-import { factTableColumnTypes } from "shared/validators";
+import {
+  eventForwarderAccessTestCreateBodySchema,
+  eventForwarderAccessTestEditBodySchema,
+  factTableColumnTypes,
+} from "shared/validators";
 import { AutoMetricToCreate } from "shared/types/integrations";
 import { AuditUserLoggedIn } from "shared/types/audit";
+import {
+  BigQueryEventForwarderStoredConfig,
+  EventForwarderConfigDraft,
+  SnowflakeEventForwarderStoredConfig,
+} from "shared/types/event-forwarder";
 import {
   DataSourceParams,
   DataSourceType,
@@ -27,6 +38,8 @@ import {
   GrowthbookClickhouseSettings,
 } from "shared/types/datasource";
 import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
+import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
+import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import type { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
 import { FactTableColumnType } from "shared/types/fact-table";
 import { SQLExecutionError } from "back-end/src/util/errors";
@@ -43,6 +56,28 @@ import {
   runFreeFormQuery,
   runUserExposureQuery,
 } from "back-end/src/services/datasource";
+import {
+  buildNormalizedEventForwarderSinkPayloadForTest,
+  getEventForwarderConfigForDatasource,
+  getEventForwarderConfigWithMetadataForDatasource,
+  hasAnyEventForwarderConfig,
+  refreshEventForwarderConfigCredentials,
+  syncEventForwarderConfigFromDatasource,
+  isEventForwarderDraftUnchanged,
+  toEventForwarderConfigDraft,
+} from "back-end/src/services/eventForwarderConfig";
+import {
+  getEventForwarderWriteAccessFailedResponse,
+  testEventForwarderWriteAccess,
+} from "back-end/src/services/eventForwarderWriteAccessValidation";
+import {
+  pauseEventForwarderThroughLicenseServer,
+  provisionEventForwarderThroughLicenseServer,
+  resumeEventForwarderThroughLicenseServer,
+  updateEventForwarderCredentialsThroughLicenseServer,
+} from "back-end/src/services/eventForwarderProvisioning";
+import { syncEventForwarderStatusFromLicenseServer } from "back-end/src/services/eventForwarderConnectorStatusSync";
+import { deleteEventForwarderConfigForDatasource } from "back-end/src/services/eventForwarderDatasourceLifecycle";
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import {
@@ -56,6 +91,7 @@ import {
   createDataSource,
   getDataSourcesByOrganization,
   getDataSourceById,
+  getRawDataSourceById,
   deleteDatasource,
   updateDataSource,
 } from "back-end/src/models/DataSourceModel";
@@ -79,6 +115,89 @@ import {
 import { dangerousRecreateClickhouseTables } from "back-end/src/services/licenseServerManagedClickhouse";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { getExperimentsByTrackingKeys } from "back-end/src/models/ExperimentModel";
+
+type EventForwarderDatasourceParams =
+  | BigQueryConnectionParams
+  | SnowflakeConnectionParams
+  | undefined;
+
+function getEventForwarderDatasourceParams(
+  datasourceType: DataSourceType,
+  params: DataSourceParams | undefined,
+): EventForwarderDatasourceParams {
+  switch (datasourceType) {
+    case "bigquery":
+      return params as BigQueryConnectionParams;
+    case "snowflake":
+      return params as SnowflakeConnectionParams;
+    default:
+      return undefined;
+  }
+}
+
+function getCandidateDatasource({
+  context,
+  type,
+  params,
+  projects,
+}: {
+  context: ReturnType<typeof getContextFromReq>;
+  type: "bigquery" | "snowflake";
+  params: DataSourceParams;
+  projects?: string[];
+}): DataSourceInterface {
+  return {
+    id: "event-forwarder-access-test",
+    name: "Event Forwarder Access Test",
+    description: "",
+    organization: context.org.id,
+    dateCreated: null,
+    dateUpdated: null,
+    params: encryptParams(params),
+    projects,
+    settings: {},
+    type,
+  } as DataSourceInterface;
+}
+
+function getEventForwarderAccessTestErrorResponse(error: unknown) {
+  return getEventForwarderWriteAccessFailedResponse(
+    error instanceof Error ? error.message : String(error),
+  );
+}
+
+async function testEventForwarderWriteAccessForSink(
+  context: ReturnType<typeof getContextFromReq>,
+  args: {
+    sinkType: EventForwarderConfigDraft["sinkType"];
+    datasource: DataSourceInterface;
+    datasourceParams: EventForwarderDatasourceParams;
+    normalized:
+      | BigQueryEventForwarderStoredConfig
+      | SnowflakeEventForwarderStoredConfig;
+  },
+) {
+  switch (args.sinkType) {
+    case "bigquery":
+      return testEventForwarderWriteAccess(context, {
+        sinkType: "bigquery",
+        datasource: args.datasource,
+        params: args.datasourceParams as BigQueryConnectionParams,
+        config: args.normalized as BigQueryEventForwarderStoredConfig,
+      });
+    case "snowflake":
+      return testEventForwarderWriteAccess(context, {
+        sinkType: "snowflake",
+        datasource: args.datasource,
+        params: args.datasourceParams as SnowflakeConnectionParams,
+        config: args.normalized as SnowflakeEventForwarderStoredConfig,
+      });
+    default:
+      throw new Error(
+        `Unsupported event forwarder sink type for access test: ${String(args.sinkType)}`,
+      );
+  }
+}
 
 export async function deleteDataSource(
   req: AuthRequest<null, { id: string }>,
@@ -164,18 +283,12 @@ export async function getDataSources(req: AuthRequest, res: Response) {
 
   res.status(200).json({
     status: 200,
-    datasources: datasources.map((d) => {
-      const integration = getSourceIntegrationObject(context, d);
-      return {
-        id: d.id,
-        name: d.name,
-        description: d.description,
-        type: d.type,
-        settings: d.settings,
-        projects: d.projects ?? [],
-        params: getNonSensitiveParams(integration),
-      };
-    }),
+    datasources: await Promise.all(
+      datasources.map(async (d) => {
+        const integration = getSourceIntegrationObject(context, d);
+        return await getDataSourceWithParams(context, integration);
+      }),
+    ),
   });
 }
 
@@ -188,12 +301,13 @@ export async function getDataSource(
 
   const integration = await getIntegrationFromDatasourceId(context, id);
 
-  res.status(200).json(getDataSourceWithParams(integration));
+  res.status(200).json(await getDataSourceWithParams(context, integration));
 }
 
-function getDataSourceWithParams(
+async function getDataSourceWithParams(
+  context: ReturnType<typeof getContextFromReq>,
   integration: SourceIntegrationInterface,
-): DataSourceInterfaceWithParams {
+): Promise<DataSourceInterfaceWithParams> {
   const datasource = integration.datasource;
 
   // eslint-disable-next-line
@@ -203,6 +317,11 @@ function getDataSourceWithParams(
     ...otherFields,
     params: getNonSensitiveParams(integration),
     decryptionError: integration.decryptionError,
+    eventForwarderConfig:
+      await getEventForwarderConfigWithMetadataForDatasource(
+        context,
+        datasource,
+      ),
   };
 }
 
@@ -214,6 +333,7 @@ export async function postDataSources(
     params: DataSourceParams;
     settings: DataSourceSettings;
     projects?: string[];
+    eventForwarderConfig?: EventForwarderConfigDraft | null;
   }>,
   res: Response<
     | {
@@ -228,7 +348,8 @@ export async function postDataSources(
   >,
 ) {
   const context = getContextFromReq(req);
-  const { name, description, type, params, projects } = req.body;
+  const { name, description, type, params, projects, eventForwarderConfig } =
+    req.body;
   const settings = req.body.settings || {};
 
   if (!context.permissions.canCreateDataSource({ projects, type })) {
@@ -254,13 +375,29 @@ export async function postDataSources(
       description,
       projects,
     );
+    const eventForwarderDatasourceParams = getEventForwarderDatasourceParams(
+      datasource.type,
+      params,
+    );
 
+    const syncedEventForwarderConfig =
+      await syncEventForwarderConfigFromDatasource({
+        context,
+        datasource,
+        draft: eventForwarderConfig,
+        datasourceParams: eventForwarderDatasourceParams,
+      });
+    await provisionEventForwarderThroughLicenseServer(
+      context,
+      syncedEventForwarderConfig,
+      eventForwarderDatasourceParams,
+    );
     const integration = getSourceIntegrationObject(context, datasource);
 
     res.status(200).json({
       status: 200,
       id: datasource.id,
-      datasource: getDataSourceWithParams(integration),
+      datasource: await getDataSourceWithParams(context, integration),
     });
   } catch (e) {
     req.log.error(e, "Failed to create data source");
@@ -365,7 +502,7 @@ export async function postManagedWarehouse(
   res.status(200).json({
     status: 200,
     id: "managed_warehouse",
-    datasource: getDataSourceWithParams(integration),
+    datasource: await getDataSourceWithParams(context, integration),
   });
 }
 
@@ -379,6 +516,7 @@ export async function putDataSource(
       settings?: DataSourceSettings;
       projects?: string[];
       metricsToCreate?: AutoMetricToCreate[];
+      eventForwarderConfig?: EventForwarderConfigDraft | null;
     },
     { id: string }
   >,
@@ -429,6 +567,7 @@ export async function putDataSource(
     settings,
     projects,
     metricsToCreate,
+    eventForwarderConfig,
   } = req.body;
 
   const datasource = await getDataSourceById(context, id);
@@ -488,6 +627,30 @@ export async function putDataSource(
     }
 
     if (settings) {
+      const eventForwarderConfig = await getEventForwarderConfigForDatasource(
+        context,
+        datasource.id,
+      );
+      if (eventForwarderConfig && settings.userIdTypes !== undefined) {
+        const rawDatasource = await getRawDataSourceById(context, id);
+        const existingUserIdTypes = rawDatasource?.settings?.userIdTypes ?? [];
+        if (
+          !isEqual(settings.userIdTypes, existingUserIdTypes) &&
+          !isEventForwarderAllowedUserIdTypesChange(
+            existingUserIdTypes,
+            settings.userIdTypes,
+            org.settings?.attributeSchema ?? [],
+            datasource.projects,
+          )
+        ) {
+          res.status(400).json({
+            status: 400,
+            message:
+              "Identifier types cannot be changed while an Event Forwarder is configured for this data source.",
+          });
+          return;
+        }
+      }
       updates.settings = settings;
     }
 
@@ -519,14 +682,73 @@ export async function putDataSource(
 
     await updateDataSource(context, datasource, updates);
 
-    const integration = getSourceIntegrationObject(context, {
+    const updatedDatasource = {
       ...datasource,
       ...updates,
-    });
+    };
+
+    const integration = getSourceIntegrationObject(context, updatedDatasource);
+    const eventForwarderDatasourceParams = getEventForwarderDatasourceParams(
+      updatedDatasource.type,
+      integration.params,
+    );
+
+    if (eventForwarderConfig === null) {
+      res.status(400).json({
+        status: 400,
+        message:
+          "Cannot remove an Event Forwarder via datasource update. Use DELETE /datasource/:id/event-forwarder instead.",
+      });
+      return;
+    }
+
+    if (eventForwarderConfig !== undefined) {
+      const existingEfBeforeSync = await getEventForwarderConfigForDatasource(
+        context,
+        updatedDatasource.id,
+      );
+
+      if (
+        !isEventForwarderDraftUnchanged(
+          eventForwarderConfig,
+          existingEfBeforeSync,
+        )
+      ) {
+        // Explicit event forwarder config change in the request → full provision flow.
+        const restartAfterProvision =
+          !!existingEfBeforeSync?.connectorName?.trim();
+        const syncedEventForwarderConfig =
+          await syncEventForwarderConfigFromDatasource({
+            context,
+            datasource: updatedDatasource,
+            draft: eventForwarderConfig,
+            datasourceParams: eventForwarderDatasourceParams,
+          });
+        await provisionEventForwarderThroughLicenseServer(
+          context,
+          syncedEventForwarderConfig,
+          eventForwarderDatasourceParams,
+          { restartAfterProvision },
+        );
+      }
+    } else if (params) {
+      // Only connection credentials changed — re-sync stored credentials then
+      // push them to the Confluent connector without touching topic or schema.
+      const refreshedConfig = await refreshEventForwarderConfigCredentials(
+        context,
+        updatedDatasource,
+        eventForwarderDatasourceParams,
+      );
+      await updateEventForwarderCredentialsThroughLicenseServer(
+        context,
+        refreshedConfig,
+        eventForwarderDatasourceParams,
+      );
+    }
 
     res.status(200).json({
       status: 200,
-      datasource: getDataSourceWithParams(integration),
+      datasource: await getDataSourceWithParams(context, integration),
     });
   } catch (e) {
     req.log.error(e, "Failed to update data source");
@@ -535,6 +757,488 @@ export async function putDataSource(
       message: e.message || "An error occurred",
     });
   }
+}
+
+export async function putEventForwarderForDataSource(
+  req: AuthRequest<unknown, { id: string }>,
+  res: Response,
+) {
+  const parsed = eventForwarderAccessTestEditBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      status: 400,
+      message: parsed.error.issues.map((i) => i.message).join("; "),
+    });
+  }
+  if (!parsed.data.eventForwarderConfig) {
+    return res.status(400).json({
+      status: 400,
+      message: "Event Forwarder config is required.",
+    });
+  }
+
+  const context = getContextFromReq(req);
+  const datasource = await getDataSourceById(context, req.params.id);
+  if (!datasource) {
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find data source",
+    });
+  }
+
+  if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+  if (
+    parsed.data.params &&
+    !context.permissions.canUpdateDataSourceParams(datasource)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  const existingEventForwarderConfig =
+    await getEventForwarderConfigForDatasource(context, datasource.id);
+  const projects = datasource.projects ?? [];
+  if (existingEventForwarderConfig) {
+    if (
+      !context.permissions.canUpdateEventForwarderConfig(
+        existingEventForwarderConfig,
+        {
+          ...existingEventForwarderConfig,
+          projects,
+        },
+      )
+    ) {
+      context.permissions.throwPermissionError();
+    }
+  } else if (!context.permissions.canCreateEventForwarderConfig({ projects })) {
+    context.permissions.throwPermissionError();
+  }
+
+  try {
+    const integration = getSourceIntegrationObject(context, datasource);
+    const updates: Partial<DataSourceInterface> = { dateUpdated: new Date() };
+
+    if (parsed.data.params) {
+      mergeParams(integration, parsed.data.params as Partial<DataSourceParams>);
+      await integration.testConnection();
+      updates.params = encryptParams(integration.params as DataSourceParams);
+    }
+
+    await updateDataSource(context, datasource, updates);
+
+    const updatedDatasource = {
+      ...datasource,
+      ...updates,
+    };
+    const eventForwarderDatasourceParams = getEventForwarderDatasourceParams(
+      updatedDatasource.type,
+      integration.params as DataSourceParams,
+    );
+    const restartAfterProvision =
+      !!existingEventForwarderConfig?.connectorName?.trim();
+    const syncedEventForwarderConfig =
+      await syncEventForwarderConfigFromDatasource({
+        context,
+        datasource: updatedDatasource,
+        draft: parsed.data.eventForwarderConfig as EventForwarderConfigDraft,
+        datasourceParams: eventForwarderDatasourceParams,
+      });
+    await provisionEventForwarderThroughLicenseServer(
+      context,
+      syncedEventForwarderConfig,
+      eventForwarderDatasourceParams,
+      { restartAfterProvision },
+    );
+
+    res.status(200).json({
+      status: 200,
+      datasource: await getDataSourceWithParams(
+        context,
+        getSourceIntegrationObject(context, updatedDatasource),
+      ),
+    });
+  } catch (e) {
+    req.log.error(e, "Failed to update event forwarder");
+    res.status(400).json({
+      status: 400,
+      message: e.message || "An error occurred",
+    });
+  }
+}
+
+export async function getEventForwarderStatusForDataSource(
+  req: AuthRequest<null, { id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const datasource = await getDataSourceById(context, req.params.id);
+  if (!datasource) {
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find data source",
+    });
+  }
+
+  if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const eventForwarderConfig = await getEventForwarderConfigForDatasource(
+    context,
+    datasource.id,
+  );
+  if (!eventForwarderConfig) {
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find event forwarder config",
+    });
+  }
+
+  if (
+    !context.permissions.canUpdateEventForwarderConfig(eventForwarderConfig, {
+      ...eventForwarderConfig,
+      projects: datasource.projects ?? [],
+    })
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  try {
+    const statusResponse = await syncEventForwarderStatusFromLicenseServer(
+      context,
+      eventForwarderConfig,
+    );
+    res.status(200).json(statusResponse);
+  } catch (e) {
+    req.log.error(e, "Failed to get event forwarder status");
+    res.status(400).json({
+      status: 400,
+      message: e.message || "An error occurred",
+    });
+  }
+}
+
+export async function deleteEventForwarderForDataSource(
+  req: AuthRequest<null, { id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const datasource = await getDataSourceById(context, req.params.id);
+  if (!datasource) {
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find data source",
+    });
+  }
+
+  if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const eventForwarderConfig = await getEventForwarderConfigForDatasource(
+    context,
+    datasource.id,
+  );
+  if (!eventForwarderConfig) {
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find event forwarder config",
+    });
+  }
+  if (
+    !context.permissions.canDeleteEventForwarderConfig(eventForwarderConfig)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  try {
+    await deleteEventForwarderConfigForDatasource(
+      context,
+      datasource,
+      eventForwarderConfig,
+    );
+
+    res.status(200).json({
+      status: 200,
+      datasource: await getDataSourceWithParams(
+        context,
+        getSourceIntegrationObject(context, datasource),
+      ),
+    });
+  } catch (e) {
+    req.log.error(e, "Failed to delete event forwarder");
+    res.status(400).json({
+      status: 400,
+      message: e.message || "An error occurred",
+    });
+  }
+}
+
+export async function postTestEventForwarderAccessForCreate(
+  req: AuthRequest,
+  res: Response,
+) {
+  const parsed = eventForwarderAccessTestCreateBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      status: 400,
+      message: parsed.error.issues.map((i) => i.message).join("; "),
+    });
+  }
+
+  const context = getContextFromReq(req);
+  const { type, eventForwarderConfig, projects } = parsed.data;
+  const params = parsed.data.params as unknown as DataSourceParams;
+  const eventForwarderProjects = projects ?? [];
+
+  if (!context.permissions.canCreateDataSource({ projects, type })) {
+    context.permissions.throwPermissionError();
+  }
+  if (
+    !context.permissions.canCreateEventForwarderConfig({
+      projects: eventForwarderProjects,
+    })
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  const datasource = getCandidateDatasource({
+    context,
+    type,
+    params,
+    projects,
+  });
+  const datasourceParams = getEventForwarderDatasourceParams(type, params);
+  try {
+    const normalized = buildNormalizedEventForwarderSinkPayloadForTest(
+      eventForwarderConfig as EventForwarderConfigDraft,
+      datasourceParams,
+      null,
+    );
+
+    const result = await testEventForwarderWriteAccessForSink(context, {
+      sinkType: eventForwarderConfig.sinkType,
+      datasource,
+      datasourceParams,
+      normalized,
+    });
+
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(200).json(getEventForwarderAccessTestErrorResponse(error));
+  }
+}
+
+export async function postTestEventForwarderAccessForDatasource(
+  req: AuthRequest<unknown, { id: string }>,
+  res: Response,
+) {
+  const parsed = eventForwarderAccessTestEditBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      status: 400,
+      message: parsed.error.issues.map((i) => i.message).join("; "),
+    });
+  }
+
+  const context = getContextFromReq(req);
+  const datasource = await getDataSourceById(context, req.params.id);
+  if (!datasource) {
+    return res
+      .status(404)
+      .json({ status: 404, message: "Cannot find data source" });
+  }
+
+  if (
+    !context.permissions.canUpdateDataSourceSettings(datasource) ||
+    !context.permissions.canRunPipelineValidationQueries(datasource)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+  if (
+    parsed.data.params &&
+    !context.permissions.canUpdateDataSourceParams(datasource)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  const integration = getSourceIntegrationObject(context, datasource);
+  if (parsed.data.params) {
+    mergeParams(integration, parsed.data.params as Partial<DataSourceParams>);
+  }
+
+  const existingEventForwarderConfig =
+    await getEventForwarderConfigForDatasource(context, datasource.id);
+  const draft =
+    (parsed.data.eventForwarderConfig as
+      | EventForwarderConfigDraft
+      | undefined) ?? toEventForwarderConfigDraft(existingEventForwarderConfig);
+  if (!draft) {
+    return res.status(400).json({
+      status: 400,
+      message: "Event Forwarder is not configured for this data source.",
+    });
+  }
+
+  const candidateDatasource = {
+    ...datasource,
+    params: encryptParams(integration.params as DataSourceParams),
+  } as DataSourceInterface;
+  const datasourceParams = getEventForwarderDatasourceParams(
+    datasource.type,
+    integration.params as DataSourceParams,
+  );
+  try {
+    const normalized = buildNormalizedEventForwarderSinkPayloadForTest(
+      draft,
+      datasourceParams,
+      existingEventForwarderConfig,
+    );
+
+    const result = await testEventForwarderWriteAccessForSink(context, {
+      sinkType: draft.sinkType,
+      datasource: candidateDatasource,
+      datasourceParams,
+      normalized,
+    });
+
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(200).json(getEventForwarderAccessTestErrorResponse(error));
+  }
+}
+
+export async function postPauseEventForwarder(
+  req: AuthRequest<null, { id: string }>,
+  res: Response<
+    | { status: 200 }
+    | {
+        status: 400 | 403 | 404;
+        message: string;
+      }
+  >,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const datasource = await getDataSourceById(context, id);
+  if (!datasource) {
+    res.status(404).json({
+      status: 404,
+      message: "Cannot find data source",
+    });
+    return;
+  }
+
+  if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const eventForwarderConfig = await getEventForwarderConfigForDatasource(
+    context,
+    datasource.id,
+  );
+  if (!eventForwarderConfig) {
+    res.status(404).json({
+      status: 404,
+      message: "Cannot find event forwarder config",
+    });
+    return;
+  }
+
+  if (eventForwarderConfig.status !== "ready") {
+    res.status(400).json({
+      status: 400,
+      message: "Only ready event forwarders can be paused",
+    });
+    return;
+  }
+
+  try {
+    await pauseEventForwarderThroughLicenseServer(
+      context,
+      eventForwarderConfig,
+    );
+    res.status(200).json({ status: 200 });
+  } catch (e) {
+    req.log.error(e, "Failed to pause event forwarder");
+    res.status(400).json({
+      status: 400,
+      message: e.message || "An error occurred",
+    });
+  }
+}
+
+export async function postResumeEventForwarder(
+  req: AuthRequest<null, { id: string }>,
+  res: Response<
+    | { status: 200 }
+    | {
+        status: 400 | 403 | 404;
+        message: string;
+      }
+  >,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const datasource = await getDataSourceById(context, id);
+  if (!datasource) {
+    res.status(404).json({
+      status: 404,
+      message: "Cannot find data source",
+    });
+    return;
+  }
+
+  if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const eventForwarderConfig = await getEventForwarderConfigForDatasource(
+    context,
+    datasource.id,
+  );
+  if (!eventForwarderConfig) {
+    res.status(404).json({
+      status: 404,
+      message: "Cannot find event forwarder config",
+    });
+    return;
+  }
+
+  if (eventForwarderConfig.status !== "paused") {
+    res.status(400).json({
+      status: 400,
+      message: "Only paused event forwarders can be resumed",
+    });
+    return;
+  }
+
+  try {
+    await resumeEventForwarderThroughLicenseServer(
+      context,
+      eventForwarderConfig,
+    );
+    res.status(200).json({ status: 200 });
+  } catch (e) {
+    req.log.error(e, "Failed to resume event forwarder");
+    res.status(400).json({
+      status: 400,
+      message: e.message || "An error occurred",
+    });
+  }
+}
+
+export async function getEventForwarderConnected(
+  req: AuthRequest,
+  res: Response<{ status: 200; hasEventForwarder: boolean }>,
+) {
+  const context = getContextFromReq(req);
+
+  res.status(200).json({
+    status: 200,
+    hasEventForwarder: await hasAnyEventForwarderConfig(context),
+  });
 }
 
 /**
@@ -1278,7 +1982,7 @@ export async function postMaterializedColumn(
 
     res.status(200).json({
       status: 200,
-      datasource: getDataSourceWithParams(integration),
+      datasource: await getDataSourceWithParams(context, integration),
     });
   } catch (e) {
     req.log.error(e, "Failed to update data source");
@@ -1405,7 +2109,7 @@ export async function updateMaterializedColumn(
 
     res.status(200).json({
       status: 200,
-      datasource: getDataSourceWithParams(integration),
+      datasource: await getDataSourceWithParams(context, integration),
     });
   } catch (e) {
     req.log.error(e, "Failed to update data source");
@@ -1474,7 +2178,7 @@ export async function deleteMaterializedColumn(
 
     res.status(200).json({
       status: 200,
-      datasource: getDataSourceWithParams(integration),
+      datasource: await getDataSourceWithParams(context, integration),
     });
   } catch (e) {
     req.log.error(e, "Failed to update data source");

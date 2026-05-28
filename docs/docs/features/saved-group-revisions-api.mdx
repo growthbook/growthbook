@@ -98,9 +98,9 @@ A saved group has one live revision and zero or more open draft revisions. Each 
 
 Use these endpoints to read revisions:
 
-| Endpoint                                                  | Use it for                                                                                          |
-| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `GET /saved-groups-revisions`                            | List revisions across every saved group. Filter by `savedGroupId`, `status`, `author`, or `mine`.   |
+| Endpoint                                                            | Use it for                                                                                          |
+| ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `GET /saved-groups-revisions`                                       | List revisions across every saved group. Filter by `savedGroupId`, `status`, `author`, or `mine`.   |
 | `GET /saved-groups-revisions/{savedGroupId}`                        | List revisions for one saved group.                                                                 |
 | `GET /saved-groups-revisions/{savedGroupId}/latest`                 | The most recently updated open draft. 404 if no open draft. `mine=true` filters to your own drafts. |
 | `GET /saved-groups-revisions/{savedGroupId}/{version}`              | Fetch a specific revision, including `baseSavedGroup`, `proposedSavedGroup`, reviews, activity log. |

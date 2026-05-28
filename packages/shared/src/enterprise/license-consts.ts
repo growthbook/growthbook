@@ -17,6 +17,7 @@ export type CommercialFeature =
   | "advanced-permissions"
   | "encrypt-features-endpoint"
   | "schedule-feature-flag"
+  | "events-forwarder"
   | "custom-metadata"
   | "override-metrics"
   | "regression-adjustment"
@@ -193,6 +194,7 @@ const commercialFeaturesPro: CommercialFeature[] = [
   "advanced-permissions",
   "encrypt-features-endpoint",
   "schedule-feature-flag",
+  "events-forwarder",
   "override-metrics",
   "regression-adjustment",
   "sequential-testing",
