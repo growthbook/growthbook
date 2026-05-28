@@ -5,6 +5,43 @@ import type {
 } from "shared/types/datasource";
 import type { PipelineIntegration } from "shared/types/integrations";
 
+/**
+ * Single source of truth for whether an experiment runs with incremental
+ * refresh on a given data source. Used at snapshot planning time
+ * (`isIncrementalRefreshEnabledForSnapshot`) and validation time
+ * (`validateIncrementalPipeline`).
+ *
+ * Resolution order:
+ * 1. If `mode === "incremental"`, apply include/exclude semantics. Opt-in is
+ *    ignored here — every experiment is already incremental by default, so
+ *    `excludedExperimentIds` is the only meaningful per-experiment override.
+ * 2. Else if the experiment is in `incrementalOptInExperimentIds`, it runs
+ *    incremental (e.g. opting specific experiments into incremental while
+ *    the default mode stays ephemeral).
+ * 3. Otherwise, not incremental.
+ */
+export function isExperimentIncrementalEnabled(
+  settings: DataSourcePipelineSettings | undefined,
+  experimentId: string,
+): boolean {
+  if (!settings || !settings.allowWriting) return false;
+
+  if (settings.mode === "incremental") {
+    if (settings.excludedExperimentIds?.includes(experimentId)) return false;
+    if (
+      settings.includedExperimentIds !== undefined &&
+      !settings.includedExperimentIds.includes(experimentId)
+    ) {
+      return false;
+    }
+    return true;
+  }
+
+  return (
+    settings.incrementalOptInExperimentIds?.includes(experimentId) ?? false
+  );
+}
+
 export type PipelineValidationResult = {
   result: "success" | "skipped" | "failed";
   resultMessage?: string;
