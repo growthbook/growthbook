@@ -58,6 +58,7 @@ export * from "./population-data";
 export * from "./presentation-theme";
 export * from "./url-redirects";
 export * from "./sdk-connection-cache";
+export * from "./session-replay";
 export * from "./metric-group";
 export * from "./metrics";
 export * from "./product-analytics";
