@@ -201,7 +201,6 @@ export function useFeatureSearch({
   rampStates,
   dependencyIndex,
   experimentStates,
-  contentSearchMatchingIds,
   contentSearchHasTokens,
 }: {
   allFeatures: FeatureInterface[];
@@ -228,7 +227,6 @@ export function useFeatureSearch({
   rampStates?: Record<string, unknown>;
   dependencyIndex?: Set<string> | null;
   experimentStates?: Record<string, { hasTempRollout: boolean }>;
-  contentSearchMatchingIds?: Set<string> | null;
   contentSearchHasTokens?: string[];
 }) {
   const { getOwnerDisplay } = useUser();
@@ -297,14 +295,7 @@ export function useFeatureSearch({
         if (dependencyIndex?.has(item.id)) has.push("dependents");
         const expState = experimentStates?.[item.id];
         if (expState?.hasTempRollout) has.push("temp-rollout");
-        if (
-          contentSearchHasTokens?.length &&
-          (contentSearchMatchingIds === null ||
-            contentSearchMatchingIds === undefined ||
-            contentSearchMatchingIds.has(item.id))
-        ) {
-          has.push(...contentSearchHasTokens);
-        }
+        if (contentSearchHasTokens?.length) has.push(...contentSearchHasTokens);
         return has;
       },
       key: (item) => item.id,

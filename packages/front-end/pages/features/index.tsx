@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
 import { Box, Flex } from "@radix-ui/themes";
@@ -45,7 +45,6 @@ import { useFeatureDraftStates } from "@/hooks/useFeatureDraftStates";
 import { useFeatureStaleStates } from "@/hooks/useFeatureStaleStates";
 import { useFeatureContentSearch } from "@/hooks/useFeatureContentSearch";
 import type { ContentSearchParams } from "@/hooks/useFeatureContentSearch";
-import type { SyntaxFilter } from "@/services/search";
 import { useFeatureRampStates } from "@/hooks/useFeatureRampStates";
 import { useFeatureDependencyIndex } from "@/hooks/useFeatureDependencyIndex";
 import { useFeatureExperimentStates } from "@/hooks/useFeatureExperimentStates";
@@ -73,20 +72,19 @@ const CONTENT_SEARCH_PREFIXES: {
   { prefix: "bandit:", paramKey: "bandit" },
 ];
 
-function extractContentSearchFromSyntax(syntaxFilters: SyntaxFilter[]): {
+function extractContentSearchFromSearch(searchStr: string): {
   params: ContentSearchParams;
   hasTokens: string[];
 } {
   const params: ContentSearchParams = {};
   const hasTokens: string[] = [];
-  for (const filter of syntaxFilters) {
-    if (filter.field !== "has") continue;
-    for (const val of filter.values) {
-      for (const { prefix, paramKey } of CONTENT_SEARCH_PREFIXES) {
-        if (val.startsWith(prefix)) {
-          params[paramKey] = decodeURIComponent(val.slice(prefix.length));
-          hasTokens.push(val);
-        }
+  for (const token of searchStr.split(/\s+/)) {
+    if (!token.startsWith("has:")) continue;
+    const val = token.slice(4);
+    for (const { prefix, paramKey } of CONTENT_SEARCH_PREFIXES) {
+      if (val.startsWith(prefix)) {
+        params[paramKey] = decodeURIComponent(val.slice(prefix.length));
+        hasTokens.push(val);
       }
     }
   }
@@ -156,21 +154,32 @@ export default function FeaturesPage() {
   const dependencyHook = useFeatureDependencyIndex();
   const experimentHook = useFeatureExperimentStates();
 
-  const [contentSearchMatchingIds, setContentSearchMatchingIds] =
-    useState<Set<string> | null>(null);
-  const [contentSearchHasTokens, setContentSearchHasTokens] = useState<
-    string[]
-  >([]);
+  const [searchValue, setSearchValueState] = useState("");
+  const searchValueRef = useRef("");
 
-  const baseFilter = !showArchived
-    ? (items: FeatureInterface[]) => items.filter((f) => !f.archived)
-    : undefined;
+  const { params: contentSearchParams, hasTokens: contentSearchHasTokens } =
+    useMemo(() => extractContentSearchFromSearch(searchValue), [searchValue]);
+  const contentSearch = useFeatureContentSearch(contentSearchParams);
+
+  const contentSearchMatchingIds = contentSearch.matchingIds;
+  const combinedFilter = useMemo(() => {
+    const filters: ((items: FeatureInterface[]) => FeatureInterface[])[] = [];
+    if (!showArchived)
+      filters.push((items) => items.filter((f) => !f.archived));
+    if (contentSearchMatchingIds)
+      filters.push((items) =>
+        items.filter((f) => contentSearchMatchingIds.has(f.id)),
+      );
+    if (!filters.length) return undefined;
+    return (items: FeatureInterface[]) =>
+      filters.reduce((acc, fn) => fn(acc), items);
+  }, [showArchived, contentSearchMatchingIds]);
 
   const {
     searchInputProps,
     items,
     SortableTableColumnHeader,
-    setSearchValue,
+    setSearchValue: setSearchValueFromHook,
     syntaxFilters,
   } = useFeatureSearch({
     allFeatures: allFeatures as unknown as FeatureInterface[],
@@ -181,24 +190,15 @@ export default function FeaturesPage() {
     rampStates: rampHook.rampStates,
     dependencyIndex: dependencyHook.dependencyIndex,
     experimentStates: experimentHook.experimentStates,
-    filterResults: baseFilter,
-    contentSearchMatchingIds,
+    filterResults: combinedFilter,
     contentSearchHasTokens,
   });
 
-  const { params: contentSearchParams, hasTokens } = useMemo(
-    () => extractContentSearchFromSyntax(syntaxFilters),
-    [syntaxFilters],
-  );
-  const contentSearch = useFeatureContentSearch(contentSearchParams);
-
-  useEffect(() => {
-    setContentSearchMatchingIds(contentSearch.matchingIds);
-  }, [contentSearch.matchingIds]);
-
-  useEffect(() => {
-    setContentSearchHasTokens(hasTokens);
-  }, [hasTokens]);
+  if (searchInputProps.value !== searchValueRef.current) {
+    searchValueRef.current = searchInputProps.value;
+    setSearchValueState(searchInputProps.value);
+  }
+  const setSearchValue = setSearchValueFromHook;
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
