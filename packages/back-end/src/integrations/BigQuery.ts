@@ -170,7 +170,7 @@ export default class BigQuery extends SqlIntegration {
     );
   }
 
-  hasQuantileKLL(): boolean {
+  hasQuantileSketch(): boolean {
     return true;
   }
   supportsLimitZeroColumnValidation(): boolean {
