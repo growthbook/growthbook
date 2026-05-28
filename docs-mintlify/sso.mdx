@@ -1,0 +1,339 @@
+---
+title: "Enterprise SSO"
+description: "Configuring GrowthBook for SSO"
+---
+
+Enterprise**SSO** is available on Enterprise plans.
+
+SSO is available on GrowthBook Cloud or Self-hosted via OpenID Connect. If you are using the Cloud, your account
+representative will help you get this setup, though the steps are mostly the same. To enable SSO on your self hosted GrowthBook
+instance, you will need an active license key and then you may add the SSO settings for your provider. If your provider
+is not listed below, you can use the generic Open ID Connect.
+
+For GrowthBook Cloud, you will need to send your account representative the following: **CLIENT_ID**, **CLIENT_SECRET**,
+**EMAIL_DOMAIN**, what provider you're using, and for some providers, the **TENANT_ID**. You can use the instructions below to get these values.
+
+If you are self-hosting, you can use the instructions below to create a JSON object with the settings, then it should be
+JSON encoded and then set to the environment variable `SSO_CONFIG`.
+
+## Generic Open ID Connect
+
+- **LICENSE_KEY** - Your signed license key provided by the GrowthBook team
+- **SSO_CONFIG** - A JSON-encoded string that configures SSO (using OpenID Connect). It should be an object with the following keys:
+- `clientId` (string)
+- `clientSecret` (string)
+- `emailDomains` (array of strings, optional) - Allow [auto-joining](/account/user-permissions#self-registering-and-automatic-approvals) from a specified email domain.
+- `metadata` (object)
+- `issuer` (string)
+- `authorization_endpoint` (string)
+- `jwks_uri` (string)
+- `id_token_signing_alg_values_supported` (array of strings)
+- `token_endpoint` (string)
+- `code_challenge_methods_supported` (array of strings)
+- `logout_endpoint` (string, optional)
+- `extraQueryParams` (object, optional) - Dictionary of extra query params to be passed along with the `/authorize` OAuth call
+- `additionalScope` (string, optional) - Additional scopes to include, along with the default value: `openid profile email`
+
+For SSO, make sure the following callback URL is whitelisted:
+
+- `{APP_ORIGIN}/oauth/callback`
+
+For the best SSO user experience, enable offline access and refresh tokens in your Identity Provider.
+
+<Note>
+With all the SSO providers listed below, replace the all caps values with values from the provider, JSON encode the object, and set to the `SSO_CONFIG` environment variable for GrowthBook.
+</Note>
+
+## SSO Providers
+
+### Okta
+
+```json
+{
+    "clientId": "CLIENT_ID",
+    "clientSecret": "CLIENT_SECRET",
+    "emailDomains": ["EMAIL_DOMAIN"],
+    "additionalScope": "offline_access",
+    "metadata": {
+        "issuer": "BASE_URL",
+        "authorization_endpoint": "BASE_URL/oauth2/v1/authorize",
+        "id_token_signing_alg_values_supported": [
+            "RS256"
+        ],
+        "jwks_uri": "BASE_URL/oauth2/v1/keys",
+        "token_endpoint": "BASE_URL/oauth2/v1/token",
+        "code_challenge_methods_supported": [
+            "S256"
+        ]
+    }
+}
+```
+
+See complete Okta instructions
+
+1. **Create an OIDC Web application:**  
+   ![Create an OIDC Web application](https://docs.growthbook.io/assets/images/SSO-Okta-1-bbce0776360af3066af5e52cf45d1877.png)
+2. Allow refresh tokens and specify callback URLs. If you are using the cloud, you can use the following values:
+   - **Sign-in redirect URIs** - `https://app.growthbook.io/oauth/callback`
+   - **Sign-out redirect URIs** (optional) - `https://app.growthbook.io`
+
+   If you are self-hosting, replace with `https://app.growthbook.io` with the value from your `APP_ORIGIN`
+
+   ![Okta settings](https://docs.growthbook.io/assets/images/SSO-Okta-2-8ed47a6219a57376c745b65dd385c030.png)
+
+3. **Require PKCE as additional verification**(optional)
+
+   ![Require PKCE](https://docs.growthbook.io/assets/images/SSO-Okta-3-08f8c38616eb05769cc5f2bcb2527162.png)
+
+   You will need the following in order to configure SSO in GrowthBook:
+   - `CLIENT_ID`
+   - `CLIENT_SECRET`
+   - `BASE_URL` - This is typically in the format: `https://your-company.okta.com/` or `https://your-company.oktapreview.com/`
+   - `EMAIL_DOMAIN`
+
+   If using GrowthBook Cloud, send your account representative the above and we will enable SSO on your account.
+
+   If self-hosting, add the environment settings at the beginning of this section to enable SSO on your instance.
+
+### Google
+
+```json
+{
+    "clientId": "CLIENT_ID",
+    "clientSecret": "CLIENT_SECRET",
+    "emailDomains": ["EMAIL_DOMAIN"],
+    "metadata": {
+        "issuer": "https://accounts.google.com",
+        "authorization_endpoint": "https://accounts.google.com/o/oauth2/v2/auth",
+        "token_endpoint": "https://oauth2.googleapis.com/token",
+        "jwks_uri": "https://www.googleapis.com/oauth2/v3/certs",
+        "id_token_signing_alg_values_supported": [
+            "RS256"
+        ],
+        "code_challenge_methods_supported": [
+            "S256"
+        ]
+    },
+    "extraQueryParams": {
+        "access_type": "offline",
+        "prompt": "consent"
+    }
+}
+```
+
+### Auth0
+
+```json
+{
+    "clientId": "CLIENT_ID",
+    "clientSecret": "CLIENT_SECRET",
+    "emailDomains": ["EMAIL_DOMAIN"],
+    "additionalScope": "offline_access",
+    "metadata": {
+        "issuer": "https://TENANT.auth0.com/",
+        "authorization_endpoint": "https://TENANT.auth0.com/authorize",
+        "logout_endpoint": "https://TENANT.auth0.com/v2/logout?client_id=CLIENT_ID",
+        "id_token_signing_alg_values_supported": [
+            "HS256",
+            "RS256"
+        ],
+        "jwks_uri": "https://TENANT.auth0.com/.well-known/jwks.json",
+        "token_endpoint": "https://TENANT.auth0.com/oauth/token",
+        "code_challenge_methods_supported": [
+            "S256",
+            "plain"
+        ],
+        "audience": "AUDIENCE"
+    }
+}
+```
+
+<Note>
+When setting up Auth0, please ensure that you've enabled offline access, and check the `OIDC Compliant` checkbox.
+</Note>
+
+### Azure AD
+
+```json
+{
+  "clientId": "CLIENT_ID",
+  "clientSecret": "CLIENT_SECRET",
+  "emailDomains": ["EMAIL_DOMAIN"],
+  "additionalScope": "offline_access",
+  "metadata": {
+    "token_endpoint": "https://login.microsoftonline.com/TENANT_ID/oauth2/v2.0/token",
+    "jwks_uri": "https://login.microsoftonline.com/TENANT_ID/discovery/v2.0/keys",
+    "id_token_signing_alg_values_supported": ["RS256"],
+    "code_challenge_methods_supported": ["S256"],
+    "issuer": "https://login.microsoftonline.com/TENANT_ID/v2.0",
+    "authorization_endpoint": "https://login.microsoftonline.com/TENANT_ID/oauth2/v2.0/authorize",
+    "logout_endpoint": "https://login.microsoftonline.com/TENANT_ID/oauth2/v2.0/logout"
+  }
+}
+```
+
+<Note>
+In Azure, register an Application, instead of Enterprise, as we use OpenID Connect, not SAML.
+</Note>
+See complete Azure instructions
+
+1. Register an Application (we use OpenID Connect, so choose regular app, not Enterprise)
+
+   ![Register an Application](https://docs.growthbook.io/assets/images/SSO-Azure-1-b5609402e94ba0e1396511b0c21d4e2f.png)
+
+2. Enter the redirect URL as APP_HOST/oauth/callback
+
+   ![Redirect URL](https://docs.growthbook.io/assets/images/SSO-Azure-2-4b74f8553d93d10268dc74ca64125870.png)
+
+3. Take note of your Application Id (CLIENT_ID) and Directory Id (TENANT_ID). You will need it later
+
+   ![Application Id](https://docs.growthbook.io/assets/images/SSO-Azure-3-6d63b4b00fb3a352beb40496e654b133.png)
+
+4. Generate a new Client Secret
+
+   ![Client Secret](https://docs.growthbook.io/assets/images/SSO-Azure-4-dad91e830ba5e74104539adce61dfefa.png)
+
+5. Take note of the Secret Value (CLIENT_SECRET). You will need it in the next step
+6. Construct the JSON configuration for GrowthBook. Replace
+
+   ```
+   CLIENT_ID
+   ```
+
+   , CLIENT_SECRET, EMAIL_DOMAIN, and TENANT_ID, as into the JSON object above.
+
+7. Pass the JSON string into the environment variable SSO_CONFIG of your GrowthBook container
+
+### OneLogin
+
+```json
+{
+  "clientId": "CLIENT_ID",
+  "clientSecret": "CLIENT_SECRET",
+  "emailDomains": [
+    "EMAIL_DOMAIN"
+  ],
+  "additionalScope": "",
+  "metadata": {
+    "issuer": "https://[ONELOGIN_DOMAIN]/oidc/2",
+    "authorization_endpoint": "https://[ONELOGIN_DOMAIN]/oidc/2/auth",
+    "token_endpoint": "https://[ONELOGIN_DOMAIN]/oidc/2/token",
+    "id_token_signing_alg_values_supported": [
+      "RS256",
+      "HS256",
+      "PS256"
+    ],
+    "jwks_uri": "https://[ONELOGIN_DOMAIN]/oidc/2/certs",
+    "code_challenge_methods_supported": [
+      "S256"
+    ],
+    "logout_endpoint": "https://[ONELOGIN_DOMAIN]/oidc/2/logout"
+  }
+}
+```
+
+See complete OneLogin instructions
+
+1. Create a new OIDC Web application. Browse to the Applications section of OneLogin from the top nav, then choose "Add App" from the top right.
+   ![Create a new OIDC Web application](https://docs.growthbook.io/assets/images/SSO-Onelogin-1-a36ca8a678134c504d56b9b2130711de.png)
+2. When the list of applications opens, search for **"openid connect"**. Select the option named **"OpenID Connect (OIDC)"**.
+   ![Select OpenID Connect](https://docs.growthbook.io/assets/images/SSO-Onelogin-2-7be13d94175cd175c7dede32d6bd4859.png)
+3. Add the name "GrowthBook" (or whatever you would like to name it), an optional description and click save. The first save may not look like anything has happened, but you should see more options on the left menu when successful.
+4. Click on the "Configuration" item in the left nav menu, and enter the following values for the three input fields (note: for self-hosting, replace
+
+   ```
+   app.growthbook.io
+   ```
+
+   with your own domain)
+   - **Login URL**:
+
+     ```
+     https://app.growthbook.io
+     ```
+
+   - **Redirect URIs**:
+
+     ```
+     https://app.growthbook.io/oauth/callback
+     ```
+
+   - **Post Logout Redirect URIs**:
+
+     ```
+     https://app.growthbook.io
+     ```
+
+   ![OneLogin settings](https://docs.growthbook.io/assets/images/SSO-Onelogin-3-346884c8c7c1d9d94febc36ed9ed0d56.png)
+   You can optionally add images for the application from the info if you like. **Click Save**.
+
+5. Click on the "SSO" item from the left nav menu. Here you need to record the **Client ID** and **Client Secret** and **Issuer URL**
+   ![OneLogin SSO settings](https://docs.growthbook.io/assets/images/SSO-Onelogin-4-1a0a6e15a315840845d68f099d2290d5.png)
+   You can leave the other settings as default (Application Type: Web, and Authentication Method: Basic). Click save if you haven't already.
+6. For self-hosted instances: construct the JSON configuration for GrowthBook. Replace CLIENT_ID, CLIENT_SECRET, EMAIL_DOMAIN, and TENANT_ID, as into the JSON object above. The ONELOGIN_DOMAIN will be the same domain from your Issuer URL you recorded earlier.
+7. Pass the JSON string into the environment variable SSO_CONFIG of your GrowthBook container
+
+### JumpCloud
+
+```json
+{
+  "clientId": "CLIENT_ID",
+  "clientSecret": "CLIENT_SECRET",
+  "emailDomains": [
+    "EMAIL_DOMAIN"
+  ],
+  "additionalScope": "offline_access",
+  "metadata": {
+    "token_endpoint": "https://oauth.id.jumpcloud.com/oauth2/token",
+    "jwks_uri": "https://oauth.id.jumpcloud.com/.well-known/jwks.json",
+    "id_token_signing_alg_values_supported": [
+      "RS256"
+    ],
+    "code_challenge_methods_supported": [
+      "S256"
+    ],
+    "issuer": "https://oauth.id.jumpcloud.com/",
+    "authorization_endpoint": "https://oauth.id.jumpcloud.com/oauth2/auth",
+    "logout_endpoint": "https://oauth.id.jumpcloud.com/oauth2/sessions/logout",
+    "audience": ""
+  }
+}
+```
+
+See complete JumpCloud instructions
+
+1. Create a new SSO Application. Browse to the User Authentication → SSO Applications from the left nav. Choose "Add new Application" from the top left.
+2. Choose a custom application by clicking 'select' under `custom application`, then click next then next again to confirm.
+   ![JumpCloud custom application, page 1](https://docs.growthbook.io/assets/images/SSO-jumpcloud-1-afd85a31172f239b41d51f6322bab663.png)
+   ![JumpCloud custom application, page 2](https://docs.growthbook.io/assets/images/SSO-jumpcloud-2-ca2bd9466257f22984f3245b2933797a.png)
+3. You will then be asked what features you want to enable. Select `Manage Single Sign-On (SSO)`. Then, in the radio buttons, select **"Configure SSO with OIDC"**.
+   ![JumpCloud SSO configuration](https://docs.growthbook.io/assets/images/SSO-jumpcloud-3-e7e78dd868eb1fa3c54fbfab348b7881.png)
+4. Add the name "GrowthBook" (or whatever you would like to name it), an optional description and click `next`. When you've confirmed the details, click `Configure Application`.
+   ![JumpCloud SSO configuration with general info fields](https://docs.growthbook.io/assets/images/SSO-jumpcloud-4-8e1f9ece0a303101e3746d15bd12f7c5.png)
+   ![JumpCloud SSO configuration confirmation screen](https://docs.growthbook.io/assets/images/SSO-jumpcloud-5-77a87035e48694469902f88d8bb474ae.png)
+5. This will open a window letting you add additional configuration options for the GrowthBook application. Here are the settings you should set:
+   - **Grant types**: Select "Refresh Token" and Authentication Code
+   - **Redirect URIs**:
+
+     ```
+     https://app.growthbook.io/oauth/callback
+     ```
+
+   - **Client Authentication Type**: Client Secret Basic
+   - **Login URL**:
+
+     ```
+     https://app.growthbook.io
+     ```
+
+   - **Attribute Mapping**: Select both email and profile. The defaults for the fields that appear are all that is required.
+
+   ![JumpCloud SSO OpenID Connect](https://docs.growthbook.io/assets/images/SSO-jumpcloud-6-6789c68af7695ab97ada9d5bf266f4cd.png)
+   Once you have made the above settings, click 'Activate' from the bottom bar.
+
+6. You'll then be presented with a modal giving you the client id and client secret. Here you need to record the **Client ID** and **Client Secret**
+
+   ![JumpCloud SSO client id and secret](https://docs.growthbook.io/assets/images/SSO-jumpcloud-7-82c306315545256d56693a2869e1983f.png)
+
+7. For self-hosted instances, construct the JSON configuration for GrowthBook. Replace CLIENT_ID, CLIENT_SECRET, and EMAIL_DOMAIN, as into the JSON object above.
+8. Pass the JSON string into the environment variable SSO_CONFIG of your GrowthBook container

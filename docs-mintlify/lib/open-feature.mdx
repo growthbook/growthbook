@@ -1,0 +1,461 @@
+---
+title: "OpenFeature Providers"
+description: "Use GrowthBook with OpenFeature, the open standard for feature flagging. Available for Python, Go, .NET, and Java."
+---
+
+[OpenFeature](https://openfeature.dev/) is a [CNCF-incubating](https://www.cncf.io/projects/openfeature/) open standard for feature flagging. GrowthBook provides OpenFeature provider SDKs for Python, Go, .NET, and Java — listed in the [OpenFeature ecosystem](https://openfeature.dev/ecosystem/?instant_search%5Bquery%5D=growthbook).
+
+## Prerequisites
+
+The API host:
+
+| Environment | API Host                                                        |
+| ----------- | --------------------------------------------------------------- |
+| Cloud       | `https://cdn.growthbook.io`                                     |
+| Self-hosted | Your own GrowthBook URL (e.g. `https://growthbook.example.com`) |
+
+## Why Use OpenFeature with GrowthBook?
+
+OpenFeature defines a vendor-neutral interface for evaluating feature flags. Using a GrowthBook OpenFeature provider means:
+
+- **Vendor portability** — Your flag evaluation code is identical regardless of which provider is active. Switching from or to GrowthBook only requires changing the provider bootstrap, not a single flag call.
+- **Standardized API** — Teams use the same OpenFeature interface they already know across all services.
+- **Ecosystem compatibility** — OpenFeature-aware tooling — including [OpenTelemetry hooks](https://openfeature.dev/docs/reference/technologies/observability/opentelemetry) and other instrumentation — works automatically with GrowthBook.
+- **Polyglot consistency** — The same conceptual API spans Python, Go, .NET, Java (and more), giving teams a single mental model.
+
+<Info>
+**When to use the native GrowthBook SDK instead**
+
+The native GrowthBook SDKs expose features that go beyond the OpenFeature interface: Sticky Bucketing, Visual Editor experiments, inline experiment definitions, and real-time SSE streaming. If you need those capabilities, use the [native SDK](/lib) for your language instead.
+
+</Info>
+
+## Installation & Setup
+
+<Tabs>
+<Tab title="Python">
+
+GitHub: [growthbook-openfeature-provider-python](https://github.com/growthbook/growthbook-openfeature-provider-python) | PyPI: [growthbook-openfeature-provider](https://pypi.org/project/growthbook-openfeature-provider/)
+
+**Requirements:** Python 3.9+
+
+```bash
+pip install growthbook-openfeature-provider
+```
+
+**Async setup (recommended for async frameworks like FastAPI, aiohttp):**
+
+```python
+import asyncio
+from openfeature.api import OpenFeatureAPI
+from openfeature.evaluation_context import EvaluationContext
+from growthbook_openfeature_provider import GrowthBookProvider, GrowthBookProviderOptions
+
+async def main():
+    provider = GrowthBookProvider(GrowthBookProviderOptions(
+        api_host="https://cdn.growthbook.io",
+        client_key="sdk-abc123"
+    ))
+    await provider.initialize()
+    OpenFeatureAPI.set_provider(provider)
+
+    client = OpenFeatureAPI.get_client("my-app")
+    # ... evaluate flags ...
+
+    await provider.close()
+
+asyncio.run(main())
+```
+
+**Synchronous setup:**
+
+```python
+from openfeature.api import OpenFeatureAPI
+from growthbook_openfeature_provider import GrowthBookProvider, GrowthBookProviderOptions
+
+provider = GrowthBookProvider(GrowthBookProviderOptions(
+    api_host="https://cdn.growthbook.io",
+    client_key="sdk-abc123"
+))
+provider.initialize_sync()
+OpenFeatureAPI.set_provider(provider)
+
+client = OpenFeatureAPI.get_client("my-app")
+```
+
+</Tab>
+
+<Tab title="Go">
+
+GitHub: [growthbook-openfeature-provider-go](https://github.com/growthbook/growthbook-openfeature-provider-go)
+
+```bash
+go get github.com/growthbook/growthbook-openfeature-provider-go
+```
+
+```go
+package main
+
+import (
+    "context"
+    growthbook "github.com/growthbook/growthbook-openfeature-provider-go"
+    "github.com/open-feature/go-sdk/openfeature"
+)
+
+func main() {
+    provider := growthbook.NewProvider(
+        growthbook.WithAPIHost("https://cdn.growthbook.io"),
+        growthbook.WithClientKey("sdk-abc123"),
+    )
+
+    openfeature.SetProvider(provider)
+    client := openfeature.NewClient("my-app")
+
+    // ... evaluate flags ...
+}
+```
+
+</Tab>
+
+<Tab title=".NET">
+
+GitHub: [growthbook-openfeature-provider-dotnet](https://github.com/growthbook/growthbook-openfeature-provider-dotnet)
+
+```bash
+dotnet add package GrowthBook.OpenFeature
+```
+
+```csharp
+using OpenFeature;
+using GrowthBook.OpenFeature;
+
+var provider = new GrowthBookProvider(new GrowthBookProviderOptions
+{
+    ApiHost = "https://cdn.growthbook.io",
+    ClientKey = "sdk-abc123"
+});
+
+await Api.Instance.SetProviderAsync(provider);
+var client = Api.Instance.GetClient("my-app");
+
+// ... evaluate flags ...
+```
+
+</Tab>
+
+<Tab title="Java">
+
+GitHub: [growthbook-openfeature-provider-java](https://github.com/growthbook/growthbook-openfeature-provider-java)
+
+```xml
+<dependency>
+    <groupId>io.growthbook</groupId>
+    <artifactId>growthbook-openfeature-provider</artifactId>
+    <version>1.0.0</version>
+</dependency>
+```
+
+```java
+import dev.openfeature.sdk.OpenFeatureAPI;
+import io.growthbook.openfeature.GrowthBookProvider;
+
+GrowthBookProvider provider = GrowthBookProvider.builder()
+    .apiHost("https://cdn.growthbook.io")
+    .clientKey("sdk-abc123")
+    .build();
+
+OpenFeatureAPI.getInstance().setProvider(provider);
+Client client = OpenFeatureAPI.getInstance().getClient("my-app");
+
+// ... evaluate flags ...
+```
+
+</Tab>
+</Tabs>
+
+## Evaluation Context (Targeting Attributes)
+
+Pass user attributes to the OpenFeature client via an `EvaluationContext`. These become GrowthBook targeting attributes used for percentage rollouts, feature targeting rules, and experiment bucketing.
+
+The `targetingKey` maps to the user ID in GrowthBook. Additional attributes (e.g. `country`, `plan`, `email`) are matched against your feature flag targeting conditions.
+
+<Tabs>
+<Tab title="Python">
+
+```python
+from openfeature.evaluation_context import EvaluationContext
+
+context = EvaluationContext(
+    targeting_key="user-123",
+    attributes={
+        "country": "US",
+        "plan": "premium",
+        "email": "user@example.com",
+    }
+)
+```
+
+</Tab>
+
+<Tab title="Go">
+
+```go
+context := openfeature.NewEvaluationContext(
+    "user-123",
+    map[string]interface{}{
+        "country": "US",
+        "plan":    "premium",
+        "email":   "user@example.com",
+    },
+)
+```
+
+</Tab>
+
+<Tab title=".NET">
+
+```csharp
+var context = EvaluationContext.Builder()
+    .SetTargetingKey("user-123")
+    .Set("country", "US")
+    .Set("plan", "premium")
+    .Set("email", "user@example.com")
+    .Build();
+```
+
+</Tab>
+
+<Tab title="Java">
+
+```java
+EvaluationContext context = new ImmutableContext("user-123", Map.of(
+    "country", new Value("US"),
+    "plan", new Value("premium"),
+    "email", new Value("user@example.com")
+));
+```
+
+</Tab>
+</Tabs>
+
+## Evaluating Feature Flags
+
+OpenFeature defines five value types. GrowthBook's feature flags map to all of them.
+
+### Boolean
+
+The most common type — use for on/off feature gates.
+
+<Tabs>
+<Tab title="Python">
+
+```python
+# Synchronous
+enabled = client.get_boolean_value("dark-mode", False, context)
+
+# Async (returns FlagEvaluationDetails with value, reason, variant, etc.)
+details = await provider.resolve_boolean_details_async("dark-mode", False, context)
+enabled = details.value
+```
+
+</Tab>
+
+<Tab title="Go">
+
+```go
+enabled, _ := client.BooleanValue(context, "dark-mode", false, openfeature.EvaluationContext{})
+```
+
+</Tab>
+
+<Tab title=".NET">
+
+```csharp
+var enabled = await client.GetBooleanValueAsync("dark-mode", false, context);
+```
+
+</Tab>
+
+<Tab title="Java">
+
+```java
+Boolean enabled = client.getBooleanValue("dark-mode", false, context);
+```
+
+</Tab>
+</Tabs>
+
+### String
+
+Use for multi-variant flags where the value is a string (e.g. button color, layout variant).
+
+<Tabs>
+<Tab title="Python">
+
+```python
+variant = client.get_string_value("button-color", "blue", context)
+```
+
+</Tab>
+
+<Tab title="Go">
+
+```go
+variant, _ := client.StringValue(context, "button-color", "blue", openfeature.EvaluationContext{})
+```
+
+</Tab>
+
+<Tab title=".NET">
+
+```csharp
+var variant = await client.GetStringValueAsync("button-color", "blue", context);
+```
+
+</Tab>
+
+<Tab title="Java">
+
+```java
+String variant = client.getStringValue("button-color", "blue", context);
+```
+
+</Tab>
+</Tabs>
+
+### Integer & Float/Double
+
+Use for numeric feature values such as rate limits, timeouts, or pricing.
+
+<Tabs>
+<Tab title="Python">
+
+```python
+request_limit = client.get_integer_value("api-request-limit", 100, context)
+price = client.get_float_value("subscription-price", 9.99, context)
+```
+
+</Tab>
+
+<Tab title="Go">
+
+```go
+requestLimit, _ := client.IntValue(context, "api-request-limit", 100, openfeature.EvaluationContext{})
+price, _ := client.FloatValue(context, "subscription-price", 9.99, openfeature.EvaluationContext{})
+```
+
+</Tab>
+
+<Tab title=".NET">
+
+```csharp
+var requestLimit = await client.GetIntegerValueAsync("api-request-limit", 100, context);
+var price = await client.GetDoubleValueAsync("subscription-price", 9.99, context);
+```
+
+</Tab>
+
+<Tab title="Java">
+
+```java
+Integer requestLimit = client.getIntegerValue("api-request-limit", 100, context);
+Double price = client.getDoubleValue("subscription-price", 9.99, context);
+```
+
+</Tab>
+</Tabs>
+
+### Object
+
+Use for structured feature values (e.g. configuration payloads, theme objects).
+
+<Tabs>
+<Tab title="Python">
+
+```python
+config = client.get_object_value("theme-config", {"color": "blue"}, context)
+```
+
+</Tab>
+
+<Tab title="Go">
+
+```go
+config, _ := client.ObjectValue(context, "theme-config", map[string]interface{}{"color": "blue"}, openfeature.EvaluationContext{})
+```
+
+</Tab>
+
+<Tab title=".NET">
+
+```csharp
+var config = await client.GetObjectValueAsync("theme-config", new Value(new Structure(new Dictionary<string, Value> { { "color", new Value("blue") } })), context);
+```
+
+</Tab>
+
+<Tab title="Java">
+
+```java
+Value config = client.getObjectValue("theme-config", new Value(Map.of("color", new Value("blue"))), context);
+```
+
+</Tab>
+</Tabs>
+
+## Configuration Options
+
+| Option                   | Python | Go  | .NET | Java | Description                                       |
+| ------------------------ | ------ | --- | ---- | ---- | ------------------------------------------------- |
+| `api_host`/`apiHost`     | ✓      | ✓   | ✓    | ✓    | GrowthBook CDN or self-hosted URL                 |
+| `client_key`/`clientKey` | ✓      | ✓   | ✓    | ✓    | SDK Connection key from GrowthBook                |
+| `decryption_key`         | ✓      | —   | —    | —    | Key for encrypted SDK endpoint payloads           |
+| `cache_ttl`              | ✓      | ✓   | —    | —    | Seconds before re-fetching features (default: 60) |
+| `enabled`                | ✓      | —   | ✓    | —    | Enable/disable the provider entirely              |
+| `qa_mode`                | ✓      | —   | —    | —    | Forces all experiments into the control variation |
+
+## Shutdown & Cleanup
+
+Always shut down the provider when your application exits to close background connections.
+
+<Tabs>
+<Tab title="Python">
+
+```python
+await provider.close()       # async
+# or
+provider.close_sync()        # sync
+```
+
+</Tab>
+
+<Tab title="Go">
+
+```go
+provider.Shutdown()
+```
+
+</Tab>
+
+<Tab title=".NET">
+
+```csharp
+await Api.Instance.ShutdownAsync();
+```
+
+</Tab>
+
+<Tab title="Java">
+
+```java
+OpenFeatureAPI.getInstance().shutdown();
+```
+
+</Tab>
+</Tabs>
+
+## Further Reading
+
+- [OpenFeature specification](https://openfeature.dev/specification) — the full standard
+- [GrowthBook on the OpenFeature ecosystem](https://openfeature.dev/ecosystem/?instant_search%5Bquery%5D=growthbook)
+- [Native GrowthBook SDKs](/lib) — for Sticky Bucketing, Visual Editor, SSE streaming, and more

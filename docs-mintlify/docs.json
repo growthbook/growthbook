@@ -1,0 +1,406 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "luma",
+  "name": "GrowthBook Documentation",
+  "colors": {
+    "primary": "#039DD0",
+    "light": "#039DD0",
+    "dark": "#039DD0"
+  },
+  "favicon": "/favicon.png",
+  "background": {
+    "decoration": "gradient"
+  },
+  "fonts": {
+    "heading": {
+      "family": "Lato",
+      "weight": 600
+    },
+    "body": {
+      "family": "Lato",
+      "weight": 400
+    }
+  },
+  "contextual": {
+    "options": [
+      "copy",
+      "view",
+      "assistant",
+      "chatgpt",
+      "claude",
+      "perplexity",
+      "grok",
+      "aistudio",
+      "devin",
+      "windsurf",
+      "mcp",
+      "cursor",
+      "vscode",
+      "devin-mcp"
+    ]
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Home",
+        "pages": ["index"]
+      },
+      {
+        "tab": "Docs",
+        "pages": [
+          "overview",
+          "quick-start",
+          {
+            "group": "Feature Flags",
+            "root": "features/index",
+            "pages": [
+              {
+                "group": "Core Concepts",
+                "pages": ["features/basics", "features/environments"]
+              },
+              {
+                "group": "Targeting & Rules",
+                "pages": [
+                  "features/rules",
+                  "features/targeting",
+                  "features/safe-rollouts",
+                  "features/prerequisites"
+                ]
+              },
+              {
+                "group": "Governance & Lifecycle",
+                "pages": [
+                  "features/publishing-and-approval-flows",
+                  "features/stale-detection",
+                  "features/code-references",
+                  "features/diagnostics",
+                  "features/custom-hooks"
+                ]
+              }
+            ]
+          },
+          {
+            "group": "Data & Metrics",
+            "pages": [
+              "experimentation-analysis/choose-your-data-path",
+              "experimentation-analysis/managed-warehouse",
+              {
+                "group": "Connecting to Your Data Warehouse",
+                "root": "experimentation-analysis/connecting-to-your-data-warehouse",
+                "pages": [
+                  "warehouses/athena",
+                  "warehouses/bigquery",
+                  "warehouses/clickhouse",
+                  "warehouses/databricks",
+                  "warehouses/mixpanel",
+                  "warehouses/ms-sql-or-sql-server",
+                  "warehouses/mysql-or-mariadb",
+                  "warehouses/postgres",
+                  "warehouses/vertica",
+                  "warehouses/prestodb-or-trino",
+                  "warehouses/redshift",
+                  "warehouses/snowflake"
+                ]
+              },
+              {
+                "group": "Data Source Configuration",
+                "root": "experimentation-analysis/data-source-configuration/index",
+                "pages": [
+                  "event-trackers/amplitude",
+                  "event-trackers/clevertap",
+                  "event-trackers/firebase",
+                  "event-trackers/freshpaint",
+                  "event-trackers/fullstory",
+                  "event-trackers/GA4-google-analytics",
+                  "event-trackers/heap",
+                  "event-trackers/jitsu",
+                  "event-trackers/keenio",
+                  "event-trackers/matomo",
+                  "event-trackers/mixpanel",
+                  "event-trackers/mparticle",
+                  "event-trackers/rudderstack",
+                  "event-trackers/segment",
+                  "event-trackers/snowplow",
+                  "event-trackers/custom"
+                ]
+              },
+              {
+                "group": "Metrics and Fact Tables",
+                "root": "metrics/metrics",
+                "pages": ["metrics/metric-examples", "metrics/legacy-metrics"]
+              },
+              "experimentation-analysis/query-optimization",
+              "experimentation-analysis/sql-templates",
+              "experimentation-analysis/data-pipeline",
+              "experimentation-analysis/event-forwarder",
+              "official-resources"
+            ]
+          },
+          {
+            "group": "Experimentation",
+            "root": "experiments/index",
+            "pages": [
+              "feature-flag-experiments",
+              "visual-editor",
+              "running-experiments/url-redirects",
+              "experimentation-analysis/experiment-configuration",
+              "running-experiments/experiment-templates",
+              "experimentation-analysis/experiment-results",
+              "experimentation-analysis/experiment-time-series",
+              "experimentation-analysis/decision-framework",
+              "running-experiments/making-changes",
+              {
+                "group": "Bandits",
+                "root": "bandits/overview",
+                "pages": ["bandits/config", "bandits/results"]
+              },
+              "running-experiments/running-holdouts",
+              "sticky-bucketing",
+              "experimentation-analysis/cluster-experiments",
+              "experimentation-analysis/dimensions",
+              "running-experiments/pre-launch-checklist",
+              "experimentation-analysis/experiment-dashboards",
+              "importing-experiments",
+              {
+                "group": "Statistics",
+                "root": "statistics/overview",
+                "pages": [
+                  "statistics/details",
+                  "statistics/quantile",
+                  "statistics/cuped",
+                  "statistics/sequential",
+                  "statistics/multiple-corrections",
+                  "statistics/aggregation",
+                  "statistics/power"
+                ]
+              }
+            ]
+          },
+          "insights",
+          "product-analytics",
+          {
+            "group": "Self-Hosting",
+            "pages": [
+              "self-host/index",
+              "self-host/env",
+              "self-host/production",
+              "self-host/kubernetes",
+              "self-host/cdn",
+              "self-host/proxy",
+              "self-host/remote-evaluation",
+              "self-host/ferretdb",
+              "self-host/config"
+            ]
+          },
+          {
+            "group": "Webhooks",
+            "pages": [
+              "webhooks/overview",
+              {
+                "group": "Event Webhooks",
+                "root": "webhooks/event-webhooks/index",
+                "pages": ["webhooks/event-webhooks/events"]
+              },
+              "webhooks/sdk-webhooks",
+              "webhooks/global-sdk-webhooks"
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "integrations/mcp",
+              "integrations/vercel",
+              "integrations/framer",
+              "integrations/slack",
+              "integrations/discord",
+              "integrations/datadog",
+              "integrations/github-metrics",
+              "tools/chrome-extension",
+              "tools/vscode-extension",
+              "tools/cli",
+              "integrations/clarity",
+              "integrations/jira",
+              "integrations/ai"
+            ]
+          },
+          {
+            "group": "Security",
+            "pages": [
+              "account/user-permissions",
+              "sso",
+              "integrations/scim",
+              "compliance",
+              "account/audit-logs"
+            ]
+          },
+          "faq",
+          {
+            "group": "Tutorials",
+            "root": "guide/index",
+            "pages": [
+              "guide/migrate-from-statsig",
+              "guide/sanity",
+              "guide/strapi",
+              "guide/contentful",
+              "guide/deno-hono",
+              "guide/express-js",
+              "guide/nextjs-and-vercel-feature-flags",
+              "guide/nextjs-app-router",
+              "guide/nextjs-and-growthbook",
+              "guide/create-react-app-and-growthbook",
+              "event-trackers/GA4-google-analytics",
+              "guide/google-tag-manager-and-growthbook",
+              "integrations/shopify",
+              "integrations/webflow",
+              "integrations/wordpress",
+              "guide/rudderstack-and-nextjs-with-growthbook",
+              "guide/importing"
+            ]
+          },
+          {
+            "group": "Knowledge Base",
+            "pages": [
+              {
+                "group": "Experiments",
+                "pages": [
+                  "kb/experiments/troubleshooting-experiments",
+                  "kb/experiments/aa-tests",
+                  "kb/experiments/carryover-bias",
+                  "kb/experiments/holdouts"
+                ]
+              },
+              {
+                "group": "Google Analytics",
+                "pages": [
+                  "kb/google-analytics/google-big-query-bq-troubleshooting",
+                  "kb/google-analytics/google-analytics-ga4-troubleshooting",
+                  "kb/google-analytics/google-tag-manager-gtm-troubleshooting"
+                ]
+              },
+              {
+                "group": "Metrics",
+                "pages": ["kb/metrics/fact-metric-optimization"]
+              },
+              "kb/glossary"
+            ]
+          },
+          {
+            "group": "GrowthBook Guide",
+            "root": "using/index",
+            "pages": [
+              "using/fundamentals",
+              "using/growthbook-best-practices",
+              "using/experimentation-problems",
+              "using/product-development",
+              "using/experimenting",
+              "using/experimentation-best-practices",
+              "using/security",
+              "using/programs"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "SDKs",
+        "pages": [
+          "lib/index",
+          "lib/quickstart",
+          {
+            "group": "Client",
+            "pages": [
+              "lib/script-tag",
+              "lib/js",
+              "lib/react",
+              "lib/nextjs",
+              "lib/vue",
+              "lib/react-native",
+              "lib/kotlin",
+              "lib/flutter",
+              "lib/swift",
+              "lib/roku"
+            ]
+          },
+          {
+            "group": "Server",
+            "pages": [
+              "lib/node",
+              "lib/php",
+              "lib/ruby",
+              "lib/python",
+              "lib/java",
+              "lib/csharp",
+              "lib/go",
+              "lib/rust",
+              "lib/elixir",
+              "lib/kotlin-jvm"
+            ]
+          },
+          {
+            "group": "Edge",
+            "root": "lib/edge/index",
+            "pages": [
+              "lib/edge/cloudflare",
+              "lib/edge/fastly",
+              "lib/edge/lambda",
+              "lib/edge/other"
+            ]
+          },
+          "lib/open-feature",
+          "lib/build-your-own"
+        ]
+      },
+      {
+        "tab": "API",
+        "openapi": "openapi.yaml"
+      }
+    ],
+    "global": {
+      "anchors": [
+        {
+          "anchor": "About Us",
+          "icon": "building",
+          "href": "https://www.growthbook.io/about"
+        },
+        {
+          "anchor": "Blog",
+          "icon": "newspaper",
+          "href": "https://blog.growthbook.io/"
+        }
+      ]
+    }
+  },
+  "logo": {
+    "light": "https://docs.growthbook.io/img/growthbook-docslogo-light.png",
+    "dark": "https://docs.growthbook.io/img/growthbook-docslogo-dark.png",
+    "href": "https://www.growthbook.io"
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "Book a Demo",
+        "href": "https://www.growthbook.io/demo"
+      },
+      {
+        "label": "Sign in",
+        "href": "https://app.growthbook.io/"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Get Started",
+      "href": "https://app.growthbook.io/"
+    }
+  },
+  "footer": {
+    "socials": {
+      "x": "https://twitter.com/growth_book",
+      "linkedin": "https://www.linkedin.com/company/growthbook/",
+      "slack": "https://slack.growthbook.io/?ref=footer-icon"
+    }
+  },
+  "seo": {
+    "metatags": {
+      "robots": "noindex"
+    }
+  }
+}

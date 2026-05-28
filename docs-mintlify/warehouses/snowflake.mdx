@@ -1,0 +1,22 @@
+---
+title: "Setting up Snowflake as a data source"
+description: "This document outlines the steps needed to add your Snowflake database to GrowthBook."
+---
+
+We support multiple [account identifier](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html) formats when connecting to Snowflake. An example account identifier is `xy12345.us-east-2.aws`.
+
+## Self-Hosting
+
+If you are self-hosting GrowthBook, you can send queries to Snowflake through an Authenticated Proxy.
+
+To enable this, set a `SNOWFLAKE_PROXY` environment variable in your GrowthBook container. Here is an example:
+
+```text
+SNOWFLAKE_PROXY=http://username:password@proxyserver.company.com:80
+```
+
+## Enabling Data Pipeline Mode
+
+Enterprise**Pipeline Mode** is available on Enterprise plans. Pipeline mode can reduce query costs if you grant the GrowthBook service account write permissions in your data warehouse.
+
+[More details can be found here.](/experimentation-analysis/data-pipeline)

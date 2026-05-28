@@ -1,0 +1,204 @@
+---
+title: "GrowthBook and Next.js (App Router)"
+description: "This guide walks you through using GrowthBook with Next.js App Router."
+---
+
+Note: If you are using the older Next.js Pages Router, check out [our dedicated Pages Router guide](/guide/nextjs-and-growthbook) instead.
+
+This document is a guide on how to add GrowthBook feature flags to your Next.js application. It assumes you are starting from scratch, so if you already have a Next.js application, you can skip to step 2.
+
+## 1. Create your Next.js App
+
+Let's start by getting a basic Next.js app running:
+
+```bash
+yarn create next-app
+```
+
+Then cd into the newly create directory and run:
+
+```bash
+cd my-app
+yarn dev -p 4000
+```
+
+Note: Both GrowthBook and Next.js run on port 3000 by default, so we're making our Next.js app use 4000 instead to avoid conflicts.
+
+Visit `http://localhost:4000` and you should see the application running!
+
+## 2. GrowthBook Account
+
+You will need a GrowthBook account. You can either run GrowthBook locally or using the cloud hosted GrowthBook at [app.growthbook.io](https://app.growthbook.io). If you are using the GrowthBook cloud, you can skip to step 3. If you are installing it locally, here is the quick start instructions - or you can follow the [self hosting](/self-host) instructions.
+
+```bash
+git clone https://github.com/growthbook/growthbook.git
+cd growthbook
+docker compose up -d
+```
+
+After that, visit `http://localhost:3000` and create your first user account.
+
+<Frame>
+![GrowthBook Signup Screen](https://docs.growthbook.io/assets/images/nextjs-1-growthbook-signup-screen-ff56583c79149d6548a706c0b41673c4.jpeg)
+</Frame>
+## 3. Set Environment Variables in your Next.js App
+
+In GrowthBook, create a new SDK Connection. After doing this, you should see an API Host and Client Key (and a Decryption Key if you enabled encryption).
+
+Create the file `.env.local` in your Next.js app if it doesn't exist yet and add this info there:
+
+```bash
+NEXT_PUBLIC_GROWTHBOOK_API_HOST=https://cdn.growthbook.io
+NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY=
+# Below is only required if you enabled encryption
+NEXT_PUBLIC_GROWTHBOOK_DECRYPTION_KEY=
+```
+
+## 4. Create a Feature Flag
+
+Back in the GrowthBook application, let's create our first feature flag. Make a simple ON/OFF feature flag with the key `welcome-message`. Leave the default value set to OFF. We will turn it on in a future step.
+
+<Frame>
+![GrowthBook Create Feature](https://docs.growthbook.io/assets/images/nextjs-3-create-feature-0809656915f85f7e32d9af40c8372469.png)
+</Frame>
+## 5. Integrate the GrowthBook SDK into our Next.js app
+
+Next.js App Router uses Server Components by default, so we need to use the GrowthBook JavaScript SDK, not the React SDK (which only works client-side).
+
+- npm
+- Yarn
+- pnpm
+- Bun
+
+```bash
+npm install --save @growthbook/growthbook
+```
+
+```bash
+yarn add @growthbook/growthbook
+```
+
+```bash
+pnpm add @growthbook/growthbook
+```
+
+```bash
+bun add @growthbook/growthbook
+```
+
+Our Javascript SDK works out-of-the-box with React Server Components, but we can more deeply integrate it with Next.js by creating a small helper function in `app/growthbookServer.ts` with the following contents:
+
+```ts
+// app/growthbookServer.ts
+import { setPolyfills, configureCache } from "@growthbook/growthbook";
+
+export function configureServerSideGrowthBook() {
+  // Tag fetch requests so they can be revalidated on demand
+  setPolyfills({
+    fetch: (url: string, init: RequestInit) =>
+      fetch(url, {
+        ...init,
+        next: {
+          // Cache feature definitions for 10 seconds for dev
+          // In prod, use a higher value and use WebHooks to revalidate on-demand
+          revalidate: 10,
+          tags: ["growthbook"],
+        },
+      }),
+  });
+
+  // Disable the built-in cache since we're using Next.js's fetch cache instead
+  configureCache({
+    disableCache: true,
+  });
+}
+```
+
+Now, let's modify our main `app/page.tsx` file.
+
+Change the top of the file to match the following:
+
+```tsx
+import Image from "next/image";
+import { configureServerSideGrowthBook } from "./growthbookServer";
+import { GrowthBook } from "@growthbook/growthbook";
+
+export default async function Home() {
+  configureServerSideGrowthBook();
+
+  // Create and initialize a GrowthBook instance
+  const gb = new GrowthBook({
+    apiHost: process.env.NEXT_PUBLIC_GROWTHBOOK_API_HOST,
+    clientKey: process.env.NEXT_PUBLIC_GROWTHBOOK_CLIENT_KEY,
+    decryptionKey: process.env.NEXT_PUBLIC_GROWTHBOOK_DECRYPTION_KEY,
+  });
+  await gb.init({ timeout: 1000 });
+
+  // Set targeting attributes for the user
+  // TODO: get from cookies/headers/db
+  await gb.setAttributes({
+    id: "123",
+    employee: true,
+  });
+
+  // Evaluate a feature flag
+  const welcomeMessage = gb.isOn("welcome-message");
+
+  // Cleanup
+  gb.destroy();
+```
+
+Next Steps
+And now let's use the feature flag we referenced above. Add the following somewhere on the page so we can see it:
+
+```tsx
+<h2>Welcome Message: {welcomeMessage ? "ON" : "OFF"}</h2>
+```
+
+This will render as `OFF` for now.
+
+## 6. Turn on for your Team
+
+In our page, we hard-coded `employee: true` when setting our targeting attributes. Let's use that to turn on the feature for just employees.
+
+Create a Force Rule for your feature:
+
+<Frame>
+![GrowthBook Targeting Rule](data:image/png;base64,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)
+</Frame>
+Publish the draft and refresh your Next.js app and you should now see the welcome message showing up as ON! (Note: it might take a few seconds for the cache to refresh).
+
+If you change your targeting attribute to `employee: false` in the page, you should see the welcome message switch back to OFF immediately.
+
+The best part about targeting attributes in GrowthBook is that they are evaluated entirely locally. Sensitive user data is never sent over the network and there is no performance penalty. Some other libraries require an HTTP request to evaluate a feature for a user and this is often a deal breaker for performance.
+
+## 7. Gradually roll out to your users
+
+After you test the new feature within your team, you probably want to start rolling it out to real users.
+
+We can do that with another rule in GrowthBook:
+
+<Frame>
+![GrowthBook Rollout Rule](https://docs.growthbook.io/assets/images/nextjs-6-rollout-rule-8229bf78ee83cca972a740d0862379fa.png)
+</Frame>
+In the targeting attributes, make sure you set `employee: false`. That will ensure you skip the first rule we made and fall into the second rollout rule.
+
+<Note>
+The GrowthBook SDK uses deterministic hashing to figure out whether or not
+someone is included in a rollout (or A/B test). The SDKs hash together the
+selected targeting attribute (id) and the feature key (welcome-message) and
+coverts it to a float between 0 and 1. If that float is less than or equal to
+the rollout percent, the user is included. This ensures a consistent UX and
+prevents one user from constantly switching between ON and OFF as they
+navigate your app.
+</Note>
+
+Try changing the id in the targeting attributes to a few different random strings and see what happens. You should notice about half of the time the welcome message will be ON.
+
+## Conclusion and Next Steps
+
+We showed here how to do a targeted rule, and how to do a rollout rule. It's also just as easy to make an A/B test in the same manner. You will need to set up event tracking and connect GrowthBook to your data source.
+
+We support many different rendering strategies in Next.js, not just server components. Check out our [example Next.js app](https://github.com/growthbook/examples/tree/main/next-js), which demonstrates static rendering, client components, streaming server components, and more.
+
+Once you do the initial integration work, it only takes a few seconds to wrap your code in feature flags. Once you realize how easy and stress-free deploys and experimentation can be, there's no going back.

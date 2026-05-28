@@ -1,0 +1,61 @@
+---
+title: "Technical CUPED details"
+description: "Technical details of CUPED variance estimates"
+---
+
+Here we document the technical details behind GrowthBook CUPED variance estimates. We first describe the mean or binomial case, and then summarize the ratio-metric extension.
+
+## Mean or Binomial Metric
+
+We use the notation below and describe the approach in terms of revenue, though the same setup applies to any mean or binomial metric.
+
+1. Let $Y_C$ and $Y_T$ denote post-exposure outcomes for control and treatment.
+2. Let $X_C$ and $X_T$ denote pre-exposure outcomes for control and treatment.
+3. Let $ar{Y}_C$, $ar{Y}_T$, $ar{X}_C$, and $ar{X}_T$ denote the corresponding sample means.
+4. Let $N_C$ and $N_T$ denote the control and treatment sample sizes.
+5. Let $ heta$ denote the CUPED adjustment coefficient estimated from the pooled relationship between pre- and post-exposure values.
+
+GrowthBook forms adjusted means by subtracting the pre-exposure signal:
+
+$$ ilde{Y}\_C = ar{Y}\_C - heta ar{X}\_C$$
+
+$$ ilde{Y}\_T = ar{Y}\_T - heta ar{X}\_T$$
+
+## Absolute Effect
+
+For absolute inference, the CUPED estimate is the difference in adjusted means:
+
+$$\hat{\Delta}_A = 	ilde{Y}_T - 	ilde{Y}_C$$
+
+Using the usual variance algebra for a linear transformation, the variance is the sum of the adjusted treatment and control variances:
+
+$$\hat{\sigma}^2_{\Delta_A} = V_{adj,T} + V_{adj,C}$$
+
+where
+
+$$V_{adj,C} = rac{\sigma^2_{Y,C} + 	heta^2 \sigma^2_{X,C} - 2	heta\sigma_{XY,C}}{N_C}$$
+
+$$V_{adj,T} = rac{\sigma^2_{Y,T} + 	heta^2 \sigma^2_{X,T} - 2	heta\sigma_{XY,T}}{N_T}$$
+
+## Relative Effect
+
+For relative inference, GrowthBook reports lift relative to control:
+
+$$\hat{\Delta}_R = rac{	ilde{Y}_T - 	ilde{Y}_C}{ar{Y}_C}$$
+
+GrowthBook estimates the variance of relative lift with the delta method. Conceptually, this treats the relative effect as a smooth function of the sample means and propagates uncertainty from the joint covariance matrix of $[ar{Y}_T, ar{X}_T, ar{Y}_C, ar{X}_C]$.
+
+## Ratio Metric
+
+For ratio metrics, GrowthBook applies the same idea to numerator and denominator components. The implementation:
+
+1. builds sample means for the numerator and denominator in treatment and control,
+2. applies CUPED adjustments to the relevant components,
+3. forms the absolute or relative ratio effect, and
+4. uses the multivariate delta method to estimate the corresponding variance.
+
+In other words, the ratio-metric implementation is the same statistical pattern as the mean case, but with a larger vector of sufficient statistics and a different target function.
+
+## Practical Note
+
+The main purpose of CUPED is variance reduction. When pre-exposure behavior is correlated with post-exposure behavior, the adjusted estimator can materially reduce standard errors without changing the estimand itself.

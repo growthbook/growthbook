@@ -1,0 +1,108 @@
+---
+title: "Publishing & Approval Flows"
+description: "Learn about drafts, revisions, merge conflicts, and requiring approvals for feature flag changes"
+---
+
+When you make changes to a feature flag in GrowthBook, those changes go through a publishing workflow before they reach your users. This page covers the full lifecycle: drafts, publishing, revisions, merge conflicts, and optional approval flows.
+
+## Drafts and Publishing
+
+When you change a feature's definition (e.g., the default value or rules), GrowthBook automatically creates a new draft revision. This draft is unpublished and only visible within the GrowthBook UI, not to your users.
+
+Continue adding changes to the draft, and when you're ready, publish them all at once with an optional commit message.
+
+<Frame>
+![Draft Modal](https://docs.growthbook.io/assets/images/feature-publishing-2-8c33017e33d18b42a2b8e348a48ef977.png)
+</Frame>
+## Revisions
+
+Once published, a revision becomes locked and can no longer be changed.
+
+To undo changes and revert to a previous state, use the **Revision** dropdown to select the version you want to revert to, then click **Revert**. You can review the changes that will be applied before submitting.
+
+<Frame>
+![Feature Revisions](https://docs.growthbook.io/assets/images/revision-dropdown-2-b2866e3d46aa99364dc7fb53b42e78cf.png)
+</Frame>
+## Merge Conflicts
+
+Your draft can diverge from the live version of a feature if someone else publishes changes while you're still editing. GrowthBook can merge some changes automatically (e.g., if you change a rule in "dev" and someone else changes a rule in "production"). For changes that can't be resolved automatically, you must fix the conflicts before publishing your draft.
+
+The conflict resolution process works similarly to version control systems like Git. For each conflict, GrowthBook shows a diff and lets you choose how to proceed.
+
+In the example below, the Default Value was set to `foo` when you first created your draft. In your draft, you changed the value to `bar`. At the same time, someone else published a new version, changing the value to `hi!!`. So, now you have to choose which change you want to keep.
+
+<Frame>
+![Resolve Conflicts](https://docs.growthbook.io/assets/images/resolve-conflicts-2-c95846f09899dd4d98660ea5deb6267b.png)
+</Frame>
+## Approval Flows
+
+Enterprise**Require Approvals** is available on Enterprise plans.
+
+With Approval flows, you can require approval before publishing any change to an existing feature flag. Approval flows help reduce errors by making sure changes to features have been viewed and approved by someone else in your organization.
+
+### Settings
+
+Enable Approval Flows for your organization on the settings page. Select the environments that require approvals, or leave the field blank to require approvals on all environments. To force-reset the review when a change is made after approval, toggle on **Reset review on changes**.
+
+<Frame>
+![Approval flow organization settings](https://docs.growthbook.io/assets/images/org-settings-55ee99d8876307201a8299c4fdc7d519.png)
+</Frame>
+### Requesting a Review
+
+When Approval Flows are enabled, you must request a review before publishing changes. Add a detailed comment describing the changes so reviewers can understand the intent of your request.
+
+<Frame>
+![Requesting a review for feature changes](https://docs.growthbook.io/assets/images/request-approval-to-publish-b8515be3f46a444ee402f211f06f8fb9.png)
+</Frame>
+Requested reviews appear in the **Drafts** tab on the Features overview page with a **Pending Review** status. Sort by date updated to see your most recent request at the top.
+
+<Frame>
+![Pending review list in the Drafts tab](https://docs.growthbook.io/assets/images/drafts-pending-review-list-bee57324a588891c8d6a22252343baf6.png)
+</Frame>
+### Reviewing
+
+Anyone with "Edit" or "Add" permissions for feature flags (see [Permissions](/account/user-permissions)) can serve as a reviewer, except the user who created the request.
+
+Click the feature, then click **Review and Approve** to open the review modal.
+
+<Frame>
+![Review and Approve button on a feature](https://docs.growthbook.io/assets/images/review-and-approve-button-34790808c48db1fbbbd71543f9177f0c.png)
+</Frame>
+From here, you can see the diff between the currently published changes as well as the comments.
+
+<Frame>
+![Diff view showing changes between published and draft versions](https://docs.growthbook.io/assets/images/review-draft-changes-diff-2-0fd44023d08ef805f41893bcd84814a9.png)
+</Frame>
+Click **Next** to write your review in the comment box and select a status:
+
+- **Comment** — Add a note without formally reviewing the changes
+- **Request Changes** — Flag issues that need to be addressed before approval
+- **Approve** — Confirm that everything looks correct
+
+<Frame>
+![Review status options: Comment, Request Changes, Approve](https://docs.growthbook.io/assets/images/review-status-options-13003d88b29eaba496f7b3a8cf596e4c.png)
+</Frame>
+Once the changes are **Approved**, they can be published.
+
+<Frame>
+![Approved draft ready to publish](https://docs.growthbook.io/assets/images/approved-ready-to-publish-c55e90064cffdb482512b8c4d42fd424.png)
+</Frame>
+### Publishing with Approvals
+
+Anyone with permission to add or edit feature flags can publish changes once they are marked as **Approved**. Admins can bypass the review requirement by selecting the checkbox at the top of the modal.
+
+<Frame>
+![Publishing approved changes with admin bypass option](https://docs.growthbook.io/assets/images/publish-with-admin-bypass-166cda0115af2c7355ca9734514b1397.png)
+</Frame>
+Once published, a green "Live" badge confirms the version is published and active.
+
+<Frame>
+![Green badge indicating the published version is live](https://docs.growthbook.io/assets/images/revision-live-badge-d6dfd54db1aa3efe5c8854d453691603.png)
+</Frame>
+### Visualize Changes with Compare Revisions
+
+Get a detailed diff of the changes between published and draft versions by clicking the **Compare Revisions** button.
+
+<Frame>
+![Compare Revisions button](https://docs.growthbook.io/assets/images/compare-revisions-diff-0ac9411bf5faa97d4da70a6d06f79c89.png)
+</Frame>

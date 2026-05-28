@@ -1,0 +1,117 @@
+---
+title: "Quick Start Guide"
+sidebarTitle: "Quickstart"
+description: "The basic instructions for getting started with GrowthBook"
+---
+
+This guide walks you through the basics of a full integration of GrowthBook for both feature flagging and experimentation.
+
+## Set up GrowthBook
+
+You can either **self-host** GrowthBook or use our **Cloud**.
+
+For the easiest setup, [sign up for a free Cloud account](https://app.growthbook.io).
+
+If you prefer to self-host, follow the [instructions here](/self-host) or on our GitHub page.
+
+After creating your account, it will walk you through the initial setup steps, including integrating one of our SDKs into your application.
+
+## Feature Flags
+
+1
+
+### Integrate the GrowthBook SDK
+
+As part of the initial setup, you should have created an initial SDK Connection. If not, you can do so now by going to **SDK Configuration** → **SDK Connections**. Then, click **Add SDK Connection**. Follow the directions based on your application's language and platform.
+The [full SDK docs](/lib) are also available if you want to dive deeper.
+
+1
+
+### Create a feature flag
+
+On the **Features** page, create your first feature flag.
+
+<Frame>
+![Create Feature](https://docs.growthbook.io/assets/images/feature-create-feature-1-3d30ad038d34c3259bb2ab6c33eab91c.png)
+</Frame>
+The **Feature Key** is what you will reference in your application and cannot be changed later.
+
+Feature flags in GrowthBook are robust, supporting advanced [targeting](/features/targeting), powerful [rule evaluation](/features/rules), [prerequisite features](/features/prerequisites), JSON schema validation, and more. In this quick start, we'll just stick with a simple boolean feature flag that is always `on` or `off` for everyone.
+
+1
+
+### Use the feature in your application
+
+When you create your first feature, you'll see instructions on how to use it in your application. Here's an example using our JavaScript SDK:
+
+```js
+if (gb.isOn("my-feature")) {
+    console.log("It's On!")
+}
+```
+
+It really is that simple to get started! For next steps, we recommend reading our [Feature Flag Basics](/features/basics) page, which goes into more depth.
+
+Feature flags are the foundation for powerful experimentation. In the next section, we show you how to use them to run no-code experimentation using our Visual Editor. Need more advanced options? Dive into our [complete guide for code-based experimentation](/feature-flag-experiments).
+
+## Experiment Analysis
+
+1
+
+### Set up your data source
+
+GrowthBook connects to a data warehouse to query your experiment data. You have two options:
+
+**Fastest path: [Managed Warehouse](/experimentation-analysis/managed-warehouse).** If you don't have an existing data warehouse, our Managed Warehouse gets you running quickly. We provision a fully managed database, create starter metrics, and provide built-in event tracking. No infrastructure setup required.
+
+**[Bring Your Own Warehouse](/experimentation-analysis/connecting-to-your-data-warehouse).** If you already have event data in BigQuery, Snowflake, Databricks, Redshift, or another warehouse, you can connect it directly. GrowthBook supports almost any schema structure with a bit of configuration and only needs read-only access.
+
+<Note>
+See our [data path comparison](/experimentation-analysis/choose-your-data-path) for help deciding.
+</Note>
+
+To get started, go to **Metrics and Data** → **Data Sources** and pick your path.
+
+1
+
+### Add a metric or two
+
+GrowthBook needs to know what metrics you want to measure for your experiments. This starts by creating one or more Fact Tables using SQL, which selects raw data from your warehouse. Metrics are then built on top of these Fact Tables.
+
+Go to **Metrics and Data** → **Fact Tables**. Click **Add a Fact Table** and edit the default SQL if needed. Here's an example SQL query for an Orders fact table.
+
+```sql
+SELECT
+  user_id,
+  timestamp,
+  qty,
+  amount
+FROM orders
+```
+
+Once the fact table is created, you can easily add metrics on top of it. For example, consider a simple proportion metric, which measures the percentage of experiment users who complete an action at least once. In this case, it'd measure the percentage of users who made a purchase.
+
+Metrics in GrowthBook are powerful and have many advanced settings. Read about them on our [Metrics page](/metrics/metrics).
+
+1
+
+### View experiment results
+
+Go to the **Experiments** page. If you implemented an experiment using feature flags, your experiment will already be listed. Click through to it. If you ran your experiment outside of GrowthBook instead, that's fine, too! Add a new experiment and select the **Import Existing** option.
+
+Once inside your experiment, go to the **Results** tab. Edit your analysis settings and pick the metrics you created earlier. The results will show up in a table like this:
+
+<Frame>
+![Results Table](https://docs.growthbook.io/assets/images/results-table-781167fd137533b109a3d111851125bf.png)
+</Frame>
+We have an [entire page in our docs](/experimentation-analysis/experiment-results) just about these results and how to interpret them.
+
+## Next steps
+
+[### Self-Host
+
+Run GrowthBook on your own infrastructure](/self-host)[### SDK Docs
+
+Connect GrowthBook to your application](/lib)[### FAQ
+
+Find answers to common questions](/faq)

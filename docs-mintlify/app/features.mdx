@@ -1,0 +1,34 @@
+---
+title: "Feature Flags"
+description: "Feature flags let you control your application's behavior from GrowthBook, without deploying new code. Target specific users, gradually roll out changes, or run A/B tests on the client or the server."
+---
+
+Feature flags decouple deploys from releases. Release code more frequently and with less risk by launching to a subset of users, ramping up gradually, or turning any change into an experiment.
+
+<Frame>
+![Features Overview](https://docs.growthbook.io/assets/images/features-overview-46231cabca616a09b6e9858bfecc57d7.png)
+</Frame>
+
+## Getting Started
+
+To use feature flags, set up an [SDK Connection](https://docs.growthbook.io/lib/quickstart), then explore the docs below.
+
+### Learn the Basics
+
+- [Fundamentals](/features/basics) — Keys, feature types, default values, and publishing
+- [Environments](https://docs.growthbook.io/features/environments) — Control which features are enabled per environment (dev, staging, production)
+
+### Set Up Targeting and Rules
+
+- [Rules](https://docs.growthbook.io/features/rules) — How rules work, choosing a rule type, and configuring forced values, rollouts, experiments, and scheduling
+- [Targeting Conditions](https://docs.growthbook.io/features/targeting) — Define who sees a feature using attributes, conditions, and saved groups
+- [Safe Rollouts](https://docs.growthbook.io/features/safe-rollouts) — Release features with automatic guardrail monitoring
+- [Prerequisites](https://docs.growthbook.io/features/prerequisites) — Gate features based on the state of other features
+
+### Manage Flags at Scale
+
+- [Publishing & Approval Flows](https://docs.growthbook.io/features/publishing-and-approval-flows) — Drafts, revisions, merge conflicts, and requiring approvals
+- [Stale Feature Detection](https://docs.growthbook.io/features/stale-detection) — Identify flags that may no longer be in use
+- [Code References](https://docs.growthbook.io/features/code-references) — Find where flags are used in your codebase
+- [Feature Diagnostics](https://docs.growthbook.io/features/diagnostics) — Inspect feature evaluations in production
+- [Custom Hooks](https://docs.growthbook.io/features/custom-hooks) — Extend GrowthBook with custom validation logic (self-hosted Enterprise)

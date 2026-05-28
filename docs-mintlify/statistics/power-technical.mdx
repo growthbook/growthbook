@@ -1,0 +1,66 @@
+---
+title: "Technical power details"
+description: "Technical details of power analysis"
+---
+
+Here we document the technical details behind GrowthBook power calculations and minimum detectable effect (MDE) calculations for both frequentist and Bayesian engines.
+
+## Frequentist Engine Details
+
+### Power
+
+Let $lpha$ be the false positive rate, $\Delta$ the true relative treatment effect, $\hat{\Delta}$ its estimator, and $\hat{\sigma}_{\Delta}$ its estimated standard error.
+
+For a one-sided test, power is
+
+$$
+\pi = 1 - \Phi\left(Z_{1-lpha} - rac{\Delta}{\hat{\sigma}_{\Delta}}
+ight)
+$$
+
+For a two-sided test, GrowthBook uses
+
+$$
+\pi = 1 - \Phi\left(Z_{1-lpha/2} - rac{\Delta}{\hat{\sigma}_{\Delta}}
+ight) + \Phi\left(Z_{lpha/2} - rac{\Delta}{\hat{\sigma}_{\Delta}}
+ight)
+$$
+
+These formulas assume equal variance across arms, independent observations, and sufficiently large samples for the normal approximation to be accurate.
+
+### Minimum Detectable Effect
+
+The frequentist MDE is the smallest effect size that achieves a target power level $\pi$.
+
+In practice, GrowthBook solves the power equation for $\Delta$. When $\hat{\sigma}_{\Delta}$ itself depends on the effect size, the inversion is not purely algebraic and must account for that dependency.
+
+## Sequential Testing
+
+With sequential testing enabled, GrowthBook inflates the variance term before plugging it into the usual power formulas. This yields a conservative power estimate relative to a fixed-horizon analysis.
+
+## Bayesian Engine Details
+
+GrowthBook combines a normal prior with an asymptotically normal likelihood. If
+
+$$\Delta \sim N(\mu_{prior}, \sigma^2_{prior})$$
+
+and
+
+$$\hat{\Delta} \mid \Delta \sim N(\Delta, \hat{\sigma}^2_{\Delta})$$
+
+then the posterior is normal with precision-weighted mean and variance:
+
+$$\Omega = rac{1}{\sigma^2_{prior}} + rac{1}{\hat{\sigma}^2_{\Delta}}$$
+
+$$
+\mu_{post} = \Omega^{-1}\left(rac{\mu_{prior}}{\sigma^2_{prior}} + rac{\hat{\Delta}}{\hat{\sigma}^2_{\Delta}}
+ight)
+$$
+
+$$\sigma^2_{post} = \Omega^{-1}$$
+
+GrowthBook uses this posterior to compute Bayesian power-style quantities such as chance to win, risk, and Bayesian MDE summaries.
+
+## Practical Note
+
+All power calculations depend heavily on the assumed variance and on the expected effect size. In real experiments, uncertainty in those assumptions is often larger than the algebraic differences between formulas, so power numbers should be treated as planning tools rather than guarantees.

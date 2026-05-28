@@ -1,0 +1,224 @@
+---
+title: "Using GrowthBook with Google Tag Manager (GTM)"
+sidebarTitle: "Google Tag Manager (GTM)"
+description: "This guide walks you through using GrowthBook with Google Tag Manager (GTM) to track your experiments and measure their impact on your business."
+---
+
+## Overview
+
+This guide shows you how to integrate GrowthBook with Google Tag Manager (GTM) to run A/B tests and manage feature flags without having to directly modify your app's code.
+
+This setup is ideal for:
+
+- Marketing teams managing website experiments
+- CRO agencies handling multiple client websites
+- Teams without direct access to website code
+
+### Prerequisites
+
+Before starting, ensure you have:
+
+- Access to your [Google Tag Manager account](https://tagmanager.google.com/)
+- A [GrowthBook account](https://app.growthbook.io/)
+- Basic familiarity with GTM's interface
+
+## 1. Set Up GrowthBook SDK Connection
+
+- In GrowthBook, navigate to **SDK Configuration** → **SDK Connections**
+- Click **Add SDK Connection**
+- Add a **Name**, choose **HTML Script Tag**, and click **Save**
+- Copy the `data-client-key` value from the script tag. You'll need this for the next step
+
+<Frame>
+![GrowthBook SDK Connection](https://docs.growthbook.io/assets/images/gtm-sdk-d44e3bb5d75ebc687a0683b2d3886f70.webp)
+</Frame>
+## 2. Create GTM Tag for GrowthBook
+
+- Open your GTM workspace
+- Click **Tags** in the left sidebar
+- Click **New** to create a tag
+- Click **Tag Configuration** and use **Custom HTML** as the tag type
+- Paste the following script tag, replacing `YOUR_CLIENT_KEY_HERE` with the value from the previous step:
+
+```html
+<script>
+(function(s) {
+  s=document.createElement('script'); s.async=true;
+  s.dataset.clientKey="YOUR_CLIENT_KEY_HERE";
+  s.src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js";
+  document.head.appendChild(s);
+})();
+</script>
+```
+
+- Click **Triggering** and choose the pages where you want to run this tag. Use **All Pages** to load it everywhere
+- Click **Save** and call your tag "GrowthBook SDK" or similar
+
+<Frame>
+![GTM Tag for GrowthBook](https://docs.growthbook.io/assets/images/gtm-growthbook-sdk-custom-tag-4d4cf9ec769cb944be2778345f6461f4.webp)
+</Frame>
+Be sure to click **Submit** and **Publish** to make your changes live. GrowthBook is now connected to your website via GTM 🤝
+
+## 3. Use Feature Flags and A/B Experiments
+
+It's possible to use GrowthBook in your GTM setup. This allows you to control feature flags and experiments without needing to modify your website code.
+
+<Note>
+If you're planning to use the [Visual Editor](/visual-editor), [URL redirects](/running-experiments/url-redirects), or to [run experiments in code](/feature-flag-experiments), skip ahead to the next section ⏭️
+</Note>
+
+Create a new boolean feature flag with an A/B test. For this tutorial, we'll use a feature flag called `show-discount` to run an A/B test to show and hide an item's discount. New to feature flags in GrowthBook? Learn more about [creating them and A/B tests](/features/basics).
+
+Next, we'll use GTM to apply the feature flag to your website:
+
+- Create another Custom HTML tag in your workspace
+- Set the firing trigger to the pages you want to run this on
+- Use the following code as a starting point:
+
+```html
+<script>
+  // Wait for the GrowthBook SDK to load before running
+  window.growthbook_queue = window.growthbook_queue || [];
+  window.growthbook_queue.push(function(gb) {
+    // Function that uses feature flags to make changes to the page
+    function applyFeatureFlags() {
+      if(gb.isOn("show-discount")) {
+        var priceEl = document.getElementById("price");
+        if (!priceEl) return;
+        priceEl.classList.add("show-discount");
+      }
+    }
+    // Call your function initially plus whenever new data is received
+    applyFeatureFlags();
+    document.addEventListener("growthbookdata", applyFeatureFlags)
+  });
+</script>
+```
+
+In this example, we're using the `show-discount` feature flag to run an A/B experiment. When the experiment evaluates to `true`, we add a CSS class to the price element on the page.
+
+As seen in the image below, the control element shows the price, while the variation shows the original price with a strikethough and the discounted price in red. We can run this entire experiment straight from GTM, without needing to touch the website code!
+
+<Frame>
+![A control element with the image and name of a couch, showing just a price, and a variation element with the same image and name, showing the original price with a strikethrough and the discounted price in red](https://docs.growthbook.io/assets/images/gtm-ab-test-9ae635514b73f8ac2aed84987580f795.webp)
+</Frame>
+## 4. Tracking via DataLayer and GTM
+
+To track experiment views, we use the `dataLayer` to capture experiment data. Whenever an experiment is viewed, we send an event with data like this:
+
+```json
+{
+  "event": "experiment_viewed",
+  "experiment_id": "...",
+  "variation_id": "..."
+}
+```
+
+In this tutorial, we'll send this data to Google Analytics 4 (GA4), which allows you to analyze experiments and their impact on your business metrics in GrowthBook. (It's also possible to forward this event to your analytics tool of choice.)
+
+<Note>
+You'll need to connect GrowthBook to BigQuery to analyze your experiment data. See our guide on [configuring GrowthBook with BigQuery](https://docs.growthbook.io/guide/bigquery) for more information.
+</Note>
+
+### Create DataLayer Variables
+
+To capture experiment data from the `dataLayer`, create 2 new variables in GTM:
+
+- Go to **Variables** in the left sidebar
+- Click **New** under **User-Defined Variables**
+- Create 2 variables:
+  - **Experiment ID**
+    - Click **Variable Configuration**
+    - Select **Data Layer Variable**
+    - Enter `experiment_id` as the **Data Layer Variable Name**
+    - Name the variable something descriptive like "Experiment ID"
+    - Click **Save**
+  - **Variation ID**
+    - Repeat the these steps but use `variation_id` as the **Data Layer Variable Name** and call it something like "Variation ID"
+
+<Frame>
+![DataLayer Variables](data:image/webp;base64,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)
+</Frame>
+### Create Custom Event Trigger
+
+This custom trigger tells GTM when to fire the GA4 tag based on the `experiment_viewed` event.
+
+- Go to **Triggers** in the left sidebar
+- Click **New** and **Trigger Configuration**
+- Choose **Custom Event** as the trigger type
+- Name the trigger "Experiment Viewed Event" or similar
+- Enter `experiment_viewed` as the **Event Name**
+- Set the trigger to fire on **All Custom Events**
+- Click **Save**
+
+<Frame>
+![Custom Event Trigger](https://docs.growthbook.io/assets/images/gtm-custom-trigger-2f597880afcb1b6e58a2143c59d201bc.webp)
+</Frame>
+### Create GA4 Configuration Tag
+
+Let's connect GTM to GA4. (Skip this step if you've already configured GA4 in your GTM container.)
+
+- Create a new tag and select **Google Analytics** as the type
+- Choose **Google Tag**
+- Enter your [GA4 Measurement ID](https://support.google.com/analytics/answer/12270356?hl=en)
+- Add **Initialization - All Pages** for the trigger
+- Name the tag something like "GA4 Configuration" and save it
+
+<Frame>
+![GTM GA4 Configuration Tag](https://docs.growthbook.io/assets/images/gtm-ga4-config-b2439902dd2b0ba699b50e689184edc5.webp)
+</Frame>
+### Create GA4 Event Tag
+
+Last step! Create a tag that sends the `experiment_viewed` event data to GA4.
+
+- Create a new tag in GTM
+- Select **Google Analytics: GA4 Event**
+- Configuration:
+  - Measurement ID: Use your GA4 ID (or reference the GA4 Configuration tag)
+  - Event Name: `experiment_viewed`
+  - Event Parameters:
+    - Event Parameter: `experiment_id`
+    - Value: `{{Experiment ID}}`
+    - Event Parameter: `variation_id`
+    - Value: `{{Variation ID}}`
+- Triggering: Select the **Experiment Viewed Event** trigger
+- Name the tag (e.g., "GA4 - Experiment Viewed Event")
+- Save the tag
+
+<Frame>
+![GTM GA4 Event Tag](https://docs.growthbook.io/assets/images/gtm-ga4-event-76d5df02fd145718b3bf27217e248794.webp)
+</Frame>
+### Testing Your Setup
+
+1. In GTM:
+   - Click **Preview** in the top right
+   - Enter your website URL
+   - Click **Start**
+
+2. In Preview Mode:
+   - Look for the GrowthBook SDK tag firing
+   - Verify the `experiment_viewed` event appears
+   - Check that the event parameters contain the correct experiment and variation IDs
+
+<Frame>
+![GTM Preview Mode](https://docs.growthbook.io/assets/images/gtm-preview-110cf694614e903dc46f7208632a9b47.webp)
+</Frame>
+3. In GA4 (may take 24-48 hours to appear):
+   - Go to Real-Time reports
+   - Look for the `experiment_viewed` event
+   - Verify the parameters are being received correctly
+
+Remember to save and publish your changes in GTM once you're ready to go live. You can now track experiment views in GA4 using GTM.
+
+## Conclusion
+
+You've successfully integrated GrowthBook with Google Tag Manager to run A/B tests and manage feature flags on your website. This setup allows you to control experiments without needing to modify your website code directly ✊
+
+### Next Steps
+
+- Check out our guide for connecting [GrowthBook to GA4 and BigQuery](https://docs.growthbook.io/guide/GA4-google-analytics)
+- For other analytics tools, see our guide on [connecting to your data warehouse](/experimentation-analysis/connecting-to-your-data-warehouse)
+
+### Troubleshooting
+
+Please see our [Google Tag Manager (GTM) Troubleshooting Guide](/kb/google-analytics/google-tag-manager-gtm-troubleshooting) and our [GA4 Troubleshooting Guide](/kb/google-analytics/google-analytics-ga4-troubleshooting) (if relevant) for help debugging GTM and GA4 integrations with GrowthBook.

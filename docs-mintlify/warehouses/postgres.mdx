@@ -1,0 +1,10 @@
+---
+title: "Setting up Postgres as a data source"
+description: "This document outlines the steps needed to add your Postgres database to GrowthBook."
+---
+
+When setting up Postgres to work with Growthbook, remember it's important to create read-only users with minimal permissions, ideally granting only read access to the relevant data tables that need to be aggregated.
+
+If you are using GrowthBook Cloud (app.growthbook.io), make sure to whitelist the ip address `52.70.79.40` if applicable.
+
+Unfortunately there isn't a specific guide for setting up Postgres for Growthbook yet. However, if you encounter any difficulties while setting up your data source, you can seek assistance from our active developer community on [Slack](https://slack.growthbook.io?ref=docs-datasource-postgres). They can help you troubleshoot and ensure your implementation is successful. Once you've successfully set up Postgres according to best practices, we encourage you to contributing to the community by [creating improved documentation for Postgres](https://github.com/growthbook/growthbook/blob/main/CONTRIBUTING.md#working-on-docs). Your contribution will benefit other users in the future.

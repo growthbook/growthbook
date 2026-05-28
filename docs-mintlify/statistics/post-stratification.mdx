@@ -1,0 +1,57 @@
+---
+title: "Technical post-stratification details"
+description: "Technical details of post-stratification"
+---
+
+Here we document the technical details behind GrowthBook regression adjustment and post-stratification. The goal is to estimate treatment effects and control means within cells, then aggregate those cell-level estimates into population-level results.
+
+## Regression
+
+For each stratification cell, GrowthBook fits a regression-style summary model that produces estimates of:
+
+1. the treatment effect for that cell, and
+2. the control mean for that cell.
+
+For ratio metrics, it is convenient to work with numerator and denominator quantities separately before combining them. Let $m_{i1}$ and $d_{i1}$ be the observed numerator and denominator outcomes for user $i$, and let the covariate vector be
+
+$$\mathbf{x}_i = (1, w_i, x_{im}, x_{id})$$
+
+where $w_i$ is treatment assignment and $x_{im}, x_{id}$ are pre-exposure covariates.
+
+Stacking these rows gives a design matrix $\mathbf{X}$ and response vector $\mathbf{Y}$. The least-squares coefficient estimate is
+
+$$\hat{oldsymbol{\gamma}} = (\mathbf{X}^{	op}\mathbf{X})^{-1}\mathbf{X}^{	op}\mathbf{Y}$$
+
+Under standard regularity conditions, GrowthBook treats this estimator as approximately normal with covariance matrix determined by the residual covariance and the design matrix.
+
+## Cell Moments
+
+Within each cell, GrowthBook linearly transforms the regression output into a vector containing the cell-specific effect and control-mean quantities needed for downstream estimation. Denote this transformed vector by $\hat{oldsymbol{lpha}}_k$ for cell $k$.
+
+The corresponding covariance matrix, $\hat{oldsymbol{\Sigma}}_k$, is obtained by propagating uncertainty through the linear transformation.
+
+## Combining Cell Estimates
+
+Let $\hat{
+u}_k$ be the observed share of traffic in cell $k$. GrowthBook combines cell-level estimates using weighted averages:
+
+$$
+\hat{oldsymbol{lpha}} = \sum_{k=1}^{K} \hat{
+u}_k \hat{oldsymbol{lpha}}_k
+$$
+
+This produces overall estimates of the population control mean and the population treatment effect after accounting for the observed cell mix.
+
+## Delta Method
+
+When the final estimand is a ratio or lift rather than an absolute difference, GrowthBook applies the delta method to the combined absolute-scale estimates.
+
+For example, if $\hat{\mu}_C$ is the combined control mean and $\hat{\Delta}_A$ is the combined absolute effect, then relative lift is
+
+$$\hat{\Delta}_R = rac{\hat{\Delta}_A}{\hat{\mu}_C}$$
+
+and its variance is obtained by differentiating that function with respect to the combined estimates and applying the covariance matrix of the combined estimator.
+
+## Practical Note
+
+Post-stratification is most helpful when important covariates explain outcome variation and the observed sample mix differs across cells. In that setting, it can improve precision and make the overall estimate more representative of the target population.

@@ -1,0 +1,146 @@
+---
+title: "GrowthBookSDKs - Feature Flags & Experimentation"
+sidebarTitle: "SDKs"
+description: "Choose the right GrowthBook SDK for your application. Support for JavaScript, React, Python, Node.js, mobile, and edge platforms. Get started with feature flags and experiments in minutes."
+---
+
+GrowthBook SDKs are lightweight libraries that let you use feature flags and run experiments in your application. They handle feature evaluation and assignment logic.
+
+## What SDKs Do
+
+The SDK has two main responsibilities:
+
+1. **Fetch features from the API**: The SDK downloads your feature definitions from GrowthBook and caches them for fast access.
+2. **Evaluate features**: Using attributes you provide (like user ID, country, or subscription plan), the SDK evaluates your targeting rules and returns the appropriate feature values. This evaluation happens wherever the SDK runs—in the browser, on your server, or at the edge.
+
+## Running Experiments
+
+To measure experiment results, the SDK needs to log which variation was assigned. This is done through a tracking callback—a function you provide that sends assignment data via your event tracking system (like Segment, Mixpanel, or GA4).
+
+Without a tracking callback, the SDK will still assign variations and your features will work, but you won't be able to analyze experiment results in GrowthBook.
+
+All SDKs use the same assignment logic, so the same attributes always produce the same variation regardless of which SDK you use. Each SDK has documentation on setting up tracking callbacks, and many offer [pre-built integrations](/lib/js#plugins) with popular analytics tools.
+
+## Choosing the Right SDK
+
+The main differences between SDK types are where they run and what problems they solve best.
+
+### Client SDKs
+
+**Where they run:** In the browser or mobile device
+
+**Best for:** UI changes, visual experiments, and frontend feature flags
+
+**Trade-offs:**
+
+- Easy integration with frontend frameworks
+- Feature rules are visible to users (see [remote evaluation](/lib/js#remote-evaluation) if you need to keep rules private)
+- Can show a brief flicker while experiments load asynchronously (see our recommended anti-flicker techniques)
+
+**Common use cases:** Rolling out a new dashboard design, testing button colors, showing features based on user plan
+
+**SDKs:** [JavaScript](/lib/js), [React](/lib/react), [Vue](/lib/vue), [Swift](/lib/swift), [Kotlin](/lib/kotlin), [Flutter](/lib/flutter), [React Native](/lib/react-native)
+
+### Server SDKs
+
+**Where they run:** On your backend infrastructure
+
+**Best for:** Backend logic, API responses, or when you need to keep targeting rules private
+
+**Trade-offs:**
+
+- Keeps feature logic and rules private
+- No visual flicker
+- Requires infrastructure to run (not just a script tag)
+- Need to pass evaluation results to the frontend if UI changes are required
+- May need to extract attributes from cookies, headers, or tokens
+
+**Common use cases:** Testing a new recommendation algorithm, rolling out API changes, experimenting with pricing tiers, ML model rollouts
+
+**SDKs:** [Node.js](/lib/node), [Python](/lib/python), [Ruby](/lib/ruby), [PHP](/lib/php), [Java](/lib/java), [Go](/lib/go), [C#](/lib/csharp), [Elixir](/lib/elixir)
+
+### Edge SDKs
+
+**Where they run:** On edge platforms/CDNs (Cloudflare Workers, Fastly Compute, Lambda@Edge)
+
+**Best for:** Eliminating flicker for visual experiments or doing redirects before your application server handles the request
+
+**Trade-offs:**
+
+- Eliminates flicker for visual experiments and redirects
+- Can inject feature data into HTML for the frontend to use
+- More complex setup and integration
+- Resource constraints (CPU/memory limits)
+
+**Common use cases:** A/B testing landing pages without flicker, geo-based redirects, paywall experiments
+
+**SDKs:** [Cloudflare Workers](/lib/edge/cloudflare), [Fastly Compute](/lib/edge/fastly), [Lambda@Edge](/lib/edge/lambda)
+
+<Note>
+\*\*Most users start with a client SDK\*\*. They're the easiest to implement and work great for UI changes and experiments.
+</Note>
+
+## Getting Started
+
+Choose your SDK below to see installation and setup instructions:
+
+### Client
+
+[### HTML Script Tag
+
+Drop-in script for any website or low-code platform](/lib/script-tag)[### Javascript
+
+Vanilla JS and TypeScript projects](/lib/js)[### React
+
+React hooks and providers with SSR support](/lib/react)[### Next.js
+
+App/Pages router examples (with support for SSR)](https://github.com/growthbook/examples/tree/main/next-js)[### Vue
+
+Vue 3 with composables and Nuxt support](/lib/vue)[### Kotlin (Android)
+
+Native Android development](/lib/kotlin)[### Flutter
+
+Cross-platform mobile apps](/lib/flutter)[### Swift (iOS)
+
+Native iOS development](/lib/swift)[### React Native
+
+Cross-platform React Native apps](/lib/react-native)
+
+### Server
+
+[### Node.js
+
+Express, Fastify, and Node.js servers](/lib/node)[### PHP
+
+Laravel, Symfony, and PHP applications](/lib/php)[### Ruby
+
+Rails and Ruby applications](/lib/ruby)[### Python
+
+Flask, Django, FastAPI, and async support](/lib/python)[### Java
+
+Spring Boot and Java applications](/lib/java)[### C#
+
+.NET Core and ASP.NET applications](/lib/csharp)[### Go
+
+High-performance Go services](/lib/go)[### Elixir
+
+Phoenix and Elixir applications](/lib/elixir)[### Rust
+
+Actix, Axum, Rocket, and more](/lib/rust)[### Vercel
+
+Vercel Flags SDK with Edge Config](/lib/nextjs)
+
+### Edge
+
+[### Cloudflare Workers
+
+Low-latency edge computing on Cloudflare's network](/lib/edge/cloudflare)[### Fastly Compute
+
+WebAssembly-powered edge computing](/lib/edge/fastly)[### Lambda@Edge
+
+AWS Lambda at CloudFront edge locations](/lib/edge/lambda)
+
+---
+
+🛠️ **Want to build your own SDK?**  
+Follow our [guide to integrate GrowthBook into any platform](/lib/build-your-own).

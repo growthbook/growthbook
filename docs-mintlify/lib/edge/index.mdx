@@ -1,0 +1,73 @@
+---
+title: "Edge SDKs"
+description: "Run GrowthBook on edge platforms like Cloudflare Workers, Fastly Compute, and Lambda@Edge for low-latency feature flags and experiments."
+---
+
+Edge SDKs run on CDN edge platforms, allowing you to evaluate feature flags and run experiments before your application server handles the request.
+
+## Why Edge?
+
+- **Eliminate flicker** — Make decisions before the page renders, so users never see content shift
+- **Lower latency** — Edge nodes are geographically distributed, reducing round-trip time
+- **URL redirects** — Route users to different URLs based on experiment variations
+- **Inject data** — Add feature flag data directly into the HTML response
+
+## Available Edge SDKs
+
+<Columns cols={3}>
+<Card title="Cloudflare Workers" icon="cloud" href="/lib/edge/cloudflare">
+Low-latency edge computing on Cloudflare's global network
+</Card>
+
+<Card title="Fastly Compute" icon="bolt" href="/lib/edge/fastly">
+WebAssembly-powered edge computing with Fastly
+</Card>
+
+<Card title="Lambda@Edge" icon="aws" href="/lib/edge/lambda">
+AWS Lambda at CloudFront edge locations
+</Card>
+</Columns>
+
+## How It Works
+
+Edge SDKs intercept requests at the CDN level and can:
+
+1. **Evaluate feature flags** using user attributes from cookies, headers, or geolocation
+2. **Run A/B tests** by assigning users to variations before the origin responds
+3. **Perform URL redirects** to route users to different pages based on experiment assignments
+4. **Modify HTML** to inject feature data or experiment variations directly into the response
+
+## Common Use Cases
+
+- **Landing page experiments** — Test different page layouts without any flicker
+- **Geo-based targeting** — Show different content based on user location
+- **Paywall experiments** — Test pricing pages before users see the original
+- **Feature rollouts** — Gradually roll out features at the edge
+- **Personalization** — Customize content based on cookies or headers
+
+## Architecture
+
+```
+User Request
+     ↓
+Edge Worker (GrowthBook SDK)
+  - Evaluate feature flags
+  - Assign experiment variations
+  - Optionally redirect or modify HTML
+     ↓
+Origin Server (optional)
+     ↓
+Response with experiments applied
+```
+
+## Getting Started
+
+Choose your edge platform to see installation and setup instructions:
+
+- [Cloudflare Workers](/lib/edge/cloudflare)
+- [Fastly Compute](/lib/edge/fastly)
+- [Lambda@Edge](/lib/edge/lambda)
+
+<Info>
+Edge SDKs have some resource constraints (CPU/memory limits) compared to server SDKs. See each platform's documentation for specific limitations.
+</Info>
