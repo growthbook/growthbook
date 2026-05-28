@@ -6004,14 +6004,17 @@ export async function getFeatureContentSearch(
 
   const draftsByFeatureId = new Map<
     string,
-    { defaultValue: string; rules: FeatureRule[] }
+    { defaultValues: string[]; rules: FeatureRule[] }
   >();
   for (const rev of draftRevisions) {
     const existing = draftsByFeatureId.get(rev.featureId);
-    if (!existing) {
+    if (existing) {
+      existing.defaultValues.push(rev.defaultValue);
+      existing.rules.push(...rev.rules);
+    } else {
       draftsByFeatureId.set(rev.featureId, {
-        defaultValue: rev.defaultValue,
-        rules: rev.rules,
+        defaultValues: [rev.defaultValue],
+        rules: [...rev.rules],
       });
     }
   }
@@ -6026,7 +6029,7 @@ export async function getFeatureContentSearch(
     const liveRules = feature.rules;
     const allRules = draft ? [...liveRules, ...draft.rules] : liveRules;
     const allDefaults = draft
-      ? [feature.defaultValue, draft.defaultValue]
+      ? [feature.defaultValue, ...draft.defaultValues]
       : [feature.defaultValue];
 
     if (valueContains) {

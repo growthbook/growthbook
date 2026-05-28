@@ -50,27 +50,26 @@ export function useFeatureContentSearch(
   const { apiCall } = useAuth();
   const [matchingIds, setMatchingIds] = useState<Set<string> | null>(null);
   const [loading, setLoading] = useState(false);
-  const inflightKey = useRef<string | null>(null);
+  const generationRef = useRef(0);
   const debounceTimer = useRef<ReturnType<typeof setTimeout>>();
 
   const doFetch = useCallback(
     async (p: ContentSearchParams) => {
       if (paramsAreEmpty(p)) {
         setMatchingIds(null);
+        setLoading(false);
         return;
       }
-      const qs = buildQueryString(p);
-      if (inflightKey.current === qs) return;
-      inflightKey.current = qs;
+      const gen = ++generationRef.current;
       setLoading(true);
       try {
         const res = await apiCall<{ matchingIds: string[] }>(
-          `/features/content-search?${qs}`,
+          `/features/content-search?${buildQueryString(p)}`,
         );
+        if (gen !== generationRef.current) return;
         setMatchingIds(new Set(res.matchingIds ?? []));
       } finally {
-        setLoading(false);
-        inflightKey.current = null;
+        if (gen === generationRef.current) setLoading(false);
       }
     },
     [apiCall],

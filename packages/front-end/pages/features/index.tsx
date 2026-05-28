@@ -9,6 +9,7 @@ import { featureHasEnvironment } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import Link from "@/ui/Link";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import FeatureModal from "@/components/Features/FeatureModal";
 import { featureStatusColors } from "@/components/Features/FeaturesOverview";
 import track from "@/services/track";
@@ -253,9 +254,14 @@ export default function FeaturesPage() {
   );
   const hasExperimentStateFilter = syntaxFilters.some(
     (f) =>
-      (f.field === "has" &&
-        (f.values.includes("bandits") || f.values.includes("temp-rollout"))) ||
-      f.field === "bandit",
+      f.field === "has" &&
+      f.values.some(
+        (v) =>
+          v === "experiments" ||
+          v === "temp-rollout" ||
+          v.startsWith("experiment:") ||
+          v.startsWith("bandit:"),
+      ),
   );
 
   useEffect(() => {
@@ -298,19 +304,32 @@ export default function FeaturesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibleIdsKey]);
 
+  const searchLoading =
+    statusHook.loading ||
+    draftHook.loading ||
+    staleHook.loading ||
+    rampHook.loading ||
+    dependencyHook.loading ||
+    experimentHook.loading ||
+    contentSearch.loading;
+
   const renderFeaturesTable = () => {
     return (
       allFeatures.length > 0 && (
         <Box>
           <Box mb="2">
             <Flex justify="between" mb="3" gap="3" align="center">
-              <Box width="40%" style={{ position: "relative" }}>
-                <Field
-                  placeholder="Search..."
-                  type="search"
-                  {...searchInputProps}
-                />
-              </Box>
+              <Flex align="center" gap="1" width="40%">
+                <Box flexGrow="1" style={{ position: "relative" }}>
+                  <Field
+                    placeholder="Search..."
+                    type="search"
+                    containerClassName="mb-0"
+                    {...searchInputProps}
+                  />
+                </Box>
+                {searchLoading && <LoadingSpinner />}
+              </Flex>
               <FeatureSearchFilters
                 features={allFeatures}
                 searchInputProps={searchInputProps}
