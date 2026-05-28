@@ -40,7 +40,10 @@ import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import OutdatedBadge from "@/components/OutdatedBadge";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
-import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
+import {
+  getIsExperimentIncludedInIncrementalRefresh,
+  getPipelineSettingsAfterDisablingExperiment,
+} from "@/services/experiments";
 import Metadata from "@/ui/Metadata";
 import ResultsFilter from "@/components/Experiment/ResultsFilter/ResultsFilter";
 import { filterMetricsByTags } from "@/hooks/useExperimentTableRows";
@@ -216,19 +219,17 @@ export default function AnalysisSettingsSummary({
   const handleDisableIncrementalRefresh = async () => {
     if (!datasource || !isExperimentIncludedInIncrementalRefresh) return;
 
+    const pipelineSettings = getPipelineSettingsAfterDisablingExperiment(
+      datasource.settings.pipelineSettings,
+      experiment.id,
+    );
+
     await apiCall(`/datasource/${datasource.id}`, {
       method: "PUT",
       body: JSON.stringify({
         settings: {
           ...datasource.settings,
-          pipelineSettings: {
-            ...datasource.settings.pipelineSettings,
-            excludedExperimentIds: [
-              ...(datasource.settings?.pipelineSettings
-                ?.excludedExperimentIds ?? []),
-              experiment.id,
-            ],
-          },
+          pipelineSettings,
         },
       }),
     });

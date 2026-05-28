@@ -279,7 +279,7 @@ describe("getSnapshotQueryRunnerKind", () => {
     ).toBe("results");
   });
 
-  it("opt-in wins over excludedExperimentIds (explicit opt-in takes precedence)", () => {
+  it("ignores opt-in when mode is 'incremental' so excludedExperimentIds wins", () => {
     const datasource = makeDatasource({
       mode: "incremental",
       excludedExperimentIds: ["exp_123"],
@@ -295,7 +295,7 @@ describe("getSnapshotQueryRunnerKind", () => {
         hasSnapshotDimensions: false,
         hasMaterializedUnitsTable: true,
       }),
-    ).toBe("incremental");
+    ).toBe("results");
   });
 
   it("returns 'results' when allowWriting is false even with opt-in", () => {

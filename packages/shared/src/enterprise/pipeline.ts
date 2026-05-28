@@ -6,19 +6,19 @@ import type {
 import type { PipelineIntegration } from "shared/types/integrations";
 
 /**
- * Determines whether a specific experiment should run with incremental refresh
- * for a data source's pipeline configuration. This is the single source of
- * truth for the gating logic and is used both at snapshot planning time
- * (`isIncrementalRefreshEnabledForSnapshot`) and at validation time
+ * Single source of truth for whether an experiment runs with incremental
+ * refresh on a given data source. Used at snapshot planning time
+ * (`isIncrementalRefreshEnabledForSnapshot`) and validation time
  * (`validateIncrementalPipeline`).
  *
  * Resolution order:
- * 1. If the experiment is in `incrementalOptInExperimentIds`, it always uses
- *    incremental (regardless of the default `mode`). The opt-in list is the
- *    explicit signal so it wins over `excludedExperimentIds`.
- * 2. If the default `mode` is `"incremental"`, fall back to the existing
- *    include/exclude semantics.
- * 3. Otherwise, incremental is not enabled for the experiment.
+ * 1. If `mode === "incremental"`, apply include/exclude semantics. Opt-in is
+ *    ignored here — every experiment is already incremental by default, so
+ *    `excludedExperimentIds` is the only meaningful per-experiment override.
+ * 2. Else if the experiment is in `incrementalOptInExperimentIds`, it runs
+ *    incremental (e.g. opting specific experiments into incremental while
+ *    the default mode stays ephemeral).
+ * 3. Otherwise, not incremental.
  */
 export function isExperimentIncrementalEnabled(
   settings: DataSourcePipelineSettings | undefined,
@@ -26,22 +26,20 @@ export function isExperimentIncrementalEnabled(
 ): boolean {
   if (!settings || !settings.allowWriting) return false;
 
-  if (settings.incrementalOptInExperimentIds?.includes(experimentId)) {
+  if (settings.mode === "incremental") {
+    if (settings.excludedExperimentIds?.includes(experimentId)) return false;
+    if (
+      settings.includedExperimentIds !== undefined &&
+      !settings.includedExperimentIds.includes(experimentId)
+    ) {
+      return false;
+    }
     return true;
   }
 
-  if (settings.mode !== "incremental") return false;
-
-  if (settings.excludedExperimentIds?.includes(experimentId)) return false;
-
-  if (
-    settings.includedExperimentIds !== undefined &&
-    !settings.includedExperimentIds.includes(experimentId)
-  ) {
-    return false;
-  }
-
-  return true;
+  return (
+    settings.incrementalOptInExperimentIds?.includes(experimentId) ?? false
+  );
 }
 
 export type PipelineValidationResult = {

@@ -12,7 +12,10 @@ import {
   ExperimentTemplateInterface,
   MetricOverride,
 } from "shared/types/experiment";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import {
+  DataSourceInterfaceWithParams,
+  DataSourcePipelineSettings,
+} from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
 import { getValidDate } from "shared/dates";
 import { isExperimentIncrementalEnabled } from "shared/enterprise";
@@ -876,6 +879,70 @@ export function getIsExperimentIncludedInIncrementalRefresh(
   }
 
   return isExperimentIncrementalEnabled(pipelineSettings, experimentId);
+}
+
+// Returns updated pipeline settings that disable incremental refresh for the
+// given experiment. Mirror of `getPipelineSettingsAfterReenablingExperiment`.
+//
+// - Always drops the experiment from `incrementalOptInExperimentIds`
+//   (the opt-in signal in non-incremental modes).
+// - Adds it to `excludedExperimentIds` only when `mode === "incremental"`,
+//   since excluded is only consulted in that mode.
+export function getPipelineSettingsAfterDisablingExperiment(
+  pipelineSettings: DataSourcePipelineSettings | undefined,
+  experimentId: string,
+): DataSourcePipelineSettings | undefined {
+  if (!pipelineSettings) return pipelineSettings;
+
+  const next: DataSourcePipelineSettings = { ...pipelineSettings };
+
+  const optIn = next.incrementalOptInExperimentIds;
+  if (optIn?.includes(experimentId)) {
+    const filtered = optIn.filter((id) => id !== experimentId);
+    next.incrementalOptInExperimentIds =
+      filtered.length > 0 ? filtered : undefined;
+  }
+
+  if (next.mode === "incremental") {
+    const excluded = next.excludedExperimentIds ?? [];
+    if (!excluded.includes(experimentId)) {
+      next.excludedExperimentIds = [...excluded, experimentId];
+    }
+  }
+
+  return next;
+}
+
+// Returns updated pipeline settings that re-enable incremental refresh for
+// the given experiment. Mirror of `getPipelineSettingsAfterDisablingExperiment`.
+//
+// - Always drops the experiment from `excludedExperimentIds`
+//   (the "force off" signal in incremental mode).
+// - Adds it to `incrementalOptInExperimentIds` only when `mode === "ephemeral"`,
+//   since opt-in is ignored in incremental mode and disabled mode doesn't
+//   run anything.
+export function getPipelineSettingsAfterReenablingExperiment(
+  pipelineSettings: DataSourcePipelineSettings | undefined,
+  experimentId: string,
+): DataSourcePipelineSettings | undefined {
+  if (!pipelineSettings) return pipelineSettings;
+
+  const next: DataSourcePipelineSettings = { ...pipelineSettings };
+
+  const excluded = next.excludedExperimentIds;
+  if (excluded?.includes(experimentId)) {
+    const filtered = excluded.filter((id) => id !== experimentId);
+    next.excludedExperimentIds = filtered.length > 0 ? filtered : undefined;
+  }
+
+  if (next.mode === "ephemeral") {
+    const optIn = next.incrementalOptInExperimentIds ?? [];
+    if (!optIn.includes(experimentId)) {
+      next.incrementalOptInExperimentIds = [...optIn, experimentId];
+    }
+  }
+
+  return next;
 }
 
 // Extracts available metrics and groups (for result filtering) from experiment metrics

@@ -238,15 +238,15 @@ export type DataSourcePipelineSettings = {
    */
   excludedExperimentIds?: string[];
   /**
-   * Experiments explicitly opted into incremental refresh, independent of `mode`.
-   * These run with incremental refresh even when `mode === "ephemeral"`.
-   * If incremental fails for them at run time, they fall back to whatever
-   * `mode` says (ephemeral or inline).
+   * Experiments explicitly opted into incremental refresh while the data
+   * source's default `mode` is not `"incremental"` (typically `"ephemeral"`).
+   * Ignored when `mode === "incremental"` — use `includedExperimentIds` /
+   * `excludedExperimentIds` for per-experiment scoping in that mode.
    *
-   * The incremental write configuration (writeDataset, etc.) and warehouse
-   * permissions must still be valid for these experiments to succeed; the
-   * UI enforces this by running the same incremental validation probes
-   * whenever this list is non-empty.
+   * If incremental fails at run time, these experiments fall back to whatever
+   * `mode` says. The incremental write configuration (writeDataset, etc.)
+   * must still be valid; the UI enforces this by running the incremental
+   * validation probes whenever this list is non-empty.
    */
   incrementalOptInExperimentIds?: string[];
 };

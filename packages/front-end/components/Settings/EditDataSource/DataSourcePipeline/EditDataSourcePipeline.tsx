@@ -147,11 +147,9 @@ export const EditDataSourcePipeline = ({
         includedExperimentIds: formValues.applyToAllExperiments
           ? undefined
           : formValues.includedExperimentIds,
-        // Only persist when the data source supports incremental, the
-        // user has actually opted experiments in, AND the default mode is
-        // not incremental (in which case opt-in IDs are meaningless —
-        // every experiment is already incremental — and stale entries
-        // could silently override `excludedExperimentIds`).
+        // Opt-in is only meaningful when the default mode isn't already
+        // incremental, so we only persist it for ephemeral data sources
+        // that support incremental.
         incrementalOptInExperimentIds:
           supportsIncremental &&
           optInIds.length > 0 &&
