@@ -181,7 +181,7 @@ export default function EditFeatureFlagValuesModal({
         name: v.name,
         description: v.description,
         key: v.key,
-        screenshots: v.screenshots ?? [],
+        screenshots: v.screenshots,
         weight: latestPhase?.variationWeights?.[i] ?? 0,
         value:
           linkedFeatureInfo.values.find((x) => x.variationId === v.id)?.value ??
