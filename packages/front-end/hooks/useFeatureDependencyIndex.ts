@@ -26,6 +26,8 @@ export function useFeatureDependencyIndex(): UseFeatureDependencyIndexReturn {
       );
       setDependencyIndex(new Set(res.prerequisiteFeatureIds ?? []));
       hasFetched.current = true;
+    } catch {
+      // leave dependencyIndex null so the filter can retry on next activation
     } finally {
       setLoading(false);
       inflightRef.current = false;

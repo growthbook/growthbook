@@ -44,6 +44,8 @@ export function useFeatureRampStates(): UseFeatureRampStatesReturn {
           ids.forEach((id) => cachedIds.current.add(id));
           setRampStates((prev) => ({ ...prev, ...incoming }));
         }
+      } catch {
+        // leave state unchanged so the filter can retry on next activation
       } finally {
         setLoading(false);
         inflightKey.current = null;

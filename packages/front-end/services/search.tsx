@@ -309,7 +309,13 @@ export function useSearch<T extends { id: string }>({
       filtered = filterResults(filtered);
     }
     return { filtered, syntaxFilters, searchTerm };
-  }, [value, miniSearch, filterResults, syntaxFilterPassthrough, transformQuery]);
+  }, [
+    value,
+    miniSearch,
+    filterResults,
+    syntaxFilterPassthrough,
+    transformQuery,
+  ]);
 
   const previousSearchTerm = useRef(searchTerm);
   const hasSearchTerm = searchTerm.length > 0;
