@@ -190,42 +190,48 @@ describe("BigQuery KLL quantile sketch methods", () => {
     integration = new BigQuery("", {});
   });
 
-  it("reports KLL support", () => {
-    expect(integration.hasQuantileKLL()).toBe(true);
+  it("reports quantile sketch support", () => {
+    expect(integration.hasQuantileSketch()).toBe(true);
   });
 
-  it("maps kll data type to BYTES", () => {
-    expect(integration.getSqlDialect().getDataType("kll")).toBe("BYTES");
+  it("maps quantileSketch data type to BYTES", () => {
+    expect(integration.getSqlDialect().getDataType("quantileSketch")).toBe(
+      "BYTES",
+    );
   });
 
-  it("generates KLL INIT with hardcoded precision 1000", () => {
-    expect(integration.getSqlDialect().kllInit("m.value")).toBe(
+  it("generates quantile sketch INIT with hardcoded precision 1000", () => {
+    expect(integration.getSqlDialect().quantileSketchInit("m.value")).toBe(
       "KLL_QUANTILES.INIT_FLOAT64(m.value, 1000)",
     );
   });
 
-  it("generates KLL MERGE_PARTIAL", () => {
-    expect(integration.getSqlDialect().kllMergePartial("sketch_col")).toBe(
-      "KLL_QUANTILES.MERGE_PARTIAL(sketch_col)",
-    );
+  it("generates quantile sketch MERGE_PARTIAL", () => {
+    expect(
+      integration.getSqlDialect().quantileSketchMergePartial("sketch_col"),
+    ).toBe("KLL_QUANTILES.MERGE_PARTIAL(sketch_col)");
   });
 
-  it("generates KLL EXTRACT_POINT", () => {
+  it("generates quantile sketch EXTRACT_POINT", () => {
     expect(
-      integration.getSqlDialect().kllExtractPoint("sketch_col", 0.95),
+      integration
+        .getSqlDialect()
+        .quantileSketchExtractPoint("sketch_col", 0.95),
     ).toBe("KLL_QUANTILES.EXTRACT_POINT_FLOAT64(sketch_col, 0.95)");
   });
 
-  it("generates KLL EXTRACT (quantile array)", () => {
+  it("generates quantile sketch EXTRACT (quantile array)", () => {
     expect(
-      integration.getSqlDialect().kllExtractQuantiles("sketch_col", 100),
+      integration
+        .getSqlDialect()
+        .quantileSketchExtractQuantiles("sketch_col", 100),
     ).toBe("KLL_QUANTILES.EXTRACT_FLOAT64(sketch_col, 100)");
   });
 
   it("generates rank approximation via CDF counting", () => {
     const sql = integration
       .getSqlDialect()
-      .kllRankApprox("m.sketch", "qm.q_hat", "m.n_events", 100);
+      .quantileSketchRankApprox("m.sketch", "qm.q_hat", "m.n_events", 100);
     // 100 quantiles → 101 points at levels {0, 1/100, ..., 1}.
     // count of points strictly below percentile p is ≈100p, so divide by 100
     // (not 101) for an unbiased estimate.
@@ -235,8 +241,8 @@ describe("BigQuery KLL quantile sketch methods", () => {
     expect(sql).toContain("COALESCE(");
   });
 
-  it("generates quantile grid columns from a KLL sketch", () => {
-    const grid = integration.getKllQuantileGridColumns(
+  it("generates quantile grid columns from a quantile sketch", () => {
+    const grid = integration.getQuantileSketchGridColumns(
       { type: "event", quantile: 0.9, ignoreZeros: false },
       "m0_sketch",
       "m0_",
@@ -267,7 +273,7 @@ describe("BigQuery KLL quantile sketch methods", () => {
       metric,
       useDenominator: false,
     });
-    expect(metadata.intermediateDataType).toBe("kll");
+    expect(metadata.intermediateDataType).toBe("quantileSketch");
     expect(metadata.partialAggregationFunction("col")).toBe(
       "KLL_QUANTILES.INIT_FLOAT64(col, 1000)",
     );
@@ -345,7 +351,7 @@ describe("BigQuery pre-built sketch column aggregations (hll merge / kll merge)"
       metric,
       useDenominator: false,
     });
-    expect(metadata.intermediateDataType).toBe("kll");
+    expect(metadata.intermediateDataType).toBe("quantileSketch");
     // Partial step must MERGE_PARTIAL the existing sketch, never INIT.
     expect(metadata.partialAggregationFunction("col")).toBe(
       "KLL_QUANTILES.MERGE_PARTIAL(col)",

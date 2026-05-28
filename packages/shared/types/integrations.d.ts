@@ -27,7 +27,12 @@ export interface PipelineIntegration {
   getDropUnitsTableQuery(params: { fullTablePath: string }): string;
 }
 
-export type ExternalIdCallback = (id: string) => Promise<void>;
+// Optional metadata persisted alongside externalId and passed to cancelQuery
+// (e.g. BigQuery job location).
+export type ExternalIdCallback = (
+  id: string,
+  metadata?: Record<string, string>,
+) => Promise<void>;
 
 export type DataType =
   | "string"
@@ -37,7 +42,7 @@ export type DataType =
   | "date"
   | "timestamp"
   | "hll"
-  | "kll";
+  | "quantileSketch";
 
 export type MetricAggregationType = "pre" | "post" | "noWindow";
 
@@ -332,6 +337,7 @@ export interface DropOldIncrementalUnitsQueryParams {
 
 export interface AlterNewIncrementalUnitsQueryParams {
   unitsTableName: string;
+  unitsTableFullName: string;
   unitsTempTableFullName: string;
 }
 

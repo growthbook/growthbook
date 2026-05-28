@@ -5915,6 +5915,338 @@ export async function getFeaturesDependents(
   return res.status(200).json({ status: 200, dependents });
 }
 
+// ---------------------------------------------------------------------------
+// Advanced search endpoints
+// ---------------------------------------------------------------------------
+
+function extractAttributesFromCondition(condition: string): string[] {
+  try {
+    const parsed = JSON.parse(condition);
+    if (!parsed || typeof parsed !== "object") return [];
+    return extractKeysFromConditionObj(parsed);
+  } catch {
+    return [];
+  }
+}
+
+function extractKeysFromConditionObj(obj: Record<string, unknown>): string[] {
+  const keys: string[] = [];
+  for (const [key, value] of Object.entries(obj)) {
+    if (key.startsWith("$")) {
+      if (Array.isArray(value)) {
+        for (const item of value) {
+          if (item && typeof item === "object") {
+            keys.push(...extractKeysFromConditionObj(item));
+          }
+        }
+      }
+    } else {
+      keys.push(key);
+    }
+  }
+  return keys;
+}
+
+function extractValuesFromRule(rule: FeatureRule): string[] {
+  const values: string[] = [];
+  if (rule.type === "force") {
+    values.push(rule.value);
+  } else if (rule.type === "rollout") {
+    values.push(rule.value);
+  } else if (rule.type === "experiment") {
+    for (const v of rule.values) values.push(v.value);
+  } else if (rule.type === "experiment-ref") {
+    for (const v of rule.variations) values.push(v.value);
+  } else if (rule.type === "safe-rollout") {
+    values.push(rule.controlValue, rule.variationValue);
+  }
+  return values;
+}
+
+function extractAttributesFromRule(rule: FeatureRule): string[] {
+  const attrs: string[] = [];
+  if (rule.condition) {
+    attrs.push(...extractAttributesFromCondition(rule.condition));
+  }
+  if ("hashAttribute" in rule && rule.hashAttribute) {
+    attrs.push(rule.hashAttribute);
+  }
+  if ("fallbackAttribute" in rule && rule.fallbackAttribute) {
+    attrs.push(rule.fallbackAttribute);
+  }
+  return attrs;
+}
+
+function extractSavedGroupIdsFromRule(rule: FeatureRule): string[] {
+  const ids: string[] = [];
+  for (const sg of rule.savedGroups ?? []) {
+    ids.push(...sg.ids);
+  }
+  return ids;
+}
+
+function extractPrerequisiteIdsFromFeature(
+  feature: FeatureInterface,
+  rules: FeatureRule[],
+): string[] {
+  const ids: string[] = [];
+  for (const p of feature.prerequisites ?? []) ids.push(p.id);
+  for (const r of rules) {
+    for (const p of r.prerequisites ?? []) ids.push(p.id);
+  }
+  for (const env of Object.values(feature.environmentSettings ?? {})) {
+    for (const p of env.prerequisites ?? []) ids.push(p.id);
+  }
+  return ids;
+}
+
+export async function getFeatureContentSearch(
+  req: AuthRequest<
+    null,
+    Record<string, never>,
+    {
+      valueContains?: string;
+      attribute?: string;
+      savedGroup?: string;
+      prerequisite?: string;
+      experiment?: string;
+      bandit?: string;
+    }
+  >,
+  res: Response<
+    { status: 200; matchingIds: string[] },
+    EventUserForResponseLocals
+  >,
+) {
+  const context = getContextFromReq(req);
+  const {
+    valueContains,
+    attribute,
+    savedGroup,
+    prerequisite,
+    experiment,
+    bandit,
+  } = req.query;
+
+  if (
+    !valueContains &&
+    !attribute &&
+    !savedGroup &&
+    !prerequisite &&
+    !experiment &&
+    !bandit
+  ) {
+    return res.status(200).json({ status: 200, matchingIds: [] });
+  }
+
+  const [allFeatures, draftRevisions] = await Promise.all([
+    getAllFeatures(context, {}),
+    getRevisionsByStatus(context as ReqContext, [...ACTIVE_DRAFT_STATUSES]),
+  ]);
+
+  const draftsByFeatureId = new Map<
+    string,
+    { defaultValues: string[]; rules: FeatureRule[] }
+  >();
+  for (const rev of draftRevisions) {
+    const existing = draftsByFeatureId.get(rev.featureId);
+    if (existing) {
+      existing.defaultValues.push(rev.defaultValue);
+      existing.rules.push(...rev.rules);
+    } else {
+      draftsByFeatureId.set(rev.featureId, {
+        defaultValues: [rev.defaultValue],
+        rules: [...rev.rules],
+      });
+    }
+  }
+
+  const matchingIds: string[] = [];
+
+  for (let i = 0; i < allFeatures.length; i++) {
+    await yieldEventLoop(i);
+    const feature = allFeatures[i];
+    const draft = draftsByFeatureId.get(feature.id);
+
+    const liveRules = feature.rules;
+    const allRules = draft ? [...liveRules, ...draft.rules] : liveRules;
+    const allDefaults = draft
+      ? [feature.defaultValue, ...draft.defaultValues]
+      : [feature.defaultValue];
+
+    if (valueContains) {
+      const pattern = valueContains.toLowerCase();
+      const allValues = [
+        ...allDefaults,
+        ...allRules.flatMap(extractValuesFromRule),
+      ];
+      if (!allValues.some((v) => v.toLowerCase().includes(pattern))) continue;
+    }
+
+    if (attribute) {
+      const allAttrs = allRules.flatMap(extractAttributesFromRule);
+      if (!allAttrs.includes(attribute)) continue;
+    }
+
+    if (savedGroup) {
+      const allSgIds = allRules.flatMap(extractSavedGroupIdsFromRule);
+      if (!allSgIds.includes(savedGroup)) continue;
+    }
+
+    if (prerequisite) {
+      const allPrereqIds = extractPrerequisiteIdsFromFeature(feature, allRules);
+      if (!allPrereqIds.includes(prerequisite)) continue;
+    }
+
+    if (experiment) {
+      const linked = feature.linkedExperiments ?? [];
+      if (!linked.includes(experiment)) continue;
+    }
+
+    if (bandit) {
+      const linked = feature.linkedExperiments ?? [];
+      if (!linked.includes(bandit)) continue;
+    }
+
+    matchingIds.push(feature.id);
+  }
+
+  res.status(200).json({ status: 200, matchingIds });
+}
+
+export async function getFeatureDependencyIndex(
+  req: AuthRequest,
+  res: Response<
+    { status: 200; prerequisiteFeatureIds: string[] },
+    EventUserForResponseLocals
+  >,
+) {
+  const context = getContextFromReq(req);
+  const allFeatures = await getAllFeatures(context, { includeArchived: true });
+
+  const prereqIds = new Set<string>();
+  for (let i = 0; i < allFeatures.length; i++) {
+    await yieldEventLoop(i);
+    const feature = allFeatures[i];
+    for (const p of feature.prerequisites ?? []) prereqIds.add(p.id);
+    for (const r of feature.rules) {
+      for (const p of r.prerequisites ?? []) prereqIds.add(p.id);
+    }
+    for (const env of Object.values(feature.environmentSettings ?? {})) {
+      for (const p of env.prerequisites ?? []) prereqIds.add(p.id);
+    }
+  }
+
+  res.status(200).json({ status: 200, prerequisiteFeatureIds: [...prereqIds] });
+}
+
+export async function getFeatureRampStates(
+  req: AuthRequest<null, Record<string, never>, { ids?: string }>,
+  res: Response<
+    {
+      status: 200;
+      features: Record<string, { id: string; name: string; status: string }>;
+    },
+    EventUserForResponseLocals
+  >,
+) {
+  const context = getContextFromReq(req);
+  const featureIds = req.query.ids
+    ? req.query.ids.split(",").filter(Boolean)
+    : undefined;
+
+  const NON_TERMINAL_STATUSES = [
+    "pending",
+    "ready",
+    "running",
+    "paused",
+    "pending-approval",
+  ];
+
+  const allSchedules = await context.models.rampSchedules.getAll();
+  const activeSchedules = allSchedules.filter((s) =>
+    NON_TERMINAL_STATUSES.includes(s.status),
+  );
+
+  const result: Record<string, { id: string; name: string; status: string }> =
+    {};
+
+  for (const schedule of activeSchedules) {
+    if (schedule.entityType !== "feature") continue;
+    const entityId = schedule.entityId;
+    if (featureIds && !featureIds.includes(entityId)) continue;
+    if (!result[entityId]) {
+      result[entityId] = {
+        id: schedule.id,
+        name: schedule.name,
+        status: schedule.status,
+      };
+    }
+  }
+
+  res.status(200).json({ status: 200, features: result });
+}
+
+export async function getFeatureExperimentStates(
+  req: AuthRequest<null, Record<string, never>, { ids?: string }>,
+  res: Response<
+    {
+      status: 200;
+      features: Record<
+        string,
+        {
+          hasTempRollout: boolean;
+        }
+      >;
+    },
+    EventUserForResponseLocals
+  >,
+) {
+  const context = getContextFromReq(req);
+  const featureIds = req.query.ids
+    ? req.query.ids.split(",").filter(Boolean)
+    : undefined;
+
+  const allExperiments = await getAllExperiments(context, {
+    includeArchived: false,
+  });
+
+  const tempRolloutExpIds = new Set<string>();
+
+  for (const exp of allExperiments) {
+    if (
+      exp.status === "stopped" &&
+      !exp.excludeFromPayload &&
+      (exp.linkedFeatures?.length ||
+        exp.hasURLRedirects ||
+        exp.hasVisualChangesets)
+    ) {
+      tempRolloutExpIds.add(exp.id);
+    }
+  }
+
+  const allFeatures = await getAllFeatures(context, {});
+  const targetFeatures = featureIds
+    ? allFeatures.filter((f) => featureIds.includes(f.id))
+    : allFeatures;
+
+  const result: Record<string, { hasTempRollout: boolean }> = {};
+
+  for (let i = 0; i < targetFeatures.length; i++) {
+    await yieldEventLoop(i);
+    const feature = targetFeatures[i];
+    const linked = feature.linkedExperiments ?? [];
+
+    const hasTempRollout = linked.some((id) => tempRolloutExpIds.has(id));
+
+    if (hasTempRollout) {
+      result[feature.id] = { hasTempRollout };
+    }
+  }
+
+  res.status(200).json({ status: 200, features: result });
+}
+
 export async function getFeatureWatchers(
   req: AuthRequest<null, { id: string }>,
   res: Response,

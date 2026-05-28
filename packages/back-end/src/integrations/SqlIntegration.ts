@@ -150,7 +150,7 @@ import { getFeatureEvalDiagnosticsQuery as getFeatureEvalDiagnosticsQueryFromSql
 import { getFilterColumnsClause } from "back-end/src/integrations/sql/clauses/filter-columns-clause";
 import { getFreeFormQuery } from "back-end/src/integrations/sql/queries/free-form-query";
 import { getIdentitiesCTE } from "back-end/src/integrations/sql/ctes/identities-cte";
-import { getKllQuantileGridColumns as getKllQuantileGridColumnsFromSql } from "back-end/src/integrations/sql/columns/kll-quantile-grid-columns";
+import { getQuantileSketchGridColumns as getQuantileSketchGridColumnsFromSql } from "back-end/src/integrations/sql/columns/quantile-sketch-grid-columns";
 import { getMetricAnalysisQuery as buildMetricAnalysisQuerySql } from "back-end/src/integrations/sql/queries/metric-analysis-query";
 import { getMetricSourceTableSchema } from "back-end/src/integrations/sql/fact-metrics/metric-source-table-schema";
 import { getMetricValueQuery as buildMetricValueQuerySql } from "back-end/src/integrations/sql/queries/metric-value-query";
@@ -193,6 +193,7 @@ export default abstract class SqlIntegration
     metadata?: QueryMetadata,
   ): Promise<QueryResponse>;
   async cancelQuery(externalId: string): Promise<void> {
+    // No-op default; warehouses with remote job control override.
     logger.debug(`Cancel query: ${externalId} - not implemented`);
   }
   abstract getSensitiveParamKeys(): string[];
@@ -257,7 +258,7 @@ export default abstract class SqlIntegration
       hasEfficientPercentiles: this.hasEfficientPercentile(),
       canGroupPercentileCappedMetrics: this.canGroupPercentileCappedMetrics(),
       hasCountDistinctHLL: this.getSqlDialect().hasCountDistinctHLL(),
-      hasQuantileKLL: this.hasQuantileKLL(),
+      hasQuantileSketch: this.hasQuantileSketch(),
       hasIncrementalRefresh: this.canRunIncrementalRefreshQueries(),
       maxColumns: 1000,
     };
@@ -328,7 +329,7 @@ export default abstract class SqlIntegration
   canGroupPercentileCappedMetrics(): boolean {
     return true;
   }
-  hasQuantileKLL(): boolean {
+  hasQuantileSketch(): boolean {
     return false;
   }
   supportsLimitZeroColumnValidation(): boolean {
@@ -1450,17 +1451,17 @@ export default abstract class SqlIntegration
   }
 
   /**
-   * Like getQuantileGridColumns but extracts points from a merged KLL sketch
-   * column instead of calling APPROX_PERCENTILE on raw values. Used by the
-   * incremental-refresh path where the metric source table stores per-user-date
-   * sketches that are merged at stats time.
+   * Like getQuantileGridColumns but extracts points from a merged quantile
+   * sketch column instead of calling APPROX_PERCENTILE on raw values. Used by
+   * the incremental-refresh path where the metric source table stores
+   * per-user-date sketches that are merged at stats time.
    */
-  getKllQuantileGridColumns(
+  getQuantileSketchGridColumns(
     metricQuantileSettings: MetricQuantileSettings,
     sketchCol: string,
     prefix: string,
   ) {
-    return getKllQuantileGridColumnsFromSql(
+    return getQuantileSketchGridColumnsFromSql(
       this.getSqlDialect(),
       metricQuantileSettings,
       sketchCol,
@@ -1806,7 +1807,7 @@ export default abstract class SqlIntegration
         return "TIMESTAMP";
       case "hll":
         return "VARBINARY";
-      case "kll":
+      case "quantileSketch":
         return "VARBINARY";
       default: {
         const _: never = dataType;
@@ -2118,10 +2119,10 @@ export default abstract class SqlIntegration
           m.numerator.factTableId === params.factTableId &&
           quantileMetricType(m) === "event",
       ) &&
-      !this.hasQuantileKLL()
+      !this.hasQuantileSketch()
     ) {
       throw new Error(
-        "Event quantile metrics with incremental refresh require a data source that supports KLL quantile sketches.",
+        "Event quantile metrics with incremental refresh require a data source that supports quantile sketches.",
       );
     }
 
@@ -2798,7 +2799,7 @@ export default abstract class SqlIntegration
             .filter((d) => d.quantileMetric === "event")
             .map(
               (d) =>
-                `, ${this.getSqlDialect().kllMergePartial(`${tableAliasForSource(d.numeratorSourceIndex)}.${encodeMetricIdForColumnName(d.metric.id)}_value`)} AS ${d.alias}_sketch`,
+                `, ${this.getSqlDialect().quantileSketchMergePartial(`${tableAliasForSource(d.numeratorSourceIndex)}.${encodeMetricIdForColumnName(d.metric.id)}_value`)} AS ${d.alias}_sketch`,
             )
             .join("\n")}
         FROM __experimentUnits u
@@ -2819,7 +2820,7 @@ export default abstract class SqlIntegration
           ${metricData
             .filter((d) => d.quantileMetric === "event")
             .map((d) =>
-              this.getKllQuantileGridColumns(
+              this.getQuantileSketchGridColumns(
                 d.metricQuantileSettings,
                 `${d.alias}_sketch`,
                 `${d.alias}_`,
@@ -2871,7 +2872,7 @@ export default abstract class SqlIntegration
                 const nEventsCol = `COALESCE(${localAlias}.${encodeMetricIdForColumnName(data.metric.id)}_n_events, 0)`;
                 const sketchCol = `${localAlias}.${encodeMetricIdForColumnName(data.metric.id)}_value`;
                 const thresholdCol = `qm.${data.alias}_quantile`;
-                return `, ${this.getSqlDialect().kllRankApprox(sketchCol, thresholdCol, nEventsCol, 100)} AS ${data.alias}_value
+                return `, ${this.getSqlDialect().quantileSketchRankApprox(sketchCol, thresholdCol, nEventsCol, 100)} AS ${data.alias}_value
                 , ${nEventsCol} AS ${data.alias}_n_events`;
               }
 

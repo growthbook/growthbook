@@ -9,6 +9,7 @@ import { featureHasEnvironment } from "shared/util";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import Link from "@/ui/Link";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import FeatureModal from "@/components/Features/FeatureModal";
 import { featureStatusColors } from "@/components/Features/FeaturesOverview";
 import track from "@/services/track";
@@ -44,6 +45,11 @@ import {
   draftStatusDots,
   draftStatusTooltip,
 } from "@/components/Features/RevisionStatusBadge";
+import { useFeatureContentSearch } from "@/hooks/useFeatureContentSearch";
+import type { ContentSearchParams } from "@/hooks/useFeatureContentSearch";
+import { useFeatureRampStates } from "@/hooks/useFeatureRampStates";
+import { useFeatureDependencyIndex } from "@/hooks/useFeatureDependencyIndex";
+import { useFeatureExperimentStates } from "@/hooks/useFeatureExperimentStates";
 import ProjectBadges from "@/components/ProjectBadges";
 import Table, {
   TableHeader,
@@ -55,6 +61,34 @@ import Table, {
 import FeaturesDraftTable from "./FeaturesDraftTable";
 
 const NUM_PER_PAGE = 20;
+
+const CONTENT_SEARCH_PREFIXES: {
+  prefix: string;
+  paramKey: keyof ContentSearchParams;
+}[] = [
+  { prefix: "value:", paramKey: "valueContains" },
+  { prefix: "attribute:", paramKey: "attribute" },
+  { prefix: "saved-group:", paramKey: "savedGroup" },
+  { prefix: "experiment:", paramKey: "experiment" },
+  { prefix: "bandit:", paramKey: "bandit" },
+];
+const CONTENT_SEARCH_PREFIX_STRINGS = CONTENT_SEARCH_PREFIXES.map(
+  (p) => p.prefix,
+);
+
+function extractContentSearchParams(searchStr: string): ContentSearchParams {
+  const params: ContentSearchParams = {};
+  for (const token of searchStr.split(/\s+/)) {
+    if (!token.startsWith("has:")) continue;
+    const val = token.slice(4);
+    for (const { prefix, paramKey } of CONTENT_SEARCH_PREFIXES) {
+      if (val.startsWith(prefix)) {
+        params[paramKey] = decodeURIComponent(val.slice(prefix.length));
+      }
+    }
+  }
+  return params;
+}
 
 // Feature table column widths (shared by header and body for alignment)
 const FEATURE_TABLE_COLUMN_WIDTH = {
@@ -112,10 +146,21 @@ export default function FeaturesPage() {
   const statusHook = useFeaturesStatus();
   const draftHook = useFeatureDraftStates();
   const staleHook = useFeatureStaleStates();
+  const rampHook = useFeatureRampStates();
+  const dependencyHook = useFeatureDependencyIndex();
+  const experimentHook = useFeatureExperimentStates();
+
+  const archivedFilter = useMemo(
+    () =>
+      showArchived
+        ? undefined
+        : (items: FeatureInterface[]) => items.filter((f) => !f.archived),
+    [showArchived],
+  );
 
   const {
     searchInputProps,
-    items,
+    items: searchItems,
     SortableTableColumnHeader,
     setSearchValue,
     syntaxFilters,
@@ -125,10 +170,24 @@ export default function FeaturesPage() {
     environmentStatus: statusHook.environmentStatus,
     draftStates: draftHook.draftStates,
     staleStates: staleHook.staleStates,
-    filterResults: !showArchived
-      ? (items) => items.filter((f) => !f.archived)
-      : undefined,
+    rampStates: rampHook.rampStates,
+    dependencyIndex: dependencyHook.dependencyIndex,
+    experimentStates: experimentHook.experimentStates,
+    filterResults: archivedFilter,
+    contentSearchPrefixes: CONTENT_SEARCH_PREFIX_STRINGS,
   });
+
+  const contentSearchParams = useMemo(
+    () => extractContentSearchParams(searchInputProps.value),
+    [searchInputProps.value],
+  );
+  const contentSearch = useFeatureContentSearch(contentSearchParams);
+
+  const items = useMemo(() => {
+    if (!contentSearch.matchingIds) return searchItems;
+    const ids = contentSearch.matchingIds;
+    return searchItems.filter((f) => ids.has(f.id));
+  }, [searchItems, contentSearch.matchingIds]);
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
@@ -176,6 +235,23 @@ export default function FeaturesPage() {
       (f.field === "is" && f.values.includes("stale")) ||
       (f.field === "has" && f.values.includes("stale-env")),
   );
+  const hasRampFilter = syntaxFilters.some(
+    (f) => f.field === "has" && f.values.includes("ramp-schedule"),
+  );
+  const hasDependentsFilter = syntaxFilters.some(
+    (f) => f.field === "has" && f.values.includes("dependents"),
+  );
+  const hasExperimentStateFilter = syntaxFilters.some(
+    (f) =>
+      f.field === "has" &&
+      f.values.some(
+        (v) =>
+          v === "experiments" ||
+          v === "temp-rollout" ||
+          v.startsWith("experiment:") ||
+          v.startsWith("bandit:"),
+      ),
+  );
 
   useEffect(() => {
     if (hasEnvFilter) statusHook.fetchAll();
@@ -192,6 +268,21 @@ export default function FeaturesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasStaleFilter]);
 
+  useEffect(() => {
+    if (hasRampFilter) rampHook.fetchAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasRampFilter]);
+
+  useEffect(() => {
+    if (hasDependentsFilter) dependencyHook.fetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasDependentsFilter]);
+
+  useEffect(() => {
+    if (hasExperimentStateFilter) experimentHook.fetchAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasExperimentStateFilter]);
+
   // fetchSome for visible features when no bulk filter is active
   useEffect(() => {
     const ids = visibleIdsKey ? visibleIdsKey.split(",") : [];
@@ -202,20 +293,35 @@ export default function FeaturesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibleIdsKey]);
 
+  const searchLoading = !!(
+    statusHook.loading ||
+    draftHook.loading ||
+    staleHook.loading ||
+    rampHook.loading ||
+    dependencyHook.loading ||
+    experimentHook.loading ||
+    contentSearch.loading
+  );
+
   const renderFeaturesTable = () => {
     return (
       allFeatures.length > 0 && (
         <Box>
           <Box mb="2">
             <Flex justify="between" mb="3" gap="3" align="center">
-              <Box width="40%" style={{ position: "relative" }}>
-                <Field
-                  placeholder="Search..."
-                  type="search"
-                  containerClassName="mb-0"
-                  {...searchInputProps}
-                />
-              </Box>
+              <Flex align="center" gap="1" width="40%">
+                <Box flexGrow="1" style={{ position: "relative" }}>
+                  <Field
+                    placeholder="Search..."
+                    type="search"
+                    containerClassName="mb-0"
+                    {...searchInputProps}
+                  />
+                </Box>
+                <Box style={{ width: 20, flexShrink: 0 }}>
+                  {searchLoading ? <LoadingSpinner /> : null}
+                </Box>
+              </Flex>
               <FeatureSearchFilters
                 features={allFeatures}
                 searchInputProps={searchInputProps}

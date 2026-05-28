@@ -1052,6 +1052,26 @@ const buildSlackMessageForExperimentWarningEvent = (
       };
     }
 
+    case "no-data": {
+      const text = (experimentName: string) =>
+        `No data yet for experiment ${experimentName}. The most recent update ran successfully but returned no results. Make sure your experiment is tracking properly.`;
+
+      return {
+        text: text(data.experimentName),
+        blocks: [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text:
+                text(`*${data.experimentName}*`) +
+                getExperimentUrlFormatted(data.experimentId),
+            },
+          },
+        ],
+      };
+    }
+
     case "scheduled-status-update-failed": {
       const action =
         data.scheduledStatusUpdateType === "start" ? "start" : "stop";
