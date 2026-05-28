@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
 import { Box, Flex } from "@radix-ui/themes";
@@ -152,34 +152,19 @@ export default function FeaturesPage() {
   const dependencyHook = useFeatureDependencyIndex();
   const experimentHook = useFeatureExperimentStates();
 
-  const [searchValue, setSearchValueState] = useState("");
-  const searchValueRef = useRef("");
-
-  const contentSearchParams = useMemo(
-    () => extractContentSearchParams(searchValue),
-    [searchValue],
+  const archivedFilter = useMemo(
+    () =>
+      showArchived
+        ? undefined
+        : (items: FeatureInterface[]) => items.filter((f) => !f.archived),
+    [showArchived],
   );
-  const contentSearch = useFeatureContentSearch(contentSearchParams);
-
-  const contentSearchMatchingIds = contentSearch.matchingIds;
-  const combinedFilter = useMemo(() => {
-    const filters: ((items: FeatureInterface[]) => FeatureInterface[])[] = [];
-    if (!showArchived)
-      filters.push((items) => items.filter((f) => !f.archived));
-    if (contentSearchMatchingIds)
-      filters.push((items) =>
-        items.filter((f) => contentSearchMatchingIds.has(f.id)),
-      );
-    if (!filters.length) return undefined;
-    return (items: FeatureInterface[]) =>
-      filters.reduce((acc, fn) => fn(acc), items);
-  }, [showArchived, contentSearchMatchingIds]);
 
   const {
     searchInputProps,
-    items,
+    items: searchItems,
     SortableTableColumnHeader,
-    setSearchValue: setSearchValueFromHook,
+    setSearchValue,
     syntaxFilters,
   } = useFeatureSearch({
     allFeatures: allFeatures as unknown as FeatureInterface[],
@@ -190,15 +175,21 @@ export default function FeaturesPage() {
     rampStates: rampHook.rampStates,
     dependencyIndex: dependencyHook.dependencyIndex,
     experimentStates: experimentHook.experimentStates,
-    filterResults: combinedFilter,
+    filterResults: archivedFilter,
     contentSearchPrefixes: CONTENT_SEARCH_PREFIX_STRINGS,
   });
 
-  if (searchInputProps.value !== searchValueRef.current) {
-    searchValueRef.current = searchInputProps.value;
-    setSearchValueState(searchInputProps.value);
-  }
-  const setSearchValue = setSearchValueFromHook;
+  const contentSearchParams = useMemo(
+    () => extractContentSearchParams(searchInputProps.value),
+    [searchInputProps.value],
+  );
+  const contentSearch = useFeatureContentSearch(contentSearchParams);
+
+  const items = useMemo(() => {
+    if (!contentSearch.matchingIds) return searchItems;
+    const ids = contentSearch.matchingIds;
+    return searchItems.filter((f) => ids.has(f.id));
+  }, [searchItems, contentSearch.matchingIds]);
 
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
@@ -304,14 +295,15 @@ export default function FeaturesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibleIdsKey]);
 
-  const searchLoading =
+  const searchLoading = !!(
     statusHook.loading ||
     draftHook.loading ||
     staleHook.loading ||
     rampHook.loading ||
     dependencyHook.loading ||
     experimentHook.loading ||
-    contentSearch.loading;
+    contentSearch.loading
+  );
 
   const renderFeaturesTable = () => {
     return (
@@ -328,7 +320,9 @@ export default function FeaturesPage() {
                     {...searchInputProps}
                   />
                 </Box>
-                {searchLoading && <LoadingSpinner />}
+                <Box style={{ width: 20, flexShrink: 0 }}>
+                  {searchLoading ? <LoadingSpinner /> : null}
+                </Box>
               </Flex>
               <FeatureSearchFilters
                 features={allFeatures}
