@@ -1460,6 +1460,7 @@ main.main {
 .draft-selector-collapsible-content {
   border: 0px !important;
 }
+
 .code-holder {
   margin: 0.5em 0;
 
@@ -1611,12 +1612,8 @@ main.main {
   }
 
   .intro-side {
-    background-color: colors.$purple;
-    background: radial-gradient(
-      at 50% 100%,
-      rgba(109, 18, 228, 0.75),
-      rgb(15, 1, 94)
-    );
+    background: url("/images/login-background.png") lightgray 50% / cover
+      no-repeat;
     color: #fff;
     padding-bottom: 30px;
     vertical-align: middle;
@@ -2198,6 +2195,10 @@ main.main {
     visibility: hidden;
   }
   tr:hover .tr-hover {
+    visibility: visible;
+  }
+  // Radix Table rows may not be native <tr>; show row-hover actions in list tables
+  .rt-TableBody .rt-TableRow:hover .tr-hover {
     visibility: visible;
   }
 
@@ -3496,6 +3497,10 @@ input:disabled {
   align-items: flex-start;
   gap: 7px;
 }
+.tags-cell-content .tags-container {
+  min-width: 0;
+  flex-wrap: nowrap;
+}
 .feature-draft-copy {
   font-size: 14px;
   font-style: italic;
@@ -3665,110 +3670,6 @@ input:disabled {
   background-color: #0c1122 !important;
 }
 
-/* Radix-style pagination for ReactPaginate */
-.pagination-radix-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  list-style: none !important;
-  list-style-type: none !important;
-  padding: 0;
-  margin: 0;
-  flex-direction: row;
-}
-.pagination-radix-container li {
-  list-style: none !important;
-  list-style-type: none !important;
-  margin: 0;
-  padding: 0;
-}
-.pagination-page {
-  margin: 0;
-}
-.pagination-link {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 32px;
-  height: 32px;
-  padding: 0 8px;
-  border-radius: 6px;
-  border: none;
-  background: transparent;
-  color: var(--gray-11);
-  font-size: 14px;
-  font-weight: 400;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  text-decoration: none;
-}
-.pagination-link:hover {
-  background: var(--gray-4);
-  color: var(--gray-12);
-}
-.pagination-active .pagination-link {
-  background: var(--violet-9);
-  color: white;
-  font-weight: 600;
-}
-.pagination-active .pagination-link:hover {
-  background: var(--violet-10);
-}
-.pagination-arrow-container {
-  margin: 0;
-}
-.pagination-link-arrow {
-  display: flex;
-  align-items: left;
-  justify-content: left;
-  min-width: 32px;
-  height: 32px;
-  padding: 6px 8px;
-  border-radius: 6px;
-  border: none;
-  background: transparent;
-  color: var(--gray-11);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  text-decoration: none;
-}
-.pagination-link-arrow:hover {
-  background: var(--gray-4);
-  color: var(--gray-12);
-}
-.pagination-disabled .pagination-link-arrow {
-  color: var(--gray-6);
-  cursor: not-allowed;
-}
-.pagination-disabled .pagination-link-arrow:hover {
-  background: transparent;
-  color: var(--gray-6);
-}
-.pagination-break {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 32px;
-  height: 32px;
-  padding: 0 8px;
-  color: var(--gray-9);
-  font-size: 14px;
-}
-.pagination-arrow {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.pagination-area-radix {
-  min-height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 10px 0;
-}
-
 .needs-attentions-table {
   thead th {
     font-weight: 600;
@@ -3791,6 +3692,86 @@ input:disabled {
 .dashboard-disabled {
   opacity: 50%;
   pointer-events: none;
+}
+
+// react-grid-layout overrides for dashboard blocks
+.dashboard-grid {
+  position: relative;
+
+  // Make sure each grid item is a clean stacking context so the inner
+  // .appbox shadow/border don't get clipped by RGL's positioning. Also need
+  // position:relative so the disabled-resize tooltip overlay can absolutely
+  // position itself in the corner where RGL renders the handle.
+  .dashboard-grid-item {
+    height: 100%;
+    width: 100%;
+    position: relative;
+  }
+
+  // RGL adds .react-resizable-handle on every item; only show it while the
+  // user is actively editing the dashboard. In view/share mode the block is
+  // a static container.
+  .react-resizable-handle {
+    display: none;
+  }
+  &.is-editing .react-resizable-handle {
+    display: block;
+  }
+
+  // Tone down the default Tabler-style resize handle so it blends in with
+  // the Radix violet palette.
+  &.is-editing .react-resizable-handle::after {
+    border-color: var(--violet-9);
+  }
+
+  // When resizing is disabled (edit drawer is open) keep the handle visible
+  // but dimmed, and let the sibling overlay capture hover so we can surface
+  // a tooltip explaining why it's inactive.
+  &.is-resize-disabled .react-resizable-handle {
+    opacity: 0.35;
+    pointer-events: none;
+  }
+
+  // The placeholder RGL shows under a dragging block - match the violet
+  // accent and round the corners to look like an inset block outline.
+  .react-grid-placeholder {
+    background: var(--violet-a4) !important;
+    border: 2px dashed var(--violet-9);
+    border-radius: 6px;
+    opacity: 1 !important;
+  }
+}
+
+// Transparent overlay rendered over the bottom-right corner of a block while
+// the edit drawer is open. Sits on Tooltip's own trigger <span> so Popper
+// anchors correctly. `display: block` is required because <span> is inline
+// by default, which would collapse the overlay.
+.dashboard-resize-handle-disabled-overlay {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  display: block;
+  width: 22px;
+  height: 22px;
+  cursor: not-allowed;
+  z-index: 3;
+}
+
+// Drag handle inside the block toolbar.
+.dashboard-block-drag-handle {
+  cursor: grab;
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+// Inner block container needs to fill the RGL cell so resizing the block
+// shrinks/grows the content area, not just the outer wrapper.
+.dashboard-block.appbox {
+  height: 100%;
+  width: 100%;
+  margin-bottom: 0;
 }
 
 .opacity-0 {

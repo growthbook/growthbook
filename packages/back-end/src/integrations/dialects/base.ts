@@ -56,7 +56,7 @@ export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
         return "TIMESTAMP";
       case "hll":
         return "VARBINARY";
-      case "kll":
+      case "quantileSketch":
         return "VARBINARY";
       default: {
         const _: never = dataType;
@@ -109,33 +109,25 @@ export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
     );
   },
 
-  kllInit: () => {
-    throw new Error(
-      "KLL quantile sketches are not supported by this data source.",
-    );
+  quantileSketchInit: () => {
+    throw new Error("Quantile sketches are not supported by this data source.");
   },
 
-  kllMergePartial: () => {
-    throw new Error(
-      "KLL quantile sketches are not supported by this data source.",
-    );
+  quantileSketchMergePartial: () => {
+    throw new Error("Quantile sketches are not supported by this data source.");
   },
 
-  kllExtractPoint: () => {
-    throw new Error(
-      "KLL quantile sketches are not supported by this data source.",
-    );
+  quantileSketchExtractPoint: () => {
+    throw new Error("Quantile sketches are not supported by this data source.");
   },
 
-  kllExtractQuantiles: () => {
-    throw new Error(
-      "KLL quantile sketches are not supported by this data source.",
-    );
+  quantileSketchExtractQuantiles: () => {
+    throw new Error("Quantile sketches are not supported by this data source.");
   },
 
-  kllRankApprox: () => {
+  quantileSketchRankApprox: () => {
     throw new Error(
-      "KLL rank approximation is not implemented for this data source.",
+      "Quantile sketch rank approximation is not implemented for this data source.",
     );
   },
 

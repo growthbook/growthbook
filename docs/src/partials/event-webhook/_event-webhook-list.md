@@ -1482,7 +1482,7 @@ Triggered when an experiment is created
             dateCreated: string;
             dateUpdated: string;
             name: string;
-            type: "standard" | "multi-armed-bandit";
+            type: "standard" | "multi-armed-bandit" | "holdout";
             project: string;
             hypothesis: string;
             description: string;
@@ -1685,7 +1685,8 @@ Triggered when an experiment is created
             defaultDashboardId?: string | undefined;
             templateId?: string | undefined;
             statusUpdateSchedule?: ({
-                startAt?: string | undefined;
+                /** ISO datetime when the experiment should start. Must be in the future. Setting or clearing this field invalidates any existing staged start (`nextScheduledStatusUpdate`); call POST /experiments/{id}/start to stage the new schedule. */
+                startAt: string;
             } | null) | undefined;
             nextScheduledStatusUpdate?: ({
                 type: "start";
@@ -1737,7 +1738,7 @@ Triggered when an experiment is updated
             dateCreated: string;
             dateUpdated: string;
             name: string;
-            type: "standard" | "multi-armed-bandit";
+            type: "standard" | "multi-armed-bandit" | "holdout";
             project: string;
             hypothesis: string;
             description: string;
@@ -1940,7 +1941,8 @@ Triggered when an experiment is updated
             defaultDashboardId?: string | undefined;
             templateId?: string | undefined;
             statusUpdateSchedule?: ({
-                startAt?: string | undefined;
+                /** ISO datetime when the experiment should start. Must be in the future. Setting or clearing this field invalidates any existing staged start (`nextScheduledStatusUpdate`); call POST /experiments/{id}/start to stage the new schedule. */
+                startAt: string;
             } | null) | undefined;
             nextScheduledStatusUpdate?: ({
                 type: "start";
@@ -1953,7 +1955,7 @@ Triggered when an experiment is updated
             dateCreated?: string | undefined;
             dateUpdated?: string | undefined;
             name?: string | undefined;
-            type?: ("standard" | "multi-armed-bandit") | undefined;
+            type?: ("standard" | "multi-armed-bandit" | "holdout") | undefined;
             project?: string | undefined;
             hypothesis?: string | undefined;
             description?: string | undefined;
@@ -2156,7 +2158,8 @@ Triggered when an experiment is updated
             defaultDashboardId?: string | undefined;
             templateId?: string | undefined;
             statusUpdateSchedule?: ({
-                startAt?: string | undefined;
+                /** ISO datetime when the experiment should start. Must be in the future. Setting or clearing this field invalidates any existing staged start (`nextScheduledStatusUpdate`); call POST /experiments/{id}/start to stage the new schedule. */
+                startAt: string;
             } | null) | undefined;
             nextScheduledStatusUpdate?: ({
                 type: "start";
@@ -2213,7 +2216,7 @@ Triggered when an experiment is deleted
             dateCreated: string;
             dateUpdated: string;
             name: string;
-            type: "standard" | "multi-armed-bandit";
+            type: "standard" | "multi-armed-bandit" | "holdout";
             project: string;
             hypothesis: string;
             description: string;
@@ -2416,7 +2419,8 @@ Triggered when an experiment is deleted
             defaultDashboardId?: string | undefined;
             templateId?: string | undefined;
             statusUpdateSchedule?: ({
-                startAt?: string | undefined;
+                /** ISO datetime when the experiment should start. Must be in the future. Setting or clearing this field invalidates any existing staged start (`nextScheduledStatusUpdate`); call POST /experiments/{id}/start to stage the new schedule. */
+                startAt: string;
             } | null) | undefined;
             nextScheduledStatusUpdate?: ({
                 type: "start";
