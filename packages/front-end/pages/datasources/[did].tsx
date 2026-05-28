@@ -1,12 +1,14 @@
 import { useRouter } from "next/router";
-import React, { FC, useCallback, useState } from "react";
+import React, { FC, useCallback, useEffect, useState } from "react";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
+import {
+  isManagedWarehouseAwaitingProvisioning,
+  supportsEventForwarder,
+} from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiLinkBold } from "react-icons/pi";
 import { datetime } from "shared/dates";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
@@ -75,7 +77,18 @@ const DataSourcePage: FC = () => {
   const { did } = router.query as { did: string };
   const d = getDatasourceById(did);
 
-  const eventsForwarderEnabled = useFeatureIsOn("events-forwarder");
+  const autoOpenEventForwarderSetup = router.query.setupEventForwarder === "1";
+
+  useEffect(() => {
+    if (autoOpenEventForwarderSetup) {
+      router.replace({ pathname: router.pathname, query: { did } }, undefined, {
+        shallow: true,
+      });
+    }
+    // Only strip the query param once on initial mount; downstream auto-open
+    // logic in <EventForwarder> reads the prop value captured here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const combinedMetrics = useCombinedMetrics({});
   const metrics = combinedMetrics.filter((m) => m.datasource === did);
@@ -150,8 +163,7 @@ const DataSourcePage: FC = () => {
 
   const supportsSQL = d.properties?.queryLanguage === "sql";
   const supportsEvents = d.properties?.events || false;
-  const supportsEventForwarder =
-    d.type === "bigquery" || d.type === "snowflake";
+  const datasourceSupportsEventForwarder = supportsEventForwarder(d);
 
   return (
     <div className="container pagecontents">
@@ -438,7 +450,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
               )
             ) : (
               <>
-                {supportsEventForwarder && eventsForwarderEnabled && (
+                {datasourceSupportsEventForwarder && (
                   <Frame>
                     <EventForwarder
                       dataSource={d}
@@ -446,6 +458,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                       onRefresh={async () => {
                         await mutateDefinitions({});
                       }}
+                      autoOpenSetup={autoOpenEventForwarderSetup}
                     />
                   </Frame>
                 )}
