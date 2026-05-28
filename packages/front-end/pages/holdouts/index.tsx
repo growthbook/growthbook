@@ -21,6 +21,7 @@ import { useHoldouts } from "@/hooks/useHoldouts";
 import EmptyState from "@/components/EmptyState";
 import LinkButton from "@/ui/LinkButton";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
+import Callout from "@/ui/Callout";
 
 const NUM_PER_PAGE = 20;
 
@@ -144,11 +145,7 @@ const HoldoutsPage = (): React.ReactElement => {
   }, [filtered.length]);
 
   if (error) {
-    return (
-      <div className="alert alert-danger">
-        An error occurred: {error.message}
-      </div>
-    );
+    return <Callout status="error">An error occurred: {error.message}</Callout>;
   }
   if (loading || !ready) {
     return <LoadingOverlay />;
