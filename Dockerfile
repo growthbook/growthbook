@@ -31,6 +31,7 @@ WORKDIR /usr/local/src/app
 ARG NODE_OPTIONS="--max-old-space-size=8192"
 ENV NODE_OPTIONS="${NODE_OPTIONS}"
 RUN apt-get update && \
+  apt-get -y upgrade && \
   apt-get install -y --no-install-recommends build-essential python3 ca-certificates libkrb5-dev && \
   npm install -g pnpm@10.33.4 node-gyp && \
   apt-get clean && \
@@ -83,6 +84,7 @@ FROM node:${NODE_MAJOR}-slim
 ARG PYTHON_MAJOR
 WORKDIR /usr/local/src/app
 RUN apt-get update && \
+  apt-get -y upgrade && \
   apt-get install -y --no-install-recommends python${PYTHON_MAJOR} ca-certificates libkrb5-3 && \
   npm install -g pnpm@10.33.4 && \
   rm -rf /usr/local/lib/node_modules/npm && \
