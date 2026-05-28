@@ -18,6 +18,8 @@ import {
   thirdPartyTrackingPlugin,
   Trackers,
 } from "./plugins/third-party-tracking";
+import { browserEventsPlugin } from "./plugins/performance/browser-events";
+import type { BrowserEventsSettings } from "./plugins/performance/browser-events";
 
 type WindowContext = Context & {
   uuidCookieName?: string;
@@ -32,7 +34,7 @@ type WindowContext = Context & {
   antiFlicker?: boolean;
   antiFlickerTimeout?: number;
   additionalTrackingCallback?: TrackingCallback;
-};
+} & Partial<BrowserEventsSettings>;
 declare global {
   interface Window {
     _growthbook?: GrowthBook;
@@ -135,29 +137,114 @@ const plugins: Plugin[] = [
   }),
 ];
 
+// Read BrowserEventsSettings from data-* attrs + windowContext, preferring data-*
+const BROWSER_EVENTS_NUM_KEYS: (keyof BrowserEventsSettings)[] = [
+  "cwvSamplingRate",
+  "errorSamplingRate",
+  "pageViewSamplingRate",
+  "engagementSamplingRate",
+  "interactionSamplingRate",
+  "debounceErrorTimeout",
+  "heartbeatIntervalMs",
+  "maxHeartbeats",
+  "rageThreshold",
+  "rageTimeWindowMs",
+  "rageMaxDistancePx",
+];
+const BROWSER_EVENTS_BOOL_KEYS: (keyof BrowserEventsSettings)[] = [
+  "trackFCP",
+  "trackLCP",
+  "trackFID",
+  "trackINP",
+  "trackCLS",
+  "trackTTFB",
+  "trackTBT",
+  "trackScrollDepth",
+  "trackQueryStringChanges",
+  "enableUrlPolling",
+  "collectElementText",
+  "independentSampling",
+];
+const BROWSER_EVENTS_STR_KEYS: (keyof BrowserEventsSettings)[] = [
+  "hashAttribute",
+  "samplingSeed",
+  "clickSelector",
+  "ignoreClickSelector",
+  "sensitiveSelector",
+  "formSelector",
+  "ignoreFormSelector",
+];
+
+const TRUTHY_STRINGS = new Set(["1", "true", "yes", "on"]);
+const FALSY_STRINGS = new Set(["0", "false", "no", "off"]);
+function toBool(v: string): boolean | undefined {
+  const s = v.toLowerCase().trim();
+  if (TRUTHY_STRINGS.has(s)) return true;
+  if (FALSY_STRINGS.has(s)) return false;
+  return undefined;
+}
+
+function readBrowserEventsSettings(): BrowserEventsSettings {
+  const out: Record<string, unknown> = {};
+  for (const k of BROWSER_EVENTS_NUM_KEYS) {
+    const v =
+      dataContext[k] != null
+        ? parseFloat(dataContext[k] as string)
+        : windowContext[k];
+    if (v != null && isFinite(v as number)) out[k] = v;
+  }
+  for (const k of BROWSER_EVENTS_BOOL_KEYS) {
+    const v =
+      dataContext[k] != null
+        ? toBool(dataContext[k] as string)
+        : windowContext[k];
+    if (v != null) out[k] = v;
+  }
+  for (const k of BROWSER_EVENTS_STR_KEYS) {
+    const v = dataContext[k] ?? windowContext[k];
+    if (v != null) out[k] = v;
+  }
+  return out as BrowserEventsSettings;
+}
+
+const browserEventsSettings = readBrowserEventsSettings();
+const performanceEnabled = !!(
+  browserEventsSettings.cwvSamplingRate ||
+  browserEventsSettings.errorSamplingRate ||
+  browserEventsSettings.pageViewSamplingRate ||
+  browserEventsSettings.engagementSamplingRate ||
+  browserEventsSettings.interactionSamplingRate
+);
+
 const tracking = dataContext.tracking || "gtag,gtm,segment";
-if (tracking !== "none") {
-  const trackers = tracking
-    .toLowerCase()
-    .split(",")
-    .map((t) => t.trim());
+const trackers =
+  tracking !== "none"
+    ? tracking
+        .toLowerCase()
+        .split(",")
+        .map((t) => t.trim())
+    : [];
 
-  if (trackers.includes("growthbook")) {
-    plugins.push(
-      growthbookTrackingPlugin({
-        ingestorHost: dataContext.eventIngestorHost,
-      }),
-    );
-  }
+// Perf events need a logger; include even when tracking="none"
+if (trackers.includes("growthbook") || performanceEnabled) {
+  plugins.push(
+    growthbookTrackingPlugin({
+      ingestorHost: dataContext.eventIngestorHost,
+    }),
+  );
+}
 
-  if (!windowContext.trackingCallback) {
-    plugins.push(
-      thirdPartyTrackingPlugin({
-        additionalCallback: windowContext.additionalTrackingCallback,
-        trackers: trackers as Trackers[],
-      }),
-    );
-  }
+if (tracking !== "none" && !windowContext.trackingCallback) {
+  plugins.push(
+    thirdPartyTrackingPlugin({
+      additionalCallback: windowContext.additionalTrackingCallback,
+      trackers: trackers as Trackers[],
+    }),
+  );
+}
+
+if (performanceEnabled) {
+  plugins.push(browserEventsPlugin(browserEventsSettings));
 }
 
 // Create GrowthBook instance
