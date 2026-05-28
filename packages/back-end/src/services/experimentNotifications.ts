@@ -255,6 +255,48 @@ export const notifySrm = async ({
   return triggered && !experiment.pastNotifications?.includes("srm");
 };
 
+export const notifyNoData = async ({
+  context,
+  experiment,
+  snapshot,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  snapshot: ExperimentSnapshotInterface;
+}) => {
+  // Mirror the front-end "No data yet" check: the snapshot ran successfully but
+  // the default analysis returned no variation rows.
+  const analysis = getSnapshotAnalysis(snapshot);
+  const triggered =
+    snapshot.status === "success" &&
+    (analysis?.results?.[0]?.variations?.length ?? 0) === 0;
+
+  await memoizeNotification({
+    context,
+    experiment,
+    type: "no-data",
+    triggered,
+    dispatch: async () => {
+      if (!triggered) return;
+
+      await dispatchEvent({
+        context,
+        experiment,
+        event: "warning",
+        data: {
+          object: {
+            type: "no-data",
+            experimentId: experiment.id,
+            experimentName: experiment.name,
+          },
+        },
+      });
+    },
+  });
+
+  return triggered && !experiment.pastNotifications?.includes("no-data");
+};
+
 type ExperimentSignificanceChange = {
   experimentId: string;
   experimentName: string;
@@ -600,6 +642,15 @@ export const notifyExperimentChange = async ({
     healthSettings,
     decisionCriteria,
   });
+
+  const triggeredNoData = await notifyNoData({
+    context,
+    experiment,
+    snapshot,
+  });
+  if (triggeredNoData) {
+    notificationsTriggered.push("no-data");
+  }
 
   if (currentStatus) {
     const triggeredMultipleExposures = await notifyMultipleExposures({
