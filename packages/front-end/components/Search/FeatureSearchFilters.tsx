@@ -335,13 +335,17 @@ const FeatureSearchFilters: FC<
     expLookupFetched.current = true;
     apiCall<{
       experiments: { id: string; name: string; type: string }[];
-    }>("/experiments?project=&includeArchived=&type=").then((res) => {
-      const map: Record<string, { name: string; type: string }> = {};
-      (res.experiments ?? []).forEach((e) => {
-        map[e.id] = { name: e.name, type: e.type };
+    }>("/experiments?project=&includeArchived=&type=")
+      .then((res) => {
+        const map: Record<string, { name: string; type: string }> = {};
+        (res.experiments ?? []).forEach((e) => {
+          map[e.id] = { name: e.name, type: e.type };
+        });
+        setExpLookup(map);
+      })
+      .catch(() => {
+        expLookupFetched.current = false;
       });
-      setExpLookup(map);
-    });
   }, [anyExpFilterActive, apiCall]);
 
   const hasExpDefinitions = Object.keys(expLookup).length > 0;

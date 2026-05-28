@@ -68,6 +68,8 @@ export function useFeatureContentSearch(
         );
         if (gen !== generationRef.current) return;
         setMatchingIds(new Set(res.matchingIds ?? []));
+      } catch {
+        if (gen === generationRef.current) setMatchingIds(null);
       } finally {
         if (gen === generationRef.current) setLoading(false);
       }
