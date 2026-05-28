@@ -161,11 +161,20 @@ export const postAISuggestions = createApiRequestHandler(validation)(async (
   // Past experiments — same project (if any), capped at 20 most recent.
   // We only include ones with at least a hypothesis or analysis since
   // empty rows add no signal but cost tokens.
+  //
+  // The Mongo `limit` is set well above the 20-row JS cap so the
+  // hypothesis/description/analysis filter below still has headroom to
+  // skip empty stubs and find 20 useful rows. Without this bound, large
+  // organizations would pull every experiment in the project (or the
+  // whole org when project is unset) on every side-panel open — each
+  // doc can carry a large analysis blob, so it's a real memory + RTT
+  // hit. 200 keeps the pull bounded without starving the filter.
   let pastExperiments: PastExperimentSummary[] = [];
   try {
     const all = await getAllExperiments(context, {
       project: currentExperiment.project,
       sortBy: { dateUpdated: -1 },
+      limit: 200,
     });
     pastExperiments = all
       .filter((e) => e.id !== currentExperiment.id)
