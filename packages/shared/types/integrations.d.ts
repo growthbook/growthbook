@@ -27,7 +27,12 @@ export interface PipelineIntegration {
   getDropUnitsTableQuery(params: { fullTablePath: string }): string;
 }
 
-export type ExternalIdCallback = (id: string) => Promise<void>;
+// Optional metadata persisted alongside externalId and passed to cancelQuery
+// (e.g. BigQuery job location).
+export type ExternalIdCallback = (
+  id: string,
+  metadata?: Record<string, string>,
+) => Promise<void>;
 
 export type DataType =
   | "string"

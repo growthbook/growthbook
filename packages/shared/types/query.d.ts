@@ -147,6 +147,9 @@ export interface QueryInterface {
   cachedQueryUsed?: string;
   statistics?: QueryStatistics;
   externalId?: string;
+  // Integration-specific side-data for managing the external job (e.g.
+  // BigQuery job location). Passed back to cancelQuery.
+  externalIdMetadata?: Record<string, string>;
   hasChunkedResults?: boolean;
 }
 export type PopulationDataQuerySettings = Pick<

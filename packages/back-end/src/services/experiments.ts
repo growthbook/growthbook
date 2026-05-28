@@ -130,6 +130,7 @@ import { ExperimentRefRule, FeatureRule } from "shared/types/feature";
 import { ProjectInterface } from "shared/types/project";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { ExperimentQueryMetadata } from "shared/types/query";
+import { isExperimentIncrementalEnabled } from "shared/enterprise";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import {
@@ -1203,16 +1204,9 @@ function isIncrementalRefreshEnabledForSnapshot({
   datasource: DataSourceInterface;
   experiment: ExperimentInterface;
 }): boolean {
-  return (
-    datasource.settings.pipelineSettings?.mode === "incremental" &&
-    !datasource.settings.pipelineSettings?.excludedExperimentIds?.includes(
-      experiment.id,
-    ) &&
-    (datasource.settings.pipelineSettings?.includedExperimentIds ===
-      undefined ||
-      datasource.settings.pipelineSettings?.includedExperimentIds.includes(
-        experiment.id,
-      ))
+  return isExperimentIncrementalEnabled(
+    datasource.settings.pipelineSettings,
+    experiment.id,
   );
 }
 

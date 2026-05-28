@@ -193,6 +193,7 @@ export default abstract class SqlIntegration
     metadata?: QueryMetadata,
   ): Promise<QueryResponse>;
   async cancelQuery(externalId: string): Promise<void> {
+    // No-op default; warehouses with remote job control override.
     logger.debug(`Cancel query: ${externalId} - not implemented`);
   }
   abstract getSensitiveParamKeys(): string[];
