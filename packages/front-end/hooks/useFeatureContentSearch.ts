@@ -114,5 +114,8 @@ export function useFeatureContentSearch(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paramsKey, doFetch]);
 
-  return { matchingIds, loading };
+  return {
+    matchingIds: paramsAreEmpty(params) ? null : matchingIds,
+    loading: paramsAreEmpty(params) ? false : loading,
+  };
 }

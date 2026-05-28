@@ -71,24 +71,22 @@ const CONTENT_SEARCH_PREFIXES: {
   { prefix: "experiment:", paramKey: "experiment" },
   { prefix: "bandit:", paramKey: "bandit" },
 ];
+const CONTENT_SEARCH_PREFIX_STRINGS = CONTENT_SEARCH_PREFIXES.map(
+  (p) => p.prefix,
+);
 
-function extractContentSearchFromSearch(searchStr: string): {
-  params: ContentSearchParams;
-  hasTokens: string[];
-} {
+function extractContentSearchParams(searchStr: string): ContentSearchParams {
   const params: ContentSearchParams = {};
-  const hasTokens: string[] = [];
   for (const token of searchStr.split(/\s+/)) {
     if (!token.startsWith("has:")) continue;
     const val = token.slice(4);
     for (const { prefix, paramKey } of CONTENT_SEARCH_PREFIXES) {
       if (val.startsWith(prefix)) {
         params[paramKey] = decodeURIComponent(val.slice(prefix.length));
-        hasTokens.push(val);
       }
     }
   }
-  return { params, hasTokens };
+  return params;
 }
 
 // Feature table column widths (shared by header and body for alignment)
@@ -157,8 +155,10 @@ export default function FeaturesPage() {
   const [searchValue, setSearchValueState] = useState("");
   const searchValueRef = useRef("");
 
-  const { params: contentSearchParams, hasTokens: contentSearchHasTokens } =
-    useMemo(() => extractContentSearchFromSearch(searchValue), [searchValue]);
+  const contentSearchParams = useMemo(
+    () => extractContentSearchParams(searchValue),
+    [searchValue],
+  );
   const contentSearch = useFeatureContentSearch(contentSearchParams);
 
   const contentSearchMatchingIds = contentSearch.matchingIds;
@@ -191,7 +191,7 @@ export default function FeaturesPage() {
     dependencyIndex: dependencyHook.dependencyIndex,
     experimentStates: experimentHook.experimentStates,
     filterResults: combinedFilter,
-    contentSearchHasTokens,
+    contentSearchPrefixes: CONTENT_SEARCH_PREFIX_STRINGS,
   });
 
   if (searchInputProps.value !== searchValueRef.current) {

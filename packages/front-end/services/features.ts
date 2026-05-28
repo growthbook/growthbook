@@ -201,7 +201,7 @@ export function useFeatureSearch({
   rampStates,
   dependencyIndex,
   experimentStates,
-  contentSearchHasTokens,
+  contentSearchPrefixes = [],
 }: {
   allFeatures: FeatureInterface[];
   defaultSortField?:
@@ -227,8 +227,15 @@ export function useFeatureSearch({
   rampStates?: Record<string, unknown>;
   dependencyIndex?: Set<string> | null;
   experimentStates?: Record<string, { hasTempRollout: boolean }>;
-  contentSearchHasTokens?: string[];
+  contentSearchPrefixes?: string[];
 }) {
+  const syntaxFilterPassthrough = useCallback(
+    (field: string, value: string) => {
+      if (field !== "has") return false;
+      return contentSearchPrefixes.some((prefix) => value.startsWith(prefix));
+    },
+    [contentSearchPrefixes],
+  );
   const { getOwnerDisplay } = useUser();
   const { getProjectById } = useDefinitions();
 
@@ -253,6 +260,7 @@ export function useFeatureSearch({
     defaultSortField: defaultSortField,
     searchFields: ["id^3", "description"],
     filterResults,
+    syntaxFilterPassthrough,
     updateSearchQueryOnChange: true,
     localStorageKey: localStorageKey,
     searchTermFilters: {
@@ -295,7 +303,6 @@ export function useFeatureSearch({
         if (dependencyIndex?.has(item.id)) has.push("dependents");
         const expState = experimentStates?.[item.id];
         if (expState?.hasTempRollout) has.push("temp-rollout");
-        if (contentSearchHasTokens?.length) has.push(...contentSearchHasTokens);
         return has;
       },
       key: (item) => item.id,
