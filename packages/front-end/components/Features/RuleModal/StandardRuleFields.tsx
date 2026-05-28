@@ -381,7 +381,7 @@ export default function StandardRuleFields({
         {/* Ramp-up schedule editor is rendered on page 2 (see index.tsx) */}
       </div>
 
-      <Heading as="h3" size="small" mb="2" mt="8">
+      <Heading as="h3" size="small" mb="4" mt="6">
         Targeting
       </Heading>
       {rampLocksTargeting ? (
@@ -395,7 +395,7 @@ export default function StandardRuleFields({
           </Box>
         </HelperText>
       ) : (
-        <Box my="4">
+        <Flex direction="column" gap="5" mb="4">
           {rampControlsCoverage ? null : (
             <RolloutPercentInput
               value={form.watch("coverage") ?? 1}
@@ -414,6 +414,7 @@ export default function StandardRuleFields({
               project={feature.project}
               seed={form.watch("seed")}
               setSeed={(v: string) => form.setValue("seed", v)}
+              ruleId={form.watch("id") as string}
               featureId={feature.id}
               isLiveRule={isLiveRule}
               isNew={isNew}
@@ -422,43 +423,37 @@ export default function StandardRuleFields({
             />
           )}
 
-          <Box mt="7">
-            <SavedGroupTargetingField
-              value={form.watch("savedGroups") || []}
-              setValue={(savedGroups) =>
-                form.setValue("savedGroups", savedGroups)
-              }
-              project={feature.project || ""}
-              label="Saved Groups"
-            />
-          </Box>
+          <SavedGroupTargetingField
+            value={form.watch("savedGroups") || []}
+            setValue={(savedGroups) =>
+              form.setValue("savedGroups", savedGroups)
+            }
+            project={feature.project || ""}
+            label="Saved Groups"
+          />
 
-          <Box mt="7">
-            <ConditionInput
-              defaultValue={form.watch("condition") || ""}
-              onChange={(value) => form.setValue("condition", value)}
-              key={conditionKey}
-              project={feature.project || ""}
-              label="Attributes"
-            />
-          </Box>
+          <ConditionInput
+            defaultValue={form.watch("condition") || ""}
+            onChange={(value) => form.setValue("condition", value)}
+            key={conditionKey}
+            project={feature.project || ""}
+            label="Attributes"
+          />
 
-          <Box mt="7">
-            <PrerequisiteInput
-              value={form.watch("prerequisites") || []}
-              setValue={(prerequisites) =>
-                form.setValue("prerequisites", prerequisites)
-              }
-              feature={feature}
-              environments={environments}
-              setPrerequisiteTargetingSdkIssues={
-                setPrerequisiteTargetingSdkIssues
-              }
-              label="Target by Prerequisite Features"
-              onRuleCyclicChange={onRuleCyclicChange}
-            />
-          </Box>
-        </Box>
+          <PrerequisiteInput
+            value={form.watch("prerequisites") || []}
+            setValue={(prerequisites) =>
+              form.setValue("prerequisites", prerequisites)
+            }
+            feature={feature}
+            environments={environments}
+            setPrerequisiteTargetingSdkIssues={
+              setPrerequisiteTargetingSdkIssues
+            }
+            label="Prerequisite Features"
+            onRuleCyclicChange={onRuleCyclicChange}
+          />
+        </Flex>
       )}
       {isCyclic && (
         <div className="alert alert-danger">

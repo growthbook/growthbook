@@ -763,7 +763,6 @@ function NoTrafficGracePopoverContent({
             save();
           }
         }}
-        containerClassName="mb-0"
       />
       <Flex justify="end" gap="2">
         <Button variant="ghost" size="sm" onClick={onClose}>
@@ -824,7 +823,6 @@ function MinSampleDialog({
                 save();
               }
             }}
-            containerClassName="mb-0"
           />
           <Flex justify="end" gap="2">
             <AlertDialog.Cancel>
@@ -870,6 +868,7 @@ interface Props {
   hashVersion?: 1 | 2;
   setHashVersion?: (v: 1 | 2) => void;
   attributeSchema?: SDKAttributeSchema;
+  ruleId?: string;
   featureId?: string;
 }
 
@@ -892,11 +891,17 @@ export default function RampScheduleSection({
   hashVersion,
   setHashVersion,
   attributeSchema,
+  ruleId,
   featureId,
 }: Props) {
   const [open, setOpen] = useState(embedded || state.mode !== "off");
   const [seedOpen, setSeedOpen] = useState(
-    !!seed || (hashVersion !== undefined && hashVersion !== 2),
+    // Mirror RolloutPercentInput: for new schedules (ruleRampSchedule===undefined),
+    // v1 is just the org-safe default — don't expand unless the user has
+    // actively set a custom seed or there's an SDK compatibility warning.
+    // Only auto-expand for v1 when editing an existing schedule that already uses it.
+    !!seed ||
+      (!!ruleRampSchedule && hashVersion !== undefined && hashVersion !== 2),
   );
 
   const { data: sdkConnectionsData } = useSDKConnections();
@@ -1296,7 +1301,7 @@ export default function RampScheduleSection({
 
       if ("savedGroups" in patch) {
         effectRows.push(
-          <Box>
+          <Box mb="3">
             <SavedGroupTargetingField
               value={patch.savedGroups ?? []}
               setValue={(v) => setPatchFn("savedGroups", v)}
@@ -1320,7 +1325,7 @@ export default function RampScheduleSection({
 
       if ("condition" in patch) {
         effectRows.push(
-          <Box>
+          <Box mb="3">
             <ConditionInput
               key={`${currentStepIndex}-condition`}
               defaultValue={patch.condition ?? "{}"}
@@ -1346,7 +1351,7 @@ export default function RampScheduleSection({
 
       if ("prerequisites" in patch) {
         effectRows.push(
-          <Box>
+          <Box mb="3">
             <PrerequisiteInput
               value={patch.prerequisites ?? []}
               setValue={(v) => setPatchFn("prerequisites", v)}
@@ -1636,7 +1641,6 @@ export default function RampScheduleSection({
                   >
                     <Field
                       style={{ width: COL.coverage, minHeight: 38 }}
-                      containerClassName="mb-0"
                       type="number"
                       min="0"
                       max="100"
@@ -1859,7 +1863,6 @@ export default function RampScheduleSection({
                             >
                               <Field
                                 style={{ width: COL.coverage, minHeight: 38 }}
-                                containerClassName="mb-0"
                                 type="number"
                                 min={minCov}
                                 max={maxCov}
@@ -1959,7 +1962,6 @@ export default function RampScheduleSection({
                               updateStep(i, update);
                             }}
                             className="select-unfixed"
-                            containerClassName="mb-0"
                             containerStyle={{ minHeight: 38 }}
                             useMultilineLabels
                             formatOptionLabel={(option, meta) => {
@@ -1992,7 +1994,6 @@ export default function RampScheduleSection({
                           <>
                             <Field
                               style={{ minHeight: 38 }}
-                              containerClassName="mb-0"
                               type="number"
                               min="0"
                               step="any"
@@ -2034,7 +2035,6 @@ export default function RampScheduleSection({
                                   })
                                 }
                                 className="select-unfixed"
-                                containerClassName="mb-0"
                                 containerStyle={{ minHeight: 38 }}
                               />
                             </Box>
@@ -2102,7 +2102,6 @@ export default function RampScheduleSection({
                                       approvalNotes: e.target.value,
                                     })
                                   }
-                                  containerClassName="mb-0"
                                   style={{ minHeight: 38 }}
                                 />
                               </Box>
@@ -2443,7 +2442,6 @@ export default function RampScheduleSection({
                                         approvalNotes: e.target.value,
                                       })
                                     }
-                                    containerClassName="mb-0"
                                     style={{ height: 32 }}
                                   />
                                 </Box>
@@ -3091,7 +3089,6 @@ export default function RampScheduleSection({
                   }
                 }}
                 helpText={`Blank = org default (${orgCadenceLabel})`}
-                containerClassName="mb-0"
               />
             </Box>
             <Flex align="center" gap="1">
@@ -3477,7 +3474,6 @@ export default function RampScheduleSection({
                 Math.max(0.01, state.simpleDurationDays),
               )
             }
-            containerClassName="mb-0"
             style={{ width: 60, minHeight: 38 }}
             errorLevel={anyCadenceWarning ? "warning" : undefined}
           />
@@ -3493,7 +3489,6 @@ export default function RampScheduleSection({
               patchState({ simpleDurationUnit: u });
               handleSimpleDurationChange(state.simpleDurationDays, u);
             }}
-            containerClassName="mb-0"
             containerStyle={{ width: 80 }}
             className="select-unfixed"
           />
@@ -3567,7 +3562,6 @@ export default function RampScheduleSection({
         date={state.cutoffDate}
         setDate={(d) => patchState({ cutoffDate: d ? d.toISOString() : "" })}
         precision="datetime"
-        containerClassName="mb-0"
         disableBefore={new Date().toISOString()}
       />
       <IconButton
@@ -3667,7 +3661,6 @@ export default function RampScheduleSection({
             patchState({ startDate: d.toISOString() });
           }
         }}
-        containerClassName="mb-0"
         containerStyle={{ minHeight: 38, width: 150 }}
       />
       {state.startDate && (
@@ -3675,7 +3668,6 @@ export default function RampScheduleSection({
           date={state.startDate || undefined}
           setDate={(d) => patchState({ startDate: d ? d.toISOString() : "" })}
           precision="datetime"
-          containerClassName="mb-0"
         />
       )}
     </Flex>
@@ -3995,8 +3987,7 @@ export default function RampScheduleSection({
                           type="input"
                           value={seed ?? ""}
                           onChange={(e) => setSeed(e.target.value)}
-                          placeholder={featureId}
-                          containerClassName="mb-0"
+                          placeholder={ruleId ?? featureId}
                         />
                       </Box>
                     </Flex>

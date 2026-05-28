@@ -299,7 +299,8 @@ export default function ConditionInput({
     );
 
     return (
-      <Box mb={slimMode ? "2" : "6"}>
+      <Box mb="0">
+        {" "}
         {(label || labelActions) && (
           <Flex justify="between" align="center" mb="1">
             <Flex gap="2" align="center">
@@ -410,7 +411,7 @@ export default function ConditionInput({
 
   if (!conds.length || (conds.length === 1 && !conds[0].length)) {
     return (
-      <Box my={slimMode ? "1" : "4"}>
+      <Box my="0">
         {(label || labelActions) && (
           <Flex mb="1" justify="between" align="center">
             {slimMode ? (
@@ -487,7 +488,7 @@ export default function ConditionInput({
     );
   }
   return (
-    <Box mb={slimMode ? "2" : "6"}>
+    <Box mb="0">
       {(label || labelActions) && (
         <Flex justify="between" align="center" mb="1">
           <Flex gap="2" align="center">

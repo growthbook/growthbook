@@ -287,7 +287,6 @@ const HoldoutsPage = (): React.ReactElement => {
               <Field
                 placeholder="Search..."
                 type="search"
-                containerClassName="mb-0"
                 {...searchInputProps}
               />
             </Box>

@@ -119,7 +119,7 @@ export default function SavedGroupTargetingField({
 
   if (showAddRemoveSelector && addRemoveValue === "remove") {
     return (
-      <Box mb={slimMode ? "2" : "6"}>
+      <Box mb="0">
         {label || labelActions ? (
           <Flex mb="1" justify="between" align="center">
             {savedGroupsLabel}
@@ -186,7 +186,7 @@ export default function SavedGroupTargetingField({
   }
 
   return (
-    <Box mb={slimMode ? "2" : "6"}>
+    <Box mb="0">
       {label || labelActions ? (
         <Flex mb="1" justify="between" align="center">
           {savedGroupsLabel}

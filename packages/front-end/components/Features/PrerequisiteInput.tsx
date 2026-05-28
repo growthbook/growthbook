@@ -454,7 +454,7 @@ export default function PrerequisiteInput({
   );
 
   const content = (
-    <Box mb={slimMode ? "1" : "2"}>
+    <Box mb="0">
       {value.length === 0 && (emptyText || !slimMode) && (
         <Text
           color="text-low"

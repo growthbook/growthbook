@@ -191,7 +191,6 @@ export default function ConditionGroups({ groups, mutate }: Props) {
                 <Field
                   placeholder="Search..."
                   type="search"
-                  containerClassName="mb-0"
                   {...searchInputProps}
                 />
               </Box>

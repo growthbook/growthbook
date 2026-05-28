@@ -37,6 +37,7 @@ export interface Props {
   // Advanced options
   seed?: string;
   setSeed?: (v: string) => void;
+  ruleId?: string;
   featureId?: string;
   advancedOpen?: boolean;
   setAdvancedOpen?: (v: boolean) => void;
@@ -61,6 +62,7 @@ export default function RolloutPercentInput({
   project,
   seed,
   setSeed,
+  ruleId,
   featureId,
   advancedOpen,
   setAdvancedOpen,
@@ -205,8 +207,7 @@ export default function RolloutPercentInput({
                       type="input"
                       value={seed ?? ""}
                       onChange={(e) => setSeed(e.target.value)}
-                      placeholder={featureId}
-                      containerClassName="mb-0"
+                      placeholder={ruleId ?? featureId}
                     />
                   </Box>
                 </Flex>

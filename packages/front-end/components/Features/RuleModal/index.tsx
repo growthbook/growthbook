@@ -1824,6 +1824,7 @@ export default function RuleModal({
               }
               setHashVersion={(v: 1 | 2) => form.setValue("hashVersion", v)}
               attributeSchema={attributeSchema}
+              ruleId={form.watch("id") as string}
               featureId={feature.id}
             />
           </Page>
