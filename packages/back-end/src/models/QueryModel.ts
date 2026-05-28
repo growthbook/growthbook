@@ -207,11 +207,12 @@ export async function updateQueryIfRunning(
 }
 
 /**
- * Conditional "queued → running" promote. Returns whether the update matched.
- * No-ops if a concurrent cancel already moved the doc to a terminal state,
- * preventing executeQuery from resurrecting a cancelled query as running.
+ * Conditional update gated on the doc being still in a pending state
+ * (queued or running). Returns whether the update matched. Used by
+ * executeQuery to fence the run() call so a concurrent cancel that moved
+ * the doc to a terminal state can't be resurrected.
  */
-export async function updateQueryIfQueued(
+export async function updateQueryIfPending(
   context: ReqContext | ApiReqContext,
   query: QueryInterface,
   changes: Partial<QueryInterface>,
@@ -223,7 +224,7 @@ export async function updateQueryIfQueued(
     {
       organization: context.org.id,
       id: query.id,
-      status: "queued",
+      status: { $in: ["queued", "running"] },
     },
     { $set: changes },
   );

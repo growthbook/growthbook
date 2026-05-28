@@ -17,7 +17,7 @@ import {
   getRecentQuery,
   markPendingQueriesAsFailed,
   updateQuery,
-  updateQueryIfQueued,
+  updateQueryIfPending,
   updateQueryIfRunning,
 } from "back-end/src/models/QueryModel";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
@@ -608,7 +608,7 @@ export abstract class QueryRunner<
         pendingIds,
         "Query cancelled by user",
       );
-      logger.info(
+      logger.debug(
         { modelId: this.model.id, affected, attempted: pendingIds.length },
         "Marked queries as cancelled in Mongo",
       );
@@ -653,7 +653,7 @@ export abstract class QueryRunner<
         }
       }
       const externalJobs = [...externalJobsById.values()];
-      logger.info(
+      logger.debug(
         {
           datasourceId: this.integration.datasource.id,
           modelId: this.model.id,
@@ -773,24 +773,22 @@ export abstract class QueryRunner<
 
     // Run the query in the background
     logger.debug(`Start executing query in background: ${doc.id}`);
-    if (doc.status !== "running") {
-      // Conditional promote: bail if a concurrent cancel marked the doc
-      // failed after this run was scheduled — otherwise we'd fire a fresh
-      // external job for a cancelled query.
-      const promoted = await updateQueryIfQueued(this.context, doc, {
-        startedAt: new Date(),
-        status: "running",
-        heartbeat: new Date(),
-      });
-      if (!promoted) {
-        clearInterval(timer);
-        logger.info(
-          { queryId: doc.id, modelId: this.model.id },
-          "Skipping execution — query no longer queued (likely cancelled)",
-        );
-        this.onQueryFinish();
-        return;
-      }
+    // Conditional fence: bail if a concurrent cancel marked the doc failed
+    // between scheduling and here — otherwise we'd fire a fresh external
+    // job for a cancelled query.
+    const stillPending = await updateQueryIfPending(this.context, doc, {
+      status: "running",
+      heartbeat: new Date(),
+      startedAt: new Date(),
+    });
+    if (!stillPending) {
+      clearInterval(timer);
+      logger.debug(
+        { queryId: doc.id, modelId: this.model.id },
+        "Skipping execution — query no longer pending (likely cancelled)",
+      );
+      this.onQueryFinish();
+      return;
     }
 
     const setExternalId = async (
