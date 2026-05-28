@@ -2645,7 +2645,7 @@ export function toSnapshotApiInterface(
                     engine:
                       analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE,
                     numerator: safeFloat(data?.value),
-                    denominator: safeFloat(data?.denominator ?? data?.users),
+                    denominator: safeFloat(data?.denominator || data?.users),
                     mean: safeFloat(data?.stats?.mean),
                     stddev: safeFloat(data?.stats?.stddev),
                     percentChange: safeFloat(data?.expected),
