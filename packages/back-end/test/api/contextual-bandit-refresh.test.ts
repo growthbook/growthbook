@@ -15,14 +15,24 @@ describe("POST /experiments/:id/contextual-bandit/refresh", () => {
   const { app, setReqContext } = setupApp();
   const org = { id: "org_cb" };
 
-  beforeEach(() => {
-    setReqContext({
-      org,
-      hasPremiumFeature: () => true,
-      throwPlanDoesNotAllowError: (message: string) => {
-        throw Object.assign(new Error(message), { status: 403 });
+  const baseContext = {
+    org,
+    hasPremiumFeature: () => true,
+    throwPlanDoesNotAllowError: (message: string) => {
+      throw Object.assign(new Error(message), { status: 403 });
+    },
+    permissions: {
+      canReadSingleProjectResource: () => true,
+      canRunExperiment: () => true,
+      canDeleteExperiment: () => true,
+      throwPermissionError: () => {
+        throw Object.assign(new Error("Permission denied"), { status: 403 });
       },
-    });
+    },
+  };
+
+  beforeEach(() => {
+    setReqContext(baseContext);
   });
 
   afterEach(() => {
@@ -30,13 +40,7 @@ describe("POST /experiments/:id/contextual-bandit/refresh", () => {
   });
 
   it("rejects orgs without the contextual-bandits premium feature", async () => {
-    setReqContext({
-      org,
-      hasPremiumFeature: () => false,
-      throwPlanDoesNotAllowError: (message: string) => {
-        throw Object.assign(new Error(message), { status: 403 });
-      },
-    });
+    setReqContext({ ...baseContext, hasPremiumFeature: () => false });
 
     const response = await request(app)
       .post("/api/v1/experiments/exp_cb/contextual-bandit/refresh")

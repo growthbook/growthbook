@@ -1710,11 +1710,10 @@ describe("maybeCreateContextualBanditDoc", () => {
     } as ExperimentInterface;
 
     const context = {
+      hasPremiumFeature: () => true,
       models: {
         contextualBandits: {
-          getByExperimentId: jest
-            .fn()
-            .mockResolvedValue({ id: "cb_existing" }),
+          getByExperimentId: jest.fn().mockResolvedValue({ id: "cb_existing" }),
           create: createMock,
         },
       },
