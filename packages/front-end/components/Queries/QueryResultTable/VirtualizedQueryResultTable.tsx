@@ -1,6 +1,5 @@
 import { CSSProperties, ReactNode, useMemo, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { ScrollArea } from "@radix-ui/themes";
 import clsx from "clsx";
 import styles from "./QueryResultTable.module.scss";
 import { computeColumnWidths, GetCellText } from "./columnWidths";
@@ -66,23 +65,15 @@ export default function VirtualizedQueryResultTable({
   const columnItems = columnVirtualizer.getVirtualItems();
   const innerHeight = RESULT_TABLE_ROW_HEIGHT + bodyHeight;
 
-  // Make the vertical scrollbar show up below the sticky header
-  const scrollAreaStyle = {
+  const scrollAreaStyle: CSSProperties = {
     ...CELL_STYLE_VARS,
     maxWidth: `min(100%, ${totalWidth}px)`,
     maxHeight: RESULT_TABLE_MAX_HEIGHT,
-    "--scrollarea-scrollbar-vertical-margin-top": `${
-      RESULT_TABLE_ROW_HEIGHT + 4
-    }px`,
+    overflow: "auto",
   };
 
   return (
-    <ScrollArea
-      ref={scrollRef}
-      scrollbars="both"
-      type="auto"
-      style={scrollAreaStyle}
-    >
+    <div ref={scrollRef} style={scrollAreaStyle}>
       <div
         style={{
           position: "relative",
@@ -168,6 +159,6 @@ export default function VirtualizedQueryResultTable({
           }),
         )}
       </div>
-    </ScrollArea>
+    </div>
   );
 }
