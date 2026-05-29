@@ -762,6 +762,9 @@ export default function RuleModal({
           if (!hasCommercialFeature("multi-armed-bandits")) {
             throw new Error("Bandits are a premium feature");
           }
+          if (contextualBandit && !hasCommercialFeature("contextual-bandits")) {
+            throw new Error("Contextual Bandits are a premium feature");
+          }
           experimentValues.statsEngine = "bayesian";
           if (!experimentValues.datasource) {
             throw new Error("You must select a datasource");

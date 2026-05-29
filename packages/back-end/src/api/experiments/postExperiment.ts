@@ -129,6 +129,15 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       req.context.permissions.throwPermissionError();
     }
 
+    if (
+      payload.type === "contextual-bandit" &&
+      !req.context.hasPremiumFeature("contextual-bandits")
+    ) {
+      req.context.throwPlanDoesNotAllowError(
+        "Contextual Bandits require an Enterprise plan.",
+      );
+    }
+
     assertExperimentPayloadCommercialFeatures(req.context, {
       postStratificationEnabled: payload.postStratificationEnabled,
       decisionFrameworkSettings: payload.decisionFrameworkSettings,

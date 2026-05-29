@@ -3,7 +3,7 @@ import {
   contextualBanditValidator,
   LeafWeight,
 } from "shared/validators";
-import { MakeModelClass } from "./BaseModel";
+import { MakeModelClass } from "back-end/src/models/BaseModel";
 
 const BaseClass = MakeModelClass({
   schema: contextualBanditValidator,

@@ -1,13 +1,14 @@
+import { deriveContextId } from "shared/util";
 import {
-  ContextualBanditSnapshotInterface,
-  contextualBanditSnapshotValidator,
+  ContextualBanditEventInterface,
+  contextualBanditEventValidator,
 } from "shared/validators";
-import { MakeModelClass } from "./BaseModel";
+import { MakeModelClass } from "back-end/src/models/BaseModel";
 
 const BaseClass = MakeModelClass({
-  schema: contextualBanditSnapshotValidator,
-  collectionName: "contextualbanditsnapshots",
-  idPrefix: "cbs_",
+  schema: contextualBanditEventValidator,
+  collectionName: "contextualbanditevents",
+  idPrefix: "cbe_",
   globallyUniquePrimaryKeys: true,
   additionalIndexes: [
     {
@@ -19,12 +20,12 @@ const BaseClass = MakeModelClass({
       },
     },
     {
-      fields: { contextualBanditEventId: 1 },
+      fields: { snapshotId: 1 },
     },
   ],
 });
 
-export class ContextualBanditSnapshotModel extends BaseClass {
+export class ContextualBanditEventModel extends BaseClass {
   protected canCreate() {
     return true;
   }
@@ -41,7 +42,7 @@ export class ContextualBanditSnapshotModel extends BaseClass {
   public async getLatestForExperiment(
     experiment: string,
     phase: number,
-  ): Promise<ContextualBanditSnapshotInterface | null> {
+  ): Promise<ContextualBanditEventInterface | null> {
     const results = await this._find(
       { experiment, phase },
       { sort: { dateCreated: -1 }, limit: 1 },
@@ -53,18 +54,24 @@ export class ContextualBanditSnapshotModel extends BaseClass {
     experiment: string,
     phase: number,
     limit = 20,
-  ): Promise<ContextualBanditSnapshotInterface[]> {
+  ): Promise<ContextualBanditEventInterface[]> {
     return this._find(
       { experiment, phase },
       { sort: { dateCreated: -1 }, limit },
     );
   }
 
-  public async getBySnapshotIdInOrg(
-    id: string,
-  ): Promise<ContextualBanditSnapshotInterface | null> {
-    const results = await this._find({ id });
-    return results[0] ?? null;
+  public async getContextHistory(
+    experiment: string,
+    phase: number,
+    contextId: string,
+  ): Promise<ContextualBanditEventInterface[]> {
+    const events = await this.listForExperiment(experiment, phase, 100);
+    return events.filter((e) =>
+      e.responses.some(
+        (r) => deriveContextId(experiment, r.context) === contextId,
+      ),
+    );
   }
 
   public async deleteForExperiment(experiment: string): Promise<void> {

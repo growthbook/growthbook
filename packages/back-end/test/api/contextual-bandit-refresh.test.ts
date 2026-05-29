@@ -1,13 +1,13 @@
 import request from "supertest";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
-import { runContextualBanditSnapshot } from "back-end/src/services/contextualBandits";
+import { runContextualBanditSnapshot } from "back-end/src/enterprise/services/contextualBandits";
 import { setupApp } from "./api.setup";
 
 jest.mock("back-end/src/models/ExperimentModel", () => ({
   getExperimentById: jest.fn(),
 }));
 
-jest.mock("back-end/src/services/contextualBandits", () => ({
+jest.mock("back-end/src/enterprise/services/contextualBandits", () => ({
   runContextualBanditSnapshot: jest.fn(),
 }));
 
@@ -16,11 +16,36 @@ describe("POST /experiments/:id/contextual-bandit/refresh", () => {
   const org = { id: "org_cb" };
 
   beforeEach(() => {
-    setReqContext({ org });
+    setReqContext({
+      org,
+      hasPremiumFeature: () => true,
+      throwPlanDoesNotAllowError: (message: string) => {
+        throw Object.assign(new Error(message), { status: 403 });
+      },
+    });
   });
 
   afterEach(() => {
     jest.clearAllMocks();
+  });
+
+  it("rejects orgs without the contextual-bandits premium feature", async () => {
+    setReqContext({
+      org,
+      hasPremiumFeature: () => false,
+      throwPlanDoesNotAllowError: (message: string) => {
+        throw Object.assign(new Error(message), { status: 403 });
+      },
+    });
+
+    const response = await request(app)
+      .post("/api/v1/experiments/exp_cb/contextual-bandit/refresh")
+      .set("Authorization", "Bearer foo");
+
+    expect(response.status).toBe(403);
+    expect(response.body.message).toMatch(/contextual bandits.*enterprise/i);
+    expect(getExperimentById).not.toHaveBeenCalled();
+    expect(runContextualBanditSnapshot).not.toHaveBeenCalled();
   });
 
   it("returns the snapshot + cbe ids from the orchestrator", async () => {

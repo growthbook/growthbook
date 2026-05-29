@@ -52,6 +52,16 @@ export const updateExperiment = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
+  const effectiveType = req.body.type ?? experiment.type;
+  if (
+    effectiveType === "contextual-bandit" &&
+    !req.context.hasPremiumFeature("contextual-bandits")
+  ) {
+    req.context.throwPlanDoesNotAllowError(
+      "Contextual Bandits require an Enterprise plan.",
+    );
+  }
+
   assertExperimentPayloadCommercialFeatures(req.context, {
     postStratificationEnabled: req.body.postStratificationEnabled,
     decisionFrameworkSettings: req.body.decisionFrameworkSettings,

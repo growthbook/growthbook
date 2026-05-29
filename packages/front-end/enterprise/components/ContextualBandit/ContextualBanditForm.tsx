@@ -361,8 +361,8 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
         },
       );
 
-      if (!hasCommercialFeature("multi-armed-bandits")) {
-        throw new Error("Bandits are a premium feature");
+      if (!hasCommercialFeature("contextual-bandits")) {
+        throw new Error("Contextual Bandits are a premium feature");
       }
       if (!data.datasource) {
         throw new Error("You must select a datasource");

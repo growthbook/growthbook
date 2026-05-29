@@ -39,7 +39,7 @@ import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import BanditSummaryResultsTab from "@/components/Experiment/TabbedPage/BanditSummaryResultsTab";
-import ContextualBanditResultsTable from "@/components/Experiment/ContextualBanditResultsTable";
+import ContextualBanditResultsTable from "@/enterprise/components/Experiment/ContextualBanditResultsTable";
 import Button from "@/ui/Button";
 import PremiumCallout from "@/ui/PremiumCallout";
 import { useDefinitions } from "@/services/DefinitionsContext";

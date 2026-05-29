@@ -4835,6 +4835,15 @@ export async function maybeCreateContextualBanditDoc(
   // will create both. See contextual-bandit-fix-prompt.md.
   if (experiment.type !== "contextual-bandit") return;
 
+  // Defense-in-depth: every code path that creates a CB experiment should
+  // already have gated on this feature flag, but block here too so a future
+  // caller can't accidentally bypass licensing.
+  if (!context.hasPremiumFeature("contextual-bandits")) {
+    context.throwPlanDoesNotAllowError(
+      "Contextual Bandits require an Enterprise plan.",
+    );
+  }
+
   const existing = await context.models.contextualBandits.getByExperimentId(
     experiment.id,
   );

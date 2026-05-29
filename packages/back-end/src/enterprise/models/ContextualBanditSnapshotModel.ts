@@ -1,14 +1,13 @@
-import { deriveContextId } from "shared/util";
 import {
-  ContextualBanditEventInterface,
-  contextualBanditEventValidator,
+  ContextualBanditSnapshotInterface,
+  contextualBanditSnapshotValidator,
 } from "shared/validators";
-import { MakeModelClass } from "./BaseModel";
+import { MakeModelClass } from "back-end/src/models/BaseModel";
 
 const BaseClass = MakeModelClass({
-  schema: contextualBanditEventValidator,
-  collectionName: "contextualbanditevents",
-  idPrefix: "cbe_",
+  schema: contextualBanditSnapshotValidator,
+  collectionName: "contextualbanditsnapshots",
+  idPrefix: "cbs_",
   globallyUniquePrimaryKeys: true,
   additionalIndexes: [
     {
@@ -20,12 +19,12 @@ const BaseClass = MakeModelClass({
       },
     },
     {
-      fields: { snapshotId: 1 },
+      fields: { contextualBanditEventId: 1 },
     },
   ],
 });
 
-export class ContextualBanditEventModel extends BaseClass {
+export class ContextualBanditSnapshotModel extends BaseClass {
   protected canCreate() {
     return true;
   }
@@ -42,7 +41,7 @@ export class ContextualBanditEventModel extends BaseClass {
   public async getLatestForExperiment(
     experiment: string,
     phase: number,
-  ): Promise<ContextualBanditEventInterface | null> {
+  ): Promise<ContextualBanditSnapshotInterface | null> {
     const results = await this._find(
       { experiment, phase },
       { sort: { dateCreated: -1 }, limit: 1 },
@@ -54,24 +53,18 @@ export class ContextualBanditEventModel extends BaseClass {
     experiment: string,
     phase: number,
     limit = 20,
-  ): Promise<ContextualBanditEventInterface[]> {
+  ): Promise<ContextualBanditSnapshotInterface[]> {
     return this._find(
       { experiment, phase },
       { sort: { dateCreated: -1 }, limit },
     );
   }
 
-  public async getContextHistory(
-    experiment: string,
-    phase: number,
-    contextId: string,
-  ): Promise<ContextualBanditEventInterface[]> {
-    const events = await this.listForExperiment(experiment, phase, 100);
-    return events.filter((e) =>
-      e.responses.some(
-        (r) => deriveContextId(experiment, r.context) === contextId,
-      ),
-    );
+  public async getBySnapshotIdInOrg(
+    id: string,
+  ): Promise<ContextualBanditSnapshotInterface | null> {
+    const results = await this._find({ id });
+    return results[0] ?? null;
   }
 
   public async deleteForExperiment(experiment: string): Promise<void> {

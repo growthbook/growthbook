@@ -54,6 +54,7 @@ import {
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
 import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
+import { ContextualBanditModel } from "back-end/src/enterprise/models/ContextualBanditModel";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
@@ -62,7 +63,6 @@ import {
   VisualChangesetModel,
 } from "./VisualChangesetModel";
 import { getFeaturesByIds } from "./FeatureModel";
-import { ContextualBanditModel } from "./ContextualBanditModel";
 
 const COLLECTION = "experiments";
 
@@ -2034,7 +2034,6 @@ const onExperimentCreate = async ({
       experiment,
       organization: context.org,
     });
-
 };
 
 const onExperimentUpdate = async ({

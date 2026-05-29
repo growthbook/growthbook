@@ -23,14 +23,14 @@ import {
   enforceContextCap,
   getContextualBanditSettingsForStatsEngine,
   persistContextualBanditEvent,
-} from "back-end/src/services/contextualBandits";
+} from "back-end/src/enterprise/services/contextualBandits";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import {
   ContextualBanditResult,
   runContextualStatsEngine,
-} from "back-end/src/services/contextualBanditStats";
-import { QueryMap, QueryRunner } from "./QueryRunner";
+} from "back-end/src/enterprise/services/contextualBanditStats";
+import { QueryMap, QueryRunner } from "back-end/src/queryRunners/QueryRunner";
 
 /**
  * Parameters the orchestrator hands to the runner. The frozen snapshot

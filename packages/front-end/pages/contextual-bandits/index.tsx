@@ -26,7 +26,7 @@ import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/Experi
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
-import ContextualBanditForm from "@/components/ContextualBandit/ContextualBanditForm";
+import ContextualBanditForm from "@/enterprise/components/ContextualBandit/ContextualBanditForm";
 import Button from "@/ui/Button";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import LinkButton from "@/ui/LinkButton";
@@ -105,9 +105,7 @@ const ContextualBanditsPage = (): React.ReactElement => {
 
   const showProjectColumn = !project && items.some((e) => e.project);
 
-  const hasMultiArmedBanditFeature = hasCommercialFeature(
-    "multi-armed-bandits",
-  );
+  const hasContextualBanditFeature = hasCommercialFeature("contextual-bandits");
 
   useEffect(() => {
     setCurrentPage(1);
@@ -136,14 +134,14 @@ const ContextualBanditsPage = (): React.ReactElement => {
     };
   }
 
-  if (!hasMultiArmedBanditFeature) {
+  if (!hasContextualBanditFeature) {
     return (
       <div className="contents container-fluid pagecontents">
         <PremiumEmptyState
           h1="Contextual Bandits"
           title="Run Context-Aware Adaptive Experiments with Contextual Bandits"
           description="Contextual Bandits automatically guide more traffic to better variants based on user context."
-          commercialFeature="multi-armed-bandits"
+          commercialFeature="contextual-bandits"
           learnMoreLink="https://docs.growthbook.io/bandits/overview"
         />
       </div>
@@ -163,13 +161,13 @@ const ContextualBanditsPage = (): React.ReactElement => {
               <div className="col-auto">
                 <PremiumTooltip
                   tipPosition="left"
-                  commercialFeature="multi-armed-bandits"
+                  commercialFeature="contextual-bandits"
                 >
                   <Button
                     onClick={() => {
                       setOpenNewModal(true);
                     }}
-                    disabled={!hasMultiArmedBanditFeature}
+                    disabled={!hasContextualBanditFeature}
                   >
                     Add Contextual Bandit
                   </Button>
@@ -199,13 +197,13 @@ const ContextualBanditsPage = (): React.ReactElement => {
                   <PremiumTooltip
                     tipPosition="left"
                     popperStyle={{ top: 15 }}
-                    commercialFeature="multi-armed-bandits"
+                    commercialFeature="contextual-bandits"
                   >
                     <Button
                       onClick={() => {
                         setOpenNewModal(true);
                       }}
-                      disabled={!hasMultiArmedBanditFeature}
+                      disabled={!hasContextualBanditFeature}
                     >
                       Add Contextual Bandit
                     </Button>

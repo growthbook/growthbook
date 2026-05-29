@@ -16,10 +16,10 @@ import {
   leafWeightsFromContextualBanditResult,
   persistContextualBanditEvent,
   toContextualBanditSnapshotStatusSummary,
-} from "back-end/src/services/contextualBandits";
+} from "back-end/src/enterprise/services/contextualBandits";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
-import { ContextualBanditResult } from "back-end/src/services/contextualBanditStats";
+import { ContextualBanditResult } from "back-end/src/enterprise/services/contextualBanditStats";
 
 jest.mock("back-end/src/models/ExperimentModel", () => ({
   getExperimentById: jest.fn(),

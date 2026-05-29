@@ -15,7 +15,7 @@ import useSwitchOrg from "@/services/useSwitchOrg";
 import EditMetricsForm from "@/components/Experiment/EditMetricsForm";
 import StopExperimentForm from "@/components/Experiment/StopExperimentForm";
 import EditVariationsForm from "@/components/Experiment/EditVariationsForm";
-import ContextualBanditForm from "@/components/ContextualBandit/ContextualBanditForm";
+import ContextualBanditForm from "@/enterprise/components/ContextualBandit/ContextualBanditForm";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
 import EditProjectForm from "@/components/Experiment/EditProjectForm";
 import { useAuth } from "@/services/auth";
@@ -29,11 +29,15 @@ import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
+import PremiumEmptyState from "@/components/PremiumEmptyState";
+import { useUser } from "@/services/UserContext";
 
 const ContextualBanditExperimentPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
   const router = useRouter();
   const { cbid } = router.query;
+  const { hasCommercialFeature } = useUser();
+  const hasContextualBanditFeature = hasCommercialFeature("contextual-bandits");
 
   const [stopModalOpen, setStopModalOpen] = useState(false);
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
@@ -92,6 +96,19 @@ const ContextualBanditExperimentPage = (): ReactElement => {
   }
   if (!data) {
     return <LoadingOverlay />;
+  }
+  if (!hasContextualBanditFeature) {
+    return (
+      <div className="contents container-fluid pagecontents">
+        <PremiumEmptyState
+          h1="Contextual Bandits"
+          title="Run Context-Aware Adaptive Experiments with Contextual Bandits"
+          description="Contextual Bandits automatically guide more traffic to better variants based on user context."
+          commercialFeature="contextual-bandits"
+          learnMoreLink="https://docs.growthbook.io/bandits/overview"
+        />
+      </div>
+    );
   }
 
   const {

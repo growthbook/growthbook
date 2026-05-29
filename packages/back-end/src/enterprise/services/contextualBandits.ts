@@ -43,7 +43,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
-import { ContextualBanditResultsQueryRunner } from "back-end/src/queryRunners/ContextualBanditResultsQueryRunner";
+import { ContextualBanditResultsQueryRunner } from "back-end/src/enterprise/queryRunners/ContextualBanditResultsQueryRunner";
 import {
   ContextualBanditResult,
   ContextualBanditSettingsForStatsEngine,
@@ -135,6 +135,14 @@ export async function runContextualBanditSnapshot(
   phase: number,
   opts: { triggeredBy: "manual" | "scheduled"; triggeredByUser?: string },
 ): Promise<{ snapshotId: string; cbeId?: string }> {
+  // Defense-in-depth: callers already gate this; check again so future callers
+  // (background jobs, internal scripts) can't bypass licensing.
+  if (!context.hasPremiumFeature("contextual-bandits")) {
+    context.throwPlanDoesNotAllowError(
+      "Contextual Bandits require an Enterprise plan.",
+    );
+  }
+
   const cb = await context.models.contextualBandits.getByExperimentId(
     experiment.id,
   );

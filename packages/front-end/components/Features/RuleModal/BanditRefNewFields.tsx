@@ -95,6 +95,7 @@ export default function BanditRefNewFields({
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment",
   );
+  const hasContextualBanditFeature = hasCommercialFeature("contextual-bandits");
 
   const { datasources, getDatasourceById } = useDefinitions();
 
@@ -181,12 +182,25 @@ export default function BanditRefNewFields({
           {envScope && <RuleEnvironmentScopeField {...envScope} my="5" />}
 
           {!hideContextualBanditToggle && (
-            <Checkbox
-              mt="5"
-              value={contextualBandit}
-              setValue={setContextualBandit}
-              label="Make My Bandit Contextual"
-            />
+            <PremiumTooltip
+              commercialFeature="contextual-bandits"
+              body={
+                hasContextualBanditFeature
+                  ? null
+                  : "Contextual Bandits are available on the Enterprise plan."
+              }
+            >
+              <Checkbox
+                mt="5"
+                value={contextualBandit && hasContextualBanditFeature}
+                setValue={(v) => {
+                  if (v && !hasContextualBanditFeature) return;
+                  setContextualBandit(v);
+                }}
+                disabled={!hasContextualBanditFeature}
+                label="Make My Bandit Contextual"
+              />
+            </PremiumTooltip>
           )}
         </>
       ) : null}

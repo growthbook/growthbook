@@ -9,12 +9,12 @@ import {
 import {
   CONTEXTUAL_BANDIT_ROWS_QUERY_NAME,
   ContextualBanditResultsQueryRunner,
-} from "back-end/src/queryRunners/ContextualBanditResultsQueryRunner";
+} from "back-end/src/enterprise/queryRunners/ContextualBanditResultsQueryRunner";
 import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import {
   ContextualBanditResult,
   runContextualStatsEngine,
-} from "back-end/src/services/contextualBanditStats";
+} from "back-end/src/enterprise/services/contextualBanditStats";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { ReqContext } from "back-end/types/api";
 
@@ -24,11 +24,13 @@ import { ReqContext } from "back-end/types/api";
 // The SQL pass now goes straight through `integration.getExperimentMetricQuery`
 // / `integration.runExperimentMetricQuery`, both of which are stubbed on the
 // fake integration object directly.
-jest.mock("back-end/src/services/contextualBanditStats", () => ({
+jest.mock("back-end/src/enterprise/services/contextualBanditStats", () => ({
   runContextualStatsEngine: jest.fn(),
 }));
-jest.mock("back-end/src/services/contextualBandits", () => {
-  const actual = jest.requireActual("back-end/src/services/contextualBandits");
+jest.mock("back-end/src/enterprise/services/contextualBandits", () => {
+  const actual = jest.requireActual(
+    "back-end/src/enterprise/services/contextualBandits",
+  );
   return {
     ...actual,
     persistContextualBanditEvent: jest.fn(),
@@ -55,7 +57,7 @@ jest.mock("back-end/src/models/FactTableModel", () => ({
   getFactTableMap: jest.fn().mockResolvedValue(new Map()),
 }));
 
-import { persistContextualBanditEvent } from "back-end/src/services/contextualBandits";
+import { persistContextualBanditEvent } from "back-end/src/enterprise/services/contextualBandits";
 
 const runContextualStatsEngineMock =
   runContextualStatsEngine as jest.MockedFunction<

@@ -5,6 +5,12 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 export const getContextualBanditCurrent = createApiRequestHandler(
   getContextualBanditCurrentValidator,
 )(async (req) => {
+  if (!req.context.hasPremiumFeature("contextual-bandits")) {
+    req.context.throwPlanDoesNotAllowError(
+      "Contextual Bandits require an Enterprise plan.",
+    );
+  }
+
   const experiment = await getExperimentById(req.context, req.params.id);
   if (!experiment) {
     throw new Error("Could not find experiment with that id");

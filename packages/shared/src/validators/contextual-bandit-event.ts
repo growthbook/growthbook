@@ -29,7 +29,7 @@ export type ContextualBanditResponseInterface = z.infer<
 // estimate, and an EDF-style decision flag). Those fields must be added BOTH
 // here (so `persistContextualBanditEvent` doesn't fail strict validation)
 // AND in the matching `ContextualBanditResult` type in
-// back-end/src/services/contextualBanditStats.ts, AND consumed by the
+// back-end/src/enterprise/services/contextualBanditStats.ts, AND consumed by the
 // results UI. See contextual-bandit-fix-prompt.md.
 
 export const contextualBanditEventValidator = baseSchema

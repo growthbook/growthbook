@@ -67,7 +67,7 @@ import {
 import {
   getContextualBanditResultsForUi,
   runContextualBanditSnapshot,
-} from "back-end/src/services/contextualBandits";
+} from "back-end/src/enterprise/services/contextualBandits";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
   approveScheduledExperimentStart,
@@ -1118,6 +1118,15 @@ export async function postExperiments(
     context.permissions.throwPermissionError();
   }
 
+  if (
+    data.type === "contextual-bandit" &&
+    !context.hasPremiumFeature("contextual-bandits")
+  ) {
+    context.throwPlanDoesNotAllowError(
+      "Contextual Bandits require an Enterprise plan.",
+    );
+  }
+
   let result:
     | {
         metricIds: string[];
@@ -1477,6 +1486,16 @@ export async function postExperiment(
 
   if (!context.permissions.canUpdateExperiment(experiment, req.body)) {
     context.permissions.throwPermissionError();
+  }
+
+  const effectiveType = data.type ?? experiment.type;
+  if (
+    effectiveType === "contextual-bandit" &&
+    !context.hasPremiumFeature("contextual-bandits")
+  ) {
+    context.throwPlanDoesNotAllowError(
+      "Contextual Bandits require an Enterprise plan.",
+    );
   }
 
   // Opt-in attribute registration check (org-level setting).
@@ -3272,6 +3291,13 @@ export async function getContextualBanditResults(
   res: Response,
 ) {
   const context = getContextFromReq(req);
+  if (!context.hasPremiumFeature("contextual-bandits")) {
+    res.status(402).json({
+      status: 402,
+      message: "Contextual Bandits require an Enterprise plan.",
+    });
+    return;
+  }
   const experiment = await getExperimentById(context, req.params.id);
   if (!experiment) {
     res.status(404).json({
@@ -3308,6 +3334,13 @@ export async function postContextualBanditRefresh(
   res: Response,
 ) {
   const context = getContextFromReq(req);
+  if (!context.hasPremiumFeature("contextual-bandits")) {
+    res.status(402).json({
+      status: 402,
+      message: "Contextual Bandits require an Enterprise plan.",
+    });
+    return;
+  }
   const experiment = await getExperimentById(context, req.params.id);
   if (!experiment) {
     res.status(404).json({
