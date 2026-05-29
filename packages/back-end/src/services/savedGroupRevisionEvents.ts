@@ -90,7 +90,14 @@ export async function dispatchSavedGroupRevisionEvent(
         await emit("revision.reviewRequested", apiRevision);
         break;
       case "reviewed": {
-        const reviewer = { id: action.userId };
+        // Resolve the reviewer's name/email (best-effort) so Slack/webhook
+        // payloads aren't just an opaque id.
+        const [user] = await context.getUsersByIds([action.userId]);
+        const reviewer = {
+          id: action.userId,
+          ...(user?.name ? { name: user.name } : {}),
+          ...(user?.email ? { email: user.email } : {}),
+        };
         if (action.decision === "approve") {
           await emit("revision.approved", {
             ...apiRevision,
@@ -126,9 +133,20 @@ export async function dispatchSavedGroupRevisionEvent(
       case "reopened":
         await emit("revision.reopened", apiRevision);
         break;
-      case "reverted":
-        await emit("revision.reverted", apiRevision);
+      case "reverted": {
+        // `revertedFrom` is the id of the revision being reverted to; surface
+        // its version so subscribers know the target without another fetch.
+        const source = revision.revertedFrom
+          ? await context.models.revisions.getById(revision.revertedFrom)
+          : null;
+        await emit("revision.reverted", {
+          ...apiRevision,
+          ...(source?.version != null
+            ? { revertedToVersion: source.version }
+            : {}),
+        });
         break;
+      }
     }
   } catch (e) {
     logger.error(e, "Error dispatching saved group revision event");

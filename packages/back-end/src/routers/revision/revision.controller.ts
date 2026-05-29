@@ -1053,10 +1053,13 @@ export const postMerge = async (
     bypass: isBypass,
   });
 
+  // A merged revision that carries `revertedFrom` is an approval-gated revert
+  // landing on the live entity — signal it as `reverted`, not `published`, so
+  // subscribers see a consistent revert event across both revert paths.
   await getRevisionWebhookAdapter(mergedRevision.target.type)?.dispatch(
     context,
     mergedRevision,
-    { type: "published" },
+    { type: mergedRevision.revertedFrom ? "reverted" : "published" },
   );
 
   return res.status(200).json({ status: 200, revision: mergedRevision });

@@ -1,3 +1,4 @@
+import { isEqual, omit } from "lodash";
 import {
   SavedGroupInterface,
   LegacySavedGroupInterface,
@@ -136,11 +137,15 @@ export class SavedGroupModel extends BaseClass<WriteOptions> {
       });
     }
 
-    await logSavedGroupUpdatedEvent(
-      this.context,
-      this.toApiInterface(existing),
-      this.toApiInterface(newDoc),
-    );
+    // Don't emit `savedGroup.updated` if nothing meaningful changed (e.g. only
+    // `dateUpdated` was bumped) — mirrors the feature webhook behavior.
+    const previous = this.toApiInterface(existing);
+    const current = this.toApiInterface(newDoc);
+    if (
+      !isEqual(omit(previous, ["dateUpdated"]), omit(current, ["dateUpdated"]))
+    ) {
+      await logSavedGroupUpdatedEvent(this.context, previous, current);
+    }
   }
 
   protected async afterDelete(doc: SavedGroupInterface) {

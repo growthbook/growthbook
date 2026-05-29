@@ -46,6 +46,9 @@ export type RevisionLifecycleAction =
   | { type: "published" }
   | { type: "discarded" }
   | { type: "reopened" }
+  // Fires whenever a revert lands on the live entity — both the direct-publish
+  // path and an approval-gated draft that's later merged (the dispatcher
+  // detects the latter via the revision's `revertedFrom`).
   | { type: "reverted" };
 
 export interface RevisionWebhookAdapter {

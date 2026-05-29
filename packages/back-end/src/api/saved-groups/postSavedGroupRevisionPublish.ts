@@ -121,7 +121,7 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
       { bypass: isBypass },
     );
     await dispatchSavedGroupRevisionEvent(req.context, merged, {
-      type: "published",
+      type: merged.revertedFrom ? "reverted" : "published",
     });
     return {
       revision: await toApiSavedGroupRevision(merged, req.context),
@@ -147,7 +147,7 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
   );
 
   await dispatchSavedGroupRevisionEvent(req.context, merged, {
-    type: "published",
+    type: merged.revertedFrom ? "reverted" : "published",
   });
 
   return {
