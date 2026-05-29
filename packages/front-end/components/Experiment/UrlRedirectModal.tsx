@@ -8,8 +8,7 @@ import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import clsx from "clsx";
 import { FaTriangleExclamation } from "react-icons/fa6";
-import { Box, Flex } from "@radix-ui/themes";
-import { PiArrowSquareOutFill } from "react-icons/pi";
+import { Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Field from "@/components/Forms/Field";
@@ -17,8 +16,7 @@ import Modal from "@/components/Modal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { DocLink } from "@/components/DocLink";
 import Checkbox from "@/ui/Checkbox";
-import Callout from "@/ui/Callout";
-import Link from "@/ui/Link";
+import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
 
 function validateUrl(urlString: string): {
   isValid: boolean;
@@ -62,11 +60,6 @@ const UrlRedirectModal: FC<{
   const hasSDKWithRedirects = getConnectionsSDKCapabilities({
     connections: sdkConnectionsData?.connections ?? [],
     project: experiment.project ?? "",
-  }).includes("redirects");
-  const hasSDKWithNoRedirects = getConnectionsSDKCapabilities({
-    connections: sdkConnectionsData?.connections ?? [],
-    project: experiment.project ?? "",
-    mustMatchAllConnections: true,
   }).includes("redirects");
 
   const form = useForm({
@@ -155,25 +148,12 @@ const UrlRedirectModal: FC<{
       ctaEnabled={hasSDKWithRedirects}
     >
       <div className="mx-3">
-        {hasSDKWithNoRedirects ? (
-          <Callout status={hasSDKWithRedirects ? "warning" : "error"}>
-            <Box as="span" pr="1">
-              {hasSDKWithRedirects
-                ? "Some of your SDK Connections in this project may not support URL Redirects."
-                : "None of your SDK Connections in this project support URL Redirects. Either upgrade your SDKs or add a supported SDK."}
-              <Link
-                href={"/sdks"}
-                weight="bold"
-                className="pl-2"
-                rel="noreferrer"
-                target="_blank"
-              >
-                View SDKs
-                <PiArrowSquareOutFill className="ml-1" />
-              </Link>
-            </Box>
-          </Callout>
-        ) : null}
+        <SDKCapabilityWarning
+          capability="redirects"
+          project={experiment.project ?? ""}
+          someMessage="Some of your SDK Connections in this project may not support URL Redirects."
+          noneMessage="None of your SDK Connections in this project support URL Redirects. Either upgrade your SDKs or add a supported SDK."
+        />
 
         <div className="d-flex align-items-baseline mt-3">
           <h4>Original URL</h4>

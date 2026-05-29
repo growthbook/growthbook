@@ -5,7 +5,10 @@ import {
   getApprovalFlowSettings,
   isSavedGroupRevisionMetadataOnly,
 } from "shared/enterprise";
-import { savedGroupValidator } from "shared/validators";
+import {
+  savedGroupValidator,
+  savedGroupUpdatableFieldsSchema,
+} from "shared/validators";
 import type { Context } from "back-end/src/models/BaseModel";
 import { EntityRevisionAdapter } from "back-end/src/revisions/EntityRevisionAdapter";
 
@@ -17,17 +20,9 @@ const SNAPSHOT_ALLOWED_KEYS = Object.keys(savedGroupValidator.shape) as Array<
   keyof SavedGroupInterface
 >;
 
-const UPDATABLE_FIELDS = new Set<string>([
-  "groupName",
-  "owner",
-  "values",
-  "condition",
-  "attributeKey",
-  "description",
-  "projects",
-  "useEmptyListGroup",
-  "archived",
-]);
+const UPDATABLE_FIELDS: ReadonlySet<string> = new Set(
+  Object.keys(savedGroupUpdatableFieldsSchema.shape),
+);
 
 // User must be able to bypass approval in EVERY project the saved group
 // belongs to (treats the empty-projects case as the global "" project).
@@ -52,6 +47,13 @@ function canEditSavedGroup(
   return context.permissions.canUpdateSavedGroup(snapshot, {});
 }
 
+function isSavedGroupApprovalRequired(context: Context): boolean {
+  return (
+    context.hasPremiumFeature("require-approvals") &&
+    !!context.org.settings?.approvalFlows?.savedGroups?.[0]?.required
+  );
+}
+
 export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
   getModel(context: Context) {
     return context.models.savedGroups as {
@@ -74,9 +76,7 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
   },
 
   isRevisionRequired(context: Context): boolean {
-    return (
-      context.org.settings?.approvalFlows?.savedGroups?.[0]?.required || false
-    );
+    return isSavedGroupApprovalRequired(context);
   },
 
   getUpdatableFields(): ReadonlySet<string> {
@@ -104,9 +104,7 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
   },
 
   isApprovalRequired(context: Context): boolean {
-    return (
-      context.org.settings?.approvalFlows?.savedGroups?.[0]?.required || false
-    );
+    return isSavedGroupApprovalRequired(context);
   },
 
   // Per-revision gate: when the org has approval enabled but disabled the
@@ -115,6 +113,8 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
   // metadata-only autoPublish shortcut in PUT /saved-groups/:id so the
   // generic /revision/:id/merge endpoint reaches the same conclusion.
   isApprovalRequiredForRevision(context: Context, revision: Revision): boolean {
+    if (!context.hasPremiumFeature("require-approvals")) return false;
+
     const settings = getApprovalFlowSettings(
       context.org.settings?.approvalFlows,
       "saved-group",
@@ -133,6 +133,7 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
     context: Context,
     entity: SavedGroupInterface,
     changes: Record<string, unknown>,
+    options?: { isRevert?: boolean },
   ): Promise<void> {
     // Filter to updatable fields and only include fields that actually differ
     const filteredChanges: Record<string, unknown> = {};
@@ -147,11 +148,15 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
 
     if (Object.keys(filteredChanges).length === 0) return;
 
+    // Reverts restore a previously-published condition as-is; skip the
+    // registered-attributes check so an attribute removed/archived since the
+    // snapshot was taken doesn't block the revert.
     await context.models.savedGroups.update(
       entity,
       filteredChanges as Parameters<
         typeof context.models.savedGroups.update
       >[1],
+      options?.isRevert ? { skipAttributeValidation: true } : undefined,
     );
   },
 };

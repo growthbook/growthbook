@@ -2,7 +2,7 @@
   "name": "growthbook-app",
   "repository": "https://github.com/growthbook/growthbook-app.git",
   "private": true,
-  "version": "4.3.0",
+  "version": "4.4.0",
   "scripts": {
     "lint": "eslint './**/*.{ts,tsx,js,jsx}' --max-warnings 0 --cache --cache-strategy content >/dev/null 2>&1 || eslint './**/*.{ts,tsx,js,jsx}' --fix --max-warnings 0 --cache --cache-strategy content",
     "lint:ci": "eslint './**/*.{ts,tsx,js,jsx}' --max-warnings 0 --cache --cache-strategy content",
@@ -84,19 +84,22 @@
       "@octokit/request-error@5": "^5.1.1",
       "baseline-browser-mapping": "^2.9.19",
       "brace-expansion@1": "^1.1.12",
-      "axios@1": "^1.15.0",
-      "basic-ftp@5": "^5.3.0",
+      "axios@1": "^1.15.2",
+      "basic-ftp@5": "^5.3.1",
       "bn.js@4": "^4.12.3",
       "bn.js@5": "^5.2.3",
       "diff@4": "^4.0.4",
       "execa": "^5.0.0",
+      "fast-uri@3": "^3.1.2",
+      "fast-xml-builder@1": "^1.1.7",
       "form-data@2": "^2.5.5",
       "form-data@3": "^3.0.4",
       "form-data@4": "^4.0.5",
-      "brace-expansion@5": "^5.0.5",
+      "brace-expansion@5": "^5.0.6",
       "fast-xml-parser@4": "^4.5.5",
-      "fast-xml-parser@5": "^5.5.7",
+      "fast-xml-parser@5": "^5.7.0",
       "follow-redirects@1": "^1.16.0",
+      "js-cookie@3": "^3.0.7",
       "jws@4": "^4.0.1",
       "lodash@4": "^4.18.0",
       "mdast-util-to-hast@13": "^13.2.1",
@@ -105,8 +108,14 @@
       "path-to-regexp@0": "^0.1.13",
       "picomatch@2": "^2.3.2",
       "picomatch@4": "^4.0.4",
+      "postcss@8": "^8.5.10",
       "prismjs@1": "^1.30.0",
-      "qs@6": "^6.15.0",
+      "@protobufjs/utf8@1": "^1.1.1",
+      "protobufjs@7": "^7.6.1",
+      "qs@6": "^6.15.2",
+      "uuid@8": "^11.1.1",
+      "uuid@9": "^11.1.1",
+      "uuid@10": "^11.1.1",
       "vite": "^6.0.0",
       "yaml@1": "^1.10.3"
     },
@@ -155,5 +164,5 @@
   "engines": {
     "node": ">=24"
   },
-  "packageManager": "pnpm@10.32.1"
+  "packageManager": "pnpm@10.33.4"
 }

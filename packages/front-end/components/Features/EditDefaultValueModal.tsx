@@ -49,7 +49,7 @@ export default function EditDefaultValueModal({
   const defaultDraft = useDefaultDraft(revisionList);
 
   const [mode, setMode] = useState<DraftMode>(
-    defaultDraft != null ? "existing" : "new",
+    defaultDraft !== null ? "existing" : "new",
   );
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
@@ -57,7 +57,7 @@ export default function EditDefaultValueModal({
 
   // URL version drives draft behavior: feature.version = new draft, draft version = modify existing.
   const targetVersion =
-    mode === "existing" && selectedDraft != null
+    mode === "existing" && selectedDraft !== null
       ? selectedDraft
       : feature.version;
 

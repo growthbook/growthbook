@@ -2,7 +2,7 @@ import type { DataType } from "shared/types/integrations";
 import type { DateTruncGranularity, SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
 
-export const baseDialect: SqlDialect = {
+export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
   escapeStringLiteral: (value: string) => value.replace(/'/g, `''`),
 
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
@@ -56,7 +56,7 @@ export const baseDialect: SqlDialect = {
         return "TIMESTAMP";
       case "hll":
         return "VARBINARY";
-      case "kll":
+      case "quantileSketch":
         return "VARBINARY";
       default: {
         const _: never = dataType;
@@ -109,33 +109,27 @@ export const baseDialect: SqlDialect = {
     );
   },
 
-  kllInit: () => {
+  quantileSketchInit: () => {
+    throw new Error("Quantile sketches are not supported by this data source.");
+  },
+
+  quantileSketchMergePartial: () => {
+    throw new Error("Quantile sketches are not supported by this data source.");
+  },
+
+  quantileSketchExtractPoint: () => {
+    throw new Error("Quantile sketches are not supported by this data source.");
+  },
+
+  quantileSketchExtractQuantiles: () => {
+    throw new Error("Quantile sketches are not supported by this data source.");
+  },
+
+  quantileSketchRankApprox: () => {
     throw new Error(
-      "KLL quantile sketches are not supported by this data source.",
+      "Quantile sketch rank approximation is not implemented for this data source.",
     );
   },
 
-  kllMergePartial: () => {
-    throw new Error(
-      "KLL quantile sketches are not supported by this data source.",
-    );
-  },
-
-  kllExtractPoint: () => {
-    throw new Error(
-      "KLL quantile sketches are not supported by this data source.",
-    );
-  },
-
-  kllExtractQuantiles: () => {
-    throw new Error(
-      "KLL quantile sketches are not supported by this data source.",
-    );
-  },
-
-  kllRankApprox: () => {
-    throw new Error(
-      "KLL rank approximation is not implemented for this data source.",
-    );
-  },
+  stringLength: (column: string) => `LENGTH(${column})`,
 };

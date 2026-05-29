@@ -169,7 +169,7 @@ export default function DatePicker({
   ]);
 
   return (
-    <div className={containerClassName}>
+    <div className={clsx(containerClassName, { "mb-0": !label && !label2 })}>
       <Popover.Root
         open={open}
         onOpenChange={(o) => {

@@ -1,13 +1,16 @@
 /**
- * Delegates managed ClickHouse provisioning to central-license-server
+ * Delegates managed ClickHouse operations to central-license-server
  * (see managed-clickhouse/* routes there).
  */
+import type { AIPromptType } from "shared/ai";
 import type { MaterializedColumn } from "shared/types/datasource";
+import type { DailyUsage } from "shared/types/organization";
+import { dailyUsageForOrgResponseValidator } from "shared/validators";
 import type { RequestInit, Response } from "node-fetch";
 import { LICENSE_SERVER_URL } from "back-end/src/enterprise/licenseUtil";
 import { logger } from "back-end/src/util/logger";
 import { fetch } from "back-end/src/util/http.util";
-import { CLOUD_SECRET } from "back-end/src/util/secrets";
+import { CLOUD_SECRET, IS_CLOUD } from "back-end/src/util/secrets";
 
 const MAX_SENTRY_RESPONSE_BODY_LENGTH = 16_000;
 /** Long cap so outbound requests cannot hang indefinitely (e.g. black-holed TCP). */
@@ -120,6 +123,21 @@ async function postManagedClickhouse(
   return res;
 }
 
+async function postManagedClickhouseJson<T>(
+  path: string,
+  body: unknown,
+): Promise<T> {
+  const res = await postManagedClickhouse(path, body);
+  const text = await res.text();
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error(
+      "The managed warehouse service returned invalid JSON. Please try again or contact support if this continues.",
+    );
+  }
+}
+
 export async function dangerousRecreateClickhouseTables(
   orgId: string,
 ): Promise<void> {
@@ -169,4 +187,63 @@ export async function updateMaterializedColumnsInClickhouse({
     finalColumns,
     originalColumns,
   });
+}
+
+export async function logCloudAIUsage({
+  organization,
+  type,
+  model,
+  temperature,
+  numPromptTokensUsed,
+  numCompletionTokensUsed,
+  usedDefaultPrompt,
+}: {
+  organization: string;
+  type: AIPromptType;
+  model: string;
+  numPromptTokensUsed?: number;
+  numCompletionTokensUsed?: number;
+  temperature?: number;
+  usedDefaultPrompt: boolean;
+}): Promise<void> {
+  if (!IS_CLOUD) {
+    return;
+  }
+
+  try {
+    await postManagedClickhouse("log-ai-usage", {
+      organization,
+      type,
+      model,
+      temperature,
+      numPromptTokensUsed,
+      numCompletionTokensUsed,
+      usedDefaultPrompt,
+    });
+  } catch (e) {
+    logger.error(e, "Failed to log AI usage to Clickhouse");
+  }
+}
+
+export async function getDailyUsageForOrg(
+  orgId: string,
+  start: Date,
+  end: Date,
+): Promise<DailyUsage[]> {
+  const json = await postManagedClickhouseJson("daily-usage-for-org", {
+    orgId,
+    start: start.toISOString(),
+    end: end.toISOString(),
+  });
+  const parsed = dailyUsageForOrgResponseValidator.safeParse(json);
+  if (!parsed.success) {
+    logger.error(
+      { zodError: parsed.error.flatten() },
+      "Unexpected response shape from daily-usage-for-org endpoint",
+    );
+    throw new Error(
+      "Unexpected response shape from daily-usage-for-org endpoint",
+    );
+  }
+  return parsed.data.days;
 }

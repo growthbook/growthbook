@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { RampScheduleInterface } from "shared/validators";
+import { isReadyForApproval, RampScheduleInterface } from "shared/validators";
 import { abbreviateAgo, datetime } from "shared/dates";
 import Badge from "@/ui/Badge";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -7,6 +7,7 @@ import {
   getRampBadgeColor,
   getRampStatusLabel,
 } from "@/components/RampSchedule/RampTimeline";
+import { formatRollbackReason } from "@/components/RampSchedule/rollbackReason";
 export default function RampScheduleBadge({
   rs,
   featureRuleContext = false,
@@ -44,24 +45,10 @@ export default function RampScheduleBadge({
   const now = new Date();
   const startAt = rs.startDate ? new Date(rs.startDate) : null;
   const futureStart = startAt && startAt > now;
-
-  // Simple schedule: show only timing, no status prefix, no tooltip.
-  if (simpleSchedule) {
-    let label: string;
-    if (rs.status === "pending") {
-      // Awaiting publish of the activating revision.
-      label = "Schedule pending publish";
-    } else if (rs.status === "running") {
-      label = "Running";
-    } else if (futureStart) {
-      label = `Starts ${abbreviateAgo(startAt)}`;
-    } else {
-      label = "Active";
-    }
-    return (
-      <Badge label={label} color={getRampBadgeColor(rs.status)} radius="full" />
-    );
-  }
+  // Surface "Starts in …" only while the schedule is genuinely waiting to
+  // start (pending/ready). Once it's running/paused/completed the original
+  // startDate is stale UI noise.
+  const preStart = rs.status === "pending" || rs.status === "ready";
 
   const dateRow = (label: string, d: Date) => (
     <div>
@@ -69,6 +56,50 @@ export default function RampScheduleBadge({
       {datetime(d)}
     </div>
   );
+
+  if (simpleSchedule) {
+    const statusLabels: Partial<Record<string, string>> = {
+      pending: "Schedule pending publish",
+      ready: "Schedule scheduled",
+      running: "Schedule active",
+      paused: "Schedule paused",
+      completed: "Schedule complete",
+      "rolled-back": "Rolled back",
+    };
+    const displayLabel = isReadyForApproval(rs)
+      ? "Schedule needs approval"
+      : (statusLabels[rs.status] ??
+        `Schedule ${getRampStatusLabel(rs).toLowerCase()}`);
+
+    let timingLabel: string | null = null;
+    if (preStart && futureStart) {
+      timingLabel = `Starts ${abbreviateAgo(startAt)}`;
+    }
+
+    const endAt = rs.cutoffDate ? new Date(rs.cutoffDate) : null;
+    const tooltipRows: ReactNode[] = [];
+    if (startAt) tooltipRows.push(dateRow("Starts", startAt));
+    if (endAt) tooltipRows.push(dateRow("Disables", endAt));
+
+    const badge = (
+      <Badge
+        label={displayLabel + (timingLabel ? ` · ${timingLabel}` : "")}
+        color={getRampBadgeColor(rs)}
+        radius="full"
+      />
+    );
+
+    if (tooltipRows.length === 0) return badge;
+
+    return (
+      <Tooltip
+        body={<>{tooltipRows}</>}
+        style={{ display: "inline-flex", alignItems: "center" }}
+      >
+        {badge}
+      </Tooltip>
+    );
+  }
 
   const completedAt =
     rs.status === "completed" && rs.dateUpdated
@@ -78,11 +109,16 @@ export default function RampScheduleBadge({
     rs.status === "paused" && rs.pausedAt ? new Date(rs.pausedAt) : null;
 
   let timingLabel: string | null = null;
-  let timingTooltip: ReactNode = null;
-  if (futureStart) {
+  const timingTooltipRows: ReactNode[] = [];
+  if (preStart && futureStart) {
     timingLabel = `Starts ${abbreviateAgo(startAt)}`;
-    timingTooltip = dateRow("Starts", startAt);
+    timingTooltipRows.push(dateRow("Starts", startAt));
   }
+  if (rs.cutoffDate) {
+    timingTooltipRows.push(dateRow("Disables", new Date(rs.cutoffDate)));
+  }
+  const timingTooltip =
+    timingTooltipRows.length > 0 ? <>{timingTooltipRows}</> : null;
 
   const baseLabel = getRampStatusLabel(rs);
 
@@ -92,18 +128,18 @@ export default function RampScheduleBadge({
     ready: "Ramp scheduled",
     running: "Ramp active",
     paused: "Ramp paused",
-    "pending-approval": "Ramp needs approval",
     completed: "Ramp complete",
-    "rolled-back": "Rolled Back",
+    "rolled-back": "Rolled back",
   };
-  const displayLabel = featureRuleContext
-    ? (featureContextLabels[rs.status] ?? `Ramp ${baseLabel.toLowerCase()}`)
-    : baseLabel;
+  const featureContextLabel = isReadyForApproval(rs)
+    ? "Ramp needs approval"
+    : (featureContextLabels[rs.status] ?? `Ramp ${baseLabel.toLowerCase()}`);
+  const displayLabel = featureRuleContext ? featureContextLabel : baseLabel;
 
   const badge = (
     <Badge
       label={displayLabel + (timingLabel ? ` · ${timingLabel}` : "")}
-      color={getRampBadgeColor(rs.status)}
+      color={getRampBadgeColor(rs)}
       radius="full"
     />
   );
@@ -114,6 +150,10 @@ export default function RampScheduleBadge({
       <strong>{rs.name}</strong>)
     </p>
   );
+  const rolledBackAt =
+    rs.status === "rolled-back" && rs.lastRollbackAt
+      ? new Date(rs.lastRollbackAt)
+      : null;
   const statusLine =
     rs.status === "completed" ? (
       <p>
@@ -124,6 +164,16 @@ export default function RampScheduleBadge({
           <>The ramp may be safely removed by editing this rule.</>
         )}
       </p>
+    ) : rs.status === "rolled-back" ? (
+      <div>
+        {rolledBackAt && dateRow("Rolled back", rolledBackAt)}
+        {formatRollbackReason(rs.lastRollbackReason) && (
+          <div>
+            <span className="text-muted">Reason: </span>
+            {formatRollbackReason(rs.lastRollbackReason)}
+          </div>
+        )}
+      </div>
     ) : pausedAt ? (
       dateRow("Paused", pausedAt)
     ) : null;

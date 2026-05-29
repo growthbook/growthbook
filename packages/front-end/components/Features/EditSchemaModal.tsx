@@ -129,7 +129,10 @@ function EditSchemaField({
             value={value.enum}
             onChange={(e) => {
               if (e.length > 256) return;
-              e = e.filter((v) => v !== "" && v != null && v.length <= 256);
+              e = e.filter(
+                (v) =>
+                  v !== "" && v !== null && v !== undefined && v.length <= 256,
+              );
               onChange({ ...value, enum: e });
             }}
             options={value.enum.map((v) => ({ value: v, label: v }))}
@@ -560,7 +563,7 @@ export default function EditSchemaModal({
         mutate();
         const resolvedVersion =
           res?.draftVersion ?? (mode === "existing" ? selectedDraft : null);
-        if (resolvedVersion != null && setVersion) setVersion(resolvedVersion);
+        if (resolvedVersion !== null && setVersion) setVersion(resolvedVersion);
         onEnable && value.enabled && onEnable();
       })}
       close={close}

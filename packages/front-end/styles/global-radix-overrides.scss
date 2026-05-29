@@ -322,6 +322,14 @@
   }
 }
 
+.rt-BaseRadioRoot:where(:disabled, [data-disabled])::before {
+  background-color: transparent !important;
+}
+
+.rt-RadioGroupRoot[data-disabled] .rt-RadioGroupItem {
+  cursor: not-allowed;
+}
+
 // RadioCards
 .rt-RadioCardsItem {
   &:hover:not(.disabled) {

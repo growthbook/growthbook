@@ -178,8 +178,12 @@ describe("publishPendingFeatureDraftsForExperiment", () => {
       { featureId: "feat_a", revisionVersion: 7 },
     ]);
     expect(mockPublishRevision).toHaveBeenCalledTimes(2);
-    expect(mockPublishRevision.mock.calls[0][2]).toMatchObject({ version: 5 });
-    expect(mockPublishRevision.mock.calls[1][2]).toMatchObject({ version: 7 });
+    expect(mockPublishRevision.mock.calls[0][0].revision).toMatchObject({
+      version: 5,
+    });
+    expect(mockPublishRevision.mock.calls[1][0].revision).toMatchObject({
+      version: 7,
+    });
   });
 
   it("halts the train on first merge conflict (no further publishes)", async () => {

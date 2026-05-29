@@ -72,9 +72,6 @@
     }
   },
   "packages/front-end/components/Auth/Welcome.tsx": {
-    "local/no-alert-classname": {
-      "count": 2
-    },
     "no-restricted-syntax": {
       "count": 4
     }
@@ -240,7 +237,7 @@
       "count": 2
     },
     "no-restricted-syntax": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/ExecReports/ExperimentWinRate.tsx": {
@@ -427,7 +424,7 @@
       "count": 2
     },
     "no-restricted-imports": {
-      "count": 2
+      "count": 1
     },
     "no-restricted-syntax": {
       "count": 10
@@ -547,9 +544,6 @@
     }
   },
   "packages/front-end/components/Experiment/TabbedPage/ExperimentHeader.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    },
     "no-restricted-imports": {
       "count": 1
     },
@@ -571,11 +565,6 @@
     }
   },
   "packages/front-end/components/Experiment/TabbedPage/RunningExperimentDecisionBanner.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Experiment/TabbedPage/StartExperimentModal.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -980,7 +969,7 @@
   },
   "packages/front-end/components/Features/RolloutPercentInput.tsx": {
     "no-restricted-syntax": {
-      "count": 3
+      "count": 1
     }
   },
   "packages/front-end/components/Features/RolloutSummary.tsx": {
@@ -1016,11 +1005,6 @@
       "count": 10
     }
   },
-  "packages/front-end/components/Features/RuleModal/RampScheduleSection.tsx": {
-    "no-restricted-syntax": {
-      "count": 8
-    }
-  },
   "packages/front-end/components/Features/RuleModal/SafeRolloutFields.tsx": {
     "local/no-alert-classname": {
       "count": 2
@@ -1047,7 +1031,7 @@
   },
   "packages/front-end/components/Features/RuleModal/index.tsx": {
     "no-restricted-imports": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/Features/SDKConnections/ConnectionStatus.tsx": {
@@ -1222,7 +1206,7 @@
   },
   "packages/front-end/components/GeneralSettings/ExperimentSettings/StickyBucketingSettings.tsx": {
     "no-restricted-imports": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/GeneralSettings/ExperimentSettings/index.tsx": {
@@ -1403,9 +1387,6 @@
   "packages/front-end/components/Holdout/NewHoldoutForm.tsx": {
     "local/no-alert-classname": {
       "count": 2
-    },
-    "no-restricted-imports": {
-      "count": 1
     },
     "no-restricted-syntax": {
       "count": 7
@@ -1602,11 +1583,6 @@
   "packages/front-end/components/Metrics/MetricGroupModal.tsx": {
     "no-restricted-syntax": {
       "count": 4
-    }
-  },
-  "packages/front-end/components/Metrics/MetricGroupsList.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
     }
   },
   "packages/front-end/components/Metrics/MetricsList.tsx": {
@@ -2568,11 +2544,6 @@
       "count": 1
     }
   },
-  "packages/front-end/enterprise/components/Dashboards/DashboardEditor/index.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
   "packages/front-end/enterprise/components/Dashboards/DashboardModal.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -2815,17 +2786,11 @@
     }
   },
   "packages/front-end/pages/features/index.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    },
     "no-restricted-syntax": {
       "count": 1
     }
   },
   "packages/front-end/pages/holdouts/index.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    },
     "no-restricted-syntax": {
       "count": 1
     }

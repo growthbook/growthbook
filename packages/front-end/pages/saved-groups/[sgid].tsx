@@ -369,7 +369,7 @@ export default function EditSavedGroupPage() {
 
   const canAutoPublish = !approvalRequired || canAdminPublish;
 
-  const { hasLargeSavedGroupFeature, unsupportedConnections } =
+  const { hasLargeSavedGroupFeature, unsupportedConnections, connections } =
     useLargeSavedGroupSupport();
 
   const [savedGroupForm, setSavedGroupForm] =
@@ -1720,6 +1720,7 @@ export default function EditSavedGroupPage() {
           <LargeSavedGroupPerformanceWarning
             hasLargeSavedGroupFeature={hasLargeSavedGroupFeature}
             unsupportedConnections={unsupportedConnections}
+            connections={connections}
             openUpgradeModal={() => setUpgradeModal(true)}
           />
         )}
