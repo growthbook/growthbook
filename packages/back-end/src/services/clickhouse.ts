@@ -1,15 +1,33 @@
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
-import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
+import {
+  buildManagedWarehouseEventsFactTableSql,
+  buildManagedWarehouseExposureQueries,
+  getManagedWarehouseEventsFactTableColumns,
+  getManagedWarehouseUserIdTypes,
+  getManagedWarehouseUserIdTypeSettings,
+  isManagedWarehouseAwaitingProvisioning,
+} from "shared/util";
 import {
   GrowthbookClickhouseDataSource,
   MaterializedColumn,
 } from "shared/types/datasource";
+import { SDKAttributeSchema } from "shared/types/organization";
+import { ColumnInterface } from "shared/types/fact-table";
+import { isEqual } from "lodash";
 import type { ReqContext } from "back-end/types/request";
+import type { ApiReqContext } from "back-end/types/api";
 import {
+  dangerouslyGetFactTableByIdBypassPermission,
+  dangerouslySyncManagedWarehouseFactTable,
   getFactTablesForDatasource,
   updateFactTableColumns,
 } from "back-end/src/models/FactTableModel";
+import {
+  dangerouslyGetGrowthbookDatasourceBypassPermission,
+  updateDataSource,
+} from "back-end/src/models/DataSourceModel";
 import { updateMaterializedColumnsInClickhouse } from "back-end/src/services/licenseServerManagedClickhouse";
+import { logger } from "back-end/src/util/logger";
 
 type ClickHouseDataType =
   | "DateTime"
@@ -140,6 +158,146 @@ export async function updateMaterializedColumns({
       ft,
       { columns: newColumns, userIdTypes: newIdentifierTypes },
       context,
+    );
+  }
+}
+
+/**
+ * Re-sync a JSON-column managed warehouse after the org's identifiers
+ * (hashAttribute attributes) change. Regenerates the datasource's userIdTypes +
+ * exposure queries and the `ch_events` fact table's sql/columns/userIdTypes so
+ * custom identifiers are aliased out of the `attributes` JSON column.
+ *
+ * No-op for legacy (materialized-column) warehouses and when no managed
+ * warehouse exists for the org.
+ */
+export async function syncManagedWarehouseIdentifiers(
+  context: ReqContext | ApiReqContext,
+  // Pass the freshly-updated schema; context.org may still hold the stale copy
+  // right after an attribute mutation.
+  attributeSchema: SDKAttributeSchema | undefined = context.org.settings
+    ?.attributeSchema,
+): Promise<void> {
+  // Bypass project-read permission: an attribute admin may not have read access
+  // to the warehouse's project, but the sync must still run or ClickHouse / the
+  // fact table would drift from the attribute schema.
+  const datasource = await dangerouslyGetGrowthbookDatasourceBypassPermission(
+    context.org.id,
+  );
+  if (
+    !datasource ||
+    datasource.type !== "growthbook_clickhouse" ||
+    !datasource.settings.useJsonColumns
+  ) {
+    return;
+  }
+
+  const newUserIdTypes = getManagedWarehouseUserIdTypes(attributeSchema);
+
+  // Update datasource settings (userIdTypes + exposure queries).
+  // updateDataSource short-circuits when nothing actually changed.
+  await updateDataSource(context, datasource, {
+    settings: {
+      ...datasource.settings,
+      userIdTypes: getManagedWarehouseUserIdTypeSettings(attributeSchema),
+      queries: {
+        ...datasource.settings.queries,
+        exposure: buildManagedWarehouseExposureQueries(attributeSchema),
+      },
+    },
+  });
+
+  // Update the events fact table sql + columns + userIdTypes
+  const ft = await dangerouslyGetFactTableByIdBypassPermission(
+    context.org.id,
+    MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
+  );
+  if (!ft) return;
+
+  const desiredColumns =
+    getManagedWarehouseEventsFactTableColumns(attributeSchema);
+  const desiredColumnNames = new Set(desiredColumns.map((c) => c.column));
+
+  const newColumns: ColumnInterface[] = [...ft.columns];
+  newColumns.forEach((col) => {
+    if (col.numberFormat === undefined) {
+      col.numberFormat = "";
+    }
+  });
+
+  let columnsMutated = false;
+
+  // Add new columns, restore any that were previously removed
+  desiredColumns.forEach((dc) => {
+    const existing = newColumns.find((c) => c.column === dc.column);
+    if (!existing) {
+      newColumns.push({
+        column: dc.column,
+        name: dc.column,
+        datatype: dc.datatype,
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        deleted: false,
+        description: "",
+        numberFormat: "",
+        alwaysInlineFilter: dc.alwaysInlineFilter,
+      });
+      columnsMutated = true;
+    } else if (existing.deleted) {
+      existing.deleted = false;
+      existing.dateUpdated = new Date();
+      columnsMutated = true;
+    }
+  });
+
+  // Mark removed custom identifiers as deleted (never touch base/standard columns)
+  (ft.userIdTypes || [])
+    .filter((id) => !newUserIdTypes.includes(id) && !desiredColumnNames.has(id))
+    .forEach((id) => {
+      const col = newColumns.find((c) => c.column === id && !c.deleted);
+      if (col) {
+        col.deleted = true;
+        col.dateUpdated = new Date();
+        columnsMutated = true;
+      }
+    });
+
+  const newSql = buildManagedWarehouseEventsFactTableSql(attributeSchema);
+
+  // Skip the write when nothing changed (e.g. a tag/description-only edit on an
+  // identifier attribute) to avoid needless fact-table churn.
+  if (
+    !columnsMutated &&
+    ft.sql === newSql &&
+    isEqual(ft.userIdTypes || [], newUserIdTypes)
+  ) {
+    return;
+  }
+
+  await dangerouslySyncManagedWarehouseFactTable(context, ft, {
+    sql: newSql,
+    columns: newColumns,
+    userIdTypes: newUserIdTypes,
+  });
+}
+
+/**
+ * Best-effort wrapper used by attribute create/update/delete (internal
+ * controller + external REST API). A managed-warehouse sync failure must never
+ * fail the underlying attribute change.
+ */
+export async function syncManagedWarehouseIdentifiersOnAttributeChange(
+  context: ReqContext | ApiReqContext,
+  attributeSchema: SDKAttributeSchema | undefined,
+  involvesIdentifier: boolean,
+): Promise<void> {
+  if (!involvesIdentifier) return;
+  try {
+    await syncManagedWarehouseIdentifiers(context, attributeSchema);
+  } catch (e) {
+    logger.error(
+      e,
+      "Failed to sync managed warehouse identifiers after attribute change",
     );
   }
 }

@@ -8,6 +8,7 @@ import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
+import { syncManagedWarehouseIdentifiersOnAttributeChange } from "back-end/src/services/clickhouse";
 import { yieldEventLoop } from "back-end/src/util/yield";
 
 export const postAttribute = async (
@@ -37,12 +38,20 @@ export const postAttribute = async (
     ...(tags.length > 0 && { tags }),
   };
 
+  const updatedSchema = [...attributeSchema, newAttribute];
+
   await updateOrganization(org.id, {
     settings: {
       ...org.settings,
-      attributeSchema: [...attributeSchema, newAttribute],
+      attributeSchema: updatedSchema,
     },
   });
+
+  await syncManagedWarehouseIdentifiersOnAttributeChange(
+    context,
+    updatedSchema,
+    !!newAttribute.hashAttribute,
+  );
 
   await req.audit({
     event: "attribute.create",
@@ -127,6 +136,12 @@ export const putAttribute = async (
     },
   });
 
+  await syncManagedWarehouseIdentifiersOnAttributeChange(
+    context,
+    attributeSchema,
+    !!existing.hashAttribute || !!attributeSchema[index].hashAttribute,
+  );
+
   await req.audit({
     event: "attribute.update",
     entity: {
@@ -168,6 +183,7 @@ export const deleteAttribute = async (
     context.permissions.throwPermissionError();
   }
 
+  const deletedAttribute = attributeSchema[index];
   const updatedArr = attributeSchema.filter((a) => a.property !== id);
 
   await updateOrganization(org.id, {
@@ -176,6 +192,12 @@ export const deleteAttribute = async (
       attributeSchema: updatedArr,
     },
   });
+
+  await syncManagedWarehouseIdentifiersOnAttributeChange(
+    context,
+    updatedArr,
+    !!deletedAttribute.hashAttribute,
+  );
 
   await req.audit({
     event: "attribute.delete",
