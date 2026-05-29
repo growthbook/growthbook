@@ -209,6 +209,21 @@ export const updateExperiment = createApiRequestHandler(
     validateVariationIds(req.body.variations as Variation[]);
   }
 
+  const effectivePrecomputedUnitDimensionType =
+    req.body.type ?? experiment.type ?? "standard";
+  if (effectivePrecomputedUnitDimensionType === "multi-armed-bandit") {
+    // If request includes precomputed unit dimensions for a bandit, error
+    if (req.body.precomputedUnitDimensionIds !== undefined) {
+      throw new Error(
+        "Precomputed unit dimensions are not supported for bandit experiments",
+      );
+    }
+    // if experiment is just switching to a bandit, silently clear precomputed unit dimensions
+    if (req.body.type === "multi-armed-bandit") {
+      req.body.precomputedUnitDimensionIds = [];
+    }
+  }
+
   const shouldValidatePrecomputedUnitDimensionIds =
     req.body.precomputedUnitDimensionIds !== undefined ||
     (req.body.datasourceId !== undefined &&
