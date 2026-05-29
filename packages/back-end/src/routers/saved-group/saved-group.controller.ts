@@ -29,6 +29,10 @@ import {
 } from "back-end/src/revisions/util";
 import { getAdapter } from "back-end/src/revisions";
 import {
+  dispatchSavedGroupRevisionEvent,
+  deriveChange,
+} from "back-end/src/services/savedGroupRevisionEvents";
+import {
   loadSavedGroupReferences,
   totalSavedGroupReferences,
 } from "back-end/src/services/savedGroups";
@@ -278,6 +282,9 @@ export const postSavedGroupAddItems = async (
   // mark them as merged even though `savedGroups.update` only applies the
   // values change.
   let baseValues: string[] = savedGroup.values ?? [];
+  // Whether an open draft already existed (so we emit revision.updated rather
+  // than revision.created when stacking onto it).
+  let hadOpenDraft = false;
   if (approvalRequired) {
     const existingRevision =
       await context.models.revisions.getOpenByTargetAndAuthor(
@@ -285,6 +292,7 @@ export const postSavedGroupAddItems = async (
         id,
         context.userId,
       );
+    hadOpenDraft = !!existingRevision;
     if (existingRevision) {
       const currentState = applyPatchToSnapshot(
         existingRevision.target.snapshot as SavedGroupInterface,
@@ -320,6 +328,9 @@ export const postSavedGroupAddItems = async (
       context.userId,
       { bypass: false },
     );
+    await dispatchSavedGroupRevisionEvent(context, revision, {
+      type: "published",
+    });
     return res.status(200).json({
       status: 200,
       requiresApproval: false,
@@ -327,6 +338,11 @@ export const postSavedGroupAddItems = async (
     });
   }
 
+  await dispatchSavedGroupRevisionEvent(
+    context,
+    revision,
+    hadOpenDraft ? { type: "updated", change: "values" } : { type: "created" },
+  );
   return res.status(202).json({
     status: 202,
     requiresApproval: approvalRequired,
@@ -421,6 +437,9 @@ export const postSavedGroupRemoveItems = async (
   // mark them as merged even though `savedGroups.update` only applies the
   // values change.
   let baseValues: string[] = savedGroup.values ?? [];
+  // Whether an open draft already existed (so we emit revision.updated rather
+  // than revision.created when stacking onto it).
+  let hadOpenDraft = false;
   if (approvalRequired) {
     const existingRevision =
       await context.models.revisions.getOpenByTargetAndAuthor(
@@ -428,6 +447,7 @@ export const postSavedGroupRemoveItems = async (
         id,
         context.userId,
       );
+    hadOpenDraft = !!existingRevision;
     if (existingRevision) {
       const currentState = applyPatchToSnapshot(
         existingRevision.target.snapshot as SavedGroupInterface,
@@ -464,6 +484,9 @@ export const postSavedGroupRemoveItems = async (
       context.userId,
       { bypass: false },
     );
+    await dispatchSavedGroupRevisionEvent(context, revision, {
+      type: "published",
+    });
     return res.status(200).json({
       status: 200,
       requiresApproval: false,
@@ -471,6 +494,11 @@ export const postSavedGroupRemoveItems = async (
     });
   }
 
+  await dispatchSavedGroupRevisionEvent(
+    context,
+    revision,
+    hadOpenDraft ? { type: "updated", change: "values" } : { type: "created" },
+  );
   return res.status(202).json({
     status: 202,
     requiresApproval: approvalRequired,
@@ -788,6 +816,10 @@ export const putSavedGroup = async (
         },
       );
 
+      await dispatchSavedGroupRevisionEvent(context, revision, {
+        type: revision.revertedFrom ? "reverted" : "published",
+      });
+
       return res.status(200).json({
         status: 200,
         revision,
@@ -795,6 +827,13 @@ export const putSavedGroup = async (
     }
   }
 
+  await dispatchSavedGroupRevisionEvent(
+    context,
+    revision,
+    forceCreateRevision
+      ? { type: "created" }
+      : { type: "updated", change: deriveChange(patchOps) },
+  );
   return res.status(202).json({
     status: 202,
     requiresApproval: approvalRequired,

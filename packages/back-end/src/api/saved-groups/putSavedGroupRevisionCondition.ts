@@ -74,6 +74,11 @@ export const putSavedGroupRevisionCondition = createApiRequestHandler(
       { revisionId: revision.id },
     );
 
+    if (created) {
+      await dispatchSavedGroupRevisionEvent(req.context, updated, {
+        type: "created",
+      });
+    }
     await dispatchSavedGroupRevisionEvent(req.context, updated, {
       type: "updated",
       change: "condition",
