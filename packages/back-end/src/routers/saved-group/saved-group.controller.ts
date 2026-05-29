@@ -746,6 +746,11 @@ export const putSavedGroup = async (
 
   const patchOps = buildPatchOps(fieldsToUpdate as Record<string, unknown>);
 
+  // When publishing or creating a fresh draft we force a new revision; an
+  // implicit save while approval is required also forces one (wantsMerge but
+  // can't merge yet). Otherwise we update the targeted draft.
+  const forceCreate = wantsMerge || forceCreateRevision;
+
   // When updating a revision, merge changes (don't replace) to preserve other fields
   let revision = await createOrUpdateRevision(
     context,
@@ -754,7 +759,7 @@ export const putSavedGroup = async (
     patchOps,
     {
       // replaceChanges: false (default) — merge with existing proposed changes
-      forceCreate: wantsMerge || forceCreateRevision, // when publishing or creating a fresh draft
+      forceCreate,
       title,
       revertedFrom,
       // Only update a specific draft revision when we're staying in draft mode
@@ -830,7 +835,7 @@ export const putSavedGroup = async (
   await dispatchSavedGroupRevisionEvent(
     context,
     revision,
-    forceCreateRevision
+    forceCreate
       ? { type: "created" }
       : { type: "updated", change: deriveChange(patchOps) },
   );
