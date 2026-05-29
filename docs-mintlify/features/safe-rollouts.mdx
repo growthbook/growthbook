@@ -99,6 +99,8 @@ The threshold for when a metric is considered failing. It's always set to zero �
 
 Safe Rollouts use a fixed ramp-up schedule (10% → 25% → 50% → 75% → 100%) that completes within the first 25% of your configured duration. This keeps the initial blast radius small and scales up quickly if no immediate issues appear.
 
+If you need a custom ramp shape, approval gates between steps, or a hard cutoff date, use a [Ramp Schedule](/features/ramp-schedules) instead — it's the same engine with full control over each step.
+
 ### What Happens if a Guardrail Metric Degrades?
 
 If a guardrail metric crosses a significance threshold indicating a regression, the rollout status reflects the issue.

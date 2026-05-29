@@ -1,0 +1,138 @@
+---
+title: "Ramp Schedules"
+description: "Automate gradual feature rollouts with timed steps, approval gates, and optional guardrail monitoring."
+---
+
+Ramp Schedules let you automate how a feature rule changes over time. Configure a series of steps that increase coverage, broaden targeting, or wait for approval — GrowthBook applies each step on schedule so you don't have to publish manually at every milestone.
+
+Ramp Schedules are available on **Pro** and **Enterprise** plans.
+
+## How Ramp Schedules Work
+
+A Ramp Schedule is attached to a single feature rule and drives it through an ordered list of steps. Each step is a sparse patch — only the fields you change (coverage, targeting condition, saved groups, prerequisites, environments, force value) are updated. Fields you leave alone carry over from the previous step.
+
+<Frame>
+![Ramp Schedule timeline](https://docs.growthbook.io/assets/images/safe-rollout-create-786fd09372b0f09cacbeb1eb8f32c4c6.webp)
+</Frame>
+
+Each step advances when its gates clear:
+
+- **Time gate** — a hold duration (`interval`) before the step is eligible to advance.
+- **Hold conditions** — optional gates like `requiresApproval` (a reviewer must approve in the UI or API) or `minSampleSize` (only meaningful on [monitored steps](#monitored-steps-and-guardrails)).
+
+When every gate clears, the step's patch is applied to the rule and the next step starts. If you set a `cutoffDate`, the schedule completes and the rule is disabled when that date is reached, regardless of step progress.
+
+## When to Use a Ramp Schedule
+
+Use a Ramp Schedule when you want a release plan that runs on its own:
+
+- Step coverage from 1% → 10% → 50% → 100% over several days.
+- Broaden targeting in stages (internal users → beta cohort → all users).
+- Require sign-off from a release manager before each jump.
+- Roll out automatically and stop at a hard cutoff date.
+- Run a Safe Rollout with a custom ramp shape and explicit guardrails.
+
+If you only need a fixed 25/50/100 ramp with guardrail monitoring, use a [Safe Rollout](/features/safe-rollouts) — it's the same engine with sensible defaults.
+
+## Configuring a Schedule
+
+Open any feature rule and add a Ramp Schedule from the rule modal. You can build one from scratch or apply a saved **template** to inherit steps and end actions.
+
+### Steps
+
+Each step has:
+
+| Field             | What it controls                                                                                              |
+| ----------------- | ------------------------------------------------------------------------------------------------------------- |
+| Interval          | How long to hold before the step can advance. Leave empty for a pure approval step.                           |
+| Patch             | The fields to change when the step fires: coverage, condition, saved groups, prerequisites, environments, force value. |
+| Hold conditions   | Optional gates: require approval, require a minimum sample size (monitored steps only).                        |
+| Monitored         | When on, the step runs A/B traffic analysis against your guardrail metrics while active.                       |
+| Approval notes    | Optional context shown to reviewers when approval is required.                                                 |
+
+### Start and End
+
+- **Start date** — leave empty to start as soon as the rule is published. Set a future date to delay activation; the rule stays disabled until then.
+- **End actions** — applied on top of the accumulated step patches when the schedule completes. Use these to set the final desired state of the rule (e.g., remove targeting, force 100% coverage).
+- **Cutoff date** — a rule-level kill date. When reached, the ramp completes and the rule is disabled. Use this for time-boxed rules.
+
+### Lockdown
+
+Set `lockdownConfig.mode` to `locked` to block all feature edits while the ramp is actively running. This prevents accidental edits from competing with the schedule. Lockdown does not apply after the ramp completes or between the end and the cutoff date.
+
+## Monitored Steps and Guardrails
+
+Mark a step as **monitored** to run guardrail analysis while it's active. Enrolled users are split 50/50 between control and variation, so a step with `coverage: 0.5` exposes 25% of users to the new value. Hash-based filters keep bucketing stable when transitioning between monitored and unmonitored steps — users don't shuffle between groups as the ramp progresses.
+
+Configure monitoring once on the schedule:
+
+- **Data source** and **exposure query** — where traffic and metric data come from.
+- **Guardrail metrics** — at least one metric to watch for regressions.
+- **Signal metrics** — additional metrics to display alongside guardrails (optional).
+- **Update schedule** — how often snapshots refresh (minimum 10 minutes).
+- **Health actions** — what to do if a check fails:
+
+  | Trigger                | Default options             |
+  | ---------------------- | --------------------------- |
+  | Guardrail regression   | `rollback`, `hold`, `warn`  |
+  | Sample ratio mismatch  | `rollback`, `hold`, `warn`  |
+  | Multiple exposures     | `rollback`, `hold`, `warn`  |
+  | No traffic after grace | `rollback`, `hold`, `warn`  |
+
+The **no-traffic grace period** defaults to 24 hours. If a monitored step sees no traffic in that window, the configured `noTrafficAction` fires.
+
+<Note>
+`minSampleSize` only applies to monitored steps. On non-monitored steps it's silently ignored because there's no snapshot data to evaluate against.
+</Note>
+
+## Operating a Running Schedule
+
+Once started, a schedule reports its status:
+
+| Status        | Meaning                                                          |
+| ------------- | ---------------------------------------------------------------- |
+| `pending`     | Created but not yet started.                                     |
+| `ready`       | Started, waiting for the start date.                             |
+| `running`     | Actively advancing through steps.                                |
+| `paused`      | Halted by a user or a `hold` health action. Resume to continue.  |
+| `completed`   | All steps applied and end actions fired.                         |
+| `rolled-back` | Returned to the pre-ramp state via a rollback action.            |
+
+From the UI or API you can pause and resume, manually advance, jump to a specific step, approve a gated step, or roll back to the pre-ramp state. Every transition is recorded in the schedule's event history.
+
+## Managing via API
+
+Ramp Schedules have a full REST API under `/ramp-schedules`. A minimal create call that attaches to an existing rule:
+
+```bash
+curl -X POST https://api.growthbook.io/api/v1/ramp-schedules \
+  -H "Authorization: Bearer $GROWTHBOOK_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Checkout v2 rollout",
+    "featureId": "checkout-v2",
+    "ruleId": "fr_abc123",
+    "steps": [
+      { "interval": 3600, "actions": [{ "patch": { "coverage": 0.1 } }] },
+      { "interval": 86400, "actions": [{ "patch": { "coverage": 0.5 } }] },
+      { "interval": null, "holdConditions": { "requiresApproval": true },
+        "actions": [{ "patch": { "coverage": 1.0 } }] }
+    ]
+  }'
+```
+
+When `featureId` and `ruleId` are both set, the server injects `targetId` and `patch.ruleId` into every action, so you only need to supply the fields you want to change. A schedule without a target is created as a `pending` skeleton; attach a target later with `POST /ramp-schedules/{id}/actions/add-target` and start it with `POST /ramp-schedules/{id}/actions/start`.
+
+### Coverage on monitored steps
+
+For monitored steps, `coverage` represents total experiment enrollment, not the share of users seeing the new value. The experiment splits enrolled traffic 50/50, so the API enforces `coverage ≤ 0.5` on monitored steps to keep control + variation within bounds. To show the variation to 25% of users on a monitored step, set `coverage: 0.5`.
+
+## Templates
+
+Save a schedule as a **Ramp Schedule Template** to reuse the same steps and end actions across features. Provide `templateId` when creating a schedule to inherit them. Explicit `steps` or `endActions` in the request body override the template's values.
+
+## What's Next
+
+- [Safe Rollouts](/features/safe-rollouts) — opinionated Ramp Schedule preset for guardrail-monitored releases.
+- [Rules](/features/rules) — pick the right rule type before adding a schedule.
+- [Publishing and approval flows](/features/publishing-and-approval-flows) — gate rule changes on reviewer approval.
