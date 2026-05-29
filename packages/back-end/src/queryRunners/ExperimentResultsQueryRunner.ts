@@ -329,11 +329,6 @@ export const startExperimentResultQueries = async (
       const dimensionId = unitDim.dimension.id;
 
       for (const [i, m] of factMetricGroups.entries()) {
-        // Only run overall quantile analysis for standard snapshots
-        // regardless of how many dimensions are requested
-        const runOverallQuantileAnalysis =
-          snapshotType === "standard" && m.some(quantileMetricType);
-
         if (
           !integration.getExperimentFactMetricsQuery ||
           !integration.runExperimentFactMetricsQuery
@@ -342,7 +337,7 @@ export const startExperimentResultQueries = async (
         }
         const queryParams: ExperimentFactMetricsQueryParams = {
           activationMetric,
-          dimensions: runOverallQuantileAnalysis ? [] : [unitDim],
+          dimensions: [unitDim],
           metrics: m,
           segment: segmentObj,
           settings: snapshotSettings,

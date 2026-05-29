@@ -22,9 +22,6 @@ import usePValueThreshold from "@/hooks/usePValueThreshold";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
 import { MetricDrilldownProvider } from "@/components/MetricDrilldown/MetricDrilldownContext";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { useUser } from "@/services/UserContext";
-import { getHonoredPrecomputedUnitDimensionIds } from "@/services/experiments";
 import { useDashboardEditorHooks } from "@/enterprise/hooks/useDashboardEditorHooks";
 import { BlockProps } from ".";
 
@@ -61,16 +58,7 @@ export default function ExperimentDimensionBlock({
 
   const _confidenceLevels = useConfidenceLevels(experiment.project);
   const _pValueThreshold = usePValueThreshold(experiment.project);
-  const { getDatasourceById } = useDefinitions();
-  const { hasCommercialFeature } = useUser();
-  const honoredPrecomputedUnitDimensionIds =
-    getHonoredPrecomputedUnitDimensionIds(
-      experiment.precomputedUnitDimensionIds,
-      experiment.datasource
-        ? getDatasourceById(experiment.datasource)
-        : undefined,
-      hasCommercialFeature("pipeline-mode"),
-    );
+
   const bayesianConfidenceLevels =
     ssrPolyfills?.useConfidenceLevels?.(experiment.project) ||
     _confidenceLevels;
@@ -196,7 +184,8 @@ export default function ExperimentDimensionBlock({
         setDifferenceType={isEditing ? setDifferenceType : undefined}
         renderMetricName={(metric) => metric.name}
         showErrorsOnQuantileMetrics={analysis?.settings?.dimensions.some((d) =>
-          isDimensionPrecomputed(d, honoredPrecomputedUnitDimensionIds),
+          // Pass in empty array to indicate pre-computed standalone (not exp) dimensions are fine
+          isDimensionPrecomputed(d, []),
         )}
         sortBy={blockSortBy ?? null}
         setSortBy={isEditing ? setSortBy : undefined}
