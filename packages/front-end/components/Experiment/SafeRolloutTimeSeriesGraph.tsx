@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { ReactNode, useMemo } from "react";
 import { extent } from "@visx/vendor/d3-array";
 import { Group } from "@visx/group";
 import { Line, LinePath } from "@visx/shape";
@@ -22,15 +22,26 @@ import { useCurrency } from "@/hooks/useCurrency";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import styles from "./SafeRolloutTimeSeriesGraph.module.scss";
 
+export type TimeSeriesEventMarker = {
+  date: Date;
+  label: string;
+  color?: "indigo" | "red";
+  tooltips?: ReactNode[];
+};
+
 type SafeRolloutTimeSeriesGraphProps = {
   data: MetricTimeSeries;
   xDateRange?: [undefined, undefined] | [Date, Date];
+  inverse?: boolean;
+  eventMarkers?: TimeSeriesEventMarker[];
   ssrPolyfills?: SSRPolyfills;
 };
 
 export default function SafeRolloutTimeSeriesGraph({
   data,
   xDateRange,
+  inverse,
+  eventMarkers,
   ssrPolyfills,
 }: SafeRolloutTimeSeriesGraphProps) {
   return (
@@ -39,6 +50,8 @@ export default function SafeRolloutTimeSeriesGraph({
         <SafeRolloutTimeSeriesGraphContent
           data={data}
           xDateRange={xDateRange}
+          inverse={inverse}
+          eventMarkers={eventMarkers}
           width={width}
           height={height}
           ssrPolyfills={ssrPolyfills}
@@ -62,6 +75,8 @@ type DataPoint = {
 const SafeRolloutTimeSeriesGraphContent = ({
   data,
   xDateRange,
+  inverse = false,
+  eventMarkers,
   width,
   height,
   ssrPolyfills,
@@ -161,13 +176,15 @@ const SafeRolloutTimeSeriesGraphContent = ({
     .flatMap((d) => {
       const ciResult = getNonInfiniteSideOfCI(d.variations[1]);
 
-      // Determine if this CI value is on the "wrong" side of zero
-      // For [-Infinity, value] format, it's negative when value < 0
-      // For [value, Infinity] format, it's negative when value > 0
+      // Determine if this CI value is on the "wrong" side of zero.
+      // For inverse metrics, the "bad" direction is flipped.
       const isNegative =
         ciResult.value !== null &&
-        ((ciResult.isUpperBound && ciResult.value < 0) ||
-          (!ciResult.isUpperBound && ciResult.value > 0));
+        (inverse
+          ? (ciResult.isUpperBound && ciResult.value > 0) ||
+            (!ciResult.isUpperBound && ciResult.value < 0)
+          : (ciResult.isUpperBound && ciResult.value < 0) ||
+            (!ciResult.isUpperBound && ciResult.value > 0));
 
       return {
         x: xScale(d.date),
@@ -238,6 +255,23 @@ const SafeRolloutTimeSeriesGraphContent = ({
             />
           )}
 
+          {/* Event markers — vertical lines at step boundaries */}
+          {eventMarkers?.map((marker, i) => {
+            const x = xScale(marker.date);
+            if (x < 0 || x > innerWidth) return null;
+            const stroke =
+              marker.color === "red" ? "var(--red-a5)" : "var(--indigo-a5)";
+            return (
+              <Line
+                key={`marker-${i}`}
+                from={{ x, y: 0 }}
+                to={{ x, y: innerHeight }}
+                stroke={stroke}
+                strokeWidth={1}
+              />
+            );
+          })}
+
           {/* CI line for rollout variation */}
           {ciLineData.length > 0 && (
             <>
@@ -258,9 +292,11 @@ const SafeRolloutTimeSeriesGraphContent = ({
 
                     // Calculate where line crosses y=0
                     const zeroY = yScale(0);
-                    const ratio = Math.abs(
-                      (prevPoint.y - zeroY) / (prevPoint.y - point.y),
-                    );
+                    const yDelta = prevPoint.y - point.y;
+                    const ratio =
+                      yDelta === 0
+                        ? 0.5
+                        : Math.abs((prevPoint.y - zeroY) / yDelta);
                     const crossingX =
                       prevPoint.x + ratio * (point.x - prevPoint.x);
 
@@ -312,7 +348,7 @@ const SafeRolloutTimeSeriesGraphContent = ({
                     x={(d) => d.x}
                     y={(d) => d.y}
                     stroke={
-                      segment.isNegative ? "var(--red-11)" : "var(--teal-11)"
+                      segment.isNegative ? "var(--red-11)" : "var(--blue-9)"
                     }
                     strokeWidth={1.6}
                     curve={curveLinear}
@@ -329,7 +365,7 @@ const SafeRolloutTimeSeriesGraphContent = ({
               cy={ciLineData[0].y}
               r={4}
               fill={
-                ciLineData[0].isNegative ? "var(--red-11)" : "var(--teal-11)"
+                ciLineData[0].isNegative ? "var(--red-11)" : "var(--blue-9)"
               }
               stroke="white"
               strokeWidth={2}
@@ -353,7 +389,9 @@ const SafeRolloutTimeSeriesGraphContent = ({
                       cy={activePoint.y}
                       r={4}
                       fill="white"
-                      stroke={activePoint.isNegative ? "#EF4444" : "#000000"}
+                      stroke={
+                        activePoint.isNegative ? "#EF4444" : "var(--blue-9)"
+                      }
                       strokeWidth={2}
                       pointerEvents="none"
                     />
@@ -377,7 +415,13 @@ const SafeRolloutTimeSeriesGraphContent = ({
           >
             <RadixTheme>
               <div className={styles.tooltipContent}>
-                {getTooltipContent(tooltipData, formatter, formatterOptions)}
+                {getTooltipContent(
+                  tooltipData,
+                  formatter,
+                  formatterOptions,
+                  inverse,
+                  metric?.name,
+                )}
               </div>
             </RadixTheme>
           </TooltipInPortal>
@@ -390,6 +434,8 @@ function getTooltipContent(
   tooltipData: { datum: DataPoint; index: number },
   formatter: (value: number, options?: Intl.NumberFormatOptions) => string,
   formatterOptions: Intl.NumberFormatOptions,
+  inverse = false,
+  metricName?: string,
 ) {
   const rolloutVariation = tooltipData.datum.variations?.find(
     (v) =>
@@ -401,10 +447,11 @@ function getTooltipContent(
 
   const ci = getNonInfiniteSideOfCI(rolloutVariation);
 
-  // Determine if this represents a regression (negative outcome)
-  const isRegression =
-    (ci.isUpperBound && (ci.value ?? 0) < 0) ||
-    (!ci.isUpperBound && (ci.value ?? 0) > 0);
+  const isRegression = inverse
+    ? (ci.isUpperBound && (ci.value ?? 0) > 0) ||
+      (!ci.isUpperBound && (ci.value ?? 0) < 0)
+    : (ci.isUpperBound && (ci.value ?? 0) < 0) ||
+      (!ci.isUpperBound && (ci.value ?? 0) > 0);
 
   const getStatusInfo = () => {
     if (isRegression) {
@@ -418,7 +465,7 @@ function getTooltipContent(
     } else {
       return {
         status: "Within bounds",
-        color: "var(--teal-11)",
+        color: "var(--blue-9)",
         description: `No regression detected. If the Metric Boundary ${
           ci.isUpperBound ? "goes below" : "goes above"
         } the Threshold we will consider it as failing.`,
@@ -431,6 +478,11 @@ function getTooltipContent(
   return (
     <>
       <Flex direction="column" gap="2" mb="2">
+        {metricName && (
+          <Text weight="bold" size="2">
+            {metricName}
+          </Text>
+        )}
         <Text weight="medium">{datetime(tooltipData.datum.date)}</Text>
         <Flex align="center" gap="2">
           <div

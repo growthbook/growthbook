@@ -92,7 +92,7 @@ export default function ScheduleInputs({ state, setState }: Props) {
     } else {
       const d = new Date();
       d.setSeconds(0, 0);
-      patchState({ startDate: d.toISOString().slice(0, 16) });
+      patchState({ startDate: d.toISOString() });
     }
   }
 
@@ -103,7 +103,7 @@ export default function ScheduleInputs({ state, setState }: Props) {
       const d = new Date();
       d.setSeconds(0, 0);
       patchState({
-        endScheduleAt: d.toISOString().slice(0, 16),
+        endScheduleAt: d.toISOString(),
       });
     }
   }
@@ -115,9 +115,9 @@ export default function ScheduleInputs({ state, setState }: Props) {
       </Heading>
 
       {/* Start row */}
-      <Flex align="center" gap="3" py="2">
-        <Box style={{ width: 48 }}>
-          <Text size="small" weight="medium" color="text-low">
+      <Flex align="center" gap="3" py="2" style={{ minHeight: 54 }}>
+        <Box style={{ width: 70 }}>
+          <Text as="label" weight="medium" mb="0">
             Start
           </Text>
         </Box>
@@ -142,9 +142,9 @@ export default function ScheduleInputs({ state, setState }: Props) {
       </Flex>
 
       {/* End row */}
-      <Flex align="center" gap="3" py="2">
-        <Box style={{ width: 48 }}>
-          <Text size="small" weight="medium" color="text-low">
+      <Flex align="center" gap="3" py="2" style={{ minHeight: 54 }}>
+        <Box style={{ width: 70 }}>
+          <Text as="label" weight="medium" mb="0">
             End
           </Text>
         </Box>

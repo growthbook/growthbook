@@ -202,7 +202,7 @@ describe("useFeatureRevisionDiff", () => {
     const html = container.innerHTML;
 
     expect(html).toContain("Environments");
-    expect(html).toContain("All Environments");
+    expect(html).toContain("All environments");
     expect(html).toContain("production");
     expect(html).toContain("dev");
     expect(html).not.toContain("allEnvironments");

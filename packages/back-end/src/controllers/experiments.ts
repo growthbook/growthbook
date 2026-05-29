@@ -2135,6 +2135,7 @@ export async function postExperimentStatus(
       status: ExperimentStatus;
       reason: string;
       dateEnded: string;
+      bypassLockdown?: boolean;
     },
     { id: string }
   >,
@@ -2143,7 +2144,7 @@ export async function postExperimentStatus(
   const context = getContextFromReq(req);
   const { org } = context;
   const { id } = req.params;
-  const { status, reason, dateEnded } = req.body;
+  const { status, reason, dateEnded, bypassLockdown } = req.body;
 
   const changes: Changeset = {};
 
@@ -2211,11 +2212,16 @@ export async function postExperimentStatus(
     status === "running" &&
     phases?.length > 0
   ) {
+    const adminBypass =
+      !!bypassLockdown &&
+      context.permissions.canBypassApprovalChecks(experiment);
+
     const { updated } = await startExperiment({
       context,
       experimentId: id,
       // Internal status endpoint preserves existing behavior by not enforcing checklist at the server boundary.
       skipChecklist: true,
+      bypassLockdown: adminBypass,
     });
 
     await req.audit({
@@ -4116,13 +4122,14 @@ export async function postExperimentFeatureValues(
         return;
       }
 
-      const updatedFeature = await publishRevision(
+      const updatedFeature = await publishRevision({
         context,
         feature,
-        updatedRevision,
-        mergeResult.result,
-        "auto-publish experiment variation values change",
-      );
+        revision: updatedRevision,
+        result: mergeResult.result,
+        comment: "auto-publish experiment variation values change",
+        bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
+      });
 
       await req.audit({
         event: "feature.publish",

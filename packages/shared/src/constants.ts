@@ -253,7 +253,13 @@ export const entityEvents = {
   customHook: ["create", "update", "delete"],
   ssoConnection: ["create", "update", "delete"],
   sqlResultChunk: ["create", "update", "delete"],
-  rampSchedule: ["create", "update", "delete"],
+  rampSchedule: [
+    "create",
+    "update",
+    "delete",
+    "step-approved",
+    "approval-bypassed",
+  ],
   rampScheduleTemplate: ["create", "update", "delete"],
 } as const;
 

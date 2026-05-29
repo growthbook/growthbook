@@ -1,7 +1,8 @@
 import { Flex } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import { FaRegCircleCheck, FaRegCircleXmark } from "react-icons/fa6";
+import { PiWarningCircle } from "react-icons/pi";
 import { Environment } from "shared/types/organization";
-import Badge from "@/ui/Badge";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Text from "@/ui/Text";
 
@@ -22,18 +23,25 @@ type Props = {
 } & MarginProps;
 
 function envBadge(envId: string, active: boolean) {
+  const iconColor = active ? "var(--green-11)" : "var(--gray-8)";
+  const textColor = active ? undefined : "var(--gray-8)";
   return (
-    <Badge
-      key={envId}
-      label={envId}
-      color={active ? "violet" : "gray"}
-      variant="outline"
-      radius="full"
-      size="sm"
-      style={
-        active ? undefined : { opacity: 0.3, backgroundColor: "var(--gray-a2)" }
-      }
-    />
+    <Flex key={envId} align="center" gap="1">
+      <span
+        style={{
+          color: textColor,
+          fontSize: "var(--font-size-2)",
+          fontWeight: active ? 500 : 300,
+        }}
+      >
+        {envId}
+      </span>
+      {active ? (
+        <FaRegCircleCheck size={14} style={{ color: iconColor }} />
+      ) : (
+        <FaRegCircleXmark size={14} style={{ color: iconColor }} />
+      )}
+    </Flex>
   );
 }
 
@@ -46,13 +54,18 @@ function disallowedEnvBadge(envId: string) {
       innerClassName="p-2"
       style={{ display: "inline-flex", alignItems: "center" }}
     >
-      <Badge
-        label={<span style={{ textDecoration: "line-through" }}>{envId}</span>}
-        color="amber"
-        variant="outline"
-        radius="full"
-        size="sm"
-      />
+      <Flex align="center" gap="1">
+        <span
+          style={{
+            color: "var(--amber-11)",
+            fontSize: "var(--font-size-2)",
+            textDecoration: "line-through",
+          }}
+        >
+          {envId}
+        </span>
+        <PiWarningCircle size={16} style={{ color: "var(--amber-11)" }} />
+      </Flex>
     </Tooltip>
   );
 }
@@ -93,7 +106,7 @@ export default function RuleEnvScopeBadges({
   const overflow = ordered.slice(MAX_VISIBLE_BADGES);
 
   return (
-    <Flex gap="2" wrap="wrap" align="center" my={my} {...marginProps}>
+    <Flex gap="4" wrap="wrap" align="center" my={my} {...marginProps}>
       {noActiveEnvs ? (
         <Tooltip
           body="Rule is not scoped to any environment and will not apply anywhere"
@@ -101,13 +114,17 @@ export default function RuleEnvScopeBadges({
           innerClassName="p-2"
           style={{ display: "inline-flex", alignItems: "center" }}
         >
-          <Badge
-            label="No environments"
-            color="amber"
-            variant="outline"
-            radius="full"
-            size="sm"
-          />
+          <Flex align="center" gap="1">
+            <span
+              style={{
+                color: "var(--amber-11)",
+                fontSize: "var(--font-size-2)",
+              }}
+            >
+              No environments
+            </span>
+            <PiWarningCircle size={16} style={{ color: "var(--amber-11)" }} />
+          </Flex>
         </Tooltip>
       ) : (
         visible.map((env) => envBadge(env.id, activeSet.has(env.id)))
@@ -128,7 +145,7 @@ export default function RuleEnvScopeBadges({
                 {overflow.length} more environment
                 {overflow.length === 1 ? "" : "s"}
               </Text>
-              <Flex gap="1" wrap="wrap">
+              <Flex gap="4" wrap="wrap">
                 {overflow.map((env) => envBadge(env.id, activeSet.has(env.id)))}
               </Flex>
             </>

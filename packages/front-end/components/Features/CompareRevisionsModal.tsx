@@ -526,15 +526,12 @@ function rampDiffsForRevision(
     }
 
     // "ready" / "pending" are pre-start lifecycle states; everything else
-    // (running, paused, pending-approval, completed, rolled-back) means the
-    // ramp has already begun, so use past tense.
+    // (running, paused, completed, rolled-back) means the ramp has already
+    // begun, so use past tense.
     const alreadyStarted = ramp.status !== "pending" && ramp.status !== "ready";
     const isSimple = ramp.steps.length === 0;
     const kindLabel = isSimple ? "Schedule" : "Ramp Schedule";
-    const endAt =
-      ramp.endCondition?.trigger?.type === "scheduled"
-        ? ramp.endCondition.trigger.at
-        : undefined;
+    const endAt = ramp.cutoffDate ?? undefined;
     const simpleWindow = formatSimpleWindow(ramp.startDate, endAt);
     const startsClause = alreadyStarted
       ? "started on publish"
@@ -555,7 +552,7 @@ function rampDiffsForRevision(
           targets: ramp.targets,
           startDate: ramp.startDate,
           steps: ramp.steps,
-          endCondition: ramp.endCondition,
+          cutoffDate: ramp.cutoffDate,
         },
         null,
         2,
@@ -594,7 +591,7 @@ function rampDiffsForRevision(
     return idx ? `Rule #${idx}` : `Rule ${ruleId}`;
   };
 
-  // Pending ramp actions: display "create" and "detach" actions queued in the draft
+  // Pending ramp actions: display create/update/detach actions queued in the draft
   if (newerRevision.rampActions) {
     for (const action of newerRevision.rampActions) {
       if (action.mode === "create") {
@@ -612,7 +609,7 @@ function rampDiffsForRevision(
               ruleId: action.ruleId,
               startDate: action.startDate,
               steps: action.steps,
-              endCondition: action.endCondition,
+              cutoffDate: action.cutoffDate,
             },
             null,
             2,
@@ -630,6 +627,40 @@ function rampDiffsForRevision(
                 ? `Create ${isSimple ? "schedule" : "ramp"}: ${action.name}`
                 : `Create ${isSimple ? "schedule" : "ramp schedule"}`,
               action: isSimple ? "create schedule" : "create ramp",
+            },
+          ],
+        });
+      } else if (action.mode === "update") {
+        const isSimpleUpdate = action.steps.length === 0;
+        const kindLabelUpdate = isSimpleUpdate ? "Schedule" : "Ramp Schedule";
+        const displayName = action.name ?? "schedule";
+        diffs.push({
+          title: `${kindLabelUpdate} – ${displayName}`,
+          titleSuffix: <RampActionLabel action="update" />,
+          a: "",
+          b: JSON.stringify(
+            {
+              rampScheduleId: action.rampScheduleId,
+              name: action.name,
+              ruleId: action.ruleId,
+              startDate: action.startDate,
+              steps: action.steps,
+              cutoffDate: action.cutoffDate,
+            },
+            null,
+            2,
+          ),
+          customRender: (
+            <p className="mb-0 text-muted">
+              {ruleRef(action.ruleId)} · updates schedule configuration.
+            </p>
+          ),
+          badges: [
+            {
+              label: isSimpleUpdate
+                ? "Update schedule"
+                : "Update ramp schedule",
+              action: "update ramp",
             },
           ],
         });

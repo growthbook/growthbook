@@ -1,22 +1,28 @@
 import { FeatureMetaInfo } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ago, datetime } from "shared/dates";
+import { date, datetime } from "shared/dates";
 import {
   EventUserLoggedIn,
   EventUserApiKey,
 } from "shared/types/events/event-types";
+import { Box, Flex } from "@radix-ui/themes";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import useApi from "@/hooks/useApi";
 import Field from "@/components/Forms/Field";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import Pagination from "@/ui/Pagination";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import ProjectBadges from "@/components/ProjectBadges";
-import RevisionStatusBadge from "@/components/Features/RevisionStatusBadge";
+import {
+  FilterDropdown,
+  useSearchFiltersBase,
+} from "@/components/Search/SearchFilters";
+import {
+  draftStatusDotColor,
+  revisionStatusLabel,
+} from "@/components/Features/RevisionStatusBadge";
+import Text from "@/ui/Text";
 import Table, {
   TableHeader,
   TableBody,
@@ -28,6 +34,15 @@ import Table, {
 type FeaturesAndRevisions = FeatureRevisionInterface & {
   featureMeta?: FeatureMetaInfo;
 };
+
+const COL = {
+  REVISION: "5%",
+  NOTES: "30%",
+  AUTHOR: "15%",
+  DATE: "13%",
+  DRAFT_STATUS: "13%",
+} as const;
+
 export default function FeaturesDraftTable() {
   const draftAndReviewData = useApi<{
     status: number;
@@ -37,7 +52,6 @@ export default function FeaturesDraftTable() {
 
   const NUM_PER_PAGE = 20;
   const { data } = draftAndReviewData;
-  const { getProjectById } = useDefinitions();
 
   const featuresAndRevisions = data?.revisions;
 
@@ -78,7 +92,13 @@ export default function FeaturesDraftTable() {
     };
   });
 
-  const { searchInputProps, items, SortableTableColumnHeader } = useSearch({
+  const {
+    searchInputProps,
+    items,
+    SortableTableColumnHeader,
+    syntaxFilters,
+    setSearchValue,
+  } = useSearch({
     items: revisions,
     defaultSortField: "dateAndStatus",
     defaultSortDir: -1,
@@ -107,6 +127,35 @@ export default function FeaturesDraftTable() {
     setCurrentPage(1);
   }, [items.length]);
 
+  const creators = useMemo(() => {
+    const set = new Set(
+      (revisions ?? []).map((r) => r.creator).filter(Boolean),
+    );
+    return Array.from(set) as string[];
+  }, [revisions]);
+
+  const { dropdownFilterOpen, setDropdownFilterOpen, updateQuery } =
+    useSearchFiltersBase({
+      searchInputProps,
+      syntaxFilters,
+      setSearchValue,
+    });
+
+  const statusFilterItems = [
+    {
+      name: "Pending review",
+      id: "pending-review",
+      searchValue: "pending-review",
+    },
+    { name: "Approved", id: "approved", searchValue: "approved" },
+    {
+      name: "Changes requested",
+      id: "changes-requested",
+      searchValue: "changes-requested",
+    },
+    { name: "Draft", id: "draft", searchValue: "draft" },
+  ];
+
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
   const loading = !data;
@@ -114,15 +163,39 @@ export default function FeaturesDraftTable() {
   const renderFeaturesTableDrafts = () => {
     return revisions.length > 0 ? (
       <div>
-        <div className="row mb-2 align-items-center">
-          <div className="col-auto">
+        <Flex gap="4" align="start" justify="between" mb="4" wrap="wrap">
+          <Box style={{ flexBasis: 300, flexShrink: 0 }}>
             <Field
               placeholder="Search..."
               type="search"
               {...searchInputProps}
             />
-          </div>
-        </div>
+          </Box>
+          <Flex gap="5" align="center">
+            <FilterDropdown
+              filter="user"
+              heading="Author"
+              syntaxFilters={syntaxFilters}
+              open={dropdownFilterOpen}
+              setOpen={setDropdownFilterOpen}
+              items={creators.map((c) => ({
+                name: c,
+                id: c,
+                searchValue: c,
+              }))}
+              updateQuery={updateQuery}
+            />
+            <FilterDropdown
+              filter="status"
+              heading="Status"
+              syntaxFilters={syntaxFilters}
+              open={dropdownFilterOpen}
+              setOpen={setDropdownFilterOpen}
+              items={statusFilterItems}
+              updateQuery={updateQuery}
+            />
+          </Flex>
+        </Flex>
 
         <Table variant="list" stickyHeader roundedCorners>
           <TableHeader>
@@ -130,79 +203,83 @@ export default function FeaturesDraftTable() {
               <SortableTableColumnHeader field="featureKey">
                 Feature Key
               </SortableTableColumnHeader>
-              <TableColumnHeader>Notes</TableColumnHeader>
-              <TableColumnHeader>Project</TableColumnHeader>
-              <TableColumnHeader>Creator</TableColumnHeader>
-              <SortableTableColumnHeader field="dateUpdated">
-                Last Updated
+              <TableColumnHeader
+                style={{ width: COL.REVISION, textAlign: "right" }}
+              >
+                Revision
+              </TableColumnHeader>
+              <TableColumnHeader style={{ width: COL.NOTES }}>
+                Notes
+              </TableColumnHeader>
+              <TableColumnHeader style={{ width: COL.AUTHOR }}>
+                Author
+              </TableColumnHeader>
+              <SortableTableColumnHeader
+                field="dateUpdated"
+                style={{ width: COL.DATE }}
+              >
+                Last Modified
               </SortableTableColumnHeader>
-              <SortableTableColumnHeader field="status">
-                Status
+              <SortableTableColumnHeader
+                field="status"
+                style={{ width: COL.DRAFT_STATUS }}
+              >
+                Draft Status
               </SortableTableColumnHeader>
             </TableRow>
           </TableHeader>
           <TableBody>
             {items.slice(start, end).map((featureAndRevision) => {
-              const projectId = featureAndRevision.project;
-              const projectName = projectId
-                ? getProjectById(projectId)?.name || null
-                : null;
-              const projectIsDeReferenced = projectId && !projectName;
-
               return (
                 <TableRow
                   key={`${featureAndRevision.id}:${featureAndRevision.version}`}
                 >
-                  <TableCell className="p-0">
+                  <TableCell style={{ padding: "var(--space-0)" }}>
                     <Link
-                      className="featurename d-block p-2"
+                      className="featurename"
+                      style={{ display: "block", padding: "var(--space-3)" }}
                       href={`/features/${featureAndRevision.featureKey}?v=${featureAndRevision?.version}`}
                     >
                       {featureAndRevision.featureKey}
                     </Link>
                   </TableCell>
+                  <TableCell style={{ textAlign: "right" }}>
+                    {featureAndRevision.version}
+                  </TableCell>
                   <TableCell>
-                    <OverflowText maxWidth={200}>
+                    <OverflowText maxWidth={400}>
                       {featureAndRevision.comment}
                     </OverflowText>
                   </TableCell>
-                  <TableCell>
-                    {projectIsDeReferenced ? (
-                      <Tooltip
-                        flipTheme={false}
-                        body={
-                          <>
-                            Project
-                            <code>{featureAndRevision.project}</code>
-                            not found
-                          </>
-                        }
-                      >
-                        <span className="text-danger">Invalid project</span>
-                      </Tooltip>
-                    ) : featureAndRevision.project ? (
-                      <ProjectBadges
-                        resourceType="feature"
-                        projectIds={[featureAndRevision.project]}
-                      />
-                    ) : null}
-                  </TableCell>
                   <TableCell>{featureAndRevision.creator}</TableCell>
                   <TableCell title={datetime(featureAndRevision.dateUpdated)}>
-                    {ago(featureAndRevision.dateUpdated)}
+                    {date(featureAndRevision.dateUpdated)}
                   </TableCell>
                   <TableCell>
-                    <RevisionStatusBadge
-                      revision={featureAndRevision}
-                      liveVersion={-1}
-                    />
+                    <Flex align="center" style={{ gap: 6 }}>
+                      <span
+                        style={{
+                          display: "block",
+                          width: 8,
+                          height: 8,
+                          borderRadius: "50%",
+                          flexShrink: 0,
+                          background: draftStatusDotColor(
+                            featureAndRevision.status,
+                          ),
+                        }}
+                      />
+                      <Text size="medium">
+                        {revisionStatusLabel(featureAndRevision.status)}
+                      </Text>
+                    </Flex>
                   </TableCell>
                 </TableRow>
               );
             })}
             {!items.length ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center">
+                <TableCell colSpan={5} className="text-center">
                   No matching drafts
                 </TableCell>
               </TableRow>

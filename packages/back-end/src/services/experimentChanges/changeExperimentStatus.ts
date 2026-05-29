@@ -34,6 +34,7 @@ import {
   PendingDraftPublishResult,
   publishPendingFeatureDraftsForExperiment,
 } from "back-end/src/services/experiment-feature";
+import { assertFeatureNotLockedByRamp } from "back-end/src/services/rampSchedule";
 
 export type StartChecklistItemStatus = {
   key: string;
@@ -404,33 +405,45 @@ export async function startExperiment({
   context,
   experimentId,
   skipChecklist = false,
+  bypassLockdown = false,
 }: {
   context: ReqContext;
   experimentId: string;
   skipChecklist?: boolean;
+  /**
+   * When true, skip ramp-schedule lockdown enforcement on linked features and
+   * forward the bypass through to pending feature-draft publishing. Caller
+   * must verify admin-bypass permissions before passing true.
+   */
+  bypassLockdown?: boolean;
 }) {
-  const experiment = await loadAndValidateExperimentForStatusChange(
+  const loadedExperiment = await loadAndValidateExperimentForStatusChange(
     context,
     experimentId,
   );
+  const { checklistItems, status } = await getExperimentStartChecklist({
+    context,
+    experiment: loadedExperiment,
+  });
 
+  const experiment = loadedExperiment;
   if (experiment.status !== "draft") {
     throw new Error("invalid_status: Experiment must be in draft status");
   }
 
-  const checklistItems = await getExperimentStartChecklistStatus(
-    context,
-    experiment,
-  );
-  const incompleteRequiredItems = checklistItems.filter(
-    (item) => item.required && item.status === "incomplete",
-  );
-  if (incompleteRequiredItems.length > 0 && !skipChecklist) {
+  if (status === "notReady" && !skipChecklist) {
     throw new Error(
-      `checklist_incomplete: ${incompleteRequiredItems
+      `checklist_incomplete: ${checklistItems
+        .filter((i) => i.required && i.status === "incomplete")
         .map((i) => i.key)
         .join(", ")}`,
     );
+  }
+
+  if (!bypassLockdown) {
+    for (const fid of experiment.linkedFeatures ?? []) {
+      await assertFeatureNotLockedByRamp(context, fid);
+    }
   }
 
   const { updated } = await executeExperimentStart(context, experiment);
