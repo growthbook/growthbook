@@ -147,6 +147,8 @@ export const bigQueryDialect: SqlDialect = {
     const countBelow = `(SELECT COUNT(*) FROM UNNEST(${cdfArray}) AS p WHERE p < ${thresholdCol})`;
     return `COALESCE(${countBelow} * ${nEventsCol} / ${numQuantiles}.0, 0)`;
   },
+  hasArrayQuantileGrid: () => true,
+  arrayLiteral: (elements: string[]) => `[${elements.join(", ")}]`,
   percentileApprox: (value: string, quantile: string | number) => {
     const multiplier = APPROX_QUANTILES_MULTIPLIER;
     const quantileVal = Number(quantile)

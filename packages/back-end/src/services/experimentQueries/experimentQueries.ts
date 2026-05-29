@@ -142,10 +142,12 @@ export function maxColumnsNeededForMetric({
   metric,
   regressionAdjusted,
   isBandit,
+  efficientQuantileGrid = false,
 }: {
   metric: FactMetricInterface;
   regressionAdjusted: boolean;
   isBandit: boolean;
+  efficientQuantileGrid?: boolean;
 }) {
   // id column
   const boilerplateCols = 1;
@@ -169,7 +171,8 @@ export function maxColumnsNeededForMetric({
         // quantile_n and quantile
         2 +
         // quantile_lower and quantile_upper per n_star
-        N_STAR_VALUES.length * 2
+        // it is packed into a single ARRAY column when supported
+        (efficientQuantileGrid ? 1 : N_STAR_VALUES.length * 2)
       );
   }
 }
@@ -178,6 +181,7 @@ export function chunkMetrics({
   metrics,
   maxColumnsPerQuery,
   isBandit,
+  efficientQuantileGrid = false,
 }: {
   metrics: {
     metric: FactMetricInterface;
@@ -185,6 +189,7 @@ export function chunkMetrics({
   }[];
   maxColumnsPerQuery: number;
   isBandit: boolean;
+  efficientQuantileGrid?: boolean;
 }): FactMetricInterface[][] {
   // up to 100 dimensions (overkill, but also adds in buffer)
   // + 1 for variation + 2 for users and count
@@ -199,6 +204,7 @@ export function chunkMetrics({
       metric: m,
       regressionAdjusted,
       isBandit,
+      efficientQuantileGrid,
     });
     const updatedCols = runningCols + colsNeeded;
     if (
@@ -314,6 +320,7 @@ export function getFactMetricGroups(
   });
 
   const groupArrays: FactMetricInterface[][] = [];
+  const sourceProps = integration.getSourceProperties();
   Object.values(groups).forEach((group) => {
     // Split groups into chunks of MAX_METRICS_PER_QUERY
     const chunks = chunkMetrics({
@@ -328,8 +335,9 @@ export function getFactMetricGroups(
             settings.regressionAdjustmentEnabled,
         };
       }),
-      maxColumnsPerQuery: integration.getSourceProperties().maxColumns,
+      maxColumnsPerQuery: sourceProps.maxColumns,
       isBandit: !!settings.banditSettings,
+      efficientQuantileGrid: !!sourceProps.hasArrayQuantileGrid,
     });
     groupArrays.push(...chunks);
   });

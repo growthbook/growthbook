@@ -131,5 +131,14 @@ export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
     );
   },
 
+  hasArrayQuantileGrid: () => false,
+
+  arrayLiteral: () => {
+    throw new Error(
+      "Array literals are not supported by this data source. " +
+        "A dialect must implement arrayLiteral to set hasArrayQuantileGrid().",
+    );
+  },
+
   stringLength: (column: string) => `LENGTH(${column})`,
 };

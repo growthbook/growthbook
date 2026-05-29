@@ -18,12 +18,29 @@ export function getQuantileBoundsFromQueryResponse(
 
     const smallestNStar = Math.min(...N_STAR_VALUES);
 
-    // process grid for quantile data
-    N_STAR_VALUES.forEach((n) => {
-      const lowerColumn = `${prefix}quantile_lower_${n}`;
-      const upperColumn = `${prefix}quantile_upper_${n}`;
-      if (row[lowerColumn] === undefined || row[upperColumn] === undefined)
-        return;
+    // For datasources that we can pack the values in a single array column
+    const gridArray = row[`${prefix}quantile_grid`];
+    const isArrayGrid = Array.isArray(gridArray);
+    const expectedGridLength = N_STAR_VALUES.length * 2;
+    if (isArrayGrid && gridArray.length !== expectedGridLength) {
+      throw new Error(
+        `Expected ${prefix}quantile_grid array of length ${expectedGridLength}, got ${gridArray.length}. ` +
+          `This indicates a mismatch between SQL generation (getQuantileGridColumns / getQuantileSketchGridColumns) ` +
+          `and N_STAR_VALUES on the read side.`,
+      );
+    }
+
+    const getLower = isArrayGrid
+      ? (k: number) => gridArray[2 * k]
+      : (k: number) => row[`${prefix}quantile_lower_${N_STAR_VALUES[k]}`];
+    const getUpper = isArrayGrid
+      ? (k: number) => gridArray[2 * k + 1]
+      : (k: number) => row[`${prefix}quantile_upper_${N_STAR_VALUES[k]}`];
+
+    N_STAR_VALUES.forEach((n, k) => {
+      const lowerVal = getLower(k);
+      const upperVal = getUpper(k);
+      if (lowerVal === undefined || upperVal === undefined) return;
 
       if (
         // if nstar is smaller, or if it's the smallest nstar, proceed
@@ -32,10 +49,8 @@ export function getQuantileBoundsFromQueryResponse(
         // this n is the largest n we've seen so far
         n > (Number(quantileData[`${prefix}quantile_nstar`]) || 0)
       ) {
-        quantileData[`${prefix}quantile_lower`] =
-          parseFloat(row[lowerColumn]) || 0;
-        quantileData[`${prefix}quantile_upper`] =
-          parseFloat(row[upperColumn]) || 0;
+        quantileData[`${prefix}quantile_lower`] = parseFloat(lowerVal) || 0;
+        quantileData[`${prefix}quantile_upper`] = parseFloat(upperVal) || 0;
         quantileData[`${prefix}quantile_nstar`] = n;
       }
     });

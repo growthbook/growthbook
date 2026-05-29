@@ -146,6 +146,7 @@ export interface DataSourceProperties {
   hasCountDistinctHLL?: boolean;
   hasQuantileSketch?: boolean;
   hasIncrementalRefresh?: boolean;
+  hasArrayQuantileGrid?: boolean;
   maxColumns: number;
 }
 
