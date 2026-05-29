@@ -124,6 +124,18 @@ export const postNewProSubscriptionIntent = withLicenseServerErrorHandling(
       userName,
       { radarSessionId },
     );
+
+    if (!result?.license?.id || !result.clientSecret) {
+      logger.error(
+        { orgId: org.id, result },
+        "License server returned an invalid setup-subscription-intent response",
+      );
+      throw new LicenseServerError(
+        "License server returned an invalid setup-subscription-intent response.",
+        502,
+      );
+    }
+
     await updateOrganization(org.id, { licenseKey: result.license.id });
 
     res.status(200).json({ clientSecret: result.clientSecret });
