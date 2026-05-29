@@ -1366,10 +1366,12 @@ export async function advanceScheduleManually(
       phaseStartedAt: freshPhaseStart,
       pausedAt: null,
     });
-    await syncLinkedSafeRolloutForRampState(ctx, scheduleToAdvance);
   }
 
   try {
+    if (wasPaused) {
+      await syncLinkedSafeRolloutForRampState(ctx, scheduleToAdvance);
+    }
     scheduleToAdvance = await ensureSafeRolloutForMonitoredRamp(
       ctx,
       scheduleToAdvance,
