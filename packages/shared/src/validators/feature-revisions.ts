@@ -374,7 +374,7 @@ const safeRolloutCreateInput = z
       .object({
         datasourceId: z.string(),
         exposureQueryId: z.string(),
-        guardrailMetricIds: z.array(z.string()),
+        guardrailMetricIds: z.array(z.string()).min(1),
         maxDuration: z
           .object({
             amount: z.number().positive(),

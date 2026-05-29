@@ -55,7 +55,7 @@ export type RampMonitoringMode = z.infer<typeof rampMonitoringMode>;
 export const rampMonitoringConfig = z.object({
   datasourceId: z.string(),
   exposureQueryId: z.string(),
-  guardrailMetricIds: z.array(z.string()),
+  guardrailMetricIds: z.array(z.string()).min(1),
   signalMetricIds: z.array(z.string()).optional(),
   updateScheduleMinutes: z.number().min(10).optional().nullable(),
   monitoringMode: rampMonitoringMode.optional(),

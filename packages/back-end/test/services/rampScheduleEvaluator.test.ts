@@ -691,4 +691,187 @@ describe("rampScheduleEvaluator monitored SafeRollout integration", () => {
 
     expect(decision).toEqual({ action: "advance" });
   });
+
+  // -------------------------------------------------------------------------
+  // Test gap 18: terminal-state no-op
+  // -------------------------------------------------------------------------
+
+  describe("evaluateRampScheduleAfterSafeRolloutSnapshot is a no-op for terminal schedules", () => {
+    for (const terminalStatus of [
+      "rolled-back",
+      "completed",
+      "paused",
+    ] as const) {
+      it(`does nothing when schedule.status is "${terminalStatus}"`, async () => {
+        // Simulate a race where the schedule transitions to a terminal state
+        // after the snapshot is created but before the evaluator runs.
+        const safeRollout = makeSafeRollout("srsnp_terminal");
+        // getById returns a schedule already in a terminal state.
+        const terminalSchedule = makeSchedule({ status: terminalStatus });
+        const context = makeContext({
+          safeRollout,
+          schedule: terminalSchedule,
+          snapshotDate: new Date("2026-01-01T01:05:00Z"),
+        });
+
+        await evaluateRampScheduleAfterSafeRolloutSnapshot(
+          context as Parameters<
+            typeof evaluateRampScheduleAfterSafeRolloutSnapshot
+          >[0],
+          safeRollout,
+          new Date("2026-01-01T02:00:00Z"),
+        );
+
+        // The evaluator must re-fetch the schedule and then bail out without
+        // performing any mutation when the status is not "running".
+        expect(context.models.rampSchedules.getById).toHaveBeenCalledWith(
+          "rs_1",
+        );
+        expect(context.models.rampSchedules.updateById).not.toHaveBeenCalled();
+      });
+    }
+
+    it("does nothing when the schedule has been deleted (getById returns null)", async () => {
+      const safeRollout = makeSafeRollout("srsnp_deleted");
+      const context = makeContext({
+        safeRollout,
+        // No schedule object → getById resolves to null.
+        snapshotDate: new Date("2026-01-01T01:05:00Z"),
+      });
+
+      await evaluateRampScheduleAfterSafeRolloutSnapshot(
+        context as Parameters<
+          typeof evaluateRampScheduleAfterSafeRolloutSnapshot
+        >[0],
+        safeRollout,
+        new Date("2026-01-01T02:00:00Z"),
+      );
+
+      expect(context.models.rampSchedules.getById).toHaveBeenCalledWith("rs_1");
+      expect(context.models.rampSchedules.updateById).not.toHaveBeenCalled();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Test gap 20: noTrafficAction + srmAction simultaneous firing
+  // -------------------------------------------------------------------------
+
+  describe("noTrafficAction and srmAction simultaneous firing", () => {
+    // noTraffic triggers when totalUsers===0; SRM requires enough users to be
+    // classified as unhealthy. They are structurally mutually exclusive in a
+    // single snapshot. These tests document the priority order for each path.
+
+    function makeScheduleWithBothActions(
+      noTrafficAction: "hold" | "rollback" | "warn",
+      srmAction: "hold" | "rollback" | "warn",
+    ) {
+      return makeSchedule({
+        monitoringConfig: {
+          datasourceId: "ds_1",
+          exposureQueryId: "exposure_1",
+          guardrailMetricIds: [],
+          signalMetricIds: [],
+          monitoringMode: "auto",
+          autoUpdate: true,
+          noTrafficAction,
+          srmAction,
+        },
+      });
+    }
+
+    it("noTraffic rollback fires before SRM is evaluated when totalUsers=0 (past grace)", async () => {
+      // SRM cannot fire with 0 users (not enough data), so noTraffic always
+      // wins when traffic is absent.
+      const schedule = makeScheduleWithBothActions("rollback", "rollback");
+      const baseSafeRollout = makeSafeRollout("srsnp_no_users_srm");
+      const safeRollout = {
+        ...baseSafeRollout,
+        analysisSummary: {
+          ...baseSafeRollout.analysisSummary!,
+          health: { totalUsers: 0, srm: 0.0001, multipleExposures: 0 },
+        },
+      } as SafeRolloutInterface;
+      const context = makeContext({
+        safeRollout,
+        snapshotDate: new Date("2026-01-02T01:05:00Z"),
+      });
+
+      // 25h elapsed — past the 24h default grace period.
+      const decision = await evaluateCurrentStep(
+        context as Parameters<typeof evaluateCurrentStep>[0],
+        schedule,
+        new Date("2026-01-02T01:00:00Z"),
+      );
+
+      // noTraffic is evaluated first (before SRM), so its action wins.
+      expect(decision).toEqual({
+        action: "rollback",
+        reason: expect.stringMatching(/No traffic detected.*rollback/i),
+      });
+    });
+
+    it("SRM rollback fires independently when totalUsers>0 (no noTraffic condition)", async () => {
+      // When traffic is present noTraffic is never considered; SRM can act
+      // on its own.
+      const schedule = makeScheduleWithBothActions("warn", "rollback");
+      const baseSafeRollout = makeSafeRollout("srsnp_srm_no_notraffic");
+      const safeRollout = {
+        ...baseSafeRollout,
+        analysisSummary: {
+          ...baseSafeRollout.analysisSummary!,
+          health: {
+            // 1000 users → no-traffic block is skipped; SRM can evaluate.
+            totalUsers: 1000,
+            srm: 0.0001,
+            multipleExposures: 0,
+          },
+        },
+      } as SafeRolloutInterface;
+      const context = makeContext({
+        safeRollout,
+        snapshotDate: new Date("2026-01-01T01:05:00Z"),
+      });
+
+      const decision = await evaluateCurrentStep(
+        context as Parameters<typeof evaluateCurrentStep>[0],
+        schedule,
+        new Date("2026-01-01T02:00:00Z"),
+      );
+
+      expect(decision).toEqual({
+        action: "rollback",
+        reason: expect.stringMatching(/SRM check failed/),
+      });
+    });
+
+    it("grace-period hold takes priority over SRM when totalUsers=0 and inside grace window", async () => {
+      const schedule = makeScheduleWithBothActions("rollback", "rollback");
+      const baseSafeRollout = makeSafeRollout("srsnp_grace_srm");
+      const safeRollout = {
+        ...baseSafeRollout,
+        analysisSummary: {
+          ...baseSafeRollout.analysisSummary!,
+          health: { totalUsers: 0, srm: 0.0001, multipleExposures: 0 },
+        },
+      } as SafeRolloutInterface;
+      const context = makeContext({
+        safeRollout,
+        snapshotDate: new Date("2026-01-01T01:05:00Z"),
+      });
+
+      // now is +1.5h — still inside the 24h grace window.
+      const decision = await evaluateCurrentStep(
+        context as Parameters<typeof evaluateCurrentStep>[0],
+        schedule,
+        new Date("2026-01-01T01:30:00Z"),
+      );
+
+      // Grace-period hold runs first and must block both the noTraffic rollback
+      // and any downstream SRM rollback.
+      expect(decision).toMatchObject({
+        action: "hold",
+        reason: expect.stringMatching(/No traffic yet.*grace period/i),
+      });
+    });
+  });
 });

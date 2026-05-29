@@ -34,7 +34,7 @@ export type RampUpSchedule = z.infer<typeof rampUpSchedule>;
 export const createSafeRolloutValidator = z.object({
   datasourceId: z.string(),
   exposureQueryId: z.string(),
-  guardrailMetricIds: z.array(z.string()),
+  guardrailMetricIds: z.array(z.string()).min(1),
   maxDuration: MaxDuration,
   autoRollback: z.boolean(),
   rampUpSchedule: rampUpSchedule.partial().optional(),

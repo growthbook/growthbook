@@ -98,12 +98,19 @@ export function SafeRolloutStatusBar({
 
   return (
     <Box>
-      <div
-        role="button"
+      <button
+        type="button"
         aria-expanded={controlsExpanded}
         aria-controls={detailsId}
         onClick={onToggleExpanded}
-        style={{ cursor: "pointer" }}
+        style={{
+          cursor: "pointer",
+          background: "none",
+          border: "none",
+          padding: 0,
+          width: "100%",
+          textAlign: "left",
+        }}
       >
         <Flex align="center" justify="between" gap="3" pb="1">
           <Flex align="start" gap="2" style={{ minWidth: 0 }}>
@@ -162,7 +169,7 @@ export function SafeRolloutStatusBar({
             />
           </Flex>
         </Flex>
-      </div>
+      </button>
     </Box>
   );
 }
@@ -346,29 +353,36 @@ export function MonitoringControls({
             <Flex align="center" gap="1">
               <Tooltip body={autoUpdateTooltipBody}>
                 {monitoringMode === "auto" ? (
-                  <PiLightning
-                    size={18}
+                  <IconButton
+                    variant="ghost"
+                    radius="full"
+                    aria-label="Disable auto-monitoring"
+                    disabled={!canRunQueries}
+                    onClick={
+                      canRunQueries ? handleToggleMonitoringMode : undefined
+                    }
                     style={{
                       color: effectiveAutoUpdate
                         ? "var(--violet-11)"
                         : "var(--gray-8)",
-                      cursor: canRunQueries ? "pointer" : "default",
                     }}
-                    onClick={
-                      canRunQueries ? handleToggleMonitoringMode : undefined
-                    }
-                  />
+                    size="1"
+                  >
+                    <PiLightning size={18} />
+                  </IconButton>
                 ) : (
-                  <PiLightningSlash
-                    size={18}
-                    style={{
-                      color: "var(--gray-8)",
-                      cursor: canRunQueries ? "pointer" : "default",
-                    }}
+                  <IconButton
+                    variant="ghost"
+                    radius="full"
+                    aria-label="Enable auto-monitoring"
+                    disabled={!canRunQueries}
                     onClick={
                       canRunQueries ? handleToggleMonitoringMode : undefined
                     }
-                  />
+                    style={{ color: "var(--gray-8)" }}
+                  >
+                    <PiLightningSlash size={18} />
+                  </IconButton>
                 )}
               </Tooltip>
               {lastUpdated && (

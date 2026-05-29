@@ -3365,6 +3365,7 @@ paths:
                             exposureQueryId:
                               type: string
                             guardrailMetricIds:
+                              minItems: 1
                               type: array
                               items:
                                 type: string
@@ -3846,6 +3847,7 @@ paths:
                         exposureQueryId:
                           type: string
                         guardrailMetricIds:
+                          minItems: 1
                           type: array
                           items:
                             type: string
@@ -4440,6 +4442,7 @@ paths:
                         exposureQueryId:
                           type: string
                         guardrailMetricIds:
+                          minItems: 1
                           type: array
                           items:
                             type: string
@@ -5059,6 +5062,7 @@ paths:
                     exposureQueryId:
                       type: string
                     guardrailMetricIds:
+                      minItems: 1
                       type: array
                       items:
                         type: string
@@ -8069,6 +8073,7 @@ paths:
                         exposureQueryId:
                           type: string
                         guardrailMetricIds:
+                          minItems: 1
                           type: array
                           items:
                             type: string
@@ -8665,6 +8670,7 @@ paths:
                         exposureQueryId:
                           type: string
                         guardrailMetricIds:
+                          minItems: 1
                           type: array
                           items:
                             type: string
@@ -9288,6 +9294,7 @@ paths:
                     exposureQueryId:
                       type: string
                     guardrailMetricIds:
+                      minItems: 1
                       type: array
                       items:
                         type: string
@@ -19956,6 +19963,7 @@ paths:
                           exposureQueryId:
                             type: string
                           guardrailMetricIds:
+                            minItems: 1
                             type: array
                             items:
                               type: string
@@ -20306,6 +20314,7 @@ paths:
                           exposureQueryId:
                             type: string
                           guardrailMetricIds:
+                            minItems: 1
                             type: array
                             items:
                               type: string
@@ -20536,6 +20545,7 @@ paths:
                 exposureQueryId:
                   type: string
                 guardrailMetricIds:
+                  minItems: 1
                   type: array
                   items:
                     type: string
@@ -20717,6 +20727,7 @@ paths:
                           exposureQueryId:
                             type: string
                           guardrailMetricIds:
+                            minItems: 1
                             type: array
                             items:
                               type: string
@@ -21070,6 +21081,7 @@ paths:
                           exposureQueryId:
                             type: string
                           guardrailMetricIds:
+                            minItems: 1
                             type: array
                             items:
                               type: string
@@ -29304,6 +29316,7 @@ paths:
                         exposureQueryId:
                           type: string
                         guardrailMetricIds:
+                          minItems: 1
                           type: array
                           items:
                             type: string
@@ -29598,6 +29611,7 @@ paths:
                         exposureQueryId:
                           type: string
                         guardrailMetricIds:
+                          minItems: 1
                           type: array
                           items:
                             type: string
@@ -30162,6 +30176,7 @@ paths:
                         exposureQueryId:
                           type: string
                         guardrailMetricIds:
+                          minItems: 1
                           type: array
                           items:
                             type: string
@@ -31891,6 +31906,7 @@ components:
                       exposureQueryId:
                         type: string
                       guardrailMetricIds:
+                        minItems: 1
                         type: array
                         items:
                           type: string
@@ -32302,6 +32318,7 @@ components:
                       exposureQueryId:
                         type: string
                       guardrailMetricIds:
+                        minItems: 1
                         type: array
                         items:
                           type: string
@@ -33061,6 +33078,7 @@ components:
                       exposureQueryId:
                         type: string
                       guardrailMetricIds:
+                        minItems: 1
                         type: array
                         items:
                           type: string
@@ -33472,6 +33490,7 @@ components:
                       exposureQueryId:
                         type: string
                       guardrailMetricIds:
+                        minItems: 1
                         type: array
                         items:
                           type: string
@@ -33814,6 +33833,7 @@ components:
             exposureQueryId:
               type: string
             guardrailMetricIds:
+              minItems: 1
               type: array
               items:
                 type: string
@@ -37831,6 +37851,7 @@ components:
                 exposureQueryId:
                   type: string
                 guardrailMetricIds:
+                  minItems: 1
                   type: array
                   items:
                     type: string
@@ -40723,6 +40744,7 @@ components:
                 exposureQueryId:
                   type: string
                 guardrailMetricIds:
+                  minItems: 1
                   type: array
                   items:
                     type: string

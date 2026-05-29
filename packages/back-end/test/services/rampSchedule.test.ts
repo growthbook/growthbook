@@ -31,6 +31,7 @@ import {
   jumpAheadToStep,
   rollbackToStep,
   resumeSchedule,
+  restartSchedule,
   advanceUntilBlocked,
   advanceScheduleManually,
   completeRollout,
@@ -1638,6 +1639,82 @@ describe("resumeSchedule", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// restartSchedule
+// ---------------------------------------------------------------------------
+
+describe("restartSchedule", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetFeature.mockResolvedValue(makeFeature() as never);
+    mockCreateRevision.mockResolvedValue(makeRevision() as never);
+    mockPublishRevision.mockResolvedValue(makeFeature() as never);
+  });
+
+  it("rolls the linked SafeRollout's analysis floor forward and clears notifications on restart", async () => {
+    // restartSchedule should reset the SafeRollout's analysis window so the
+    // new run is not gated by pre-restart snapshots, and reset pastNotifications
+    // so the same issue types can re-fire for the fresh run.
+    const safeRolloutUpdate = jest.fn().mockResolvedValue(undefined);
+    const safeRolloutGetById = jest
+      .fn()
+      .mockResolvedValue({ id: "sr_1", pastNotifications: ["srm"] });
+    const getById = jest.fn().mockResolvedValue(null);
+    const updateById = jest
+      .fn()
+      .mockImplementation(
+        (_id: string, updates: Partial<RampScheduleInterface>) => ({
+          ...makeSchedule({
+            status: "paused",
+            currentStepIndex: -1,
+            safeRolloutId: "sr_1",
+          }),
+          ...updates,
+        }),
+      );
+
+    const ctx = {
+      org: { id: ORG_ID, settings: {} },
+      auditUser: { type: "system" },
+      environments: [],
+      permissions: {
+        canUpdateFeature: jest.fn().mockReturnValue(true),
+        canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
+        canPublishFeature: jest.fn().mockReturnValue(true),
+      },
+      models: {
+        rampSchedules: { updateById, getById },
+        safeRollout: { getById: safeRolloutGetById, update: safeRolloutUpdate },
+      },
+    };
+
+    const schedule = makeSchedule({
+      status: "paused",
+      currentStepIndex: -1,
+      safeRolloutId: "sr_1",
+    });
+
+    await restartSchedule(ctx as never, schedule);
+
+    // The SafeRollout must have been updated with a fresh analysisStartedAt
+    // and empty pastNotifications so the new run starts clean.
+    expect(safeRolloutGetById).toHaveBeenCalledWith("sr_1");
+    expect(safeRolloutUpdate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        analysisStartedAt: expect.any(Date),
+        pastNotifications: [],
+      }),
+    );
+
+    // safeRolloutId itself must NOT be cleared — the link is preserved; only
+    // the SafeRollout's stale analysis state is reset.
+    const [, restartUpdates] =
+      updateById.mock.calls.find(([id]) => id === "rs_1") ?? [];
+    expect(restartUpdates?.safeRolloutId).toBeUndefined(); // not explicitly cleared
+  });
+});
+
 describe("applyRampStartActions", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -2231,7 +2308,11 @@ describe("advanceUntilBlocked", () => {
       environments: [],
       permissions: {},
       models: {
-        rampSchedules: { updateById, getById: jest.fn(), deleteById: jest.fn() },
+        rampSchedules: {
+          updateById,
+          getById: jest.fn(),
+          deleteById: jest.fn(),
+        },
         safeRollout: { getById: jest.fn().mockResolvedValue(null) },
       },
     };

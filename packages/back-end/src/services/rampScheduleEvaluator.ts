@@ -204,6 +204,27 @@ async function evaluateMonitoredStep(
     return { action: "advance" };
   }
 
+  // Guardrail and experiment-health checks intentionally run before the
+  // per-step minSampleSize gate. This is by design:
+  //
+  //  • Guardrails are schedule-level safety nets (e.g. "never harm revenue"),
+  //    not step-level advancement criteria. Waiting for a minimum sample size
+  //    before acting on a confirmed loser would leave a harmful variant running
+  //    longer than necessary. A rollback on a small sample is conservative and
+  //    reversible; failing to roll back on a small sample is not.
+  //
+  //  • SRM/multiple-exposure health signals are also automatic global actions:
+  //    they indicate a fundamentally broken experiment setup that more data
+  //    cannot fix. Delaying on a sample-size gate would only accumulate more
+  //    bad data.
+  //
+  //  • minSampleSize is a step-level hold condition — it gates advancement to
+  //    the *next* step, not the decision to protect users *in the current step*.
+  //    Signal metrics (which can only hold, not roll back) are correctly placed
+  //    after minSampleSize because they are advancement quality checks.
+  //
+  // TL;DR: automatic global actions (rollbacks) win over stepwise hold
+  // conditions. Holds are advisory; rollbacks are protective.
   const scheduleLevelDecision = checkScheduleGuardrailSignals(
     safeRollout,
     expandedGuardrailIds,
@@ -223,6 +244,10 @@ async function evaluateMonitoredStep(
     return { action: "hold", reason: "No results status available yet" };
   }
 
+  // minSampleSize is a step-level advancement gate: it prevents the evaluator
+  // from treating an underpowered snapshot as a green light to advance.
+  // Signal metric gating is also placed after this check for the same reason —
+  // both are quality-of-evidence holds that only apply once enough data exists.
   const totalUsers = summary.health.totalUsers ?? 0;
   const minSampleSize = step?.holdConditions?.minSampleSize;
   if (minSampleSize && totalUsers < minSampleSize) {

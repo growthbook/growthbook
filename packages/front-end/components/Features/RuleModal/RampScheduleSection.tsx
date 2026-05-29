@@ -3006,9 +3006,8 @@ export default function RampScheduleSection({
           />
         </Box>
 
-        <div
-          className="link-purple font-weight-bold mt-2"
-          role="button"
+        <Link
+          className="font-weight-bold mt-2"
           onClick={() => setShowAdvancedMonitoring((v) => !v)}
         >
           <PiCaretRightFill
@@ -3019,7 +3018,7 @@ export default function RampScheduleSection({
             }}
           />
           Advanced Settings
-        </div>
+        </Link>
         {showAdvancedMonitoring && (
           <Flex direction="column" gap="3" mt="2">
             <Box style={{ width: 180 }}>

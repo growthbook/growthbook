@@ -11,7 +11,7 @@ import {
 // Inline ramp schedule to create atomically with the rule.
 export type InlineRampScheduleCreate = {
   mode: "create";
-  name: string;
+  name?: string;
   // If set, patches are scoped to this environment only.
   // If absent/null, patches apply to all environments that share the ruleId.
   environment?: string | null;
