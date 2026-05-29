@@ -19442,46 +19442,55 @@ paths:
         Satisfies the `holdConditions.requiresApproval` gate on the current step
         of
 
-        a `running` schedule. Approval only clears the approval hold — it never
-
-        bypasses the step's interval timer. A step's interval and approval are
-
-        independent holds and **both** must clear before the schedule advances.
+        a `running` schedule.
 
 
-        **Monitored steps**: clears the approval hold only — the step still
-        waits
+        Approval is the **final** gate: it can only be granted once every other
+        hold
 
-        for any remaining gates (interval elapsed, min sample size, healthy
-        metrics)
+        on the step has already cleared. This endpoint rejects the request
+        (`400`) if
 
-        before the agenda evaluates and advances it.
+        the step is not yet ready for approval — for example while the interval
+        timer
+
+        is still counting down, or (for monitored steps) before fresh analysis
+
+        covering the step is available or while a guardrail/health signal is
+        failing.
+
+        Poll the `/status` endpoint and only call this once it reports the step
+        is
+
+        awaiting approval.
 
 
-        **Non-monitored steps**: if the step's interval has already elapsed,
-        approval
+        **Non-monitored steps**: once the interval has elapsed, approving clears
+        the
 
-        clears the last hold and the schedule advances immediately, chaining
-        through
+        last hold and the schedule advances immediately, chaining through any
 
-        any subsequent instant steps in the same request. If the interval is
-        still
+        subsequent instant steps in the same request.
 
-        pending, the approval is recorded but the schedule stays on the step
-        until the
 
-        timer fires, at which point the agenda advances it.
+        **Monitored steps**: once the interval has elapsed and fresh, healthy
+        analysis
+
+        is available, approving clears the last hold and the agenda advances the
+        step
+
+        on its next tick (re-checking the latest analysis once more first).
 
 
         Different from `/actions/advance`: `approve-step` works within the
         normal
 
-        evaluation flow and lets other conditions resolve naturally. Use
+        evaluation flow and refuses to skip ahead of the interval or any other
 
-        `/actions/advance` only if you want to bypass all remaining holds
-        entirely
+        unmet gate. Use `/actions/advance` only if you want to bypass all
+        remaining
 
-        (including the interval timer).
+        holds entirely (including the interval timer).
 
 
         Requires feature review permissions for the associated feature.

@@ -426,14 +426,22 @@ export const postRampScheduleAction = async (
       }
       const approveErr = await approveAndPublishStep(context, schedule, "ui");
       if (approveErr) {
-        const httpStatus = approveErr.code === "permission_denied" ? 403 : 400;
+        const httpStatus =
+          approveErr.code === "permission_denied"
+            ? 403
+            : approveErr.code === "not_ready"
+              ? 409
+              : 400;
+        const message =
+          approveErr.code === "permission_denied"
+            ? `Permission denied: ${approveErr.detail}`
+            : approveErr.code === "not_ready"
+              ? `Cannot approve step yet: ${approveErr.detail}`
+              : `Error: ${"detail" in approveErr ? approveErr.detail : approveErr.code}`;
         return res.status(httpStatus).json({
           status: httpStatus,
           code: approveErr.code,
-          message:
-            approveErr.code === "permission_denied"
-              ? `Permission denied: ${approveErr.detail}`
-              : `Error: ${"detail" in approveErr ? approveErr.detail : approveErr.code}`,
+          message,
         });
       }
       const afterApprove = await context.models.rampSchedules.getById(

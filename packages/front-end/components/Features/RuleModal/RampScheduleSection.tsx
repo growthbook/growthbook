@@ -46,7 +46,7 @@ import {
   type RevisionRampCreateAction,
   type RevisionRampUpdateAction,
   type StepHoldConditions,
-  isAwaitingApproval,
+  isReadyForApproval,
   DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS,
 } from "shared/validators";
 import { date as formatDate } from "shared/dates";
@@ -1192,7 +1192,7 @@ export default function RampScheduleSection({
       if (!isReadOnlyView || !ruleRampSchedule) return null;
       if (stepIndex !== currentReadOnlyStepIndex) return null;
 
-      if (isAwaitingApproval(ruleRampSchedule)) {
+      if (isReadyForApproval(ruleRampSchedule)) {
         return {
           borderColor: "var(--yellow-9)",
           textColor: "var(--yellow-11)",

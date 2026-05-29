@@ -20,6 +20,10 @@ import { getEnvironments } from "back-end/src/services/organizations";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
+// NOTE: rampScheduleEvaluator also imports from this module (advanceStep, etc).
+// The cycle is safe: every cross-module reference is a hoisted function
+// declaration used only at call time, never at module top-level.
+import { isCurrentStepReadyForApproval } from "back-end/src/services/rampScheduleEvaluator";
 import {
   createRevision,
   registerRevisionPublishedHook,
@@ -1891,6 +1895,7 @@ export async function advanceUntilBlocked(
 type ApproveStepError =
   | { code: "feature_not_found" }
   | { code: "permission_denied"; detail: string }
+  | { code: "not_ready"; detail: string }
   | { code: "error"; detail: string };
 
 export async function approveAndPublishStep(
@@ -1946,25 +1951,38 @@ export async function approveAndPublishStep(
   }
 
   const now = new Date();
-  // Pure approval steps (no time gate) rebase phaseStartedAt so the next
-  // step's interval is measured from approval time. Composite steps
-  // (interval + approval) keep their original phaseStartedAt — the time hold
-  // and approval hold overlap; advancement waits until *both* clear.
-  const rebasedPhaseStart =
-    step.interval == null
-      ? computePhaseStartAfterApproval(now, schedule, stepIndex + 1)
-      : null;
 
-  // The step's interval is a separate hold that approval does not satisfy.
-  // `nextStepAt` is the timer set when we advanced into this step (null for
-  // pure-approval / instant steps). If it hasn't elapsed yet, approval is
-  // recorded but the schedule must keep waiting for the timer before it can
-  // advance — both holds must clear. We point nextProcessAt at the timer so
-  // the agenda re-evaluates exactly when it fires; otherwise we re-evaluate
-  // now (advancing synchronously below for non-monitored steps).
-  const stepTimerEnd =
-    step.interval != null ? (schedule.nextStepAt ?? null) : null;
-  const timerElapsed = !stepTimerEnd || stepTimerEnd <= now;
+  // Approval is the *final* gate. We refuse to record an approval until every
+  // other hold has cleared: the interval timer must have elapsed and — for
+  // monitored steps — fresh analysis covering the step must be available with
+  // no active rollback/hold signal. This keeps the UX honest (the user is only
+  // ever asked to approve a step whose results they can actually review) and
+  // prevents an early approval from short-circuiting the interval timer.
+  const readiness = await isCurrentStepReadyForApproval(ctx, schedule, now);
+  if (!readiness.ready) {
+    return {
+      code: "not_ready",
+      detail: readiness.reason ?? "Step is not ready for approval yet",
+    };
+  }
+
+  // Rebase phaseStartedAt so the *next* step's interval is measured from
+  // approval time. This matters because approval is the final gate: the
+  // readiness check above guarantees the step's own interval has already
+  // elapsed, so any further time spent waiting for a human to approve is pure
+  // latency. phaseStartedAt anchors the cumulative step-timer math in
+  // computeNextStepAt, so without this rebase a late approval would leave the
+  // next step's nextStepAt in the past — collapsing its interval to zero and
+  // skipping straight through it (and any steps after). Rebasing applies to
+  // both pure-approval steps (interval == null) and composite steps
+  // (interval + approval); computePhaseStartAfterApproval subtracts the
+  // cumulative interval of steps up to and including this one, so the next
+  // step gets its full interval starting now.
+  const rebasedPhaseStart = computePhaseStartAfterApproval(
+    now,
+    schedule,
+    stepIndex + 1,
+  );
 
   const updates: Record<string, unknown> = {
     stepApproval: {
@@ -1973,10 +1991,9 @@ export async function approveAndPublishStep(
       approvedBy: ctx.userId,
       context,
     },
-    ...(rebasedPhaseStart ? { phaseStartedAt: rebasedPhaseStart } : {}),
-    // Re-evaluate immediately when the timer has already cleared; otherwise
-    // wait for the interval timer to fire.
-    nextProcessAt: timerElapsed ? now : stepTimerEnd,
+    phaseStartedAt: rebasedPhaseStart,
+    // Approval was the last remaining gate, so re-evaluate immediately.
+    nextProcessAt: now,
     eventHistory: appendRampEvent(schedule, "approval-granted", {
       stepIndex,
       status: schedule.status,
@@ -1989,15 +2006,12 @@ export async function approveAndPublishStep(
     updates,
   );
 
-  // Advance synchronously only when all of this step's holds have cleared.
-  // For non-monitored steps that means the interval timer has elapsed (the
-  // approval hold is now satisfied). If the timer is still pending, leave the
-  // schedule on this step — the agenda re-evaluates at nextProcessAt
-  // (stepTimerEnd) and advances then, with both holds satisfied. Monitored
-  // steps may still be held by analysis / health gates, so they are always
-  // left to the agenda tick (nextProcessAt set above) rather than advanced
-  // here.
-  if (!step.monitored && timerElapsed) {
+  // All of this step's holds have cleared, so advance now. Non-monitored steps
+  // advance synchronously for immediate UI feedback. Monitored steps are left
+  // to the agenda tick (nextProcessAt is now) so the evaluator re-checks the
+  // latest analysis/health one more time before progressing — a late-breaking
+  // regression should still block advancement even after approval.
+  if (!step.monitored) {
     const afterApproval = await advanceStep(ctx, approved);
     await advanceUntilBlocked(ctx, afterApproval, now);
   }

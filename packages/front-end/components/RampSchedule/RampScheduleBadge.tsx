@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { isAwaitingApproval, RampScheduleInterface } from "shared/validators";
+import { isReadyForApproval, RampScheduleInterface } from "shared/validators";
 import { abbreviateAgo, datetime } from "shared/dates";
 import Badge from "@/ui/Badge";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -66,7 +66,7 @@ export default function RampScheduleBadge({
       completed: "Schedule complete",
       "rolled-back": "Rolled back",
     };
-    const displayLabel = isAwaitingApproval(rs)
+    const displayLabel = isReadyForApproval(rs)
       ? "Schedule needs approval"
       : (statusLabels[rs.status] ??
         `Schedule ${getRampStatusLabel(rs).toLowerCase()}`);
@@ -131,7 +131,7 @@ export default function RampScheduleBadge({
     completed: "Ramp complete",
     "rolled-back": "Rolled back",
   };
-  const featureContextLabel = isAwaitingApproval(rs)
+  const featureContextLabel = isReadyForApproval(rs)
     ? "Ramp needs approval"
     : (featureContextLabels[rs.status] ?? `Ramp ${baseLabel.toLowerCase()}`);
   const displayLabel = featureRuleContext ? featureContextLabel : baseLabel;

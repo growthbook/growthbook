@@ -20,7 +20,10 @@ import type {
   SafeRolloutInterface,
 } from "shared/validators";
 import type { FeatureRule } from "shared/types/feature";
-import { isAwaitingApproval } from "shared/src/validators/ramp-schedule";
+import {
+  isAwaitingApproval,
+  isReadyForApproval,
+} from "shared/src/validators/ramp-schedule";
 import {
   computeNextStepAt,
   computePhaseStartAfterApproval,
@@ -3239,10 +3242,10 @@ describe("approveAndPublishStep", () => {
     expect(current.nextProcessAt).not.toBeNull();
   });
 
-  it("does NOT advance a composite step (interval + approval) when the interval timer is still pending", async () => {
+  it("rejects approval of a composite step (interval + approval) while the interval timer is still pending", async () => {
     // Step 0 has both an interval timer (not yet elapsed) and requiresApproval.
-    // Approving must record the approval but leave the schedule on step 0 until
-    // the timer fires — both holds must clear before advancing.
+    // Approval is the final gate: it must be refused until the interval has
+    // elapsed, and no approval is recorded.
     const future = new Date(Date.now() + 60 * 60 * 1000); // 1h from now
     let current = makeSchedule({
       currentStepIndex: 0,
@@ -3301,14 +3304,12 @@ describe("approveAndPublishStep", () => {
     };
 
     const err = await approveAndPublishStep(ctx as never, current);
-    expect(err).toBeNull();
 
-    // Approval recorded but schedule stays on step 0 (timer pending).
-    expect(current.stepApproval?.stepIndex).toBe(0);
+    // Approval is refused — the interval is still counting down.
+    expect(err?.code).toBe("not_ready");
+    // Nothing is written: no approval recorded, schedule stays on step 0.
+    expect(updateById).not.toHaveBeenCalled();
     expect(current.currentStepIndex).toBe(0);
-    // nextProcessAt points at the timer end so the agenda re-evaluates when it
-    // fires, rather than now.
-    expect(current.nextProcessAt).toEqual(future);
   });
 
   it("advances a composite step (interval + approval) immediately when the interval has already elapsed", async () => {
@@ -3376,6 +3377,84 @@ describe("approveAndPublishStep", () => {
     // Timer already elapsed → approval clears the last hold → advance past it.
     expect(current.currentStepIndex).toBeGreaterThanOrEqual(1);
   });
+
+  it("rebases phaseStartedAt on approval so a late approval doesn't collapse the next step's interval", async () => {
+    // Simulate a composite step approved long after its interval elapsed:
+    // phaseStartedAt is 10h ago, step 0's interval is 1h (timer long gone).
+    // Without rebasing phaseStartedAt, step 1's nextStepAt would resolve to
+    // phaseStart + 2h = 8h ago (in the past) and the step would complete with
+    // zero observation time. Rebasing must give step 1 its full 1h interval
+    // measured from approval time.
+    const tenHoursAgo = new Date(Date.now() - 10 * 60 * 60 * 1000);
+    let current = makeSchedule({
+      currentStepIndex: 0,
+      status: "running",
+      phaseStartedAt: tenHoursAgo,
+      startedAt: tenHoursAgo,
+      nextStepAt: new Date(tenHoursAgo.getTime() + 3600 * 1000), // 9h ago, past
+      steps: [
+        {
+          interval: 3600,
+          holdConditions: { requiresApproval: true },
+          actions: [
+            {
+              targetType: "feature-rule" as const,
+              targetId: TARGET_ID,
+              patch: { ruleId: RULE_ID, coverage: 0.5 },
+            },
+          ],
+        },
+        {
+          interval: 3600,
+          monitored: false,
+          actions: [
+            {
+              targetType: "feature-rule" as const,
+              targetId: TARGET_ID,
+              patch: { ruleId: RULE_ID, coverage: 1.0 },
+            },
+          ],
+        },
+      ],
+    });
+    const updateById = jest
+      .fn()
+      .mockImplementation(
+        (_id: string, updates: Partial<RampScheduleInterface>) => {
+          current = { ...current, ...updates } as RampScheduleInterface;
+          return current;
+        },
+      );
+    const ctx = {
+      userId: "user_1",
+      org: { id: ORG_ID, settings: {} },
+      auditUser: { type: "session" as const, userAgent: "", ip: "" },
+      environments: [],
+      permissions: {
+        canUpdateFeature: jest.fn().mockReturnValue(true),
+        canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
+        canPublishFeature: jest.fn().mockReturnValue(true),
+      },
+      models: {
+        rampSchedules: {
+          updateById,
+          getById: jest.fn().mockImplementation(() => current),
+        },
+      },
+    };
+
+    const err = await approveAndPublishStep(ctx as never, current);
+    expect(err).toBeNull();
+
+    expect(current.currentStepIndex).toBe(1);
+    // Step 1's timer must be in the future (~1h out), not in the past.
+    expect(current.nextStepAt).toBeInstanceOf(Date);
+    const nextStepMs = (current.nextStepAt as Date).getTime();
+    expect(nextStepMs).toBeGreaterThan(Date.now());
+    // Allow generous slack for execution time; should be ~3600s out.
+    expect(nextStepMs - Date.now()).toBeGreaterThan(3000 * 1000);
+    expect(nextStepMs - Date.now()).toBeLessThanOrEqual(3600 * 1000 + 5000);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -3439,6 +3518,92 @@ describe("isAwaitingApproval", () => {
   it("returns false when status is not running", () => {
     expect(
       isAwaitingApproval({ ...baseSchedule, status: "paused" as const }),
+    ).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isReadyForApproval — approval is gated behind the step's interval
+// ---------------------------------------------------------------------------
+
+describe("isReadyForApproval", () => {
+  const base = {
+    status: "running" as const,
+    currentStepIndex: 0,
+    stepApproval: null,
+  };
+
+  it("is true for a pure-approval step (no interval)", () => {
+    expect(
+      isReadyForApproval({
+        ...base,
+        steps: [{ interval: null, holdConditions: { requiresApproval: true } }],
+      }),
+    ).toBe(true);
+  });
+
+  it("is false while a non-monitored step's interval timer is still pending", () => {
+    const future = new Date(Date.now() + 60 * 60 * 1000);
+    expect(
+      isReadyForApproval({
+        ...base,
+        nextStepAt: future,
+        steps: [{ interval: 3600, holdConditions: { requiresApproval: true } }],
+      }),
+    ).toBe(false);
+  });
+
+  it("is true once a non-monitored step's interval timer has elapsed", () => {
+    const past = new Date(Date.now() - 60 * 1000);
+    expect(
+      isReadyForApproval({
+        ...base,
+        nextStepAt: past,
+        steps: [{ interval: 3600, holdConditions: { requiresApproval: true } }],
+      }),
+    ).toBe(true);
+  });
+
+  it("is false for a monitored step before its interval has elapsed", () => {
+    const enteredAt = new Date(Date.now() - 60 * 1000); // 1m ago, interval 1h
+    expect(
+      isReadyForApproval({
+        ...base,
+        currentStepEnteredAt: enteredAt,
+        steps: [
+          {
+            interval: 3600,
+            monitored: true,
+            holdConditions: { requiresApproval: true },
+          },
+        ],
+      }),
+    ).toBe(false);
+  });
+
+  it("is true for a monitored step once its interval has elapsed", () => {
+    const enteredAt = new Date(Date.now() - 2 * 60 * 60 * 1000); // 2h ago
+    expect(
+      isReadyForApproval({
+        ...base,
+        currentStepEnteredAt: enteredAt,
+        steps: [
+          {
+            interval: 3600,
+            monitored: true,
+            holdConditions: { requiresApproval: true },
+          },
+        ],
+      }),
+    ).toBe(true);
+  });
+
+  it("is false when the step is not awaiting approval at all", () => {
+    expect(
+      isReadyForApproval({
+        ...base,
+        steps: [{ interval: null, holdConditions: {} }],
+      }),
     ).toBe(false);
   });
 });

@@ -4,7 +4,7 @@ import { PiCheckBold } from "react-icons/pi";
 import { format } from "date-fns";
 import { abbreviateAgo } from "shared/dates";
 import {
-  isAwaitingApproval,
+  isReadyForApproval,
   RampScheduleInterface,
   RampScheduleStatus,
   RampStepAction,
@@ -404,7 +404,7 @@ function NodePopoverContent({
     if (nodeState === "completed")
       return { label: "Completed", color: "var(--violet-9)" };
     if (nodeState === "active") {
-      if (isAwaitingApproval(rs)) {
+      if (isReadyForApproval(rs)) {
         return { label: "Awaiting Approval", color: "var(--orange-9)" };
       }
       if (status === "paused")
@@ -730,7 +730,7 @@ export function getRampStatusLabel(rs: RampScheduleInterface): string {
   if (rs.status === "ready") {
     return "Scheduled";
   }
-  if (isAwaitingApproval(rs)) {
+  if (isReadyForApproval(rs)) {
     return "Needs Approval";
   }
   const labels: Partial<Record<RampScheduleStatus, string>> = {
@@ -746,10 +746,15 @@ export function getRampStatusLabel(rs: RampScheduleInterface): string {
 export function getRampBadgeColor(
   rs: Pick<
     RampScheduleInterface,
-    "status" | "currentStepIndex" | "steps" | "stepApproval"
+    | "status"
+    | "currentStepIndex"
+    | "steps"
+    | "stepApproval"
+    | "nextStepAt"
+    | "currentStepEnteredAt"
   >,
 ): "amber" | "green" | "orange" | "gray" | "red" {
-  if (isAwaitingApproval(rs)) return "orange";
+  if (isReadyForApproval(rs)) return "orange";
   const colors: Record<
     RampScheduleStatus,
     "amber" | "green" | "orange" | "gray" | "red"

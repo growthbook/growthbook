@@ -208,7 +208,7 @@ export const approveStepRampSchedule = createApiRequestHandler({
   operationId: "approveStepRampSchedule",
   summary: "Approve the current step",
   description:
-    "Satisfies the `holdConditions.requiresApproval` gate on the current step of\na `running` schedule. Approval only clears the approval hold — it never\nbypasses the step's interval timer. A step's interval and approval are\nindependent holds and **both** must clear before the schedule advances.\n\n**Monitored steps**: clears the approval hold only — the step still waits\nfor any remaining gates (interval elapsed, min sample size, healthy metrics)\nbefore the agenda evaluates and advances it.\n\n**Non-monitored steps**: if the step's interval has already elapsed, approval\nclears the last hold and the schedule advances immediately, chaining through\nany subsequent instant steps in the same request. If the interval is still\npending, the approval is recorded but the schedule stays on the step until the\ntimer fires, at which point the agenda advances it.\n\nDifferent from `/actions/advance`: `approve-step` works within the normal\nevaluation flow and lets other conditions resolve naturally. Use\n`/actions/advance` only if you want to bypass all remaining holds entirely\n(including the interval timer).\n\nRequires feature review permissions for the associated feature.\n",
+    "Satisfies the `holdConditions.requiresApproval` gate on the current step of\na `running` schedule.\n\nApproval is the **final** gate: it can only be granted once every other hold\non the step has already cleared. This endpoint rejects the request (`400`) if\nthe step is not yet ready for approval — for example while the interval timer\nis still counting down, or (for monitored steps) before fresh analysis\ncovering the step is available or while a guardrail/health signal is failing.\nPoll the `/status` endpoint and only call this once it reports the step is\nawaiting approval.\n\n**Non-monitored steps**: once the interval has elapsed, approving clears the\nlast hold and the schedule advances immediately, chaining through any\nsubsequent instant steps in the same request.\n\n**Monitored steps**: once the interval has elapsed and fresh, healthy analysis\nis available, approving clears the last hold and the agenda advances the step\non its next tick (re-checking the latest analysis once more first).\n\nDifferent from `/actions/advance`: `approve-step` works within the normal\nevaluation flow and refuses to skip ahead of the interval or any other\nunmet gate. Use `/actions/advance` only if you want to bypass all remaining\nholds entirely (including the interval timer).\n\nRequires feature review permissions for the associated feature.\n",
   tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
@@ -233,6 +233,11 @@ export const approveStepRampSchedule = createApiRequestHandler({
     const detail = "detail" in err ? err.detail : undefined;
     if (err.code === "permission_denied") {
       throw new PermissionError(`Permission denied: ${detail ?? err.code}`);
+    }
+    if (err.code === "not_ready") {
+      // Approval is the final gate — the interval (and, for monitored steps,
+      // fresh analysis) has not cleared yet. Reject rather than record it.
+      throw new Error(`Cannot approve step yet: ${detail ?? "not ready"}`);
     }
     throw new Error(detail ?? err.code);
   }

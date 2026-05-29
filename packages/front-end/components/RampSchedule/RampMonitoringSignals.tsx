@@ -1,7 +1,7 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import {
-  isAwaitingApproval,
+  isReadyForApproval,
   RampScheduleInterface,
   SafeRolloutInterface,
 } from "shared/validators";
@@ -625,18 +625,11 @@ export function getRampHealthOverview(
       autoExpand: false,
     };
   }
-  if (isAwaitingApproval(rampSchedule)) {
-    const currentStep = rampSchedule.steps[rampSchedule.currentStepIndex];
-    const approvalNotes = currentStep?.approvalNotes?.trim();
-    return {
-      severity: "inactive" as const,
-      label: "Awaiting approval",
-      summary:
-        approvalNotes ||
-        "This step requires approval before the ramp can advance",
-      autoExpand: false,
-    };
-  }
+  // "Awaiting approval" is shown only when the step is ready for approval AND
+  // no signal-level issue is active. For monitored steps, a failing guardrail
+  // or missing analysis takes priority over the approval prompt — the user
+  // shouldn't be asked to sign off on a step that's actively unhealthy.
+  // We defer this check to after the signal-driven branches below.
   if (rampSchedule.status === "pending" || rampSchedule.status === "ready") {
     return {
       severity: "inactive",
@@ -659,6 +652,22 @@ export function getRampHealthOverview(
       autoExpand: false,
     };
   }
+  // For non-monitored steps, show the approval prompt early — there are no
+  // health signals to defer to. Monitored steps defer the prompt to after
+  // signal checks (below) so that failing metrics take priority.
+  if (isReadyForApproval(rampSchedule) && !isOnMonitoredStep(rampSchedule)) {
+    const currentStep = rampSchedule.steps[rampSchedule.currentStepIndex];
+    const approvalNotes = currentStep?.approvalNotes?.trim();
+    return {
+      severity: "inactive" as const,
+      label: "Awaiting approval",
+      summary:
+        approvalNotes ||
+        "This step requires approval before the ramp can advance",
+      autoExpand: false,
+    };
+  }
+
   if (!isOnMonitoredStep(rampSchedule)) {
     const nextMonitoredStepIndex = rampSchedule.steps.findIndex(
       (s, idx) => idx > rampSchedule.currentStepIndex && !!s.monitored,
@@ -802,6 +811,23 @@ export function getRampHealthOverview(
       autoExpand: false,
     };
   }
+
+  // All signals are clear — now surface the approval prompt if the step is
+  // ready. This ensures the user is only asked to approve once the step is
+  // healthy and all other gates have cleared.
+  if (isReadyForApproval(rampSchedule)) {
+    const currentStep = rampSchedule.steps[rampSchedule.currentStepIndex];
+    const approvalNotes = currentStep?.approvalNotes?.trim();
+    return {
+      severity: "inactive" as const,
+      label: "Awaiting approval",
+      summary:
+        approvalNotes ||
+        "This step requires approval before the ramp can advance",
+      autoExpand: false,
+    };
+  }
+
   return {
     severity: "healthy",
     label: "Healthy",
@@ -846,6 +872,47 @@ export function RampMonitoringBadges({
   );
 }
 
+/**
+ * Schedules a single re-render when the current step's interval timer elapses
+ * so `isReadyForApproval` flips from false→true without waiting for the next
+ * SWR poll. Returns nothing — just drives a state tick.
+ */
+export function useApprovalTimerTick(
+  rs: RampScheduleInterface | null | undefined,
+): void {
+  const [, setTick] = useState(0);
+
+  const status = rs?.status;
+  const currentStepIndex = rs?.currentStepIndex;
+  const steps = rs?.steps;
+  const nextStepAt = rs?.nextStepAt;
+  const currentStepEnteredAt = rs?.currentStepEnteredAt;
+
+  useEffect(() => {
+    if (status !== "running" || currentStepIndex == null || !steps) return;
+    const step = currentStepIndex >= 0 ? steps[currentStepIndex] : undefined;
+    if (!step?.holdConditions?.requiresApproval || step.interval == null)
+      return;
+
+    let deadlineMs: number;
+    if (step.monitored) {
+      if (!currentStepEnteredAt) return;
+      deadlineMs =
+        new Date(currentStepEnteredAt).getTime() + step.interval * 1000;
+    } else {
+      if (!nextStepAt) return;
+      deadlineMs = new Date(nextStepAt).getTime();
+    }
+
+    const delay = deadlineMs - Date.now();
+    if (delay <= 0) return;
+    // Cap at 2^31-1 ms (~24.8 days) — the max setTimeout delay.
+    const safeDelay = Math.min(delay, 0x7fffffff);
+    const timer = setTimeout(() => setTick((t) => t + 1), safeDelay);
+    return () => clearTimeout(timer);
+  }, [status, currentStepIndex, steps, nextStepAt, currentStepEnteredAt]);
+}
+
 // Lower-case strings read naturally after "Manual: ".
 const SIGNAL_REASON: Partial<Record<RampHealthSignal, string>> = {
   "guardrail-failing": "guardrail failing",
@@ -877,6 +944,10 @@ export function RampMonitoringCTAs({
   const computedResult = useRampMonitoringSignals(rampSchedule);
   const result = signalResult ?? computedResult;
 
+  // Drive a re-render when the step's interval timer elapses so the approval
+  // CTA appears promptly without waiting for the next SWR poll.
+  useApprovalTimerTick(rampSchedule);
+
   if (rampSchedule.status === "rolled-back" && onRestart) {
     return (
       <Button size={size} variant="solid" onClick={onRestart}>
@@ -896,16 +967,14 @@ export function RampMonitoringCTAs({
       </Button>
     );
   }
-  if (onApproveStep && isAwaitingApproval(rampSchedule)) {
-    return (
-      <Button size={size} variant="solid" onClick={onApproveStep}>
-        Approve Step
-      </Button>
-    );
-  }
 
-  if (!isOnMonitoredStep(rampSchedule)) return null;
+  // ── Signal-aware buttons (rollback / hold) ──────────────────────────────
+  // Evaluate signals *before* checking approval readiness so that failing
+  // guardrails or active hold signals always take priority over the approval
+  // CTA. A monitored step can be both "ready for approval" (timer elapsed) and
+  // failing a guardrail — the user needs to see Rollback, not Approve.
 
+  const onMonitored = isOnMonitoredStep(rampSchedule);
   const { signals, actions } = result;
   const conservativeAction = conservativeActionForSignals(signals, actions);
   const rollbackPriority: RampHealthSignal[] = [
@@ -939,18 +1008,20 @@ export function RampMonitoringCTAs({
       actions["multiple-exposures"] === "hold") ||
     (signals.includes("no-traffic") && actions["no-traffic"] === "hold");
   const activelyHolding = hasHoldSignal && isHoldingNow(rampSchedule);
+  const hasFailingSignal =
+    conservativeAction === "rollback" || conservativeAction === "hold";
 
-  // If the step is both awaiting approval AND actively held by a monitoring
-  // signal, show a single "Approve & Continue" that fires both actions —
-  // calling approve-step first then advance. Showing two separate buttons
-  // would be confusing, and "Approve Step" alone would leave the user still
-  // held after approving.
+  // When the monitored step is actively held by a signal *and* ready for
+  // approval, show a compound "Approve & Continue" button paired with
+  // Rollback. This fires both actions so the user doesn't have to click twice.
   if (
+    onMonitored &&
     activelyHolding &&
     onApproveStep &&
     onAdvance &&
-    isAwaitingApproval(rampSchedule) &&
-    conservativeAction === "hold"
+    isReadyForApproval(rampSchedule) &&
+    conservativeAction === "hold" &&
+    !signals.includes("awaiting-data")
   ) {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -969,7 +1040,16 @@ export function RampMonitoringCTAs({
     );
   }
 
-  if (activelyHolding && onAdvance && conservativeAction === "hold") {
+  // Signal-driven rollback/hold CTAs take priority over the approval button.
+  if (onMonitored && signals.includes("guardrail-failing")) {
+    return rollbackButton("solid");
+  }
+  if (
+    onMonitored &&
+    activelyHolding &&
+    onAdvance &&
+    conservativeAction === "hold"
+  ) {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <Button size={size} variant="solid" onClick={onAdvance}>
@@ -979,20 +1059,31 @@ export function RampMonitoringCTAs({
       </div>
     );
   }
-
-  if (signals.includes("guardrail-failing")) {
-    return rollbackButton("solid");
-  }
-
   if (
-    signals.includes("signal-regression") ||
-    signals.includes("multiple-exposures")
+    onMonitored &&
+    (signals.includes("signal-regression") ||
+      signals.includes("multiple-exposures"))
   ) {
     return rollbackButton("outline");
   }
-
-  if (conservativeAction === "rollback") {
+  if (onMonitored && conservativeAction === "rollback") {
     return rollbackButton("outline");
+  }
+
+  // ── Approval CTA ────────────────────────────────────────────────────────
+  // Only shown once every other gate has cleared: the interval timer has
+  // elapsed, and — for monitored steps — the signals are not "awaiting-data"
+  // (no fresh analysis yet) or actively failing/holding (handled above).
+  const approvalReady = isReadyForApproval(rampSchedule);
+  const monitoredBlocksApproval =
+    onMonitored && (signals.includes("awaiting-data") || hasFailingSignal);
+
+  if (onApproveStep && approvalReady && !monitoredBlocksApproval) {
+    return (
+      <Button size={size} variant="solid" onClick={onApproveStep}>
+        Approve Step
+      </Button>
+    );
   }
 
   return null;

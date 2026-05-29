@@ -23,7 +23,17 @@ import {
 
 export type EvalDecision =
   | { action: "advance" }
-  | { action: "hold"; reason: string; nextProcessAt?: Date | null }
+  | {
+      action: "hold";
+      reason: string;
+      nextProcessAt?: Date | null;
+      // True only when the *single* remaining gate is the step's approval hold,
+      // i.e. every other condition (interval timer, fresh analysis, traffic,
+      // guardrails/health, min sample size, signal metrics) has already cleared.
+      // This is what makes approval the final gate: the UI only prompts and the
+      // API only accepts an approval once awaitingApproval is set.
+      awaitingApproval?: boolean;
+    }
   | { action: "rollback"; reason: string }
   | { action: "pause"; reason: string };
 
@@ -41,14 +51,17 @@ export async function evaluateCurrentStep(
   }
 
   // Non-monitored step. Enforce the interval time hold BEFORE the approval
-  // hold so a composite step (interval + requiresApproval) requires *both* to
-  // clear before advancing. `nextStepAt` is the step's timer, set by
+  // hold so that approval is the *final* gate of a composite step
+  // (interval + requiresApproval). `nextStepAt` is the step's timer, set by
   // advanceStep via computeNextStepAt; it is null for steps with no interval
-  // (pure approval / instant gates). Without this gate an early approval
-  // (which bumps nextProcessAt to now) would let the schedule advance before
-  // the timer elapses. The normal agenda flow is unaffected: it only ticks
-  // once nextProcessAt — the min of nextStepAt and other gates — is due, so
-  // nextStepAt <= now by the time a purely time-gated step is evaluated here.
+  // (pure approval / instant gates).
+  //
+  // This ordering is what lets isCurrentStepReadyForApproval distinguish "still
+  // counting down" from "ready to approve": while the timer is pending we
+  // return this interval hold (not the approval hold), so a premature approval
+  // is rejected rather than recorded. It also defends the agenda advance path —
+  // though in practice the agenda only ticks once nextProcessAt (the min of
+  // nextStepAt and other gates) is due, so nextStepAt <= now by then.
   if (schedule.nextStepAt && schedule.nextStepAt > now) {
     return {
       action: "hold",
@@ -61,7 +74,11 @@ export async function evaluateCurrentStep(
     step.holdConditions?.requiresApproval &&
     schedule.stepApproval?.stepIndex !== schedule.currentStepIndex
   ) {
-    return { action: "hold", reason: "Awaiting approval" };
+    return {
+      action: "hold",
+      reason: "Awaiting approval",
+      awaitingApproval: true,
+    };
   }
 
   // `minSampleSize` is intentionally not checked here. It requires snapshot
@@ -281,10 +298,55 @@ async function evaluateMonitoredStep(
     step?.holdConditions?.requiresApproval &&
     schedule.stepApproval?.stepIndex !== schedule.currentStepIndex
   ) {
-    return { action: "hold", reason: "Awaiting approval" };
+    return {
+      action: "hold",
+      reason: "Awaiting approval",
+      awaitingApproval: true,
+    };
   }
 
   return { action: "advance" };
+}
+
+/**
+ * Determines whether the current step is ready for a manual approval.
+ *
+ * Approval is the *final* gate: a step may only be approved once every other
+ * hold condition has cleared. Concretely this means the interval timer has
+ * elapsed and — for monitored steps — fresh analysis covering the step is
+ * available and no automatic rollback/hold signal is active. We derive this
+ * from `evaluateCurrentStep`, which checks approval last and only returns
+ * `awaitingApproval` when it is the sole remaining gate.
+ *
+ * Returns `{ ready: true }` when an approval should be prompted/accepted, or
+ * `{ ready: false, reason }` describing the gate that still needs to clear.
+ */
+export async function isCurrentStepReadyForApproval(
+  ctx: ReqContext | ApiReqContext,
+  schedule: RampScheduleInterface,
+  now: Date,
+): Promise<{ ready: boolean; reason?: string }> {
+  const step = schedule.steps[schedule.currentStepIndex];
+  if (!step?.holdConditions?.requiresApproval) {
+    return { ready: false, reason: "Step does not require approval" };
+  }
+  if (schedule.stepApproval?.stepIndex === schedule.currentStepIndex) {
+    return { ready: false, reason: "Step has already been approved" };
+  }
+
+  const decision = await evaluateCurrentStep(ctx, schedule, now);
+  if (decision.action === "hold" && decision.awaitingApproval) {
+    return { ready: true };
+  }
+
+  // Any other decision means a non-approval gate is still active (interval
+  // timer, missing/stale analysis, no traffic, min sample size, signal hold)
+  // or the step is failing (rollback). Surface that as the rejection reason.
+  const reason =
+    "reason" in decision
+      ? decision.reason
+      : "Step is not ready for approval yet";
+  return { ready: false, reason };
 }
 
 function checkScheduleGuardrailSignals(

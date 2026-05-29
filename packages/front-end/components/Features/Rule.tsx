@@ -30,7 +30,7 @@ import {
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { format as formatTimeZone } from "date-fns-tz";
 import {
-  isAwaitingApproval,
+  isReadyForApproval,
   SafeRolloutInterface,
   HoldoutInterface,
   RampScheduleInterface,
@@ -78,6 +78,7 @@ import {
   isOnMonitoredStep,
   RampMonitoringBadges,
   RampMonitoringCTAs,
+  useApprovalTimerTick,
 } from "@/components/RampSchedule/RampMonitoringSignals";
 import { formatRollbackReason } from "@/components/RampSchedule/rollbackReason";
 import TruncatedConditionDisplay from "@/components/SavedGroups/TruncatedConditionDisplay";
@@ -151,10 +152,11 @@ function computeRemainingTime(
   let seconds = 0;
   let manualApprovals = 0;
 
-  // The current step can have two independent holds — an interval timer and a
-  // manual approval — and BOTH must clear before it advances. Count whichever
-  // are still unmet so the display stays correct after an early approval (the
-  // approval drops out of the count but the still-pending timer remains).
+  // The current step can have two holds that clear in sequence: the interval
+  // timer first, then a manual approval. Count both remaining components — the
+  // time still left on the timer plus the approval, which only becomes
+  // actionable once the timer elapses — so the estimate reflects all the work
+  // left before the step can advance.
   const currentStep =
     rs.currentStepIndex >= 0 ? rs.steps[rs.currentStepIndex] : undefined;
   const currentNeedsApproval =
@@ -310,6 +312,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const [showDeleteRuleModal, setShowDeleteRuleModal] = useState(false);
     const [rampApproveLoading, setRampApproveLoading] = useState(false);
     const [rampApproveError, setRampApproveError] = useState("");
+    useApprovalTimerTick(rampSchedule);
     const rollbackToStart = async (reason = "rolled back to start") => {
       if (!rampSchedule) return;
       await apiCall(`/ramp-schedule/${rampSchedule.id}/actions/rollback`, {
@@ -524,8 +527,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       // monitored — skip adding it here to avoid a duplicate button.
       const approvalHandledByMonitoringCTAs =
         !!safeRollout && !locked && isOnMonitoredStep(rampSchedule);
+      // Only surface the approval CTA once the step's interval has elapsed —
+      // approval is the final gate, so we don't prompt while the timer counts.
       if (
-        isAwaitingApproval(rampSchedule) &&
+        isReadyForApproval(rampSchedule) &&
         !approvalHandledByMonitoringCTAs
       ) {
         ruleCtas.push(
@@ -1193,7 +1198,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             </Callout>
           )}
           {rampSchedule &&
-            isAwaitingApproval(rampSchedule) &&
+            isReadyForApproval(rampSchedule) &&
             rampSchedule.steps[rampSchedule.currentStepIndex]
               ?.approvalNotes && (
               <Callout status="info" mt="3" color="orange" size="sm">

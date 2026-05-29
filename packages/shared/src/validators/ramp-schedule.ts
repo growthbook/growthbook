@@ -289,6 +289,55 @@ export function isAwaitingApproval(schedule: {
   );
 }
 
+/**
+ * Whether the current step is *ready* to be approved right now.
+ *
+ * Approval is the final gate: a step that also has an interval must finish that
+ * interval before we prompt for (or accept) an approval. `isAwaitingApproval`
+ * answers "does this step still need an approval at some point"; this answers
+ * "should we surface the approval prompt now". Use this to gate Approve CTAs so
+ * the user is never asked to sign off on a step whose timer is still counting
+ * down.
+ *
+ * This is a time-based check only. For monitored steps it confirms the hold
+ * interval has elapsed, but it cannot see whether fresh analysis is available —
+ * that (and any failing guardrail/health signal) is enforced server-side by
+ * the approve-step endpoint, which rejects premature approvals.
+ */
+export function isReadyForApproval(
+  schedule: {
+    status: string;
+    currentStepIndex: number;
+    steps: {
+      interval?: number | null;
+      monitored?: boolean;
+      holdConditions?: { requiresApproval?: boolean };
+    }[];
+    stepApproval?: { stepIndex: number } | null;
+    nextStepAt?: Date | string | number | null;
+    currentStepEnteredAt?: Date | string | number | null;
+  },
+  now: Date = new Date(),
+): boolean {
+  if (!isAwaitingApproval(schedule)) return false;
+
+  const step = schedule.steps[schedule.currentStepIndex];
+  // No interval means there is no time hold — approval is the only gate.
+  if (!step || step.interval == null) return true;
+
+  // Monitored steps clear `nextStepAt` and track their interval relative to
+  // `currentStepEnteredAt`.
+  if (step.monitored) {
+    if (schedule.currentStepEnteredAt == null) return false;
+    const enteredAt = new Date(schedule.currentStepEnteredAt).getTime();
+    return now.getTime() >= enteredAt + step.interval * 1000;
+  }
+
+  // Non-monitored steps use `nextStepAt` as the interval timer.
+  if (schedule.nextStepAt == null) return true;
+  return new Date(schedule.nextStepAt).getTime() <= now.getTime();
+}
+
 export const TEMPLATE_PATCH_FIELDS = [
   "coverage",
   "condition",
