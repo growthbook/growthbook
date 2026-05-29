@@ -1134,11 +1134,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Forms/MultiSelectField.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Forms/PercentField.tsx": {
     "no-restricted-syntax": {
       "count": 1
@@ -2949,26 +2944,6 @@
   "packages/front-end/test/components/Forms/MultiSelectField.test.tsx": {
     "no-restricted-syntax": {
       "count": 21
-    }
-  },
-  "packages/front-end/ui/Button.stories.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "packages/front-end/ui/RadioCards.stories.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "packages/front-end/ui/RadioGroup.stories.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "packages/front-end/ui/Switch.stories.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
     }
   },
   "packages/sdk-js/rollup.config.mjs": {

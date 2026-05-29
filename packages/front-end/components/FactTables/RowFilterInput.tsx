@@ -8,7 +8,7 @@ import SelectField, {
   GroupedValue,
   SingleValue,
 } from "@/components/Forms/SelectField";
-import StringArrayField from "@/components/Forms/StringArrayField";
+import StringArrayField from "@/ui/StringArrayField";
 import Button from "@/ui/Button";
 import {
   NUMBER_PATTERN,

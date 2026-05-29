@@ -52,7 +52,7 @@ import SelectField, {
   FormatOptionLabelType,
 } from "@/components/Forms/SelectField";
 import Field from "@/components/Forms/Field";
-import StringArrayField from "@/components/Forms/StringArrayField";
+import StringArrayField from "@/ui/StringArrayField";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import Link from "@/ui/Link";
 import RadioGroup from "@/ui/RadioGroup";

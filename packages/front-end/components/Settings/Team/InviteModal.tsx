@@ -8,7 +8,7 @@ import { getDefaultRole } from "shared/permissions";
 import track from "@/services/track";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
-import StringArrayField from "@/components/Forms/StringArrayField";
+import StringArrayField from "@/ui/StringArrayField";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";

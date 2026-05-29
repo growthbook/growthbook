@@ -20,7 +20,7 @@ import SelectField, {
   GroupedValue,
   SingleValue,
 } from "@/components/Forms/SelectField";
-import StringArrayField from "@/components/Forms/StringArrayField";
+import StringArrayField from "@/ui/StringArrayField";
 import Checkbox from "@/ui/Checkbox";
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";

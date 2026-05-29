@@ -35,7 +35,7 @@ import SelectField, {
 import CodeTextArea, {
   FIVE_LINES_HEIGHT,
 } from "@/components/Forms/CodeTextArea";
-import StringArrayField from "@/components/Forms/StringArrayField";
+import StringArrayField from "@/ui/StringArrayField";
 import CountrySelector, {
   ALL_COUNTRY_CODES,
 } from "@/components/Forms/CountrySelector";

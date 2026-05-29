@@ -38,7 +38,7 @@ import Switch from "@/ui/Switch";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ConfirmButton from "@/components/Modal/ConfirmButton";
 import SelectField from "@/components/Forms/SelectField";
-import StringArrayField from "@/components/Forms/StringArrayField";
+import StringArrayField from "@/ui/StringArrayField";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
 

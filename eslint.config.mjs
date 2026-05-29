@@ -272,13 +272,13 @@ export default defineConfig([
           selector:
             "JSXAttribute[name.name='size'][value.type='Literal'][value.value='legacy']",
           message:
-            'Do not add new `size="legacy"` props. The "legacy" size is being phased out in favor of the design system sizes ("xs", "sm", "md", "lg"). Use one of those instead.',
+            'Do not add new `size="legacy"` props. Omit `size` to use the component default, or use an explicit design-system size ("x-small", "small", or "medium" on Select/SelectField/MultiSelectField/StringArrayField/TextField; "sm" or "md" on Field).',
         },
         {
           selector:
             "JSXAttribute[name.name='size'] JSXExpressionContainer > Literal[value='legacy']",
           message:
-            'Do not add new `size="legacy"` props. The "legacy" size is being phased out in favor of the design system sizes ("xs", "sm", "md", "lg"). Use one of those instead.',
+            'Do not add new `size="legacy"` props. Omit `size` to use the component default, or use an explicit design-system size ("x-small", "small", or "medium" on Select/SelectField/MultiSelectField/StringArrayField/TextField; "sm" or "md" on Field).',
         },
       ],
       "local/no-alert-classname": "error",

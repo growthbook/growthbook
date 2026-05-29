@@ -8,8 +8,8 @@ import {
 import TextareaAutosize from "react-textarea-autosize";
 import { PiCopy, PiRepeatBold, PiXBold } from "react-icons/pi";
 import { Tooltip } from "@radix-ui/themes";
-import Field, { FieldProps } from "./Field";
-import { ReactSelectProps } from "./SelectField";
+import Field, { FieldProps } from "@/components/Forms/Field";
+import { ReactSelectProps } from "@/components/Forms/SelectField";
 
 export type StringArrayFieldSize = "small" | "legacy" | "medium";
 

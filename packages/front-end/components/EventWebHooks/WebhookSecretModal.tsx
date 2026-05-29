@@ -4,7 +4,7 @@ import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import { useAuth } from "@/services/auth";
-import StringArrayField from "@/components/Forms/StringArrayField";
+import StringArrayField from "@/ui/StringArrayField";
 
 export default function WebhookSecretModal({
   existingId,

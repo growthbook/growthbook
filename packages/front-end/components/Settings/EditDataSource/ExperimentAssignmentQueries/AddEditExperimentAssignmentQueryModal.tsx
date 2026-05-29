@@ -10,7 +10,7 @@ import uniqId from "uniqid";
 import { FaExclamationTriangle, FaExternalLinkAlt } from "react-icons/fa";
 import { TestQueryRow } from "shared/types/integrations";
 import Code from "@/components/SyntaxHighlighting/Code";
-import StringArrayField from "@/components/Forms/StringArrayField";
+import StringArrayField from "@/ui/StringArrayField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";

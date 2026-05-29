@@ -301,7 +301,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   required,
   pattern,
   showCopyButton = true,
-  size = "small" as "small" | "legacy" | "medium",
+  size = "legacy" as "small" | "legacy" | "medium",
   labelSize,
   labelWeight = "semibold",
   errorLevel = "error",
