@@ -12,6 +12,7 @@ import {
 import type { CreateProps, UpdateProps } from "shared/types/base-model";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 import { getAdapter } from "back-end/src/revisions/index";
+import type { RevisionLifecycleAction } from "back-end/src/revisions/EntityRevisionAdapter";
 import { createWithVersionRetry } from "back-end/src/util/mongo.util";
 
 // Derived from the validator so the two can't drift apart.
@@ -89,6 +90,27 @@ export class RevisionModel extends BaseClass {
    */
   public createWithVersionRetry<R>(op: () => Promise<R>): Promise<R> {
     return createWithVersionRetry(op);
+  }
+
+  /**
+   * Fire the target entity-type's optional revision-lifecycle hook (used to
+   * emit webhook / notification events). Defensive double-guard: the adapter
+   * implementations swallow their own errors, but we also catch here so a
+   * notification failure can never break the revision write itself.
+   */
+  private async fireRevisionLifecycle(
+    revision: Revision,
+    action: RevisionLifecycleAction,
+  ): Promise<void> {
+    try {
+      await getAdapter(revision.target.type).onRevisionLifecycle?.(
+        this.context,
+        revision,
+        action,
+      );
+    } catch (e) {
+      this.context.logger.error(e, "Error firing revision lifecycle event");
+    }
   }
 
   /**
@@ -557,7 +579,7 @@ export class RevisionModel extends BaseClass {
       );
     }
 
-    return this.update(existing, {
+    const updated = await this.update(existing, {
       status: "pending-review",
       activityLog: [
         ...this.cleanActivityLog(existing.activityLog),
@@ -575,6 +597,9 @@ export class RevisionModel extends BaseClass {
         },
       ],
     } as UpdateProps<Revision>);
+
+    await this.fireRevisionLifecycle(updated, { type: "reviewRequested" });
+    return updated;
   }
 
   async addReview(
@@ -610,7 +635,7 @@ export class RevisionModel extends BaseClass {
           ? "changes-requested"
           : existing.status;
 
-    return this.update(existing, {
+    const updated = await this.update(existing, {
       reviews: [...existing.reviews, review],
       status: newStatus,
       activityLog: [
@@ -624,6 +649,14 @@ export class RevisionModel extends BaseClass {
         },
       ],
     } as UpdateProps<Revision>);
+
+    await this.fireRevisionLifecycle(updated, {
+      type: "reviewed",
+      decision,
+      userId,
+      ...(comment ? { comment } : {}),
+    });
+    return updated;
   }
 
   // Proposed changes
@@ -642,7 +675,7 @@ export class RevisionModel extends BaseClass {
 
     const { status, resetEntry } = this.resetApprovalIfNeeded(existing, userId);
 
-    return this.update(existing, {
+    const updated = await this.update(existing, {
       target: {
         ...existing.target,
         snapshot: cleanedSnapshot as typeof existing.target.snapshot,
@@ -666,6 +699,9 @@ export class RevisionModel extends BaseClass {
         ...(resetEntry ? [resetEntry] : []),
       ],
     } as UpdateProps<Revision>);
+
+    await this.fireRevisionLifecycle(updated, { type: "updated" });
+    return updated;
   }
 
   async rebase(
@@ -683,7 +719,7 @@ export class RevisionModel extends BaseClass {
 
     const { status, resetEntry } = this.resetApprovalIfNeeded(existing, userId);
 
-    return this.update(existing, {
+    const updated = await this.update(existing, {
       target: {
         ...existing.target,
         snapshot: cleanedSnapshot as typeof existing.target.snapshot,
@@ -708,6 +744,9 @@ export class RevisionModel extends BaseClass {
         ...(resetEntry ? [resetEntry] : []),
       ],
     } as UpdateProps<Revision>);
+
+    await this.fireRevisionLifecycle(updated, { type: "rebased" });
+    return updated;
   }
 
   // Merge / close / reopen
@@ -724,7 +763,7 @@ export class RevisionModel extends BaseClass {
       ? "Merged revision (bypass)"
       : "Merged revision";
 
-    return this.update(existing, {
+    const updated = await this.update(existing, {
       status: "merged",
       resolution: {
         action: "merged",
@@ -742,6 +781,9 @@ export class RevisionModel extends BaseClass {
         },
       ],
     } as UpdateProps<Revision>);
+
+    await this.fireRevisionLifecycle(updated, { type: "published" });
+    return updated;
   }
 
   async close(id: string, userId: string, reason?: string) {
@@ -752,7 +794,7 @@ export class RevisionModel extends BaseClass {
       throw new Error("Cannot discard an already discarded or merged revision");
     }
 
-    return this.update(existing, {
+    const updated = await this.update(existing, {
       status: "discarded",
       resolution: {
         action: "discarded",
@@ -770,6 +812,9 @@ export class RevisionModel extends BaseClass {
         },
       ],
     } as UpdateProps<Revision>);
+
+    await this.fireRevisionLifecycle(updated, { type: "discarded" });
+    return updated;
   }
 
   async reopen(id: string, userId: string) {
@@ -782,7 +827,7 @@ export class RevisionModel extends BaseClass {
     // review cycle for a revision that was never submitted. Reopening to
     // `draft` lets the author explicitly re-submit via `submitForReview`
     // when ready — a safer default than inferring the pre-discard status.
-    return this.update(existing, {
+    const updated = await this.update(existing, {
       status: "draft",
       resolution: undefined,
       activityLog: [
@@ -796,6 +841,9 @@ export class RevisionModel extends BaseClass {
         },
       ],
     } as UpdateProps<Revision>);
+
+    await this.fireRevisionLifecycle(updated, { type: "reopened" });
+    return updated;
   }
 
   // History
@@ -844,7 +892,7 @@ export class RevisionModel extends BaseClass {
       target.snapshot,
     );
 
-    return this.createWithVersionRetry(() =>
+    const created = await this.createWithVersionRetry(() =>
       this.create({
         target: {
           ...target,
@@ -862,6 +910,9 @@ export class RevisionModel extends BaseClass {
         // BaseModel fills in the rest, so the cast bridges the gap.
       } as unknown as CreateProps<Revision>),
     );
+
+    await this.fireRevisionLifecycle(created, { type: "created" });
+    return created;
   }
 
   /**
@@ -891,7 +942,7 @@ export class RevisionModel extends BaseClass {
     const userId = this.context.userId;
     const now = new Date();
 
-    return this.createWithVersionRetry(() =>
+    const created = await this.createWithVersionRetry(() =>
       this.create({
         target: {
           type: params.type,
@@ -922,5 +973,15 @@ export class RevisionModel extends BaseClass {
         ],
       } as unknown as CreateProps<Revision>),
     );
+
+    // A `createMerged` with a `revertedFrom` link is a revert; otherwise it's a
+    // single-write bypass publish. Both land the change on the live entity
+    // (callers persist that before calling this), so both report as the
+    // corresponding revision lifecycle event.
+    await this.fireRevisionLifecycle(
+      created,
+      params.revertedFrom ? { type: "reverted" } : { type: "published" },
+    );
+    return created;
   }
 }
