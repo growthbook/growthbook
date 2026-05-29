@@ -30414,15 +30414,21 @@ components:
       name: status
       in: query
       description: >-
-        Filter by revision status. Single value, comma-separated list, or
-        `all-drafts` shorthand for all active-draft statuses (draft,
-        pending-review, approved, changes-requested).
+        Filter by revision status. Single value, comma-separated list, repeated
+        params (?status=draft&status=approved), or `all-drafts` shorthand for
+        all active-draft statuses (draft, pending-review, approved,
+        changes-requested).
       schema:
         description: >-
-          Filter by revision status. Single value, comma-separated list, or
-          `all-drafts` shorthand for all active-draft statuses (draft,
-          pending-review, approved, changes-requested).
-        type: string
+          Filter by revision status. Single value, comma-separated list,
+          repeated params (?status=draft&status=approved), or `all-drafts`
+          shorthand for all active-draft statuses (draft, pending-review,
+          approved, changes-requested).
+        anyOf:
+          - type: string
+          - type: array
+            items:
+              type: string
     author:
       name: author
       in: query

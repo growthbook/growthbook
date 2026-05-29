@@ -299,9 +299,9 @@ export const ACTIVE_DRAFT_STATUSES = activeDraftStatusSchema.options;
  * `parseRevisionStatusFilter`.
  */
 export const revisionStatusFilterSchema = z
-  .string()
+  .union([z.string(), z.array(z.string())])
   .describe(
-    "Filter by revision status. Single value, comma-separated list, or `all-drafts` shorthand for all active-draft statuses (draft, pending-review, approved, changes-requested).",
+    "Filter by revision status. Single value, comma-separated list, repeated params (?status=draft&status=approved), or `all-drafts` shorthand for all active-draft statuses (draft, pending-review, approved, changes-requested).",
   )
   .optional();
 
