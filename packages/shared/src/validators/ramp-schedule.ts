@@ -22,7 +22,7 @@ export const featureRulePatch = z.object({
   prerequisites: z.array(featurePrerequisite).nullish(),
   allEnvironments: z.boolean().nullish(),
   environments: z.array(z.string()).nullish(),
-  force: z.any().optional().describe("Force value (any JSON type)"),
+  force: z.unknown().optional().describe("Force value (any JSON type)"),
   enabled: z.boolean().nullish(),
 });
 export type FeatureRulePatch = z.infer<typeof featureRulePatch>;

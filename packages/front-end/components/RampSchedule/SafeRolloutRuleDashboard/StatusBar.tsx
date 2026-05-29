@@ -272,8 +272,7 @@ export function MonitoringControls({
         body: JSON.stringify({ monitoringMode: nextMode }),
       },
     );
-    mutateSnapshot();
-    mutateSr();
+    await Promise.all([mutateSnapshot(), mutateSr()]);
   };
 
   const nextUpdate = srFromApi?.nextSnapshotAttempt

@@ -583,6 +583,24 @@ export function computePhaseStartAfterApproval(
   return new Date(now.getTime() - total * 1000);
 }
 
+// NOTE — canPublishFeature is intentionally not checked here.
+//
+// executeStepActions writes feature-rule patches (coverage, enabled, etc.) on
+// behalf of the ramp schedule engine, not on behalf of a human user. Every
+// call path that reaches this function — startSchedule, rollbackToStep,
+// advanceStep, completeRollout, jumpAheadToStep — is a scheduled or
+// system-initiated action that the user already authorised when they started
+// (or configured) the schedule. Checking publish permission at execution time
+// would silently strand running schedules if the originating user's role is
+// later downgraded, which would be worse than the alternative.
+//
+// The only human-initiated path that does check canPublishFeature is
+// approveAndPublishStep, which wraps a publishRevision call directly and
+// therefore goes through the normal permission gate.
+//
+// If per-execution publish-permission enforcement is ever needed it should be
+// added here, but treat it as a deliberate new policy change rather than a
+// bug fix.
 async function executeStepActions(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,

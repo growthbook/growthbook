@@ -448,6 +448,14 @@ export const ejectTargetRampSchedule = createApiRequestHandler({
   }
 
   if (remaining.length === 0) {
+    // No rollback is applied when the last target is ejected. This is intentional:
+    // "eject" means "remove the schedule and leave the rule as-is right now" — the
+    // feature rule stays at whatever coverage/state it is currently at, under the
+    // user's full manual control from this point. If the intent were to revert the
+    // rule to its pre-ramp state, the caller should execute a rollback action first
+    // (which applies startActions) and then eject, or use the delete-schedule flow
+    // that already pauses/rolls back before removing.
+    //
     // Stop the linked SafeRollout before deleting so agenda ticks don't keep
     // firing against a now-deleted parent schedule.
     if (schedule.safeRolloutId) {

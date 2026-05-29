@@ -249,6 +249,15 @@ export const deleteRampSchedule = async (
       message: `Cannot delete a ramp schedule in status "${schedule.status}". Pause or complete it first.`,
     });
   }
+  // The delete intentionally leaves feature rule patches in place. By the time
+  // deletion is allowed (status is not "running"), the schedule is either:
+  //   - completed/rolled-back: the terminal completeRollout/rollbackToStep call
+  //     already applied the final rule state (endActions or startActions), so
+  //     there is nothing to revert.
+  //   - paused/ready: the rule is at the last successfully applied step patch,
+  //     which the user has chosen to keep by not rolling back before deleting.
+  // In all cases the caller is assumed to have made a deliberate choice about
+  // the rule's state before removing the schedule record.
   await context.models.rampSchedules.deleteById(schedule.id);
 
   await dispatchRampEvent(context, schedule, "rampSchedule.deleted", {
