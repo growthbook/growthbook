@@ -10,6 +10,9 @@ import {
   getApprovalFlowSettings,
   isUserBlockedFromApproving,
   isSavedGroupRevisionMetadataOnly,
+  sdkConnectionMatchesApprovalCondition,
+  getSdkConnectionApprovalRule,
+  orgHasAnySdkConnectionApproval,
 } from "../../../src/revisions/helpers";
 import type {
   RevisionTargetType,
@@ -137,6 +140,84 @@ describe("revisions helpers", () => {
           canEditEntity: true,
         }),
       ).toBe(true);
+    });
+  });
+
+  describe("canUserReviewEntity - sdk-connection", () => {
+    const sdkRevision = createRevision({
+      authorId: "user-author",
+      target: {
+        type: "sdk-connection",
+        id: "sdk-1",
+        snapshot: { environment: "production", projects: ["prj-1"] },
+        proposedChanges: [],
+      } as unknown as Revision["target"],
+    });
+    const flows: ApprovalFlowConfigurations = {
+      savedGroups: [],
+      sdkConnections: [{ required: true, requireMetadataReview: true }],
+    };
+
+    it("can review when they can edit the connection and are not the author", () => {
+      expect(
+        canUserReviewEntity({
+          entityType: "sdk-connection",
+          revision: sdkRevision,
+          entity: {},
+          approvalFlowSettings: flows,
+          userId: "user-reviewer",
+          canEditEntity: true,
+        }),
+      ).toBe(true);
+    });
+
+    it("cannot review when they cannot edit the connection (no manageSDKConnections)", () => {
+      expect(
+        canUserReviewEntity({
+          entityType: "sdk-connection",
+          revision: sdkRevision,
+          entity: {},
+          approvalFlowSettings: flows,
+          userId: "user-reviewer",
+          canEditEntity: false,
+        }),
+      ).toBe(false);
+    });
+
+    it("cannot review their own revision", () => {
+      expect(
+        canUserReviewEntity({
+          entityType: "sdk-connection",
+          revision: sdkRevision,
+          entity: {},
+          approvalFlowSettings: flows,
+          userId: "user-author",
+          canEditEntity: true,
+        }),
+      ).toBe(false);
+    });
+
+    it("cannot review a merged revision", () => {
+      const merged = createRevision({
+        authorId: "user-author",
+        status: "merged",
+        target: {
+          type: "sdk-connection",
+          id: "sdk-1",
+          snapshot: { environment: "production", projects: ["prj-1"] },
+          proposedChanges: [],
+        } as unknown as Revision["target"],
+      });
+      expect(
+        canUserReviewEntity({
+          entityType: "sdk-connection",
+          revision: merged,
+          entity: {},
+          approvalFlowSettings: flows,
+          userId: "user-reviewer",
+          canEditEntity: true,
+        }),
+      ).toBe(false);
     });
   });
 
@@ -807,6 +888,157 @@ describe("revisions helpers", () => {
           { op: "replace", path: "/projects/0", value: "p1" },
         ]),
       ).toBe(true);
+    });
+  });
+
+  describe("SDK connection approval scoping (condition-based)", () => {
+    describe("sdkConnectionMatchesApprovalCondition", () => {
+      it("matches all when condition is missing or empty", () => {
+        expect(
+          sdkConnectionMatchesApprovalCondition(undefined, {
+            environment: "staging",
+          }),
+        ).toBe(true);
+        expect(
+          sdkConnectionMatchesApprovalCondition("{}", { environment: "x" }),
+        ).toBe(true);
+      });
+
+      it("evaluates an environment condition", () => {
+        const cond = JSON.stringify({ environment: "production" });
+        expect(
+          sdkConnectionMatchesApprovalCondition(cond, {
+            environment: "production",
+          }),
+        ).toBe(true);
+        expect(
+          sdkConnectionMatchesApprovalCondition(cond, {
+            environment: "staging",
+          }),
+        ).toBe(false);
+      });
+
+      it("evaluates a project membership condition against the projects array", () => {
+        const cond = JSON.stringify({
+          projects: { $elemMatch: { $eq: "prj-secure" } },
+        });
+        expect(
+          sdkConnectionMatchesApprovalCondition(cond, {
+            projects: ["prj-a", "prj-secure"],
+          }),
+        ).toBe(true);
+        expect(
+          sdkConnectionMatchesApprovalCondition(cond, { projects: ["prj-a"] }),
+        ).toBe(false);
+      });
+
+      it("supports $or across environment and projects", () => {
+        const cond = JSON.stringify({
+          $or: [
+            { environment: "production" },
+            { projects: { $elemMatch: { $eq: "prj-secure" } } },
+          ],
+        });
+        expect(
+          sdkConnectionMatchesApprovalCondition(cond, {
+            environment: "staging",
+            projects: ["prj-secure"],
+          }),
+        ).toBe(true);
+        expect(
+          sdkConnectionMatchesApprovalCondition(cond, {
+            environment: "staging",
+            projects: ["prj-other"],
+          }),
+        ).toBe(false);
+      });
+
+      it("does not match a malformed condition", () => {
+        expect(
+          sdkConnectionMatchesApprovalCondition("{ not json", {
+            environment: "production",
+          }),
+        ).toBe(false);
+      });
+    });
+
+    describe("getSdkConnectionApprovalRule", () => {
+      const flows: ApprovalFlowConfigurations = {
+        savedGroups: [],
+        sdkConnections: [
+          {
+            required: true,
+            requireMetadataReview: false,
+            condition: JSON.stringify({ environment: "production" }),
+          },
+          { required: true, requireMetadataReview: true },
+        ],
+      };
+
+      it("returns the first enabled rule whose condition matches", () => {
+        const rule = getSdkConnectionApprovalRule(flows, {
+          environment: "production",
+        });
+        // The production-scoped rule (requireMetadataReview: false) is first.
+        expect(rule?.requireMetadataReview).toBe(false);
+      });
+
+      it("falls through to the unscoped catch-all rule", () => {
+        const rule = getSdkConnectionApprovalRule(flows, {
+          environment: "staging",
+        });
+        expect(rule?.requireMetadataReview).toBe(true);
+      });
+
+      it("returns undefined when no enabled rule matches", () => {
+        const onlyProd: ApprovalFlowConfigurations = {
+          savedGroups: [],
+          sdkConnections: [
+            {
+              required: true,
+              requireMetadataReview: true,
+              condition: JSON.stringify({ environment: "production" }),
+            },
+          ],
+        };
+        expect(
+          getSdkConnectionApprovalRule(onlyProd, { environment: "staging" }),
+        ).toBeUndefined();
+      });
+
+      it("ignores rules that are not required", () => {
+        const disabled: ApprovalFlowConfigurations = {
+          savedGroups: [],
+          sdkConnections: [{ required: false, requireMetadataReview: true }],
+        };
+        expect(
+          getSdkConnectionApprovalRule(disabled, { environment: "production" }),
+        ).toBeUndefined();
+      });
+    });
+
+    describe("orgHasAnySdkConnectionApproval", () => {
+      it("is true when any rule is required", () => {
+        expect(
+          orgHasAnySdkConnectionApproval({
+            savedGroups: [],
+            sdkConnections: [
+              { required: false, requireMetadataReview: true },
+              { required: true, requireMetadataReview: true },
+            ],
+          }),
+        ).toBe(true);
+      });
+      it("is false when no rules are required or none exist", () => {
+        expect(
+          orgHasAnySdkConnectionApproval({
+            savedGroups: [],
+            sdkConnections: [{ required: false, requireMetadataReview: true }],
+          }),
+        ).toBe(false);
+        expect(orgHasAnySdkConnectionApproval({ savedGroups: [] })).toBe(false);
+        expect(orgHasAnySdkConnectionApproval(undefined)).toBe(false);
+      });
     });
   });
 });
