@@ -13,6 +13,7 @@ import {
   DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
 } from "shared/constants";
 import { getHealthSettings } from "shared/enterprise";
+import { expandMetricGroups } from "shared/experiments";
 import { getSRMHealthData, getMultipleExposureHealthData } from "shared/health";
 import {
   advanceScheduleManually,
@@ -829,10 +830,22 @@ export const getRampScheduleStatus = createApiRequestHandler({
         };
       }
 
-      // --- Metric inverse map (load only the relevant IDs) ---
+      // --- Expand metric groups into individual metric IDs ---
+      const metricGroups = await req.context.models.metricGroups.getAll();
+      const expandedGuardrailIds = expandMetricGroups(
+        schedule.monitoringConfig.guardrailMetricIds ?? [],
+        metricGroups,
+      );
+      const expandedSignalIds = expandMetricGroups(
+        schedule.monitoringConfig.signalMetricIds ?? [],
+        metricGroups,
+      );
+      const guardrailIds = new Set(expandedGuardrailIds);
+      const signalIds = new Set(expandedSignalIds);
+
+      // --- Metric inverse map (load only the expanded IDs) ---
       const allMetricIds = [
-        ...(schedule.monitoringConfig.guardrailMetricIds ?? []),
-        ...(schedule.monitoringConfig.signalMetricIds ?? []),
+        ...new Set([...expandedGuardrailIds, ...expandedSignalIds]),
       ];
       const legacyMetrics = await getMetricsByIds(req.context, allMetricIds);
       const inverseMap = new Map<string, boolean>();
@@ -850,13 +863,6 @@ export const getRampScheduleStatus = createApiRequestHandler({
             nameMap.set(id, fm.name);
           }
         }),
-      );
-
-      const guardrailIds = new Set(
-        schedule.monitoringConfig.guardrailMetricIds ?? [],
-      );
-      const signalIds = new Set(
-        schedule.monitoringConfig.signalMetricIds ?? [],
       );
 
       // --- Per-metric health ---
