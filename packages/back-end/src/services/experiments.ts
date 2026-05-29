@@ -4875,6 +4875,9 @@ export async function maybeCreateContextualBanditDoc(
     treeModel: "regression_tree",
     minUsersPerLeaf: 100,
     maxLeaves: 12,
+    // TODO(holdout-v1.5): inert defaults; the model also declares defaultValues
+    // for these so future create-sites (migrations, dangerous bypass paths)
+    // don't need to repeat them.
     holdoutPercent: 0,
     stickyBucketing: false,
     canonicalFormVersion: 1,

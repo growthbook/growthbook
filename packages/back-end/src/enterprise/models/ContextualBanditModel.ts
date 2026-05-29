@@ -17,6 +17,13 @@ const BaseClass = MakeModelClass({
       unique: true,
     },
   ],
+  // TODO(holdout-v1.5): these two fields are intentionally inert in v1; the
+  // defaults let callers omit them so future docs round-trip cleanly without
+  // a schema break when the holdout pipeline ships.
+  defaultValues: {
+    holdoutPercent: 0,
+    stickyBucketing: false,
+  },
 });
 
 export class ContextualBanditModel extends BaseClass {
