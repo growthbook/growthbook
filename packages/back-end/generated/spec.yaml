@@ -10690,6 +10690,229 @@ paths:
             'https://api.growthbook.io/api/v1/experiments/{id}/contextual-bandit/current'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/contextual-bandit/results:
+    get:
+      operationId: getContextualBanditResults
+      summary: Get latest contextual bandit results
+      description: >-
+        Returns the latest contextual-bandit stats engine output and the status
+        of the most recent snapshot run for the experiment's current phase. This
+        is the same payload the GrowthBook UI uses to render the CB results
+        table.
+      tags:
+        - experiments
+        - contextual-bandit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The experiment id
+          schema:
+            description: The experiment id
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  contextualBanditSnapshot:
+                    anyOf:
+                      - type: object
+                        properties:
+                          attributes:
+                            type: array
+                            items:
+                              type: string
+                          responses:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                context:
+                                  type: object
+                                  propertyNames:
+                                    type: string
+                                  additionalProperties: {}
+                                sampleSizePerVariation:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: number
+                                    - type: 'null'
+                                variationMeans:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: number
+                                    - type: 'null'
+                                updatedWeights:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: number
+                                    - type: 'null'
+                                bestArmProbabilities:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: number
+                                    - type: 'null'
+                                updateMessage:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                error:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                              required:
+                                - context
+                              additionalProperties: false
+                          leaf_map:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                context:
+                                  type: object
+                                  propertyNames:
+                                    type: string
+                                  additionalProperties:
+                                    type: string
+                                leafId:
+                                  type: integer
+                              required:
+                                - context
+                                - leafId
+                              additionalProperties: false
+                        required:
+                          - attributes
+                          - responses
+                        additionalProperties: false
+                      - type: 'null'
+                  latest:
+                    anyOf:
+                      - type: object
+                        properties:
+                          id:
+                            type: string
+                          status:
+                            type: string
+                            enum:
+                              - running
+                              - success
+                              - error
+                          error:
+                            type: string
+                          queries:
+                            type: array
+                            items: {}
+                          runStarted:
+                            anyOf:
+                              - type: string
+                              - type: 'null'
+                          dateCreated:
+                            type: string
+                          multipleExposures:
+                            type: number
+                          type:
+                            type: string
+                          triggeredBy:
+                            type: string
+                        required:
+                          - id
+                          - status
+                          - error
+                          - queries
+                          - runStarted
+                          - dateCreated
+                          - multipleExposures
+                          - type
+                          - triggeredBy
+                        additionalProperties: false
+                      - type: 'null'
+                required:
+                  - contextualBanditSnapshot
+                  - latest
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/experiments/{id}/contextual-bandit/results'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/contextual-bandit/phase/{phase}:
+    put:
+      operationId: putContextualBanditPhase
+      summary: Update a contextual bandit phase
+      description: >-
+        Manually override the per-leaf weights for a contextual bandit phase.
+        Useful for operator-driven weight overrides between automated refreshes.
+        Requires the same permission as running the experiment.
+      tags:
+        - experiments
+        - contextual-bandit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The experiment id
+          schema:
+            description: The experiment id
+            type: string
+        - name: phase
+          in: path
+          required: true
+          description: The phase index (0-based)
+          schema:
+            description: The phase index (0-based)
+            type: integer
+            minimum: 0
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                currentLeafWeights:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      contextId:
+                        type: string
+                      weights:
+                        type: array
+                        items:
+                          type: number
+                    required:
+                      - contextId
+                      - weights
+                    additionalProperties: false
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  phase:
+                    $ref: '#/components/schemas/phase'
+                required:
+                  - phase
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT
+            'https://api.growthbook.io/api/v1/experiments/{id}/contextual-bandit/phase/{phase}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/experiments/{id}/contextual-bandit/snapshots:
     get:
       operationId: getContextualBanditSnapshots
@@ -34826,6 +35049,39 @@ components:
       required:
         - contextId
         - weights
+      additionalProperties: false
+    phase:
+      type: object
+      properties:
+        index:
+          type: integer
+          minimum: 0
+        dateStarted:
+          type: string
+        dateEnded:
+          anyOf:
+            - type: string
+            - type: 'null'
+        currentLeafWeights:
+          type: array
+          items:
+            type: object
+            properties:
+              contextId:
+                type: string
+              weights:
+                type: array
+                items:
+                  type: number
+            required:
+              - contextId
+              - weights
+            additionalProperties: false
+      required:
+        - index
+        - dateStarted
+        - dateEnded
+        - currentLeafWeights
       additionalProperties: false
     snapshots:
       type: object

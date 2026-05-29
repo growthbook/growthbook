@@ -388,6 +388,11 @@ export default {
               id: "bandits/results",
               label: "Understanding Results",
             },
+            {
+              type: "doc",
+              id: "bandits/contextual-bandit-via-api",
+              label: "Driving a Contextual Bandit via API",
+            },
           ],
         },
         {

@@ -18,6 +18,8 @@ import { getExperimentNames } from "./getExperimentNames";
 import { getExperimentStartChecklist } from "./getExperimentStartChecklist";
 import { postContextualBanditRefresh } from "./contextual-bandit/postRefresh";
 import { getContextualBanditCurrent } from "./contextual-bandit/getCurrent";
+import { getContextualBanditResults } from "./contextual-bandit/getResults";
+import { putContextualBanditPhase } from "./contextual-bandit/putPhase";
 import { getContextualBanditSnapshots } from "./contextual-bandit/getSnapshots";
 import { getContextualBanditSnapshot } from "./contextual-bandit/getSnapshot";
 import { getContextualBanditEvents } from "./contextual-bandit/getEvents";
@@ -45,6 +47,8 @@ export const experimentsRoutes: OpenApiRoute[] = [
   // Contextual Bandit Endpoints (mounted under /experiments)
   postContextualBanditRefresh,
   getContextualBanditCurrent,
+  getContextualBanditResults,
+  putContextualBanditPhase,
   // Snapshot sub-endpoints must be ordered: list before single (avoids :snapshotId swallowing "snapshots")
   getContextualBanditSnapshots,
   getContextualBanditSnapshot,
