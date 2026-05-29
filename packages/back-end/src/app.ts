@@ -16,11 +16,6 @@ import { parseEnvInt, stringToBoolean } from "shared/util";
 import { populationDataRouter } from "back-end/src/routers/population-data/population-data.router";
 import decisionCriteriaRouter from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.router";
 import { revisionRouter } from "back-end/src/routers/revision/revision.router";
-// Side-effect import: registers the saved-group revision lifecycle hook (see
-// services/savedGroupRevisionEvents). Loaded here at startup, outside the
-// model-init graph, so RevisionModel can dispatch revision webhook events
-// without a static import cycle.
-import "back-end/src/services/savedGroupRevisionEvents";
 import { usingFileConfig } from "./init/config";
 import { AuthRequest } from "./types/AuthRequest";
 import {

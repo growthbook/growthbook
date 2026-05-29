@@ -8,10 +8,7 @@ import { Context } from "back-end/src/models/BaseModel";
 import { ApiReqContext } from "back-end/types/api";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { toApiSavedGroupRevision } from "back-end/src/api/saved-groups/toApiSavedGroupRevision";
-import {
-  RevisionLifecycleAction,
-  registerRevisionLifecycleHook,
-} from "back-end/src/revisions/revisionEventHooks";
+import type { RevisionLifecycleAction } from "back-end/src/events/revisionWebhookAdapters";
 import { logger } from "back-end/src/util/logger";
 
 type SavedGroupRevisionEvent = Extract<
@@ -36,16 +33,21 @@ export function deriveChange(
 
 /**
  * Dispatch a `savedGroup.revision.*` webhook event for a revision lifecycle
- * transition. Invoked from the saved-group adapter's `onRevisionLifecycle`
- * hook, which RevisionModel calls after persisting each state change — so this
- * fires uniformly for both the front-end (generic revision controller) and the
- * public REST API. Failures are logged and swallowed.
+ * transition. Called directly from the saved-group REST handlers and the
+ * generic /revision controller after they persist each state change (the same
+ * call-site pattern features use with dispatchFeatureRevisionEvent), so it
+ * fires for both the front-end and the public REST API. Failures are logged and
+ * swallowed — events are fire-and-forget and must never break the write.
+ *
+ * Self-guards on target type so the generic /revision controller can call it
+ * unconditionally for any entity (no-op for non-saved-group revisions).
  */
 export async function dispatchSavedGroupRevisionEvent(
   context: Context,
   revision: Revision,
   action: RevisionLifecycleAction,
 ): Promise<void> {
+  if (revision.target.type !== "saved-group") return;
   try {
     const apiRevision = await toApiSavedGroupRevision(
       revision,
@@ -129,9 +131,3 @@ export async function dispatchSavedGroupRevisionEvent(
     logger.error(e, "Error dispatching saved group revision event");
   }
 }
-
-// Register the saved-group revision lifecycle hook so RevisionModel dispatches
-// these events for both the internal and public API surfaces. This module is
-// imported at startup (see app.ts) — outside the model-init graph — so the
-// registration runs without creating an import cycle.
-registerRevisionLifecycleHook("saved-group", dispatchSavedGroupRevisionEvent);

@@ -12,6 +12,7 @@ import {
   pickNewDraftMetadata,
   resolveOrCreateRevision,
 } from "./validations";
+import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import { toApiSavedGroupRevision } from "./toApiSavedGroupRevision";
 
 export const putSavedGroupRevisionArchive = createApiRequestHandler(
@@ -63,6 +64,10 @@ export const putSavedGroupRevisionArchive = createApiRequestHandler(
       patchOps,
       { revisionId: revision.id },
     );
+
+    await dispatchSavedGroupRevisionEvent(req.context, updated, {
+      type: "updated",
+    });
 
     return {
       revision: await toApiSavedGroupRevision(updated, req.context),

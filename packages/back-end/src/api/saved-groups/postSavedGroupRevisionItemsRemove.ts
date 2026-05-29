@@ -16,6 +16,7 @@ import {
   resolveOrCreateRevision,
   validateListSize,
 } from "./validations";
+import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import { toApiSavedGroupRevision } from "./toApiSavedGroupRevision";
 
 export const postSavedGroupRevisionItemsRemove = createApiRequestHandler(
@@ -79,6 +80,10 @@ export const postSavedGroupRevisionItemsRemove = createApiRequestHandler(
       patchOps,
       { revisionId: revision.id },
     );
+
+    await dispatchSavedGroupRevisionEvent(req.context, updated, {
+      type: "updated",
+    });
 
     return {
       revision: await toApiSavedGroupRevision(updated, req.context),
