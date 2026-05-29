@@ -13,11 +13,11 @@ import { safeRolloutStatusArray } from "./safe-rollout";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import {
   featureRulePatch,
+  lockdownConfigSchema,
   rampStep,
   rampStepAction,
-  rampEndTrigger,
-  apiRampTrigger,
-  apiRampEndTrigger,
+  rampMonitoringConfig,
+  stepHoldConditions,
 } from "./ramp-schedule";
 
 import { namedSchema } from "./openapi-helpers";
@@ -94,6 +94,7 @@ export const rolloutRule = baseRule
     coverage: z.number(),
     hashAttribute: z.string(),
     seed: z.string().optional(),
+    hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
   })
   .strict();
 
@@ -322,10 +323,6 @@ export type RevisionMetadata = z.infer<typeof revisionMetadataSchema>;
 // Ramp schedule actions stored on a revision. Deferred until publish. Only
 // create/detach are revision-bound — state changes (pause, resume, …) run
 // real-time on the live ramp schedule.
-const revisionRampEndConditionSchema = z.object({
-  trigger: rampEndTrigger.optional(),
-});
-
 // API variant: targetType/targetId are inferred from the top-level ruleId
 // at publish time.
 const revisionApiRampStepAction = z.object({
@@ -335,36 +332,34 @@ const revisionApiRampStepAction = z.object({
 });
 
 const revisionApiRampStep = z.object({
-  trigger: apiRampTrigger,
+  interval: z.number().positive().nullable(),
   actions: z.array(revisionApiRampStepAction).optional(),
   approvalNotes: z.string().nullish(),
+  monitored: z.boolean().optional(),
+  holdConditions: stepHoldConditions.optional(),
 });
 
 // Stored type — requires targetType/targetId in actions.
 export const revisionRampCreateAction = z.object({
   mode: z.literal("create"),
-  /** Display name. Defaults to "Ramp schedule – {Month YYYY}" if omitted. */
   name: z.string().optional(),
-  /**
-   * @deprecated New ramp actions must omit this field and target exclusively
-   * by `ruleId`.  Retained as optional/nullable so pre-migration actions
-   * stored in the DB continue to deserialize and resolve correctly via
-   * `resolveRampTargets` in `flattenRules.ts`.
-   */
+  // @deprecated — target by ruleId only. Kept for pre-migration DB compat.
   environment: z.string().optional().nullable(),
-  /** Load steps and endActions from a saved template. Explicit steps/endActions take precedence. */
   templateId: z.string().optional(),
+  startActions: z.array(rampStepAction).optional(),
   steps: z.array(rampStep),
   endActions: z.array(rampStepAction).optional(),
-  /** ISO datetime string; absent/null means start immediately on publish. */
   startDate: z.string().optional().nullable(),
-  endCondition: revisionRampEndConditionSchema.optional(),
+  cutoffDate: z.string().optional().nullable(),
   ruleId: z.string(),
+  monitoringConfig: rampMonitoringConfig.optional(),
+  lockdownConfig: lockdownConfigSchema.optional(),
 });
 
 // API input variant — normalize to RevisionRampCreateAction before storing.
 export const apiRevisionRampCreateAction = revisionRampCreateAction.extend({
   steps: z.array(revisionApiRampStep).optional(),
+  startActions: z.array(revisionApiRampStepAction).optional(),
   endActions: z.array(revisionApiRampStepAction).optional(),
   startDate: z
     .string()
@@ -374,26 +369,55 @@ export const apiRevisionRampCreateAction = revisionRampCreateAction.extend({
     .describe(
       'ISO 8601 date-time, e.g. "2025-06-01T00:00:00Z". Absent or null means start immediately on publish.',
     ),
-  endCondition: z.object({ trigger: apiRampEndTrigger.optional() }).optional(),
+  cutoffDate: z
+    .string()
+    .datetime({ offset: true })
+    .optional()
+    .nullable()
+    .describe(
+      'ISO 8601 date-time, e.g. "2025-07-01T00:00:00Z". The ramp ends at this time.',
+    ),
 });
 
 export const revisionRampDetachAction = z.object({
   mode: z.literal("detach"),
   rampScheduleId: z.string(),
-  /** Rule ID being detached. Used at publish time to remove the right target. */
   ruleId: z.string(),
-  /** Delete the ramp schedule entirely if no targets remain after detach. */
   deleteScheduleWhenEmpty: z.boolean().optional(),
 });
 
+export const revisionRampUpdateAction = revisionRampCreateAction
+  .omit({ mode: true })
+  .extend({
+    mode: z.literal("update"),
+    rampScheduleId: z.string(),
+  });
+
+export const apiRevisionRampUpdateAction = apiRevisionRampCreateAction
+  .omit({ mode: true })
+  .extend({
+    mode: z.literal("update"),
+    rampScheduleId: z.string(),
+  });
+
 const revisionRampAction = z.discriminatedUnion("mode", [
   revisionRampCreateAction,
+  revisionRampUpdateAction,
+  revisionRampDetachAction,
+]);
+export const apiRevisionRampAction = z.discriminatedUnion("mode", [
+  apiRevisionRampCreateAction,
+  apiRevisionRampUpdateAction,
   revisionRampDetachAction,
 ]);
 
 export type RevisionRampCreateAction = z.infer<typeof revisionRampCreateAction>;
 export type ApiRevisionRampCreateAction = z.infer<
   typeof apiRevisionRampCreateAction
+>;
+export type RevisionRampUpdateAction = z.infer<typeof revisionRampUpdateAction>;
+export type ApiRevisionRampUpdateAction = z.infer<
+  typeof apiRevisionRampUpdateAction
 >;
 export type RevisionRampDetachAction = z.infer<typeof revisionRampDetachAction>;
 export type RevisionRampAction = z.infer<typeof revisionRampAction>;
@@ -549,6 +573,12 @@ export const apiFeatureBaseRuleValidator = namedSchema(
           "UI hint for which scheduling mode is active:\n- `none` \u2013 no schedule\n- `schedule` \u2013 simple time-based enable/disable via `scheduleRules`\n- `ramp` \u2013 multi-step ramp-up controlled by an associated RampSchedule document\n",
         )
         .optional(),
+      rampScheduleId: z
+        .string()
+        .describe(
+          "ID of the active RampSchedule document controlling this rule. Present when `scheduleType` is `ramp` and a live schedule exists.",
+        )
+        .optional(),
       savedGroupTargeting: z
         .array(
           z.object({
@@ -606,6 +636,12 @@ export const apiFeatureRolloutRuleValidator = namedSchema(
         .string()
         .describe(
           "Optional seed for the hash function; defaults to the rule id",
+        )
+        .optional(),
+      hashVersion: z
+        .union([z.literal(1), z.literal(2)])
+        .describe(
+          "Hash algorithm version for bucketing. Defaults to 2 (preferred) when not specified.",
         )
         .optional(),
     }),
@@ -889,6 +925,12 @@ export const apiFeatureRevisionValidator = namedSchema(
         )
         .optional(),
       metadata: apiRevisionMetadata.optional(),
+      rampActions: z
+        .array(apiRevisionRampAction)
+        .describe(
+          "Pending ramp schedule actions that will be applied when this draft is published",
+        )
+        .optional(),
     })
     .strict(),
 );
@@ -985,6 +1027,13 @@ const postFeatureRolloutRule = z.object({
       "Percent of traffic included in this experiment. Users not included in the experiment will skip this rule.",
     ),
   hashAttribute: z.string(),
+  seed: z.string().optional(),
+  hashVersion: z
+    .union([z.literal(1), z.literal(2)])
+    .describe(
+      "Hash algorithm version for bucketing. Defaults to 2 (preferred) when not specified.",
+    )
+    .optional(),
 });
 
 const postFeatureExperimentRefRule = z.object({

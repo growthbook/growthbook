@@ -33,6 +33,7 @@ import {
   isDefined,
   liveRevisionFromFeature,
   MatchingRule,
+  naiveFlattenV1Rules,
   validateCondition,
 } from "shared/util";
 import { getBanditSRMValue, getExperimentSRMValue } from "shared/health";
@@ -1712,6 +1713,39 @@ export async function createSnapshot({
     metricMap,
     factTableMap,
   });
+}
+
+// Assigns a monotonic, non-colliding numeric `key` to any variation arriving
+// with an empty key. Existing (non-empty) keys are left untouched.
+// `existingKeys` is the set of keys already in use on the experiment.
+export function fillEmptyVariationKeys(
+  variations: Variation[],
+  existingKeys: Iterable<string>,
+): void {
+  if (!variations.some((v) => !v.key)) return;
+
+  const usedKeys = new Set(existingKeys);
+  let largestNumeric = -1;
+  for (const k of usedKeys) {
+    const n = Number(k);
+    if (
+      Number.isInteger(n) &&
+      n >= 0 &&
+      String(n) === k &&
+      n > largestNumeric
+    ) {
+      largestNumeric = n;
+    }
+  }
+  let nextKey = largestNumeric + 1;
+  for (const v of variations) {
+    if (!v.key) {
+      while (usedKeys.has(String(nextKey))) nextKey++;
+      v.key = String(nextKey);
+      usedKeys.add(v.key);
+      nextKey++;
+    }
+  }
 }
 
 export function validateVariationIds(variations: Variation[]) {
@@ -4229,25 +4263,58 @@ export async function getLinkedFeatureInfo(
   const filter = (rule: FeatureRule) =>
     rule.type === "experiment-ref" && rule.experimentId === experiment.id;
 
+  // Slice the experiment-ref rules matching this experiment from a rules
+  // array (works for both feature.rules and revision.rules). Used to detect
+  // whether a draft is actually changing this experiment's rule vs. just
+  // inheriting it unchanged from live.
+  const refRulesForExperiment = (rules: unknown): FeatureRule[] =>
+    naiveFlattenV1Rules(rules).filter(
+      (r) =>
+        r.type === "experiment-ref" &&
+        (r as ExperimentRefRule).experimentId === experiment.id,
+    );
+
   const linkedFeatureInfo = await Promise.all(
     features.map(async (feature) => {
       const revisions = revisionsByFeatureId[feature.id] || [];
 
       const liveMatches = getMatchingRules(feature, filter, environments);
+      const liveRefRules = refRulesForExperiment(feature.rules);
+
+      // Walk draft revisions newest-first and pick:
+      //   1. (preferred) a draft whose experiment-ref rule slice DIFFERS from
+      //      live — i.e. the draft is making changes to this experiment's
+      //      rule. Used to flip state to "draft" even when live already has
+      //      a matching rule.
+      //   2. (fallback) the first draft with any experiment-ref match for
+      //      this experiment, even if unchanged from live. Preserves the
+      //      legacy path where a draft is introducing the rule for the first
+      //      time (experiment not yet started).
+      const activeDrafts = revisions
+        .filter((r) => DRAFT_REVISION_STATUSES.includes(r.status))
+        .sort((a, b) => b.version - a.version);
 
       let matchedDraftRevision: (typeof revisions)[0] | undefined;
-      const draftMatches = (() => {
-        for (const r of revisions.filter((r) =>
-          DRAFT_REVISION_STATUSES.includes(r.status),
-        )) {
-          const m = getMatchingRules(feature, filter, environments, r);
-          if (m.length > 0) {
-            matchedDraftRevision = r;
-            return m;
-          }
+      let draftMatches: MatchingRule[] = [];
+      let draftDiffersFromLive = false;
+
+      for (const r of activeDrafts) {
+        const m = getMatchingRules(feature, filter, environments, r);
+        if (m.length === 0) continue;
+        const draftRefRules = refRulesForExperiment(r.rules);
+        if (liveRefRules.length > 0 && !isEqual(draftRefRules, liveRefRules)) {
+          matchedDraftRevision = r;
+          draftMatches = m;
+          draftDiffersFromLive = true;
+          break;
         }
-        return [];
-      })();
+        // Remember the first draft with matches as a fallback if no draft
+        // actually modifies the rule.
+        if (!matchedDraftRevision) {
+          matchedDraftRevision = r;
+          draftMatches = m;
+        }
+      }
 
       const lockedMatches =
         revisions
@@ -4262,6 +4329,12 @@ export async function getLinkedFeatureInfo(
       let matches: MatchingRule[] = [];
       if (feature.archived) {
         state = "archived";
+      } else if (draftDiffersFromLive && experiment.status === "draft") {
+        // A draft is changing this experiment's rule and the experiment is
+        // still in draft — surface the pending change even if the rule is already live.
+        // Render uses draft values so the user sees what publishing will produce.
+        state = "draft";
+        matches = draftMatches;
       } else if (liveMatches.length > 0) {
         state = "live";
         matches = liveMatches;
@@ -4364,11 +4437,13 @@ export async function getLinkedFeatureInfo(
         valuesFrom: matches[0]?.environmentId || "",
         rulesAbove: matches.some((m) => m.i > 0),
         inconsistentValues: uniqueValues.size > 1,
+        liveHasMatchingRule: liveMatches.length > 0,
         ...(pendingApproval !== undefined && { pendingApproval }),
-        ...(matchedDraftRevision && {
-          draftRevisionVersion: matchedDraftRevision.version,
-          draftRevisionStatus: matchedDraftRevision.status,
-        }),
+        ...(matchedDraftRevision &&
+          state === "draft" && {
+            draftRevisionVersion: matchedDraftRevision.version,
+            draftRevisionStatus: matchedDraftRevision.status,
+          }),
         ...(hasMergeConflict !== undefined && { hasMergeConflict }),
         ...(hasUnrelatedDraftChanges !== undefined && {
           hasUnrelatedDraftChanges,

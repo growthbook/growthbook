@@ -2,6 +2,7 @@ import isEqual from "lodash/isEqual";
 import { resetReviewOnChange } from "shared/util";
 import {
   RevisionRampCreateAction,
+  RevisionRampUpdateAction,
   SafeRolloutRule,
   FeatureRule,
   RulePatchInput,
@@ -122,22 +123,15 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
       Boolean(inlineRampSchedule) ||
       (!inlineRampSchedule &&
         (Boolean(schedule?.startDate) || Boolean(schedule?.endDate)));
-    if (
-      wantsNewSchedule &&
-      oldRule.type !== "experiment-ref" &&
-      oldRule.type !== "safe-rollout"
-    ) {
-      const liveSchedules =
+    let liveSchedulesForRule: Awaited<
+      ReturnType<typeof req.context.models.rampSchedules.findByTargetRule>
+    > = [];
+    if (wantsNewSchedule) {
+      liveSchedulesForRule =
         await req.context.models.rampSchedules.findByTargetRule(
           req.params.ruleId,
           undefined,
         );
-      if (liveSchedules.length > 0) {
-        throw new BadRequestError(
-          `Rule "${req.params.ruleId}" already has a live ramp schedule.` +
-            ` Update it via PUT /api/v1/ramp-schedules/${liveSchedules[0].id}.`,
-        );
-      }
     }
 
     // Apply patch including v2 scope fields.
@@ -252,9 +246,21 @@ export const putFeatureRevisionRuleV2 = createApiRequestHandler(
       const existing = revision.rampActions ?? [];
       const filtered = existing.filter(
         (a) =>
+          !("ruleId" in a) ||
           a.ruleId !== (resolvedRampAction as RevisionRampCreateAction).ruleId,
       );
-      changes.rampActions = [...filtered, resolvedRampAction];
+      const nextRampActions = [...filtered];
+      const existingLiveSchedule = liveSchedulesForRule[0];
+      if (existingLiveSchedule) {
+        nextRampActions.push({
+          ...(resolvedRampAction as RevisionRampCreateAction),
+          mode: "update",
+          rampScheduleId: existingLiveSchedule.id,
+        } as RevisionRampUpdateAction);
+      } else {
+        nextRampActions.push(resolvedRampAction);
+      }
+      changes.rampActions = nextRampActions;
     }
 
     // Affected envs for review reset.

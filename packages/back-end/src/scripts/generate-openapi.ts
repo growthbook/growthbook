@@ -73,7 +73,7 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
   "ramp-schedules": {
     display: "Ramp Schedules",
     description:
-      "Multi-step rollout schedules that gradually ramp feature rule changes over time, with support for interval, approval, and scheduled triggers.",
+      "Multi-step rollout schedules that gradually increase feature rule traffic over time, with optional real-time monitoring. Each step supports interval timers, approval gates, and hold conditions. Monitored steps are backed by a live analysis experiment that can automatically hold, roll back, or advance the ramp based on guardrail and signal metric health.",
   },
   "data-sources": {
     display: "Data Sources",

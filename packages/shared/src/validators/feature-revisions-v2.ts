@@ -165,6 +165,12 @@ const targetingRuleCreateInputV2 = namedSchema(
           "Attribute to hash on for consistent assignment. Required when coverage < 1.",
         ),
       seed: z.string().optional(),
+      hashVersion: z
+        .union([z.literal(1), z.literal(2)])
+        .describe(
+          "Hash algorithm version for bucketing. Defaults to 2 (preferred) when not specified.",
+        )
+        .optional(),
     })
     .strict()
     .describe(
@@ -212,7 +218,7 @@ const safeRolloutCreateInputV2 = namedSchema(
         .object({
           datasourceId: z.string(),
           exposureQueryId: z.string(),
-          guardrailMetricIds: z.array(z.string()),
+          guardrailMetricIds: z.array(z.string()).min(1),
           maxDuration: z
             .object({
               amount: z.number().positive(),
@@ -261,6 +267,7 @@ const rulePatchSchemaV2 = z
     coverage: z.number().min(0).max(1).optional(),
     hashAttribute: z.string().optional(),
     seed: z.string().optional(),
+    hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
     experimentId: z.string().optional(),
     variations: z
       .array(z.object({ variationId: z.string(), value: z.string() }).strict())
@@ -664,7 +671,7 @@ export const putFeatureRevisionRuleRampScheduleV2Validator = {
   operationId: "putFeatureRevisionRuleRampScheduleV2",
   summary: "Set ramp schedule for a rule",
   description:
-    'Creates or replaces the pending ramp schedule for a rule. The rule will show `pendingRamp: "create"` in subsequent GET responses. The ramp is created when the revision is published. If the rule already has a live ramp schedule, this endpoint returns an error — update the live schedule via `PUT /api/v1/ramp-schedules/{id}` instead.',
+    "Queues a revision-controlled ramp action for this rule. If the rule already has a live ramp schedule, this stores an `update` action applied on publish; otherwise it stores a `create` action. No live schedule config changes are applied immediately by this endpoint.",
   tags: ["feature-revisions-v2"],
   paramsSchema: ruleParams,
   bodySchema: standaloneRampScheduleInput.extend(newDraftMetadataFields),

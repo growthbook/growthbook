@@ -30,11 +30,13 @@ import {
 } from "shared/types/organization";
 import { ProjectInterface } from "shared/types/project";
 import { GroupMap } from "shared/types/saved-group";
+import { RampScheduleInterface } from "../validators/ramp-schedule";
 import { getValidDate } from "../dates";
 import {
   conditionHasSavedGroupErrors,
   expandNestedSavedGroups,
 } from "../sdk-versioning";
+import { stemRuleId } from "./ruleId";
 import {
   getMatchingRules,
   getRulesForEnvironment,
@@ -2002,10 +2004,37 @@ function normalizeRuleForDiff(
   return rest as Omit<FeatureRule, "scheduleType">;
 }
 
+/**
+ * Returns the union of all environments explicitly targeted by a ramp
+ * schedule's patch actions (startActions, steps, endActions).  Returns "all"
+ * if any patch sets `allEnvironments: true`.
+ */
+export function getEnvsFromRampSchedule(
+  schedule: Pick<
+    RampScheduleInterface,
+    "startActions" | "steps" | "endActions"
+  >,
+): string[] | "all" {
+  const envs = new Set<string>();
+  const allPatches = [
+    ...(schedule.startActions ?? []).map((a) => a.patch),
+    ...schedule.steps.flatMap((s) => s.actions.map((a) => a.patch)),
+    ...(schedule.endActions ?? []).map((a) => a.patch),
+  ];
+  for (const patch of allPatches) {
+    if (patch.allEnvironments) return "all";
+    for (const env of patch.environments ?? []) {
+      envs.add(env);
+    }
+  }
+  return [...envs];
+}
+
 export function getDraftAffectedEnvironments(
   revision: RevisionFields,
   baseRevision: RevisionFields,
   allEnvironments: string[],
+  liveRampScheduleEnvs?: Map<string, string[] | "all">,
 ): string[] | "all" {
   if (revisionHasGlobalChange(revision, baseRevision)) return "all";
 
@@ -2035,6 +2064,49 @@ export function getDraftAffectedEnvironments(
       envs.add(env);
     }
   }
+  // rampActions target a specific rule by ruleId; the environments that rule
+  // is active in are affected by the ramp. Step patches can also widen the
+  // scope if they explicitly set `environments` or `allEnvironments`.
+  if ((revision.rampActions ?? []).length > 0) {
+    for (const action of revision.rampActions!) {
+      // Look up the rule in the draft rules first, then the base rules (e.g.
+      // for a detach where the rule may already have been removed from draft).
+      const rule =
+        revRulesAll.find(
+          (r) => stemRuleId(r.id ?? "") === stemRuleId(action.ruleId),
+        ) ??
+        baseRulesAll.find(
+          (r) => stemRuleId(r.id ?? "") === stemRuleId(action.ruleId),
+        );
+      if (rule?.allEnvironments) return "all";
+      for (const env of rule?.environments ?? []) {
+        if (allEnvironments.includes(env)) envs.add(env);
+      }
+      if (action.mode !== "detach") {
+        // For update actions, also include environments from the CURRENT live
+        // schedule so that removing an env from the new steps is still detected.
+        if (action.mode === "update" && liveRampScheduleEnvs) {
+          const liveEnvs = liveRampScheduleEnvs.get(action.rampScheduleId);
+          if (liveEnvs === "all") return "all";
+          for (const env of liveEnvs ?? []) {
+            if (allEnvironments.includes(env)) envs.add(env);
+          }
+        }
+        const allPatches = [
+          ...(action.startActions ?? []).map((a) => a.patch),
+          ...action.steps.flatMap((s) => s.actions.map((a) => a.patch)),
+          ...(action.endActions ?? []).map((a) => a.patch),
+        ];
+        for (const patch of allPatches) {
+          if (patch.allEnvironments) return "all";
+          for (const env of patch.environments ?? []) {
+            if (allEnvironments.includes(env)) envs.add(env);
+          }
+        }
+      }
+    }
+  }
+
   // Collapse to "all" when every environment is affected
   if (allEnvironments.length > 0 && envs.size === allEnvironments.length) {
     return "all";
@@ -2049,6 +2121,7 @@ export function checkIfRevisionNeedsReview({
   allEnvironments,
   settings,
   requireApprovalsLicensed = true,
+  liveRampScheduleEnvs,
 }: {
   feature: FeatureInterface;
   baseRevision: FeatureRevisionInterface;
@@ -2056,6 +2129,7 @@ export function checkIfRevisionNeedsReview({
   allEnvironments: string[];
   settings?: OrganizationSettings;
   requireApprovalsLicensed?: boolean;
+  liveRampScheduleEnvs?: Map<string, string[] | "all">;
 }) {
   if (!requireApprovalsLicensed) return false;
   const requireReviews = settings?.requireReviews;
@@ -2069,6 +2143,7 @@ export function checkIfRevisionNeedsReview({
     revision,
     baseRevision,
     allEnvironments,
+    liveRampScheduleEnvs,
   );
 
   if (affected === "all") {
@@ -2118,6 +2193,21 @@ export function checkIfRevisionNeedsReview({
     if (gatedEnvs.length === 0) return true;
     if (envKillSwitchChanges.some((env) => gatedEnvs.includes(env)))
       return true;
+  }
+
+  // Ramp actions (create/update/detach) change how the feature is rolled out
+  // across environments. They are treated like rule changes and always require
+  // approval when any of the targeted environments are gated.
+  if ((revision.rampActions ?? []).length > 0) {
+    const rampEnvs = affected.filter(
+      (env) =>
+        !envsWithRuleChanges.includes(env) &&
+        !envKillSwitchChanges.includes(env),
+    );
+    if (rampEnvs.length > 0) {
+      if (gatedEnvs.length === 0) return true;
+      if (rampEnvs.some((env) => gatedEnvs.includes(env))) return true;
+    }
   }
 
   return false;

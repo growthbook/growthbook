@@ -7,16 +7,17 @@ import {
   FeatureValueType,
 } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import { ReactElement, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { PiArrowSquareOut } from "react-icons/pi";
+import { Box, Flex, Separator } from "@radix-ui/themes";
 import { filterEnvironmentsByExperiment, getReviewSetting } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import Callout from "@/ui/Callout";
-import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
 import {
@@ -32,9 +33,9 @@ import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import SelectField from "@/components/Forms/SelectField";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import RuleEnvironmentScopeField from "@/components/Features/RuleModal/EnvironmentScopeField";
-import DraftSelectorForChanges, {
+import DraftSelectorDropdown, {
   DraftMode,
-} from "@/components/Features/DraftSelectorForChanges";
+} from "@/components/Features/DraftSelectorDropdown";
 import {
   filterCustomFieldsForSectionAndProject,
   useCustomFields,
@@ -44,15 +45,14 @@ import { useUser } from "@/services/UserContext";
 import useApi from "@/hooks/useApi";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import HelperText from "@/ui/HelperText";
 import FeatureKeyField from "./FeatureKeyField";
 import TagsField from "./TagsField";
 import ValueTypeField from "./ValueTypeField";
 
 export type Props = {
-  close?: () => void;
-  inline?: boolean;
+  close: () => void;
   cta?: string;
-  secondaryCTA?: ReactElement;
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   source?: string;
@@ -139,9 +139,7 @@ const genFormDefaultValues = ({
 
 export default function FeatureFromExperimentModal({
   close,
-  inline,
-  cta = "Create",
-  secondaryCTA,
+  cta = "Add",
   experiment,
   mutate,
   source,
@@ -186,7 +184,15 @@ export default function FeatureFromExperimentModal({
     return true;
   });
 
-  const form = useForm({ defaultValues });
+  // react-hook-form's DefaultValues<T> cannot accept `unknown` fields — it maps
+  // them to {} | undefined, which excludes null. force: unknown in FeatureRulePatch
+  // propagates through FeatureRule.rampActions and triggers this constraint. Since
+  // rules is always [] in these defaults and the form never sets rampActions fields,
+  // the explicit type parameter preserves full form type safety while the cast
+  // bypasses the DefaultValues constraint check.
+  const form = useForm<ReturnType<typeof genFormDefaultValues>>({
+    defaultValues: defaultValues as never,
+  });
 
   const [showTags, setShowTags] = useState(
     experiment.tags && experiment.tags.length > 0,
@@ -207,6 +213,7 @@ export default function FeatureFromExperimentModal({
 
   const valueType = form.watch("valueType") as FeatureValueType;
   const existing = form.watch("existing");
+  const variations = getLatestPhaseVariations(experiment);
 
   const { data: existingFeatureData } = useApi<{
     status: 200;
@@ -298,18 +305,29 @@ export default function FeatureFromExperimentModal({
   }
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType="feature-from-experiment"
       trackingEventModalSource={source}
       open
       size="lg"
-      inline={inline}
-      header={"Add Feature Flag to Experiment"}
+      header="Add Feature Flag to Experiment"
+      headerAction={
+        existing && existingFeature ? (
+          <DraftSelectorDropdown
+            feature={existingFeature}
+            revisionList={existingRevisionList}
+            mode={draftMode}
+            setMode={setDraftMode}
+            selectedDraft={selectedDraft}
+            setSelectedDraft={setSelectedDraft}
+            canAutoPublish={canAutoPublish}
+            gatedEnvSet={gatedEnvSet}
+          />
+        ) : null
+      }
       cta={cta}
       close={close}
       ctaEnabled={ctaEnabled}
-      disabledMessage={disabledMessage}
-      secondaryCTA={secondaryCTA}
       submit={form.handleSubmit(async (values) => {
         const { variations, existing, ...feature } = values;
 
@@ -404,7 +422,7 @@ export default function FeatureFromExperimentModal({
 
         const autoPublish = existing && draftMode === "publish";
         const draftVersion =
-          existing && draftMode === "existing" && selectedDraft != null
+          existing && draftMode === "existing" && selectedDraft !== null
             ? selectedDraft
             : undefined;
         const forceNewDraft = !existing || draftMode === "new";
@@ -447,6 +465,12 @@ export default function FeatureFromExperimentModal({
       {holdoutWarning && (
         <Callout status="warning" mb="3">
           {holdoutWarning}
+        </Callout>
+      )}
+
+      {disabledMessage && (
+        <Callout status="warning" mb="3">
+          {disabledMessage}
         </Callout>
       )}
 
@@ -531,22 +555,8 @@ export default function FeatureFromExperimentModal({
 
       {existing && (
         <>
-          {existingFeature && (
-            <DraftSelectorForChanges
-              feature={existingFeature}
-              revisionList={existingRevisionList}
-              mode={draftMode}
-              setMode={setDraftMode}
-              selectedDraft={selectedDraft}
-              setSelectedDraft={setSelectedDraft}
-              canAutoPublish={canAutoPublish}
-              gatedEnvSet={gatedEnvSet}
-              triggerPrefix="Rule will be"
-            />
-          )}
-
-          <HelperText status="info" icon={null}>
-            <span>
+          <HelperText status="info">
+            <Box>
               A rule will be added to the bottom of the rule list. For more
               control over placement, add Experiment rules directly from the{" "}
               <Link href={`/features/${existing}`} target="_blank">
@@ -554,7 +564,7 @@ export default function FeatureFromExperimentModal({
                 <PiArrowSquareOut className="ml-1" />
               </Link>{" "}
               instead.
-            </span>
+            </Box>
           </HelperText>
 
           <RuleEnvironmentScopeField
@@ -569,23 +579,40 @@ export default function FeatureFromExperimentModal({
         </>
       )}
 
-      <div className="form-group">
-        <label>Variation Values</label>
-        <div className="mb-3 bg-light border p-3">
-          {getLatestPhaseVariations(experiment).map((v, i) => (
+      <Flex direction="column" gap="3" pt="2">
+        <Text as="label" weight="semibold">
+          Variation Values
+        </Text>
+        {variations.map((v, i) => (
+          <Box key={v.id}>
+            <Flex align="center" direction="row" gap="1" mb="3">
+              <Box className={`variation with-variation-label variation${i}`}>
+                <span
+                  className="label"
+                  style={{
+                    width: 18,
+                    height: 18,
+                    fontSize: 11,
+                    lineHeight: "18px",
+                  }}
+                >
+                  {i}
+                </span>
+              </Box>
+              <Text weight="semibold">{v.name}</Text>
+            </Flex>
             <FeatureValueField
-              key={v.id}
-              label={v.name}
               id={v.id}
               value={form.watch(`variations.${i}.value`) || ""}
-              setValue={(v) => form.setValue(`variations.${i}.value`, v)}
-              valueType={form.watch("valueType")}
+              setValue={(val) => form.setValue(`variations.${i}.value`, val)}
+              valueType={valueType}
               useCodeInput={true}
               showFullscreenButton={true}
             />
-          ))}
-        </div>
-      </div>
-    </Modal>
+            {i < variations.length - 1 && <Separator size="4" my="4" />}
+          </Box>
+        ))}
+      </Flex>
+    </ModalStandard>
   );
 }

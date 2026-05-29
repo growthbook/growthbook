@@ -9,6 +9,7 @@ import {
   JsonPatchOperation,
   getApprovalFlowSettings,
 } from "shared/enterprise";
+import { ACTIVE_DRAFT_STATUSES, ActiveDraftStatus } from "shared/validators";
 import type { CreateProps, UpdateProps } from "shared/types/base-model";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 import { getAdapter } from "back-end/src/revisions/index";
@@ -930,6 +931,42 @@ export class RevisionModel extends BaseClass {
    * entity change *before* calling this so the merged revision is a faithful
    * record of a change that has actually landed.
    */
+  /**
+   * Returns active draft status counts per saved-group ID.
+   * Mirrors `getActiveDraftStates` in FeatureRevisionModel but operates on
+   * the shared Revision collection (target.type === "saved-group").
+   */
+  async getActiveDraftStates(
+    groupIds?: string[],
+  ): Promise<Record<string, Partial<Record<ActiveDraftStatus, number>>>> {
+    const filter: Record<string, unknown> = {
+      "target.type": "saved-group",
+      status: { $in: ACTIVE_DRAFT_STATUSES },
+    };
+    if (groupIds && groupIds.length > 0) {
+      filter["target.id"] = { $in: groupIds };
+    }
+    const docs = await this._dangerousGetCollection()
+      .find(
+        { organization: this.context.org.id, ...filter },
+        { projection: { "target.id": 1, status: 1, _id: 0 } },
+      )
+      .toArray();
+
+    const result: Record<
+      string,
+      Partial<Record<ActiveDraftStatus, number>>
+    > = {};
+    for (const doc of docs) {
+      const gid = doc.target?.id as string;
+      const status = doc.status as ActiveDraftStatus;
+      if (!gid) continue;
+      if (!result[gid]) result[gid] = {};
+      result[gid][status] = (result[gid][status] ?? 0) + 1;
+    }
+    return result;
+  }
+
   async createMerged(params: {
     type: RevisionTargetType;
     id: string;
