@@ -254,10 +254,24 @@ export type DataSourcePipelineSettings = {
 export type MaterializedColumnType = "" | "identifier" | "dimension";
 
 export type MaterializedColumn = {
+  /** User-facing identifier (the SDK attribute property name, or a built-in's
+   *  bare name). Flows into `ft.columns[].column`, `userIdTypes`, exposure
+   *  query dimensions, etc. — anywhere the column is referenced from a
+   *  metric or SQL the user wrote. */
   columnName: string;
+  /** ClickHouse column name on the Managed Warehouse. For user attributes
+   *  this is `matcol__<columnName>` so future built-in columns can be added
+   *  without colliding with arbitrary attribute names. For built-ins it
+   *  equals `columnName`. Defaults to `columnName` when absent so legacy
+   *  snapshots persisted before the prefix landed continue to deserialize
+   *  cleanly. */
+  physicalColumnName?: string;
   sourceField: string;
   datatype: FactTableColumnType;
   type?: MaterializedColumnType;
+  // Present when the column is an array; the scalar element type
+  // (mapped from attributes with datatype `string[]`/`number[]`/`secureString[]`).
+  arrayElementType?: "string" | "number";
 };
 
 export type DataSourceSettings = {
@@ -308,7 +322,19 @@ export type DataSourceSettings = {
 export interface GrowthbookClickhouseSettings extends DataSourceSettings {
   /** When false, the warehouse exists in GrowthBook but ClickHouse was not provisioned yet. */
   hasBeenProvisioned?: boolean;
+  /**
+   * @deprecated Legacy pre-attribute-sync field. Still read once during
+   * migration to backfill attributeSchema from existing columns. Writes go
+   * to `syncedMaterializedColumns` instead.
+   */
   materializedColumns?: MaterializedColumn[];
+  /**
+   * Snapshot of the materialized column set currently in ClickHouse, written
+   * after every successful sync. Used as the "before" state when computing
+   * the next sync's diff. Absence means the datasource has never been synced
+   * under the new attribute-driven flow and migration still needs to run.
+   */
+  syncedMaterializedColumns?: MaterializedColumn[];
 }
 
 interface DataSourceBase {

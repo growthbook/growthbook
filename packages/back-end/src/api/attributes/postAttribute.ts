@@ -1,7 +1,6 @@
 import { postAttributeValidator } from "shared/validators";
-import { OrganizationInterface } from "shared/types/organization";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { updateOrganization } from "back-end/src/models/OrganizationModel";
+import { updateAttributeSchema } from "back-end/src/services/attributes";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import { addTags } from "back-end/src/models/TagModel";
 import { validatePayload } from "./validations";
@@ -33,14 +32,15 @@ export const postAttribute = createApiRequestHandler(postAttributeValidator)(
       await addTags(org.id, tags);
     }
 
-    const updates: Partial<OrganizationInterface> = {
-      settings: {
-        ...org.settings,
-        attributeSchema: [...(org.settings?.attributeSchema || []), attribute],
+    const { persistedAttributeSchema } = await updateAttributeSchema(
+      req.context,
+      {
+        newAttributeSchema: [
+          ...(org.settings?.attributeSchema || []),
+          attribute,
+        ],
       },
-    };
-
-    await updateOrganization(org.id, updates);
+    );
 
     await req.audit({
       event: "attribute.create",
@@ -51,8 +51,16 @@ export const postAttribute = createApiRequestHandler(postAttributeValidator)(
       details: auditDetailsCreate(attribute),
     });
 
+    // Read back the canonical version from the persisted schema. On a
+    // first-time managed-warehouse migration `updateAttributeSchema` may
+    // fold in backfilled attributes alongside this create; this lookup
+    // ensures the response reflects exactly what's now stored.
+    const persistedAttribute =
+      persistedAttributeSchema.find((a) => a.property === attribute.property) ??
+      attribute;
+
     return {
-      attribute,
+      attribute: persistedAttribute,
     };
   },
 );

@@ -206,6 +206,26 @@ export async function getFactTable(
   return factTable;
 }
 
+/**
+ * Look up a fact table by id without applying the caller's project read
+ * permission. Use only for system-driven reconciliation (e.g. Managed
+ * Warehouse attribute sync) where the calling user may legitimately lack
+ * read access to the fact table's project but still needs the write to
+ * land. Caller is responsible for ensuring the operation is otherwise
+ * authorized.
+ */
+export async function dangerouslyGetFactTableByIdBypassPermission(
+  organizationId: string,
+  id: string,
+): Promise<FactTableInterface | null> {
+  const doc = await FactTableModel.findOne({
+    organization: organizationId,
+    id,
+  });
+  if (!doc) return null;
+  return toInterface(doc);
+}
+
 export async function getFactTablesByIds(
   context: ReqContext | ApiReqContext,
   ids: string[],
@@ -326,6 +346,10 @@ const ALLOWED_COLUMN_UPDATE_FIELDS = [
   "columnsError",
   "columnRefreshPending",
   "userIdTypes",
+  // Managed Warehouse attribute sync rewrites the SELECT clause when its
+  // materialized columns change (to alias `matcol__X` back to `X`), so the
+  // SQL must move alongside the columns it projects.
+  "sql",
 ] as const;
 
 // This is called from a background cronjob to re-sync all of the columns

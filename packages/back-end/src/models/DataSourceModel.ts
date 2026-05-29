@@ -9,6 +9,7 @@ import {
   DataSourcePipelineSettings,
   DataSourceSettings,
   DataSourceType,
+  GrowthbookClickhouseDataSource,
 } from "shared/types/datasource";
 import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
 import { ApiDataSource } from "shared/validators";
@@ -127,7 +128,9 @@ export async function _dangerourslyGetAllDatasourcesByOrganizations(
   return docs.map(toInterface);
 }
 
-export async function getGrowthbookDatasource(context: ReqContext) {
+export async function getGrowthbookDatasource(
+  context: ReqContext,
+): Promise<GrowthbookClickhouseDataSource | null> {
   const orgId = context.org.id;
   const doc: DataSourceDocument | null = await DataSourceModel.findOne({
     type: "growthbook_clickhouse",
@@ -136,11 +139,30 @@ export async function getGrowthbookDatasource(context: ReqContext) {
 
   if (!doc) return null;
 
-  const datasource = toInterface(doc);
+  const datasource = toInterface(doc) as GrowthbookClickhouseDataSource;
 
   return context.permissions.canReadMultiProjectResource(datasource.projects)
     ? datasource
     : null;
+}
+
+/**
+ * Permission-bypassing lookup of the org's Managed Warehouse datasource.
+ * Use only for internal-orchestration paths (e.g. attribute-driven warehouse
+ * sync) where the user has permission to perform the higher-level action
+ * but may not have read access to the datasource project. Returning `null`
+ * from `getGrowthbookDatasource` in those paths would silently desync
+ * ClickHouse from `attributeSchema`.
+ */
+export async function dangerouslyGetGrowthbookDatasourceBypassPermission(
+  orgId: string,
+): Promise<GrowthbookClickhouseDataSource | null> {
+  const doc: DataSourceDocument | null = await DataSourceModel.findOne({
+    type: "growthbook_clickhouse",
+    organization: orgId,
+  });
+  if (!doc) return null;
+  return toInterface(doc) as GrowthbookClickhouseDataSource;
 }
 
 export async function getDataSourceById(

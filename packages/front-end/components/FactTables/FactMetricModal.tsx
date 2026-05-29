@@ -248,13 +248,21 @@ function getColumnOptions({
 
   // Add JSON fields
   if (includeJSONFields && factTable?.columns) {
+    // When an attribute has been materialized to the top-level, point
+    // people at the top-level column instead of the JSON field. We exclude
+    // only fields that actually have a materialized column — using the
+    // full attributeSchema would also hide JSON access to unmaterialized
+    // attributes (e.g. `secureString`, `$groups`), which is the only way
+    // to reach those values in a metric.
     const excludedAttributeFields = new Set<string>();
-    if (datasource && datasource.type === "growthbook_clickhouse") {
-      // When an attribute has been materialized to the top-level,
-      // we want people to use the top-level column and not a JSON field
-      datasource.settings.materializedColumns?.forEach((col) => {
+    if (datasource?.type === "growthbook_clickhouse") {
+      const materialized =
+        datasource.settings.syncedMaterializedColumns ??
+        datasource.settings.materializedColumns ??
+        [];
+      for (const col of materialized) {
         excludedAttributeFields.add(col.sourceField);
-      });
+      }
     }
 
     const jsonColumns = factTable.columns.filter(

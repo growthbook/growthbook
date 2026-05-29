@@ -3,7 +3,7 @@ import { SDKAttribute } from "shared/types/organization";
 import { extractConditionAttributeKeys } from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import { updateOrganization } from "back-end/src/models/OrganizationModel";
+import { updateAttributeSchema } from "back-end/src/services/attributes";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
@@ -37,11 +37,10 @@ export const postAttribute = async (
     ...(tags.length > 0 && { tags }),
   };
 
-  await updateOrganization(org.id, {
-    settings: {
-      ...org.settings,
-      attributeSchema: [...attributeSchema, newAttribute],
-    },
+  const newAttributeSchema = [...attributeSchema, newAttribute];
+
+  const { persistedAttributeSchema } = await updateAttributeSchema(context, {
+    newAttributeSchema,
   });
 
   await req.audit({
@@ -54,7 +53,7 @@ export const postAttribute = async (
       { settings: { attributeSchema } },
       {
         settings: {
-          attributeSchema: [...attributeSchema, newAttribute],
+          attributeSchema: persistedAttributeSchema,
         },
       },
     ),
@@ -114,17 +113,34 @@ export const putAttribute = async (
 
   // Only merge fields the client actually sent — absent keys preserve the
   // existing value, avoiding the BSON `undefined → null` round trip.
-  attributeSchema[index] = {
-    ...attributeSchema[index],
+  // Build a new array (rather than mutating `attributeSchema[index]` in
+  // place) so the pre-edit reference stays intact. `updateAttributeSchema`
+  // re-reads `org.settings.attributeSchema` to compute the rollback
+  // baseline; mutating the shared reference would have it roll back to the
+  // post-edit state on failure.
+  const updatedAttribute: SDKAttribute = {
+    ...existing,
     ...attributeFields,
     ...(tags !== undefined && { tags: tags.length > 0 ? tags : undefined }),
   };
+  const newAttributeSchema = attributeSchema.map((attr, i) =>
+    i === index ? updatedAttribute : attr,
+  );
 
-  await updateOrganization(org.id, {
-    settings: {
-      ...org.settings,
-      attributeSchema,
-    },
+  // Only construct a rename when the client actually changed `property`.
+  // A stale `previousName` sent alongside a body that omits `property`
+  // would otherwise produce `{ from, to: undefined }`, fail LS schema
+  // validation, and trigger a full rollback of the (otherwise valid) update.
+  const renames: { from: string; to: string }[] =
+    previousName &&
+    attributeFields.property &&
+    previousName !== attributeFields.property
+      ? [{ from: previousName, to: attributeFields.property }]
+      : [];
+
+  const { persistedAttributeSchema } = await updateAttributeSchema(context, {
+    newAttributeSchema,
+    renames,
   });
 
   await req.audit({
@@ -134,12 +150,8 @@ export const putAttribute = async (
       id: org.id,
     },
     details: auditDetailsUpdate(
-      { settings: { attributeSchema: org.settings?.attributeSchema || [] } },
-      {
-        settings: {
-          attributeSchema,
-        },
-      },
+      { settings: { attributeSchema } },
+      { settings: { attributeSchema: persistedAttributeSchema } },
     ),
   });
   return res.status(200).json({
@@ -168,13 +180,10 @@ export const deleteAttribute = async (
     context.permissions.throwPermissionError();
   }
 
-  const updatedArr = attributeSchema.filter((a) => a.property !== id);
+  const newAttributeSchema = attributeSchema.filter((a) => a.property !== id);
 
-  await updateOrganization(org.id, {
-    settings: {
-      ...org.settings,
-      attributeSchema: updatedArr,
-    },
+  const { persistedAttributeSchema } = await updateAttributeSchema(context, {
+    newAttributeSchema,
   });
 
   await req.audit({
@@ -187,7 +196,7 @@ export const deleteAttribute = async (
       { settings: { attributeSchema: org.settings?.attributeSchema || [] } },
       {
         settings: {
-          attributeSchema: updatedArr,
+          attributeSchema: persistedAttributeSchema,
         },
       },
     ),

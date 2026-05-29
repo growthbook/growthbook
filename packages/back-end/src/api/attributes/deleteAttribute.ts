@@ -1,7 +1,6 @@
 import { deleteAttributeValidator } from "shared/validators";
-import { OrganizationInterface } from "shared/types/organization";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { updateOrganization } from "back-end/src/models/OrganizationModel";
+import { updateAttributeSchema } from "back-end/src/services/attributes";
 import { auditDetailsDelete } from "back-end/src/services/audit";
 
 export const deleteAttribute = createApiRequestHandler(
@@ -20,14 +19,9 @@ export const deleteAttribute = createApiRequestHandler(
   if (!req.context.permissions.canDeleteAttribute(attribute))
     req.context.permissions.throwPermissionError();
 
-  const updates: Partial<OrganizationInterface> = {
-    settings: {
-      ...org.settings,
-      attributeSchema: [...attributes.filter((attr) => attr !== attribute)],
-    },
-  };
-
-  await updateOrganization(org.id, updates);
+  await updateAttributeSchema(req.context, {
+    newAttributeSchema: attributes.filter((attr) => attr !== attribute),
+  });
 
   await req.audit({
     event: "attribute.delete",

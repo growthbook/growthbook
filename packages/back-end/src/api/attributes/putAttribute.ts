@@ -1,7 +1,6 @@
 import { putAttributeValidator } from "shared/validators";
-import { OrganizationInterface } from "shared/types/organization";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { updateOrganization } from "back-end/src/models/OrganizationModel";
+import { updateAttributeSchema } from "back-end/src/services/attributes";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { validatePayload } from "./validations";
@@ -34,16 +33,14 @@ export const putAttribute = createApiRequestHandler(putAttributeValidator)(
       await addTagsDiff(org.id, attribute.tags || [], bodyTags);
     }
 
-    const updates: Partial<OrganizationInterface> = {
-      settings: {
-        ...org.settings,
-        attributeSchema: attributes.map((attr) =>
+    const { persistedAttributeSchema } = await updateAttributeSchema(
+      req.context,
+      {
+        newAttributeSchema: attributes.map((attr) =>
           attr.property === property ? updatedAttribute : attr,
         ),
       },
-    };
-
-    await updateOrganization(org.id, updates);
+    );
 
     await req.audit({
       event: "attribute.update",
@@ -54,8 +51,16 @@ export const putAttribute = createApiRequestHandler(putAttributeValidator)(
       details: auditDetailsUpdate(attribute, updatedAttribute),
     });
 
+    // Read back the canonical version from the persisted schema. On a
+    // first-time managed-warehouse migration `updateAttributeSchema` may
+    // fold in backfilled attributes alongside this update; this lookup
+    // ensures the response reflects exactly what's now stored.
+    const persistedAttribute =
+      persistedAttributeSchema.find((a) => a.property === property) ??
+      updatedAttribute;
+
     return {
-      attribute: updatedAttribute,
+      attribute: persistedAttribute,
     };
   },
 );

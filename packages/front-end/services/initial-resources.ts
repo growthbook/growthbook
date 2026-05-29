@@ -7,7 +7,11 @@ import {
   FactTableInterface,
 } from "shared/types/fact-table";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import {
+  DataSourceInterfaceWithParams,
+  MaterializedColumn,
+} from "shared/types/datasource";
+import { buildManagedWarehouseFactTableSQL } from "shared/util";
 import {
   MetricDefaults,
   OrganizationSettings,
@@ -52,7 +56,71 @@ export interface InitialDatasourceResources {
   }[];
 }
 
-function getBuiltInWarehouseResources(): InitialDatasourceResources {
+/**
+ * Pull the materialized columns from a managed-warehouse datasource so the
+ * initial fact table can list user-attribute columns (e.g. `tier`) and alias
+ * their physical `matcol__*` names back to the logical identifier.
+ *
+ * Falls back to the legacy `materializedColumns` field for pre-migration orgs
+ * that haven't run an attribute-driven sync yet — without this, auto-seeded
+ * fact tables for those orgs would silently omit any key attributes they had
+ * configured under the old Key Attributes UI until the first sync.
+ *
+ * Returns `null` when the datasource has no snapshot under either field
+ * (would only happen for a malformed managed-warehouse row); the caller
+ * falls back to the minimal built-in column set.
+ */
+function getManagedWarehouseMaterializedColumns(
+  datasource: DataSourceInterfaceWithParams,
+): MaterializedColumn[] | null {
+  if (datasource.type !== "growthbook_clickhouse") return null;
+  const settings = datasource.settings as {
+    syncedMaterializedColumns?: MaterializedColumn[];
+    materializedColumns?: MaterializedColumn[];
+  };
+  const cols =
+    settings?.syncedMaterializedColumns ?? settings?.materializedColumns;
+  return cols ?? null;
+}
+
+function getBuiltInWarehouseResources(
+  datasource: DataSourceInterfaceWithParams,
+): InitialDatasourceResources {
+  const materializedColumns =
+    getManagedWarehouseMaterializedColumns(datasource) ?? [];
+
+  // Base columns the events table always exposes (independent of attribute
+  // schema). The user-attribute columns + ingestor-enriched columns layer
+  // on top from `materializedColumns`.
+  const baseColumns: Record<string, Partial<ColumnInterface>> = {
+    timestamp: { datatype: "date" },
+    properties: { datatype: "json" },
+    attributes: { datatype: "json" },
+    event_name: { datatype: "string", alwaysInlineFilter: true },
+    client_key: { datatype: "string" },
+    environment: { datatype: "string" },
+    sdk_language: { datatype: "string" },
+    sdk_version: { datatype: "string" },
+    event_uuid: { datatype: "string" },
+    ip: { datatype: "string" },
+  };
+  const materializedFactColumns: Record<
+    string,
+    Partial<ColumnInterface>
+  > = Object.fromEntries(
+    materializedColumns.map((c) => [
+      c.columnName,
+      {
+        datatype: c.arrayElementType ? "other" : c.datatype,
+      },
+    ]),
+  );
+
+  const sql = buildManagedWarehouseFactTableSQL(materializedColumns);
+  const userIdTypes = materializedColumns
+    .filter((c) => c.type === "identifier")
+    .map((c) => c.columnName);
+
   return {
     factTables: [
       // Events
@@ -62,33 +130,18 @@ function getBuiltInWarehouseResources(): InitialDatasourceResources {
           id: MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
           name: "Events",
           description: "",
-          sql: `SELECT * FROM events
-WHERE timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`,
+          sql,
           // Mark the fact table as Official and block editing/deleting in the UI
           managedBy: "api",
           columns: generateColumns({
-            timestamp: { datatype: "date" },
-            user_id: { datatype: "string" },
-            device_id: { datatype: "string" },
-            properties: { datatype: "json" },
-            attributes: { datatype: "json" },
-            event_name: { datatype: "string", alwaysInlineFilter: true },
-            client_key: { datatype: "string" },
-            environment: { datatype: "string" },
-            sdk_language: { datatype: "string" },
-            sdk_version: { datatype: "string" },
-            event_uuid: { datatype: "string" },
-            ip: { datatype: "string" },
-            geo_country: { datatype: "string" },
-            ua_device_type: { datatype: "string" },
-            ua_browser: { datatype: "string" },
-            ua_os: { datatype: "string" },
-            utm_source: { datatype: "string" },
-            utm_medium: { datatype: "string" },
-            utm_campaign: { datatype: "string" },
-            url_path: { datatype: "string" },
+            ...baseColumns,
+            ...materializedFactColumns,
           }),
-          userIdTypes: ["user_id", "device_id"],
+          // userIdTypes mirrors the materialized identifier columns — and
+          // stays empty when there are none, matching the datasource's
+          // derived `userIdTypes` so the two never disagree on assignment
+          // units for an org without identifier attributes configured yet.
+          userIdTypes,
           eventName: "",
         },
         filters: [],
@@ -657,7 +710,7 @@ export function getInitialDatasourceResources({
   datasource: DataSourceInterfaceWithParams;
 }): InitialDatasourceResources {
   if (datasource.type === "growthbook_clickhouse") {
-    return getBuiltInWarehouseResources();
+    return getBuiltInWarehouseResources(datasource);
   }
 
   switch (datasource.settings?.schemaFormat) {

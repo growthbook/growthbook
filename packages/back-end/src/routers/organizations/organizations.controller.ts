@@ -1737,6 +1737,14 @@ export const autoAddGroupsAttribute = async (
 
     added = true;
 
+    // Persist via `updateOrganization` instead of `updateAttributeSchema` so
+    // a Managed Warehouse LS outage (423 lock, transient failure) doesn't
+    // block adding `$groups`. The saved-groups page swallows errors, so a
+    // sync-driven rollback here would leave targeting silently broken with
+    // no `$groups` in the schema. `$groups` isn't a valid ClickHouse
+    // identifier anyway, so it can't be materialized — skipping the LS
+    // round-trip costs nothing. The next user-initiated attribute edit
+    // will run sync and pick up `$groups` as part of the normal flow.
     await updateOrganization(org.id, updates);
 
     await req.audit({

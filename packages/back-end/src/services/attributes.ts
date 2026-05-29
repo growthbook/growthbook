@@ -1,9 +1,25 @@
+import { SDKAttribute } from "shared/types/organization";
+import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
+import type { MaterializedColumn } from "shared/types/datasource";
 import {
+  buildManagedWarehouseFactTableSQL,
   categorizeUnregisteredAttributes,
   extractConditionAttributeKeys,
   getRequireRegisteredAttributesSettings,
+  isManagedWarehouseAwaitingProvisioning,
 } from "shared/util";
+import type { ColumnInterface } from "shared/types/fact-table";
+import { dangerouslyGetGrowthbookDatasourceBypassPermission } from "back-end/src/models/DataSourceModel";
+import {
+  dangerouslyGetFactTableByIdBypassPermission,
+  updateFactTableColumns,
+} from "back-end/src/models/FactTableModel";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
+import {
+  prepareManagedWarehouseAttributeMigrationViaLicenseServer,
+  syncManagedWarehouseAttributesViaLicenseServer,
+} from "back-end/src/services/licenseServerManagedClickhouse";
+import { logger } from "back-end/src/util/logger";
 import { BadRequestError } from "back-end/src/util/errors";
 import { ReqContext } from "back-end/types/request";
 
@@ -22,12 +38,421 @@ export async function removeTagInAttribute(
     tags: (attr.tags || []).filter((t) => t !== tag),
   }));
 
+  // Tag changes don't affect materialized columns, so skip the license-server
+  // sync. Going through `updateAttributeSchema` would couple a metadata-only
+  // operation to warehouse availability — a 423 lock or LS outage would cause
+  // the tag removal to roll back.
   await updateOrganization(org.id, {
-    settings: {
-      ...org.settings,
-      attributeSchema: updatedAttributeSchema,
-    },
+    settings: { ...org.settings, attributeSchema: updatedAttributeSchema },
   });
+}
+
+/**
+ * Persist a new attributeSchema on the organization and keep any Managed
+ * Warehouse datasource in sync (ClickHouse DDL + derived userIdTypes +
+ * exposure queries) via the license server.
+ *
+ * The flow is two-phase to avoid stranding migration backfill outside of
+ * the org if the sync fails partway through:
+ *   1. Ask LS for any first-time-migration `attributeBackfill` (read-only).
+ *   2. Merge backfill into the org write — so `attributeSchema` always
+ *      reflects every column LS will end up materializing.
+ *   3. Call sync (DDL + snapshot write). On failure roll the org back to
+ *      its post-migration / pre-edit state; the migration is preserved so
+ *      retries don't replay it.
+ */
+export async function updateAttributeSchema(
+  context: ReqContext,
+  {
+    newAttributeSchema,
+    renames = [],
+  }: {
+    newAttributeSchema: SDKAttribute[];
+    renames?: { from: string; to: string }[];
+  },
+): Promise<{ persistedAttributeSchema: SDKAttribute[] }> {
+  const { org } = context;
+  // Bypass the read-permission gate here. An admin who can manage attributes
+  // but lacks read on the warehouse datasource project would otherwise silently
+  // skip the LS sync and leave ClickHouse out of step with attributeSchema.
+  const managedWarehouse =
+    await dangerouslyGetGrowthbookDatasourceBypassPermission(org.id);
+
+  // No managed warehouse: nothing to back-fill against; just persist.
+  if (!managedWarehouse) {
+    await updateOrganization(org.id, {
+      settings: { ...org.settings, attributeSchema: newAttributeSchema },
+    });
+    return { persistedAttributeSchema: newAttributeSchema };
+  }
+
+  const currentAttributeSchema = org.settings?.attributeSchema || [];
+
+  // Phase 1: ask LS what first-time-migration backfill (if any) we need to
+  // merge into the org write. Skipped on the steady-state path: once a sync
+  // has run, `syncedMaterializedColumns` is populated and prepare would
+  // unconditionally return an empty backfill — saves a round-trip per edit.
+  //
+  // Done before the pre-provisioning branch below so that orgs editing
+  // attributes during the awaiting-provisioning window still get the legacy
+  // `materializedColumns` migrated into `attributeSchema`. Otherwise the
+  // provisioning job would seed CH from a backfill-less schema and drop the
+  // org's pre-existing key attributes.
+  let attributeBackfill: SDKAttribute[] = [];
+  if (managedWarehouse.settings.syncedMaterializedColumns === undefined) {
+    const prepared =
+      await prepareManagedWarehouseAttributeMigrationViaLicenseServer({
+        orgId: org.id,
+        currentAttributeSchema,
+      });
+    attributeBackfill = prepared.attributeBackfill;
+  }
+
+  const mergeWithBackfill = (schema: SDKAttribute[]): SDKAttribute[] => {
+    if (attributeBackfill.length === 0) return schema;
+    const present = new Set(schema.map((a) => a.property));
+    return [
+      ...schema,
+      ...attributeBackfill.filter((a) => !present.has(a.property)),
+    ];
+  };
+  const finalAttributeSchema = mergeWithBackfill(newAttributeSchema);
+  // Rollback target: the post-migration but pre-edit state. Backfill stays
+  // applied across rollback so retries don't replay migration.
+  const postMigrationCurrentSchema = mergeWithBackfill(currentAttributeSchema);
+
+  // Skip the LS sync when ClickHouse isn't ready yet. The async provisioning
+  // job picks up the saved (now-backfilled) attributeSchema once it runs.
+  if (isManagedWarehouseAwaitingProvisioning(managedWarehouse)) {
+    await updateOrganization(org.id, {
+      settings: { ...org.settings, attributeSchema: finalAttributeSchema },
+    });
+    return { persistedAttributeSchema: finalAttributeSchema };
+  }
+
+  // Phase 2: persist the org write before calling sync. If sync fails after
+  // applying DDL, the rollback below restores the post-migration / pre-edit
+  // state; the snapshot is whatever LS managed to write, and the next sync
+  // diffs the user's retry against that ground truth.
+  await updateOrganization(org.id, {
+    settings: { ...org.settings, attributeSchema: finalAttributeSchema },
+  });
+
+  // Capture the pre-sync materialized-column state so we can update the
+  // events fact table after LS reports the new state. Falls back to legacy
+  // `materializedColumns` on first-time migration (LS uses the same
+  // fallback when computing its diff).
+  const previousMaterializedColumns =
+    managedWarehouse.settings.syncedMaterializedColumns ??
+    managedWarehouse.settings.materializedColumns ??
+    [];
+
+  let syncResult;
+  try {
+    syncResult = await syncManagedWarehouseAttributesViaLicenseServer({
+      orgId: org.id,
+      attributeSchema: finalAttributeSchema,
+      previousAttributeSchema: postMigrationCurrentSchema,
+      renames,
+    });
+  } catch (e) {
+    logger.error(
+      {
+        err: e,
+        orgId: org.id,
+        datasourceId: managedWarehouse.id,
+        attemptedAttributeProperties: finalAttributeSchema.map(
+          (a) => a.property,
+        ),
+        rolledBackToAttributeProperties: postMigrationCurrentSchema.map(
+          (a) => a.property,
+        ),
+        renames,
+      },
+      "Managed Warehouse sync failed; rolling back attributeSchema",
+    );
+    const { rolledBack } = await rollbackAttributeSchema(
+      context,
+      postMigrationCurrentSchema,
+    );
+    if (!rolledBack) {
+      // Mongo still holds the user's edit while LS / ClickHouse may be in a
+      // different state. Surface a partial-state error instead of the
+      // original sync error so the user doesn't naively retry against a
+      // mutated baseline — manual reconciliation is needed. Chain the
+      // original sync error as `cause` so Sentry / debuggers can still
+      // see the underlying failure that triggered the rollback attempt.
+      const wrapped: Error & { cause?: unknown } = new Error(
+        "Managed warehouse sync failed and we couldn't undo the partial change. Your attribute edit may be partially applied. Please contact support before retrying.",
+      );
+      // Set `cause` manually — back-end tsconfig targets es2020 which doesn't
+      // include the ES2022 `ErrorOptions` constructor arg.
+      wrapped.cause = e;
+      throw wrapped;
+    }
+    // Preserve `ManagedClickhouseClientError` so the API layer can use its
+    // `status` (e.g. 404, 400) instead of falling back to a generic 400.
+    throw e;
+  }
+
+  // The datasource snapshot itself (`syncedMaterializedColumns`,
+  // `userIdTypes`, `queries.exposure`, and the first-migration `$unset` of
+  // legacy `materializedColumns`) has already been persisted by the license
+  // server inside the sync call — LS's DataSourceModel writes via
+  // `useDb(GROWTHBOOK_DB_NAME)` directly into this same `datasources`
+  // collection, under the per-org lock LS holds for the duration of sync.
+  // We deliberately do NOT re-apply `syncResult` here: a follow-up write
+  // from GB would land outside that lock and could race a subsequent sync.
+  // `syncResult` is consumed below only as input to the fact-table
+  // reconciliation, which is a GB-owned concern.
+
+  // CH and the org are in sync. Reconcile the events fact table's columns
+  // so metric/dimension pickers reflect the new materialized-column set.
+  // This is best-effort: a stale fact table is recoverable by manual
+  // refresh, so we don't fail the request or roll the org back if it
+  // doesn't go through.
+  try {
+    await syncManagedWarehouseEventsFactTable(context, {
+      previousColumns: previousMaterializedColumns,
+      finalColumns: syncResult.syncedMaterializedColumns,
+      renames,
+    });
+  } catch (e) {
+    logger.error(
+      { err: e, orgId: org.id, datasourceId: managedWarehouse.id },
+      "Failed to sync managed warehouse events fact table after attribute change",
+    );
+  }
+
+  return { persistedAttributeSchema: finalAttributeSchema };
+}
+
+type MaterializedColumnDiff = {
+  columnsToAdd: MaterializedColumn[];
+  columnsToDelete: string[];
+  columnsToRename: { from: string; to: string }[];
+};
+
+/**
+ * Reconciles previous vs final materialized columns into the add/delete/rename
+ * plan needed to update the events fact table. Mirrors the rename semantics
+ * the license server uses on the DDL side: a rename only "applies" when the
+ * source column exists in `previous`, the destination exists in `final`, and
+ * the destination isn't already a different existing column. Other renames
+ * fall through to natural add/delete.
+ *
+ * Renames are passed as SDK attribute property values, which map to the
+ * materialized column's `sourceField`. Add/delete detection and the rename
+ * result are keyed by `columnName` (the fact-table column field). For most
+ * attributes `columnName === sourceField`, but a legacy key-attributes row
+ * can have a custom `columnName` distinct from its `sourceField` — those
+ * are matched via `sourceField` so the rename still resolves.
+ */
+export function diffMaterializedColumnsForFactTable(
+  previous: MaterializedColumn[],
+  final: MaterializedColumn[],
+  renames: { from: string; to: string }[],
+): MaterializedColumnDiff {
+  const previousByColumnName = new Map(previous.map((c) => [c.columnName, c]));
+  const finalByColumnName = new Map(final.map((c) => [c.columnName, c]));
+  // sourceField-keyed maps drive the rename match (UI/API renames are SDK
+  // property values, which align with sourceField — not columnName).
+  const previousBySourceField = new Map(
+    previous.map((c) => [c.sourceField, c]),
+  );
+  const finalBySourceField = new Map(final.map((c) => [c.sourceField, c]));
+
+  const appliedRenames: { from: string; to: string }[] = [];
+  for (const { from, to } of renames) {
+    if (from === to) continue;
+    const prev = previousBySourceField.get(from);
+    const next = finalBySourceField.get(to);
+    if (!prev || !next) continue;
+    // Translate the SDK-property rename into a fact-table column rename.
+    // When the legacy override path keeps `columnName` unchanged across the
+    // rename (e.g. customer-customized "custom_utm" stays "custom_utm"),
+    // there's nothing to do on the fact-table column itself.
+    if (prev.columnName === next.columnName) continue;
+    // Bail if the destination columnName is already occupied by a different
+    // column in `previous` — falling through to natural add/delete is safer
+    // than overwriting an unrelated entry.
+    if (previousByColumnName.has(next.columnName)) continue;
+    previousByColumnName.delete(prev.columnName);
+    previousByColumnName.set(next.columnName, {
+      ...prev,
+      columnName: next.columnName,
+      sourceField: next.sourceField,
+    });
+    appliedRenames.push({ from: prev.columnName, to: next.columnName });
+  }
+
+  const columnsToAdd: MaterializedColumn[] = [];
+  for (const [name, col] of finalByColumnName) {
+    if (!previousByColumnName.has(name)) columnsToAdd.push(col);
+  }
+
+  const columnsToDelete: string[] = [];
+  for (const name of previousByColumnName.keys()) {
+    if (!finalByColumnName.has(name)) columnsToDelete.push(name);
+  }
+
+  return { columnsToAdd, columnsToDelete, columnsToRename: appliedRenames };
+}
+
+/**
+ * Update the managed warehouse's events fact table so its columns mirror the
+ * post-sync materialized-column set. Adds new columns, soft-deletes removed
+ * ones (preserving any metrics that reference them), and renames in place
+ * where possible. Resets `userIdTypes` to the identifiers in `finalColumns`,
+ * intersected with active (non-deleted) columns by
+ * `updateFactTableColumns`.
+ */
+async function syncManagedWarehouseEventsFactTable(
+  context: ReqContext,
+  {
+    previousColumns,
+    finalColumns,
+    renames,
+  }: {
+    previousColumns: MaterializedColumn[];
+    finalColumns: MaterializedColumn[];
+    renames: { from: string; to: string }[];
+  },
+): Promise<void> {
+  // Bypass project-read permission here for the same reason the datasource
+  // lookup does: an attribute admin who lacks read on the warehouse fact
+  // table's project would otherwise silently skip this reconciliation and
+  // leave the fact table out of step with materialized columns.
+  const ft = await dangerouslyGetFactTableByIdBypassPermission(
+    context.org.id,
+    MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
+  );
+  if (!ft) return;
+
+  const { columnsToAdd, columnsToDelete, columnsToRename } =
+    diffMaterializedColumnsForFactTable(previousColumns, finalColumns, renames);
+
+  // The generated SQL changes whenever the materialized-column set or its
+  // physical names change — adds/deletes/renames all flip the projection
+  // list, and the prefix rollout flips physical names for unchanged logical
+  // ones. Compute the new SQL up front so the no-op short-circuit below can
+  // also short-circuit on identical SQL.
+  const newSql = buildManagedWarehouseFactTableSQL(finalColumns);
+  const sqlChanged = newSql !== ft.sql;
+
+  // Identifier set can change even when columns and SQL don't — e.g. toggling
+  // `hashAttribute` on an existing attribute, or an SDK-alias edit that
+  // promotes a built-in to identifier. Compute and compare so we still
+  // reconcile `userIdTypes` in those cases.
+  const newIdentifierTypes = finalColumns
+    .filter((c) => c.type === "identifier")
+    .map((c) => c.columnName);
+  const userIdTypesChanged =
+    newIdentifierTypes.length !== (ft.userIdTypes?.length ?? 0) ||
+    newIdentifierTypes.some((t) => !(ft.userIdTypes ?? []).includes(t));
+
+  if (
+    columnsToAdd.length === 0 &&
+    columnsToDelete.length === 0 &&
+    columnsToRename.length === 0 &&
+    !sqlChanged &&
+    !userIdTypesChanged
+  ) {
+    return;
+  }
+
+  const newColumns: ColumnInterface[] = ft.columns.map((col) => ({
+    ...col,
+    numberFormat: col.numberFormat ?? "",
+  }));
+
+  for (const col of columnsToAdd) {
+    const existing = newColumns.find((c) => c.column === col.columnName);
+    if (!existing) {
+      newColumns.push({
+        column: col.columnName,
+        name: col.columnName,
+        // FactTableColumnType has no array variant — `other` is the closest
+        // fit for `string[]` / `number[]` materialized columns so the picker
+        // doesn't mis-classify them as plain strings.
+        datatype: col.arrayElementType ? "other" : col.datatype,
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        deleted: false,
+        description: "",
+        numberFormat: "",
+      });
+    } else {
+      // Column was previously soft-deleted; restore it.
+      existing.deleted = false;
+      existing.dateUpdated = new Date();
+    }
+  }
+
+  for (const { from, to } of columnsToRename) {
+    const col = newColumns.find((c) => c.column === from);
+    if (!col) continue;
+    const existingDest = newColumns.find((c) => c.column === to);
+    if (existingDest) {
+      // Destination already exists — restore it and mark the source deleted
+      // so any metrics still pointing at `from` fail-closed instead of
+      // silently merging.
+      existingDest.deleted = false;
+      existingDest.dateUpdated = new Date();
+      col.deleted = true;
+      col.dateUpdated = new Date();
+    } else {
+      col.column = to;
+      col.name = to;
+      col.dateUpdated = new Date();
+    }
+  }
+
+  for (const name of columnsToDelete) {
+    const col = newColumns.find((c) => c.column === name);
+    if (col) {
+      col.deleted = true;
+      col.dateUpdated = new Date();
+    }
+  }
+
+  await updateFactTableColumns(
+    ft,
+    {
+      columns: newColumns,
+      userIdTypes: newIdentifierTypes,
+      sql: newSql,
+    },
+    context,
+  );
+}
+
+/**
+ * Restore the org's attributeSchema after a failed Managed Warehouse sync,
+ * landing on the post-migration / pre-edit state so the migration backfill
+ * (if any) is preserved across retries. Returns whether the rollback write
+ * itself succeeded so the caller can surface a partial-state error when it
+ * didn't.
+ */
+async function rollbackAttributeSchema(
+  context: ReqContext,
+  postMigrationCurrentSchema: SDKAttribute[],
+): Promise<{ rolledBack: boolean }> {
+  try {
+    await updateOrganization(context.org.id, {
+      settings: {
+        ...context.org.settings,
+        attributeSchema: postMigrationCurrentSchema,
+      },
+    });
+    return { rolledBack: true };
+  } catch (rollbackError) {
+    logger.error(
+      rollbackError,
+      "Failed to roll back attributeSchema after Managed Warehouse sync failure",
+    );
+    return { rolledBack: false };
+  }
 }
 
 // Rejects saves that reference attribute keys not declared (and not archived)
