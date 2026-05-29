@@ -4,7 +4,7 @@ import {
   getSafeRolloutResultStatus,
 } from "shared/enterprise";
 import { autoMerge } from "shared/util";
-import { SafeRolloutStatus } from "shared/validators";
+import { SafeRolloutStatus, SafeRolloutRule } from "shared/validators";
 import {
   SafeRolloutInterface,
   SafeRolloutSnapshotInterface,
@@ -95,10 +95,26 @@ export async function checkAndRollbackSafeRollout({
     healthSettings,
     daysLeft,
   });
-  const rule = getSafeRolloutRuleFromFeature(feature, updatedSafeRollout.id);
-  const ruleEnvs = rule?.allEnvironments
+  // getSafeRolloutRuleFromFeature projects feature.rules through
+  // getRulesForEnvironment, which uses ruleAppliesToEnv. A rule with
+  // allEnvironments: false and environments: [] passes no environment check
+  // and returns null — causing ruleEnvs: [] and a silent no-op rollback.
+  // Fall back to a direct flat-rules lookup by ruleId so the rollback always
+  // fires when the rule genuinely exists on the feature.
+  const rule: SafeRolloutRule | null =
+    getSafeRolloutRuleFromFeature(feature, updatedSafeRollout.id) ??
+    (feature.rules ?? []).find(
+      (r): r is SafeRolloutRule => r.type === "safe-rollout" && r.id === ruleId,
+    ) ??
+    null;
+  // When environments is empty but the rule exists, fall back to the
+  // SafeRollout's own environment field so the revision covers at least
+  // the one environment the rollout is actually running in.
+  const ruleEnvs: string[] = rule?.allEnvironments
     ? Object.keys(feature.environmentSettings)
-    : (rule?.environments ?? []);
+    : rule?.environments?.length
+      ? rule.environments
+      : [updatedSafeRollout.environment].filter((e): e is string => !!e);
 
   let status: SafeRolloutStatus = updatedSafeRollout.status;
   if (

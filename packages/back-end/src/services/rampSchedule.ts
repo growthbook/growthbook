@@ -671,6 +671,19 @@ async function executeStepActions(
       });
     } catch (e) {
       if ((e as Error).message?.startsWith("Feature not found:")) {
+        // The linked feature was deleted while the ramp was running. Skip this
+        // target rather than failing the whole step, but leave a trace — this
+        // runs in a background agenda job, so a silent skip is hard to correlate
+        // to a partial/failed rollout when operators inspect logs afterward.
+        logger.warn(
+          {
+            rampScheduleId: schedule.id,
+            entityType: group.entityType,
+            entityId: group.entityId,
+            stepIndex,
+          },
+          "Ramp step skipped target: linked feature not found (deleted while ramp was running)",
+        );
         continue;
       }
       throw e;
