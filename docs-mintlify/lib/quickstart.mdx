@@ -79,7 +79,7 @@ return (
  );  
 }
 
-````
+```
 
 **Next steps:**
 - See the [example Next.js app](https://github.com/growthbook/examples/tree/main/next-js)
@@ -96,7 +96,7 @@ Go to [**SDK Configuration**](https://app.growthbook.io/sdks), create a new SDK 
 <CodeGroup>
 ```bash npm
 npm install @growthbook/growthbook
-````
+```
 
 ```bash Yarn
 yarn add @growthbook/growthbook
@@ -128,7 +128,7 @@ const gb = new GrowthBook({
 
 await gb.init();
 
-````
+```
 </Step>
 <Step title="Use feature flags">
 ```javascript
@@ -137,13 +137,13 @@ if (gb.isOn("new-feature")) {
 }
 
 const color = gb.getFeatureValue("button-color", "blue");
-````
+```
 
 **Next steps:**
 
 - See the [JavaScript SDK docs](/lib/js) for TypeScript, plugins, and more.
 - See an [example Typescript app](https://github.com/growthbook/examples/tree/main/vanilla-typescript)
-  </Step>
+</Step>
 </Steps>
 </Tab>
 <Tab title="Node.js">
@@ -191,7 +191,7 @@ const gbClient = new GrowthBookClient({
 });  
 await gbClient.init({timeout: 3000});
 
-````
+```
 </Step>
 <Step title="Use feature flags">
 ```javascript
@@ -212,13 +212,13 @@ if (gbClient.isOn("my-feature", userContext)) {
 // String, Number, or JSON flags
 const value = gbClient.getFeatureValue("my-string-feature", "fallback", userContext);
 console.log(value);
-````
+```
 
 **Next steps:**
 
 - See the full [Node.js SDK docs](/lib/node)
 - Use the SDK in [Express middleware](/lib/node#express-middleware)
-  </Step>
+</Step>
 </Steps>
 </Tab>
 <Tab title="Python">
@@ -261,7 +261,7 @@ user = UserContext(
  }  
 )
 
-````
+```
 </Step>
 <Step title="Use feature flags">
 ```python
@@ -269,13 +269,13 @@ if await client.is_on("new-feature", user):
     show_new_feature()
 
 color = await client.get_feature_value("button-color", "blue", user)
-````
+```
 
 **Next steps:**
 
 - See the full [Python SDK docs](/lib/python)
 - See the [how to integrate with FastAPI](/lib/python#async-web-framework-integration-fastapi) example.
-  </Step>
+</Step>
 </Steps>
 </Tab>
 </Tabs>
