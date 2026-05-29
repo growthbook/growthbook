@@ -423,15 +423,16 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
 
     const body = JSON.stringify(data);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const params: Record<string, any> = {};
+    // `URLSearchParams` only emits strings on the wire, so flags travel as
+    // "true". The server already parses these as truthy strings.
+    const params: Record<string, string> = {};
     if (allowDuplicateTrackingKey) {
-      params.allowDuplicateTrackingKey = true;
+      params.allowDuplicateTrackingKey = "true";
     }
     if (duplicate && initialValue?.id) {
       params.originalId = initialValue.id;
       if (useSameSeedAsOriginal) {
-        params.allowSameSeedAsOriginal = true;
+        params.allowSameSeedAsOriginal = "true";
       }
     }
 
