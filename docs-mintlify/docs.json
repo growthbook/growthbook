@@ -352,6 +352,10 @@
       {
         "tab": "API",
         "openapi": "openapi.yaml"
+      },
+      {
+        "tab": "Changelog",
+        "pages": ["changelog/index", "changelog/2026-05-29"]
       }
     ],
     "global": {

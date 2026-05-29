@@ -1,0 +1,72 @@
+---
+title: "Week of May 29, 2026"
+description: "GrowthBook 4.4 release, Snowflake incremental refresh, drag-and-drop dashboards, and more."
+---
+
+This week's highlight is the **GrowthBook 4.4 release**, alongside incremental refresh support for Snowflake, drag-and-drop experiment dashboards, and a new project-required org setting for SDK connections.
+
+## New features
+
+### GrowthBook 4.4
+
+Version 4.4 is now available for self-hosted users. Pull the latest images to get every change shipped over the past release cycle. See the [release on GitHub](https://github.com/growthbook/growthbook/releases) for the full notes.
+
+### Snowflake incremental refresh
+
+[Incremental refresh](/experimentation-analysis/query-optimization) now works with Snowflake. Long-running experiments only re-process new data on each refresh instead of re-scanning the full window, which cuts query time and warehouse cost. Incremental refresh now also supports **cross-fact-table ratio metrics**, so ratios built from two different fact tables can take advantage of the same optimization.
+
+You can also **opt in to incremental refresh from ephemeral mode** on an experiment without reconfiguring the data source first.
+
+### Drag-and-drop experiment dashboards
+
+[Experiment dashboards](/experimentation-analysis/experiment-dashboards) now support drag-and-drop. Rearrange tiles directly on the dashboard to build the view you want without leaving the page.
+
+### Require projects for SDK connections
+
+A new organization setting lets admins **require a project on every SDK connection**. This makes it easier to scope SDK keys cleanly when you use [projects](/account/user-permissions) to isolate teams or environments.
+
+### Schedule experiments from the API
+
+The [`POST /experiments`](/api-overview) endpoint now accepts an experiment status schedule, so you can launch or stop experiments on a timer through the API. The schedule timezone is also rendered in the UI so it's clear when the next status change will occur.
+
+### Saved group revisions API (beta)
+
+A new beta API for **revisions on saved groups** lets you list and inspect historical versions of a [saved group](/features/targeting). Useful for auditing changes and rolling back targeting lists.
+
+### Reports API endpoints
+
+New REST API endpoints for [reports](/experimentation-analysis/experiment-results): `list`, `get`, `create`, and `refresh`. Automate reporting workflows or pull report data into other tools.
+
+### `experiment.warning` webhook event
+
+[Event webhooks](/webhooks/event-webhooks/events) now fire a new `experiment.warning` event when an experiment is missing data. Wire this into your alerting to catch broken tracking before results are published.
+
+### Feature diagnostics for managed warehouse
+
+[Feature diagnostics](/features/diagnostics) now work out of the box for [managed warehouse](/experimentation-analysis/managed-warehouse) users — no extra query setup required. The tab uses the existing feature usage data that already powers the overview graph.
+
+### Login page billboard
+
+The login page now shows product updates and announcements, so you'll see what's new the moment you sign in.
+
+## Updates
+
+- **Feature search filters.** Added a variety of new `has:` search filters on the [features list](/features) to quickly find features by attribute, environment, rule type, and more.
+- **Archive state in feature diffs.** Feature revision diffs now show changes to the archived state, making history easier to follow.
+- **Owner filter search and sort.** Owner filter dropdowns are now searchable and sortable across list pages.
+- **Metric and variation names in API results.** The experiment results endpoint now includes metric and variation names directly, so you no longer need a second call to resolve them.
+- **REST API attribution.** Feature changes made via the [REST API](/api-overview) now display proper user / API key attribution in the UI, and several feature and revision endpoints were cleaned up for better DX.
+- **Product analytics group-by.** Several fixes to group-by behavior in [Product Analytics](/product-analytics) charts, plus general polish.
+- **Performance.** Faster prerequisite and graph lookups, slimmer snapshot status polling, and skipped analysis chunk decoding on status checks make the app feel snappier on large orgs.
+
+## Bug fixes
+
+- **Modals no longer dismiss accidentally.** Modals that contain forms now require an explicit close, preventing lost edits from a stray backdrop click.
+- **Metric drilldown modal close.** The metric drilldown modal can again be closed with `Esc` or a backdrop click.
+- **Bayesian risk calculation.** Guarded against an overflow in the Bayesian risk calculation at extreme effect sizes, so results render reliably in edge cases.
+- **Query cancellation.** Improved query cancellation logic and fixed a BigQuery location bug that could leave queries running after cancel.
+- **Reverting feature revisions.** Fixed a small bug when reverting a feature to a previous revision.
+- **New namespace modal.** Resolved validation issues in the new namespace modal and cleaned up various SDK warnings and forms.
+- **Test webhook endpoint.** Hardened validation and safety on the Test Webhook endpoint.
+- **Incremental refresh metrics hash.** Improved the metrics hash used by incremental refresh to avoid unnecessary full refreshes.
+- **Pre-launch checklist & scheduled approvals.** Completed pre-flight permission gating and fixed checklist skipping for scheduled experiment approvals.
