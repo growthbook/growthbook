@@ -2120,7 +2120,11 @@ export function mergeStepsForRunningSchedule(
   for (let i = 0; i < currentIdx; i++) {
     if (incomingSteps[i]) skippedIndices.push(i);
   }
-  const pastSteps = schedule.steps.slice(0, currentIdx);
+  // Math.max guards currentIdx === -1 (schedule "running" but not yet advanced
+  // past the pre-first-step state): slice(0, -1) would return all-but-last
+  // instead of an empty array, interleaving stale step definitions into the
+  // merged result and corrupting future coverage patches.
+  const pastSteps = schedule.steps.slice(0, Math.max(0, currentIdx));
 
   // Current step: only holdConditions and approvalNotes are editable.
   let currentStep = schedule.steps[currentIdx];
