@@ -141,7 +141,7 @@ export default function PercentGraph({
   });
 
   return (
-    <Trigger style={{ display: "inline-flex" }}>
+    <Trigger style={{ display: "flex" }}>
       <AlignedGraph
         ci={showGraph ? (stats?.ciAdjusted ?? stats.ci) : [0, 0]}
         id={id}
