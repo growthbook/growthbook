@@ -1,5 +1,5 @@
 import type { JsonPatchOperation } from "shared/enterprise";
-import { applyPatchToSnapshot } from "back-end/src/revisions/applyPatch";
+import { applyPatchToSnapshot } from "back-end/src/revisions/util";
 
 describe("applyPatchToSnapshot", () => {
   it("returns the original snapshot reference when there are no ops", () => {
