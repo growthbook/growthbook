@@ -55,7 +55,7 @@ export const NULL_DIMENSION_VALUE = "__NULL_DIMENSION";
 export const NULL_VARIATION_VALUE = "__NULL_VARIATION";
 export const NULL_DIMENSION_DISPLAY = "NULL (unset)";
 export const PRECOMPUTED_DIMENSION_PREFIX = "precomputed:";
-export const MAX_PRECOMPUTED_UNIT_DIMENSIONS = 5;
+export const MAX_PRECOMPUTED_UNIT_DIMENSIONS = 3;
 // Colors:
 // export const variant_null = "#999";
 // export const variant_0 = "#4f69ff";
