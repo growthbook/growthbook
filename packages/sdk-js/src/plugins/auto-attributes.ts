@@ -9,20 +9,7 @@ export type AutoAttributeSettings = {
   uuidKey?: string;
   uuid?: string;
   uuidAutoPersist?: boolean;
-  /**
-   * Attribute key under which the per-browser-session id is exposed.
-   */
-  sessionIdKey?: string;
-  /**
-   * Customer-supplied session id. When provided, the plugin uses it
-   * verbatim and skips the sessionStorage / sliding-window logic — useful
-   * when an upstream system (your auth, an SSR layer) already issues
-   * session ids and you want them propagated through.
-   */
   sessionId?: string;
-  /**
-   * Sliding-window idle timeout (ms) for the auto-generated session id.
-   */
   sessionIdleTimeoutMs?: number;
 };
 
@@ -66,7 +53,6 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
   const COOKIE_NAME = settings.uuidCookieName || "gbuuid";
   const SESSION_STORAGE_KEY = "gb_session";
   const uuidKey = settings.uuidKey || "id";
-  const sessionIdKey = settings.sessionIdKey || "session_id";
   const sessionIdleTimeoutMs = settings.sessionIdleTimeoutMs ?? 30 * 60 * 1000;
   let uuid = settings.uuid || "";
   function persistUUID() {
@@ -85,18 +71,31 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
     return uuid;
   }
 
-  /**
-   * Returns the current browser-session id, generating one and persisting
-   * to sessionStorage on first call. On each subsequent call, if the
-   * stored session's lastTouchedAt is within `sessionIdleTimeoutMs`, the
-   * timestamp is bumped to now() (sliding window) and the existing id is
-   * reused. Past the idle window, a fresh id is minted.
-   */
   let inMemorySessionFallback: StoredSession | null = null;
-  function getOrCreateSessionId(): string {
-    if (settings.sessionId) return settings.sessionId;
 
+  function persistSession(session: StoredSession): void {
+    try {
+      sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+    } catch {
+      inMemorySessionFallback = session;
+    }
+  }
+
+  function getOrCreateSessionId(): string {
     const now = Date.now();
+
+    // Customer-supplied ID wins unconditionally and is persisted so the
+    // value reads the same on every subsequent call.
+    if (settings.sessionId) {
+      const fresh: StoredSession = {
+        id: settings.sessionId,
+        lastTouchedAt: now,
+      };
+      persistSession(fresh);
+      return fresh.id;
+    }
+
+    // No customer-supplied ID — read from storage with idle-window check.
     let stored: StoredSession | null = null;
     try {
       const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
@@ -106,7 +105,7 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
       stored = inMemorySessionFallback;
     }
 
-    // Existing session still inside its sliding idle window — bump and reuse
+    // Existing session still inside its sliding idle window — bump and reuse.
     if (
       stored &&
       typeof stored.id === "string" &&
@@ -115,24 +114,17 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
       now - stored.lastTouchedAt < sessionIdleTimeoutMs
     ) {
       stored.lastTouchedAt = now;
-      try {
-        sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(stored));
-      } catch {
-        inMemorySessionFallback = stored;
-      }
+      persistSession(stored);
       return stored.id;
     }
 
-    // No valid session — generate and persist a fresh one
+    // No valid session — generate one with the same UUID helper used
+    // elsewhere in this plugin (gbuuid cookie path).
     const fresh: StoredSession = {
       id: genUUID(window.crypto),
       lastTouchedAt: now,
     };
-    try {
-      sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(fresh));
-    } catch {
-      inMemorySessionFallback = fresh;
-    }
+    persistSession(fresh);
     return fresh.id;
   }
 
@@ -156,7 +148,7 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
     return {
       ...getDataLayerVariables(),
       [uuidKey]: _uuid,
-      [sessionIdKey]: getOrCreateSessionId(),
+      session_id: getOrCreateSessionId(),
       ...getURLAttributes(url),
       pageTitle: document.title,
       viewportWidth: window.innerWidth || 0,
