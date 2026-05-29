@@ -29,11 +29,7 @@ import {
   ContextualBanditSnapshotSettings,
 } from "shared/validators";
 import { deriveContextId } from "shared/util";
-import { contextualBanditAttrCol } from "shared/experiments";
-import {
-  CONTEXTUAL_BANDIT_COMBINED_ATTRIBUTE_VALUE,
-  DEFAULT_PROPER_PRIOR_STDDEV,
-} from "shared/constants";
+import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -497,65 +493,4 @@ export function getContextualBanditSettingsForStatsEngine(
     max_leaves: cb.maxLeaves,
     min_users_per_leaf: cb.minUsersPerLeaf,
   };
-}
-
-/**
- * Caps the total number of distinct contexts to `maxContexts` by merging the
- * smallest contexts into the "other" catch-all bucket (empty attributes).
- *
- * Returns the trimmed row array and a flag indicating whether trimming occurred.
- *
- * SMITH: this is the TS-side cap heuristic. Once the real SQL applies its own
- * top-N truncation in-warehouse, this function and the warehouse-side `LIMIT`
- * must agree on (a) the ordering (currently ascending row-count → drop the
- * smallest) and (b) the catch-all sentinel (empty attribute map →
- * `deriveContextId("", {})`). Otherwise the TS path will silently re-trim
- * rows the SQL has already dropped, double-counting them into "other".
- */
-export function enforceContextCap<
-  T extends { contextId: string } & Record<string, unknown>,
->(
-  rows: T[],
-  maxContexts: number,
-  numVariations: number,
-  catchAllContextId?: string,
-  attributeColumns?: string[],
-): { rows: T[]; trimmed: boolean } {
-  const contextIds = [...new Set(rows.map((r) => r.contextId))];
-  if (contextIds.length <= maxContexts) {
-    return { rows, trimmed: false };
-  }
-
-  // Count users per context
-  const countByCtx = new Map<string, number>();
-  rows.forEach((r) => {
-    const existing = countByCtx.get(r.contextId) ?? 0;
-    // use numVariations to avoid unused-variable warning
-    void numVariations;
-    countByCtx.set(r.contextId, existing + 1);
-  });
-
-  // Sort by ascending count, keep the top maxContexts
-  const sorted = [...countByCtx.entries()].sort((a, b) => a[1] - b[1]);
-  const toMerge = new Set(
-    sorted.slice(0, sorted.length - maxContexts).map(([id]) => id),
-  );
-
-  const catchAll = catchAllContextId ?? deriveContextId("", {});
-  const merged = rows.map((r) => {
-    if (!toMerge.has(r.contextId)) {
-      return r;
-    }
-    const row: Record<string, unknown> = { ...r, contextId: catchAll };
-    if (attributeColumns?.length) {
-      for (const attr of attributeColumns) {
-        row[contextualBanditAttrCol(attr)] =
-          CONTEXTUAL_BANDIT_COMBINED_ATTRIBUTE_VALUE;
-        row[attr] = CONTEXTUAL_BANDIT_COMBINED_ATTRIBUTE_VALUE;
-      }
-    }
-    return row as T;
-  });
-
-  return { rows: merged, trimmed: true };
 }

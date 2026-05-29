@@ -6,12 +6,9 @@ import {
   contextualBanditSnapshotSettingsValidator,
 } from "shared/validators";
 import { deriveContextId } from "shared/util";
-import { CONTEXTUAL_BANDIT_COMBINED_ATTRIBUTE_VALUE } from "shared/constants";
-import { contextualBanditAttrCol } from "shared/experiments";
 import { ReqContext } from "back-end/types/api";
 import {
   buildContextualBanditSnapshotSettings,
-  enforceContextCap,
   getContextualBanditResultsForUi,
   leafWeightsFromContextualBanditResult,
   persistContextualBanditEvent,
@@ -240,50 +237,6 @@ describe("buildContextualBanditSnapshotSettings", () => {
       makeExposureQuery(),
     );
     expect(settings.treeModel).toBe("regression_tree");
-  });
-});
-
-describe("enforceContextCap", () => {
-  const catchAllContextId = "ctx_catchall";
-
-  it("is a no-op when distinct contexts already fit under the cap", () => {
-    const rows = [
-      { contextId: "a", x: 1 },
-      { contextId: "a", x: 1 },
-      { contextId: "b", x: 2 },
-    ];
-    const out = enforceContextCap(rows, 2, 2);
-    expect(out.trimmed).toBe(false);
-    expect(out.rows).toEqual(rows);
-  });
-
-  it("merges the smallest contexts into the catch-all when above the cap", () => {
-    const rows = [
-      { contextId: "a", x: 1 },
-      { contextId: "a", x: 1 },
-      { contextId: "a", x: 1 },
-      { contextId: "b", x: 2 },
-      { contextId: "b", x: 2 },
-      { contextId: "c", x: 3 },
-    ];
-    const out = enforceContextCap(rows, 2, 2, catchAllContextId, ["x"]);
-    expect(out.trimmed).toBe(true);
-    const cMerged = out.rows.filter((r) => r.contextId === catchAllContextId);
-    expect(cMerged.length).toBeGreaterThanOrEqual(1);
-    expect(
-      cMerged.every((r) => r.x === CONTEXTUAL_BANDIT_COMBINED_ATTRIBUTE_VALUE),
-    ).toBe(true);
-    expect(
-      cMerged.every(
-        (r) =>
-          r[contextualBanditAttrCol("x")] ===
-          CONTEXTUAL_BANDIT_COMBINED_ATTRIBUTE_VALUE,
-      ),
-    ).toBe(true);
-    const aSurvivors = out.rows.filter((r) => r.x === 1);
-    const bSurvivors = out.rows.filter((r) => r.x === 2);
-    expect(aSurvivors).toHaveLength(3);
-    expect(bSurvivors).toHaveLength(2);
   });
 });
 

@@ -1,5 +1,5 @@
-from collections.abc import Mapping, Sequence
-from dataclasses import asdict, dataclass, field
+from collections.abc import Sequence
+from dataclasses import asdict, dataclass
 import dataclasses
 import re
 import traceback
@@ -62,6 +62,8 @@ from gbstats.models.results import (
     SingleVariationResult,
     PowerResponse,
     ContextualBanditResponse,
+    ContextualBanditContextSummary,
+    ContextualBanditNoTreeResult,
     ContextualBanditResult,
     ContextualLeafMapEntry,
     Context,
@@ -1435,10 +1437,16 @@ def get_bandit_result(
         bandit_result = b.compute_result()
         if bandit_result.ci:
             single_variation_results = [
-                SingleVariationResult(n, mn, ci)
-                for n, mn, ci in zip(
+                SingleVariationResult(
+                    users=n,
+                    cr=mn,
+                    variationVariances=v,
+                    ci=ci,
+                )
+                for n, mn, v, ci in zip(
                     b.variation_counts,
-                    b.posterior_mean,
+                    bandit_result.cr or [],
+                    bandit_result.variance or [],
                     bandit_result.ci,
                 )
             ]
@@ -1499,34 +1507,6 @@ class ContextualBanditWeightsLookup:
     """Match ``ContextualBanditResponse.context`` conditions to observed attributes and return ``updatedWeights``."""
 
     @staticmethod
-    def _clause_matches(actual: Any, spec: Any) -> bool:
-        if isinstance(spec, dict) and "$in" in spec:
-            allowed = spec["$in"]
-            if not isinstance(allowed, (list, tuple, set)):
-                return False
-            return actual in allowed
-        if isinstance(spec, dict) and "$nin" in spec:
-            forbidden = spec["$nin"]
-            if not isinstance(forbidden, (list, tuple, set)):
-                return False
-            return actual not in forbidden
-        return actual == spec
-
-    @staticmethod
-    def attributes_match_condition(
-        observed: Mapping[str, Any], condition: dict[str, Any]
-    ) -> bool:
-        """True if every key in ``condition`` is present in ``observed`` and the clause matches."""
-        if not condition:
-            return True
-        for key, spec in condition.items():
-            if key not in observed:
-                return False
-            if not ContextualBanditWeightsLookup._clause_matches(observed[key], spec):
-                return False
-        return True
-
-    @staticmethod
     def observed_from_tuple(
         attributes: Sequence[str], context_tuple: tuple[str, ...]
     ) -> dict[str, str]:
@@ -1566,63 +1546,6 @@ class ContextualBanditWeightsLookup:
                 out[value] = r
         return out
 
-    @staticmethod
-    def copy_response_weights(
-        weights: Optional[list[float]],
-    ) -> Optional[list[float]]:
-        if weights is None:
-            return None
-        return [float(x) for x in weights]
-
-    @staticmethod
-    def find_matching_contextual_response(
-        responses: Sequence[ContextualBanditResponse],
-        observed: Mapping[str, Any],
-    ) -> Optional[ContextualBanditResponse]:
-        """First response whose ``context`` (condition) matches ``observed``."""
-        for r in responses:
-            if not r.context:
-                continue
-            if ContextualBanditWeightsLookup.attributes_match_condition(
-                observed, r.context
-            ):
-                return r
-        return None
-
-    @staticmethod
-    def weights_for_observed_attributes(
-        responses: Sequence[ContextualBanditResponse],
-        observed: Mapping[str, Any],
-    ) -> list[float]:
-        """Return ``updatedWeights`` from the first matching response; raise if none or weights missing."""
-        r = ContextualBanditWeightsLookup.find_matching_contextual_response(
-            responses, observed
-        )
-        if r is None:
-            raise KeyError(
-                f"No ContextualBanditResponse matched observed={dict(observed)!r}"
-            )
-        w = r.updatedWeights
-        if w is None:
-            raise ValueError(
-                "Matching ContextualBanditResponse has updatedWeights=None"
-            )
-        return [float(x) for x in w]
-
-    @staticmethod
-    def weights_for_context_tuple(
-        responses: Sequence[ContextualBanditResponse],
-        attributes: Sequence[str],
-        context_tuple: tuple[str, ...],
-    ) -> list[float]:
-        """Map ``context_tuple`` to a dict, then :meth:`weights_for_observed_attributes`."""
-        observed = ContextualBanditWeightsLookup.observed_from_tuple(
-            attributes, context_tuple
-        )
-        return ContextualBanditWeightsLookup.weights_for_observed_attributes(
-            responses, observed
-        )
-
 
 class UpdateWeightsContextualBandit:
     """Updates variation weights per context. rows (ExperimentMetricQueryResponseRows) is an input; contexts are derived from analysis_settings.dimension. Call compute_result() to get per-context BanditResults (optionally pass rows to override, and current_weights_by_context for priors)."""
@@ -1661,6 +1584,7 @@ class UpdateWeightsContextualBandit:
             context=context,
             sampleSizePerVariation=None,
             variationMeans=None,
+            variationVariances=None,
             updatedWeights=default_weights,
             bestArmProbabilities=None,
             updateMessage=update_message,
@@ -1670,8 +1594,8 @@ class UpdateWeightsContextualBandit:
     @staticmethod
     def no_update_result(
         attributes: list[str], num_variations: int, update_message: str
-    ) -> ContextualBanditResult:
-        return ContextualBanditResult(
+    ) -> ContextualBanditNoTreeResult:
+        return ContextualBanditNoTreeResult(
             attributes=attributes,
             responses=[
                 UpdateWeightsContextualBandit.no_update_response(
@@ -1713,7 +1637,7 @@ class UpdateWeightsContextualBandit:
             for ctx in unique_contexts
         }
 
-    def compute_result(self) -> ContextualBanditResult:
+    def compute_result(self) -> ContextualBanditNoTreeResult:
         """Derive contexts from rows and contextual_bandit_settings.contexts (list of column names); run bandit per context; return per-context BanditResult. If current_weights is provided per context, use it as prior; otherwise use analysis_settings.weights."""
         num_variations = len(self.contextual_bandit_settings.var_ids)
         default_weights = (
@@ -1772,6 +1696,11 @@ class UpdateWeightsContextualBandit:
                     if r.singleVariationResults
                     else None
                 )
+                variation_variances = (
+                    [float(v.variationVariances or 0) for v in r.singleVariationResults]
+                    if r.singleVariationResults
+                    else None
+                )
                 context_rule = {
                     attr: {"$in": [ctx[i]]}
                     for i, attr in enumerate(self.contextual_bandit_settings.attributes)
@@ -1780,6 +1709,7 @@ class UpdateWeightsContextualBandit:
                     context=context_rule,
                     sampleSizePerVariation=sample_size_per_variation,
                     variationMeans=variation_means,
+                    variationVariances=variation_variances,
                     updatedWeights=r.updatedWeights,
                     bestArmProbabilities=r.bestArmProbabilities,
                     updateMessage=r.updateMessage,
@@ -1787,7 +1717,7 @@ class UpdateWeightsContextualBandit:
                 )
                 responses.append(contextual_result)
 
-            return ContextualBanditResult(
+            return ContextualBanditNoTreeResult(
                 attributes=self.contextual_bandit_settings.attributes,
                 responses=responses,
             )
@@ -1853,13 +1783,6 @@ class RowsByContextWithData:
         return cls.from_rows_by_context(rows_by_context)
 
 
-@dataclass
-class ContextualTreeBanditResult(ContextualBanditResult):
-    """Tree fit output. ``leaf_map`` uses tuple context keys until JSON serialization."""
-
-    leaf_map: dict = field(default_factory=dict)  # type: ignore[assignment]
-
-
 def no_update_result(weights: list, update_message: str | None = None) -> BanditResult:
     """Build a BanditResult that leaves weights unchanged (no update)."""
     w = weights.copy()
@@ -1889,10 +1812,16 @@ def bandit_result_to_contextual_response(
         if r.singleVariationResults
         else None
     )
+    variation_variances = (
+        [float(v.variationVariances or 0) for v in r.singleVariationResults]
+        if r.singleVariationResults
+        else None
+    )
     return ContextualBanditResponse(
         context=context,
         sampleSizePerVariation=sample_size_per_variation,
         variationMeans=variation_means,
+        variationVariances=variation_variances,
         updatedWeights=r.updatedWeights,
         bestArmProbabilities=r.bestArmProbabilities,
         updateMessage=r.updateMessage,
@@ -1918,6 +1847,7 @@ def contextual_response_for_context_key(
         context=context_rule,
         sampleSizePerVariation=source.sampleSizePerVariation,
         variationMeans=source.variationMeans,
+        variationVariances=source.variationVariances,
         updatedWeights=source.updatedWeights,
         bestArmProbabilities=source.bestArmProbabilities,
         updateMessage=source.updateMessage,
@@ -2210,7 +2140,7 @@ class UpdateWeightsContextualTree:
         analysis_settings: AnalysisSettingsForStatsEngine,
         metric_settings: MetricSettingsForStatsEngine,
         rng: np.random.Generator,
-    ) -> tuple[int, int]:
+    ) -> tuple[int, int, float]:
         """Given the current tree, which feature inside of which leaf most reduces SSE?
 
         ``variation_columns`` must match stat columns from ``summable_statistics_...``, i.e.
@@ -2265,7 +2195,8 @@ class UpdateWeightsContextualTree:
         )
         idx = np.argmax(diff)
         pos = np.unravel_index(idx, diff.shape)
-        return (int(pos[0]), int(pos[1]))
+        sse_current_sum = np.sum(sse_current_across_variations)
+        return (int(pos[0]), int(pos[1]), sse_current_sum)
 
     @staticmethod
     def create_stats_df(
@@ -2355,7 +2286,6 @@ class UpdateWeightsContextualTree:
                     f"0..{self.num_variations - 1}"
                 )
             by_var.setdefault(v, []).append(r)
-        bandit_period = rows[0].get("bandit_period", 0)
         var_ids_canon = [str(v) for v in list(self.bandit_settings.var_ids)]
         out: ExperimentMetricQueryResponseRows = []
         for v in range(self.num_variations):
@@ -2363,7 +2293,6 @@ class UpdateWeightsContextualTree:
             row: dict[str, Any] = {
                 LEAF_ID_COLUMN: leaf_id,
                 "dimension": CONTEXTUAL_BANDIT_DIMENSION_VALUE,
-                "bandit_period": bandit_period,
                 "variation": var_ids_canon[v],
             }
             for col in sum_cols_active:
@@ -2397,9 +2326,10 @@ class UpdateWeightsContextualTree:
             c for c in self.stats_encoded.columns if c not in self.stats_df.columns
         ]
         variation_columns = [str(v) for v in list(self.bandit_settings.var_ids)]
+        sse_current_sums = np.zeros(self.max_leaves)
 
         for current_leaf in range(0, self.max_leaves - 1):
-            feature_to_update, leaf_to_update = self.identify_update(
+            feature_to_update, leaf_to_update, sse_current_sum = self.identify_update(
                 self.stats_encoded,
                 dummy_feature_names,
                 variation_columns,
@@ -2407,6 +2337,7 @@ class UpdateWeightsContextualTree:
                 self.metric_settings,
                 self.rng,
             )
+            sse_current_sums[current_leaf] = sse_current_sum
             new_leaf = current_leaf + 1
             matches_update_leaf = self.stats_encoded["current_leaf"] == int(
                 leaf_to_update
@@ -2431,30 +2362,32 @@ class UpdateWeightsContextualTree:
         self.set_leaf_structure(self.leaf_map)
         self.sse_final = self.calculate_sse_final(self.stats_encoded, variation_columns)
 
-    def compute_result(self) -> ContextualTreeBanditResult:
+    def compute_result(self) -> ContextualBanditResult:
         """Fit tree, aggregate rows per leaf with LEAF_ID_COLUMN, run **one** UpdateWeightsContextualBandit with contexts=[LEAF_ID_COLUMN], then map leaf-level results and weights onto each real context via leaf_map."""
         self.build_tree()
         if not self.leaf_ids:
-            no_leaf_responses: List[ContextualBanditResponse] = []
+            no_leaf_responses: List[ContextualBanditContextSummary] = []
             for ctx in self.partition.unique_keys:
                 context_rule = context_rule_for_context_key(
                     ctx, self.bandit_settings.attributes
                 )
                 no_leaf_responses.append(
-                    ContextualBanditResponse(
+                    ContextualBanditContextSummary(
                         context=context_rule,
                         sampleSizePerVariation=None,
-                        variationMeans=None,
+                        sampleMeans=None,
+                        sampleVariances=None,
                         bestArmProbabilities=None,
                         error=None,
                         updatedWeights=list(self.constant_weights),
                         updateMessage="No update",
                     )
                 )
-            return ContextualTreeBanditResult(
+            return ContextualBanditResult(
                 attributes=self.bandit_settings.attributes,
-                responses=no_leaf_responses,
-                leaf_map=copy.copy(self.leaf_map),
+                responses=[],
+                responsesContext=no_leaf_responses,
+                leafMap=copy.copy(self.leaf_map),
             )
         by_leaf_cumulative = self._build_by_leaf_cumulative(
             self.partition.rows_with_data
@@ -2473,6 +2406,7 @@ class UpdateWeightsContextualTree:
         leaf_bandit_settings = self.contextual_bandit_settings_for_tree(
             self.bandit_settings
         )
+
         leaf_bandit = UpdateWeightsContextualBandit(
             rows_all,
             self.metric_settings,
@@ -2486,33 +2420,72 @@ class UpdateWeightsContextualTree:
             )
         )
 
-        responses: List[ContextualBanditResponse] = []
+        responses_leaf: List[ContextualBanditResponse] = []
+        for leaf_id in self.leaf_ids:
+            leaf_snapshot = leaf_responses_by_id.get(str(leaf_id))
+            if leaf_snapshot is not None:
+                responses_leaf.append(leaf_snapshot)
+            else:
+                responses_leaf.append(
+                    bandit_result_to_contextual_response(
+                        {LEAF_ID_COLUMN: {"$in": [str(leaf_id)]}},
+                        no_update_result(list(self.constant_weights)),
+                    )
+                )
+
+        responses_context: List[ContextualBanditContextSummary] = []
+        var_ids = list(self.bandit_settings.var_ids)
         for ctx in self.partition.unique_keys:
             context_rule = context_rule_for_context_key(
                 ctx, self.bandit_settings.attributes
             )
+
+            # Sample sizes and means are reported at the context granularity:
+            # compute per-variation statistics from this context's own rows.
+            ctx_stats = summable_statistics_per_variation_from_experiment_metric_rows(
+                self.partition.rows_with_data.get(ctx) or [],
+                self.metric_settings,
+                var_ids,
+            )
+            sample_size_per_variation = [float(s.n) for s in ctx_stats]
+            sample_means = [float(s.unadjusted_mean) for s in ctx_stats]
+            sample_variances = [float(s.unadjusted_variance) for s in ctx_stats]
+
+            # Weights are decided per leaf, so look up the leaf this context
+            # maps to and reuse its updated weights / best-arm probabilities.
             leaf_id = self.leaf_map.get(ctx)
             leaf_snapshot = (
                 leaf_responses_by_id.get(str(leaf_id)) if leaf_id is not None else None
             )
             if leaf_snapshot is not None:
-                responses.append(
-                    contextual_response_for_context_key(
-                        ctx, self.bandit_settings.attributes, leaf_snapshot
-                    )
-                )
+                updated_weights = leaf_snapshot.updatedWeights
+                best_arm_probabilities = leaf_snapshot.bestArmProbabilities
+                update_message = leaf_snapshot.updateMessage
+                error = leaf_snapshot.error
             else:
-                responses.append(
-                    bandit_result_to_contextual_response(
-                        context_rule,
-                        no_update_result(list(self.constant_weights)),
-                    )
-                )
+                updated_weights = list(self.constant_weights)
+                best_arm_probabilities = None
+                update_message = "No update"
+                error = None
 
-        return ContextualTreeBanditResult(
+            responses_context.append(
+                ContextualBanditContextSummary(
+                    context=context_rule,
+                    sampleSizePerVariation=sample_size_per_variation,
+                    sampleMeans=sample_means,
+                    sampleVariances=sample_variances,
+                    updatedWeights=updated_weights,
+                    bestArmProbabilities=best_arm_probabilities,
+                    updateMessage=update_message,
+                    error=error,
+                )
+            )
+
+        return ContextualBanditResult(
             attributes=self.bandit_settings.attributes,
-            responses=responses,
-            leaf_map=copy.copy(self.leaf_map),
+            responses=responses_leaf,
+            responsesContext=responses_context,
+            leafMap=copy.copy(self.leaf_map),
         )
 
 
@@ -2582,7 +2555,7 @@ class UpdateWeightsContextualTreeReward(UpdateWeightsContextualTree):
         analysis_settings: AnalysisSettingsForStatsEngine,
         metric_settings: MetricSettingsForStatsEngine,
         rng: np.random.Generator,
-    ) -> tuple[int, int]:
+    ) -> tuple[int, int, float]:
         """Given the current tree, which feature inside of which leaf most increases expected reward?
 
         ``variation_columns`` must match stat columns from ``summable_statistics_...``, i.e.
@@ -2658,7 +2631,8 @@ class UpdateWeightsContextualTreeReward(UpdateWeightsContextualTree):
         diff = expected_reward_split - current_matrix
         idx = np.argmax(diff)
         pos = np.unravel_index(idx, diff.shape)
-        return (int(pos[0]), int(pos[1]))
+        expected_reward_current_sum = float(np.sum(expected_reward_current))
+        return (int(pos[0]), int(pos[1]), expected_reward_current_sum)
 
 
 # Get just the columns for a single metric
@@ -2693,23 +2667,21 @@ def get_contextual_bandit_result(
     metric: MetricSettingsForStatsEngine,
     settings: AnalysisSettingsForStatsEngine,
     contextual_bandit_settings: ContextualBanditSettingsForStatsEngine,
-    use_tree: bool,  # remove later, used only for simulation
 ) -> ContextualBanditResult:
-
-    if use_tree:
-        return UpdateWeightsContextualTree(
-            rows=rows,
-            metric_settings=metric,
-            analysis_settings=settings,
-            bandit_settings=contextual_bandit_settings,
-        ).compute_result()
-    else:
-        return UpdateWeightsContextualBandit(
-            rows=rows,
-            metric_settings=metric,
-            analysis_settings=settings,
-            contextual_bandit_settings=contextual_bandit_settings,
-        ).compute_result()
+    result = UpdateWeightsContextualTree(
+        rows=rows,
+        metric_settings=metric,
+        analysis_settings=settings,
+        bandit_settings=contextual_bandit_settings,
+    ).compute_result()
+    # leafMap is built with tuple context keys during the fit; convert it to
+    # JSON-serializable entries before the result leaves the stats engine.
+    result.leafMap = (
+        serialize_leaf_map_for_json(result.leafMap, list(result.attributes))
+        if result.leafMap
+        else []
+    )
+    return result
 
 
 def serialize_leaf_map_for_json(
@@ -2727,26 +2699,6 @@ def serialize_leaf_map_for_json(
             continue
         entries.append(ContextualLeafMapEntry(context=context, leafId=int(leaf_id)))
     return entries
-
-
-def contextual_bandit_result_for_serialization(
-    result: Optional[ContextualBanditResult],
-) -> Optional[ContextualBanditResult]:
-    """Normalize contextual bandit output for JSON export."""
-    if result is None:
-        return None
-    leaf_map_json = None
-    if isinstance(result, ContextualTreeBanditResult) and result.leaf_map:
-        leaf_map_json = serialize_leaf_map_for_json(
-            result.leaf_map, list(result.attributes)
-        )
-    elif result.leaf_map is not None:
-        leaf_map_json = list(result.leaf_map)
-    return ContextualBanditResult(
-        attributes=list(result.attributes),
-        responses=list(result.responses),
-        leaf_map=leaf_map_json,
-    )
 
 
 def process_experiment_results(data: Dict[str, Any]) -> Tuple[
@@ -2770,7 +2722,6 @@ def process_experiment_results(data: Dict[str, Any]) -> Tuple[
                             metric=this_metric,
                             settings=d.analyses[0],
                             contextual_bandit_settings=d.contextual_bandit_settings,
-                            use_tree=True,
                         )
                         continue
                     if d.bandit_settings:
@@ -2837,9 +2788,7 @@ def process_multiple_experiment_results(
                     id=exp_data_proc.id,
                     results=fixed_results,
                     banditResult=bandit_result,
-                    contextualBanditResult=contextual_bandit_result_for_serialization(
-                        contextual_bandit_result
-                    ),
+                    contextualBanditResult=contextual_bandit_result,
                     error=None,
                     traceback=None,
                 )

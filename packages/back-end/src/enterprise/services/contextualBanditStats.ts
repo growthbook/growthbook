@@ -220,17 +220,23 @@ async function runContextualStatsEngineWithPython(
 
   const statsRows = rows;
 
+  const decisionMetricSettings = getMetricSettingsForStatsEngine(
+    decisionMetric,
+    metricMap,
+    snapshotSettings,
+  );
+  // Contextual bandits use CUPED aggregates but do not pool theta in gbstats.
+  if (decisionMetricSettings.keep_theta) {
+    decisionMetricSettings.keep_theta = false;
+  }
+
   const analysis = (
     await runStatsEngine([
       {
         id: snapshotId,
         data: {
           metrics: {
-            [decisionMetricId]: getMetricSettingsForStatsEngine(
-              decisionMetric,
-              metricMap,
-              snapshotSettings,
-            ),
+            [decisionMetricId]: decisionMetricSettings,
           },
           analyses: [analysisForEngine],
           query_results: [

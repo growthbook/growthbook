@@ -21,12 +21,16 @@ from gbstats.gbstats import (
     preprocess_bandits,
     get_var_id_map,
     variation_index_from_row,
-    contextual_bandit_result_for_serialization,
+    serialize_leaf_map_for_json,
     context_tuple_from_row,
     COMBINED_CONTEXT_ATTRIBUTE_VALUE,
-    ContextualTreeBanditResult,
+    ContextualBanditResult,
+    UpdateWeightsContextualTree,
 )
-from gbstats.models.results import ContextualBanditResponse
+from gbstats.models.results import (
+    ContextualBanditResponse,
+    ContextualBanditContextSummary,
+)
 from gbstats.bayesian.bandits import BanditsSimple
 
 from gbstats.models.settings import BanditWeightsSinglePeriod
@@ -1527,6 +1531,42 @@ class TestVariationIndexFromRow(TestCase):
         self.assertIsNone(variation_index_from_row("missing", var_id_map, 2))
 
 
+class TestUpdateWeightsContextualTreeAggregateVariationColumns(TestCase):
+    def test_empty_dataframe_returns_empty_dict(self):
+        result = UpdateWeightsContextualTree.aggregate_variation_columns(
+            pd.DataFrame(), ["v0", "v1"]
+        )
+        self.assertEqual(result, {})
+
+    def test_missing_column_raises_key_error(self):
+        stat = SampleMeanStatistic(n=10, sum=100.0, sum_squares=1100.0)
+        df = pd.DataFrame({"v0": [stat]})
+        with self.assertRaises(KeyError):
+            UpdateWeightsContextualTree.aggregate_variation_columns(df, ["v0", "v1"])
+
+    def test_pools_summable_statistics_across_rows(self):
+        stat_a = SampleMeanStatistic(n=10, sum=100.0, sum_squares=1100.0)
+        stat_b = SampleMeanStatistic(n=20, sum=300.0, sum_squares=5000.0)
+        df = pd.DataFrame({"v0": [stat_a, stat_b], "v1": [stat_b, stat_b]})
+
+        aggregated = UpdateWeightsContextualTree.aggregate_variation_columns(
+            df, ["v0", "v1"]
+        )
+
+        if isinstance(aggregated["v0"], SampleMeanStatistic):
+            self.assertEqual(aggregated["v0"].n, 30)
+            self.assertEqual(aggregated["v0"].sum, 400.0)
+            self.assertEqual(aggregated["v0"].sum_squares, 6100.0)
+        else:
+            raise ValueError(["v0 must be SampleMeanStatistic"])
+        if isinstance(aggregated["v1"], SampleMeanStatistic):
+            self.assertEqual(aggregated["v1"].n, 40)
+            self.assertEqual(aggregated["v1"].sum, 600.0)
+            self.assertEqual(aggregated["v1"].sum_squares, 10000.0)
+        else:
+            raise ValueError(["v1 must be SampleMeanStatistic"])
+
+
 class TestContextTupleFromRow(TestCase):
     def test_missing_attribute_columns_default_to_combined(self):
         ctx = context_tuple_from_row(
@@ -1537,28 +1577,48 @@ class TestContextTupleFromRow(TestCase):
 
 
 class TestContextualBanditResultSerialization(TestCase):
-    def test_tree_result_serializes_leaf_map_for_json(self):
-        tree_result = ContextualTreeBanditResult(
+    def test_serialize_leaf_map_for_json(self):
+        entries = serialize_leaf_map_for_json({("US",): 0}, ["attr_cb_region_id"])
+        payload = [dataclasses.asdict(entry) for entry in entries]
+        json.dumps(payload)
+        self.assertEqual(
+            payload,
+            [{"context": {"attr_cb_region_id": "US"}, "leafId": 0}],
+        )
+
+    def test_tree_result_with_serialized_leaf_map_is_json_serializable(self):
+        tree_result = ContextualBanditResult(
             attributes=["attr_cb_region_id"],
             responses=[
                 ContextualBanditResponse(
-                    context={"attr_cb_region_id": {"$in": ["US"]}},
+                    context={"leaf_id": {"$in": ["0"]}},
                     sampleSizePerVariation=[100.0, 100.0],
                     variationMeans=[0.1, 0.2],
+                    variationVariances=[0.09, 0.16],
                     updatedWeights=[0.4, 0.6],
                     bestArmProbabilities=[0.4, 0.6],
                     updateMessage="successfully updated",
                     error=None,
                 )
             ],
-            leaf_map={("US",): 0},
+            responsesContext=[
+                ContextualBanditContextSummary(
+                    context={"attr_cb_region_id": {"$in": ["US"]}},
+                    sampleSizePerVariation=[100.0, 100.0],
+                    sampleMeans=[0.1, 0.2],
+                    sampleVariances=[0.09, 0.16],
+                    updatedWeights=[0.4, 0.6],
+                    bestArmProbabilities=[0.4, 0.6],
+                    updateMessage="successfully updated",
+                    error=None,
+                )
+            ],
+            leafMap=serialize_leaf_map_for_json({("US",): 0}, ["attr_cb_region_id"]),
         )
-        serializable = contextual_bandit_result_for_serialization(tree_result)
-        assert serializable is not None
-        payload = dataclasses.asdict(serializable)
+        payload = dataclasses.asdict(tree_result)
         json.dumps(payload)
         self.assertEqual(
-            payload["leaf_map"],
+            payload["leafMap"],
             [{"context": {"attr_cb_region_id": "US"}, "leafId": 0}],
         )
 

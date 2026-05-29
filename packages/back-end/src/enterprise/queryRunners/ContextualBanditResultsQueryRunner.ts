@@ -20,7 +20,6 @@ import type { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment
 import {
   attributesToCondition,
   buildExperimentSnapshotSettingsForCb,
-  enforceContextCap,
   getContextualBanditSettingsForStatsEngine,
   persistContextualBanditEvent,
 } from "back-end/src/enterprise/services/contextualBandits";
@@ -170,10 +169,6 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       []) as ExperimentMetricQueryResponseRows;
 
     const attributeColumns = this.snapshotSettings.contextualAttributes;
-    const catchAllContextId = deriveContextId(
-      this.snapshotSettings.experimentId,
-      {},
-    );
 
     // 1. Tag rows with derived contextIds (stable hash of experimentId + the
     //    surviving attribute map).
@@ -187,18 +182,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       ),
     }));
 
-    // 2. Enforce the Mongo cap on (contexts × variations).
-    const numVariations =
-      this.snapshotSettings.variations.length || this.variationNames.length;
-    const { rows: trimmed } = enforceContextCap(
-      tagged,
-      this.snapshotSettings.maxContexts,
-      numVariations,
-      catchAllContextId,
-      attributeColumns,
-    );
-
-    // 3. Build the stats-engine settings from the frozen snapshot + latest
+    // 2. Build the stats-engine settings from the frozen snapshot + latest
     //    CBE weights for this (experiment, phase).
     const cb = await this.loadCbDoc();
     const currentWeightsByContext: Record<string, number[]> =
@@ -250,7 +234,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       1 / 24,
     );
 
-    return runContextualStatsEngine(statsSettings, trimmed, {
+    return runContextualStatsEngine(statsSettings, tagged, {
       snapshotId: this.model.id,
       sql: queryDoc.query,
       decisionMetricId,

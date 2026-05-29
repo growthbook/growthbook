@@ -36,6 +36,7 @@ class BanditConfig(BayesianConfig):
 class BanditResponse:
     users: Optional[List[float]]
     cr: Optional[List[float]]
+    variance: Optional[List[float]]
     ci: Optional[List[ResponseCI]]
     bandit_weights: Optional[List[float]]
     best_arm_probabilities: Optional[List[float]]
@@ -188,6 +189,7 @@ class Bandits(ABC):
         return BanditResponse(
             users=self.variation_counts.tolist(),
             cr=(self.variation_means).tolist(),
+            variance=self.variation_variances.tolist(),
             ci=credible_intervals,
             bandit_weights=p.tolist() if enough_units else None,
             best_arm_probabilities=best_arm_probabilities.tolist(),
