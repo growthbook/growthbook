@@ -2166,6 +2166,10 @@ export async function getFeatureMetaInfoById(
     neverStale: 1,
     "jsonSchema.enabled": 1,
     revision: 1,
+    prerequisites: 1,
+    "rules.prerequisites": 1,
+    "rules.savedGroups": 1,
+    environmentSettings: 1,
   };
   if (includeDefaultValue) {
     projection.defaultValue = 1;
@@ -2175,22 +2179,46 @@ export async function getFeatureMetaInfoById(
 
   return features
     .filter((f) => context.permissions.canReadSingleProjectResource(f.project))
-    .map((f) => ({
-      id: f.id,
-      project: f.project,
-      archived: f.archived,
-      description: f.description,
-      dateCreated: f.dateCreated,
-      dateUpdated: f.dateUpdated,
-      tags: f.tags,
-      owner: f.owner,
-      valueType: f.valueType,
-      version: f.version,
-      linkedExperiments: f.linkedExperiments,
-      neverStale: f.neverStale,
-      revision: f.revision as FeatureMetaInfo["revision"],
-      ...(includeDefaultValue && { defaultValue: f.defaultValue ?? "" }),
-    }));
+    .map((f) => {
+      const doc = f as unknown as Record<string, unknown>;
+      const rules = doc.rules as
+        | { prerequisites?: unknown[]; savedGroups?: unknown[] }[]
+        | undefined;
+      const envSettings = doc.environmentSettings as
+        | Record<string, { prerequisites?: unknown[] }>
+        | undefined;
+      const topPrereqs = doc.prerequisites as unknown[] | undefined;
+
+      const hasPrerequisites =
+        (topPrereqs?.length ?? 0) > 0 ||
+        (rules ?? []).some((r) => (r.prerequisites?.length ?? 0) > 0) ||
+        Object.values(envSettings ?? {}).some(
+          (e) => (e.prerequisites?.length ?? 0) > 0,
+        );
+
+      const hasSavedGroups = (rules ?? []).some(
+        (r) => (r.savedGroups?.length ?? 0) > 0,
+      );
+
+      return {
+        id: f.id,
+        project: f.project,
+        archived: f.archived,
+        description: f.description,
+        dateCreated: f.dateCreated,
+        dateUpdated: f.dateUpdated,
+        tags: f.tags,
+        owner: f.owner,
+        valueType: f.valueType,
+        version: f.version,
+        linkedExperiments: f.linkedExperiments,
+        neverStale: f.neverStale,
+        hasPrerequisites,
+        hasSavedGroups,
+        revision: f.revision as FeatureMetaInfo["revision"],
+        ...(includeDefaultValue && { defaultValue: f.defaultValue ?? "" }),
+      };
+    });
 }
 
 export async function getFeatureMetaInfoByIds(
