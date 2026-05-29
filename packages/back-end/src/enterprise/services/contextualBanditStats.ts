@@ -13,6 +13,7 @@ import type {
   ContextualBanditSnapshot,
 } from "shared/types/stats";
 import { logger } from "back-end/src/util/logger";
+import { CB_MOCK_STATS } from "back-end/src/util/secrets";
 import {
   getAnalysisSettingsForStatsEngine,
   getMetricSettingsForStatsEngine,
@@ -70,7 +71,7 @@ export async function runContextualStatsEngine(
   );
   // Mock is opt-in only (tests / dev without the stats engine). Default path
   // calls the Python contextual tree bandit in gbstats.
-  if (process.env.GROWTHBOOK_CB_MOCK_STATS === "1") {
+  if (CB_MOCK_STATS) {
     return mockFit(settings, normalizedRows);
   }
   if (!runParams) {
