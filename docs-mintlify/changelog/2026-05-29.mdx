@@ -1,0 +1,35 @@
+---
+title: "Week of May 29, 2026"
+sidebarTitle: "May 29, 2026"
+description: "GrowthBook 4.4, Snowflake incremental refresh, drag-and-drop dashboards, and more."
+---
+
+This week brings the **4.4 release**, expanded incremental refresh support, new dashboard interactions, and a long list of polish across feature flags, experiments, and the API.
+
+## New features
+
+- **Snowflake incremental mode.** Incremental refresh is now supported for Snowflake data sources, dramatically cutting query time and warehouse cost for ongoing experiment analyses. See [Query optimization](/experimentation-analysis/query-optimization).
+- **Cross-fact-table ratio metrics in incremental refresh.** Ratio metrics that span multiple fact tables can now take advantage of incremental refresh.
+- **Opt in to incremental refresh from ephemeral mode.** Move existing experiments from ephemeral to incremental refresh without recreating them.
+- **Drag-and-drop dashboards.** Rearrange tiles on experiment dashboards by dragging them into place. See [Experiment dashboards](/experimentation-analysis/experiment-dashboards).
+- **Require projects for SDK connections.** A new organization setting lets admins require every SDK connection to be scoped to a project, improving isolation in multi-team setups.
+- **Schedule experiments from the API.** The `postExperiment` endpoint now accepts schedule configuration, and the experiment scheduling UI renders the schedule's timezone for clarity.
+- **`experiment.warning` event for missing data.** A new webhook event fires when an experiment has no data, so you can wire up alerting. See [Webhook events](/webhooks/event-webhooks/events).
+- **Beta API for saved group revisions.** A new beta endpoint exposes revision history for saved groups so you can audit and roll back changes programmatically.
+- **More feature search filters.** Additional `has:` search filters let you quickly find features by their attributes from the Features list.
+
+## Updates
+
+- **GrowthBook 4.4** is out for self-hosted users. Upgrade with your usual Docker or Helm flow — see [Self-hosting](/self-host).
+- **Archive state in feature diffs.** Archive and unarchive actions now appear in the feature change diff so reviewers can see the full picture before approving.
+- **Better query cancellation.** Cancelling a long-running query now properly cleans up dependent queries, and fixes a BigQuery location bug that could leave queries stuck.
+- **Product Analytics group-by fixes.** Several edge cases in group-by behavior have been smoothed out for more accurate breakdowns.
+- **Safer Test Webhook endpoint.** Added stricter validation and safety checks when sending test webhook events.
+- **Feature attribution polish.** Cleaner display of user vs. API attribution on feature changes, plus DX improvements to the REST feature and revision endpoints.
+- **Cleaner experiment API schema.** Removed unused `trafficSplit` and `targetingCondition` fields from experiment API request schemas.
+
+## Fixes
+
+- Modals containing forms can no longer be dismissed accidentally by clicking outside, preventing lost work.
+- Fixed a small bug when reverting feature changes that could affect publishing.
+- Fixed the new namespace modal and resolved several SDK warning and form issues.
