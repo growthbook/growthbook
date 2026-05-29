@@ -1638,6 +1638,25 @@ export function expandMetricGroups(
   return expandedMetricIds;
 }
 
+export function resolveMetricTiers(
+  guardrailIds: string[],
+  signalIds: string[],
+  metricGroups: MetricGroupInterface[],
+): { guardrail: Set<string>; signal: Set<string> } {
+  const expandedGuardrail = new Set(
+    expandMetricGroups(guardrailIds, metricGroups),
+  );
+  const expandedSignal = new Set(expandMetricGroups(signalIds, metricGroups));
+
+  for (const id of expandedSignal) {
+    if (expandedGuardrail.has(id)) {
+      expandedSignal.delete(id);
+    }
+  }
+
+  return { guardrail: expandedGuardrail, signal: expandedSignal };
+}
+
 export function isMetricJoinable(
   metricIdTypes: string[],
   userIdType: string,

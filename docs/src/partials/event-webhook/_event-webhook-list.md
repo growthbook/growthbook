@@ -1686,7 +1686,8 @@ Triggered when an experiment is created
             defaultDashboardId?: string | undefined;
             templateId?: string | undefined;
             statusUpdateSchedule?: ({
-                startAt?: string | undefined;
+                /** ISO datetime when the experiment should start. Must be in the future. Setting or clearing this field invalidates any existing staged start (`nextScheduledStatusUpdate`); call POST /experiments/{id}/start to stage the new schedule. */
+                startAt: string;
             } | null) | undefined;
             nextScheduledStatusUpdate?: ({
                 type: "start";
@@ -1942,7 +1943,8 @@ Triggered when an experiment is updated
             defaultDashboardId?: string | undefined;
             templateId?: string | undefined;
             statusUpdateSchedule?: ({
-                startAt?: string | undefined;
+                /** ISO datetime when the experiment should start. Must be in the future. Setting or clearing this field invalidates any existing staged start (`nextScheduledStatusUpdate`); call POST /experiments/{id}/start to stage the new schedule. */
+                startAt: string;
             } | null) | undefined;
             nextScheduledStatusUpdate?: ({
                 type: "start";
@@ -2159,7 +2161,8 @@ Triggered when an experiment is updated
             defaultDashboardId?: string | undefined;
             templateId?: string | undefined;
             statusUpdateSchedule?: ({
-                startAt?: string | undefined;
+                /** ISO datetime when the experiment should start. Must be in the future. Setting or clearing this field invalidates any existing staged start (`nextScheduledStatusUpdate`); call POST /experiments/{id}/start to stage the new schedule. */
+                startAt: string;
             } | null) | undefined;
             nextScheduledStatusUpdate?: ({
                 type: "start";
@@ -2420,7 +2423,8 @@ Triggered when an experiment is deleted
             defaultDashboardId?: string | undefined;
             templateId?: string | undefined;
             statusUpdateSchedule?: ({
-                startAt?: string | undefined;
+                /** ISO datetime when the experiment should start. Must be in the future. Setting or clearing this field invalidates any existing staged start (`nextScheduledStatusUpdate`); call POST /experiments/{id}/start to stage the new schedule. */
+                startAt: string;
             } | null) | undefined;
             nextScheduledStatusUpdate?: ({
                 type: "start";
@@ -2482,6 +2486,10 @@ Triggered when a warning condition is detected on an experiment
             experimentName: string;
             experimentId: string;
             threshold: number;
+        } | {
+            type: "no-data";
+            experimentName: string;
+            experimentId: string;
         } | {
             type: "scheduled-status-update-failed";
             experimentName: string;

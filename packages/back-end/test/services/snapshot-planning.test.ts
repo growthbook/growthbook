@@ -131,6 +131,7 @@ describe("snapshot planning", () => {
   const incrementalDatasource = {
     settings: {
       pipelineSettings: {
+        allowWriting: true,
         mode: "incremental",
       },
     },

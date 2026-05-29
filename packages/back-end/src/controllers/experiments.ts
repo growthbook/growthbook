@@ -61,7 +61,10 @@ import {
   updateExperimentAndSync,
   validateVariationIds,
   validateExperimentData,
+  fillEmptyVariationKeys,
+  validateStatusUpdateSchedule,
 } from "back-end/src/services/experiments";
+import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
   approveScheduledExperimentStart,
   startExperiment,
@@ -1139,6 +1142,28 @@ export async function postExperiments(
 
   const { metricIds, datasource, invalidMetricIds } = result;
 
+  // Opt-in attribute registration check (org-level setting). Applies before
+  // any DB writes so a typo'd attribute is rejected outright.
+  assertRegisteredAttributes(
+    context,
+    {
+      hashAttribute: data.hashAttribute,
+      fallbackAttribute: data.fallbackAttribute,
+    },
+    "experiment",
+    undefined,
+    data.project,
+  );
+  for (const phase of data.phases ?? []) {
+    assertRegisteredAttributes(
+      context,
+      { condition: phase.condition },
+      "experiment phase",
+      undefined,
+      data.project,
+    );
+  }
+
   const experimentType = data.type ?? "standard";
   const holdoutId = data.holdoutId;
 
@@ -1457,6 +1482,27 @@ export async function postExperiment(
     context.permissions.throwPermissionError();
   }
 
+  // Opt-in attribute registration check (org-level setting).
+  assertRegisteredAttributes(
+    context,
+    {
+      hashAttribute: data.hashAttribute,
+      fallbackAttribute: data.fallbackAttribute,
+    },
+    "experiment",
+    undefined,
+    experiment.project,
+  );
+  for (const phase of data.phases ?? []) {
+    assertRegisteredAttributes(
+      context,
+      { condition: phase.condition },
+      "experiment phase",
+      undefined,
+      experiment.project,
+    );
+  }
+
   // FIXME: We skip validation because project is updated in a different place than where
   // we define custom fields, and that would prevent the user from doing either update.
   // Ideally we validate custom fields everytime, but we need to update our UI to support that.
@@ -1656,6 +1702,11 @@ export async function postExperiment(
       });
       return;
     }
+  }
+
+  if (data.statusUpdateSchedule) {
+    const effectiveType = data.type ?? experiment.type ?? "standard";
+    validateStatusUpdateSchedule(effectiveType, data.statusUpdateSchedule);
   }
 
   const keys: (keyof ExperimentInterface)[] = [
@@ -2126,6 +2177,7 @@ export async function postExperimentStatus(
       status: ExperimentStatus;
       reason: string;
       dateEnded: string;
+      bypassLockdown?: boolean;
     },
     { id: string }
   >,
@@ -2134,7 +2186,7 @@ export async function postExperimentStatus(
   const context = getContextFromReq(req);
   const { org } = context;
   const { id } = req.params;
-  const { status, reason, dateEnded } = req.body;
+  const { status, reason, dateEnded, bypassLockdown } = req.body;
 
   const changes: Changeset = {};
 
@@ -2202,11 +2254,16 @@ export async function postExperimentStatus(
     status === "running" &&
     phases?.length > 0
   ) {
+    const adminBypass =
+      !!bypassLockdown &&
+      context.permissions.canBypassApprovalChecks(experiment);
+
     const { updated } = await startExperiment({
       context,
       experimentId: id,
       // Internal status endpoint preserves existing behavior by not enforcing checklist at the server boundary.
       skipChecklist: true,
+      bypassLockdown: adminBypass,
     });
 
     await req.audit({
@@ -2575,6 +2632,15 @@ export async function putExperimentPhase(
     context.permissions.throwPermissionError();
   }
 
+  // Opt-in attribute registration check (org-level setting).
+  assertRegisteredAttributes(
+    context,
+    { condition: phase.condition },
+    "experiment phase",
+    undefined,
+    experiment.project,
+  );
+
   phase.dateStarted = phase.dateStarted
     ? getValidDate(phase.dateStarted + ":00Z")
     : new Date();
@@ -2685,6 +2751,19 @@ export async function postExperimentTargeting(
   ) {
     context.permissions.throwPermissionError();
   }
+
+  // Opt-in attribute registration check (org-level setting).
+  assertRegisteredAttributes(
+    context,
+    {
+      hashAttribute,
+      fallbackAttribute,
+      condition,
+    },
+    "experiment",
+    undefined,
+    experiment.project,
+  );
 
   const phases = [...experiment.phases];
 
@@ -2835,6 +2914,15 @@ export async function postExperimentPhase(
   ) {
     context.permissions.throwPermissionError();
   }
+
+  // Opt-in attribute registration check (org-level setting).
+  assertRegisteredAttributes(
+    context,
+    { condition: data.condition },
+    "experiment phase",
+    undefined,
+    experiment.project,
+  );
 
   const date = dateStarted ? getValidDate(dateStarted + ":00Z") : new Date();
 
@@ -3953,6 +4041,10 @@ export async function postExperimentFeatureValues(
     return;
   }
 
+  fillEmptyVariationKeys(
+    variations,
+    experiment.variations.map((v) => v.key),
+  );
   validateVariationIds(variations);
   validateExperimentFeatureVariations({
     variations,
@@ -3990,13 +4082,29 @@ export async function postExperimentFeatureValues(
 
   if (variationsChanged) {
     changes.variations = variations;
+    // Also update the phase's variations array to include new/removed variations
+    const phases = changes.phases || [...experiment.phases];
+    const lastIndex = phases.length - 1;
+    phases[lastIndex] = {
+      ...phases[lastIndex],
+      variations: variations.map((v) => ({
+        id: v.id,
+        status: "active" as const,
+      })),
+    };
+    changes.phases = phases;
   }
 
   if (variationWeightsChanged) {
-    changes.phases = applyVariationWeightsToLatestPhase(
-      experiment,
+    // Use changes.phases if already updated (e.g. by variationsChanged above), otherwise start from experiment
+    const basePhases = changes.phases || [...experiment.phases];
+    const lastIndex = basePhases.length - 1;
+    const updatedPhases = [...basePhases];
+    updatedPhases[lastIndex] = {
+      ...updatedPhases[lastIndex],
       variationWeights,
-    );
+    };
+    changes.phases = updatedPhases;
   }
 
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
@@ -4076,13 +4184,14 @@ export async function postExperimentFeatureValues(
         return;
       }
 
-      const updatedFeature = await publishRevision(
+      const updatedFeature = await publishRevision({
         context,
         feature,
-        updatedRevision,
-        mergeResult.result,
-        "auto-publish experiment variation values change",
-      );
+        revision: updatedRevision,
+        result: mergeResult.result,
+        comment: "auto-publish experiment variation values change",
+        bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
+      });
 
       await req.audit({
         event: "feature.publish",

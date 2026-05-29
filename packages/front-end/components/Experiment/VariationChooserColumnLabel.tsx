@@ -20,6 +20,7 @@ export interface VariationChooserColumnLabelProps {
   baselineRow: number;
   dropdownEnabled?: boolean;
   isHoldout?: boolean;
+  labelMaxWidth?: number;
 }
 
 export default function VariationChooserColumnLabel({
@@ -29,6 +30,7 @@ export default function VariationChooserColumnLabel({
   baselineRow,
   dropdownEnabled = false,
   isHoldout = false,
+  labelMaxWidth = 75,
 }: VariationChooserColumnLabelProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
@@ -210,7 +212,7 @@ export default function VariationChooserColumnLabel({
           {selectedVariation.index}
         </span>
         <OverflowText
-          maxWidth={75}
+          maxWidth={labelMaxWidth}
           style={{ color: "var(--color-text-mid)", fontSize: "13px" }}
         >
           {selectedVariation.name}
