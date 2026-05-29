@@ -55,7 +55,8 @@ export type SavedGroupRevisionReviewRequestedPayload = z.infer<
   typeof savedGroupRevisionReviewRequestedPayload
 >;
 
-export const savedGroupRevisionRebasedPayload = savedGroupRevisionWebhookPayload;
+export const savedGroupRevisionRebasedPayload =
+  savedGroupRevisionWebhookPayload;
 export type SavedGroupRevisionRebasedPayload = z.infer<
   typeof savedGroupRevisionRebasedPayload
 >;
@@ -72,7 +73,8 @@ export type SavedGroupRevisionDiscardedPayload = z.infer<
   typeof savedGroupRevisionDiscardedPayload
 >;
 
-export const savedGroupRevisionReopenedPayload = savedGroupRevisionWebhookPayload;
+export const savedGroupRevisionReopenedPayload =
+  savedGroupRevisionWebhookPayload;
 export type SavedGroupRevisionReopenedPayload = z.infer<
   typeof savedGroupRevisionReopenedPayload
 >;
@@ -88,12 +90,13 @@ export type SavedGroupRevisionUpdatedPayload = z.infer<
   typeof savedGroupRevisionUpdatedPayload
 >;
 
-export const savedGroupRevisionApprovedPayload = savedGroupRevisionWebhookPayload
-  .extend({
-    reviewer,
-    reviewComment: z.string().nullable(),
-  })
-  .strict();
+export const savedGroupRevisionApprovedPayload =
+  savedGroupRevisionWebhookPayload
+    .extend({
+      reviewer,
+      reviewComment: z.string().nullable(),
+    })
+    .strict();
 export type SavedGroupRevisionApprovedPayload = z.infer<
   typeof savedGroupRevisionApprovedPayload
 >;
@@ -109,23 +112,25 @@ export type SavedGroupRevisionChangesRequestedPayload = z.infer<
   typeof savedGroupRevisionChangesRequestedPayload
 >;
 
-export const savedGroupRevisionCommentedPayload = savedGroupRevisionWebhookPayload
-  .extend({
-    reviewer,
-    reviewComment: z.string(),
-  })
-  .strict();
+export const savedGroupRevisionCommentedPayload =
+  savedGroupRevisionWebhookPayload
+    .extend({
+      reviewer,
+      reviewComment: z.string(),
+    })
+    .strict();
 export type SavedGroupRevisionCommentedPayload = z.infer<
   typeof savedGroupRevisionCommentedPayload
 >;
 
-export const savedGroupRevisionRevertedPayload = savedGroupRevisionWebhookPayload
-  .extend({
-    // The version that was reverted *to*, when it can be resolved from the
-    // source revision. Optional because the revert is keyed by revision id.
-    revertedToVersion: z.number().int().optional(),
-  })
-  .strict();
+export const savedGroupRevisionRevertedPayload =
+  savedGroupRevisionWebhookPayload
+    .extend({
+      // The version that was reverted *to*, when it can be resolved from the
+      // source revision. Optional because the revert is keyed by revision id.
+      revertedToVersion: z.number().int().optional(),
+    })
+    .strict();
 export type SavedGroupRevisionRevertedPayload = z.infer<
   typeof savedGroupRevisionRevertedPayload
 >;
