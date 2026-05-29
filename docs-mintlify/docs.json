@@ -64,6 +64,7 @@
                   "features/rules",
                   "features/targeting",
                   "features/safe-rollouts",
+                  "features/ramp-schedules",
                   "features/prerequisites"
                 ]
               },
