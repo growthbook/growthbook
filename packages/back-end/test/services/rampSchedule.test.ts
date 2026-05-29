@@ -3238,6 +3238,144 @@ describe("approveAndPublishStep", () => {
     // nextProcessAt must be non-null so the agenda doesn't strand the schedule.
     expect(current.nextProcessAt).not.toBeNull();
   });
+
+  it("does NOT advance a composite step (interval + approval) when the interval timer is still pending", async () => {
+    // Step 0 has both an interval timer (not yet elapsed) and requiresApproval.
+    // Approving must record the approval but leave the schedule on step 0 until
+    // the timer fires — both holds must clear before advancing.
+    const future = new Date(Date.now() + 60 * 60 * 1000); // 1h from now
+    let current = makeSchedule({
+      currentStepIndex: 0,
+      status: "running",
+      // nextStepAt in the future means the interval hasn't elapsed yet.
+      nextStepAt: future,
+      steps: [
+        {
+          interval: 3600,
+          holdConditions: { requiresApproval: true },
+          actions: [
+            {
+              targetType: "feature-rule" as const,
+              targetId: TARGET_ID,
+              patch: { ruleId: RULE_ID, coverage: 0.5 },
+            },
+          ],
+        },
+        {
+          interval: null,
+          monitored: false,
+          actions: [
+            {
+              targetType: "feature-rule" as const,
+              targetId: TARGET_ID,
+              patch: { ruleId: RULE_ID, coverage: 1.0 },
+            },
+          ],
+        },
+      ],
+    });
+    const updateById = jest
+      .fn()
+      .mockImplementation(
+        (_id: string, updates: Partial<RampScheduleInterface>) => {
+          current = { ...current, ...updates } as RampScheduleInterface;
+          return current;
+        },
+      );
+    const ctx = {
+      userId: "user_1",
+      org: { id: ORG_ID, settings: {} },
+      auditUser: { type: "session" as const, userAgent: "", ip: "" },
+      environments: [],
+      permissions: {
+        canUpdateFeature: jest.fn().mockReturnValue(true),
+        canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
+        canPublishFeature: jest.fn().mockReturnValue(true),
+      },
+      models: {
+        rampSchedules: {
+          updateById,
+          getById: jest.fn().mockImplementation(() => current),
+        },
+      },
+    };
+
+    const err = await approveAndPublishStep(ctx as never, current);
+    expect(err).toBeNull();
+
+    // Approval recorded but schedule stays on step 0 (timer pending).
+    expect(current.stepApproval?.stepIndex).toBe(0);
+    expect(current.currentStepIndex).toBe(0);
+    // nextProcessAt points at the timer end so the agenda re-evaluates when it
+    // fires, rather than now.
+    expect(current.nextProcessAt).toEqual(future);
+  });
+
+  it("advances a composite step (interval + approval) immediately when the interval has already elapsed", async () => {
+    // Same composite step, but nextStepAt is in the past — the timer has
+    // elapsed, so approval clears the last hold and the schedule advances.
+    const past = new Date(Date.now() - 60 * 1000); // 1m ago
+    let current = makeSchedule({
+      currentStepIndex: 0,
+      status: "running",
+      nextStepAt: past,
+      steps: [
+        {
+          interval: 3600,
+          holdConditions: { requiresApproval: true },
+          actions: [
+            {
+              targetType: "feature-rule" as const,
+              targetId: TARGET_ID,
+              patch: { ruleId: RULE_ID, coverage: 0.5 },
+            },
+          ],
+        },
+        {
+          interval: null,
+          monitored: false,
+          actions: [
+            {
+              targetType: "feature-rule" as const,
+              targetId: TARGET_ID,
+              patch: { ruleId: RULE_ID, coverage: 1.0 },
+            },
+          ],
+        },
+      ],
+    });
+    const updateById = jest
+      .fn()
+      .mockImplementation(
+        (_id: string, updates: Partial<RampScheduleInterface>) => {
+          current = { ...current, ...updates } as RampScheduleInterface;
+          return current;
+        },
+      );
+    const ctx = {
+      userId: "user_1",
+      org: { id: ORG_ID, settings: {} },
+      auditUser: { type: "session" as const, userAgent: "", ip: "" },
+      environments: [],
+      permissions: {
+        canUpdateFeature: jest.fn().mockReturnValue(true),
+        canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
+        canPublishFeature: jest.fn().mockReturnValue(true),
+      },
+      models: {
+        rampSchedules: {
+          updateById,
+          getById: jest.fn().mockImplementation(() => current),
+        },
+      },
+    };
+
+    const err = await approveAndPublishStep(ctx as never, current);
+    expect(err).toBeNull();
+
+    // Timer already elapsed → approval clears the last hold → advance past it.
+    expect(current.currentStepIndex).toBeGreaterThanOrEqual(1);
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -151,18 +151,26 @@ function computeRemainingTime(
   let seconds = 0;
   let manualApprovals = 0;
 
-  // For a step awaiting approval (status running + requiresApproval +
-  // stepApproval not set for current step) or a paused approval step, the
-  // current step is still pending — include it in the count.
+  // The current step can have two independent holds — an interval timer and a
+  // manual approval — and BOTH must clear before it advances. Count whichever
+  // are still unmet so the display stays correct after an early approval (the
+  // approval drops out of the count but the still-pending timer remains).
   const currentStep =
     rs.currentStepIndex >= 0 ? rs.steps[rs.currentStepIndex] : undefined;
-  const currentAwaiting =
+  const currentNeedsApproval =
     !!currentStep?.holdConditions?.requiresApproval &&
     rs.stepApproval?.stepIndex !== rs.currentStepIndex;
-  const nextIdx = currentAwaiting
-    ? Math.max(0, rs.currentStepIndex)
-    : rs.currentStepIndex + 1;
-  for (let i = nextIdx; i < rs.steps.length; i++) {
+  // nextStepAt is the current step's timer; it is frozen (null) while paused.
+  const currentTimerRemainingMs = rs.nextStepAt
+    ? new Date(rs.nextStepAt).getTime() - Date.now()
+    : 0;
+  if (currentNeedsApproval) manualApprovals++;
+  if (currentTimerRemainingMs > 0) {
+    seconds += Math.ceil(currentTimerRemainingMs / 1000);
+  }
+
+  // Future steps still contribute their full interval and approval holds.
+  for (let i = rs.currentStepIndex + 1; i < rs.steps.length; i++) {
     const step = rs.steps[i];
     if (step?.interval) {
       seconds += step.interval;

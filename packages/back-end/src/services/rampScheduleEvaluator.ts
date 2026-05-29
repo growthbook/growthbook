@@ -40,6 +40,23 @@ export async function evaluateCurrentStep(
     return decision;
   }
 
+  // Non-monitored step. Enforce the interval time hold BEFORE the approval
+  // hold so a composite step (interval + requiresApproval) requires *both* to
+  // clear before advancing. `nextStepAt` is the step's timer, set by
+  // advanceStep via computeNextStepAt; it is null for steps with no interval
+  // (pure approval / instant gates). Without this gate an early approval
+  // (which bumps nextProcessAt to now) would let the schedule advance before
+  // the timer elapses. The normal agenda flow is unaffected: it only ticks
+  // once nextProcessAt — the min of nextStepAt and other gates — is due, so
+  // nextStepAt <= now by the time a purely time-gated step is evaluated here.
+  if (schedule.nextStepAt && schedule.nextStepAt > now) {
+    return {
+      action: "hold",
+      reason: "Waiting for the step interval to elapse",
+      nextProcessAt: schedule.nextStepAt,
+    };
+  }
+
   if (
     step.holdConditions?.requiresApproval &&
     schedule.stepApproval?.stepIndex !== schedule.currentStepIndex

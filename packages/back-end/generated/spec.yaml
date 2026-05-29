@@ -19442,7 +19442,11 @@ paths:
         Satisfies the `holdConditions.requiresApproval` gate on the current step
         of
 
-        a `running` schedule.
+        a `running` schedule. Approval only clears the approval hold — it never
+
+        bypasses the step's interval timer. A step's interval and approval are
+
+        independent holds and **both** must clear before the schedule advances.
 
 
         **Monitored steps**: clears the approval hold only — the step still
@@ -19454,13 +19458,19 @@ paths:
         before the agenda evaluates and advances it.
 
 
-        **Non-monitored steps**: all holds are cleared by approval, so the
-        schedule
+        **Non-monitored steps**: if the step's interval has already elapsed,
+        approval
 
-        advances immediately and chains through any subsequent instant steps in
-        the
+        clears the last hold and the schedule advances immediately, chaining
+        through
 
-        same request.
+        any subsequent instant steps in the same request. If the interval is
+        still
+
+        pending, the approval is recorded but the schedule stays on the step
+        until the
+
+        timer fires, at which point the agenda advances it.
 
 
         Different from `/actions/advance`: `approve-step` works within the
@@ -19469,7 +19479,9 @@ paths:
         evaluation flow and lets other conditions resolve naturally. Use
 
         `/actions/advance` only if you want to bypass all remaining holds
-        entirely.
+        entirely
+
+        (including the interval timer).
 
 
         Requires feature review permissions for the associated feature.

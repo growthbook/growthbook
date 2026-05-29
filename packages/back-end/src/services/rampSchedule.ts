@@ -1949,11 +1949,22 @@ export async function approveAndPublishStep(
   // Pure approval steps (no time gate) rebase phaseStartedAt so the next
   // step's interval is measured from approval time. Composite steps
   // (interval + approval) keep their original phaseStartedAt — the time hold
-  // and approval hold overlap; once both clear, advance immediately.
+  // and approval hold overlap; advancement waits until *both* clear.
   const rebasedPhaseStart =
     step.interval == null
       ? computePhaseStartAfterApproval(now, schedule, stepIndex + 1)
       : null;
+
+  // The step's interval is a separate hold that approval does not satisfy.
+  // `nextStepAt` is the timer set when we advanced into this step (null for
+  // pure-approval / instant steps). If it hasn't elapsed yet, approval is
+  // recorded but the schedule must keep waiting for the timer before it can
+  // advance — both holds must clear. We point nextProcessAt at the timer so
+  // the agenda re-evaluates exactly when it fires; otherwise we re-evaluate
+  // now (advancing synchronously below for non-monitored steps).
+  const stepTimerEnd =
+    step.interval != null ? (schedule.nextStepAt ?? null) : null;
+  const timerElapsed = !stepTimerEnd || stepTimerEnd <= now;
 
   const updates: Record<string, unknown> = {
     stepApproval: {
@@ -1963,8 +1974,9 @@ export async function approveAndPublishStep(
       context,
     },
     ...(rebasedPhaseStart ? { phaseStartedAt: rebasedPhaseStart } : {}),
-    // Bump nextProcessAt to now so the agenda re-evaluates immediately.
-    nextProcessAt: now,
+    // Re-evaluate immediately when the timer has already cleared; otherwise
+    // wait for the interval timer to fire.
+    nextProcessAt: timerElapsed ? now : stepTimerEnd,
     eventHistory: appendRampEvent(schedule, "approval-granted", {
       stepIndex,
       status: schedule.status,
@@ -1977,13 +1989,15 @@ export async function approveAndPublishStep(
     updates,
   );
 
-  // Non-monitored steps have no further gates after approval — advance past
-  // this step now, then let advanceUntilBlocked chain through any subsequent
-  // timed-but-already-due steps. Instant steps that follow will have
-  // nextProcessAt=now (Bug 1 fix) so the agenda re-ticks them immediately.
-  // Monitored steps may still be held by interval / analysis / health gates;
-  // the agenda tick will re-evaluate (we bumped nextProcessAt above).
-  if (!step.monitored) {
+  // Advance synchronously only when all of this step's holds have cleared.
+  // For non-monitored steps that means the interval timer has elapsed (the
+  // approval hold is now satisfied). If the timer is still pending, leave the
+  // schedule on this step — the agenda re-evaluates at nextProcessAt
+  // (stepTimerEnd) and advances then, with both holds satisfied. Monitored
+  // steps may still be held by analysis / health gates, so they are always
+  // left to the agenda tick (nextProcessAt set above) rather than advanced
+  // here.
+  if (!step.monitored && timerElapsed) {
     const afterApproval = await advanceStep(ctx, approved);
     await advanceUntilBlocked(ctx, afterApproval, now);
   }
