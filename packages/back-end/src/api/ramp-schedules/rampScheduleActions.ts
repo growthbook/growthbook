@@ -600,9 +600,9 @@ const healthSummarySchema = z.object({
       "True only when every hold condition is cleared: the step interval has elapsed, any required approval has been granted, min sample size is met, and all monitored metrics are within bounds. Equivalent to `decision === 'advance'`.",
     ),
   decision: z
-    .enum(["advance", "hold", "rollback", "pause", "no-data"])
+    .enum(["advance", "hold", "rollback", "pause"])
     .describe(
-      "Current evaluator decision for the active step. Incorporates all hold conditions (timing, approval, min sample, metric health). `no-data` means monitoring data is not yet available.",
+      "Current evaluator decision for the active step. Incorporates all hold conditions (timing, approval, min sample, metric health). When monitoring data is not yet available, the evaluator returns `hold` with a descriptive `decisionReason`.",
     ),
   decisionReason: z
     .string()

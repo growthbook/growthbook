@@ -42877,15 +42877,15 @@ components:
         decision:
           description: >-
             Current evaluator decision for the active step. Incorporates all
-            hold conditions (timing, approval, min sample, metric health).
-            `no-data` means monitoring data is not yet available.
+            hold conditions (timing, approval, min sample, metric health). When
+            monitoring data is not yet available, the evaluator returns `hold`
+            with a descriptive `decisionReason`.
           type: string
           enum:
             - advance
             - hold
             - rollback
             - pause
-            - no-data
         decisionReason:
           description: Human-readable reason for a hold, rollback, or pause decision.
           type: string
