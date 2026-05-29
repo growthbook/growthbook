@@ -10508,7 +10508,7 @@ paths:
                       - slices
                     additionalProperties: false
                 precomputedUnitDimensionIds:
-                  maxItems: 5
+                  maxItems: 3
                   type: array
                   items:
                     type: string
@@ -11128,7 +11128,7 @@ paths:
                       additionalProperties: false
                     - type: 'null'
                 precomputedUnitDimensionIds:
-                  maxItems: 5
+                  maxItems: 3
                   type: array
                   items:
                     type: string
@@ -34233,7 +34233,7 @@ components:
               - slices
             additionalProperties: false
         precomputedUnitDimensionIds:
-          maxItems: 5
+          maxItems: 3
           type: array
           items:
             type: string
@@ -34943,7 +34943,7 @@ components:
                   - slices
                 additionalProperties: false
             precomputedUnitDimensionIds:
-              maxItems: 5
+              maxItems: 3
               type: array
               items:
                 type: string
