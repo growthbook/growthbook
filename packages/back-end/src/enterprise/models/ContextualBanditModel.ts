@@ -69,7 +69,12 @@ export class ContextualBanditModel extends BaseClass {
 
   /**
    * Atomically update the leaf weights for a specific phase index.
-   * Replaces `phases[phaseIndex].currentLeafWeights` in place.
+   * Replaces `phases[phaseIndex].currentLeafWeights` in place via a single
+   * Mongo `$set` with positional dot-notation — concurrent refreshes (cron
+   * + manual API + scheduled retraining) can collide on the same CB doc,
+   * and a read-modify-write would lose updates between the read and the
+   * write. The atomic positional update guarantees only the target field
+   * changes regardless of overlapping writers.
    */
   public async patchPhaseWeights(
     cbId: string,
@@ -80,10 +85,46 @@ export class ContextualBanditModel extends BaseClass {
     if (!existing) {
       throw new Error(`ContextualBandit not found: ${cbId}`);
     }
-    const phases = existing.phases.map((phase, i) =>
-      i === phaseIndex ? { ...phase, currentLeafWeights: leafWeights } : phase,
+    if (phaseIndex < 0 || phaseIndex >= existing.phases.length) {
+      throw new Error(
+        `Phase index ${phaseIndex} out of range (0..${existing.phases.length - 1})`,
+      );
+    }
+    // BaseModel.updateById would re-check canUpdate; we bypass it for the
+    // atomic single-field update below, so re-assert the same gate here.
+    if (!this.canUpdate(existing)) {
+      this.context.permissions.throwPermissionError();
+    }
+
+    const collection = this._dangerousGetCollection();
+    const now = new Date();
+    const res = await collection.updateOne(
+      {
+        organization: this.context.org.id,
+        id: cbId,
+        // Guard against the phase being removed between the bounds check
+        // above and this write. If the phase array shrank, the update no-ops
+        // and we surface a clear error below.
+        [`phases.${phaseIndex}`]: { $exists: true },
+      },
+      {
+        $set: {
+          [`phases.${phaseIndex}.currentLeafWeights`]: leafWeights,
+          dateUpdated: now,
+        },
+      },
     );
-    return this.updateById(cbId, { phases });
+    if (res.matchedCount === 0) {
+      throw new Error(
+        `ContextualBandit ${cbId} phases[${phaseIndex}] could not be updated`,
+      );
+    }
+
+    const refreshed = await this.getById(cbId);
+    if (!refreshed) {
+      throw new Error(`ContextualBandit ${cbId} disappeared after update`);
+    }
+    return refreshed;
   }
 
   public async deleteForExperiment(experiment: string): Promise<void> {
