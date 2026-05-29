@@ -8,7 +8,7 @@ import {
 import { ApiSavedGroupRevision } from "shared/validators";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import { ApiReqContext } from "back-end/types/api";
-import { applyPatchToSnapshot } from "back-end/src/revisions/util";
+import { applyPatchToSnapshot } from "back-end/src/revisions/applyPatch";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
 
 /**

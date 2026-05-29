@@ -12,7 +12,10 @@ import {
 import type { CreateProps, UpdateProps } from "shared/types/base-model";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 import { getAdapter } from "back-end/src/revisions/index";
-import type { RevisionLifecycleAction } from "back-end/src/revisions/EntityRevisionAdapter";
+import {
+  getRevisionLifecycleHook,
+  RevisionLifecycleAction,
+} from "back-end/src/revisions/revisionEventHooks";
 import { createWithVersionRetry } from "back-end/src/util/mongo.util";
 
 // Derived from the validator so the two can't drift apart.
@@ -103,7 +106,7 @@ export class RevisionModel extends BaseClass {
     action: RevisionLifecycleAction,
   ): Promise<void> {
     try {
-      await getAdapter(revision.target.type).onRevisionLifecycle?.(
+      await getRevisionLifecycleHook(revision.target.type)?.(
         this.context,
         revision,
         action,

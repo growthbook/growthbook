@@ -8,7 +8,10 @@ import { Context } from "back-end/src/models/BaseModel";
 import { ApiReqContext } from "back-end/types/api";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { toApiSavedGroupRevision } from "back-end/src/api/saved-groups/toApiSavedGroupRevision";
-import { RevisionLifecycleAction } from "back-end/src/revisions/EntityRevisionAdapter";
+import {
+  RevisionLifecycleAction,
+  registerRevisionLifecycleHook,
+} from "back-end/src/revisions/revisionEventHooks";
 import { logger } from "back-end/src/util/logger";
 
 type SavedGroupRevisionEvent = Extract<
@@ -21,7 +24,7 @@ type SavedGroupRevisionEvent = Extract<
 // controller) and the public API funnel through `updateProposedChanges`, which
 // carries the cumulative ops, so we report the most significant category
 // touched rather than a per-edit delta.
-function deriveChange(
+export function deriveChange(
   proposedChanges: JsonPatchOperation[],
 ): "metadata" | "condition" | "values" | "archive" {
   const paths = proposedChanges.map((op) => op.path);
@@ -126,3 +129,9 @@ export async function dispatchSavedGroupRevisionEvent(
     logger.error(e, "Error dispatching saved group revision event");
   }
 }
+
+// Register the saved-group revision lifecycle hook so RevisionModel dispatches
+// these events for both the internal and public API surfaces. This module is
+// imported at startup (see app.ts) — outside the model-init graph — so the
+// registration runs without creating an import cycle.
+registerRevisionLifecycleHook("saved-group", dispatchSavedGroupRevisionEvent);

@@ -10,10 +10,7 @@ import {
   savedGroupUpdatableFieldsSchema,
 } from "shared/validators";
 import type { Context } from "back-end/src/models/BaseModel";
-import {
-  EntityRevisionAdapter,
-  RevisionLifecycleAction,
-} from "back-end/src/revisions/EntityRevisionAdapter";
+import { EntityRevisionAdapter } from "back-end/src/revisions/EntityRevisionAdapter";
 
 // Whitelist of fields the snapshot is allowed to carry, derived from the
 // schema so the two can't drift. The snapshot validator runs in `.strict()`
@@ -161,21 +158,5 @@ export const savedGroupAdapter: EntityRevisionAdapter<SavedGroupInterface> = {
       >[1],
       options?.isRevert ? { skipAttributeValidation: true } : undefined,
     );
-  },
-
-  async onRevisionLifecycle(
-    context: Context,
-    revision: Revision,
-    action: RevisionLifecycleAction,
-  ): Promise<void> {
-    // Lazy import to break the module cycle: revisions/index → this adapter →
-    // savedGroupRevisionEvents → toApiSavedGroupRevision → revisions/util →
-    // revisions/index. The service is only needed at call time, by which point
-    // all modules are initialized. dispatchSavedGroupRevisionEvent swallows its
-    // own errors, so this stays fire-and-forget.
-    const { dispatchSavedGroupRevisionEvent } = await import(
-      "back-end/src/services/savedGroupRevisionEvents"
-    );
-    await dispatchSavedGroupRevisionEvent(context, revision, action);
   },
 };
