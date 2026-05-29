@@ -30400,30 +30400,16 @@ components:
     status:
       name: status
       in: query
-      description: ''
+      description: >-
+        Filter by revision status. Single value, comma-separated list, or
+        `all-drafts` shorthand for all active-draft statuses (draft,
+        pending-review, approved, changes-requested).
       schema:
-        anyOf:
-          - {}
-          - type: array
-            items:
-              type: string
-              enum:
-                - draft
-                - published
-                - discarded
-                - approved
-                - changes-requested
-                - pending-review
-                - pending-parent
-          - type: string
-            enum:
-              - draft
-              - published
-              - discarded
-              - approved
-              - changes-requested
-              - pending-review
-              - pending-parent
+        description: >-
+          Filter by revision status. Single value, comma-separated list, or
+          `all-drafts` shorthand for all active-draft statuses (draft,
+          pending-review, approved, changes-requested).
+        type: string
     author:
       name: author
       in: query

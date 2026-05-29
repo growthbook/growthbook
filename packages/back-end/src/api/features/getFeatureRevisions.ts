@@ -1,4 +1,7 @@
-import { getFeatureRevisionsValidator } from "shared/validators";
+import {
+  getFeatureRevisionsValidator,
+  parseRevisionStatusFilter,
+} from "shared/validators";
 import { stringToBoolean } from "shared/util";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import type { ApiReqContext } from "back-end/types/api";
@@ -32,7 +35,8 @@ export async function loadFeatureRevisionsPage(
   const feature = await getFeature(context, featureId);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  const { status, author } = query;
+  const { author } = query;
+  const status = parseRevisionStatusFilter(query.status);
 
   const mine = stringToBoolean(query.mine?.toString());
   if (mine && author) {

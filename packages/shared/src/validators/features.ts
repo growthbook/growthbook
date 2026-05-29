@@ -291,35 +291,37 @@ export type ActiveDraftStatus = z.infer<typeof activeDraftStatusSchema>;
 export const ACTIVE_DRAFT_STATUSES = activeDraftStatusSchema.options;
 
 /**
- * Status filter for revision list endpoints. Accepts:
- * - A single status value:              ?status=draft
- * - Comma-separated values:             ?status=draft,approved
- * - The "all-drafts" shorthand:         ?status=all-drafts
- *   (expands to draft, pending-review, approved, changes-requested)
- *
- * On v2 endpoints, omitting this parameter defaults to "all-drafts" —
- * only active (non-terminal) revisions are returned unless you explicitly
- * request a terminal status such as "published" or "discarded".
+ * Status filter for revision list endpoints. Accepts a single value
+ * (`draft`), comma-separated values (`draft,approved`), or the shorthand
+ * `all-drafts` (expands to draft, pending-review, approved,
+ * changes-requested). On v2 endpoints, omitting this parameter defaults to
+ * `all-drafts`. Parsing is handled at the handler layer via
+ * `parseRevisionStatusFilter`.
  */
-export const revisionStatusFilterSchema = z.preprocess(
-  (val) => {
-    if (typeof val === "string" && val.includes(",")) {
-      return val.split(",").map((s) => s.trim());
-    }
-    return val;
-  },
-  z
-    .union([
-      z
-        .literal("all-drafts")
-        .transform((): RevisionStatus[] => [...ACTIVE_DRAFT_STATUSES]),
-      z.array(revisionStatusSchema),
-      revisionStatusSchema,
-    ])
-    .optional(),
-);
+export const revisionStatusFilterSchema = z
+  .string()
+  .describe(
+    "Filter by revision status. Single value, comma-separated list, or `all-drafts` shorthand for all active-draft statuses (draft, pending-review, approved, changes-requested).",
+  )
+  .optional();
 
 export type RevisionStatusFilter = z.infer<typeof revisionStatusFilterSchema>;
+
+/**
+ * Parse a raw status query-param value into the form expected by
+ * `getFeatureRevisionsByStatus`. Handles comma-separated strings, the
+ * `all-drafts` shorthand, and array values from repeated query params.
+ * Returns `undefined` when the input is absent (callers apply defaults).
+ */
+export function parseRevisionStatusFilter(
+  val: string | string[] | undefined,
+): string | string[] | undefined {
+  if (!val) return undefined;
+  if (Array.isArray(val)) return val; // repeated ?status= params
+  if (val === "all-drafts") return [...ACTIVE_DRAFT_STATUSES];
+  if (val.includes(",")) return val.split(",").map((s) => s.trim());
+  return val;
+}
 
 const minimalFeatureRevisionInterface = z
   .object({

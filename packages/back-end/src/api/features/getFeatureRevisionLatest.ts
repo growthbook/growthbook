@@ -1,4 +1,7 @@
-import { getFeatureRevisionLatestValidator } from "shared/validators";
+import {
+  getFeatureRevisionLatestValidator,
+  parseRevisionStatusFilter,
+} from "shared/validators";
 import { stringToBoolean } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
 import { toApiRevision } from "back-end/src/services/features";
@@ -25,6 +28,11 @@ export async function loadLatestDraft(
   if (!feature) throw new NotFoundError("Could not find feature");
 
   const mine = stringToBoolean(mineParam?.toString());
+  if (mine && author) {
+    throw new BadRequestError(
+      "`mine` and `author` are mutually exclusive. Pass one or the other.",
+    );
+  }
   if (mine && !context.userId) {
     throw new BadRequestError(
       "`mine=true` requires a user-scoped API key (the caller must be identifiable as a user).",
@@ -38,7 +46,7 @@ export async function loadLatestDraft(
     feature,
     {
       involvedUserId: mine ? context.userId : undefined,
-      status,
+      status: parseRevisionStatusFilter(status),
       author,
     },
   );
