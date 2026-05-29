@@ -1,6 +1,7 @@
 import { getContextualBanditSnapshotValidator } from "shared/validators";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { requireCBPermission } from "./_shared";
 
 export const getContextualBanditSnapshot = createApiRequestHandler(
   getContextualBanditSnapshotValidator,
@@ -15,6 +16,7 @@ export const getContextualBanditSnapshot = createApiRequestHandler(
   if (!experiment) {
     throw new Error("Could not find experiment with that id");
   }
+  requireCBPermission(req.context, experiment, "read");
 
   const snapshot =
     await req.context.models.contextualBanditSnapshots.getBySnapshotIdInOrg(

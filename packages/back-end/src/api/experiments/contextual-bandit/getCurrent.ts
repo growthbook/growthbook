@@ -1,6 +1,7 @@
 import { getContextualBanditCurrentValidator } from "shared/validators";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { requireCBPermission } from "./_shared";
 
 export const getContextualBanditCurrent = createApiRequestHandler(
   getContextualBanditCurrentValidator,
@@ -18,6 +19,7 @@ export const getContextualBanditCurrent = createApiRequestHandler(
   if (experiment.type !== "contextual-bandit") {
     throw new Error("Experiment is not a contextual bandit");
   }
+  requireCBPermission(req.context, experiment, "read");
 
   const cb = await req.context.models.contextualBandits.getByExperimentId(
     experiment.id,

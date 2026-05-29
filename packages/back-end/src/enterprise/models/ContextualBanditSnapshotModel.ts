@@ -1,3 +1,4 @@
+import { getAffectedEnvsForExperiment } from "shared/util";
 import {
   ContextualBanditSnapshotInterface,
   contextualBanditSnapshotValidator,
@@ -25,17 +26,36 @@ const BaseClass = MakeModelClass({
 });
 
 export class ContextualBanditSnapshotModel extends BaseClass {
-  protected canCreate() {
-    return true;
+  // CBS docs are scoped to a parent experiment; delegate all RBAC to the
+  // parent. Missing parent → no-access (never default-allow).
+  protected canRead(doc: ContextualBanditSnapshotInterface): boolean {
+    const { experiment } = this.getForeignRefs(doc, false);
+    if (!experiment) return false;
+    return this.context.permissions.canReadSingleProjectResource(
+      experiment.project,
+    );
   }
-  protected canRead() {
-    return true;
+
+  private canWrite(doc: ContextualBanditSnapshotInterface): boolean {
+    const { experiment } = this.getForeignRefs(doc, false);
+    if (!experiment) return false;
+    const envs = getAffectedEnvsForExperiment({
+      experiment,
+      orgEnvironments: this.context.org.settings?.environments || [],
+    });
+    return this.context.permissions.canRunExperiment(experiment, envs);
   }
-  protected canUpdate() {
-    return true;
+
+  protected canCreate(doc: ContextualBanditSnapshotInterface): boolean {
+    return this.canWrite(doc);
   }
-  protected canDelete() {
-    return true;
+  protected canUpdate(existing: ContextualBanditSnapshotInterface): boolean {
+    return this.canWrite(existing);
+  }
+  protected canDelete(doc: ContextualBanditSnapshotInterface): boolean {
+    const { experiment } = this.getForeignRefs(doc, false);
+    if (!experiment) return false;
+    return this.context.permissions.canDeleteExperiment(experiment);
   }
 
   public async getLatestForExperiment(

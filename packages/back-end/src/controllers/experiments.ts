@@ -3320,6 +3320,9 @@ export async function getContextualBanditResults(
     });
     return;
   }
+  if (!context.permissions.canReadSingleProjectResource(experiment.project)) {
+    context.permissions.throwPermissionError();
+  }
 
   const results = await getContextualBanditResultsForUi(context, experiment);
 
@@ -3362,6 +3365,17 @@ export async function postContextualBanditRefresh(
       message: "Experiment has no phases",
     });
     return;
+  }
+
+  // Refresh = running the bandit, so gate on canRunExperiment first. The
+  // datasource-level canRunExperimentQueries check below is additive (data
+  // access), not a substitute for project/env access on the experiment.
+  const envs = getAffectedEnvsForExperiment({
+    experiment,
+    orgEnvironments: context.org.settings?.environments || [],
+  });
+  if (!context.permissions.canRunExperiment(experiment, envs)) {
+    context.permissions.throwPermissionError();
   }
 
   const datasource = experiment.datasource

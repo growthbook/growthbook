@@ -2,6 +2,7 @@ import { postContextualBanditRefreshValidator } from "shared/validators";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { runContextualBanditSnapshot } from "back-end/src/enterprise/services/contextualBandits";
+import { requireCBPermission } from "./_shared";
 
 export const postContextualBanditRefresh = createApiRequestHandler(
   postContextualBanditRefreshValidator,
@@ -19,6 +20,7 @@ export const postContextualBanditRefresh = createApiRequestHandler(
   if (experiment.type !== "contextual-bandit") {
     throw new Error("Experiment is not a contextual bandit");
   }
+  requireCBPermission(req.context, experiment, "run");
   if (!experiment.phases.length) {
     throw new Error("Experiment has no phases");
   }
