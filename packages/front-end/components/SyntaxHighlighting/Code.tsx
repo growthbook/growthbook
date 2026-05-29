@@ -4,7 +4,6 @@ import React, {
   ReactElement,
   Suspense,
   lazy,
-  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -86,11 +85,11 @@ export default function Code({
 
   const [isExpanded, setIsExpanded] = useState(!expandable);
   const [hasExpanded, setHasExpanded] = useState(!expandable);
-  useEffect(() => {
-    if (isExpanded) {
-      setHasExpanded(true);
-    }
-  }, [isExpanded]);
+
+  const expand = () => {
+    setIsExpanded(true);
+    setHasExpanded(true);
+  };
 
   const { theme } = useAppearanceUITheme();
 
@@ -188,7 +187,7 @@ export default function Code({
             style={{ cursor: "pointer" }}
             onClick={async (e) => {
               e.preventDefault();
-              setIsExpanded(!isExpanded);
+              isExpanded ? setIsExpanded(false) : expand();
             }}
           >
             {isExpanded ? <FaCompressAlt /> : <FaExpandAlt />}
@@ -206,7 +205,7 @@ export default function Code({
           showLineNumbers={showLineNumbers}
           startingLineNumber={startingLineNumber ?? 1}
           previewOnly
-          onPreviewExpand={() => setIsExpanded(true)}
+          onPreviewExpand={expand}
         />
       ) : (
         <Suspense
