@@ -29,6 +29,7 @@ import {
   fillRevisionFromFeature,
   liveRevisionFromFeature,
   filterEnvironmentsByFeature,
+  getEnvsFromRampSchedule,
   getReviewSetting,
   draftDiffersFromLive,
 } from "shared/util";
@@ -549,10 +550,14 @@ export default function FeaturesOverview({
       // v2 rules are a flat FeatureRule[]; the mergeResult carries either the
       // full replacement array (when rules changed) or nothing (when only
       // non-rule fields changed). Never object-spread an array.
+      // rampActions live on the draft; autoMerge doesn't carry them through
+      // MergeResultChanges, so re-attach them here so the review gate can
+      // detect that production environments are affected.
       effectiveRevision = {
         ...filledLive,
         ...mergeResult.result,
         rules: mergeResult.result.rules ?? filledLive.rules,
+        rampActions: revision?.rampActions,
       };
       effectiveBase = filledLive;
     }
@@ -564,6 +569,22 @@ export default function FeaturesOverview({
       allEnvironments: environments.map((e) => e.id),
       settings,
       requireApprovalsLicensed: hasCommercialFeature("require-approvals"),
+      liveRampScheduleEnvs: (() => {
+        const map = new Map<string, string[] | "all">();
+        for (const action of effectiveRevision.rampActions ?? []) {
+          if (action.mode !== "update") continue;
+          const liveSchedule = rampSchedules?.find(
+            (rs) => rs.id === action.rampScheduleId,
+          );
+          if (liveSchedule) {
+            map.set(
+              action.rampScheduleId,
+              getEnvsFromRampSchedule(liveSchedule),
+            );
+          }
+        }
+        return map;
+      })(),
     });
   }
   const isLive = revision?.version === feature.version;

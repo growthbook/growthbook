@@ -1285,11 +1285,22 @@ export default function RuleModal({
                     : rampState.name.trim() || undefined,
                   ...(!isScheduleMode
                     ? {
-                        startActions: buildRampStartActionsFromRule(
-                          values as FeatureRule,
-                          activeTargetId,
-                          ruleId,
-                        ),
+                        // Only re-capture startActions for ramps that haven't
+                        // started yet. Once a ramp is paused/running, startActions
+                        // represent the pre-ramp rule state (the rollback restore
+                        // point) and must not be overwritten with the current
+                        // runtime coverage.
+                        ...(["pending", "ready"].includes(
+                          ruleRampSchedule?.status ?? "",
+                        )
+                          ? {
+                              startActions: buildRampStartActionsFromRule(
+                                values as FeatureRule,
+                                activeTargetId,
+                                ruleId,
+                              ),
+                            }
+                          : {}),
                       }
                     : {}),
                   steps: buildRampSteps(

@@ -1914,7 +1914,14 @@ async function createRampSchedulesForRevision(
     // Build the content-level updates that apply regardless of start-now vs normal.
     const contentUpdates = {
       ...(updateAction.name !== undefined ? { name: updateAction.name } : {}),
-      ...(updateAction.startActions !== undefined
+      // Don't overwrite startActions once a ramp has actually started executing.
+      // They are the pre-ramp rule state used as the rollback restore point; if
+      // we let a stale draft overwrite them, "roll back to start" applies the
+      // degraded runtime coverage instead of the original 0%.
+      // Only update startActions for ramps that haven't fired yet (pending/ready).
+      ...(updateAction.startActions !== undefined &&
+      (existingSchedule?.status === "pending" ||
+        existingSchedule?.status === "ready")
         ? { startActions: startActions.length > 0 ? startActions : undefined }
         : {}),
       // Only include steps when the caller explicitly provided them (non-empty

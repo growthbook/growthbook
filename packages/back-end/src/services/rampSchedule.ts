@@ -318,15 +318,19 @@ export function applyPatchToRule(
   if ("prerequisites" in patch) {
     updated.prerequisites = patch.prerequisites ?? undefined;
   }
+  // Process `environments` before `allEnvironments` so that when both appear in
+  // the same patch (e.g. from getStartPatchForRule on an allEnvironments rule),
+  // the explicit `allEnvironments: true` always wins and is not silently reset
+  // to false by the `environments` branch running afterwards.
+  if ("environments" in patch) {
+    updated.allEnvironments = false;
+    updated.environments = patch.environments ?? undefined;
+  }
   if ("allEnvironments" in patch) {
     updated.allEnvironments = patch.allEnvironments ?? false;
     if (patch.allEnvironments) {
       updated.environments = undefined;
     }
-  }
-  if ("environments" in patch) {
-    updated.allEnvironments = false;
-    updated.environments = patch.environments ?? undefined;
   }
   if ("force" in patch) {
     (updated as { value?: unknown }).value = patch.force; // null is a valid JSON value
@@ -1450,9 +1454,11 @@ export async function completeRollout(
 ): Promise<RampScheduleInterface> {
   const effective = computeEffectivePatch(schedule, schedule.steps.length);
 
-  // Mirror advanceStep: if the schedule was never started, inject enabled:true
-  // so the rule is not left permanently disabled after completion.
-  if (schedule.currentStepIndex < 0) {
+  // Mirror advanceStep: if the schedule was never started (currentStepIndex < 0)
+  // and it has actual ramp steps, inject enabled:true so the rule is not left
+  // permanently disabled after completion. Simple schedules (steps: []) handle
+  // enabling via startActions and don't need this injection.
+  if (schedule.currentStepIndex < 0 && schedule.steps.length > 0) {
     for (const target of schedule.targets) {
       if (target.status !== "active" || target.entityType !== "feature") {
         continue;

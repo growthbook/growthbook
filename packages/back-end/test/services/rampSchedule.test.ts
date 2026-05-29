@@ -269,6 +269,37 @@ describe("applyPatchToRule", () => {
     expect(result.condition).toBe(base.condition);
     expect(result.enabled).toBe(base.enabled);
   });
+
+  it("allEnvironments:true wins when both allEnvironments and environments appear in the same patch", () => {
+    // getStartPatchForRule on an allEnvironments:true rule produces both
+    // allEnvironments:true and environments:null. Without the ordering fix the
+    // environments branch would silently reset allEnvironments back to false.
+    const allEnvRule: FeatureRule = {
+      ...base,
+      allEnvironments: true,
+      environments: undefined,
+    };
+    const patch = {
+      allEnvironments: true as const,
+      environments: null,
+    };
+    const result = applyPatchToRule(allEnvRule, patch);
+    expect(result.allEnvironments).toBe(true);
+    expect(result.environments).toBeUndefined();
+  });
+
+  it("environments patch correctly resets allEnvironments to false", () => {
+    const allEnvRule: FeatureRule = {
+      ...base,
+      allEnvironments: true,
+      environments: undefined,
+    };
+    const result = applyPatchToRule(allEnvRule, {
+      environments: ["production"],
+    });
+    expect(result.allEnvironments).toBe(false);
+    expect(result.environments).toEqual(["production"]);
+  });
 });
 
 describe("getStartPatchForRule", () => {
