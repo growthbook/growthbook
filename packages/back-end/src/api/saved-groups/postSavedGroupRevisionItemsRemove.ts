@@ -85,11 +85,12 @@ export const postSavedGroupRevisionItemsRemove = createApiRequestHandler(
       await dispatchSavedGroupRevisionEvent(req.context, updated, {
         type: "created",
       });
+    } else {
+      await dispatchSavedGroupRevisionEvent(req.context, updated, {
+        type: "updated",
+        change: "values",
+      });
     }
-    await dispatchSavedGroupRevisionEvent(req.context, updated, {
-      type: "updated",
-      change: "values",
-    });
 
     return {
       revision: await toApiSavedGroupRevision(updated, req.context),

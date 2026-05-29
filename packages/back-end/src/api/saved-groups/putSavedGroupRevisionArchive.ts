@@ -69,11 +69,12 @@ export const putSavedGroupRevisionArchive = createApiRequestHandler(
       await dispatchSavedGroupRevisionEvent(req.context, updated, {
         type: "created",
       });
+    } else {
+      await dispatchSavedGroupRevisionEvent(req.context, updated, {
+        type: "updated",
+        change: "archive",
+      });
     }
-    await dispatchSavedGroupRevisionEvent(req.context, updated, {
-      type: "updated",
-      change: "archive",
-    });
 
     return {
       revision: await toApiSavedGroupRevision(updated, req.context),

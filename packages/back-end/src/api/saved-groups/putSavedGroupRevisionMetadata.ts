@@ -108,11 +108,12 @@ export const putSavedGroupRevisionMetadata = createApiRequestHandler(
       await dispatchSavedGroupRevisionEvent(req.context, updated, {
         type: "created",
       });
+    } else {
+      await dispatchSavedGroupRevisionEvent(req.context, updated, {
+        type: "updated",
+        change: "metadata",
+      });
     }
-    await dispatchSavedGroupRevisionEvent(req.context, updated, {
-      type: "updated",
-      change: "metadata",
-    });
 
     return {
       revision: await toApiSavedGroupRevision(updated, req.context),
