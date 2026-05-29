@@ -1,6 +1,6 @@
 import { Slider, Flex, Box } from "@radix-ui/themes";
 import { ReactNode, useEffect } from "react";
-import { PiCaretRightFill } from "react-icons/pi";
+import { PiCaretRight } from "react-icons/pi";
 import { SDKAttributeSchema } from "shared/types/organization";
 import { RampScheduleInterface } from "shared/validators";
 import Collapsible from "react-collapsible";
@@ -78,30 +78,36 @@ export function RolloutHashingOptions({
   return (
     <>
       {setHashAttribute && filteredAttributes && (
-        <SelectField
-          label="Sample users by"
-          value={hashAttribute ?? ""}
-          onChange={(v) => setHashAttribute(v)}
-          options={filteredAttributes.map(
-            (a): AttributeOptionForTooltip => ({
-              value: a.property,
-              label: a.property,
-              description: a.description,
-              tags: a.tags,
-              datatype: a.datatype,
-              hashAttribute: a.hashAttribute,
-            }),
-          )}
-          formatOptionLabel={(o, meta) => (
-            <AttributeOptionWithTooltip
-              option={o as AttributeOptionForTooltip}
-              context={meta.context}
-            >
-              {o.label}
-            </AttributeOptionWithTooltip>
-          )}
-          containerClassName="mb-2"
-        />
+        <Flex gap="3" align="center">
+          <Box style={{ width: 70 }}>
+            <Text as="label" weight="medium" mb="0">
+              Sample by
+            </Text>
+          </Box>
+          <SelectField
+            value={hashAttribute ?? ""}
+            onChange={(v) => setHashAttribute(v)}
+            options={filteredAttributes.map(
+              (a): AttributeOptionForTooltip => ({
+                value: a.property,
+                label: a.property,
+                description: a.description,
+                tags: a.tags,
+                datatype: a.datatype,
+                hashAttribute: a.hashAttribute,
+              }),
+            )}
+            formatOptionLabel={(o, meta) => (
+              <AttributeOptionWithTooltip
+                option={o as AttributeOptionForTooltip}
+                context={meta.context}
+              >
+                {o.label}
+              </AttributeOptionWithTooltip>
+            )}
+            containerStyle={{ minHeight: 38, width: 150 }}
+          />
+        </Flex>
       )}
       <Collapsible
         trigger={
@@ -109,7 +115,7 @@ export function RolloutHashingOptions({
             className="link-purple"
             style={{ marginTop: 4, display: "inline-block" }}
           >
-            <PiCaretRightFill className="chevron mr-1" />
+            <PiCaretRight className="chevron mr-1" />
             Hashing &amp; seed options
           </div>
         }
@@ -118,7 +124,7 @@ export function RolloutHashingOptions({
         onTriggerClosing={() => setOpen(false)}
         transitionTime={100}
       >
-        <Box pt="2">
+        <Box p="3" className="appbox">
           <Flex direction="column" gap="1">
             <Field
               label="Seed"
