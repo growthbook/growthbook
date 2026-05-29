@@ -285,6 +285,35 @@ export function getChecklistItems({
             ),
           });
         });
+
+      const latestVariations = getLatestPhaseVariations(experiment);
+      linkedFeatures
+        .filter((f) => f.state !== "discarded" && f.state !== "archived")
+        .forEach((f) => {
+          const configuredVariationIds = new Set(
+            f.values.map((v) => v.variationId),
+          );
+          const hasMissingValues = latestVariations.some(
+            (v) => !configuredVariationIds.has(v.id),
+          );
+          if (hasMissingValues) {
+            items.push({
+              status: "incomplete",
+              type: "auto",
+              required: true,
+              hideDescription: true,
+              display: (
+                <>
+                  Fill in missing variation values for{" "}
+                  <Link href={`/features/${f.feature.id}`} target="_blank">
+                    {f.feature.id}
+                    <PiArrowSquareOut className="ml-1" />
+                  </Link>
+                </>
+              ),
+            });
+          }
+        });
     }
 
     // No empty visual changesets

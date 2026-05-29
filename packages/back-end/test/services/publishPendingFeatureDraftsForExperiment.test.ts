@@ -10,6 +10,7 @@ jest.mock("back-end/src/models/FeatureModel", () => ({
 
 jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
   getRevision: jest.fn(),
+  discardRevision: jest.fn(),
 }));
 
 jest.mock("back-end/src/models/ExperimentModel", () => ({
@@ -35,12 +36,18 @@ jest.mock("shared/util", () => ({
 
 import { publishPendingFeatureDraftsForExperiment } from "back-end/src/services/experiment-feature";
 import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
-import { getRevision } from "back-end/src/models/FeatureRevisionModel";
+import {
+  getRevision,
+  discardRevision,
+} from "back-end/src/models/FeatureRevisionModel";
 import { removePendingFeatureDraftFromExperiment } from "back-end/src/models/ExperimentModel";
 import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
 
 const mockGetFeature = getFeature as jest.MockedFunction<typeof getFeature>;
 const mockGetRevision = getRevision as jest.MockedFunction<typeof getRevision>;
+const mockDiscardRevision = discardRevision as jest.MockedFunction<
+  typeof discardRevision
+>;
 const mockPublishRevision = publishRevision as jest.MockedFunction<
   typeof publishRevision
 >;
@@ -84,7 +91,11 @@ beforeEach(() => {
     live: { rules: [] },
     base: { rules: [] },
   } as never);
-  mockAutoMerge.mockReturnValue({ success: true, conflicts: [], result: {} });
+  mockAutoMerge.mockReturnValue({
+    success: true,
+    conflicts: [],
+    result: { rules: [] },
+  });
   mockCheckIfRevisionNeedsReview.mockReturnValue(false);
 });
 
@@ -186,14 +197,48 @@ describe("publishPendingFeatureDraftsForExperiment", () => {
     });
   });
 
+  it("discards a no-op draft without publishing or failing", async () => {
+    mockGetRevision.mockResolvedValue({
+      version: 6,
+      status: "draft",
+      rules: [],
+    } as never);
+    // Empty result means autoMerge found nothing to change — no-op path.
+    mockAutoMerge.mockReturnValue({ success: true, conflicts: [], result: {} });
+
+    const experiment = makeExperiment([
+      { featureId: "j2-test", revisionVersion: 6 },
+    ]);
+
+    const result = await publishPendingFeatureDraftsForExperiment(
+      ctx,
+      experiment,
+    );
+
+    expect(mockDiscardRevision).toHaveBeenCalledTimes(1);
+    expect(mockPublishRevision).not.toHaveBeenCalled();
+    expect(mockRemovePending).toHaveBeenCalledTimes(1);
+    expect(mockRemovePending).toHaveBeenCalledWith(ctx, "exp_1", "j2-test", 6);
+    expect(result.published).toEqual([]);
+    expect(result.failed).toEqual([]);
+  });
+
   it("halts the train on first merge conflict (no further publishes)", async () => {
     mockGetRevision.mockImplementation(async ({ version }) => {
       return { version, status: "draft", rules: [] } as never;
     });
     // First two drafts merge cleanly, third hits a conflict.
     mockAutoMerge
-      .mockReturnValueOnce({ success: true, conflicts: [], result: {} })
-      .mockReturnValueOnce({ success: true, conflicts: [], result: {} })
+      .mockReturnValueOnce({
+        success: true,
+        conflicts: [],
+        result: { rules: [] },
+      })
+      .mockReturnValueOnce({
+        success: true,
+        conflicts: [],
+        result: { rules: [] },
+      })
       .mockReturnValueOnce({
         success: false,
         conflicts: [{ key: "rules", base: "x", live: "y", revision: "z" }],

@@ -61,6 +61,7 @@ import {
   updateExperimentAndSync,
   validateVariationIds,
   validateExperimentData,
+  fillEmptyVariationKeys,
   validateStatusUpdateSchedule,
 } from "back-end/src/services/experiments";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
@@ -3999,6 +4000,10 @@ export async function postExperimentFeatureValues(
     return;
   }
 
+  fillEmptyVariationKeys(
+    variations,
+    experiment.variations.map((v) => v.key),
+  );
   validateVariationIds(variations);
   validateExperimentFeatureVariations({
     variations,
@@ -4036,13 +4041,29 @@ export async function postExperimentFeatureValues(
 
   if (variationsChanged) {
     changes.variations = variations;
+    // Also update the phase's variations array to include new/removed variations
+    const phases = changes.phases || [...experiment.phases];
+    const lastIndex = phases.length - 1;
+    phases[lastIndex] = {
+      ...phases[lastIndex],
+      variations: variations.map((v) => ({
+        id: v.id,
+        status: "active" as const,
+      })),
+    };
+    changes.phases = phases;
   }
 
   if (variationWeightsChanged) {
-    changes.phases = applyVariationWeightsToLatestPhase(
-      experiment,
+    // Use changes.phases if already updated (e.g. by variationsChanged above), otherwise start from experiment
+    const basePhases = changes.phases || [...experiment.phases];
+    const lastIndex = basePhases.length - 1;
+    const updatedPhases = [...basePhases];
+    updatedPhases[lastIndex] = {
+      ...updatedPhases[lastIndex],
       variationWeights,
-    );
+    };
+    changes.phases = updatedPhases;
   }
 
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {

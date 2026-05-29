@@ -633,7 +633,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               res.version && setVersion(res.version);
             }}
           >
-            <Box style={{ minHeight: 300 }}>
+            <Box>
               <DraftSelectorForChanges
                 feature={feature}
                 revisionList={revisionList}
@@ -645,7 +645,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 gatedEnvSet={gatedEnvSet}
                 triggerPrefix="Rule deletion will be"
               />
-              <Text as="p" mb="2">
+              <Text color="text-high" as="p">
                 This rule will be removed when the revision is published. The
                 live feature will not change until then.
               </Text>
