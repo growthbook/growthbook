@@ -114,6 +114,58 @@ WHERE
 You can use `{{ startDate }}`, `{{ endDate }}`, and `{{ experimentId }}` in dimension queries to scope your data to the experiment's time window. See the [SQL Templates](/experimentation-analysis/sql-templates) page for more details.
 </Tip>
 
+## Precomputed Unit Dimensions
+
+Precomputed Unit Dimensions tell GrowthBook to compute results for one or more user dimensions on every experiment refresh, alongside the main dimensionless analysis. Once configured, the dimension breakdown is available immediately in the results table and is persisted as a [dimension time series](/experimentation-analysis/experiment-time-series) — no separate on-demand query needed.
+
+Use this when you regularly slice an experiment by the same user dimension (for example, country, plan, or platform) and want those breakdowns to appear as soon as results refresh.
+
+<Info>
+Precomputed Unit Dimensions require a data source with [Pipeline Mode](/experimentation-analysis/data-pipeline) enabled using the **Ephemeral** strategy. Pipeline Mode is an Enterprise feature.
+</Info>
+
+### How it works
+
+When you select unit dimensions to precompute, GrowthBook:
+
+1. Materializes one `dim_unit_<id>` column per selected dimension on the shared experiment units table.
+2. Runs an isolated per-dimension metric query for each precomputed dimension on every refresh.
+3. Persists the results as a dimension time series so subsequent views are instant.
+
+Because these queries reuse the units table that Pipeline Mode already writes, the cost of adding a precomputed dimension is the metric queries themselves — the unit join is paid once.
+
+### Configure precomputed unit dimensions
+
+1. Open the experiment and click **Edit** on the analysis settings.
+2. Expand **Advanced Settings**.
+3. Under **Precomputed Unit Dimensions**, select up to 3 user dimensions to compute on every refresh.
+4. Save and refresh the experiment.
+
+The dropdown only lists user dimensions whose `userIdType` matches the experiment's exposure query and whose data source matches the experiment's data source.
+
+### Limits and requirements
+
+- Maximum of **3 precomputed unit dimensions** per experiment.
+- Requires the experiment's data source to have Pipeline Mode set to **Ephemeral** with a writable dataset.
+- Not supported for **Bandit** experiments. Switching an experiment to a bandit clears any configured precomputed unit dimensions.
+- Quantile metrics fall back to a dimensionless analysis for these dimensions — every dimension value shows the same overall quantile result.
+- Saved dimensions that no longer match the experiment's data source or exposure query identifier type are silently skipped on refresh.
+
+### API
+
+Both `POST /api/v1/experiments` and `POST /api/v1/experiments/{id}` accept an optional `precomputedUnitDimensionIds` field — an array of up to 3 dimension IDs.
+
+```bash
+curl -X POST https://api.growthbook.io/api/v1/experiments/exp_abc123 \
+  -H "Authorization: Bearer $GROWTHBOOK_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "precomputedUnitDimensionIds": ["dim_country", "dim_plan"]
+  }'
+```
+
+Pass an empty array to clear the configuration. The API rejects requests that exceed 3 IDs, reference unknown dimensions, or target an experiment without a Pipeline Mode-enabled data source.
+
 ## Mixpanel
 
 For mixpanel, there is just a single type of dimension that is based on event properties (at this time Mixpanel user properties are not supported).
