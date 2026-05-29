@@ -1352,7 +1352,8 @@ export async function advanceScheduleManually(
   schedule: RampScheduleInterface,
 ): Promise<RampScheduleInterface> {
   let scheduleToAdvance = schedule;
-  if (schedule.status === "paused") {
+  const wasPaused = schedule.status === "paused";
+  if (wasPaused) {
     const now = new Date();
     const nextStepIndex = schedule.currentStepIndex + 1;
     let elapsed = 0;
@@ -1368,17 +1369,39 @@ export async function advanceScheduleManually(
     await syncLinkedSafeRolloutForRampState(ctx, scheduleToAdvance);
   }
 
-  scheduleToAdvance = await ensureSafeRolloutForMonitoredRamp(
-    ctx,
-    scheduleToAdvance,
-  );
+  try {
+    scheduleToAdvance = await ensureSafeRolloutForMonitoredRamp(
+      ctx,
+      scheduleToAdvance,
+    );
 
-  const now = new Date();
-  const advanced = await advanceStep(ctx, scheduleToAdvance);
-  // Chain through any subsequent instant-clearable steps in the same pass
-  // so the caller sees the schedule at its first blocking point immediately.
-  await advanceUntilBlocked(ctx, advanced, now);
-  return (await ctx.models.rampSchedules.getById(advanced.id)) ?? advanced;
+    const now = new Date();
+    const advanced = await advanceStep(ctx, scheduleToAdvance);
+    // Chain through any subsequent instant-clearable steps in the same pass
+    // so the caller sees the schedule at its first blocking point immediately.
+    await advanceUntilBlocked(ctx, advanced, now);
+    return (await ctx.models.rampSchedules.getById(advanced.id)) ?? advanced;
+  } catch (e) {
+    // If we transitioned from paused→running and then failed, revert to paused
+    // so the agenda doesn't strand the schedule in running with no nextProcessAt.
+    if (wasPaused) {
+      logger.warn(
+        { scheduleId: schedule.id, error: (e as Error).message },
+        "advanceScheduleManually failed after paused→running transition; reverting to paused",
+      );
+      await ctx.models.rampSchedules.updateById(schedule.id, {
+        status: "paused",
+        pausedAt: new Date(),
+        eventHistory: appendRampEvent(schedule, "error-paused", {
+          stepIndex: schedule.currentStepIndex,
+          status: "paused",
+          previousStatus: "running",
+          reason: `Manual advance failed: ${(e as Error).message}`,
+        }),
+      });
+    }
+    throw e;
+  }
 }
 
 export async function startSchedule(
