@@ -1,6 +1,10 @@
 import { z } from "zod";
 
-export const hooks = ["validateFeature", "validateFeatureRevision"] as const;
+export const hooks = [
+  "validateFeature",
+  "validateFeatureRevision",
+  "validateExperiment",
+] as const;
 
 export const customHookValidator = z
   .object({
