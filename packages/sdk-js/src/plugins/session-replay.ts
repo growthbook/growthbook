@@ -24,18 +24,13 @@ type PluginOptions = {
   autoRecord?: boolean;
   /**
    * Per-app kill switch. When false, the plugin loads but never starts
-   * recording. Customers can flip this at runtime to suppress capture
-   * (e.g. while a user is on a known-sensitive route). The server-side
-   * per-org kill switch is enforced separately on the ingest endpoint.
-   *
+   * recording.
    * Default: true.
    */
   enabled?: boolean;
   /**
-   * Privacy controls for what rrweb captures. Element-level privacy is
-   * fully driven by GrowthBook's three shipped class names —
-   * `gb-block`, `gb-mask`, and `gb-ignore` — and is not configurable
-   * here; this option only covers input masking strategy and custom
+   * Privacy controls for what rrweb captures.
+   * This option only covers input masking strategy and custom
    * transform hooks. Defaults to deny-by-default (every input masked).
    */
   privacy?: SessionReplayPrivacyConfig;

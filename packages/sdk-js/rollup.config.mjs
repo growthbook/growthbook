@@ -25,34 +25,6 @@ const terserSettings = terser({
 
 export default [
   {
-    // Plugins bundle — rrweb is inlined so consumers don't need it as a dep
-    input: "src/plugins/index.ts",
-    external: () => false,
-    output: [
-      {
-        file: "dist/bundles/plugins.mjs",
-        format: "esm",
-        sourcemap: true,
-      },
-      {
-        file: "dist/bundles/plugins.cjs",
-        format: "cjs",
-        sourcemap: true,
-      },
-    ],
-    plugins: [
-      resolve({ extensions, jsnext: true }),
-      replace({
-        "process.env.NODE_ENV": JSON.stringify("production"),
-        preventAssignment: true,
-      }),
-      babel({
-        babelHelpers: "bundled",
-        extensions,
-      }),
-    ],
-  },
-  {
     input: "src/index.ts",
     external: () => false,
     output: [
@@ -119,6 +91,42 @@ export default [
       }),
       replace({
         __SDK_VERSION__: JSON.stringify(version),
+        preventAssignment: true,
+      }),
+      babel({
+        babelHelpers: "bundled",
+        extensions,
+      }),
+    ],
+  },
+  {
+    input: "src/auto-wrapper-plus.ts",
+    external: () => false,
+    output: [
+      {
+        file: "dist/bundles/auto-plus.js",
+        format: "iife",
+        name: "_growthbook",
+        sourcemap: true,
+      },
+      {
+        file: "dist/bundles/auto-plus.min.js",
+        format: "iife",
+        name: "_growthbook",
+        plugins: [terserSettings],
+        sourcemap: true,
+      },
+    ],
+    plugins: [
+      resolve({ extensions, jsnext: true }),
+      replace({
+        "process.env.NODE_ENV": JSON.stringify("production"),
+        preventAssignment: true,
+      }),
+      replace({
+        __SDK_VERSION__: JSON.stringify(version),
+        __INGESTOR_HOST__:
+          process.env.INGESTOR_HOST || "https://ingestor.growthbook.io",
         preventAssignment: true,
       }),
       babel({
