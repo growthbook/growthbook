@@ -18616,91 +18616,8 @@ paths:
             curl -X GET 'https://api.growthbook.io/api/v1/ramp-schedules' \
               -H 'Authorization: Bearer YOUR_API_KEY'
     post:
-      operationId: createRampSchedule
-      summary: Create a single rampSchedule
-      description: >
-        Creates a new ramp schedule, optionally attaching it to a published
-        feature rule.
-
-
-        ### Target attachment (optional)
-
-
-        Provide `featureId` and `ruleId` together to attach the schedule to a
-        specific
-
-        rule on creation. The rule must already be live (published). Each rule
-        can only
-
-        be controlled by one schedule at a time.
-
-
-        When both are supplied, **`targetId` and `patch.ruleId` are
-        auto-injected**
-
-        into every step action and endAction — callers only need to supply the
-        patch
-
-        values (`coverage`, `condition`, etc.).
-
-
-        `environment` is accepted for backward compatibility with pre-v2 ramps
-        but is
-
-        deprecated and no longer required. Post-v2 `rule.id` is uniquely
-        sufficient.
-
-
-        If rule attachment is omitted, the schedule is created as a
-        free-standing
-
-        skeleton in `pending` status. Use `POST
-        /ramp-schedules/{id}/actions/add-target`
-
-        to attach rules later, and `POST /ramp-schedules/{id}/actions/start` to
-        start it.
-
-
-        ### Coverage on monitored steps
-
-
-        For monitored steps (`monitored: true`), `coverage` represents total
-        experiment
-
-        enrollment (both control and variation), not the fraction of users
-        seeing
-
-        variation 1. The experiment splits enrolled traffic 50/50, so
-        variation-1
-
-        exposure is `coverage / 2`. For example, to show variation 1 to 25% of
-        users,
-
-        set `coverage: 0.5`. The SDK payload uses hash-based filters (not
-        coverage) on
-
-        the experiment rule to prevent bucketing shifts when transitioning
-        between
-
-        monitored and unmonitored steps.
-
-
-        ### Using templates
-
-
-        Provide `templateId` to inherit steps and endActions from a saved
-        template.
-
-        Explicit `steps` / `endActions` in the request body take precedence over
-        the
-
-        template. Template auto-population requires `featureId` and `ruleId` to
-        be set
-
-        (so targetId can be injected).
-
-
-        Requires an **Enterprise** plan.
+      operationId: postRampSchedule
+      summary: Create a ramp schedule
       tags:
         - ramp-schedules
       requestBody:
@@ -18713,72 +18630,36 @@ paths:
                 name:
                   type: string
                 featureId:
-                  description: >-
-                    Feature that anchors this schedule. Required when `ruleId`
-                    is set.
                   type: string
                 ruleId:
-                  description: >-
-                    Rule to attach as the initial target. Requires `featureId`.
-                    Post-v2 `rule.id` is uniquely sufficient; `environment` is
-                    optional and deprecated.
                   type: string
                 environment:
-                  deprecated: true
-                  description: >-
-                    Deprecated. Legacy disambiguator for pre-v2 rules whose
-                    `ruleId` could repeat across envs. Omit on new schedules —
-                    the resolver uses `rule.id` directly.
                   type: string
                 steps:
-                  description: >
-                    Ordered ramp steps. When `featureId`+`ruleId` are provided,
-
-                    `targetId` and `patch.ruleId` in actions are auto-injected —
-                    only
-
-                    supply the patch fields you want to change.
                   type: array
                   items:
                     type: object
                     properties:
                       interval:
-                        description: >-
-                          Hold duration in seconds before this step's gates are
-                          evaluated. null = no time gate (advance as soon as
-                          holdConditions clear). Pure approval steps use `{
-                          interval: null, holdConditions: { requiresApproval:
-                          true } }`.
                         anyOf:
                           - type: number
                             exclusiveMinimum: 0
                           - type: 'null'
                       actions:
+                        default: []
                         type: array
                         items:
                           type: object
                           properties:
                             targetType:
-                              description: >-
-                                Omit when using featureId+ruleId+environment
-                                (auto-injected)
                               type: string
                               const: feature-rule
                             targetId:
-                              description: >-
-                                Auto-injected when featureId+ruleId+environment
-                                are provided
                               type: string
                             patch:
-                              description: >-
-                                Sparse patch — only fields present are applied;
-                                absent fields accumulate from previous steps
                               type: object
                               properties:
                                 ruleId:
-                                  description: >-
-                                    Auto-injected when ruleId is provided at the
-                                    top level
                                   type: string
                                 coverage:
                                   description: >-
@@ -18864,13 +18745,6 @@ paths:
                           - type: string
                           - type: 'null'
                       monitored:
-                        description: >-
-                          When true, this step runs A/B traffic analysis while
-                          active. Enrolled users are split 50/50 between control
-                          and variation, so a coverage of 1.0 means 50% of users
-                          see the variation. The SDK uses hash-based filters on
-                          the experiment rule to prevent bucketing shifts when
-                          transitioning between monitored and unmonitored steps.
                         default: false
                         type: boolean
                       holdConditions:
@@ -18884,38 +18758,23 @@ paths:
                         additionalProperties: false
                     required:
                       - interval
+                      - actions
                       - monitored
                     additionalProperties: false
                 startActions:
-                  description: >-
-                    Actions that restore controlled rules to their pre-ramp
-                    state. When omitted for an attached rule, the server
-                    captures the current published rule state.
                   type: array
                   items:
                     type: object
                     properties:
                       targetType:
-                        description: >-
-                          Omit when using featureId+ruleId+environment
-                          (auto-injected)
                         type: string
                         const: feature-rule
                       targetId:
-                        description: >-
-                          Auto-injected when featureId+ruleId+environment are
-                          provided
                         type: string
                       patch:
-                        description: >-
-                          Sparse patch — only fields present are applied; absent
-                          fields accumulate from previous steps
                         type: object
                         properties:
                           ruleId:
-                            description: >-
-                              Auto-injected when ruleId is provided at the top
-                              level
                             type: string
                           coverage:
                             description: >-
@@ -18996,35 +18855,19 @@ paths:
                       - patch
                     additionalProperties: false
                 endActions:
-                  description: >-
-                    Actions applied when the ramp completes. `targetId` and
-                    `patch.ruleId` are auto-injected when `featureId`+`ruleId`
-                    are provided.
                   type: array
                   items:
                     type: object
                     properties:
                       targetType:
-                        description: >-
-                          Omit when using featureId+ruleId+environment
-                          (auto-injected)
                         type: string
                         const: feature-rule
                       targetId:
-                        description: >-
-                          Auto-injected when featureId+ruleId+environment are
-                          provided
                         type: string
                       patch:
-                        description: >-
-                          Sparse patch — only fields present are applied; absent
-                          fields accumulate from previous steps
                         type: object
                         properties:
                           ruleId:
-                            description: >-
-                              Auto-injected when ruleId is provided at the top
-                              level
                             type: string
                           coverage:
                             description: >-
@@ -19105,25 +18948,71 @@ paths:
                       - patch
                     additionalProperties: false
                 startDate:
-                  description: When to start. Absent/null = immediately on start action.
                   anyOf:
                     - type: string
                       format: date-time
                     - type: 'null'
                 cutoffDate:
-                  description: >-
-                    Rule-level kill date. When reached, the ramp completes and
-                    the rule is disabled. Use for time-boxed rules. Set to null
-                    to clear.
                   anyOf:
                     - type: string
                       format: date-time
                     - type: 'null'
+                monitoringConfig:
+                  anyOf:
+                    - type: object
+                      properties:
+                        datasourceId:
+                          type: string
+                        exposureQueryId:
+                          type: string
+                        guardrailMetricIds:
+                          minItems: 1
+                          type: array
+                          items:
+                            type: string
+                        signalMetricIds:
+                          type: array
+                          items:
+                            type: string
+                        monitoringMode:
+                          type: string
+                          enum:
+                            - auto
+                            - manual
+                        autoUpdate:
+                          type: boolean
+                        autoRollback:
+                          type: boolean
+                        updateScheduleMinutes:
+                          anyOf:
+                            - type: number
+                              minimum: 10
+                            - type: 'null'
+                        srmAction:
+                          type: string
+                          enum:
+                            - warn
+                            - hold
+                            - rollback
+                        noTrafficAction:
+                          type: string
+                          enum:
+                            - warn
+                            - hold
+                            - rollback
+                        multipleExposureAction:
+                          type: string
+                          enum:
+                            - warn
+                            - hold
+                            - rollback
+                      required:
+                        - datasourceId
+                        - exposureQueryId
+                        - guardrailMetricIds
+                      additionalProperties: false
+                    - type: 'null'
                 lockdownConfig:
-                  description: >-
-                    When mode is 'locked', blocks all feature edits while the
-                    ramp is actively running (not after completion or between
-                    end and cutoff).
                   type: object
                   properties:
                     mode:
@@ -19134,67 +19023,6 @@ paths:
                   required:
                     - mode
                   additionalProperties: false
-                monitoringConfig:
-                  anyOf:
-                    - type: object
-                      properties:
-                        datasourceId:
-                          type: string
-                        exposureQueryId:
-                          type: string
-                        guardrailMetricIds:
-                          type: array
-                          items:
-                            type: string
-                        signalMetricIds:
-                          type: array
-                          items:
-                            type: string
-                        updateScheduleMinutes:
-                          anyOf:
-                            - type: number
-                              minimum: 10
-                            - type: 'null'
-                        monitoringMode:
-                          type: string
-                          enum:
-                            - auto
-                            - manual
-                        autoUpdate:
-                          type: boolean
-                        srmAction:
-                          type: string
-                          enum:
-                            - rollback
-                            - hold
-                            - warn
-                        noTrafficAction:
-                          type: string
-                          enum:
-                            - rollback
-                            - hold
-                            - warn
-                        noTrafficGracePeriodHours:
-                          description: >-
-                            How long to wait for traffic before applying
-                            `noTrafficAction`. Defaults to 24 hours when null or
-                            not set.
-                          anyOf:
-                            - type: number
-                              exclusiveMinimum: 0
-                            - type: 'null'
-                        multipleExposureAction:
-                          type: string
-                          enum:
-                            - rollback
-                            - hold
-                            - warn
-                      required:
-                        - datasourceId
-                        - exposureQueryId
-                        - guardrailMetricIds
-                      additionalProperties: false
-                    - type: 'null'
                 experimentHealthAction:
                   type: string
                   enum:
@@ -19202,12 +19030,7 @@ paths:
                     - hold
                     - warn
                 templateId:
-                  description: >-
-                    Load steps and endActions from a saved template
-                    (featureId+ruleId must also be set for auto-injection)
                   type: string
-              required:
-                - name
               additionalProperties: false
       responses:
         '200':

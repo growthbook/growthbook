@@ -1,19 +1,15 @@
 import escapeRegExp from "lodash/escapeRegExp";
-import { v4 as uuidv4 } from "uuid";
 import mongoose from "mongoose";
 import { UpdateProps } from "shared/types/base-model";
-import type { FeatureInterface } from "shared/types/feature";
 import {
   ApiRampScheduleInterface,
   RampScheduleInterface,
-  RampScheduleTemplateInterface,
   RampStepAction,
   StepHoldConditions,
   rampScheduleValidator,
 } from "shared/validators";
 import { RULE_ID_ENV_SUFFIX_DELIMITER, stemRuleId } from "shared/util";
 import { rampScheduleApiSpec } from "back-end/src/api/specs/ramp-schedule.spec";
-import { getFeature } from "back-end/src/models/FeatureModel";
 import {
   appendRampEvent,
   assertCanUpdateLinkedSafeRolloutMonitoringConfig,
@@ -22,14 +18,10 @@ import {
   getEffectiveRampAutoUpdateState,
   getRampAutoUpdatePreference,
   getRampMonitoringMode,
-  getStartActionsFromRules,
   syncLinkedSafeRolloutForRampState,
 } from "back-end/src/services/rampSchedule";
 import { applyPagination } from "back-end/src/util/handler";
-import {
-  rampTargetsEquivalent,
-  resolveRampTargets,
-} from "back-end/src/util/flattenRules";
+import { rampTargetsEquivalent } from "back-end/src/util/flattenRules";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "rampschedules";
@@ -222,36 +214,6 @@ type PostBodyAction = {
   patch: Partial<RampStepAction["patch"]>;
 };
 
-function forceMatchesValueType(
-  value: unknown,
-  valueType: FeatureInterface["valueType"],
-): boolean {
-  if (value === null || value === undefined) return false;
-  const t = typeof value;
-  if (valueType === "boolean") return t === "boolean";
-  if (valueType === "number") return t === "number";
-  if (valueType === "string") return t === "string";
-  if (valueType === "json") return t === "object";
-  return false;
-}
-
-function remapTemplateActions(
-  actions: RampScheduleTemplateInterface["steps"][number]["actions"],
-  targetId: string,
-  ruleId: string,
-  valueType: FeatureInterface["valueType"],
-): RampStepAction[] {
-  return (actions ?? []).map((a): RampStepAction => {
-    if (a.targetType !== "feature-rule") return a;
-    const patch = { ...a.patch, ruleId };
-    if ("force" in patch && !forceMatchesValueType(patch.force, valueType)) {
-      const { force: _force, ...rest } = patch;
-      return { targetType: "feature-rule" as const, targetId, patch: rest };
-    }
-    return { targetType: "feature-rule" as const, targetId, patch };
-  });
-}
-
 // Normalize a legacy API trigger input into the unified `interval` +
 // `holdConditions` shape used internally and on output.
 function normalizeLegacyApiTrigger(
@@ -298,26 +260,6 @@ function normalizeApiStepShape(s: {
   return {
     interval: s.interval ?? null,
     ...(s.holdConditions ? { holdConditions: s.holdConditions } : {}),
-  };
-}
-
-function normalizeAction(action: PostBodyAction): RampStepAction {
-  return {
-    targetType: "feature-rule" as const,
-    targetId: action.targetId ?? "",
-    patch: action.patch as RampStepAction["patch"],
-  };
-}
-
-function injectTarget(
-  action: PostBodyAction,
-  targetId: string,
-  ruleId: string,
-): RampStepAction {
-  return {
-    targetType: "feature-rule" as const,
-    targetId,
-    patch: { ...action.patch, ruleId },
   };
 }
 
@@ -484,228 +426,6 @@ export class RampScheduleModel extends BaseClass {
     > extends Promise<infer R>
       ? R
       : never;
-  }
-
-  public override async handleApiCreate(
-    req: Parameters<InstanceType<typeof BaseClass>["handleApiCreate"]>[0],
-  ) {
-    const body = req.body as typeof req.body & {
-      startActions?: PostBodyAction[];
-    };
-
-    if (!this.context.hasPremiumFeature("ramp-schedules")) {
-      this.context.throwPlanDoesNotAllowError(
-        "Ramp schedules require an Enterprise plan.",
-      );
-    }
-
-    const hasTarget = !!(body.featureId && body.ruleId);
-
-    let targetId: string | undefined;
-    let feature: FeatureInterface | null = null;
-
-    if (body.featureId) {
-      feature = await getFeature(this.context, body.featureId);
-      if (!feature) {
-        throw new Error(`Feature '${body.featureId}' not found`);
-      }
-    }
-
-    if (hasTarget) {
-      const envSuffix = body.environment
-        ? ` in environment '${body.environment}'`
-        : "";
-      const matches = resolveRampTargets(
-        { ruleId: body.ruleId!, environment: body.environment ?? null },
-        feature!.rules ?? [],
-      );
-      const rule = matches[0];
-      if (!rule) {
-        throw new Error(
-          `Rule '${body.ruleId}' not found${envSuffix}. ` +
-            `The rule must be published before attaching a ramp schedule.`,
-        );
-      }
-      if (matches.length > 1 && !body.environment) {
-        const siblingEnvs = Array.from(
-          new Set(
-            matches.flatMap((r) =>
-              r.allEnvironments
-                ? ["(all environments)"]
-                : (r.environments ?? []),
-            ),
-          ),
-        ).sort();
-        throw new Error(
-          `Rule '${body.ruleId}' is ambiguous — it matches ${matches.length} sibling rules (${siblingEnvs.join(", ")}). ` +
-            `Specify an 'environment' to disambiguate.`,
-        );
-      }
-
-      const conflicting = await this.findByTargetRule(
-        body.ruleId!,
-        body.environment ?? undefined,
-      );
-      if (conflicting.length > 0) {
-        throw new Error(
-          `A ramp schedule (${conflicting[0].id}) already controls rule '${body.ruleId}'${envSuffix}. ` +
-            `Delete it first before creating a new one.`,
-        );
-      }
-
-      targetId = uuidv4();
-    }
-
-    let template: RampScheduleTemplateInterface | undefined;
-    if (body.templateId) {
-      const tmpl = await this.context.models.rampScheduleTemplates.getById(
-        body.templateId,
-      );
-      if (!tmpl) {
-        throw new Error(`Template '${body.templateId}' not found`);
-      }
-      template = tmpl;
-    }
-
-    const startDate = body.startDate ? new Date(body.startDate) : undefined;
-
-    const resolvedSteps: RampScheduleInterface["steps"] = (() => {
-      if (body.steps !== undefined) {
-        return body.steps.map(
-          (s: {
-            interval?: number | null;
-            trigger?: LegacyApiRampTrigger;
-            actions?: PostBodyAction[];
-            approvalNotes?: string | null;
-            monitored?: boolean;
-            holdConditions?: StepHoldConditions;
-          }) => {
-            const normalized = normalizeApiStepShape(s);
-            return {
-              interval: normalized.interval,
-              actions: (s.actions ?? []).map((a: PostBodyAction) =>
-                hasTarget
-                  ? injectTarget(a, targetId!, body.ruleId!)
-                  : normalizeAction(a),
-              ),
-              approvalNotes: s.approvalNotes ?? undefined,
-              monitored: !!s.monitored,
-              holdConditions: normalized.holdConditions,
-            };
-          },
-        );
-      }
-      if (template && hasTarget) {
-        return template.steps.map((s) => ({
-          interval: s.interval,
-          actions: remapTemplateActions(
-            s.actions,
-            targetId!,
-            body.ruleId!,
-            feature!.valueType,
-          ),
-          approvalNotes: s.approvalNotes ?? undefined,
-          monitored: !!s.monitored,
-          holdConditions: s.holdConditions ?? undefined,
-        }));
-      }
-      return [];
-    })();
-
-    const resolvedEndActions: RampStepAction[] | undefined = (() => {
-      if (body.endActions !== undefined) {
-        return body.endActions.map((a: PostBodyAction) =>
-          hasTarget
-            ? injectTarget(a, targetId!, body.ruleId!)
-            : normalizeAction(a),
-        );
-      }
-      if (
-        template?.endPatch &&
-        hasTarget &&
-        Object.keys(template.endPatch).length > 0
-      ) {
-        return [
-          {
-            targetType: "feature-rule" as const,
-            targetId: targetId!,
-            patch: {
-              ruleId: body.ruleId!,
-              ...template.endPatch,
-            },
-          },
-        ];
-      }
-      return undefined;
-    })();
-
-    const resolvedStartActions: RampStepAction[] | undefined = (() => {
-      if (body.startActions !== undefined) {
-        return body.startActions.map((a: PostBodyAction) =>
-          hasTarget
-            ? injectTarget(a, targetId!, body.ruleId!)
-            : normalizeAction(a),
-        );
-      }
-      if (hasTarget) {
-        const actions = getStartActionsFromRules({
-          rules: feature!.rules ?? [],
-          targetId: targetId!,
-          ruleId: body.ruleId!,
-          environment: body.environment,
-        });
-        return actions.length > 0 ? actions : undefined;
-      }
-      return undefined;
-    })();
-
-    const schedule = await this.create({
-      name: body.name,
-      entityType: "feature",
-      entityId: body.featureId ?? "",
-      targets: hasTarget
-        ? [
-            {
-              id: targetId!,
-              entityType: "feature",
-              entityId: body.featureId!,
-              ruleId: body.ruleId,
-              status: "active",
-            },
-          ]
-        : [],
-      startActions: resolvedStartActions,
-      steps: resolvedSteps,
-      endActions: resolvedEndActions,
-      startDate,
-      cutoffDate: body.cutoffDate ? new Date(body.cutoffDate as string) : null,
-      status: hasTarget ? "ready" : "pending",
-      currentStepIndex: -1,
-      nextStepAt: null,
-      nextProcessAt: startDate ?? null,
-      ...(body.monitoringConfig
-        ? { monitoringConfig: body.monitoringConfig }
-        : {}),
-      ...(body.lockdownConfig ? { lockdownConfig: body.lockdownConfig } : {}),
-      ...(body.experimentHealthAction
-        ? { experimentHealthAction: body.experimentHealthAction }
-        : {}),
-    } as Omit<
-      RampScheduleInterface,
-      "id" | "organization" | "dateCreated" | "dateUpdated"
-    >);
-
-    await dispatchRampEvent(this.context, schedule, "rampSchedule.created", {
-      object: {
-        rampScheduleId: schedule.id,
-        rampName: schedule.name,
-        orgId: this.context.org.id,
-        entityType: schedule.entityType,
-        entityId: schedule.entityId,
-      },
-    });
-
-    return this.toApiInterface(schedule);
   }
 
   public override async handleApiUpdate(

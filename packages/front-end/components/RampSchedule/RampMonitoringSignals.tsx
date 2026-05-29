@@ -48,7 +48,7 @@ export type SignalResult = {
   details: SignalDetails;
 };
 
-const NO_TRAFFIC_GRACE_PERIOD_MS = 24 * 60 * 60 * 1000;
+const DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS = 24;
 const MULTIPLE_ISSUES_LABEL = "Multiple issues detected";
 
 function buildDummySignalData({
@@ -269,9 +269,13 @@ function computeSignals(
   const monitoringStartDate = monitoringStartRaw
     ? getValidDate(monitoringStartRaw)
     : null;
+  const noTrafficGracePeriodMs =
+    (mc?.noTrafficGracePeriodHours ?? DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS) *
+    3600 *
+    1000;
   const inNoTrafficGraceWindow =
     !!monitoringStartDate &&
-    Date.now() - monitoringStartDate.getTime() < NO_TRAFFIC_GRACE_PERIOD_MS;
+    Date.now() - monitoringStartDate.getTime() < noTrafficGracePeriodMs;
 
   if (snapshot && totalUsers === 0) {
     if (inNoTrafficGraceWindow) {

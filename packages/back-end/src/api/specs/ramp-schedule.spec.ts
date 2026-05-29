@@ -213,7 +213,8 @@ export const rampScheduleApiSpec = {
     createBody: createBodySchema,
     updateBody: updateBodySchema,
   },
-  includeDefaultCrud: true,
+  includeDefaultCrud: false,
+  crudActions: ["get", "list", "delete", "update"] as const,
   crudValidatorOverrides: {
     list: {
       querySchema: listQuerySchema,

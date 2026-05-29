@@ -2,6 +2,7 @@ import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
 import {
   apiRampScheduleInterface,
+  experimentHealthAction,
   featureRulePatch,
   RampScheduleInterface,
   RampScheduleTemplateInterface,
@@ -17,7 +18,7 @@ import {
   getStartActionsFromRules,
   remapTemplateActions,
 } from "back-end/src/services/rampSchedule";
-import { resolveRampTarget } from "back-end/src/util/flattenRules";
+import { resolveRampTargets } from "back-end/src/util/flattenRules";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 
 const postBodyAction = z.object({
@@ -88,6 +89,7 @@ const postRampScheduleValidator = {
         })
         .nullish(),
       lockdownConfig: z.object({ mode: z.enum(["none", "locked"]) }).optional(),
+      experimentHealthAction: experimentHealthAction.optional(),
       templateId: z.string().optional(),
     })
     .superRefine((data, ctx) => {
@@ -178,14 +180,28 @@ export const postRampSchedule = createApiRequestHandler(
     const envSuffix = body.environment
       ? ` in environment '${body.environment}'`
       : "";
-    const rule = resolveRampTarget(
+    const matches = resolveRampTargets(
       { ruleId: body.ruleId!, environment: body.environment ?? null },
       feature!.rules ?? [],
     );
+    const rule = matches[0];
     if (!rule) {
       throw new NotFoundError(
         `Rule '${body.ruleId}' not found${envSuffix}. ` +
           `The rule must be published before attaching a ramp schedule.`,
+      );
+    }
+    if (matches.length > 1 && !body.environment) {
+      const siblingEnvs = Array.from(
+        new Set(
+          matches.flatMap((r) =>
+            r.allEnvironments ? ["(all environments)"] : (r.environments ?? []),
+          ),
+        ),
+      ).sort();
+      throw new BadRequestError(
+        `Rule '${body.ruleId}' is ambiguous — it matches ${matches.length} sibling rules (${siblingEnvs.join(", ")}). ` +
+          `Specify an 'environment' to disambiguate.`,
       );
     }
 
@@ -329,6 +345,9 @@ export const postRampSchedule = createApiRequestHandler(
       body.monitoringConfig ?? template?.monitoringConfig ?? null,
     ),
     lockdownConfig: body.lockdownConfig ?? template?.lockdownConfig,
+    ...(body.experimentHealthAction
+      ? { experimentHealthAction: body.experimentHealthAction }
+      : {}),
     status: hasTarget ? "ready" : "pending",
     currentStepIndex: -1,
     nextStepAt: null,

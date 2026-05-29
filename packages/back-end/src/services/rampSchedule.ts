@@ -1073,6 +1073,12 @@ export async function resumeSchedule(
           currentStepIndex,
           now,
         );
+      } else {
+        // Already at the last step (nextStepIndex >= steps.length) with no
+        // nextStepAt — set it to now so advanceUntilBlocked can drive
+        // advanceStep → completeRollout rather than returning immediately on
+        // the !nextStepAt guard and stranding the schedule in "running" forever.
+        resumeUpdates.nextStepAt = now;
       }
     }
   }
@@ -1785,7 +1791,7 @@ export async function advanceUntilBlocked(
     current.cutoffDate <= now &&
     ["running", "paused"].includes(current.status)
   ) {
-    await completeRollout(ctx, current);
+    await completeRollout(ctx, current, { disableActiveTargets: true });
     return;
   }
 

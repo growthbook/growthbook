@@ -30,6 +30,7 @@ import {
   advanceStep,
   jumpAheadToStep,
   rollbackToStep,
+  resumeSchedule,
   advanceUntilBlocked,
   advanceScheduleManually,
   completeRollout,
@@ -1574,6 +1575,69 @@ describe("rollbackToStep", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// resumeSchedule
+// ---------------------------------------------------------------------------
+
+describe("resumeSchedule", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetFeature.mockResolvedValue(makeFeature() as never);
+    mockCreateRevision.mockResolvedValue(makeRevision() as never);
+    mockPublishRevision.mockResolvedValue(makeFeature() as never);
+  });
+
+  it("resume after jump-to-last-step sets nextStepAt=now so advanceUntilBlocked can complete the schedule", async () => {
+    // jumpAheadToStep stores nextStepAt:null and status:paused. The schedule
+    // has 3 steps; currentStepIndex=2 is the last one. Resuming should set
+    // nextStepAt to now so advanceUntilBlocked → advanceStep → completeRollout
+    // fires, rather than leaving the schedule stranded in "running" forever.
+    const schedule = makeSchedule({
+      status: "paused",
+      currentStepIndex: 2, // last step (steps.length - 1 = 2)
+      nextStepAt: null,
+      pausedAt: new Date(Date.now() - 5_000),
+    });
+
+    const getById = jest.fn().mockResolvedValue(null);
+    const updateById = jest
+      .fn()
+      .mockImplementation(
+        (_id: string, updates: Partial<RampScheduleInterface>) => ({
+          ...schedule,
+          ...updates,
+        }),
+      );
+
+    const ctx = {
+      org: { id: ORG_ID, settings: {} },
+      auditUser: { type: "system" },
+      environments: [],
+      permissions: {
+        canUpdateFeature: jest.fn().mockReturnValue(true),
+        canReviewFeatureDrafts: jest.fn().mockReturnValue(true),
+        canPublishFeature: jest.fn().mockReturnValue(true),
+      },
+      models: {
+        rampSchedules: { updateById, getById },
+      },
+    };
+
+    await resumeSchedule(ctx as never, schedule);
+
+    // The first updateById call is the resume update — nextStepAt must be set
+    // so advanceUntilBlocked can gate on it.
+    const [, resumeUpdates] = updateById.mock.calls[0];
+    expect(resumeUpdates.nextStepAt).not.toBeNull();
+    expect(resumeUpdates.nextStepAt).toBeInstanceOf(Date);
+
+    // completeRollout (triggered by advanceUntilBlocked → advanceStep) calls
+    // publishRevision to apply endActions, confirming the schedule reached
+    // completion rather than stalling.
+    expect(mockPublishRevision).toHaveBeenCalled();
+  });
+});
+
 describe("applyRampStartActions", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -2137,6 +2201,50 @@ describe("advanceUntilBlocked", () => {
     expect(deleteById).not.toHaveBeenCalled();
     const [, updates] = updateById.mock.calls[0];
     expect(updates.status).toBe("completed");
+  });
+
+  it("pre-loop cutoffDate path disables active targets (matches in-loop behaviour)", async () => {
+    // The pre-loop cutoff guard fires when cutoffDate <= now before any step
+    // iteration begins (e.g. a 0-step "enable on publish, disable on date"
+    // schedule whose cutoff has already elapsed on resume). It must pass
+    // { disableActiveTargets: true } so the feature rule is disabled, not left
+    // silently enabled after the cutoff fires via this path.
+    const past = new Date(Date.now() - 60_000);
+    const schedule = makeSchedule({
+      currentStepIndex: -1,
+      nextStepAt: null,
+      status: "running",
+      steps: [],
+      cutoffDate: past,
+    });
+    const updateById = jest
+      .fn()
+      .mockImplementation(
+        (_id: string, updates: Partial<RampScheduleInterface>) => ({
+          ...schedule,
+          ...updates,
+        }),
+      );
+    const ctx = {
+      org: { id: ORG_ID, settings: {} },
+      auditUser: { type: "system" },
+      environments: [],
+      permissions: {},
+      models: {
+        rampSchedules: { updateById, getById: jest.fn(), deleteById: jest.fn() },
+        safeRollout: { getById: jest.fn().mockResolvedValue(null) },
+      },
+    };
+
+    await advanceUntilBlocked(ctx as never, schedule, new Date());
+
+    // completeRollout with disableActiveTargets:true folds enabled:false into
+    // the endActions publish, so the active target's rule is disabled.
+    expect(mockPublishRevision).toHaveBeenCalled();
+    const { result } = mockPublishRevision.mock.calls[0][0];
+    const rules: FeatureRule[] = result.rules ?? [];
+    const patched = rules.find((r: FeatureRule) => r.id === RULE_ID);
+    expect(patched?.enabled).toBe(false);
   });
 
   // ------------------------------------------------------------------------
