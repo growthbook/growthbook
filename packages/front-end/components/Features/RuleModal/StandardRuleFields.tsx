@@ -407,9 +407,7 @@ export default function StandardRuleFields({
               }
               attributeSchema={attributeSchema}
               hasHashAttributes={hasHashAttributes}
-              hashVersion={
-                (form.watch("hashVersion") as 1 | 2 | undefined) ?? 1
-              }
+              hashVersion={form.watch("hashVersion") as 1 | 2 | undefined}
               setHashVersion={(v: 1 | 2) => form.setValue("hashVersion", v)}
               project={feature.project}
               seed={form.watch("seed")}

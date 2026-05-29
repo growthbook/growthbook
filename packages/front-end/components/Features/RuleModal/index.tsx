@@ -337,13 +337,19 @@ export default function RuleModal({
     return envList.length === 0 ? "all" : new Set(envList);
   }, [settings?.requireReviews, feature]);
 
-  const defaultRuleValues = getDefaultRuleValue({
-    defaultValue: getFeatureDefaultValue(feature),
-    ruleType: defaultType,
-    attributeSchema,
-    isSafeRolloutAutoRollbackEnabled: true,
-    defaultHashVersion: hasSDKWithNoBucketingV2 ? 1 : 2,
-  });
+  const defaultRuleValues = {
+    ...getDefaultRuleValue({
+      defaultValue: getFeatureDefaultValue(feature),
+      ruleType: defaultType,
+      attributeSchema,
+      isSafeRolloutAutoRollbackEnabled: true,
+      defaultHashVersion: hasSDKWithNoBucketingV2 ? 1 : 2,
+    }),
+    // hashVersion is computed for all rule types so the hashing widget always
+    // has a value. getDefaultRuleValue only sets it for ruleType === "rollout";
+    // other rule types ignore it at save time via their Zod validators.
+    hashVersion: (hasSDKWithNoBucketingV2 ? 1 : 2) as 1 | 2,
+  };
 
   const convertRuleToFormValues = (rule: FeatureRule | undefined) => {
     if (!rule) return undefined;
@@ -1819,9 +1825,7 @@ export default function RuleModal({
               setHashAttribute={(v) => form.setValue("hashAttribute", v)}
               seed={form.watch("seed") as string}
               setSeed={(v) => form.setValue("seed", v)}
-              hashVersion={
-                (form.watch("hashVersion") as 1 | 2 | undefined) ?? 1
-              }
+              hashVersion={form.watch("hashVersion") as 1 | 2 | undefined}
               setHashVersion={(v: 1 | 2) => form.setValue("hashVersion", v)}
               attributeSchema={attributeSchema}
               ruleId={form.watch("id") as string}

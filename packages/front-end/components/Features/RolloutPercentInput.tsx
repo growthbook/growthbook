@@ -59,6 +59,22 @@ export function RolloutHashingOptions({
     (s) => !hasHashAttributes || s.hashAttribute,
   );
 
+  const { data: sdkConnectionsData } = useSDKConnections();
+  // Fallback for call sites that don't wire hashVersion through a form
+  // (e.g. RampScheduleModal, RampScheduleTemplates). In the rule modal the
+  // form always has hashVersion pre-seeded, so this path is rarely hit.
+  const effectiveHashVersion =
+    hashVersion ??
+    (allConnectionsSupportBucketingV2(sdkConnectionsData?.connections, project)
+      ? 2
+      : 1);
+
+  useEffect(() => {
+    if (hashVersion === undefined && setHashVersion) {
+      setHashVersion(effectiveHashVersion);
+    }
+  }, [effectiveHashVersion]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <>
       {setHashAttribute && filteredAttributes && (
@@ -66,14 +82,16 @@ export function RolloutHashingOptions({
           label="Sample users by"
           value={hashAttribute ?? ""}
           onChange={(v) => setHashAttribute(v)}
-          options={filteredAttributes.map((a): AttributeOptionForTooltip => ({
-            value: a.property,
-            label: a.property,
-            description: a.description,
-            tags: a.tags,
-            datatype: a.datatype,
-            hashAttribute: a.hashAttribute,
-          }))}
+          options={filteredAttributes.map(
+            (a): AttributeOptionForTooltip => ({
+              value: a.property,
+              label: a.property,
+              description: a.description,
+              tags: a.tags,
+              datatype: a.datatype,
+              hashAttribute: a.hashAttribute,
+            }),
+          )}
           formatOptionLabel={(o, meta) => (
             <AttributeOptionWithTooltip
               option={o as AttributeOptionForTooltip}
@@ -117,14 +135,14 @@ export function RolloutHashingOptions({
               <>
                 <SelectField
                   label="Hashing"
-                  value={String(hashVersion ?? 2)}
-                  onChange={(v) => setHashVersion(Number(v) as 1 | 2)}
+                  value={String(effectiveHashVersion)}
+                  onChange={(v) => setHashVersion?.(Number(v) as 1 | 2)}
                   options={[
                     { value: "2", label: "V2 (Preferred)" },
                     { value: "1", label: "V1 (Legacy)" },
                   ]}
                 />
-                {hashVersion === 2 && (
+                {effectiveHashVersion === 2 && (
                   <SDKCapabilityWarning
                     as="helperText"
                     capability="bucketingV2"
