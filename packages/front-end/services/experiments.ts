@@ -868,6 +868,23 @@ export function datasourceHasWritableEphemeralPipeline(
   );
 }
 
+export function datasourceHasWritableIncrementalPipeline(
+  datasource: DataSourceInterfaceWithParams | null | undefined,
+  hasPipelineModeFeature: boolean,
+): boolean {
+  const pipelineSettings = datasource?.settings?.pipelineSettings;
+  return (
+    !!datasource?.properties?.supportsWritingTables &&
+    !!pipelineSettings?.allowWriting &&
+    pipelineSettings?.mode === "incremental" &&
+    !!pipelineSettings?.writeDataset &&
+    hasPipelineModeFeature
+  );
+}
+
+// Ephemeral pipelines honor the configured unit dimensions directly: they are
+// materialized in-snapshot every refresh, so availability follows the saved
+// experiment config (gated on a writable ephemeral pipeline).
 export function getHonoredPrecomputedUnitDimensionIds(
   precomputedUnitDimensionIds: string[] | undefined,
   datasource: DataSourceInterfaceWithParams | null | undefined,
@@ -879,6 +896,35 @@ export function getHonoredPrecomputedUnitDimensionIds(
     return [];
   }
   return precomputedUnitDimensionIds ?? [];
+}
+
+// Which precomputed unit dimensions are available for the experiment, branching
+// on the datasource's pipeline mode:
+//   - incremental: availability is tracked on the experiment analysis summary,
+//     populated once the post-run exploratory batch materializes the time
+//     series.
+//   - ephemeral: availability follows the saved config (honored in-snapshot).
+// A datasource is in exactly one mode, so only one branch ever applies.
+export function getPrecomputedUnitDimensionIds(
+  experiment:
+    | Pick<
+        ExperimentInterfaceStringDates,
+        "analysisSummary" | "precomputedUnitDimensionIds"
+      >
+    | undefined,
+  datasource: DataSourceInterfaceWithParams | null | undefined,
+  hasPipelineModeFeature: boolean,
+): string[] {
+  if (
+    datasourceHasWritableIncrementalPipeline(datasource, hasPipelineModeFeature)
+  ) {
+    return experiment?.analysisSummary?.precomputedUnitDimensions ?? [];
+  }
+  return getHonoredPrecomputedUnitDimensionIds(
+    experiment?.precomputedUnitDimensionIds,
+    datasource,
+    hasPipelineModeFeature,
+  );
 }
 
 export function getIsExperimentIncludedInIncrementalRefresh(

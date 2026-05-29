@@ -182,8 +182,10 @@ import { updateExperimentDashboards } from "back-end/src/enterprise/services/das
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import {
+  datasourceHasWritableEphemeralPipeline,
   getEligiblePrecomputedUnitDimensionIds,
   getExposureQueryEligibleDimensions,
+  isIncrementalRefreshEnabledForSnapshot,
 } from "back-end/src/services/dimensions";
 import { ConcurrentIncrementalRefreshError } from "back-end/src/util/errors";
 import { validateIncrementalPipeline } from "back-end/src/enterprise/services/data-pipeline";
@@ -533,10 +535,12 @@ export function getSnapshotSettings({
   }
 
   // Configured unit dimensions are carried on a dedicated settings field, NOT
-  // folded into `dimensions`. The runner materializes one `dim_unit_<id>`
-  // column per id in the shared units table and runs isolated per-dim metric
-  // queries; folding them into `dimensions` would instead cross-product every
-  // unit dim into every parent metric query.
+  // folded into `dimensions`. In ephemeral mode the runner materializes one
+  // `dim_unit_<id>` column per id in the shared units table and runs isolated
+  // per-dim metric queries; folding them into `dimensions` would instead
+  // cross-product every unit dim into every parent metric query. In incremental
+  // mode this field stays empty (the incremental runner resolves its own unit
+  // dimensions for the post-run exploratory batch).
   const precomputedUnitDimensionIds =
     snapshotType === "standard" &&
     experiment.type !== "multi-armed-bandit" &&
@@ -1217,26 +1221,6 @@ export type SnapshotQueryRunnerKind =
   | "incremental"
   | "incremental-exploratory";
 
-function isIncrementalRefreshEnabledForSnapshot({
-  datasource,
-  experiment,
-}: {
-  datasource: DataSourceInterface;
-  experiment: ExperimentInterface;
-}): boolean {
-  return (
-    datasource.settings.pipelineSettings?.mode === "incremental" &&
-    !datasource.settings.pipelineSettings?.excludedExperimentIds?.includes(
-      experiment.id,
-    ) &&
-    (datasource.settings.pipelineSettings?.includedExperimentIds ===
-      undefined ||
-      datasource.settings.pipelineSettings?.includedExperimentIds.includes(
-        experiment.id,
-      ))
-  );
-}
-
 export function getSnapshotQueryRunnerKind({
   allowIncrementalRefresh,
   isExperimentCompatibleWithIncrementalRefresh,
@@ -1398,10 +1382,16 @@ export async function planSnapshot({
     !incrementalRefreshModel ||
     !incrementalRefreshModel.unitsTableFullName;
 
+  // Unit dimensions are carried on the snapshot settings only for the ephemeral
+  // in-snapshot path. Incremental pipelines resolve their own unit dimensions in
+  // the incremental runner (post-run exploratory batch), so the snapshot field
+  // stays empty for them and the eager analyses below stay a no-op.
   const requestedPrecomputedUnitDimensionIds =
     experiment.precomputedUnitDimensionIds ?? [];
   const eligiblePrecomputedUnitDimensionIds =
-    !dimension && requestedPrecomputedUnitDimensionIds.length > 0
+    !dimension &&
+    requestedPrecomputedUnitDimensionIds.length > 0 &&
+    datasourceHasWritableEphemeralPipeline({ context, datasource })
       ? await getEligiblePrecomputedUnitDimensionIds({
           context,
           experiment,
@@ -1501,12 +1491,17 @@ export async function createSnapshotFromPlan({
   experiment,
   metricMap,
   factTableMap,
+  batchLockToken,
 }: {
   plan: PlannedExperimentSnapshot;
   context: ReqContext | ApiReqContext;
   experiment: ExperimentInterface;
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
+  // When set, this incremental-exploratory snapshot runs under a shared lock
+  // already held by a coordinator (parallel exploratory batch). It skips its
+  // own acquire/release; the coordinator owns the lock lifecycle + heartbeat.
+  batchLockToken?: string;
 }): Promise<ExperimentSnapshotQueryRunner> {
   const datasource = await getDataSourceById(context, experiment.datasource);
   if (!datasource) {
@@ -1521,9 +1516,14 @@ export async function createSnapshotFromPlan({
   // manual Update) from racing on those tables and producing empty or
   // malformed results. The "results" runner writes only to per-snapshot
   // ephemeral tables, so it does not need this lock.
+  // In batch mode a coordinator already holds the lock under `batchLockToken`,
+  // so the per-snapshot acquire/release is skipped.
+  const isBatchExploratory =
+    plan.runnerKind === "incremental-exploratory" && !!batchLockToken;
   const needsIncrementalRefreshLock =
-    plan.runnerKind === "incremental" ||
-    plan.runnerKind === "incremental-exploratory";
+    (plan.runnerKind === "incremental" ||
+      plan.runnerKind === "incremental-exploratory") &&
+    !isBatchExploratory;
 
   let hasIncrementalRefreshLock = false;
   if (needsIncrementalRefreshLock) {
@@ -1639,6 +1639,7 @@ export async function createSnapshotFromPlan({
         ...analysisProps,
         experimentId: experiment.id,
         incrementalRefreshStartTime: new Date(),
+        incrementalRefreshLockToken: batchLockToken,
       });
     } else {
       await (queryRunner as ExperimentResultsQueryRunner).startAnalysis(

@@ -105,15 +105,26 @@ export async function getOrCreatePrecomputedDimensionTimeSeriesAnalyses(
   if (
     !isDimensionPrecomputed(
       dimensionId,
-      snapshot.settings.precomputedUnitDimensionIds ?? [],
+      snapshot.settings.precomputedUnitDimensionIds ??
+        experiment.precomputedUnitDimensionIds ??
+        [],
     )
   ) {
     throw new Error("Dimension is not precomputed");
   }
 
-  const baseAnalysis = getTimeSeriesBaseAnalysis({
-    analyses: snapshot.analyses,
-  });
+  // Precomputed experiment dimensions live on the dimensionless main snapshot
+  // (base analysis has no dimensions). Precomputed unit dimensions live on
+  // their own exploratory snapshot whose base analysis is already scoped to the
+  // dimension. Prefer the dimension-scoped base, falling back to dimensionless.
+  const baseAnalysis =
+    getTimeSeriesBaseAnalysis({
+      analyses: snapshot.analyses,
+      dimensionId,
+    }) ??
+    getTimeSeriesBaseAnalysis({
+      analyses: snapshot.analyses,
+    });
   if (!baseAnalysis) {
     throw new Error(
       "Snapshot missing time series base analysis for precomputed dimension",

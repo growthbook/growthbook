@@ -41,6 +41,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import DatePicker from "@/components/DatePicker";
 import {
   datasourceHasWritableEphemeralPipeline,
+  datasourceHasWritableIncrementalPipeline,
   getIsExperimentIncludedInIncrementalRefresh,
 } from "@/services/experiments";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -288,13 +289,25 @@ const AnalysisForm: FC<{
         .map((d) => ({ label: d.name, value: d.id })),
     [dimensions, datasourceField, exposureQuery],
   );
-  const datasourceHasWritableEphemeralPipelineEnabled = useMemo(
+  // Unit dimensions can be precomputed on either a writable ephemeral pipeline
+  // (in-snapshot path) or a writable incremental pipeline that runs this
+  // experiment (post-run exploratory path).
+  const datasourceCanPrecomputeUnitDimensions = useMemo(
     () =>
       datasourceHasWritableEphemeralPipeline(
         datasource,
         hasPipelineModeFeature,
-      ),
-    [datasource, hasPipelineModeFeature],
+      ) ||
+      (datasourceHasWritableIncrementalPipeline(
+        datasource,
+        hasPipelineModeFeature,
+      ) &&
+        isExperimentIncludedInIncrementalRefresh),
+    [
+      datasource,
+      hasPipelineModeFeature,
+      isExperimentIncludedInIncrementalRefresh,
+    ],
   );
 
   if (upgradeModal) {
@@ -313,7 +326,7 @@ const AnalysisForm: FC<{
     form.watch("secondaryMetrics").length > 0;
   const hasEligiblePrecomputedUnitDimensions =
     precomputedUnitDimensionOptions.length > 0 &&
-    datasourceHasWritableEphemeralPipelineEnabled;
+    datasourceCanPrecomputeUnitDimensions;
   const hasAdvancedSettings = !isBandit && !isHoldout;
   const selectedPrecomputedUnitDimensionIds =
     form.watch("precomputedUnitDimensionIds") || [];

@@ -165,7 +165,9 @@ export async function updateExperimentAnalysisTimeSeries({
     dimensionId &&
     !isDimensionPrecomputed(
       dimensionId,
-      experimentSnapshot.settings.precomputedUnitDimensionIds ?? [],
+      experimentSnapshot.settings.precomputedUnitDimensionIds ??
+        experiment.precomputedUnitDimensionIds ??
+        [],
     )
   ) {
     throw new Error(

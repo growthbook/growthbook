@@ -4,6 +4,7 @@ import { ExperimentInterface } from "shared/validators";
 import {
   assertExperimentPrecomputedUnitDimensionIdsAreValid,
   datasourceHasWritableEphemeralPipeline,
+  datasourceHasWritableIncrementalPipeline,
   getEligiblePrecomputedUnitDimensionIds,
 } from "back-end/src/services/dimensions";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
@@ -52,6 +53,12 @@ function makeDimension(
   } as DimensionInterface;
 }
 
+const writableIncrementalPipeline = {
+  allowWriting: true,
+  mode: "incremental",
+  writeDataset: "gb",
+};
+
 const writableEphemeralPipeline = {
   allowWriting: true,
   mode: "ephemeral",
@@ -67,7 +74,7 @@ function mockPipelineEligible() {
   (orgHasPremiumFeature as jest.Mock).mockReturnValue(true);
 }
 
-describe("datasourceHasWritableEphemeralPipeline", () => {
+describe("datasourceHasWritableIncrementalPipeline", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (getSourceIntegrationObject as jest.Mock).mockReturnValue({
@@ -78,11 +85,11 @@ describe("datasourceHasWritableEphemeralPipeline", () => {
 
   it("returns true when every condition holds", () => {
     expect(
-      datasourceHasWritableEphemeralPipeline({
+      datasourceHasWritableIncrementalPipeline({
         context,
         datasource: makeDatasource({
           allowWriting: true,
-          mode: "ephemeral",
+          mode: "incremental",
           writeDataset: "gb",
         }),
       }),
@@ -94,20 +101,7 @@ describe("datasourceHasWritableEphemeralPipeline", () => {
       getSourceProperties: () => ({ supportsWritingTables: false }),
     });
     expect(
-      datasourceHasWritableEphemeralPipeline({
-        context,
-        datasource: makeDatasource({
-          allowWriting: true,
-          mode: "ephemeral",
-          writeDataset: "gb",
-        }),
-      }),
-    ).toBe(false);
-  });
-
-  it("returns false for incremental pipeline mode", () => {
-    expect(
-      datasourceHasWritableEphemeralPipeline({
+      datasourceHasWritableIncrementalPipeline({
         context,
         datasource: makeDatasource({
           allowWriting: true,
@@ -118,23 +112,36 @@ describe("datasourceHasWritableEphemeralPipeline", () => {
     ).toBe(false);
   });
 
-  it("returns false when writing is disabled or writeDataset is missing", () => {
+  it("returns false for ephemeral pipeline mode", () => {
     expect(
-      datasourceHasWritableEphemeralPipeline({
+      datasourceHasWritableIncrementalPipeline({
         context,
         datasource: makeDatasource({
-          allowWriting: false,
+          allowWriting: true,
           mode: "ephemeral",
           writeDataset: "gb",
         }),
       }),
     ).toBe(false);
+  });
+
+  it("returns false when writing is disabled or writeDataset is missing", () => {
     expect(
-      datasourceHasWritableEphemeralPipeline({
+      datasourceHasWritableIncrementalPipeline({
+        context,
+        datasource: makeDatasource({
+          allowWriting: false,
+          mode: "incremental",
+          writeDataset: "gb",
+        }),
+      }),
+    ).toBe(false);
+    expect(
+      datasourceHasWritableIncrementalPipeline({
         context,
         datasource: makeDatasource({
           allowWriting: true,
-          mode: "ephemeral",
+          mode: "incremental",
           writeDataset: "",
         }),
       }),
@@ -144,11 +151,11 @@ describe("datasourceHasWritableEphemeralPipeline", () => {
   it("returns false without the pipeline-mode premium feature", () => {
     (orgHasPremiumFeature as jest.Mock).mockReturnValue(false);
     expect(
-      datasourceHasWritableEphemeralPipeline({
+      datasourceHasWritableIncrementalPipeline({
         context,
         datasource: makeDatasource({
           allowWriting: true,
-          mode: "ephemeral",
+          mode: "incremental",
           writeDataset: "gb",
         }),
       }),
@@ -157,9 +164,37 @@ describe("datasourceHasWritableEphemeralPipeline", () => {
 
   it("returns false when pipelineSettings is undefined", () => {
     expect(
-      datasourceHasWritableEphemeralPipeline({
+      datasourceHasWritableIncrementalPipeline({
         context,
         datasource: makeDatasource(undefined),
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("datasourceHasWritableEphemeralPipeline", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (getSourceIntegrationObject as jest.Mock).mockReturnValue({
+      getSourceProperties: () => ({ supportsWritingTables: true }),
+    });
+    (orgHasPremiumFeature as jest.Mock).mockReturnValue(true);
+  });
+
+  it("returns true for a writable ephemeral pipeline", () => {
+    expect(
+      datasourceHasWritableEphemeralPipeline({
+        context,
+        datasource: makeDatasource(writableEphemeralPipeline),
+      }),
+    ).toBe(true);
+  });
+
+  it("returns false for incremental pipeline mode", () => {
+    expect(
+      datasourceHasWritableEphemeralPipeline({
+        context,
+        datasource: makeDatasource(writableIncrementalPipeline),
       }),
     ).toBe(false);
   });
@@ -177,15 +212,33 @@ describe("getEligiblePrecomputedUnitDimensionIds", () => {
     (getExposureQuery as jest.Mock).mockReturnValue({ userIdType: "user_id" });
   });
 
-  it("ignores requested dimensions when the datasource lacks a writable ephemeral pipeline", async () => {
+  it("ignores requested dimensions when the datasource lacks a writable incremental pipeline", async () => {
     await expect(
       getEligiblePrecomputedUnitDimensionIds({
         context,
         experiment,
         datasource: makeDatasource({
           allowWriting: false,
-          mode: "ephemeral",
+          mode: "incremental",
           writeDataset: "gb",
+        }),
+        dimensionIds: ["dim_country"],
+      }),
+    ).resolves.toEqual([]);
+  });
+
+  it("ignores requested dimensions when the experiment is excluded from incremental refresh", async () => {
+    (findDimensionsByIds as jest.Mock).mockResolvedValue([
+      makeDimension({ id: "dim_country" }),
+    ]);
+
+    await expect(
+      getEligiblePrecomputedUnitDimensionIds({
+        context,
+        experiment,
+        datasource: makeDatasource({
+          ...writableIncrementalPipeline,
+          excludedExperimentIds: ["exp_1"],
         }),
         dimensionIds: ["dim_country"],
       }),
@@ -197,10 +250,25 @@ describe("getEligiblePrecomputedUnitDimensionIds", () => {
       getEligiblePrecomputedUnitDimensionIds({
         context,
         experiment,
-        datasource: makeDatasource(writableEphemeralPipeline),
+        datasource: makeDatasource(writableIncrementalPipeline),
         dimensionIds: ["dim_1", "dim_2", "dim_3", "dim_4", "dim_5", "dim_6"],
       }),
     ).rejects.toThrow("A maximum of 5 precomputed unit dimensions are allowed");
+  });
+
+  it("returns ids for a writable ephemeral pipeline", async () => {
+    (findDimensionsByIds as jest.Mock).mockResolvedValue([
+      makeDimension({ id: "dim_country" }),
+    ]);
+
+    await expect(
+      getEligiblePrecomputedUnitDimensionIds({
+        context,
+        experiment,
+        datasource: makeDatasource(writableEphemeralPipeline),
+        dimensionIds: ["dim_country"],
+      }),
+    ).resolves.toEqual(["dim_country"]);
   });
 
   it("returns ids whose datasource and userIdType match, dropping the rest", async () => {
@@ -215,7 +283,7 @@ describe("getEligiblePrecomputedUnitDimensionIds", () => {
       getEligiblePrecomputedUnitDimensionIds({
         context,
         experiment,
-        datasource: makeDatasource(writableEphemeralPipeline),
+        datasource: makeDatasource(writableIncrementalPipeline),
         dimensionIds: [
           "dim_country",
           "dim_wrong_ds",
@@ -238,7 +306,7 @@ describe("getEligiblePrecomputedUnitDimensionIds", () => {
       getEligiblePrecomputedUnitDimensionIds({
         context,
         experiment,
-        datasource: makeDatasource(writableEphemeralPipeline),
+        datasource: makeDatasource(writableIncrementalPipeline),
         dimensionIds: ["dim_country"],
       }),
     ).resolves.toEqual([]);
@@ -259,14 +327,14 @@ describe("assertExperimentPrecomputedUnitDimensionIdsAreValid", () => {
         context,
         datasource: makeDatasource({
           allowWriting: false,
-          mode: "ephemeral",
+          mode: "incremental",
           writeDataset: "gb",
         }),
         exposureQueryId: "exposure",
         dimensionIds: ["dim_country"],
       }),
     ).rejects.toThrow(
-      "Precomputed unit dimensions require a datasource with ephemeral Pipeline Mode enabled",
+      "Precomputed unit dimensions require a datasource with ephemeral or incremental Pipeline Mode enabled",
     );
   });
 
@@ -287,7 +355,7 @@ describe("assertExperimentPrecomputedUnitDimensionIdsAreValid", () => {
     await expect(
       assertExperimentPrecomputedUnitDimensionIdsAreValid({
         context,
-        datasource: makeDatasource(writableEphemeralPipeline),
+        datasource: makeDatasource(writableIncrementalPipeline),
         exposureQueryId: "exposure",
         dimensionIds: ["dim_1", "dim_2", "dim_3", "dim_4", "dim_5", "dim_6"],
       }),
@@ -299,7 +367,7 @@ describe("assertExperimentPrecomputedUnitDimensionIdsAreValid", () => {
     await expect(
       assertExperimentPrecomputedUnitDimensionIdsAreValid({
         context,
-        datasource: makeDatasource(writableEphemeralPipeline),
+        datasource: makeDatasource(writableIncrementalPipeline),
         exposureQueryId: "exposure",
         dimensionIds: ["dim_missing"],
       }),
@@ -317,7 +385,7 @@ describe("assertExperimentPrecomputedUnitDimensionIdsAreValid", () => {
     await expect(
       assertExperimentPrecomputedUnitDimensionIdsAreValid({
         context,
-        datasource: makeDatasource(writableEphemeralPipeline),
+        datasource: makeDatasource(writableIncrementalPipeline),
         exposureQueryId: "exposure",
         dimensionIds: ["dim_country"],
       }),
@@ -334,7 +402,7 @@ describe("assertExperimentPrecomputedUnitDimensionIdsAreValid", () => {
     await expect(
       assertExperimentPrecomputedUnitDimensionIdsAreValid({
         context,
-        datasource: makeDatasource(writableEphemeralPipeline),
+        datasource: makeDatasource(writableIncrementalPipeline),
         exposureQueryId: "exposure",
         dimensionIds: ["dim_country"],
       }),
@@ -351,7 +419,7 @@ describe("assertExperimentPrecomputedUnitDimensionIdsAreValid", () => {
     await expect(
       assertExperimentPrecomputedUnitDimensionIdsAreValid({
         context,
-        datasource: makeDatasource(writableEphemeralPipeline),
+        datasource: makeDatasource(writableIncrementalPipeline),
         exposureQueryId: "exposure",
         dimensionIds: ["dim_country"],
       }),
@@ -361,6 +429,21 @@ describe("assertExperimentPrecomputedUnitDimensionIdsAreValid", () => {
   });
 
   it("resolves without error when every dimension is valid", async () => {
+    (findDimensionsByIds as jest.Mock).mockResolvedValue([
+      makeDimension({ id: "dim_country" }),
+    ]);
+
+    await expect(
+      assertExperimentPrecomputedUnitDimensionIdsAreValid({
+        context,
+        datasource: makeDatasource(writableIncrementalPipeline),
+        exposureQueryId: "exposure",
+        dimensionIds: ["dim_country"],
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("resolves for a writable ephemeral pipeline", async () => {
     (findDimensionsByIds as jest.Mock).mockResolvedValue([
       makeDimension({ id: "dim_country" }),
     ]);

@@ -6,7 +6,7 @@ import {
 } from "@/components/Experiment/SnapshotProvider";
 
 describe("SnapshotProvider helpers", () => {
-  it("keeps precomputed unit dimension ids separate from experiment dimensions", () => {
+  it("reads ephemeral unit dimensions from the snapshot settings", () => {
     const experiment = {
       precomputedUnitDimensionIds: ["dim_lsmi63z9mostosl7"],
     } as ExperimentInterfaceStringDates;
@@ -25,5 +25,42 @@ describe("SnapshotProvider helpers", () => {
     expect(
       getPrecomputedUnitDimensionIds(experiment, snapshot, undefined),
     ).toEqual(["dim_lsmi63z9mostosl7"]);
+  });
+
+  it("falls back to the analysis summary for incremental unit dimensions", () => {
+    const experiment = {
+      precomputedUnitDimensionIds: ["dim_lsmi63z9mostosl7"],
+      analysisSummary: {
+        precomputedUnitDimensions: ["dim_lsmi63z9mostosl7"],
+      },
+    } as ExperimentInterfaceStringDates;
+    const snapshot = {
+      type: "standard",
+      dimension: null,
+      settings: {
+        dimensions: [],
+      },
+    } as unknown as ExperimentSnapshotInterface;
+
+    expect(
+      getPrecomputedUnitDimensionIds(experiment, snapshot, undefined),
+    ).toEqual(["dim_lsmi63z9mostosl7"]);
+  });
+
+  it("returns no precomputed unit dimensions when neither source has them", () => {
+    const experiment = {
+      precomputedUnitDimensionIds: ["dim_lsmi63z9mostosl7"],
+    } as ExperimentInterfaceStringDates;
+    const snapshot = {
+      type: "standard",
+      dimension: null,
+      settings: {
+        dimensions: [],
+      },
+    } as unknown as ExperimentSnapshotInterface;
+
+    expect(
+      getPrecomputedUnitDimensionIds(experiment, snapshot, undefined),
+    ).toEqual([]);
   });
 });

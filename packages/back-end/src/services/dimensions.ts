@@ -201,15 +201,28 @@ export async function getEligiblePrecomputedUnitDimensionIds({
     return [];
   }
 
-  // Bounds the per-snapshot warehouse query fan-out: each id adds one
-  // isolated metric query per metric-group on every refresh.
+  // Bounds the warehouse fan-out. In ephemeral mode each id adds isolated
+  // per-dimension metric queries to the snapshot; in incremental mode each id
+  // triggers one additional exploratory snapshot once the main run finishes.
   if (dimensionIds.length > MAX_PRECOMPUTED_UNIT_DIMENSIONS) {
     throw new Error(
       `A maximum of ${MAX_PRECOMPUTED_UNIT_DIMENSIONS} precomputed unit dimensions are allowed`,
     );
   }
 
-  if (!datasourceHasWritableEphemeralPipeline({ context, datasource })) {
+  // Honored on either a writable ephemeral pipeline (in-snapshot path) or a
+  // writable incremental pipeline that runs this experiment (post-run
+  // exploratory path). The datasource is in exactly one mode, so only one path
+  // ever applies.
+  const ephemeralEligible = datasourceHasWritableEphemeralPipeline({
+    context,
+    datasource,
+  });
+  const incrementalEligible =
+    datasourceHasWritableIncrementalPipeline({ context, datasource }) &&
+    isIncrementalRefreshEnabledForSnapshot({ datasource, experiment });
+
+  if (!ephemeralEligible && !incrementalEligible) {
     logger.info(
       {
         experimentId: experiment.id,
@@ -259,6 +272,47 @@ export function datasourceHasWritableEphemeralPipeline({
   );
 }
 
+export function datasourceHasWritableIncrementalPipeline({
+  context,
+  datasource,
+}: {
+  context: ReqContext;
+  datasource: DataSourceInterface;
+}): boolean {
+  const integration = getSourceIntegrationObject(context, datasource);
+  const pipelineSettings = datasource.settings.pipelineSettings;
+  return (
+    !!integration.getSourceProperties().supportsWritingTables &&
+    !!pipelineSettings?.allowWriting &&
+    pipelineSettings?.mode === "incremental" &&
+    !!pipelineSettings?.writeDataset &&
+    orgHasPremiumFeature(context.org, "pipeline-mode")
+  );
+}
+
+// Whether the experiment is eligible to run via incremental refresh on this
+// datasource (mode is incremental and the experiment is not filtered out by the
+// datasource's include/exclude lists).
+export function isIncrementalRefreshEnabledForSnapshot({
+  datasource,
+  experiment,
+}: {
+  datasource: DataSourceInterface;
+  experiment: ExperimentInterface;
+}): boolean {
+  return (
+    datasource.settings.pipelineSettings?.mode === "incremental" &&
+    !datasource.settings.pipelineSettings?.excludedExperimentIds?.includes(
+      experiment.id,
+    ) &&
+    (datasource.settings.pipelineSettings?.includedExperimentIds ===
+      undefined ||
+      datasource.settings.pipelineSettings?.includedExperimentIds.includes(
+        experiment.id,
+      ))
+  );
+}
+
 /**
  * Validates the precomputed unit dimension ids are valid for saving on the
  * experiment.
@@ -293,9 +347,12 @@ export async function assertExperimentPrecomputedUnitDimensionIdsAreValid({
     );
   }
 
-  if (!datasourceHasWritableEphemeralPipeline({ context, datasource })) {
+  if (
+    !datasourceHasWritableEphemeralPipeline({ context, datasource }) &&
+    !datasourceHasWritableIncrementalPipeline({ context, datasource })
+  ) {
     throw new Error(
-      "Precomputed unit dimensions require a datasource with ephemeral Pipeline Mode enabled",
+      "Precomputed unit dimensions require a datasource with ephemeral or incremental Pipeline Mode enabled",
     );
   }
 
