@@ -9,6 +9,9 @@ import {
   getFactTablesForDatasource,
   updateFactTableColumns,
 } from "back-end/src/models/FactTableModel";
+import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
+import { getSourceIntegrationObject } from "back-end/src/services/datasource";
+import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { updateMaterializedColumnsInClickhouse } from "back-end/src/services/licenseServerManagedClickhouse";
 
 type ClickHouseDataType =
@@ -40,7 +43,6 @@ export function getReservedColumnNames(): Set<string> {
     ].map((col) => col.toLowerCase()),
   );
 }
-
 export async function updateMaterializedColumns({
   context,
   datasource,
@@ -142,4 +144,133 @@ export async function updateMaterializedColumns({
       context,
     );
   }
+}
+
+// --- Session Replay ---
+
+export type SessionReplayRow = {
+  session_id: string;
+  org_id: string;
+  client_key: string;
+  user_id: string;
+  // Persistent device id from the autoAttributesPlugin gbuuid cookie.
+  // Separate from user_id (the logged-in identity) — lets sessions be
+  // grouped by browser across anonymous → authenticated transitions.
+  device_id: string;
+  s3_key: string;
+  started_at: string;
+  ended_at: string;
+  last_event_at: string;
+  duration_ms: number;
+  event_count: number;
+  error_count: number;
+  url_first: string;
+  urls_visited: string[];
+  page_title: string;
+  viewport_width: number;
+  viewport_height: number;
+  utm_source: string;
+  utm_medium: string;
+  utm_campaign: string;
+  utm_term: string;
+  utm_content: string;
+  attributes: Record<string, string>;
+  experiments: Record<string, string>;
+  flags: Record<string, string>;
+  country: string;
+  user_agent: string;
+  device: string;
+  browser: string;
+  state: "recording" | "finalized" | "deleted";
+  created_at: string;
+};
+
+export async function listSessionReplays(
+  context: ReqContext,
+  options?: {
+    userId?: string;
+    clientKey?: string;
+    state?: "recording" | "finalized" | "deleted";
+    url?: string;
+    limit?: number;
+    offset?: number;
+  },
+): Promise<SessionReplayRow[]> {
+  const datasource = await getGrowthbookDatasource(context);
+  if (!datasource) return [];
+
+  const integration = getSourceIntegrationObject(
+    context,
+    datasource,
+  ) as SqlIntegration;
+  const conditions: string[] = [];
+
+  if (options?.userId) {
+    conditions.push(`user_id = '${escapeClickhouseString(options.userId)}'`);
+  }
+  if (options?.clientKey) {
+    conditions.push(
+      `client_key = '${escapeClickhouseString(options.clientKey)}'`,
+    );
+  }
+  if (options?.state) {
+    conditions.push(`state = '${escapeClickhouseString(options.state)}'`);
+  }
+  if (options?.url) {
+    conditions.push(
+      `positionCaseInsensitive(url_first, ${toClickhouseStringLiteral(options.url)}) > 0`,
+    );
+  }
+
+  const limit = Math.max(1, Math.min(100, Math.floor(options?.limit ?? 100)));
+  const offset = Math.max(0, Math.floor(options?.offset ?? 0));
+  // Always exclude soft-deleted from the list; callers that explicitly want
+  // them must use a future bulk-list-by-id endpoint that doesn't go through
+  // this function. Add this BEFORE the user-supplied conditions so it can't
+  // be overridden by an empty filter.
+  const allConditions = ["deleted_at IS NULL", ...conditions];
+  const where = `WHERE ${allConditions.join(" AND ")}`;
+
+  const { rows } = await integration.runQuery(`
+    SELECT *, ingested_at AS created_at
+    FROM session_replay_sessions
+    ${where}
+    ORDER BY started_at DESC
+    LIMIT ${limit}
+    OFFSET ${offset}
+  `);
+
+  return rows as unknown as SessionReplayRow[];
+}
+
+function escapeClickhouseString(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+}
+
+function toClickhouseStringLiteral(value: string): string {
+  return `'${escapeClickhouseString(value)}'`;
+}
+
+export async function getSessionReplayBySessionId(
+  context: ReqContext,
+  sessionId: string,
+): Promise<SessionReplayRow | null> {
+  const datasource = await getGrowthbookDatasource(context);
+  if (!datasource) return null;
+
+  const integration = getSourceIntegrationObject(
+    context,
+    datasource,
+  ) as SqlIntegration;
+  const sanitizedSessionId = sessionId.replace(/[^a-zA-Z0-9_-]/g, "");
+
+  const { rows } = await integration.runQuery(`
+    SELECT *, ingested_at AS created_at
+    FROM session_replay_sessions
+    WHERE session_id = '${sanitizedSessionId}' AND deleted_at IS NULL
+    LIMIT 1
+  `);
+
+  const row = rows[0];
+  return row ? (row as unknown as SessionReplayRow) : null;
 }

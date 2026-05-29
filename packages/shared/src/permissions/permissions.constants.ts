@@ -46,6 +46,8 @@ export const POLICIES = [
   "CustomHooksFullAccess",
   "ManageOfficialResources",
   "GeneralDashboardsFullAccess",
+  "SessionReplayViewAccess",
+  "SessionReplayFullAccess",
 ] as const;
 
 export type Policy = (typeof POLICIES)[number];
@@ -146,6 +148,12 @@ export const POLICY_PERMISSION_MAP: Record<Policy, Permission[]> = {
     "manageOfficialResources",
     "runQueries",
   ],
+  SessionReplayViewAccess: ["readData", "viewSessionReplay"],
+  SessionReplayFullAccess: [
+    "readData",
+    "viewSessionReplay",
+    "deleteSessionReplay",
+  ],
 };
 
 export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
@@ -193,6 +201,10 @@ export const POLICY_DISPLAY_GROUPS: { name: string; policies: Policy[] }[] = [
   {
     name: "Product Analytic Dashboards",
     policies: ["GeneralDashboardsFullAccess"],
+  },
+  {
+    name: "Session Replay",
+    policies: ["SessionReplayViewAccess", "SessionReplayFullAccess"],
   },
   {
     name: "SDK Configuration",
@@ -438,6 +450,19 @@ export const POLICY_METADATA_MAP: Record<
     displayName: "General Dashboards Full Access",
     description: "Create, edit, and delete Product Analytics dashboards.",
   },
+  SessionReplayViewAccess: {
+    displayName: "Session Replay View Access",
+    description: "View and play back recorded user sessions.",
+    warning:
+      "Recordings can contain sensitive user data. Grant only to roles with a need to view replays.",
+  },
+  SessionReplayFullAccess: {
+    displayName: "Session Replay Full Access",
+    description:
+      "View, play back, and delete recorded user sessions (single, bulk, and DSR-driven deletions).",
+    warning:
+      "Includes the ability to permanently delete recorded sessions. Recordings can contain sensitive user data.",
+  },
 };
 
 export const DEFAULT_ROLES: Record<DefaultMemberRole, Role> = {
@@ -646,6 +671,8 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "manageGeneralDashboards",
   "manageOfficialResources",
   "bypassSavedGroupSizeLimit",
+  "viewSessionReplay",
+  "deleteSessionReplay",
 ] as const;
 
 export const GLOBAL_PERMISSIONS = [
