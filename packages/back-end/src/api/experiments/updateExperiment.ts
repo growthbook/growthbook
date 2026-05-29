@@ -288,7 +288,8 @@ export const updateExperiment = createApiRequestHandler(
 
   if (isStartingFromDraft) {
     // Route draft->running transitions through the dedicated lifecycle method
-    // so checklist and pending-draft publish behavior stays consistent.
+    // so ramp lockdown, checklist, and pending-draft publish behavior stays
+    // consistent across all entry points.
     const { updated } = await startExperiment({
       context: req.context,
       experimentId: experiment.id,

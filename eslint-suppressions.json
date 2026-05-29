@@ -501,16 +501,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/EditDefaultValueModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/ExperimentRefSummary.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/ExperimentSummary.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -527,11 +517,6 @@
     }
   },
   "packages/front-end/components/Features/FeatureModal/EnvironmentSelect.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/FeatureModal/FeatureFromExperimentModal.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -642,7 +627,7 @@
   },
   "packages/front-end/components/Features/RuleModal/index.tsx": {
     "no-restricted-imports": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/Features/SDKConnections/ConnectionStatus.tsx": {
@@ -1784,11 +1769,6 @@
       "count": 2
     },
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/holdouts/index.tsx": {
-    "local/no-alert-classname": {
       "count": 1
     }
   },

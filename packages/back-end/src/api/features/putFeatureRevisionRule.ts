@@ -2,6 +2,7 @@ import isEqual from "lodash/isEqual";
 import { ruleAppliesToEnv, resetReviewOnChange } from "shared/util";
 import {
   RevisionRampCreateAction,
+  RevisionRampUpdateAction,
   ExperimentRefRule,
   RolloutRule,
   ForceRule,
@@ -152,6 +153,9 @@ export function applyPatch(
         coverage: effectiveCoverage,
         hashAttribute: effectiveHashAttr,
         ...(patch.seed !== undefined && { seed: patch.seed }),
+        ...(patch.hashVersion !== undefined && {
+          hashVersion: patch.hashVersion,
+        }),
       };
       return updated;
     } else {
@@ -267,18 +271,15 @@ export const putFeatureRevisionRule = createApiRequestHandler(
       Boolean(inlineRampSchedule) ||
       (!inlineRampSchedule &&
         (Boolean(schedule?.startDate) || Boolean(schedule?.endDate)));
+    let liveSchedulesForRule: Awaited<
+      ReturnType<typeof req.context.models.rampSchedules.findByTargetRule>
+    > = [];
     if (wantsNewSchedule) {
-      const liveSchedules =
+      liveSchedulesForRule =
         await req.context.models.rampSchedules.findByTargetRule(
           req.params.ruleId,
           environment,
         );
-      if (liveSchedules.length > 0) {
-        throw new BadRequestError(
-          `Rule "${req.params.ruleId}" already has a live ramp schedule.` +
-            ` Update it via PUT /api/v1/ramp-schedules/${liveSchedules[0].id}.`,
-        );
-      }
     }
     const updatedRule = applyPatch(oldRule, patch);
 
@@ -365,9 +366,21 @@ export const putFeatureRevisionRule = createApiRequestHandler(
       const existing = revision.rampActions ?? [];
       const filtered = existing.filter(
         (a) =>
+          !("ruleId" in a) ||
           a.ruleId !== (resolvedRampAction as RevisionRampCreateAction).ruleId,
       );
-      changes.rampActions = [...filtered, resolvedRampAction];
+      const nextRampActions = [...filtered];
+      const existingLiveSchedule = liveSchedulesForRule[0];
+      if (existingLiveSchedule) {
+        nextRampActions.push({
+          ...(resolvedRampAction as RevisionRampCreateAction),
+          mode: "update",
+          rampScheduleId: existingLiveSchedule.id,
+        } as RevisionRampUpdateAction);
+      } else {
+        nextRampActions.push(resolvedRampAction);
+      }
+      changes.rampActions = nextRampActions;
     }
 
     await updateRevision(

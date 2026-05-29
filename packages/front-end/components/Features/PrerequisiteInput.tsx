@@ -53,6 +53,7 @@ import Field from "@/components/Forms/Field";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import CodeTextArea from "@/components/Forms/CodeTextArea";
 import Link from "@/ui/Link";
+import RadioGroup from "@/ui/RadioGroup";
 import Switch from "@/ui/Switch";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
@@ -81,6 +82,12 @@ interface Props {
   label?: string;
   labelActions?: ReactNode;
   locked?: boolean;
+  addRemoveMode?: boolean;
+  addRemoveValue?: "set" | "remove";
+  onAddRemoveValueChange?: (value: "set" | "remove") => void;
+  onRemoveEffect?: () => void;
+  setModeLabel?: string;
+  removeModeLabel?: string;
   onRuleCyclicChange?: (result: RuleCyclicResult) => void;
 }
 
@@ -96,6 +103,12 @@ export default function PrerequisiteInput({
   label = "Target by Prerequisite Features",
   labelActions,
   locked,
+  addRemoveMode,
+  addRemoveValue,
+  onAddRemoveValueChange,
+  onRemoveEffect,
+  setModeLabel,
+  removeModeLabel,
   onRuleCyclicChange,
 }: Props) {
   const { features: featureNames } = useFeatureMetaInfo({
@@ -377,13 +390,13 @@ export default function PrerequisiteInput({
   };
 
   const header = (label || labelActions) && (
-    <Flex mb={slimMode ? "0" : "1"} justify="between" align="center">
+    <Flex mb="1" justify="between" align="center">
       <PremiumTooltip
         commercialFeature="prerequisite-targeting"
         premiumText="Prerequisite targeting is available for Enterprise customers"
       >
         {slimMode ? (
-          <Text as="div" size="small" weight="semibold" color="text-mid">
+          <Text as="div" size="medium" weight="semibold" color="text-mid">
             {label}
           </Text>
         ) : (
@@ -395,6 +408,26 @@ export default function PrerequisiteInput({
       {labelActions}
     </Flex>
   );
+  const showAddRemoveSelector =
+    !!addRemoveMode && !!addRemoveValue && !!onAddRemoveValueChange;
+  const addRemoveSelector = showAddRemoveSelector ? (
+    <RadioGroup
+      mt="2"
+      gap="0"
+      value={addRemoveValue}
+      setValue={(v) => onAddRemoveValueChange(v as "set" | "remove")}
+      options={[
+        { value: "set", label: setModeLabel ?? "Set targeting" },
+        { value: "remove", label: removeModeLabel ?? "Remove targeting" },
+      ]}
+      labelSize="2"
+    />
+  ) : null;
+  useEffect(() => {
+    if (!showAddRemoveSelector || addRemoveValue !== "set") return;
+    if (value.length > 0) return;
+    setValue([{ id: "", condition: "{}" }]);
+  }, [showAddRemoveSelector, addRemoveValue, value, setValue]);
 
   const addPrerequisiteLink = (
     <PremiumTooltip commercialFeature="prerequisite-targeting">
@@ -405,8 +438,8 @@ export default function PrerequisiteInput({
         }}
       >
         <Text
-          weight={slimMode ? "regular" : "semibold"}
-          size={slimMode ? "small" : "medium"}
+          weight="semibold"
+          size="medium"
           color={
             !hasPrerequisitesCommercialFeature || locked
               ? "text-low"
@@ -421,7 +454,7 @@ export default function PrerequisiteInput({
   );
 
   const content = (
-    <Box mb={slimMode ? "1" : "2"}>
+    <Box mb="0">
       {value.length === 0 && (emptyText || !slimMode) && (
         <Text
           color="text-low"
@@ -457,7 +490,6 @@ export default function PrerequisiteInput({
             hasPrerequisitesCommercialFeature ? (
               <AddConditionButton
                 disabled={locked}
-                slimMode={slimMode}
                 onClick={() => {
                   setValue([
                     ...value,
@@ -850,6 +882,17 @@ export default function PrerequisiteInput({
                               size="1"
                               disabled={locked}
                               onClick={() => {
+                                if (
+                                  showAddRemoveSelector &&
+                                  value.length === 1
+                                ) {
+                                  if (onRemoveEffect) {
+                                    onRemoveEffect();
+                                  } else {
+                                    onAddRemoveValueChange?.("remove");
+                                  }
+                                  return;
+                                }
                                 setValue([
                                   ...value.slice(0, i),
                                   ...value.slice(i + 1),
@@ -904,6 +947,17 @@ export default function PrerequisiteInput({
                               size="1"
                               disabled={locked}
                               onClick={() => {
+                                if (
+                                  showAddRemoveSelector &&
+                                  value.length === 1
+                                ) {
+                                  if (onRemoveEffect) {
+                                    onRemoveEffect();
+                                  } else {
+                                    onAddRemoveValueChange?.("remove");
+                                  }
+                                  return;
+                                }
                                 setValue([
                                   ...value.slice(0, i),
                                   ...value.slice(i + 1),
@@ -1014,8 +1068,9 @@ export default function PrerequisiteInput({
   return (
     <Box>
       {(label || labelActions) && header}
-      {content}
-      {value.length === 0 && addPrerequisiteLink}
+      {addRemoveSelector}
+      {showAddRemoveSelector && addRemoveValue === "remove" ? null : content}
+      {!showAddRemoveSelector && value.length === 0 && addPrerequisiteLink}
     </Box>
   );
 }

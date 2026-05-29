@@ -16,7 +16,7 @@ import { useUser } from "@/services/UserContext";
 import useApi from "@/hooks/useApi";
 import Modal from "@/components/Modal";
 import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
-import StaleFeatureIcon from "@/components/StaleFeatureIcon";
+import FeatureStatusBadge from "@/components/Features/FeatureStatusBadge";
 import { getEnabledEnvironments, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -406,9 +406,8 @@ export default function FeaturesHeader({
               <Heading size="x-large" as="h1" mb="0">
                 {feature.id}
               </Heading>
-              <StaleFeatureIcon
-                neverStale={feature.neverStale}
-                valueType={feature.valueType}
+              <FeatureStatusBadge
+                feature={feature}
                 staleData={staleData}
                 fetchStaleData={handleRerunStale}
                 onDisable={canEdit ? () => setStaleFFModal(true) : undefined}

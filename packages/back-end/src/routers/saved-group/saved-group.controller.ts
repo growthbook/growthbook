@@ -943,3 +943,19 @@ export function validateListSize(
     );
   }
 }
+
+// region GET /saved-groups/draft-states
+
+export const getSavedGroupDraftStates = async (
+  req: AuthRequest<null, Record<string, never>, { ids?: string }>,
+  res: Response,
+) => {
+  const context = getContextFromReq(req);
+  const groupIds = req.query.ids
+    ? req.query.ids.split(",").filter(Boolean)
+    : undefined;
+  const groups = await context.models.revisions.getActiveDraftStates(groupIds);
+  return res.status(200).json({ status: 200, groups });
+};
+
+// endregion GET /saved-groups/draft-states
