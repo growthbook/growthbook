@@ -12,6 +12,7 @@ import {
 } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
 import { buildMergeDesiredState } from "back-end/src/revisions/util";
+import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
 import { toApiSavedGroupRevision } from "./toApiSavedGroupRevision";
 
@@ -119,6 +120,9 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
       req.context.userId,
       { bypass: isBypass },
     );
+    await dispatchSavedGroupRevisionEvent(req.context, merged, {
+      type: merged.revertedFrom ? "reverted" : "published",
+    });
     return {
       revision: await toApiSavedGroupRevision(merged, req.context),
     };
@@ -141,6 +145,10 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
     req.context.userId,
     { bypass: isBypass },
   );
+
+  await dispatchSavedGroupRevisionEvent(req.context, merged, {
+    type: merged.revertedFrom ? "reverted" : "published",
+  });
 
   return {
     revision: await toApiSavedGroupRevision(merged, req.context),
