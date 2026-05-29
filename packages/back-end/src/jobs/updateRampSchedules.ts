@@ -217,7 +217,14 @@ export const advanceSingleRampSchedule = async (
       },
     );
     if (errorSchedule) {
-      await syncLinkedSafeRolloutForRampState(context, updated);
+      try {
+        await syncLinkedSafeRolloutForRampState(context, updated);
+      } catch (syncErr) {
+        logger.warn(
+          { rampScheduleId, error: (syncErr as Error).message },
+          "Failed to sync SafeRollout after error-pausing schedule; SafeRollout may be temporarily diverged",
+        );
+      }
     }
   }
 };
