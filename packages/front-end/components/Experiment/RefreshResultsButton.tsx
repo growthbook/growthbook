@@ -13,7 +13,7 @@ import {
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
-import { getHonoredPrecomputedUnitDimensionIds } from "@/services/experiments";
+import { getPrecomputedUnitDimensionIds } from "@/services/experiments";
 import { trackSnapshot } from "@/services/track";
 import RunQueriesButton from "@/components/Queries/RunQueriesButton";
 import ExperimentRefreshSnapshotButton from "@/components/Experiment/RefreshSnapshotButton";
@@ -126,8 +126,8 @@ export default function RefreshResultsButton<
             // so we don't need to pass them to the backend for a new snapshot query
             const snapshotDimension = isDimensionPrecomputed(
               dimension,
-              getHonoredPrecomputedUnitDimensionIds(
-                experiment?.precomputedUnitDimensionIds,
+              getPrecomputedUnitDimensionIds(
+                experiment,
                 experiment?.datasource
                   ? getDatasourceById(experiment.datasource)
                   : undefined,

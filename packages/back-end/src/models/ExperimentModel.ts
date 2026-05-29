@@ -357,6 +357,7 @@ const experimentSchema = new mongoose.Schema({
       ],
     },
     precomputedDimensions: [String],
+    precomputedUnitDimensions: [String],
   },
   dismissedWarnings: [String],
   holdoutId: String,

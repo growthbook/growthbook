@@ -334,6 +334,9 @@ export const experimentAnalysisSummary = z
     health: experimentAnalysisSummaryHealth.optional(),
     resultsStatus: experimentAnalysisSummaryResultsStatus.optional(),
     precomputedDimensions: z.array(z.string()).optional(),
+    // Unit (user) dimension ids that have materialized time series available
+    // from the most recent successful exploratory batch.
+    precomputedUnitDimensions: z.array(z.string()).optional(),
   })
   .strict();
 

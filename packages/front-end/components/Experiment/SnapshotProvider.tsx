@@ -88,7 +88,11 @@ export function getPrecomputedDimensions(
   return [];
 }
 
-export function getPrecomputedUnitDimensionIds(
+// Ephemeral pipelines record their honored unit dimensions on the snapshot
+// settings (in-snapshot path). Reads them off the latest standard snapshot,
+// falling back to the dimensionless snapshot when the current one is
+// dimension-scoped.
+export function getEphemeralPrecomputedUnitDimensionIds(
   experiment: ExperimentInterfaceStringDates | undefined,
   snapshot: ExperimentSnapshotInterface | undefined,
   dimensionless: ExperimentSnapshotInterface | undefined,
@@ -118,6 +122,26 @@ export function getPrecomputedUnitDimensionIds(
   }
 
   return [];
+}
+
+// Availability surfaced by the provider, branching on pipeline mode: ephemeral
+// dims come off the snapshot settings, incremental dims come off the experiment
+// analysis summary (populated after the post-run exploratory batch). The two
+// sources are mutually exclusive by datasource mode.
+export function getPrecomputedUnitDimensionIds(
+  experiment: ExperimentInterfaceStringDates | undefined,
+  snapshot: ExperimentSnapshotInterface | undefined,
+  dimensionless: ExperimentSnapshotInterface | undefined,
+): string[] {
+  const ephemeralUnitDimensionIds = getEphemeralPrecomputedUnitDimensionIds(
+    experiment,
+    snapshot,
+    dimensionless,
+  );
+  if (ephemeralUnitDimensionIds.length > 0) {
+    return ephemeralUnitDimensionIds;
+  }
+  return experiment?.analysisSummary?.precomputedUnitDimensions ?? [];
 }
 
 // When the cheap status endpoint reports a newer successful snapshot than the

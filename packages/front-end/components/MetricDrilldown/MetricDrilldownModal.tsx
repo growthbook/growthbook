@@ -27,7 +27,7 @@ import {
 import Modal from "@/components/Modal";
 import {
   ExperimentTableRow,
-  getHonoredPrecomputedUnitDimensionIds,
+  getPrecomputedUnitDimensionIds,
 } from "@/services/experiments";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Link from "@/ui/Link";
@@ -260,8 +260,8 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
     !dimensionInfo ||
     isDimensionPrecomputed(
       dimensionInfo.id,
-      getHonoredPrecomputedUnitDimensionIds(
-        experiment?.precomputedUnitDimensionIds,
+      getPrecomputedUnitDimensionIds(
+        experiment,
         experiment?.datasource
           ? getDatasourceById(experiment.datasource)
           : undefined,

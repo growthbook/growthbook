@@ -19,8 +19,6 @@ import { analysisUpdate } from "@/services/snapshots";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { getHonoredPrecomputedUnitDimensionIds } from "@/services/experiments";
-import { useUser } from "@/services/UserContext";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import {
   DropdownMenu,
@@ -60,7 +58,6 @@ export function getDimensionOptions({
   incrementalRefresh,
   precomputedDimensions,
   precomputedUnitDimensionIds,
-  hasPipelineModeFeature = false,
   datasource,
   dimensions,
   activationMetric,
@@ -70,7 +67,6 @@ export function getDimensionOptions({
   incrementalRefresh: IncrementalRefreshInterface | null;
   precomputedDimensions?: string[];
   precomputedUnitDimensionIds?: string[];
-  hasPipelineModeFeature?: boolean;
   datasource: DataSourceInterfaceWithParams | null;
   dimensions: DimensionInterface[];
   exposureQueryId?: string;
@@ -84,15 +80,10 @@ export function getDimensionOptions({
 
   // When displaying, we are grouping Experiment Dimensions and
   // Precomputed Unit Dimensions under 'precomputed' as they
-  // are both available for free after the main refresh.
-  const honoredPrecomputedUnitDimensionIds =
-    getHonoredPrecomputedUnitDimensionIds(
-      precomputedUnitDimensionIds,
-      datasource,
-      hasPipelineModeFeature,
-    );
+  // are both available for free after the main refresh. Availability is
+  // sourced from the experiment analysis summary by the caller.
   const experimentPrecomputedUnitDimensionIds = new Set(
-    honoredPrecomputedUnitDimensionIds,
+    precomputedUnitDimensionIds ?? [],
   );
 
   // Include user dimensions tied to the datasource. Precomputed unit dims are kept
@@ -211,7 +202,6 @@ export default function DimensionChooser({
   const [postLoading, setPostLoading] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const { dimensions, getDatasourceById, getDimensionById } = useDefinitions();
-  const { hasCommercialFeature } = useUser();
   const {
     dimensionless: standardSnapshot,
     experiment,
@@ -233,30 +223,19 @@ export default function DimensionChooser({
     apiCall,
   ]);
 
-  const hasPipelineModeFeature = hasCommercialFeature("pipeline-mode");
-  const honoredPrecomputedUnitDimensionIds = useMemo(
-    () =>
-      getHonoredPrecomputedUnitDimensionIds(
-        precomputedUnitDimensionIds,
-        datasource,
-        hasPipelineModeFeature,
-      ),
-    [precomputedUnitDimensionIds, datasource, hasPipelineModeFeature],
-  );
   const precomputedAnalysisDimensions = useMemo(
     () =>
       new Set([
         ...(precomputedDimensions ?? []),
-        ...honoredPrecomputedUnitDimensionIds,
+        ...(precomputedUnitDimensionIds ?? []),
       ]),
-    [precomputedDimensions, honoredPrecomputedUnitDimensionIds],
+    [precomputedDimensions, precomputedUnitDimensionIds],
   );
 
   const dimensionOptions = getDimensionOptions({
     incrementalRefresh,
     precomputedDimensions,
     precomputedUnitDimensionIds,
-    hasPipelineModeFeature,
     exposureQueryId,
     userIdType,
     datasource,
