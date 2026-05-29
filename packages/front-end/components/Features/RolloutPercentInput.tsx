@@ -78,7 +78,7 @@ export function RolloutHashingOptions({
   return (
     <>
       {setHashAttribute && filteredAttributes && (
-        <Flex gap="3" align="center">
+        <Flex gap="3" align="center" mb="1">
           <Box style={{ width: 70 }}>
             <Text as="label" weight="medium" mb="0">
               Sample by
@@ -124,7 +124,7 @@ export function RolloutHashingOptions({
         onTriggerClosing={() => setOpen(false)}
         transitionTime={100}
       >
-        <Box p="3" className="appbox">
+        <Box px="4" pt="2" pb="1" mt="2" className="bg-highlight rounded">
           <Flex direction="column" gap="1">
             <Field
               label="Seed"
@@ -288,28 +288,24 @@ export default function RolloutPercentInput({
         </Box>
       </Flex>
 
-      {showAdvancedSection ? (
-        <Box px="4" py="2" mt="2" className="bg-highlight rounded">
-          {setSeed && setAdvancedOpen !== undefined && (
-            <RolloutHashingOptions
-              open={advancedOpen ?? false}
-              setOpen={setAdvancedOpen}
-              seed={seed ?? ""}
-              setSeed={setSeed}
-              ruleId={ruleId}
-              featureId={featureId}
-              isLive={isLiveRule}
-              hashAttribute={hashAttribute}
-              setHashAttribute={setHashAttribute}
-              attributeSchema={attributeSchema}
-              hasHashAttributes={hasHashAttributes}
-              hashVersion={hashVersion}
-              setHashVersion={setHashVersion}
-              project={project}
-            />
-          )}
-        </Box>
-      ) : null}
+      {showAdvancedSection && setSeed && setAdvancedOpen !== undefined && (
+        <RolloutHashingOptions
+          open={advancedOpen ?? false}
+          setOpen={setAdvancedOpen}
+          seed={seed ?? ""}
+          setSeed={setSeed}
+          ruleId={ruleId}
+          featureId={featureId}
+          isLive={isLiveRule}
+          hashAttribute={hashAttribute}
+          setHashAttribute={setHashAttribute}
+          attributeSchema={attributeSchema}
+          hasHashAttributes={hasHashAttributes}
+          hashVersion={hashVersion}
+          setHashVersion={setHashVersion}
+          project={project}
+        />
+      )}
     </Box>
   );
 }

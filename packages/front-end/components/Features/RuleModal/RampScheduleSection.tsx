@@ -3331,16 +3331,7 @@ export default function RampScheduleSection({
       </Flex>
 
       {showMonitoringConfig && (
-        <Box
-          mb="4"
-          px="5"
-          pt="3"
-          pb="4"
-          style={{
-            backgroundColor: "var(--violet-a2)",
-            borderRadius: "var(--radius-2)",
-          }}
-        >
+        <Box mb="4" px="5" pt="3" pb="4" className="bg-highlight rounded">
           <Flex align="center" gap="2" mb="4">
             <MonitoredIcon size={18} />
             <Text weight="semibold">Monitoring Settings</Text>
