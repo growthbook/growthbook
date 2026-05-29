@@ -243,44 +243,56 @@ const ArchetypeResults: FC<{
                       )}
                     </Tooltip>
                   </td>
-                  {featureResults[archetype.id] &&
-                    featureResults[archetype.id].map(
-                      (result: FeatureTestResult) => (
+                  {environments.map((env) => {
+                    const result = featureResults[archetype.id]?.find(
+                      (r) => r.env === env.id,
+                    );
+                    if (!result) {
+                      return (
                         <td
-                          key={result.env}
-                          className={`${styles.valueCell} cursor-pointer ${
-                            showExpandedResultsId === archetype.id &&
-                            showExpandedResultsEnv === result.env
-                              ? styles.cellExpanded
-                              : ""
-                          }`}
-                          onClick={() => {
-                            if (enableAdvDebug) {
-                              if (
-                                showExpandedResults &&
-                                showExpandedResultsId === archetype.id &&
-                                showExpandedResultsEnv === result.env
-                              ) {
-                                // the current details are already open, so close them:
-                                setShowExpandedResults(false);
-                                setShowExpandedResultsId(null);
-                                setShowExpandedResultsEnv(null);
-                              } else {
-                                setShowExpandedResults(true);
-                                setShowExpandedResultsId(archetype.id);
-                                setShowExpandedResultsEnv(result.env);
-                              }
-                            }
-                          }}
+                          key={env.id}
+                          className={styles.valueCell}
+                          title="Archetype not evaluated for this environment"
                         >
-                          {result.enabled ? (
-                            <>{ArchetypeValueDisplay({ result, feature })}</>
-                          ) : (
-                            <span className="text-muted">disabled</span>
-                          )}
+                          <span className="text-muted">—</span>
                         </td>
-                      ),
-                    )}
+                      );
+                    }
+                    return (
+                      <td
+                        key={result.env}
+                        className={`${styles.valueCell} cursor-pointer ${
+                          showExpandedResultsId === archetype.id &&
+                          showExpandedResultsEnv === result.env
+                            ? styles.cellExpanded
+                            : ""
+                        }`}
+                        onClick={() => {
+                          if (enableAdvDebug) {
+                            if (
+                              showExpandedResults &&
+                              showExpandedResultsId === archetype.id &&
+                              showExpandedResultsEnv === result.env
+                            ) {
+                              setShowExpandedResults(false);
+                              setShowExpandedResultsId(null);
+                              setShowExpandedResultsEnv(null);
+                            } else {
+                              setShowExpandedResults(true);
+                              setShowExpandedResultsId(archetype.id);
+                              setShowExpandedResultsEnv(result.env);
+                            }
+                          }
+                        }}
+                      >
+                        {result.enabled ? (
+                          <>{ArchetypeValueDisplay({ result, feature })}</>
+                        ) : (
+                          <span className="text-muted">disabled</span>
+                        )}
+                      </td>
+                    );
+                  })}
                 </tr>
                 {showExpandedResults &&
                   showExpandedResultsId === archetype.id && (

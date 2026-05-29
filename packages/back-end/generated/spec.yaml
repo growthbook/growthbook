@@ -9885,6 +9885,13 @@ paths:
                   type: array
                   items:
                     type: string
+                environments:
+                  description: >-
+                    Limit this Archetype to specific environments. Omit or leave
+                    empty to apply to all environments.
+                  type: array
+                  items:
+                    type: string
               required:
                 - name
                 - isPublic
@@ -9961,6 +9968,13 @@ paths:
                     type: string
                   additionalProperties: {}
                 projects:
+                  type: array
+                  items:
+                    type: string
+                environments:
+                  description: >-
+                    Limit this Archetype to specific environments. Omit or leave
+                    empty to apply to all environments.
                   type: array
                   items:
                     type: string
@@ -33941,6 +33955,13 @@ components:
             type: string
           additionalProperties: {}
         projects:
+          type: array
+          items:
+            type: string
+        environments:
+          description: >-
+            Limit this Archetype to specific environments. Omit or leave empty
+            to apply to all environments.
           type: array
           items:
             type: string
