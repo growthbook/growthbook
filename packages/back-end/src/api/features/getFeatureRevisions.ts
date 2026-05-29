@@ -1,12 +1,12 @@
 import { getFeatureRevisionsValidator } from "shared/validators";
 import { stringToBoolean } from "shared/util";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import type { ApiReqContext } from "back-end/types/api";
 import {
   getFeatureRevisionsByStatus,
   countDocuments,
 } from "back-end/src/models/FeatureRevisionModel";
 import { getFeature } from "back-end/src/models/FeatureModel";
-import { NotFoundError } from "back-end/src/util/errors";
 import { toApiRevision } from "back-end/src/services/features";
 import {
   createApiRequestHandler,
@@ -21,6 +21,7 @@ export async function loadFeatureRevisionsPage(
   query: {
     status?: string | string[];
     author?: string;
+    mine?: string | boolean;
     skipPagination?: string | boolean;
     limit?: number;
     offset?: number;
@@ -32,6 +33,19 @@ export async function loadFeatureRevisionsPage(
   if (!feature) throw new NotFoundError("Could not find feature");
 
   const { status, author } = query;
+
+  const mine = stringToBoolean(query.mine?.toString());
+  if (mine && author) {
+    throw new BadRequestError(
+      "`mine` and `author` are mutually exclusive. Pass one or the other.",
+    );
+  }
+  if (mine && !context.userId) {
+    throw new BadRequestError(
+      "`mine=true` requires a user-scoped API key (the caller must be identifiable as a user).",
+    );
+  }
+  const involvedUserId = mine ? context.userId : undefined;
 
   const skipPagination = stringToBoolean(query.skipPagination?.toString());
   if (skipPagination && !API_ALLOW_SKIP_PAGINATION) {
@@ -57,6 +71,7 @@ export async function loadFeatureRevisionsPage(
         typeof getFeatureRevisionsByStatus
       >[0]["status"],
       author,
+      involvedUserId,
       limit,
       offset,
       sort: "desc",
@@ -68,6 +83,7 @@ export async function loadFeatureRevisionsPage(
         Parameters<typeof countDocuments>[1]
       >["status"],
       author,
+      involvedUserId,
     }),
   ]);
 

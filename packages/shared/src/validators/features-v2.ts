@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   apiPaginationFieldsValidator,
+  booleanQueryField,
   paginationQueryFields,
   skipPaginationQueryField,
 } from "./shared";
@@ -609,6 +610,9 @@ export const getFeatureRevisionsV2Validator = {
       ...skipPaginationQueryField,
       status: revisionStatusFilterSchema,
       author: z.string().optional(),
+      mine: booleanQueryField.describe(
+        "If true, return only revisions authored by or contributed to by the calling user. Requires a user-scoped API key. Mutually exclusive with `author`.",
+      ),
     })
     .strict(),
   paramsSchema: idParams,
