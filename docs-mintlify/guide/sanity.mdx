@@ -29,51 +29,47 @@ For the purposes of this guide, we'll be creating an A/B test for the product pa
 
 Already have a Next.js project? Skip to the next section.
 
-- npm
-- Yarn
-- pnpm
-- Bun
-
-```bash
+<CodeGroup>
+```bash npm
 npx create-next-app@latest my-sanity-growthbook-app --typescript --tailwind --eslint --app
 ```
 
-```bash
+```bash Yarn
 yarn dlx create-next-app@latest my-sanity-growthbook-app --typescript --tailwind --eslint --app
 ```
 
-```bash
+```bash pnpm
 pnpm dlx create-next-app@latest my-sanity-growthbook-app --typescript --tailwind --eslint --app
 ```
 
-```bash
+```bash Bun
 bun x create-next-app@latest my-sanity-growthbook-app --typescript --tailwind --eslint --app
 ```
+
+</CodeGroup>
 
 ### Install Sanity
 
 Inside your Next.js project, install Sanity:
 
-- npm
-- Yarn
-- pnpm
-- Bun
-
-```bash
+<CodeGroup>
+```bash npm
 npx sanity@latest init
 ```
 
-```bash
+```bash Yarn
 yarn dlx sanity@latest init
 ```
 
-```bash
+```bash pnpm
 pnpm dlx sanity@latest init
 ```
 
-```bash
+```bash Bun
 bun x sanity@latest init
 ```
+
+</CodeGroup>
 
 Choose the default options when prompted. This creates Sanity Studio inside your Next.js project (accessible at `/studio`) and sets up the necessary config files.
 
@@ -87,26 +83,24 @@ Sanity offers a plugin for personalization that includes a [direct integration w
 
 Install the plugin:
 
-- npm
-- Yarn
-- pnpm
-- Bun
-
-```bash
+<CodeGroup>
+```bash npm
 npm install @sanity/personalization-plugin
 ```
 
-```bash
+```bash Yarn
 yarn add @sanity/personalization-plugin
 ```
 
-```bash
+```bash pnpm
 pnpm add @sanity/personalization-plugin
 ```
 
-```bash
+```bash Bun
 bun add @sanity/personalization-plugin
 ```
+
+</CodeGroup>
 
 ### Update your Sanity config
 
@@ -388,26 +382,24 @@ Now, let's integrate GrowthBook in your Next.js app to serve the appropriate con
 
 ### Install GrowthBook
 
-- npm
-- Yarn
-- pnpm
-- Bun
-
-```bash
+<CodeGroup>
+```bash npm
 npm install @growthbook/growthbook
 ```
 
-```bash
+```bash Yarn
 yarn add @growthbook/growthbook
 ```
 
-```bash
+```bash pnpm
 pnpm add @growthbook/growthbook
 ```
 
-```bash
+```bash Bun
 bun add @growthbook/growthbook
 ```
+
+</CodeGroup>
 
 ### Configure GrowthBook for Server-Side Rendering
 

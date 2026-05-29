@@ -5,36 +5,35 @@ description: "GrowthBook SDK for React Native"
 
 This is a thin wrapper on top of the [Javascript Library](/lib/js), so you might want to view those docs first to familiarize yourself with the basic classes and methods.
 
-React Native SDK Resources
+**React Native SDK Resources** · `v1.6.5`
 
-v1.6.5
-
-[sdk-react](https://github.com/growthbook/growthbook/tree/main/packages/sdk-react)[npm](https://www.npmjs.com/package/@growthbook/growthbook-react)[React Native CLI example app](https://github.com/growthbook/examples/tree/main/react-native-cli)[Get help on Slack](https://join.slack.com/t/growthbookusers/shared_invite/zt-2xw8fu279-Y~hwnfCEf7WrEI9qScHURQ)
+- [sdk-react](https://github.com/growthbook/growthbook/tree/main/packages/sdk-react)
+- [npm](https://www.npmjs.com/package/@growthbook/growthbook-react)
+- [React Native CLI example app](https://github.com/growthbook/examples/tree/main/react-native-cli)
+- [Get help on Slack](https://join.slack.com/t/growthbookusers/shared_invite/zt-2xw8fu279-Y~hwnfCEf7WrEI9qScHURQ)
 
 ## Installation
 
 Install with a package manager
 
-- npm
-- Yarn
-- pnpm
-- Bun
-
-```bash
+<CodeGroup>
+```bash npm
 npm install --save @growthbook/growthbook-react
 ```
 
-```bash
+```bash Yarn
 yarn add @growthbook/growthbook-react
 ```
 
-```bash
+```bash pnpm
 pnpm add @growthbook/growthbook-react
 ```
 
-```bash
+```bash Bun
 bun add @growthbook/growthbook-react
 ```
+
+</CodeGroup>
 
 ## Quick Usage
 
@@ -250,26 +249,24 @@ The GrowthBook SDK supports streaming with Server-Sent Events (SSE). When enable
 
 React Native does not support SSE out-of-the-box, but there is a small helper library you can install:
 
-- npm
-- Yarn
-- pnpm
-- Bun
-
-```bash
+<CodeGroup>
+```bash npm
 npm install --save react-native-sse
 ```
 
-```bash
+```bash Yarn
 yarn add react-native-sse
 ```
 
-```bash
+```bash pnpm
 pnpm add react-native-sse
 ```
 
-```bash
+```bash Bun
 bun add react-native-sse
 ```
+
+</CodeGroup>
 
 The, tell GrowthBook to use this polyfill:
 
@@ -328,26 +325,24 @@ In order to use persistent storage, you must provide a polyfill with the same me
 
 Here's an example using AsyncStorage
 
-- npm
-- Yarn
-- pnpm
-- Bun
-
-```bash
+<CodeGroup>
+```bash npm
 npm install --save @react-native-async-storage/async-storage
 ```
 
-```bash
+```bash Yarn
 yarn add @react-native-async-storage/async-storage
 ```
 
-```bash
+```bash pnpm
 pnpm add @react-native-async-storage/async-storage
 ```
 
-```bash
+```bash Bun
 bun add @react-native-async-storage/async-storage
 ```
+
+</CodeGroup>
 
 ```jsx
 import AsyncStorage from '@react-native-async-storage/async-storage';

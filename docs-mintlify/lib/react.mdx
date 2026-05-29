@@ -9,36 +9,37 @@ This SDK supports both ReactJS and ReactNative environments and both client and 
 
 **Important**: Starting in version 1.0.0, you must always pass a GrowthBook instance into the GrowthBookProvider. In previous versions, you were allowed to pass `null` as well.
 
-React SDK Resources
+**React SDK Resources** · `v1.6.5`
 
-v1.6.5
-
-[sdk-react](https://github.com/growthbook/growthbook/tree/main/packages/sdk-react)[npm](https://www.npmjs.com/package/@growthbook/growthbook-react)[Next.js example app](https://github.com/growthbook/examples/tree/main/next-js)[Next.js pages example app](https://github.com/growthbook/examples/tree/main/next-js-pages)[Create React App guide](/guide/create-react-app-and-growthbook)[Get help on Slack](https://join.slack.com/t/growthbookusers/shared_invite/zt-2xw8fu279-Y~hwnfCEf7WrEI9qScHURQ)
+- [sdk-react](https://github.com/growthbook/growthbook/tree/main/packages/sdk-react)
+- [npm](https://www.npmjs.com/package/@growthbook/growthbook-react)
+- [Next.js example app](https://github.com/growthbook/examples/tree/main/next-js)
+- [Next.js pages example app](https://github.com/growthbook/examples/tree/main/next-js-pages)
+- [Create React App guide](/guide/create-react-app-and-growthbook)
+- [Get help on Slack](https://join.slack.com/t/growthbookusers/shared_invite/zt-2xw8fu279-Y~hwnfCEf7WrEI9qScHURQ)
 
 ## Installation
 
 Install with a package manager
 
-- npm
-- Yarn
-- pnpm
-- Bun
-
-```bash
+<CodeGroup>
+```bash npm
 npm install --save @growthbook/growthbook-react
 ```
 
-```bash
+```bash Yarn
 yarn add @growthbook/growthbook-react
 ```
 
-```bash
+```bash pnpm
 pnpm add @growthbook/growthbook-react
 ```
 
-```bash
+```bash Bun
 bun add @growthbook/growthbook-react
 ```
+
+</CodeGroup>
 
 ## Quick Usage
 
@@ -370,26 +371,24 @@ You may also differentiate your streaming host URL from your API host by setting
 
 You need to install a polyfill for SSE to use streaming in a ReactNative application:
 
-- npm
-- Yarn
-- pnpm
-- Bun
-
-```bash
+<CodeGroup>
+```bash npm
 npm install --save eventsource
 ```
 
-```bash
+```bash Yarn
 yarn add eventsource
 ```
 
-```bash
+```bash pnpm
 pnpm add eventsource
 ```
 
-```bash
+```bash Bun
 bun add eventsource
 ```
+
+</CodeGroup>
 
 The, tell GrowthBook to use this polyfill:
 

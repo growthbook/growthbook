@@ -5,36 +5,35 @@ description: "GrowthBook SDK for Node.js"
 
 We officially support Node 18 and above.
 
-Node SDK Resources
+**Node SDK Resources** · `v1.6.5`
 
-v1.6.5
-
-[sdk-js](https://github.com/growthbook/growthbook/tree/main/packages/sdk-js)[npm](https://www.npmjs.com/package/@growthbook/growthbook)[Express.js guide](/guide/express-js)[Get help on Slack](https://join.slack.com/t/growthbookusers/shared_invite/zt-2xw8fu279-Y~hwnfCEf7WrEI9qScHURQ)
+- [sdk-js](https://github.com/growthbook/growthbook/tree/main/packages/sdk-js)
+- [npm](https://www.npmjs.com/package/@growthbook/growthbook)
+- [Express.js guide](/guide/express-js)
+- [Get help on Slack](https://join.slack.com/t/growthbookusers/shared_invite/zt-2xw8fu279-Y~hwnfCEf7WrEI9qScHURQ)
 
 ## Installation
 
 Install with a package manager
 
-- npm
-- Yarn
-- pnpm
-- Bun
-
-```bash
+<CodeGroup>
+```bash npm
 npm install --save @growthbook/growthbook
 ```
 
-```bash
+```bash Yarn
 yarn add @growthbook/growthbook
 ```
 
-```bash
+```bash pnpm
 pnpm add @growthbook/growthbook
 ```
 
-```bash
+```bash Bun
 bun add @growthbook/growthbook
 ```
+
+</CodeGroup>
 
 ## Quick Usage
 
@@ -242,26 +241,24 @@ The GrowthBook SDK supports streaming with Server-Sent Events (SSE). When enable
 
 Node.js does not natively support SSE, but there is a small library you can install:
 
-- npm
-- Yarn
-- pnpm
-- Bun
-
-```bash
+<CodeGroup>
+```bash npm
 npm install --save eventsource
 ```
 
-```bash
+```bash Yarn
 yarn add eventsource
 ```
 
-```bash
+```bash pnpm
 pnpm add eventsource
 ```
 
-```bash
+```bash Bun
 bun add eventsource
 ```
+
+</CodeGroup>
 
 Then, configure the polyfill and enable streaming during init:
 

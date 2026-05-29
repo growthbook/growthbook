@@ -9,26 +9,24 @@ This guide walks through how to add GrowthBook feature flags to an [Express.js](
 
 First, install Express.js
 
-- npm
-- Yarn
-- pnpm
-- Bun
-
-```bash
+<CodeGroup>
+```bash npm
 npm install express
 ```
 
-```bash
+```bash Yarn
 yarn add express
 ```
 
-```bash
+```bash pnpm
 pnpm add express
 ```
 
-```bash
+```bash Bun
 bun add express
 ```
+
+</CodeGroup>
 
 Then, create an `index.js` file with a simple hello world route
 
@@ -74,26 +72,24 @@ GROWTHBOOK_CLIENT_KEY=
 
 Now let's install the GrowthBook JavaScript SDK
 
-- npm
-- Yarn
-- pnpm
-- Bun
-
-```bash
+<CodeGroup>
+```bash npm
 npm install @growthbook/growthbook
 ```
 
-```bash
+```bash Yarn
 yarn add @growthbook/growthbook
 ```
 
-```bash
+```bash pnpm
 pnpm add @growthbook/growthbook
 ```
 
-```bash
+```bash Bun
 bun add @growthbook/growthbook
 ```
+
+</CodeGroup>
 
 Lets now modify the top of `index.js` file and create a **GrowthBookClient** instance:
 

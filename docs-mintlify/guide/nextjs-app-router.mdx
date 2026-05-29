@@ -65,26 +65,24 @@ Back in the GrowthBook application, let's create our first feature flag. Make a 
 
 Next.js App Router uses Server Components by default, so we need to use the GrowthBook JavaScript SDK, not the React SDK (which only works client-side).
 
-- npm
-- Yarn
-- pnpm
-- Bun
-
-```bash
+<CodeGroup>
+```bash npm
 npm install --save @growthbook/growthbook
 ```
 
-```bash
+```bash Yarn
 yarn add @growthbook/growthbook
 ```
 
-```bash
+```bash pnpm
 pnpm add @growthbook/growthbook
 ```
 
-```bash
+```bash Bun
 bun add @growthbook/growthbook
 ```
+
+</CodeGroup>
 
 Our Javascript SDK works out-of-the-box with React Server Components, but we can more deeply integrate it with Next.js by creating a small helper function in `app/growthbookServer.ts` with the following contents:
 
