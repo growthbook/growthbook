@@ -206,8 +206,14 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const [autoRefreshResults, setAutoRefreshResults] = useState(true);
   const [useSameSeedAsOriginal, setUseSameSeedAsOriginal] = useState(false);
 
-  const { datasources, getDatasourceById, refreshTags, project, projects } =
-    useDefinitions();
+  const {
+    datasources,
+    getDatasourceById,
+    getExperimentMetricById,
+    refreshTags,
+    project,
+    projects,
+  } = useDefinitions();
   const { aiEnabled } = useAISettings();
   const [similarExperiments, setSimilarExperiments] = useState<
     { experiment: ExperimentInterfaceStringDates; similarity: number }[]
@@ -493,6 +499,24 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     }
 
     const data = { ...value };
+
+    // Strip out any selected metrics that belong to a different data source.
+    // The Metrics step hides chips for IDs whose metric isn't in the current
+    // data source's options, but the IDs stay in form state so they re-appear
+    // if the user switches back. Filter here so submit doesn't fail with
+    // "Metrics must be tied to the same datasource as the experiment".
+    if (data.datasource) {
+      const datasourceId = data.datasource;
+      const isValidMetric = (id: string) =>
+        getExperimentMetricById(id)?.datasource === datasourceId;
+      data.goalMetrics = (data.goalMetrics ?? []).filter(isValidMetric);
+      data.secondaryMetrics = (data.secondaryMetrics ?? []).filter(
+        isValidMetric,
+      );
+      data.guardrailMetrics = (data.guardrailMetrics ?? []).filter(
+        isValidMetric,
+      );
+    }
 
     if (data.status !== "stopped" && data.phases?.[0]) {
       data.phases[0].dateEnded = "";
