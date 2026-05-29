@@ -325,7 +325,9 @@ export function getMetricSettingsForStatsEngine(
     }),
     ...(regressionAdjusted && {
       covariate_metric_type: mainMetricType,
-      keep_theta: !!settings.banditSettings,
+      keep_theta:
+        !!settings.banditSettings &&
+        settings.banditSettings.poolRegressionTheta !== false,
     }),
     ...(!!quantileMetric && isFactMetric(metric)
       ? { quantile_value: metric.quantileSettings?.quantile ?? 0 }

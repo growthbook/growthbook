@@ -33,6 +33,7 @@ import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { getSettingsForSnapshotMetrics } from "back-end/src/services/experiments";
 import {
   getExperimentById,
   getPayloadKeys,
@@ -152,11 +153,17 @@ export async function runContextualBanditSnapshot(
   );
   if (!eaq) throw new Error(`EAQ missing: ${cb.exposureQueryId}`);
 
+  const { regressionAdjustmentEnabled } = await getSettingsForSnapshotMetrics(
+    context,
+    experiment,
+  );
+
   const snapshotSettings = buildContextualBanditSnapshotSettings(
     cb,
     experiment,
     phase,
     eaq,
+    regressionAdjustmentEnabled,
   );
 
   const cbs = await context.models.contextualBanditSnapshots.create({
@@ -357,6 +364,7 @@ export function buildContextualBanditSnapshotSettings(
   experiment: ExperimentInterface,
   phase: number,
   exposureQuery: ExposureQuery,
+  regressionAdjustmentEnabled: boolean,
 ): ContextualBanditSnapshotSettings {
   const cbPhase = cb.phases[phase];
   const expPhase = experiment.phases?.[phase];
@@ -364,6 +372,7 @@ export function buildContextualBanditSnapshotSettings(
 
   return {
     experimentId: experiment.id,
+    trackingKey: experiment.trackingKey || experiment.id,
     contextualBanditId: cb.id,
     phase,
 
@@ -398,6 +407,8 @@ export function buildContextualBanditSnapshotSettings(
     maxLeaves: cb.maxLeaves,
     canonicalFormVersion: cb.canonicalFormVersion,
 
+    regressionAdjustmentEnabled,
+
     startDate: cbPhase?.dateStarted ?? new Date(),
     endDate: cbPhase?.dateEnded ?? null,
     reweight: true,
@@ -429,7 +440,7 @@ export function buildExperimentSnapshotSettingsForCb(
 ): ExperimentSnapshotSettings {
   const decisionMetric = cbSnapshotSettings.goalMetrics[0] ?? "";
   return {
-    experimentId: cbSnapshotSettings.experimentId,
+    experimentId: cbSnapshotSettings.trackingKey,
     queryFilter: "",
     datasourceId: cbSnapshotSettings.datasourceId,
     exposureQueryId: cbSnapshotSettings.exposureQueryId,
@@ -451,7 +462,8 @@ export function buildExperimentSnapshotSettingsForCb(
     segment: "",
     skipPartialData: false,
     attributionModel: "firstExposure",
-    regressionAdjustmentEnabled: false,
+    regressionAdjustmentEnabled:
+      cbSnapshotSettings.regressionAdjustmentEnabled,
     defaultMetricPriorSettings: {
       override: false,
       proper: false,
@@ -466,6 +478,8 @@ export function buildExperimentSnapshotSettingsForCb(
       seed: cbSnapshotSettings.banditWeightsSeed,
       currentWeights: cbSnapshotSettings.variations.map((v) => v.weight),
       historicalWeights: [],
+      // CUPED covariate aggregates yes; pooled bandit-period theta no.
+      poolRegressionTheta: false,
     },
   };
 }

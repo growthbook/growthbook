@@ -93,29 +93,40 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
         `Contextual bandit decision metric not found: ${decisionMetricId}`,
       );
     }
-    if (isFactMetric(decisionMetric)) {
-      // The CB v1 SQL path uses the legacy `getExperimentMetricQuery`. Fact
-      // metrics flow through `getExperimentFactMetricsQuery`, which we have
-      // not yet wired into the parallel CB pipeline. Fail loudly so the
-      // orchestrator surfaces a clear error instead of silently producing
-      // empty rows.
+    const factTableMap = await getFactTableMap(this.context);
+
+    const decisionMetricIsFact = isFactMetric(decisionMetric);
+    if (
+      decisionMetricIsFact &&
+      (!this.integration.getExperimentFactMetricsQuery ||
+        !this.integration.runExperimentFactMetricsQuery)
+    ) {
       throw new Error(
-        `Contextual bandit decision metric must be a legacy metric for v1 (got fact metric ${decisionMetricId})`,
+        `Datasource integration does not support fact metric queries required for contextual bandit decision metric ${decisionMetricId}`,
       );
     }
 
-    const factTableMap = await getFactTableMap(this.context);
-
-    const sql = this.integration.getExperimentMetricQuery({
-      settings: expSnapshotSettings,
-      metric: decisionMetric as MetricInterface,
-      denominatorMetrics: [],
-      activationMetric: null,
-      dimensions: [],
-      segment: null,
-      factTableMap,
-      unitsSource: "exposureQuery",
-    });
+    const sql = isFactMetric(decisionMetric)
+      ? this.integration.getExperimentFactMetricsQuery!({
+          activationMetric: null,
+          dimensions: [],
+          metrics: [decisionMetric],
+          segment: null,
+          settings: expSnapshotSettings,
+          unitsSource: "exposureQuery",
+          unitsTableFullName: "",
+          factTableMap,
+        })
+      : this.integration.getExperimentMetricQuery({
+          settings: expSnapshotSettings,
+          metric: decisionMetric as MetricInterface,
+          denominatorMetrics: [],
+          activationMetric: null,
+          dimensions: [],
+          segment: null,
+          factTableMap,
+          unitsSource: "exposureQuery",
+        });
 
     return [
       await this.startQuery({
@@ -123,6 +134,14 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
         query: sql,
         dependencies: [],
         run: async (query, setExternalId, queryMetadata) => {
+          if (decisionMetricIsFact) {
+            const res = await this.integration.runExperimentFactMetricsQuery!(
+              query,
+              setExternalId,
+              queryMetadata,
+            );
+            return { rows: res.rows as ExperimentMetricQueryResponseRows };
+          }
           const { rows } = await this.integration.runExperimentMetricQuery(
             query,
             setExternalId,
@@ -326,12 +345,12 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
         "ContextualBanditResultsQueryRunner: snapshotSettings missing in loadCbDoc",
       );
     }
-    const cb = await this.context.models.contextualBandits.getByExperimentId(
-      this.snapshotSettings.experimentId,
+    const cb = await this.context.models.contextualBandits.getById(
+      this.snapshotSettings.contextualBanditId,
     );
     if (!cb) {
       throw new Error(
-        `No CB doc for experiment ${this.snapshotSettings.experimentId}`,
+        `No CB doc for experiment ${this.snapshotSettings.experimentId}: ${this.snapshotSettings.contextualBanditId}`,
       );
     }
     this.cachedCb = cb;

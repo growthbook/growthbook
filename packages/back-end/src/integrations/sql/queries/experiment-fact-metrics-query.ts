@@ -132,6 +132,8 @@ export function getExperimentFactMetricsQuery(
   const banditDates = settings.banditSettings?.historicalWeights.map(
     (w) => w.date,
   );
+  const poolRegressionTheta =
+    settings.banditSettings?.poolRegressionTheta !== false;
 
   const dimensionCols: DimensionColumnData[] = params.dimensions.map((d) =>
     getDimensionCol(dialect, d),
@@ -642,6 +644,7 @@ export function getExperimentFactMetricsQuery(
             factTablesWithIndices,
             regressionAdjustedTableIndices,
             percentileTableIndices,
+            poolRegressionTheta,
           })
         : `
     -- One row per variation/dimension with aggregations

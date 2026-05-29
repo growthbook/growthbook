@@ -2361,6 +2361,7 @@ class UpdateWeightsContextualTree:
         )
         self.set_leaf_structure(self.leaf_map)
         self.sse_final = self.calculate_sse_final(self.stats_encoded, variation_columns)
+        
 
     def compute_result(self) -> ContextualBanditResult:
         """Fit tree, aggregate rows per leaf with LEAF_ID_COLUMN, run **one** UpdateWeightsContextualBandit with contexts=[LEAF_ID_COLUMN], then map leaf-level results and weights onto each real context via leaf_map."""
@@ -2480,6 +2481,7 @@ class UpdateWeightsContextualTree:
                     error=error,
                 )
             )
+        
 
         return ContextualBanditResult(
             attributes=self.bandit_settings.attributes,

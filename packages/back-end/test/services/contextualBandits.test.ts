@@ -9,6 +9,7 @@ import { deriveContextId } from "shared/util";
 import { ReqContext } from "back-end/types/api";
 import {
   buildContextualBanditSnapshotSettings,
+  buildExperimentSnapshotSettingsForCb,
   getContextualBanditResultsForUi,
   leafWeightsFromContextualBanditResult,
   persistContextualBanditEvent,
@@ -164,11 +165,11 @@ describe("buildContextualBanditSnapshotSettings", () => {
     const exp = makeExperiment({ guardrailMetrics: ["met_guard"] });
     const eaq = makeExposureQuery();
 
-    const settings = buildContextualBanditSnapshotSettings(cb, exp, 0, eaq);
+    const settings = buildContextualBanditSnapshotSettings(cb, exp, 0, eaq, false);
 
     expect(settings).not.toHaveProperty("guardrailMetrics");
     expect(settings).not.toHaveProperty("activationMetric");
-    expect(settings).not.toHaveProperty("regressionAdjustmentEnabled");
+    expect(settings.regressionAdjustmentEnabled).toBe(false);
 
     // Strict validator must accept it (would reject any unknown key).
     expect(() =>
@@ -189,12 +190,39 @@ describe("buildContextualBanditSnapshotSettings", () => {
     expect(settings.contextualAttributes).toEqual(["country", "device"]);
   });
 
+  it("stores trackingKey separately from experimentId for warehouse SQL", () => {
+    const settings = buildContextualBanditSnapshotSettings(
+      makeCb(),
+      makeExperiment({ trackingKey: "first_contextual_bandit" }),
+      0,
+      makeExposureQuery(),
+      false,
+    );
+
+    expect(settings.experimentId).toBe("exp_1");
+    expect(settings.trackingKey).toBe("first_contextual_bandit");
+  });
+
+  it("maps trackingKey to ExperimentSnapshotSettings.experimentId for SQL", () => {
+    const cbSettings = buildContextualBanditSnapshotSettings(
+      makeCb(),
+      makeExperiment({ trackingKey: "first_contextual_bandit" }),
+      0,
+      makeExposureQuery(),
+      false,
+    );
+
+    expect(buildExperimentSnapshotSettingsForCb(cbSettings).experimentId).toBe(
+      "first_contextual_bandit",
+    );
+  });
+
   it("falls back to CB.contextualAttributes when EAQ has no targeting columns", () => {
     const cb = makeCb({ contextualAttributes: ["plan_tier"] });
     const exp = makeExperiment();
     const eaq = makeExposureQuery({ targetingAttributeColumns: undefined });
 
-    const settings = buildContextualBanditSnapshotSettings(cb, exp, 0, eaq);
+    const settings = buildContextualBanditSnapshotSettings(cb, exp, 0, eaq, false);
 
     expect(settings.contextualAttributes).toEqual(["plan_tier"]);
   });
@@ -219,6 +247,7 @@ describe("buildContextualBanditSnapshotSettings", () => {
       exp,
       0,
       makeExposureQuery(),
+      false,
     );
 
     expect(settings.variations).toEqual([
@@ -235,8 +264,25 @@ describe("buildContextualBanditSnapshotSettings", () => {
       makeExperiment(),
       0,
       makeExposureQuery(),
+      false,
     );
     expect(settings.treeModel).toBe("regression_tree");
+  });
+
+  it("threads CUPED into SQL settings without pooled theta", () => {
+    const cbSettings = buildContextualBanditSnapshotSettings(
+      makeCb(),
+      makeExperiment({ regressionAdjustmentEnabled: true }),
+      0,
+      makeExposureQuery(),
+      true,
+    );
+
+    expect(cbSettings.regressionAdjustmentEnabled).toBe(true);
+
+    const expSettings = buildExperimentSnapshotSettingsForCb(cbSettings);
+    expect(expSettings.regressionAdjustmentEnabled).toBe(true);
+    expect(expSettings.banditSettings?.poolRegressionTheta).toBe(false);
   });
 });
 

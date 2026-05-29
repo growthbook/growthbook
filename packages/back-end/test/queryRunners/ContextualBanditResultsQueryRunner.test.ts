@@ -84,6 +84,7 @@ function makeSnapshotSettings(
 ): ContextualBanditSnapshotSettings {
   return {
     experimentId: "exp_1",
+    trackingKey: "exp_1",
     contextualBanditId: "cb_1",
     phase: 0,
 
@@ -110,6 +111,7 @@ function makeSnapshotSettings(
     endDate: null,
     reweight: true,
     banditWeightsSeed: 0,
+    regressionAdjustmentEnabled: false,
     ...overrides,
   };
 }
@@ -204,7 +206,7 @@ function makeContext(cb: ContextualBanditInterface): ReqContext {
     },
     models: {
       contextualBandits: {
-        getByExperimentId: jest.fn().mockResolvedValue(cb),
+        getById: jest.fn().mockResolvedValue(cb),
         patchPhaseWeights: jest.fn().mockResolvedValue(cb),
       },
       contextualBanditEvents: {

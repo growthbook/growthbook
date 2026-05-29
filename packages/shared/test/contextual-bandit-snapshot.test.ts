@@ -8,6 +8,7 @@ function buildSettings(
 ): ContextualBanditSnapshotSettings {
   return {
     experimentId: "exp_1",
+    trackingKey: "exp_1",
     contextualBanditId: "cb_1",
     phase: 0,
 
@@ -34,6 +35,7 @@ function buildSettings(
     endDate: null,
     reweight: true,
     banditWeightsSeed: 0,
+    regressionAdjustmentEnabled: false,
 
     ...overrides,
   };

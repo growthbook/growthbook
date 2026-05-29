@@ -18,6 +18,7 @@ export function getBanditStatisticsFactMetricCTE(
     factTablesWithIndices,
     regressionAdjustedTableIndices,
     percentileTableIndices,
+    poolRegressionTheta = true,
   }: {
     baseIdType: string;
     metricData: BanditMetricData[];
@@ -25,6 +26,7 @@ export function getBanditStatisticsFactMetricCTE(
     factTablesWithIndices: { factTable: FactTableInterface; index: number }[];
     regressionAdjustedTableIndices: Set<number>;
     percentileTableIndices: Set<number>;
+    poolRegressionTheta?: boolean;
   },
 ): string {
   const weightDimensionCols = getBanditPeriodWeightDimensionCols(dimensionCols);
@@ -175,7 +177,7 @@ export function getBanditStatisticsFactMetricCTE(
         ${weightDimensionCols.map((d) => `, bps.${d.alias}`).join("\n")}
     )
     ${
-      regressionAdjustedTableIndices.size > 0
+      regressionAdjustedTableIndices.size > 0 && poolRegressionTheta
         ? `
         , __theta AS (
         SELECT
@@ -286,7 +288,11 @@ export function getBanditStatisticsFactMetricCTE(
               SUM(bpw.weight * bps.${alias}main_sum / bps.users) * SUM(bpw.weight * bps.${alias}covariate_sum / bps.users)
             )
           ) AS ${alias}main_covariate_sum_product
-        , MAX(t.${alias}theta) AS ${alias}theta
+        ${
+          poolRegressionTheta
+            ? `, MAX(t.${alias}theta) AS ${alias}theta`
+            : ""
+        }
           `
           : ""
       }`;
@@ -307,7 +313,7 @@ export function getBanditStatisticsFactMetricCTE(
         }
       )
     ${
-      regressionAdjustedTableIndices.size > 0
+      regressionAdjustedTableIndices.size > 0 && poolRegressionTheta
         ? `
       LEFT JOIN
         __theta t

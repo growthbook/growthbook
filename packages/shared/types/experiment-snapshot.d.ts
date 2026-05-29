@@ -193,6 +193,11 @@ export interface SnapshotBanditSettings {
   banditIsContextual?: boolean;
   /** Targeting attribute column aliases from the experiment's exposure query at snapshot time. */
   targetingAttributeColumns?: string[];
+  /**
+   * When false, SQL still emits CUPED covariate aggregates but skips pooled
+   * `__theta` calculation (used by contextual bandits). Defaults to true for MAB.
+   */
+  poolRegressionTheta?: boolean;
 }
 
 // Settings that control which queries are run

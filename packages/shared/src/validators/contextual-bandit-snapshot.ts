@@ -16,7 +16,10 @@ import { queryPointerValidator } from "./queries";
 export const contextualBanditSnapshotSettingsValidator = z
   .object({
     // --- Identifying ---
+    /** GrowthBook experiment doc id (`exp_*`). Used for Mongo FK lookups. */
     experimentId: z.string(),
+    /** Warehouse exposure filter key (`experiment.trackingKey || experiment.id`). */
+    trackingKey: z.string(),
     contextualBanditId: z.string(),
     phase: z.number().int().nonnegative(),
 
@@ -50,6 +53,9 @@ export const contextualBanditSnapshotSettingsValidator = z
     minUsersPerLeaf: z.number().int().positive(),
     maxLeaves: z.number().int().positive(),
     canonicalFormVersion: z.number().int().nonnegative(),
+
+    /** Resolved from experiment + metric CUPED settings at snapshot time. */
+    regressionAdjustmentEnabled: z.boolean(),
 
     // --- Timing ---
     startDate: z.date(),

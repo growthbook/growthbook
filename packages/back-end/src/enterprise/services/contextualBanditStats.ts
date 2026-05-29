@@ -225,7 +225,7 @@ async function runContextualStatsEngineWithPython(
     metricMap,
     snapshotSettings,
   );
-  // Contextual bandits use CUPED aggregates but do not pool theta in gbstats.
+  // Contextual bandits: CUPED covariate columns from SQL, but no pooled theta.
   if (decisionMetricSettings.keep_theta) {
     decisionMetricSettings.keep_theta = false;
   }

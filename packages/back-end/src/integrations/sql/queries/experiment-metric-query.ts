@@ -90,6 +90,8 @@ export function getExperimentMetricQuery(
   const banditDates = settings.banditSettings?.historicalWeights.map(
     (w) => w.date,
   );
+  const poolRegressionTheta =
+    settings.banditSettings?.poolRegressionTheta !== false;
 
   // redundant checks to make sure configuration makes sense and we only build expensive queries for the cases
   // where RA is actually possible
@@ -522,6 +524,7 @@ WITH
           ],
           dimensionCols,
           hasRegressionAdjustment: regressionAdjusted,
+          poolRegressionTheta,
           hasCapping: isPercentileCapped || denominatorIsPercentileCapped,
           ignoreNulls: "ignoreNulls" in metric && metric.ignoreNulls,
           denominatorIsPercentileCapped,
