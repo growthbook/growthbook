@@ -2956,27 +2956,12 @@
       "count": 1
     }
   },
-  "packages/front-end/ui/Field.stories.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
-  "packages/front-end/ui/MultiSelectField.stories.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/ui/RadioCards.stories.tsx": {
     "no-restricted-syntax": {
       "count": 1
     }
   },
   "packages/front-end/ui/RadioGroup.stories.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "packages/front-end/ui/SelectField.stories.tsx": {
     "no-restricted-syntax": {
       "count": 1
     }

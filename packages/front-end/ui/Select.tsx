@@ -5,13 +5,14 @@ import clsx from "clsx";
 import HelperText from "./HelperText";
 import Text, { TextSizes, TextWeights } from "./Text";
 
-export type SelectSize = "x-small" | "small" | "medium";
+export type SelectSize = "x-small" | "small" | "legacy" | "medium";
 
 function toRadixSize(size: SelectSize): "1" | "2" | "3" {
   switch (size) {
     case "x-small":
       return "1";
     case "small":
+    case "legacy":
       return "2";
     case "medium":
       return "3";
@@ -49,7 +50,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
     children,
     value,
     setValue,
-    size = "small",
+    size = "legacy",
     placeholder,
     variant = "surface",
     triggerClassName,

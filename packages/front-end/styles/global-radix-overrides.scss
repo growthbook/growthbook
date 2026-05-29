@@ -369,6 +369,11 @@
   border-radius: var(--radius-2);
 }
 
+.gb-select--legacy .rt-SelectTrigger {
+  height: 36px;
+  border-radius: var(--radius-2);
+}
+
 .gb-select--medium .rt-SelectTrigger {
   height: 40px;
   border-radius: var(--radius-3);

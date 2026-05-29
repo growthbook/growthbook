@@ -3458,11 +3458,23 @@ select.form-control--md {
   height: 32px;
   border-radius: var(--radius-2);
 }
+input.form-control--legacy,
+select.form-control--legacy {
+  height: 36px;
+  border-radius: var(--radius-2);
+}
 input.form-control--md,
 select.form-control--md,
 textarea.form-control--md {
   padding-top: 2px;
   padding-bottom: 2px;
+  font-size: var(--font-size-2);
+}
+input.form-control--legacy,
+select.form-control--legacy,
+textarea.form-control--legacy {
+  padding-top: 4px;
+  padding-bottom: 4px;
   font-size: var(--font-size-2);
 }
 input.form-control--lg,

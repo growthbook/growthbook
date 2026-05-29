@@ -258,7 +258,7 @@ const SelectField: FC<SelectFieldProps> = ({
   legacyLabelFormatting = true,
   labelSize,
   labelWeight = "semibold",
-  size = "small" as "x-small" | "small" | "legacy" | "medium",
+  size = "legacy" as "x-small" | "small" | "legacy" | "medium",
   errorLevel = "error",
   ...otherProps
 }) => {

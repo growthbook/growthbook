@@ -18,7 +18,7 @@ import {
 import {
   PiPlusBold,
   PiInfo,
-  PiCaretDownBold,
+  PiCaretDown,
   PiCaretDownFill,
   PiCaretRightFill,
   PiBookmarkSimple,
@@ -1615,7 +1615,7 @@ export default function RampScheduleSection({
           }}
         />
         <Flex direction="column" gap="2" pl="2">
-          <Flex align="center" gap="4" style={{ minHeight: 38 }}>
+          <Flex align="center" gap="4">
             <Box style={{ width: COL.num, flexShrink: 0, textAlign: "center" }}>
               <Text size="small" weight="medium" color="text-low">
                 end
@@ -1639,7 +1639,7 @@ export default function RampScheduleSection({
                     className={`position-relative ${styles.percentInputWrap}`}
                   >
                     <Field
-                      style={{ width: COL.coverage, minHeight: 38 }}
+                      style={{ width: COL.coverage }}
                       type="number"
                       min="0"
                       max="100"
@@ -1847,7 +1847,6 @@ export default function RampScheduleSection({
                           {isReadOnlyView ? (
                             <Box
                               style={{
-                                height: 38,
                                 display: "flex",
                                 alignItems: "center",
                               }}
@@ -1861,7 +1860,7 @@ export default function RampScheduleSection({
                               className={`position-relative ${styles.percentInputWrap}`}
                             >
                               <Field
-                                style={{ width: COL.coverage, minHeight: 38 }}
+                                style={{ width: COL.coverage }}
                                 type="number"
                                 min={minCov}
                                 max={maxCov}
@@ -1961,7 +1960,6 @@ export default function RampScheduleSection({
                               updateStep(i, update);
                             }}
                             className="select-unfixed"
-                            containerStyle={{ minHeight: 38 }}
                             useMultilineLabels
                             formatOptionLabel={(option, meta) => {
                               if (meta.context === "value")
@@ -1992,7 +1990,6 @@ export default function RampScheduleSection({
                         {step.triggerType === "interval" && (
                           <>
                             <Field
-                              style={{ minHeight: 38 }}
                               type="number"
                               min="0"
                               step="any"
@@ -2034,7 +2031,6 @@ export default function RampScheduleSection({
                                   })
                                 }
                                 className="select-unfixed"
-                                containerStyle={{ minHeight: 38 }}
                               />
                             </Box>
                             {!step.holdConditions?.requiresApproval && (
@@ -2101,7 +2097,6 @@ export default function RampScheduleSection({
                                       approvalNotes: e.target.value,
                                     })
                                   }
-                                  style={{ minHeight: 38 }}
                                 />
                               </Box>
                             )}
@@ -2441,7 +2436,6 @@ export default function RampScheduleSection({
                                         approvalNotes: e.target.value,
                                       })
                                     }
-                                    style={{ height: 32 }}
                                   />
                                 </Box>
                               )}
@@ -2659,7 +2653,10 @@ export default function RampScheduleSection({
         {selectedTemplate?.name ??
           (templates.length === 0 ? "No templates" : "None")}
       </span>
-      <PiCaretDownBold style={{ flexShrink: 0 }} />
+      <PiCaretDown
+        size={16}
+        style={{ flexShrink: 0, color: "var(--gray-12)" }}
+      />
     </Flex>
   );
 
@@ -3463,7 +3460,7 @@ export default function RampScheduleSection({
                 Math.max(0.01, state.simpleDurationDays),
               )
             }
-            style={{ width: 60, minHeight: 38 }}
+            style={{ width: 60 }}
             errorLevel={anyCadenceWarning ? "warning" : undefined}
           />
           <SelectField
@@ -3650,7 +3647,7 @@ export default function RampScheduleSection({
             patchState({ startDate: d.toISOString() });
           }
         }}
-        containerStyle={{ minHeight: 38, width: 150 }}
+        containerStyle={{ width: 150 }}
       />
       {state.startDate && (
         <DatePicker
