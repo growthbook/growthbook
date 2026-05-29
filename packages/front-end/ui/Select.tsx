@@ -50,7 +50,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
     children,
     value,
     setValue,
-    size = "legacy",
+    size = "small",
     placeholder,
     variant = "surface",
     triggerClassName,

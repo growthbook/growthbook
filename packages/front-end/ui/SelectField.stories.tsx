@@ -57,15 +57,15 @@ function SizeStory() {
         onChange={setV1}
       />
       <SelectField
-        label="Size small"
-        size="small"
+        label="Size small (default)"
         legacyLabelFormatting={false}
         value={v2}
         options={FRUIT_OPTIONS}
         onChange={setV2}
       />
       <SelectField
-        label="Size legacy (default)"
+        label="Size legacy"
+        size="legacy"
         value={v3}
         options={FRUIT_OPTIONS}
         onChange={setV3}

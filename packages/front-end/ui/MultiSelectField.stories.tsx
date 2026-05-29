@@ -45,7 +45,7 @@ function BasicStory() {
   const [value, setValue] = useState<string[]>(["apple", "banana"]);
   return (
     <MultiSelectField
-      label="Favourite fruits (legacy)"
+      label="Favourite fruits"
       value={value}
       options={FRUIT_OPTIONS}
       onChange={setValue}
@@ -60,15 +60,15 @@ function SizeStory() {
   return (
     <Flex direction="column" gap="3">
       <MultiSelectField
-        label="Size small"
-        size="small"
+        label="Size small (default)"
         legacyLabelFormatting={false}
         value={v1}
         options={FRUIT_OPTIONS}
         onChange={setV1}
       />
       <MultiSelectField
-        label="Size legacy (default)"
+        label="Size legacy"
+        size="legacy"
         value={v2}
         options={FRUIT_OPTIONS}
         onChange={setV2}

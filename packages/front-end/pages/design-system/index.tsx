@@ -18,6 +18,7 @@ import ExperimentResultIndicatorStories from "@/ui/ExperimentResultIndicator.sto
 import FieldStories from "@/ui/Field.stories";
 import ExperimentStatusIndicatorStories from "@/ui/ExperimentStatusIndicator.stories";
 import TextStories from "@/ui/Text.stories";
+import TextFieldStories from "@/ui/TextField.stories";
 import HeadingStories from "@/ui/Heading.stories";
 import HelperTextStories from "@/ui/HelperText.stories";
 import LinkStories from "@/ui/Link.stories";
@@ -85,6 +86,12 @@ export default function DesignSystemPage() {
     },
     { name: "VariationStatsTable", Stories: VariationStatsTableStories },
     { name: "Text", Stories: TextStories },
+    {
+      name: "TextField",
+      description:
+        "Radix-based single-line text input with design system sizing, labels, and validation states. Supports native input types (text, number, password, email, etc.) and standard HTML validation attributes (required, min, max, pattern, minLength, maxLength, step, …).",
+      Stories: TextFieldStories,
+    },
     { name: "Heading", Stories: HeadingStories },
     { name: "HelperText", Stories: HelperTextStories },
     { name: "Link", Stories: LinkStories },
@@ -96,7 +103,12 @@ export default function DesignSystemPage() {
     { name: "RadioCards", Stories: RadioCardsStories },
     { name: "RadioGroup", Stories: RadioGroupStories },
     { name: "Select", Stories: SelectStories },
-    { name: "Field (legacy)", Stories: FieldStories },
+    {
+      name: "Field (legacy text input)",
+      description:
+        "Bootstrap-based text input. Prefer TextField for new work; this component remains for legacy forms and textareas.",
+      Stories: FieldStories,
+    },
     { name: "SelectField (legacy)", Stories: SelectFieldStories },
     { name: "MultiSelectField", Stories: MultiSelectFieldStories },
     { name: "Slider", Stories: SliderStories },

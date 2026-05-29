@@ -379,6 +379,42 @@
   border-radius: var(--radius-3);
 }
 
+// TextField
+.rt-TextFieldRoot {
+  &.error {
+    box-shadow: inset 0 0 0 1px var(--red-8);
+  }
+
+  &.warning {
+    box-shadow: inset 0 0 0 1px var(--amber-8);
+  }
+
+  &:focus-within {
+    outline: 2px solid var(--focus-8);
+    outline-offset: -1px;
+  }
+}
+
+.gb-text-field--x-small .rt-TextFieldRoot {
+  height: 24px;
+  border-radius: var(--radius-2);
+}
+
+.gb-text-field--small .rt-TextFieldRoot {
+  height: 32px;
+  border-radius: var(--radius-2);
+}
+
+.gb-text-field--legacy .rt-TextFieldRoot {
+  height: 36px;
+  border-radius: var(--radius-2);
+}
+
+.gb-text-field--medium .rt-TextFieldRoot {
+  height: 40px;
+  border-radius: var(--radius-3);
+}
+
 // Slider
 .rt-SliderThumb::before,
 .rt-SliderThumb::after {

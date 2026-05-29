@@ -285,6 +285,28 @@ export default defineConfig([
     },
   },
   {
+    files: ["./packages/front-end/**/*.stories.tsx"],
+
+    rules: {
+      // Design system stories intentionally demonstrate all size variants, including legacy.
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "MemberExpression[object.object.name='window'][object.property.name='history'][property.name='pushState']",
+          message:
+            "Don't use window.history.pushState directly. Use router.push(url, undefined, { shallow: true }) from next/router instead.",
+        },
+        {
+          selector:
+            "MemberExpression[object.object.name='window'][object.property.name='history'][property.name='replaceState']",
+          message:
+            "Don't use window.history.replaceState directly. Use router.replace(url, undefined, { shallow: true }) from next/router instead.",
+        },
+      ],
+    },
+  },
+  {
     files: [
       "./packages/docs/pages/_app.tsx",
       "./packages/front-end/components/Auth/InAppHelp.tsx",

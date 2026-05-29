@@ -1,7 +1,7 @@
 import { Flex } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 
-function SizesStory() {
+function TextInputSizesStory() {
   return (
     <Flex direction="column" gap="3" maxWidth="360px">
       <Field label="Size legacy (default)" placeholder="Text input" />
@@ -84,7 +84,7 @@ function StatesStory() {
 export default function FieldStories() {
   return (
     <Flex direction="column" gap="6">
-      <SizesStory />
+      <TextInputSizesStory />
       <TextareaStory />
       <StatesStory />
     </Flex>
