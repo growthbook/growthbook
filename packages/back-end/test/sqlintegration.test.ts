@@ -8,7 +8,9 @@ import {
   RowFilter,
 } from "shared/types/fact-table";
 import { ExposureQuery } from "shared/types/datasource";
+import { SqlDialect } from "shared/types/sql";
 import BigQuery from "back-end/src/integrations/BigQuery";
+import Snowflake from "back-end/src/integrations/Snowflake";
 import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
 import { mysqlDialect } from "back-end/src/integrations/dialects/mysql";
 import { clickHouseDialect } from "back-end/src/integrations/dialects/clickhouse";
@@ -18,6 +20,7 @@ import { getAggregateMetricColumnLegacyMetrics } from "back-end/src/integrations
 import { getMaxHoursToConvert } from "back-end/src/integrations/sql/dates/max-hours-to-convert";
 import { getFactMetricCTE } from "back-end/src/integrations/sql/ctes/fact-metric-cte";
 import { getExperimentFactMetricsQuery } from "back-end/src/integrations/sql/queries/experiment-fact-metrics-query";
+import { N_STAR_VALUES } from "back-end/src/services/experimentQueries/constants";
 import { getFeatureEvalDiagnosticsQuery } from "back-end/src/integrations/sql/queries/feature-eval-diagnostics-query";
 import { factMetricFactory } from "./factories/FactMetric.factory";
 import { factTableFactory } from "./factories/FactTable.factory";
@@ -1379,6 +1382,217 @@ describe("full fact metric experiment query - bigquery", () => {
       expect(format(normalizedSql, "bigquery")).toMatchSnapshot();
     },
   );
+});
+
+describe("quantile grid array packing is BigQuery-only", () => {
+  // The array-packed quantile grid is gated entirely on
+  // dialect.hasArrayQuantileGrid(). This drives two distinct behaviors:
+  //   1. SQL generation — getExperimentFactMetricsQuery emits ONE array column
+  //      (m0_quantile_grid) instead of N_STAR_VALUES.length * 2 scalar columns.
+  //   2. Column budgeting — getSourceProperties().hasArrayQuantileGrid (which
+  //      just forwards the dialect flag) flips chunkMetrics into efficient mode.
+  // These tests pin both behaviors to BigQuery so the optimization can't
+  // silently leak into another warehouse that doesn't actually support arrays.
+  const testExposureQuery: ExposureQuery = {
+    id: "anonymous_id",
+    name: "Exposure",
+    description: "Exposure",
+    query: "*",
+    userIdType: "user_id",
+    dimensions: [],
+  };
+
+  const ordersFactTable = factTableFactory.build({
+    id: "orders",
+    name: "Orders Fact Table",
+    sql: "*",
+  });
+  const factTableMap = new Map([[ordersFactTable.id, ordersFactTable]]);
+
+  // A single BigQuery instance only to source a valid (dialect-agnostic)
+  // datasource object — the SQL is generated from the dialect we pass in, not
+  // from the integration, so the same datasource feeds both branches and the
+  // ONLY difference between the two SQL strings is the dialect.
+  // @ts-expect-error -- context not needed for test
+  const datasourceIntegration = new BigQuery("", {
+    settings: { queries: { exposure: [testExposureQuery] } },
+  });
+
+  const buildQuantileSql = (
+    dialect: SqlDialect,
+    quantileSettings: FactMetricInterface["quantileSettings"],
+  ): string => {
+    const metric = factMetricFactory.build({
+      id: "fact_uq1",
+      metricType: "quantile",
+      quantileSettings,
+      numerator: {
+        factTableId: "orders",
+        column: "amount",
+        aggregation: "sum",
+      },
+    });
+    return getExperimentFactMetricsQuery(
+      dialect,
+      datasourceIntegration.datasource,
+      {
+        settings: {
+          manual: false,
+          dimensions: [],
+          metricSettings: [],
+          goalMetrics: [],
+          secondaryMetrics: [],
+          guardrailMetrics: [],
+          activationMetric: null,
+          defaultMetricPriorSettings: {
+            override: false,
+            proper: false,
+            mean: 0,
+            stddev: 0,
+          },
+          regressionAdjustmentEnabled: false,
+          attributionModel: "firstExposure",
+          experimentId: "",
+          queryFilter: "",
+          segment: "",
+          skipPartialData: false,
+          datasourceId: "",
+          exposureQueryId: "",
+          startDate: new Date("2023-01-01"),
+          endDate: new Date("2023-01-31"),
+          variations: [],
+        },
+        unitsSource: "exposureQuery",
+        activationMetric: null,
+        dimensions: [],
+        segment: null,
+        metrics: [metric],
+        factTableMap,
+      },
+    );
+  };
+
+  describe("dialect flag", () => {
+    it.each([
+      ["bigquery", bigQueryDialect, true],
+      ["snowflake", snowflakeDialect, false],
+      ["clickhouse", clickHouseDialect, false],
+      ["mysql", mysqlDialect, false],
+    ] as const)(
+      "%s reports hasArrayQuantileGrid() === %s",
+      (_name, dialect, expected) => {
+        expect(dialect.hasArrayQuantileGrid()).toBe(expected);
+      },
+    );
+
+    it("non-array dialects throw if arrayLiteral is ever called", () => {
+      // Defensive contract: a dialect must not advertise array support without
+      // implementing arrayLiteral, and must not have arrayLiteral silently
+      // no-op if it doesn't support arrays.
+      expect(() => snowflakeDialect.arrayLiteral(["1", "2"])).toThrow();
+      expect(bigQueryDialect.arrayLiteral(["1", "2"])).toBe("[1, 2]");
+    });
+  });
+
+  describe("column budgeting (source properties)", () => {
+    it("only BigQuery's source properties enable the efficient (array) grid", () => {
+      // @ts-expect-error -- context not needed for test
+      const bq = new BigQuery("", {
+        settings: { queries: { exposure: [testExposureQuery] } },
+      });
+      // @ts-expect-error -- context not needed for test
+      const sf = new Snowflake("", {
+        settings: { queries: { exposure: [testExposureQuery] } },
+      });
+
+      expect(bq.getSourceProperties().hasArrayQuantileGrid).toBe(true);
+      expect(sf.getSourceProperties().hasArrayQuantileGrid).toBe(false);
+    });
+  });
+
+  describe("SQL generation", () => {
+    it.each(["unit", "event"] as const)(
+      "%s quantile: BigQuery packs one array column; Snowflake keeps scalar columns",
+      (quantileType) => {
+        const quantileSettings = {
+          type: quantileType,
+          quantile: 0.9,
+          ignoreZeros: false,
+        };
+        const bqSql = buildQuantileSql(bigQueryDialect, quantileSettings);
+        const sfSql = buildQuantileSql(snowflakeDialect, quantileSettings);
+
+        // BigQuery: single array column, no per-nstar scalar columns.
+        expect(bqSql).toMatch(/AS\s+m0_quantile_grid/);
+        expect(bqSql).not.toMatch(/m0_quantile_lower_\d+/);
+        expect(bqSql).not.toMatch(/m0_quantile_upper_\d+/);
+
+        // Snowflake: per-nstar scalar columns, no packed array column.
+        expect(sfSql).not.toContain("m0_quantile_grid");
+        expect(sfSql).toMatch(/m0_quantile_lower_\d+/);
+        expect(sfSql).toMatch(/m0_quantile_upper_\d+/);
+
+        // The central point estimate and quantile_n are present in both shapes
+        // (the read side needs them regardless of the grid encoding).
+        expect(bqSql).toContain("m0_quantile_n");
+        expect(sfSql).toContain("m0_quantile_n");
+      },
+    );
+
+    it("Snowflake emits exactly N_STAR_VALUES*2 scalar bound columns (no array)", () => {
+      const sfSql = buildQuantileSql(snowflakeDialect, {
+        type: "unit",
+        quantile: 0.9,
+        ignoreZeros: false,
+      });
+
+      const lowerCount = (sfSql.match(/AS\s+m0_quantile_lower_\d+/g) || [])
+        .length;
+      const upperCount = (sfSql.match(/AS\s+m0_quantile_upper_\d+/g) || [])
+        .length;
+
+      expect(lowerCount).toBe(N_STAR_VALUES.length);
+      expect(upperCount).toBe(N_STAR_VALUES.length);
+    });
+  });
+
+  // Coverage transfer: the BigQuery snapshot suite above used to be the only
+  // thing pinning the exact scalar-column quantile SQL. Now that BigQuery emits
+  // an array, that path is exercised only by non-array warehouses — so we pin
+  // the exact scalar SQL here, under Snowflake, to keep the unchanged path
+  // guarded against unintended structural changes (offsets, CTE shape, etc.).
+  describe("exact scalar quantile SQL (Snowflake snapshots)", () => {
+    const quantileVariants: {
+      label: string;
+      settings: FactMetricInterface["quantileSettings"];
+    }[] = [
+      {
+        label: "unit_0.9_includeZeros",
+        settings: { type: "unit", quantile: 0.9, ignoreZeros: false },
+      },
+      {
+        label: "unit_0.9_ignoreZeros",
+        settings: { type: "unit", quantile: 0.9, ignoreZeros: true },
+      },
+      {
+        label: "event_0.9_includeZeros",
+        settings: { type: "event", quantile: 0.9, ignoreZeros: false },
+      },
+      {
+        label: "event_0.9_ignoreZeros",
+        settings: { type: "event", quantile: 0.9, ignoreZeros: true },
+      },
+    ];
+
+    it.each(quantileVariants)(
+      "snowflake scalar quantile SQL is correct for $label",
+      ({ settings }) => {
+        const sql = buildQuantileSql(snowflakeDialect, settings);
+        const normalizedSql = sql.replace(/\s+/g, " ").trim();
+        expect(format(normalizedSql, "snowflake")).toMatchSnapshot();
+      },
+    );
+  });
 });
 
 describe("getFeatureEvalDiagnosticsQuery", () => {

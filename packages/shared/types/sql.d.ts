@@ -101,6 +101,8 @@ export interface SqlDialect {
     nEventsCol: string,
     numQuantiles: number,
   ) => string;
+  hasArrayQuantileGrid: () => boolean;
+  arrayLiteral: (elements: string[]) => string;
   unpivotLabeledPairs: (
     pairs: UnpivotLabeledPair[],
   ) => UnpivotLabeledPairsResult;
