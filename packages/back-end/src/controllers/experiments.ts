@@ -116,6 +116,7 @@ import {
 } from "back-end/src/models/PastExperimentsModel";
 import { IdeaModel } from "back-end/src/models/IdeasModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import { generateExperimentNotebook } from "back-end/src/services/notebook";
 import { IMPORT_LIMIT_DAYS } from "back-end/src/util/secrets";
 import {
@@ -1261,6 +1262,7 @@ export async function postExperiments(
     decisionFrameworkSettings: data.decisionFrameworkSettings || {},
     holdoutId: holdoutId || undefined,
     customMetricSlices: data.customMetricSlices,
+    precomputedUnitDimensionIds: data.precomputedUnitDimensionIds,
   };
 
   // When duplicating an experiment, always remove seed from phases so
@@ -1291,6 +1293,17 @@ export async function postExperiments(
 
   try {
     validateVariationIds(obj.variations);
+
+    if (data.precomputedUnitDimensionIds !== undefined) {
+      await assertExperimentPrecomputedUnitDimensionIdsAreValid({
+        context,
+        datasource,
+        exposureQueryId:
+          data.exposureQueryId ||
+          datasource?.settings.queries?.exposure?.[0]?.id,
+        dimensionIds: data.precomputedUnitDimensionIds,
+      });
+    }
 
     // Make sure tracking key is unique
     if (
@@ -1759,6 +1772,7 @@ export async function postExperiment(
     "holdoutId",
     "defaultDashboardId",
     "customMetricSlices",
+    "precomputedUnitDimensionIds",
   ];
   let changes: Changeset = {};
 
@@ -1778,7 +1792,8 @@ export async function postExperiment(
       key === "variations" ||
       key === "statusUpdateSchedule" ||
       key === "customFields" ||
-      key === "customMetricSlices"
+      key === "customMetricSlices" ||
+      key === "precomputedUnitDimensionIds"
     ) {
       hasChanges =
         JSON.stringify(data[key]) !== JSON.stringify(experiment[key]);
@@ -1798,6 +1813,32 @@ export async function postExperiment(
       type: "date",
       value: getValidDate(changes.lookbackOverride.value),
     };
+  }
+
+  const shouldValidatePrecomputedUnitDimensionIds =
+    changes.precomputedUnitDimensionIds !== undefined ||
+    changes.datasource !== undefined ||
+    changes.exposureQueryId !== undefined;
+  if (shouldValidatePrecomputedUnitDimensionIds) {
+    const effectivePrecomputedUnitDimensionIds =
+      changes.precomputedUnitDimensionIds ??
+      experiment.precomputedUnitDimensionIds ??
+      [];
+    const effectiveDatasourceId =
+      changes.datasource ?? experiment.datasource ?? "";
+    const effectiveExposureQueryId =
+      changes.exposureQueryId ?? experiment.exposureQueryId;
+    if (effectivePrecomputedUnitDimensionIds.length > 0) {
+      const effectiveDatasource = effectiveDatasourceId
+        ? await getDataSourceById(context, effectiveDatasourceId)
+        : null;
+      await assertExperimentPrecomputedUnitDimensionIdsAreValid({
+        context,
+        datasource: effectiveDatasource,
+        exposureQueryId: effectiveExposureQueryId,
+        dimensionIds: effectivePrecomputedUnitDimensionIds,
+      });
+    }
   }
 
   // Validate attributionModel + lookbackOverride consistency

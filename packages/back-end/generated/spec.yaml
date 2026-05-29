@@ -10507,6 +10507,11 @@ paths:
                     required:
                       - slices
                     additionalProperties: false
+                precomputedUnitDimensionIds:
+                  maxItems: 3
+                  type: array
+                  items:
+                    type: string
                 statusUpdateSchedule:
                   description: >-
                     Schedule a future start for a draft experiment. Only
@@ -11122,6 +11127,11 @@ paths:
                         - startAt
                       additionalProperties: false
                     - type: 'null'
+                precomputedUnitDimensionIds:
+                  maxItems: 3
+                  type: array
+                  items:
+                    type: string
               additionalProperties: false
       responses:
         '200':
@@ -34222,6 +34232,11 @@ components:
             required:
               - slices
             additionalProperties: false
+        precomputedUnitDimensionIds:
+          maxItems: 3
+          type: array
+          items:
+            type: string
         defaultDashboardId:
           description: ID of the default dashboard for this experiment.
           type: string
@@ -34927,6 +34942,11 @@ components:
                 required:
                   - slices
                 additionalProperties: false
+            precomputedUnitDimensionIds:
+              maxItems: 3
+              type: array
+              items:
+                type: string
             defaultDashboardId:
               description: ID of the default dashboard for this experiment.
               type: string

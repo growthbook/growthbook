@@ -44,6 +44,9 @@ export interface ExperimentTimeSeriesGraphDataPoint {
   d: Date;
   variations?: Array<DataPointVariation | null>; // undefined === missing date, null === variation not present
   helperText?: string;
+  // Synthetic pre-rollout anchor: keeps the line/area shaped from the experiment
+  // start, but renders no dot and shows no tooltip (it isn't a real measurement).
+  isPaddingPoint?: boolean;
 }
 
 import { GraphVariation } from "./ExperimentDateGraph";
@@ -635,6 +638,12 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
             return;
           }
 
+          // Padding points are synthetic anchors, not real measurements
+          if (data.d.isPaddingPoint) {
+            hideTooltip();
+            return;
+          }
+
           // Check if there are any non-control variations with data at this specific point
           const hasNonControlVariations = data.d.variations?.some((v, i) => {
             if (i === 0) return false; // Skip control for effect axis
@@ -719,6 +728,8 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
               )}
 
               {sortedDatesWithData.map((d) => {
+                // Padding points shape the line but should render no dot
+                if (d.isPaddingPoint) return null;
                 // Render a dot at the current x location for each variation
                 return (
                   <React.Fragment key={`date_${d.d.getTime()}`}>
@@ -784,6 +795,7 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                     }
 
                     const sortedDataForVariation = sortedDatesWithData
+                      .filter((d) => !d.isPaddingPoint)
                       .map((d) => ({
                         d: d.d,
                         variation: d.variations?.[i],
@@ -855,6 +867,7 @@ const ExperimentTimeSeriesGraph: FC<ExperimentTimeSeriesGraphProps> = ({
                     }
 
                     const sortedDataForVariation = sortedDatesWithData
+                      .filter((d) => !d.isPaddingPoint)
                       .map((d) => ({
                         d: d.d,
                         variation: d.variations?.[i],

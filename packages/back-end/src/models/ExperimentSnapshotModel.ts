@@ -25,7 +25,7 @@ import { migrateSnapshot } from "back-end/src/util/migrations";
 import { notifyExperimentChange } from "back-end/src/services/experimentNotifications";
 import { updateExperimentAnalysisSummary } from "back-end/src/services/experiments";
 import { updateExperimentTimeSeries } from "back-end/src/services/experimentTimeSeries";
-import { runEagerPrecomputedDimensionAnalyses } from "back-end/src/services/experimentDimensionAnalyses";
+import { runEagerExperimentAndUnitDimensionsAnalyses } from "back-end/src/services/experimentDimensionAnalyses";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { queriesSchema } from "./QueryModel";
@@ -504,20 +504,19 @@ export async function updateSnapshot({
     experimentSnapshot.type === "standard" &&
     experimentSnapshot.status === "success";
 
-  const shouldRunEagerPrecomputedDimensionAnalyses =
+  const shouldRunEagerDimensionAnalyses =
     shouldUpdateExperimentAnalysisSummary && hasAnalysisUpdates;
 
-  if (shouldUpdateExperimentAnalysisSummary) {
-    const currentExperimentModel = await getExperimentById(
-      context,
-      experimentSnapshot.experiment,
-    );
+  const currentExperimentModel = shouldUpdateExperimentAnalysisSummary
+    ? await getExperimentById(context, experimentSnapshot.experiment)
+    : null;
 
-    const isLatestPhase = currentExperimentModel
-      ? experimentSnapshot.phase === currentExperimentModel.phases.length - 1
-      : false;
+  const isLatestPhase = currentExperimentModel
+    ? experimentSnapshot.phase === currentExperimentModel.phases.length - 1
+    : false;
 
-    if (currentExperimentModel && isLatestPhase) {
+  if (currentExperimentModel && isLatestPhase) {
+    if (shouldUpdateExperimentAnalysisSummary) {
       const updatedExperimentModel = await updateExperimentAnalysisSummary({
         context,
         experiment: currentExperimentModel,
@@ -550,8 +549,8 @@ export async function updateSnapshot({
         );
       }
 
-      if (shouldRunEagerPrecomputedDimensionAnalyses) {
-        runEagerPrecomputedDimensionAnalyses({
+      if (shouldRunEagerDimensionAnalyses) {
+        runEagerExperimentAndUnitDimensionsAnalyses({
           context,
           experiment: updatedExperimentModel,
           experimentSnapshot,

@@ -1993,8 +1993,20 @@ export function expandAllSliceMetricsInMap({
   }
 }
 
-export function isPrecomputedDimension(dimension: string | undefined): boolean {
-  return dimension?.startsWith(PRECOMPUTED_DIMENSION_PREFIX) ?? false;
+/**
+ * True when the dimension is either precomputed, or a unit dimension explicitly listed in `snapshotUnitDimensionIds`.
+ * snapshotUnitDimensionIds is derived from experiment.precomputedUnitDimensionIds, and in this case it should be
+ * treated the same, as it is precomputed.
+ */
+export function isDimensionPrecomputed(
+  dimension: string | undefined,
+  snapshotUnitDimensionIds: string[],
+): boolean {
+  if (dimension?.startsWith(PRECOMPUTED_DIMENSION_PREFIX)) {
+    return true;
+  }
+
+  return !!dimension && snapshotUnitDimensionIds.includes(dimension);
 }
 
 /**
