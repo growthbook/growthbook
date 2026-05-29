@@ -1733,13 +1733,20 @@ function getSnapshotType({
   experiment,
   dimension,
   phaseIndex,
+  useCache,
 }: {
   experiment: ExperimentInterface;
   dimension: string | undefined;
   phaseIndex: number;
+  useCache: boolean;
 }): SnapshotType {
   // dimension analyses are ad-hoc
-  if (dimension) {
+  // Exception: a forced full refresh (useCache === false) must always run the
+  // standard runner so the incremental-refresh source tables are actually
+  // rebuilt. If we routed to "exploratory" here, the exploratory runner would
+  // read from existing materialized sources and never rebuild them, so the
+  // user's "Full Refresh" click would silently be a no-op for the pipeline.
+  if (dimension && useCache) {
     return "exploratory";
   }
 
@@ -1859,6 +1866,7 @@ export async function planExperimentSnapshot({
       experiment,
       dimension,
       phaseIndex: phase,
+      useCache,
     });
 
   let project = null;
