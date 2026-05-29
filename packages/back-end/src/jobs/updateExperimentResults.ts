@@ -14,6 +14,7 @@ import {
   getSettingsForSnapshotMetrics,
   updateExperimentBanditSettings,
 } from "back-end/src/services/experiments";
+import { runContextualBanditSnapshot } from "back-end/src/enterprise/services/contextualBandits";
 import { ConcurrentIncrementalRefreshError } from "back-end/src/util/errors";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { getMetricMap } from "back-end/src/models/MetricModel";
@@ -118,10 +119,13 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
     project: project ?? undefined,
   });
 
-  // Disable auto snapshots for the experiment so it doesn't keep trying to update if schedule is off (non-bandits only)
+  // Disable auto snapshots for the experiment so it doesn't keep trying to
+  // update if schedule is off. Bandits (regular + contextual) maintain their
+  // own internal schedule lifecycle, so don't auto-disable them here.
   if (
     organization?.settings?.updateSchedule?.type === "never" &&
-    experiment.type !== "multi-armed-bandit"
+    experiment.type !== "multi-armed-bandit" &&
+    experiment.type !== "contextual-bandit"
   ) {
     await updateExperiment({
       context,
@@ -141,6 +145,24 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
     );
     if (!datasource) {
       throw new Error("Error refreshing experiment, could not find datasource");
+    }
+
+    // Contextual bandits run through a parallel pipeline (ContextualBanditSnapshot
+    // + ContextualBanditEvent + ContextualBanditResultsQueryRunner). They must
+    // NOT go through the standard ExperimentResultsQueryRunner path below — the
+    // CB lifecycle (per-leaf weight patches, SDK payload refresh, continuous
+    // retraining) lives on the parallel side.
+    if (experiment.type === "contextual-bandit") {
+      await runContextualBanditSnapshot(
+        context,
+        experiment,
+        experiment.phases.length - 1,
+        { triggeredBy: "scheduled" },
+      );
+      logger.info(
+        "Successfully Refreshed Results for contextual bandit " + experimentId,
+      );
+      return;
     }
 
     const { regressionAdjustmentEnabled, settingsForSnapshotMetrics } =
@@ -225,8 +247,15 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
     }
 
     logger.error(e, "Failed to update experiment: " + experimentId);
-    // If we failed to update the experiment, turn off auto-updating for the future (non-bandits only)
-    if (experiment.type === "multi-armed-bandit") return;
+    // If we failed to update the experiment, turn off auto-updating for the
+    // future. Bandits (regular + contextual) are exempt: they have their own
+    // retry / lifecycle handling so we don't want to silently disable them.
+    if (
+      experiment.type === "multi-armed-bandit" ||
+      experiment.type === "contextual-bandit"
+    ) {
+      return;
+    }
     try {
       await updateExperiment({
         context,
