@@ -309,18 +309,44 @@ export type RevisionStatusFilter = z.infer<typeof revisionStatusFilterSchema>;
 
 /**
  * Parse a raw status query-param value into the form expected by
- * `getFeatureRevisionsByStatus`. Handles comma-separated strings, the
- * `all-drafts` shorthand, and array values from repeated query params.
- * Returns `undefined` when the input is absent (callers apply defaults).
+ * `getFeatureRevisionsByStatus`. Handles:
+ * - Single values:          "draft"
+ * - Comma-separated:        "draft,approved"
+ * - "all-drafts" shorthand: expands to all four active-draft statuses
+ * - Repeated query params:  ["all-drafts", "draft"] (from Express array parsing)
+ *
+ * Throws a plain Error (caught as 400 by createApiRequestHandler) if any
+ * token is not a recognised RevisionStatus or "all-drafts".
  */
 export function parseRevisionStatusFilter(
   val: string | string[] | undefined,
-): string | string[] | undefined {
-  if (!val) return undefined;
-  if (Array.isArray(val)) return val; // repeated ?status= params
-  if (val === "all-drafts") return [...ACTIVE_DRAFT_STATUSES];
-  if (val.includes(",")) return val.split(",").map((s) => s.trim());
-  return val;
+): RevisionStatus | RevisionStatus[] | undefined {
+  if (!val || (Array.isArray(val) && val.length === 0)) return undefined;
+
+  const valid = new Set<string>([
+    ...revisionStatusSchema.options,
+    "all-drafts",
+  ]);
+
+  const expand = (token: string): RevisionStatus[] => {
+    if (!valid.has(token)) {
+      throw new Error(
+        `Invalid status value: "${token}". Must be one of: ${[...revisionStatusSchema.options, "all-drafts"].join(", ")}.`,
+      );
+    }
+    return token === "all-drafts"
+      ? [...ACTIVE_DRAFT_STATUSES]
+      : [token as RevisionStatus];
+  };
+
+  const tokens = Array.isArray(val)
+    ? val
+    : val.includes(",")
+      ? val.split(",").map((s) => s.trim())
+      : [val];
+
+  const expanded = [...new Set(tokens.flatMap(expand))]; // deduplicate
+  return expanded.length === 1 ? expanded[0] : expanded;
 }
 
 const minimalFeatureRevisionInterface = z
