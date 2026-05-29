@@ -331,6 +331,12 @@ export async function callLicenseServer({
     );
   }
 
+  if (
+    serverResult.status === 204 ||
+    serverResult.headers?.get("content-length") === "0"
+  ) {
+    return;
+  }
   return await serverResult.json();
 }
 
@@ -586,6 +592,22 @@ export async function postCancelSubscriptionToLicenseServer(licenseId: string) {
 
   verifyAndSetServerLicenseData(license);
   return license;
+}
+
+export async function notifyLicenseServerExperimentStarted(
+  licenseKey: string,
+  experimentId: string,
+  timestamp: string,
+) {
+  const url = `${LICENSE_SERVER_URL}events/experiment-started`;
+  await callLicenseServer({
+    url,
+    body: JSON.stringify({
+      licenseKey,
+      experimentId,
+      timestamp,
+    }),
+  });
 }
 
 export async function postResendEmailVerificationEmailToLicenseServer(
