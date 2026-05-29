@@ -11,7 +11,15 @@ export async function loadLatestDraft(
   context: ApiReqContext,
   organizationId: string,
   featureId: string,
-  mineParam: string | boolean | undefined,
+  {
+    mine: mineParam,
+    status,
+    author,
+  }: {
+    mine?: string | boolean;
+    status?: string | string[];
+    author?: string;
+  } = {},
 ) {
   const feature = await getFeature(context, featureId);
   if (!feature) throw new NotFoundError("Could not find feature");
@@ -28,7 +36,11 @@ export async function loadLatestDraft(
     organizationId,
     feature.id,
     feature,
-    { involvedUserId: mine ? context.userId : undefined },
+    {
+      involvedUserId: mine ? context.userId : undefined,
+      status,
+      author,
+    },
   );
   if (!revision) {
     throw new NotFoundError(
@@ -48,7 +60,7 @@ export const getFeatureRevisionLatest = createApiRequestHandler(
     req.context,
     req.organization.id,
     req.params.id,
-    req.query.mine,
+    req.query,
   );
   return { revision: toApiRevision(revision, req.context, feature) };
 });

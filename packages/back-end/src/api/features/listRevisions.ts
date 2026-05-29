@@ -32,7 +32,7 @@ export async function loadRevisionsPage(
   organizationId: string,
   query: {
     featureId?: string;
-    status?: string;
+    status?: string | string[];
     author?: string;
     mine?: string | boolean;
     skipPagination?: string | boolean;

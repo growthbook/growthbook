@@ -10,7 +10,7 @@ import {
   apiRevisionPrerequisite,
   apiRevisionMetadata,
   apiFeatureHoldout,
-  revisionStatusSchema,
+  revisionStatusFilterSchema,
   apiRevisionRampAction,
 } from "./features";
 import { namedSchema } from "./openapi-helpers";
@@ -607,7 +607,7 @@ export const getFeatureRevisionsV2Validator = {
     .object({
       ...paginationQueryFields,
       ...skipPaginationQueryField,
-      status: revisionStatusSchema.optional(),
+      status: revisionStatusFilterSchema,
       author: z.string().optional(),
     })
     .strict(),

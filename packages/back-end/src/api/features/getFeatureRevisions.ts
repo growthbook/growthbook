@@ -19,7 +19,7 @@ export async function loadFeatureRevisionsPage(
   organizationId: string,
   featureId: string,
   query: {
-    status?: string;
+    status?: string | string[];
     author?: string;
     skipPagination?: string | boolean;
     limit?: number;

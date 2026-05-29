@@ -290,6 +290,34 @@ export type ActiveDraftStatus = z.infer<typeof activeDraftStatusSchema>;
 
 export const ACTIVE_DRAFT_STATUSES = activeDraftStatusSchema.options;
 
+/**
+ * Status filter for revision list endpoints. Accepts a single status value, an
+ * array of values via repeated query params (?status=draft&status=approved), or
+ * the "active" shorthand which expands to all four active-draft statuses
+ * (draft, approved, pending-review, changes-requested).
+ */
+/**
+ * Status filter for revision list endpoints. Accepts a single status value,
+ * an array of values via repeated query params (?status=draft&status=approved),
+ * or the "all-drafts" shorthand which expands to all four active-draft statuses
+ * (draft, approved, pending-review, changes-requested).
+ *
+ * On v2 endpoints, omitting this parameter defaults to "all-drafts" behaviour —
+ * only active (non-terminal) revisions are returned unless you explicitly
+ * request a terminal status such as "published" or "discarded".
+ */
+export const revisionStatusFilterSchema = z
+  .union([
+    z
+      .literal("all-drafts")
+      .transform((): RevisionStatus[] => [...ACTIVE_DRAFT_STATUSES]),
+    z.array(revisionStatusSchema),
+    revisionStatusSchema,
+  ])
+  .optional();
+
+export type RevisionStatusFilter = z.infer<typeof revisionStatusFilterSchema>;
+
 const minimalFeatureRevisionInterface = z
   .object({
     version: z.number(),
@@ -1426,7 +1454,7 @@ export const getFeatureRevisionsValidator = {
     .object({
       ...paginationQueryFields,
       ...skipPaginationQueryField,
-      status: revisionStatusSchema.optional(),
+      status: revisionStatusFilterSchema,
       author: z.string().optional(),
     })
     .strict(),

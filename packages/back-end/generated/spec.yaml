@@ -7107,8 +7107,9 @@ paths:
       operationId: getFeatureRevisionLatestV2
       summary: Get the most recent active draft revision
       description: >-
-        Returns the most recently updated draft revision for the feature.
-        Returns 404 if there is no active draft.
+        Returns the most recently updated active draft revision for the feature.
+        Returns 404 if no matching draft exists. Filter by status, author, or
+        use `mine=true` to scope to the calling user's own drafts.
       tags:
         - feature-revisions-v2
       parameters:
@@ -7137,6 +7138,13 @@ paths:
               - type: string
                 const: '1'
               - type: boolean
+        - $ref: '#/components/parameters/status'
+        - name: author
+          in: query
+          description: Filter to drafts created by this user (email or userId).
+          schema:
+            description: Filter to drafts created by this user (email or userId).
+            type: string
       responses:
         '200':
           content:
@@ -30393,15 +30401,28 @@ components:
       in: query
       description: ''
       schema:
-        type: string
-        enum:
-          - draft
-          - published
-          - discarded
-          - approved
-          - changes-requested
-          - pending-review
-          - pending-parent
+        anyOf:
+          - {}
+          - type: array
+            items:
+              type: string
+              enum:
+                - draft
+                - published
+                - discarded
+                - approved
+                - changes-requested
+                - pending-review
+                - pending-parent
+          - type: string
+            enum:
+              - draft
+              - published
+              - discarded
+              - approved
+              - changes-requested
+              - pending-review
+              - pending-parent
     author:
       name: author
       in: query

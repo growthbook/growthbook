@@ -12,7 +12,7 @@ import {
   revisionVersionParam,
 } from "./feature-revisions";
 import { apiFeatureRevisionV2Validator } from "./features-v2";
-import { JSONSchemaDef, revisionStatusSchema } from "./features";
+import { JSONSchemaDef, revisionStatusFilterSchema } from "./features";
 import { ownerInputField } from "./owner-field";
 import { namedSchema } from "./openapi-helpers";
 
@@ -305,7 +305,7 @@ export const getFeatureRevisionLatestV2Validator = {
   operationId: "getFeatureRevisionLatestV2",
   summary: "Get the most recent active draft revision",
   description:
-    "Returns the most recently updated draft revision for the feature. Returns 404 if there is no active draft.",
+    "Returns the most recently updated active draft revision for the feature. Returns 404 if no matching draft exists. Filter by status, author, or use `mine=true` to scope to the calling user's own drafts.",
   tags: ["feature-revisions-v2"],
   paramsSchema: idParams,
   bodySchema: z.never(),
@@ -314,6 +314,11 @@ export const getFeatureRevisionLatestV2Validator = {
       mine: booleanQueryField.describe(
         "If true, return only the most recent active draft authored by or contributed to by the calling user.",
       ),
+      status: revisionStatusFilterSchema,
+      author: z
+        .string()
+        .optional()
+        .describe("Filter to drafts created by this user (email or userId)."),
     })
     .strict(),
   responseSchema: revisionResponse,
@@ -714,7 +719,7 @@ export const listRevisionsV2Validator = {
       ...paginationQueryFields,
       ...skipPaginationQueryField,
       featureId: z.string().optional(),
-      status: revisionStatusSchema.optional(),
+      status: revisionStatusFilterSchema,
       author: z.string().optional(),
       mine: booleanQueryField.describe(
         "If true, return only revisions authored by or contributed to by the calling user.",
