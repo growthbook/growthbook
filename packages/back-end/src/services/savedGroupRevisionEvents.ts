@@ -135,9 +135,12 @@ export async function dispatchSavedGroupRevisionEvent(
         break;
       case "reverted": {
         // `revertedFrom` is the id of the revision being reverted to; surface
-        // its version so subscribers know the target without another fetch.
+        // its version so subscribers know the target. Best-effort: a failed
+        // lookup must not suppress the event, since the version is optional.
         const source = revision.revertedFrom
-          ? await context.models.revisions.getById(revision.revertedFrom)
+          ? await context.models.revisions
+              .getById(revision.revertedFrom)
+              .catch(() => null)
           : null;
         await emit("revision.reverted", {
           ...apiRevision,
