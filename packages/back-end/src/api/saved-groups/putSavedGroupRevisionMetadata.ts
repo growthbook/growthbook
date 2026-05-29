@@ -6,6 +6,7 @@ import {
   createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
+import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import {
   assertValidDescription,
   discardIfJustCreated,
@@ -13,7 +14,6 @@ import {
   pickNewDraftMetadata,
   resolveOrCreateRevision,
 } from "./validations";
-import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import { toApiSavedGroupRevision } from "./toApiSavedGroupRevision";
 
 export const putSavedGroupRevisionMetadata = createApiRequestHandler(
@@ -106,6 +106,7 @@ export const putSavedGroupRevisionMetadata = createApiRequestHandler(
 
     await dispatchSavedGroupRevisionEvent(req.context, updated, {
       type: "updated",
+      change: "metadata",
     });
 
     return {

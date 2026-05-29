@@ -80,7 +80,10 @@ export async function dispatchSavedGroupRevisionEvent(
       case "updated":
         await emit("revision.updated", {
           ...apiRevision,
-          change: deriveChange(revision.target.proposedChanges),
+          // Field-specific handlers pass the exact change; the generic
+          // /revision controller omits it, so derive from the proposed changes.
+          change:
+            action.change ?? deriveChange(revision.target.proposedChanges),
         });
         break;
       case "reviewRequested":

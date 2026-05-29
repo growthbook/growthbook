@@ -6,6 +6,7 @@ import {
   createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
+import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import {
   applyRevisionToSnapshot,
   assertListGroup,
@@ -16,7 +17,6 @@ import {
   resolveOrCreateRevision,
   validateListSize,
 } from "./validations";
-import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import { toApiSavedGroupRevision } from "./toApiSavedGroupRevision";
 
 export const postSavedGroupRevisionItemsRemove = createApiRequestHandler(
@@ -83,6 +83,7 @@ export const postSavedGroupRevisionItemsRemove = createApiRequestHandler(
 
     await dispatchSavedGroupRevisionEvent(req.context, updated, {
       type: "updated",
+      change: "values",
     });
 
     return {

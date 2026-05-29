@@ -28,7 +28,13 @@ import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGrou
  */
 export type RevisionLifecycleAction =
   | { type: "created" }
-  | { type: "updated" }
+  // `change` is supplied by field-specific handlers (values/condition/metadata/
+  // archive). The generic /revision controller omits it, in which case the
+  // dispatcher derives it from the revision's proposed-changes.
+  | {
+      type: "updated";
+      change?: "metadata" | "condition" | "values" | "archive";
+    }
   | { type: "reviewRequested" }
   | {
       type: "reviewed";
