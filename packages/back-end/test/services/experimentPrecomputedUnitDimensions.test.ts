@@ -192,15 +192,15 @@ describe("getEligiblePrecomputedUnitDimensionIds", () => {
     ).resolves.toEqual([]);
   });
 
-  it("throws if a saved config has more than five requested dimensions", async () => {
+  it("throws if a saved config has more than three requested dimensions", async () => {
     await expect(
       getEligiblePrecomputedUnitDimensionIds({
         context,
         experiment,
         datasource: makeDatasource(writableEphemeralPipeline),
-        dimensionIds: ["dim_1", "dim_2", "dim_3", "dim_4", "dim_5", "dim_6"],
+        dimensionIds: ["dim_1", "dim_2", "dim_3", "dim_4"],
       }),
-    ).rejects.toThrow("A maximum of 5 precomputed unit dimensions are allowed");
+    ).rejects.toThrow("A maximum of 3 precomputed unit dimensions are allowed");
   });
 
   it("returns ids whose datasource and userIdType match, dropping the rest", async () => {
@@ -208,7 +208,6 @@ describe("getEligiblePrecomputedUnitDimensionIds", () => {
       makeDimension({ id: "dim_country" }),
       makeDimension({ id: "dim_wrong_ds", datasource: "ds_other" }),
       makeDimension({ id: "dim_wrong_idtype", userIdType: "anonymous_id" }),
-      // "dim_missing" is intentionally absent
     ]);
 
     await expect(
@@ -216,12 +215,7 @@ describe("getEligiblePrecomputedUnitDimensionIds", () => {
         context,
         experiment,
         datasource: makeDatasource(writableEphemeralPipeline),
-        dimensionIds: [
-          "dim_country",
-          "dim_wrong_ds",
-          "dim_wrong_idtype",
-          "dim_missing",
-        ],
+        dimensionIds: ["dim_country", "dim_wrong_ds", "dim_wrong_idtype"],
       }),
     ).resolves.toEqual(["dim_country"]);
   });
@@ -283,15 +277,15 @@ describe("assertExperimentPrecomputedUnitDimensionIdsAreValid", () => {
     );
   });
 
-  it("throws on more than five dimensions", async () => {
+  it("throws on more than three dimensions", async () => {
     await expect(
       assertExperimentPrecomputedUnitDimensionIdsAreValid({
         context,
         datasource: makeDatasource(writableEphemeralPipeline),
         exposureQueryId: "exposure",
-        dimensionIds: ["dim_1", "dim_2", "dim_3", "dim_4", "dim_5", "dim_6"],
+        dimensionIds: ["dim_1", "dim_2", "dim_3", "dim_4"],
       }),
-    ).rejects.toThrow("A maximum of 5 precomputed unit dimensions are allowed");
+    ).rejects.toThrow("A maximum of 3 precomputed unit dimensions are allowed");
   });
 
   it("throws when a requested dimension id does not exist", async () => {

@@ -238,6 +238,15 @@ export async function getEligiblePrecomputedUnitDimensionIds({
     );
   }
 
+  // Bounds the per-snapshot warehouse query fan-out: each id adds one
+  // isolated metric query per metric-group on every refresh. Check after
+  // filtering so that stale/invalid saved ids don't count toward the limit.
+  if (dimensions.length > MAX_PRECOMPUTED_UNIT_DIMENSIONS) {
+    throw new Error(
+      `A maximum of ${MAX_PRECOMPUTED_UNIT_DIMENSIONS} precomputed unit dimensions are allowed`,
+    );
+  }
+
   return dimensions.map((dimension) => dimension.id);
 }
 
