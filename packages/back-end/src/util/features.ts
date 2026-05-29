@@ -750,23 +750,28 @@ export function getFeatureDefinition({
             });
             rule.weights = phase.variationWeights;
 
-            // Inject contextual-bandit payload fields when a CB doc is available
-            if (exp.type === "contextual-bandit" && cbMap) {
+            // Inject contextual-bandit payload fields only for connections
+            // whose SDK declares the `contextualBandits` capability. Older
+            // SDKs receive a byte-equivalent `type:"standard"` payload and
+            // silently fall back to MAB on the server-supplied
+            // `phase.variationWeights` (matches the safe-rollout downgrade
+            // precedent at the bottom of this file).
+            // `capabilities === undefined` means "all capabilities" (used by
+            // server-side evaluation/diff paths), so allow injection there.
+            const cbCapable =
+              capabilities === undefined ||
+              capabilities.includes("contextualBandits");
+            if (cbCapable && exp.type === "contextual-bandit" && cbMap) {
               const cb = cbMap.get(exp.id);
               if (cb) {
-                const cbPhase = cb.phases[cb.phases.length - 1];
                 rule.isContextualBandit = true;
                 rule.attributesRequired = cb.contextualAttributes;
-                // SMITH: `condition: {}` is a placeholder until the real
-                // decision tree emits per-leaf splits. Once the Python stats
-                // engine returns split predicates per leaf, thread them
-                // through `patchPhaseWeights` → `currentLeafWeights[i]` and
-                // surface them here as the rule's per-context condition.
-                rule.contexts = cbPhase?.currentLeafWeights.map((lw) => ({
-                  contextId: lw.contextId,
-                  condition: {},
-                  weights: lw.weights,
-                }));
+                // TODO(post-stats-engine): re-introduce contexts injection
+                // once Python emits per-leaf split predicates. Until then we
+                // omit `rule.contexts` entirely rather than ship empty
+                // `condition: {}` placeholders that every CB-capable SDK
+                // would evaluate as always-true and collapse to the first
+                // leaf's weights.
               }
             }
 

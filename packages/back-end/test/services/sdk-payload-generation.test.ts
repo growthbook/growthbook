@@ -8,7 +8,7 @@ import cloneDeep from "lodash/cloneDeep";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { ExperimentInterface } from "shared/types/experiment";
-import { HoldoutInterface } from "shared/validators";
+import { ContextualBanditInterface, HoldoutInterface } from "shared/validators";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { OrganizationInterface } from "shared/types/organization";
@@ -1881,5 +1881,259 @@ describe("SDK payload generation (scenario-specific)", () => {
       });
       expect(devDef?.rules ?? []).toEqual([]);
     });
+  });
+});
+
+// PR-2 (`cb-pre-merge-execution`): contextual-bandit payload fields are
+// capability-gated on `contextualBandits`. Connections without the capability
+// must receive a byte-equivalent `type:"standard"` rendering and silently
+// fall back to MAB on `phase.variationWeights`; connections with the
+// capability receive `isContextualBandit`/`attributesRequired` but never
+// `contexts` until the Python stats engine emits per-leaf split predicates.
+describe("contextual-bandit SDK payload capability gating", () => {
+  const CB_WEIGHTS = [0.42, 0.58];
+
+  function makeCbFixture(): {
+    feature: FeatureInterface;
+    experimentMap: Map<string, ExperimentInterface>;
+    cbMap: Map<string, ContextualBanditInterface>;
+  } {
+    const exp: ExperimentInterface = {
+      id: "exp-cb",
+      organization: "org-1",
+      project: "p1",
+      type: "contextual-bandit",
+      name: "CB Exp",
+      hypothesis: "",
+      status: "running",
+      hashVersion: 2,
+      phases: [
+        {
+          phase: "main",
+          coverage: 1,
+          variationWeights: CB_WEIGHTS,
+          seed: "cb-seed",
+        },
+      ],
+      variations: [
+        { id: "v0", key: "0", name: "Control" },
+        { id: "v1", key: "1", name: "Treatment" },
+      ],
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      trackingKey: "cb-tk",
+      archived: false,
+      hasVisualChangesets: true,
+    } as ExperimentInterface;
+    const feature: FeatureInterface = {
+      id: "f-cb",
+      project: "p1",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      defaultValue: true,
+      organization: "org-1",
+      owner: "",
+      valueType: "boolean",
+      archived: false,
+      description: "",
+      version: 1,
+      environmentSettings: {
+        production: {
+          enabled: true,
+          rules: [
+            {
+              type: "experiment-ref",
+              id: "rule-cb",
+              enabled: true,
+              experimentId: "exp-cb",
+              variations: [
+                { variationId: "v0", value: "v0", key: "0", name: "Control" },
+                { variationId: "v1", value: "v1", key: "1", name: "Treatment" },
+              ],
+            },
+          ],
+        },
+      },
+    } as FeatureInterface;
+    const cb: ContextualBanditInterface = {
+      id: "cb-doc",
+      organization: "org-1",
+      experiment: "exp-cb",
+      datasourceId: "ds1",
+      exposureQueryId: "eq1",
+      contextualAttributes: ["country", "device"],
+      maxContexts: 32,
+      treeModel: "linear_tree",
+      minUsersPerLeaf: 100,
+      maxLeaves: 8,
+      holdoutPercent: 0,
+      stickyBucketing: false,
+      canonicalFormVersion: 1,
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      phases: [
+        {
+          dateStarted: new Date(),
+          currentLeafWeights: [
+            { contextId: "ctx-a", weights: [0.3, 0.7] },
+            { contextId: "ctx-b", weights: [0.8, 0.2] },
+          ],
+        },
+      ],
+    } as ContextualBanditInterface;
+    return {
+      feature,
+      experimentMap: new Map([["exp-cb", exp]]),
+      cbMap: new Map([["exp-cb", cb]]),
+    };
+  }
+
+  function makeStandardCounterpart(): {
+    feature: FeatureInterface;
+    experimentMap: Map<string, ExperimentInterface>;
+  } {
+    const { feature, experimentMap } = makeCbFixture();
+    const cbExp = experimentMap.get("exp-cb")!;
+    const stdExp: ExperimentInterface = {
+      ...cbExp,
+      type: "standard",
+    } as ExperimentInterface;
+    return {
+      feature,
+      experimentMap: new Map([["exp-cb", stdExp]]),
+    };
+  }
+
+  // Connection without contextualBandits → rule has no CB fields, weights
+  // equal the parent phase's variationWeights, and the rendering is
+  // byte-equivalent to a type:"standard" experiment with the same weights.
+  it("Assertion A: connection without contextualBandits omits CB fields and matches type:standard rendering", () => {
+    const { feature, experimentMap, cbMap } = makeCbFixture();
+    const cbDef = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap,
+      safeRolloutMap: new Map(),
+      capabilities: ["bucketingV2", "looseUnmarshalling"],
+      includeRuleIds: false,
+      includeExperimentNames: false,
+      cbMap,
+    });
+
+    const cbRule = cbDef?.rules?.[0] as Record<string, unknown> | undefined;
+    expect(cbRule).toBeDefined();
+    expect(cbRule).not.toHaveProperty("isContextualBandit");
+    expect(cbRule).not.toHaveProperty("attributesRequired");
+    expect(cbRule).not.toHaveProperty("contexts");
+    expect(cbRule!.weights).toEqual(CB_WEIGHTS);
+
+    const std = makeStandardCounterpart();
+    const stdDef = getFeatureDefinition({
+      feature: std.feature,
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap: std.experimentMap,
+      safeRolloutMap: new Map(),
+      capabilities: ["bucketingV2", "looseUnmarshalling"],
+      includeRuleIds: false,
+      includeExperimentNames: false,
+      cbMap: new Map(),
+    });
+
+    expect(JSON.stringify(cbDef)).toBe(JSON.stringify(stdDef));
+  });
+
+  // Connection WITH contextualBandits → CB fields injected; contexts intentionally
+  // absent because the injector omits it until per-leaf splits land.
+  it("Assertion B: connection with contextualBandits injects CB fields but never contexts", () => {
+    const { feature, experimentMap, cbMap } = makeCbFixture();
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap,
+      safeRolloutMap: new Map(),
+      capabilities: ["bucketingV2", "looseUnmarshalling", "contextualBandits"],
+      includeRuleIds: false,
+      includeExperimentNames: false,
+      cbMap,
+    });
+
+    const rule = def?.rules?.[0] as Record<string, unknown> | undefined;
+    expect(rule).toBeDefined();
+    expect(rule!.isContextualBandit).toBe(true);
+    expect(rule!.attributesRequired).toEqual(["country", "device"]);
+    expect(rule).not.toHaveProperty("contexts");
+    expect(rule!.weights).toEqual(CB_WEIGHTS);
+  });
+
+  // Scrubber defense in depth: even if the injector slips and writes CB
+  // fields on a strict-shape (non-looseUnmarshalling) payload, the
+  // capability-gated allowlist in sdk-payload.ts strips them when the
+  // connection lacks `contextualBandits`.
+  it("scrubber strips CB fields without contextualBandits and preserves them with it (strict shape)", () => {
+    const { feature, experimentMap, cbMap } = makeCbFixture();
+
+    const stripped = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap,
+      safeRolloutMap: new Map(),
+      capabilities: ["bucketingV2"], // no looseUnmarshalling → allowedKeys active
+      includeRuleIds: false,
+      includeExperimentNames: false,
+      cbMap,
+    });
+    const strippedRule = stripped?.rules?.[0] as
+      | Record<string, unknown>
+      | undefined;
+    expect(strippedRule).toBeDefined();
+    expect(strippedRule).not.toHaveProperty("isContextualBandit");
+    expect(strippedRule).not.toHaveProperty("attributesRequired");
+    expect(strippedRule).not.toHaveProperty("contexts");
+
+    const preserved = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap,
+      safeRolloutMap: new Map(),
+      capabilities: ["bucketingV2", "contextualBandits"],
+      includeRuleIds: false,
+      includeExperimentNames: false,
+      cbMap,
+    });
+    const preservedRule = preserved?.rules?.[0] as
+      | Record<string, unknown>
+      | undefined;
+    expect(preservedRule).toBeDefined();
+    expect(preservedRule!.isContextualBandit).toBe(true);
+    expect(preservedRule!.attributesRequired).toEqual(["country", "device"]);
+    expect(preservedRule).not.toHaveProperty("contexts");
+  });
+
+  // Server-side paths call with capabilities=undefined ("all capabilities");
+  // injection must still happen so internal results/diff/snapshot flows that
+  // depend on CB rule shape are unaffected.
+  it("capabilities=undefined still injects CB fields (server-side all-capabilities path)", () => {
+    const { feature, experimentMap, cbMap } = makeCbFixture();
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap: new Map(),
+      experimentMap,
+      safeRolloutMap: new Map(),
+      capabilities: undefined,
+      includeRuleIds: false,
+      includeExperimentNames: false,
+      cbMap,
+    });
+    const rule = def?.rules?.[0] as Record<string, unknown> | undefined;
+    expect(rule).toBeDefined();
+    expect(rule!.isContextualBandit).toBe(true);
+    expect(rule!.attributesRequired).toEqual(["country", "device"]);
+    expect(rule).not.toHaveProperty("contexts");
   });
 });
