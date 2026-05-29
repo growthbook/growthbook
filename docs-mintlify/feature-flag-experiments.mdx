@@ -79,6 +79,22 @@ as two experiment ranges do not overlap, users will only ever be in at most one 
 </Frame>
 Before you can use namespaces, you must configure them under *Experimentation → Namespaces*. It's essential to ensure that all experiments within a given namespace use the same hash attribute (assignment attribute).
 
+## Editing Feature Values from the Experiment Page
+
+For experiments linked to a feature flag, you can edit the feature values served to each variation directly from the experiment page without navigating back to the feature. This is useful when you spot a wrong value during pre-launch review or need to add, remove, or rename variations before starting the experiment.
+
+From the **Linked Features** section on the experiment page, open the feature flag's actions menu and select **Edit Feature Values**. From the modal you can:
+
+- Edit the value served for each variation
+- Add or remove variations — split weights auto-rebalance to sum to 100%
+- Click **Set equal splits** to reset all weights to an even distribution
+
+Saving changes creates a new draft revision on the linked feature. If [approval flows](/features/publishing-and-approval-flows) are enabled, the draft is published through your normal review process. If the experiment rule isn't live yet, edits apply to the existing draft instead of creating a new one.
+
+<Info>
+You can't edit feature values from the experiment page once the experiment has an approved scheduled start. Cancel the scheduled start or edit values directly on the feature page before scheduling.
+</Info>
+
 ## Experiment Results
 
 Once you have the experiment rule saved and published the feature will start to apply these settings and randomize your
