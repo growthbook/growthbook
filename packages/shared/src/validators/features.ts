@@ -291,30 +291,33 @@ export type ActiveDraftStatus = z.infer<typeof activeDraftStatusSchema>;
 export const ACTIVE_DRAFT_STATUSES = activeDraftStatusSchema.options;
 
 /**
- * Status filter for revision list endpoints. Accepts a single status value, an
- * array of values via repeated query params (?status=draft&status=approved), or
- * the "active" shorthand which expands to all four active-draft statuses
- * (draft, approved, pending-review, changes-requested).
- */
-/**
- * Status filter for revision list endpoints. Accepts a single status value,
- * an array of values via repeated query params (?status=draft&status=approved),
- * or the "all-drafts" shorthand which expands to all four active-draft statuses
- * (draft, approved, pending-review, changes-requested).
+ * Status filter for revision list endpoints. Accepts:
+ * - A single status value:              ?status=draft
+ * - Comma-separated values:             ?status=draft,approved
+ * - The "all-drafts" shorthand:         ?status=all-drafts
+ *   (expands to draft, pending-review, approved, changes-requested)
  *
- * On v2 endpoints, omitting this parameter defaults to "all-drafts" behaviour —
+ * On v2 endpoints, omitting this parameter defaults to "all-drafts" —
  * only active (non-terminal) revisions are returned unless you explicitly
  * request a terminal status such as "published" or "discarded".
  */
-export const revisionStatusFilterSchema = z
-  .union([
-    z
-      .literal("all-drafts")
-      .transform((): RevisionStatus[] => [...ACTIVE_DRAFT_STATUSES]),
-    z.array(revisionStatusSchema),
-    revisionStatusSchema,
-  ])
-  .optional();
+export const revisionStatusFilterSchema = z.preprocess(
+  (val) => {
+    if (typeof val === "string" && val.includes(",")) {
+      return val.split(",").map((s) => s.trim());
+    }
+    return val;
+  },
+  z
+    .union([
+      z
+        .literal("all-drafts")
+        .transform((): RevisionStatus[] => [...ACTIVE_DRAFT_STATUSES]),
+      z.array(revisionStatusSchema),
+      revisionStatusSchema,
+    ])
+    .optional(),
+);
 
 export type RevisionStatusFilter = z.infer<typeof revisionStatusFilterSchema>;
 
