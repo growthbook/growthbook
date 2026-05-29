@@ -5,6 +5,7 @@ import Link from "next/link";
 import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
 import { PiShuffle } from "react-icons/pi";
+import { Box, Flex } from "@radix-ui/themes";
 import { ComputedExperimentInterface } from "shared/types/experiment";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import WatchButton from "@/components/WatchButton";
@@ -136,7 +137,7 @@ const ContextualBanditsPage = (): React.ReactElement => {
 
   if (!hasContextualBanditFeature) {
     return (
-      <div className="contents container-fluid pagecontents">
+      <Box className="contents pagecontents">
         <PremiumEmptyState
           h1="Contextual Bandits"
           title="Run Context-Aware Adaptive Experiments with Contextual Bandits"
@@ -144,52 +145,54 @@ const ContextualBanditsPage = (): React.ReactElement => {
           commercialFeature="contextual-bandits"
           learnMoreLink="https://docs.growthbook.io/bandits/overview"
         />
-      </div>
+      </Box>
     );
   }
 
   return (
     <>
-      <div className="contents experiments container-fluid pagecontents">
-        <div className="mb-3 mt-2">
-          <div className="filters md-form row mb-3 align-items-center">
-            <div className="col d-flex align-items-center">
+      <Box className="contents experiments pagecontents">
+        <Box mb="3" mt="2">
+          <Flex
+            className="filters md-form"
+            align="center"
+            mb="3"
+            gap="3"
+            wrap="wrap"
+          >
+            <Flex align="center" flexGrow="1">
               <h1>Contextual Bandits</h1>
-            </div>
-            <div style={{ flex: 1 }} />
+            </Flex>
             {canAdd && (
-              <div className="col-auto">
-                <PremiumTooltip
-                  tipPosition="left"
-                  commercialFeature="contextual-bandits"
+              <PremiumTooltip
+                tipPosition="left"
+                commercialFeature="contextual-bandits"
+              >
+                <Button
+                  onClick={() => {
+                    setOpenNewModal(true);
+                  }}
+                  disabled={!hasContextualBanditFeature}
                 >
-                  <Button
-                    onClick={() => {
-                      setOpenNewModal(true);
-                    }}
-                    disabled={!hasContextualBanditFeature}
-                  >
-                    Add Contextual Bandit
-                  </Button>
-                </PremiumTooltip>
-              </div>
+                  Add Contextual Bandit
+                </Button>
+              </PremiumTooltip>
             )}
-          </div>
+          </Flex>
           <CustomMarkdown page={"experimentList"} />
           {!hasExperiments ? (
-            <div className="box py-5 text-center">
-              <div className="mx-auto" style={{ maxWidth: 650 }}>
+            <Box className="box" py="5" style={{ textAlign: "center" }}>
+              <Box mx="auto" style={{ maxWidth: 650 }}>
                 <h1>Adaptively experiment with contextual bandits.</h1>
-                <p className="">
+                <p>
                   Run context-aware adaptive experiments with Contextual
                   Bandits.
                 </p>
-              </div>
-              <div className="d-flex justify-content-center pt-2">
+              </Box>
+              <Flex justify="center" pt="2" gap="4">
                 <LinkButton
                   href="/getstarted/experiment-guide"
                   variant="outline"
-                  mr="4"
                 >
                   Setup Instructions
                 </LinkButton>
@@ -209,40 +212,55 @@ const ContextualBanditsPage = (): React.ReactElement => {
                     </Button>
                   </PremiumTooltip>
                 )}
-              </div>
-              <div className="mt-5">
+              </Flex>
+              <Box mt="5">
                 <img
                   src="/images/empty-states/bandits.png"
                   alt="Contextual Bandits"
                   style={{ width: "100%", maxWidth: "740px", height: "auto" }}
                 />
-              </div>
-            </div>
+              </Box>
+            </Box>
           ) : (
             <>
-              <div className="row align-items-center mb-3">
-                <div className="col-auto d-flex">
+              <Flex align="center" mb="3" gap="3" wrap="wrap">
+                <Flex align="center">
                   {["running", "drafts", "stopped", "archived"].map(
                     (tab, i) => {
                       const active = tabs.includes(tab);
 
                       if (tab === "archived" && !hasArchived) return null;
 
+                      const isLast =
+                        tab === "archived" ||
+                        (tab === "stopped" && !hasArchived);
                       return (
                         <button
                           key={tab}
-                          className={clsx("border mb-0", {
-                            "badge-purple font-weight-bold": active,
-                            "text-secondary": !active,
-                            "rounded-left": i === 0,
-                            "rounded-right":
-                              tab === "archived" ||
-                              (tab === "stopped" && !hasArchived),
+                          // badge-purple is a custom GrowthBook class; the rest
+                          // has been moved into inline styles to drop Bootstrap
+                          // utility classes.
+                          className={clsx({
+                            "badge-purple": active,
                           })}
                           style={{
                             fontSize: "1em",
                             opacity: active ? 1 : 0.8,
                             padding: "6px 12px",
+                            border: "1px solid var(--color-panel-border)",
+                            marginBottom: 0,
+                            fontWeight: active ? 700 : undefined,
+                            color: active ? undefined : "var(--color-text-mid)",
+                            borderTopLeftRadius:
+                              i === 0 ? "0.25rem" : undefined,
+                            borderBottomLeftRadius:
+                              i === 0 ? "0.25rem" : undefined,
+                            borderTopRightRadius: isLast
+                              ? "0.25rem"
+                              : undefined,
+                            borderBottomRightRadius: isLast
+                              ? "0.25rem"
+                              : undefined,
                             backgroundColor: active ? "" : "var(--color-panel)",
                           }}
                           onClick={(e) => {
@@ -259,12 +277,25 @@ const ContextualBanditsPage = (): React.ReactElement => {
                                   : `Include ${tab} contextual bandits`
                           }
                         >
-                          <span className="mr-1">
+                          <span style={{ marginRight: "0.25rem" }}>
                             {tab.slice(0, 1).toUpperCase()}
                             {tab.slice(1)}
                           </span>
                           {tab !== "archived" && (
-                            <span className="badge bg-white border text-dark mr-2">
+                            <span
+                              style={{
+                                display: "inline-block",
+                                padding: "0.25em 0.4em",
+                                fontSize: "75%",
+                                fontWeight: 700,
+                                lineHeight: 1,
+                                color: "var(--color-text-high)",
+                                backgroundColor: "var(--color-background)",
+                                border: "1px solid var(--color-panel-border)",
+                                borderRadius: "0.25rem",
+                                marginRight: "0.5rem",
+                              }}
+                            >
                               {tabCounts[tab] || 0}
                             </span>
                           )}
@@ -272,18 +303,18 @@ const ContextualBanditsPage = (): React.ReactElement => {
                       );
                     },
                   )}
-                </div>
-                <div className="col-auto">
+                </Flex>
+                <Box>
                   <Field
                     placeholder="Search..."
                     type="search"
                     {...searchInputProps}
                   />
-                </div>
-                <div className="col-auto">
+                </Box>
+                <Box>
                   <TagsFilter filter={tagsFilter} items={items} />
-                </div>
-                <div className="col-auto ml-auto">
+                </Box>
+                <Box style={{ marginLeft: "auto" }}>
                   <Switch
                     id="my-contextual-bandits-toggle"
                     label="My Contextual Bandits Only"
@@ -292,8 +323,8 @@ const ContextualBanditsPage = (): React.ReactElement => {
                       setShowMineOnly(value);
                     }}
                   />
-                </div>
-              </div>
+                </Box>
+              </Flex>
 
               <table className="appbox table experiment-table gbtable responsive-table">
                 <thead>
@@ -328,14 +359,21 @@ const ContextualBanditsPage = (): React.ReactElement => {
                         >
                           <Link
                             href={`/contextual-bandit/${e.id}`}
-                            className="d-block p-2"
+                            style={{
+                              display: "block",
+                              padding: "0.5rem",
+                            }}
                           >
-                            <div className="d-flex flex-column">
-                              <div className="d-flex">
+                            <Flex direction="column">
+                              <Flex>
                                 <span className="testname">{e.name}</span>
                                 {e.hasVisualChangesets ? (
                                   <Tooltip
-                                    className="d-flex align-items-center ml-2"
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      marginLeft: "0.5rem",
+                                    }}
                                     body="Visual experiment"
                                   >
                                     <RxDesktop className="text-blue" />
@@ -343,7 +381,11 @@ const ContextualBanditsPage = (): React.ReactElement => {
                                 ) : null}
                                 {(e.linkedFeatures || []).length > 0 ? (
                                   <Tooltip
-                                    className="d-flex align-items-center ml-2"
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      marginLeft: "0.5rem",
+                                    }}
                                     body="Linked Feature Flag"
                                   >
                                     <BsFlag className="text-blue" />
@@ -351,13 +393,17 @@ const ContextualBanditsPage = (): React.ReactElement => {
                                 ) : null}
                                 {e.hasURLRedirects ? (
                                   <Tooltip
-                                    className="d-flex align-items-center ml-2"
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      marginLeft: "0.5rem",
+                                    }}
                                     body="URL Redirect experiment"
                                   >
                                     <PiShuffle className="text-blue" />
                                   </Tooltip>
                                 ) : null}
-                              </div>
+                              </Flex>
                               {isFiltered && e.trackingKey && (
                                 <span
                                   className="testid text-muted small"
@@ -366,7 +412,7 @@ const ContextualBanditsPage = (): React.ReactElement => {
                                   {e.trackingKey}
                                 </span>
                               )}
-                            </div>
+                            </Flex>
                           </Link>
                         </td>
                         {showProjectColumn && (
@@ -433,8 +479,8 @@ const ContextualBanditsPage = (): React.ReactElement => {
               )}
             </>
           )}
-        </div>
-      </div>
+        </Box>
+      </Box>
       {openNewModal && (
         <ContextualBanditForm
           onClose={() => setOpenNewModal(false)}
