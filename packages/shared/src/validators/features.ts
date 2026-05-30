@@ -1483,11 +1483,12 @@ export const getFeatureStaleValidator = {
                 "abandoned-draft",
                 "toggled-off",
                 "active-experiment",
+                "temp-rollout",
                 "has-rules",
               ])
               .nullable()
               .describe(
-                "Reason for the feature's stale or non-stale status. `never-stale` when stale detection is disabled. Non-stale reasons: `recently-updated`, `active-draft`, `has-dependents`. Stale reasons: `no-rules`, `rules-one-sided`, `abandoned-draft`, `toggled-off`. Null when non-stale with no single cause (see staleByEnv).\n",
+                "Reason for the feature's stale or non-stale status. `never-stale` when stale detection is disabled. Non-stale reasons: `recently-updated`, `active-draft`, `has-dependents`, `temp-rollout` (rule serves a stopped experiment's released variation — cleanup candidate). Stale reasons: `no-rules`, `rules-one-sided`, `abandoned-draft`, `toggled-off`. Null when non-stale with no single cause (see staleByEnv).\n",
               ),
             neverStale: z
               .boolean()
@@ -1508,6 +1509,7 @@ export const getFeatureStaleValidator = {
                       "abandoned-draft",
                       "toggled-off",
                       "active-experiment",
+                      "temp-rollout",
                       "has-rules",
                       "recently-updated",
                       "active-draft",

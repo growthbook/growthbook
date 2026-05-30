@@ -675,6 +675,7 @@ export const getFeatureStaleV2Validator = {
                 "abandoned-draft",
                 "toggled-off",
                 "active-experiment",
+                "temp-rollout",
                 "has-rules",
               ])
               .nullable(),
@@ -691,6 +692,7 @@ export const getFeatureStaleV2Validator = {
                       "abandoned-draft",
                       "toggled-off",
                       "active-experiment",
+                      "temp-rollout",
                       "has-rules",
                       "recently-updated",
                       "active-draft",
