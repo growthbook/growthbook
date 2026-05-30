@@ -4,6 +4,7 @@ import {
   DashboardBlockInterface,
   DashboardBlockInterfaceOrData,
   blockHasFieldOfType,
+  getBlockDimensionConfig,
 } from "shared/enterprise";
 import { Flex, IconButton, Text } from "@radix-ui/themes";
 import { PiDotsSixVertical, PiPencilSimpleFill } from "react-icons/pi";
@@ -340,7 +341,10 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   // Selector IDs (experiment-goal, experiment-secondary, experiment-guardrail) are also valid
   const blockNeedsConfiguration =
     (blockHasFieldOfType(block, "dimensionId", isString) &&
-      block.dimensionId.length === 0) ||
+      block.dimensionId.length === 0 &&
+      // Only flag a missing dimension when it's required (e.g. dimension block);
+      // the time-series block treats an empty dimension as "no breakdown".
+      (getBlockDimensionConfig(block)?.required ?? false)) ||
     (blockHasSavedQuery &&
       (block.savedQueryId.length === 0 || !blockSavedQuery)) ||
     (blockHasSavedQuery &&

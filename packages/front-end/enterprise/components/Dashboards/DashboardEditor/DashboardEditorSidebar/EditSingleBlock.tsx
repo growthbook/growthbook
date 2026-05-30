@@ -6,6 +6,7 @@ import {
   blockHasFieldOfType,
   isDifferenceType,
   BLOCK_CONFIG_ITEM_TYPES,
+  getBlockDimensionConfig,
 } from "shared/enterprise";
 import React, { useContext, useEffect, useMemo, useState, useRef } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -74,6 +75,7 @@ import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEdi
 import { isSubmittableConfig } from "@/enterprise/components/ProductAnalytics/util";
 import MetricExplorerSettings from "./MetricExplorerSettings";
 import ProductAnalyticsExplorerSettings from "./ProductAnalyticsExplorerSettings";
+import BlockDimensionFields from "./BlockDimensionFields";
 
 type RequiredField = {
   field: string;
@@ -1284,20 +1286,18 @@ export default function EditSingleBlock({
                     )}
                 </>
               )}
-            {blockHasFieldOfType(block, "dimensionId", isString) && (
-              <SelectField
-                required
-                markRequired
-                label="Dimension"
-                labelClassName="font-weight-bold"
-                placeholder="Choose which dimension to use"
-                value={block.dimensionId}
-                containerClassName="mb-0"
-                onChange={(value) => setBlock({ ...block, dimensionId: value })}
-                options={dimensionOptions}
-                sort={false}
-              />
-            )}
+            {(() => {
+              const dimensionConfig = getBlockDimensionConfig(block);
+              return dimensionConfig ? (
+                <BlockDimensionFields
+                  block={block}
+                  setBlock={setBlock}
+                  config={dimensionConfig}
+                  dimensionOptions={dimensionOptions}
+                  dimensionValueOptions={dimensionValueOptions}
+                />
+              ) : null;
+            })()}
             {blockHasFieldOfType(block, "differenceType", isDifferenceType) &&
               shouldShowEditorField(block, "differenceType") && (
                 <SelectField
@@ -1407,19 +1407,6 @@ export default function EditSingleBlock({
                   }}
                 />
               )}
-            {blockHasFieldOfType(block, "dimensionValues", isStringArray) && (
-              <MultiSelectField
-                label="Dimension Values"
-                labelClassName="font-weight-bold"
-                placeholder="Showing all values"
-                value={block.dimensionValues}
-                containerClassName="mb-0"
-                onChange={(value) =>
-                  setBlock({ ...block, dimensionValues: value })
-                }
-                options={dimensionValueOptions}
-              />
-            )}
             {blockHasFieldOfType(block, "columnsFilter", isStringArray) && (
               <Collapsible
                 trigger={
