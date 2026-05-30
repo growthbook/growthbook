@@ -1603,7 +1603,7 @@ describe("isFeatureStale", () => {
           ],
         },
       };
-      const result = isFeatureStale({ feature, experiments });
+      const result = testStale({ feature, experiments });
       expect(result.envResults.prod).toMatchObject({
         stale: false,
         reason: "active-experiment",
@@ -1637,7 +1637,7 @@ describe("isFeatureStale", () => {
           ],
         },
       };
-      const result = isFeatureStale({ feature, experiments });
+      const result = testStale({ feature, experiments });
       expect(result.envResults.prod).toMatchObject({
         stale: false,
         reason: "temp-rollout",
