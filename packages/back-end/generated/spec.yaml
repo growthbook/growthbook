@@ -7419,6 +7419,11 @@ paths:
     put:
       operationId: putFeatureRevisionPrerequisitesV2
       summary: Set feature-level prerequisites in a draft revision
+      description: >-
+        Sets the feature-level prerequisites for this revision. Each
+        prerequisite must be a boolean feature flag; the gate is always
+        'prerequisite flag is on'. The condition is applied automatically — only
+        the flag ID is required.
       tags:
         - feature-revisions-v2
       parameters:
@@ -7445,17 +7450,19 @@ paths:
               type: object
               properties:
                 prerequisites:
+                  description: >-
+                    List of prerequisite boolean flags. When any prerequisite
+                    flag is off for a user, this flag returns its defaultValue
+                    for that user.
                   type: array
                   items:
                     type: object
                     properties:
                       id:
-                        type: string
-                      condition:
+                        description: ID of a boolean feature flag
                         type: string
                     required:
                       - id
-                      - condition
                     additionalProperties: false
                 revisionTitle:
                   description: >-
@@ -32696,30 +32703,25 @@ components:
               type: object
               properties:
                 id:
-                  description: Feature ID
-                  type: string
-                condition:
+                  description: Feature ID of the prerequisite boolean flag
                   type: string
               required:
                 - id
-                - condition
               additionalProperties: false
         prerequisites:
           description: >-
-            Feature-level prerequisites captured in this revision (only present
-            when prerequisite gating is enabled)
+            Feature-level prerequisites captured in this revision. Each entry is
+            a boolean flag ID that must evaluate to true for this flag to be
+            active for a given user.
           type: array
           items:
             type: object
             properties:
               id:
-                description: Feature ID
-                type: string
-              condition:
+                description: Feature ID of the prerequisite boolean flag
                 type: string
             required:
               - id
-              - condition
             additionalProperties: false
         metadata:
           description: >-

@@ -913,6 +913,13 @@ export const apiRevisionPrerequisite = z.object({
   condition: z.string(),
 });
 
+// v2 prerequisite shapes: condition is always {"value":true} and not exposed
+// as a settable field — only the prerequisite flag's ID is accepted/returned.
+export const apiRevisionPrerequisiteV2 = z.object({
+  id: z.string().describe("Feature ID of the prerequisite boolean flag"),
+});
+export type ApiRevisionPrerequisiteV2 = z.infer<typeof apiRevisionPrerequisiteV2>;
+
 // Revision metadata sub-object
 export const apiRevisionMetadata = z
   .object({

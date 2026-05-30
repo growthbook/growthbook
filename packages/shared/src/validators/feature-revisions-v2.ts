@@ -497,11 +497,21 @@ export const putFeatureRevisionPrerequisitesV2Validator = {
   path: "/features/:id/revisions/:version/prerequisites",
   operationId: "putFeatureRevisionPrerequisitesV2",
   summary: "Set feature-level prerequisites in a draft revision",
+  description:
+    "Sets the feature-level prerequisites for this revision. Each prerequisite must be a boolean feature flag; the gate is always 'prerequisite flag is on'. The condition is applied automatically — only the flag ID is required.",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParams,
   bodySchema: z
     .object({
-      prerequisites: z.array(featurePrerequisite),
+      prerequisites: z
+        .array(
+          z
+            .object({ id: z.string().describe("ID of a boolean feature flag") })
+            .strict(),
+        )
+        .describe(
+          "List of prerequisite boolean flags. When any prerequisite flag is off for a user, this flag returns its defaultValue for that user.",
+        ),
       ...newDraftMetadataFields,
     })
     .strict(),
