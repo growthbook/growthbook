@@ -1,4 +1,7 @@
-import { listRevisionsValidator } from "shared/validators";
+import {
+  listRevisionsValidator,
+  parseRevisionStatusFilter,
+} from "shared/validators";
 import { stringToBoolean } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
 import {
@@ -32,7 +35,7 @@ export async function loadRevisionsPage(
   organizationId: string,
   query: {
     featureId?: string;
-    status?: string;
+    status?: string | string[];
     author?: string;
     mine?: string | boolean;
     skipPagination?: string | boolean;
@@ -40,7 +43,8 @@ export async function loadRevisionsPage(
     offset?: number;
   },
 ) {
-  const { featureId, status, author } = query;
+  const { featureId, author } = query;
+  const status = parseRevisionStatusFilter(query.status);
 
   const mine = stringToBoolean(query.mine?.toString());
   if (mine && author) {

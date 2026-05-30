@@ -1,16 +1,17 @@
 import { z } from "zod";
 import {
   apiPaginationFieldsValidator,
+  booleanQueryField,
   paginationQueryFields,
   skipPaginationQueryField,
 } from "./shared";
 import { ownerInputField } from "./owner-field";
 import {
   apiFeatureRuleValidator,
-  apiRevisionPrerequisite,
+  apiRevisionPrerequisiteV2,
   apiRevisionMetadata,
   apiFeatureHoldout,
-  revisionStatusSchema,
+  revisionStatusFilterSchema,
   apiRevisionRampAction,
 } from "./features";
 import { namedSchema } from "./openapi-helpers";
@@ -113,15 +114,15 @@ export const apiFeatureRevisionV2Validator = namedSchema(
         )
         .optional(),
       envPrerequisites: z
-        .record(z.string(), z.array(apiRevisionPrerequisite))
+        .record(z.string(), z.array(apiRevisionPrerequisiteV2))
         .describe(
           "Per-environment prerequisites captured in this revision (only present when prerequisite gating is enabled)",
         )
         .optional(),
       prerequisites: z
-        .array(apiRevisionPrerequisite)
+        .array(apiRevisionPrerequisiteV2)
         .describe(
-          "Feature-level prerequisites captured in this revision (only present when prerequisite gating is enabled)",
+          "Feature-level prerequisites captured in this revision. Each entry is a boolean flag ID that must evaluate to true for this flag to be active for a given user.",
         )
         .optional(),
       metadata: apiRevisionMetadata.optional(),
@@ -607,8 +608,11 @@ export const getFeatureRevisionsV2Validator = {
     .object({
       ...paginationQueryFields,
       ...skipPaginationQueryField,
-      status: revisionStatusSchema.optional(),
+      status: revisionStatusFilterSchema,
       author: z.string().optional(),
+      mine: booleanQueryField.describe(
+        "If true, return only revisions authored by or contributed to by the calling user. Requires a user-scoped API key. Mutually exclusive with `author`.",
+      ),
     })
     .strict(),
   paramsSchema: idParams,

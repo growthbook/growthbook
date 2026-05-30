@@ -7019,6 +7019,7 @@ paths:
         - $ref: '#/components/parameters/skipPagination'
         - $ref: '#/components/parameters/status'
         - $ref: '#/components/parameters/author'
+        - $ref: '#/components/parameters/mine'
       responses:
         '200':
           content:
@@ -7107,8 +7108,9 @@ paths:
       operationId: getFeatureRevisionLatestV2
       summary: Get the most recent active draft revision
       description: >-
-        Returns the most recently updated draft revision for the feature.
-        Returns 404 if there is no active draft.
+        Returns the most recently updated active draft revision for the feature.
+        Returns 404 if no matching draft exists. Filter by status, author, or
+        use `mine=true` to scope to the calling user's own drafts.
       tags:
         - feature-revisions-v2
       parameters:
@@ -7137,6 +7139,13 @@ paths:
               - type: string
                 const: '1'
               - type: boolean
+        - $ref: '#/components/parameters/status'
+        - name: author
+          in: query
+          description: Filter to drafts created by this user (userId).
+          schema:
+            description: Filter to drafts created by this user (userId).
+            type: string
       responses:
         '200':
           content:
@@ -7410,6 +7419,11 @@ paths:
     put:
       operationId: putFeatureRevisionPrerequisitesV2
       summary: Set feature-level prerequisites in a draft revision
+      description: >-
+        Sets the feature-level prerequisites for this revision. Each
+        prerequisite must be a boolean feature flag; the gate is always
+        'prerequisite flag is on'. The condition is applied automatically — only
+        the flag ID is required.
       tags:
         - feature-revisions-v2
       parameters:
@@ -7436,17 +7450,19 @@ paths:
               type: object
               properties:
                 prerequisites:
+                  description: >-
+                    List of prerequisite boolean flags. When any prerequisite
+                    flag is off for a user, this flag returns its defaultValue
+                    for that user.
                   type: array
                   items:
                     type: object
                     properties:
                       id:
-                        type: string
-                      condition:
+                        description: ID of a boolean feature flag
                         type: string
                     required:
                       - id
-                      - condition
                     additionalProperties: false
                 revisionTitle:
                   description: >-
@@ -13568,6 +13584,19 @@ paths:
       summary: Get the organization's attributes
       tags:
         - attributes
+      parameters:
+        - name: projectId
+          in: query
+          description: >-
+            Filter to attributes available in this project — includes org-wide
+            attributes (no project restriction) and attributes explicitly scoped
+            to this project.
+          schema:
+            description: >-
+              Filter to attributes available in this project — includes org-wide
+              attributes (no project restriction) and attributes explicitly
+              scoped to this project.
+            type: string
       responses:
         '200':
           content:
@@ -30401,17 +30430,22 @@ components:
     status:
       name: status
       in: query
-      description: ''
+      description: >-
+        Filter by revision status. Single value, comma-separated list, repeated
+        params (?status=draft&status=approved), or `all-drafts` shorthand for
+        all active-draft statuses (draft, pending-review, approved,
+        changes-requested).
       schema:
-        type: string
-        enum:
-          - draft
-          - published
-          - discarded
-          - approved
-          - changes-requested
-          - pending-review
-          - pending-parent
+        description: >-
+          Filter by revision status. Single value, comma-separated list,
+          repeated params (?status=draft&status=approved), or `all-drafts`
+          shorthand for all active-draft statuses (draft, pending-review,
+          approved, changes-requested).
+        anyOf:
+          - type: string
+          - type: array
+            items:
+              type: string
     author:
       name: author
       in: query
@@ -32679,30 +32713,25 @@ components:
               type: object
               properties:
                 id:
-                  description: Feature ID
-                  type: string
-                condition:
+                  description: Feature ID of the prerequisite boolean flag
                   type: string
               required:
                 - id
-                - condition
               additionalProperties: false
         prerequisites:
           description: >-
-            Feature-level prerequisites captured in this revision (only present
-            when prerequisite gating is enabled)
+            Feature-level prerequisites captured in this revision. Each entry is
+            a boolean flag ID that must evaluate to true for this flag to be
+            active for a given user.
           type: array
           items:
             type: object
             properties:
               id:
-                description: Feature ID
-                type: string
-              condition:
+                description: Feature ID of the prerequisite boolean flag
                 type: string
             required:
               - id
-              - condition
             additionalProperties: false
         metadata:
           description: >-

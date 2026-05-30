@@ -1903,7 +1903,8 @@ export function revisionToApiInterfaceV2(
       environmentsEnabled: rev.environmentsEnabled,
     }),
     ...(rev.prerequisites !== undefined && {
-      prerequisites: rev.prerequisites,
+      // Strip internal condition field — v2 only exposes the flag ID.
+      prerequisites: rev.prerequisites.map(({ id }) => ({ id })),
     }),
     ...(rev.metadata !== undefined && {
       metadata: {
