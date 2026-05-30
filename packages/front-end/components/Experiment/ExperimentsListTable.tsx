@@ -250,7 +250,7 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
                 </TableCell>
               ) : null}
               {showHealthColumn ? (
-                <TableCell>
+                <TableCell style={{ whiteSpace: "nowrap" }}>
                   {isHealthDetailedStatus(e.statusIndicator.detailedStatus) ? (
                     <ExperimentStatusDetailsWithDot
                       statusIndicatorData={e.statusIndicator}
@@ -265,6 +265,7 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
                           display: "inline-flex",
                           alignItems: "center",
                           gap: 6,
+                          whiteSpace: "nowrap",
                         }}
                       >
                         <span
