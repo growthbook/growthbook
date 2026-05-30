@@ -88,6 +88,10 @@ export const BLOCK_TYPE_INFO: Record<
     name: "Metric Results",
     icon: <PiTableDuotone />,
   },
+  "metric-experiments": {
+    name: "Metric Lift by Experiment",
+    icon: <PiTableDuotone />,
+  },
   "experiment-dimension": {
     name: "Dimension Results",
     icon: <PiTableDuotone />,
@@ -133,6 +137,7 @@ export const BLOCK_SUBGROUPS: [string, DashboardBlockType[]][] = [
     "Product Analytics",
     ["metric-exploration", "fact-table-exploration", "data-source-exploration"],
   ],
+  ["Experimentation", ["metric-experiments"]],
   ["Other", ["sql-explorer", "markdown", "metric-explorer"]],
 ];
 
@@ -143,6 +148,7 @@ export const GENERAL_DASHBOARD_BLOCK_TYPES: DashboardBlockType[] = [
   "metric-exploration",
   "fact-table-exploration",
   "data-source-exploration",
+  "metric-experiments",
   "markdown",
 ];
 

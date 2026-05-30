@@ -55,6 +55,7 @@ export const DEFAULT_BLOCK_SIZE_BY_TYPE: Record<
   "experiment-metadata": { w: DASHBOARD_GRID_COLS, h: 8, minW: 12, minH: 4 },
   "experiment-traffic": { w: DASHBOARD_GRID_COLS, h: 8, minW: 12, minH: 4 },
   "experiment-metric": { w: DASHBOARD_GRID_COLS, h: 8, minW: 12, minH: 4 },
+  "metric-experiments": { w: DASHBOARD_GRID_COLS, h: 8, minW: 12, minH: 4 },
   "experiment-dimension": { w: DASHBOARD_GRID_COLS, h: 8, minW: 12, minH: 4 },
   "experiment-time-series": { w: DASHBOARD_GRID_COLS, h: 8, minW: 12, minH: 4 },
   "sql-explorer": { w: DASHBOARD_GRID_COLS, h: 8, minW: 8, minH: 4 },
@@ -203,6 +204,22 @@ const legacyExperimentMetricBlockInterface = experimentMetricBlockInterface
     pinnedMetricSlices: z.array(z.string()).optional(),
     sliceTagsFilter: z.array(z.string()).nullable().optional(),
   });
+
+const metricExperimentsBlockInterface = baseBlockInterface
+  .extend({
+    type: z.literal("metric-experiments"),
+    metricId: z.string(),
+    experimentSearchString: z.string(), // raw ExperimentSearchFilters query for now
+    differenceType: z.enum(differenceTypes),
+    bandits: z.boolean(),
+    startDate: z.string().optional(),
+    endDate: z.string().optional(),
+  })
+  .strict();
+
+export type MetricExperimentsBlockInterface = z.infer<
+  typeof metricExperimentsBlockInterface
+>;
 
 const experimentDimensionBlockInterface = baseBlockInterface
   .extend({
@@ -399,6 +416,7 @@ const standardAndApiCommonBlocks = [
   markdownBlockInterface,
   experimentMetadataBlockInterface,
   experimentMetricBlockInterface,
+  metricExperimentsBlockInterface,
   experimentDimensionBlockInterface,
   experimentTimeSeriesBlockInterface,
   experimentTrafficBlockInterface,
@@ -448,6 +466,7 @@ export const createDashboardBlockInterface = z.discriminatedUnion("type", [
   markdownBlockInterface.omit(createOmits),
   experimentMetadataBlockInterface.omit(createOmits),
   experimentMetricBlockInterface.omit(createOmits),
+  metricExperimentsBlockInterface.omit(createOmits),
   experimentDimensionBlockInterface.omit(createOmits),
   experimentTimeSeriesBlockInterface.omit(createOmits),
   experimentTrafficBlockInterface.omit(createOmits),
@@ -461,6 +480,7 @@ export const apiCreateDashboardBlockInterface = z.discriminatedUnion("type", [
   markdownBlockInterface.omit(createOmits),
   experimentMetadataBlockInterface.omit(createOmits),
   experimentMetricBlockInterface.omit(createOmits),
+  metricExperimentsBlockInterface.omit(createOmits),
   experimentDimensionBlockInterface.omit(createOmits),
   experimentTimeSeriesBlockInterface.omit(createOmits),
   experimentTrafficBlockInterface.omit(createOmits),
@@ -482,6 +502,10 @@ export const dashboardBlockPartial = z.discriminatedUnion("type", [
     .partial()
     .required({ type: true }),
   experimentMetricBlockInterface
+    .omit(createOmits)
+    .partial()
+    .required({ type: true }),
+  metricExperimentsBlockInterface
     .omit(createOmits)
     .partial()
     .required({ type: true }),

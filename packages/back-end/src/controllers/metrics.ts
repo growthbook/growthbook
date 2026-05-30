@@ -26,6 +26,7 @@ import {
   getExperimentsByMetric,
   getExperimentsUsingMetric,
 } from "back-end/src/models/ExperimentModel";
+import { getFilteredExperimentsUsingMetric } from "back-end/src/services/experimentFilters";
 import {
   getAISettingsForOrg,
   getContextFromReq,
@@ -526,14 +527,38 @@ export async function putMetric(
 }
 
 export const getMetricExperimentResults = async (
-  req: AuthRequest<{ startDate?: string; endDate?: string }, { id: string }>,
+  req: AuthRequest<
+    never,
+    { id: string },
+    {
+      q?: string;
+      bandits?: string;
+      startDate?: string;
+      endDate?: string;
+    }
+  >,
   res: Response<{ status: 200; data: ExperimentWithSnapshot[] }>,
 ) => {
   const context = getContextFromReq(req);
 
-  const experiments = await getExperimentsUsingMetric({
+  const startDate = req.query.startDate
+    ? new Date(req.query.startDate)
+    : undefined;
+  const endDate = req.query.endDate ? new Date(req.query.endDate) : undefined;
+  const bandits =
+    req.query.bandits === "true"
+      ? true
+      : req.query.bandits === "false"
+        ? false
+        : undefined;
+
+  const experiments = await getFilteredExperimentsUsingMetric({
     context,
     metricId: req.params.id,
+    searchString: req.query.q,
+    bandits,
+    startDate,
+    endDate,
     limit: 500,
   });
 
@@ -566,26 +591,8 @@ export const getMetricExperimentResults = async (
     snapshot: snapshots.find((s) => s.experiment === e.id),
   }));
 
-  // if startDate or endDate are provided, filter the experiments to experiments that have an end phase within that date range:
-  if (req.body.startDate || req.body.endDate) {
-    const startDate = req.body.startDate
-      ? new Date(req.body.startDate)
-      : new Date(0);
-    const endDate = req.body.endDate ? new Date(req.body.endDate) : new Date();
-
-    const filteredData = data.filter((e) => {
-      return e.phases.some((p) => {
-        if (!p.dateEnded) return false;
-        const endDatePhase = new Date(p.dateEnded);
-        return endDatePhase >= startDate && endDatePhase <= endDate;
-      });
-    });
-
-    return res.status(200).json({
-      status: 200,
-      data: filteredData,
-    });
-  }
+  // Date-range filtering (and any search filters) are applied upstream in
+  // getFilteredExperimentsUsingMetric, so `data` is already scoped here.
   res.status(200).json({
     status: 200,
     data,

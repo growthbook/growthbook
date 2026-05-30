@@ -42,6 +42,7 @@ import { isSubmittableConfig } from "@/enterprise/components/ProductAnalytics/ut
 import MarkdownBlock from "./MarkdownBlock";
 import ExperimentMetadataBlock from "./ExperimentMetadataBlock";
 import ExperimentMetricBlock from "./ExperimentMetricBlock";
+import MetricExperimentsBlock from "./MetricExperimentsBlock";
 import ExperimentDimensionBlock from "./ExperimentDimensionBlock";
 import ExperimentTimeSeriesBlock from "./ExperimentTimeSeriesBlock";
 import ExperimentTrafficBlock from "./ExperimentTrafficBlock";
@@ -114,6 +115,7 @@ const BLOCK_COMPONENTS: {
   markdown: MarkdownBlock,
   "experiment-metadata": ExperimentMetadataBlock,
   "experiment-metric": ExperimentMetricBlock,
+  "metric-experiments": MetricExperimentsBlock,
   "experiment-dimension": ExperimentDimensionBlock,
   "experiment-time-series": ExperimentTimeSeriesBlock,
   "experiment-traffic": ExperimentTrafficBlock,
