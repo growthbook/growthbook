@@ -1123,6 +1123,110 @@ import { useFeatureIsOn } from "@/src/utils/growthbook"
 const isDarkModeOn = useFeatureIsOn("dark_mode");
 ```
 
+## Testing
+
+When writing unit tests for React components that use GrowthBook, you may need to polyfill certain browser APIs that aren't available in test environments like Jest or Vitest.
+
+### Polyfilling fetch
+
+Test runners like Jest don't provide a native `fetch` implementation. If your tests initialize GrowthBook with `apiHost` and `clientKey` (which triggers network requests), you'll need to either mock `fetch` or provide a polyfill.
+
+#### Jest Setup Example
+
+Create a setup file (e.g., `jest.setup.js`) and configure it in your Jest config:
+
+```js
+// jest.setup.js
+import { setPolyfills } from "@growthbook/growthbook";
+
+// Option 1: Use a mock function
+setPolyfills({
+  fetch: jest.fn(() =>
+    Promise.resolve({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          features: {},
+        }),
+    })
+  ),
+});
+
+// Option 2: Use a real polyfill like cross-fetch
+// import fetch from "cross-fetch";
+// setPolyfills({ fetch });
+```
+
+```js
+// jest.config.js
+module.exports = {
+  setupFilesAfterEnv: ["./jest.setup.js"],
+};
+```
+
+#### Vitest Setup Example
+
+```ts
+// vitest.setup.ts
+import { setPolyfills } from "@growthbook/growthbook";
+import { vi } from "vitest";
+
+setPolyfills({
+  fetch: vi.fn(() =>
+    Promise.resolve({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          features: {},
+        }),
+    })
+  ),
+});
+```
+
+### Resetting Polyfills Between Tests
+
+If you need to customize the mock behavior for specific tests, you can reset the polyfill in `beforeEach` or `afterEach`:
+
+```js
+import { setPolyfills } from "@growthbook/growthbook";
+
+afterEach(() => {
+  // Reset to default mock
+  setPolyfills({ fetch: jest.fn() });
+});
+```
+
+### Testing Without Network Requests
+
+The simplest approach for testing is to bypass network requests entirely by passing features directly:
+
+```tsx
+import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
+import { render } from "@testing-library/react";
+
+test("renders with feature flag on", () => {
+  const gb = new GrowthBook();
+  gb.initSync({
+    payload: {
+      features: {
+        "my-feature": { defaultValue: true },
+      },
+    },
+  });
+
+  render(
+    <GrowthBookProvider growthbook={gb}>
+      <MyComponent />
+    </GrowthBookProvider>
+  );
+
+  // Your assertions here
+});
+```
+
+This approach doesn't require any polyfills since no network requests are made.
+
 ## Examples
 
 - [Next.js <ExternalLink />](https://github.com/growthbook/examples/tree/main/next-js)
