@@ -281,7 +281,13 @@ export function getAISettingsForOrg(
   const anthropicKey = process.env.ANTHROPIC_API_KEY || "";
   const xaiKey = process.env.XAI_API_KEY || "";
   const mistralKey = process.env.MISTRAL_API_KEY || "";
-  const googleKey = process.env.GOOGLE_AI_API_KEY || "";
+  // Accept GEMINI_API_KEY as a fallback so existing self-hosted
+  // deployments that wired up image gen against GEMINI_API_KEY keep
+  // working after the image pipeline moved onto the unified Vercel AI
+  // SDK provider abstraction (which uses one Google key for both text
+  // and image surfaces). New deployments should set GOOGLE_AI_API_KEY.
+  const googleKey =
+    process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY || "";
 
   const hasValidKey = !!(
     openAIKey ||

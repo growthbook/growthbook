@@ -1,4 +1,35 @@
-import sharp from "sharp";
+// `sharp` is a native module. Importing it at module-load time means
+// every test suite that touches anything in back-end/src transitively
+// loads it — on CI (Node 24) the native binary fails to initialize and
+// 11 test suites crash before any assertion runs. None of those suites
+// actually exercise image optimization. Defer the import to the first
+// call so the test surface stays unaffected by sharp's availability,
+// and so we don't pay the native init cost on cold back-end startup
+// for routes that never run the AI image flow.
+//
+// We cache the dynamic import promise so concurrent first-callers share
+// one load. Type-only import (erased at compile time) gives us the
+// factory signature without triggering eager native loading.
+//
+// CJS-vs-ESM interop note: sharp uses `module.exports = sharp` (classic
+// CommonJS). Dynamic `import("sharp")` returns a namespace shaped
+// `{ default: sharpFn, ...named }` at runtime — but under
+// `esModuleInterop` TypeScript may instead type the awaited value as
+// just the function. The `.default ?? m` fallback below covers both:
+// pick the default export when present, otherwise the module value
+// itself is already the callable.
+import type sharpType from "sharp";
+type SharpFactory = typeof sharpType;
+let sharpFactoryPromise: Promise<SharpFactory> | null = null;
+const loadSharp = (): Promise<SharpFactory> => {
+  if (!sharpFactoryPromise) {
+    sharpFactoryPromise = import("sharp").then((m) => {
+      const ns = m as unknown as { default?: SharpFactory };
+      return ns.default ?? (m as unknown as SharpFactory);
+    });
+  }
+  return sharpFactoryPromise;
+};
 
 // Optimize an AI-generated image for the web.
 //
@@ -44,6 +75,9 @@ export interface OptimizedImage {
 }
 
 export async function optimizeAIImage(input: Buffer): Promise<OptimizedImage> {
+  // Dynamic import here (rather than top-level) — see the comment at
+  // the top of the file for the test-suite / native-module rationale.
+  const sharp = await loadSharp();
   // `sharp(buffer)` auto-detects the source format. `rotate()` honors
   // any EXIF orientation tag before strip — without it, an upright
   // image with a rotation tag would come out sideways post-strip.

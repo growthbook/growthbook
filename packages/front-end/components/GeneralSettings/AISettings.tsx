@@ -3,6 +3,7 @@ import { Box, Flex, Heading, Text } from "@radix-ui/themes";
 import { useFormContext, UseFormReturn } from "react-hook-form";
 import {
   AI_PROMPT_DEFAULTS,
+  AI_IMAGE_MODELS,
   AIPromptInterface,
   AIModel,
   EmbeddingModel,
@@ -60,11 +61,16 @@ const EMBEDDING_MODEL_LABELS = ensureValuesExactlyMatchUnion<EmbeddingModel>()([
 // Image gen is Gemini-only on the back end (see postAIImageGen), so we
 // present a closed dropdown rather than free text — letting users type
 // an arbitrary model name just produces 404s at generation time. The
-// empty value means "use the GEMINI_IMAGE_MODEL env var / canonical
-// default". Add entries here as Google ships new image models.
+// Empty value means "use the GEMINI_IMAGE_MODEL env var / canonical
+// default". The rest is sourced from the shared AI_IMAGE_MODELS registry
+// so adding a new model is a one-line change there — no fork needed in
+// the front-end. Models are listed in the same order as the registry,
+// which groups by provider (Google → OpenAI → xAI). The selected id is
+// stored on the org settings and dispatched to the right Vercel AI SDK
+// provider at gen time by back-end/src/services/imageGeneration.ts.
 const VISUAL_EDITOR_IMAGE_MODEL_OPTIONS = [
-  { value: "", label: "Use default (gemini-2.5-flash-image)" },
-  { value: "gemini-2.5-flash-image", label: "Gemini 2.5 Flash Image" },
+  { value: "", label: "Use default (Gemini 2.5 Flash Image)" },
+  ...AI_IMAGE_MODELS.map((m) => ({ value: m.id, label: m.label })),
 ];
 
 const hasAPIforModel = (model: AIModel | string) => {
