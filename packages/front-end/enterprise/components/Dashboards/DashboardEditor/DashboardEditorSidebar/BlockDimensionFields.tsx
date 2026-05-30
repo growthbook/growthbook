@@ -11,6 +11,7 @@ import SelectField, {
   SingleValue,
 } from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
+import { PRECOMPUTED_DIMENSION_GROUP_LABEL } from "@/components/Dimensions/DimensionChooser";
 
 interface Props {
   block: DashboardBlockInterfaceOrData<DashboardBlockInterface>;
@@ -37,7 +38,9 @@ export default function BlockDimensionFields({
   // group label is produced by getDimensionOptions in DimensionChooser.
   const scopedGroups =
     config.scope === "precomputed"
-      ? dimensionOptions.filter((group) => group.label === "Pre-computed")
+      ? dimensionOptions.filter(
+          (group) => group.label === PRECOMPUTED_DIMENSION_GROUP_LABEL,
+        )
       : dimensionOptions;
   const hasDimensions = scopedGroups.some((group) => group.options.length > 0);
   if (config.hideWhenNoneAvailable && !hasDimensions) return null;
