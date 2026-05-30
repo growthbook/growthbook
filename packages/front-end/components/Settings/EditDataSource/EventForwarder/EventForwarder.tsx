@@ -24,6 +24,7 @@ import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { Box, Card, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
+import { FaChevronRight } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import BigQueryEventForwarderForm from "@/components/Settings/BigQueryEventForwarderForm";
 import SnowflakeEventForwarderForm from "@/components/Settings/SnowflakeEventForwarderForm";
@@ -305,8 +306,14 @@ function EventForwarderConfirmButton({
       shouldDisplay={!ctaEnabled && !!disabledMessage}
       tipPosition="top"
     >
-      <Button type="submit" disabled={!ctaEnabled} loading={loading}>
-        Confirm & Save
+      <Button
+        type="submit"
+        disabled={!ctaEnabled}
+        loading={loading}
+        icon={<FaChevronRight size={12} />}
+        iconPosition="right"
+      >
+        Confirm
       </Button>
     </Tooltip>
   );
@@ -625,7 +632,7 @@ export default function EventForwarder({
       <p>
         Event Forwarder streams SDK event data from GrowthBook directly into
         this datasource so you can query and analyze it alongside the rest of
-        your warehouse data. More information available on our docs.
+        your warehouse data. More information available on our docs.&nbsp;
         <DocLink docSection="eventForwarder">Event Forwarder Docs</DocLink>
       </p>
 
