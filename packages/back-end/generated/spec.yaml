@@ -7142,9 +7142,9 @@ paths:
         - $ref: '#/components/parameters/status'
         - name: author
           in: query
-          description: Filter to drafts created by this user (email or userId).
+          description: Filter to drafts created by this user (userId).
           schema:
-            description: Filter to drafts created by this user (email or userId).
+            description: Filter to drafts created by this user (userId).
             type: string
       responses:
         '200':

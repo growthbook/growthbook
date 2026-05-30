@@ -318,7 +318,7 @@ export const getFeatureRevisionLatestV2Validator = {
       author: z
         .string()
         .optional()
-        .describe("Filter to drafts created by this user (email or userId)."),
+        .describe("Filter to drafts created by this user (userId)."),
     })
     .strict(),
   responseSchema: revisionResponse,
