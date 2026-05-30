@@ -40,6 +40,7 @@ export default function StaleFeatureIcon({
   context = "detail",
   open: controlledOpen,
   onOpenChange,
+  labelPrefix = "",
 }: {
   neverStale?: boolean;
   valueType?: FeatureValueType;
@@ -49,6 +50,7 @@ export default function StaleFeatureIcon({
   context?: "list" | "detail";
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  labelPrefix?: string;
 }) {
   const [rerunning, setRerunning] = useState(false);
   const [internalOpen, setInternalOpen] = useState(false);
@@ -115,8 +117,8 @@ export default function StaleFeatureIcon({
               className={styles.listTrigger}
               style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
             >
-              <span className={`${styles.dot} ${styles.permanentDot}`} />
-              Off
+              <span className={`${styles.dot} ${styles.freshDot}`} />
+              {labelPrefix}Stale detection off
             </span>
           }
           content={neverStaleContent}
@@ -127,14 +129,14 @@ export default function StaleFeatureIcon({
     return (
       <>
         <Badge
-          color="gray"
+          color="green"
           variant="soft"
           radius="full"
           size="2"
-          className={styles.permanentBadge}
+          className={styles.freshBadge}
           onClick={() => setOpen(true)}
         >
-          Stale detection off
+          {labelPrefix}Stale detection off
         </Badge>
         <Modal
           open={open}
@@ -170,7 +172,8 @@ export default function StaleFeatureIcon({
               className={styles.listTrigger}
               style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
             >
-              <span className={`${styles.dot} ${styles.freshDot}`} />—
+              <span className={`${styles.dot} ${styles.freshDot}`} />
+              {labelPrefix}—
             </span>
           }
           content={loadingContent}
@@ -187,7 +190,7 @@ export default function StaleFeatureIcon({
           className={styles.permanentBadge}
           onClick={() => setOpen(true)}
         >
-          —
+          {labelPrefix}—
         </Badge>
         <Modal
           open={open}
@@ -448,6 +451,7 @@ export default function StaleFeatureIcon({
             style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
           >
             <span className={`${styles.dot} ${dotClass}`} />
+            {labelPrefix}
             {label}
           </span>
         }
@@ -473,6 +477,7 @@ export default function StaleFeatureIcon({
         className={badgeClass}
         onClick={() => setOpen(true)}
       >
+        {labelPrefix}
         {label}
       </Badge>
       <Modal

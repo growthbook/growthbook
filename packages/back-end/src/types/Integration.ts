@@ -278,7 +278,10 @@ export interface SourceIntegrationInterface {
     database?: string,
     requireSchema?: boolean,
   ): string;
-  cancelQuery?(externalId: string): Promise<void>;
+  cancelQuery?(
+    externalId: string,
+    metadata?: Record<string, string>,
+  ): Promise<void>;
   getFeatureUsage?(
     feature: string,
     lookback: FeatureUsageLookback,

@@ -11,6 +11,7 @@ import {
   apiRevisionMetadata,
   apiFeatureHoldout,
   revisionStatusSchema,
+  apiRevisionRampAction,
 } from "./features";
 import { namedSchema } from "./openapi-helpers";
 
@@ -28,6 +29,12 @@ const apiRuleScopeExtension = z
       .optional()
       .describe(
         "The environment IDs this rule is active in. Populated when `allEnvironments` is false.",
+      ),
+    pendingRamp: z
+      .enum(["create", "detach"])
+      .optional()
+      .describe(
+        'Present on draft revisions only. "create" means a ramp schedule will be created for this rule on publish. "detach" means an existing live ramp schedule will be removed on publish. Use PUT/DELETE .../rules/{ruleId}/ramp-schedule to modify.',
       ),
   })
   .strict();
@@ -118,6 +125,12 @@ export const apiFeatureRevisionV2Validator = namedSchema(
         )
         .optional(),
       metadata: apiRevisionMetadata.optional(),
+      rampActions: z
+        .array(apiRevisionRampAction)
+        .describe(
+          "Pending ramp schedule actions that will be applied when this draft is published",
+        )
+        .optional(),
     })
     .strict(),
 );
@@ -236,7 +249,11 @@ const postFeaturePrerequisite = z.object({
 });
 
 const apiScheduleRule = z.object({
-  timestamp: z.string().nullable(),
+  timestamp: z
+    .string()
+    .datetime({ offset: true })
+    .nullable()
+    .describe('ISO 8601 date-time, e.g. "2025-06-01T00:00:00Z".'),
   enabled: z.boolean(),
 });
 
@@ -264,6 +281,7 @@ const v2RuleRolloutBase = z.object({
   value: z.string(),
   coverage: z.number(),
   hashAttribute: z.string(),
+  hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
 });
 
 const v2RuleExperimentRefBase = z.object({

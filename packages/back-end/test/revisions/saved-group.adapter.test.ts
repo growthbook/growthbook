@@ -43,6 +43,7 @@ const baseGroup: SavedGroupInterface = {
 // to avoid pulling the entire context surface into a unit test.
 function makeContext(overrides: {
   approvalRequired?: boolean;
+  hasRequireApprovals?: boolean;
   // When provided, controls the `requireMetadataReview` org setting. Defaults
   // to `undefined` (which behaves like the historical "true" default).
   requireMetadataReview?: boolean;
@@ -73,6 +74,10 @@ function makeContext(overrides: {
       },
     },
     permissions,
+    hasPremiumFeature: (feature: string) =>
+      feature === "require-approvals"
+        ? (overrides.hasRequireApprovals ?? true)
+        : false,
     models: {
       savedGroups: overrides.savedGroupsModel ?? {
         getById: jest.fn(),
@@ -180,10 +185,20 @@ describe("savedGroupAdapter", () => {
       expect(savedGroupAdapter.isApprovalRequired(ctx)).toBe(false);
     });
 
+    it("returns false when the org does not have the require-approvals feature", () => {
+      const ctx = makeContext({
+        approvalRequired: true,
+        hasRequireApprovals: false,
+      });
+      expect(savedGroupAdapter.isRevisionRequired(ctx)).toBe(false);
+      expect(savedGroupAdapter.isApprovalRequired(ctx)).toBe(false);
+    });
+
     it("returns false when settings are missing entirely", () => {
       const ctx = {
         org: { settings: undefined },
         permissions: {},
+        hasPremiumFeature: () => true,
         models: {},
       } as unknown as Context;
       expect(savedGroupAdapter.isRevisionRequired(ctx)).toBe(false);
@@ -212,6 +227,19 @@ describe("savedGroupAdapter", () => {
           buildRevision(metadataOnlyChanges),
         ),
       ).toBe(false);
+      expect(
+        savedGroupAdapter.isApprovalRequiredForRevision!(
+          ctx,
+          buildRevision(contentChanges),
+        ),
+      ).toBe(false);
+    });
+
+    it("returns false when approval settings are enabled but not licensed", () => {
+      const ctx = makeContext({
+        approvalRequired: true,
+        hasRequireApprovals: false,
+      });
       expect(
         savedGroupAdapter.isApprovalRequiredForRevision!(
           ctx,
@@ -418,6 +446,7 @@ describe("savedGroupAdapter", () => {
       expect(update).toHaveBeenCalledWith(
         baseGroup,
         expect.objectContaining({ groupName: "renamed" }),
+        undefined,
       );
       const [, changes] = update.mock.calls[0];
       expect(changes).not.toHaveProperty("description");

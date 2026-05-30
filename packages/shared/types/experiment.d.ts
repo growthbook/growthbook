@@ -143,6 +143,17 @@ export type ExperimentPhaseStringDates = Omit<
   dateEnded?: string;
 };
 
+type NextScheduledStatusUpdateStringDates = Omit<
+  NextScheduledStatusUpdate,
+  "date"
+> & {
+  date: string;
+};
+
+type StatusUpdateScheduleStringDates = Omit<StatusUpdateSchedule, "startAt"> & {
+  startAt?: string;
+};
+
 export type LegacyMetricOverride = MetricOverride & {
   conversionWindowHours?: number;
   conversionDelayHours?: number;
@@ -180,11 +191,17 @@ export interface LegacyExperimentInterface
 
 export type ExperimentInterfaceStringDates = Omit<
   ExperimentInterface,
-  "dateCreated" | "dateUpdated" | "phases"
+  | "dateCreated"
+  | "dateUpdated"
+  | "phases"
+  | "nextScheduledStatusUpdate"
+  | "statusUpdateSchedule"
 > & {
   dateCreated: string;
   dateUpdated: string;
   phases: ExperimentPhaseStringDates[];
+  nextScheduledStatusUpdate?: NextScheduledStatusUpdateStringDates | null;
+  statusUpdateSchedule?: StatusUpdateScheduleStringDates | null;
 };
 
 export type HoldoutExperimentInterface = ExperimentInterfaceStringDates &
@@ -258,6 +275,11 @@ export interface LinkedFeatureInfo {
   inconsistentValues: boolean;
   rulesAbove: boolean;
   environmentStates: Record<string, LinkedFeatureEnvState>;
+  /**
+   * True when the live revision has at least one experiment-ref rule for this
+   * experiment.
+   */
+  liveHasMatchingRule?: boolean;
   /** True when the matching draft revision requires approval (regardless of whether it's been approved yet). */
   pendingApproval?: boolean;
   /** Version of the matching draft revision (present when state === "draft"). */
@@ -302,6 +324,7 @@ export type ExperimentDataForStatusStringDates = Pick<
   | "guardrailMetrics"
   | "datasource"
   | "decisionFrameworkSettings"
+  | "nextScheduledStatusUpdate"
 >;
 
 export type ExperimentDataForStatus = Pick<
@@ -319,4 +342,5 @@ export type ExperimentDataForStatus = Pick<
   | "guardrailMetrics"
   | "datasource"
   | "decisionFrameworkSettings"
+  | "nextScheduledStatusUpdate"
 >;

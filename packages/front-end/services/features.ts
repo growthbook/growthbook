@@ -30,11 +30,16 @@ import {
   getRulesForEnvironment,
   validateAndFixCondition,
   validateFeatureValue,
+  categorizeUnregisteredAttributes,
+  extractConditionAttributeKeys,
+  getRequireRegisteredAttributesSettings,
+  type RequireRegisteredAttributesSettings,
 } from "shared/util";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import isEqual from "lodash/isEqual";
 import { SafeRolloutRule } from "shared/validators";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { getFutureScheduledStartDate } from "@/services/experiments";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
@@ -193,6 +198,10 @@ export function useFeatureSearch({
   environmentStatus,
   draftStates,
   staleStates,
+  rampStates,
+  dependencyIndex,
+  experimentStates,
+  contentSearchPrefixes = [],
 }: {
   allFeatures: FeatureInterface[];
   defaultSortField?:
@@ -215,7 +224,18 @@ export function useFeatureSearch({
       envResults?: Record<string, { stale: boolean; reason?: string }>;
     }
   >;
+  rampStates?: Record<string, unknown>;
+  dependencyIndex?: Set<string> | null;
+  experimentStates?: Record<string, { hasTempRollout: boolean }>;
+  contentSearchPrefixes?: string[];
 }) {
+  const syntaxFilterPassthrough = useCallback(
+    (field: string, value: string) => {
+      if (field !== "has") return false;
+      return contentSearchPrefixes.some((prefix) => value.startsWith(prefix));
+    },
+    [contentSearchPrefixes],
+  );
   const { getOwnerDisplay } = useUser();
   const { getProjectById } = useDefinitions();
 
@@ -240,6 +260,7 @@ export function useFeatureSearch({
     defaultSortField: defaultSortField,
     searchFields: ["id^3", "description"],
     filterResults,
+    syntaxFilterPassthrough,
     updateSearchQueryOnChange: true,
     localStorageKey: localStorageKey,
     searchTermFilters: {
@@ -272,11 +293,17 @@ export function useFeatureSearch({
             has.push("temp-rollout", "tempRollout");
           }
         }
-
-        // TODO: restore has:experiment/rollout/force/rule/prerequisites/savedgroup filters
-        // once rules are denormalized to a top-level rules[] field with an `environments`
-        // property (collapsing per-environment rules into a single scannable array).
-
+        const meta = item as FeatureInterface & {
+          hasPrerequisites?: boolean;
+          hasSavedGroups?: boolean;
+        };
+        if (meta.hasPrerequisites) has.push("prerequisites");
+        if (meta.hasSavedGroups) has.push("savedgroup", "savedgroups");
+        if (item.linkedExperiments?.length) has.push("experiments");
+        if (rampStates?.[item.id]) has.push("ramp-schedule");
+        if (dependencyIndex?.has(item.id)) has.push("dependents");
+        const expState = experimentStates?.[item.id];
+        if (expState?.hasTempRollout) has.push("temp-rollout");
         return has;
       },
       key: (item) => item.id,
@@ -568,9 +595,94 @@ export function useAttributeSchema(
   }, [attributeSchema, showArchived, projectFilter]);
 }
 
+// Shared formatter so the client-side pre-flight error matches the back-end
+// BadRequestError message byte-for-byte. Mirrors
+// `formatUnregisteredAttributesError` in back-end/src/services/attributes.ts.
+function formatUnregisteredAttributesError(
+  label: string,
+  buckets: { unknown: string[]; outOfProject: string[] },
+): string {
+  const parts: string[] = [];
+  if (buckets.unknown.length) {
+    const quoted = buckets.unknown.map((k) => `"${k}"`).join(", ");
+    parts.push(`Unknown attribute key(s) on ${label}: ${quoted}.`);
+  }
+  if (buckets.outOfProject.length) {
+    const quoted = buckets.outOfProject.map((k) => `"${k}"`).join(", ");
+    parts.push(
+      `Attribute key(s) are not part of this project's scope: ${quoted}.`,
+    );
+  }
+  return parts.join("\n");
+}
+
+type AttributeParts = {
+  hashAttribute?: string;
+  fallbackAttribute?: string;
+  condition?: string;
+};
+
+// Accepts either the raw org setting (legacy boolean | new object) or the
+// already-normalized RequireRegisteredAttributesSettings, so callers can
+// pass `useOrgSettings().requireRegisteredAttributes` directly without
+// repeating the normalization at every call site.
+type RawRequireRegistered =
+  | boolean
+  | RequireRegisteredAttributesSettings
+  | undefined
+  | null;
+
+export function validateUnregisteredAttributes(
+  parts: AttributeParts,
+  label: string,
+  options: {
+    attributeSchema?: SDKAttributeSchema;
+    requireRegisteredAttributes?: RawRequireRegistered;
+    project?: string;
+  },
+  existingParts?: AttributeParts,
+): void {
+  const { isOn, requireProjectScoping } =
+    getRequireRegisteredAttributesSettings(options.requireRegisteredAttributes);
+  if (!isOn) return;
+
+  const changed = (field: keyof AttributeParts): boolean =>
+    !!parts[field] && (!existingParts || parts[field] !== existingParts[field]);
+
+  const keys: string[] = [];
+  if (changed("hashAttribute")) keys.push(parts.hashAttribute!);
+  if (changed("fallbackAttribute")) keys.push(parts.fallbackAttribute!);
+  if (changed("condition") && parts.condition !== "{}") {
+    try {
+      keys.push(...extractConditionAttributeKeys(JSON.parse(parts.condition!)));
+    } catch {
+      // Unparseable condition — `validateAndFixCondition` / `validateCondition`
+      // elsewhere will surface JSON errors.
+      return;
+    }
+  }
+  if (!keys.length) return;
+  // Only narrow by project when the org has opted into project-scope checks.
+  // Without this gate, a registered-but-out-of-project attribute would be
+  // surfaced as `outOfProject` even though the back-end would happily save it.
+  const buckets = categorizeUnregisteredAttributes(
+    keys,
+    options.attributeSchema,
+    requireProjectScoping ? options.project : undefined,
+  );
+  if (buckets.unknown.length || buckets.outOfProject.length) {
+    throw new Error(formatUnregisteredAttributesError(label, buckets));
+  }
+}
+
 export function validateFeatureRule(
   rule: FeatureRule,
-  feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
+  feature: Pick<FeatureInterface, "valueType" | "jsonSchema" | "project">,
+  options: {
+    attributeSchema?: SDKAttributeSchema;
+    requireRegisteredAttributes?: RawRequireRegistered;
+  } = {},
+  existingRule?: FeatureRule,
 ): null | FeatureRule {
   let hasChanges = false;
   const ruleCopy = cloneDeep(rule);
@@ -587,6 +699,30 @@ export function validateFeatureRule(
       false,
     );
   }
+
+  // Opt-in client-side pre-flight — same rules as the back-end, same error
+  // wording. Keeps the user from burning a round-trip on a typo. Only validates
+  // fields that changed from existingRule so pre-existing violations don't
+  // block unrelated edits.
+  validateUnregisteredAttributes(
+    {
+      hashAttribute: (ruleCopy as { hashAttribute?: string }).hashAttribute,
+      fallbackAttribute: (ruleCopy as { fallbackAttribute?: string })
+        .fallbackAttribute,
+      condition: ruleCopy.condition,
+    },
+    "rule",
+    { ...options, project: feature.project },
+    existingRule
+      ? {
+          hashAttribute: (existingRule as { hashAttribute?: string })
+            .hashAttribute,
+          fallbackAttribute: (existingRule as { fallbackAttribute?: string })
+            .fallbackAttribute,
+          condition: existingRule.condition,
+        }
+      : undefined,
+  );
   if (rule.prerequisites) {
     if (rule.prerequisites.some((p) => !p.id)) {
       throw new Error("Cannot have empty prerequisites");
@@ -759,6 +895,7 @@ export function getDefaultRuleValue({
   settings,
   datasources,
   isSafeRolloutAutoRollbackEnabled = false,
+  defaultHashVersion = 1,
 }: {
   defaultValue: string;
   attributeSchema?: SDKAttributeSchema;
@@ -766,6 +903,8 @@ export function getDefaultRuleValue({
   settings?: OrganizationSettings;
   datasources?: DataSourceInterfaceWithParams[];
   isSafeRolloutAutoRollbackEnabled?: boolean;
+  /** Safe default hash version for new rules — pass `hasSDKWithNoBucketingV2 ? 1 : 2` at the call site. Defaults to 1 (safest). */
+  defaultHashVersion?: 1 | 2;
 }): FeatureRule | NewExperimentRefRule | safeRolloutFields {
   const hashAttributes =
     attributeSchema?.filter((a) => a.hashAttribute)?.map((a) => a.property) ||
@@ -790,6 +929,7 @@ export function getDefaultRuleValue({
       condition: "",
       enabled: true,
       hashAttribute,
+      hashVersion: defaultHashVersion,
       scheduleRules: [
         {
           enabled: true,
@@ -1665,7 +1805,23 @@ export function useFeatureExperimentChecklists({
     [feature, revision, allEnvironments, experimentsMap],
   );
 
-  return { experiments };
+  const { immediateStartExperiments, scheduledExperiments } = useMemo(() => {
+    const immediate: ExperimentInterfaceStringDates[] = [];
+    const scheduled: ExperimentInterfaceStringDates[] = [];
+    for (const exp of experiments) {
+      if (getFutureScheduledStartDate(exp)) {
+        scheduled.push(exp);
+      } else {
+        immediate.push(exp);
+      }
+    }
+    return {
+      immediateStartExperiments: immediate,
+      scheduledExperiments: scheduled,
+    };
+  }, [experiments]);
+
+  return { experiments, immediateStartExperiments, scheduledExperiments };
 }
 
 export function parseDefaultValue(

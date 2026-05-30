@@ -121,6 +121,7 @@ describe("revertFeatureCore empty-diff guard", () => {
         { id: "feat_1" },
         { revision: 3 },
         jest.fn(),
+        false,
       ),
     ).rejects.toThrow(/Nothing to revert/);
 
@@ -151,6 +152,7 @@ describe("revertFeatureCore empty-diff guard", () => {
       { id: "feat_1" },
       { revision: 3 },
       jest.fn(),
+      false,
     );
 
     expect(mockCreateAndPublish).toHaveBeenCalledTimes(1);

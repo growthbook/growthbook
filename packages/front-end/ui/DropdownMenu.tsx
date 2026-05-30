@@ -261,8 +261,10 @@ export function DropdownMenuItem({
     <RadixDropdownMenu.Item
       disabled={disabled || !!error || !!loading}
       onSelect={async (event) => {
-        event.preventDefault();
         if (confirmation) {
+          // Prevent Radix from closing the menu so the confirmation modal can
+          // appear above it without unmounting the dropdown mid-flow.
+          event.preventDefault();
           if (!hideDropdown || !showDropdown) {
             console.error(
               "confirmation requires hideDropdown and showDropdown. Ensure DropdownMenuItem is used within a DropdownMenu component.",

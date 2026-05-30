@@ -305,8 +305,10 @@ export const postSavedGroupAddItems = async (
     "saved-group",
     savedGroup as unknown as Record<string, unknown> & { id: string },
     [{ op: "replace", path: "/values", value: newValues }],
-    false, // replaceChanges
-    !approvalRequired, // forceCreate: keep any pre-existing draft untouched
+    {
+      // replaceChanges: false (default) — merge with any existing proposed ops
+      forceCreate: !approvalRequired, // keep any pre-existing draft untouched
+    },
   );
 
   // When approval isn't required, merge the revision immediately so the
@@ -447,8 +449,10 @@ export const postSavedGroupRemoveItems = async (
     "saved-group",
     savedGroup as unknown as Record<string, unknown> & { id: string },
     [{ op: "replace", path: "/values", value: newValues }],
-    false, // replaceChanges
-    !approvalRequired, // forceCreate: keep any pre-existing draft untouched
+    {
+      // replaceChanges: false (default) — merge with any existing proposed ops
+      forceCreate: !approvalRequired, // keep any pre-existing draft untouched
+    },
   );
 
   // When approval isn't required, merge the revision immediately so the
@@ -720,12 +724,15 @@ export const putSavedGroup = async (
     "saved-group",
     savedGroup as unknown as Record<string, unknown> & { id: string },
     patchOps,
-    false, // replaceChanges = false to merge with existing proposed changes
-    wantsMerge || forceCreateRevision, // forceCreate when publishing or creating a fresh draft
-    title,
-    revertedFrom,
-    // Only update a specific draft revision when we're staying in draft mode
-    wantsDraft && !bypassApproval && !autoPublish ? revisionId : undefined,
+    {
+      // replaceChanges: false (default) — merge with existing proposed changes
+      forceCreate: wantsMerge || forceCreateRevision, // when publishing or creating a fresh draft
+      title,
+      revertedFrom,
+      // Only update a specific draft revision when we're staying in draft mode
+      revisionId:
+        wantsDraft && !bypassApproval && !autoPublish ? revisionId : undefined,
+    },
   );
 
   if (wantsMerge) {
@@ -936,3 +943,19 @@ export function validateListSize(
     );
   }
 }
+
+// region GET /saved-groups/draft-states
+
+export const getSavedGroupDraftStates = async (
+  req: AuthRequest<null, Record<string, never>, { ids?: string }>,
+  res: Response,
+) => {
+  const context = getContextFromReq(req);
+  const groupIds = req.query.ids
+    ? req.query.ids.split(",").filter(Boolean)
+    : undefined;
+  const groups = await context.models.revisions.getActiveDraftStates(groupIds);
+  return res.status(200).json({ status: 200, groups });
+};
+
+// endregion GET /saved-groups/draft-states

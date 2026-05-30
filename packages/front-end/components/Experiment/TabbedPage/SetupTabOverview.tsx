@@ -9,7 +9,12 @@ import Collapsible from "react-collapsible";
 import { FaAngleRight } from "react-icons/fa";
 import { Box, Flex, ScrollArea } from "@radix-ui/themes";
 import { HoldoutInterfaceStringDates } from "shared/validators";
-import { PiArrowSquareOut } from "react-icons/pi";
+import {
+  PiArrowSquareOut,
+  PiPencilSimpleFill,
+  PiWarningFill,
+} from "react-icons/pi";
+import { format } from "date-fns-tz";
 import { PreLaunchChecklist } from "@/components/Experiment/PreLaunchChecklist";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -33,6 +38,7 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import { HoldoutSchedule } from "@/components/Holdout/HoldoutSchedule";
 import Heading from "@/ui/Heading";
+import Tooltip from "@/ui/Tooltip";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -48,7 +54,7 @@ export interface Props {
   setChecklistItemsRemaining: (value: number | null) => void;
   setChecklistHardBlockerCount?: (value: number) => void;
   envs: string[];
-  editHoldoutSchedule?: (() => void) | null;
+  editSchedule?: (() => void) | null;
 }
 
 export default function SetupTabOverview({
@@ -65,7 +71,7 @@ export default function SetupTabOverview({
   setChecklistItemsRemaining,
   setChecklistHardBlockerCount,
   envs,
-  editHoldoutSchedule,
+  editSchedule,
 }: Props) {
   const { aiEnabled, aiAgreedTo } = useAISettings();
   const [showOptInModal, setShowOptInModal] = useState(false);
@@ -97,19 +103,37 @@ export default function SetupTabOverview({
     new Date(experiment.phases[0].dateStarted) &&
     holdoutExperiments.length > 0 &&
     holdoutExperiments.some((e) => e.status !== "draft");
-  const canEditHoldoutSchedule =
-    isHoldout && holdout && canEditExperiment && editHoldoutSchedule;
+  const canEditSchedule = !isBandit && canEditExperiment && editSchedule;
   const holdoutHasSchedule =
     isHoldout &&
     holdout &&
     Object.values(holdout.statusUpdateSchedule ?? {}).some(
       (value) => value !== null,
     );
+  const experimentHasSchedule =
+    experiment.statusUpdateSchedule &&
+    Object.values(experiment.statusUpdateSchedule).some(
+      (value) => value !== null,
+    );
+  const experimentScheduleApproved = !!experiment.nextScheduledStatusUpdate;
   const showAddHoldoutSchedule =
-    canEditHoldoutSchedule &&
+    canEditSchedule &&
+    isHoldout &&
     !holdoutHasSchedule &&
     experiment.status !== "stopped" &&
     !experiment.archived;
+
+  const showAddExperimentSchedule =
+    canEditSchedule &&
+    !isHoldout &&
+    !isBandit &&
+    !experimentHasSchedule &&
+    experiment.status === "draft" &&
+    !experiment.archived;
+
+  const showScheduleIsInThePastWarning =
+    !!experiment.statusUpdateSchedule?.startAt &&
+    new Date(experiment.statusUpdateSchedule.startAt) < new Date();
 
   const { hasCommercialFeature } = useUser();
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
@@ -148,10 +172,34 @@ export default function SetupTabOverview({
       <div>
         <Flex justify="between" align="baseline" mb="3">
           <h2>Overview</h2>
-          {showAddHoldoutSchedule ? (
-            <Button variant="ghost" onClick={() => editHoldoutSchedule()}>
+          {showAddHoldoutSchedule || showAddExperimentSchedule ? (
+            <Button variant="ghost" onClick={() => editSchedule()}>
               + Add Schedule
             </Button>
+          ) : null}
+          {experiment.status === "draft" &&
+          experiment.type !== "holdout" &&
+          experimentHasSchedule &&
+          !experimentScheduleApproved &&
+          editSchedule ? (
+            <Tooltip
+              content="Scheduled start date has passed—edit scheduled time"
+              enabled={showScheduleIsInThePastWarning}
+            >
+              <Button variant="ghost" onClick={() => editSchedule()}>
+                {showScheduleIsInThePastWarning && (
+                  <PiWarningFill color="var(--warning)" className="mr-1" />
+                )}
+                Target Start:{" "}
+                {experiment.statusUpdateSchedule?.startAt
+                  ? format(
+                      new Date(experiment.statusUpdateSchedule.startAt),
+                      "MMM d, yyyy 'at' h:mm a (z)",
+                    )
+                  : ""}{" "}
+                <PiPencilSimpleFill className="ml-1" />
+              </Button>
+            </Tooltip>
           ) : null}
         </Flex>
         {experiment.status === "draft" && experiment.type !== "holdout" ? (
@@ -168,14 +216,14 @@ export default function SetupTabOverview({
             setChecklistHardBlockerCount={setChecklistHardBlockerCount}
           />
         ) : null}
-        {isHoldout && holdout && holdoutHasSchedule && editHoldoutSchedule ? (
+        {isHoldout && holdout && holdoutHasSchedule && editSchedule ? (
           <Frame id="holdout-schedule" style={{ scrollMarginTop: "100px" }}>
             <Flex align="center" justify="between" className="text-dark">
               <Heading color="text-high" mb="0" as="h4" size="small">
                 Holdout Schedule
               </Heading>
               <Flex align="center" gap="2">
-                {canEditHoldoutSchedule ? (
+                {canEditSchedule ? (
                   <>
                     <DeleteButton
                       text="Delete"
@@ -201,7 +249,7 @@ export default function SetupTabOverview({
                       stopPropagation={true}
                       mr={experiment.description ? "3" : "0"}
                       onClick={() => {
-                        editHoldoutSchedule();
+                        editSchedule();
                       }}
                     >
                       Edit

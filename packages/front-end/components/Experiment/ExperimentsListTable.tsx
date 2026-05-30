@@ -9,13 +9,20 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import WatchButton from "@/components/WatchButton";
 import SortedTags from "@/components/Tags/SortedTags";
 import { ExperimentStatusDetailsWithDot } from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
-import Pagination from "@/components/Pagination";
+import Pagination from "@/ui/Pagination";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
 import { tagFilterOnClick, tagLinkProps } from "@/services/search";
 import { isHealthDetailedStatus } from "@/services/experiments";
 
 interface ExperimentsListTableProps {
   tab: string;
-  SortableTH: FC<{
+  SortableTableColumnHeader: FC<{
     field: string;
     className?: string;
     children: React.ReactNode;
@@ -26,16 +33,18 @@ interface ExperimentsListTableProps {
   project?: string | null;
   searchValue: string;
   setSearchValue: (value: string) => void;
+  hrefBase?: string;
 }
 
 const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
   tab,
-  SortableTH,
+  SortableTableColumnHeader,
   filtered,
   isFiltered,
   project,
   searchValue,
   setSearchValue,
+  hrefBase = "/experiment",
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const NUM_PER_PAGE = 20;
@@ -56,191 +65,237 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
     setCurrentPage(1);
   }, [filtered.length]);
 
+  const colSpan =
+    5 +
+    (showProjectColumn ? 1 : 0) +
+    (needsStatusColumn ? 1 : 0) +
+    (needsResultColumn ? 1 : 0) +
+    (showHealthColumn ? 1 : 0);
+
   return (
     <>
-      <table className="appbox table experiment-table gbtable responsive-table">
-        <thead>
-          <tr>
-            <th></th>
-            <SortableTH field="name" className="w-100">
+      <Table variant="list" stickyHeader roundedCorners>
+        <TableHeader>
+          <TableRow>
+            <TableColumnHeader style={{ width: 40 }} />
+            <SortableTableColumnHeader field="name" style={{ maxWidth: 320 }}>
               Experiment
-            </SortableTH>
+            </SortableTableColumnHeader>
             {showProjectColumn && (
-              <SortableTH field="projectName">Project</SortableTH>
+              <SortableTableColumnHeader field="projectName">
+                Project
+              </SortableTableColumnHeader>
             )}
-            <SortableTH field="tags">Tags</SortableTH>
-            <SortableTH field="ownerName">Owner</SortableTH>
-            <SortableTH field="date">Date</SortableTH>
+            <SortableTableColumnHeader field="tags">
+              Tags
+            </SortableTableColumnHeader>
+            <SortableTableColumnHeader field="ownerName">
+              Owner
+            </SortableTableColumnHeader>
+            <SortableTableColumnHeader field="date">
+              Date
+            </SortableTableColumnHeader>
             {needsStatusColumn && (
-              <SortableTH field="statusSortOrder">Status</SortableTH>
+              <SortableTableColumnHeader field="statusSortOrder">
+                Status
+              </SortableTableColumnHeader>
             )}
             {needsResultColumn && (
-              <SortableTH field="statusSortOrder">Result</SortableTH>
+              <SortableTableColumnHeader field="statusSortOrder">
+                Result
+              </SortableTableColumnHeader>
             )}
             {showHealthColumn && (
-              <SortableTH field="healthStatus">State</SortableTH>
+              <SortableTableColumnHeader field="healthStatus">
+                State
+              </SortableTableColumnHeader>
             )}
-          </tr>
-        </thead>
-        <tbody>
-          {filtered.slice(start, end).map((e) => {
-            return (
-              <tr key={e.id} className="hover-highlight">
-                <td data-title="Watching status:" className="watching">
-                  <WatchButton item={e.id} itemType="experiment" type="icon" />
-                </td>
-                <td data-title="Experiment name:" className="p-0">
-                  <Link href={`/experiment/${e.id}`} className="d-block p-2">
-                    <div className="d-flex flex-column">
-                      <div className="d-flex">
-                        <span className="testname">{e.name}</span>
-                        {e.hasVisualChangesets ? (
-                          <Tooltip
-                            className="d-flex align-items-center ml-2"
-                            body="Visual experiment"
-                          >
-                            <RxDesktop className="text-blue" />
-                          </Tooltip>
-                        ) : null}
-                        {(e.linkedFeatures || []).length > 0 ? (
-                          <Tooltip
-                            className="d-flex align-items-center ml-2"
-                            body="Linked Feature Flag"
-                          >
-                            <BsFlag className="text-blue" />
-                          </Tooltip>
-                        ) : null}
-                        {e.hasURLRedirects ? (
-                          <Tooltip
-                            className="d-flex align-items-center ml-2"
-                            body="URL Redirect experiment"
-                          >
-                            <PiShuffle className="text-blue" />
-                          </Tooltip>
-                        ) : null}
-                      </div>
-                      {isFiltered && e.trackingKey && (
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {filtered.slice(start, end).map((e) => (
+            <TableRow key={e.id}>
+              <TableCell className="watching">
+                <WatchButton item={e.id} itemType="experiment" type="icon" />
+              </TableCell>
+              <TableCell style={{ padding: "var(--space-0)" }}>
+                <Link
+                  href={`${hrefBase}/${e.id}`}
+                  style={{
+                    display: "block",
+                    padding: "var(--space-3)",
+                    color: "var(--gray-12)",
+                  }}
+                >
+                  <div style={{ display: "flex", flexDirection: "column" }}>
+                    <div style={{ display: "flex", alignItems: "center" }}>
+                      <span className="testname">{e.name}</span>
+                      {e.hasVisualChangesets ? (
+                        <Tooltip
+                          flipTheme={false}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            marginLeft: "var(--space-2)",
+                          }}
+                          body="Visual experiment"
+                        >
+                          <RxDesktop className="text-blue" />
+                        </Tooltip>
+                      ) : null}
+                      {(e.linkedFeatures || []).length > 0 ? (
+                        <Tooltip
+                          flipTheme={false}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            marginLeft: "var(--space-2)",
+                          }}
+                          body="Linked Feature Flag"
+                        >
+                          <BsFlag className="text-blue" />
+                        </Tooltip>
+                      ) : null}
+                      {e.hasURLRedirects ? (
+                        <Tooltip
+                          flipTheme={false}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            marginLeft: "var(--space-2)",
+                          }}
+                          body="URL Redirect experiment"
+                        >
+                          <PiShuffle className="text-blue" />
+                        </Tooltip>
+                      ) : null}
+                    </div>
+                    {isFiltered &&
+                      e.trackingKey &&
+                      e.trackingKey !== e.name && (
                         <span
-                          className="testid text-muted small"
+                          className="testid"
                           title="Experiment Id"
+                          style={{
+                            fontSize: "var(--font-size-1)",
+                            color: "var(--gray-10)",
+                          }}
                         >
                           {e.trackingKey}
                         </span>
                       )}
-                    </div>
-                  </Link>
-                </td>
-                {showProjectColumn && (
-                  <td className="nowrap" data-title="Project:">
-                    {e.projectIsDeReferenced ? (
-                      <Tooltip
-                        body={
-                          <>
-                            Project <code>{e.project}</code> not found
-                          </>
-                        }
+                  </div>
+                </Link>
+              </TableCell>
+              {showProjectColumn && (
+                <TableCell>
+                  {e.projectIsDeReferenced ? (
+                    <Tooltip
+                      flipTheme={false}
+                      body={
+                        <>
+                          Project <code>{e.project}</code> not found
+                        </>
+                      }
+                    >
+                      <span className="text-danger">Invalid project</span>
+                    </Tooltip>
+                  ) : (
+                    (e.projectName ?? <em>None</em>)
+                  )}
+                </TableCell>
+              )}
+              <TableCell>
+                <SortedTags
+                  tags={Object.values(e.tags)}
+                  useFlex={true}
+                  {...tagLinkProps("experiments")}
+                  onTagClick={tagFilterOnClick(searchValue, setSearchValue)}
+                />
+              </TableCell>
+              <TableCell>{e.ownerName ?? <em>None</em>}</TableCell>
+              <TableCell title={datetime(e.date)}>
+                {e.tab === "running"
+                  ? "started"
+                  : e.tab === "drafts"
+                    ? "created"
+                    : e.tab === "stopped"
+                      ? "ended"
+                      : e.tab === "archived"
+                        ? "updated"
+                        : ""}{" "}
+                {date(e.date)}
+              </TableCell>
+              {needsStatusColumn ? (
+                <TableCell>
+                  {e.statusIndicator.tooltip &&
+                  !e.statusIndicator.detailedStatus ? (
+                    <Tooltip flipTheme={false} body={e.statusIndicator.tooltip}>
+                      {e.statusIndicator.status}
+                    </Tooltip>
+                  ) : (
+                    e.statusIndicator.status
+                  )}
+                </TableCell>
+              ) : null}
+              {needsResultColumn ? (
+                <TableCell>
+                  {isHealthDetailedStatus(
+                    e.statusIndicator.detailedStatus,
+                  ) ? null : (
+                    <ExperimentStatusDetailsWithDot
+                      statusIndicatorData={e.statusIndicator}
+                    />
+                  )}
+                </TableCell>
+              ) : null}
+              {showHealthColumn ? (
+                <TableCell>
+                  {isHealthDetailedStatus(e.statusIndicator.detailedStatus) ? (
+                    <ExperimentStatusDetailsWithDot
+                      statusIndicatorData={e.statusIndicator}
+                    />
+                  ) : e.hasTempRollout ? (
+                    <Tooltip
+                      flipTheme={false}
+                      body="A stopped experiment is still serving its released variation. Ready for cleanup."
+                    >
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
+                        }}
                       >
-                        <span className="text-danger">Invalid project</span>
-                      </Tooltip>
-                    ) : (
-                      (e.projectName ?? <em>None</em>)
-                    )}
-                  </td>
-                )}
-
-                <td data-title="Tags:" className="table-tags">
-                  <SortedTags
-                    tags={Object.values(e.tags)}
-                    useFlex={true}
-                    {...tagLinkProps("experiments")}
-                    onTagClick={tagFilterOnClick(searchValue, setSearchValue)}
-                  />
-                </td>
-                <td className="nowrap" data-title="Owner:">
-                  {e.ownerName}
-                </td>
-                <td className="nowrap" title={datetime(e.date)}>
-                  {e.tab === "running"
-                    ? "started"
-                    : e.tab === "drafts"
-                      ? "created"
-                      : e.tab === "stopped"
-                        ? "ended"
-                        : e.tab === "archived"
-                          ? "updated"
-                          : ""}{" "}
-                  {date(e.date)}
-                </td>
-                {needsStatusColumn ? (
-                  <td className="nowrap" data-title="Status:">
-                    {e.statusIndicator.tooltip &&
-                    !e.statusIndicator.detailedStatus ? (
-                      <Tooltip body={e.statusIndicator.tooltip}>
-                        {e.statusIndicator.status}
-                      </Tooltip>
-                    ) : (
-                      e.statusIndicator.status
-                    )}
-                  </td>
-                ) : null}
-                {needsResultColumn ? (
-                  <td className="nowrap" data-title="Result:">
-                    {isHealthDetailedStatus(
-                      e.statusIndicator.detailedStatus,
-                    ) ? null : (
-                      <ExperimentStatusDetailsWithDot
-                        statusIndicatorData={e.statusIndicator}
-                      />
-                    )}
-                  </td>
-                ) : null}
-                {showHealthColumn ? (
-                  <td className="nowrap" data-title="State:">
-                    {isHealthDetailedStatus(
-                      e.statusIndicator.detailedStatus,
-                    ) ? (
-                      <ExperimentStatusDetailsWithDot
-                        statusIndicatorData={e.statusIndicator}
-                      />
-                    ) : e.hasTempRollout ? (
-                      <Tooltip body="A stopped experiment is still serving its released variation. Ready for cleanup.">
                         <span
+                          aria-label="Temporary rollout"
                           style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 6,
+                            display: "inline-block",
+                            width: 8,
+                            height: 8,
+                            borderRadius: 8,
+                            backgroundColor: "var(--orange-9)",
                           }}
-                        >
-                          <span
-                            aria-label="Temporary rollout"
-                            style={{
-                              display: "inline-block",
-                              width: 8,
-                              height: 8,
-                              borderRadius: 8,
-                              backgroundColor: "var(--orange-9)",
-                            }}
-                          />
-                          Temp Rollout
-                        </span>
-                      </Tooltip>
-                    ) : null}
-                  </td>
-                ) : null}
-              </tr>
-            );
-          })}
+                        />
+                        Temp Rollout
+                      </span>
+                    </Tooltip>
+                  ) : null}
+                </TableCell>
+              ) : null}
+            </TableRow>
+          ))}
           {filtered.length === 0 && (
-            <tr>
-              <td colSpan={10} className="text-center">
+            <TableRow>
+              <TableCell colSpan={colSpan} className="text-center">
                 {isFiltered
                   ? "No experiments match the current filter."
                   : "No experiments found."}
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           )}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
       {filtered.length > NUM_PER_PAGE && (
         <Pagination
           numItemsTotal={filtered.length}

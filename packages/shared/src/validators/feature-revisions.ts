@@ -344,6 +344,7 @@ const forceRolloutCreateInput = z
     coverage: z.number().min(0).max(1).optional(),
     hashAttribute: z.string().optional(),
     seed: z.string().optional(),
+    hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
   })
   .strict();
 
@@ -373,7 +374,7 @@ const safeRolloutCreateInput = z
       .object({
         datasourceId: z.string(),
         exposureQueryId: z.string(),
-        guardrailMetricIds: z.array(z.string()),
+        guardrailMetricIds: z.array(z.string()).min(1),
         maxDuration: z
           .object({
             amount: z.number().positive(),
@@ -468,6 +469,7 @@ const rulePatchSchema = z
     coverage: z.number().min(0).max(1).optional(),
     hashAttribute: z.string().optional(),
     seed: z.string().optional(),
+    hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
     experimentId: z.string().optional(),
     variations: z
       .array(z.object({ variationId: z.string(), value: z.string() }).strict())
@@ -528,7 +530,7 @@ export const putFeatureRevisionRuleRampScheduleValidator = {
   operationId: "putFeatureRevisionRuleRampSchedule",
   summary: "Set ramp schedule for a rule",
   description:
-    "**Deprecated.** Use [PUT /v2/features/:id/revisions/:version/rules/:ruleId/ramp-schedule](#operation/putFeatureRevisionRuleRampScheduleV2) instead.\n\nAttaches (or replaces) a ramp schedule for the rule. Rejects if the rule already has a live ramp schedule — update that directly via PUT /ramp-schedules/{id}. The schedule is created at publish time.",
+    "**Deprecated.** Use [PUT /v2/features/:id/revisions/:version/rules/:ruleId/ramp-schedule](#operation/putFeatureRevisionRuleRampScheduleV2) instead.\n\nQueues a revision-controlled ramp action for this rule. If the rule already has a live ramp schedule, this stores an `update` action applied on publish; otherwise it stores a `create` action. No live schedule config changes are applied immediately by this endpoint.",
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
@@ -698,7 +700,7 @@ export const listRevisionsValidator = {
   operationId: "listRevisions",
   summary: "List feature revisions",
   description:
-    "**Deprecated.** Use [GET /v2/revisions](#operation/listRevisionsV2) instead.\n\nReturns a paginated list of feature revisions across all features in the organization. Optionally filtered by feature, status, author, and/or the calling user's involvement. Results are sorted newest-first.",
+    "**Deprecated.** Use [GET /v2/feature-revisions](#operation/listRevisionsV2) instead.\n\nReturns a paginated list of feature revisions across all features in the organization. Optionally filtered by feature, status, author, and/or the calling user's involvement. Results are sorted newest-first.",
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],

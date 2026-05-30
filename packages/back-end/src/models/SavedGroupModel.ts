@@ -7,7 +7,15 @@ import { savedGroupValidator, ApiSavedGroup } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
 import { UpdateFilter } from "mongodb";
 import { savedGroupUpdated } from "back-end/src/services/savedGroups";
+import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import { MakeModelClass } from "./BaseModel";
+
+// `skipAttributeValidation` lets revert flows write a previously-published
+// condition even if it now references attributes that have since been removed
+// or archived from the org schema. Normal create/update paths leave it unset.
+type WriteOptions = {
+  skipAttributeValidation?: boolean;
+};
 
 const BaseClass = MakeModelClass({
   schema: savedGroupValidator,
@@ -22,7 +30,7 @@ const BaseClass = MakeModelClass({
   globallyUniquePrimaryKeys: true,
 });
 
-export class SavedGroupModel extends BaseClass {
+export class SavedGroupModel extends BaseClass<WriteOptions> {
   protected canRead(doc: SavedGroupInterface): boolean {
     return this.context.permissions.canReadMultiProjectResource(doc.projects);
   }
@@ -74,6 +82,23 @@ export class SavedGroupModel extends BaseClass {
 
   protected migrate(legacyDoc: LegacySavedGroupInterface): SavedGroupInterface {
     return SavedGroupModel.migrateSavedGroup(legacyDoc);
+  }
+
+  protected async customValidation(
+    doc: SavedGroupInterface,
+    previousDoc?: SavedGroupInterface,
+    writeOptions?: WriteOptions,
+  ) {
+    if (writeOptions?.skipAttributeValidation) return;
+    if (doc.type === "condition" && doc.condition) {
+      assertRegisteredAttributes(
+        this.context,
+        { condition: doc.condition },
+        "saved group",
+        previousDoc ? { condition: previousDoc.condition } : undefined,
+        doc.projects,
+      );
+    }
   }
 
   protected async beforeCreate(doc: SavedGroupInterface) {
@@ -131,6 +156,7 @@ export class SavedGroupModel extends BaseClass {
       description: savedGroup.description,
       projects: savedGroup.projects || [],
       archived: !!savedGroup.archived,
+      useEmptyListGroup: savedGroup.useEmptyListGroup,
     };
   }
 }

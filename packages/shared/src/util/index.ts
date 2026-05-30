@@ -135,7 +135,10 @@ export function isAnalysisAllowed(
   analysisSettings: ExperimentSnapshotAnalysisSettings,
 ): boolean {
   // Analysis dimensions must be subset of snapshot dimensions
-  const snapshotDimIds = snapshotSettings.dimensions.map((d) => d.id);
+  const snapshotDimIds = [
+    ...snapshotSettings.dimensions.map((d) => d.id),
+    ...(snapshotSettings.precomputedUnitDimensionIds ?? []),
+  ];
   if (!analysisSettings.dimensions.every((d) => snapshotDimIds.includes(d))) {
     return false;
   }
@@ -682,3 +685,8 @@ export function parseProcessLogBase() {
 export function capitalizeFirstCharacter(s: string) {
   return s.charAt(0).toLocaleUpperCase() + s.slice(1);
 }
+
+export {
+  NON_PRODUCTION_ENV_PATTERNS,
+  isEnvironmentDevLike,
+} from "./environments";

@@ -97,7 +97,7 @@ const ExperimentsPage = (): React.ReactElement => {
     items,
     searchInputProps,
     isFiltered,
-    SortableTH,
+    SortableTableColumnHeader,
     syntaxFilters,
     setSearchValue,
   } = useExperimentSearch({
@@ -247,36 +247,42 @@ const ExperimentsPage = (): React.ReactElement => {
                     }
                   }}
                 >
-                  <div className="row align-items-center mb-3">
-                    <div className="col-auto d-flex">
-                      <TabsList>
-                        <TabsTrigger value="all">All Experiments</TabsTrigger>
-                        {["running", "drafts", "stopped", "archived"].map(
-                          (tabValue, i) => {
-                            if (tabValue === "archived" && !hasArchived)
-                              return null;
+                  <Box mb="3">
+                    <TabsList>
+                      <TabsTrigger value="all">All Experiments</TabsTrigger>
+                      {["running", "drafts", "stopped", "archived"].map(
+                        (tabValue, i) => {
+                          if (tabValue === "archived" && !hasArchived)
+                            return null;
 
-                            return (
-                              <TabsTrigger value={tabValue} key={tabValue + i}>
-                                <span className="mr-1 ml-2">
-                                  {tabValue.slice(0, 1).toUpperCase()}
-                                  {tabValue.slice(1)}
+                          return (
+                            <TabsTrigger value={tabValue} key={tabValue + i}>
+                              {tabValue.slice(0, 1).toUpperCase()}
+                              {tabValue.slice(1)}
+                              {tabValue !== "archived" && (
+                                <span
+                                  style={{
+                                    marginLeft: "var(--space-2)",
+                                    background: "var(--gray-3)",
+                                    border: "1px solid var(--gray-6)",
+                                    borderRadius: "var(--radius-2)",
+                                    padding: "0 var(--space-2)",
+                                    fontSize: "var(--font-size-1)",
+                                    color: "var(--gray-11)",
+                                  }}
+                                >
+                                  {tabCounts[tabValue] || 0}
                                 </span>
-                                {tabValue !== "archived" && (
-                                  <span className="badge bg-white border text-dark mr-2 mb-0">
-                                    {tabCounts[tabValue] || 0}
-                                  </span>
-                                )}
-                              </TabsTrigger>
-                            );
-                          },
-                        )}
-                      </TabsList>
-                    </div>
-                  </div>
+                              )}
+                            </TabsTrigger>
+                          );
+                        },
+                      )}
+                    </TabsList>
+                  </Box>
                   <Flex
                     gap="4"
-                    align="start"
+                    align="center"
                     justify="between"
                     mb="4"
                     wrap="wrap"
@@ -298,7 +304,7 @@ const ExperimentsPage = (): React.ReactElement => {
                   <TabsContent value="all">
                     <ExperimentsListTable
                       tab="all"
-                      SortableTH={SortableTH}
+                      SortableTableColumnHeader={SortableTableColumnHeader}
                       filtered={filtered}
                       isFiltered={isFiltered}
                       project={project}
@@ -306,26 +312,22 @@ const ExperimentsPage = (): React.ReactElement => {
                       setSearchValue={setSearchValue}
                     />
                   </TabsContent>
-                  {["running", "drafts", "stopped", "archived"].map(
-                    (tabValue) => {
-                      if (tabValue === "archived" && !hasArchived) return null;
-                      return (
-                        <TabsContent value={tabValue} key={tabValue}>
-                          <ExperimentsListTable
-                            tab={tabValue}
-                            SortableTH={SortableTH}
-                            filtered={filtered.filter(
-                              (e) => e.tab === tabValue,
-                            )}
-                            isFiltered={isFiltered}
-                            project={project}
-                            searchValue={searchInputProps.value}
-                            setSearchValue={setSearchValue}
-                          />
-                        </TabsContent>
-                      );
-                    },
-                  )}
+                  {["running", "drafts", "stopped", "archived"].map((tab) => {
+                    if (tab === "archived" && !hasArchived) return null;
+                    return (
+                      <TabsContent value={tab} key={tab}>
+                        <ExperimentsListTable
+                          tab={tab}
+                          SortableTableColumnHeader={SortableTableColumnHeader}
+                          filtered={filtered.filter((e) => e.tab === tab)}
+                          isFiltered={isFiltered}
+                          project={project}
+                          searchValue={searchInputProps.value}
+                          setSearchValue={setSearchValue}
+                        />
+                      </TabsContent>
+                    );
+                  })}
                 </Tabs>
               </>
             )

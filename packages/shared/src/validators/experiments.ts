@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { statsEngines } from "shared/constants";
+import {
+  statsEngines,
+  MAX_PRECOMPUTED_UNIT_DIMENSIONS,
+} from "shared/constants";
 import {
   namespaceValue,
   featurePrerequisite,
@@ -21,6 +24,8 @@ export const customMetricSlice = z.object({
   ),
 });
 export type CustomMetricSlice = z.infer<typeof customMetricSlice>;
+
+const maxPrecomputedUnitDimensionsError = `A maximum of ${MAX_PRECOMPUTED_UNIT_DIMENSIONS} precomputed unit dimensions are allowed`;
 
 export const experimentResultsType = [
   "dnf",
@@ -161,6 +166,7 @@ export const experimentNotification = [
   "auto-update",
   "multiple-exposures",
   "srm",
+  "no-data",
   "significance",
 ] as const;
 export type ExperimentNotification = (typeof experimentNotification)[number];
@@ -336,6 +342,20 @@ export type ExperimentAnalysisSummary = z.infer<
   typeof experimentAnalysisSummary
 >;
 
+// TODO(schedule-status-updates): add stopAt
+export const statusUpdateScheduleValidator = z.object({
+  startAt: z.date(),
+});
+
+const nextScheduledStatusUpdateValidator = z.object({
+  type: z.enum(["start", "stop"]),
+  date: z.date(),
+  // Number of times the scheduled job has failed to apply this update.
+  // The job clears `nextScheduledStatusUpdate` once this hits the retry cap
+  // (see SCHEDULED_STATUS_UPDATE_MAX_ATTEMPTS in updateExperimentStatus.ts).
+  failedAttempts: z.number().int().nonnegative().optional(),
+});
+
 export const experimentInterface = z
   .object({
     id: z.string(),
@@ -412,6 +432,14 @@ export const experimentInterface = z
     holdoutId: z.string().optional(),
     defaultDashboardId: z.string().optional(),
     customMetricSlices: z.array(customMetricSlice).optional(),
+    statusUpdateSchedule: statusUpdateScheduleValidator.optional().nullable(),
+    nextScheduledStatusUpdate: nextScheduledStatusUpdateValidator
+      .optional()
+      .nullable(),
+    precomputedUnitDimensionIds: z
+      .array(z.string())
+      .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
+      .optional(),
   })
   .strict()
   .merge(experimentAnalysisSettings);
@@ -707,6 +735,21 @@ const apiCustomMetricSlices = z
     "Custom slices that apply to ALL applicable metrics in the experiment",
   );
 
+const apiStatusUpdateSchedule = z
+  .object({
+    startAt: z
+      .string()
+      .meta({ format: "date-time" })
+      .describe(
+        "ISO datetime when the experiment should start. Must be in the future. " +
+          "Setting or clearing this field invalidates any existing staged start " +
+          "(`nextScheduledStatusUpdate`); call POST /experiments/{id}/start to stage the new schedule.",
+      ),
+  })
+  .describe(
+    "Schedule a future start for a draft experiment. Only `startAt` is currently supported.",
+  );
+
 // Corresponds to schemas/Experiment.yaml
 const apiExperimentShape = z.object({
   id: z.string(),
@@ -714,7 +757,7 @@ const apiExperimentShape = z.object({
   dateCreated: z.string().meta({ format: "date-time" }),
   dateUpdated: z.string().meta({ format: "date-time" }),
   name: z.string(),
-  type: z.enum(["standard", "multi-armed-bandit"]),
+  type: z.enum(["standard", "multi-armed-bandit", "holdout"]),
   project: z.string(),
   hypothesis: z.string(),
   description: z.string(),
@@ -747,11 +790,27 @@ const apiExperimentShape = z.object({
   hasURLRedirects: z.boolean().optional(),
   customFields: z.record(z.string(), z.any()).optional(),
   customMetricSlices: apiCustomMetricSlices.optional(),
+  precomputedUnitDimensionIds: z
+    .array(z.string())
+    .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
+    .optional(),
   defaultDashboardId: z
     .string()
     .describe("ID of the default dashboard for this experiment.")
     .optional(),
   templateId: z.string().optional(),
+  statusUpdateSchedule: apiStatusUpdateSchedule.nullable().optional(),
+  nextScheduledStatusUpdate: z
+    .object({
+      // Only "start" is supported for experiments today. The internal
+      // statusUpdateScheduleValidator has a `TODO(schedule-status-updates):
+      // add stopAt`, and updateExperimentStatus.ts treats any other type as
+      // unsupported and clears the field
+      type: z.literal("start"),
+      date: z.string().meta({ format: "date-time" }),
+    })
+    .nullable()
+    .optional(),
 });
 export const apiExperimentValidator = namedSchema(
   "Experiment",
@@ -769,7 +828,13 @@ export const apiExperimentWithEnhancedStatus = namedSchema(
     z.object({
       enhancedStatus: z
         .object({
-          status: z.enum(["Running", "Stopped", "Draft", "Archived"]),
+          status: z.enum([
+            "Running",
+            "Stopped",
+            "Draft",
+            "Scheduled",
+            "Archived",
+          ]),
           detailedStatus: z.string().optional(),
         })
         .optional(),
@@ -815,9 +880,11 @@ export const apiExperimentResultsValidator = namedSchema(
           metrics: z.array(
             z.object({
               metricId: z.string(),
+              metricName: z.string().optional(),
               variations: z.array(
                 z.object({
                   variationId: z.string(),
+                  variationName: z.string().optional(),
                   users: z.coerce.number().optional(),
                   analyses: z.array(
                     z.object({
@@ -930,14 +997,6 @@ const apiPhaseInput = z.object({
   reasonForStopping: z.string().optional(),
   seed: z.string().optional(),
   coverage: z.number().optional(),
-  trafficSplit: z
-    .array(
-      z.object({
-        variationId: z.string(),
-        weight: z.number(),
-      }),
-    )
-    .optional(),
   namespace: z
     .object({
       namespaceId: z.string(),
@@ -947,7 +1006,6 @@ const apiPhaseInput = z.object({
       ranges: z.array(z.tuple([z.number(), z.number()])).optional(),
     })
     .optional(),
-  targetingCondition: z.string().optional(),
   prerequisites: z
     .array(
       z.object({
@@ -1026,7 +1084,7 @@ const postExperimentBody = z
       .optional(),
     owner: ownerInputField.optional(),
     archived: z.boolean().optional(),
-    status: z.enum(["draft", "running", "stopped"]).optional(),
+    status: z.enum(experimentStatus).optional(),
     autoRefresh: z.boolean().optional(),
     hashAttribute: z.string().optional(),
     fallbackAttribute: z.string().optional(),
@@ -1085,6 +1143,14 @@ const postExperimentBody = z
       .optional(),
     customFields: z.record(z.string(), z.string()).optional(),
     customMetricSlices: apiCustomMetricSlices.optional(),
+    precomputedUnitDimensionIds: z
+      .array(z.string())
+      .describe(
+        "A list of unit dimension ids that will be calculated every update and generate timeseries data. Requires the datasource to have pipeline mode enabled.",
+      )
+      .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
+      .optional(),
+    statusUpdateSchedule: apiStatusUpdateSchedule.optional(),
   })
   .strict();
 
@@ -1134,7 +1200,7 @@ const updateExperimentBody = z
       .optional(),
     owner: ownerInputField.optional(),
     archived: z.boolean().optional(),
-    status: z.enum(["draft", "running", "stopped"]).optional(),
+    status: z.enum(experimentStatus).optional(),
     autoRefresh: z.boolean().optional(),
     hashAttribute: z.string().optional(),
     fallbackAttribute: z.string().optional(),
@@ -1191,16 +1257,6 @@ const updateExperimentBody = z
           reasonForStopping: z.string().optional(),
           seed: z.string().optional(),
           coverage: z.number().optional(),
-          trafficSplit: z
-            .array(
-              z.object({
-                variationId: z.string(),
-                weight: z.number(),
-              }),
-            )
-            .describe("Deprecated and unused. Use variationWeights instead.")
-            .optional()
-            .meta({ deprecated: true }),
           namespace: z
             .object({
               namespaceId: z.string(),
@@ -1208,7 +1264,6 @@ const updateExperimentBody = z
               enabled: z.boolean().optional(),
             })
             .optional(),
-          targetingCondition: z.string().optional(),
           prerequisites: z
             .array(
               z.object({
@@ -1269,6 +1324,19 @@ const updateExperimentBody = z
       .optional(),
     customFields: z.record(z.string(), z.string()).optional(),
     customMetricSlices: apiCustomMetricSlices.optional(),
+    statusUpdateSchedule: apiStatusUpdateSchedule
+      .describe(
+        "Schedule a future start for a draft experiment. Set to `null` to remove the schedule. Provide `{ startAt }` to set or update it. Only `startAt` is currently supported.",
+      )
+      .nullable()
+      .optional(),
+    precomputedUnitDimensionIds: z
+      .array(z.string())
+      .describe(
+        "A list of unit dimension ids that will be calculated every update and generate timeseries data. Requires the datasource to have pipeline mode enabled.",
+      )
+      .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
+      .optional(),
   })
   .strict();
 
@@ -1537,9 +1605,17 @@ export const postExperimentStartValidator = {
   responseSchema: z
     .object({
       experiment: apiExperimentWithEnhancedStatus,
+      message: z
+        .string()
+        .describe(
+          "Present only when the request staged a future scheduled start instead of starting the experiment immediately.",
+        )
+        .optional(),
     })
     .strict(),
-  summary: "Start an experiment",
+  summary: "Start/Stage an experiment",
+  description:
+    "Starts an experiment or stages it for a future start if a `statusUpdateSchedule` is set on the experiment.",
   operationId: "postExperimentStart",
   tags: ["experiments"],
   method: "post" as const,
@@ -1733,6 +1809,7 @@ export const getExperimentResultsValidator = {
   paramsSchema: idParams,
   responseSchema: z
     .object({
+      experiment: apiExperimentValidator,
       result: apiExperimentResultsValidator,
     })
     .strict(),

@@ -1,7 +1,15 @@
 import dynamic from "next/dynamic";
+import { createPortal } from "react-dom";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import {
+  useMemo,
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useCallback,
+} from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
 import {
@@ -21,6 +29,7 @@ import {
   fillRevisionFromFeature,
   liveRevisionFromFeature,
   filterEnvironmentsByFeature,
+  getEnvsFromRampSchedule,
   getReviewSetting,
   draftDiffersFromLive,
 } from "shared/util";
@@ -473,6 +482,37 @@ export default function FeaturesOverview({
     bannerSentinelObserver.current = observer;
   }, []);
 
+  // Slot refs for the draft CTA portal (Discard / Review & Publish / Fix conflicts).
+  // The portal host migrates between the revision card slot and the sticky banner
+  // slot so the same DOM node is reused without duplicating handler logic.
+  const ctaSlotRef = useRef<HTMLDivElement>(null);
+  const bannerCtaSlotRef = useRef<HTMLDivElement>(null);
+  const [draftCtaPortalHost] = useState<HTMLDivElement | null>(() => {
+    if (typeof document === "undefined") return null;
+    const div = document.createElement("div");
+    div.style.display = "contents";
+    return div;
+  });
+  // No deps array: the effect must re-run on every render because ctaSlotRef
+  // isn't a stable dep — it starts null while the component's early return
+  // fires (props loading), then becomes populated once the full JSX renders.
+  // useLayoutEffect ensures refs are set before the effect runs, so appendChild
+  // always sees the correct target. The call is idempotent when the portal host
+  // is already in the right slot.
+  useLayoutEffect(() => {
+    if (!draftCtaPortalHost) return;
+    const target = bannerPinned ? bannerCtaSlotRef.current : ctaSlotRef.current;
+    if (target) target.appendChild(draftCtaPortalHost);
+  });
+
+  const featureLockedByRamp = useMemo(
+    () =>
+      rampSchedules?.some(
+        (rs) => rs.lockdownConfig?.mode === "locked" && rs.status === "running",
+      ) ?? false,
+    [rampSchedules],
+  );
+
   if (!baseFeature || !feature || !revision) return null;
 
   const hasConditionalState =
@@ -510,10 +550,14 @@ export default function FeaturesOverview({
       // v2 rules are a flat FeatureRule[]; the mergeResult carries either the
       // full replacement array (when rules changed) or nothing (when only
       // non-rule fields changed). Never object-spread an array.
+      // rampActions live on the draft; autoMerge doesn't carry them through
+      // MergeResultChanges, so re-attach them here so the review gate can
+      // detect that production environments are affected.
       effectiveRevision = {
         ...filledLive,
         ...mergeResult.result,
         rules: mergeResult.result.rules ?? filledLive.rules,
+        rampActions: revision?.rampActions,
       };
       effectiveBase = filledLive;
     }
@@ -525,6 +569,22 @@ export default function FeaturesOverview({
       allEnvironments: environments.map((e) => e.id),
       settings,
       requireApprovalsLicensed: hasCommercialFeature("require-approvals"),
+      liveRampScheduleEnvs: (() => {
+        const map = new Map<string, string[] | "all">();
+        for (const action of effectiveRevision.rampActions ?? []) {
+          if (action.mode !== "update") continue;
+          const liveSchedule = rampSchedules?.find(
+            (rs) => rs.id === action.rampScheduleId,
+          );
+          if (liveSchedule) {
+            map.set(
+              action.rampScheduleId,
+              getEnvsFromRampSchedule(liveSchedule),
+            );
+          }
+        }
+        return map;
+      })(),
     });
   }
   const isLive = revision?.version === feature.version;
@@ -571,13 +631,6 @@ export default function FeaturesOverview({
       ? ("draft" as const)
       : ("inactive" as const)
     : false;
-
-  const enabledEnvsSubtext =
-    isDraft || isPendingReview
-      ? "in this draft"
-      : !isLive
-        ? "in this revision"
-        : null;
 
   // TODO: support multiple per-project approval configs
   const featureReviewConfig = getReviewSetting(
@@ -628,6 +681,18 @@ export default function FeaturesOverview({
   };
 
   const renderDraftBannerCopy = () => {
+    if (featureLockedByRamp) {
+      return (
+        <>
+          <PiLockSimple />{" "}
+          {isPendingReview
+            ? "Review and Approve"
+            : approved
+              ? "Review and Publish"
+              : "Request Approval to Publish"}
+        </>
+      );
+    }
     if (isPendingReview) {
       return (
         <>
@@ -651,6 +716,7 @@ export default function FeaturesOverview({
 
   const renderRevisionCTA = () => {
     const actions: JSX.Element[] = [];
+    const nowrap = { whiteSpace: "nowrap" as const };
 
     if (canEditDrafts) {
       if (isLocked && !isLive && !isDiscarded) {
@@ -660,6 +726,7 @@ export default function FeaturesOverview({
             color="red"
             onClick={() => setRevertIndex(revision.version)}
             title="Create a new Draft based on this revision"
+            style={nowrap}
           >
             Revert to this version
           </Button>,
@@ -676,7 +743,7 @@ export default function FeaturesOverview({
             (r) =>
               r.status === "published" &&
               r.version !== feature.version &&
-              r.datePublished != null &&
+              !!r.datePublished &&
               new Date(r.datePublished).getTime() < livePublishedAt,
           )
           .sort((a, b) => {
@@ -697,6 +764,7 @@ export default function FeaturesOverview({
               onClick={() => {
                 setRevertIndex(previousRevision.version);
               }}
+              style={nowrap}
             >
               Revert to Previous
             </Button>,
@@ -711,6 +779,7 @@ export default function FeaturesOverview({
             loading={creatingDraft}
             onClick={() => setConfirmNewDraft(true)}
             variant="soft"
+            style={nowrap}
           >
             New Draft
           </Button>,
@@ -718,76 +787,8 @@ export default function FeaturesOverview({
       }
 
       if (isDraft) {
-        actions.push(
-          <Button
-            variant="ghost"
-            color="red"
-            onClick={() => {
-              setConfirmDiscard(true);
-            }}
-          >
-            Discard draft
-          </Button>,
-        );
-
-        if (mergeResult?.success) {
-          if (requireReviews) {
-            actions.push(
-              <Tooltip
-                body={
-                  !revisionHasChanges
-                    ? "Draft is identical to the live version. Make changes first before requesting review"
-                    : ""
-                }
-              >
-                <Button
-                  disabled={!revisionHasChanges}
-                  onClick={() => {
-                    setReviewModal(true);
-                  }}
-                >
-                  {renderDraftBannerCopy()}
-                </Button>
-              </Tooltip>,
-            );
-          } else {
-            actions.push(
-              <Tooltip
-                body={
-                  !revisionHasChanges
-                    ? "Draft is identical to the live version. Make changes first before publishing"
-                    : !hasDraftPublishPermission
-                      ? "You do not have permission to publish this draft."
-                      : ""
-                }
-              >
-                <Button
-                  disabled={!revisionHasChanges || !hasDraftPublishPermission}
-                  onClick={() => {
-                    setDraftModal(true);
-                  }}
-                >
-                  Review &amp; Publish
-                </Button>
-              </Tooltip>,
-            );
-          }
-        } else {
-          if (mergeResult) {
-            actions.push(
-              <Tooltip body="There have been new conflicting changes published since this draft was created that must be resolved before you can publish">
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setConflictModal(true);
-                  }}
-                >
-                  Fix conflicts
-                </Button>
-              </Tooltip>,
-            );
-          }
-        }
+        // Slot: draftCtaGroup portal mounts here when not scrolled past the revision card
+        actions.push(<div key="draft-cta-slot" ref={ctaSlotRef} />);
       }
     }
 
@@ -799,6 +800,80 @@ export default function FeaturesOverview({
       </>
     );
   };
+
+  // Draft CTA group — defined once and rendered via a stable portal host.
+  // The portal host is physically moved between the revision card's ctaSlotRef
+  // and the sticky banner's bannerCtaSlotRef so CTAs only need to be defined here.
+  const nowrap = { whiteSpace: "nowrap" as const };
+  const draftCtaGroup =
+    isDraft && canEditDrafts ? (
+      <Flex align="center" gap="4">
+        <Box>
+          <Button
+            variant="ghost"
+            color="red"
+            onClick={() => setConfirmDiscard(true)}
+            style={nowrap}
+          >
+            Discard draft
+          </Button>
+        </Box>
+        {mergeResult?.success ? (
+          requireReviews ? (
+            <Box>
+              <Tooltip
+                body={
+                  !revisionHasChanges
+                    ? "Draft is identical to the live version. Make changes first before requesting review"
+                    : ""
+                }
+              >
+                <Button
+                  disabled={!revisionHasChanges}
+                  onClick={() => setReviewModal(true)}
+                  style={nowrap}
+                >
+                  {renderDraftBannerCopy()}
+                </Button>
+              </Tooltip>
+            </Box>
+          ) : (
+            <Box>
+              <Tooltip
+                body={
+                  !revisionHasChanges
+                    ? "Draft is identical to the live version. Make changes first before publishing"
+                    : !hasDraftPublishPermission
+                      ? "You do not have permission to publish this draft."
+                      : ""
+                }
+              >
+                <Button
+                  disabled={!revisionHasChanges || !hasDraftPublishPermission}
+                  icon={featureLockedByRamp ? <PiLockSimple /> : undefined}
+                  onClick={() => setDraftModal(true)}
+                  style={nowrap}
+                >
+                  Review &amp; Publish
+                </Button>
+              </Tooltip>
+            </Box>
+          )
+        ) : mergeResult ? (
+          <Box>
+            <Tooltip body="There have been new conflicting changes published since this draft was created that must be resolved before you can publish">
+              <Button
+                variant="ghost"
+                onClick={() => setConflictModal(true)}
+                style={nowrap}
+              >
+                Fix conflicts
+              </Button>
+            </Tooltip>
+          </Box>
+        ) : null}
+      </Flex>
+    ) : null;
 
   const onCompareRevisions =
     (revisionList?.length ?? 0) >= 2
@@ -1031,89 +1106,6 @@ export default function FeaturesOverview({
                     : null;
 
           if (!bannerProps) return null;
-          // When the banner is pinned (page scrolled past the top CTAs), surface
-          // the same draft actions inline so users don't have to scroll back up.
-          const showInlineActions = isDraft && canEditDrafts && bannerPinned;
-          const bannerActions: JSX.Element[] = [];
-          if (showInlineActions) {
-            const nowrap = { whiteSpace: "nowrap" as const };
-            bannerActions.push(
-              <Button
-                key="discard"
-                size="xs"
-                variant="ghost"
-                color="red"
-                onClick={() => setConfirmDiscard(true)}
-                style={nowrap}
-              >
-                Discard draft
-              </Button>,
-            );
-            if (mergeResult?.success) {
-              if (requireReviews) {
-                bannerActions.push(
-                  <Tooltip
-                    key="review"
-                    body={
-                      !revisionHasChanges
-                        ? "Draft is identical to the live version. Make changes first before requesting review"
-                        : ""
-                    }
-                  >
-                    <Button
-                      size="xs"
-                      disabled={!revisionHasChanges}
-                      onClick={() => setReviewModal(true)}
-                      style={nowrap}
-                    >
-                      {renderDraftBannerCopy()}
-                    </Button>
-                  </Tooltip>,
-                );
-              } else {
-                bannerActions.push(
-                  <Tooltip
-                    key="publish"
-                    body={
-                      !revisionHasChanges
-                        ? "Draft is identical to the live version. Make changes first before publishing"
-                        : !hasDraftPublishPermission
-                          ? "You do not have permission to publish this draft."
-                          : ""
-                    }
-                  >
-                    <Button
-                      size="xs"
-                      disabled={
-                        !revisionHasChanges || !hasDraftPublishPermission
-                      }
-                      onClick={() => setDraftModal(true)}
-                      style={nowrap}
-                    >
-                      Review &amp; Publish
-                    </Button>
-                  </Tooltip>,
-                );
-              }
-            } else if (mergeResult) {
-              bannerActions.push(
-                <Tooltip
-                  key="conflicts"
-                  body="There have been new conflicting changes published since this draft was created that must be resolved before you can publish"
-                >
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    onClick={() => setConflictModal(true)}
-                    style={nowrap}
-                  >
-                    Fix conflicts
-                  </Button>
-                </Tooltip>,
-              );
-            }
-          }
-          const hasActions = bannerActions.length > 0;
           return (
             <>
               <div ref={bannerSentinelRef} aria-hidden style={{ height: 0 }} />
@@ -1135,7 +1127,7 @@ export default function FeaturesOverview({
                     backgroundColor: "var(--color-background)",
                     borderRadius: "var(--radius-3)",
                     overflow: "hidden",
-                    maxWidth: "2000px",
+                    maxWidth: bannerPinned ? 1280 : 1500,
                     boxShadow: bannerPinned ? "var(--shadow-3)" : undefined,
                     transition: "all 200ms ease",
                     pointerEvents: "auto",
@@ -1171,7 +1163,8 @@ export default function FeaturesOverview({
                       justify="end"
                       style={{ flexShrink: 0, gridColumn: 3 }}
                     >
-                      {hasActions && bannerActions}
+                      {/* Slot: draftCtaGroup portal mounts here when banner is pinned */}
+                      <div ref={bannerCtaSlotRef} />
                     </Flex>
                   </Box>
                 </div>
@@ -1305,6 +1298,8 @@ export default function FeaturesOverview({
             {renderRevisionInfo()}
           </Frame>
         )}
+        {/* Portal: renders draftCtaGroup into whichever slot is active (ctaSlotRef or bannerCtaSlotRef) */}
+        {draftCtaPortalHost && createPortal(draftCtaGroup, draftCtaPortalHost)}
 
         <Frame mt="2" mb="4" px="0" py="0" style={{ overflow: "hidden" }}>
           <Collapsible
@@ -1431,13 +1426,6 @@ export default function FeaturesOverview({
                       <span className="font-weight-bold">
                         Enabled Environments
                       </span>
-                      {enabledEnvsSubtext ? (
-                        <div style={{ marginBottom: -20 }}>
-                          <Text as="div" size="small" color="text-mid">
-                            {enabledEnvsSubtext}
-                          </Text>
-                        </div>
-                      ) : null}
                     </Box>
                     {envs.map((env) => (
                       <Box
@@ -1619,11 +1607,6 @@ export default function FeaturesOverview({
               <Flex align="center" justify="between" mb="2">
                 <span>
                   <span className="font-weight-bold">Enabled Environments</span>
-                  {enabledEnvsSubtext ? (
-                    <Text as="div" size="small" color="text-mid">
-                      {enabledEnvsSubtext}
-                    </Text>
-                  ) : null}
                 </span>
                 {!isReadOnly && (
                   <Button
@@ -1635,8 +1618,8 @@ export default function FeaturesOverview({
                   </Button>
                 )}
               </Flex>
-              <Separator size="4" mt="1" mb="3" />
               <Flex
+                mt="3"
                 mb="4"
                 justify="start"
                 align="center"
@@ -1768,6 +1751,7 @@ export default function FeaturesOverview({
             />
           )}
         </Frame>
+
         {dependents > 0 && (
           <Frame mb="4" px="6" py="4">
             <Flex mb="2" gap="2" align="center">

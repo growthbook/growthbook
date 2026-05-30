@@ -56,7 +56,6 @@ export function mapV2ApiRuleToFeatureRule(
       match: s.matchType,
       ids: s.savedGroups,
     })),
-    scheduleRules: ruleInput.scheduleRules,
     allEnvironments: resolvedAllEnvs,
     environments: resolvedEnvs,
   };
