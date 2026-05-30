@@ -6,7 +6,6 @@ import { useAuth } from "@/services/auth";
 import GetStartedAndHomePage from "@/components/GetStarted";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { AppFeatures } from "@/types/app-features";
-import { isCloud } from "@/services/env";
 import { isExperimentationLeaning } from "@/services/onboarding";
 import Callout from "@/ui/Callout";
 
@@ -52,10 +51,9 @@ export default function Home(): React.ReactElement {
     if (!organization) return;
     if (!willRedirect) return;
 
-    const useNewOnboarding =
-      isExperimentationLeaning(organization?.demographicData) &&
-      isCloud() &&
-      gb.isOn("experimentation-focused-onboarding");
+    const useNewOnboarding = isExperimentationLeaning(
+      organization?.demographicData,
+    );
     if (!organization.isVercelIntegration && !useNewOnboarding) {
       router.replace("/setup");
     } else {
