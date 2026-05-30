@@ -65,11 +65,15 @@ export function getExperimentFactMetricsQuery(
 
   const factTable = factTablesWithIndices[0]?.factTable;
 
-  const queryName = `${
+  const factTableLabel = `${
     factTablesWithIndices.length === 1
       ? `Fact Table`
       : `Cross-Fact Table Metrics`
   }: ${factTablesWithIndices.map((f) => f.factTable.name).join(" & ")}`;
+  const dimensionLabel = unitDimensions.length
+    ? `Dimension: ${unitDimensions.map((d) => d.dimension.name).join(", ")}; `
+    : "";
+  const queryName = `${dimensionLabel}${factTableLabel}`;
 
   const userIdType =
     params.forcedUserIdType ??

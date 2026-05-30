@@ -104,6 +104,7 @@ function buildZeroEffectPadPoint(
 ): ExperimentTimeSeriesGraphDataPoint {
   return {
     d,
+    isPaddingPoint: true,
     variations: templateCells.map((cell) => {
       if (!cell) return null;
       return {
