@@ -918,7 +918,9 @@ export const apiRevisionPrerequisite = z.object({
 export const apiRevisionPrerequisiteV2 = z.object({
   id: z.string().describe("Feature ID of the prerequisite boolean flag"),
 });
-export type ApiRevisionPrerequisiteV2 = z.infer<typeof apiRevisionPrerequisiteV2>;
+export type ApiRevisionPrerequisiteV2 = z.infer<
+  typeof apiRevisionPrerequisiteV2
+>;
 
 // Revision metadata sub-object
 export const apiRevisionMetadata = z
