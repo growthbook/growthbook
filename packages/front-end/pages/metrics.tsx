@@ -58,7 +58,13 @@ const MetricsPage = (): React.ReactElement => {
             {!hasDatasource ? (
               <LinkButton href="/datasources">Connect Data Source</LinkButton>
             ) : !hasFactTables ? (
-              <LinkButton href="/fact-tables">Create Fact Table</LinkButton>
+              <>
+                <p>
+                  Start by creating a <strong>Fact Table</strong>, which serves
+                  as the foundation for your metrics.
+                </p>
+                <LinkButton href="/fact-tables">Create Fact Table</LinkButton>
+              </>
             ) : (
               <Tooltip
                 body="You don't have permission to add metrics in this project."
