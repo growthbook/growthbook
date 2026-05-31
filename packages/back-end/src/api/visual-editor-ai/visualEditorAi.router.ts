@@ -8,6 +8,7 @@ import { postAddVariant } from "./postAddVariant";
 import { postCreateExperiment } from "./postCreateExperiment";
 import { postRenameExperiment } from "./postRenameExperiment";
 import { getBootstrap } from "./getBootstrap";
+import { getLibraryImages } from "./getLibraryImages";
 
 export const visualEditorAiRoutes: OpenApiRoute[] = [
   postAIEdit,
@@ -19,4 +20,5 @@ export const visualEditorAiRoutes: OpenApiRoute[] = [
   postCreateExperiment,
   postRenameExperiment,
   getBootstrap,
+  getLibraryImages,
 ];

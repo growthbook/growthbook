@@ -7,6 +7,7 @@ import {
   CopyObjectCommand,
   DeleteObjectCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { createPresignedPost } from "@aws-sdk/s3-presigned-post";
@@ -471,5 +472,103 @@ export async function promoteFile(
     await fs.promises.mkdir(path.dirname(destPath), { recursive: true });
     await fs.promises.rename(srcPath, destPath);
     return `/upload/${destKey}`;
+  }
+}
+
+// Listed result row. We return the same shape regardless of backend
+// (S3 / GCS / local) so the API consumer doesn't have to switch on
+// upload method.
+export interface ListedFile {
+  key: string;
+  url: string;
+  size: number;
+  // ISO 8601 timestamp. Empty string when the backend doesn't expose
+  // a modification time (rare; local-fs always has one, S3 + GCS
+  // always have one).
+  uploadedAt: string;
+}
+
+// List files under a prefix within the configured destination's
+// storage backend. Used by the visual editor's "Library" tab to
+// enumerate previously uploaded + AI-generated images for re-use
+// across experiments. Caps at `limit` keys (default 1000 — single
+// ListObjectsV2 / getFiles page) since orgs aren't expected to
+// accumulate that many; pagination can be added later if needed.
+//
+// The returned `url` is the public CDN URL (or local /upload/ path
+// in dev), already absolute. Sort order is backend-defined — callers
+// that need newest-first should sort by uploadedAt themselves.
+export async function listFiles(
+  prefix: string,
+  destination: UploadDestination = "private",
+  limit: number = 1000,
+): Promise<ListedFile[]> {
+  if (prefix.indexOf("\0") !== -1) {
+    throw new Error("Error: Prefix must not contain null bytes");
+  }
+  const cfg = getDestinationConfig(destination);
+
+  if (UPLOAD_METHOD === "s3") {
+    const client = getS3Client(cfg.s3Region);
+    const result = await client.send(
+      new ListObjectsV2Command({
+        Bucket: cfg.s3Bucket,
+        Prefix: prefix,
+        MaxKeys: limit,
+      }),
+    );
+    const baseUrl = cfg.s3Domain + (cfg.s3Domain.endsWith("/") ? "" : "/");
+    return (result.Contents || [])
+      .filter((obj): obj is { Key: string } & typeof obj => !!obj.Key)
+      .map((obj) => ({
+        key: obj.Key,
+        url: baseUrl + obj.Key,
+        size: obj.Size ?? 0,
+        uploadedAt: obj.LastModified?.toISOString() ?? "",
+      }));
+  } else if (UPLOAD_METHOD === "google-cloud") {
+    const storage = new Storage();
+    const bucket = storage.bucket(cfg.gcsBucket);
+    const [files] = await bucket.getFiles({ prefix, maxResults: limit });
+    const baseUrl = cfg.gcsDomain + (cfg.gcsDomain.endsWith("/") ? "" : "/");
+    return files.map((f) => ({
+      key: f.name,
+      url: baseUrl + f.name,
+      // GCS metadata.size is a string; coerce defensively.
+      size: parseInt(String(f.metadata.size ?? "0"), 10) || 0,
+      uploadedAt: String(f.metadata.timeCreated ?? ""),
+    }));
+  } else {
+    // Local filesystem (dev). Enumerate the prefix directory under
+    // the uploads root, mtime as the timestamp.
+    const rootDirectory = getUploadsDir();
+    const dir = path.join(rootDirectory, prefix);
+    // Defense in depth against traversal — same rule as uploadFile.
+    if (dir.indexOf(rootDirectory) !== 0) {
+      throw new Error("Error: Prefix must not escape the uploads directory.");
+    }
+    let entries: import("fs").Dirent[];
+    try {
+      entries = await fs.promises.readdir(dir, { withFileTypes: true });
+    } catch {
+      return [];
+    }
+    const out: ListedFile[] = [];
+    for (const ent of entries) {
+      if (!ent.isFile()) continue;
+      const full = path.join(dir, ent.name);
+      // Stat per file; on a hot tab this would be worth caching, but
+      // the local backend is dev-only and orgs there don't accumulate
+      // many files.
+      const stat = await fs.promises.stat(full);
+      out.push({
+        key: `${prefix}${ent.name}`,
+        url: `/upload/${prefix}${ent.name}`,
+        size: stat.size,
+        uploadedAt: stat.mtime.toISOString(),
+      });
+      if (out.length >= limit) break;
+    }
+    return out;
   }
 }

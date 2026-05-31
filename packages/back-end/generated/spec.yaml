@@ -18070,6 +18070,28 @@ paths:
             curl -X GET
             'https://api.growthbook.io/api/v1/visual-editor/bootstrap' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/library/images:
+    get:
+      operationId: getVisualEditorLibraryImages
+      parameters:
+        - name: limit
+          in: query
+          description: ''
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/visual-editor/library/images' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/dashboards/{id}:
     get:
       operationId: getDashboard
