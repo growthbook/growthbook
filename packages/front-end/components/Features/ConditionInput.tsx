@@ -42,6 +42,7 @@ import DatePicker from "@/components/DatePicker";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
+import RadioGroup from "@/ui/RadioGroup";
 import SDKCapabilityWarning from "./SDKCapabilityWarning";
 import {
   TargetingConditionsCard,
@@ -139,6 +140,12 @@ interface Props {
   allowNestedSavedGroups?: boolean;
   excludeSavedGroupId?: string;
   slimMode?: boolean;
+  addRemoveMode?: boolean;
+  addRemoveValue?: "set" | "remove";
+  onAddRemoveValueChange?: (value: "set" | "remove") => void;
+  onRemoveEffect?: () => void;
+  setModeLabel?: string;
+  removeModeLabel?: string;
 }
 
 export default function ConditionInput({
@@ -154,6 +161,12 @@ export default function ConditionInput({
   allowNestedSavedGroups,
   excludeSavedGroupId,
   slimMode,
+  addRemoveMode,
+  addRemoveValue,
+  onAddRemoveValueChange,
+  onRemoveEffect,
+  setModeLabel,
+  removeModeLabel,
 }: Props) {
   const attributes = useAttributeMap(project);
 
@@ -171,6 +184,22 @@ export default function ConditionInput({
   );
 
   const attributeSchema = useAttributeSchema(false, project);
+  const showAddRemoveSelector =
+    !!addRemoveMode && !!addRemoveValue && !!onAddRemoveValueChange;
+  const renderAddRemoveSelector = () =>
+    showAddRemoveSelector ? (
+      <RadioGroup
+        mt="2"
+        gap="0"
+        value={addRemoveValue}
+        setValue={(v) => onAddRemoveValueChange(v as "set" | "remove")}
+        options={[
+          { value: "set", label: setModeLabel ?? "Set targeting" },
+          { value: "remove", label: removeModeLabel ?? "Remove targeting" },
+        ]}
+        labelSize="2"
+      />
+    ) : null;
 
   useEffect(() => {
     if (advanced) return;
@@ -182,9 +211,33 @@ export default function ConditionInput({
     setSimpleAllowed(jsonToConds(value, attributes) !== null);
   }, [value, attributes]);
 
+  useEffect(() => {
+    if (!showAddRemoveSelector || addRemoveValue !== "set") return;
+    const isEmpty =
+      !conds.length || (conds.length === 1 && (!conds[0] || !conds[0].length));
+    if (!isEmpty || !attributeSchema.length) return;
+    const prop = attributeSchema[0];
+    setConds([
+      [
+        {
+          field: prop?.property || "",
+          operator:
+            prop?.datatype === "boolean"
+              ? "$true"
+              : prop?.disableEqualityConditions
+                ? "$regex"
+                : "$eq",
+          value: "",
+        },
+      ],
+    ]);
+  }, [showAddRemoveSelector, addRemoveValue, conds, attributeSchema]);
+
   const usingDisabledEqualityAttributes = conds.some((cond) =>
     cond.some((c) => !!attributes.get(c.field)?.disableEqualityConditions),
   );
+  const isRemoveSelection =
+    showAddRemoveSelector && addRemoveValue === "remove";
 
   if (advanced || !attributes.size || !simpleAllowed) {
     const hasSecureAttributes = some(
@@ -246,12 +299,13 @@ export default function ConditionInput({
     );
 
     return (
-      <Box mb={slimMode ? "2" : "6"}>
+      <Box mb="0">
+        {" "}
         {(label || labelActions) && (
-          <Flex justify="between" align="center" mb={slimMode ? "0" : "1"}>
+          <Flex justify="between" align="center" mb="1">
             <Flex gap="2" align="center">
               {slimMode ? (
-                <Text as="div" size="small" weight="semibold" color="text-mid">
+                <Text as="div" size="medium" weight="semibold" color="text-mid">
                   {label}
                 </Text>
               ) : (
@@ -259,7 +313,7 @@ export default function ConditionInput({
                   {label}
                 </Text>
               )}
-              {simpleAllowed && attributes.size > 0 && (
+              {!isRemoveSelection && simpleAllowed && attributes.size > 0 && (
                 <Switch
                   value={advanced}
                   onChange={(checked) => {
@@ -283,10 +337,10 @@ export default function ConditionInput({
           </Flex>
         )}
         {!label && !labelActions && (
-          <Flex gap="2" mb={slimMode ? "0" : "1"}>
+          <Flex gap="2" mb="1">
             <Box flexGrow="1">
               {slimMode ? (
-                <Text as="div" size="small" weight="semibold" color="text-mid">
+                <Text as="div" size="medium" weight="semibold" color="text-mid">
                   Target by Attributes
                 </Text>
               ) : (
@@ -295,7 +349,7 @@ export default function ConditionInput({
                 </Text>
               )}
             </Box>
-            {simpleAllowed && attributes.size > 0 && (
+            {!isRemoveSelection && simpleAllowed && attributes.size > 0 && (
               <Box ml="2">
                 <Switch
                   value={advanced}
@@ -318,47 +372,50 @@ export default function ConditionInput({
             )}
           </Flex>
         )}
-        <Box mb="3">
-          {codeEditorToggledOn ? (
-            <CodeTextArea
-              labelClassName={labelClassName}
-              language="json"
-              value={value}
-              setValue={setValue}
-              helpText={combinedHelpText}
-              resizable={true}
-              defaultHeight={FIVE_LINES_HEIGHT}
-              showCopyButton={!locked}
-              showFullscreenButton={!locked}
-              disabled={locked}
-            />
-          ) : (
-            <Field
-              labelClassName={labelClassName}
-              containerClassName="mb-0"
-              placeholder=""
-              value={value}
-              onChange={(e) => {
-                setValue(e.target.value);
-              }}
-              textarea
-              minRows={1}
-              helpText={combinedHelpText}
-              disabled={locked}
-            />
-          )}
-        </Box>
+        {renderAddRemoveSelector()}
+        {!isRemoveSelection && (
+          <Box mb="3">
+            {codeEditorToggledOn ? (
+              <CodeTextArea
+                labelClassName={labelClassName}
+                language="json"
+                value={value}
+                setValue={setValue}
+                helpText={combinedHelpText}
+                resizable={true}
+                defaultHeight={FIVE_LINES_HEIGHT}
+                showCopyButton={!locked}
+                showFullscreenButton={!locked}
+                disabled={locked}
+              />
+            ) : (
+              <Field
+                labelClassName={labelClassName}
+                containerClassName="mb-0"
+                placeholder=""
+                value={value}
+                onChange={(e) => {
+                  setValue(e.target.value);
+                }}
+                textarea
+                minRows={1}
+                helpText={combinedHelpText}
+                disabled={locked}
+              />
+            )}
+          </Box>
+        )}
       </Box>
     );
   }
 
   if (!conds.length || (conds.length === 1 && !conds[0].length)) {
     return (
-      <Box my={slimMode ? "1" : "4"}>
+      <Box my="0">
         {(label || labelActions) && (
-          <Flex mb={slimMode ? "0" : "1"} justify="between" align="center">
+          <Flex mb="1" justify="between" align="center">
             {slimMode ? (
-              <Text as="div" size="small" weight="semibold" color="text-mid">
+              <Text as="div" size="medium" weight="semibold" color="text-mid">
                 {label}
               </Text>
             ) : (
@@ -372,7 +429,7 @@ export default function ConditionInput({
         {!label &&
           !labelActions &&
           (slimMode ? (
-            <Text as="div" size="small" weight="semibold" color="text-mid">
+            <Text as="div" size="medium" weight="semibold" color="text-mid">
               Target by Attributes
             </Text>
           ) : (
@@ -380,56 +437,63 @@ export default function ConditionInput({
               Target by Attributes
             </Text>
           ))}
-        <Box>
-          <Text
-            color="text-low"
-            fontStyle="italic"
-            mb="2"
-            size={slimMode ? "small" : undefined}
-          >
-            {emptyText}
-          </Text>
-          <Box mt={slimMode ? "0" : "2"}>
-            <Link
-              onClick={() => {
-                const prop = attributeSchema[0];
-                setConds([
-                  [
-                    {
-                      field: prop?.property || "",
-                      operator:
-                        prop?.datatype === "boolean"
-                          ? "$true"
-                          : prop?.disableEqualityConditions
-                            ? "$regex"
-                            : "$eq",
-                      value: "",
-                    },
-                  ],
-                ]);
-              }}
-            >
+        {renderAddRemoveSelector()}
+        {!isRemoveSelection && (
+          <Box>
+            {(!slimMode || !!emptyText?.trim()) && (
               <Text
-                weight={slimMode ? "regular" : "semibold"}
-                size={slimMode ? "small" : "medium"}
-                color={locked ? "text-low" : undefined}
+                color="text-low"
+                fontStyle="italic"
+                mb="2"
+                size={slimMode ? "small" : undefined}
               >
-                <PiPlusCircleBold className="mr-1" />
-                Add attribute targeting
+                {emptyText}
               </Text>
-            </Link>
+            )}
+            {!showAddRemoveSelector && (
+              <Box mt={slimMode ? "0" : "2"}>
+                <Link
+                  onClick={() => {
+                    const prop = attributeSchema[0];
+                    setConds([
+                      [
+                        {
+                          field: prop?.property || "",
+                          operator:
+                            prop?.datatype === "boolean"
+                              ? "$true"
+                              : prop?.disableEqualityConditions
+                                ? "$regex"
+                                : "$eq",
+                          value: "",
+                        },
+                      ],
+                    ]);
+                  }}
+                >
+                  <Text
+                    weight="semibold"
+                    size="medium"
+                    color={locked ? "text-low" : undefined}
+                  >
+                    <PiPlusCircleBold className="mr-1" />
+                    Add attribute targeting
+                  </Text>
+                </Link>
+              </Box>
+            )}
           </Box>
-        </Box>
+        )}
       </Box>
     );
   }
   return (
-    <Box mb={slimMode ? "2" : "6"}>
+    <Box mb="0">
       {(label || labelActions) && (
-        <Flex justify="between" align="center" mb={slimMode ? "0" : "1"}>
+        <Flex justify="between" align="center" mb="1">
           <Flex gap="2" align="center">
             {slimMode ? (
-              <Text as="div" size="small" weight="semibold" color="text-mid">
+              <Text as="div" size="medium" weight="semibold" color="text-mid">
                 {label}
               </Text>
             ) : (
@@ -437,7 +501,7 @@ export default function ConditionInput({
                 {label}
               </Text>
             )}
-            {attributes.size > 0 && (
+            {!isRemoveSelection && attributes.size > 0 && (
               <Switch
                 value={advanced}
                 onChange={(checked) => {
@@ -461,9 +525,9 @@ export default function ConditionInput({
         </Flex>
       )}
       {!label && !labelActions && (
-        <Flex justify="between" align="center" mb={slimMode ? "0" : "1"}>
+        <Flex justify="between" align="center" mb="1">
           {slimMode ? (
-            <Text as="div" size="small" weight="semibold" color="text-mid">
+            <Text as="div" size="medium" weight="semibold" color="text-mid">
               Target by Attributes
             </Text>
           ) : (
@@ -471,7 +535,7 @@ export default function ConditionInput({
               Target by Attributes
             </Text>
           )}
-          {attributes.size > 0 && (
+          {!isRemoveSelection && attributes.size > 0 && (
             <Switch
               value={advanced}
               onChange={(checked) => {
@@ -492,68 +556,82 @@ export default function ConditionInput({
           )}
         </Flex>
       )}
-
-      {conds.map((andGroup, i) => (
-        <Box key={i}>
-          {i > 0 && <OrSeparator slimMode={slimMode} />}
-          <TargetingConditionsCard
-            targetingType="attribute"
-            total={conds.length}
-            slimMode={slimMode}
-            addButton={
-              attributeSchema.length > 0 ? (
-                <AddConditionButton
-                  slimMode={slimMode}
-                  disabled={locked}
-                  onClick={() => {
-                    const prop = attributeSchema[0];
-                    const newAndGroups = [...conds];
-                    newAndGroups[i] = [
-                      ...andGroup,
-                      {
-                        field: prop?.property || "",
-                        operator:
-                          prop?.datatype === "boolean"
-                            ? "$true"
-                            : prop?.disableEqualityConditions
-                              ? "$regex"
-                              : "$eq",
-                        value: "",
-                      },
-                    ];
-                    setConds(newAndGroups);
-                  }}
-                />
-              ) : undefined
-            }
-          >
-            <ConditionAndGroupInput
-              conds={andGroup}
-              setConds={(newConds) => {
-                const newAndGroups = [...conds];
-                if (newConds.length === 0) {
-                  newAndGroups.splice(i, 1);
-                } else {
-                  newAndGroups[i] = newConds;
-                }
-                setConds(newAndGroups);
-              }}
-              orGroupsCount={conds.length}
-              project={project}
-              labelClassName={labelClassName}
-              emptyText={emptyText}
-              label={label}
-              require={require}
-              allowNestedSavedGroups={allowNestedSavedGroups}
-              excludeSavedGroupId={excludeSavedGroupId}
+      {renderAddRemoveSelector()}
+      {!isRemoveSelection &&
+        conds.map((andGroup, i) => (
+          <Box key={i}>
+            {i > 0 && <OrSeparator slimMode={slimMode} />}
+            <TargetingConditionsCard
+              targetingType="attribute"
+              total={conds.length}
               slimMode={slimMode}
-              disabled={locked}
-            />
-          </TargetingConditionsCard>
-        </Box>
-      ))}
-
-      {attributeSchema.length > 0 && (
+              addButton={
+                attributeSchema.length > 0 ? (
+                  <AddConditionButton
+                    disabled={locked}
+                    onClick={() => {
+                      const prop = attributeSchema[0];
+                      const newAndGroups = [...conds];
+                      newAndGroups[i] = [
+                        ...andGroup,
+                        {
+                          field: prop?.property || "",
+                          operator:
+                            prop?.datatype === "boolean"
+                              ? "$true"
+                              : prop?.disableEqualityConditions
+                                ? "$regex"
+                                : "$eq",
+                          value: "",
+                        },
+                      ];
+                      setConds(newAndGroups);
+                    }}
+                  />
+                ) : undefined
+              }
+            >
+              <ConditionAndGroupInput
+                conds={andGroup}
+                setConds={(newConds) => {
+                  const newAndGroups = [...conds];
+                  if (newConds.length === 0) {
+                    newAndGroups.splice(i, 1);
+                  } else {
+                    newAndGroups[i] = newConds;
+                  }
+                  const hasAnyConditions = newAndGroups.some(
+                    (g) => g.length > 0,
+                  );
+                  if (
+                    showAddRemoveSelector &&
+                    !hasAnyConditions &&
+                    (onRemoveEffect || onAddRemoveValueChange)
+                  ) {
+                    if (onRemoveEffect) {
+                      onRemoveEffect();
+                    } else {
+                      onAddRemoveValueChange?.("remove");
+                    }
+                    return;
+                  }
+                  setConds(newAndGroups);
+                }}
+                orGroupsCount={conds.length}
+                project={project}
+                labelClassName={labelClassName}
+                emptyText={emptyText}
+                label={label}
+                require={require}
+                allowNestedSavedGroups={allowNestedSavedGroups}
+                excludeSavedGroupId={excludeSavedGroupId}
+                slimMode={slimMode}
+                disabled={locked}
+              />
+            </TargetingConditionsCard>
+          </Box>
+        ))}
+      {!isRemoveSelection && attributeSchema.length > 0 && (
         <AddOrGroupButton
           slimMode={slimMode}
           disabled={locked}
@@ -577,15 +655,15 @@ export default function ConditionInput({
           }}
         />
       )}
-
-      {usingDisabledEqualityAttributes && (
+      {!isRemoveSelection && usingDisabledEqualityAttributes && (
         <Callout status="warning" mt="4">
           Be careful not to include Personally Identifiable Information (PII) in
           your targeting conditions.
         </Callout>
       )}
-
-      <CaseInsensitiveRegexWarning value={value} project={project} />
+      {!isRemoveSelection && (
+        <CaseInsensitiveRegexWarning value={value} project={project} />
+      )}
     </Box>
   );
 }

@@ -33,6 +33,7 @@ import {
   isDefined,
   liveRevisionFromFeature,
   MatchingRule,
+  naiveFlattenV1Rules,
   validateCondition,
 } from "shared/util";
 import { getBanditSRMValue, getExperimentSRMValue } from "shared/health";
@@ -50,7 +51,7 @@ import {
   isFactMetric,
   isFactMetricId,
   isMetricJoinable,
-  isPrecomputedDimension,
+  isDimensionPrecomputed,
   parseSliceMetricId,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
@@ -129,6 +130,7 @@ import { ExperimentRefRule, FeatureRule } from "shared/types/feature";
 import { ProjectInterface } from "shared/types/project";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { ExperimentQueryMetadata } from "shared/types/query";
+import { isExperimentIncrementalEnabled } from "shared/enterprise";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import {
@@ -164,6 +166,10 @@ import { LegacyMetricAnalysisQueryRunner } from "back-end/src/queryRunners/Legac
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { QueryMap, getQueryMap } from "back-end/src/queryRunners/QueryRunner";
 import {
+  buildUnitDimensionQueryMap,
+  filterParentQueryMap,
+} from "back-end/src/queryRunners/unitDimensionQueryNaming";
+import {
   FactTableMap,
   getFactTableMap,
 } from "back-end/src/models/FactTableModel";
@@ -178,7 +184,10 @@ import { getSignedImageUrl } from "back-end/src/services/files";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
-import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
+import {
+  getEligiblePrecomputedUnitDimensionIds,
+  getExposureQueryEligibleDimensions,
+} from "back-end/src/services/dimensions";
 import { ConcurrentIncrementalRefreshError } from "back-end/src/util/errors";
 import { validateIncrementalPipeline } from "back-end/src/enterprise/services/data-pipeline";
 import { getMetricForSnapshot } from "./reports";
@@ -461,6 +470,7 @@ export function getSnapshotSettings({
   reweight,
   datasource,
   useStickyBucketing,
+  eligiblePrecomputedUnitDimensionIds = [],
 }: {
   experiment: ExperimentInterface;
   phaseIndex: number;
@@ -478,6 +488,7 @@ export function getSnapshotSettings({
   reweight?: boolean;
   datasource?: DataSourceInterface;
   useStickyBucketing?: boolean;
+  eligiblePrecomputedUnitDimensionIds?: string[];
 }): ExperimentSnapshotSettings {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
@@ -523,6 +534,19 @@ export function getSnapshotSettings({
         slices: d.specifiedSlices,
       })) ?? [];
   }
+
+  // Configured unit dimensions are carried on a dedicated settings field, NOT
+  // folded into `dimensions`. The runner materializes one `dim_unit_<id>`
+  // column per id in the shared units table and runs isolated per-dim metric
+  // queries; folding them into `dimensions` would instead cross-product every
+  // unit dim into every parent metric query.
+  const precomputedUnitDimensionIds =
+    snapshotType === "standard" &&
+    experiment.type !== "multi-armed-bandit" &&
+    !dimension &&
+    eligiblePrecomputedUnitDimensionIds.length > 0
+      ? eligiblePrecomputedUnitDimensionIds
+      : [];
 
   // expand metric groups and scrub unjoinable metrics
   let goalMetrics = expandMetricGroups(
@@ -720,6 +744,7 @@ export function getSnapshotSettings({
     queryFilter: experiment.queryFilter || "",
     datasourceId: experiment.datasource || "",
     dimensions: dimensions,
+    precomputedUnitDimensionIds,
     startDate: phase.dateStarted,
     endDate: phase.dateEnded || new Date(),
     experimentId: experiment.trackingKey || experiment.id,
@@ -755,7 +780,7 @@ export async function parseDimension(
         id: dimension.substring(4),
         specifiedSlices: slices,
       };
-    } else if (isPrecomputedDimension(dimension)) {
+    } else if (isDimensionPrecomputed(dimension, [])) {
       return {
         type: "experiment",
         id: dimension.substring(PRECOMPUTED_DIMENSION_PREFIX.length),
@@ -1202,16 +1227,9 @@ function isIncrementalRefreshEnabledForSnapshot({
   datasource: DataSourceInterface;
   experiment: ExperimentInterface;
 }): boolean {
-  return (
-    datasource.settings.pipelineSettings?.mode === "incremental" &&
-    !datasource.settings.pipelineSettings?.excludedExperimentIds?.includes(
-      experiment.id,
-    ) &&
-    (datasource.settings.pipelineSettings?.includedExperimentIds ===
-      undefined ||
-      datasource.settings.pipelineSettings?.includedExperimentIds.includes(
-        experiment.id,
-      ))
+  return isExperimentIncrementalEnabled(
+    datasource.settings.pipelineSettings,
+    experiment.id,
   );
 }
 
@@ -1376,6 +1394,18 @@ export async function planSnapshot({
     !incrementalRefreshModel ||
     !incrementalRefreshModel.unitsTableFullName;
 
+  const requestedPrecomputedUnitDimensionIds =
+    experiment.precomputedUnitDimensionIds ?? [];
+  const eligiblePrecomputedUnitDimensionIds =
+    !dimension && requestedPrecomputedUnitDimensionIds.length > 0
+      ? await getEligiblePrecomputedUnitDimensionIds({
+          context,
+          experiment,
+          datasource,
+          dimensionIds: requestedPrecomputedUnitDimensionIds,
+        })
+      : [];
+
   const snapshotSettings = getSnapshotSettings({
     experiment,
     phaseIndex,
@@ -1395,6 +1425,7 @@ export async function planSnapshot({
     useStickyBucketing:
       organization.settings?.useStickyBucketing &&
       !experiment.disableStickyBucketing,
+    eligiblePrecomputedUnitDimensionIds,
   });
 
   const data: ExperimentSnapshotInterface = {
@@ -1718,6 +1749,39 @@ export async function createSnapshot({
     metricMap,
     factTableMap,
   });
+}
+
+// Assigns a monotonic, non-colliding numeric `key` to any variation arriving
+// with an empty key. Existing (non-empty) keys are left untouched.
+// `existingKeys` is the set of keys already in use on the experiment.
+export function fillEmptyVariationKeys(
+  variations: Variation[],
+  existingKeys: Iterable<string>,
+): void {
+  if (!variations.some((v) => !v.key)) return;
+
+  const usedKeys = new Set(existingKeys);
+  let largestNumeric = -1;
+  for (const k of usedKeys) {
+    const n = Number(k);
+    if (
+      Number.isInteger(n) &&
+      n >= 0 &&
+      String(n) === k &&
+      n > largestNumeric
+    ) {
+      largestNumeric = n;
+    }
+  }
+  let nextKey = largestNumeric + 1;
+  for (const v of variations) {
+    if (!v.key) {
+      while (usedKeys.has(String(nextKey))) nextKey++;
+      v.key = String(nextKey);
+      usedKeys.add(v.key);
+      nextKey++;
+    }
+  }
 }
 
 export function validateVariationIds(variations: Variation[]) {
@@ -2095,6 +2159,36 @@ async function getSnapshotAnalyses(
   return analysisParamsMap;
 }
 
+// Loads the query results needed to run gbstats for the given analyses. For
+// unit-dimension analyses (whose queries live under a `unitdim:<dim>:` prefix
+// on the parent snapshot), the map is filtered + renamed so gbstats sees the
+// bare metric keys it expects.
+async function getQueryMapForAnalysis(
+  context: ReqContext | ApiReqContext,
+  snapshot: ExperimentSnapshotInterface,
+  analysisSettingsList: ExperimentSnapshotAnalysisSettings[],
+): Promise<QueryMap> {
+  const queryMap = await getQueryMap(context, snapshot.queries);
+  const dimensionId = analysisSettingsList[0]?.dimensions[0];
+  if (
+    dimensionId &&
+    snapshot.settings.precomputedUnitDimensionIds?.includes(dimensionId)
+  ) {
+    const unitDimQueryMap = buildUnitDimensionQueryMap(queryMap, dimensionId);
+    if (unitDimQueryMap.size === 0) {
+      // The parent snapshot lists this unit dimension in its settings but
+      // has no `unitdim:<id>:` query results — either the snapshot predates
+      // this feature or its unit-dim queries were pruned/failed. Refreshing
+      // the snapshot will repopulate them.
+      throw new Error(
+        `Snapshot is missing query results for unit dimension "${dimensionId}". Refresh the experiment results to recompute.`,
+      );
+    }
+    return unitDimQueryMap;
+  }
+  return filterParentQueryMap(queryMap);
+}
+
 export async function createSnapshotAnalyses(
   params: SnapshotAnalysisParams[],
   context: ReqContext,
@@ -2143,7 +2237,9 @@ export async function createSnapshotAnalysis(
   });
 
   // Format data correctly
-  const queryMap: QueryMap = await getQueryMap(context, snapshot.queries);
+  const queryMap = await getQueryMapForAnalysis(context, snapshot, [
+    analysisSettings,
+  ]);
 
   // Run the analysis
   const { results } = await analyzeExperimentResults({
@@ -2205,7 +2301,11 @@ export async function createSnapshotAnalysesBatched(
     }),
   );
 
-  const queryMap: QueryMap = await getQueryMap(context, snapshot.queries);
+  const queryMap = await getQueryMapForAnalysis(
+    context,
+    snapshot,
+    analysisSettingsList,
+  );
 
   // Single gbstats call -- all analyses share the same queryResults and
   // metric settings, so we can use a single python process
@@ -2480,6 +2580,7 @@ export async function toExperimentApiInterface(
     hasURLRedirects: experiment.hasURLRedirects || false,
     customFields: experiment.customFields ?? {},
     customMetricSlices: experiment.customMetricSlices ?? [],
+    precomputedUnitDimensionIds: experiment.precomputedUnitDimensionIds ?? [],
     defaultDashboardId: experiment.defaultDashboardId,
     templateId: experiment.templateId || undefined,
     statusUpdateSchedule: experiment.statusUpdateSchedule
@@ -3712,6 +3813,7 @@ export function postExperimentApiPayloadToInterface(
       : {}),
     shareLevel: payload.shareLevel,
     customMetricSlices: payload.customMetricSlices || [],
+    precomputedUnitDimensionIds: payload.precomputedUnitDimensionIds || [],
     customFields: payload.customFields,
     templateId: payload.templateId || undefined,
     ...(payload.defaultDashboardId !== undefined
@@ -3995,6 +4097,7 @@ export function updateExperimentApiPayloadToInterface(
     secondaryMetrics,
     shareLevel,
     customMetricSlices,
+    precomputedUnitDimensionIds,
     customFields,
     autoRefresh,
     banditScheduleValue,
@@ -4062,6 +4165,9 @@ export function updateExperimentApiPayloadToInterface(
     ),
     ...(shareLevel !== undefined ? { shareLevel } : {}),
     ...(customMetricSlices !== undefined ? { customMetricSlices } : {}),
+    ...(precomputedUnitDimensionIds !== undefined
+      ? { precomputedUnitDimensionIds }
+      : {}),
     ...(customFields !== undefined ? { customFields } : {}),
     ...(autoRefresh !== undefined
       ? {
@@ -4235,25 +4341,58 @@ export async function getLinkedFeatureInfo(
   const filter = (rule: FeatureRule) =>
     rule.type === "experiment-ref" && rule.experimentId === experiment.id;
 
+  // Slice the experiment-ref rules matching this experiment from a rules
+  // array (works for both feature.rules and revision.rules). Used to detect
+  // whether a draft is actually changing this experiment's rule vs. just
+  // inheriting it unchanged from live.
+  const refRulesForExperiment = (rules: unknown): FeatureRule[] =>
+    naiveFlattenV1Rules(rules).filter(
+      (r) =>
+        r.type === "experiment-ref" &&
+        (r as ExperimentRefRule).experimentId === experiment.id,
+    );
+
   const linkedFeatureInfo = await Promise.all(
     features.map(async (feature) => {
       const revisions = revisionsByFeatureId[feature.id] || [];
 
       const liveMatches = getMatchingRules(feature, filter, environments);
+      const liveRefRules = refRulesForExperiment(feature.rules);
+
+      // Walk draft revisions newest-first and pick:
+      //   1. (preferred) a draft whose experiment-ref rule slice DIFFERS from
+      //      live — i.e. the draft is making changes to this experiment's
+      //      rule. Used to flip state to "draft" even when live already has
+      //      a matching rule.
+      //   2. (fallback) the first draft with any experiment-ref match for
+      //      this experiment, even if unchanged from live. Preserves the
+      //      legacy path where a draft is introducing the rule for the first
+      //      time (experiment not yet started).
+      const activeDrafts = revisions
+        .filter((r) => DRAFT_REVISION_STATUSES.includes(r.status))
+        .sort((a, b) => b.version - a.version);
 
       let matchedDraftRevision: (typeof revisions)[0] | undefined;
-      const draftMatches = (() => {
-        for (const r of revisions.filter((r) =>
-          DRAFT_REVISION_STATUSES.includes(r.status),
-        )) {
-          const m = getMatchingRules(feature, filter, environments, r);
-          if (m.length > 0) {
-            matchedDraftRevision = r;
-            return m;
-          }
+      let draftMatches: MatchingRule[] = [];
+      let draftDiffersFromLive = false;
+
+      for (const r of activeDrafts) {
+        const m = getMatchingRules(feature, filter, environments, r);
+        if (m.length === 0) continue;
+        const draftRefRules = refRulesForExperiment(r.rules);
+        if (liveRefRules.length > 0 && !isEqual(draftRefRules, liveRefRules)) {
+          matchedDraftRevision = r;
+          draftMatches = m;
+          draftDiffersFromLive = true;
+          break;
         }
-        return [];
-      })();
+        // Remember the first draft with matches as a fallback if no draft
+        // actually modifies the rule.
+        if (!matchedDraftRevision) {
+          matchedDraftRevision = r;
+          draftMatches = m;
+        }
+      }
 
       const lockedMatches =
         revisions
@@ -4268,6 +4407,12 @@ export async function getLinkedFeatureInfo(
       let matches: MatchingRule[] = [];
       if (feature.archived) {
         state = "archived";
+      } else if (draftDiffersFromLive && experiment.status === "draft") {
+        // A draft is changing this experiment's rule and the experiment is
+        // still in draft — surface the pending change even if the rule is already live.
+        // Render uses draft values so the user sees what publishing will produce.
+        state = "draft";
+        matches = draftMatches;
       } else if (liveMatches.length > 0) {
         state = "live";
         matches = liveMatches;
@@ -4370,11 +4515,13 @@ export async function getLinkedFeatureInfo(
         valuesFrom: matches[0]?.environmentId || "",
         rulesAbove: matches.some((m) => m.i > 0),
         inconsistentValues: uniqueValues.size > 1,
+        liveHasMatchingRule: liveMatches.length > 0,
         ...(pendingApproval !== undefined && { pendingApproval }),
-        ...(matchedDraftRevision && {
-          draftRevisionVersion: matchedDraftRevision.version,
-          draftRevisionStatus: matchedDraftRevision.status,
-        }),
+        ...(matchedDraftRevision &&
+          state === "draft" && {
+            draftRevisionVersion: matchedDraftRevision.version,
+            draftRevisionStatus: matchedDraftRevision.status,
+          }),
         ...(hasMergeConflict !== undefined && { hasMergeConflict }),
         ...(hasUnrelatedDraftChanges !== undefined && {
           hasUnrelatedDraftChanges,

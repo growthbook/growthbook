@@ -126,19 +126,21 @@ export const bigQueryDialect: SqlDialect = {
   hllAggregate: (col: string) => `HLL_COUNT.INIT(${col})`,
   hllReaggregate: (col: string) => `HLL_COUNT.MERGE_PARTIAL(${col})`,
   hllCardinality: (col: string) => `HLL_COUNT.EXTRACT(${col})`,
-  kllInit: (col: string) => `KLL_QUANTILES.INIT_FLOAT64(${col}, 1000)`,
-  kllMergePartial: (col: string) => `KLL_QUANTILES.MERGE_PARTIAL(${col})`,
-  kllExtractPoint: (col: string, quantile: number) =>
+  quantileSketchInit: (col: string) =>
+    `KLL_QUANTILES.INIT_FLOAT64(${col}, 1000)`,
+  quantileSketchMergePartial: (col: string) =>
+    `KLL_QUANTILES.MERGE_PARTIAL(${col})`,
+  quantileSketchExtractPoint: (col: string, quantile: number) =>
     `KLL_QUANTILES.EXTRACT_POINT_FLOAT64(${col}, ${quantile})`,
-  kllExtractQuantiles: (col: string, numQuantiles: number) =>
+  quantileSketchExtractQuantiles: (col: string, numQuantiles: number) =>
     `KLL_QUANTILES.EXTRACT_FLOAT64(${col}, ${numQuantiles})`,
-  kllRankApprox: (
+  quantileSketchRankApprox: (
     sketchCol: string,
     thresholdCol: string,
     nEventsCol: string,
     numQuantiles: number,
   ) => {
-    const cdfArray = bigQueryDialect.kllExtractQuantiles(
+    const cdfArray = bigQueryDialect.quantileSketchExtractQuantiles(
       sketchCol,
       numQuantiles,
     );
@@ -172,7 +174,7 @@ export const bigQueryDialect: SqlDialect = {
         return "TIMESTAMP";
       case "hll":
         return "BYTES";
-      case "kll":
+      case "quantileSketch":
         return "BYTES";
       default: {
         const _: never = dataType;

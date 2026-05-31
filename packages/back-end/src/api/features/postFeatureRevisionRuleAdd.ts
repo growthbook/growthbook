@@ -113,6 +113,7 @@ export function buildRuleFromInput(
       coverage: input.coverage ?? 1,
       hashAttribute: input.hashAttribute,
       ...(input.seed !== undefined && { seed: input.seed }),
+      hashVersion: (input.hashVersion as 1 | 2 | undefined) ?? 2,
     };
     return rule;
   }
@@ -285,7 +286,6 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
       ];
       const safeRollout = await req.context.models.safeRollout.create({
         ...validatedFields,
-        environment,
         featureId: feature.id,
         status: "running",
         autoSnapshots: true,
@@ -334,6 +334,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
       const existing = revision.rampActions ?? [];
       const filtered = existing.filter(
         (a) =>
+          !("ruleId" in a) ||
           a.ruleId !== (resolvedRampAction as RevisionRampCreateAction).ruleId,
       );
       changes.rampActions = [...filtered, resolvedRampAction];

@@ -656,24 +656,42 @@ pre {
     tr {
       &:not(.slice-header-row) {
         box-shadow: rgba(102, 102, 102, 0.05) 0 -1px inset;
+        &.results-clickable-row:hover {
+          box-shadow: var(--shadow-3);
+        }
       }
 
       &.slice-collapsed {
         box-shadow: rgba(102, 102, 102, 0.05) 0 -1px inset;
         &.last-slice-header {
           box-shadow: rgba(102, 102, 102, 0.1) 0 -2px inset;
+          &.results-clickable-row:hover {
+            box-shadow: var(--shadow-3);
+          }
+        }
+        &.results-clickable-row:hover {
+          box-shadow: var(--shadow-3);
         }
       }
       &.slice-expanded {
         box-shadow: rgba(102, 102, 102, 0.1) 0 -2px inset;
+        &.results-clickable-row:hover {
+          box-shadow: var(--shadow-3);
+        }
       }
 
       &:last-of-type:not(.slice-collapsed):not(.slice-expanded) {
         box-shadow: rgba(102, 102, 102, 0.1) 0 -2px inset;
+        &.results-clickable-row:hover {
+          box-shadow: var(--shadow-3);
+        }
       }
 
       &.last-before-slice-header {
         box-shadow: rgba(102, 102, 102, 0.05) 0 -1px inset;
+        &.results-clickable-row:hover {
+          box-shadow: var(--shadow-3);
+        }
       }
 
       &:not(.results-label-row):not(.slice-header-row) {
@@ -810,6 +828,14 @@ pre {
   .hover {
     cursor: pointer;
     transition: 100ms all;
+  }
+  tr.results-metric-row {
+    height: 55px;
+    box-shadow: var(--slate-a5) 0 -1px inset;
+  }
+  tr.results-clickable-row {
+    cursor: pointer;
+    transition: box-shadow 100ms ease;
   }
   .visx-axis-left .visx-axis-line {
     // axis line has a 0.5 pixel offset. reverse it
@@ -1455,6 +1481,9 @@ main.main {
   &:hover {
     background-color: var(--violet-a4);
   }
+  &.no-hover:hover {
+    background-color: var(--violet-a3);
+  }
 }
 
 .draft-selector-collapsible-content {
@@ -1612,12 +1641,8 @@ main.main {
   }
 
   .intro-side {
-    background-color: colors.$purple;
-    background: radial-gradient(
-      at 50% 100%,
-      rgba(109, 18, 228, 0.75),
-      rgb(15, 1, 94)
-    );
+    background: url("/images/login-background.png") lightgray 50% / cover
+      no-repeat;
     color: #fff;
     padding-bottom: 30px;
     vertical-align: middle;
@@ -3393,7 +3418,21 @@ td.disabled {
 .form-control:disabled {
   cursor: not-allowed;
   color: var(--color-text-disabled) !important;
-  background-color: var(--slate-a3) !important;
+  background-color: var(--gray-a2) !important;
+}
+.form-control--error {
+  border-color: var(--red-8) !important;
+  &:focus {
+    border-color: var(--violet-8) !important;
+    outline-color: var(--violet-8) !important;
+  }
+}
+.form-control--warning {
+  border-color: var(--amber-8) !important;
+  &:focus {
+    border-color: var(--violet-8) !important;
+    outline-color: var(--violet-8) !important;
+  }
 }
 input:disabled {
   cursor: not-allowed;
@@ -3411,6 +3450,10 @@ input:disabled {
     white-space: nowrap;
     text-overflow: ellipsis;
   }
+}
+.input-group-text {
+  background-color: var(--gray-a2) !important;
+  border-color: var(--border-color-200) !important;
 }
 
 .text-premium {

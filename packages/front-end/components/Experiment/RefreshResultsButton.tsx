@@ -1,6 +1,7 @@
 import React from "react";
 import { Queries } from "shared/types/query";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { isDimensionPrecomputed } from "shared/experiments";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
@@ -9,8 +10,10 @@ import {
   SafeRolloutInterface,
   SafeRolloutSnapshotInterface,
 } from "shared/validators";
-import { isPrecomputedDimension } from "shared/experiments";
 import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { useUser } from "@/services/UserContext";
+import { getHonoredPrecomputedUnitDimensionIds } from "@/services/experiments";
 import { trackSnapshot } from "@/services/track";
 import RunQueriesButton from "@/components/Queries/RunQueriesButton";
 import ExperimentRefreshSnapshotButton from "@/components/Experiment/RefreshSnapshotButton";
@@ -70,6 +73,8 @@ export default function RefreshResultsButton<
   safeRollout,
 }: RefreshResultsButtonProps<T>) {
   const { apiCall } = useAuth();
+  const { getDatasourceById } = useDefinitions();
+  const { hasCommercialFeature } = useUser();
 
   const hasQueries = latest?.queries && latest.queries.length > 0;
 
@@ -119,7 +124,16 @@ export default function RefreshResultsButton<
           onSubmit={async () => {
             // Precomputed dimensions are computed as part of a standard snapshot,
             // so we don't need to pass them to the backend for a new snapshot query
-            const snapshotDimension = isPrecomputedDimension(dimension)
+            const snapshotDimension = isDimensionPrecomputed(
+              dimension,
+              getHonoredPrecomputedUnitDimensionIds(
+                experiment?.precomputedUnitDimensionIds,
+                experiment?.datasource
+                  ? getDatasourceById(experiment.datasource)
+                  : undefined,
+                hasCommercialFeature("pipeline-mode"),
+              ),
+            )
               ? ""
               : (dimension ?? "");
             const body =

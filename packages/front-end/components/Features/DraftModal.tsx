@@ -2,6 +2,7 @@ import { FeatureInterface } from "shared/types/feature";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import React, { useState, useMemo } from "react";
 import { FaAngleDown, FaAngleRight, FaArrowLeft } from "react-icons/fa";
+import { PiLockSimple } from "react-icons/pi";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { RampScheduleInterface } from "shared/validators";
 import {
@@ -151,6 +152,9 @@ export default function DraftModal({
   }, [revision, baseRevision, liveRevision, envIds, feature]);
 
   const [comment, setComment] = useState(revision?.comment || "");
+  const [adminPublish, setAdminPublish] = useState(false);
+
+  const canAdminPublish = permissionsUtil.canBypassApprovalChecks(feature);
 
   const { experiments, immediateStartExperiments, scheduledExperiments } =
     useFeatureExperimentChecklists({
@@ -188,6 +192,9 @@ export default function DraftModal({
             : {}),
           ...(mergeResult.result.prerequisites !== undefined
             ? { prerequisites: mergeResult.result.prerequisites }
+            : {}),
+          ...(mergeResult.result.archived !== undefined
+            ? { archived: mergeResult.result.archived }
             : {}),
           ...("holdout" in mergeResult.result
             ? { holdout: mergeResult.result.holdout }
@@ -252,14 +259,11 @@ export default function DraftModal({
         targets: ramp.targets,
         startDate: ramp.startDate,
         steps: ramp.steps,
-        endCondition: ramp.endCondition,
+        cutoffDate: ramp.cutoffDate,
       };
       const isSimple = ramp.steps.length === 0;
       const kindLabel = isSimple ? "Schedule" : "Ramp Schedule";
-      const endAt =
-        ramp.endCondition?.trigger?.type === "scheduled"
-          ? ramp.endCondition.trigger.at
-          : undefined;
+      const endAt = ramp.cutoffDate ?? undefined;
       const detail = isSimple
         ? (formatSimpleWindow(ramp.startDate, endAt) ?? "starts on publish")
         : `${ramp.steps.length} step${ramp.steps.length !== 1 ? "s" : ""}${
@@ -276,7 +280,7 @@ export default function DraftModal({
         badges: [{ label: `Start ramp: ${ramp.name}`, action: "start ramp" }],
       } as FeatureRevisionDiff;
     }),
-    // Pending ramp actions: create/detach actions queued in the draft
+    // Pending ramp actions: create/update/detach actions queued in the draft
     ...(revision?.rampActions ?? [])
       .map((action) => {
         if (action.mode === "create") {
@@ -286,7 +290,7 @@ export default function DraftModal({
             ruleId: action.ruleId,
             startDate: action.startDate,
             steps: action.steps,
-            endCondition: action.endCondition,
+            cutoffDate: action.cutoffDate,
           };
           const targetIdx = draftRuleIndexById.get(action.ruleId);
           const isSimple = action.steps.length === 0;
@@ -309,6 +313,37 @@ export default function DraftModal({
                   ? `Create ${isSimple ? "schedule" : "ramp"}: ${action.name}`
                   : `Create ${isSimple ? "schedule" : "ramp schedule"}`,
                 action: isSimple ? "create schedule" : "create ramp",
+              },
+            ],
+          } as FeatureRevisionDiff;
+        } else if (action.mode === "update") {
+          const rampConfig = {
+            rampScheduleId: action.rampScheduleId,
+            name: action.name,
+            ruleId: action.ruleId,
+            startDate: action.startDate,
+            steps: action.steps,
+            cutoffDate: action.cutoffDate,
+          };
+          const isSimpleUpdate = action.steps.length === 0;
+          const kindLabelUpdate = isSimpleUpdate ? "Schedule" : "Ramp Schedule";
+          const displayName = action.name ?? "schedule";
+          return {
+            title: `${kindLabelUpdate} – ${displayName}`,
+            titleSuffix: <RampActionLabel action="update" />,
+            a: "",
+            b: JSON.stringify(rampConfig, null, 2),
+            customRender: (
+              <p className="mb-0 text-muted">
+                {ruleRef(action.ruleId)} · updates schedule configuration.
+              </p>
+            ),
+            badges: [
+              {
+                label: isSimpleUpdate
+                  ? "Update schedule"
+                  : "Update ramp schedule",
+                action: "update ramp",
               },
             ],
           } as FeatureRevisionDiff;
@@ -370,9 +405,17 @@ export default function DraftModal({
 
   const hasChanges = mergeResultHasChanges(mergeResult) || rampDiffs.length > 0;
 
+  const featureLockedByRamp =
+    rampSchedules?.some(
+      (rs) => rs.lockdownConfig?.mode === "locked" && rs.status === "running",
+    ) ?? false;
+
   // Users who reach DraftModal already have direct publish permission, so the
   // checklist is advisory — it does not block publishing.
-  const submitEnabled = !!mergeResult.success && hasChanges;
+  const submitEnabled =
+    !!mergeResult.success &&
+    hasChanges &&
+    (!featureLockedByRamp || adminPublish);
 
   // If we're publishing experiments, next step is to review pre-launch checklists
   const hasNextStep =
@@ -386,6 +429,7 @@ export default function DraftModal({
       trackingEventModalType=""
       open={true}
       header={"Review Draft Changes"}
+      useRadixButton={true}
       submit={
         hasPermission
           ? async () => {
@@ -403,6 +447,7 @@ export default function DraftModal({
                       mergeResultSerialized: JSON.stringify(mergeResult),
                       publishExperimentIds: Array.from(selectedExperiments),
                       comment,
+                      adminOverride: adminPublish,
                     }),
                   },
                 );
@@ -420,6 +465,10 @@ export default function DraftModal({
         hasNextStep ? (
           <>
             Next <FaAngleRight />
+          </>
+        ) : featureLockedByRamp ? (
+          <>
+            <PiLockSimple /> Publish
           </>
         ) : onlyScheduledSelected ? (
           "Schedule to Start"
@@ -445,6 +494,25 @@ export default function DraftModal({
         ) : undefined
       }
     >
+      {featureLockedByRamp && (
+        <Callout status="warning" icon={<PiLockSimple size={15} />} mb="3">
+          Publishing is locked by an active ramp-up schedule.
+          {canAdminPublish
+            ? " Use the admin bypass below to publish anyway."
+            : ""}
+        </Callout>
+      )}
+      {canAdminPublish && featureLockedByRamp && (
+        <div className="mt-3 mb-4 ml-1">
+          <Checkbox
+            label="Bypass lockdown to publish (admin only)"
+            value={adminPublish}
+            setValue={(val) => {
+              setAdminPublish(!!val);
+            }}
+          />
+        </div>
+      )}
       {mergeResult.conflicts.length > 0 && (
         <Callout status="error">
           <strong>Conflicts Detected</strong>. Please fix conflicts before

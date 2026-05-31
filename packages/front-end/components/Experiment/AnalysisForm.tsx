@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useState } from "react";
+import React, { FC, useCallback, useMemo, useState } from "react";
 import {
   UseFormReturn,
   useFieldArray,
@@ -11,6 +11,7 @@ import { datetime, getValidDate } from "shared/dates";
 import {
   DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  MAX_PRECOMPUTED_UNIT_DIMENSIONS,
 } from "shared/constants";
 import { isProjectListValidForProject } from "shared/util";
 import { getScopedSettings } from "shared/settings";
@@ -29,6 +30,7 @@ import Button from "@/ui/Button";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
@@ -37,7 +39,10 @@ import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import DatePicker from "@/components/DatePicker";
-import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
+import {
+  datasourceHasWritableEphemeralPipeline,
+  getIsExperimentIncludedInIncrementalRefresh,
+} from "@/services/experiments";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Text from "@/ui/Text";
 import MetricAnalysisWindowSelector from "./MetricAnalysisWindowSelector";
@@ -81,6 +86,7 @@ const AnalysisForm: FC<{
     getExperimentMetricById,
     getSegmentById,
     datasources,
+    dimensions,
   } = useDefinitions();
 
   const { organization, hasCommercialFeature } = useUser();
@@ -166,6 +172,7 @@ const AnalysisForm: FC<{
       guardrailMetrics: experiment.guardrailMetrics || [],
       secondaryMetrics: experiment.secondaryMetrics || [],
       customMetricSlices: experiment.customMetricSlices || [],
+      precomputedUnitDimensionIds: experiment.precomputedUnitDimensionIds || [],
       metricOverrides: getDefaultMetricOverridesFormValue(
         experiment.metricOverrides || [],
         getExperimentMetricById,
@@ -282,6 +289,28 @@ const AnalysisForm: FC<{
       experiment.id,
     );
 
+  const datasourceField = form.watch("datasource");
+  const hasPipelineModeFeature = hasCommercialFeature("pipeline-mode");
+  const precomputedUnitDimensionOptions = useMemo(
+    () =>
+      dimensions
+        .filter(
+          (d) =>
+            d.datasource === datasourceField &&
+            (!exposureQuery || d.userIdType === exposureQuery.userIdType),
+        )
+        .map((d) => ({ label: d.name, value: d.id })),
+    [dimensions, datasourceField, exposureQuery],
+  );
+  const datasourceHasWritableEphemeralPipelineEnabled = useMemo(
+    () =>
+      datasourceHasWritableEphemeralPipeline(
+        datasource,
+        hasPipelineModeFeature,
+      ),
+    [datasource, hasPipelineModeFeature],
+  );
+
   if (upgradeModal) {
     return (
       <UpgradeModal
@@ -296,15 +325,47 @@ const AnalysisForm: FC<{
     form.watch("goalMetrics").length > 0 ||
     form.watch("guardrailMetrics").length > 0 ||
     form.watch("secondaryMetrics").length > 0;
+  const hasEligiblePrecomputedUnitDimensions =
+    precomputedUnitDimensionOptions.length > 0 &&
+    datasourceHasWritableEphemeralPipelineEnabled;
+  const hasAdvancedSettings = !isBandit && !isHoldout;
+  const selectedPrecomputedUnitDimensionIds =
+    form.watch("precomputedUnitDimensionIds") || [];
+  const precomputedUnitDimensionLimitReached =
+    selectedPrecomputedUnitDimensionIds.length >=
+    MAX_PRECOMPUTED_UNIT_DIMENSIONS;
+  const precomputedUnitDimensionOptionsWithTooltips =
+    precomputedUnitDimensionOptions.map((option) => ({
+      ...option,
+      tooltip:
+        precomputedUnitDimensionLimitReached &&
+        !selectedPrecomputedUnitDimensionIds.includes(option.value)
+          ? `You can select up to ${MAX_PRECOMPUTED_UNIT_DIMENSIONS} always-computed unit dimensions.`
+          : undefined,
+    }));
 
-  // Check if any advanced settings should be shown
-  const hasAdvancedSettings =
-    !isBandit &&
-    !isHoldout &&
-    (datasourceProperties?.experimentSegments ||
-      datasourceProperties?.separateExperimentResultQueries ||
-      datasourceProperties?.queryLanguage === "sql" ||
-      hasMetrics);
+  const removeInvalidPrecomputedUnitDimensionIds = ({
+    datasourceId,
+    userIdType,
+  }: {
+    datasourceId: string;
+    userIdType?: string;
+  }) => {
+    const selectedUnitDimensionIds =
+      form.watch("precomputedUnitDimensionIds") || [];
+    if (selectedUnitDimensionIds.length === 0) return;
+
+    form.setValue(
+      "precomputedUnitDimensionIds",
+      selectedUnitDimensionIds.filter((id) => {
+        const dimension = dimensions.find((d) => d.id === id);
+        return (
+          dimension?.datasource === datasourceId &&
+          (!userIdType || dimension.userIdType === userIdType)
+        );
+      }),
+    );
+  };
 
   return (
     <ModalStandard
@@ -357,6 +418,7 @@ const AnalysisForm: FC<{
         }
         if (body.type === "multi-armed-bandit") {
           body.statsEngine = "bayesian";
+          body.precomputedUnitDimensionIds = [];
           if (!body.datasource) {
             throw new Error("You must select a datasource");
           }
@@ -522,6 +584,10 @@ const AnalysisForm: FC<{
                   "guardrailMetrics",
                   guardrails.filter(isValidMetric),
                 );
+
+                removeInvalidPrecomputedUnitDimensionIds({
+                  datasourceId: newDatasource,
+                });
               }}
               options={datasources
                 .filter(
@@ -553,7 +619,19 @@ const AnalysisForm: FC<{
                   </>
                 }
                 value={form.watch("exposureQueryId") ?? ""}
-                onChange={(v) => form.setValue("exposureQueryId", v)}
+                onChange={(v) => {
+                  form.setValue("exposureQueryId", v);
+
+                  const newUserIdType = exposureQueries?.find(
+                    (e) => e.id === v,
+                  )?.userIdType;
+                  if (!newUserIdType) return;
+
+                  removeInvalidPrecomputedUnitDimensionIds({
+                    datasourceId: form.watch("datasource"),
+                    userIdType: newUserIdType,
+                  });
+                }}
                 required
                 disabled={isBandit && experiment.status !== "draft"}
                 initialOption="Choose..."
@@ -960,11 +1038,38 @@ const AnalysisForm: FC<{
                   lazyRender={true}
                 >
                   <div className="rounded px-3 pt-3 pb-1 bg-highlight">
+                    {hasEligiblePrecomputedUnitDimensions && (
+                      <div className="form-group mb-2">
+                        <MultiSelectField
+                          label="Always-computed unit dimensions"
+                          labelClassName="font-weight-bold"
+                          helpText={`These dimensions will be computed automatically on every refresh, similar to precomputed dimensions. You can select up to ${MAX_PRECOMPUTED_UNIT_DIMENSIONS}. Changes apply on the next refresh.`}
+                          value={selectedPrecomputedUnitDimensionIds}
+                          options={precomputedUnitDimensionOptionsWithTooltips}
+                          isOptionDisabled={(option) => {
+                            if (!("value" in option)) return false;
+                            return (
+                              precomputedUnitDimensionLimitReached &&
+                              !selectedPrecomputedUnitDimensionIds.includes(
+                                option.value,
+                              )
+                            );
+                          }}
+                          onChange={(v) =>
+                            form.setValue(
+                              "precomputedUnitDimensionIds",
+                              v.slice(0, MAX_PRECOMPUTED_UNIT_DIMENSIONS),
+                            )
+                          }
+                        />
+                      </div>
+                    )}
                     {datasourceProperties?.experimentSegments &&
                       filteredSegments.length > 0 && (
                         <div className="form-group mb-2">
                           <SelectField
                             label="Segment"
+                            labelClassName="font-weight-bold"
                             value={form.watch("segment")}
                             onChange={(value) =>
                               form.setValue("segment", value || "")
@@ -990,6 +1095,7 @@ const AnalysisForm: FC<{
                         >
                           <SelectField
                             label="Metric Conversion Windows"
+                            labelClassName="font-weight-bold"
                             value={form.watch("skipPartialData")}
                             onChange={(value) =>
                               form.setValue("skipPartialData", value)
@@ -1044,6 +1150,7 @@ const AnalysisForm: FC<{
                           <div className="col">
                             <Field
                               label="Custom SQL Filter"
+                              labelClassName="font-weight-bold"
                               {...form.register("queryFilter")}
                               textarea
                               placeholder="e.g. user_id NOT IN ('123', '456')"

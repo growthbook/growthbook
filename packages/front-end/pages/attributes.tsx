@@ -1,19 +1,23 @@
 import React, { useMemo, useState } from "react";
-import { FaQuestionCircle } from "react-icons/fa";
-import { Box, Flex } from "@radix-ui/themes";
+import { PiInfo } from "react-icons/pi";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BiShow } from "react-icons/bi";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import { SDKAttribute } from "shared/types/organization";
 import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/ui/DropdownMenu";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
 import { useAttributeSchema } from "@/services/features";
 import AttributeModal from "@/components/Features/AttributeModal";
 import AttributeReferencesList from "@/components/Features/AttributeReferencesList";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
@@ -39,7 +43,6 @@ const TAGS_COLUMN_MAX_WIDTH = 160;
 
 const FeatureAttributesPage = (): React.ReactElement => {
   const permissionsUtil = usePermissionsUtil();
-  const { apiCall } = useAuth();
   const { project, projects, getProjectById } = useDefinitions();
   const attributeSchema = useAttributeSchema(true, project);
 
@@ -49,7 +52,6 @@ const FeatureAttributesPage = (): React.ReactElement => {
   );
 
   const [modalData, setModalData] = useState<null | string>(null);
-  const { refreshOrganization } = useUser();
 
   const attributeKeys = useMemo(
     () => attributeSchema.map((a) => a.property),
@@ -131,6 +133,94 @@ const FeatureAttributesPage = (): React.ReactElement => {
     null,
   );
 
+  function AttributeRowMenu({
+    v,
+    onEdit,
+  }: {
+    v: SDKAttribute;
+    onEdit: () => void;
+  }) {
+    const [menuOpen, setMenuOpen] = useState(false);
+    const { apiCall: rowApiCall } = useAuth();
+    const { refreshOrganization: rowRefresh } = useUser();
+    const rowPermissions = usePermissionsUtil();
+    if (!rowPermissions.canCreateAttribute(v)) return null;
+    return (
+      <DropdownMenu
+        trigger={
+          <IconButton
+            variant="ghost"
+            color="gray"
+            radius="full"
+            size="2"
+            highContrast
+          >
+            <BsThreeDotsVertical size={18} />
+          </IconButton>
+        }
+        open={menuOpen}
+        onOpenChange={setMenuOpen}
+        menuPlacement="end"
+      >
+        {!v.archived && (
+          <DropdownMenuItem
+            onClick={() => {
+              onEdit();
+              setMenuOpen(false);
+            }}
+          >
+            Edit
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem
+          onClick={async () => {
+            const updatedAttribute: SDKAttribute = {
+              property: v.property,
+              datatype: v.datatype,
+              archived: !v.archived,
+            };
+            await rowApiCall<{ res: number }>("/attribute", {
+              method: "PUT",
+              body: JSON.stringify(updatedAttribute),
+            });
+            rowRefresh();
+            setMenuOpen(false);
+          }}
+        >
+          {v.archived ? "Unarchive" : "Archive"}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          color="red"
+          confirmation={{
+            submit: async () => {
+              await rowApiCall<{ status: number }>("/attribute/", {
+                method: "DELETE",
+                body: JSON.stringify({ id: v.property }),
+              });
+              rowRefresh();
+            },
+            confirmationTitle: "Delete Attribute",
+            cta: "Delete",
+            ctaColor: "red",
+            getConfirmationContent: async () => (
+              <>
+                Are you sure you want to delete the{" "}
+                {v.hashAttribute ? "identifier " : ""}
+                {v.datatype} attribute:{" "}
+                <code className="font-weight-bold">{v.property}</code>?
+                <br />
+                This action cannot be undone.
+              </>
+            ),
+          }}
+        >
+          Delete
+        </DropdownMenuItem>
+      </DropdownMenu>
+    );
+  }
+
   const drawRow = (v: SDKAttribute) => {
     const refs = references?.[v.property];
     const numReferences =
@@ -147,7 +237,10 @@ const FeatureAttributesPage = (): React.ReactElement => {
           className="text-gray font-weight-bold"
           style={{ maxWidth: ATTRIBUTE_NAME_COLUMN_MAX_WIDTH }}
         >
-          <Link href={`/attributes/${encodeURIComponent(v.property)}`}>
+          <Link
+            href={`/attributes/${encodeURIComponent(v.property)}`}
+            style={{ color: "var(--gray-12)" }}
+          >
             <TruncateMiddleWithTooltip
               text={v.property}
               maxChars={23}
@@ -237,67 +330,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
           <Flex justify="center">{v.hashAttribute && <>yes</>}</Flex>
         </TableCell>
         <TableCell>
-          {permissionsUtil.canCreateAttribute(v) ? (
-            <Flex justify="center">
-              <MoreMenu>
-                {!v.archived && (
-                  <button
-                    className="dropdown-item"
-                    onClick={() => {
-                      setModalData(v.property);
-                    }}
-                  >
-                    Edit
-                  </button>
-                )}
-                <button
-                  className="dropdown-item"
-                  onClick={async (e) => {
-                    e.preventDefault();
-                    const updatedAttribute: SDKAttribute = {
-                      property: v.property,
-                      datatype: v.datatype,
-                      archived: !v.archived,
-                    };
-                    await apiCall<{
-                      res: number;
-                    }>("/attribute", {
-                      method: "PUT",
-                      body: JSON.stringify(updatedAttribute),
-                    });
-                    refreshOrganization();
-                  }}
-                >
-                  {v.archived ? "Unarchive" : "Archive"}
-                </button>
-                <DeleteButton
-                  displayName="Attribute"
-                  deleteMessage={
-                    <>
-                      Are you sure you want to delete the{" "}
-                      {v.hashAttribute ? "identifier " : ""}
-                      {v.datatype} attribute:{" "}
-                      <code className="font-weight-bold">{v.property}</code>?
-                      <br />
-                      This action cannot be undone.
-                    </>
-                  }
-                  className="dropdown-item text-danger"
-                  onClick={async () => {
-                    await apiCall<{
-                      status: number;
-                    }>("/attribute/", {
-                      method: "DELETE",
-                      body: JSON.stringify({ id: v.property }),
-                    });
-                    refreshOrganization();
-                  }}
-                  text="Delete"
-                  useIcon={false}
-                />
-              </MoreMenu>
-            </Flex>
-          ) : null}
+          <AttributeRowMenu v={v} onEdit={() => setModalData(v.property)} />
         </TableCell>
       </TableRow>
     );
@@ -372,12 +405,13 @@ const FeatureAttributesPage = (): React.ReactElement => {
                   Tags
                 </TableColumnHeader>
                 <TableColumnHeader>References</TableColumnHeader>
-                <TableColumnHeader className="text-center">
+                <TableColumnHeader style={{ textAlign: "center" }}>
                   Identifier{" "}
-                  <Tooltip body="Any attribute that uniquely identifies a user, account, device, or similar.">
-                    <FaQuestionCircle
-                      style={{ position: "relative", top: "-1px" }}
-                    />
+                  <Tooltip
+                    body="Any attribute that uniquely identifies a user, account, device, or similar."
+                    popperStyle={{ textAlign: "left" }}
+                  >
+                    <PiInfo style={{ position: "relative", top: "-1px" }} />
                   </Tooltip>
                 </TableColumnHeader>
                 <TableColumnHeader className="text-center" />

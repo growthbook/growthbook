@@ -15,6 +15,7 @@ import {
   prerequisiteChangeBadges,
   renderFeatureHoldoutSection,
   getFeatureHoldoutBadges,
+  renderFeatureArchived,
 } from "@/components/Features/FeatureDiffRenders";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 import { useEnvironments } from "@/services/features";
@@ -51,6 +52,7 @@ export const featureToFeatureRevisionDiffInput = (
     rules: feature.rules ?? [],
     environmentsEnabled,
     prerequisites: feature.prerequisites,
+    archived: feature.archived ?? false,
     holdout: feature.holdout ?? null,
     rampActions: undefined,
     metadata: normalizeRevisionMetadata({
@@ -90,6 +92,7 @@ export type FeatureRevisionDiffInput = Pick<
   | "rules"
   | "environmentsEnabled"
   | "prerequisites"
+  | "archived"
   | "metadata"
   | "holdout"
 > & {
@@ -147,6 +150,29 @@ export function useFeatureRevisionDiff({
   const { holdoutsMap } = useHoldouts();
   return useMemo(() => {
     const diffs: FeatureRevisionDiff[] = [];
+
+    // 0. Archive status — a top-level revision field (not part of the metadata
+    // envelope), so it needs its own section. renderFeatureArchived returns null
+    // when unchanged (treating undefined as false), so it doubles as the guard —
+    // no separate change check needed.
+    const archivedRender = renderFeatureArchived(
+      current.archived,
+      draft.archived,
+    );
+    if (archivedRender) {
+      diffs.push({
+        title: "Archive status",
+        a: (current.archived ?? false) ? "archived" : "active",
+        b: draft.archived ? "archived" : "active",
+        customRender: archivedRender,
+        badges: [
+          {
+            label: draft.archived ? "Archived" : "Unarchived",
+            action: "archive",
+          },
+        ],
+      });
+    }
 
     // 1. Settings (metadata)
     if (draft.metadata) {
@@ -230,7 +256,7 @@ export function useFeatureRevisionDiff({
           title: `Environment Toggle - ${envId}`,
           a: String(currentVal),
           b: String(draftVal),
-          customRender: renderEnvironmentsEnabled(envId, currentVal, draftVal),
+          customRender: renderEnvironmentsEnabled(currentVal, draftVal),
           badges: [
             {
               label: `Toggled ${envId} ${direction}`,
@@ -365,6 +391,7 @@ export function mergeResultToDiffInput(
     ...(result.prerequisites !== undefined
       ? { prerequisites: result.prerequisites }
       : {}),
+    ...(result.archived !== undefined ? { archived: result.archived } : {}),
     ...("holdout" in result ? { holdout: result.holdout } : {}),
     ...(result.metadata !== undefined
       ? {

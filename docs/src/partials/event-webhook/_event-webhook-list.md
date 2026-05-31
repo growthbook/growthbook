@@ -1681,6 +1681,7 @@ Triggered when an experiment is created
                     levels: string[];
                 }[];
             }[] | undefined;
+            precomputedUnitDimensionIds?: string[] | undefined;
             /** ID of the default dashboard for this experiment. */
             defaultDashboardId?: string | undefined;
             templateId?: string | undefined;
@@ -1937,6 +1938,7 @@ Triggered when an experiment is updated
                     levels: string[];
                 }[];
             }[] | undefined;
+            precomputedUnitDimensionIds?: string[] | undefined;
             /** ID of the default dashboard for this experiment. */
             defaultDashboardId?: string | undefined;
             templateId?: string | undefined;
@@ -2154,6 +2156,7 @@ Triggered when an experiment is updated
                     levels: string[];
                 }[];
             }[] | undefined;
+            precomputedUnitDimensionIds?: string[] | undefined;
             /** ID of the default dashboard for this experiment. */
             defaultDashboardId?: string | undefined;
             templateId?: string | undefined;
@@ -2415,6 +2418,7 @@ Triggered when an experiment is deleted
                     levels: string[];
                 }[];
             }[] | undefined;
+            precomputedUnitDimensionIds?: string[] | undefined;
             /** ID of the default dashboard for this experiment. */
             defaultDashboardId?: string | undefined;
             templateId?: string | undefined;
@@ -2482,6 +2486,10 @@ Triggered when a warning condition is detected on an experiment
             experimentName: string;
             experimentId: string;
             threshold: number;
+        } | {
+            type: "no-data";
+            experimentName: string;
+            experimentId: string;
         } | {
             type: "scheduled-status-update-failed";
             experimentName: string;
