@@ -76,6 +76,31 @@ export const S3_BUCKET = process.env.S3_BUCKET || "";
 export const S3_REGION = process.env.S3_REGION || "us-east-1";
 export const S3_DOMAIN =
   process.env.S3_DOMAIN || `https://${S3_BUCKET}.s3.amazonaws.com/`;
+
+// Public, CDN-fronted bucket used for visual-editor assets (AI-generated
+// images and manual image uploads). Kept separate from the private
+// `S3_BUCKET` so:
+//   - the bucket policy can allow public reads without exposing other
+//     uploads in the private bucket,
+//   - Fastly can point at a single origin that only contains public
+//     content (no accidental CDN-leaking of signed-URL files),
+//   - lifecycle / retention policies can differ between user-controlled
+//     uploads and immutable static assets.
+// Falls back to the private `S3_BUCKET` so self-hosted installs that
+// haven't set up a dedicated public bucket still work (writes will go
+// through the same signed-PUT mechanism — they just won't be public
+// via CDN).
+export const VISUAL_EDITOR_ASSETS_S3_BUCKET =
+  process.env.VISUAL_EDITOR_ASSETS_S3_BUCKET || S3_BUCKET;
+export const VISUAL_EDITOR_ASSETS_S3_REGION =
+  process.env.VISUAL_EDITOR_ASSETS_S3_REGION || S3_REGION;
+// This should be the CDN URL (e.g. https://img.example.com/), NOT the
+// raw S3 endpoint — the value gets baked into visual-changeset DOM
+// mutations and persisted forever, so it needs to be the long-lived
+// public hostname.
+export const VISUAL_EDITOR_ASSETS_S3_DOMAIN =
+  process.env.VISUAL_EDITOR_ASSETS_S3_DOMAIN ||
+  `https://${VISUAL_EDITOR_ASSETS_S3_BUCKET}.s3.amazonaws.com/`;
 export const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || "dev";
 if (prod && ENCRYPTION_KEY === "dev") {
   throw new Error(
@@ -87,6 +112,15 @@ export const GCS_BUCKET_NAME = process.env.GCS_BUCKET_NAME || "";
 export const GCS_DOMAIN =
   process.env.GCS_DOMAIN ||
   `https://storage.googleapis.com/${GCS_BUCKET_NAME}/`;
+
+// Visual-editor public-assets bucket (GCS variant). Same rationale as the
+// S3 pair above. Defaults to the private GCS bucket so installs that
+// haven't configured a dedicated public bucket still work.
+export const VISUAL_EDITOR_ASSETS_GCS_BUCKET_NAME =
+  process.env.VISUAL_EDITOR_ASSETS_GCS_BUCKET_NAME || GCS_BUCKET_NAME;
+export const VISUAL_EDITOR_ASSETS_GCS_DOMAIN =
+  process.env.VISUAL_EDITOR_ASSETS_GCS_DOMAIN ||
+  `https://storage.googleapis.com/${VISUAL_EDITOR_ASSETS_GCS_BUCKET_NAME}/`;
 
 export const JWT_SECRET = process.env.JWT_SECRET || "dev";
 if ((prod || !IS_LOCALHOST) && !IS_CLOUD && JWT_SECRET === "dev") {
@@ -228,6 +262,19 @@ if ((prod || !IS_LOCALHOST) && secretAPIKey === "dev") {
   );
 }
 export const SECRET_API_KEY = secretAPIKey;
+
+// Gemini (Google AI Studio) — used by the visual editor's image-gen endpoint.
+// Optional: when unset, the endpoint surfaces a clear "not configured" error
+// instead of silently falling back to placeholders. Pin a model version so
+// preview-channel changes from Google don't change output character
+// unexpectedly.
+export const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
+// Google's image-gen model IDs change between preview/stable releases.
+// If your key returns 404 for this default, run the diagnostic curl in
+// postAIImageGen.ts (or hit /v1beta/models with your key) and override
+// this env var with whichever ID your account actually has access to.
+export const GEMINI_IMAGE_MODEL =
+  process.env.GEMINI_IMAGE_MODEL || "gemini-2.5-flash-image";
 // This is typically used for the Proxy Server, which only requires readonly access
 export const SECRET_API_KEY_ROLE =
   process.env.SECRET_API_KEY_ROLE || "readonly";

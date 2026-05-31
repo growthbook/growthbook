@@ -80,6 +80,133 @@ export function getProviderFromModel(model: AIModel): AIProvider {
   throw new Error(`Model ${model} is not supported.`);
 }
 
+// ============================================================================
+// Image generation models
+// ----------------------------------------------------------------------------
+// Two flavors live behind this registry:
+//
+//   • "image-endpoint" — providers with a dedicated text-to-image endpoint
+//     (OpenAI DALL-E / GPT Image, Google Imagen, xAI Grok Image). On the
+//     back-end these go through Vercel AI SDK's `generateImage(provider.image(id))`.
+//
+//   • "multimodal-text" — language models that emit image bytes alongside
+//     (or instead of) text in a normal `generateContent` call. Gemini 2.5
+//     Flash Image ("nano-banana") and Gemini 3 Pro Image are the canonical
+//     examples. On the back-end these go through `generateText(provider(id))`
+//     with `responseModalities: ['IMAGE']` and we read `result.files`. These
+//     are also the only models that currently accept reference images via
+//     the unified abstraction (image bytes as a multimodal input part).
+//
+// Adding a new image model = add an entry here. The back-end's image
+// generation service dispatches off `provider` + `kind`, and the front-end
+// AI Settings dropdown reads `label` directly.
+// ============================================================================
+
+export type AIImageProvider = "openai" | "google" | "xai";
+
+export type AIImageModelKind = "image-endpoint" | "multimodal-text";
+
+export interface AIImageModelMeta {
+  // Canonical model id passed to the Vercel SDK. For Google, the *bare*
+  // names like `gemini-2.5-flash-image` are aliased to the preview names
+  // on the SDK side — see resolveImageModelIdForSdk.
+  id: string;
+  provider: AIImageProvider;
+  kind: AIImageModelKind;
+  // Human-readable label shown in the AI Settings dropdown.
+  label: string;
+  // Whether the model accepts a reference image (the AI image-replace
+  // panel uses this to gate the "Use current image as context" toggle).
+  supportsReferenceImage: boolean;
+}
+
+export const AI_IMAGE_MODELS: ReadonlyArray<AIImageModelMeta> = [
+  // Google multimodal-text (nano-banana lineage)
+  {
+    id: "gemini-2.5-flash-image-preview",
+    provider: "google",
+    kind: "multimodal-text",
+    label: "Gemini 2.5 Flash Image (nano-banana)",
+    supportsReferenceImage: true,
+  },
+  {
+    id: "gemini-3-pro-image-preview",
+    provider: "google",
+    kind: "multimodal-text",
+    label: "Gemini 3 Pro Image (preview)",
+    supportsReferenceImage: true,
+  },
+  // Google Imagen (dedicated endpoint)
+  {
+    id: "imagen-4.0-fast-generate-001",
+    provider: "google",
+    kind: "image-endpoint",
+    label: "Imagen 4 Fast",
+    supportsReferenceImage: false,
+  },
+  {
+    id: "imagen-4.0-generate-001",
+    provider: "google",
+    kind: "image-endpoint",
+    label: "Imagen 4",
+    supportsReferenceImage: false,
+  },
+  {
+    id: "imagen-4.0-ultra-generate-001",
+    provider: "google",
+    kind: "image-endpoint",
+    label: "Imagen 4 Ultra",
+    supportsReferenceImage: false,
+  },
+  // OpenAI
+  {
+    id: "dall-e-3",
+    provider: "openai",
+    kind: "image-endpoint",
+    label: "DALL-E 3",
+    supportsReferenceImage: false,
+  },
+  {
+    id: "gpt-image-1",
+    provider: "openai",
+    kind: "image-endpoint",
+    label: "GPT Image 1",
+    supportsReferenceImage: false,
+  },
+  {
+    id: "gpt-image-1-mini",
+    provider: "openai",
+    kind: "image-endpoint",
+    label: "GPT Image 1 Mini",
+    supportsReferenceImage: false,
+  },
+  // xAI
+  {
+    id: "grok-2-image",
+    provider: "xai",
+    kind: "image-endpoint",
+    label: "Grok 2 Image",
+    supportsReferenceImage: false,
+  },
+];
+
+// Legacy → SDK id aliases. Existing orgs may have `gemini-2.5-flash-image`
+// (no `-preview` suffix) stored in settings; the Vercel @ai-sdk/google
+// type only knows `gemini-2.5-flash-image-preview`. Normalize at the
+// dispatch boundary so we don't churn org settings.
+const IMAGE_MODEL_ALIASES: Record<string, string> = {
+  "gemini-2.5-flash-image": "gemini-2.5-flash-image-preview",
+};
+
+export function resolveImageModelIdForSdk(model: string): string {
+  return IMAGE_MODEL_ALIASES[model] ?? model;
+}
+
+export function getImageModelMeta(model: string): AIImageModelMeta | undefined {
+  const resolved = resolveImageModelIdForSdk(model);
+  return AI_IMAGE_MODELS.find((m) => m.id === resolved);
+}
+
 // Available embedding models for each provider
 export const AI_PROVIDER_EMBEDDING_MODEL_MAP = {
   openai: [
@@ -130,6 +257,9 @@ export const AI_PROMPT_TYPES = [
   "visual-changeset-copy-transform-energetic",
   "visual-changeset-copy-transform-concise",
   "visual-changeset-copy-transform-humorous",
+  "visual-editor-ai-edit",
+  "visual-editor-ai-suggestions",
+  "visual-editor-ai-image-gen",
   "product-analytics-chat",
 ] as const;
 export type AIPromptType = (typeof AI_PROMPT_TYPES)[number];
@@ -163,6 +293,9 @@ export const AI_PROMPT_DEFAULTS: Record<AIPromptType, string> = {
   "visual-changeset-copy-transform-energetic": "", // Always uses the default prompt set in postCopyTransform.ts
   "visual-changeset-copy-transform-concise": "", // Always uses the default prompt set in postCopyTransform.ts
   "visual-changeset-copy-transform-humorous": "", // Always uses the default prompt set in postCopyTransform.ts
+  "visual-editor-ai-edit": "", // Always uses the default prompt set in postAIEdit.ts
+  "visual-editor-ai-suggestions": "", // Always uses the default prompt set in postAISuggestions.ts
+  "visual-editor-ai-image-gen": "", // Image generation does not currently use a text prompt template
   "product-analytics-chat": "",
 };
 

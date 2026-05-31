@@ -1,7 +1,7 @@
 import { FC, useMemo, useState } from "react";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { PiArrowSquareOut } from "react-icons/pi";
-import { getApiHost } from "@/services/env";
+import { getApiHost, getAppOrigin } from "@/services/env";
 import track from "@/services/track";
 import { appendQueryParamsToURL } from "@/services/utils";
 import { AuthContextValue, useAuth } from "@/services/auth";
@@ -59,7 +59,15 @@ export async function openVisualEditor({
     ...(aiFeatureMeta ? { "ai-enabled": "true" } : {}),
   });
 
-  if (!bypassChecks) {
+  // Skip the extension-detection probe in local dev. The probe pings the
+  // production Chrome Web Store extension ID, which won't match a locally
+  // unpacked dev build (Chrome assigns those a random ID).
+  const isLocalDev =
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1");
+
+  if (!bypassChecks && !isLocalDev) {
     if (!["chrome", "firefox"].includes(browser) || deviceType !== "desktop") {
       track("Open visual editor", {
         source: "visual-editor-ui",
@@ -109,6 +117,10 @@ export async function openVisualEditor({
         data: {
           apiHost,
           apiKey,
+          // Teach the extension our app origin so its "Connect with
+          // GrowthBook" button knows where to reopen for future reconnects
+          // (the app origin can differ from apiHost, e.g. on self-hosted).
+          appOrigin: getAppOrigin(),
         },
       },
       window.location.origin,

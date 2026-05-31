@@ -462,6 +462,7 @@ export async function getAllExperiments(
     trackingKey,
     status,
     sortBy,
+    limit,
   }: {
     project?: string;
     includeArchived?: boolean;
@@ -470,6 +471,12 @@ export async function getAllExperiments(
     trackingKey?: string;
     status?: ExperimentStatus;
     sortBy?: SortFilter;
+    // Optional cap, applied at the Mongo cursor level. Use this when the
+    // caller only needs the top-N most recent (with a matching `sortBy`)
+    // rather than the full org-wide list — without it, organizations
+    // with thousands of experiments materialize the whole result set,
+    // including each experiment's potentially large analysis blob.
+    limit?: number;
   } = {},
 ): Promise<ExperimentInterface[]> {
   const query: FilterQuery<ExperimentDocument> = {
@@ -506,7 +513,7 @@ export async function getAllExperiments(
     query.type = { $ne: "holdout" };
   }
 
-  return await findExperiments(context, query, undefined, sortBy);
+  return await findExperiments(context, query, limit, sortBy);
 }
 
 export async function hasArchivedExperiments(
