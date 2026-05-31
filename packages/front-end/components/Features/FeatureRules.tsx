@@ -502,9 +502,10 @@ export default function FeatureRules({
                 <em>No rules have been added yet</em>
               </Box>
             )}
-            {canEditDrafts && !isLocked && (
+            {!isLocked && (
               <Flex mt="5" mb="1" justify="end">
                 <Button
+                  disabled={!canEditDrafts}
                   onClick={() => {
                     // environment="" → rule modal defaults to allEnvironments scope
                     setRuleModal({
@@ -552,13 +553,14 @@ export default function FeatureRules({
                 <em>No rules have been added to this environment yet</em>
               </Box>
             )}
-            {canEditDrafts && !isLocked && (
+            {!isLocked && (
               <>
                 <Flex pt="4" justify="between" align="center">
                   <Text weight="semibold" size="large">
                     Add rule to {activeEnv.id}
                   </Text>
                   <Button
+                    disabled={!canEditDrafts}
                     onClick={() => {
                       setRuleModal({
                         environment: activeEnv.id,

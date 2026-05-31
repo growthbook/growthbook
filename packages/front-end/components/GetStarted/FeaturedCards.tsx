@@ -193,7 +193,7 @@ export function AnalyzeExperimentFeatureCard() {
         </svg>
         <PiChartScatter className={styles.chartIcon} />
         <Text ml="2" weight="bold" size="4">
-          Analyze Imported Experiments
+          Analyze External Experiments
         </Text>
         <ActionArrow />
       </Flex>
