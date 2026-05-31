@@ -1,11 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import GetStartedAndHomePage from "@/components/GetStarted";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { AppFeatures } from "@/types/app-features";
 import { isExperimentationLeaning } from "@/services/onboarding";
 import Callout from "@/ui/Callout";
 
@@ -18,7 +16,6 @@ export default function Home(): React.ReactElement {
   const router = useRouter();
   const { apiCall } = useAuth();
   const { organization } = useUser();
-  const gb = useGrowthBook<AppFeatures>();
 
   // Fetch fresh on mount — we don't want a cached "no features yet" result
   // bouncing the user back to /setup right after they create their first one.
@@ -59,7 +56,7 @@ export default function Home(): React.ReactElement {
     } else {
       router.replace("/getstarted");
     }
-  }, [organization, willRedirect, gb, router]);
+  }, [organization, willRedirect, router]);
 
   if (error) {
     return (
