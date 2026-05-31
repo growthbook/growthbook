@@ -364,9 +364,6 @@ export default function AISettings({
                     />
                   </Box>
 
-                  {/* Visual Editor extension settings moved out to their
-                      own Frame ("Visual Editor") below — between the
-                      "Prompts" frame and the "Embeddings" frame. */}
                   {(() => {
                     const defaultModel = form.watch("defaultAIModel");
                     const usedProviders = new Set<string>();
