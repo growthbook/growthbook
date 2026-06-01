@@ -150,7 +150,7 @@ export const listRevisions = createApiRequestHandler(listRevisionsValidator)(
     const r = await loadRevisionsPage(
       req.context,
       req.organization.id,
-      req.query,
+      { ...req.query, archived: true }, // v1 always included archived features
     );
     if (r.empty) return r.response;
     const mapped = r.revisions.map((rev) =>

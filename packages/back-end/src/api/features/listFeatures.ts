@@ -224,7 +224,7 @@ export const listFeatures = createApiRequestHandler(listFeaturesValidator)(
     const r = await loadFeaturesPage(
       req.context,
       req.organization.id,
-      req.query,
+      { ...req.query, archived: true }, // v1 always included archived features
     );
     if (r.empty) return r.response;
     return {
