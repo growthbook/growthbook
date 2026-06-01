@@ -1,4 +1,7 @@
-import { NULL_ATTRIBUTE_VALUE, CONTEXTUAL_BANDIT_COMBINED_ATTRIBUTE_VALUE } from "shared/constants";
+import {
+  NULL_ATTRIBUTE_VALUE,
+  CONTEXTUAL_BANDIT_COMBINED_ATTRIBUTE_VALUE,
+} from "shared/constants";
 import {
   contextualBanditAttrCol,
   contextualBanditRawAttrCol,

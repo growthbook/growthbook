@@ -84,8 +84,14 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
     useState(false);
   const [useSameSeedAsOriginal, setUseSameSeedAsOriginal] = useState(false);
 
-  const { datasources, getDatasourceById, refreshTags, project, projects } =
-    useDefinitions();
+  const {
+    datasources,
+    getDatasourceById,
+    refreshTags,
+    project,
+    projects,
+    getExperimentMetricById,
+  } = useDefinitions();
   const environments = useEnvironments();
   const { experiments } = useExperiments();
 
@@ -94,13 +100,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
   const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
     useState(false);
   const [disableBanditConversionWindow, setDisableBanditConversionWindow] =
-    useState(() => {
-      if (isNewExperiment) return false;
-      const hasOverride =
-        initialValue?.banditConversionWindowValue != null &&
-        initialValue?.banditConversionWindowUnit != null;
-      return !hasOverride;
-    });
+    useState(false);
   const canSubmit = !prerequisiteTargetingSdkIssues;
 
   const settings = useOrgSettings();
@@ -370,6 +370,9 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
 
       data.statsEngine = "bayesian";
       data.type = "contextual-bandit";
+      data.secondaryMetrics = [];
+      data.guardrailMetrics = [];
+      data.customMetricSlices = [];
 
       const ds = datasources.find((d) => d.id === data.datasource);
       const queries = ds?.settings?.queries?.exposure ?? [];
@@ -397,6 +400,13 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
 
       if ((data.goalMetrics?.length ?? 0) !== 1) {
         throw new Error("You must select 1 decision metric");
+      }
+      const goalMetric = getExperimentMetricById(data.goalMetrics[0]);
+      if (goalMetric?.datasource !== data.datasource) {
+        setStep(2);
+        throw new Error(
+          "The decision metric must belong to the selected data source",
+        );
       }
       const shouldIncludeConversionWindow =
         !disableBanditConversionWindow &&

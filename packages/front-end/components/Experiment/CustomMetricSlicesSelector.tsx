@@ -39,6 +39,7 @@ export interface CustomMetricSlicesSelectorProps {
   guardrailMetrics: string[];
   customMetricSlices: CustomMetricSlice[];
   setCustomMetricSlices: (slices: CustomMetricSlice[]) => void;
+  hidden?: boolean;
 }
 
 export default function CustomMetricSlicesSelector({
@@ -47,6 +48,7 @@ export default function CustomMetricSlicesSelector({
   guardrailMetrics,
   customMetricSlices,
   setCustomMetricSlices,
+  hidden = false,
 }: CustomMetricSlicesSelectorProps) {
   const { hasCommercialFeature } = useUser();
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
@@ -227,7 +229,7 @@ export default function CustomMetricSlicesSelector({
     setEditingSliceLevels(newLevels);
   };
 
-  if (!hasMetricSlicesFeature) {
+  if (hidden || !hasMetricSlicesFeature) {
     return null;
   }
 

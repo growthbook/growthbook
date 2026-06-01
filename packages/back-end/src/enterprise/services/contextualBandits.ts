@@ -462,8 +462,7 @@ export function buildExperimentSnapshotSettingsForCb(
     segment: "",
     skipPartialData: false,
     attributionModel: "firstExposure",
-    regressionAdjustmentEnabled:
-      cbSnapshotSettings.regressionAdjustmentEnabled,
+    regressionAdjustmentEnabled: cbSnapshotSettings.regressionAdjustmentEnabled,
     defaultMetricPriorSettings: {
       override: false,
       proper: false,

@@ -165,7 +165,13 @@ describe("buildContextualBanditSnapshotSettings", () => {
     const exp = makeExperiment({ guardrailMetrics: ["met_guard"] });
     const eaq = makeExposureQuery();
 
-    const settings = buildContextualBanditSnapshotSettings(cb, exp, 0, eaq, false);
+    const settings = buildContextualBanditSnapshotSettings(
+      cb,
+      exp,
+      0,
+      eaq,
+      false,
+    );
 
     expect(settings).not.toHaveProperty("guardrailMetrics");
     expect(settings).not.toHaveProperty("activationMetric");
@@ -222,7 +228,13 @@ describe("buildContextualBanditSnapshotSettings", () => {
     const exp = makeExperiment();
     const eaq = makeExposureQuery({ targetingAttributeColumns: undefined });
 
-    const settings = buildContextualBanditSnapshotSettings(cb, exp, 0, eaq, false);
+    const settings = buildContextualBanditSnapshotSettings(
+      cb,
+      exp,
+      0,
+      eaq,
+      false,
+    );
 
     expect(settings.contextualAttributes).toEqual(["plan_tier"]);
   });

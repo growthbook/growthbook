@@ -149,7 +149,7 @@ class Bandits(ABC):
     # number of Monte Carlo samples to perform when sampling to estimate weights for the SDK
     @property
     def n_samples(self) -> int:
-        return int(1e4)
+        return int(1e5)
 
     # scalar to add to the mean for leaderboard plots.  For non-cuped metrics, is 0.
     @property

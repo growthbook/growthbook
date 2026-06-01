@@ -288,11 +288,7 @@ export function getBanditStatisticsFactMetricCTE(
               SUM(bpw.weight * bps.${alias}main_sum / bps.users) * SUM(bpw.weight * bps.${alias}covariate_sum / bps.users)
             )
           ) AS ${alias}main_covariate_sum_product
-        ${
-          poolRegressionTheta
-            ? `, MAX(t.${alias}theta) AS ${alias}theta`
-            : ""
-        }
+        ${poolRegressionTheta ? `, MAX(t.${alias}theta) AS ${alias}theta` : ""}
           `
           : ""
       }`;

@@ -9,39 +9,29 @@ import {
 import {
   CONTEXTUAL_BANDIT_ROWS_QUERY_NAME,
   ContextualBanditResultsQueryRunner,
-} from "back-end/src/queryRunners/ContextualBanditResultsQueryRunner";
-import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
+} from "back-end/src/enterprise/queryRunners/ContextualBanditResultsQueryRunner";
 import {
   ContextualBanditResult,
   runContextualStatsEngine,
-} from "back-end/src/services/contextualBanditStats";
+} from "back-end/src/enterprise/services/contextualBanditStats";
+import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { ReqContext } from "back-end/types/api";
 
-// Swap the runner's two stub seams (SQL + Python stats) for jest.fn so we can
-// exercise the row-tagging / context-cap / settings-building glue without
-// depending on the real bodies. The orchestrator-module mock keeps the pure
-// helpers (attributesToCondition, getContextualBanditSettingsForStatsEngine)
-// real and intercepts only the
-// side-effecting `persistContextualBanditEvent`.
-jest.mock("back-end/src/services/contextualBanditSql", () => ({
-  getContextualBanditQuerySql: jest.fn(),
-  executeContextualBanditQuery: jest.fn(),
-}));
-jest.mock("back-end/src/services/contextualBanditQueries", () => {
-  const actual = jest.requireActual(
-    "back-end/src/services/contextualBanditQueries",
-  );
-  return {
-    ...actual,
-    loadContextualBanditSnapshotContext: jest.fn(),
-  };
-});
-jest.mock("back-end/src/services/contextualBanditStats", () => ({
+// Swap the runner's one external seam (the Python stats engine) for a jest.fn
+// so we can exercise the row-tagging / context-cap / settings-building glue
+// without depending on the real stats body. The SQL itself is generated and
+// executed inline through the datasource integration (mocked per-test). The
+// orchestrator-module mock keeps the pure helpers (attributesToCondition,
+// getContextualBanditSettingsForStatsEngine, buildExperimentSnapshotSettingsForCb)
+// real and intercepts only the side-effecting `persistContextualBanditEvent`.
+jest.mock("back-end/src/enterprise/services/contextualBanditStats", () => ({
   runContextualStatsEngine: jest.fn(),
 }));
-jest.mock("back-end/src/services/contextualBandits", () => {
-  const actual = jest.requireActual("back-end/src/services/contextualBandits");
+jest.mock("back-end/src/enterprise/services/contextualBandits", () => {
+  const actual = jest.requireActual(
+    "back-end/src/enterprise/services/contextualBandits",
+  );
   return {
     ...actual,
     persistContextualBanditEvent: jest.fn(),
@@ -68,7 +58,7 @@ jest.mock("back-end/src/models/FactTableModel", () => ({
   getFactTableMap: jest.fn().mockResolvedValue(new Map()),
 }));
 
-import { persistContextualBanditEvent } from "back-end/src/services/contextualBandits";
+import { persistContextualBanditEvent } from "back-end/src/enterprise/services/contextualBandits";
 
 const runContextualStatsEngineMock =
   runContextualStatsEngine as jest.MockedFunction<
