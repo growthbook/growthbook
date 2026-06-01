@@ -153,7 +153,10 @@ export const startExperimentResultQueries = async (
   // materialize the assignment/exposure query into its own table so it runs
   // once instead of being inlined as a CTE inside every metric query.
   const separateAssignmentQuery =
-    canWriteTable && settings.pipelineSettings?.allowWriting && !useUnitsTable;
+    canWriteTable &&
+    settings.pipelineSettings?.allowWriting &&
+    hasPipelineModeFeature &&
+    !useUnitsTable;
   const shouldCreateUnitsTable = useUnitsTable || separateAssignmentQuery;
 
   // Table name: use a per-snapshot name for full pipeline mode (ephemeral),
