@@ -1485,12 +1485,18 @@ describe("quantile grid array packing is BigQuery-only", () => {
       },
     );
 
-    it("non-array dialects throw if arrayLiteral is ever called", () => {
+    it("quantileGridArrayLiteral collapses to NULL when the grid has no data", () => {
       // Defensive contract: a dialect must not advertise array support without
-      // implementing arrayLiteral, and must not have arrayLiteral silently
+      // implementing quantileGridArrayLiteral, and must not have it silently
       // no-op if it doesn't support arrays.
-      expect(() => snowflakeDialect.arrayLiteral(["1", "2"])).toThrow();
-      expect(bigQueryDialect.arrayLiteral(["1", "2"])).toBe("[1, 2]");
+      expect(() =>
+        snowflakeDialect.quantileGridArrayLiteral(["1", "2"]),
+      ).toThrow();
+      // BigQuery rejects a NULL-containing array in a query result, so the grid
+      // must collapse to NULL (all-or-nothing) instead of emitting a partial array.
+      expect(bigQueryDialect.quantileGridArrayLiteral(["a", "b"])).toBe(
+        "IF(a IS NULL, NULL, [a, b])",
+      );
     });
   });
 

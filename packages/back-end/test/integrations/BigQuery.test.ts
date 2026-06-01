@@ -289,7 +289,9 @@ describe("BigQuery KLL quantile sketch methods", () => {
     const extractCount = (
       grid.match(/KLL_QUANTILES\.EXTRACT_POINT_FLOAT64\(m0_sketch,/g) || []
     ).length;
-    expect(extractCount).toBe(1 + N_STAR_VALUES.length * 2);
+    // 1 central point + 20 × 2 bounds, plus the first bound referenced once more
+    // in the IF(... IS NULL) guard that collapses the grid to NULL when empty.
+    expect(extractCount).toBe(1 + N_STAR_VALUES.length * 2 + 1);
   });
 
   it("returns kll intermediate data type for event quantile metrics", () => {
@@ -637,7 +639,9 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     const extractPointCount = (
       sql.match(/KLL_QUANTILES\.EXTRACT_POINT_FLOAT64/g) || []
     ).length;
-    expect(extractPointCount).toBe(1 + N_STAR_VALUES.length * 2);
+    // 1 central point + 20 × 2 bounds, plus the first bound referenced once more
+    // in the IF(... IS NULL) guard that collapses the grid to NULL when empty.
+    expect(extractPointCount).toBe(1 + N_STAR_VALUES.length * 2 + 1);
 
     // Pass 2: per-user rank recovery via CDF counting
     expect(sql).toContain("KLL_QUANTILES.EXTRACT_FLOAT64");

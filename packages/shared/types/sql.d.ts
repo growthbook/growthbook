@@ -102,7 +102,7 @@ export interface SqlDialect {
     numQuantiles: number,
   ) => string;
   hasArrayQuantileGrid: () => boolean;
-  arrayLiteral: (elements: string[]) => string;
+  quantileGridArrayLiteral: (elements: string[]) => string;
   unpivotLabeledPairs: (
     pairs: UnpivotLabeledPair[],
   ) => UnpivotLabeledPairsResult;

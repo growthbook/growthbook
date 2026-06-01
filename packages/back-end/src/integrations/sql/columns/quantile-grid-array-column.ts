@@ -14,5 +14,7 @@ export function getQuantileGridArrayColumn(
     const { lower, upper } = getQuantileBoundValues(quantile, 0.05, nstar);
     return [boundExpr(lower), boundExpr(upper)];
   });
-  return `, ${dialect.arrayLiteral(elements)} AS ${prefix}quantile_grid`;
+  return `, ${dialect.quantileGridArrayLiteral(
+    elements,
+  )} AS ${prefix}quantile_grid`;
 }
