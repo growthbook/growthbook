@@ -549,16 +549,26 @@ const MetricsList = (): React.ReactElement => {
           </DocLink>
         </Flex>
         <Box style={{ flex: 1 }} />
-        {permissionsUtil.canCreateMetric({ projects: [project] }) &&
-        envAllowsCreatingMetrics() &&
-        !showCreateFactTableButton ? (
+        {envAllowsCreatingMetrics() && !showCreateFactTableButton ? (
           <Flex gap="2">
             <AutoGenerateMetricsButton
               setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
             />
-            <Button onClick={() => setModalData({ mode: "new" })}>
-              Add Metric
-            </Button>
+            <Tooltip
+              content="You don't have permission to add metrics in this project."
+              enabled={
+                !permissionsUtil.canCreateMetric({ projects: [project] })
+              }
+            >
+              <Button
+                disabled={
+                  !permissionsUtil.canCreateMetric({ projects: [project] })
+                }
+                onClick={() => setModalData({ mode: "new" })}
+              >
+                Add Metric
+              </Button>
+            </Tooltip>
           </Flex>
         ) : permissionsUtil.canCreateFactTable({ projects: [project] }) ? (
           <Box>
