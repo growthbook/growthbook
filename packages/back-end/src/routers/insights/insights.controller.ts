@@ -179,8 +179,8 @@ export const postFindInsights = async (
   const { aiEnabled } = getAISettingsForOrg(context);
 
   if (!aiEnabled) {
-    return res.status(404).json({
-      status: 404,
+    return res.status(403).json({
+      status: 403,
       message: "AI is not enabled for this organization",
     });
   }
