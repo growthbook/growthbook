@@ -1060,11 +1060,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Queries/ExpandableQuery.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Queries/QueriesLastRun.tsx": {
     "no-restricted-imports": {
       "count": 1
