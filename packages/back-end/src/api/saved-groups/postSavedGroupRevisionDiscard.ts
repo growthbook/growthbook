@@ -2,6 +2,7 @@ import { postSavedGroupRevisionDiscardValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
+import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
 import { toApiSavedGroupRevision } from "./toApiSavedGroupRevision";
 
@@ -46,6 +47,10 @@ export const postSavedGroupRevisionDiscard = createApiRequestHandler(
     req.context.userId,
     req.body.reason,
   );
+
+  await dispatchSavedGroupRevisionEvent(req.context, closed, {
+    type: "discarded",
+  });
 
   return {
     revision: await toApiSavedGroupRevision(closed, req.context),

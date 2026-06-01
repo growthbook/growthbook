@@ -51,7 +51,7 @@ import {
   isFactMetric,
   isFactMetricId,
   isMetricJoinable,
-  isPrecomputedDimension,
+  isDimensionPrecomputed,
   parseSliceMetricId,
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
@@ -166,6 +166,10 @@ import { LegacyMetricAnalysisQueryRunner } from "back-end/src/queryRunners/Legac
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { QueryMap, getQueryMap } from "back-end/src/queryRunners/QueryRunner";
 import {
+  buildUnitDimensionQueryMap,
+  filterParentQueryMap,
+} from "back-end/src/queryRunners/unitDimensionQueryNaming";
+import {
   FactTableMap,
   getFactTableMap,
 } from "back-end/src/models/FactTableModel";
@@ -180,7 +184,10 @@ import { getSignedImageUrl } from "back-end/src/services/files";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
-import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
+import {
+  getEligiblePrecomputedUnitDimensionIds,
+  getExposureQueryEligibleDimensions,
+} from "back-end/src/services/dimensions";
 import { ConcurrentIncrementalRefreshError } from "back-end/src/util/errors";
 import { validateIncrementalPipeline } from "back-end/src/enterprise/services/data-pipeline";
 import { getMetricForSnapshot } from "./reports";
@@ -463,6 +470,7 @@ export function getSnapshotSettings({
   reweight,
   datasource,
   useStickyBucketing,
+  eligiblePrecomputedUnitDimensionIds = [],
 }: {
   experiment: ExperimentInterface;
   phaseIndex: number;
@@ -480,6 +488,7 @@ export function getSnapshotSettings({
   reweight?: boolean;
   datasource?: DataSourceInterface;
   useStickyBucketing?: boolean;
+  eligiblePrecomputedUnitDimensionIds?: string[];
 }): ExperimentSnapshotSettings {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
@@ -525,6 +534,19 @@ export function getSnapshotSettings({
         slices: d.specifiedSlices,
       })) ?? [];
   }
+
+  // Configured unit dimensions are carried on a dedicated settings field, NOT
+  // folded into `dimensions`. The runner materializes one `dim_unit_<id>`
+  // column per id in the shared units table and runs isolated per-dim metric
+  // queries; folding them into `dimensions` would instead cross-product every
+  // unit dim into every parent metric query.
+  const precomputedUnitDimensionIds =
+    snapshotType === "standard" &&
+    experiment.type !== "multi-armed-bandit" &&
+    !dimension &&
+    eligiblePrecomputedUnitDimensionIds.length > 0
+      ? eligiblePrecomputedUnitDimensionIds
+      : [];
 
   // expand metric groups and scrub unjoinable metrics
   let goalMetrics = expandMetricGroups(
@@ -722,6 +744,7 @@ export function getSnapshotSettings({
     queryFilter: experiment.queryFilter || "",
     datasourceId: experiment.datasource || "",
     dimensions: dimensions,
+    precomputedUnitDimensionIds,
     startDate: phase.dateStarted,
     endDate: phase.dateEnded || new Date(),
     experimentId: experiment.trackingKey || experiment.id,
@@ -757,7 +780,7 @@ export async function parseDimension(
         id: dimension.substring(4),
         specifiedSlices: slices,
       };
-    } else if (isPrecomputedDimension(dimension)) {
+    } else if (isDimensionPrecomputed(dimension, [])) {
       return {
         type: "experiment",
         id: dimension.substring(PRECOMPUTED_DIMENSION_PREFIX.length),
@@ -1371,6 +1394,18 @@ export async function planSnapshot({
     !incrementalRefreshModel ||
     !incrementalRefreshModel.unitsTableFullName;
 
+  const requestedPrecomputedUnitDimensionIds =
+    experiment.precomputedUnitDimensionIds ?? [];
+  const eligiblePrecomputedUnitDimensionIds =
+    !dimension && requestedPrecomputedUnitDimensionIds.length > 0
+      ? await getEligiblePrecomputedUnitDimensionIds({
+          context,
+          experiment,
+          datasource,
+          dimensionIds: requestedPrecomputedUnitDimensionIds,
+        })
+      : [];
+
   const snapshotSettings = getSnapshotSettings({
     experiment,
     phaseIndex,
@@ -1390,6 +1425,7 @@ export async function planSnapshot({
     useStickyBucketing:
       organization.settings?.useStickyBucketing &&
       !experiment.disableStickyBucketing,
+    eligiblePrecomputedUnitDimensionIds,
   });
 
   const data: ExperimentSnapshotInterface = {
@@ -2123,6 +2159,36 @@ async function getSnapshotAnalyses(
   return analysisParamsMap;
 }
 
+// Loads the query results needed to run gbstats for the given analyses. For
+// unit-dimension analyses (whose queries live under a `unitdim:<dim>:` prefix
+// on the parent snapshot), the map is filtered + renamed so gbstats sees the
+// bare metric keys it expects.
+async function getQueryMapForAnalysis(
+  context: ReqContext | ApiReqContext,
+  snapshot: ExperimentSnapshotInterface,
+  analysisSettingsList: ExperimentSnapshotAnalysisSettings[],
+): Promise<QueryMap> {
+  const queryMap = await getQueryMap(context, snapshot.queries);
+  const dimensionId = analysisSettingsList[0]?.dimensions[0];
+  if (
+    dimensionId &&
+    snapshot.settings.precomputedUnitDimensionIds?.includes(dimensionId)
+  ) {
+    const unitDimQueryMap = buildUnitDimensionQueryMap(queryMap, dimensionId);
+    if (unitDimQueryMap.size === 0) {
+      // The parent snapshot lists this unit dimension in its settings but
+      // has no `unitdim:<id>:` query results — either the snapshot predates
+      // this feature or its unit-dim queries were pruned/failed. Refreshing
+      // the snapshot will repopulate them.
+      throw new Error(
+        `Snapshot is missing query results for unit dimension "${dimensionId}". Refresh the experiment results to recompute.`,
+      );
+    }
+    return unitDimQueryMap;
+  }
+  return filterParentQueryMap(queryMap);
+}
+
 export async function createSnapshotAnalyses(
   params: SnapshotAnalysisParams[],
   context: ReqContext,
@@ -2171,7 +2237,9 @@ export async function createSnapshotAnalysis(
   });
 
   // Format data correctly
-  const queryMap: QueryMap = await getQueryMap(context, snapshot.queries);
+  const queryMap = await getQueryMapForAnalysis(context, snapshot, [
+    analysisSettings,
+  ]);
 
   // Run the analysis
   const { results } = await analyzeExperimentResults({
@@ -2233,7 +2301,11 @@ export async function createSnapshotAnalysesBatched(
     }),
   );
 
-  const queryMap: QueryMap = await getQueryMap(context, snapshot.queries);
+  const queryMap = await getQueryMapForAnalysis(
+    context,
+    snapshot,
+    analysisSettingsList,
+  );
 
   // Single gbstats call -- all analyses share the same queryResults and
   // metric settings, so we can use a single python process
@@ -2508,6 +2580,7 @@ export async function toExperimentApiInterface(
     hasURLRedirects: experiment.hasURLRedirects || false,
     customFields: experiment.customFields ?? {},
     customMetricSlices: experiment.customMetricSlices ?? [],
+    precomputedUnitDimensionIds: experiment.precomputedUnitDimensionIds ?? [],
     defaultDashboardId: experiment.defaultDashboardId,
     templateId: experiment.templateId || undefined,
     statusUpdateSchedule: experiment.statusUpdateSchedule
@@ -3740,6 +3813,7 @@ export function postExperimentApiPayloadToInterface(
       : {}),
     shareLevel: payload.shareLevel,
     customMetricSlices: payload.customMetricSlices || [],
+    precomputedUnitDimensionIds: payload.precomputedUnitDimensionIds || [],
     customFields: payload.customFields,
     templateId: payload.templateId || undefined,
     ...(payload.defaultDashboardId !== undefined
@@ -4023,6 +4097,7 @@ export function updateExperimentApiPayloadToInterface(
     secondaryMetrics,
     shareLevel,
     customMetricSlices,
+    precomputedUnitDimensionIds,
     customFields,
     autoRefresh,
     banditScheduleValue,
@@ -4090,6 +4165,9 @@ export function updateExperimentApiPayloadToInterface(
     ),
     ...(shareLevel !== undefined ? { shareLevel } : {}),
     ...(customMetricSlices !== undefined ? { customMetricSlices } : {}),
+    ...(precomputedUnitDimensionIds !== undefined
+      ? { precomputedUnitDimensionIds }
+      : {}),
     ...(customFields !== undefined ? { customFields } : {}),
     ...(autoRefresh !== undefined
       ? {

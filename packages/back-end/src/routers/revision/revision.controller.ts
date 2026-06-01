@@ -19,6 +19,9 @@ import {
   getEntityModel,
 } from "back-end/src/revisions";
 import { buildMergeDesiredState } from "back-end/src/revisions/util";
+// Generic, entity-agnostic revision webhook dispatch. The adapter is looked up
+// by revision.target.type, so adding a new approval type needs no changes here.
+import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
 
 // region GET /revision
 
@@ -199,6 +202,12 @@ export const postRevision = async (
     snapshot: originalEntity as Record<string, unknown>,
     proposedChanges,
   });
+
+  await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
+    context,
+    revision,
+    { type: "created" },
+  );
 
   res.status(200).json({
     status: 200,
@@ -422,6 +431,14 @@ export const postSubmit = async (
 
   const revision = await revisionModel.submitForReview(id, userId);
 
+  await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
+    context,
+    revision,
+    {
+      type: "reviewRequested",
+    },
+  );
+
   res.status(200).json({
     status: 200,
     revision,
@@ -517,6 +534,17 @@ export const postReview = async (
 
   const revision = await revisionModel.addReview(id, userId, decision, comment);
 
+  await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
+    context,
+    revision,
+    {
+      type: "reviewed",
+      decision,
+      userId,
+      ...(comment ? { comment } : {}),
+    },
+  );
+
   res.status(200).json({
     status: 200,
     revision,
@@ -579,6 +607,12 @@ export const putProposedChanges = async (
     id,
     proposedChanges,
     userId,
+  );
+
+  await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
+    context,
+    revision,
+    { type: "updated" },
   );
 
   res.status(200).json({
@@ -865,6 +899,12 @@ export const postRebase = async (
     userId,
   );
 
+  await getRevisionWebhookAdapter(updatedRevision.target.type)?.dispatch(
+    context,
+    updatedRevision,
+    { type: "rebased" },
+  );
+
   res.status(200).json({
     status: 200,
     revision: updatedRevision,
@@ -1012,6 +1052,16 @@ export const postMerge = async (
   const mergedRevision = await revisionModel.merge(id, userId, {
     bypass: isBypass,
   });
+
+  // A merged revision that carries `revertedFrom` is an approval-gated revert
+  // landing on the live entity — signal it as `reverted`, not `published`, so
+  // subscribers see a consistent revert event across both revert paths.
+  await getRevisionWebhookAdapter(mergedRevision.target.type)?.dispatch(
+    context,
+    mergedRevision,
+    { type: mergedRevision.revertedFrom ? "reverted" : "published" },
+  );
+
   return res.status(200).json({ status: 200, revision: mergedRevision });
 };
 
@@ -1076,6 +1126,14 @@ export const postClose = async (
 
   const revision = await revisionModel.close(id, userId, reason);
 
+  await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
+    context,
+    revision,
+    {
+      type: "discarded",
+    },
+  );
+
   res.status(200).json({
     status: 200,
     revision,
@@ -1134,6 +1192,14 @@ export const postReopen = async (
   }
 
   const revision = await revisionModel.reopen(id, userId);
+
+  await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
+    context,
+    revision,
+    {
+      type: "reopened",
+    },
+  );
 
   res.status(200).json({
     status: 200,

@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { statsEngines } from "shared/constants";
+import {
+  statsEngines,
+  MAX_PRECOMPUTED_UNIT_DIMENSIONS,
+} from "shared/constants";
 import {
   namespaceValue,
   featurePrerequisite,
@@ -21,6 +24,8 @@ export const customMetricSlice = z.object({
   ),
 });
 export type CustomMetricSlice = z.infer<typeof customMetricSlice>;
+
+const maxPrecomputedUnitDimensionsError = `A maximum of ${MAX_PRECOMPUTED_UNIT_DIMENSIONS} precomputed unit dimensions are allowed`;
 
 export const experimentResultsType = [
   "dnf",
@@ -431,6 +436,10 @@ export const experimentInterface = z
     nextScheduledStatusUpdate: nextScheduledStatusUpdateValidator
       .optional()
       .nullable(),
+    precomputedUnitDimensionIds: z
+      .array(z.string())
+      .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
+      .optional(),
   })
   .strict()
   .merge(experimentAnalysisSettings);
@@ -781,6 +790,10 @@ const apiExperimentShape = z.object({
   hasURLRedirects: z.boolean().optional(),
   customFields: z.record(z.string(), z.any()).optional(),
   customMetricSlices: apiCustomMetricSlices.optional(),
+  precomputedUnitDimensionIds: z
+    .array(z.string())
+    .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
+    .optional(),
   defaultDashboardId: z
     .string()
     .describe("ID of the default dashboard for this experiment.")
@@ -1130,6 +1143,13 @@ const postExperimentBody = z
       .optional(),
     customFields: z.record(z.string(), z.string()).optional(),
     customMetricSlices: apiCustomMetricSlices.optional(),
+    precomputedUnitDimensionIds: z
+      .array(z.string())
+      .describe(
+        "A list of unit dimension ids that will be calculated every update and generate timeseries data. Requires the datasource to have pipeline mode enabled.",
+      )
+      .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
+      .optional(),
     statusUpdateSchedule: apiStatusUpdateSchedule.optional(),
   })
   .strict();
@@ -1309,6 +1329,13 @@ const updateExperimentBody = z
         "Schedule a future start for a draft experiment. Set to `null` to remove the schedule. Provide `{ startAt }` to set or update it. Only `startAt` is currently supported.",
       )
       .nullable()
+      .optional(),
+    precomputedUnitDimensionIds: z
+      .array(z.string())
+      .describe(
+        "A list of unit dimension ids that will be calculated every update and generate timeseries data. Requires the datasource to have pipeline mode enabled.",
+      )
+      .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
       .optional(),
   })
   .strict();
