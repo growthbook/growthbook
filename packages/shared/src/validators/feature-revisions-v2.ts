@@ -5,6 +5,7 @@ import {
   paginationQueryFields,
   skipPaginationQueryField,
   apiPaginationFieldsValidator,
+  booleanQueryField,
 } from "./shared";
 import {
   inlineRampScheduleInput,
@@ -46,16 +47,6 @@ const newDraftMetadataFields = {
 // ---- Shared response schemas ----
 
 const revisionResponse = z.object({ revision: apiFeatureRevisionV2Validator });
-
-const booleanQueryField = z
-  .union([
-    z.literal("true"),
-    z.literal("false"),
-    z.literal("0"),
-    z.literal("1"),
-    z.boolean(),
-  ])
-  .optional();
 
 // Mirrors MergeConflict in shared/util/features.ts.
 const mergeConflictSchema = z
