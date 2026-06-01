@@ -1052,6 +1052,51 @@ const buildSlackMessageForExperimentWarningEvent = (
       };
     }
 
+    case "no-data": {
+      const text = (experimentName: string) =>
+        `No data yet for experiment ${experimentName}. The most recent update ran successfully but returned no results. Make sure your experiment is tracking properly.`;
+
+      return {
+        text: text(data.experimentName),
+        blocks: [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text:
+                text(`*${data.experimentName}*`) +
+                getExperimentUrlFormatted(data.experimentId),
+            },
+          },
+        ],
+      };
+    }
+
+    case "scheduled-status-update-failed": {
+      const action =
+        data.scheduledStatusUpdateType === "start" ? "start" : "stop";
+      const tail = data.willRetry
+        ? `Will retry (attempt ${data.attempts} of ${data.maxAttempts}).`
+        : `Giving up after ${data.attempts} attempts; the schedule has been cleared and the experiment will not ${action} automatically.`;
+      const text = (experimentName: string) =>
+        `Scheduled ${action} for experiment ${experimentName} failed: ${data.reason}. ${tail}`;
+
+      return {
+        text: text(data.experimentName),
+        blocks: [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text:
+                text(`*${data.experimentName}*`) +
+                getExperimentUrlFormatted(data.experimentId),
+            },
+          },
+        ],
+      };
+    }
+
     default:
       invalidData = data;
       throw `Invalid data: ${invalidData}`;

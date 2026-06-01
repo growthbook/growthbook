@@ -31,6 +31,7 @@ import {
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
+import { canUseRestApiBypassSetting } from "./reviewBypass";
 
 export async function revertFeatureRevision(
   context: ApiReqContext,
@@ -43,6 +44,7 @@ export async function revertFeatureRevision(
     title?: string;
   },
   audit: (input: AuditInterfaceInput) => Promise<void>,
+  canUseRestApiBypass: boolean,
 ) {
   const feature = await getFeature(context, params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
@@ -267,10 +269,10 @@ export async function revertFeatureRevision(
     return { feature, revision: newDraft };
   }
 
-  // Bypass review gate via restApiBypassesReviews or bypassApprovalChecks.
+  // Bypass via restApiBypassesReviews (API keys/PATs only — JWT-backed REST
+  // calls should behave like dashboard actions) or bypassApprovalChecks.
   const canBypass =
-    !!context.org.settings?.restApiBypassesReviews ||
-    context.permissions.canBypassApprovalChecks(feature);
+    canUseRestApiBypass || context.permissions.canBypassApprovalChecks(feature);
 
   if (!canBypass) {
     const liveRevision = await getRevision({
@@ -366,6 +368,7 @@ export const postFeatureRevisionRevert = createApiRequestHandler(
     req.params,
     req.body,
     req.audit,
+    canUseRestApiBypassSetting(req),
   );
   return { revision: toApiRevision(revision, req.context, feature) };
 });

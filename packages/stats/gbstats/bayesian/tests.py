@@ -204,6 +204,12 @@ class EffectBayesianABTest(BayesianABTest):
 
     @staticmethod
     def get_risk(mu, sigma) -> List[float]:
+        # When |mu/sigma| > ~37, norm.cdf(0; mu, sigma) is exactly 0.0 or 1.0 in
+        # float64, so one of the truncated means below is multiplied by zero
+        # anyway. Short-circuit to the analytic limit and avoid the degenerate
+        # truncnorm call (and the silent-wrong zone at 1e4 < |beta| < 1e9).
+        if sigma > 0 and abs(mu / sigma) > 37:
+            return [float(max(mu, 0.0)), float(max(-mu, 0.0))]
         prob_ctrl_is_better = norm.cdf(0.0, loc=mu, scale=sigma)
         mn_neg = truncated_normal_mean(mu=mu, sigma=sigma, a=-np.inf, b=0.0)
         mn_pos = truncated_normal_mean(mu=mu, sigma=sigma, a=0, b=np.inf)

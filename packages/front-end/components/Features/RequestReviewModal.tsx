@@ -18,7 +18,9 @@ import {
 } from "shared/types/events/event-types";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FaArrowLeft } from "react-icons/fa";
-import { Flex } from "@radix-ui/themes";
+import { PiLockSimple } from "react-icons/pi";
+import { Box, Flex } from "@radix-ui/themes";
+import { format } from "date-fns";
 import EventUser from "@/components/Avatar/EventUser";
 import { getCurrentUser, useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
@@ -26,6 +28,7 @@ import {
   useEnvironments,
   useFeatureExperimentChecklists,
 } from "@/services/features";
+import { getFutureScheduledStartDate } from "@/services/experiments";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import Button from "@/components/Button";
@@ -41,12 +44,18 @@ import {
 } from "@/hooks/useFeatureRevisionDiff";
 import Badge from "@/ui/Badge";
 import HelperText from "@/ui/HelperText";
-import { logBadgeColor } from "@/components/Features/FeatureDiffRenders";
+import {
+  logBadgeColor,
+  RampActionLabel,
+  formatSimpleWindow,
+} from "@/components/Features/FeatureDiffRenders";
+import { useHoldouts, holdoutOccupiesRuleSlot } from "@/hooks/useHoldouts";
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
 import { PreLaunchChecklistForDraft } from "@/components/Experiment/PreLaunchChecklist";
 import Checkbox from "@/ui/Checkbox";
 import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
+import Heading from "@/ui/Heading";
 export interface Props {
   feature: FeatureInterface;
   version: number;
@@ -78,9 +87,13 @@ export default function RequestReviewModal({
 
   const { apiCall } = useAuth();
   const user = getCurrentUser();
-  const { organization } = useUser();
+  const { organization, users } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const canAdminPublish = permissionsUtil.canBypassApprovalChecks(feature);
+  const featureLockedByRamp =
+    rampSchedules?.some(
+      (rs) => rs.lockdownConfig?.mode === "locked" && rs.status === "running",
+    ) ?? false;
   const revision = revisions.find((r) => r.version === version);
   const isPendingReview =
     revision?.status === "pending-review" ||
@@ -95,9 +108,7 @@ export default function RequestReviewModal({
     : undefined;
   const isBlockedContributor =
     reviewSetting?.blockSelfApproval &&
-    (revision?.contributors ?? []).some(
-      (c) => c != null && "id" in c && c.id === user?.id,
-    );
+    (revision?.contributors ?? []).some((id) => id === user?.id);
   const canReview =
     isPendingReview &&
     createdBy?.id !== user?.id &&
@@ -109,6 +120,7 @@ export default function RequestReviewModal({
   const liveRevision = revisions.find((r) => r.version === feature.version);
 
   const envIds = environments.map((e) => e.id);
+  const { holdoutsMap } = useHoldouts();
 
   const mergeResult = useMemo(() => {
     if (!revision || !baseRevision || !liveRevision) return null;
@@ -123,16 +135,26 @@ export default function RequestReviewModal({
 
   const [comment, setComment] = useState("");
 
-  const { experiments } = useFeatureExperimentChecklists({
-    feature,
-    revision,
-    experimentsMap,
-  });
+  const { experiments, immediateStartExperiments, scheduledExperiments } =
+    useFeatureExperimentChecklists({
+      feature,
+      revision,
+      experimentsMap,
+    });
 
   const [selectedExperiments, setSelectedExperiments] = useState(
     new Set(experiments.map((e) => e.id)),
   );
   const [experimentsStep, setExperimentsStep] = useState(false);
+
+  const selectedImmediateCount = immediateStartExperiments.filter((e) =>
+    selectedExperiments.has(e.id),
+  ).length;
+  const selectedScheduledCount = scheduledExperiments.filter((e) =>
+    selectedExperiments.has(e.id),
+  ).length;
+  const onlyScheduledSelected =
+    selectedImmediateCount === 0 && selectedScheduledCount > 0;
 
   // Aggregates per-experiment checklist state from child components.
   // Cleared when entering/leaving the experiments step to avoid stale entries
@@ -168,8 +190,10 @@ export default function RequestReviewModal({
     [resultDiffs],
   );
 
-  // adminPublish bypasses both the approval requirement and the checklist gate.
-  const submitEnabled = !(experimentsStep && checklistBlocked && !adminPublish);
+  // adminPublish bypasses the approval requirement, checklist gate, and lockdown.
+  const submitEnabled =
+    !(experimentsStep && checklistBlocked && !adminPublish) &&
+    (!featureLockedByRamp || adminPublish);
   const hasNextStep =
     approved && selectedExperiments.size > 0 && !experimentsStep;
 
@@ -240,6 +264,27 @@ export default function RequestReviewModal({
       ),
   );
 
+  // 1-based rule indices for `Rule #N` refs in diff summaries. Holdout
+  // occupies #1 (matching Rule.tsx's numbering) only when it's enabled in
+  // some env; a feature can carry a holdout reference whose holdout is
+  // disabled everywhere, in which case the rules list shows no holdout row.
+  const draftRules = Array.isArray(revision?.rules) ? revision!.rules : [];
+  const draftRuleNumberOffset = holdoutOccupiesRuleSlot(
+    revision?.holdout,
+    holdoutsMap,
+  )
+    ? 2
+    : 1;
+  const draftRuleIndexById = new Map<string, number>(
+    draftRules.map((r, i) => [r.id, i + draftRuleNumberOffset]),
+  );
+  // Fall back to the raw ID for any rule we can't number (e.g. a detach
+  // action whose rule was deleted from the draft).
+  const ruleRef = (ruleId: string): string => {
+    const idx = draftRuleIndexById.get(ruleId);
+    return idx ? `Rule #${idx}` : `Rule ${ruleId}`;
+  };
+
   const rampDiffs: FeatureRevisionDiff[] = [
     ...activatingRamps.map((ramp) => {
       const rampConfig = {
@@ -247,27 +292,41 @@ export default function RequestReviewModal({
         targets: ramp.targets,
         startDate: ramp.startDate,
         steps: ramp.steps,
-        endCondition: ramp.endCondition,
+        cutoffDate: ramp.cutoffDate,
       };
-      const startDescription = ramp.startDate
-        ? "Starts at a scheduled date/time."
-        : "Starts automatically on publish.";
+      const isSimple = ramp.steps.length === 0;
+      const endAt = ramp.cutoffDate ?? undefined;
+      const kindLabel = isSimple ? "Schedule" : "Ramp Schedule";
+      const detail = isSimple
+        ? formatSimpleWindow(ramp.startDate, endAt)
+        : `${ramp.steps.length} step${ramp.steps.length !== 1 ? "s" : ""}${
+            ramp.startDate ? "" : " · starts on publish"
+          }`;
       return {
-        title: `Ramp Schedule – ${ramp.name}`,
+        title: `${kindLabel} – ${ramp.name}`,
+        titleSuffix: <RampActionLabel action="activate" />,
         a: "",
         b: JSON.stringify(rampConfig, null, 2),
-        customRender: (
-          <p className="mb-0">
-            Activates ramp schedule <strong>{ramp.name}</strong> —{" "}
-            {ramp.steps.length} step{ramp.steps.length !== 1 ? "s" : ""}.{" "}
-            {startDescription}
-          </p>
-        ),
-        badges: [{ label: `Start ramp: ${ramp.name}`, action: "start ramp" }],
+        customRender: detail ? (
+          <p className="mb-0 text-muted">{detail}.</p>
+        ) : null,
+        badges: [
+          {
+            label: `Start ${isSimple ? "schedule" : "ramp"}: ${ramp.name}`,
+            action: isSimple ? "start schedule" : "start ramp",
+          },
+        ],
       } as FeatureRevisionDiff;
     }),
-    // Pending ramp actions: create/detach actions queued in the draft
+    // Pending ramp actions: create/detach actions queued in the draft.
+    // Skip actions whose target rule was deleted from the draft — they're
+    // orphaned no-ops that the publish cleanup will discard anyway.
     ...(revision?.rampActions ?? [])
+      .filter((action) => {
+        const ruleId = (action as { ruleId?: string }).ruleId;
+        if (!ruleId) return true;
+        return (revision?.rules ?? []).some((r) => r.id === ruleId);
+      })
       .map((action) => {
         if (action.mode === "create") {
           const rampConfig = {
@@ -276,29 +335,80 @@ export default function RequestReviewModal({
             ruleId: action.ruleId,
             startDate: action.startDate,
             steps: action.steps,
-            endCondition: action.endCondition,
+            cutoffDate: action.cutoffDate,
           };
+          const isSimple = action.steps.length === 0;
+          const endAt = action.cutoffDate ?? undefined;
+          const kindLabel = isSimple ? "Schedule" : "Ramp Schedule";
+          const displayName = action.name ?? "schedule";
+          const detail = isSimple
+            ? formatSimpleWindow(action.startDate, endAt)
+            : `${action.steps.length} step${
+                action.steps.length !== 1 ? "s" : ""
+              }`;
           return {
-            title: `Ramp Schedule – ${action.name} (pending creation)`,
+            title: `${kindLabel} – ${displayName}`,
+            titleSuffix: <RampActionLabel action="create" />,
             a: "",
             b: JSON.stringify(rampConfig, null, 2),
             customRender: (
-              <p className="mb-0">
-                Creates ramp schedule <strong>{action.name}</strong> for rule{" "}
-                <code>{action.ruleId}</code> — {action.steps.length} step
-                {action.steps.length !== 1 ? "s" : ""}.
+              <p className="mb-0 text-muted">
+                {ruleRef(action.ruleId)}
+                {detail ? ` · ${detail}` : ""}.
               </p>
             ),
             badges: [
               {
-                label: `Create ramp: ${action.name}`,
-                action: "create ramp",
+                label: `Create ${isSimple ? "schedule" : "ramp"}: ${displayName}`,
+                action: isSimple ? "create schedule" : "create ramp",
+              },
+            ],
+          } as FeatureRevisionDiff;
+        } else if (action.mode === "update") {
+          const rampConfig = {
+            rampScheduleId: action.rampScheduleId,
+            name: action.name,
+            ruleId: action.ruleId,
+            startDate: action.startDate,
+            steps: action.steps,
+            cutoffDate: action.cutoffDate,
+          };
+          const isSimpleUpdate = action.steps.length === 0;
+          const kindLabelUpdate = isSimpleUpdate ? "Schedule" : "Ramp Schedule";
+          const displayName = action.name ?? "schedule";
+          return {
+            title: `${kindLabelUpdate} – ${displayName}`,
+            titleSuffix: <RampActionLabel action="update" />,
+            a: "",
+            b: JSON.stringify(rampConfig, null, 2),
+            customRender: (
+              <p className="mb-0 text-muted">
+                {ruleRef(action.ruleId)} · updates schedule configuration.
+              </p>
+            ),
+            badges: [
+              {
+                label: isSimpleUpdate
+                  ? "Update schedule"
+                  : "Update ramp schedule",
+                action: "update ramp",
               },
             ],
           } as FeatureRevisionDiff;
         } else if (action.mode === "detach") {
+          // The detach action only carries a rampScheduleId, so resolve the
+          // target schedule (if still available) to pick the right wording.
+          const targetSchedule = (rampSchedules ?? []).find(
+            (r) => r.id === action.rampScheduleId,
+          );
+          const isSimple =
+            !!targetSchedule && targetSchedule.steps.length === 0;
+          const kindLabel = isSimple ? "Schedule" : "Ramp Schedule";
+          const kindNoun = isSimple ? "schedule" : "ramp schedule";
+          const scheduleName = targetSchedule?.name;
           return {
-            title: `Remove from Ramp Schedule (pending)`,
+            title: scheduleName ? `${kindLabel} – ${scheduleName}` : kindLabel,
+            titleSuffix: <RampActionLabel action="remove" />,
             a: "",
             b: JSON.stringify(
               {
@@ -309,17 +419,17 @@ export default function RequestReviewModal({
               2,
             ),
             customRender: (
-              <p className="mb-0">
-                This rule will be removed from its ramp schedule
+              <p className="mb-0 text-muted">
+                {ruleRef(action.ruleId)} will be removed from this {kindNoun}
                 {action.deleteScheduleWhenEmpty &&
-                  " and the schedule will be deleted if empty"}
+                  "; the schedule is deleted if no targets remain"}
                 .
               </p>
             ),
             badges: [
               {
-                label: "Remove from ramp schedule",
-                action: "remove ramp",
+                label: `Remove from ${kindNoun}`,
+                action: isSimple ? "remove schedule" : "remove ramp",
               },
             ],
           } as FeatureRevisionDiff;
@@ -336,9 +446,17 @@ export default function RequestReviewModal({
   if (!revision || !mergeResult) return null;
   const allDiffsWithChanges = [...resultDiffsWithChanges, ...rampDiffs];
   const hasChanges = mergeResultHasChanges(mergeResult) || rampDiffs.length > 0;
-  let ctaCopy = "Request Review";
+  let ctaCopy: string | JSX.Element = "Request Review";
   if (approved && !hasNextStep) {
-    ctaCopy = "Publish";
+    ctaCopy = featureLockedByRamp ? (
+      <>
+        <PiLockSimple /> Publish
+      </>
+    ) : onlyScheduledSelected ? (
+      "Schedule to Start"
+    ) : (
+      "Publish"
+    );
   } else if (canReview || hasNextStep) {
     ctaCopy = "Next";
   }
@@ -362,6 +480,7 @@ export default function RequestReviewModal({
         trackingEventModalType=""
         open={true}
         header={"Review Draft Changes"}
+        useRadixButton={true}
         cta={ctaCopy}
         ctaEnabled={submitEnabled}
         close={close}
@@ -411,45 +530,63 @@ export default function RequestReviewModal({
         {mergeResult.success && hasChanges && (
           <div>
             <div className="mb-2">{showRevisionStatus()}</div>
-            {revision.contributors && revision.contributors.length > 0 && (
-              <div className="mb-3">
-                <strong style={{ fontSize: "0.85rem" }}>Contributors</strong>
-                <Flex align="center" gap="2" wrap="wrap" mt="1">
-                  {[revision.createdBy, ...revision.contributors]
-                    .filter(
-                      (u): u is EventUserLoggedIn | EventUserApiKey =>
-                        u != null &&
-                        (u.type === "dashboard" || u.type === "api_key"),
-                    )
-                    .filter(
-                      (u, idx, arr) =>
-                        arr.findIndex(
-                          (x) => "id" in x && "id" in u && x.id === u.id,
-                        ) === idx,
-                    )
-                    .map((lu) => {
-                      return (
-                        <Flex
-                          key={"id" in lu ? lu.id : lu.apiKey}
-                          align="center"
-                          gap="1"
-                          wrap="wrap"
-                        >
-                          <EventUser
-                            user={lu}
-                            display="avatar-name-email"
-                            size="sm"
-                          />
-                        </Flex>
-                      );
-                    })}
-                </Flex>
-              </div>
+            {(() => {
+              const authorId =
+                revision.createdBy &&
+                "id" in revision.createdBy &&
+                revision.createdBy.id
+                  ? revision.createdBy.id
+                  : undefined;
+              const contribIds = revision.contributors ?? [];
+              const allIds =
+                authorId && !contribIds.includes(authorId)
+                  ? [authorId, ...contribIds]
+                  : contribIds;
+              return (
+                allIds.length > 0 && (
+                  <div className="mb-3">
+                    <strong style={{ fontSize: "0.85rem" }}>
+                      Contributors
+                    </strong>
+                    <Flex align="center" gap="2" wrap="wrap" mt="1">
+                      {allIds.map((id) => {
+                        const u = users.get(id);
+                        return (
+                          <Flex key={id} align="center" gap="1" wrap="wrap">
+                            <EventUser
+                              user={{
+                                type: "dashboard",
+                                id,
+                                name: u?.name || "",
+                                email: u?.email || "",
+                              }}
+                              display="avatar-name-email"
+                              size="sm"
+                            />
+                          </Flex>
+                        );
+                      })}
+                    </Flex>
+                  </div>
+                )
+              );
+            })()}
+            {featureLockedByRamp && (
+              <Callout
+                status="warning"
+                icon={<PiLockSimple size={15} />}
+                mb="3"
+              >
+                Publishing is locked by an active ramp-up schedule.
+                {canAdminPublish
+                  ? " Use the admin bypass below to publish anyway."
+                  : ""}
+              </Callout>
             )}
             {canAdminPublish && (
               <div className="mt-3 mb-4 ml-1">
                 <Checkbox
-                  label="Bypass approval requirement to publish (optional for Admins only)"
+                  label="Bypass approval and lockdown restrictions to publish (optional for Admins only)"
                   value={adminPublish}
                   setValue={(val) => {
                     setAdminPublish(!!val);
@@ -465,7 +602,9 @@ export default function RequestReviewModal({
 
             {experimentsStep && approved ? (
               <div>
-                <h3>Review &amp; Publish</h3>
+                <h3>
+                  Review &amp; {onlyScheduledSelected ? "Schedule" : "Publish"}
+                </h3>
                 <p>
                   Please review the{" "}
                   <strong>
@@ -473,14 +612,30 @@ export default function RequestReviewModal({
                     {selectedExperiments.size !== 1 ? "s" : ""}
                   </strong>{" "}
                   for the experiment
-                  {selectedExperiments.size !== 1 ? "s" : ""} that will be
-                  published along with this draft.
+                  {selectedExperiments.size !== 1 ? "s" : ""} that will be{" "}
+                  {onlyScheduledSelected ? "scheduled to start" : "published"}{" "}
+                  along with this draft.
                 </p>
                 {experiments.map((experiment) => {
                   if (!selectedExperiments.has(experiment.id)) return null;
 
+                  const scheduledStartDate =
+                    getFutureScheduledStartDate(experiment);
+
                   return (
                     <div key={experiment.id} className="mb-3">
+                      {scheduledStartDate && (
+                        <Callout status="info" mb="2">
+                          <strong>{experiment.name}</strong> will start on{" "}
+                          <strong>
+                            {format(
+                              scheduledStartDate,
+                              "MMM d, yyyy 'at' h:mm a",
+                            )}
+                          </strong>
+                          .
+                        </Callout>
+                      )}
                       <PreLaunchChecklistForDraft
                         experiment={experiment}
                         feature={feature}
@@ -501,26 +656,56 @@ export default function RequestReviewModal({
             ) : (
               <>
                 {approved && experiments.length > 0 ? (
-                  <div className="mb-3">
-                    <h4>Start running experiments upon publishing:</h4>
-                    {experiments.map((experiment) => (
-                      <div key={experiment.id}>
-                        <Checkbox
-                          value={selectedExperiments.has(experiment.id)}
-                          setValue={(e) => {
-                            const newValue = new Set(selectedExperiments);
-                            if (e === true) {
-                              newValue.add(experiment.id);
-                            } else {
-                              newValue.delete(experiment.id);
-                            }
-                            setSelectedExperiments(newValue);
-                          }}
-                          label={experiment.name}
-                        />
-                      </div>
-                    ))}
-                  </div>
+                  <Box mb="3">
+                    {immediateStartExperiments.length > 0 && (
+                      <Box mb={scheduledExperiments.length > 0 ? "3" : "0"}>
+                        <Heading as="h4" size="small" mb="2">
+                          Start running experiments upon publishing:
+                        </Heading>
+                        {immediateStartExperiments.map((experiment) => (
+                          <Box key={experiment.id}>
+                            <Checkbox
+                              value={selectedExperiments.has(experiment.id)}
+                              setValue={(e) => {
+                                const newValue = new Set(selectedExperiments);
+                                if (e === true) {
+                                  newValue.add(experiment.id);
+                                } else {
+                                  newValue.delete(experiment.id);
+                                }
+                                setSelectedExperiments(newValue);
+                              }}
+                              label={experiment.name}
+                            />
+                          </Box>
+                        ))}
+                      </Box>
+                    )}
+                    {scheduledExperiments.length > 0 && (
+                      <Box>
+                        <Heading as="h4" size="small" mb="2">
+                          Approve scheduled start for experiments:
+                        </Heading>
+                        {scheduledExperiments.map((experiment) => (
+                          <Box key={experiment.id}>
+                            <Checkbox
+                              value={selectedExperiments.has(experiment.id)}
+                              setValue={(e) => {
+                                const newValue = new Set(selectedExperiments);
+                                if (e === true) {
+                                  newValue.add(experiment.id);
+                                } else {
+                                  newValue.delete(experiment.id);
+                                }
+                                setSelectedExperiments(newValue);
+                              }}
+                              label={experiment.name}
+                            />
+                          </Box>
+                        ))}
+                      </Box>
+                    )}
+                  </Box>
                 ) : null}
                 {allDiffsWithChanges.length > 0 && (
                   <>
@@ -653,6 +838,7 @@ export default function RequestReviewModal({
         open={true}
         close={close}
         header={"Review Draft Changes"}
+        useRadixButton={true}
         cta={"Submit"}
         size="lg"
         includeCloseCta={false}

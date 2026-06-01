@@ -7,7 +7,6 @@ import {
   RevisionTargetType,
   normalizeProposedChanges,
 } from "shared/enterprise";
-import { SavedGroupInterface } from "shared/types/saved-group";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { getAdapter } from "back-end/src/revisions/index";
@@ -32,11 +31,11 @@ export async function ensureLiveRevisionExists(
     dateCreated?: Date;
   },
 ): Promise<void> {
-  const existing = await context.models.revisions.getByTarget(
+  const alreadyExists = await context.models.revisions.hasAnyByTarget(
     entityType,
     entity.id,
   );
-  if (existing.length > 0) return;
+  if (alreadyExists) return;
 
   const authorId = entity.owner || context.userId;
   const snapshot = getAdapter(entityType).buildSnapshot(entity);
@@ -172,26 +171,45 @@ function upsertByPath(
 }
 
 /**
+ * Options for `createOrUpdateRevision`. All fields are optional; defaults match
+ * the historical positional defaults the call site relied on.
+ *
+ * @property replaceChanges If true, replace proposed ops entirely instead of merging
+ * @property forceCreate    If true, always create a new revision (don't update existing)
+ * @property title          Optional title for the revision
+ * @property comment        Optional free-form comment captured at draft creation
+ * @property revertedFrom   Optional ID of the revision this is reverting
+ * @property revisionId     Optional specific revision ID to update (instead of finding by author)
+ */
+export type CreateOrUpdateRevisionOptions = {
+  replaceChanges?: boolean;
+  forceCreate?: boolean;
+  title?: string;
+  comment?: string;
+  revertedFrom?: string;
+  revisionId?: string;
+};
+
+/**
  * Create a new revision or update an existing open one for the current user.
  * Generic: works for any entity type by delegating snapshot-building to the adapter.
- *
- * @param replaceChanges If true, replace proposed ops entirely instead of merging
- * @param forceCreate   If true, always create a new revision (don't update existing)
- * @param title         Optional title for the revision
- * @param revertedFrom  Optional ID of the revision this is reverting
- * @param revisionId    Optional specific revision ID to update (instead of finding by author)
  */
 export async function createOrUpdateRevision(
   context: ReqContext | ApiReqContext,
   entityType: RevisionTargetType,
   entity: Record<string, unknown> & { id: string },
   proposedChanges: JsonPatchOperation[],
-  replaceChanges = false,
-  forceCreate = false,
-  title?: string,
-  revertedFrom?: string,
-  revisionId?: string,
+  options: CreateOrUpdateRevisionOptions = {},
 ): Promise<Revision> {
+  const {
+    replaceChanges = false,
+    forceCreate = false,
+    title,
+    comment,
+    revertedFrom,
+    revisionId,
+  } = options;
+
   if (revisionId && !forceCreate) {
     const targetRevision = await context.models.revisions.getById(revisionId);
     if (targetRevision) {
@@ -252,32 +270,7 @@ export async function createOrUpdateRevision(
     snapshot,
     proposedChanges,
     title,
+    comment,
     revertedFrom,
   });
-}
-
-/**
- * @deprecated Use `createOrUpdateRevision` with `entityType: "saved-group"` instead.
- */
-export async function createOrUpdateSavedGroupRevision(
-  context: ReqContext | ApiReqContext,
-  savedGroup: SavedGroupInterface,
-  proposedChanges: JsonPatchOperation[],
-  replaceChanges = false,
-  forceCreate = false,
-  title?: string,
-  revertedFrom?: string,
-  revisionId?: string,
-): Promise<Revision> {
-  return createOrUpdateRevision(
-    context,
-    "saved-group",
-    savedGroup as unknown as Record<string, unknown> & { id: string },
-    proposedChanges,
-    replaceChanges,
-    forceCreate,
-    title,
-    revertedFrom,
-    revisionId,
-  );
 }

@@ -23,8 +23,9 @@ describe("productAnalytics", () => {
       `APPROX_PERCENTILE(${col}, ${quantile})`,
     hllReaggregate: (col) => `HLL_MERGE(${col})`,
     hllCardinality: (col) => `HLL_COUNT(${col})`,
-    kllMergePartial: (col) => `KLL_MERGE(${col})`,
-    kllExtractPoint: (col, quantile) => `KLL_POINT(${col}, ${quantile})`,
+    quantileSketchMergePartial: (col) => `KLL_MERGE(${col})`,
+    quantileSketchExtractPoint: (col, quantile) =>
+      `KLL_POINT(${col}, ${quantile})`,
     toTimestamp: (d: Date) =>
       // Do not include the timestamp component to make the test deterministic
       `'${d.toISOString().substring(0, 10)} 00:00:00'`,
