@@ -1,90 +1,129 @@
-[
-  {
-    "event_name": "experiment viewed",
-    "event_uuid": "550e8400-e29b-41d4-a716-446655440001",
-    "timestamp": 1775476800000,
-    "received_at": 1775476800150,
-    "properties": "{\"eventField\":\"eventValue\",\"source\":\"connector-test\",\"variant\":\"minimal\"}",
-    "additional_attributes": "{\"logged_in\":\"true\",\"plan\":\"pro\",\"locale\":\"en-US\"}",
-    "client_key": "sdk_live_sample_client_key",
-    "environment": "production",
-    "sdk_language": "javascript",
-    "sdk_version": "1.1.0",
-    "experiment_id": "flag-pricing-header",
-    "variation_id": "var_control",
-    "id": "evt_user_1234_session_90ab",
-    "user_id": "user_1234",
-    "url": "http://localhost:3000/features",
-    "path": "/features",
-    "host": "localhost",
-    "query": "",
-    "device_id": "1234",
-    "page_id": "5678",
-    "session_id": "90ab",
-    "context_json": "{\"logged_in\":\"true\"}"
+{
+  "description": "Sample payloads for POST /track (GrowthBook Ingestion API). Send the `events` array as the request body, or POST a single object from the array. Query param client_key is required (must start with sdk-).",
+  "endpoint": "POST https://us1.gb-ingest.com/track?client_key=YOUR_CLIENT_KEY",
+  "content_type": "application/json",
+  "docs": "https://docs.growthbook.io/experimentation-analysis/event-forwarder#ingestion-api",
+  "schema_evolution_notes": {
+    "properties": "Flat primitive keys on each event's `properties` object are additively registered on the forwarder Avro `properties` nested record as new keys appear across events. Nested objects are ignored for evolution — use flat keys only.",
+    "additional_attributes": "Custom keys on `attributes` that are not promoted to top-level Avro columns (user_id, device_id, utm_*, geo_*, etc.) land in the forwarder `additional_attributes` nested record and evolve the same way when new keys appear or old keys stop being sent."
   },
-  {
-    "event_name": "experiment viewed",
-    "event_uuid": "550e8400-e29b-41d4-a716-446655440002",
-    "timestamp": 1775476810000,
-    "received_at": 1775476810045,
-    "properties": "{\"experiment_key\":\"pricing-test\",\"variation_index\":1,\"user_bucket\":42,\"tags\":[\"checkout\",\"ab-test\"],\"metadata\":{\"version\":2}}",
-    "additional_attributes": "{\"logged_in\":\"true\",\"cart_value\":129.99}",
-    "client_key": "sdk_live_sample_client_key",
-    "environment": "staging",
-    "sdk_language": "javascript",
-    "sdk_version": "1.1.0",
-    "ip": "203.0.113.42",
-    "geo_country": "US",
-    "geo_city": "San Francisco",
-    "geo_lat": 37.7749,
-    "geo_lon": -122.4194,
-    "experiment_id": "exp_checkout_flow_v2",
-    "variation_id": "var_treatment_b",
-    "id": "evt_user_1234_session_90ab",
-    "user_id": "user_1234",
-    "url": "http://localhost:3000/features?utm_source=newsletter&utm_medium=email&utm_campaign=spring",
-    "path": "/features",
-    "host": "localhost",
-    "query": "utm_source=newsletter&utm_medium=email&utm_campaign=spring",
-    "deviceType": "desktop",
-    "utmSource": "newsletter",
-    "utmMedium": "email",
-    "utmCampaign": "spring-launch",
-    "utmTerm": "pricing",
-    "utmContent": "hero-cta",
-    "device_id": "1234",
-    "page_id": "5678",
-    "session_id": "90ab",
-    "context_json": "{\"logged_in\":\"true\"}"
-  },
-  {
-    "event_name": "experiment viewed",
-    "event_uuid": "550e8400-e29b-41d4-a716-446655440003",
-    "timestamp": 1775476825000,
-    "received_at": 1775476825100,
-    "properties": "{\"page\":{\"title\":\"Features\",\"section\":\"experiments\"},\"flags\":{\"dark_mode\":false},\"metrics\":{\"time_on_page_ms\":18450}}",
-    "additional_attributes": "{\"logged_in\":\"true\",\"referrer\":\"https://example.com/home\"}",
-    "client_key": "sdk_live_sample_client_key",
-    "environment": "development",
-    "sdk_language": "javascript",
-    "sdk_version": "1.1.0",
-    "ip": "198.51.100.10",
-    "geo_country": "CA",
-    "geo_city": "Toronto",
-    "experiment_id": "exp_ui_dark_mode",
-    "variation_id": "var_on",
-    "id": "evt_user_1234_session_90ab",
-    "user_id": "user_1234",
-    "url": "http://localhost:3000/features?tab=experiments",
-    "path": "/features",
-    "host": "localhost",
-    "query": "tab=experiments",
-    "deviceType": "mobile",
-    "nhatTest": "connector-sample-string",
-    "device_id": "1234",
-    "page_id": "5678",
-    "session_id": "90ab",
-    "context_json": "{\"logged_in\":\"true\"}"
-  }
-]
+  "event_evolution": [
+    "Event 1 — Baseline Experiment Viewed: only experimentId/variationId in properties; attributes logged_in + plan.",
+    "Event 2 — Add properties cta_label, variation_index, is_new_user. Add attributes locale + country (plan retained).",
+    "Event 3 — Remove cta_label, is_new_user; add revenue_usd, tags. Drop plan/locale/country from attributes; add cart_value, referral_source.",
+    "Event 4 — Feature Evaluated (docs shape). Add properties load_time_ms, cache_hit. Drop cart_value/referral_source; add company_size.",
+    "Event 5 — Custom Purchase. New property keys amount/currency/product_id/quantity/coupon_applied. Drop company_size; add user_tier, ab_bucket."
+  ],
+  "events": [
+    {
+      "event_name": "Experiment Viewed",
+      "properties": {
+        "experimentId": "pricing-header-test",
+        "variationId": "control"
+      },
+      "attributes": {
+        "logged_in": true,
+        "plan": "pro"
+      },
+      "user_id": "user_1234",
+      "device_id": "dev_abc123",
+      "session_id": "sess_90ab",
+      "page_id": "page_5678",
+      "sdk_language": "javascript",
+      "sdk_version": "1.4.0",
+      "url": "https://app.example.com/pricing"
+    },
+    {
+      "event_name": "Experiment Viewed",
+      "properties": {
+        "experimentId": "pricing-header-test",
+        "variationId": "treatment_a",
+        "cta_label": "Start free trial",
+        "variation_index": 1,
+        "is_new_user": false
+      },
+      "attributes": {
+        "logged_in": true,
+        "plan": "pro",
+        "locale": "en-US",
+        "country": "US"
+      },
+      "user_id": "user_1234",
+      "device_id": "dev_abc123",
+      "session_id": "sess_90ab",
+      "page_id": "page_5678",
+      "sdk_language": "javascript",
+      "sdk_version": "1.4.0",
+      "url": "https://app.example.com/pricing?utm_source=newsletter&utm_medium=email",
+      "utm_source": "newsletter",
+      "utm_medium": "email"
+    },
+    {
+      "event_name": "Experiment Viewed",
+      "properties": {
+        "experimentId": "checkout-flow-v2",
+        "variationId": "treatment_b",
+        "variation_index": 2,
+        "revenue_usd": 129.99,
+        "tags": ["checkout", "ab-test"]
+      },
+      "attributes": {
+        "logged_in": true,
+        "cart_value": 129.99,
+        "referral_source": "newsletter"
+      },
+      "user_id": "user_1234",
+      "device_id": "dev_abc123",
+      "session_id": "sess_90ab",
+      "page_id": "page_5678",
+      "sdk_language": "javascript",
+      "sdk_version": "1.4.0",
+      "url": "https://app.example.com/checkout"
+    },
+    {
+      "event_name": "Feature Evaluated",
+      "properties": {
+        "feature": "dark-mode",
+        "value": true,
+        "source": "experiment",
+        "ruleId": "rule_dark_mode_exp",
+        "variationId": "on",
+        "load_time_ms": 42,
+        "cache_hit": false
+      },
+      "attributes": {
+        "logged_in": true,
+        "company_size": "enterprise"
+      },
+      "user_id": "user_1234",
+      "device_id": "dev_abc123",
+      "session_id": "sess_90ab",
+      "page_id": "page_5678",
+      "sdk_language": "javascript",
+      "sdk_version": "1.4.0",
+      "url": "https://app.example.com/settings"
+    },
+    {
+      "event_name": "Purchase",
+      "properties": {
+        "amount": 49.99,
+        "currency": "USD",
+        "product_id": "sku_pro_annual",
+        "quantity": 1,
+        "coupon_applied": true
+      },
+      "attributes": {
+        "logged_in": true,
+        "user_tier": "premium",
+        "ab_bucket": 7
+      },
+      "user_id": "user_1234",
+      "device_id": "dev_abc123",
+      "session_id": "sess_90ab",
+      "page_id": "page_5678",
+      "sdk_language": "javascript",
+      "sdk_version": "1.4.0",
+      "url": "https://app.example.com/billing/confirm"
+    }
+  ]
+}
