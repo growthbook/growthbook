@@ -519,13 +519,15 @@ const AnalysisForm: FC<{
                   </Box>
                 )}
               </Box>
-              <Button
-                size="xs"
-                variant="ghost"
-                onClick={() => setEditingDataSource(true)}
-              >
-                Edit
-              </Button>
+              {!isBandit && (
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  onClick={() => setEditingDataSource(true)}
+                >
+                  Edit
+                </Button>
+              )}
             </Flex>
           </Box>
         ) : (
@@ -740,17 +742,6 @@ const AnalysisForm: FC<{
         <Flex gap="3" align="start" wrap="wrap">
           <Box style={{ flex: "1 1 200px", minWidth: 200 }}>
             <StatsEngineSelect
-              label={
-                isBandit ? (
-                  <>
-                    <Text weight="semibold">Statistics Engine</Text>
-                    <Text size="small" color="text-mid">
-                      Only <Text weight="semibold">Bayesian</Text> is available
-                      for Bandit Experiments.
-                    </Text>
-                  </>
-                ) : undefined
-              }
               value={form.watch("statsEngine")}
               onChange={(v) => {
                 form.setValue("statsEngine", v);
@@ -771,7 +762,10 @@ const AnalysisForm: FC<{
                     </PremiumTooltip>
                   }
                   value={
-                    form.watch("regressionAdjustmentEnabled") ? "on" : "off"
+                    hasRegressionAdjustmentFeature &&
+                    form.watch("regressionAdjustmentEnabled")
+                      ? "on"
+                      : "off"
                   }
                   onChange={(v) => {
                     form.setValue("regressionAdjustmentEnabled", v === "on");
@@ -795,6 +789,7 @@ const AnalysisForm: FC<{
                       </PremiumTooltip>
                     }
                     value={
+                      !hasPostStratificationFeature ||
                       form.watch("postStratificationEnabled") == null
                         ? ""
                         : form.watch("postStratificationEnabled")
@@ -810,6 +805,7 @@ const AnalysisForm: FC<{
                     options={[
                       {
                         label: `Default (${
+                          hasPostStratificationFeature &&
                           parentScopedSettings.postStratificationEnabled.value
                             ? "On"
                             : "Off"
