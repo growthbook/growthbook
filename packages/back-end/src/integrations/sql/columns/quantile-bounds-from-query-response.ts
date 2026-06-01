@@ -40,7 +40,9 @@ export function getQuantileBoundsFromQueryResponse(
     N_STAR_VALUES.forEach((n, k) => {
       const lowerVal = getLower(k);
       const upperVal = getUpper(k);
-      if (lowerVal === undefined || upperVal === undefined) return;
+      // Covers both null (e.g. empty-group APPROX_QUANTILES array elements)
+      // and undefined (missing scalar columns)
+      if ((lowerVal ?? null) === null || (upperVal ?? null) === null) return;
 
       if (
         // if nstar is smaller, or if it's the smallest nstar, proceed
