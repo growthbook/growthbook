@@ -87,9 +87,14 @@ export function getExperimentMetricQuery(
   const ratioMetric = isRatioMetric(metric, denominator);
   const funnelMetric = isFunnelMetric(metric, denominator);
 
-  const banditDates = settings.banditSettings?.historicalWeights.map(
-    (w) => w.date,
-  );
+  // Contextual bandits weight variations in TypeScript from raw summable stats,
+  // so they skip the multi-armed-bandit period weighting and run through the
+  // same aggregation as a standard experiment (just with the attr_cb_* context
+  // columns appended to the dimensions).
+  const isContextualBandit = !!settings.banditSettings?.banditIsContextual;
+  const banditDates = isContextualBandit
+    ? undefined
+    : settings.banditSettings?.historicalWeights.map((w) => w.date);
   const poolRegressionTheta =
     settings.banditSettings?.poolRegressionTheta !== false;
 

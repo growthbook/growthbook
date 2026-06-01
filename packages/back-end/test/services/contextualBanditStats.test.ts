@@ -3,7 +3,7 @@ import {
   canonicalizeVariationIdsInRows,
   filterMetricQueryRowsForStatsEngine,
   prepareRowsForContextualStats,
-} from "back-end/src/services/contextualBanditStats";
+} from "back-end/src/enterprise/services/contextualBanditStats";
 
 // These tests only exercise the pure row-shaping helpers, so stub out the
 // stats engine module to avoid loading/spawning the real Python engine.
@@ -113,7 +113,13 @@ describe("prepareRowsForContextualStats", () => {
         },
       ]),
     );
-    expect(result[0]).toEqual({ variation: "0", users: 10, sum: 4 });
+    // `m0_id` is renamed to `id` (mirrors Python `filter_query_rows`), not dropped.
+    expect(result[0]).toEqual({
+      variation: "0",
+      users: 10,
+      sum: 4,
+      id: "met_1",
+    });
   });
 
   it("passes non-fact rows through unchanged aside from contextId", () => {

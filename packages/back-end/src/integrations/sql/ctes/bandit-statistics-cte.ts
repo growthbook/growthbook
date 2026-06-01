@@ -31,6 +31,7 @@ export function getBanditStatisticsCTE(
     denominatorIsPercentileCapped?: boolean;
   },
 ): string {
+  //for contextual bandits, remove the contextual attributes
   const weightDimensionCols = getBanditPeriodWeightDimensionCols(dimensionCols);
 
   return `-- One row per variation/dimension with aggregations

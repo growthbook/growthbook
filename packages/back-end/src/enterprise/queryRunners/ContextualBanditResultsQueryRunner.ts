@@ -1,5 +1,3 @@
-// SMITH: this runner is the single integration seam between the CB orchestrator
-// and the contextual bandit SQL + Python stats engine.
 import { Queries, QueryStatus } from "shared/types/query";
 import { UpdateProps } from "shared/types/base-model";
 import {
@@ -149,10 +147,6 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
           );
           return { rows };
         },
-        // SMITH: re-using the legacy `experimentResults` enum value is
-        // deliberate (see plan, Appendix C). A dedicated
-        // `"contextualBanditResults"` value is deferred until the SQL is
-        // real enough to justify cost-attribution carve-outs.
         queryType: "experimentResults",
       }),
     ];
