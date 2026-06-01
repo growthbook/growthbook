@@ -83,6 +83,11 @@ export async function loadRevisionsPage(
   if (featureId) {
     singleFeature = await getFeature(context, featureId);
     if (!singleFeature) return emptyListResponse(limit, offset);
+    // Apply the archived filter consistently with the no-featureId path.
+    // When archived=false (default), exclude revisions for archived features
+    // even when featureId is given explicitly.
+    if (singleFeature.archived && !includeArchived)
+      return emptyListResponse(limit, offset);
   } else {
     const readableProjects =
       context.permissions.getProjectsWithPermission("readData");
