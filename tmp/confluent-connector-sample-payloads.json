@@ -5,7 +5,7 @@
   "docs": "https://docs.growthbook.io/experimentation-analysis/event-forwarder#ingestion-api",
   "schema_evolution_notes": {
     "properties": "Flat primitive keys on each event's `properties` object are additively registered on the forwarder Avro `properties` nested record as new keys appear across events. Nested objects are ignored for evolution — use flat keys only.",
-    "additional_attributes": "Custom keys on `attributes` that are not promoted to top-level Avro columns (user_id, device_id, utm_*, geo_*, etc.) land in the forwarder `additional_attributes` nested record and evolve the same way when new keys appear or old keys stop being sent."
+    "attributes": "All org targeting attributes (including hash identifiers like user_id) are stored in the forwarder Avro `attributes` nested record. Inner fields are pre-seeded from org attributeSchema on provision and grow additively when new keys appear in live events (same evolution model as `properties`)."
   },
   "event_evolution": [
     "Event 1 — Baseline Experiment Viewed: only experimentId/variationId in properties; attributes logged_in + plan.",

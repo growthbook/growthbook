@@ -2,9 +2,13 @@ import type { ExposureQuery } from "shared/types/datasource";
 import {
   buildBigQueryEventForwarderTableReference,
   buildSnowflakeEventForwarderTableReference,
+  EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD,
   EVENT_FORWARDER_AVRO_PARTITION_FIELD,
+  sanitizeEventForwarderAvroFieldName,
 } from "./event-forwarder-fact-table";
 import { normalizeSnowflakeTableNameForEventForwarder } from "./snowflake-table-name";
+
+export { EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD };
 
 export const EVENT_FORWARDER_EXPERIMENT_VIEWED_TABLE = "experiment_viewed";
 
@@ -40,6 +44,36 @@ export function buildEventForwarderExperimentViewedTableReference(
   );
 }
 
+function quoteBigQueryIdentifier(identifier: string): string {
+  return `\`${identifier}\``;
+}
+
+function quoteSnowflakeVariantFieldName(fieldName: string): string {
+  return `"${fieldName.replace(/"/g, '""')}"`;
+}
+
+export function buildEventForwarderAttributeValueSql({
+  sinkType,
+  userIdType,
+}: {
+  sinkType: "bigquery" | "snowflake";
+  userIdType: string;
+}): string {
+  const fieldName = sanitizeEventForwarderAvroFieldName(userIdType);
+
+  if (sinkType === "bigquery") {
+    const quotedAttributes = quoteBigQueryIdentifier(
+      EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD,
+    );
+    const quotedField = quoteBigQueryIdentifier(fieldName);
+    return `${quotedAttributes}.${quotedField}`;
+  }
+
+  const attributesCol = EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD.toUpperCase();
+  const quotedField = quoteSnowflakeVariantFieldName(fieldName);
+  return `${attributesCol}:${quotedField}::STRING`;
+}
+
 export function buildEventForwarderExposureQuerySql({
   sinkType,
   tableRef,
@@ -49,10 +83,15 @@ export function buildEventForwarderExposureQuerySql({
   tableRef: string;
   userIdType: string;
 }): string {
+  const attributeValueSql = buildEventForwarderAttributeValueSql({
+    sinkType,
+    userIdType,
+  });
+
   if (sinkType === "bigquery") {
-    const quotedId = `\`${userIdType}\``;
+    const quotedId = quoteBigQueryIdentifier(userIdType);
     return `SELECT
-  ${quotedId} AS ${quotedId},
+  ${attributeValueSql} AS ${quotedId},
   timestamp AS timestamp,
   experiment_id AS experiment_id,
   variation_id AS variation_id
@@ -61,7 +100,7 @@ WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{end
   }
 
   return `SELECT
-  ${userIdType.toUpperCase()} AS ${userIdType},
+  ${attributeValueSql} AS ${userIdType},
   TIMESTAMP AS timestamp,
   EXPERIMENT_ID AS experiment_id,
   VARIATION_ID AS variation_id

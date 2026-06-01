@@ -101,16 +101,19 @@ describe("event-forwarder-fact-table SQL", () => {
 });
 
 describe("buildEventForwarderEventsFactTableColumns", () => {
-  it("includes user id types only", () => {
+  it("includes hash user id types as jsonFields on the attributes column", () => {
     const columns = buildEventForwarderEventsFactTableColumns(["user_id"]);
 
     expect(columns).toEqual([
       {
-        column: "user_id",
-        name: "user_id",
+        column: "attributes",
+        name: "attributes",
         description: "",
         numberFormat: "",
-        datatype: "string",
+        datatype: "json",
+        jsonFields: {
+          user_id: { datatype: "string" },
+        },
       },
     ]);
   });
@@ -122,6 +125,16 @@ describe("buildEventForwarderEventsFactTableColumns", () => {
     ]);
 
     expect(columns).toHaveLength(1);
-    expect(columns[0].column).toBe("user_id");
+    expect(columns[0].jsonFields).toEqual({
+      user_id: { datatype: "string" },
+    });
+  });
+
+  it("uses sanitized Avro field names in jsonFields", () => {
+    const columns = buildEventForwarderEventsFactTableColumns(["user-id"]);
+
+    expect(columns[0].jsonFields).toEqual({
+      user_id: { datatype: "string" },
+    });
   });
 });

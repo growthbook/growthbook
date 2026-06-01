@@ -146,11 +146,14 @@ describe("ensureEventForwarderEventsFactTable", () => {
         userIdTypes: ["user_id"],
         columns: [
           {
-            column: "user_id",
-            name: "user_id",
+            column: "attributes",
+            name: "attributes",
             description: "",
             numberFormat: "",
-            datatype: "string",
+            datatype: "json",
+            jsonFields: {
+              user_id: { datatype: "string" },
+            },
           },
         ],
       }),

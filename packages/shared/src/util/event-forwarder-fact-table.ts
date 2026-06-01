@@ -3,6 +3,24 @@ import type { CreateColumnProps } from "shared/types/fact-table";
 /** BigQuery daily partition column for BigQueryStorageSink (timestamp-millis). */
 export const EVENT_FORWARDER_AVRO_PARTITION_FIELD = "received_at" as const;
 
+/** Nested Avro record holding org targeting attributes in the forwarder schema. */
+export const EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD = "attributes" as const;
+
+/**
+ * Sanitizes a string for use as an Avro/BigQuery/Snowflake field name.
+ *
+ * IMPORTANT: This logic is intentionally duplicated in
+ * central-license-server `eventForwarderAvro.sanitizeAvroFieldName` and
+ * growthbook-ingestor `data.sanitizeAvroFieldName`. These repos cannot share
+ * code directly. If you change this function, you MUST apply the same change
+ * there, and vice versa.
+ */
+export function sanitizeEventForwarderAvroFieldName(property: string): string {
+  const sanitized = property.replace(/[^A-Za-z0-9_]+/g, "_");
+  const withPrefix = /^[A-Za-z_]/.test(sanitized) ? sanitized : `_${sanitized}`;
+  return withPrefix.slice(0, 255);
+}
+
 /**
  * EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY — delay after connector ready (or schema
  * evolve) before refreshing fact table columns and re-validating managed
@@ -92,23 +110,31 @@ export function buildEventForwarderEventsFactTableSql(
 export function buildEventForwarderEventsFactTableColumns(
   userIdTypes: string[],
 ): CreateColumnProps[] {
-  const columns: CreateColumnProps[] = [];
+  if (userIdTypes.length === 0) {
+    return [];
+  }
+
   const seen = new Set<string>();
+  const jsonFields: CreateColumnProps["jsonFields"] = {};
 
   for (const userIdType of userIdTypes) {
-    const key = userIdType.toLowerCase();
+    const fieldName = sanitizeEventForwarderAvroFieldName(userIdType);
+    const key = fieldName.toLowerCase();
     if (seen.has(key)) {
       continue;
     }
     seen.add(key);
-    columns.push({
-      column: userIdType,
-      name: userIdType,
-      description: "",
-      numberFormat: "",
-      datatype: "string",
-    });
+    jsonFields[fieldName] = { datatype: "string" };
   }
 
-  return columns;
+  return [
+    {
+      column: EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD,
+      name: EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD,
+      description: "",
+      numberFormat: "",
+      datatype: "json",
+      jsonFields,
+    },
+  ];
 }
