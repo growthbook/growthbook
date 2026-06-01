@@ -39,6 +39,7 @@ import {
   getPayloadKeys,
 } from "back-end/src/models/ExperimentModel";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
+import { maybeCreateContextualBanditDoc } from "back-end/src/services/experiments";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { ContextualBanditResultsQueryRunner } from "back-end/src/enterprise/queryRunners/ContextualBanditResultsQueryRunner";
 import {
@@ -140,9 +141,20 @@ export async function runContextualBanditSnapshot(
     );
   }
 
-  const cb = await context.models.contextualBandits.getByExperimentId(
+  let cb = await context.models.contextualBandits.getByExperimentId(
     experiment.id,
   );
+  if (!cb) {
+    // A `contextual-bandit` experiment can reach this path without a linked
+    // CB doc — e.g. a doc forward-migrated from the deprecated
+    // `banditIsContextual` flag (see upgradeExperimentDoc), or one whose
+    // creation-time provisioning didn't complete. Lazily provision it
+    // (idempotent) so we self-heal instead of failing every scheduled refresh.
+    await maybeCreateContextualBanditDoc(context, experiment);
+    cb = await context.models.contextualBandits.getByExperimentId(
+      experiment.id,
+    );
+  }
   if (!cb) throw new Error(`No CB doc for experiment ${experiment.id}`);
 
   const ds = await getDataSourceById(context, cb.datasourceId);

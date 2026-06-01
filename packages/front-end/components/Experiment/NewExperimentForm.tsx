@@ -1303,7 +1303,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
         {/* Bandit Experiments */}
         {isBandit && (isNewExperiment || duplicate)
-          ? ["Overview", "Traffic", "Metrics"].map((p, i) => {
+          ? ["Overview", "Traffic", "Targeting", "Metrics"].map((p, i) => {
               // skip, custom overview page above
               if (i === 0) return null;
               return (

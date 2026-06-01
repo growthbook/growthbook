@@ -20,6 +20,9 @@ import {
   useAttributeSchema,
 } from "@/services/features";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
+import ConditionInput from "@/components/Features/ConditionInput";
+import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
 import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -48,10 +51,24 @@ import { EAQ_ANCHOR_ID } from "@/pages/datasources/[did]";
 
 export default function BanditRefNewFields({
   step,
+  source,
   feature,
   project,
+  environments,
+  prerequisiteValue,
+  setPrerequisiteValue,
+  setPrerequisiteTargetingSdkIssues,
+  isCyclic,
+  cyclicFeatureId,
+  savedGroupValue,
+  setSavedGroupValue,
+  defaultConditionValue,
+  setConditionValue,
+  conditionKey,
   namespaceFormPrefix = "",
   // variation input fields
+  coverage,
+  setCoverage,
   setWeight,
   variations,
   setVariations,
@@ -167,6 +184,13 @@ export default function BanditRefNewFields({
   const settings = useOrgSettings();
   const { namespaces } = useOrgSettings();
 
+  // Contextual bandits drive arm weights from targeting attribute contexts,
+  // so they skip the standard saved-group / condition / prerequisite
+  // targeting step. Regular multi-armed bandits keep it. Step indices shift
+  // accordingly: the metrics/data-source step is the last page in either case.
+  const showTargetingStep = !contextualBandit;
+  const metricsStep = contextualBandit ? 2 : 3;
+
   return (
     <>
       {step === 0 ? (
@@ -270,10 +294,16 @@ export default function BanditRefNewFields({
 
           <FeatureVariationsInput
             simple={true}
-            hideCoverage={true}
-            label="Variations"
+            hideCoverage={contextualBandit}
+            label={
+              contextualBandit ? "Variations" : "Traffic Percent & Variations"
+            }
             defaultValue={feature ? getFeatureDefaultValue(feature) : undefined}
             valueType={feature?.valueType ?? "string"}
+            coverageLabel="Traffic included in this Bandit"
+            coverageTooltip={`Users not included in the Bandit will skip this ${source}`}
+            coverage={coverage}
+            setCoverage={setCoverage}
             setWeight={setWeight}
             variations={variations}
             setVariations={setVariations}
@@ -295,7 +325,40 @@ export default function BanditRefNewFields({
         </>
       ) : null}
 
-      {step === 2 ? (
+      {showTargetingStep && step === 2 ? (
+        <>
+          <SavedGroupTargetingField
+            value={savedGroupValue}
+            setValue={setSavedGroupValue}
+            project={project || ""}
+          />
+          <Separator size="4" my="5" />
+          <ConditionInput
+            defaultValue={defaultConditionValue}
+            onChange={setConditionValue}
+            key={conditionKey}
+            project={project || ""}
+          />
+          <Separator size="4" my="5" />
+          <PrerequisiteInput
+            value={prerequisiteValue}
+            setValue={setPrerequisiteValue}
+            feature={feature}
+            environments={environments ?? []}
+            setPrerequisiteTargetingSdkIssues={
+              setPrerequisiteTargetingSdkIssues
+            }
+          />
+          {isCyclic ? (
+            <Callout status="error" mt="3">
+              A prerequisite (<code>{cyclicFeatureId}</code>) creates a circular
+              dependency. Remove this prerequisite to continue.
+            </Callout>
+          ) : null}
+        </>
+      ) : null}
+
+      {step === metricsStep ? (
         <>
           <div className="rounded px-3 pt-3 pb-1 bg-highlight mb-4">
             <SelectField

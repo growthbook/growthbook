@@ -411,9 +411,13 @@ export async function updateDataSource(
       updates.settings.queries?.exposure !== undefined
         ? updates.settings.queries.exposure
         : datasource.settings?.queries?.exposure;
+    // Only validate newly added targeting columns. Passing the previously
+    // saved exposure queries means a pre-existing column that now references
+    // an archived attribute won't block an otherwise-unrelated update.
     assertExposureQueriesTargetingAttributeColumnsValid(
       context.org.settings?.attributeSchema,
       exposureQueries,
+      datasource.settings?.queries?.exposure,
     );
     updates.settings = await validateExposureQueriesAndAddMissingIds(
       context,
