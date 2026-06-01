@@ -1,9 +1,125 @@
 ---
-title: "Webhooks Events"
-sidebarTitle: "Events List"
-description: "List of Webhook Events"
+title: "Webhook events"
+sidebarTitle: "Events list"
+description: "Reference list of event types you can subscribe to with GrowthBook event webhooks."
 ---
 
-We currently support the following event types:
+Subscribe to any of the following events when configuring an [event webhook](/webhooks/event-webhooks). Each event includes a JSON payload with the affected object and the user who triggered it.
 
-<EventWebhookList />
+## Feature events
+
+| Event name | Triggered when |
+|------------|----------------|
+| `feature.created` | A feature is created. |
+| `feature.updated` | A feature is updated. |
+| `feature.deleted` | A feature is deleted. |
+| `feature.saferollout.ship` | A safe rollout completes and is safe to roll out to 100%. |
+| `feature.saferollout.rollback` | A safe rollout has a failing guardrail and should be reverted. |
+| `feature.saferollout.unhealthy` | A safe rollout is failing a health check. |
+| `feature.rampSchedule.created` | A ramp schedule is created for a feature. |
+| `feature.rampSchedule.deleted` | A ramp schedule is deleted from a feature. |
+| `feature.rampSchedule.actions.started` | A feature ramp schedule starts. |
+| `feature.rampSchedule.actions.completed` | A feature ramp schedule completes all steps. |
+| `feature.rampSchedule.actions.rolledBack` | A feature ramp schedule is rolled back or reset to start. |
+| `feature.rampSchedule.actions.jumped` | A feature ramp schedule is jumped to a specific step. |
+| `feature.rampSchedule.actions.step.advanced` | A feature ramp schedule advances to the next step. |
+| `feature.rampSchedule.actions.step.approvalRequired` | A feature ramp step is waiting for approval. |
+
+### Feature revision events
+
+| Event name | Triggered when |
+|------------|----------------|
+| `feature.revision.created` | A new draft revision is created for a feature. |
+| `feature.revision.updated` | A draft revision is modified (rules, default value, toggles, prerequisites, metadata, etc.). The `change` field indicates the specific kind of mutation. |
+| `feature.revision.reviewRequested` | A draft revision is submitted for review. |
+| `feature.revision.approved` | A draft revision is approved by a reviewer. |
+| `feature.revision.changesRequested` | A reviewer requests changes on a draft revision. |
+| `feature.revision.commented` | A comment is added to a draft revision. |
+| `feature.revision.discarded` | A draft revision is discarded. |
+| `feature.revision.rebased` | A draft revision is rebased onto the latest published version. |
+| `feature.revision.published` | A draft revision is published. Overlaps with `feature.updated` but provides revision-specific context (base version, comment, author). |
+| `feature.revision.reverted` | A feature is reverted to a previous published revision. |
+
+## Experiment events
+
+| Event name | Triggered when |
+|------------|----------------|
+| `experiment.created` | An experiment is created. |
+| `experiment.updated` | An experiment is updated. |
+| `experiment.deleted` | An experiment is deleted. |
+| `experiment.warning` | A warning condition is detected on an experiment. |
+| `experiment.info.significance` | A goal or guardrail metric reaches significance (above 95% or below 5% chance to win). Be careful using this without Sequential Testing — it can lead to peeking problems. |
+| `experiment.decision.ship` | An experiment is ready to ship a variation. |
+| `experiment.decision.rollback` | An experiment should be rolled back to the control. |
+| `experiment.decision.review` | An experiment has reached the desired power point, but results may be ambiguous. |
+
+## Saved group events
+
+Saved group webhooks let downstream systems react when a [saved group](/features/targeting#saved-groups) is changed — for example, to mirror group membership into another tool, audit who edited a list, or trigger a sync when a revision is approved.
+
+| Event name | Triggered when |
+|------------|----------------|
+| `savedGroup.created` | A saved group is created. |
+| `savedGroup.updated` | A saved group is updated. |
+| `savedGroup.deleted` | A saved group is deleted. |
+
+### Saved group revision events
+
+If your organization has revision approvals enabled on saved groups, subscribe to these events to track draft state across the review lifecycle. They mirror the feature revision events.
+
+| Event name | Triggered when |
+|------------|----------------|
+| `savedGroup.revision.created` | A new draft revision is created for a saved group. |
+| `savedGroup.revision.updated` | A draft revision's proposed changes are modified (values, condition, archive, or metadata). The `change` field indicates the kind of mutation. |
+| `savedGroup.revision.reviewRequested` | A draft revision is submitted for review. |
+| `savedGroup.revision.approved` | A draft revision is approved by a reviewer. |
+| `savedGroup.revision.changesRequested` | A reviewer requests changes on a draft revision. |
+| `savedGroup.revision.commented` | A comment is added to a draft revision. |
+| `savedGroup.revision.discarded` | A draft revision is discarded. |
+| `savedGroup.revision.rebased` | A draft revision is rebased onto the latest live state. |
+| `savedGroup.revision.published` | A draft revision is published. Overlaps with `savedGroup.updated` but provides revision-specific context. |
+| `savedGroup.revision.reverted` | A saved group is reverted to a previous published revision. |
+| `savedGroup.revision.reopened` | A discarded revision is reopened. |
+
+<Info>
+The `savedGroup.revision.published` event fires alongside `savedGroup.updated`. If you only care about the final state, subscribe to `savedGroup.updated`. If you need revision context (author, base version, comment, proposed changes), subscribe to the revision event instead.
+</Info>
+
+## User events
+
+| Event name | Triggered when |
+|------------|----------------|
+| `user.login` | A user logs in. |
+
+## Wildcards
+
+When creating a webhook, you can subscribe to groups of events using wildcards. For example:
+
+- `feature.*` matches all feature lifecycle events (created/updated/deleted).
+- `feature.revision.*` matches all feature revision events.
+- `savedGroup.*` matches all saved group lifecycle events.
+- `savedGroup.revision.*` matches all saved group revision events.
+
+## Payload shape
+
+Every event payload follows the same envelope:
+
+```json
+{
+  "event": "savedGroup.revision.published",
+  "object": "savedGroup",
+  "api_version": "...",
+  "created": 1717200000,
+  "data": {
+    "object": { /* the affected resource */ }
+  },
+  "user": {
+    "type": "dashboard",
+    "id": "u_abc123",
+    "name": "Jane Doe",
+    "email": "jane@example.com"
+  }
+}
+```
+
+For revision events, `data.object` is the full revision resource, which includes the parent entity id, the `change` discriminator (for `updated`), and — on `reverted` — the `revertedToVersion` field.
