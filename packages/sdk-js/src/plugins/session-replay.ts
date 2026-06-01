@@ -12,12 +12,6 @@ export type {
   MaskableInputType,
   SessionReplayUrlScrubberConfig,
 } from "./session-replay-privacy";
-export {
-  GB_BLOCK_CLASS,
-  GB_MASK_CLASS,
-  GB_IGNORE_CLASS,
-} from "./session-replay-privacy";
-export { scrubUrl } from "./session-replay-url-scrub";
 
 type PluginOptions = {
   trackingHost?: string;
@@ -64,10 +58,6 @@ function userOptedOutOfTracking(): boolean {
 declare global {
   interface Window {
     _gbReplayEvents: eventWithTime[];
-    _gbGetReplayEvents: (options?: {
-      minTimestamp?: number;
-      maxTimestamp?: number;
-    }) => eventWithTime[];
   }
 }
 
@@ -200,7 +190,6 @@ export function sessionReplayPlugin({
   let viewportWidth = 0;
   let viewportHeight = 0;
   let lastInteractionAt = 0;
-  let logCursor = 0;
   // Re-entrancy guard for flushBuffer. The timer, size trigger, stopRecording,
   // pagehide, and visibilitychange handlers can all fire while a previous
   // flush is awaiting its network response — without this, a concurrent flush
@@ -215,6 +204,31 @@ export function sessionReplayPlugin({
   // JSON.stringify per emitted event) and good enough to keep payloads
   // under the ingest endpoint's body-size limit.
   let bufferedBytes = 0;
+
+  // Typed eval buffers — populated via SDK subscriptions, flushed with each chunk.
+  const featureEvals: Array<{
+    featureKey: string;
+    timestamp: number;
+    result: { value: unknown | null; experimentKey?: string };
+  }> = [];
+  const experimentEvals: Array<{
+    key: string;
+    timestamp: number;
+    name?: string;
+    result: {
+      // Result<T>.value is T (not nullable) — any matches SubscriptionFunction's Result<any>
+      value: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+      variationId: number;
+      hashValue: string;
+      featureId: string | null;
+    };
+  }> = [];
+  const sessionEvents: Array<{
+    eventName: string;
+    timestamp: number;
+    properties?: Record<string, unknown>;
+  }> = [];
+
   // Consecutive 401/403 count. Incremented on every auth failure, reset
   // on any successful send (or non-auth failure). When it hits
   // AUTH_FAILURE_LIMIT the recorder stops to break the hot loop a bad
@@ -314,58 +328,46 @@ export function sessionReplayPlugin({
     const sessionIdBeingSent = sessionId;
     const eventsBeingSent = [...window._gbReplayEvents];
     const bufferedBytesBeingSent = bufferedBytes;
-    const logCursorBeingSent = logCursor;
     const chunkIndexBeingSent = chunkIndex;
+    // Snapshot and drain the eval buffers synchronously so any evals that
+    // arrive mid-flight land in a fresh buffer and are picked up next flush.
+    const featureEvalsBeingSent = featureEvals.splice(0);
+    const experimentEvalsBeingSent = experimentEvals.splice(0);
+    const sessionEventsBeingSent = sessionEvents.splice(0);
 
     try {
-      const evaluatedExperiments = Array.from(
-        gbRef.getAllResults().entries(),
-      ).reduce(
-        (acc, [key, { result }]) => {
-          // `result` is a Result<T>; variationId lives at the top level, not on
-          // `result.value` (which is the variation's payload of type T). Reading
-          // `result.value.variationId` returned undefined for every entry, which
-          // JSON.stringify drops — leaving experiments as `"{}"` in the payload.
-          acc[key] = result.variationId;
-          return acc;
-        },
-        {} as Record<string, number>,
-      );
-
-      const flags: Record<string, unknown> = {};
-      gbRef.logs?.forEach?.((log) => {
-        if (log.logType === "feature") {
-          flags[log.featureKey] = log.result.value;
-        }
-      });
-
       const context = {
         attributes: JSON.stringify(gbRef.getAttributes()),
-        experiments: JSON.stringify(evaluatedExperiments),
-        flags: JSON.stringify(flags),
       };
 
-      const minTimestamp = eventsBeingSent.reduce(
-        (min, event) => Math.min(min, event.timestamp),
-        Number.POSITIVE_INFINITY,
-      );
-      const maxTimestamp = eventsBeingSent.reduce(
-        (max, event) => Math.max(max, event.timestamp),
-        Number.NEGATIVE_INFINITY,
-      );
+      // Synthesize rrweb custom events (type 5) from the typed eval buffers
+      // so the replay player can show feature/experiment panels at the exact
+      // timestamp they occurred.
+      const customEvents: eventWithTime[] = [];
+      featureEvalsBeingSent.forEach((fe) => {
+        customEvents.push({
+          type: 5,
+          timestamp: fe.timestamp,
+          data: {
+            tag: "feature-flag",
+            payload: { id: fe.featureKey, value: fe.result.value },
+          },
+        });
+      });
+      experimentEvalsBeingSent.forEach((ee) => {
+        customEvents.push({
+          type: 5,
+          timestamp: ee.timestamp,
+          data: {
+            tag: "experiment",
+            payload: { id: ee.key, variation: ee.result.variationId },
+          },
+        });
+      });
 
-      const events = window
-        ._gbGetReplayEvents({
-          minTimestamp:
-            minTimestamp === Number.POSITIVE_INFINITY
-              ? sessionStartedAt
-              : minTimestamp,
-          maxTimestamp:
-            maxTimestamp === Number.NEGATIVE_INFINITY
-              ? Date.now()
-              : maxTimestamp,
-        })
-        .sort((a, b) => a.timestamp - b.timestamp);
+      const events = [...eventsBeingSent, ...customEvents].sort(
+        (a, b) => a.timestamp - b.timestamp,
+      );
 
       // PII protection comes entirely from rrweb-native privacy controls
       // exposed via SessionReplayPrivacyConfig / buildRrwebPrivacyOptions:
@@ -390,6 +392,9 @@ export function sessionReplayPlugin({
         viewport: { width: viewportWidth, height: viewportHeight },
         events,
         context,
+        featureEvals: featureEvalsBeingSent,
+        experimentEvals: experimentEvalsBeingSent,
+        sessionEvents: sessionEventsBeingSent,
       });
 
       // Clear the live buffer SYNCHRONOUSLY before awaiting so emits arriving
@@ -459,12 +464,13 @@ export function sessionReplayPlugin({
           );
         } else if (isTransient) {
           // Same session, transient failure — revert so the next flush
-          // retries this chunk: re-prepend events, restore bufferedBytes
-          // and logCursor (so the synthesized feature-flag / experiment
-          // events get re-emitted on retry), and DON'T advance chunkIndex.
+          // retries this chunk: re-prepend rrweb events, restore bufferedBytes,
+          // and re-prepend the eval buffers so they are included on retry.
           window._gbReplayEvents.unshift(...eventsBeingSent);
           bufferedBytes += bufferedBytesBeingSent;
-          logCursor = logCursorBeingSent;
+          featureEvals.unshift(...featureEvalsBeingSent);
+          experimentEvals.unshift(...experimentEvalsBeingSent);
+          sessionEvents.unshift(...sessionEventsBeingSent);
 
           if (isAuthFailure) {
             consecutiveAuthFailures += 1;
@@ -571,7 +577,6 @@ export function sessionReplayPlugin({
 
     hasUserInteraction = false;
     lastInteractionAt = Date.now();
-    logCursor = gbRef?.logs?.length ?? 0;
     window._gbReplayEvents = [];
     bufferedBytes = 0;
 
@@ -721,98 +726,45 @@ export function sessionReplayPlugin({
 
   return (gb: GrowthBook) => {
     gbRef = gb;
-    // -----------------------------------------------------------------
-    // Production telemetry note — known-flawed; tracked for replacement.
-    // -----------------------------------------------------------------
-    // The plugin needs to observe every feature evaluation and every
-    // experiment assignment in order to populate `context.flags` /
-    // `context.experiments` on each chunk and to synthesize the rrweb
-    // custom events that drive the evaluations panel in the replay UI.
-    //
-    // The SDK's documented production telemetry hooks
-    // (`trackingCallback`, `onFeatureUsage`, `eventLogger`) are
-    // single-callback-per-instance — installing ours would stomp on the
-    // customer's own callback. We can't safely wrap, because
-    // setTrackingCallback() called later in app code would replace our
-    // wrapper and silently break replay telemetry.
-    //
-    // The only multi-subscriber-friendly mechanism the SDK exposes today
-    // is `captureLogs` + polling `gb.logs`, which is what we use here.
-    // This is structurally undesirable for two reasons:
-    //
-    //   1. `gb.logs` grows unboundedly for the SDK's lifetime. Our
-    //      `logCursor` advances so we don't re-process entries, but the
-    //      array itself never shrinks. In long-running SPAs that's a
-    //      slow memory leak proportional to evaluation volume.
-    //
-    //   2. We depend on undocumented log shape (`logType: "feature"`,
-    //      `featureKey`, `result.value`, etc.). That's a contract the
-    //      SDK doesn't promise. The captureLogs propagation bug
-    //      (fixed by adding the field to GrowthBook._getUserContext)
-    //      is exactly the class of breakage this dependency invites.
-    //
-    // The cleaner architecture is event-emitter style listeners on the
-    // SDK: `gb.on("feature-evaluated", handler)` etc. Multiple
-    // subscribers, no conflict with customer callbacks, plugin owns
-    // its own buffer that clears on flush. Tracked as a separate
-    // follow-up — until that lands, this is what we have.
-    // -----------------------------------------------------------------
-    gb.setCaptureLogs(true);
 
     const [apiHost, key] = gb.getApiInfo();
     host = trackingHost || apiHost;
     clientKey = key;
 
-    window._gbReplayEvents = window._gbReplayEvents || [];
-    window._gbGetReplayEvents = (options) => {
-      const customEvents: eventWithTime[] = [];
-      const logs = gb.logs || [];
-      const nextLogs = logs.slice(logCursor);
-      logCursor = logs.length;
-      nextLogs.forEach((log) => {
-        const timestamp = parseInt(log.timestamp);
-        if (!Number.isFinite(timestamp)) return;
-        if (
-          options?.minTimestamp !== undefined &&
-          timestamp < options.minTimestamp
-        ) {
-          return;
-        }
-        if (
-          options?.maxTimestamp !== undefined &&
-          timestamp > options.maxTimestamp
-        ) {
-          return;
-        }
-        if (log.logType === "feature") {
-          customEvents.push({
-            type: 5,
-            timestamp,
-            data: {
-              tag: "feature-flag",
-              payload: {
-                id: log.featureKey,
-                value: log.result.value,
-              },
-            },
-          });
-        } else if (log.logType === "experiment") {
-          customEvents.push({
-            type: 5,
-            timestamp,
-            data: {
-              tag: "experiment",
-              payload: {
-                id: log.experiment.key,
-                variation: log.result.variationId,
-              },
-            },
-          });
-        }
+    // Subscribe to feature evaluations, experiment assignments, and custom
+    // events via the SDK's internal plugin hooks. Each callback appends to
+    // the plugin's own typed buffer; flushBuffer snapshots and drains those
+    // buffers on every chunk send.
+    const offFeature = gb._onFeatureEval((featureKey, result) => {
+      featureEvals.push({
+        featureKey,
+        timestamp: Date.now(),
+        result: {
+          value: result.value,
+          experimentKey: result.experiment?.key,
+        },
       });
+    });
 
-      return [...window._gbReplayEvents, ...customEvents];
-    };
+    const offExperiment = gb.subscribe((experiment, result) => {
+      experimentEvals.push({
+        key: experiment.key,
+        timestamp: Date.now(),
+        name: experiment.name,
+        result: {
+          value: result.value,
+          variationId: result.variationId,
+          hashValue: result.hashValue,
+          featureId: result.featureId,
+        },
+      });
+    });
+
+    const offEvent = gb._onEvent((eventName, properties) => {
+      sessionEvents.push({ eventName, timestamp: Date.now(), properties });
+    });
+
+    window._gbReplayEvents = window._gbReplayEvents || [];
 
     gb._registerSessionReplay(startRecording, stopRecording);
 
@@ -824,6 +776,9 @@ export function sessionReplayPlugin({
     });
 
     gb.onDestroy(() => {
+      offFeature();
+      offExperiment();
+      offEvent();
       stopRecording();
     });
   };
