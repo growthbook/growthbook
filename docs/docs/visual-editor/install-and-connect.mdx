@@ -1,0 +1,94 @@
+---
+title: Install and Connect the GrowthBook Visual Editor
+description: Install the GrowthBook DevTools Chrome extension and connect it to your GrowthBook account with a single click. No copying API tokens by hand.
+sidebar_label: Install and connect
+slug: /app/visual/install-and-connect
+---
+
+import MaxWidthImage from '@site/src/components/MaxWidthImage';
+import CommercialFeature from '@site/src/components/CommercialFeature';
+
+<CommercialFeature feature="visual-editor" />
+
+The GrowthBook [Visual Editor](/app/visual) lives inside the GrowthBook DevTools Chrome extension. Setup is two clicks and about thirty seconds — install the extension, then click **Connect with GrowthBook**.
+
+## 1. Install the extension
+
+The Visual Editor ships as part of the **GrowthBook DevTools** browser extension. Install it from your browser's extension store:
+
+- **Chrome, Edge, Brave, Arc, and most Chromium browsers** — [GrowthBook DevTools on the Chrome Web Store](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia)
+- **Firefox** — [GrowthBook DevTools on Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/growthbook-devtools/) (note: the side-panel Visual Editor is currently Chromium-only — Firefox users get the [legacy in-page editor](/app/visual/legacy))
+
+### Pin the toolbar icon
+
+After install, pin the GrowthBook icon to your toolbar so it's one click away:
+
+1. Click the puzzle-piece **Extensions** icon in the Chrome toolbar.
+2. Find **GrowthBook DevTools** in the list.
+3. Click the pin icon next to it.
+
+## 2. Open the side panel
+
+The Visual Editor is a Chrome **side panel**, not a popup. To open it:
+
+- **Click the GrowthBook toolbar icon**, or
+- **Right-click the page → "Open side panel" → "GrowthBook DevTools."**
+
+The first time you open the side panel, you'll see a **Connect with GrowthBook** button.
+
+## 3. Click "Connect with GrowthBook"
+
+Click the button. A new tab opens to GrowthBook. If you're already signed in, the page silently generates a Visual Editor access key tied to your account and hands it back to the extension via a secure browser-side message. The tab closes itself, the side panel updates to show you're connected, and you're done.
+
+If you're not already signed in, you'll see the GrowthBook login page first — sign in once, and the key generation happens automatically afterward.
+
+That's it. No copying tokens, no pasting strings, no remembering where the personal-access-token page lives.
+
+### Where the key is stored
+
+The access key is stored in the extension's local storage on your machine. It's not synced across browsers, and it's only sent in the `Authorization` header of requests to the GrowthBook API host the extension is configured for.
+
+### Self-hosted GrowthBook
+
+The one-click flow works on GrowthBook Cloud and any self-hosted instance the extension has previously synced with. If you're on a fresh extension install pointing at a self-hosted instance, you may need to:
+
+1. Open the gear menu → **API host** and set your host (e.g., `https://growthbook.example.com`).
+2. Click **Connect with GrowthBook**.
+
+If the one-click flow can't reach your self-hosted app for any reason, the gear menu also lets you paste an [API key](/account/api-keys) manually as a fallback.
+
+## 4. The gear menu
+
+Once connected, there's a gear icon in the side panel header. Open it for:
+
+- **Status** — shows whether the extension is connected and whether the editor is targeting the active tab's domain.
+- **Dark mode** — toggles the side panel's UI theme. Independent of your GrowthBook web UI theme.
+- **API host** — change which GrowthBook host you're talking to (e.g., switch from production to staging, or set a self-hosted host).
+- **Sign out** — clear the stored key. Use this when handing off the browser to someone else.
+
+## Reconnecting or switching accounts
+
+To switch GrowthBook accounts:
+
+1. Open the gear menu → **Sign out**.
+2. Click **Connect with GrowthBook** again (sign in as the new account if needed).
+
+If your access key gets revoked while the side panel is open, you'll start seeing 401 errors. Sign out and reconnect.
+
+## Troubleshooting
+
+A few common gotchas:
+
+- **"Connect with GrowthBook" did nothing** — make sure your popup blocker isn't blocking the new tab. Try clicking again.
+- **The new tab opens but doesn't close** — you may not be signed in to GrowthBook in that browser profile, or your session expired. Sign in, then the tab will complete the handshake automatically.
+- **Self-hosted: the tab fails to open** — set your **API host** in the gear menu first, then try again.
+- **Self-signed certs** — Chrome blocks extension requests to hosts with self-signed TLS certificates. Use a real cert (Let's Encrypt is free) or a trusted internal CA.
+
+See [Troubleshooting](/app/visual/troubleshooting) for more.
+
+## Next steps
+
+- **[Running on your site](/app/visual/running-on-your-site)** — install the SDK so your variations actually render in production.
+- **[AI mode](/app/visual/ai-mode)** — write your first AI-generated variation.
+- **[Manual mode](/app/visual/manual-mode)** — full reference for the point-and-click editor.
+- **[Visual Editor overview](/app/visual)** — back to the main page.

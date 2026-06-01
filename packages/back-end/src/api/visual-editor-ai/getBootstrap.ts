@@ -51,6 +51,22 @@ export const getBootstrap = createApiRequestHandler(validation)(async (req) => {
   // dropdown is consistent with the rest of GrowthBook.
   const projects = await context.models.projects.getAll();
 
+  // Hashable identifier attributes from the org's SDK attribute schema —
+  // surfaced so the create-experiment form can offer an explicit picker
+  // instead of hardcoding "id" on the server. Filtered to non-archived
+  // attributes flagged `hashAttribute: true`. We do NOT fall back to a
+  // synthetic [{ property: "id" }] when the list is empty: the side
+  // panel detects the empty case and surfaces a clear "configure a
+  // hashable attribute first" message, which is better UX than silently
+  // letting the user create an experiment with a hash attribute that
+  // their SDK isn't passing.
+  const hashAttributes = (context.org.settings?.attributeSchema ?? [])
+    .filter((a) => a.hashAttribute && !a.archived)
+    .map((a) => ({
+      property: a.property,
+      ...(a.description ? { description: a.description } : {}),
+    }));
+
   // The most-recently-created visual changesets for the org, capped at
   // CANDIDATE_CHANGESET_CAP. VisualChangesetInterface doesn't expose
   // timestamps, so we use the *experiment's* dateUpdated as the recency
@@ -167,6 +183,7 @@ export const getBootstrap = createApiRequestHandler(validation)(async (req) => {
       id: p.id,
       name: p.name,
     })),
+    hashAttributes,
     recentExperiments: trimmed,
   };
 });

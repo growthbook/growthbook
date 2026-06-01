@@ -18003,6 +18003,10 @@ paths:
                     additionalProperties: false
                 project:
                   type: string
+                hashAttribute:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
                 hypothesis:
                   type: string
                   maxLength: 2000
@@ -18013,6 +18017,7 @@ paths:
                 - name
                 - pageUrl
                 - urlPatterns
+                - hashAttribute
               additionalProperties: false
       responses:
         '200':

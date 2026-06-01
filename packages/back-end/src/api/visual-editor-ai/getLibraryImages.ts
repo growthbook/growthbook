@@ -52,7 +52,7 @@ export const getLibraryImages = createApiRequestHandler(validation)(async (
   // Sentinel log so dev users can confirm the request actually
   // reached the route handler vs hanging upstream (a stuck event
   // loop, a misconfigured proxy, the wrong API host etc.).
-  logger.info(
+  logger.debug(
     { orgId, limit },
     "[visual-editor-ai/library] listing image library",
   );

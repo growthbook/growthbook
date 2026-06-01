@@ -46,6 +46,14 @@ const bodySchema = z
       .min(1)
       .max(100),
     project: z.string().optional(),
+    // The targeting attribute used to bucket users into variations. The
+    // side panel is expected to surface the org's hashable attributes
+    // from /visual-editor/bootstrap and pass an explicit value here —
+    // we deliberately don't have a server-side default, because guessing
+    // "id" would silently mis-bucket orgs whose primary identifier is
+    // something else (device_id, anonymous_id, user_uuid, etc.). Range
+    // matches the typical attribute property name length.
+    hashAttribute: z.string().min(1).max(100),
     // Optional richer fields the user can prefill if they want — purely
     // pass-through to createExperiment.
     hypothesis: z.string().max(2000).optional(),
@@ -66,8 +74,15 @@ const validation = {
 export const postCreateExperiment = createApiRequestHandler(validation)(async (
   req,
 ) => {
-  const { name, pageUrl, urlPatterns, project, hypothesis, description } =
-    req.body;
+  const {
+    name,
+    pageUrl,
+    urlPatterns,
+    project,
+    hashAttribute,
+    hypothesis,
+    description,
+  } = req.body;
   const context = req.context;
 
   // Identity check: the experiment needs an owner, and per-user
@@ -100,7 +115,11 @@ export const postCreateExperiment = createApiRequestHandler(validation)(async (
   const experimentToCreate: Partial<ExperimentInterface> = {
     name,
     status: "draft",
-    hashAttribute: "id",
+    // Caller picks the hash attribute (the side panel surfaces the org's
+    // configured hashable attributes via /visual-editor/bootstrap). No
+    // server-side fallback — hardcoding "id" silently mis-buckets orgs
+    // whose primary identifier is something else.
+    hashAttribute,
     trackingKey: "", // createExperiment auto-generates one
     description: description || "",
     hypothesis: hypothesis || "",

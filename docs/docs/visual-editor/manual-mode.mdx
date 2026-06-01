@@ -1,0 +1,176 @@
+---
+title: Manual Mode — Point-and-Click A/B Test Editor
+description: Edit any element of your website with structured controls for content, typography, background, spacing, and visibility. Full reference for GrowthBook's manual visual editor.
+sidebar_label: Manual mode
+slug: /app/visual/manual-mode
+---
+
+import MaxWidthImage from '@site/src/components/MaxWidthImage';
+import CommercialFeature from '@site/src/components/CommercialFeature';
+
+<CommercialFeature feature="visual-editor" />
+
+Manual mode is the point-and-click editor inside the [Visual Editor side panel](/app/visual). Click an element on your page, and you get structured controls for everything you can change on it — content, typography, background and border, spacing, and visibility — plus an escape hatch for arbitrary CSS and JavaScript.
+
+Manual mode is the right choice when:
+
+- You know exactly what you want to change and you want pixel-level control.
+- You're fine-tuning a variation that started in [AI mode](/app/visual/ai-mode).
+- The change is too narrow to be worth a prompt (e.g., "make this padding 12px").
+- You want to copy a specific style from a design spec.
+
+## Picking an element
+
+Switch to the **Manual** tab in the side panel. With the panel open, hover any element on your page — it highlights with a blue overlay. Click to select it.
+
+A sticky bar at the top of the side panel shows what's currently selected (its tag, classes, and a short selector path). You can:
+
+- **Pick a different element** — click another element on the page, or click the picker icon in the sticky bar.
+- **Drill up or down** — use the parent/child controls in the sticky bar to navigate to ancestor or child elements.
+- **Deselect** — click outside the page or hit the X in the sticky bar.
+
+## Property groups
+
+Once you've selected an element, the panel fills with collapsible property groups. Each group corresponds to a category of change.
+
+### Content
+
+Edit what the element actually says and links to:
+
+- **Inner HTML** — change the visible text or markup inside the element. Multiline-supported.
+- **Attributes** — any HTML attribute, most commonly `href` on links, `alt` on images, `aria-label` on buttons.
+- **CSS classes** — add or remove classes. Useful if your site has a utility-class system and you just want to swap variants ("`btn-primary` → `btn-secondary`").
+
+For images specifically, see [Images](/app/visual/images) — the Content group on an `<img>` element includes a richer image-replace flow.
+
+### Typography
+
+Controls for text styling:
+
+- **Font size** — with a unit selector (`px`, `em`, `rem`, `%`)
+- **Font weight** — preset weights and custom numeric input
+- **Color** — color picker plus hex input
+- **Alignment** — left / center / right / justify (segmented control)
+- **Line height** — unitless, `px`, `em`, `rem`, or `%`. Empty unit (`-`) means unitless, which is the CSS recommendation for line-height.
+- **Letter spacing** — `px`, `em`
+- **Text decoration** — none / underline / strikethrough / overline
+
+Alignment and text decoration share a single row to keep the panel compact.
+
+### Background & Border
+
+For containers, cards, and any visually styled element:
+
+- **Background color** — color picker with a clear option
+- **Background image** — paste a URL or use one of the [image flows](/app/visual/images). Hidden on `<img>` elements (use Content → image replace instead).
+- **Border** — width, style (solid / dashed / dotted / none), and color. The color swatch is positioned so the native color picker doesn't render off-screen for elements near the right edge of the viewport.
+- **Box shadow** — None / Small / Medium / Large presets. The presets follow common design-system scales; for custom shadows, use Global CSS.
+
+### Spacing
+
+A concentric padding/margin editor. The visual metaphor is the CSS box model: the inner block is the element, the next ring is padding, and the outermost band is margin.
+
+<MaxWidthImage maxWidth={400}>
+![Spacing control concentric box model](/images/visual-editor-ui.png)
+</MaxWidthImage>
+
+Each of the four sides for padding and the four sides for margin has its own field. Interactions:
+
+- **Type a value** — click any field and type a number, then pick a unit.
+- **Drag to scrub** — click and drag horizontally over a value to scrub it up or down (similar to Figma).
+- **Arrow keys** — focus a field and press up/down to nudge by 1; shift+up/down nudges by 10.
+- **Link mode** — top-right toggle to link all four sides together, link only the axis (top/bottom or left/right), or unlink. When linked, changing one side changes all linked sides.
+- **Center horizontally** — the ↔ **Center** quick action sets `margin-left: auto` and `margin-right: auto` in one click (used for centering fixed-width elements inside a flex/block parent).
+- **`auto` values** — type `auto` into any margin field to set it explicitly.
+
+Manual mode writes per-side longhands (`padding-top`, `margin-right`, etc.) and clears any shorthand `padding`/`margin` declaration, so the CSS cascade behaves predictably.
+
+### Visibility
+
+- **Opacity** — slider from 0% to 100% plus a number input. Setting to 100% removes the mutation (no point keeping `opacity: 1` on the element).
+- **Display** — `block` / `inline-block` / `inline` / `flex` / `grid` / `none`. Useful for hiding an element from a variation without removing it from the DOM.
+
+## Drag and drop
+
+With an element selected, a drag handle appears at the corner. Drag it to move the element to a different position on the page.
+
+- A blue line shows the target drop position as you hover over candidate drop zones.
+- Release to commit; an **Undo** affordance appears on the moved element so you can revert the position change without losing other style changes.
+- Alternatively, click anywhere on the selected element to start a drag without using the handle.
+
+Drag and drop works best inside containers that use normal block or flex flow. Absolutely positioned elements (`position: absolute`, `fixed`) are repositioned with explicit `top`/`left` offsets rather than DOM reordering.
+
+## Change list
+
+The bottom of the side panel shows a collapsible **Changes** panel that lists every change in the current variation:
+
+- Each row shows the change kind (text, style, image, layout, etc.), the target selector, and a one-line summary.
+- Hover a row to highlight the affected element on the page.
+- Click a row to jump back to that element with the relevant property group expanded.
+- Each row has a **Revert** action to drop just that change while keeping the rest of the variation.
+
+Reverting an image change also clears any related `srcset` and `<picture>`-source removals the editor added when applying the swap, so the original image is fully restored.
+
+## Switching variations
+
+Above the property groups is a variation switcher. Switch between control, variant 1, variant 2, etc. The Changes panel updates to show changes for the active variation.
+
+- The **control** is read-only — you can browse changes (there shouldn't be any) but not edit.
+- Use the **+** button next to the variation tabs to add a new variant to the experiment.
+
+## Global CSS and Custom JavaScript
+
+For changes that don't fit cleanly into a single element's property groups, use the top-level **CSS** and **JS** tabs:
+
+### Global CSS
+
+Inject a CSS block that runs alongside the variation. Useful for:
+
+- Page-wide background color or font changes
+- Hover states that the structured controls can't express
+- Animations
+- `@media` queries for responsive tweaks (the only way to scope changes per breakpoint today)
+
+The CSS is inserted into a `<style>` tag scoped to the variation and removed when the user is bucketed back to control.
+
+### Custom JavaScript
+
+Inject a JavaScript block. Use sparingly — it's an escape hatch for changes that genuinely need imperative code (e.g., DOM nodes that don't exist until the user clicks something).
+
+Custom JS runs as early as possible, often before the page has finished loading. If you're targeting elements that load late, wait for them:
+
+```js
+function waitFor(selector) {
+  return new Promise(resolve => {
+    const el = document.querySelector(selector);
+    if (el) return resolve(el);
+    const observer = new MutationObserver(() => {
+      const el = document.querySelector(selector);
+      if (el) {
+        observer.disconnect();
+        resolve(el);
+      }
+    });
+    observer.observe(document, { childList: true, subtree: true });
+  });
+}
+
+waitFor(".my-element").then((el) => {
+  el.innerHTML = "Hello World!";
+});
+```
+
+Custom JS requires extra CSP changes on your site — see [Deploying to Production → CSP](/app/visual#content-security-policy-csp-changes) on the landing page.
+
+## Finishing up
+
+When you're satisfied with the variation, click **Save variant** in the footer. Repeat for any additional variants in the experiment.
+
+Once all variations are saved, head back to GrowthBook to add the rest of the experiment configuration (audience targeting, metrics, traffic split) and start the experiment. While it's still a draft, use [preview links](/app/visual/preview-and-qa) to QA each variation on a real browser.
+
+## Next steps
+
+- **[AI mode](/app/visual/ai-mode)** — draft variations from a prompt, then fine-tune here.
+- **[Images](/app/visual/images)** — upload, AI-generate, and reuse images across experiments.
+- **[Preview and QA](/app/visual/preview-and-qa)** — preview links, debug panel, live-experiment warning.
+- **[Troubleshooting](/app/visual/troubleshooting)** — when a variation isn't behaving as expected.
