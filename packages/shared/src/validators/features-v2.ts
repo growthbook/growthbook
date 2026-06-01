@@ -453,6 +453,9 @@ export const listFeaturesV2Validator = {
         .string()
         .describe("Filter by a SDK connection's client key")
         .optional(),
+      archived: booleanQueryField.describe(
+        "Whether to include archived features. Defaults to `false` (non-archived only). Pass `true` to include archived features alongside non-archived ones.",
+      ),
       ...skipPaginationQueryField,
     })
     .strict(),

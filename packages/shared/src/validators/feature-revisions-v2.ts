@@ -725,6 +725,9 @@ export const listRevisionsV2Validator = {
       mine: booleanQueryField.describe(
         "If true, return only revisions authored by or contributed to by the calling user.",
       ),
+      archived: booleanQueryField.describe(
+        "Whether to include revisions for archived features. Defaults to `false` (non-archived features only). Pass `true` to include revisions for archived features alongside non-archived ones.",
+      ),
     })
     .strict(),
   responseSchema: z

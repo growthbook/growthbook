@@ -38,6 +38,7 @@ export async function loadRevisionsPage(
     status?: string | string[];
     author?: string;
     mine?: string | boolean;
+    archived?: string | boolean;
     skipPagination?: string | boolean;
     limit?: number;
     offset?: number;
@@ -45,6 +46,9 @@ export async function loadRevisionsPage(
 ) {
   const { featureId, author } = query;
   const status = parseRevisionStatusFilter(query.status);
+  // Mirrors includeArchived: false (default) excludes archived features;
+  // true includes them alongside non-archived ones.
+  const includeArchived = stringToBoolean(query.archived?.toString()) ?? false;
 
   const mine = stringToBoolean(query.mine?.toString());
   if (mine && author) {
@@ -88,7 +92,7 @@ export async function loadRevisionsPage(
       }
       const scopedFeatures = await getAllFeatures(context, {
         projects: readableProjects,
-        includeArchived: true,
+        includeArchived,
       });
       featureIds = scopedFeatures.map((f) => f.id);
       if (featureIds.length === 0) {

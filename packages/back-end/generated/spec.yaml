@@ -5622,6 +5622,7 @@ paths:
         - $ref: '#/components/parameters/offset'
         - $ref: '#/components/parameters/projectId'
         - $ref: '#/components/parameters/clientKey'
+        - $ref: '#/components/parameters/archived'
         - $ref: '#/components/parameters/skipPagination'
       responses:
         '200':
@@ -6954,6 +6955,27 @@ paths:
             description: >-
               If true, return only revisions authored by or contributed to by
               the calling user.
+            anyOf:
+              - type: string
+                const: 'true'
+              - type: string
+                const: 'false'
+              - type: string
+                const: '0'
+              - type: string
+                const: '1'
+              - type: boolean
+        - name: archived
+          in: query
+          description: >-
+            Whether to include revisions for archived features. Defaults to
+            `false` (non-archived features only). Pass `true` to include
+            revisions for archived features alongside non-archived ones.
+          schema:
+            description: >-
+              Whether to include revisions for archived features. Defaults to
+              `false` (non-archived features only). Pass `true` to include
+              revisions for archived features alongside non-archived ones.
             anyOf:
               - type: string
                 const: 'true'
@@ -30488,6 +30510,28 @@ components:
       description: ''
       schema:
         type: string
+    archived:
+      name: archived
+      in: query
+      description: >-
+        Whether to include archived features. Defaults to `false` (non-archived
+        only). Pass `true` to include archived features alongside non-archived
+        ones.
+      schema:
+        description: >-
+          Whether to include archived features. Defaults to `false`
+          (non-archived only). Pass `true` to include archived features
+          alongside non-archived ones.
+        anyOf:
+          - type: string
+            const: 'true'
+          - type: string
+            const: 'false'
+          - type: string
+            const: '0'
+          - type: string
+            const: '1'
+          - type: boolean
     datasourceId:
       name: datasourceId
       in: query
