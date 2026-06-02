@@ -260,7 +260,6 @@ export interface OrganizationSettings {
   restApiBypassesReviews?: boolean;
   defaultDataSource?: string;
   testQueryDays?: number;
-  disableMultiMetricQueries?: boolean;
   disablePrecomputedDimensions?: boolean;
   useStickyBucketing?: boolean;
   useFallbackAttributes?: boolean;
