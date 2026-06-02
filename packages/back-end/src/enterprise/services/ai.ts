@@ -33,7 +33,7 @@ import {
 } from "back-end/src/models/AITokenUsageModel";
 import { ApiReqContext } from "back-end/types/api";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
-import { logCloudAIUsage } from "back-end/src/services/clickhouse";
+import { logCloudAIUsage } from "back-end/src/services/licenseServerManagedClickhouse";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 
 export const getAIProviderClass = (

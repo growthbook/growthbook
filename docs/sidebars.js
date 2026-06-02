@@ -71,6 +71,7 @@ export default {
           collapsed: false,
           items: [
             "features/publishing-and-approval-flows", // Publishing & Approval Flows (NEW)
+            "features/saved-group-revisions-api", // Saved Group Revisions API (BETA)
             "features/json-schema-validation", // JSON Schema Validation
             "features/stale-detection", // Stale Feature Detection
             "features/code-references", // Code References
@@ -480,10 +481,26 @@ export default {
       label: "Insights",
     },
     {
-      type: "doc",
-      id: "product-analytics",
+      type: "category",
       label: "Product Analytics",
       className: "pill-new",
+      collapsed: true,
+      link: {
+        type: "doc",
+        id: "product-analytics/index",
+      },
+      items: [
+        {
+          type: "doc",
+          id: "product-analytics/explorer",
+          label: "Explorer",
+        },
+        {
+          type: "doc",
+          id: "product-analytics/dashboards",
+          label: "Dashboards",
+        },
+      ],
     },
     {
       type: "category",

@@ -1,16 +1,18 @@
 import { z } from "zod";
 import {
   apiPaginationFieldsValidator,
+  booleanQueryField,
   paginationQueryFields,
   skipPaginationQueryField,
 } from "./shared";
 import { ownerInputField } from "./owner-field";
 import {
   apiFeatureRuleValidator,
-  apiRevisionPrerequisite,
+  apiRevisionPrerequisiteV2,
   apiRevisionMetadata,
   apiFeatureHoldout,
-  revisionStatusSchema,
+  revisionStatusFilterSchema,
+  apiRevisionRampAction,
 } from "./features";
 import { namedSchema } from "./openapi-helpers";
 
@@ -28,6 +30,12 @@ const apiRuleScopeExtension = z
       .optional()
       .describe(
         "The environment IDs this rule is active in. Populated when `allEnvironments` is false.",
+      ),
+    pendingRamp: z
+      .enum(["create", "detach"])
+      .optional()
+      .describe(
+        'Present on draft revisions only. "create" means a ramp schedule will be created for this rule on publish. "detach" means an existing live ramp schedule will be removed on publish. Use PUT/DELETE .../rules/{ruleId}/ramp-schedule to modify.',
       ),
   })
   .strict();
@@ -106,18 +114,24 @@ export const apiFeatureRevisionV2Validator = namedSchema(
         )
         .optional(),
       envPrerequisites: z
-        .record(z.string(), z.array(apiRevisionPrerequisite))
+        .record(z.string(), z.array(apiRevisionPrerequisiteV2))
         .describe(
           "Per-environment prerequisites captured in this revision (only present when prerequisite gating is enabled)",
         )
         .optional(),
       prerequisites: z
-        .array(apiRevisionPrerequisite)
+        .array(apiRevisionPrerequisiteV2)
         .describe(
-          "Feature-level prerequisites captured in this revision (only present when prerequisite gating is enabled)",
+          "Feature-level prerequisites captured in this revision. Each entry is a boolean flag ID that must evaluate to true for this flag to be active for a given user.",
         )
         .optional(),
       metadata: apiRevisionMetadata.optional(),
+      rampActions: z
+        .array(apiRevisionRampAction)
+        .describe(
+          "Pending ramp schedule actions that will be applied when this draft is published",
+        )
+        .optional(),
     })
     .strict(),
 );
@@ -247,7 +261,11 @@ const postFeaturePrerequisite = z.object({
 });
 
 const apiScheduleRule = z.object({
-  timestamp: z.string().nullable(),
+  timestamp: z
+    .string()
+    .datetime({ offset: true })
+    .nullable()
+    .describe('ISO 8601 date-time, e.g. "2025-06-01T00:00:00Z".'),
   enabled: z.boolean(),
 });
 
@@ -275,6 +293,7 @@ const v2RuleRolloutBase = z.object({
   value: z.string(),
   coverage: z.number(),
   hashAttribute: z.string(),
+  hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
 });
 
 const v2RuleExperimentRefBase = z.object({
@@ -445,6 +464,9 @@ export const listFeaturesV2Validator = {
         .string()
         .describe("Filter by a SDK connection's client key")
         .optional(),
+      archived: booleanQueryField.describe(
+        "Whether to include archived features. Defaults to `false` (non-archived only). Pass `true` to include archived features alongside non-archived ones.",
+      ),
       ...skipPaginationQueryField,
     })
     .strict(),
@@ -600,8 +622,11 @@ export const getFeatureRevisionsV2Validator = {
     .object({
       ...paginationQueryFields,
       ...skipPaginationQueryField,
-      status: revisionStatusSchema.optional(),
+      status: revisionStatusFilterSchema,
       author: z.string().optional(),
+      mine: booleanQueryField.describe(
+        "If true, return only revisions authored by or contributed to by the calling user. Requires a user-scoped API key. Mutually exclusive with `author`.",
+      ),
     })
     .strict(),
   paramsSchema: idParams,

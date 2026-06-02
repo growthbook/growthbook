@@ -134,6 +134,7 @@ export async function findSDKConnectionById(
   id: string,
 ) {
   const doc = await SDKConnectionModel.findOne({
+    organization: context.org.id,
     id,
   });
 
@@ -254,7 +255,7 @@ export async function createSDKConnection(
 
   if (connection.proxy.enabled) {
     if (connection.proxy.host) {
-      const res = await testProxyConnection(connection, false);
+      const res = await testProxyConnection(context, connection, false);
       if (res) {
         connection.proxy.connected = !res.error;
         connection.proxy.version = res.version || "";
@@ -348,6 +349,7 @@ export async function editSDKConnection(
 
     if (addEnvProxySettings(newProxy).host) {
       const res = await testProxyConnection(
+        context,
         {
           ...connection,
           proxy: addEnvProxySettings(newProxy),
@@ -400,7 +402,7 @@ export async function editSDKConnection(
 
   await SDKConnectionModel.updateOne(
     {
-      organization: connection.organization,
+      organization: context.org.id,
       id: connection.id,
     },
     {
@@ -472,13 +474,14 @@ export async function markSDKConnectionUsed(key: string) {
 }
 
 export async function setProxyError(
+  context: ReqContext | ApiReqContext,
   connection: SDKConnectionInterface,
   error: string,
 ) {
   const consecutiveFailures = (connection.proxy.consecutiveFailures || 0) + 1;
   await SDKConnectionModel.updateOne(
     {
-      organization: connection.organization,
+      organization: context.org.id,
       id: connection.id,
     },
     {
@@ -495,10 +498,13 @@ export async function setProxyError(
   );
 }
 
-export async function clearProxyError(connection: SDKConnectionInterface) {
+export async function clearProxyError(
+  context: ReqContext | ApiReqContext,
+  connection: SDKConnectionInterface,
+) {
   await SDKConnectionModel.updateOne(
     {
-      organization: connection.organization,
+      organization: context.org.id,
       id: connection.id,
     },
     {
@@ -512,6 +518,7 @@ export async function clearProxyError(connection: SDKConnectionInterface) {
 }
 
 export async function testProxyConnection(
+  context: ReqContext | ApiReqContext,
   connection: SDKConnectionInterface,
   updateDB: boolean = true,
 ): Promise<ProxyTestResult | undefined> {
@@ -570,7 +577,7 @@ export async function testProxyConnection(
     if (updateDB) {
       await SDKConnectionModel.updateOne(
         {
-          organization: connection.organization,
+          organization: context.org.id,
           id: connection.id,
         },
         {

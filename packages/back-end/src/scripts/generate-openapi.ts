@@ -22,9 +22,11 @@ const openApiTags = [
   "snapshots",
   "dimensions",
   "segments",
+  "reports",
   "sdk-connections",
   "visual-changesets",
   "saved-groups",
+  "saved-group-revisions",
   "organizations",
   "members",
   "code-references",
@@ -71,7 +73,7 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
   "ramp-schedules": {
     display: "Ramp Schedules",
     description:
-      "Multi-step rollout schedules that gradually ramp feature rule changes over time, with support for interval, approval, and scheduled triggers.",
+      "Multi-step rollout schedules that gradually increase feature rule traffic over time, with optional real-time monitoring. Each step supports interval timers, approval gates, and hold conditions. Monitored steps are backed by a live analysis experiment that can automatically hold, roll back, or advance the ramp based on guardrail and signal metric health.",
   },
   "data-sources": {
     display: "Data Sources",
@@ -113,6 +115,11 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
     display: "Segments",
     description: "Segments used during experiment analysis",
   },
+  reports: {
+    display: "Experiment Reports",
+    description:
+      "Custom analysis reports built on top of experiment snapshots. Reports let you re-run analysis with different metrics, date ranges, stats engines, and other settings without modifying the underlying experiment.",
+  },
   "sdk-connections": {
     display: "SDK Connections",
     description:
@@ -127,6 +134,11 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
     display: "Saved Groups",
     description:
       "Defined sets of attribute values which can be used with feature rules for targeting features at particular users.",
+  },
+  "saved-group-revisions": {
+    display: "Saved Group Revisions",
+    description:
+      'Draft revisions for saved groups, including pending changes, approvals, and lifecycle (publish, discard, revert).\n\nMost callers can interact with these endpoints via shorthand actions (`/items/add`, `/items/remove`, single-field PUTs) instead of authoring JSON Patch ops directly. Pass `version: "new"` on edit endpoints to auto-create a draft.',
   },
   members: {
     display: "Members",
@@ -215,6 +227,13 @@ function toOpenApiSchema(schema: z.ZodType): z.core.JSONSchema.BaseSchema {
       }
       if (jsonSchema.maximum === 9007199254740991) {
         delete jsonSchema.maximum;
+      }
+      // format: "date-time" is sufficient for docs; strip the verbose regex pattern
+      if (
+        (jsonSchema as Record<string, unknown>).format === "date-time" &&
+        (jsonSchema as Record<string, unknown>).pattern
+      ) {
+        delete (jsonSchema as Record<string, unknown>).pattern;
       }
     },
   }) as Record<string, unknown>;
@@ -803,9 +822,10 @@ curl https://api.growthbook.io/api/v1/features \
   for (const name of Object.keys(componentSchemas).sort()) {
     const tagName = `${name}_model`;
     modelTags.push(tagName);
+    const modelDisplayName = name.replace(/([a-z])([A-Z])/g, "$1 $2");
     openapiSpec.tags.push({
       name: tagName,
-      "x-displayName": name,
+      "x-displayName": modelDisplayName,
       description: `<SchemaDefinition schemaRef="#/components/schemas/${name}" />`,
     });
   }

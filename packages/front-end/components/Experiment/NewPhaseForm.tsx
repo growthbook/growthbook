@@ -1,4 +1,5 @@
 import { FC } from "react";
+import { Separator } from "@radix-ui/themes";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
@@ -168,6 +169,8 @@ const NewPhaseForm: FC<{
           project={experiment.project || ""}
         />
       )}
+
+      {hasLinkedChanges && <Separator size="4" my="5" />}
 
       {hasLinkedChanges && (
         <ConditionInput

@@ -1,6 +1,7 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import EChartsReact from "echarts-for-react";
+import * as echarts from "echarts/core";
 import type {
   ExplorationConfig,
   ProductAnalyticsExploration,
@@ -84,6 +85,24 @@ export default function ExplorerChart({
     theme === "dark" ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.06)";
   const chartsContext = useDashboardCharts();
   const { getFactMetricById } = useDefinitions();
+
+  // ECharts only auto-resizes on window resize, not when its parent container
+  // changes (e.g. a dashboard block being resized via react-grid-layout or the
+  // editing drawer collapsing). Observe the wrapper and call resize() so the
+  // chart always fills its block.
+  const chartWrapperRef = useRef<HTMLDivElement | null>(null);
+  const chartInstanceRef = useRef<echarts.ECharts | null>(null);
+  useEffect(() => {
+    const el = chartWrapperRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => {
+      const chart = chartInstanceRef.current;
+      if (!chart || chart.isDisposed()) return;
+      chart.resize();
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const renderOpts: RenderOpts = useMemo(
     () => ({
@@ -476,12 +495,7 @@ export default function ExplorerChart({
           </Text>
         </Flex>
       ) : chartConfig?.type === "bigNumber" ? (
-        <Flex
-          p="4"
-          style={{ flex: 1, minHeight: 0 }}
-          align="center"
-          justify="center"
-        >
+        <Flex style={{ flex: 1, minHeight: 0 }} align="center" justify="center">
           <BigValueChart
             value={chartConfig.value}
             formatter={formatNumber}
@@ -489,7 +503,10 @@ export default function ExplorerChart({
           />
         </Flex>
       ) : chartConfig ? (
-        <Box style={{ flex: 1, minHeight: 0, position: "relative" }}>
+        <Box
+          ref={chartWrapperRef}
+          style={{ flex: 1, minHeight: 0, position: "relative" }}
+        >
           <EChartsReact
             key={JSON.stringify(chartConfig)}
             option={{
@@ -509,6 +526,7 @@ export default function ExplorerChart({
             }}
             style={{ width: "100%", height: "100%" }}
             onChartReady={(chart) => {
+              chartInstanceRef.current = chart ?? null;
               if (chartsContext && chart) {
                 chartsContext.registerChart(CHART_ID, chart);
               }
