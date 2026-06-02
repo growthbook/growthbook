@@ -498,6 +498,32 @@ describe("computeEffectivePatch", () => {
     const sched = sparseSchedule([]);
     expect(computeEffectivePatch(sched, -1).size).toBe(0);
   });
+
+  it("seeds from startActions so step 0 inherits condition/savedGroups", () => {
+    const sched = {
+      ...sparseSchedule([[action(TARGET_ID, { coverage: 0.1 })]]),
+      startActions: [
+        {
+          targetType: "feature-rule" as const,
+          targetId: TARGET_ID,
+          patch: {
+            ruleId: RULE_ID,
+            coverage: 0.0,
+            condition: '{"country":"US"}',
+            savedGroups: [{ ids: ["grp1"], match: "any" }],
+          },
+        },
+      ],
+    };
+    const result = computeEffectivePatch(sched, 0);
+    const patch = result.get(TARGET_ID);
+    // Step 0's coverage override wins, but condition/savedGroups are inherited
+    expect(patch).toMatchObject({
+      coverage: 0.1,
+      condition: '{"country":"US"}',
+      savedGroups: [{ ids: ["grp1"], match: "any" }],
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
