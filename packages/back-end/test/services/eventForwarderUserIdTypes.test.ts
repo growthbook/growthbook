@@ -158,6 +158,7 @@ describe("initializeDatasourceUserIdTypesFromOrgAttributeSchema", () => {
       ["id"],
       undefined,
       [{ property: "id", datatype: "string", hashAttribute: true }],
+      { queueWarehouseSync: false },
     );
   });
 });
@@ -209,9 +210,10 @@ describe("syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema", () => 
     expect(mockedEnsureExposure).toHaveBeenCalledWith(
       expect.anything(),
       { datasourceId: "ds_a" },
-      ["device_id"],
+      ["id", "device_id"],
       undefined,
       attributeSchema,
+      { queueWarehouseSync: false },
     );
     expect(mockedEnsureExposure).toHaveBeenCalledWith(
       expect.anything(),
@@ -219,6 +221,7 @@ describe("syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema", () => 
       ["id", "device_id"],
       undefined,
       attributeSchema,
+      { queueWarehouseSync: false },
     );
     expect(mockedUpdate).toHaveBeenCalledWith(
       expect.anything(),
@@ -271,5 +274,46 @@ describe("syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema", () => 
 
     expect(mockedGetRaw).not.toHaveBeenCalled();
     expect(mockedUpdate).not.toHaveBeenCalled();
+  });
+
+  it("ensures exposure queries even when hash userIdTypes already exist", async () => {
+    const getAll = jest.fn().mockResolvedValue([{ datasourceId: "ds_a" }]);
+    mockedGetRaw.mockResolvedValue(
+      ds("ds_a", {
+        userIdTypes: [
+          {
+            userIdType: "device_id",
+            description: "",
+            attributes: ["device_id"],
+          },
+        ],
+      }),
+    );
+
+    const attributeSchema = [
+      {
+        property: "device_id",
+        datatype: "string" as const,
+        hashAttribute: true,
+      },
+    ];
+
+    await syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema(
+      {
+        org: { id: "org1" },
+        models: { eventForwarderConfigs: { getAll } },
+      } as never,
+      attributeSchema,
+    );
+
+    expect(mockedUpdate).not.toHaveBeenCalled();
+    expect(mockedEnsureExposure).toHaveBeenCalledWith(
+      expect.anything(),
+      { datasourceId: "ds_a" },
+      ["device_id"],
+      undefined,
+      attributeSchema,
+      { queueWarehouseSync: false },
+    );
   });
 });

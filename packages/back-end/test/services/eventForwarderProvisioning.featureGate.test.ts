@@ -7,7 +7,6 @@ jest.mock("back-end/src/enterprise/licenseUtil", () => ({
   postResumeEventForwarderToLicenseServer: jest.fn(),
   postTeardownEventForwarderToLicenseServer: jest.fn(),
   postUpdateEventForwarderCredentialsToLicenseServer: jest.fn(),
-  postUpdateEventForwarderSchemaToLicenseServer: jest.fn(),
 }));
 
 describe("pauseEventForwarderThroughLicenseServer", () => {

@@ -4,9 +4,9 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import { addTags } from "back-end/src/models/TagModel";
-import { syncEventForwarderSchemasAfterAttributeSchemaChange } from "back-end/src/services/eventForwarderProvisioning";
 import { hasAnyEventForwarderConfig } from "back-end/src/services/eventForwarderConfig";
 import { syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema } from "back-end/src/services/eventForwarderUserIdTypes";
+import { syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange } from "back-end/src/services/eventForwarderFactTable";
 import { validatePayload } from "./validations";
 
 export const postAttribute = createApiRequestHandler(postAttributeValidator)(
@@ -57,7 +57,7 @@ export const postAttribute = createApiRequestHandler(postAttributeValidator)(
           updatedAttributeSchema,
         );
       }
-      await syncEventForwarderSchemasAfterAttributeSchemaChange(
+      await syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange(
         req.context,
         updatedAttributeSchema,
       );

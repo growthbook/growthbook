@@ -1,13 +1,35 @@
 import type { CreateColumnProps } from "shared/types/fact-table";
+import type {
+  SDKAttribute,
+  SDKAttributeSchema,
+} from "shared/types/organization";
+import { attributeMatchesDatasourceProjects } from "./datasource";
 
 /** BigQuery daily partition column for BigQueryStorageSink (timestamp-millis). */
 export const EVENT_FORWARDER_AVRO_PARTITION_FIELD = "received_at" as const;
 
+/** Nested Avro record holding org targeting attributes in the forwarder schema. */
+export const EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD = "attributes" as const;
+
 /**
- * EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY — delay after connector ready (or schema
- * evolve) before refreshing fact table columns and re-validating managed
- * exposure / feature usage queries. Increase here if warehouse tables need
- * longer to materialize (currently 1 min).
+ * Sanitizes a string for use as an Avro/BigQuery/Snowflake field name.
+ *
+ * IMPORTANT: This logic is intentionally duplicated in
+ * central-license-server `eventForwarderAvro.sanitizeAvroFieldName` and
+ * growthbook-ingestor `data.sanitizeAvroFieldName`. These repos cannot share
+ * code directly. If you change this function, you MUST apply the same change
+ * there, and vice versa.
+ */
+export function sanitizeEventForwarderAvroFieldName(property: string): string {
+  const sanitized = property.replace(/[^A-Za-z0-9_]+/g, "_");
+  const withPrefix = /^[A-Za-z_]/.test(sanitized) ? sanitized : `_${sanitized}`;
+  return withPrefix.slice(0, 255);
+}
+
+/**
+ * EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY — delay after connector ready or
+ * attribute metadata changes before refreshing fact table columns. Increase
+ * here if warehouse tables need longer to materialize (currently 1 min).
  */
 export const EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS = 1 * 60 * 1000;
 
@@ -52,18 +74,117 @@ export function buildSnowflakeEventForwarderTableReference(
   return `${database.trim()}.${schema.trim()}.${tableName.trim()}`;
 }
 
+function quoteBigQueryIdentifier(identifier: string): string {
+  return `\`${identifier}\``;
+}
+
+function quoteSnowflakeVariantFieldName(fieldName: string): string {
+  return `"${fieldName.replace(/"/g, '""')}"`;
+}
+
+export function buildEventForwarderNestedAttributeValueSql({
+  sinkType,
+  attributeName,
+  castSnowflakeToString = false,
+}: {
+  sinkType: "bigquery" | "snowflake";
+  attributeName: string;
+  castSnowflakeToString?: boolean;
+}): string {
+  const fieldName = sanitizeEventForwarderAvroFieldName(attributeName);
+
+  if (sinkType === "bigquery") {
+    const quotedAttributes = quoteBigQueryIdentifier(
+      EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD,
+    );
+    const quotedField = quoteBigQueryIdentifier(fieldName);
+    return `${quotedAttributes}.${quotedField}`;
+  }
+
+  const attributesCol = EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD.toUpperCase();
+  const quotedField = quoteSnowflakeVariantFieldName(fieldName);
+  const valueSql = `${attributesCol}:${quotedField}`;
+  return castSnowflakeToString ? `${valueSql}::STRING` : valueSql;
+}
+
+function getEventForwarderEventsFactTableAttributes(
+  attributeSchema: SDKAttributeSchema = [],
+  datasourceProjects?: string[],
+): SDKAttribute[] {
+  const seen = new Set<string>();
+  const attributes: SDKAttribute[] = [];
+
+  for (const attribute of attributeSchema) {
+    if (
+      attribute.archived ||
+      !attributeMatchesDatasourceProjects(attribute, datasourceProjects)
+    ) {
+      continue;
+    }
+
+    const fieldName = sanitizeEventForwarderAvroFieldName(attribute.property);
+    const key = fieldName.toLowerCase();
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    attributes.push(attribute);
+  }
+
+  return attributes;
+}
+
+function buildEventForwarderEventsFactTableSelect({
+  sinkType,
+  attributeSchema,
+  datasourceProjects,
+}: {
+  sinkType: "bigquery" | "snowflake";
+  attributeSchema?: SDKAttributeSchema;
+  datasourceProjects?: string[];
+}): string {
+  const baseColumns =
+    sinkType === "bigquery"
+      ? ["  timestamp", "  event_name"]
+      : ["  TIMESTAMP AS timestamp", "  EVENT_NAME AS event_name"];
+  const attributes = getEventForwarderEventsFactTableAttributes(
+    attributeSchema,
+    datasourceProjects,
+  );
+
+  if (attributes.length === 0) {
+    return `SELECT\n${baseColumns.join(",\n")}`;
+  }
+
+  const attributeColumns = attributes.map((attribute) => {
+    const fieldName = sanitizeEventForwarderAvroFieldName(attribute.property);
+    const valueSql = buildEventForwarderNestedAttributeValueSql({
+      sinkType,
+      attributeName: attribute.property,
+    });
+    return `  ${valueSql} AS ${fieldName}`;
+  });
+
+  return `SELECT\n${baseColumns.join(",\n")},\n  -- Attributes\n${attributeColumns.join(",\n")}`;
+}
+
 export type BuildEventForwarderEventsFactTableSqlParams =
   | {
       sinkType: "bigquery";
       projectId: string;
       dataset: string;
       tableName: string;
+      attributeSchema?: SDKAttributeSchema;
+      datasourceProjects?: string[];
     }
   | {
       sinkType: "snowflake";
       database: string;
       schema: string;
       tableName: string;
+      attributeSchema?: SDKAttributeSchema;
+      datasourceProjects?: string[];
     };
 
 export function buildEventForwarderEventsFactTableSql(
@@ -77,7 +198,8 @@ export function buildEventForwarderEventsFactTableSql(
       params.dataset,
       params.tableName,
     );
-    return `SELECT *\nFROM ${tableRef}\nWHERE ${partitionFilter}`;
+    const select = buildEventForwarderEventsFactTableSelect(params);
+    return `${select}\nFROM ${tableRef}\nWHERE ${partitionFilter}`;
   }
 
   const tableRef = buildSnowflakeEventForwarderTableReference(
@@ -85,30 +207,77 @@ export function buildEventForwarderEventsFactTableSql(
     params.schema,
     params.tableName,
   );
+  const select = buildEventForwarderEventsFactTableSelect(params);
 
-  return `SELECT *\nFROM ${tableRef}`;
+  return `${select}\nFROM ${tableRef}`;
+}
+
+function getEventForwarderFactTableColumnDatatype(
+  attribute: SDKAttribute,
+): CreateColumnProps["datatype"] {
+  if (attribute.hashAttribute) {
+    return "string";
+  }
+
+  switch (attribute.datatype) {
+    case "boolean":
+      return "boolean";
+    case "number":
+      return "number";
+    case "string[]":
+    case "number[]":
+    case "secureString[]":
+      return "json";
+    default:
+      return "string";
+  }
 }
 
 export function buildEventForwarderEventsFactTableColumns(
   userIdTypes: string[],
+  attributeSchema: SDKAttributeSchema = [],
+  datasourceProjects?: string[],
 ): CreateColumnProps[] {
-  const columns: CreateColumnProps[] = [];
-  const seen = new Set<string>();
+  if (userIdTypes.length === 0 && attributeSchema.length === 0) {
+    return [];
+  }
 
-  for (const userIdType of userIdTypes) {
-    const key = userIdType.toLowerCase();
+  const seen = new Set<string>();
+  const jsonFields: CreateColumnProps["jsonFields"] = {};
+
+  for (const attribute of getEventForwarderEventsFactTableAttributes(
+    attributeSchema,
+    datasourceProjects,
+  )) {
+    const fieldName = sanitizeEventForwarderAvroFieldName(attribute.property);
+    const key = fieldName.toLowerCase();
     if (seen.has(key)) {
       continue;
     }
     seen.add(key);
-    columns.push({
-      column: userIdType,
-      name: userIdType,
-      description: "",
-      numberFormat: "",
-      datatype: "string",
-    });
+    jsonFields[fieldName] = {
+      datatype: getEventForwarderFactTableColumnDatatype(attribute),
+    };
   }
 
-  return columns;
+  for (const userIdType of userIdTypes) {
+    const fieldName = sanitizeEventForwarderAvroFieldName(userIdType);
+    const key = fieldName.toLowerCase();
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    jsonFields[fieldName] = { datatype: "string" };
+  }
+
+  return [
+    {
+      column: EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD,
+      name: EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD,
+      description: "",
+      numberFormat: "",
+      datatype: "json",
+      jsonFields,
+    },
+  ];
 }
