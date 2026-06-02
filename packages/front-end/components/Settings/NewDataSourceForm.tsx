@@ -15,7 +15,6 @@ import { useForm } from "react-hook-form";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { Text } from "@radix-ui/themes";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import {
@@ -29,7 +28,6 @@ import {
   eventSchema,
 } from "@/services/eventSchema";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
-import SelectField from "@/components/Forms/SelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
 import Modal from "@/components/Modal";
@@ -58,28 +56,11 @@ type Step =
 
 const schemasMap = new Map(eventSchemas.map((o) => [o.value, o]));
 
-const EVENT_FORWARDER_ENTITLED_PLANS = ["pro", "pro_sso", "enterprise"];
-
-function shouldShowEventTrackerStep(type: string | undefined): boolean {
-  return type === "bigquery" || type === "snowflake";
-}
-
-function getFeaturedSchemasForType(
-  type: string | undefined,
-): SchemaFormat[] | undefined {
-  if (type === "bigquery") return ["ga4"];
-  if (type === "snowflake") return [];
-  return undefined;
-}
-
 const NewDataSourceForm: FC<{
   initial?: Partial<DataSourceInterfaceWithParams>;
   source: string;
   onCancel?: () => void;
-  onSuccess: (
-    id: string,
-    opts?: { openEventForwarderSetup?: boolean },
-  ) => Promise<void>;
+  onSuccess: (id: string) => Promise<void>;
   showImportSampleData: boolean;
   inline?: boolean;
   showBackButton?: boolean;
@@ -99,17 +80,7 @@ const NewDataSourceForm: FC<{
   } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
   const { apiCall, orgId } = useAuth();
-  const { license, effectiveAccountPlan } = useUser();
-
-  const eventsForwarderFeatureEnabled = useFeatureIsOn("events-forwarder");
-  const isOnEventForwarderEntitledPlan =
-    EVENT_FORWARDER_ENTITLED_PLANS.includes(effectiveAccountPlan ?? "");
-  const eventForwarderEnabled =
-    eventsForwarderFeatureEnabled && isOnEventForwarderEntitledPlan;
-  const showEventForwarderCallout = !eventForwarderEnabled;
-  const eventForwarderDisabledTooltip = !isOnEventForwarderEntitledPlan
-    ? "Event Forwarder is available on Pro and Enterprise plans."
-    : "Event Forwarder is not enabled for your organization. Contact your account manager or sales@growthbook.io to enable it.";
+  const { license } = useUser();
 
   const settings = useOrgSettings();
   const { metricDefaults } = useOrganizationMetricDefaults();
@@ -125,8 +96,6 @@ const NewDataSourceForm: FC<{
 
   // Form data for the event tracker screen
   const [eventTracker, setEventTracker] = useState<SchemaFormat | "">("");
-  const [setupEventForwarderOnDone, setSetupEventForwarderOnDone] =
-    useState(false);
 
   // Form data for the main connection screen
   const [connectionInfo, setConnectionInfo] = useState<
@@ -196,7 +165,12 @@ const NewDataSourceForm: FC<{
 
   useEffect(() => {
     if (initial?.type) {
-      if (shouldShowEventTrackerStep(initial.type)) {
+      if (
+        initial.type !== "mixpanel" &&
+        eventSchemas.some(
+          (s) => initial.type && s.types?.includes(initial.type),
+        )
+      ) {
         setStep("eventTracker");
       } else {
         setStep("connection");
@@ -204,11 +178,12 @@ const NewDataSourceForm: FC<{
     }
   }, [initial?.type]);
 
-  const selectedSchema: eventSchema =
-    schemasMap.get(eventTracker || "custom") ??
-    (eventTracker === "eventForwarder"
-      ? { value: "eventForwarder", label: "Event Forwarder" }
-      : { value: "custom", label: "Custom" });
+  const selectedSchema: eventSchema = schemasMap.get(
+    eventTracker || "custom",
+  ) || {
+    label: "Custom",
+    value: "custom",
+  };
 
   // Filter out demo datasource from available projects
   const projects = allProjects.filter(
@@ -402,7 +377,9 @@ const NewDataSourceForm: FC<{
   const submit =
     step === "initial"
       ? async () => {
-          if (shouldShowEventTrackerStep(connectionInfo.type)) {
+          if (connectionInfo.type === "mixpanel") {
+            setStep("connection");
+          } else if (possibleSchemas.length > 0) {
             setStep("eventTracker");
           } else {
             setStep("connection");
@@ -434,9 +411,7 @@ const NewDataSourceForm: FC<{
               })
             : async () => {
                 // Done
-                await onSuccess(createdDatasource?.id || "", {
-                  openEventForwarderSetup: setupEventForwarderOnDone,
-                });
+                await onSuccess(createdDatasource?.id || "");
                 onCancel && onCancel();
               };
 
@@ -470,12 +445,12 @@ const NewDataSourceForm: FC<{
                 ...connectionInfo,
                 type: option.type,
                 params: option.default,
-                eventForwarderConfig: null,
               } as Partial<DataSourceInterfaceWithParams>);
-              setEventTracker("");
-              setSetupEventForwarderOnDone(false);
 
-              if (shouldShowEventTrackerStep(option.type)) {
+              if (
+                option.type !== "mixpanel" &&
+                eventSchemas.some((s) => s.types?.includes(option.type))
+              ) {
                 setStep("eventTracker");
               } else {
                 setStep("connection");
@@ -538,68 +513,17 @@ const NewDataSourceForm: FC<{
           <h3>Select Your Event Tracker</h3>
         )}
         <p>
-          Pick the option that best matches how you&apos;ll send feature and
-          experiment exposures to your warehouse. You can change this later.{" "}
-          <DocLink docSection="chooseDataPath">
-            Compare your data paths <FaExternalLinkAlt />
-          </DocLink>
+          We can pre-populate SQL for a number of common event trackers.
+          Don&apos;t see yours listed? Choose &quot;Custom&quot; to configure it
+          manually.
         </p>
-        {showEventForwarderCallout ? (
-          <Callout status="info" mb="3">
-            Event Forwarder streams SDK event data from GrowthBook directly into
-            your warehouse so you can query it alongside the rest of your data.{" "}
-            {isOnEventForwarderEntitledPlan ? (
-              <>
-                To enable Event Forwarder for your organization, contact your
-                account manager or reach out to{" "}
-                <a
-                  href="mailto:sales@growthbook.io"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  sales@growthbook.io
-                </a>
-                .
-              </>
-            ) : (
-              <>
-                Event Forwarder is available on Pro and Enterprise plans.
-                Upgrade your subscription or contact{" "}
-                <a
-                  href="mailto:sales@growthbook.io"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  sales@growthbook.io
-                </a>{" "}
-                to get started.
-              </>
-            )}{" "}
-            <DocLink docSection="eventForwarder">
-              Learn more <FaExternalLinkAlt />
-            </DocLink>
-          </Callout>
-        ) : null}
         <EventSourceList
           onSelect={(s) => {
             setSchemaSettings(s);
-            setSetupEventForwarderOnDone(false);
             setStep("connection");
           }}
           selected={connectionInfo.settings?.schemaFormat}
           allowedSchemas={connectionInfo.type ? possibleSchemas : undefined}
-          featuredSchemas={getFeaturedSchemasForType(connectionInfo.type)}
-          showEventForwarderOption={true}
-          eventForwarderDisabled={!eventForwarderEnabled}
-          eventForwarderDisabledTooltip={eventForwarderDisabledTooltip}
-          onSelectEventForwarder={() => {
-            setSchemaSettings({
-              value: "eventForwarder",
-              label: "Event Forwarder",
-            } as eventSchema);
-            setSetupEventForwarderOnDone(true);
-            setStep("connection");
-          }}
         />
       </div>
     );
@@ -608,10 +532,12 @@ const NewDataSourceForm: FC<{
       (d) => d.type === connectionInfo.type,
     );
 
-    const showSchemaFormatDropdown =
-      !shouldShowEventTrackerStep(connectionInfo.type) &&
-      connectionInfo.type !== "mixpanel" &&
-      possibleSchemas.length > 0;
+    const headerParts: string[] = [
+      datasourceInfo?.display || connectionInfo.type || "",
+    ];
+    if (connectionInfo.type !== "mixpanel") {
+      headerParts.push(selectedSchema.label);
+    }
 
     stepContents = (
       <div>
@@ -622,10 +548,10 @@ const NewDataSourceForm: FC<{
               onClick={(e) => {
                 e.preventDefault();
                 setLastError("");
-                if (shouldShowEventTrackerStep(connectionInfo.type)) {
-                  setStep("eventTracker");
-                } else {
+                if (connectionInfo.type === "mixpanel") {
                   setStep("initial");
+                } else {
+                  setStep("eventTracker");
                 }
               }}
             >
@@ -636,7 +562,7 @@ const NewDataSourceForm: FC<{
             </a>
           )}
         </div>
-        <h3>{datasourceInfo?.display || connectionInfo.type}</h3>
+        <h3>{headerParts.join(" > ")}</h3>
 
         {datasourceInfo ? (
           <Callout status="info" mb="3">
@@ -707,58 +633,6 @@ const NewDataSourceForm: FC<{
           existing={false}
           hasError={!!lastError}
           setDatasource={setConnectionInfo}
-          beforeAdvancedSettings={
-            showSchemaFormatDropdown ? (
-              <div className="form-group">
-                <SelectField
-                  label={
-                    <>
-                      Schema format (optional){" "}
-                      <Tooltip
-                        body={
-                          <>
-                            <p>
-                              Selecting an event tracker lets GrowthBook
-                              pre-populate SQL for Experiment Assignment queries
-                              and common metrics based on that tracker&apos;s
-                              expected schema (table names, event names, and
-                              identifier columns).
-                            </p>
-                            <p className="mb-0">
-                              Choose <strong>none </strong> if your warehouse
-                              doesn&apos;t follow one of these schemas or
-                              you&apos;d prefer to write the SQL yourself. You
-                              can always edit the generated queries afterwards.
-                            </p>
-                          </>
-                        }
-                      />
-                    </>
-                  }
-                  value={eventTracker || "custom"}
-                  options={[
-                    { value: "custom", label: "none" },
-                    ...possibleSchemas.map((value) => ({
-                      value,
-                      label: schemasMap.get(value)?.label ?? value,
-                    })),
-                  ]}
-                  onChange={(value) => {
-                    if (value === "custom") {
-                      setSchemaSettings({
-                        value: "custom",
-                        label: "Custom",
-                      } as eventSchema);
-                      return;
-                    }
-                    const schema = schemasMap.get(value as SchemaFormat);
-                    if (schema) setSchemaSettings(schema);
-                  }}
-                  helpText="If you add events in this warehouse via an event tracker, let us know and we can pre-populate some of your SQL queries for you."
-                />
-              </div>
-            ) : null
-          }
         />
       </div>
     );
