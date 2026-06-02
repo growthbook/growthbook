@@ -1,8 +1,9 @@
 import { z } from "zod";
-import { baseSchema } from "./base-model";
+import { apiBaseSchema, baseSchema } from "./base-model";
 import { attributionModel, metricOverride, variation } from "./experiments";
 import { priorSettingsValidator } from "./fact-table";
-import { ownerField } from "./owner-field";
+import { namedSchema } from "./openapi-helpers";
+import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 
 /** Per-leaf arm weights stored on a CB phase. */
 export const leafWeightValidator = z.object({
@@ -230,4 +231,153 @@ export const contextualBanditValidator = baseSchema
 
 export type ContextualBanditInterface = z.infer<
   typeof contextualBanditValidator
+>;
+
+// ---------------------------------------------------------------------------
+// External REST API schemas (`/api/v1/contextual-bandits/*`)
+// ---------------------------------------------------------------------------
+// Mirrors the experiment-template pattern: a `namedSchema` response shape +
+// flat create/update bodies. The API DTO is intentionally a curated subset
+// of `ContextualBanditInterface` so internal-only fields (linkedFeatures,
+// pendingFeatureDrafts, snapshot scheduling, the legacy `experiment` FK)
+// don't leak through the REST contract.
+// ---------------------------------------------------------------------------
+
+const apiContextualBanditPhase = z.object({
+  dateStarted: z.iso.datetime(),
+  dateEnded: z.iso.datetime().nullable().optional(),
+  coverage: z.number().min(0).max(1).optional(),
+  condition: z.string().optional(),
+  seed: z.string().optional(),
+  variationWeights: z.array(z.number()).optional(),
+  currentLeafWeights: z.array(leafWeightValidator),
+});
+
+const apiContextualBanditVariation = z.object({
+  id: z.string(),
+  key: z.string(),
+  name: z.string(),
+  description: z.string().optional(),
+});
+
+export const apiContextualBanditValidator = namedSchema(
+  "ContextualBandit",
+  apiBaseSchema.safeExtend({
+    name: z.string(),
+    description: z.string().optional(),
+    hypothesis: z.string().optional(),
+    project: z.string().optional(),
+    owner: ownerField,
+    ownerEmail: ownerEmailField,
+    tags: z.array(z.string()),
+    archived: z.boolean(),
+    customFields: z.record(z.string(), z.any()).optional(),
+
+    status: z.enum(contextualBanditStatus),
+    dateStarted: z.iso.datetime().optional(),
+    dateStopped: z.iso.datetime().optional(),
+
+    trackingKey: z.string(),
+    hashAttribute: z.string(),
+    fallbackAttribute: z.string().optional(),
+    hashVersion: z.union([z.literal(1), z.literal(2)]),
+    disableStickyBucketing: z.boolean(),
+    variations: z.array(apiContextualBanditVariation),
+
+    datasource: z.string(),
+    exposureQueryId: z.string(),
+    segment: z.string().optional(),
+    queryFilter: z.string().optional(),
+    goalMetrics: z.array(z.string()),
+    secondaryMetrics: z.array(z.string()),
+    guardrailMetrics: z.array(z.string()),
+    activationMetric: z.string().optional(),
+    attributionModel: z.enum(attributionModel).optional(),
+    skipPartialData: z.boolean().optional(),
+    regressionAdjustmentEnabled: z.boolean().optional(),
+
+    phases: z.array(apiContextualBanditPhase),
+
+    /**
+     * Ordered list of attribute column names used to derive context IDs.
+     * Reported as `contextualAttributes` for backwards compatibility with
+     * the original internal field name; the targeting-column alias on the
+     * snapshot DTO is the same value.
+     */
+    contextualAttributes: z.array(z.string()),
+    decisionMetric: z.string().optional(),
+    maxContexts: z.number().int().positive(),
+    treeModel: z.string(),
+    minUsersPerLeaf: z.number().int().positive(),
+    maxLeaves: z.number().int().positive(),
+    holdoutPercent: z.number().min(0).max(0.5),
+    canonicalFormVersion: z.number().int().nonnegative(),
+  }),
+);
+
+export type ApiContextualBanditInterface = z.infer<
+  typeof apiContextualBanditValidator
+>;
+
+export const apiListContextualBanditsValidator = {
+  bodySchema: z.never(),
+  querySchema: z.strictObject({
+    projectId: z.string().optional(),
+    datasourceId: z.string().optional(),
+  }),
+  paramsSchema: z.never(),
+};
+
+export const apiCreateContextualBanditBody = z.strictObject({
+  name: z.string(),
+  description: z.string().optional(),
+  hypothesis: z.string().optional(),
+  project: z.string().optional(),
+  owner: ownerInputField.optional(),
+  tags: z.array(z.string()).optional(),
+  customFields: z.record(z.string(), z.any()).optional(),
+
+  trackingKey: z.string(),
+  hashAttribute: z.string().optional(),
+  fallbackAttribute: z.string().optional(),
+  hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
+  disableStickyBucketing: z.boolean().optional(),
+
+  variations: z.array(
+    z.object({
+      key: z.string(),
+      name: z.string(),
+      description: z.string().optional(),
+    }),
+  ),
+
+  datasource: z.string(),
+  exposureQueryId: z.string(),
+  segment: z.string().optional(),
+  queryFilter: z.string().optional(),
+  goalMetrics: z.array(z.string()),
+  secondaryMetrics: z.array(z.string()).optional(),
+  guardrailMetrics: z.array(z.string()).optional(),
+  activationMetric: z.string().optional(),
+  attributionModel: z.enum(attributionModel).optional(),
+  skipPartialData: z.boolean().optional(),
+  regressionAdjustmentEnabled: z.boolean().optional(),
+
+  contextualAttributes: z.array(z.string()),
+  decisionMetric: z.string().optional(),
+  maxContexts: z.number().int().positive().optional(),
+  treeModel: z.string().optional(),
+  minUsersPerLeaf: z.number().int().positive().optional(),
+  maxLeaves: z.number().int().positive().optional(),
+});
+
+export type ApiCreateContextualBanditBody = z.infer<
+  typeof apiCreateContextualBanditBody
+>;
+
+export const apiUpdateContextualBanditBody =
+  apiCreateContextualBanditBody.partial();
+
+export type ApiUpdateContextualBanditBody = z.infer<
+  typeof apiUpdateContextualBanditBody
 >;
