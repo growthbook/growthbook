@@ -27,6 +27,17 @@ const BaseClass = MakeModelClass({
     holdoutPercent: 0,
     disableStickyBucketing: false,
   },
+  // Auto-emits contextualBandit.create / update / delete on the BaseModel
+  // CRUD paths. Lifecycle events (`start` / `stop`) are emitted directly
+  // from `services/contextualBanditChanges.ts`. v1.5 will wire the
+  // events/handlers/{slack,webhooks,email} subscribers — for now these
+  // events are recorded but not propagated to any subscriber surface.
+  auditLog: {
+    entity: "contextualBandit",
+    createEvent: "contextualBandit.create",
+    updateEvent: "contextualBandit.update",
+    deleteEvent: "contextualBandit.delete",
+  },
   apiConfig: {
     modelKey: "contextualBandits",
     openApiSpec: contextualBanditApiSpec,

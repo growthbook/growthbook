@@ -5,6 +5,7 @@ import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { getAffectedSDKPayloadKeys } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
+import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
   formatPendingDraftFailureMessage,
   PendingDraftFailure,
@@ -182,6 +183,15 @@ export async function executeContextualBanditStart(
     phases,
   });
 
+  await context.auditLog({
+    event: "contextualBandit.start",
+    entity: {
+      object: "contextualBandit",
+      id: cb.id,
+    },
+    details: auditDetailsUpdate(cb, updated),
+  });
+
   await refreshLinkedFeaturePayloads(
     context,
     updated,
@@ -232,6 +242,15 @@ export async function executeContextualBanditStop(
     status: "stopped",
     dateStopped: cb.dateStopped ?? now,
     phases,
+  });
+
+  await context.auditLog({
+    event: "contextualBandit.stop",
+    entity: {
+      object: "contextualBandit",
+      id: cb.id,
+    },
+    details: auditDetailsUpdate(cb, updated),
   });
 
   await refreshLinkedFeaturePayloads(context, updated, "contextualBandit.stop");
