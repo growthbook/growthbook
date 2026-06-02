@@ -240,17 +240,16 @@ export async function syncManagedWarehouseIdentifiers(
     }
   });
 
-  // Mark removed custom identifiers as deleted (never touch base/standard columns)
-  (ft.userIdTypes || [])
-    .filter((id) => !newUserIdTypes.includes(id) && !desiredColumnNames.has(id))
-    .forEach((id) => {
-      const col = newColumns.find((c) => c.column === id && !c.deleted);
-      if (col) {
-        col.deleted = true;
-        col.dateUpdated = new Date();
-        columnsMutated = true;
-      }
-    });
+  // Mark removed custom identifiers as deleted. Base columns are always in
+  // desiredColumnNames, so this never touches them; scanning columns directly
+  // avoids relying on a possibly-stale ft.userIdTypes.
+  newColumns.forEach((col) => {
+    if (!col.deleted && !desiredColumnNames.has(col.column)) {
+      col.deleted = true;
+      col.dateUpdated = new Date();
+      columnsMutated = true;
+    }
+  });
 
   const newSql = buildManagedWarehouseEventsFactTableSql(attributeSchema);
 
