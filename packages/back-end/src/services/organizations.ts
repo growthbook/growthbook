@@ -90,7 +90,12 @@ import {
   mergeParams,
 } from "./datasource";
 import { createMetric } from "./experiments";
-import { isEmailEnabled, sendInviteEmail, sendNewMemberEmail } from "./email";
+import {
+  isEmailEnabled,
+  sendInviteEmail,
+  sendNewMemberEmail,
+  sendPendingMemberEmail,
+} from "./email";
 import { ReqContextClass } from "./context";
 
 export {
@@ -1198,6 +1203,18 @@ export async function addMemberFromSSOConnection(
       userId: req.userId,
       ...getDefaultRole(organization),
     });
+    try {
+      const teamUrl = APP_ORIGIN + "/settings/team/?org=" + organization.id;
+      await sendPendingMemberEmail(
+        req.name || "",
+        req.email || "",
+        organization.name,
+        organization.ownerEmail,
+        teamUrl,
+      );
+    } catch (e) {
+      req.log.error(e, "Failed to send pending member email");
+    }
     return null;
   }
 
