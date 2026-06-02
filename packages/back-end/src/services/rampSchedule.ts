@@ -271,10 +271,18 @@ export function remapTemplateActions(
 
 // Sparse step patches accumulate through the target step.
 export function computeEffectivePatch(
-  schedule: Pick<RampScheduleInterface, "steps" | "endActions">,
+  schedule: Pick<
+    RampScheduleInterface,
+    "steps" | "endActions" | "startActions"
+  >,
   stepIndex: number,
 ): Map<string, FeatureRulePatch> {
-  // Sparse step patches inherit absent fields from earlier steps.
+  // startActions represent the rule's initial state (targeting conditions,
+  // coverage, environments, etc.) captured at schedule creation time. They form
+  // the base layer — step patches are sparse overlays that only specify fields
+  // they change (typically just coverage). Without seeding from startActions,
+  // any field present only in startActions (e.g. condition, savedGroups) would
+  // never be applied when advancing into step 0.
   const byTarget = new Map<string, FeatureRulePatch>();
 
   const merge = (act: RampStepAction) => {
@@ -289,6 +297,10 @@ export function computeEffectivePatch(
       byTarget.set(act.targetId, { ruleId, ...fields } as FeatureRulePatch);
     }
   };
+
+  // Seed with startActions — the base-layer rule state (condition, savedGroups,
+  // coverage, etc.) that all steps inherit from unless explicitly overridden.
+  for (const a of schedule.startActions ?? []) merge(a);
 
   const lastStepIdx = Math.min(stepIndex, schedule.steps.length - 1);
   for (let i = 0; i <= lastStepIdx; i++) {
