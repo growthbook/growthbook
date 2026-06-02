@@ -84,7 +84,11 @@ export function getMetricForSafeRolloutSnapshot(
       datasource: metric.datasource,
       type: isBinomialMetric(metric) ? "binomial" : "count",
       aggregation: ("aggregation" in metric && metric.aggregation) || undefined,
-      cappingSettings: metric.cappingSettings,
+      cappingSettings: {
+        type: metric.cappingSettings.type || "",
+        value: metric.cappingSettings.value ?? 0,
+        ignoreZeros: metric.cappingSettings.ignoreZeros ?? null,
+      },
       denominator: (!isFactMetric(metric) && metric.denominator) || undefined,
       sql: (!isFactMetric(metric) && metric.sql) || undefined,
       userIdTypes: (!isFactMetric(metric) && metric.userIdTypes) || undefined,
