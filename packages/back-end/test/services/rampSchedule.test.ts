@@ -499,7 +499,7 @@ describe("computeEffectivePatch", () => {
     expect(computeEffectivePatch(sched, -1).size).toBe(0);
   });
 
-  it("seeds from startActions so step 0 inherits condition/savedGroups", () => {
+  it("seeds from startActions so step 0 inherits condition/savedGroups/prerequisites", () => {
     const sched = {
       ...sparseSchedule([[action(TARGET_ID, { coverage: 0.1 })]]),
       startActions: [
@@ -511,17 +511,23 @@ describe("computeEffectivePatch", () => {
             coverage: 0.0,
             condition: '{"country":"US"}',
             savedGroups: [{ ids: ["grp1"], match: "any" }],
+            prerequisites: [
+              { id: "feat_gate", condition: '{"$or":[{"value":true}]}' },
+            ],
           },
         },
       ],
     };
     const result = computeEffectivePatch(sched, 0);
     const patch = result.get(TARGET_ID);
-    // Step 0's coverage override wins, but condition/savedGroups are inherited
+    // Step 0's coverage override wins, but condition/savedGroups/prerequisites are inherited
     expect(patch).toMatchObject({
       coverage: 0.1,
       condition: '{"country":"US"}',
       savedGroups: [{ ids: ["grp1"], match: "any" }],
+      prerequisites: [
+        { id: "feat_gate", condition: '{"$or":[{"value":true}]}' },
+      ],
     });
   });
 });
