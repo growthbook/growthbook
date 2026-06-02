@@ -231,10 +231,18 @@ export class ContextualBanditModel extends BaseClass {
   // Read overrides — apply the experiment-backed backfill after foreign
   // refs are loaded so downstream consumers see a fully populated doc.
   //
-  // We hook the read path rather than `migrate` because the backfill needs
-  // the parent experiment, which is async and only available after
-  // `populateForeignRefs`. Once PR-8 lands the backfill is a no-op and the
-  // overrides are deleted.
+  // Hydration runs on the public read accessors rather than in `migrate`
+  // because the backfill needs the parent experiment, which is async and
+  // only available after `populateForeignRefs`. Every external read path
+  // funnels through one of the accessors below (single-doc reads via
+  // getById/getByExperimentId, list reads via getAll/getByIds), so they
+  // are each wrapped — this is what guarantees list pages, the REST list
+  // endpoint, and the agenda jobs see backfilled values, not just
+  // single-doc fetches. The only internal `_find` caller is
+  // getByExperimentId, which hydrates its result explicitly.
+  //
+  // The backfill is a no-op for native docs, so once the PR-8 data
+  // migration runs this whole block can be deleted.
   // ---------------------------------------------------------------------
 
   private hydrate(doc: ContextualBanditInterface): ContextualBanditInterface {
@@ -244,9 +252,25 @@ export class ContextualBanditModel extends BaseClass {
     return backfillFromExperiment(doc, experiment);
   }
 
+  private hydrateMany(
+    docs: ContextualBanditInterface[],
+  ): ContextualBanditInterface[] {
+    // Fast path: nothing to backfill once every doc carries native shape.
+    if (docs.every(hasNativeShape)) return docs;
+    return docs.map((doc) => this.hydrate(doc));
+  }
+
   public async getById(id: string): Promise<ContextualBanditInterface | null> {
     const doc = await super.getById(id);
     return doc ? this.hydrate(doc) : null;
+  }
+
+  public async getByIds(ids: string[]): Promise<ContextualBanditInterface[]> {
+    return this.hydrateMany(await super.getByIds(ids));
+  }
+
+  public async getAll(): Promise<ContextualBanditInterface[]> {
+    return this.hydrateMany(await super.getAll());
   }
 
   public async getByExperimentId(
