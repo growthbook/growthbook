@@ -960,7 +960,6 @@ export function getEffectiveAccountPlan(org: MinimalOrganization): AccountPlan {
   let basicPlan: AccountPlan;
 
   if (stringToBoolean(process.env.IS_CLOUD)) {
-    // if (org.enterprise) return "enterprise";
     if (!org.licenseKey) {
       return getAccountPlan(org);
     }
