@@ -195,6 +195,31 @@ const experimentRefRule = baseRule
 
 export type ExperimentRefRule = z.infer<typeof experimentRefRule>;
 
+/**
+ * A feature rule that references a `ContextualBandit` doc by id.
+ *
+ * Variations have the same shape as `experiment-ref` so the SDK payload
+ * builder can produce an SDK `experiment-rule` from either source — the
+ * SDK wire format does NOT distinguish between an experiment-driven and
+ * a CB-driven rule, it only cares about the `isContextualBandit` /
+ * `attributesRequired` / `contexts` decorations on the emitted rule.
+ *
+ * This validator exists alongside `experiment-ref` (rather than
+ * replacing the CB-typed experiment-ref path) so the migration in PR-8
+ * can rewrite legacy rules incrementally without breaking the payload
+ * pipeline. Until that migration runs, `getFeatureDefinition`
+ * dual-reads both shapes.
+ */
+const contextualBanditRefRule = baseRule
+  .extend({
+    type: z.literal("contextual-bandit-ref"),
+    contextualBanditId: z.string(),
+    variations: z.array(experimentRefVariation),
+  })
+  .strict();
+
+export type ContextualBanditRefRule = z.infer<typeof contextualBanditRefRule>;
+
 export const safeRolloutRule = baseRule
   .extend({
     type: z.literal("safe-rollout"),
@@ -217,6 +242,7 @@ export const featureRule = z.union([
   rolloutRule,
   experimentRule,
   experimentRefRule,
+  contextualBanditRefRule,
   safeRolloutRule,
 ]);
 
@@ -685,6 +711,34 @@ export const apiFeatureExperimentRefRuleValidator = namedSchema(
   ),
 );
 
+// ---- FeatureContextualBanditRefRule (mirrors FeatureExperimentRefRule) ----
+//
+// Feature rule that references a `ContextualBandit` doc by id. SDK payload
+// shape is unchanged — both this rule type and `experiment-ref` produce an
+// SDK `experiment-rule` — but the REST API exposes it distinctly so callers
+// can author CB-attached features without going through the legacy
+// `experiment-ref` + CB-typed experiment indirection.
+export const apiFeatureContextualBanditRefRuleValidator = namedSchema(
+  "FeatureContextualBanditRefRule",
+  z.intersection(
+    apiFeatureBaseRuleValidator
+      .omit({})
+      .describe(
+        "Common fields shared by all feature rule types. Specific rule types extend\nthis base with their own required properties (value, coverage, etc.).\n",
+      ),
+    z.object({
+      type: z.literal("contextual-bandit-ref"),
+      variations: z.array(
+        z.object({
+          value: z.string(),
+          variationId: z.string(),
+        }),
+      ),
+      contextualBanditId: z.string(),
+    }),
+  ),
+);
+
 // ---- FeatureSafeRolloutRule (schemas/FeatureSafeRolloutRule.yaml) ----
 export const apiFeatureSafeRolloutRuleValidator = namedSchema(
   "FeatureSafeRolloutRule",
@@ -717,6 +771,7 @@ export const apiFeatureRuleValidator = namedSchema(
     apiFeatureRolloutRuleValidator,
     apiFeatureExperimentRuleValidator,
     apiFeatureExperimentRefRuleValidator,
+    apiFeatureContextualBanditRefRuleValidator,
     apiFeatureSafeRolloutRuleValidator,
   ]),
 );

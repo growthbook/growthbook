@@ -1780,6 +1780,13 @@ export function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
         variations: rule.variations,
         experimentId: rule.experimentId,
       };
+    case "contextual-bandit-ref":
+      return {
+        ...base,
+        type: "contextual-bandit-ref",
+        variations: rule.variations,
+        contextualBanditId: rule.contextualBanditId,
+      };
     case "safe-rollout":
       return {
         ...base,
