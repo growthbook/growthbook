@@ -73,6 +73,26 @@ describe("getQuantileBoundsFromQueryResponse — array vs scalar shape", () => {
     ).toEqual({});
   });
 
+  it("treats an empty grid array as no bounds when the quantile has no values", () => {
+    const array = getQuantileBoundsFromQueryResponse(
+      {
+        [`${prefix}quantile`]: null,
+        [`${prefix}quantile_n`]: 0,
+        [`${prefix}quantile_grid`]: [],
+      },
+      prefix,
+    );
+    const scalar = getQuantileBoundsFromQueryResponse(
+      {
+        [`${prefix}quantile`]: null,
+        [`${prefix}quantile_n`]: 0,
+      },
+      prefix,
+    );
+
+    expect(array).toEqual(scalar);
+  });
+
   it("throws when the grid array length does not match N_STAR_VALUES*2", () => {
     // Empty array — would silently drop all bounds without validation.
     expect(() =>

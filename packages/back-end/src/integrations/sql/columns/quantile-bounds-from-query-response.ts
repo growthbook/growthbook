@@ -11,8 +11,9 @@ export function getQuantileBoundsFromQueryResponse(
     [key: string]: number;
   } = {};
   if (row[`${prefix}quantile`] !== undefined) {
-    quantileData[`${prefix}quantile`] =
-      parseFloat(row[`${prefix}quantile`]) || 0;
+    const rawQuantile = row[`${prefix}quantile`];
+
+    quantileData[`${prefix}quantile`] = parseFloat(rawQuantile) || 0;
     quantileData[`${prefix}quantile_n`] =
       parseFloat(row[`${prefix}quantile_n`]) || 0;
 
@@ -22,7 +23,18 @@ export function getQuantileBoundsFromQueryResponse(
     const gridArray = row[`${prefix}quantile_grid`];
     const isArrayGrid = Array.isArray(gridArray);
     const expectedGridLength = N_STAR_VALUES.length * 2;
-    if (isArrayGrid && gridArray.length !== expectedGridLength) {
+    // BigQuery translates NULL arrays to empty arrays in query results, so
+    // the no-values grid can/will arrive as []
+    const emptyGridWithoutValues =
+      isArrayGrid &&
+      gridArray.length === 0 &&
+      (rawQuantile ?? null) === null &&
+      quantileData[`${prefix}quantile_n`] === 0;
+    if (
+      isArrayGrid &&
+      gridArray.length !== expectedGridLength &&
+      !emptyGridWithoutValues
+    ) {
       throw new Error(
         `Expected ${prefix}quantile_grid array of length ${expectedGridLength}, got ${gridArray.length}. ` +
           `This indicates a mismatch between SQL generation (getQuantileGridColumns / getQuantileSketchGridColumns) ` +
