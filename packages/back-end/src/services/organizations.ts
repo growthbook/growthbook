@@ -1196,24 +1196,29 @@ export async function addMemberFromSSOConnection(
 
   // If the org has explicitly disabled autoApproveMembers, add the user as a pending member
   if (organization.autoApproveMembers === false) {
-    await addPendingMemberToOrg({
-      organization,
-      name: req.name || "",
-      email: req.email || "",
-      userId: req.userId,
-      ...getDefaultRole(organization),
-    });
-    try {
-      const teamUrl = APP_ORIGIN + "/settings/team/?org=" + organization.id;
-      await sendPendingMemberEmail(
-        req.name || "",
-        req.email || "",
-        organization.name,
-        organization.ownerEmail,
-        teamUrl,
-      );
-    } catch (e) {
-      req.log.error(e, "Failed to send pending member email");
+    const alreadyPending = organization.pendingMembers?.some(
+      (m) => m.id === req.userId,
+    );
+    if (!alreadyPending) {
+      await addPendingMemberToOrg({
+        organization,
+        name: req.name || "",
+        email: req.email || "",
+        userId: req.userId,
+        ...getDefaultRole(organization),
+      });
+      try {
+        const teamUrl = APP_ORIGIN + "/settings/team/?org=" + organization.id;
+        await sendPendingMemberEmail(
+          req.name || "",
+          req.email || "",
+          organization.name,
+          organization.ownerEmail,
+          teamUrl,
+        );
+      } catch (e) {
+        req.log.error(e, "Failed to send pending member email");
+      }
     }
     return null;
   }
