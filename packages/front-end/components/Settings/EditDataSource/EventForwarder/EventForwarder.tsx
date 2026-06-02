@@ -26,6 +26,8 @@ import { BsThreeDotsVertical } from "react-icons/bs";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { FaChevronRight } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
+import PremiumCallout from "@/ui/PremiumCallout";
 import BigQueryEventForwarderForm from "@/components/Settings/BigQueryEventForwarderForm";
 import SnowflakeEventForwarderForm from "@/components/Settings/SnowflakeEventForwarderForm";
 import { useEventForwarderAccessTest } from "@/components/Settings/useEventForwarderAccessTest";
@@ -487,8 +489,14 @@ export default function EventForwarder({
   const [menuOpen, setMenuOpen] = useState(false);
   const autoOpenedRef = useRef(false);
   const { apiCall } = useAuth();
+  const { effectiveAccountPlan, subscription } = useUser();
   const eventForwarderConfig = dataSource.eventForwarderConfig;
   const eventsForwarderFeatureEnabled = useFeatureIsOn("events-forwarder");
+
+  const isPaidPlan = ["pro", "pro_sso", "enterprise"].includes(
+    effectiveAccountPlan || "",
+  );
+  const isStripePro = isPaidPlan && subscription?.billingPlatform === "stripe";
 
   useEffect(() => {
     if (autoOpenedRef.current) return;
@@ -637,7 +645,27 @@ export default function EventForwarder({
       </p>
 
       {!eventForwarderConfig ? (
-        eventsForwarderFeatureEnabled ? (
+        !isPaidPlan ? (
+          <PremiumCallout
+            commercialFeature="events-forwarder"
+            id="event-forwarder-plan-gate"
+          >
+            Event Forwarder requires a Pro plan.
+          </PremiumCallout>
+        ) : isStripePro ? (
+          <Callout status="info">
+            Your current plan does not support Event Forwarder. To enable it,
+            contact your account manager or reach out to{" "}
+            <a
+              href="mailto:sales@growthbook.io"
+              target="_blank"
+              rel="noreferrer"
+            >
+              sales@growthbook.io
+            </a>
+            .
+          </Callout>
+        ) : eventsForwarderFeatureEnabled ? (
           <Callout status="info">
             Event Forwarder is not configured for this datasource.
             {canEdit ? (
