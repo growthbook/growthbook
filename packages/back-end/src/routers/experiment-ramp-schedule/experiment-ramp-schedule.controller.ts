@@ -3,7 +3,6 @@ import { z } from "zod";
 import {
   RampScheduleInterface,
   experimentEndStrategy,
-  experimentMonitoringBehavior,
   rampStep,
 } from "shared/validators";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -60,7 +59,7 @@ const attachRampBody = z.object({
   steps: z.array(rampStep),
   startDate: z.iso.datetime().nullish(),
   cutoffDate: z.iso.datetime().nullish(),
-  monitoringBehavior: experimentMonitoringBehavior.optional(),
+  pauseOnHealthSignal: z.boolean().optional(),
   endStrategy: experimentEndStrategy.optional(),
 });
 
@@ -106,7 +105,7 @@ export async function postRampSchedule(
     steps: body.steps,
     startDate: body.startDate ? new Date(body.startDate) : null,
     cutoffDate: body.cutoffDate ? new Date(body.cutoffDate) : null,
-    monitoringBehavior: body.monitoringBehavior,
+    pauseOnHealthSignal: body.pauseOnHealthSignal ?? true,
     endStrategy: body.endStrategy,
     status: "ready" as const,
     currentStepIndex: -1,
@@ -132,7 +131,7 @@ const updateRampBody = z.object({
   steps: z.array(rampStep).optional(),
   startDate: z.iso.datetime().nullish(),
   cutoffDate: z.iso.datetime().nullish(),
-  monitoringBehavior: experimentMonitoringBehavior.optional(),
+  pauseOnHealthSignal: z.boolean().optional(),
   endStrategy: experimentEndStrategy.nullish(),
 });
 
@@ -171,8 +170,8 @@ export async function putRampSchedule(
     changes.startDate = body.startDate ? new Date(body.startDate) : null;
   if ("cutoffDate" in body)
     changes.cutoffDate = body.cutoffDate ? new Date(body.cutoffDate) : null;
-  if (body.monitoringBehavior !== undefined)
-    changes.monitoringBehavior = body.monitoringBehavior;
+  if (body.pauseOnHealthSignal !== undefined)
+    changes.pauseOnHealthSignal = body.pauseOnHealthSignal;
   if ("endStrategy" in body)
     changes.endStrategy = body.endStrategy ?? undefined;
 

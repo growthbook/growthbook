@@ -107,31 +107,6 @@ export const rampStepAction = z.discriminatedUnion("targetType", [
 ]);
 export type RampStepAction = z.infer<typeof rampStepAction>;
 
-// ---------------------------------------------------------------------------
-// Experiment-level monitoring behavior config
-// ---------------------------------------------------------------------------
-
-/**
- * How the ramp responds to EDF verdicts. The thresholds that produce each
- * verdict are configured in the experiment's decision criteria — this config
- * only governs the ramp's response.
- */
-export const experimentMonitoringBehavior = z.object({
-  /** "hold" = block next step + prompt user (default). "rollback" = auto-rollback. */
-  onRollbackNow: z.enum(["hold", "rollback"]).optional(),
-  /** "advance-and-prompt" = advance + surface CTA (default). "ship" = auto-execute end strategy. */
-  onShipNow: z.enum(["advance-and-prompt", "ship"]).optional(),
-  /** "hold" = block + prompt (default). "rollback" = auto-rollback. */
-  onReviewNow: z.enum(["hold", "rollback"]).optional(),
-  srmAction: experimentHealthAction.optional(),
-  multipleExposureAction: experimentHealthAction.optional(),
-  covariateImbalanceAction: experimentHealthAction.optional(),
-  noTrafficAction: experimentHealthAction.optional(),
-  noTrafficGracePeriodHours: z.number().positive().nullish(),
-});
-export type ExperimentMonitoringBehavior = z.infer<
-  typeof experimentMonitoringBehavior
->;
 
 // ---------------------------------------------------------------------------
 // Experiment end strategy
@@ -283,7 +258,8 @@ export const rampScheduleValidator = baseSchema
     endActions: z.array(rampStepAction).optional(),
 
     // Experiment-ramp-only fields (ignored for feature ramps)
-    monitoringBehavior: experimentMonitoringBehavior.optional(),
+    /** When true (default), the ramp holds step advancement on SRM / multiple-exposure / no-traffic signals. */
+    pauseOnHealthSignal: z.boolean().optional(),
     endStrategy: experimentEndStrategy.optional(),
     // When set, the rule stays disabled until this activation date.
     startDate: z.date().nullish(),
@@ -488,7 +464,7 @@ export const rampScheduleTemplateValidator = baseSchema.extend({
   official: z.boolean().optional(),
   lockdownConfig: lockdownConfigSchema.optional(),
   monitoringConfig: rampMonitoringConfig.nullish(),
-  monitoringBehavior: experimentMonitoringBehavior.optional(),
+  pauseOnHealthSignal: z.boolean().optional(),
   endStrategy: experimentEndStrategy.optional(),
 });
 export type RampScheduleTemplateInterface = z.infer<

@@ -8,7 +8,6 @@
  */
 import {
   ExperimentEndStrategy,
-  ExperimentMonitoringBehavior,
   ExperimentPatch,
   RampScheduleInterface,
 } from "shared/validators";
@@ -322,12 +321,8 @@ export async function evaluateExperimentRampStep(
   const step = schedule.steps[schedule.currentStepIndex];
   if (!step) return { action: "advance" };
 
-  const mb: ExperimentMonitoringBehavior = schedule.monitoringBehavior ?? {};
-  const srmAction = mb.srmAction ?? "hold";
-  const meAction = mb.multipleExposureAction ?? "hold";
-  const noTrafficAction = mb.noTrafficAction ?? "hold";
-  const noTrafficGracePeriodHours =
-    mb.noTrafficGracePeriodHours ?? 24;
+  // pauseOnHealthSignal defaults to true — hold step on any health signal.
+  const pauseOnHealth = schedule.pauseOnHealthSignal ?? true;
 
   // 1. Interval gate
   const stepEnteredAt = schedule.currentStepEnteredAt;
@@ -391,90 +386,63 @@ export async function evaluateExperimentRampStep(
       schedule.currentStepEnteredAt ??
       schedule.startedAt;
     if (monitoringStartDate) {
-      const gracePeriodMs = noTrafficGracePeriodHours * 60 * 60 * 1000;
+      // Fixed 24h grace period before treating no-traffic as a health signal
+      const gracePeriodMs = 24 * 60 * 60 * 1000;
       const elapsedMs = now.getTime() - monitoringStartDate.getTime();
       if (elapsedMs < gracePeriodMs) {
         const remainingMin = Math.ceil((gracePeriodMs - elapsedMs) / 60_000);
         return {
           action: "hold",
-          reason: `No traffic yet — waiting for ${noTrafficGracePeriodHours}h grace period (~${remainingMin} min remaining)`,
+          reason: `No traffic yet — waiting for 24h grace period (~${remainingMin} min remaining)`,
           nextProcessAt: new Date(monitoringStartDate.getTime() + gracePeriodMs),
         };
       }
     }
-    if (noTrafficAction === "rollback") {
-      return {
-        action: "rollback",
-        reason: "No traffic detected — rolling back (noTrafficAction=rollback)",
-      };
-    }
-    if (noTrafficAction === "hold") {
+    if (pauseOnHealth) {
       return {
         action: "hold",
-        reason: "No traffic detected — holding step (noTrafficAction=hold)",
+        reason: "No traffic detected — holding step until traffic arrives",
       };
     }
-    // "warn": advance
-    return { action: "advance" };
+    // pauseOnHealthSignal=false: surface as warning only, continue
   }
 
   // 3. SRM and multiple-exposure health checks
-  const healthSettings = getHealthSettings(ctx.org.settings);
-  const totalUsers = health.totalUsers ?? 0;
+  if (pauseOnHealth) {
+    const healthSettings = getHealthSettings(ctx.org.settings);
+    const totalUsers = health.totalUsers ?? 0;
 
-  const srmData = getSRMHealthData({
-    srm: health.srm,
-    srmThreshold: healthSettings.srmThreshold,
-    totalUsersCount: totalUsers,
-    numOfVariations:
-      summary?.resultsStatus?.variations?.length ?? experiment.variations.length,
-    minUsersPerVariation: DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
-  });
+    const srmData = getSRMHealthData({
+      srm: health.srm,
+      srmThreshold: healthSettings.srmThreshold,
+      totalUsersCount: totalUsers,
+      numOfVariations:
+        summary?.resultsStatus?.variations?.length ?? experiment.variations.length,
+      minUsersPerVariation: DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
+    });
 
-  if (srmData === "unhealthy") {
-    if (srmAction === "rollback") {
-      return {
-        action: "rollback",
-        reason: `SRM check failed (p=${health.srm?.toFixed(4) ?? "?"})`,
-      };
-    }
-    if (srmAction === "hold") {
+    if (srmData === "unhealthy") {
       return {
         action: "hold",
         reason: `SRM check failed — holding step (p=${health.srm?.toFixed(4) ?? "?"})`,
       };
     }
-  }
 
-  const meData = getMultipleExposureHealthData({
-    multipleExposuresCount: health.multipleExposures ?? 0,
-    totalUsersCount: totalUsers,
-    minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
-    minPercentThreshold: healthSettings.multipleExposureMinPercent,
-  });
+    const meData = getMultipleExposureHealthData({
+      multipleExposuresCount: health.multipleExposures ?? 0,
+      totalUsersCount: totalUsers,
+      minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
+      minPercentThreshold: healthSettings.multipleExposureMinPercent,
+    });
 
-  if (meData.status === "unhealthy") {
-    if (meAction === "rollback") {
-      return {
-        action: "rollback",
-        reason: `Multiple exposures detected (${(meData.rawDecimal * 100).toFixed(1)}% of users)`,
-      };
-    }
-    if (meAction === "hold") {
+    if (meData.status === "unhealthy") {
       return {
         action: "hold",
         reason: `Multiple exposures detected — holding step (${(meData.rawDecimal * 100).toFixed(1)}% of users)`,
       };
     }
-  }
 
-  // Covariate imbalance check
-  if (health.covariateImbalance?.isImbalanced) {
-    const caAction = mb.covariateImbalanceAction ?? "warn";
-    if (caAction === "rollback") {
-      return { action: "rollback", reason: "Covariate imbalance detected" };
-    }
-    if (caAction === "hold") {
+    if (health.covariateImbalance?.isImbalanced) {
       return {
         action: "hold",
         reason: "Covariate imbalance detected — holding step",
@@ -482,63 +450,50 @@ export async function evaluateExperimentRampStep(
     }
   }
 
-  // 5. EDF mid-ramp gate (super-stat-sig threshold via user's decision criteria)
+  // 5. EDF mid-ramp gate — the EDF itself encodes the desired action via
+  //    rollback-now / review-now / ship-now. No interpretation layer here.
   const resultsStatus = summary?.resultsStatus;
   if (resultsStatus) {
-      const decisionCriteria = await resolveDecisionCriteria(ctx, experiment);
-      const metricGroups = await ctx.models.metricGroups.getAll();
-      const goalMetrics = expandMetricGroups(
-        experiment.goalMetrics ?? [],
-        metricGroups,
-      );
-      const guardrailMetrics = expandMetricGroups(
-        experiment.guardrailMetrics ?? [],
-        metricGroups,
-      );
+    const decisionCriteria = await resolveDecisionCriteria(ctx, experiment);
+    const metricGroups = await ctx.models.metricGroups.getAll();
+    const goalMetrics = expandMetricGroups(
+      experiment.goalMetrics ?? [],
+      metricGroups,
+    );
+    const guardrailMetrics = expandMetricGroups(
+      experiment.guardrailMetrics ?? [],
+      metricGroups,
+    );
 
-      const midRampStatus = getMidRampDecisionStatus({
-        resultsStatus,
-        decisionCriteria,
-        goalMetrics,
-        guardrailMetrics,
-      });
+    const midRampStatus = getMidRampDecisionStatus({
+      resultsStatus,
+      decisionCriteria,
+      goalMetrics,
+      guardrailMetrics,
+    });
 
-      if (midRampStatus) {
-        if (midRampStatus.status === "rollback-now") {
-          const onRollback = mb.onRollbackNow ?? "hold";
-          if (onRollback === "rollback") {
-            return {
-              action: "rollback",
-              reason: `EDF: rollback-now at super-stat-sig threshold`,
-            };
-          }
-          return {
-            action: "hold",
-            reason: `EDF: rollback-now — holding for user decision`,
-          };
-        }
-
-        if (midRampStatus.status === "review-now") {
-          const onReview = mb.onReviewNow ?? "hold";
-          if (onReview === "rollback") {
-            return {
-              action: "rollback",
-              reason: `EDF: review-now — auto-rolling back per config`,
-            };
-          }
-          return {
-            action: "hold",
-            reason: `EDF: review-now — holding for user decision`,
-          };
-        }
-
-        if (midRampStatus.status === "ship-now") {
-          // Advance regardless of onShipNow setting — the UI surfaces a CTA
-          // but the ramp continues. "ship" (auto-execute) is handled by the
-          // end-strategy execution in completeRollout.
-          return { action: "advance" };
-        }
+    if (midRampStatus) {
+      if (midRampStatus.status === "rollback-now") {
+        return {
+          action: "rollback",
+          reason: "EDF: rollback-now — auto-rolling back per decision criteria",
+        };
       }
+
+      if (midRampStatus.status === "review-now") {
+        // review-now = hold and prompt the user; EDF rules encode urgency
+        return {
+          action: "hold",
+          reason: "EDF: review-now — holding for user decision",
+        };
+      }
+
+      if (midRampStatus.status === "ship-now") {
+        // ship-now during a ramp: advance to the next step (or complete if last).
+        // The UI surfaces a ship CTA independently.
+        return { action: "advance" };
+      }
+    }
   }
 
   // 6. Min sample size gate
