@@ -627,6 +627,48 @@ describe("computeEffectivePatch", () => {
       force: "variant-b",
     });
   });
+
+  it("rollback to intermediate step still inherits startActions fields", () => {
+    const sched = {
+      ...sparseSchedule([
+        [action(TARGET_ID, { coverage: 0.3 })],
+        [action(TARGET_ID, { coverage: 0.6 })],
+        [action(TARGET_ID, { coverage: 1.0 })],
+      ]),
+      startActions: [
+        {
+          targetType: "feature-rule" as const,
+          targetId: TARGET_ID,
+          patch: {
+            ruleId: RULE_ID,
+            coverage: 0.0,
+            condition: '{"country":"US"}',
+            savedGroups: [{ ids: ["grp1"], match: "any" }],
+            prerequisites: [
+              { id: "feat_gate", condition: '{"$or":[{"value":true}]}' },
+            ],
+            allEnvironments: false,
+            environments: ["production", "staging"],
+            force: "variant-b",
+          },
+        },
+      ],
+    };
+    // Rolling back to step 1 — startActions fields persist through step 0 and 1
+    const result = computeEffectivePatch(sched, 1);
+    const patch = result.get(TARGET_ID);
+    expect(patch).toMatchObject({
+      coverage: 0.6,
+      condition: '{"country":"US"}',
+      savedGroups: [{ ids: ["grp1"], match: "any" }],
+      prerequisites: [
+        { id: "feat_gate", condition: '{"$or":[{"value":true}]}' },
+      ],
+      allEnvironments: false,
+      environments: ["production", "staging"],
+      force: "variant-b",
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------

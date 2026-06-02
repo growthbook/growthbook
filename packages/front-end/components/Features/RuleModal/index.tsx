@@ -415,6 +415,8 @@ export default function RuleModal({
         ruleRampSchedule?.startActions ??
         pendingCreateActionTyped?.startActions;
       if (!startActions?.length) return {};
+      // Safe to use .find() (first match): per-env entries always share the
+      // same targeting fields — only coverage differs across targets.
       const patch = startActions.find(
         (a) => a.targetType === "feature-rule",
       )?.patch;
