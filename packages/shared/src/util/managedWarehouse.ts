@@ -79,17 +79,10 @@ export function isManagedWarehouseAwaitingProvisioning(
   return settings?.hasBeenProvisioned === false;
 }
 
-// ---------------------------------------------------------------------------
-// Managed Warehouse JSON columns (replacing materialized columns)
-//
-// In the JSON-columns model the per-org ClickHouse tables always carry the
-// SDK's standard top-level fields as real columns, plus `attributes` /
-// `properties` as native JSON columns for the custom long tail. Identifiers
-// (org attributes with `hashAttribute: true`) are exposed as top-level columns:
-//   - the built-in identity columns `user_id` / `device_id` are always present
-//   - any *custom* hashAttribute is aliased out of the `attributes` JSON column
-//     in the fact-table / exposure-query SELECT.
-// ---------------------------------------------------------------------------
+// Managed Warehouse JSON-columns model (replaces materialized columns). Per-org
+// tables carry the SDK's standard fields as real columns plus `attributes` /
+// `properties` JSON columns. Identifiers come from `hashAttribute` attributes:
+// user_id/device_id are always present; custom ones are aliased out of `attributes`.
 
 /** Name of the per-org events table the managed-warehouse fact table reads. */
 export const MANAGED_WAREHOUSE_EVENTS_TABLE = "events";
@@ -104,12 +97,8 @@ export const MANAGED_WAREHOUSE_BUILTIN_IDENTIFIERS = [
   "device_id",
 ] as const;
 
-/**
- * Attribute `property` names that the SDK folds into the built-in identity
- * columns (see parseAttributes in sdk-js growthbook-tracking.ts). A
- * hashAttribute using one of these is already covered by the built-in
- * identifiers, so it is not treated as a separate custom identifier.
- */
+// Attribute keys the SDK folds into user_id/device_id (see parseAttributes in
+// sdk-js growthbook-tracking.ts), so a hashAttribute on one isn't a custom identifier.
 const BUILTIN_IDENTIFIER_ATTRIBUTE_KEYS = new Set([
   "user_id",
   "device_id",
@@ -117,12 +106,8 @@ const BUILTIN_IDENTIFIER_ATTRIBUTE_KEYS = new Set([
   "id",
 ]);
 
-/**
- * All attribute `property` names the SDK extracts to dedicated top-level
- * columns (so they are NOT inside the `attributes` JSON column). Custom
- * identifiers must not be one of these. Mirrors parseAttributes in
- * sdk-js/src/plugins/growthbook-tracking.ts.
- */
+// Attribute keys the SDK extracts to dedicated top-level columns (so they're not
+// inside `attributes`); a custom identifier must not be one. Mirrors parseAttributes.
 const RESERVED_TOP_LEVEL_ATTRIBUTE_KEYS = new Set([
   ...BUILTIN_IDENTIFIER_ATTRIBUTE_KEYS,
   "page_id",
@@ -135,10 +120,7 @@ const RESERVED_TOP_LEVEL_ATTRIBUTE_KEYS = new Set([
   "pageTitle",
 ]);
 
-/**
- * Default experiment dimensions for generated exposure queries. These are
- * always-present standard top-level columns in the per-org tables.
- */
+// Default exposure-query dimensions; all always-present top-level columns.
 export const MANAGED_WAREHOUSE_DEFAULT_DIMENSIONS = [
   "geo_country",
   "ua_browser",
@@ -149,14 +131,9 @@ export const MANAGED_WAREHOUSE_DEFAULT_DIMENSIONS = [
   "utm_campaign",
 ];
 
-/**
- * Every column name produced by `SELECT *` on the per-org tables (base event
- * columns + the JSON columns + all standard top-level fields + the derived
- * experiment/feature columns). A custom identifier alias must not collide with
- * one of these, otherwise `SELECT *, attributes.x AS x` would emit a duplicate
- * column and ClickHouse would reject the query. Kept in sync with the license
- * server's per-org table column list (`tempTopLevelFields` + remaining + base).
- */
+// Column names emitted by `SELECT *` on the per-org tables. A custom identifier
+// alias must not collide with one, else `SELECT *, attributes.x AS x` duplicates a
+// column and ClickHouse rejects the query. Keep in sync with the license server.
 const MANAGED_WAREHOUSE_RESERVED_COLUMN_NAMES = new Set(
   [
     // Base event columns + JSON columns
@@ -214,11 +191,8 @@ const ARRAY_ATTRIBUTE_DATATYPES = new Set([
   "secureString[]",
 ]);
 
-/**
- * Custom identifiers = hashAttribute attributes that live inside the
- * `attributes` JSON column (i.e. not one of the SDK's reserved top-level keys).
- * The property name doubles as the JSON path, the alias, and the userIdType.
- */
+// Custom identifiers: hashAttribute attributes stored inside `attributes` JSON.
+// The property name doubles as the JSON path, the alias, and the userIdType.
 export function getManagedWarehouseCustomIdentifiers(
   attributeSchema: SDKAttributeSchema | undefined,
 ): string[] {
@@ -274,11 +248,8 @@ function chIdentifier(name: string): string {
   return SAFE_IDENTIFIER.test(name) ? name : chQuoteIdentifier(name);
 }
 
-/**
- * SELECT-list expression aliasing a custom identifier out of the `attributes`
- * JSON column. Cast to String since identifier columns are string-compared
- * join keys. (SELECT-list aliases over JSON perform well — see issue #91434.)
- */
+// Alias a custom identifier out of the `attributes` JSON column, cast to String
+// since identifier columns are string-compared join keys.
 function customIdentifierSelectExpr(property: string): string {
   const path = `${MANAGED_WAREHOUSE_ATTRIBUTES_COLUMN}.${chIdentifier(
     property,
@@ -297,11 +268,8 @@ function customIdentifierAliasClause(
   );
 }
 
-/**
- * SQL for the managed-warehouse `ch_events` fact table. `SELECT *` exposes the
- * always-present standard columns + the `attributes`/`properties` JSON columns;
- * custom identifiers are aliased out of the JSON so they can be used as join keys.
- */
+// SQL for the `ch_events` fact table: `SELECT *` exposes the standard + JSON
+// columns; custom identifiers are aliased out of the JSON so they can be join keys.
 export function buildManagedWarehouseEventsFactTableSql(
   attributeSchema: SDKAttributeSchema | undefined,
 ): string {
@@ -310,10 +278,7 @@ FROM ${MANAGED_WAREHOUSE_EVENTS_TABLE}
 WHERE timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'`;
 }
 
-/**
- * One exposure query per identifier, reading from `experiment_views`. Custom
- * identifiers are aliased out of the `attributes` JSON; built-ins are real columns.
- */
+// One exposure query per identifier, reading from `experiment_views`.
 export function buildManagedWarehouseExposureQueries(
   attributeSchema: SDKAttributeSchema | undefined,
 ): ExposureQuery[] {
@@ -338,11 +303,8 @@ export type ManagedWarehouseFactColumn = {
   alwaysInlineFilter?: boolean;
 };
 
-/**
- * Always-present columns of the managed-warehouse `ch_events` fact table in the
- * JSON-columns model: the SDK's standard top-level fields plus the `attributes`
- * and `properties` JSON columns. Custom identifiers are appended on top.
- */
+// Always-present `ch_events` fact-table columns (standard fields + JSON columns);
+// custom identifiers are appended on top.
 const MANAGED_WAREHOUSE_EVENTS_BASE_COLUMNS: ManagedWarehouseFactColumn[] = [
   { column: "timestamp", datatype: "date" },
   { column: "user_id", datatype: "string" },
@@ -366,10 +328,7 @@ const MANAGED_WAREHOUSE_EVENTS_BASE_COLUMNS: ManagedWarehouseFactColumn[] = [
   { column: "url_path", datatype: "string" },
 ];
 
-/**
- * Column descriptors for the managed-warehouse `ch_events` fact table: the
- * always-present base columns plus one (String) column per custom identifier.
- */
+// Base columns plus one String column per custom identifier.
 export function getManagedWarehouseEventsFactTableColumns(
   attributeSchema: SDKAttributeSchema | undefined,
 ): ManagedWarehouseFactColumn[] {

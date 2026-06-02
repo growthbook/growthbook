@@ -1629,9 +1629,8 @@ function sanitizeMatColumnName(userInput: string) {
   return userInput;
 }
 
-// Build managed-warehouse settings for the native JSON-columns model. Identifiers
-// and exposure queries come from the org's hashAttribute attributes rather than
-// from user-defined materialized columns.
+// Managed-warehouse settings for the JSON-columns model: identifiers and exposure
+// queries derive from the org's hashAttribute attributes.
 function getManagedWarehouseJsonSettings(
   attributeSchema: SDKAttributeSchema | undefined,
   existing: GrowthbookClickhouseDataSource["settings"],
@@ -1648,8 +1647,7 @@ function getManagedWarehouseJsonSettings(
   };
 }
 
-// @deprecated Legacy materialized-columns model. Used only by warehouses where
-// `settings.useJsonColumns` is not set; removed in the cleanup pass.
+// @deprecated Legacy materialized-columns model; used only when `useJsonColumns` is unset.
 function getManagedWarehouseSettings(
   materializedColumns: MaterializedColumn[],
   existing: GrowthbookClickhouseDataSource["settings"],

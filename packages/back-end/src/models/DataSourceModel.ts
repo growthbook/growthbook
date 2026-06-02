@@ -143,16 +143,14 @@ export async function getGrowthbookDatasource(context: ReqContext) {
     : null;
 }
 
-// WARNING: bypasses project-read permission. Use only for system-driven
-// managed-warehouse sync, where the acting user (e.g. an attribute admin) may
-// lack read access to the warehouse's project — a permission-checked lookup
-// would silently return null and leave ClickHouse / the fact table out of sync.
+// WARNING: bypasses project-read permission. System-only (managed-warehouse sync):
+// the acting user may lack project read, and a checked lookup would silently desync.
 export async function dangerouslyGetGrowthbookDatasourceBypassPermission(
-  organization: string,
+  context: ReqContext | ApiReqContext,
 ): Promise<DataSourceInterface | null> {
   const doc: DataSourceDocument | null = await DataSourceModel.findOne({
     type: "growthbook_clickhouse",
-    organization,
+    organization: context.org.id,
   });
   return doc ? toInterface(doc) : null;
 }

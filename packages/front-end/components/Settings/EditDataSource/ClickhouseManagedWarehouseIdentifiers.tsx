@@ -8,10 +8,8 @@ import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 
-// Read-only identifiers view for JSON-column managed warehouses. Identifiers are
-// derived from the org's attributes (those marked as identifiers); every other
-// attribute is queryable directly from the `attributes` JSON column, so there is
-// nothing to configure here (this replaces the legacy materialized-columns editor).
+// Read-only identifiers view for JSON-column managed warehouses. Identifiers come
+// from the org's attributes; every other attribute is queryable from `attributes`.
 export default function ClickhouseManagedWarehouseIdentifiers({
   dataSource,
 }: {

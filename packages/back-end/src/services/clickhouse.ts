@@ -162,28 +162,18 @@ export async function updateMaterializedColumns({
   }
 }
 
-/**
- * Re-sync a JSON-column managed warehouse after the org's identifiers
- * (hashAttribute attributes) change. Regenerates the datasource's userIdTypes +
- * exposure queries and the `ch_events` fact table's sql/columns/userIdTypes so
- * custom identifiers are aliased out of the `attributes` JSON column.
- *
- * No-op for legacy (materialized-column) warehouses and when no managed
- * warehouse exists for the org.
- */
+// Re-sync a JSON-column managed warehouse after the org's identifiers change:
+// regenerates the datasource userIdTypes/exposure queries and the `ch_events` fact
+// table so custom identifiers are aliased out of `attributes`. No-op for legacy
+// (materialized-column) warehouses or when no managed warehouse exists.
 export async function syncManagedWarehouseIdentifiers(
   context: ReqContext | ApiReqContext,
-  // Pass the freshly-updated schema; context.org may still hold the stale copy
-  // right after an attribute mutation.
+  // Pass the freshly-updated schema; context.org may still be stale post-mutation.
   attributeSchema: SDKAttributeSchema | undefined = context.org.settings
     ?.attributeSchema,
 ): Promise<void> {
-  // Bypass project-read permission: an attribute admin may not have read access
-  // to the warehouse's project, but the sync must still run or ClickHouse / the
-  // fact table would drift from the attribute schema.
-  const datasource = await dangerouslyGetGrowthbookDatasourceBypassPermission(
-    context.org.id,
-  );
+  const datasource =
+    await dangerouslyGetGrowthbookDatasourceBypassPermission(context);
   if (
     !datasource ||
     datasource.type !== "growthbook_clickhouse" ||
@@ -281,11 +271,8 @@ export async function syncManagedWarehouseIdentifiers(
   });
 }
 
-/**
- * Best-effort wrapper used by attribute create/update/delete (internal
- * controller + external REST API). A managed-warehouse sync failure must never
- * fail the underlying attribute change.
- */
+// Best-effort wrapper for attribute create/update/delete (internal + REST API):
+// a managed-warehouse sync failure must never fail the attribute change itself.
 export async function syncManagedWarehouseIdentifiersOnAttributeChange(
   context: ReqContext | ApiReqContext,
   attributeSchema: SDKAttributeSchema | undefined,

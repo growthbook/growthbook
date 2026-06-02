@@ -61,9 +61,8 @@ export interface InitialDatasourceResources {
 function getBuiltInWarehouseResources(
   attributeSchema: SDKAttributeSchema | undefined,
 ): InitialDatasourceResources {
-  // JSON-columns model: standard top-level fields + `attributes`/`properties`
-  // JSON columns are always present; identifiers (hashAttribute attributes) are
-  // exposed as top-level aliases in the fact-table SELECT.
+  // JSON-columns model: standard fields + `attributes`/`properties` JSON columns,
+  // with identifiers exposed as top-level aliases in the fact-table SELECT.
   const columns = generateColumns(
     Object.fromEntries(
       getManagedWarehouseEventsFactTableColumns(attributeSchema).map((c) => [

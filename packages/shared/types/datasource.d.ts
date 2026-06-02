@@ -308,16 +308,11 @@ export type DataSourceSettings = {
 export interface GrowthbookClickhouseSettings extends DataSourceSettings {
   /** When false, the warehouse exists in GrowthBook but ClickHouse was not provisioned yet. */
   hasBeenProvisioned?: boolean;
-  /**
-   * @deprecated Replaced by native ClickHouse JSON columns (`useJsonColumns`).
-   * Retained until all legacy warehouses are migrated; removed in the cleanup pass.
-   */
+  /** @deprecated Replaced by native JSON columns (`useJsonColumns`); kept for legacy warehouses. */
   materializedColumns?: MaterializedColumn[];
   /**
-   * When true, the per-org ClickHouse tables store `attributes`/`properties` as native JSON
-   * columns instead of String + materialized columns. Identifiers (org attributes with
-   * `hashAttribute: true`) are exposed as top-level aliases in the fact table / exposure-query SQL.
-   * New warehouses default to true; legacy warehouses are flipped by the Step 2 migration.
+   * When true, per-org tables store `attributes`/`properties` as native JSON columns
+   * (vs String + materialized columns), with identifiers aliased in the fact-table SQL.
    */
   useJsonColumns?: boolean;
 }
