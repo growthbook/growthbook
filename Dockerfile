@@ -21,8 +21,11 @@ RUN \
   && poetry export -f requirements.txt --output requirements.txt \
   && pip install --no-cache-dir -r requirements.txt \
   && pip install --no-cache-dir dist/*.whl ddtrace==4.3.2 "cryptography>=46.0.6,<47" \
-  && pip uninstall -y poetry poetry-core poetry-plugin-export keyring jaraco.classes setuptools wheel
+  && pip uninstall -y poetry poetry-core poetry-plugin-export keyring jaraco.classes setuptools wheel dulwich
 # cryptography version is specified above to override transitive dependency and fix vulnerability
+# dulwich is a build-time-only poetry dependency (poetry pins dulwich<0.22); it is not used by
+# gbstats at runtime, so we uninstall it alongside poetry to keep it out of the production venv
+# (clears CVE-2026-42305 / GHSA-897w-fcg9-f6xj rather than leaving stale build cruft in the image)
 
 # Build the nodejs app
 FROM node:${NODE_MAJOR}-slim AS nodebuild
