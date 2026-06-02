@@ -440,6 +440,8 @@ export const experimentInterface = z
       .array(z.string())
       .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
       .optional(),
+    /** ID of the attached RampSchedule for this experiment. Set when a ramp is configured. */
+    rampScheduleId: z.string().optional(),
   })
   .strict()
   .merge(experimentAnalysisSettings);
@@ -810,6 +812,12 @@ const apiExperimentShape = z.object({
       date: z.string().meta({ format: "date-time" }),
     })
     .nullable()
+    .optional(),
+  rampScheduleId: z
+    .string()
+    .describe(
+      "ID of the ramp schedule attached to this experiment. Fetch details via GET /experiments/:id/ramp-schedule.",
+    )
     .optional(),
 });
 export const apiExperimentValidator = namedSchema(
@@ -1881,4 +1889,91 @@ export const getExperimentSnapshotValidator = {
   tags: ["snapshots"],
   method: "get" as const,
   path: "/snapshots/:id",
+};
+
+// ---------------------------------------------------------------------------
+// Experiment ramp schedule REST validators
+// ---------------------------------------------------------------------------
+
+export const getExperimentRampScheduleValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({
+      rampSchedule: z.unknown().nullable(),
+    })
+    .strict(),
+  summary: "Get the ramp schedule for an experiment",
+  operationId: "getExperimentRampSchedule",
+  tags: ["experiments"],
+  method: "get" as const,
+  path: "/experiments/:id/ramp-schedule",
+  exampleRequest: { params: { id: "exp_abc123" } },
+};
+
+const experimentRampScheduleActionBody = z
+  .object({
+    reason: z.string().optional(),
+    excludePreviouslyExposedUsers: z.boolean().optional(),
+  })
+  .strict();
+
+export const postExperimentRampScheduleRollbackValidator = {
+  bodySchema: experimentRampScheduleActionBody,
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({
+      rampSchedule: z.unknown().nullable(),
+    })
+    .strict(),
+  summary: "Rollback the experiment ramp schedule",
+  operationId: "postExperimentRampScheduleRollback",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/ramp-schedule/rollback",
+  exampleRequest: {
+    params: { id: "exp_abc123" },
+    body: { reason: "Guardrail metric regressed" },
+  },
+};
+
+export const postExperimentRampSchedulePauseValidator = {
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z.object({ rampSchedule: z.unknown().nullable() }).strict(),
+  summary: "Pause the experiment ramp schedule",
+  operationId: "postExperimentRampSchedulePause",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/ramp-schedule/pause",
+  exampleRequest: { params: { id: "exp_abc123" } },
+};
+
+export const postExperimentRampScheduleResumeValidator = {
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z.object({ rampSchedule: z.unknown().nullable() }).strict(),
+  summary: "Resume the experiment ramp schedule",
+  operationId: "postExperimentRampScheduleResume",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/ramp-schedule/resume",
+  exampleRequest: { params: { id: "exp_abc123" } },
+};
+
+export const postExperimentRampScheduleAdvanceValidator = {
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z.object({ rampSchedule: z.unknown().nullable() }).strict(),
+  summary: "Advance the experiment ramp schedule to the next step",
+  operationId: "postExperimentRampScheduleAdvance",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/ramp-schedule/advance",
+  exampleRequest: { params: { id: "exp_abc123" } },
 };

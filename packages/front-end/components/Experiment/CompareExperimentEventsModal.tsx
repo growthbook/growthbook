@@ -247,6 +247,7 @@ const EXPERIMENT_SECTION_KEYS: Record<
   dismissedWarnings: false,
   holdoutId: false,
   defaultDashboardId: false,
+  rampScheduleId: false,
 };
 
 function sectionKeys(

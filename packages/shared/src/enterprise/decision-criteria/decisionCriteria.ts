@@ -36,7 +36,7 @@ import {
 } from "./constants";
 
 // Evaluate a single rule on a variation result
-// Returns the action if the rule is met, otherwise undefined
+// Returns the action and the metric IDs that triggered it, or undefined
 export function evaluateDecisionRuleOnVariation({
   rule,
   variationStatus,
@@ -49,8 +49,11 @@ export function evaluateDecisionRuleOnVariation({
   goalMetrics: string[];
   guardrailMetrics: string[];
   requireSuperStatSig: boolean;
-}): DecisionCriteriaAction | undefined {
+}): { action: DecisionCriteriaAction; triggeredMetricIds: string[] } | undefined {
   const { conditions, action } = rule;
+
+  // Track which metric IDs matched across all conditions for this rule
+  const allTriggeredMetricIds: string[] = [];
 
   const allConditionsMet = conditions.every((condition) => {
     const desiredStatus =
@@ -68,13 +71,17 @@ export function evaluateDecisionRuleOnVariation({
         : "status";
 
       if (condition.match === "all") {
-        return metrics.every(
+        const matched = metrics.every(
           (m) => metricResults?.[m]?.[fieldToCheck] === desiredStatus,
         );
+        if (matched) allTriggeredMetricIds.push(...metrics);
+        return matched;
       } else if (condition.match === "any") {
-        return metrics.some(
+        const matching = metrics.filter(
           (m) => metricResults?.[m]?.[fieldToCheck] === desiredStatus,
         );
+        if (matching.length > 0) allTriggeredMetricIds.push(...matching);
+        return matching.length > 0;
       } else if (condition.match === "none") {
         return metrics.every(
           (m) => metricResults?.[m]?.[fieldToCheck] !== desiredStatus,
@@ -85,13 +92,17 @@ export function evaluateDecisionRuleOnVariation({
       const metricResults = variationStatus.guardrailMetrics;
 
       if (condition.match === "all") {
-        return metrics.every(
+        const matched = metrics.every(
           (m) => metricResults?.[m]?.status === desiredStatus,
         );
+        if (matched) allTriggeredMetricIds.push(...metrics);
+        return matched;
       } else if (condition.match === "any") {
-        return metrics.some(
+        const matching = metrics.filter(
           (m) => metricResults?.[m]?.status === desiredStatus,
         );
+        if (matching.length > 0) allTriggeredMetricIds.push(...matching);
+        return matching.length > 0;
       } else if (condition.match === "none") {
         return metrics.every(
           (m) => metricResults?.[m]?.status !== desiredStatus,
@@ -101,7 +112,7 @@ export function evaluateDecisionRuleOnVariation({
   });
 
   if (allConditionsMet) {
-    return action;
+    return { action, triggeredMetricIds: allTriggeredMetricIds };
   }
 
   return undefined;
@@ -134,20 +145,21 @@ export function getVariationDecisions({
   resultsStatus.variations.forEach((variation) => {
     let decisionReached = false;
     for (const rule of rules) {
-      const action = evaluateDecisionRuleOnVariation({
+      const result = evaluateDecisionRuleOnVariation({
         rule,
         variationStatus: variation,
         goalMetrics,
         guardrailMetrics,
         requireSuperStatSig: false,
       });
-      if (action) {
+      if (result) {
         results.push({
           variation: {
             variationId: variation.variationId,
             decidingRule: rule,
+            triggeredMetricIds: result.triggeredMetricIds,
           },
-          decisionCriteriaAction: action,
+          decisionCriteriaAction: result.action,
         });
         decisionReached = true;
         break;
@@ -206,20 +218,21 @@ export function getEarlyStoppingVariationDecisions({
   resultsStatus.variations.forEach((variation) => {
     let decisionReached = false;
     for (const rule of rules) {
-      const action = evaluateDecisionRuleOnVariation({
+      const result = evaluateDecisionRuleOnVariation({
         rule,
         variationStatus: variation,
         goalMetrics,
         guardrailMetrics,
         requireSuperStatSig: true,
       });
-      if (action) {
+      if (result) {
         results.push({
           variation: {
             variationId: variation.variationId,
             decidingRule: rule,
+            triggeredMetricIds: result.triggeredMetricIds,
           },
-          decisionCriteriaAction: action,
+          decisionCriteriaAction: result.action,
         });
         decisionReached = true;
         break;
@@ -396,6 +409,78 @@ export function getDecisionFrameworkStatus({
   }
 }
 
+/**
+ * Mid-ramp EDF evaluation. Uses the experiment's own decision criteria with
+ * requireSuperStatSig=true (super-stat-sig threshold). Returns review-now,
+ * rollback-now, or ship-now if any variation triggers a rule; otherwise undefined.
+ *
+ * This is called at every ramp step evaluation and is NOT gated on power
+ * or sequential testing having been reached.
+ */
+export function getMidRampDecisionStatus({
+  resultsStatus,
+  decisionCriteria,
+  goalMetrics,
+  guardrailMetrics,
+}: {
+  resultsStatus: ExperimentAnalysisSummaryResultsStatus;
+  decisionCriteria: DecisionCriteriaData;
+  goalMetrics: string[];
+  guardrailMetrics: string[];
+}): ExperimentResultStatusData | undefined {
+  const variationDecisions = getEarlyStoppingVariationDecisions({
+    resultsStatus,
+    decisionCriteria,
+    goalMetrics,
+    guardrailMetrics,
+  });
+
+  const allRollbackNow =
+    variationDecisions.length > 0 &&
+    variationDecisions.every((d) => d.decisionCriteriaAction === "rollback");
+  if (allRollbackNow) {
+    return {
+      status: "rollback-now",
+      variations: variationDecisions.map(({ variation }) => variation),
+      sequentialUsed: false,
+      powerReached: false,
+      tooltip: "All variations should be rolled back based on current data.",
+    };
+  }
+
+  const reviewVariations = variationDecisions.filter(
+    (d) => d.decisionCriteriaAction === "review",
+  );
+  if (reviewVariations.length > 0) {
+    return {
+      status: "review-now",
+      variations: reviewVariations.map(({ variation }) => variation),
+    };
+  }
+
+  const shipVariations = variationDecisions.filter(
+    (d) => d.decisionCriteriaAction === "ship",
+  );
+  const onlyOneShip = shipVariations.length === 1;
+  const numberOfRollbackVariations = variationDecisions.filter(
+    (d) => d.decisionCriteriaAction === "rollback",
+  ).length;
+  const restRollback =
+    numberOfRollbackVariations === variationDecisions.length - 1;
+
+  if (onlyOneShip && restRollback) {
+    return {
+      status: "ship-now",
+      variations: shipVariations.map(({ variation }) => variation),
+      sequentialUsed: false,
+      powerReached: false,
+      tooltip: "A test variation is a clear winner based on current data.",
+    };
+  }
+
+  return undefined;
+}
+
 function getDaysLeftStatus({
   daysNeeded,
 }: {
@@ -415,10 +500,21 @@ export function getExperimentResultStatus({
   experimentData,
   healthSettings,
   decisionCriteria,
+  noTrafficGracePeriodHours,
+  monitoringStartedAt,
 }: {
   experimentData: ExperimentDataForStatus | ExperimentDataForStatusStringDates;
   healthSettings: ExperimentHealthSettings;
   decisionCriteria: DecisionCriteriaData;
+  /**
+   * Optional: for ramp-monitored experiments, suppress "no-data" until this
+   * many hours have elapsed since monitoringStartedAt. This gives the experiment
+   * time to accumulate traffic before the no-data action fires.
+   * Defaults to 0 (no grace period) when not provided, preserving existing behavior.
+   */
+  noTrafficGracePeriodHours?: number;
+  /** Timestamp when ramp monitoring started. Required when noTrafficGracePeriodHours is set. */
+  monitoringStartedAt?: Date | string | null;
 }): ExperimentResultStatusData | undefined {
   const unhealthyData: ExperimentUnhealthyData = {};
   const healthSummary = experimentData.analysisSummary?.health;
@@ -429,6 +525,14 @@ export function getExperimentResultStatus({
     lastPhase?.dateStarted &&
     daysBetween(lastPhase.dateStarted, new Date()) <
       healthSettings.experimentMinLengthDays;
+
+  // Grace period check: suppress no-data until the grace period has elapsed
+  const withinNoTrafficGracePeriod =
+    noTrafficGracePeriodHours != null &&
+    noTrafficGracePeriodHours > 0 &&
+    monitoringStartedAt != null &&
+    differenceInHours(new Date(), new Date(monitoringStartedAt)) <
+      noTrafficGracePeriodHours;
 
   const withinFirstDay = lastPhase?.dateStarted
     ? daysBetween(lastPhase.dateStarted, new Date()) < 1
@@ -523,8 +627,12 @@ export function getExperimentResultStatus({
     };
   }
 
-  // 2. Show no data if no data is present
-  if (healthSummary?.totalUsers === 0 && !withinFirstDay) {
+  // 2. Show no data if no data is present (suppressed during grace period)
+  if (
+    healthSummary?.totalUsers === 0 &&
+    !withinFirstDay &&
+    !withinNoTrafficGracePeriod
+  ) {
     return {
       status: "no-data",
     };

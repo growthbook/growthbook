@@ -73,16 +73,113 @@ export const rampMonitoringConfig = z.object({
 });
 export type RampMonitoringConfig = z.infer<typeof rampMonitoringConfig>;
 
-export const rampStepAction = z.object({
+export const featureRuleStepAction = z.object({
   targetType: z.literal("feature-rule"),
   targetId: z.string(),
   patch: featureRulePatch,
 });
+export type FeatureRuleStepAction = z.infer<typeof featureRuleStepAction>;
+
+/** Sparse patch applied to an experiment entity by a ramp step. */
+export const experimentPatch = z.object({
+  coverage: z.number().min(0).max(1).nullish(),
+  variationWeights: z.array(z.number().min(0).max(1)).nullish(),
+  /**
+   * Whether this step starts a new experiment phase.
+   * true  = full phase change (rerandomization, new seed, analysis window reset)
+   * false = simple in-place coverage / targeting update within the current phase
+   */
+  newPhase: z.boolean().optional(),
+});
+export type ExperimentPatch = z.infer<typeof experimentPatch>;
+
+export const experimentStepAction = z.object({
+  targetType: z.literal("experiment"),
+  targetId: z.string(),
+  patch: experimentPatch,
+});
+export type ExperimentStepAction = z.infer<typeof experimentStepAction>;
+
+/** Discriminated union of all supported ramp step action types. */
+export const rampStepAction = z.discriminatedUnion("targetType", [
+  featureRuleStepAction,
+  experimentStepAction,
+]);
 export type RampStepAction = z.infer<typeof rampStepAction>;
+
+// ---------------------------------------------------------------------------
+// Experiment-level monitoring behavior config
+// ---------------------------------------------------------------------------
+
+/**
+ * How the ramp responds to EDF verdicts. The thresholds that produce each
+ * verdict are configured in the experiment's decision criteria — this config
+ * only governs the ramp's response.
+ */
+export const experimentMonitoringBehavior = z.object({
+  /** "hold" = block next step + prompt user (default). "rollback" = auto-rollback. */
+  onRollbackNow: z.enum(["hold", "rollback"]).optional(),
+  /** "advance-and-prompt" = advance + surface CTA (default). "ship" = auto-execute end strategy. */
+  onShipNow: z.enum(["advance-and-prompt", "ship"]).optional(),
+  /** "hold" = block + prompt (default). "rollback" = auto-rollback. */
+  onReviewNow: z.enum(["hold", "rollback"]).optional(),
+  srmAction: experimentHealthAction.optional(),
+  multipleExposureAction: experimentHealthAction.optional(),
+  covariateImbalanceAction: experimentHealthAction.optional(),
+  noTrafficAction: experimentHealthAction.optional(),
+  noTrafficGracePeriodHours: z.number().positive().nullish(),
+});
+export type ExperimentMonitoringBehavior = z.infer<
+  typeof experimentMonitoringBehavior
+>;
+
+// ---------------------------------------------------------------------------
+// Experiment end strategy
+// ---------------------------------------------------------------------------
+
+export const experimentEndStrategyTypeArray = [
+  "none",
+  "soft",
+  "soft-edf",
+  "hard-planned",
+] as const;
+export type ExperimentEndStrategyType =
+  (typeof experimentEndStrategyTypeArray)[number];
+
+export const experimentEndStrategy = z
+  .object({
+    type: z.enum(experimentEndStrategyTypeArray),
+    date: z.date().optional(),
+    plannedVariationId: z.string().optional(),
+    minimumRuntimeDays: z.number().positive().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (
+      (data.type === "soft" ||
+        data.type === "soft-edf" ||
+        data.type === "hard-planned") &&
+      !data.date
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `End strategy type "${data.type}" requires a date.`,
+        path: ["date"],
+      });
+    }
+    if (data.type === "hard-planned" && !data.plannedVariationId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'End strategy type "hard-planned" requires a plannedVariationId.',
+        path: ["plannedVariationId"],
+      });
+    }
+  });
+export type ExperimentEndStrategy = z.infer<typeof experimentEndStrategy>;
 
 export const rampTarget = z.object({
   id: z.string(),
-  entityType: z.enum(["feature"]), // TODO v2: add "experiment"
+  entityType: z.enum(["feature", "experiment"]),
   entityId: z.string(),
   ruleId: z.string().nullish(),
   // Deprecated pre-v2 rule disambiguator.
@@ -176,14 +273,18 @@ export type RampEvent = z.infer<typeof rampEvent>;
 export const rampScheduleValidator = baseSchema
   .extend({
     name: z.string(),
-    entityType: z.enum(["feature"]), // TODO v2: add "experiment"
+    entityType: z.enum(["feature", "experiment"]),
     entityId: z.string(),
     targets: z.array(rampTarget),
-    // Restores the controlled rules to their pre-ramp state when rolling back to start.
+    // Restores the controlled entity to its pre-ramp state when rolling back to start.
     startActions: z.array(rampStepAction).optional(),
     steps: z.array(rampStep),
     // Applied on top of accumulated step patches when the ramp completes.
     endActions: z.array(rampStepAction).optional(),
+
+    // Experiment-ramp-only fields (ignored for feature ramps)
+    monitoringBehavior: experimentMonitoringBehavior.optional(),
+    endStrategy: experimentEndStrategy.optional(),
     // When set, the rule stays disabled until this activation date.
     startDate: z.date().nullish(),
     cutoffDate: z.date().nullish(),
@@ -244,6 +345,9 @@ export const rampScheduleValidator = baseSchema
       const step = data.steps[i];
       if (!step.monitored) continue;
       for (const action of step.actions) {
+        // Coverage constraints only apply to feature-rule actions (safe rollout bucketing model).
+        // Experiment steps can use full 0–1 coverage range.
+        if (action.targetType !== "feature-rule") continue;
         if (action.patch.coverage === 0) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
@@ -353,9 +457,14 @@ export const TEMPLATE_STRUCTURAL_KEYS = [
 ] as const;
 
 const templateFeatureRulePatch = featureRulePatch.omit({ force: true });
-const templateRampStepAction = rampStepAction.extend({
+const templateFeatureRuleStepAction = featureRuleStepAction.extend({
   patch: templateFeatureRulePatch,
 });
+// Templates support both feature-rule and experiment step actions
+const templateRampStepAction = z.discriminatedUnion("targetType", [
+  templateFeatureRuleStepAction,
+  experimentStepAction,
+]);
 const templateRampStep = rampStep.extend({
   actions: z.array(templateRampStepAction),
 });
@@ -372,11 +481,15 @@ export type TemplateEndPatch = z.infer<typeof templateEndPatchValidator>;
 
 export const rampScheduleTemplateValidator = baseSchema.extend({
   name: z.string(),
+  /** Discriminator matching the entity type this template applies to. Defaults to "feature" for legacy templates. */
+  entityType: z.enum(["feature", "experiment"]).optional(),
   steps: z.array(templateRampStep),
   endPatch: templateEndPatchValidator.optional(),
   official: z.boolean().optional(),
   lockdownConfig: lockdownConfigSchema.optional(),
   monitoringConfig: rampMonitoringConfig.nullish(),
+  monitoringBehavior: experimentMonitoringBehavior.optional(),
+  endStrategy: experimentEndStrategy.optional(),
 });
 export type RampScheduleTemplateInterface = z.infer<
   typeof rampScheduleTemplateValidator
@@ -431,7 +544,7 @@ export const apiRampScheduleInterface = namedSchema(
   apiBaseSchema.extend({
     id: z.string().describe("Unique identifier (rs_ prefix)"),
     name: z.string(),
-    entityType: z.enum(["feature"]),
+    entityType: z.enum(["feature", "experiment"]),
     entityId: z.string(),
     targets: z.array(rampTarget).describe("Controlled entity references"),
     startActions: z

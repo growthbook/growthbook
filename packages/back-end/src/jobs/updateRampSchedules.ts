@@ -168,7 +168,11 @@ export const advanceSingleRampSchedule = async (
         return;
       }
 
-      current = await ensureSafeRolloutForMonitoredRamp(context, current);
+      // SafeRollout is only used for feature ramps. Experiment ramps read
+      // analysisSummary directly from the experiment document.
+      if (current.entityType !== "experiment") {
+        current = await ensureSafeRolloutForMonitoredRamp(context, current);
+      }
 
       const decision = await evaluateCurrentStep(context, current, now);
       const result = await applyRampEvaluationDecision(
@@ -216,7 +220,7 @@ export const advanceSingleRampSchedule = async (
           : {}),
       },
     );
-    if (errorSchedule) {
+    if (errorSchedule && errorSchedule.entityType !== "experiment") {
       try {
         await syncLinkedSafeRolloutForRampState(context, updated);
       } catch (syncErr) {

@@ -137,6 +137,7 @@ import { safeRolloutRouter } from "./routers/safe-rollout/safe-rollout.router";
 import { holdoutRouter } from "./routers/holdout/holdout.router";
 import { rampScheduleRouter } from "./routers/ramp-schedule/ramp-schedule.router";
 import { rampScheduleTemplateRouter } from "./routers/ramp-schedule-template/ramp-schedule-template.router";
+import { experimentRampScheduleRouter } from "./routers/experiment-ramp-schedule/experiment-ramp-schedule.router";
 import { runStatsEngine } from "./services/stats";
 import { dashboardsRouter } from "./routers/dashboards/dashboards.router";
 import { customHooksRouter } from "./routers/custom-hooks/custom-hooks.router";
@@ -813,6 +814,9 @@ app.use("/ramp-schedule", rampScheduleRouter);
 
 // Ramp Schedule Templates
 app.use("/ramp-schedule-templates", rampScheduleTemplateRouter);
+
+// Experiment Ramp Schedules (experiment-scoped; not exposed on /ramp-schedule)
+app.use("/experiment/:id/ramp-schedule", experimentRampScheduleRouter);
 
 // Holdouts
 app.use("/holdout", holdoutRouter);

@@ -4,6 +4,7 @@ import {
   apiRampScheduleInterface,
   experimentHealthAction,
   featureRulePatch,
+  FeatureRuleStepAction,
   RampScheduleInterface,
   RampScheduleTemplateInterface,
   RampStepAction,
@@ -130,11 +131,11 @@ const postRampScheduleValidator = {
     }),
 };
 
-function normalizeAction(action: PostBodyAction): RampStepAction {
+function normalizeAction(action: PostBodyAction): FeatureRuleStepAction {
   return {
     targetType: "feature-rule" as const,
     targetId: action.targetId ?? "",
-    patch: action.patch as RampStepAction["patch"],
+    patch: action.patch as z.infer<typeof featureRulePatch>,
   };
 }
 
@@ -143,7 +144,7 @@ function injectTarget(
   action: PostBodyAction,
   targetId: string,
   ruleId: string,
-): RampStepAction {
+): FeatureRuleStepAction {
   return {
     targetType: "feature-rule" as const,
     targetId,

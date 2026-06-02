@@ -52,6 +52,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import HelperText from "@/ui/HelperText";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
+import RampScheduleStatusBanner from "@/components/Experiment/RampScheduleStatusBanner";
 import StartExperimentModal from "@/components/Experiment/TabbedPage/StartExperimentModal";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import PhaseSelector from "@/components/Experiment/PhaseSelector";
@@ -1195,6 +1196,11 @@ export default function ExperimentHeader({
           editTags={editTags}
         />
 
+        {experiment.rampScheduleId ? (
+          <Box pt="1">
+            <RampScheduleStatusBanner experiment={experiment} mutate={mutate} />
+          </Box>
+        ) : null}
         {runningExperimentDecisionBanner ? (
           <Box pt="1" pb="1">
             {runningExperimentDecisionBanner}
