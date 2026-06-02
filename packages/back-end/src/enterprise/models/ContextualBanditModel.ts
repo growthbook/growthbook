@@ -1,9 +1,12 @@
 import {
+  ApiContextualBanditInterface,
   ContextualBanditInterface,
   contextualBanditValidator,
   ExperimentInterface,
   LeafWeight,
 } from "shared/validators";
+import { resolveOwnerEmails } from "back-end/src/services/owner";
+import { contextualBanditApiSpec } from "back-end/src/api/specs/contextual-bandit.spec";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -23,6 +26,10 @@ const BaseClass = MakeModelClass({
   defaultValues: {
     holdoutPercent: 0,
     disableStickyBucketing: false,
+  },
+  apiConfig: {
+    modelKey: "contextualBandits",
+    openApiSpec: contextualBanditApiSpec,
   },
 });
 
@@ -107,6 +114,103 @@ function backfillFromExperiment(
 }
 
 export class ContextualBanditModel extends BaseClass {
+  /**
+   * Convert an internal CB doc to the REST API response shape. The API
+   * surface is intentionally a curated subset of `ContextualBanditInterface`
+   * so internal-only state (linkedFeatures, pendingFeatureDrafts, snapshot
+   * scheduling, the legacy `experiment` FK) is not exposed.
+   */
+  protected toApiInterface(
+    doc: ContextualBanditInterface,
+  ): ApiContextualBanditInterface {
+    return {
+      id: doc.id,
+      dateCreated: doc.dateCreated.toISOString(),
+      dateUpdated: doc.dateUpdated.toISOString(),
+      name: doc.name,
+      description: doc.description,
+      hypothesis: doc.hypothesis,
+      project: doc.project,
+      owner: doc.owner,
+      tags: doc.tags,
+      archived: doc.archived,
+      customFields: doc.customFields,
+      status: doc.status,
+      dateStarted: doc.dateStarted?.toISOString(),
+      dateStopped: doc.dateStopped?.toISOString(),
+      trackingKey: doc.trackingKey,
+      hashAttribute: doc.hashAttribute,
+      fallbackAttribute: doc.fallbackAttribute,
+      hashVersion: doc.hashVersion,
+      disableStickyBucketing: doc.disableStickyBucketing,
+      variations: doc.variations.map((v) => ({
+        id: v.id,
+        key: v.key,
+        name: v.name,
+        description: v.description,
+      })),
+      datasource: doc.datasource,
+      exposureQueryId: doc.exposureQueryId,
+      segment: doc.segment,
+      queryFilter: doc.queryFilter,
+      goalMetrics: doc.goalMetrics,
+      secondaryMetrics: doc.secondaryMetrics,
+      guardrailMetrics: doc.guardrailMetrics,
+      activationMetric: doc.activationMetric,
+      attributionModel: doc.attributionModel,
+      skipPartialData: doc.skipPartialData,
+      regressionAdjustmentEnabled: doc.regressionAdjustmentEnabled,
+      phases: doc.phases.map((p) => ({
+        dateStarted: p.dateStarted.toISOString(),
+        dateEnded: p.dateEnded ? p.dateEnded.toISOString() : p.dateEnded,
+        coverage: p.coverage,
+        condition: p.condition,
+        seed: p.seed,
+        variationWeights: p.variationWeights,
+        currentLeafWeights: p.currentLeafWeights,
+      })),
+      contextualAttributes: doc.contextualAttributes,
+      decisionMetric: doc.decisionMetric,
+      maxContexts: doc.maxContexts,
+      treeModel: doc.treeModel,
+      minUsersPerLeaf: doc.minUsersPerLeaf,
+      maxLeaves: doc.maxLeaves,
+      holdoutPercent: doc.holdoutPercent,
+      canonicalFormVersion: doc.canonicalFormVersion,
+    };
+  }
+
+  /**
+   * Gate the REST surface on the commercial feature flag. The internal
+   * GrowthBook app is allowed to read CBs even on plans without the
+   * feature (the front-end UI hides the workflow itself), but external
+   * customers shouldn't be able to author them.
+   */
+  protected hasPremiumFeature(): boolean {
+    return this.context.hasPremiumFeature("contextual-bandits");
+  }
+
+  /**
+   * List with optional `projectId` / `datasourceId` filters. Matches the
+   * pattern used by ExperimentTemplatesModel — derives the query from the
+   * spec's `apiListContextualBanditsValidator` schema.
+   */
+  public override async handleApiList(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiList"]>[0],
+  ): Promise<ApiContextualBanditInterface[]> {
+    const { projectId, datasourceId } = req.query;
+    const filter: Record<string, string> = {};
+    if (projectId) filter.project = projectId;
+    if (datasourceId) filter.datasource = datasourceId;
+    const docs = Object.keys(filter).length
+      ? await this._find(filter)
+      : await this.getAll();
+    return resolveOwnerEmails(
+      docs.map((doc) => this.toApiInterface(doc)),
+      this.context,
+    );
+  }
+
   /**
    * Migration: backfill required CB-native fields with safe defaults so a
    * legacy CB doc (FK-only, no ownership/lifecycle data) validates against
