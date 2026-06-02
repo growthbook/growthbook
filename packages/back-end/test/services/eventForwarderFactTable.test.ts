@@ -4,15 +4,18 @@ import {
   ensureEventForwarderEventsFactTable,
   deleteEventForwarderEventsFactTableForDatasource,
   queueEventForwarderEventsFactTablesColumnsRefresh,
+  syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange,
 } from "back-end/src/services/eventForwarderFactTable";
 import * as DataSourceModel from "back-end/src/models/DataSourceModel";
 import * as FactTableModel from "back-end/src/models/FactTableModel";
 import * as EventForwarderConfig from "back-end/src/services/eventForwarderConfig";
+import * as DataSourceService from "back-end/src/services/datasource";
 import * as RefreshFactTableColumns from "back-end/src/jobs/refreshFactTableColumns";
 
 jest.mock("back-end/src/models/DataSourceModel");
 jest.mock("back-end/src/models/FactTableModel");
 jest.mock("back-end/src/services/eventForwarderConfig");
+jest.mock("back-end/src/services/datasource");
 jest.mock("back-end/src/jobs/refreshFactTableColumns");
 
 const mockedGetDataSourceById =
@@ -30,9 +33,17 @@ const mockedDeleteFactTable =
   FactTableModel.deleteFactTable as jest.MockedFunction<
     typeof FactTableModel.deleteFactTable
   >;
+const mockedUpdateEventForwarderFactTableMetadata =
+  FactTableModel.updateEventForwarderFactTableMetadata as jest.MockedFunction<
+    typeof FactTableModel.updateEventForwarderFactTableMetadata
+  >;
 const mockedDecrypt =
   EventForwarderConfig.decryptEventForwarderConfigModel as jest.MockedFunction<
     typeof EventForwarderConfig.decryptEventForwarderConfigModel
+  >;
+const mockedGetSourceIntegrationObject =
+  DataSourceService.getSourceIntegrationObject as jest.MockedFunction<
+    typeof DataSourceService.getSourceIntegrationObject
   >;
 const mockedGetSinkType =
   EventForwarderConfig.getEventForwarderSinkTypeForDatasource as jest.MockedFunction<
@@ -41,6 +52,10 @@ const mockedGetSinkType =
 const mockedQueueFactTableColumnsRefresh =
   RefreshFactTableColumns.queueFactTableColumnsRefresh as jest.MockedFunction<
     typeof RefreshFactTableColumns.queueFactTableColumnsRefresh
+  >;
+const mockedQueueFactTableColumnsRefreshAt =
+  RefreshFactTableColumns.queueFactTableColumnsRefreshAt as jest.MockedFunction<
+    typeof RefreshFactTableColumns.queueFactTableColumnsRefreshAt
   >;
 
 function datasource(
@@ -146,11 +161,14 @@ describe("ensureEventForwarderEventsFactTable", () => {
         userIdTypes: ["user_id"],
         columns: [
           {
-            column: "user_id",
-            name: "user_id",
+            column: "attributes",
+            name: "attributes",
             description: "",
             numberFormat: "",
-            datatype: "string",
+            datatype: "json",
+            jsonFields: {
+              user_id: { datatype: "string" },
+            },
           },
         ],
       }),
@@ -259,6 +277,93 @@ describe("queueEventForwarderEventsFactTablesColumnsRefresh", () => {
     await queueEventForwarderEventsFactTablesColumnsRefresh(ctx as never);
 
     expect(mockedQueueFactTableColumnsRefresh).not.toHaveBeenCalled();
+  });
+});
+
+describe("syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("updates managed fact table attribute jsonFields and queues delayed refresh", async () => {
+    const ctx = context();
+    ctx.models.eventForwarderConfigs.getAll.mockResolvedValue([
+      {
+        datasourceId: "ds_1",
+        sinkType: "bigquery",
+      },
+    ]);
+
+    const ds = datasource({
+      settings: {
+        userIdTypes: [{ userIdType: "user_id", description: "" }],
+      },
+      projects: ["proj_1"],
+    });
+    const ft = eventsFactTable({
+      columns: [
+        {
+          column: "attributes",
+          name: "attributes",
+          description: "",
+          numberFormat: "",
+          datatype: "json",
+          jsonFields: {
+            user_id: { datatype: "string" },
+          },
+          dateCreated: new Date(),
+          dateUpdated: new Date(),
+          deleted: false,
+        },
+      ],
+    });
+
+    mockedGetDataSourceById.mockResolvedValue(ds);
+    mockedGetFactTable.mockResolvedValue(ft);
+    mockedGetSourceIntegrationObject.mockReturnValue({
+      params: {
+        defaultProject: "my-project",
+      },
+    } as never);
+    mockedDecrypt.mockReturnValue({
+      dataset: "analytics_123",
+      tableName: "gb_events",
+      serviceAccountKey: "{}",
+    });
+
+    await syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange(
+      ctx as never,
+      [
+        { property: "user_id", datatype: "string", hashAttribute: true },
+        { property: "age", datatype: "number" },
+        { property: "other_project", datatype: "string", projects: ["proj_2"] },
+      ],
+    );
+
+    expect(mockedUpdateEventForwarderFactTableMetadata).toHaveBeenCalledWith(
+      ft,
+      {
+        columns: [
+          expect.objectContaining({
+            column: "attributes",
+            name: "attributes",
+            description: "",
+            numberFormat: "",
+            datatype: "json",
+            jsonFields: {
+              user_id: { datatype: "string" },
+              age: { datatype: "number" },
+            },
+          }),
+        ],
+        sql: expect.stringContaining("`attributes`.`age` AS age"),
+      },
+      ctx,
+    );
+    expect(mockedQueueFactTableColumnsRefreshAt).toHaveBeenCalledWith(
+      ft,
+      expect.any(Date),
+    );
   });
 });
 

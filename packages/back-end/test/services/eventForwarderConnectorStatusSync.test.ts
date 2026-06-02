@@ -27,7 +27,6 @@ function efConfig(
   overrides: Partial<{
     status: string;
     initialWarehouseSyncQueued: boolean;
-    initialGbUpdatePingSent: boolean;
   }> = {},
 ) {
   return {
@@ -42,7 +41,6 @@ function efConfig(
     schemaId: 10,
     connectorName: "connector_1",
     initialWarehouseSyncQueued: undefined,
-    initialGbUpdatePingSent: undefined,
     ...overrides,
   };
 }
@@ -131,21 +129,6 @@ describe("syncEventForwarderStatusFromLicenseServer", () => {
     await syncEventForwarderStatusFromLicenseServer(
       context,
       efConfig({ status: "ready", initialWarehouseSyncQueued: true }) as never,
-    );
-
-    expect(warehouseSyncMock).not.toHaveBeenCalled();
-  });
-
-  it("skips initial warehouse sync when legacy ping flag is set", async () => {
-    const update = jest.fn().mockResolvedValue(undefined);
-    const context = {
-      org: { id: "org1" },
-      models: { eventForwarderConfigs: { update } },
-    } as never;
-
-    await syncEventForwarderStatusFromLicenseServer(
-      context,
-      efConfig({ status: "ready", initialGbUpdatePingSent: true }) as never,
     );
 
     expect(warehouseSyncMock).not.toHaveBeenCalled();

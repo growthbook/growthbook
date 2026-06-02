@@ -1,12 +1,17 @@
 import type { ExposureQuery } from "shared/types/datasource";
 import {
   buildBigQueryEventForwarderTableReference,
+  buildEventForwarderNestedAttributeValueSql,
   buildSnowflakeEventForwarderTableReference,
   EVENT_FORWARDER_AVRO_PARTITION_FIELD,
 } from "./event-forwarder-fact-table";
 import { normalizeSnowflakeTableNameForEventForwarder } from "./snowflake-table-name";
 
 export const EVENT_FORWARDER_EXPERIMENT_VIEWED_TABLE = "experiment_viewed";
+
+function quoteBigQueryIdentifier(identifier: string): string {
+  return `\`${identifier}\``;
+}
 
 export type BuildEventForwarderExperimentViewedTableRefParams =
   | {
@@ -40,6 +45,20 @@ export function buildEventForwarderExperimentViewedTableReference(
   );
 }
 
+export function buildEventForwarderAttributeValueSql({
+  sinkType,
+  userIdType,
+}: {
+  sinkType: "bigquery" | "snowflake";
+  userIdType: string;
+}): string {
+  return buildEventForwarderNestedAttributeValueSql({
+    sinkType,
+    attributeName: userIdType,
+    castSnowflakeToString: true,
+  });
+}
+
 export function buildEventForwarderExposureQuerySql({
   sinkType,
   tableRef,
@@ -49,10 +68,15 @@ export function buildEventForwarderExposureQuerySql({
   tableRef: string;
   userIdType: string;
 }): string {
+  const attributeValueSql = buildEventForwarderAttributeValueSql({
+    sinkType,
+    userIdType,
+  });
+
   if (sinkType === "bigquery") {
-    const quotedId = `\`${userIdType}\``;
+    const quotedId = quoteBigQueryIdentifier(userIdType);
     return `SELECT
-  ${quotedId} AS ${quotedId},
+  ${attributeValueSql} AS ${quotedId},
   timestamp AS timestamp,
   experiment_id AS experiment_id,
   variation_id AS variation_id
@@ -61,7 +85,7 @@ WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{end
   }
 
   return `SELECT
-  ${userIdType.toUpperCase()} AS ${userIdType},
+  ${attributeValueSql} AS ${userIdType},
   TIMESTAMP AS timestamp,
   EXPERIMENT_ID AS experiment_id,
   VARIATION_ID AS variation_id

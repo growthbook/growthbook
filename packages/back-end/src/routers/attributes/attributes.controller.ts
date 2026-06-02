@@ -12,11 +12,9 @@ import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { yieldEventLoop } from "back-end/src/util/yield";
-import { syncEventForwarderSchemasAfterAttributeSchemaChange } from "back-end/src/services/eventForwarderProvisioning";
 import { hasAnyEventForwarderConfig } from "back-end/src/services/eventForwarderConfig";
 import { syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema } from "back-end/src/services/eventForwarderUserIdTypes";
-import { queueEventForwarderEventsFactTablesColumnsRefresh } from "back-end/src/services/eventForwarderFactTable";
-
+import { syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange } from "back-end/src/services/eventForwarderFactTable";
 export const postAttribute = async (
   req: AuthRequest<SDKAttribute>,
   res: Response<{ status: number }>,
@@ -53,9 +51,6 @@ export const postAttribute = async (
     },
   });
 
-  // Update the Confluent Schema Registry for orgs with event forwarder configs.
-  // Uses the updated schema so the new attribute is included in the registration.
-  // Errors are recorded on the EventForwarderConfig record and do not fail this request.
   if (await hasAnyEventForwarderConfig(context)) {
     if (newAttribute.hashAttribute) {
       await syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema(
@@ -63,7 +58,7 @@ export const postAttribute = async (
         updatedAttributeSchema,
       );
     }
-    await syncEventForwarderSchemasAfterAttributeSchemaChange(
+    await syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange(
       context,
       updatedAttributeSchema,
     );
@@ -94,6 +89,7 @@ export const putAttribute = async (
   const { org } = context;
 
   const attributeSchema = org.settings?.attributeSchema || [];
+  const hasEventForwarder = await hasAnyEventForwarderConfig(context);
 
   // If the name is being changed, we need to access the attribute via its previous name
   const index = attributeSchema.findIndex(
@@ -172,7 +168,10 @@ export const putAttribute = async (
       attributeSchema[index],
     )
   ) {
-    await queueEventForwarderEventsFactTablesColumnsRefresh(context);
+    await syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange(
+      context,
+      attributeSchema,
+    );
   }
 
   await req.audit({

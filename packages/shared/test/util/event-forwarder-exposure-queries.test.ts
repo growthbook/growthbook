@@ -1,4 +1,5 @@
 import {
+  buildEventForwarderAttributeValueSql,
   buildEventForwarderExperimentViewedTableReference,
   buildEventForwarderExposureQuerySql,
   EVENT_FORWARDER_EXPERIMENT_VIEWED_TABLE,
@@ -33,6 +34,35 @@ describe("event-forwarder-exposure-queries table reference", () => {
   });
 });
 
+describe("buildEventForwarderAttributeValueSql", () => {
+  it("reads hash ids from BigQuery STRUCT attributes", () => {
+    expect(
+      buildEventForwarderAttributeValueSql({
+        sinkType: "bigquery",
+        userIdType: "user_id",
+      }),
+    ).toBe("`attributes`.`user_id`");
+  });
+
+  it("reads hash ids from Snowflake VARIANT attributes with quoted paths", () => {
+    expect(
+      buildEventForwarderAttributeValueSql({
+        sinkType: "snowflake",
+        userIdType: "device_id",
+      }),
+    ).toBe('ATTRIBUTES:"device_id"::STRING');
+  });
+
+  it("sanitizes property names to match Avro nested record fields", () => {
+    expect(
+      buildEventForwarderAttributeValueSql({
+        sinkType: "snowflake",
+        userIdType: "user-id",
+      }),
+    ).toBe('ATTRIBUTES:"user_id"::STRING');
+  });
+});
+
 describe("buildEventForwarderExposureQuerySql", () => {
   const tableRef = "`proj`.`ds`.`experiment_viewed`";
 
@@ -43,7 +73,7 @@ describe("buildEventForwarderExposureQuerySql", () => {
       userIdType: "user_id",
     });
 
-    expect(sql).toContain("`user_id` AS `user_id`");
+    expect(sql).toContain("`attributes`.`user_id` AS `user_id`");
     expect(sql).toContain("experiment_id AS experiment_id");
     expect(sql).toContain(`FROM ${tableRef}`);
     expect(sql).toContain(
@@ -60,7 +90,7 @@ describe("buildEventForwarderExposureQuerySql", () => {
       userIdType: "user",
     });
 
-    expect(sql).toContain("`user` AS `user`");
+    expect(sql).toContain("`attributes`.`user` AS `user`");
   });
 
   it("has no WHERE clause for Snowflake", () => {
@@ -70,7 +100,7 @@ describe("buildEventForwarderExposureQuerySql", () => {
       userIdType: "device_id",
     });
 
-    expect(sql).toContain("DEVICE_ID AS device_id");
+    expect(sql).toContain('ATTRIBUTES:"device_id"::STRING AS device_id');
     expect(sql).toContain("TIMESTAMP AS timestamp");
     expect(sql).toContain("EXPERIMENT_ID AS experiment_id");
     expect(sql).toContain("VARIATION_ID AS variation_id");
