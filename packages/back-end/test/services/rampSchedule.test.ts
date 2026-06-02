@@ -338,6 +338,8 @@ describe("getStartPatchForRule", () => {
       condition: '{"country":"US"}',
       savedGroups,
       prerequisites,
+      allEnvironments: false,
+      environments: ["production", "staging"],
     } as FeatureRule);
 
     expect(patch).toMatchObject({
@@ -345,8 +347,97 @@ describe("getStartPatchForRule", () => {
       condition: '{"country":"US"}',
       savedGroups,
       prerequisites,
+      allEnvironments: false,
+      environments: ["production", "staging"],
       enabled: false,
     });
+  });
+
+  it("captures force value (including null as a valid value)", () => {
+    const patch = getStartPatchForRule({
+      id: "r1",
+      type: "force",
+      hashAttribute: "id",
+      enabled: true,
+      value: "variant-b",
+    } as FeatureRule);
+
+    expect(patch.force).toBe("variant-b");
+
+    const nullPatch = getStartPatchForRule({
+      id: "r1",
+      type: "force",
+      hashAttribute: "id",
+      enabled: true,
+      value: null,
+    } as FeatureRule);
+
+    expect(nullPatch.force).toBeNull();
+  });
+
+  it("round-trips: capture → computeEffectivePatch → applyPatchToRule restores original rule", () => {
+    const originalRule = {
+      id: "r1",
+      type: "rollout" as const,
+      coverage: 0.75,
+      hashAttribute: "id",
+      enabled: true,
+      condition: '{"country":"US"}',
+      savedGroups: [{ match: "any" as const, ids: ["grp1"] }],
+      prerequisites: [{ id: "feat_gate", condition: '{"value":true}' }],
+      allEnvironments: false,
+      environments: ["production"],
+    } as FeatureRule;
+
+    // A. Capture into startActions
+    const startPatch = getStartPatchForRule(originalRule);
+    const startActions = [
+      {
+        targetType: "feature-rule" as const,
+        targetId: TARGET_ID,
+        patch: { ruleId: RULE_ID, ...startPatch },
+      },
+    ];
+
+    // B. Build a schedule at step 1 (ramp changed coverage to 0.5)
+    const sched = {
+      steps: [
+        {
+          interval: 300,
+          actions: [
+            {
+              targetType: "feature-rule" as const,
+              targetId: TARGET_ID,
+              patch: { ruleId: RULE_ID, coverage: 0.5 },
+            },
+          ],
+        },
+      ],
+      startActions,
+      endActions: [],
+    };
+
+    // C. computeEffectivePatch at step 0 merges startActions + step 0
+    const effective = computeEffectivePatch(sched, 0);
+    const merged = effective.get(TARGET_ID)!;
+    expect(merged.coverage).toBe(0.5); // step override
+    expect(merged.condition).toBe('{"country":"US"}'); // from startActions
+
+    // D. Apply the startActions patch directly (simulates rollbackToStep(-1))
+    const driftedRule = {
+      ...originalRule,
+      coverage: 0.5,
+      condition: "",
+    } as FeatureRule;
+    const restored = applyPatchToRule(driftedRule, startPatch);
+    expect((restored as { coverage?: number }).coverage).toBe(0.75);
+    expect(restored.condition).toBe('{"country":"US"}');
+    expect(restored.savedGroups).toEqual([{ match: "any", ids: ["grp1"] }]);
+    expect(restored.prerequisites).toEqual([
+      { id: "feat_gate", condition: '{"value":true}' },
+    ]);
+    expect(restored.allEnvironments).toBe(false);
+    expect(restored.environments).toEqual(["production"]);
   });
 });
 
@@ -499,7 +590,7 @@ describe("computeEffectivePatch", () => {
     expect(computeEffectivePatch(sched, -1).size).toBe(0);
   });
 
-  it("seeds from startActions so step 0 inherits condition/savedGroups/prerequisites", () => {
+  it("seeds from startActions so step 0 inherits the full initial rule state", () => {
     const sched = {
       ...sparseSchedule([[action(TARGET_ID, { coverage: 0.1 })]]),
       startActions: [
@@ -514,13 +605,16 @@ describe("computeEffectivePatch", () => {
             prerequisites: [
               { id: "feat_gate", condition: '{"$or":[{"value":true}]}' },
             ],
+            allEnvironments: false,
+            environments: ["production", "staging"],
+            force: "variant-b",
           },
         },
       ],
     };
     const result = computeEffectivePatch(sched, 0);
     const patch = result.get(TARGET_ID);
-    // Step 0's coverage override wins, but condition/savedGroups/prerequisites are inherited
+    // Step 0's coverage override wins; all other fields inherited from startActions
     expect(patch).toMatchObject({
       coverage: 0.1,
       condition: '{"country":"US"}',
@@ -528,6 +622,9 @@ describe("computeEffectivePatch", () => {
       prerequisites: [
         { id: "feat_gate", condition: '{"$or":[{"value":true}]}' },
       ],
+      allEnvironments: false,
+      environments: ["production", "staging"],
+      force: "variant-b",
     });
   });
 });
