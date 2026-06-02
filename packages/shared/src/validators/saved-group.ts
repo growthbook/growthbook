@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
+import {
+  ownerEmailField,
+  ownerField,
+  ownerInputField,
+  optionalOwnerInputField,
+} from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
 import { namedSchema } from "./openapi-helpers";
@@ -131,7 +136,7 @@ const postSavedGroupBody = z
         "When type = 'list', this is the list of values for the attribute key",
       )
       .optional(),
-    owner: ownerInputField.optional(),
+    owner: optionalOwnerInputField,
     projects: z.array(z.string()).optional(),
     bypassApproval: z
       .boolean()

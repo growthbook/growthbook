@@ -21,7 +21,7 @@ import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import {
-  resolveOwnerToUserId,
+  resolveOwnerForCreate,
   resolveOwnerEmail,
 } from "back-end/src/services/owner";
 import { getMetricMap } from "back-end/src/models/MetricModel";
@@ -193,9 +193,9 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
         throw new Error(`Invalid dashboard: ${payload.defaultDashboardId}`);
       }
     }
-    const ownerId =
-      (await resolveOwnerToUserId(ownerEmail, req.context, { strict: true })) ??
-      req.context.userId;
+    const ownerId = await resolveOwnerForCreate(ownerEmail, req.context, {
+      strict: true,
+    });
 
     // Validate that specified metrics exist and belong to the organization
     const metricGroups = await req.context.models.metricGroups.getAll();
