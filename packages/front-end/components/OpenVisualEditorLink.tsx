@@ -59,15 +59,25 @@ export async function openVisualEditor({
     ...(aiFeatureMeta ? { "ai-enabled": "true" } : {}),
   });
 
-  // Skip the extension-detection probe in local dev. The probe pings the
-  // production Chrome Web Store extension ID, which won't match a locally
-  // unpacked dev build (Chrome assigns those a random ID).
-  const isLocalDev =
+  // Opt-in escape hatch for engineers developing the extension itself.
+  // The probe below pings the production Chrome Web Store extension ID,
+  // which won't match a locally-unpacked dev build (Chrome assigns those
+  // a random ID). Those devs can set this flag once and the probe is
+  // skipped from then on:
+  //
+  //   localStorage.setItem("gb-visual-editor-dev-extension", "1")
+  //
+  // We deliberately do NOT key this off `window.location.hostname` —
+  // running the GrowthBook web app locally is completely independent of
+  // which extension build you have installed, and the common case is
+  // someone on `localhost` using the published extension. Keying off
+  // the host meant those users got no error feedback when their
+  // extension was missing or misconfigured, just a silent no-op.
+  const isExtensionDev =
     typeof window !== "undefined" &&
-    (window.location.hostname === "localhost" ||
-      window.location.hostname === "127.0.0.1");
+    window.localStorage?.getItem("gb-visual-editor-dev-extension") === "1";
 
-  if (!bypassChecks && !isLocalDev) {
+  if (!bypassChecks && !isExtensionDev) {
     if (!["chrome", "firefox"].includes(browser) || deviceType !== "desktop") {
       track("Open visual editor", {
         source: "visual-editor-ui",

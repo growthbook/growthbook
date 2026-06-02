@@ -121,9 +121,14 @@ export interface AIImageModelMeta {
 }
 
 export const AI_IMAGE_MODELS: ReadonlyArray<AIImageModelMeta> = [
-  // Google multimodal-text (nano-banana lineage)
+  // Google multimodal-text (nano-banana lineage). The model was
+  // promoted out of preview in late 2025; the GA endpoint is
+  // `gemini-2.5-flash-image` and the old `-preview` path returns
+  // "model not found for API version v1beta" via generateContent.
+  // Orgs that stored the preview id are mapped forward via
+  // IMAGE_MODEL_ALIASES below.
   {
-    id: "gemini-2.5-flash-image-preview",
+    id: "gemini-2.5-flash-image",
     provider: "google",
     kind: "multimodal-text",
     label: "Gemini 2.5 Flash Image (nano-banana)",
@@ -190,12 +195,17 @@ export const AI_IMAGE_MODELS: ReadonlyArray<AIImageModelMeta> = [
   },
 ];
 
-// Legacy → SDK id aliases. Existing orgs may have `gemini-2.5-flash-image`
-// (no `-preview` suffix) stored in settings; the Vercel @ai-sdk/google
-// type only knows `gemini-2.5-flash-image-preview`. Normalize at the
-// dispatch boundary so we don't churn org settings.
+// Legacy → SDK id aliases. Used to map model ids that orgs may have
+// previously stored in their settings onto the id the SDK / provider
+// currently accepts. Mapped at the dispatch boundary so old settings
+// keep working without a settings migration.
+//
+// Currently mapped:
+//   - `gemini-2.5-flash-image-preview` → `gemini-2.5-flash-image`
+//     (Google promoted nano-banana out of preview; the `-preview`
+//      suffix path now 404s at v1beta `generateContent`.)
 const IMAGE_MODEL_ALIASES: Record<string, string> = {
-  "gemini-2.5-flash-image": "gemini-2.5-flash-image-preview",
+  "gemini-2.5-flash-image-preview": "gemini-2.5-flash-image",
 };
 
 export function resolveImageModelIdForSdk(model: string): string {

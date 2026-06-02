@@ -24,7 +24,11 @@ const validation = {
   operationId: "getVisualEditorBootstrap",
 };
 
-const MAX_RECENT = 20;
+// Caps the number of CHANGESETS returned (one row per changeset — an
+// experiment with several URL-scoped changesets contributes several
+// rows). Slightly higher than the old experiment-level cap so a handful
+// of multi-changeset experiments don't crowd everything else out.
+const MAX_RECENT = 30;
 
 // Upper bound on how many changesets we pull from the DB before ranking.
 // We can't sort/limit by the experiment's dateUpdated at the changeset-
@@ -70,41 +74,21 @@ export const getBootstrap = createApiRequestHandler(validation)(async (req) => {
   // The most-recently-created visual changesets for the org, capped at
   // CANDIDATE_CHANGESET_CAP. VisualChangesetInterface doesn't expose
   // timestamps, so we use the *experiment's* dateUpdated as the recency
-  // signal for the final ranking below — that's also what the user
-  // thinks of when they say "most recent experiment." One changeset per
-  // experiment is the common case; when multiple exist we still surface
-  // one entry per experiment. The cap bounds the fetch (see the constant
-  // comment for the approximation trade-off it introduces above the cap).
+  // signal for the final ranking below. `findVisualChangesets` returns
+  // newest-`_id`-first (creation order), which we lean on as the
+  // secondary sort key below.
   const changesets = await findVisualChangesets(
     req.organization.id,
     CANDIDATE_CHANGESET_CAP,
   );
-  // We need both the changeset id (for switcher navigation) and its
-  // URL patterns (for display in the switcher list — users want to
-  // see at a glance which page each experiment targets). One entry
-  // per experiment; first-seen wins for the multi-changeset case.
-  const changesetByExperiment = new Map<
-    string,
-    {
-      id: string;
-      urlPatterns: Array<{
-        include: boolean;
-        type: "simple" | "regex";
-        pattern: string;
-      }>;
-    }
-  >();
-  for (const cs of changesets) {
-    if (!changesetByExperiment.has(cs.experiment)) {
-      changesetByExperiment.set(cs.experiment, {
-        id: cs.id,
-        urlPatterns: cs.urlPatterns ?? [],
-      });
-    }
-  }
 
-  const expIds = Array.from(changesetByExperiment.keys());
+  // Look up the owning experiments once. An experiment can own MORE THAN
+  // ONE changeset (one per URL target), so we emit a row per changeset —
+  // NOT per experiment — and share the experiment metadata across its
+  // changesets via this map.
+  const expIds = Array.from(new Set(changesets.map((cs) => cs.experiment)));
   const experiments = await getExperimentsByIds(context, expIds);
+  const experimentById = new Map(experiments.map((e) => [e.id, e]));
 
   // Defensively coerce updatedAt: dateUpdated / dateCreated come back as
   // Date objects from Mongoose, but in some serialization paths they
@@ -128,9 +112,9 @@ export const getBootstrap = createApiRequestHandler(validation)(async (req) => {
     primaryUrl: string | null;
     extraPatternCount: number;
     // Full pattern list. Sent so the side panel can evaluate each
-    // experiment against the active tab URL (using the same SDK
-    // matching logic) and surface "on this page" experiments first.
-    // Trivially small payload — most changesets have 1-3 patterns.
+    // changeset against the active tab URL (using the same SDK matching
+    // logic) and surface "on this page" changesets first. Trivially
+    // small payload — most changesets have 1-3 patterns.
     urlPatterns: Array<{
       include: boolean;
       type: "simple" | "regex";
@@ -140,26 +124,38 @@ export const getBootstrap = createApiRequestHandler(validation)(async (req) => {
     status: string;
     updatedAt: string;
   }> = [];
-  for (const exp of experiments) {
-    const cs = changesetByExperiment.get(exp.id);
-    if (!cs) continue;
+  // One row per changeset. We iterate `changesets` in their incoming
+  // newest-created-first order; the stable sort below preserves that as
+  // the tiebreaker within an experiment group.
+  for (const cs of changesets) {
+    const exp = experimentById.get(cs.experiment);
+    // Skip changesets whose experiment we couldn't read (deleted, or no
+    // read permission) — surfacing an orphan row the user can't open
+    // would just be a dead end.
+    if (!exp) continue;
+    const patterns = cs.urlPatterns ?? [];
     // Prefer the first include rule — that's the "where it runs" we
     // want users to see. Excludes are usually a small-scope filter
     // and aren't useful as the primary label.
-    const includes = cs.urlPatterns.filter((p) => p.include);
-    const primary = includes[0] ?? cs.urlPatterns[0] ?? null;
+    const includes = patterns.filter((p) => p.include);
+    const primary = includes[0] ?? patterns[0] ?? null;
     recentExperiments.push({
       experimentId: exp.id,
       experimentName: exp.name,
       visualChangesetId: cs.id,
       primaryUrl: primary?.pattern ?? null,
-      extraPatternCount: Math.max(0, cs.urlPatterns.length - 1),
-      urlPatterns: cs.urlPatterns,
+      extraPatternCount: Math.max(0, patterns.length - 1),
+      urlPatterns: patterns,
       project: exp.project || null,
       status: exp.status,
       updatedAt: toIso(exp.dateUpdated ?? exp.dateCreated),
     });
   }
+  // Sort by experiment recency DESC. Array.prototype.sort is stable
+  // (ES2019+), so changesets sharing an experiment keep their incoming
+  // newest-created-first order and stay ADJACENT — which is exactly what
+  // the side panel's switcher relies on to group a multi-changeset
+  // experiment's rows together under one name.
   recentExperiments.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   const trimmed = recentExperiments.slice(0, MAX_RECENT);
 

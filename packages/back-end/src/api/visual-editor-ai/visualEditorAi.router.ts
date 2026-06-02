@@ -6,6 +6,7 @@ import { postPromoteImage } from "./postPromoteImage";
 import { postUploadSignedUrl } from "./postUploadSignedUrl";
 import { postAddVariant } from "./postAddVariant";
 import { postCreateExperiment } from "./postCreateExperiment";
+import { postCreateChangeset } from "./postCreateChangeset";
 import { postRenameExperiment } from "./postRenameExperiment";
 import { getBootstrap } from "./getBootstrap";
 import { getLibraryImages } from "./getLibraryImages";
@@ -18,6 +19,7 @@ export const visualEditorAiRoutes: OpenApiRoute[] = [
   postUploadSignedUrl,
   postAddVariant,
   postCreateExperiment,
+  postCreateChangeset,
   postRenameExperiment,
   getBootstrap,
   getLibraryImages,

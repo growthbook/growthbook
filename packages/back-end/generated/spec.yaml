@@ -18030,6 +18030,62 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/visual-editor/create-experiment' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/create-changeset:
+    post:
+      operationId: postVisualEditorCreateChangeset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                visualChangesetId:
+                  type: string
+                pageUrl:
+                  type: string
+                  format: uri
+                urlPatterns:
+                  minItems: 1
+                  maxItems: 100
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      include:
+                        default: true
+                        type: boolean
+                      type:
+                        default: simple
+                        type: string
+                        enum:
+                          - simple
+                          - regex
+                      pattern:
+                        type: string
+                        minLength: 1
+                        maxLength: 2000
+                    required:
+                      - include
+                      - type
+                      - pattern
+                    additionalProperties: false
+              required:
+                - visualChangesetId
+                - pageUrl
+                - urlPatterns
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/create-changeset' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/visual-editor/rename-experiment:
     post:
       operationId: postVisualEditorRenameExperiment
