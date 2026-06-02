@@ -31,14 +31,13 @@ export const ownerInputField = z
   );
 
 /**
- * Optional owner input for create endpoints. The owner is not required when the
- * request is made with a Personal Access Token (PAT) — in that case it defaults
- * to the user associated with the token. When authenticating with a regular
- * organization API key (which has no associated user), an explicit owner must
- * be provided.
+ * Optional owner input for create endpoints. When omitted, the owner defaults to
+ * the user associated with the request's Personal Access Token (PAT), if one is
+ * being used. Endpoints that require an owner (e.g. create feature) will reject
+ * the request when the owner is omitted and no PAT user is available.
  */
 export const optionalOwnerInputField = ownerInputField
   .optional()
   .describe(
-    "The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. Not required when authenticating with a Personal Access Token (PAT) — it will default to the user associated with the token.",
+    "The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. When omitted, it defaults to the user associated with the request's Personal Access Token (PAT), if one is being used.",
   );

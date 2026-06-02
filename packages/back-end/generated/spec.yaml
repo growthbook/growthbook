@@ -588,10 +588,9 @@ paths:
                     The userId or email address of the owner. If an email
                     address is provided, it will be used to look up the userId
                     of the matching organization member. If an ID is provided,
-                    it will be validated as existing in the organization. Not
-                    required when authenticating with a Personal Access Token
-                    (PAT) — it will default to the user associated with the
-                    token.
+                    it will be validated as existing in the organization. When
+                    omitted, it defaults to the user associated with the
+                    request's Personal Access Token (PAT), if one is being used.
                   type: string
                 project:
                   description: An associated project ID
@@ -5678,10 +5677,9 @@ paths:
                     The userId or email address of the owner. If an email
                     address is provided, it will be used to look up the userId
                     of the matching organization member. If an ID is provided,
-                    it will be validated as existing in the organization. Not
-                    required when authenticating with a Personal Access Token
-                    (PAT) — it will default to the user associated with the
-                    token.
+                    it will be validated as existing in the organization. When
+                    omitted, it defaults to the user associated with the
+                    request's Personal Access Token (PAT), if one is being used.
                   type: string
                 project:
                   description: An associated project ID
@@ -10181,10 +10179,9 @@ paths:
                     The userId or email address of the owner. If an email
                     address is provided, it will be used to look up the userId
                     of the matching organization member. If an ID is provided,
-                    it will be validated as existing in the organization. Not
-                    required when authenticating with a Personal Access Token
-                    (PAT) — it will default to the user associated with the
-                    token.
+                    it will be validated as existing in the organization. When
+                    omitted, it defaults to the user associated with the
+                    request's Personal Access Token (PAT), if one is being used.
                   type: string
                 archived:
                   type: boolean
@@ -14538,10 +14535,9 @@ paths:
                     The userId or email address of the owner. If an email
                     address is provided, it will be used to look up the userId
                     of the matching organization member. If an ID is provided,
-                    it will be validated as existing in the organization. Not
-                    required when authenticating with a Personal Access Token
-                    (PAT) — it will default to the user associated with the
-                    token.
+                    it will be validated as existing in the organization. When
+                    omitted, it defaults to the user associated with the
+                    request's Personal Access Token (PAT), if one is being used.
                   type: string
                 projects:
                   type: array

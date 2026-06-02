@@ -1,9 +1,6 @@
 import { ID_LIST_DATATYPES, validateCondition } from "shared/util";
 import { postSavedGroupValidator } from "shared/validators";
-import {
-  resolveOwnerEmail,
-  resolveOwnerForCreate,
-} from "back-end/src/services/owner";
+import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { validateListSize } from "back-end/src/routers/saved-group/saved-group.controller";
 import { BadRequestError } from "back-end/src/util/errors";
@@ -114,7 +111,9 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
       type: type,
       values: values || [],
       groupName: name,
-      owner: await resolveOwnerForCreate(owner, req.context),
+      // Falls back to the authenticated user (only present for Personal Access
+      // Tokens) when no owner is provided, otherwise stays empty.
+      owner: owner || req.context.userId || "",
       condition: condition || "",
       attributeKey,
       projects,
