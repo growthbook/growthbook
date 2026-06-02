@@ -3,12 +3,9 @@ import {
   buildBigQueryEventForwarderTableReference,
   buildEventForwarderNestedAttributeValueSql,
   buildSnowflakeEventForwarderTableReference,
-  EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD,
   EVENT_FORWARDER_AVRO_PARTITION_FIELD,
 } from "./event-forwarder-fact-table";
 import { normalizeSnowflakeTableNameForEventForwarder } from "./snowflake-table-name";
-
-export { EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD };
 
 export const EVENT_FORWARDER_EXPERIMENT_VIEWED_TABLE = "experiment_viewed";
 
