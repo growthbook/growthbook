@@ -1234,7 +1234,6 @@ function isIncrementalRefreshEnabledForSnapshot({
 }
 
 export function getSnapshotQueryRunnerKind({
-  allowIncrementalRefresh,
   isExperimentCompatibleWithIncrementalRefresh,
   datasource,
   experiment,
@@ -1242,7 +1241,6 @@ export function getSnapshotQueryRunnerKind({
   hasSnapshotDimensions,
   hasMaterializedUnitsTable,
 }: {
-  allowIncrementalRefresh: boolean;
   isExperimentCompatibleWithIncrementalRefresh: boolean;
   datasource: DataSourceInterface;
   experiment: ExperimentInterface;
@@ -1251,7 +1249,6 @@ export function getSnapshotQueryRunnerKind({
   hasMaterializedUnitsTable: boolean;
 }): SnapshotQueryRunnerKind {
   if (
-    allowIncrementalRefresh &&
     isIncrementalRefreshEnabledForSnapshot({ datasource, experiment }) &&
     (experiment.type === undefined || experiment.type === "standard") &&
     isExperimentCompatibleWithIncrementalRefresh
@@ -1273,7 +1270,6 @@ export function getSnapshotQueryRunnerKind({
 }
 
 async function planSnapshotQueryRunner({
-  allowIncrementalRefresh,
   organization,
   datasource,
   integration,
@@ -1285,7 +1281,6 @@ async function planSnapshotQueryRunner({
   snapshotType,
   fullRefresh,
 }: {
-  allowIncrementalRefresh: boolean;
   organization: OrganizationInterface;
   datasource: DataSourceInterface;
   integration: SourceIntegrationInterface;
@@ -1298,32 +1293,29 @@ async function planSnapshotQueryRunner({
   fullRefresh: boolean;
 }): Promise<SnapshotQueryRunnerKind> {
   let isExperimentCompatibleWithIncrementalRefresh = false;
-  if (allowIncrementalRefresh) {
-    try {
-      await validateIncrementalPipeline({
-        org: organization,
-        integration,
-        snapshotSettings,
-        metricMap,
-        factTableMap,
-        experiment,
-        incrementalRefreshModel,
-        analysisType: fullRefresh
-          ? "main-fullRefresh"
-          : snapshotType === "standard"
-            ? "main-update"
-            : "exploratory",
-      });
-      isExperimentCompatibleWithIncrementalRefresh = true;
-    } catch (error) {
-      logger.info(
-        `Experiment ${experiment.id} does not support incremental refresh: ${"message" in error ? error.message : error}`,
-      );
-    }
+  try {
+    await validateIncrementalPipeline({
+      org: organization,
+      integration,
+      snapshotSettings,
+      metricMap,
+      factTableMap,
+      experiment,
+      incrementalRefreshModel,
+      analysisType: fullRefresh
+        ? "main-fullRefresh"
+        : snapshotType === "standard"
+          ? "main-update"
+          : "exploratory",
+    });
+    isExperimentCompatibleWithIncrementalRefresh = true;
+  } catch (error) {
+    logger.info(
+      `Experiment ${experiment.id} does not support incremental refresh: ${"message" in error ? error.message : error}`,
+    );
   }
 
   return getSnapshotQueryRunnerKind({
-    allowIncrementalRefresh,
     isExperimentCompatibleWithIncrementalRefresh,
     datasource,
     experiment,
@@ -1354,7 +1346,6 @@ export async function planSnapshot({
   metricMap,
   factTableMap,
   reweight,
-  allowIncrementalRefresh = true,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
@@ -1368,7 +1359,6 @@ export async function planSnapshot({
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   reweight?: boolean;
-  allowIncrementalRefresh?: boolean;
 }): Promise<PlannedExperimentSnapshot> {
   const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
@@ -1469,7 +1459,6 @@ export async function planSnapshot({
   const integration = getSourceIntegrationObject(context, datasource, true);
 
   const runnerKind = await planSnapshotQueryRunner({
-    allowIncrementalRefresh,
     organization,
     datasource,
     integration,
@@ -1710,7 +1699,6 @@ export async function createSnapshot({
   metricMap,
   factTableMap,
   reweight,
-  allowIncrementalRefresh = true,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
@@ -1724,7 +1712,6 @@ export async function createSnapshot({
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   reweight?: boolean;
-  allowIncrementalRefresh?: boolean;
 }): Promise<ExperimentSnapshotQueryRunner> {
   const plan = await planSnapshot({
     experiment,
@@ -1739,7 +1726,6 @@ export async function createSnapshot({
     metricMap,
     factTableMap,
     reweight,
-    allowIncrementalRefresh,
   });
 
   return createSnapshotFromPlan({
@@ -1831,7 +1817,6 @@ export async function createExperimentSnapshot({
   triggeredBy,
   type,
   reweight,
-  allowIncrementalRefresh = true,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
@@ -1842,7 +1827,6 @@ export async function createExperimentSnapshot({
   triggeredBy?: SnapshotTriggeredBy;
   type?: SnapshotType;
   reweight?: boolean;
-  allowIncrementalRefresh?: boolean;
 }): Promise<{
   snapshot: ExperimentSnapshotInterface;
   queryRunner: ExperimentSnapshotQueryRunner;
@@ -1857,7 +1841,6 @@ export async function createExperimentSnapshot({
     triggeredBy,
     type,
     reweight,
-    allowIncrementalRefresh,
   });
 
   return createExperimentSnapshotFromPlan({
@@ -1910,7 +1893,6 @@ export async function planExperimentSnapshot({
   triggeredBy,
   type,
   reweight,
-  allowIncrementalRefresh = true,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
@@ -1921,7 +1903,6 @@ export async function planExperimentSnapshot({
   triggeredBy?: SnapshotTriggeredBy;
   type?: SnapshotType;
   reweight?: boolean;
-  allowIncrementalRefresh?: boolean;
 }): Promise<PlannedExperimentSnapshot> {
   const snapshotType =
     type ??
@@ -2012,7 +1993,6 @@ export async function planExperimentSnapshot({
     reweight,
     type: snapshotType,
     triggeredBy: triggeredBy ?? "manual",
-    allowIncrementalRefresh,
   });
   return plan;
 }

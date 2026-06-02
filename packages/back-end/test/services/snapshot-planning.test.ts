@@ -137,28 +137,11 @@ describe("snapshot planning", () => {
     },
   } as unknown as DataSourceInterface;
 
-  it("forces the standard results runner when incremental refresh is disabled", () => {
-    const experiment = { type: "standard" } as unknown as ExperimentInterface;
-
-    expect(
-      getSnapshotQueryRunnerKind({
-        allowIncrementalRefresh: false,
-        isExperimentCompatibleWithIncrementalRefresh: true,
-        datasource: incrementalDatasource,
-        experiment,
-        snapshotType: "standard",
-        hasSnapshotDimensions: false,
-        hasMaterializedUnitsTable: true,
-      }),
-    ).toBe("results");
-  });
-
   it("uses the incremental runner for eligible standard snapshots", () => {
     const experiment = { type: "standard" } as unknown as ExperimentInterface;
 
     expect(
       getSnapshotQueryRunnerKind({
-        allowIncrementalRefresh: true,
         isExperimentCompatibleWithIncrementalRefresh: true,
         datasource: incrementalDatasource,
         experiment,
@@ -174,7 +157,6 @@ describe("snapshot planning", () => {
 
     expect(
       getSnapshotQueryRunnerKind({
-        allowIncrementalRefresh: true,
         isExperimentCompatibleWithIncrementalRefresh: true,
         datasource: incrementalDatasource,
         experiment,
@@ -190,7 +172,6 @@ describe("snapshot planning", () => {
 
     expect(
       getSnapshotQueryRunnerKind({
-        allowIncrementalRefresh: true,
         isExperimentCompatibleWithIncrementalRefresh: true,
         datasource: incrementalDatasource,
         experiment,
@@ -208,7 +189,6 @@ describe("snapshot planning", () => {
 
     expect(
       getSnapshotQueryRunnerKind({
-        allowIncrementalRefresh: true,
         isExperimentCompatibleWithIncrementalRefresh: true,
         datasource: incrementalDatasource,
         experiment,
@@ -232,7 +212,6 @@ describe("snapshot planning", () => {
       settingsForSnapshotMetrics: [],
       metricMap: new Map<string, ExperimentMetricInterface>(),
       factTableMap: new Map() as FactTableMap,
-      allowIncrementalRefresh: false,
     });
 
     expect(plan.runnerKind).toBe("results");

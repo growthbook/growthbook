@@ -36,7 +36,6 @@ describe("getSnapshotQueryRunnerKind", () => {
   it("returns 'incremental' for a standard snapshot when all conditions are met", () => {
     expect(
       getSnapshotQueryRunnerKind({
-        allowIncrementalRefresh: true,
         isExperimentCompatibleWithIncrementalRefresh: true,
         datasource: makeDatasource(),
         experiment: makeExperiment(),
@@ -50,7 +49,6 @@ describe("getSnapshotQueryRunnerKind", () => {
   it("returns 'incremental-exploratory' for an exploratory snapshot when all conditions are met", () => {
     expect(
       getSnapshotQueryRunnerKind({
-        allowIncrementalRefresh: true,
         isExperimentCompatibleWithIncrementalRefresh: true,
         datasource: makeDatasource(),
         experiment: makeExperiment(),
@@ -64,7 +62,6 @@ describe("getSnapshotQueryRunnerKind", () => {
   it("returns 'incremental' for exploratory snapshots without dimensions when the units table has been materialized", () => {
     expect(
       getSnapshotQueryRunnerKind({
-        allowIncrementalRefresh: true,
         isExperimentCompatibleWithIncrementalRefresh: true,
         datasource: makeDatasource(),
         experiment: makeExperiment(),
@@ -78,7 +75,6 @@ describe("getSnapshotQueryRunnerKind", () => {
   it("returns 'results' for exploratory snapshots without dimensions when the units table has not been materialized", () => {
     expect(
       getSnapshotQueryRunnerKind({
-        allowIncrementalRefresh: true,
         isExperimentCompatibleWithIncrementalRefresh: true,
         datasource: makeDatasource(),
         experiment: makeExperiment(),
@@ -92,7 +88,6 @@ describe("getSnapshotQueryRunnerKind", () => {
   it("returns 'incremental' for standard snapshots even when the units table has not been materialized (full refresh will create it)", () => {
     expect(
       getSnapshotQueryRunnerKind({
-        allowIncrementalRefresh: true,
         isExperimentCompatibleWithIncrementalRefresh: true,
         datasource: makeDatasource(),
         experiment: makeExperiment(),
@@ -103,24 +98,9 @@ describe("getSnapshotQueryRunnerKind", () => {
     ).toBe("incremental");
   });
 
-  it("returns 'results' when allowIncrementalRefresh is false", () => {
-    expect(
-      getSnapshotQueryRunnerKind({
-        allowIncrementalRefresh: false,
-        isExperimentCompatibleWithIncrementalRefresh: true,
-        datasource: makeDatasource(),
-        experiment: makeExperiment(),
-        snapshotType: "standard",
-        hasSnapshotDimensions: false,
-        hasMaterializedUnitsTable: true,
-      }),
-    ).toBe("results");
-  });
-
   it("returns 'results' when experiment is not compatible with incremental refresh", () => {
     expect(
       getSnapshotQueryRunnerKind({
-        allowIncrementalRefresh: true,
         isExperimentCompatibleWithIncrementalRefresh: false,
         datasource: makeDatasource(),
         experiment: makeExperiment(),
@@ -135,7 +115,6 @@ describe("getSnapshotQueryRunnerKind", () => {
     const datasource = makeDatasource({ mode: "parallel" as never });
     expect(
       getSnapshotQueryRunnerKind({
-        allowIncrementalRefresh: true,
         isExperimentCompatibleWithIncrementalRefresh: true,
         datasource,
         experiment: makeExperiment(),
@@ -152,7 +131,6 @@ describe("getSnapshotQueryRunnerKind", () => {
     });
     expect(
       getSnapshotQueryRunnerKind({
-        allowIncrementalRefresh: true,
         isExperimentCompatibleWithIncrementalRefresh: true,
         datasource,
         experiment: makeExperiment(),
@@ -169,7 +147,6 @@ describe("getSnapshotQueryRunnerKind", () => {
     });
     expect(
       getSnapshotQueryRunnerKind({
-        allowIncrementalRefresh: true,
         isExperimentCompatibleWithIncrementalRefresh: true,
         datasource,
         experiment: makeExperiment(),
@@ -186,7 +163,6 @@ describe("getSnapshotQueryRunnerKind", () => {
     });
     expect(
       getSnapshotQueryRunnerKind({
-        allowIncrementalRefresh: true,
         isExperimentCompatibleWithIncrementalRefresh: true,
         datasource,
         experiment: makeExperiment(),
@@ -200,7 +176,6 @@ describe("getSnapshotQueryRunnerKind", () => {
   it("returns 'results' for multi-armed-bandit experiments", () => {
     expect(
       getSnapshotQueryRunnerKind({
-        allowIncrementalRefresh: true,
         isExperimentCompatibleWithIncrementalRefresh: true,
         datasource: makeDatasource(),
         experiment: makeExperiment({ type: "multi-armed-bandit" }),
@@ -214,7 +189,6 @@ describe("getSnapshotQueryRunnerKind", () => {
   it("returns 'incremental' when experiment.type is undefined (legacy)", () => {
     expect(
       getSnapshotQueryRunnerKind({
-        allowIncrementalRefresh: true,
         isExperimentCompatibleWithIncrementalRefresh: true,
         datasource: makeDatasource(),
         experiment: makeExperiment({ type: undefined }),
@@ -232,7 +206,6 @@ describe("getSnapshotQueryRunnerKind", () => {
     });
     expect(
       getSnapshotQueryRunnerKind({
-        allowIncrementalRefresh: true,
         isExperimentCompatibleWithIncrementalRefresh: true,
         datasource,
         experiment: makeExperiment(),
@@ -250,7 +223,6 @@ describe("getSnapshotQueryRunnerKind", () => {
     });
     expect(
       getSnapshotQueryRunnerKind({
-        allowIncrementalRefresh: true,
         isExperimentCompatibleWithIncrementalRefresh: false,
         datasource,
         experiment: makeExperiment(),
@@ -268,7 +240,6 @@ describe("getSnapshotQueryRunnerKind", () => {
     });
     expect(
       getSnapshotQueryRunnerKind({
-        allowIncrementalRefresh: true,
         isExperimentCompatibleWithIncrementalRefresh: true,
         datasource,
         experiment: makeExperiment(),
@@ -287,7 +258,6 @@ describe("getSnapshotQueryRunnerKind", () => {
     });
     expect(
       getSnapshotQueryRunnerKind({
-        allowIncrementalRefresh: true,
         isExperimentCompatibleWithIncrementalRefresh: true,
         datasource,
         experiment: makeExperiment(),
@@ -306,7 +276,6 @@ describe("getSnapshotQueryRunnerKind", () => {
     });
     expect(
       getSnapshotQueryRunnerKind({
-        allowIncrementalRefresh: true,
         isExperimentCompatibleWithIncrementalRefresh: true,
         datasource,
         experiment: makeExperiment(),
