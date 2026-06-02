@@ -71,11 +71,36 @@ describe("event-forwarder-fact-table SQL", () => {
       tableName: "gb_events",
     });
 
-    expect(sql).toContain("SELECT *");
+    expect(sql).toContain("SELECT\n  timestamp,\n  event_name");
     expect(sql).toContain("`my-project`.`analytics_123`.`gb_events`");
     expect(sql).toContain(
       `${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{endDate}}'`,
     );
+  });
+
+  it("projects selected BigQuery attributes from the nested attributes column", () => {
+    const sql = buildEventForwarderEventsFactTableSql({
+      sinkType: "bigquery",
+      projectId: "my-project",
+      dataset: "analytics_123",
+      tableName: "gb_events",
+      datasourceProjects: ["proj_1"],
+      attributeSchema: [
+        { property: "user_id", datatype: "string" },
+        { property: "browser-type", datatype: "string" },
+        { property: "archived", datatype: "string", archived: true },
+        { property: "other_project", datatype: "string", projects: ["proj_2"] },
+      ],
+    });
+
+    expect(sql).toBe(`SELECT
+  timestamp,
+  event_name,
+  -- Attributes
+  \`attributes\`.\`user_id\` AS user_id,
+  \`attributes\`.\`browser_type\` AS browser_type
+FROM \`my-project\`.\`analytics_123\`.\`gb_events\`
+WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{endDate}}'`);
   });
 
   it("builds Snowflake table reference", () => {
@@ -88,15 +113,25 @@ describe("event-forwarder-fact-table SQL", () => {
     ).toBe("MY_DB.PUBLIC.GB_EVENTS");
   });
 
-  it("builds Snowflake fact table SQL with select all", () => {
+  it("projects selected Snowflake attributes from the nested attributes column", () => {
     const sql = buildEventForwarderEventsFactTableSql({
       sinkType: "snowflake",
       database: "MY_DB",
       schema: "PUBLIC",
       tableName: "GB_EVENTS",
+      attributeSchema: [
+        { property: "user_id", datatype: "string" },
+        { property: "browser", datatype: "string" },
+      ],
     });
 
-    expect(sql).toBe("SELECT *\nFROM MY_DB.PUBLIC.GB_EVENTS");
+    expect(sql).toBe(`SELECT
+  TIMESTAMP AS timestamp,
+  EVENT_NAME AS event_name,
+  -- Attributes
+  ATTRIBUTES:"user_id" AS user_id,
+  ATTRIBUTES:"browser" AS browser
+FROM MY_DB.PUBLIC.GB_EVENTS`);
   });
 });
 
@@ -135,6 +170,30 @@ describe("buildEventForwarderEventsFactTableColumns", () => {
 
     expect(columns[0].jsonFields).toEqual({
       user_id: { datatype: "string" },
+    });
+  });
+
+  it("includes attribute schema fields as nested jsonFields", () => {
+    const columns = buildEventForwarderEventsFactTableColumns(
+      ["user_id"],
+      [
+        { property: "user_id", datatype: "string" },
+        { property: "age", datatype: "number" },
+        { property: "employee_id", datatype: "number", hashAttribute: true },
+        { property: "is_employee", datatype: "boolean" },
+        { property: "tags", datatype: "string[]" },
+        { property: "archived", datatype: "string", archived: true },
+        { property: "other_project", datatype: "string", projects: ["proj_2"] },
+      ],
+      ["proj_1"],
+    );
+
+    expect(columns[0].jsonFields).toEqual({
+      user_id: { datatype: "string" },
+      age: { datatype: "number" },
+      employee_id: { datatype: "string" },
+      is_employee: { datatype: "boolean" },
+      tags: { datatype: "json" },
     });
   });
 });

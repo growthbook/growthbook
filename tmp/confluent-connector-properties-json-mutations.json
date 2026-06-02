@@ -1,9 +1,0 @@
-{
-  "schema_note": "Avro GrowthBookForwardedEvent: only event_name is required (non-null string). All other columns are nullable unions with default null.",
-  "properties_field": "Connector payloads often use properties_json for Avro field properties (JSON-encoded string). attributes is the nested record column holding org targeting attributes in the schema.",
-  "mutations": [
-    "{\"eventField\":\"eventValue\",\"source\":\"connector-test\",\"variant\":\"minimal\"}",
-    "{\"experiment_key\":\"pricing-test\",\"variation_index\":1,\"user_bucket\":42,\"tags\":[\"checkout\",\"ab-test\"],\"metadata\":{\"version\":2}}",
-    "{\"page\":{\"title\":\"Features\",\"section\":\"experiments\"},\"flags\":{\"dark_mode\":false},\"metrics\":{\"time_on_page_ms\":18450}}"
-  ]
-}

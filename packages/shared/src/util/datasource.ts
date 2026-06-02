@@ -5,6 +5,8 @@ const EVENT_FORWARDER_FACT_TABLE_COLUMN_FIELDS = [
   "property",
   "datatype",
   "hashAttribute",
+  "archived",
+  "projects",
 ] as const satisfies readonly (keyof SDKAttribute)[];
 
 // Datasource types that can power an Event Forwarder. When adding a new sink,

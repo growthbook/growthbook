@@ -7,7 +7,7 @@ import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { hasAnyEventForwarderConfig } from "back-end/src/services/eventForwarderConfig";
 import { syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema } from "back-end/src/services/eventForwarderUserIdTypes";
-import { queueEventForwarderEventsFactTablesColumnsRefresh } from "back-end/src/services/eventForwarderFactTable";
+import { syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange } from "back-end/src/services/eventForwarderFactTable";
 import { validatePayload } from "./validations";
 
 export const putAttribute = createApiRequestHandler(putAttributeValidator)(
@@ -61,16 +61,19 @@ export const putAttribute = createApiRequestHandler(putAttributeValidator)(
 
     const updatedAttributeSchema = updates.settings?.attributeSchema ?? [];
     if (hasEventForwarder) {
+      if (req.body.hashAttribute === true && !attribute.hashAttribute) {
+        await syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema(
+          req.context,
+          updatedAttributeSchema,
+        );
+      }
       if (
         attributeUpdateAffectsEventForwarderFactTableColumns(
           attribute,
           updatedAttribute,
         )
       ) {
-        await queueEventForwarderEventsFactTablesColumnsRefresh(req.context);
-      }
-      if (req.body.hashAttribute === true && !attribute.hashAttribute) {
-        await syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema(
+        await syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange(
           req.context,
           updatedAttributeSchema,
         );

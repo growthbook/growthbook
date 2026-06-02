@@ -1,16 +1,20 @@
 import type { ExposureQuery } from "shared/types/datasource";
 import {
   buildBigQueryEventForwarderTableReference,
+  buildEventForwarderNestedAttributeValueSql,
   buildSnowflakeEventForwarderTableReference,
   EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD,
   EVENT_FORWARDER_AVRO_PARTITION_FIELD,
-  sanitizeEventForwarderAvroFieldName,
 } from "./event-forwarder-fact-table";
 import { normalizeSnowflakeTableNameForEventForwarder } from "./snowflake-table-name";
 
 export { EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD };
 
 export const EVENT_FORWARDER_EXPERIMENT_VIEWED_TABLE = "experiment_viewed";
+
+function quoteBigQueryIdentifier(identifier: string): string {
+  return `\`${identifier}\``;
+}
 
 export type BuildEventForwarderExperimentViewedTableRefParams =
   | {
@@ -44,14 +48,6 @@ export function buildEventForwarderExperimentViewedTableReference(
   );
 }
 
-function quoteBigQueryIdentifier(identifier: string): string {
-  return `\`${identifier}\``;
-}
-
-function quoteSnowflakeVariantFieldName(fieldName: string): string {
-  return `"${fieldName.replace(/"/g, '""')}"`;
-}
-
 export function buildEventForwarderAttributeValueSql({
   sinkType,
   userIdType,
@@ -59,19 +55,11 @@ export function buildEventForwarderAttributeValueSql({
   sinkType: "bigquery" | "snowflake";
   userIdType: string;
 }): string {
-  const fieldName = sanitizeEventForwarderAvroFieldName(userIdType);
-
-  if (sinkType === "bigquery") {
-    const quotedAttributes = quoteBigQueryIdentifier(
-      EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD,
-    );
-    const quotedField = quoteBigQueryIdentifier(fieldName);
-    return `${quotedAttributes}.${quotedField}`;
-  }
-
-  const attributesCol = EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD.toUpperCase();
-  const quotedField = quoteSnowflakeVariantFieldName(fieldName);
-  return `${attributesCol}:${quotedField}::STRING`;
+  return buildEventForwarderNestedAttributeValueSql({
+    sinkType,
+    attributeName: userIdType,
+    castSnowflakeToString: true,
+  });
 }
 
 export function buildEventForwarderExposureQuerySql({
