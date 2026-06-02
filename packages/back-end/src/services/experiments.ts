@@ -4868,9 +4868,57 @@ export async function maybeCreateContextualBanditDoc(
 
   const cb = await context.models.contextualBandits.create({
     experiment: experiment.id,
+
+    // CB-native ownership/lifecycle fields — sourced from the parent
+    // experiment during the decoupling window. Once PR-8 lands and the
+    // FK is dropped, the create-site moves to a CB-native handler and
+    // these will be supplied directly by the caller.
+    name: experiment.name,
+    description: experiment.description,
+    hypothesis: experiment.hypothesis,
+    project: experiment.project,
+    owner: experiment.owner,
+    tags: experiment.tags ?? [],
+    archived: experiment.archived ?? false,
+    customFields: experiment.customFields,
+    status:
+      experiment.status === "running" || experiment.status === "stopped"
+        ? experiment.status
+        : "draft",
+
+    // Assignment / SDK rule
+    trackingKey: experiment.trackingKey,
+    hashAttribute: experiment.hashAttribute,
+    fallbackAttribute: experiment.fallbackAttribute,
+    hashVersion: experiment.hashVersion,
+    disableStickyBucketing: experiment.disableStickyBucketing ?? false,
+    variations: experiment.variations,
+
+    // Datasource / analysis
     datasourceId: experiment.datasource ?? "",
+    datasource: experiment.datasource ?? "",
     exposureQueryId: experiment.exposureQueryId ?? "",
+    segment: experiment.segment,
+    queryFilter: experiment.queryFilter,
+    goalMetrics: experiment.goalMetrics ?? [],
+    secondaryMetrics: experiment.secondaryMetrics ?? [],
+    guardrailMetrics: experiment.guardrailMetrics ?? [],
+    activationMetric: experiment.activationMetric,
+    metricOverrides: experiment.metricOverrides,
+    defaultMetricPriorSettings: context.org.settings?.metricDefaults
+      ?.priorSettings ?? {
+      override: false,
+      proper: false,
+      mean: 0,
+      stddev: 0.1,
+    },
+    attributionModel: experiment.attributionModel,
+    skipPartialData: experiment.skipPartialData,
+    regressionAdjustmentEnabled: experiment.regressionAdjustmentEnabled,
+
+    // CB-specific configuration
     contextualAttributes: eaq?.targetingAttributeColumns ?? [],
+    targetingAttributeColumns: eaq?.targetingAttributeColumns ?? [],
     maxContexts: 300,
     treeModel: "regression_tree",
     minUsersPerLeaf: 100,
@@ -4879,7 +4927,6 @@ export async function maybeCreateContextualBanditDoc(
     // for these so future create-sites (migrations, dangerous bypass paths)
     // don't need to repeat them.
     holdoutPercent: 0,
-    stickyBucketing: false,
     canonicalFormVersion: 1,
     phases: [{ dateStarted: new Date(), currentLeafWeights: [] }],
   });

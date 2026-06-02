@@ -1150,9 +1150,12 @@ export async function buildSDKPayloadForConnection(
       cbDocs
         .filter(
           (cb): cb is import("shared/validators").ContextualBanditInterface =>
-            cb !== null,
+            cb !== null && cb.experiment !== undefined,
         )
-        .map((cb) => [cb.experiment, cb]),
+        // After PR-8 lands and the FK is dropped, this map will be keyed by
+        // CB id (or via the new contextual-bandit-ref rule lookup) instead
+        // of the parent experiment id.
+        .map((cb) => [cb.experiment as string, cb]),
     );
   }
 
