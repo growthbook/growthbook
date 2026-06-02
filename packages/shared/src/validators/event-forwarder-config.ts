@@ -25,8 +25,6 @@ export const eventForwarderConfigValidator = baseSchema
     connectorName: z.string().optional(),
     connectorId: z.string().optional(),
     lastProvisioningError: z.string().optional(),
-    /** @deprecated Legacy ping flag; treated as initialWarehouseSyncQueued when set. */
-    initialGbUpdatePingSent: z.boolean().optional(),
     /** Set after the first delayed warehouse sync is queued on initial connector ready. */
     initialWarehouseSyncQueued: z.boolean().optional(),
   })

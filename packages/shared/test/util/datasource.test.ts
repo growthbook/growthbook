@@ -55,6 +55,21 @@ describe("attributeUpdateAffectsEventForwarderFactTableColumns", () => {
       }),
     ).toBe(true);
   });
+
+  it("returns true when archive or project visibility changes", () => {
+    expect(
+      attributeUpdateAffectsEventForwarderFactTableColumns(base, {
+        ...base,
+        archived: true,
+      }),
+    ).toBe(true);
+    expect(
+      attributeUpdateAffectsEventForwarderFactTableColumns(base, {
+        ...base,
+        projects: ["proj_1"],
+      }),
+    ).toBe(true);
+  });
 });
 
 describe("attributeMatchesDatasourceProjects", () => {
