@@ -1189,8 +1189,8 @@ export async function addMemberFromSSOConnection(
   }
   if (!organization) return null;
 
-  // If the org doesn't have autoApproveMembers enabled, add the user as a pending member
-  if (!organization.autoApproveMembers) {
+  // If the org has explicitly disabled autoApproveMembers, add the user as a pending member
+  if (organization.autoApproveMembers === false) {
     await addPendingMemberToOrg({
       organization,
       name: req.name || "",
