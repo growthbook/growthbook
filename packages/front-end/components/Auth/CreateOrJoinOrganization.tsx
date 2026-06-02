@@ -8,6 +8,7 @@ import {
   OwnerJobTitle,
   CreateOrganizationPostBody,
 } from "shared/types/organization";
+import { Box, Flex } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
@@ -118,21 +119,32 @@ const CreateOrJoinOrganization: FC<{
   const showJoin = isMultiOrg() && showMultiOrgSelfSelector() && orgs;
 
   const leftside = (
-    <>
-      <h1 className="title h1">Welcome to GrowthBook!</h1>
-      {showCreate || showJoin ? (
-        <p>
-          You aren&apos;t part of an organization yet. <br />
-          {showCreate && showJoin
-            ? `Create or join one here.`
-            : showCreate
-              ? `Create a new one here.`
-              : `Join one here.`}
-        </p>
-      ) : (
-        <p>Ask your admin to invite you to the organization.</p>
-      )}
-    </>
+    <Flex direction="column" justify="between" height="100%" p="6">
+      <Box>
+        <a href="https://www.growthbook.io" target="_blank" rel="noreferrer">
+          <img
+            src="/logo/growth-book-logo-white.svg"
+            style={{ maxWidth: "150px" }}
+            alt="GrowthBook"
+          />
+        </a>
+      </Box>
+      <Box>
+        <h1 className="title h1">Welcome to GrowthBook!</h1>
+        {showCreate || showJoin ? (
+          <p>
+            You aren&apos;t part of an organization yet. <br />
+            {showCreate && showJoin
+              ? `Create or join one here.`
+              : showCreate
+                ? `Create a new one here.`
+                : `Join one here.`}
+          </p>
+        ) : (
+          <p>Ask your admin to invite you to the organization.</p>
+        )}
+      </Box>
+    </Flex>
   );
 
   const titleCopy = (orgs) => {
