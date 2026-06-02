@@ -1,5 +1,7 @@
 import {
   apiContextualBanditLifecycleReturn,
+  apiContextualBanditRefreshReturn,
+  apiContextualBanditRefreshValidator,
   apiContextualBanditStartValidator,
   apiContextualBanditStopValidator,
   apiContextualBanditValidator,
@@ -41,6 +43,15 @@ export const stopContextualBanditEndpoint = {
   summary: "Stop a Contextual Bandit",
 };
 
+export const refreshContextualBanditEndpoint = {
+  pathFragment: "/:id/refresh",
+  verb: "post" as const,
+  operationId: "refreshContextualBandit",
+  validator: apiContextualBanditRefreshValidator,
+  zodReturnObject: apiContextualBanditRefreshReturn,
+  summary: "Trigger a Contextual Bandit snapshot refresh",
+};
+
 export const contextualBanditApiSpec = {
   modelSingular: "contextualBandit",
   modelPlural: "contextualBandits",
@@ -57,6 +68,7 @@ export const contextualBanditApiSpec = {
   customEndpoints: [
     startContextualBanditEndpoint,
     stopContextualBanditEndpoint,
+    refreshContextualBanditEndpoint,
   ],
   navAfterTag: "experiments",
 } satisfies OpenApiModelSpec;

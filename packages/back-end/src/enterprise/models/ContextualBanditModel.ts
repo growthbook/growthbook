@@ -8,6 +8,7 @@ import {
 import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
   contextualBanditApiSpec,
+  refreshContextualBanditEndpoint,
   startContextualBanditEndpoint,
   stopContextualBanditEndpoint,
 } from "back-end/src/api/specs/contextual-bandit.spec";
@@ -16,6 +17,8 @@ import {
   executeContextualBanditStart,
   executeContextualBanditStop,
 } from "back-end/src/services/contextualBanditChanges";
+import { runContextualBanditSnapshot } from "back-end/src/enterprise/services/contextualBandits";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 import { getCollection } from "back-end/src/util/mongo.util";
 
@@ -100,6 +103,51 @@ const BaseClass = MakeModelClass({
             { allowAlreadyStopped: true },
           );
           return { contextualBandit: toApiContextualBandit(updated) };
+        },
+      }),
+      defineCustomApiHandler({
+        ...refreshContextualBanditEndpoint,
+        reqHandler: async (req) => {
+          const cb = await req.context.models.contextualBandits.getById(
+            req.params.id,
+          );
+          if (!cb) {
+            return req.context.throwNotFoundError();
+          }
+          // Refresh counts as running the CB (writes new leaf weights via
+          // the snapshot orchestrator) — gate on the env-scoped run perm.
+          const envs =
+            req.context.org.settings?.environments?.map((e) => e.id) ?? [];
+          if (!req.context.permissions.canRunContextualBandit(cb, envs)) {
+            req.context.permissions.throwPermissionError();
+          }
+          if (!cb.phases.length) {
+            throw new Error("Contextual Bandit has no phases");
+          }
+          // Legacy bridge: the snapshot orchestrator currently takes an
+          // ExperimentInterface. Look it up via the CB's FK during the
+          // decoupling window; PR-8 refactors the orchestrator to take a
+          // CB directly and removes this lookup.
+          if (!cb.experiment) {
+            throw new Error(
+              "Contextual Bandit has no parent experiment FK; cannot refresh until PR-8 migration",
+            );
+          }
+          const experiment = await getExperimentById(
+            req.context,
+            cb.experiment,
+          );
+          if (!experiment) {
+            return req.context.throwNotFoundError();
+          }
+          const phase = cb.phases.length - 1;
+          const result = await runContextualBanditSnapshot(
+            req.context,
+            experiment,
+            phase,
+            { triggeredBy: "manual" },
+          );
+          return result;
         },
       }),
     ],

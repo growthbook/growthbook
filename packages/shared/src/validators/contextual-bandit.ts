@@ -407,3 +407,18 @@ export const apiContextualBanditStopValidator = {
 export const apiContextualBanditLifecycleReturn = z.object({
   contextualBandit: apiContextualBanditValidator,
 });
+
+// POST /:id/refresh — manually trigger a snapshot run. Returns just the
+// IDs of the freshly-created snapshot + (optional) CB event so callers
+// can poll status without re-reading the whole CB doc. Mirrors the
+// legacy `/experiments/:id/contextual-bandit/refresh` return shape.
+export const apiContextualBanditRefreshValidator = {
+  paramsSchema: z.strictObject({ id: z.string() }),
+  bodySchema: z.strictObject({}).optional(),
+  querySchema: z.never(),
+};
+
+export const apiContextualBanditRefreshReturn = z.object({
+  snapshotId: z.string(),
+  cbeId: z.string().optional(),
+});
