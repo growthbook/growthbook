@@ -1,6 +1,5 @@
 import {
   buildUserIdTypesFromAttributeSchema,
-  getUserIdTypesToAdd,
   mergeUserIdTypes,
 } from "shared/util";
 import { SDKAttributeSchema } from "shared/types/organization";
@@ -27,6 +26,7 @@ async function ensureExposureQueriesAfterUserIdTypesSync(
       syncedUserIdTypes,
       undefined,
       attributeSchema,
+      { queueWarehouseSync: false },
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
@@ -57,10 +57,18 @@ export async function initializeDatasourceUserIdTypesFromOrgAttributeSchema(
   );
 
   const existing = raw.settings?.userIdTypes ?? [];
-  const toAdd = getUserIdTypesToAdd(existing, built);
   const merged = mergeUserIdTypes(existing, built);
+  const syncedUserIdTypes = built.map((userIdType) => userIdType.userIdType);
 
   if (merged.length === existing.length) {
+    if (eventForwarderConfig) {
+      await ensureExposureQueriesAfterUserIdTypesSync(
+        context,
+        eventForwarderConfig,
+        syncedUserIdTypes,
+        context.org.settings?.attributeSchema ?? [],
+      );
+    }
     return;
   }
 
@@ -80,7 +88,7 @@ export async function initializeDatasourceUserIdTypesFromOrgAttributeSchema(
     await ensureExposureQueriesAfterUserIdTypesSync(
       context,
       eventForwarderConfig,
-      toAdd.map((userIdType) => userIdType.userIdType),
+      syncedUserIdTypes,
       context.org.settings?.attributeSchema ?? [],
     );
   }
@@ -108,32 +116,32 @@ export async function syncAllEventForwarderDatasourceUserIdTypesFromAttributeSch
           raw.projects,
         );
         const existing = raw.settings?.userIdTypes ?? [];
-        const toAdd = getUserIdTypesToAdd(existing, built);
         const merged = mergeUserIdTypes(existing, built);
-
-        if (merged.length === existing.length) {
-          return;
-        }
-
-        const datasource = await getDataSourceById(
-          context,
-          config.datasourceId,
+        const syncedUserIdTypes = built.map(
+          (userIdType) => userIdType.userIdType,
         );
-        if (!datasource) {
-          return;
-        }
 
-        await updateDataSource(context, datasource, {
-          settings: {
-            ...raw.settings,
-            userIdTypes: merged,
-          },
-        });
+        if (merged.length !== existing.length) {
+          const datasource = await getDataSourceById(
+            context,
+            config.datasourceId,
+          );
+          if (!datasource) {
+            return;
+          }
+
+          await updateDataSource(context, datasource, {
+            settings: {
+              ...raw.settings,
+              userIdTypes: merged,
+            },
+          });
+        }
 
         await ensureExposureQueriesAfterUserIdTypesSync(
           context,
           config,
-          toAdd.map((userIdType) => userIdType.userIdType),
+          syncedUserIdTypes,
           attributeSchema,
         );
       } catch (error) {

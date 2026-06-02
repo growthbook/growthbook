@@ -73,6 +73,7 @@ export async function ensureEventForwarderExposureQueries(
   userIdTypes: string[],
   datasourceParams?: BigQueryConnectionParams | SnowflakeConnectionParams,
   attributeSchema?: SDKAttributeSchema,
+  options?: { queueWarehouseSync?: boolean },
 ): Promise<void> {
   if (userIdTypes.length === 0) {
     return;
@@ -166,8 +167,10 @@ export async function ensureEventForwarderExposureQueries(
     { skipEventForwarderManagedValidation: true },
   );
 
-  await queueDelayedEventForwarderWarehouseSyncForDatasource(
-    context,
-    eventForwarderConfig.datasourceId,
-  );
+  if (options?.queueWarehouseSync !== false) {
+    await queueDelayedEventForwarderWarehouseSyncForDatasource(
+      context,
+      eventForwarderConfig.datasourceId,
+    );
+  }
 }
