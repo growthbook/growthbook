@@ -99,7 +99,7 @@ import {
   SchemaFormat,
 } from "shared/types/datasource";
 import {
-  ExperimentSnapshotSettings,
+  SnapshotMetricRequest,
   SnapshotBanditSettings,
   SnapshotSettingsVariation,
 } from "shared/types/experiment-snapshot";
@@ -141,7 +141,7 @@ import { getExperimentAggregateUnitsQuery as getExperimentAggregateUnitsQueryFro
 import { getExperimentEndDate } from "back-end/src/integrations/sql/dates/experiment-end-date";
 import { getExperimentFactMetricStatisticsCTE } from "back-end/src/integrations/sql/ctes/experiment-fact-metric-statistics-cte";
 import { getExperimentFactMetricsQuery as getExperimentFactMetricsQueryFromSql } from "back-end/src/integrations/sql/queries/experiment-fact-metrics-query";
-import { getExperimentMetricQuery as buildExperimentMetricQuerySql } from "back-end/src/integrations/sql/queries/experiment-metric-query";
+import { getSnapshotMetricQuery as buildSnapshotMetricQuerySql } from "back-end/src/integrations/sql/queries/snapshot-metric-query";
 import { getExperimentResultsQuery } from "back-end/src/integrations/sql/queries/experiment-results-query";
 import { getExperimentUnitsQuery as buildExperimentUnitsQuerySql } from "back-end/src/integrations/sql/queries/experiment-units-query";
 import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure-query";
@@ -505,10 +505,10 @@ export default abstract class SqlIntegration
     setExternalId: ExternalIdCallback,
     queryMetadata?: QueryMetadata,
   ): Promise<ExperimentMetricQueryResponse> {
-    return this.runExperimentMetricQuery(query, setExternalId, queryMetadata);
+    return this.runSnapshotMetricQuery(query, setExternalId, queryMetadata);
   }
 
-  async runExperimentMetricQuery(
+  async runSnapshotMetricQuery(
     query: string,
     setExternalId: ExternalIdCallback,
     queryMetadata?: QueryMetadata,
@@ -832,7 +832,7 @@ export default abstract class SqlIntegration
       segment,
     });
 
-    return this.getExperimentMetricQuery({
+    return this.getSnapshotMetricQuery({
       ...params,
       unitsSource: "otherQuery",
       unitsSql: populationSQL,
@@ -990,8 +990,8 @@ export default abstract class SqlIntegration
     );
   }
 
-  getExperimentMetricQuery(params: ExperimentMetricQueryParams): string {
-    return buildExperimentMetricQuerySql(
+  getSnapshotMetricQuery(params: ExperimentMetricQueryParams): string {
+    return buildSnapshotMetricQuerySql(
       this.getSqlDialect(),
       this.datasource,
       params,
@@ -1506,7 +1506,7 @@ export default abstract class SqlIntegration
   // Finally, one per fact table for now:
   // getExperimentIncrementalStatisticsQuery
   parseExperimentParams(params: {
-    settings: ExperimentSnapshotSettings;
+    settings: SnapshotMetricRequest;
     activationMetric: ExperimentMetricInterface | null;
     dimensions: Dimension[];
     unitsTableFullName: string;
@@ -1889,7 +1889,7 @@ export default abstract class SqlIntegration
     const paramsMetricsSorted: {
       metrics: FactMetricInterface[];
       activationMetric: ExperimentMetricInterface | null;
-      settings: ExperimentSnapshotSettings;
+      settings: SnapshotMetricRequest;
       factTableMap: FactTableMap;
       covariateWindowType: CovariateWindowType;
       covariateTableAlias: string;

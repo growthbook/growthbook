@@ -6,7 +6,7 @@ import {
   contextualBanditAttrCol,
   contextualBanditRawAttrCol,
 } from "shared/experiments";
-import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import type { SnapshotMetricRequest } from "shared/types/experiment-snapshot";
 import type { DimensionColumnData } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
 
@@ -14,7 +14,7 @@ const SAFE_SQL_IDENT = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
 export function appendContextualBanditTargetingDimensionCols(
   dimensionCols: DimensionColumnData[],
-  settings: ExperimentSnapshotSettings,
+  settings: SnapshotMetricRequest,
 ): void {
   const cfg = getContextualBanditUnitsSqlConfig(settings);
   if (!cfg) {
@@ -39,7 +39,7 @@ export type ContextualBanditUnitsSqlConfig = {
 };
 
 export function getContextualBanditUnitsSqlConfig(
-  settings: ExperimentSnapshotSettings,
+  settings: SnapshotMetricRequest,
 ): ContextualBanditUnitsSqlConfig | null {
   const bs = settings.banditSettings;
   if (!bs?.banditIsContextual || !bs.targetingAttributeColumns?.length) {

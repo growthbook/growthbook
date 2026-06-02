@@ -6,7 +6,7 @@ import { queryPointerValidator } from "./queries";
  * Frozen, self-contained settings for a single contextual-bandit snapshot run.
  *
  * This is intentionally CB-specific and does NOT extend
- * `ExperimentSnapshotSettings`: that schema carries fields CB does not use
+ * `SnapshotMetricRequest`: that schema carries fields CB does not use
  * (e.g. `guardrailMetrics`, `activationMetric`, `regressionAdjustmentEnabled`),
  * and we want to prevent future drift from bleeding into CB runs.
  *

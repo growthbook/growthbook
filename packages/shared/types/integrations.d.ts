@@ -2,7 +2,7 @@ import { BigQueryTimestamp } from "@google-cloud/bigquery";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { MetricAnalysisSettings } from "shared/types/metric-analysis";
 import { DimensionInterface } from "shared/types/dimension";
-import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import { SnapshotMetricRequest } from "shared/types/experiment-snapshot";
 import { MetricInterface, MetricType } from "shared/types/metric";
 import { QueryStatistics } from "shared/types/query";
 import {
@@ -297,7 +297,7 @@ export type ColumnTopValuesResponseRow = {
 };
 
 interface ExperimentBaseQueryParams {
-  settings: ExperimentSnapshotSettings;
+  settings: SnapshotMetricRequest;
   activationMetric: ExperimentMetricInterface | null;
   factTableMap: FactTableMap;
   dimensions: Dimension[];
@@ -310,7 +310,7 @@ export interface ExperimentUnitsQueryParams extends ExperimentBaseQueryParams {
 }
 
 export interface CreateExperimentIncrementalUnitsQueryParams {
-  settings: ExperimentSnapshotSettings;
+  settings: SnapshotMetricRequest;
   activationMetric: ExperimentMetricInterface | null;
   dimensions: Dimension[];
   factTableMap: FactTableMap;
@@ -345,14 +345,14 @@ export interface MaxTimestampMetricSourceQueryParams {
 }
 
 export interface CreateMetricSourceTableQueryParams {
-  settings: ExperimentSnapshotSettings;
+  settings: SnapshotMetricRequest;
   metrics: FactMetricInterface[];
   factTableMap: FactTableMap;
   metricSourceTableFullName: string;
 }
 
 export interface InsertMetricSourceDataQueryParams {
-  settings: ExperimentSnapshotSettings;
+  settings: SnapshotMetricRequest;
   activationMetric: ExperimentMetricInterface | null;
   factTableMap: FactTableMap;
   metricSourceTableFullName: string;
@@ -366,13 +366,13 @@ export interface DropMetricSourceCovariateTableQueryParams {
 }
 
 export interface CreateMetricSourceCovariateTableQueryParams {
-  settings: ExperimentSnapshotSettings;
+  settings: SnapshotMetricRequest;
   metrics: FactMetricInterface[];
   metricSourceCovariateTableFullName: string;
 }
 
 export interface InsertMetricSourceCovariateDataQueryParams {
-  settings: ExperimentSnapshotSettings;
+  settings: SnapshotMetricRequest;
   activationMetric: ExperimentMetricInterface | null;
   factTableMap: FactTableMap;
   metricSourceCovariateTableFullName: string;
@@ -382,7 +382,7 @@ export interface InsertMetricSourceCovariateDataQueryParams {
 }
 
 export interface IncrementalRefreshStatisticsQueryParams {
-  settings: ExperimentSnapshotSettings;
+  settings: SnapshotMetricRequest;
   activationMetric: ExperimentMetricInterface | null;
   dimensionsForPrecomputation: ExperimentDimensionWithSpecifiedSlices[];
   dimensionsForAnalysis: Dimension[];

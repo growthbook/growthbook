@@ -45,7 +45,7 @@ import {
   ExperimentAnalysisParamsContextData,
   ExperimentMetricAnalysisParams,
   ExperimentSnapshotAnalysisSettings,
-  ExperimentSnapshotSettings,
+  SnapshotMetricRequest,
   ExperimentSnapshotTraffic,
   ExperimentSnapshotTrafficDimension,
   SnapshotBanditSettings,
@@ -251,7 +251,7 @@ export async function runSnapshotAnalyses(
 
 function getBusinessMetricTypeForStatsEngine(
   metricId: string,
-  settings: ExperimentSnapshotSettings,
+  settings: SnapshotMetricRequest,
 ): BusinessMetricTypeForStatsEngine[] {
   return [
     settings.goalMetrics.includes(metricId) ? ("goal" as const) : null,
@@ -267,7 +267,7 @@ function getBusinessMetricTypeForStatsEngine(
 export function getMetricSettingsForStatsEngine(
   metricDoc: ExperimentMetricInterface,
   metricMap: Map<string, ExperimentMetricInterface>,
-  settings: ExperimentSnapshotSettings,
+  settings: SnapshotMetricRequest,
   optimizedFactMetric: boolean = false,
 ): MetricSettingsForStatsEngine {
   const metric = cloneDeep<ExperimentMetricInterface>(metricDoc);
@@ -347,7 +347,7 @@ export function getMetricSettingsForStatsEngine(
 export function getMetricsAndQueryDataForStatsEngine(
   queryData: QueryMap,
   metricMap: Map<string, ExperimentMetricInterface>,
-  settings: ExperimentSnapshotSettings,
+  settings: SnapshotMetricRequest,
 ) {
   const queryResults: QueryResultsForStatsEngine[] = [];
   const metricSettings: Record<string, MetricSettingsForStatsEngine> = {};
@@ -471,7 +471,7 @@ function parseStatsEngineResult({
   result,
 }: {
   analysisSettings: ExperimentSnapshotAnalysisSettings[];
-  snapshotSettings: ExperimentSnapshotSettings;
+  snapshotSettings: SnapshotMetricRequest;
   queryResults: QueryResultsForStatsEngine[];
   unknownVariations: string[];
   result: ExperimentMetricAnalysis;
@@ -644,7 +644,7 @@ export async function analyzeExperimentResults({
 }: {
   queryData: QueryMap;
   analysisSettings: ExperimentSnapshotAnalysisSettings[];
-  snapshotSettings: ExperimentSnapshotSettings;
+  snapshotSettings: SnapshotMetricRequest;
   variationNames: string[];
   metricMap: Map<string, ExperimentMetricInterface>;
 }): Promise<{

@@ -25,7 +25,7 @@ import {
   PopulationDataInterface,
   PopulationDataMetric,
 } from "shared/types/population-data";
-import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import { SnapshotMetricRequest } from "shared/types/experiment-snapshot";
 import { ApiReqContext } from "back-end/types/api";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { expandDenominatorMetrics } from "back-end/src/util/sql";
@@ -42,7 +42,7 @@ import {
 
 export interface PopulationDataQueryParams {
   populationSettings: PopulationDataQuerySettings;
-  snapshotSettings: ExperimentSnapshotSettings;
+  snapshotSettings: SnapshotMetricRequest;
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
 }

@@ -20,7 +20,7 @@ import {
 } from "shared/types/integrations";
 import {
   ExperimentSnapshotInterface,
-  ExperimentSnapshotSettings,
+  SnapshotMetricRequest,
   SnapshotType,
 } from "shared/types/experiment-snapshot";
 import {
@@ -71,7 +71,7 @@ export const INCREMENTAL_CUPED_TABLE_PREFIX = "gb_cuped";
 
 export type ExperimentIncrementalRefreshQueryParams = {
   snapshotType: SnapshotType;
-  snapshotSettings: ExperimentSnapshotSettings;
+  snapshotSettings: SnapshotMetricRequest;
   variationNames: string[];
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
@@ -99,7 +99,7 @@ export function getIncrementalRefreshMetricSources({
   metrics: FactMetricInterface[];
   existingMetricSources: IncrementalRefreshInterface["metricSources"];
   integration: SourceIntegrationInterface;
-  snapshotSettings: ExperimentSnapshotSettings;
+  snapshotSettings: SnapshotMetricRequest;
 }): {
   metrics: FactMetricInterface[];
   groupId: string;

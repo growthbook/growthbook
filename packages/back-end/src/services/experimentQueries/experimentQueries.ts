@@ -10,7 +10,7 @@ import {
 } from "shared/experiments";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { MetricInterface } from "shared/types/metric";
-import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import { SnapshotMetricRequest } from "shared/types/experiment-snapshot";
 import { OrganizationInterface } from "shared/types/organization";
 import cloneDeep from "lodash/cloneDeep";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
@@ -255,7 +255,7 @@ export interface GroupedMetrics {
 
 export function getFactMetricGroups(
   metrics: ExperimentMetricInterface[],
-  settings: ExperimentSnapshotSettings,
+  settings: SnapshotMetricRequest,
   integration: SourceIntegrationInterface,
   organization: OrganizationInterface,
 ): GroupedMetrics {

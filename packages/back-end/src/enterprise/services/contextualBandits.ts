@@ -1,6 +1,6 @@
 import { ExperimentInterface } from "shared/types/experiment";
 import type {
-  ExperimentSnapshotSettings,
+  SnapshotMetricRequest,
   SnapshotStatusSummary,
 } from "shared/types/experiment-snapshot";
 import type { ContextualBanditSnapshot } from "shared/types/stats";
@@ -348,7 +348,7 @@ export function attributesToCondition(
 /**
  * Pure transform: builds the frozen snapshot settings persisted on the CBS doc.
  *
- * Mirrors the *shape* of `ExperimentSnapshotSettings` for the fields that
+ * Mirrors the *shape* of `SnapshotMetricRequest` for the fields that
  * apply, but is intentionally a separate type. Notably: no `guardrailMetrics`
  * (CB has a single decision metric in MVP, and the validator's `.strict()`
  * rejects it anyway).
@@ -422,7 +422,7 @@ export function buildContextualBanditSnapshotSettings(
 
 /**
  * Translates the parallel-pipeline `ContextualBanditSnapshotSettings` into the
- * shape `SqlIntegration.getExperimentMetricQuery` expects.
+ * shape `SqlIntegration.getSnapshotMetricQuery` expects.
  *
  * Sets `banditSettings.banditIsContextual = true` and
  * `banditSettings.targetingAttributeColumns` so the contextual-bandit CTEs in
@@ -432,9 +432,9 @@ export function buildContextualBanditSnapshotSettings(
  * `ExperimentInterface.banditIsContextual`, which was migrated to
  * `experiment.type === "contextual-bandit"` in `util/migrations.ts:760-774`.
  */
-export function buildExperimentSnapshotSettingsForCb(
+export function buildSnapshotMetricRequestForCb(
   cbSnapshotSettings: ContextualBanditSnapshotSettings,
-): ExperimentSnapshotSettings {
+): SnapshotMetricRequest {
   const decisionMetric = cbSnapshotSettings.goalMetrics[0] ?? "";
   return {
     experimentId: cbSnapshotSettings.trackingKey,

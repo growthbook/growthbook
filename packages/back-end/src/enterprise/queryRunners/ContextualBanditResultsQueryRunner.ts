@@ -17,7 +17,7 @@ import { MetricInterface } from "shared/types/metric";
 import type { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
 import {
   attributesToCondition,
-  buildExperimentSnapshotSettingsForCb,
+  buildSnapshotMetricRequestForCb,
   getContextualBanditSettingsForStatsEngine,
   persistContextualBanditEvent,
 } from "back-end/src/enterprise/services/contextualBandits";
@@ -76,7 +76,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
     await this.loadCbDoc();
     this.loadExposureQuery();
 
-    const expSnapshotSettings = buildExperimentSnapshotSettingsForCb(
+    const expSnapshotSettings = buildSnapshotMetricRequestForCb(
       this.snapshotSettings,
     );
     const decisionMetricId = this.snapshotSettings.goalMetrics[0];
@@ -115,7 +115,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
           unitsTableFullName: "",
           factTableMap,
         })
-      : this.integration.getExperimentMetricQuery({
+      : this.integration.getSnapshotMetricQuery({
           settings: expSnapshotSettings,
           metric: decisionMetric as MetricInterface,
           denominatorMetrics: [],
@@ -140,7 +140,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
             );
             return { rows: res.rows as ExperimentMetricQueryResponseRows };
           }
-          const { rows } = await this.integration.runExperimentMetricQuery(
+          const { rows } = await this.integration.runSnapshotMetricQuery(
             query,
             setExternalId,
             queryMetadata,
@@ -217,7 +217,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       currentWeightsByContext,
     );
 
-    const expSnapshotSettings = buildExperimentSnapshotSettingsForCb(
+    const expSnapshotSettings = buildSnapshotMetricRequestForCb(
       this.snapshotSettings,
     );
     const decisionMetricId = this.snapshotSettings.goalMetrics[0];

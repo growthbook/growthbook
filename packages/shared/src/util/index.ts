@@ -9,7 +9,7 @@ import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
-  ExperimentSnapshotSettings,
+  SnapshotMetricRequest,
 } from "shared/types/experiment-snapshot";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { ExperimentReportVariation } from "shared/types/report";
@@ -131,7 +131,7 @@ export function putBaselineVariationFirst(
 }
 
 export function isAnalysisAllowed(
-  snapshotSettings: ExperimentSnapshotSettings,
+  snapshotSettings: SnapshotMetricRequest,
   analysisSettings: ExperimentSnapshotAnalysisSettings,
 ): boolean {
   // Analysis dimensions must be subset of snapshot dimensions

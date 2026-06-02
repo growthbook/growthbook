@@ -6,7 +6,7 @@ import {
 import { ExperimentMetricQueryResponseRows } from "shared/types/integrations";
 import {
   ExperimentSnapshotAnalysisSettings,
-  ExperimentSnapshotSettings,
+  SnapshotMetricRequest,
 } from "shared/types/experiment-snapshot";
 import type {
   ContextualBanditSettingsForStatsEngine as PythonContextualBanditSettings,
@@ -45,7 +45,7 @@ export type RunContextualStatsEngineOptions = {
   snapshotId: string;
   sql?: string;
   decisionMetricId: string;
-  snapshotSettings: ExperimentSnapshotSettings;
+  snapshotSettings: SnapshotMetricRequest;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
   metricMap: Map<string, ExperimentMetricInterface>;
   variations: { id: string; name: string; weight: number }[];

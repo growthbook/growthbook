@@ -1,4 +1,4 @@
-import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import { SnapshotMetricRequest } from "shared/types/experiment-snapshot";
 import { ExposureQuery } from "shared/types/datasource";
 import BigQuery from "back-end/src/integrations/BigQuery";
 import { getAggregationMetadata } from "back-end/src/integrations/sql/fact-metrics/aggregation-metadata";
@@ -408,7 +408,7 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
 
   const factTableMap = new Map([["ft_events", factTable]]);
 
-  const settings: ExperimentSnapshotSettings = {
+  const settings: SnapshotMetricRequest = {
     manual: false,
     dimensions: [],
     metricSettings: [],

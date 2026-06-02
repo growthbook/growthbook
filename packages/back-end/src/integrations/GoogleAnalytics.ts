@@ -45,7 +45,7 @@ import {
 } from "shared/types/datasource";
 import { MetricInterface } from "shared/types/metric";
 import { QueryMetadata } from "shared/types/query";
-import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import { SnapshotMetricRequest } from "shared/types/experiment-snapshot";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { ReqContext } from "back-end/types/request";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
@@ -128,7 +128,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   ): Promise<DropTableQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  getExperimentMetricQuery(_: ExperimentMetricQueryParams): string {
+  getSnapshotMetricQuery(_: ExperimentMetricQueryParams): string {
     throw new Error("Method not implemented.");
   }
   getExperimentAggregateUnitsQuery(
@@ -143,7 +143,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   ): Promise<ExperimentAggregateUnitsQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  runExperimentMetricQuery(
+  runSnapshotMetricQuery(
     _query: string,
     _setExternalId: ExternalIdCallback,
     _queryMetadata?: QueryMetadata,
@@ -409,7 +409,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   }
 
   getExperimentResultsQuery(
-    snapshotSettings: ExperimentSnapshotSettings,
+    snapshotSettings: SnapshotMetricRequest,
     metricDocs: MetricInterface[],
   ): string {
     const metrics = metricDocs.map((m) => {
@@ -463,7 +463,7 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   }
 
   async getExperimentResults(
-    snapshotSettings: ExperimentSnapshotSettings,
+    snapshotSettings: SnapshotMetricRequest,
     metrics: MetricInterface[],
   ): Promise<ExperimentQueryResponses> {
     const query = this.getExperimentResultsQuery(snapshotSettings, metrics);

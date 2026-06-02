@@ -45,7 +45,7 @@ import { DimensionInterface } from "shared/types/dimension";
 import { MixpanelConnectionParams } from "shared/types/integrations/mixpanel";
 import { MetricInterface, MetricType } from "shared/types/metric";
 import { QueryMetadata } from "shared/types/query";
-import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import { SnapshotMetricRequest } from "shared/types/experiment-snapshot";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { ReqContext } from "back-end/types/request";
 import { decryptDataSourceParams } from "back-end/src/services/datasource";
@@ -112,7 +112,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
   ): Promise<DropTableQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  getExperimentMetricQuery(_: ExperimentMetricQueryParams): string {
+  getSnapshotMetricQuery(_: ExperimentMetricQueryParams): string {
     throw new Error("Method not implemented.");
   }
   getExperimentAggregateUnitsQuery(
@@ -127,7 +127,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
   ): Promise<ExperimentAggregateUnitsQueryResponse> {
     throw new Error("Method not implemented.");
   }
-  runExperimentMetricQuery(
+  runSnapshotMetricQuery(
     _query: string,
     _setExternalId: ExternalIdCallback,
     _queryMetadata?: QueryMetadata,
@@ -264,7 +264,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
   }
 
   getExperimentResultsQuery(
-    snapshotSettings: ExperimentSnapshotSettings,
+    snapshotSettings: SnapshotMetricRequest,
     metricDocs: MetricInterface[],
     activationMetricDoc: MetricInterface,
     dimension: DimensionInterface,
@@ -524,7 +524,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
     return query;
   }
   async getExperimentResults(
-    snapshotSettings: ExperimentSnapshotSettings,
+    snapshotSettings: SnapshotMetricRequest,
     metrics: MetricInterface[],
     activationMetric: MetricInterface,
     dimension: DimensionInterface,

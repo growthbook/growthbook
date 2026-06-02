@@ -23,7 +23,7 @@ import { ReqContext } from "back-end/types/api";
 // without depending on the real stats body. The SQL itself is generated and
 // executed inline through the datasource integration (mocked per-test). The
 // orchestrator-module mock keeps the pure helpers (attributesToCondition,
-// getContextualBanditSettingsForStatsEngine, buildExperimentSnapshotSettingsForCb)
+// getContextualBanditSettingsForStatsEngine, buildSnapshotMetricRequestForCb)
 // real and intercepts only the side-effecting `persistContextualBanditEvent`.
 jest.mock("back-end/src/enterprise/services/contextualBanditStats", () => ({
   runContextualStatsEngine: jest.fn(),
@@ -178,10 +178,10 @@ function makeIntegration(): SourceIntegrationInterface {
         },
       },
     },
-    getExperimentMetricQuery: jest
+    getSnapshotMetricQuery: jest
       .fn()
       .mockReturnValue("-- contextual-bandit metric SQL"),
-    runExperimentMetricQuery: jest.fn().mockResolvedValue({ rows: [] }),
+    runSnapshotMetricQuery: jest.fn().mockResolvedValue({ rows: [] }),
   } as unknown as SourceIntegrationInterface;
 }
 
@@ -420,7 +420,7 @@ describe("ContextualBanditResultsQueryRunner", () => {
   });
 
   describe("startQueries seam", () => {
-    it("generates SQL via integration.getExperimentMetricQuery and registers the query", async () => {
+    it("generates SQL via integration.getSnapshotMetricQuery and registers the query", async () => {
       const cb = makeCb();
       const context = makeContext(cb);
       const integration = makeIntegration();
@@ -441,8 +441,8 @@ describe("ContextualBanditResultsQueryRunner", () => {
         variationNames: ["Control", "Treatment"],
       });
 
-      expect(integration.getExperimentMetricQuery).toHaveBeenCalledTimes(1);
-      const callArgs = (integration.getExperimentMetricQuery as jest.Mock).mock
+      expect(integration.getSnapshotMetricQuery).toHaveBeenCalledTimes(1);
+      const callArgs = (integration.getSnapshotMetricQuery as jest.Mock).mock
         .calls[0][0];
       expect(callArgs.settings.experimentId).toBe("exp_1");
       expect(callArgs.settings.banditSettings.banditIsContextual).toBe(true);

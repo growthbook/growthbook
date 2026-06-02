@@ -12,7 +12,7 @@ import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
   LegacyExperimentSnapshotInterface,
-  ExperimentSnapshotSettings,
+  SnapshotMetricRequest,
   SnapshotStatusSummary,
 } from "shared/types/experiment-snapshot";
 import {
@@ -323,7 +323,7 @@ async function chunkAndStripAnalyses({
   snapshotId: string;
   experimentId: string;
   analyses: ExperimentSnapshotAnalysis[];
-  settings: ExperimentSnapshotSettings;
+  settings: SnapshotMetricRequest;
 }): Promise<{
   strippedAnalyses: ExperimentSnapshotAnalysis[];
   hasChunkedAnalyses: true;

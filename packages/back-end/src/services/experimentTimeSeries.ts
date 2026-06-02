@@ -21,7 +21,7 @@ import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
-  ExperimentSnapshotSettings,
+  SnapshotMetricRequest,
   MetricForSnapshot,
   SnapshotMetric,
 } from "shared/types/experiment-snapshot";
@@ -330,7 +330,7 @@ function convertMetricToMetricValue(
 const hashObject = (obj: object) => md5(JSON.stringify(obj));
 
 function getExperimentSettingsHash(
-  snapshotSettings: ExperimentSnapshotSettings,
+  snapshotSettings: SnapshotMetricRequest,
   snapshotAnalysisSettings: ExperimentSnapshotAnalysisSettings,
 ): string {
   return hashObject({

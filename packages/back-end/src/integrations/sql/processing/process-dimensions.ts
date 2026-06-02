@@ -5,14 +5,14 @@ import {
   ProcessedDimensions,
   UserDimension,
 } from "shared/types/integrations";
-import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import { SnapshotMetricRequest } from "shared/types/experiment-snapshot";
 import type { SqlDialect } from "shared/types/sql";
 import { compileSqlTemplate } from "back-end/src/util/sql";
 
 export function processDimensions(
   dialect: SqlDialect,
   dimensions: Dimension[],
-  settings: ExperimentSnapshotSettings,
+  settings: SnapshotMetricRequest,
   activationMetric: ExperimentMetricInterface | null,
 ): ProcessedDimensions {
   const processedDimensions: ProcessedDimensions = {

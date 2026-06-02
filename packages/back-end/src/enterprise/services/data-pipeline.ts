@@ -7,7 +7,7 @@ import {
 } from "shared/experiments";
 import { IncrementalRefreshInterface } from "shared/validators";
 import {
-  ExperimentSnapshotSettings,
+  SnapshotMetricRequest,
   MetricForSnapshot,
 } from "shared/types/experiment-snapshot";
 import { OrganizationInterface } from "shared/types/organization";
@@ -35,7 +35,7 @@ export async function validateIncrementalPipeline({
 }: {
   org: OrganizationInterface;
   integration: SourceIntegrationInterface;
-  snapshotSettings: ExperimentSnapshotSettings;
+  snapshotSettings: SnapshotMetricRequest;
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   experiment: ExperimentInterface;
@@ -177,7 +177,7 @@ export async function validateIncrementalPipeline({
 const hashObject = (obj: object) => md5(JSON.stringify(obj));
 
 export function getExperimentSettingsHashForIncrementalRefresh(
-  snapshotSettings: ExperimentSnapshotSettings,
+  snapshotSettings: SnapshotMetricRequest,
 ): string {
   return hashObject({
     // snapshotSettings

@@ -25,7 +25,7 @@ import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotHealth,
   ExperimentSnapshotInterface,
-  ExperimentSnapshotSettings,
+  SnapshotMetricRequest,
   SnapshotType,
 } from "shared/types/experiment-snapshot";
 import { MetricInterface } from "shared/types/metric";
@@ -72,7 +72,7 @@ export type SnapshotResult = {
 
 export type ExperimentResultsQueryParams = {
   snapshotType: SnapshotType;
-  snapshotSettings: ExperimentSnapshotSettings;
+  snapshotSettings: SnapshotMetricRequest;
   variationNames: string[];
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
@@ -243,10 +243,10 @@ export const startExperimentResultQueries = async (
     queries.push(
       await startQuery({
         name: m.id,
-        query: integration.getExperimentMetricQuery(queryParams),
+        query: integration.getSnapshotMetricQuery(queryParams),
         dependencies: unitQuery ? [unitQuery.query] : [],
         run: (query, setExternalId, queryMetadata) =>
-          integration.runExperimentMetricQuery(
+          integration.runSnapshotMetricQuery(
             query,
             setExternalId,
             queryMetadata,
@@ -599,7 +599,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   }
 
   private processLegacyExperimentResultsResponse(
-    snapshotSettings: ExperimentSnapshotSettings,
+    snapshotSettings: SnapshotMetricRequest,
     rows: ExperimentQueryResponses,
   ): ExperimentResults {
     const ret: ExperimentResults = {
