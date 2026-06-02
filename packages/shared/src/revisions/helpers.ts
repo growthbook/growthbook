@@ -1,4 +1,5 @@
 import isEqual from "lodash/isEqual";
+import { evalCondition } from "@growthbook/growthbook";
 import type {
   ApprovalFlowConfiguration,
   ApprovalFlowConfigurations,
@@ -30,6 +31,8 @@ export const getApprovalFlowSettings = (
   switch (entityType) {
     case "saved-group":
       return approvalFlows.savedGroups?.[0];
+    case "sdk-connection":
+      return approvalFlows.sdkConnections?.[0];
     // case "feature": return approvalFlows.features?.[0];  ← add future entity types here
     default:
       return undefined;
@@ -74,6 +77,113 @@ export const isSavedGroupRevisionMetadataOnly = (
 };
 
 /**
+ * Top-level SDK-connection fields that count as "metadata" for the
+ * `requireMetadataReview` gate. Almost every SDK-connection field affects the
+ * generated payload, so only the display name is treated as metadata.
+ * Archiving is intentionally excluded — it's a significant state change that
+ * always goes through review when approval is enabled.
+ */
+export const SDK_CONNECTION_METADATA_FIELDS: ReadonlySet<string> = new Set([
+  "name",
+]);
+
+/**
+ * Returns true when every proposed change in the revision touches an
+ * SDK-connection metadata field (per `SDK_CONNECTION_METADATA_FIELDS`). An
+ * empty proposed-changes list returns false — there's nothing to publish, so
+ * the "metadata-only shortcut" doesn't apply.
+ */
+export const isSdkConnectionRevisionMetadataOnly = (
+  proposedChanges: JsonPatchOperation[] | unknown,
+): boolean => {
+  const ops = normalizeProposedChanges(proposedChanges);
+  if (ops.length === 0) return false;
+  return ops.every((op) => {
+    const field = op.path.split("/")[1];
+    return !!field && SDK_CONNECTION_METADATA_FIELDS.has(field);
+  });
+};
+
+// ---------------------------------------------------------------------------
+// SDK-connection approval scoping (condition-based, SDK-connection only)
+//
+// Each SDK-connection approval rule may carry a `condition` — the same
+// Mongo-style format used for saved-group / targeting conditions — evaluated by
+// the SDK's `evalCondition` against the connection's attributes. This lets
+// admins scope "require approval" to e.g. specific environments and/or
+// projects with full AND/OR flexibility. Saved groups and features do NOT use
+// these helpers.
+// ---------------------------------------------------------------------------
+
+/**
+ * Attributes an SDK-connection approval `condition` is evaluated against. The
+ * full flattened connection snapshot is passed through, so a condition can
+ * reference any connection field; `projects` / `environment` are the primary
+ * intended targets.
+ */
+export type SdkConnectionApprovalScope = {
+  projects?: string[];
+  environment?: string;
+  [key: string]: unknown;
+};
+
+/**
+ * Whether an approval rule's scoping condition matches a connection. A missing
+ * or empty (`{}`) condition matches everything. A malformed condition does NOT
+ * match — rules are validated on save, so this only guards against a broken
+ * rule unexpectedly gating (or bricking) edits.
+ */
+export const sdkConnectionMatchesApprovalCondition = (
+  condition: string | undefined,
+  scope: SdkConnectionApprovalScope,
+): boolean => {
+  if (!condition || condition === "{}") return true;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(condition);
+  } catch {
+    return false;
+  }
+  if (!parsed || typeof parsed !== "object") return false;
+  const attributes = {
+    ...scope,
+    projects: scope.projects ?? [],
+    environment: scope.environment ?? "",
+  };
+  return evalCondition(
+    attributes,
+    parsed as Parameters<typeof evalCondition>[1],
+  );
+};
+
+/**
+ * The first enabled SDK-connection approval rule whose condition matches the
+ * given connection scope, or undefined if none require approval for it. The
+ * matched rule supplies the per-rule settings (requireMetadataReview, etc.).
+ */
+export const getSdkConnectionApprovalRule = (
+  approvalFlows: ApprovalFlowConfigurations | undefined,
+  scope: SdkConnectionApprovalScope,
+): ApprovalFlowConfiguration | undefined => {
+  const rules = approvalFlows?.sdkConnections;
+  if (!rules?.length) return undefined;
+  return rules.find(
+    (rule) =>
+      rule.required &&
+      sdkConnectionMatchesApprovalCondition(rule.condition, scope),
+  );
+};
+
+/**
+ * Whether the org has *any* enabled SDK-connection approval rule (ignoring
+ * scope). Used for type-level "does this org use SDK-connection approvals at
+ * all" decisions, e.g. the approvals inbox / badge query.
+ */
+export const orgHasAnySdkConnectionApproval = (
+  approvalFlows: ApprovalFlowConfigurations | undefined,
+): boolean => !!approvalFlows?.sdkConnections?.some((rule) => rule.required);
+
+/**
  * Returns true when `userId` contributed to the revision and the entity-type's
  * `blockSelfApproval` setting is enabled — meaning the user must NOT be allowed
  * to approve.
@@ -111,6 +221,8 @@ export const getRevisionKey = (
   switch (entityType) {
     case "saved-group":
       return "saved-groups";
+    case "sdk-connection":
+      return "sdk-connections";
     // case "feature": return "features";  ← add future entity types here
     default:
       return null;
@@ -155,7 +267,16 @@ export const canUserReviewEntity = ({
   // Extension point: add a new `case` here when introducing a new RevisionTargetType
   // that requires custom reviewer logic beyond the default `canEditEntity` check.
   if (entityType === "saved-group") {
-    // For saved groups: anyone who can edit can review (except the author, checked above)
+    // Anyone who can edit can review (except the author, checked above).
+    return !!canEditEntity;
+  }
+  if (entityType === "sdk-connection") {
+    // Reviewing/approving an SDK-connection revision requires the same
+    // permission as creating or updating the connection — i.e.
+    // `manageSDKConnections` on the connection's projects + environment. The
+    // caller passes that result in as `canEditEntity` (computed via
+    // `canUpdateSDKConnection`), and the server enforces the same check in the
+    // revision controller's review/merge paths via the adapter's `canUpdate`.
     return !!canEditEntity;
   }
   // case "feature": return !!canEditEntity;  ← add future entity types here
