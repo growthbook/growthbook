@@ -4,10 +4,7 @@ import type {
   DimensionColumnData,
 } from "shared/types/integrations";
 import type { FactTableInterface } from "shared/types/fact-table";
-import {
-  banditDimensionJoinCondition,
-  getBanditPeriodWeightDimensionCols,
-} from "back-end/src/integrations/sql/ctes/bandit-period-weight-dims";
+import { banditDimensionJoinCondition } from "back-end/src/integrations/sql/ctes/bandit-statistics-cte";
 
 export function getBanditStatisticsFactMetricCTE(
   dialect: SqlDialect,
@@ -29,8 +26,6 @@ export function getBanditStatisticsFactMetricCTE(
     poolRegressionTheta?: boolean;
   },
 ): string {
-  const weightDimensionCols = getBanditPeriodWeightDimensionCols(dimensionCols);
-
   return `
     -- One row per variation/dimension with aggregations
     , __banditPeriodStatistics AS (
@@ -128,16 +123,16 @@ export function getBanditStatisticsFactMetricCTE(
     __dimensionTotals AS (
       SELECT
         ${dialect.castToFloat(`SUM(users)`)} AS total_users
-        ${weightDimensionCols.map((d) => `, ${d.alias} AS ${d.alias}`).join("\n")}
+        ${dimensionCols.map((d) => `, ${d.alias} AS ${d.alias}`).join("\n")}
       FROM 
         __banditPeriodStatistics
       GROUP BY
-        ${weightDimensionCols.map((d) => `${d.alias}`).join(", ") || "1"}
+        ${dimensionCols.map((d) => `${d.alias}`).join(", ") || "1"}
     ),
     __banditPeriodWeights AS (
       SELECT
         bps.bandit_period AS bandit_period
-        ${weightDimensionCols.map((d) => `, bps.${d.alias} AS ${d.alias}`).join("")}
+        ${dimensionCols.map((d) => `, bps.${d.alias} AS ${d.alias}`).join("")}
         , SUM(bps.users) / MAX(dt.total_users) AS weight
         ${metricData
           .map((data) => {
@@ -170,18 +165,18 @@ export function getBanditStatisticsFactMetricCTE(
       FROM 
         __banditPeriodStatistics bps
       LEFT JOIN __dimensionTotals dt ON (
-        ${banditDimensionJoinCondition("bps", "dt", weightDimensionCols)}
+        ${banditDimensionJoinCondition("bps", "dt", dimensionCols)}
       )
       GROUP BY
         bps.bandit_period
-        ${weightDimensionCols.map((d) => `, bps.${d.alias}`).join("\n")}
+        ${dimensionCols.map((d) => `, bps.${d.alias}`).join("\n")}
     )
     ${
       regressionAdjustedTableIndices.size > 0 && poolRegressionTheta
         ? `
         , __theta AS (
         SELECT
-          ${weightDimensionCols.map((d) => `${d.alias} AS ${d.alias}`).join(", ")}
+          ${dimensionCols.map((d) => `${d.alias} AS ${d.alias}`).join(", ")}
         ${metricData
           .map((data) => {
             const alias = data.alias + "_";
@@ -204,7 +199,7 @@ export function getBanditStatisticsFactMetricCTE(
         FROM
           __banditPeriodWeights
         GROUP BY
-          ${weightDimensionCols.map((d) => `${d.alias}`).join(", ") || "1"}
+          ${dimensionCols.map((d) => `${d.alias}`).join(", ") || "1"}
         )
       `
         : ""
@@ -301,8 +296,8 @@ export function getBanditStatisticsFactMetricCTE(
       ON (
         bps.bandit_period = bpw.bandit_period
         ${
-          weightDimensionCols.length
-            ? weightDimensionCols
+          dimensionCols.length
+            ? dimensionCols
                 .map((d) => `AND bps.${d.alias} = bpw.${d.alias}`)
                 .join("\n")
             : ""
@@ -313,7 +308,7 @@ export function getBanditStatisticsFactMetricCTE(
         ? `
       LEFT JOIN
         __theta t
-        ON (${banditDimensionJoinCondition("bps", "t", weightDimensionCols)})
+        ON (${banditDimensionJoinCondition("bps", "t", dimensionCols)})
       `
         : ""
     }
