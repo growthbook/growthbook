@@ -6,7 +6,16 @@ import {
   LeafWeight,
 } from "shared/validators";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
-import { contextualBanditApiSpec } from "back-end/src/api/specs/contextual-bandit.spec";
+import {
+  contextualBanditApiSpec,
+  startContextualBanditEndpoint,
+  stopContextualBanditEndpoint,
+} from "back-end/src/api/specs/contextual-bandit.spec";
+import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
+import {
+  executeContextualBanditStart,
+  executeContextualBanditStop,
+} from "back-end/src/services/contextualBanditChanges";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -41,6 +50,56 @@ const BaseClass = MakeModelClass({
   apiConfig: {
     modelKey: "contextualBandits",
     openApiSpec: contextualBanditApiSpec,
+    customHandlers: [
+      defineCustomApiHandler({
+        ...startContextualBanditEndpoint,
+        reqHandler: async (req) => {
+          const cb = await req.context.models.contextualBandits.getById(
+            req.params.id,
+          );
+          if (!cb) {
+            return req.context.throwNotFoundError();
+          }
+          // Permission boundary: CB-native env-scoped run permission.
+          // The PR-5 helper itself is permission-less so it can run from
+          // agenda jobs; we enforce here at the HTTP edge.
+          const envs =
+            req.context.org.settings?.environments?.map((e) => e.id) ?? [];
+          if (!req.context.permissions.canRunContextualBandit(cb, envs)) {
+            req.context.permissions.throwPermissionError();
+          }
+          const { updated } = await executeContextualBanditStart(
+            req.context,
+            cb,
+          );
+          // BaseModel's toApiInterface conversion lives on the instance —
+          // grab the model so we can serialize.
+          return { contextualBandit: toApiContextualBandit(updated) };
+        },
+      }),
+      defineCustomApiHandler({
+        ...stopContextualBanditEndpoint,
+        reqHandler: async (req) => {
+          const cb = await req.context.models.contextualBandits.getById(
+            req.params.id,
+          );
+          if (!cb) {
+            return req.context.throwNotFoundError();
+          }
+          const envs =
+            req.context.org.settings?.environments?.map((e) => e.id) ?? [];
+          if (!req.context.permissions.canRunContextualBandit(cb, envs)) {
+            req.context.permissions.throwPermissionError();
+          }
+          const { updated } = await executeContextualBanditStop(
+            req.context,
+            cb,
+            { allowAlreadyStopped: true },
+          );
+          return { contextualBandit: toApiContextualBandit(updated) };
+        },
+      }),
+    ],
   },
 });
 
@@ -124,71 +183,86 @@ function backfillFromExperiment(
   };
 }
 
+/**
+ * Convert an internal CB doc to the REST API response shape. The API
+ * surface is intentionally a curated subset of `ContextualBanditInterface`
+ * so internal-only state (linkedFeatures, pendingFeatureDrafts, snapshot
+ * scheduling, the legacy `experiment` FK) is not exposed.
+ *
+ * Defined as a free function (rather than a model method) so the custom
+ * lifecycle handlers in the apiConfig can serialize without inducing a
+ * circular type-inference cycle through `req.context.models.contextualBandits`.
+ */
+export function toApiContextualBandit(
+  doc: ContextualBanditInterface,
+): ApiContextualBanditInterface {
+  return {
+    id: doc.id,
+    dateCreated: doc.dateCreated.toISOString(),
+    dateUpdated: doc.dateUpdated.toISOString(),
+    name: doc.name,
+    description: doc.description,
+    hypothesis: doc.hypothesis,
+    project: doc.project,
+    owner: doc.owner,
+    tags: doc.tags,
+    archived: doc.archived,
+    customFields: doc.customFields,
+    status: doc.status,
+    dateStarted: doc.dateStarted?.toISOString(),
+    dateStopped: doc.dateStopped?.toISOString(),
+    trackingKey: doc.trackingKey,
+    hashAttribute: doc.hashAttribute,
+    fallbackAttribute: doc.fallbackAttribute,
+    hashVersion: doc.hashVersion,
+    disableStickyBucketing: doc.disableStickyBucketing,
+    variations: doc.variations.map((v) => ({
+      id: v.id,
+      key: v.key,
+      name: v.name,
+      description: v.description,
+    })),
+    datasource: doc.datasource,
+    exposureQueryId: doc.exposureQueryId,
+    segment: doc.segment,
+    queryFilter: doc.queryFilter,
+    goalMetrics: doc.goalMetrics,
+    secondaryMetrics: doc.secondaryMetrics,
+    guardrailMetrics: doc.guardrailMetrics,
+    activationMetric: doc.activationMetric,
+    attributionModel: doc.attributionModel,
+    skipPartialData: doc.skipPartialData,
+    regressionAdjustmentEnabled: doc.regressionAdjustmentEnabled,
+    phases: doc.phases.map((p) => ({
+      dateStarted: p.dateStarted.toISOString(),
+      dateEnded: p.dateEnded ? p.dateEnded.toISOString() : p.dateEnded,
+      coverage: p.coverage,
+      condition: p.condition,
+      seed: p.seed,
+      variationWeights: p.variationWeights,
+      currentLeafWeights: p.currentLeafWeights,
+    })),
+    contextualAttributes: doc.contextualAttributes,
+    decisionMetric: doc.decisionMetric,
+    maxContexts: doc.maxContexts,
+    treeModel: doc.treeModel,
+    minUsersPerLeaf: doc.minUsersPerLeaf,
+    maxLeaves: doc.maxLeaves,
+    holdoutPercent: doc.holdoutPercent,
+    canonicalFormVersion: doc.canonicalFormVersion,
+  };
+}
+
 export class ContextualBanditModel extends BaseClass {
   /**
-   * Convert an internal CB doc to the REST API response shape. The API
-   * surface is intentionally a curated subset of `ContextualBanditInterface`
-   * so internal-only state (linkedFeatures, pendingFeatureDrafts, snapshot
-   * scheduling, the legacy `experiment` FK) is not exposed.
+   * BaseModel hook: returns the API-shaped response for default CRUD paths.
+   * Delegates to the free function so custom handlers can serialize without
+   * needing a model-instance reference.
    */
   protected toApiInterface(
     doc: ContextualBanditInterface,
   ): ApiContextualBanditInterface {
-    return {
-      id: doc.id,
-      dateCreated: doc.dateCreated.toISOString(),
-      dateUpdated: doc.dateUpdated.toISOString(),
-      name: doc.name,
-      description: doc.description,
-      hypothesis: doc.hypothesis,
-      project: doc.project,
-      owner: doc.owner,
-      tags: doc.tags,
-      archived: doc.archived,
-      customFields: doc.customFields,
-      status: doc.status,
-      dateStarted: doc.dateStarted?.toISOString(),
-      dateStopped: doc.dateStopped?.toISOString(),
-      trackingKey: doc.trackingKey,
-      hashAttribute: doc.hashAttribute,
-      fallbackAttribute: doc.fallbackAttribute,
-      hashVersion: doc.hashVersion,
-      disableStickyBucketing: doc.disableStickyBucketing,
-      variations: doc.variations.map((v) => ({
-        id: v.id,
-        key: v.key,
-        name: v.name,
-        description: v.description,
-      })),
-      datasource: doc.datasource,
-      exposureQueryId: doc.exposureQueryId,
-      segment: doc.segment,
-      queryFilter: doc.queryFilter,
-      goalMetrics: doc.goalMetrics,
-      secondaryMetrics: doc.secondaryMetrics,
-      guardrailMetrics: doc.guardrailMetrics,
-      activationMetric: doc.activationMetric,
-      attributionModel: doc.attributionModel,
-      skipPartialData: doc.skipPartialData,
-      regressionAdjustmentEnabled: doc.regressionAdjustmentEnabled,
-      phases: doc.phases.map((p) => ({
-        dateStarted: p.dateStarted.toISOString(),
-        dateEnded: p.dateEnded ? p.dateEnded.toISOString() : p.dateEnded,
-        coverage: p.coverage,
-        condition: p.condition,
-        seed: p.seed,
-        variationWeights: p.variationWeights,
-        currentLeafWeights: p.currentLeafWeights,
-      })),
-      contextualAttributes: doc.contextualAttributes,
-      decisionMetric: doc.decisionMetric,
-      maxContexts: doc.maxContexts,
-      treeModel: doc.treeModel,
-      minUsersPerLeaf: doc.minUsersPerLeaf,
-      maxLeaves: doc.maxLeaves,
-      holdoutPercent: doc.holdoutPercent,
-      canonicalFormVersion: doc.canonicalFormVersion,
-    };
+    return toApiContextualBandit(doc);
   }
 
   /**

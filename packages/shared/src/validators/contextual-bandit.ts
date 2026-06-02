@@ -381,3 +381,29 @@ export const apiUpdateContextualBanditBody =
 export type ApiUpdateContextualBanditBody = z.infer<
   typeof apiUpdateContextualBanditBody
 >;
+
+// ---------------------------------------------------------------------------
+// Lifecycle endpoint schemas
+// ---------------------------------------------------------------------------
+// POST /:id/start, POST /:id/stop. The bodies are intentionally minimal —
+// CB lifecycle today only needs the id; a future "stop with released
+// variation" payload can extend the stop body without a breaking change.
+//
+// Return value is the full ApiContextualBanditInterface so the API caller
+// gets the post-transition state without needing a follow-up GET.
+
+export const apiContextualBanditStartValidator = {
+  paramsSchema: z.strictObject({ id: z.string() }),
+  bodySchema: z.strictObject({}).optional(),
+  querySchema: z.never(),
+};
+
+export const apiContextualBanditStopValidator = {
+  paramsSchema: z.strictObject({ id: z.string() }),
+  bodySchema: z.strictObject({}).optional(),
+  querySchema: z.never(),
+};
+
+export const apiContextualBanditLifecycleReturn = z.object({
+  contextualBandit: apiContextualBanditValidator,
+});

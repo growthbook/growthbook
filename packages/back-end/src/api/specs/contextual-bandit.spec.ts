@@ -1,4 +1,7 @@
 import {
+  apiContextualBanditLifecycleReturn,
+  apiContextualBanditStartValidator,
+  apiContextualBanditStopValidator,
   apiContextualBanditValidator,
   apiCreateContextualBanditBody,
   apiListContextualBanditsValidator,
@@ -12,13 +15,32 @@ import { OpenApiModelSpec } from "back-end/src/api/ApiModel";
  * PR-4 of the CB experiment-decoupling plan: introduces
  * `/api/v1/contextual-bandits/*` so customers don't have to author CBs
  * through the legacy `/api/v1/experiments/:id/contextual-bandit/*`
- * indirection. Only the standard CRUD endpoints are exposed in this PR;
- * custom endpoints (start, stop, refresh, snapshots, events) follow in
- * a later commit and the legacy nested routes stay alive for compat.
+ * indirection. Standard CRUD + lifecycle (start / stop) ship here;
+ * heavier endpoints (refresh, snapshots, events) follow in a later
+ * commit and the legacy nested routes stay alive for compat.
  *
  * `navAfterTag: "experiments"` so the docs render CB right under
  * Experiments in the sidebar — matches the in-app sidebar ordering.
  */
+
+export const startContextualBanditEndpoint = {
+  pathFragment: "/:id/start",
+  verb: "post" as const,
+  operationId: "startContextualBandit",
+  validator: apiContextualBanditStartValidator,
+  zodReturnObject: apiContextualBanditLifecycleReturn,
+  summary: "Start a Contextual Bandit",
+};
+
+export const stopContextualBanditEndpoint = {
+  pathFragment: "/:id/stop",
+  verb: "post" as const,
+  operationId: "stopContextualBandit",
+  validator: apiContextualBanditStopValidator,
+  zodReturnObject: apiContextualBanditLifecycleReturn,
+  summary: "Stop a Contextual Bandit",
+};
+
 export const contextualBanditApiSpec = {
   modelSingular: "contextualBandit",
   modelPlural: "contextualBandits",
@@ -32,6 +54,10 @@ export const contextualBanditApiSpec = {
   crudValidatorOverrides: {
     list: apiListContextualBanditsValidator,
   },
+  customEndpoints: [
+    startContextualBanditEndpoint,
+    stopContextualBanditEndpoint,
+  ],
   navAfterTag: "experiments",
 } satisfies OpenApiModelSpec;
 export default contextualBanditApiSpec;
