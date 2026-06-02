@@ -14,7 +14,6 @@ import {
   getSettingsForSnapshotMetrics,
   updateExperimentBanditSettings,
 } from "back-end/src/services/experiments";
-import { runContextualBanditSnapshot } from "back-end/src/enterprise/services/contextualBandits";
 import { ConcurrentIncrementalRefreshError } from "back-end/src/util/errors";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { getMetricMap } from "back-end/src/models/MetricModel";
@@ -147,20 +146,17 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       throw new Error("Error refreshing experiment, could not find datasource");
     }
 
-    // Contextual bandits run through a parallel pipeline (ContextualBanditSnapshot
-    // + ContextualBanditEvent + ContextualBanditResultsQueryRunner). They must
-    // NOT go through the standard ExperimentResultsQueryRunner path below — the
-    // CB lifecycle (per-leaf weight patches, SDK payload refresh, continuous
-    // retraining) lives on the parallel side.
+    // Contextual bandits have their own agenda job
+    // (`jobs/updateContextualBanditResults.ts`) and parallel pipeline
+    // (ContextualBanditSnapshot + ContextualBanditEvent +
+    // ContextualBanditResultsQueryRunner). They MUST NOT go through the
+    // standard ExperimentResultsQueryRunner below — if a CB-typed
+    // experiment slips through here (legacy state during the decoupling
+    // window) we bail rather than corrupt results.
     if (experiment.type === "contextual-bandit") {
-      await runContextualBanditSnapshot(
-        context,
-        experiment,
-        experiment.phases.length - 1,
-        { triggeredBy: "scheduled" },
-      );
       logger.info(
-        "Successfully Refreshed Results for contextual bandit " + experimentId,
+        "Skipping CB-typed experiment in experiment-results job; handled by updateContextualBanditResults: " +
+          experimentId,
       );
       return;
     }

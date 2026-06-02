@@ -1,4 +1,5 @@
 import addExperimentResultsJob from "back-end/src/jobs/updateExperimentResults";
+import addContextualBanditResultsJob from "back-end/src/jobs/updateContextualBanditResults";
 import refreshFactTableColumns from "back-end/src/jobs/refreshFactTableColumns";
 import updateScheduledFeatures from "back-end/src/jobs/updateScheduledFeatures";
 import addWebhooksJob from "back-end/src/jobs/webhooks";
@@ -29,6 +30,7 @@ export async function queueInit() {
   const agenda = getAgendaInstance();
 
   addExperimentResultsJob(agenda);
+  addContextualBanditResultsJob(agenda);
   updateScheduledFeatures(agenda);
   addMetricUpdateJob(agenda);
   addWebhooksJob(agenda);

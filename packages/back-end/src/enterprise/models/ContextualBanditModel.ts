@@ -17,6 +17,9 @@ import {
   executeContextualBanditStop,
 } from "back-end/src/services/contextualBanditChanges";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
+import { getCollection } from "back-end/src/util/mongo.util";
+
+const COLLECTION = "contextualbandits";
 
 const BaseClass = MakeModelClass({
   schema: contextualBanditValidator,
@@ -625,4 +628,42 @@ export class ContextualBanditModel extends BaseClass {
       experiment,
     });
   }
+}
+
+/**
+ * Cross-org CB query for the auto-snapshot agenda job. Lives as a free
+ * function (not a model method) because the job runs without a user
+ * context — there's no `req.context.models.contextualBandits` to call.
+ *
+ * Mirrors `getExperimentsToUpdate` for experiments: returns running CBs
+ * whose `nextSnapshotAttempt` is due, scoped per org. The agenda job
+ * resolves a per-org `ReqContext` for each result.
+ *
+ * The `dangerous` prefix matches the static-method convention from
+ * `legacy-model-migration-patterns.md`: this bypasses BaseModel's
+ * in-org query protections (it has to, the job has no org context).
+ */
+export async function dangerousFindContextualBanditsToUpdate(
+  excludeIds: string[],
+): Promise<Pick<ContextualBanditInterface, "id" | "organization">[]> {
+  const docs = await getCollection<ContextualBanditInterface>(COLLECTION)
+    .find({
+      datasource: { $exists: true, $ne: "" },
+      status: "running",
+      autoSnapshots: true,
+      nextSnapshotAttempt: {
+        $exists: true,
+        $lte: new Date(),
+      },
+      id: { $nin: excludeIds },
+    })
+    .project<Pick<ContextualBanditInterface, "id" | "organization">>({
+      id: true,
+      organization: true,
+    })
+    .limit(100)
+    .sort({ nextSnapshotAttempt: 1 })
+    .toArray();
+
+  return docs.map((d) => ({ id: d.id, organization: d.organization }));
 }
