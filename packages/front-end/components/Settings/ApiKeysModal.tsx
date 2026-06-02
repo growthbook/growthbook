@@ -1,5 +1,4 @@
 import { FC, useMemo, useState } from "react";
-import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { useForm } from "react-hook-form";
 import { getRoles } from "shared/permissions";
 import { MemberRoleWithProjects } from "shared/types/organization";
@@ -76,7 +75,6 @@ const ApiKeysModal: FC<{
       <Field
         label="Description"
         required={true}
-        maxLength={MAX_DESCRIPTION_LENGTH}
         {...form.register("description")}
       />
       {!personalAccessToken && (

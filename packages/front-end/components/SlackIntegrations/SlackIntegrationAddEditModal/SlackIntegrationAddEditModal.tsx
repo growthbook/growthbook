@@ -1,5 +1,4 @@
 import React, { FC, useCallback, useState } from "react";
-import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { TagInterface } from "shared/types/tag";
@@ -149,7 +148,6 @@ export const SlackIntegrationAddEditModal: FC<
         label="Description"
         placeholder="(optional description)"
         autoComplete="off"
-        maxLength={MAX_DESCRIPTION_LENGTH}
         {...form.register("description")}
         onChange={(evt) => {
           form.setValue("description", evt.target.value);

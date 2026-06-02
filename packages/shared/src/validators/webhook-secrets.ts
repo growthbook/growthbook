@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 
 export const webhookSecretSchema = z
@@ -11,7 +10,7 @@ export const webhookSecretSchema = z
     key: z.string(),
     value: z.string(),
     allowedOrigins: z.array(z.string()).optional(),
-    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    description: z.string().optional(),
   })
   .strict();
 export type WebhookSecretInterface = z.infer<typeof webhookSecretSchema>;

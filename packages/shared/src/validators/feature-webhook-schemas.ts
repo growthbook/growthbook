@@ -4,7 +4,6 @@
 // avoid circular imports with the broader validator graph.
 
 import { z } from "zod";
-import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { ownerField } from "./owner-field";
 
 const revisionPrerequisite = z.object({
@@ -48,7 +47,7 @@ export const featureWebhookPayload = z
     dateCreated: z.string(),
     dateUpdated: z.string(),
     archived: z.boolean(),
-    description: z.string().max(MAX_DESCRIPTION_LENGTH),
+    description: z.string(),
     owner: ownerField,
     project: z.string(),
     valueType: z.enum(["boolean", "string", "number", "json"]),

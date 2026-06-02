@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { apiBaseSchema, baseSchema } from "./base-model";
 import { managedByValidator } from "./managed-by";
 import { projectMemberRole } from "./organization";
@@ -9,7 +8,7 @@ import { namedSchema } from "./openapi-helpers";
 export const teamSchema = baseSchema.safeExtend({
   name: z.string(),
   createdBy: z.string(),
-  description: z.string().max(MAX_DESCRIPTION_LENGTH),
+  description: z.string(),
   role: z.string(),
   limitAccessByEnvironment: z.boolean(),
   environments: z.array(z.string()),
@@ -25,7 +24,7 @@ export const apiTeamValidator = namedSchema(
   apiBaseSchema.safeExtend({
     name: z.string(),
     createdBy: z.string(),
-    description: z.string().max(MAX_DESCRIPTION_LENGTH),
+    description: z.string(),
     role: z.string(),
     limitAccessByEnvironment: z.boolean(),
     environments: z.array(z.string()),
@@ -40,7 +39,7 @@ export const apiTeamValidator = namedSchema(
 export const apiCreateTeamBody = z.strictObject({
   name: z.string(),
   createdBy: z.string().optional(),
-  description: z.string().max(MAX_DESCRIPTION_LENGTH),
+  description: z.string(),
   role: z.string().describe("The global role for members of this team"),
   limitAccessByEnvironment: z.boolean().optional(),
   environments: z

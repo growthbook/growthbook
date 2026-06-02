@@ -1,5 +1,4 @@
 import { useForm } from "react-hook-form";
-import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { Environment } from "shared/types/organization";
 import React, { useMemo } from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
@@ -165,7 +164,6 @@ export default function EnvironmentModal({
       )}
       <Field
         label="Description"
-        maxLength={MAX_DESCRIPTION_LENGTH}
         {...form.register("description")}
         placeholder=""
         textarea

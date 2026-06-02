@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { apiBaseSchema } from "./base-model";
 
 import { namedSchema } from "./openapi-helpers";
@@ -25,7 +24,7 @@ export const customFieldTypes = z.enum([
 export const customFieldsPropsValidator = z.object({
   id: z.string(),
   name: z.string(),
-  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+  description: z.string().optional(),
   placeholder: z.string().optional(),
   defaultValue: z.any().optional(),
   type: customFieldTypes,
@@ -87,7 +86,7 @@ export const apiCustomFieldInterface = namedSchema(
   "CustomField",
   apiBaseSchema.safeExtend({
     name: z.string(),
-    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    description: z.string().optional(),
     placeholder: z.string().optional(),
     defaultValue: apiDefaultValueTypes.optional(),
     type: customFieldTypes,
@@ -105,7 +104,7 @@ export type ApiCustomField = z.infer<typeof apiCustomFieldInterface>;
 export const apiCreateCustomFieldBody = z.strictObject({
   id: z.string().min(1).describe("The unique key for the custom field"),
   name: z.string().describe("The display name of the custom field"),
-  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+  description: z.string().optional(),
   placeholder: z.string().optional(),
   defaultValue: apiDefaultValueTypes.optional(),
   type: customFieldTypes.describe(

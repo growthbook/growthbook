@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { namedSchema } from "./openapi-helpers";
 import {
   apiExperimentResultsValidator,
@@ -92,7 +91,7 @@ export const apiReportValidator = namedSchema(
     dateCreated: z.string(),
     dateUpdated: z.string(),
     title: z.string(),
-    description: z.string().max(MAX_DESCRIPTION_LENGTH),
+    description: z.string(),
     type: z
       .enum(["experiment-snapshot", "experiment"])
       .describe(
@@ -216,11 +215,7 @@ const postReportBody = z
       .string()
       .describe("Report title (defaults to experiment name)")
       .optional(),
-    description: z
-      .string()
-      .max(MAX_DESCRIPTION_LENGTH)
-      .describe("Report description")
-      .optional(),
+    description: z.string().describe("Report description").optional(),
     statsEngine: z
       .enum(["bayesian", "frequentist"])
       .describe("Stats engine override")
@@ -349,11 +344,7 @@ export const postReportRefreshValidator = {
 const putReportMetadataBody = z
   .object({
     title: z.string().describe("Report title").optional(),
-    description: z
-      .string()
-      .max(MAX_DESCRIPTION_LENGTH)
-      .describe("Report description")
-      .optional(),
+    description: z.string().describe("Report description").optional(),
     status: z
       .enum(["published", "private"])
       .describe("UI lifecycle marker for the report")

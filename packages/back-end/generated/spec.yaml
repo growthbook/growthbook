@@ -2694,7 +2694,6 @@ paths:
                   type: string
                 description:
                   type: string
-                  maxLength: 10000
                 owner:
                   description: >-
                     The userId or email address of the owner. If an email
@@ -3223,7 +3222,6 @@ paths:
                       properties:
                         description:
                           type: string
-                          maxLength: 10000
                         enabled:
                           type: boolean
                         condition:
@@ -3307,7 +3305,6 @@ paths:
                       properties:
                         description:
                           type: string
-                          maxLength: 10000
                         enabled:
                           type: boolean
                         condition:
@@ -3447,7 +3444,6 @@ paths:
                       properties:
                         description:
                           type: string
-                          maxLength: 10000
                         enabled:
                           type: boolean
                         condition:
@@ -4020,7 +4016,6 @@ paths:
                   properties:
                     description:
                       type: string
-                      maxLength: 10000
                     enabled:
                       type: boolean
                     condition:
@@ -7290,7 +7285,6 @@ paths:
                   type: string
                 description:
                   type: string
-                  maxLength: 10000
                 owner:
                   description: >-
                     The userId or email address of the owner. If an email
@@ -8313,7 +8307,6 @@ paths:
                   properties:
                     description:
                       type: string
-                      maxLength: 10000
                     enabled:
                       type: boolean
                     condition:
@@ -13541,7 +13534,6 @@ paths:
                 description:
                   description: The description of the new environment
                   type: string
-                  maxLength: 10000
                 toggleOnList:
                   description: Show on feature list page
                   type: boolean
@@ -13597,7 +13589,6 @@ paths:
                 description:
                   description: The description of the new environment
                   type: string
-                  maxLength: 10000
                 toggleOnList:
                   description: Show on feature list page
                   type: boolean
@@ -13721,7 +13712,6 @@ paths:
                 description:
                   description: The description of the new attribute
                   type: string
-                  maxLength: 10000
                 archived:
                   description: The attribute is archived
                   type: boolean
@@ -13799,7 +13789,6 @@ paths:
                 description:
                   description: The description of the new attribute
                   type: string
-                  maxLength: 10000
                 archived:
                   description: The attribute is archived
                   type: boolean
@@ -14300,7 +14289,6 @@ paths:
                         type: string
                       description:
                         type: string
-                        maxLength: 10000
                       css:
                         type: string
                       js:
@@ -14379,7 +14367,6 @@ paths:
                   type: string
                 description:
                   type: string
-                  maxLength: 10000
                 css:
                   type: string
                 js:
@@ -14459,7 +14446,6 @@ paths:
                   type: string
                 description:
                   type: string
-                  maxLength: 10000
                 css:
                   type: string
                 js:
@@ -15160,7 +15146,6 @@ paths:
                   type: string
                 description:
                   type: string
-                  maxLength: 10000
                 projects:
                   type: array
                   items:
@@ -17715,7 +17700,6 @@ paths:
                           description:
                             description: Description of the fact table
                             type: string
-                            maxLength: 10000
                           owner:
                             description: >-
                               The userId or email address of the owner. If an
@@ -17786,7 +17770,6 @@ paths:
                           description:
                             description: Description of the fact table filter
                             type: string
-                            maxLength: 10000
                           value:
                             description: The SQL expression for this filter.
                             example: country = 'US'
@@ -17823,7 +17806,6 @@ paths:
                             type: string
                           description:
                             type: string
-                            maxLength: 10000
                           owner:
                             description: >-
                               The userId or email address of the owner. If an
@@ -21634,7 +21616,6 @@ paths:
                 description:
                   description: Report description
                   type: string
-                  maxLength: 10000
                 statsEngine:
                   description: Stats engine override
                   type: string
@@ -21916,7 +21897,6 @@ paths:
                 description:
                   description: Report description
                   type: string
-                  maxLength: 10000
                 status:
                   description: UI lifecycle marker for the report
                   type: string
@@ -22249,7 +22229,6 @@ paths:
                   type: string
                 description:
                   type: string
-                  maxLength: 10000
                 status:
                   type: string
                   enum:
@@ -22350,7 +22329,6 @@ paths:
                 description:
                   description: Namespace description.
                   type: string
-                  maxLength: 10000
                 status:
                   description: Set to 'inactive' to disable the namespace.
                   type: string
@@ -25753,7 +25731,6 @@ paths:
                   type: string
                 description:
                   type: string
-                  maxLength: 10000
                 placeholder:
                   type: string
                 defaultValue:
@@ -25951,7 +25928,6 @@ paths:
                   type: string
                 description:
                   type: string
-                  maxLength: 10000
                 placeholder:
                   type: string
                 defaultValue:
@@ -26291,7 +26267,6 @@ paths:
                   type: string
                 description:
                   type: string
-                  maxLength: 10000
                 role:
                   description: The global role for members of this team
                   type: string
@@ -26409,7 +26384,6 @@ paths:
                   type: string
                 description:
                   type: string
-                  maxLength: 10000
                 role:
                   description: The global role for members of this team
                   type: string
@@ -33793,7 +33767,6 @@ components:
       properties:
         description:
           type: string
-          maxLength: 10000
         enabled:
           type: boolean
         condition:
@@ -33885,7 +33858,6 @@ components:
       properties:
         description:
           type: string
-          maxLength: 10000
         enabled:
           type: boolean
         condition:
@@ -33964,7 +33936,6 @@ components:
       properties:
         description:
           type: string
-          maxLength: 10000
         enabled:
           type: boolean
         condition:
@@ -35235,7 +35206,6 @@ components:
             properties:
               description:
                 type: string
-                maxLength: 10000
               css:
                 type: string
               js:
@@ -35778,7 +35748,6 @@ components:
           type: string
         description:
           type: string
-          maxLength: 10000
         toggleOnList:
           type: boolean
         defaultState:
@@ -35814,7 +35783,6 @@ components:
             - secureString[]
         description:
           type: string
-          maxLength: 10000
         hashAttribute:
           type: boolean
         archived:
@@ -36412,7 +36380,6 @@ components:
         description:
           anyOf:
             - type: string
-              maxLength: 10000
             - type: 'null'
         proposedChangesSnapshot:
           type: array
@@ -38270,7 +38237,6 @@ components:
           type: string
         description:
           type: string
-          maxLength: 10000
         type:
           description: >-
             Report type. `experiment-snapshot` is the current shape and is what
@@ -38564,7 +38530,6 @@ components:
           type: string
         description:
           type: string
-          maxLength: 10000
         status:
           type: string
           enum:
@@ -40400,7 +40365,6 @@ components:
           type: string
         description:
           type: string
-          maxLength: 10000
         placeholder:
           type: string
         defaultValue:
@@ -40544,7 +40508,6 @@ components:
           type: string
         description:
           type: string
-          maxLength: 10000
         role:
           type: string
         limitAccessByEnvironment:
@@ -42127,7 +42090,6 @@ components:
       properties:
         description:
           type: string
-          maxLength: 10000
         css:
           type: string
         js:
