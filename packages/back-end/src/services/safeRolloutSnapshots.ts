@@ -84,6 +84,10 @@ export function getMetricForSafeRolloutSnapshot(
       datasource: metric.datasource,
       type: isBinomialMetric(metric) ? "binomial" : "count",
       aggregation: ("aggregation" in metric && metric.aggregation) || undefined,
+      // Sanitize legacy metric data before writing to a Zod-validated Mongo
+      // document. Use `null` (not `undefined`) for absent ignoreZeros so the
+      // field is materialized in the doc and can be cleared via $set later;
+      // API response paths use `undefined` to omit the key from JSON instead.
       cappingSettings: {
         type: metric.cappingSettings.type || "",
         value: metric.cappingSettings.value ?? 0,
