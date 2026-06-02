@@ -1,4 +1,8 @@
-import { Queries } from "./query";
+import { z } from "zod";
+import {
+  dimensionSlicesResultValidator,
+  dimensionSlicesValidator,
+} from "../src/validators/dimensions";
 
 export interface DimensionInterface {
   id: string;
@@ -14,21 +18,8 @@ export interface DimensionInterface {
   dateUpdated: Date | null;
 }
 
-export interface DimensionSlicesResult {
-  dimension: string;
-  dimensionSlices: { name: string; percent: number }[];
-}
+export type DimensionSlicesResult = z.infer<
+  typeof dimensionSlicesResultValidator
+>;
 
-export interface DimensionSlicesInterface {
-  id: string;
-  organization: string;
-
-  runStarted: Date;
-  queries: Queries;
-  error?: string;
-
-  datasource: string;
-  exposureQueryId: string;
-
-  results: DimensionSlicesResult[];
-}
+export type DimensionSlicesInterface = z.infer<typeof dimensionSlicesValidator>;
