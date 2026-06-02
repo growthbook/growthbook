@@ -186,16 +186,24 @@ export async function syncManagedWarehouseIdentifiers(
 
   // Update datasource settings (userIdTypes + exposure queries).
   // updateDataSource short-circuits when nothing actually changed.
-  await updateDataSource(context, datasource, {
-    settings: {
-      ...datasource.settings,
-      userIdTypes: getManagedWarehouseUserIdTypeSettings(attributeSchema),
-      queries: {
-        ...datasource.settings.queries,
-        exposure: buildManagedWarehouseExposureQueries(attributeSchema),
+  // Skip live exposure-query validation: this is a best-effort sync and the
+  // queries are GrowthBook-authored, so an attribute change shouldn't block on
+  // (or be flagged by) a slow/unreachable warehouse.
+  await updateDataSource(
+    context,
+    datasource,
+    {
+      settings: {
+        ...datasource.settings,
+        userIdTypes: getManagedWarehouseUserIdTypeSettings(attributeSchema),
+        queries: {
+          ...datasource.settings.queries,
+          exposure: buildManagedWarehouseExposureQueries(attributeSchema),
+        },
       },
     },
-  });
+    { skipExposureQueryValidation: true },
+  );
 
   // Update the events fact table sql + columns + userIdTypes
   const ft = await dangerouslyGetFactTableByIdBypassPermission(
