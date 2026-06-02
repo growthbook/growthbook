@@ -35,7 +35,9 @@ Read more about [Fact Tables](/metrics/metrics) and how to [convert legacy metri
 
 Fact Table Query Optimization enables faster, more efficient queries.
 
-If multiple metrics from the same Fact Table are added to an experiment, they will be combined into a single SQL query. For data sourcees with usage-based billing, this can result in dramatic cost savings.
+If multiple metrics from the same Fact Table are added to an experiment, they will be combined into a single SQL query. For data sources with usage-based billing, this can result in dramatic cost savings.
+
+This optimization is available on Enterprise plans and is automatically enabled for the [Managed Warehouse](/experimentation-analysis/managed-warehouse) on all plans, since GrowthBook owns the compute.
 
 There are some restrictions that limit when this optimization can be performed:
 
@@ -43,7 +45,7 @@ There are some restrictions that limit when this optimization can be performed:
 - If `Exclude In-Progress Conversions` is set for an experiment, optimization is disabled for all metrics
 - If you are using MySQL and a metric has percentile capping, it will be excluded from optimization
 
-In all other cases, this optimization is enabled by default. It can be disabled under **Settings → General → Experiment Settings**. When disabled, a separate SQL query will always be run for every individual metric.
+In all other cases, the optimization runs automatically — no configuration required. You can confirm it ran by expanding an experiment's queries and looking for the **Fact Table Optimized** badge on combined queries.
 
 ## Data Pipeline Mode
 
