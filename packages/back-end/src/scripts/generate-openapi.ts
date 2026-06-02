@@ -170,7 +170,9 @@ function isNonEmptySchema(schema: z.ZodType | undefined): schema is z.ZodType {
 }
 
 // Accumulated component schemas — populated as we call toOpenApiSchema.
-const componentSchemas: Record<string, unknown> = {};
+// Reset at the start of each buildSpec() pass since we generate more than one
+// spec file (e.g. the full spec and the deprecated-free spec).
+let componentSchemas: Record<string, unknown> = {};
 
 /**
  * Recursively replace `{ $ref: "#/$defs/X" }` with `{ $ref: "#/components/schemas/X" }`.
@@ -321,6 +323,7 @@ type Path = {
   operationId: string;
   summary?: string;
   description?: string;
+  deprecated?: boolean;
   tags?: string[];
   parameters?: (Parameter | Ref)[];
   requestBody?: RequestBody;
@@ -330,7 +333,14 @@ type Path = {
 
 type CodeSample = { lang: string; source: string };
 
-async function run() {
+async function buildSpec({
+  includeDeprecated,
+}: {
+  includeDeprecated: boolean;
+}) {
+  // Reset the shared component schema accumulator for this pass.
+  componentSchemas = {};
+
   // TODO: add security, etc.
   const openapiSpec: {
     openapi: string;
@@ -488,11 +498,11 @@ curl https://api.growthbook.io/api/v1/features \
   // Tags actually referenced by an emitted operation. Used at the end to prune
   // entries from openapiSpec.tags and the Endpoints tag group so the generated
   // docs don't show empty sections (e.g. when every route under a tag is
-  // `deprecated: true` and skipped).
+  // deprecated and skipped from the deprecated-free spec).
   const usedTags = new Set<string>();
 
   for (const route of allRoutes) {
-    if (route.excludeFromSpec || route.deprecated) {
+    if (route.excludeFromSpec || (!includeDeprecated && route.deprecated)) {
       continue;
     }
 
@@ -506,6 +516,7 @@ curl https://api.growthbook.io/api/v1/features \
       path,
       exampleRequest,
       version,
+      deprecated,
     } = route;
 
     if (!path || !method || !operationId) {
@@ -712,6 +723,7 @@ curl https://api.growthbook.io/api/v1/features \
       operationId,
       summary,
       ...(description !== undefined && { description }),
+      ...(deprecated && { deprecated: true }),
       tags,
       ...(parameters.length > 0 && { parameters }),
       ...(requestBody !== undefined && { requestBody }),
@@ -719,8 +731,7 @@ curl https://api.growthbook.io/api/v1/features \
       "x-codeSamples": codeSamples,
     };
     // Track tags used by emitted operations so we can prune empty endpoint
-    // sections from the spec below. Deprecated routes are already filtered
-    // out at the top of this loop, so anything reaching here is live.
+    // sections from the deprecated-free spec below.
     tags?.forEach((t) => usedTags.add(t));
   }
 
@@ -728,7 +739,12 @@ curl https://api.growthbook.io/api/v1/features \
   const knownTags = new Set<string>(openApiTags);
   const discoveredTags = new Set<string>();
   for (const route of allRoutes) {
-    if (route.excludeFromSpec || route.deprecated || !route.tags) continue;
+    if (
+      route.excludeFromSpec ||
+      (!includeDeprecated && route.deprecated) ||
+      !route.tags
+    )
+      continue;
     for (const tag of route.tags) {
       if (!knownTags.has(tag)) {
         discoveredTags.add(tag);
@@ -752,16 +768,24 @@ curl https://api.growthbook.io/api/v1/features \
   });
   // Ensure every namedSchema()-registered validator appears in componentSchemas,
   // even if it was never referenced as a sub-schema of a response body.
-  for (const [name, zodSchema] of namedSchemaRegistry) {
-    if (!componentSchemas[name]) {
-      const {
-        $schema: _,
-        id: _id,
-        ...rest
-      } = z.toJSONSchema(zodSchema, {
-        unrepresentable: "any",
-      }) as Record<string, unknown>;
-      componentSchemas[name] = rewriteRefs(rest);
+  //
+  // Only for the full spec. For the deprecated-free spec we intentionally skip
+  // this: componentSchemas already holds the full transitive closure of schemas
+  // reachable from the emitted (non-deprecated) routes, so force-adding the rest
+  // of the registry would re-introduce v1-only models (e.g. FeatureV1) that no
+  // remaining route references.
+  if (includeDeprecated) {
+    for (const [name, zodSchema] of namedSchemaRegistry) {
+      if (!componentSchemas[name]) {
+        const {
+          $schema: _,
+          id: _id,
+          ...rest
+        } = z.toJSONSchema(zodSchema, {
+          unrepresentable: "any",
+        }) as Record<string, unknown>;
+        componentSchemas[name] = rewriteRefs(rest);
+      }
     }
   }
 
@@ -786,30 +810,64 @@ curl https://api.growthbook.io/api/v1/features \
     });
   }
 
-  // Build x-tagGroups for docs navigation. Only include tags that actually
-  // have an emitted operation, so the docs don't render empty sidebar groups.
-  const endpointTags: string[] = [
-    ...openApiTags.filter((t) => usedTags.has(t)),
-    ...Array.from(discoveredTags).filter((t) => usedTags.has(t)),
-  ];
-  // Prune the top-level tags array to match — drop any endpoint tag that's
-  // unused. (Model `_model` tags are kept regardless; they belong to the
-  // Models section and aren't operation-bound.)
-  const allEndpointTagNames = new Set<string>([
-    ...openApiTags,
-    ...discoveredTags,
-  ]);
-  openapiSpec.tags = openapiSpec.tags.filter(
-    (t) => !allEndpointTagNames.has(t.name) || usedTags.has(t.name),
-  );
+  // Build x-tagGroups for docs navigation.
+  //
+  // For the deprecated-free spec, only include tags that actually have an
+  // emitted operation, so the docs don't render empty sidebar groups (every
+  // route under a tag may have been deprecated and skipped). For the full spec
+  // we keep all tags so the output stays stable.
+  const endpointTags: string[] = includeDeprecated
+    ? [...openApiTags, ...Array.from(discoveredTags)]
+    : [
+        ...openApiTags.filter((t) => usedTags.has(t)),
+        ...Array.from(discoveredTags).filter((t) => usedTags.has(t)),
+      ];
+  if (!includeDeprecated) {
+    // Prune the top-level tags array to match — drop any endpoint tag that's
+    // unused. (Model `_model` tags are kept regardless; they belong to the
+    // Models section and aren't operation-bound.)
+    const allEndpointTagNames = new Set<string>([
+      ...openApiTags,
+      ...discoveredTags,
+    ]);
+    openapiSpec.tags = openapiSpec.tags.filter(
+      (t) => !allEndpointTagNames.has(t.name) || usedTags.has(t.name),
+    );
+  }
   (openapiSpec as Record<string, unknown>)["x-tagGroups"] = [
     { name: "Endpoints", tags: endpointTags },
     { name: "Models", tags: modelTags },
   ];
 
-  fs.writeFileSync(
-    path.join(__dirname, "..", "..", "generated", "spec.yaml"),
-    yaml.dump(openapiSpec),
+  return openapiSpec;
+}
+
+async function run() {
+  const generatedDir = path.join(__dirname, "..", "..", "generated");
+
+  // Whether to include deprecated routes (and the v1-only schemas they pull in).
+  // Defaults to true so the committed spec.yaml that powers the public docs is
+  // generated unchanged. CI sets OPENAPI_INCLUDE_DEPRECATED=false when producing
+  // a spec for SDK code generation, where deprecated routes aren't needed. That
+  // output is not committed anywhere.
+  const includeDeprecatedRaw = (
+    process.env.OPENAPI_INCLUDE_DEPRECATED ?? "true"
+  ).toLowerCase();
+  const includeDeprecated =
+    includeDeprecatedRaw !== "false" && includeDeprecatedRaw !== "0";
+
+  // Output file. Relative paths are resolved against the generated/ directory.
+  const outputFile = process.env.OPENAPI_OUTPUT_FILE || "spec.yaml";
+  const outputPath = path.isAbsolute(outputFile)
+    ? outputFile
+    : path.join(generatedDir, outputFile);
+
+  const spec = await buildSpec({ includeDeprecated });
+  fs.writeFileSync(outputPath, yaml.dump(spec));
+  console.log(
+    `Wrote ${outputPath} (deprecated routes ${
+      includeDeprecated ? "included" : "excluded"
+    })`,
   );
 }
 

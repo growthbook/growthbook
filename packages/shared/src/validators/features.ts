@@ -686,16 +686,17 @@ export const apiFeatureSafeRolloutRuleValidator = namedSchema(
   ),
 );
 
-// ---- FeatureRule - anyOf / discriminated by type ----
-// (v1 only; not registered as a named OpenAPI component — v1 routes are deprecated
-// and excluded from the spec)
-export const apiFeatureRuleValidator = z.union([
-  apiFeatureForceRuleValidator,
-  apiFeatureRolloutRuleValidator,
-  apiFeatureExperimentRuleValidator,
-  apiFeatureExperimentRefRuleValidator,
-  apiFeatureSafeRolloutRuleValidator,
-]);
+// ---- FeatureRuleV1 (schemas/FeatureRuleV1.yaml) - anyOf / discriminated by type ----
+export const apiFeatureRuleValidator = namedSchema(
+  "FeatureRuleV1",
+  z.union([
+    apiFeatureForceRuleValidator,
+    apiFeatureRolloutRuleValidator,
+    apiFeatureExperimentRuleValidator,
+    apiFeatureExperimentRefRuleValidator,
+    apiFeatureSafeRolloutRuleValidator,
+  ]),
+);
 
 export type ApiFeatureForceRule = z.infer<typeof apiFeatureForceRuleValidator>;
 export type ApiFeatureRule = z.infer<typeof apiFeatureRuleValidator>;
@@ -752,35 +753,36 @@ export const apiFeatureDefinitionValidator = namedSchema(
     .strict(),
 );
 
-// ---- FeatureEnvironment ----
-// (v1 only; not registered as a named OpenAPI component — v1 routes are deprecated
-// and excluded from the spec)
-export const apiFeatureEnvironmentValidator = z
-  .object({
-    enabled: z.boolean(),
-    defaultValue: z.string(),
-    rules: z.array(apiFeatureRuleValidator),
-    definition: z
-      .string()
-      .describe(
-        "A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)",
-      )
-      .optional(),
-    draft: z
-      .object({
-        enabled: z.boolean(),
-        defaultValue: z.string(),
-        rules: z.array(apiFeatureRuleValidator),
-        definition: z
-          .string()
-          .describe(
-            "A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)",
-          )
-          .optional(),
-      })
-      .optional(),
-  })
-  .strict();
+// ---- FeatureEnvironmentV1 (schemas/FeatureEnvironmentV1.yaml) ----
+export const apiFeatureEnvironmentValidator = namedSchema(
+  "FeatureEnvironmentV1",
+  z
+    .object({
+      enabled: z.boolean(),
+      defaultValue: z.string(),
+      rules: z.array(apiFeatureRuleValidator),
+      definition: z
+        .string()
+        .describe(
+          "A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)",
+        )
+        .optional(),
+      draft: z
+        .object({
+          enabled: z.boolean(),
+          defaultValue: z.string(),
+          rules: z.array(apiFeatureRuleValidator),
+          definition: z
+            .string()
+            .describe(
+              "A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)",
+            )
+            .optional(),
+        })
+        .optional(),
+    })
+    .strict(),
+);
 
 export type ApiFeatureEnvironment = z.infer<
   typeof apiFeatureEnvironmentValidator
@@ -829,97 +831,100 @@ export const apiRevisionMetadata = z
     "Metadata fields captured in this revision (only present when metadata gating is enabled)",
   );
 
-// ---- FeatureRevision ----
-// (v1 only; not registered as a named OpenAPI component — v1 routes are deprecated
-// and excluded from the spec)
-export const apiFeatureRevisionValidator = z
-  .object({
-    featureId: z.string().describe("The feature this revision belongs to"),
-    baseVersion: z.coerce.number().int(),
-    version: z.coerce.number().int(),
-    comment: z.string(),
-    date: z.string().meta({ format: "date-time" }),
-    status: z.string(),
-    createdBy: z.string().optional(),
-    publishedBy: z.string().optional(),
-    defaultValue: z
-      .string()
-      .describe("The default value at the time this revision was created")
-      .optional(),
-    rules: z.record(z.string(), z.array(apiFeatureRuleValidator)),
-    definitions: z
-      .record(
-        z.string(),
-        z
-          .string()
-          .describe(
-            "A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)",
-          ),
-      )
-      .optional(),
-    environmentsEnabled: z
-      .record(z.string(), z.boolean())
-      .describe(
-        "Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled)",
-      )
-      .optional(),
-    envPrerequisites: z
-      .record(z.string(), z.array(apiRevisionPrerequisite))
-      .describe(
-        "Per-environment prerequisites captured in this revision (only present when prerequisite gating is enabled)",
-      )
-      .optional(),
-    prerequisites: z
-      .array(apiRevisionPrerequisite)
-      .describe(
-        "Feature-level prerequisites captured in this revision (only present when prerequisite gating is enabled)",
-      )
-      .optional(),
-    metadata: apiRevisionMetadata.optional(),
-  })
-  .strict();
-
-// ---- Feature ----
-// (v1 only; not registered as a named OpenAPI component — v1 routes are deprecated
-// and excluded from the spec)
-export const apiFeatureValidator = z
-  .object({
-    id: z.string(),
-    dateCreated: z.string().meta({ format: "date-time" }),
-    dateUpdated: z.string().meta({ format: "date-time" }),
-    archived: z.boolean(),
-    description: z.string(),
-    owner: ownerField,
-    ownerEmail: ownerEmailField,
-    project: z.string(),
-    valueType: z.enum(["boolean", "string", "number", "json"]),
-    defaultValue: z.string(),
-    tags: z.array(z.string()),
-    environments: z.record(z.string(), apiFeatureEnvironmentValidator),
-    prerequisites: z
-      .array(z.string())
-      .describe("Feature IDs. Each feature must evaluate to `true`")
-      .optional(),
-    revision: z.object({
+// ---- FeatureRevisionV1 (schemas/FeatureRevisionV1.yaml) ----
+export const apiFeatureRevisionValidator = namedSchema(
+  "FeatureRevisionV1",
+  z
+    .object({
+      featureId: z.string().describe("The feature this revision belongs to"),
+      baseVersion: z.coerce.number().int(),
       version: z.coerce.number().int(),
       comment: z.string(),
       date: z.string().meta({ format: "date-time" }),
-      createdBy: z.string(),
-      publishedBy: z.string(),
-    }),
-    customFields: z.record(z.string(), z.any()).optional(),
-    holdout: apiFeatureHoldout,
-  })
-  .strict();
+      status: z.string(),
+      createdBy: z.string().optional(),
+      publishedBy: z.string().optional(),
+      defaultValue: z
+        .string()
+        .describe("The default value at the time this revision was created")
+        .optional(),
+      rules: z.record(z.string(), z.array(apiFeatureRuleValidator)),
+      definitions: z
+        .record(
+          z.string(),
+          z
+            .string()
+            .describe(
+              "A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)",
+            ),
+        )
+        .optional(),
+      environmentsEnabled: z
+        .record(z.string(), z.boolean())
+        .describe(
+          "Per-environment enabled state captured in this revision (only present when kill-switch gating is enabled)",
+        )
+        .optional(),
+      envPrerequisites: z
+        .record(z.string(), z.array(apiRevisionPrerequisite))
+        .describe(
+          "Per-environment prerequisites captured in this revision (only present when prerequisite gating is enabled)",
+        )
+        .optional(),
+      prerequisites: z
+        .array(apiRevisionPrerequisite)
+        .describe(
+          "Feature-level prerequisites captured in this revision (only present when prerequisite gating is enabled)",
+        )
+        .optional(),
+      metadata: apiRevisionMetadata.optional(),
+    })
+    .strict(),
+);
 
-// ---- FeatureWithRevisions ----
-// (v1 only; not registered as a named OpenAPI component — v1 routes are deprecated
-// and excluded from the spec)
-export const apiFeatureWithRevisionsValidator = z.intersection(
-  apiFeatureValidator,
-  z.object({
-    revisions: z.array(apiFeatureRevisionValidator).optional(),
-  }),
+// ---- FeatureV1 (schemas/FeatureV1.yaml) ----
+export const apiFeatureValidator = namedSchema(
+  "FeatureV1",
+  z
+    .object({
+      id: z.string(),
+      dateCreated: z.string().meta({ format: "date-time" }),
+      dateUpdated: z.string().meta({ format: "date-time" }),
+      archived: z.boolean(),
+      description: z.string(),
+      owner: ownerField,
+      ownerEmail: ownerEmailField,
+      project: z.string(),
+      valueType: z.enum(["boolean", "string", "number", "json"]),
+      defaultValue: z.string(),
+      tags: z.array(z.string()),
+      environments: z.record(z.string(), apiFeatureEnvironmentValidator),
+      prerequisites: z
+        .array(z.string())
+        .describe("Feature IDs. Each feature must evaluate to `true`")
+        .optional(),
+      revision: z.object({
+        version: z.coerce.number().int(),
+        comment: z.string(),
+        date: z.string().meta({ format: "date-time" }),
+        createdBy: z.string(),
+        publishedBy: z.string(),
+      }),
+      customFields: z.record(z.string(), z.any()).optional(),
+      holdout: apiFeatureHoldout,
+    })
+    .strict(),
+);
+
+// ---- FeatureWithRevisionsV1 (schemas/FeatureWithRevisionsV1.yaml) ----
+export const apiFeatureWithRevisionsValidator = namedSchema(
+  "FeatureWithRevisionsV1",
+  z.intersection(
+    apiFeatureValidator,
+    z.object({
+      revisions: z.array(apiFeatureRevisionValidator).optional(),
+    }),
+  ),
 );
 
 export type ApiFeature = z.infer<typeof apiFeatureValidator>;
