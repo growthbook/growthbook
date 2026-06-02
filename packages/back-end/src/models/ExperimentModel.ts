@@ -54,7 +54,6 @@ import {
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
 import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
-import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
 import {
@@ -713,11 +712,11 @@ export async function getExperimentsByMetric(
 
 export async function getExperimentByIdea(
   context: ReqContext | ApiReqContext,
-  idea: IdeaDocument,
+  ideaId: string,
 ): Promise<ExperimentInterface | null> {
   const doc = await getCollection(COLLECTION).findOne({
     organization: context.org.id,
-    ideaSource: idea.id,
+    ideaSource: ideaId,
   });
 
   if (!doc) return null;

@@ -1,29 +1,7 @@
-import { Vote } from "shared/types/vote";
+import { z } from "zod";
+import { ideaSourceValidator, ideaValidator } from "shared/validators";
 
 // Where the idea was submitted from
-export type IdeaSource = "web" | "slack";
+export type IdeaSource = z.infer<typeof ideaSourceValidator>;
 
-export interface IdeaInterface {
-  id: string;
-  text: string;
-  archived: boolean;
-  details?: string;
-  userId: string | null;
-  userName?: string;
-  source?: IdeaSource;
-  organization: string;
-  project?: string;
-  tags: string[];
-  votes?: Vote[];
-  dateCreated: Date;
-  dateUpdated: Date;
-  impactScore: number;
-  experimentLength: number;
-  estimateParams?: {
-    segment: string;
-    estimate: string;
-    improvement: number;
-    numVariations: number;
-    userAdjustment: number;
-  };
-}
+export type IdeaInterface = z.infer<typeof ideaValidator>;

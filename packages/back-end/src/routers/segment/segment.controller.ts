@@ -1,7 +1,7 @@
 import type { Response } from "express";
-import { FilterQuery } from "mongoose";
 import { z } from "zod";
 import { SegmentInterface } from "shared/types/segment";
+import { IdeaInterface } from "shared/types/idea";
 import {
   createSegmentModelValidator,
   updateSegmentModelValidator,
@@ -13,8 +13,6 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { getIdeasByQuery } from "back-end/src/services/ideas";
-import { IdeaDocument, IdeaModel } from "back-end/src/models/IdeasModel";
 import {
   getMetricsUsingSegment,
   removeSegmentFromAllMetrics,
@@ -62,7 +60,7 @@ type GetSegmentUsageRequest = AuthRequest<
 >;
 
 type GetSegmentUsageResponse = {
-  ideas: IdeaDocument[];
+  ideas: IdeaInterface[];
   metrics: MetricInterface[];
   experiments: ExperimentInterface[];
   total: number;
@@ -81,18 +79,13 @@ export const getSegmentUsage = async (
 ) => {
   const { id } = req.params;
   const context = getContextFromReq(req);
-  const { org } = context;
 
   const segment = await context.models.segments.getById(id);
 
   if (!segment) {
     throw new Error("Could not find segment");
   }
-  const query: FilterQuery<IdeaDocument> = {
-    organization: org.id,
-    "estimateParams.segment": id,
-  };
-  const ideas = await getIdeasByQuery(query);
+  const ideas = await context.models.ideas.getBySegment(id);
 
   // metricSchema
   const metrics = await getMetricsUsingSegment(context, id);
@@ -304,18 +297,7 @@ export const deleteSegment = async (
 
   // delete references:
   // ideas:
-  const ideas = await getIdeasByQuery({
-    organization: org.id,
-    "estimateParams.segment": id,
-  });
-  if (ideas.length > 0) {
-    await IdeaModel.updateMany(
-      { organization: org.id, "estimateParams.segment": id },
-      {
-        $unset: { "estimateParams.segment": "" },
-      },
-    );
-  }
+  await context.models.ideas.removeSegmentReferences(id);
 
   // metrics
   await removeSegmentFromAllMetrics(org.id, id);
