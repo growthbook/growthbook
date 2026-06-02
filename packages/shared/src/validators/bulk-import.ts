@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { ownerInputField } from "./owner-field";
 
 // The body references PostFactTablePayload, PostFactTableFilterPayload, and PostFactMetricPayload
@@ -12,6 +13,7 @@ const postBulkImportFactsBody = z
             name: z.string(),
             description: z
               .string()
+              .max(MAX_DESCRIPTION_LENGTH)
               .describe("Description of the fact table")
               .optional(),
             owner: ownerInputField.optional(),
@@ -53,6 +55,7 @@ const postBulkImportFactsBody = z
             name: z.string(),
             description: z
               .string()
+              .max(MAX_DESCRIPTION_LENGTH)
               .describe("Description of the fact table filter")
               .optional(),
             value: z
@@ -75,7 +78,7 @@ const postBulkImportFactsBody = z
           id: z.string(),
           data: z.object({
             name: z.string(),
-            description: z.string().optional(),
+            description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
             owner: ownerInputField.optional(),
             projects: z.array(z.string()).optional(),
             tags: z.array(z.string()).optional(),

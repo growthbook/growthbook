@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { createBaseSchemaWithPrimaryKey } from "./base-model";
 import { projectMemberRole } from "./organization";
 
@@ -8,7 +9,7 @@ export const apiKeySchema = createBaseSchemaWithPrimaryKey({
   id: z.string().optional(),
   environment: z.string().optional(),
   project: z.string().optional(),
-  description: z.string().optional(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   userId: z
     .string()
     .optional()

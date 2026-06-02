@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { savedGroupValidator } from "./saved-group";
 
 export const revisionStatus = [
@@ -74,7 +75,7 @@ export const activityLogEntryValidator = z.object({
     "discarded",
     "reopened",
   ]),
-  description: z.string().nullish(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH).nullish(),
   dateCreated: z.date(),
   // Snapshot of `target.proposedChanges` as of immediately AFTER this entry
   // was recorded. Only persisted for content-changing actions ("created",

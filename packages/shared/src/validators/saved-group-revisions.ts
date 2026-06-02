@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import {
   paginationQueryFields,
   skipPaginationQueryField,
@@ -438,7 +439,7 @@ export const putSavedGroupRevisionMetadataValidator = {
       ...newDraftMetadataFields,
       name: z.string().optional(),
       owner: ownerInputField.optional(),
-      description: z.string().optional(),
+      description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
       projects: z.array(z.string()).optional(),
     })
     .strict(),

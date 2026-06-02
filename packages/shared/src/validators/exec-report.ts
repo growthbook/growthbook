@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 
 export const DateRangeSchema = z.object({
   startDate: z.string(),
@@ -10,7 +11,7 @@ export const execReportValidator = z
     id: z.string(),
     organization: z.string(),
     name: z.string().min(1),
-    description: z.string(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH),
     dateRange: z.object({
       type: z.literal("dateRange"),
       value: DateRangeSchema,

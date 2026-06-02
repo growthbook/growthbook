@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { apiExperimentValidator } from "./experiments";
 
 import { namedSchema } from "./openapi-helpers";
@@ -8,7 +9,7 @@ export const apiVisualChangeValidator = namedSchema(
   "VisualChange",
   z
     .object({
-      description: z.string().optional(),
+      description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
       css: z.string().optional(),
       js: z.string().optional(),
       variation: z.string(),
@@ -45,7 +46,7 @@ export const apiVisualChangesetValidator = namedSchema(
       experiment: z.string(),
       visualChanges: z.array(
         z.object({
-          description: z.string().optional(),
+          description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
           css: z.string().optional(),
           js: z.string().optional(),
           variation: z.string(),
@@ -196,7 +197,7 @@ const putVisualChangesetBody = z
         z
           .object({
             id: z.string().optional(),
-            description: z.string().optional(),
+            description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
             css: z.string().optional(),
             js: z.string().optional(),
             variation: z.string(),
@@ -247,7 +248,7 @@ export const putVisualChangesetValidator = {
 const visualChangeBody = z
   .object({
     id: z.string().optional(),
-    description: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     css: z.string().optional(),
     js: z.string().optional(),
     variation: z.string(),

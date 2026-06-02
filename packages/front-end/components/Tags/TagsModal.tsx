@@ -1,4 +1,5 @@
 import { useForm } from "react-hook-form";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import React from "react";
 import { TagInterface } from "shared/types/tag";
 import { Text, Container } from "@radix-ui/themes";
@@ -91,7 +92,11 @@ export default function TagsModal({
           <Text as="label" size="3" weight="medium">
             Description
           </Text>
-          <Field textarea maxLength={256} {...form.register("description")} />
+          <Field
+            textarea
+            maxLength={MAX_DESCRIPTION_LENGTH}
+            {...form.register("description")}
+          />
         </Container>
 
         <Container>

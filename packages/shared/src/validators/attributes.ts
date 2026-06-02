@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 
 import { namedSchema } from "./openapi-helpers";
 
@@ -18,7 +19,7 @@ export const apiAttributeValidator = namedSchema(
         "number[]",
         "secureString[]",
       ]),
-      description: z.string().optional(),
+      description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
       hashAttribute: z.boolean().optional(),
       archived: z.boolean().optional(),
       enum: z.string().optional(),
@@ -47,6 +48,7 @@ const postAttributeBody = z
       .describe("The attribute datatype"),
     description: z
       .string()
+      .max(MAX_DESCRIPTION_LENGTH)
       .describe("The description of the new attribute")
       .optional(),
     archived: z.boolean().describe("The attribute is archived").optional(),
@@ -82,6 +84,7 @@ const putAttributeBody = z
       .optional(),
     description: z
       .string()
+      .max(MAX_DESCRIPTION_LENGTH)
       .describe("The description of the new attribute")
       .optional(),
     archived: z.boolean().describe("The attribute is archived").optional(),

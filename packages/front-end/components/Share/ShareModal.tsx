@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { useForm } from "react-hook-form";
 import { Box, Dialog, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -931,6 +932,7 @@ const ShareModal = ({
                           className="form-control"
                           id="inputdesc"
                           placeholder=""
+                          maxLength={MAX_DESCRIPTION_LENGTH}
                           {...form.register("description")}
                         />
                         <label htmlFor="" className="text-right mb-0">

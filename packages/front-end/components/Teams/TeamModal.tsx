@@ -1,4 +1,5 @@
 import { useForm } from "react-hook-form";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { MemberRoleWithProjects } from "shared/types/organization";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
@@ -73,7 +74,7 @@ export default function TeamModal({
       />
       <Field
         label="Description"
-        maxLength={100}
+        maxLength={MAX_DESCRIPTION_LENGTH}
         minRows={3}
         maxRows={8}
         textarea={true}

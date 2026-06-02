@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { useForm } from "react-hook-form";
 import { TestQueryRow } from "shared/types/integrations";
 import { useAuth } from "@/services/auth";
@@ -91,6 +92,7 @@ export default function SaveQueryModal({
           placeholder="Enter a description (optional)"
           textarea
           minRows={2}
+          maxLength={MAX_DESCRIPTION_LENGTH}
           {...form.register("description")}
         />
 

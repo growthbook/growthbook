@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { useForm, useWatch } from "react-hook-form";
 import { Namespaces } from "shared/types/organization";
 import { getConnectionSDKCapabilities } from "shared/sdk-versioning";
@@ -144,7 +145,12 @@ function MultiRangeNamespaceModal({
           Used as the namespace hash seed and cannot be changed.
         </Text>
       )}
-      <Field label="Description" textarea {...form.register("description")} />
+      <Field
+        label="Description"
+        textarea
+        maxLength={MAX_DESCRIPTION_LENGTH}
+        {...form.register("description")}
+      />
 
       {isNewNamespace && (
         <>
@@ -252,7 +258,12 @@ function LegacyNamespaceModal({
         <br />
         Used as the namespace hash seed and cannot be changed.
       </Text>
-      <Field label="Description" textarea {...form.register("description")} />
+      <Field
+        label="Description"
+        textarea
+        maxLength={MAX_DESCRIPTION_LENGTH}
+        {...form.register("description")}
+      />
     </ModalStandard>
   );
 }

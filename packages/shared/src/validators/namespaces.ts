@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { namedSchema } from "./openapi-helpers";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
@@ -11,7 +12,7 @@ export const apiNamespaceValidator = namedSchema(
         "The unique internal identifier for the namespace (e.g. 'ns-abc123').",
       ),
     displayName: z.string().describe("Human-readable display name."),
-    description: z.string(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH),
     status: z.enum(["active", "inactive"]),
     format: z
       .enum(["legacy", "multiRange"])
@@ -107,7 +108,7 @@ const postNamespaceBody = z
       .describe(
         "Human-readable display name. Must be unique within the organization.",
       ),
-    description: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     status: z.enum(["active", "inactive"]).optional(),
     format: z
       .enum(["legacy", "multiRange"])
@@ -147,7 +148,11 @@ export const postNamespaceValidator = {
 const putNamespaceBody = z
   .object({
     displayName: z.string().describe("Human-readable display name.").optional(),
-    description: z.string().describe("Namespace description.").optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe("Namespace description.")
+      .optional(),
     status: z
       .enum(["active", "inactive"])
       .describe("Set to 'inactive' to disable the namespace.")

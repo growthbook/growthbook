@@ -1,4 +1,5 @@
 import { useForm } from "react-hook-form";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { UpdateWebhookSecretProps } from "shared/validators";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -100,6 +101,7 @@ export default function WebhookSecretModal({
         placeholder={existingId ? "(keep existing)" : ""}
       />
       <Field
+        maxLength={MAX_DESCRIPTION_LENGTH}
         {...form.register("description")}
         label="Description"
         textarea

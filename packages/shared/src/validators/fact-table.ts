@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
@@ -46,7 +47,7 @@ export const createColumnPropsValidator = z
   .object({
     column: z.string(),
     name: z.string().optional(),
-    description: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     numberFormat: numberFormatValidator.optional(),
     datatype: factTableColumnTypeValidator,
     jsonFields: jsonColumnFieldsValidator.optional(),
@@ -62,7 +63,7 @@ export const createColumnPropsValidator = z
 export const updateColumnPropsValidator = z
   .object({
     name: z.string().optional(),
-    description: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     numberFormat: numberFormatValidator.optional(),
     datatype: factTableColumnTypeValidator.optional(),
     jsonFields: jsonColumnFieldsValidator.optional(),
@@ -78,7 +79,7 @@ export const updateColumnPropsValidator = z
 export const createFactTablePropsValidator = z
   .object({
     name: z.string(),
-    description: z.string(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH),
     id: z.string().optional(),
     // Only being used in middleware for fact-table POST request so this is safe
     // Remove when we migrate FactTableModel to use the BaseModel and use defaultValues instead
@@ -100,7 +101,7 @@ export const createFactTablePropsValidator = z
 export const updateFactTablePropsValidator = z
   .object({
     name: z.string().optional(),
-    description: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     owner: ownerInputField.optional(),
     projects: z.array(z.string()).optional(),
     tags: z.array(z.string()).optional(),
@@ -240,7 +241,7 @@ export const factMetricValidator = z
     dateCreated: z.date(),
     dateUpdated: z.date(),
     name: z.string(),
-    description: z.string(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH),
     tags: z.array(z.string()),
     projects: z.array(z.string()),
     inverse: z.boolean(),
@@ -277,7 +278,7 @@ export const createFactFilterPropsValidator = z
   .object({
     id: z.string().optional(),
     name: z.string(),
-    description: z.string(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH),
     value: z.string(),
     managedBy: z.enum(["", "api"]).optional(),
   })
@@ -286,7 +287,7 @@ export const createFactFilterPropsValidator = z
 export const updateFactFilterPropsValidator = z
   .object({
     name: z.string().optional(),
-    description: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     value: z.string().optional(),
     managedBy: z.enum(["", "api"]).optional(),
   })
@@ -353,7 +354,7 @@ export const apiFactTableColumnValidator = namedSchema(
           "Display name for the column (can be different from the actual column name)",
         )
         .optional(),
-      description: z.string().optional(),
+      description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
       alwaysInlineFilter: z
         .boolean()
         .describe(
@@ -400,7 +401,7 @@ export const apiFactTableValidator = namedSchema(
     .object({
       id: z.string(),
       name: z.string(),
-      description: z.string(),
+      description: z.string().max(MAX_DESCRIPTION_LENGTH),
       owner: ownerField,
       ownerEmail: ownerEmailField,
       projects: z.array(z.string()),
@@ -442,7 +443,7 @@ export const apiFactTableFilterValidator = namedSchema(
     .object({
       id: z.string(),
       name: z.string(),
-      description: z.string(),
+      description: z.string().max(MAX_DESCRIPTION_LENGTH),
       value: z.string(),
       managedBy: z
         .enum(["", "api"])
@@ -463,6 +464,7 @@ const postFactTableBody = z
     name: z.string(),
     description: z
       .string()
+      .max(MAX_DESCRIPTION_LENGTH)
       .describe("Description of the fact table")
       .optional(),
     owner: ownerInputField.optional(),
@@ -495,6 +497,7 @@ const updateFactTableBody = z
     name: z.string().optional(),
     description: z
       .string()
+      .max(MAX_DESCRIPTION_LENGTH)
       .describe("Description of the fact table")
       .optional(),
     owner: ownerInputField.optional(),
@@ -539,6 +542,7 @@ const postFactTableFilterBody = z
     name: z.string(),
     description: z
       .string()
+      .max(MAX_DESCRIPTION_LENGTH)
       .describe("Description of the fact table filter")
       .optional(),
     value: z
@@ -560,6 +564,7 @@ const updateFactTableFilterBody = z
     name: z.string().optional(),
     description: z
       .string()
+      .max(MAX_DESCRIPTION_LENGTH)
       .describe("Description of the fact table filter")
       .optional(),
     value: z

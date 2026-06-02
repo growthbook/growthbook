@@ -1,4 +1,5 @@
 import { useForm } from "react-hook-form";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import {
   CustomField,
   CustomFieldSection,
@@ -255,6 +256,7 @@ export default function CustomFieldModal({
           textarea={true}
           minRows={1}
           maxRows={4}
+          maxLength={MAX_DESCRIPTION_LENGTH}
           {...form.register("description")}
           helpText="Shown as a tool tip to users entering this field value"
           containerClassName="mb-0"

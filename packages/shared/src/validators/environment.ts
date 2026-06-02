@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 
 import { namedSchema } from "./openapi-helpers";
 
@@ -13,7 +14,7 @@ export const updateEnvOrderValidator = z
 export const updateEnvValidator = z.object({
   environment: z
     .object({
-      description: z.string(),
+      description: z.string().max(MAX_DESCRIPTION_LENGTH),
       toggleOnList: z.boolean().optional(),
       defaultState: z.any().optional(),
       projects: z.array(z.string()).optional(),
@@ -24,7 +25,7 @@ export const updateEnvValidator = z.object({
 export const environment = z
   .object({
     id: z.string(),
-    description: z.string(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH),
     toggleOnList: z.boolean().optional(),
     defaultState: z.boolean().optional(),
     projects: z.array(z.string()).optional(),
@@ -50,7 +51,7 @@ export const apiEnvironmentValidator = namedSchema(
   z
     .object({
       id: z.string(),
-      description: z.string(),
+      description: z.string().max(MAX_DESCRIPTION_LENGTH),
       toggleOnList: z.boolean(),
       defaultState: z.boolean(),
       projects: z.array(z.string()),
@@ -65,6 +66,7 @@ const postEnvironmentBody = z
     id: z.string().describe("The ID of the new environment"),
     description: z
       .string()
+      .max(MAX_DESCRIPTION_LENGTH)
       .describe("The description of the new environment")
       .optional(),
     toggleOnList: z.boolean().describe("Show on feature list page").optional(),
@@ -87,6 +89,7 @@ const putEnvironmentBody = z
   .object({
     description: z
       .string()
+      .max(MAX_DESCRIPTION_LENGTH)
       .describe("The description of the new environment")
       .optional(),
     toggleOnList: z.boolean().describe("Show on feature list page").optional(),

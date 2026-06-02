@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import {
   featurePrerequisite,
   savedGroupTargeting,
@@ -327,7 +328,7 @@ const scheduleShorthand = z
   .strict();
 
 const commonRuleFields = {
-  description: z.string().optional(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   enabled: z.boolean().optional(),
   condition: z.string().optional(),
   savedGroups: z.array(savedGroupTargeting).optional(),
@@ -455,7 +456,7 @@ export const postFeatureRevisionRulesReorderValidator = {
 // them in a patch.
 const rulePatchSchema = z
   .object({
-    description: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     enabled: z.boolean().optional(),
     condition: z.string().optional(),
     savedGroups: z.array(savedGroupTargeting).optional(),
@@ -639,7 +640,7 @@ export const putFeatureRevisionMetadataValidator = {
     .object({
       comment: z.string().optional(),
       title: z.string().optional(),
-      description: z.string().optional(),
+      description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
       owner: ownerInputField.optional(),
       project: z.string().optional(),
       tags: z.array(z.string()).optional(),
