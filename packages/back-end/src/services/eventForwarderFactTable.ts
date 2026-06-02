@@ -1,9 +1,11 @@
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
+import { SDKAttributeSchema } from "shared/types/organization";
 import {
   BigQueryEventForwarderStoredConfig,
   SnowflakeEventForwarderStoredConfig,
 } from "shared/types/event-forwarder";
+import type { ColumnInterface } from "shared/types/fact-table";
 import { EventForwarderConfigInterface } from "shared/validators";
 import {
   buildEventForwarderEventsFactTableColumns,
@@ -17,12 +19,14 @@ import {
   createFactTable,
   getFactTable,
   deleteFactTable,
+  updateEventForwarderFactTableMetadata,
 } from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   decryptEventForwarderConfigModel,
   getEventForwarderSinkTypeForDatasource,
 } from "back-end/src/services/eventForwarderConfig";
+import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import {
   queueFactTableColumnsRefresh,
   queueFactTableColumnsRefreshAt,
@@ -120,6 +124,148 @@ export async function queueDelayedFactTableColumnsRefreshForEventForwarderDataso
   }
 }
 
+function buildEventForwarderEventsFactTableSqlForDatasource(
+  context: ReqContext,
+  eventForwarderConfig: EventForwarderConfigInterface,
+  datasource: DataSourceInterface,
+  attributeSchema: SDKAttributeSchema,
+): string | null {
+  switch (eventForwarderConfig.sinkType) {
+    case "bigquery": {
+      const bigqueryParams = getSourceIntegrationObject(context, datasource)
+        .params as BigQueryConnectionParams;
+      const projectId =
+        bigqueryParams.defaultProject?.trim() ||
+        bigqueryParams.projectId?.trim() ||
+        "";
+      if (!projectId) {
+        return null;
+      }
+
+      const decrypted =
+        decryptEventForwarderConfigModel<BigQueryEventForwarderStoredConfig>(
+          eventForwarderConfig,
+        );
+      return buildEventForwarderEventsFactTableSql({
+        sinkType: "bigquery",
+        projectId,
+        dataset: decrypted.dataset.trim(),
+        tableName: decrypted.tableName.trim(),
+        attributeSchema,
+        datasourceProjects: datasource.projects,
+      });
+    }
+    case "snowflake": {
+      const decrypted =
+        decryptEventForwarderConfigModel<SnowflakeEventForwarderStoredConfig>(
+          eventForwarderConfig,
+        );
+      return buildEventForwarderEventsFactTableSql({
+        sinkType: "snowflake",
+        database: decrypted.database.trim(),
+        schema: decrypted.schema.trim(),
+        tableName: decrypted.tableName.trim(),
+        attributeSchema,
+        datasourceProjects: datasource.projects,
+      });
+    }
+    default:
+      return null;
+  }
+}
+
+export async function syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange(
+  context: ReqContext,
+  attributeSchema: SDKAttributeSchema,
+  delayMs = EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS,
+): Promise<void> {
+  const configs = await context.models.eventForwarderConfigs.getAll();
+  const configsByDatasourceId = new Map(
+    configs.map((config) => [config.datasourceId, config]),
+  );
+  const runAt = new Date(Date.now() + delayMs);
+
+  for (const [datasourceId, eventForwarderConfig] of configsByDatasourceId) {
+    const datasource = await getDataSourceById(context, datasourceId);
+    if (!datasource) {
+      continue;
+    }
+
+    const factTable = await getEventForwarderEventsFactTableForDatasource(
+      context,
+      datasource,
+    );
+    if (!factTable) {
+      continue;
+    }
+
+    const userIdTypes =
+      datasource.settings?.userIdTypes?.map((u) => u.userIdType) ?? [];
+    const desiredColumns = buildEventForwarderEventsFactTableColumns(
+      userIdTypes,
+      attributeSchema,
+      datasource.projects,
+    );
+    const desiredSql = buildEventForwarderEventsFactTableSqlForDatasource(
+      context,
+      eventForwarderConfig,
+      datasource,
+      attributeSchema,
+    );
+    const comparableExistingColumns = (factTable.columns ?? []).map(
+      (column) => ({
+        column: column.column,
+        name: column.name,
+        description: column.description,
+        numberFormat: column.numberFormat,
+        datatype: column.datatype,
+        jsonFields: column.jsonFields,
+      }),
+    );
+    const comparableDesiredColumns = desiredColumns.map((column) => ({
+      column: column.column,
+      name: column.name ?? "",
+      description: column.description ?? "",
+      numberFormat: column.numberFormat ?? "",
+      datatype: column.datatype,
+      jsonFields: column.jsonFields,
+    }));
+
+    if (
+      JSON.stringify(comparableExistingColumns) !==
+        JSON.stringify(comparableDesiredColumns) ||
+      (desiredSql !== null && factTable.sql !== desiredSql)
+    ) {
+      const now = new Date();
+      const columns: ColumnInterface[] = desiredColumns.map((column) => {
+        const existing = factTable.columns?.find(
+          (existingColumn) => existingColumn.column === column.column,
+        );
+        return {
+          ...existing,
+          ...column,
+          dateCreated: existing?.dateCreated ?? now,
+          dateUpdated: now,
+          name: column.name ?? existing?.name ?? "",
+          description: column.description ?? existing?.description ?? "",
+          numberFormat: column.numberFormat ?? existing?.numberFormat ?? "",
+          deleted: existing?.deleted ?? false,
+        };
+      });
+      await updateEventForwarderFactTableMetadata(
+        factTable,
+        {
+          columns,
+          ...(desiredSql !== null && { sql: desiredSql }),
+        },
+        context,
+      );
+    }
+
+    await queueFactTableColumnsRefreshAt(factTable, runAt);
+  }
+}
+
 export async function ensureEventForwarderEventsFactTable(
   context: ReqContext,
   eventForwarderConfig: EventForwarderConfigInterface,
@@ -185,6 +331,8 @@ export async function ensureEventForwarderEventsFactTable(
         projectId,
         dataset: decrypted.dataset.trim(),
         tableName: decrypted.tableName.trim(),
+        attributeSchema: context.org.settings?.attributeSchema,
+        datasourceProjects: datasource.projects,
       });
       break;
     }
@@ -199,6 +347,8 @@ export async function ensureEventForwarderEventsFactTable(
         database: decrypted.database.trim(),
         schema: decrypted.schema.trim(),
         tableName: decrypted.tableName.trim(),
+        attributeSchema: context.org.settings?.attributeSchema,
+        datasourceProjects: datasource.projects,
       });
       break;
     }
@@ -208,7 +358,11 @@ export async function ensureEventForwarderEventsFactTable(
       );
   }
 
-  const columns = buildEventForwarderEventsFactTableColumns(userIdTypes);
+  const columns = buildEventForwarderEventsFactTableColumns(
+    userIdTypes,
+    context.org.settings?.attributeSchema,
+    datasource.projects,
+  );
 
   const factTable = await createFactTable(context, {
     id: getEventForwarderEventsFactTableId(datasource.id),

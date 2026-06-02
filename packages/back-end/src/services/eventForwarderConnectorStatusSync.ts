@@ -47,10 +47,7 @@ export function buildEventForwarderStatusResponse(
 function hasInitialWarehouseSyncQueued(
   eventForwarderConfig: EventForwarderConfigInterface,
 ): boolean {
-  return (
-    eventForwarderConfig.initialWarehouseSyncQueued === true ||
-    eventForwarderConfig.initialGbUpdatePingSent === true
-  );
+  return eventForwarderConfig.initialWarehouseSyncQueued === true;
 }
 
 async function queueInitialWarehouseSyncIfNeeded(
