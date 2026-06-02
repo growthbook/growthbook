@@ -761,8 +761,13 @@ export function getFeatureDefinition({
             const cbCapable =
               capabilities === undefined ||
               capabilities.includes("contextualBandits");
-            if (cbCapable && exp.type === "contextual-bandit" && cbMap) {
-              const cb = cbMap.get(exp.id);
+            if (
+              cbCapable &&
+              exp.type === "contextual-bandit" &&
+              exp.contextualBanditId &&
+              cbMap
+            ) {
+              const cb = cbMap.get(exp.contextualBanditId);
               if (cb) {
                 rule.isContextualBandit = true;
                 rule.attributesRequired = cb.contextualAttributes;
@@ -806,6 +811,120 @@ export function getFeatureDefinition({
               projectsMap,
             );
             if (expMetadata) rule.metadata = expMetadata;
+          }
+
+          if (allowedKeys) {
+            const picked = pick(
+              rule,
+              allowedKeys.featureRuleKeys,
+            ) as FeatureDefinitionRule;
+            if (includeRuleIds && r.id != null) {
+              (picked as Record<string, unknown>).id = stemRuleId(r.id);
+            }
+            return picked;
+          }
+          return rule;
+        }
+
+        // Contextual-bandit reference rules: parallel to experiment-ref but
+        // sourced from the CB doc directly, with no parent experiment. SDK
+        // wire format is identical to a CB-driven experiment-rule — the
+        // payload builder produces an `experiment-rule` shape decorated
+        // with `isContextualBandit`, `attributesRequired`, and (eventually)
+        // `contexts`. SDKs that lack the `contextualBandits` capability get
+        // a byte-equivalent payload without the CB-specific fields and fall
+        // back to MAB on `phase.variationWeights`, matching the legacy
+        // experiment-ref + CB-typed-experiment path.
+        if (r.type === "contextual-bandit-ref") {
+          const cb = cbMap?.get(r.contextualBanditId);
+          if (!cb) return null;
+
+          // Never include CB drafts.
+          if (cb.status === "draft") return null;
+
+          const phase = cb.phases[cb.phases.length - 1];
+          if (!phase) return null;
+
+          // Condition + targeting come off the CB phase, mirroring the
+          // experiment-ref path. CB phases don't yet carry `savedGroups` or
+          // `prerequisites`, so we only need the raw condition string.
+          const phaseCondition = getParsedCondition(groupMap, phase.condition);
+          if (phaseCondition) {
+            rule.condition = phaseCondition;
+          }
+
+          rule.coverage = phase.coverage;
+
+          if (cb.hashAttribute) {
+            rule.hashAttribute = cb.hashAttribute;
+          }
+          if (cb.fallbackAttribute) {
+            rule.fallbackAttribute = cb.fallbackAttribute;
+          }
+          if (cb.disableStickyBucketing) {
+            rule.disableStickyBucketing = cb.disableStickyBucketing;
+          }
+          if (phase.seed) {
+            rule.seed = phase.seed;
+          }
+          rule.hashVersion = cb.hashVersion;
+
+          if (cb.status === "stopped") {
+            // CBs don't yet track a `releasedVariationId` on stop, so a
+            // stopped CB simply drops out of the payload — equivalent to a
+            // stopped experiment with no released variation. The decision
+            // tab in PR-6 will introduce a release-variation concept; until
+            // then we fall through to `return null`.
+            return null;
+          }
+
+          // Running CB: emit the SDK experiment-rule.
+          rule.variations = cb.variations.map((v) => {
+            const variation = r.variations?.find(
+              (rv) => rv.variationId === v.id,
+            );
+            return variation
+              ? getJSONValue(feature.valueType, variation.value)
+              : null;
+          });
+          rule.weights = phase.variationWeights;
+
+          const cbCapable =
+            capabilities === undefined ||
+            capabilities.includes("contextualBandits");
+          if (cbCapable) {
+            rule.isContextualBandit = true;
+            rule.attributesRequired = cb.contextualAttributes;
+            // TODO(post-stats-engine): same caveat as the experiment-ref
+            // branch — omit `rule.contexts` until per-leaf split predicates
+            // are emitted.
+          }
+
+          rule.key = cb.trackingKey;
+          rule.meta = includeExperimentNames
+            ? cb.variations.map((v) => ({ key: v.key, name: v.name }))
+            : cb.variations.map((v) => ({ key: v.key }));
+          rule.phase = cb.phases.length - 1 + "";
+          if (includeExperimentNames) rule.name = cb.name;
+
+          if (shouldExpandSavedGroups && savedGroupsMap && organization) {
+            if (rule.condition)
+              recursiveWalk(
+                rule.condition,
+                replaceSavedGroups(savedGroupsMap, organization!),
+              );
+          }
+          if (metadataOptions) {
+            const cbMetadata = buildPayloadMetadata<ExperimentMetadata>(
+              {
+                project: cb.project,
+                customFields: cb.customFields,
+                tags: cb.tags,
+              },
+              metadataOptions,
+              projectsMap,
+            );
+            if (cbMetadata) rule.metadata = cbMetadata;
           }
 
           if (allowedKeys) {

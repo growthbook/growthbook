@@ -40,6 +40,7 @@ import {
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { logger } from "back-end/src/util/logger";
 import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
+import { syncFeatureContextualBanditLinkages } from "back-end/src/util/featureContextualBanditSync";
 import { createWithVersionRetry } from "back-end/src/util/mongo.util";
 import { runValidateFeatureRevisionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 
@@ -966,29 +967,33 @@ export async function updateRevision(
 
   const updatedRevision = doc ? toInterface(doc, context, feature) : null;
 
-  // Fire-and-forget linkage sync whenever draft rules change.
+  // Fire-and-forget linkage sync whenever draft rules change. Both the
+  // experiment-ref and contextual-bandit-ref families run independently;
+  // a single revision can carry rules from both, in which case both
+  // helpers reconcile their own model.
   if (updatedRevision && "rules" in changes) {
     FeatureRevisionModel.find({
       organization: revision.organization,
       featureId: revision.featureId,
       status: { $nin: ["discarded"] },
     })
-      .then((docs) =>
-        syncFeatureExperimentLinkages(
-          context,
-          revision.featureId,
-          docs.map((d) => ({
-            version: d.version,
-            status: d.status,
-            rules: d.rules,
-          })),
-        ),
-      )
+      .then((docs) => {
+        const summaries = docs.map((d) => ({
+          version: d.version,
+          status: d.status,
+          rules: d.rules,
+        }));
+        return Promise.all([
+          syncFeatureExperimentLinkages(context, revision.featureId, summaries),
+          syncFeatureContextualBanditLinkages(
+            context,
+            revision.featureId,
+            summaries,
+          ),
+        ]);
+      })
       .catch((e) => {
-        logger.error(
-          e,
-          "syncFeatureExperimentLinkages failed in updateRevision",
-        );
+        logger.error(e, "feature linkage sync failed in updateRevision");
       });
   }
 
@@ -1177,27 +1182,31 @@ export async function discardRevision(
     });
 
   // Sync linkages — the discarded revision's rules no longer count as "open drafts".
+  // Sync linkages — the discarded revision's rules no longer count as "open
+  // drafts". Both experiment-ref and contextual-bandit-ref families reconcile
+  // here.
   FeatureRevisionModel.find({
     organization: revision.organization,
     featureId: revision.featureId,
     status: { $nin: ["discarded"] },
   })
-    .then((docs) =>
-      syncFeatureExperimentLinkages(
-        context,
-        revision.featureId,
-        docs.map((d) => ({
-          version: d.version,
-          status: d.status,
-          rules: d.rules,
-        })),
-      ),
-    )
+    .then((docs) => {
+      const summaries = docs.map((d) => ({
+        version: d.version,
+        status: d.status,
+        rules: d.rules,
+      }));
+      return Promise.all([
+        syncFeatureExperimentLinkages(context, revision.featureId, summaries),
+        syncFeatureContextualBanditLinkages(
+          context,
+          revision.featureId,
+          summaries,
+        ),
+      ]);
+    })
     .catch((e) => {
-      logger.error(
-        e,
-        "syncFeatureExperimentLinkages failed in discardRevision",
-      );
+      logger.error(e, "feature linkage sync failed in discardRevision");
     });
 }
 

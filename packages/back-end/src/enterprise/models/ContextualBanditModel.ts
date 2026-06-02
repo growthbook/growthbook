@@ -317,6 +317,95 @@ export class ContextualBanditModel extends BaseClass {
     return refreshed;
   }
 
+  // ---------------------------------------------------------------------
+  // Linked-features / pendingFeatureDrafts maintenance
+  //
+  // Atomic Mongo updates so the feature-revision sync path
+  // (`featureContextualBanditSync.ts`) can reconcile linkages without
+  // having to read-modify-write the whole CB doc. Permission checks are
+  // intentionally bypassed here — the sync runs fire-and-forget after a
+  // revision write has already been authorized.
+  // ---------------------------------------------------------------------
+
+  public async addLinkedFeature(
+    cbId: string,
+    featureId: string,
+  ): Promise<void> {
+    await this._dangerousGetCollection().updateOne(
+      { organization: this.context.org.id, id: cbId },
+      { $addToSet: { linkedFeatures: featureId } },
+    );
+  }
+
+  public async removeLinkedFeature(
+    cbId: string,
+    featureId: string,
+  ): Promise<void> {
+    await this._dangerousGetCollection().updateOne(
+      { organization: this.context.org.id, id: cbId },
+      { $pull: { linkedFeatures: featureId } },
+    );
+  }
+
+  // $addToSet is atomic and idempotent on (featureId, revisionVersion).
+  // Multiple drafts of the same feature are intentionally allowed and
+  // applied sequentially at CB start.
+  public async addPendingFeatureDraft(
+    cbId: string,
+    featureId: string,
+    revisionVersion: number,
+  ): Promise<void> {
+    await this._dangerousGetCollection().updateOne(
+      { organization: this.context.org.id, id: cbId },
+      {
+        $addToSet: {
+          pendingFeatureDrafts: { featureId, revisionVersion },
+        },
+      },
+    );
+  }
+
+  public async removePendingFeatureDraft(
+    cbId: string,
+    featureId: string,
+    revisionVersion?: number,
+  ): Promise<void> {
+    const pullFilter =
+      revisionVersion != null ? { featureId, revisionVersion } : { featureId };
+    await this._dangerousGetCollection().updateOne(
+      { organization: this.context.org.id, id: cbId },
+      { $pull: { pendingFeatureDrafts: pullFilter } },
+    );
+  }
+
+  // Strip pending drafts for `featureId` on every CB *not* in `keepIds`.
+  // Mirrors `ExperimentModel.updateMany` cleanup in the experiment sync.
+  public async clearStalePendingFeatureDrafts(
+    featureId: string,
+    keepIds: string[],
+  ): Promise<void> {
+    await this._dangerousGetCollection().updateMany(
+      {
+        organization: this.context.org.id,
+        "pendingFeatureDrafts.featureId": featureId,
+        id: { $nin: keepIds },
+      },
+      // Cast required because the Mongo driver's $pull typing is invariant
+      // over the array element shape, and the BaseModel collection is typed
+      // with the full Zod-inferred ContextualBanditInterface; the filter
+      // `{ featureId }` is a valid element-shaped predicate at runtime.
+      {
+        $pull: {
+          pendingFeatureDrafts: { featureId },
+        },
+      } as unknown as Parameters<
+        ReturnType<
+          ContextualBanditModel["_dangerousGetCollection"]
+        >["updateMany"]
+      >[1],
+    );
+  }
+
   public async deleteForExperiment(experiment: string): Promise<void> {
     await this._dangerousGetCollection().deleteMany({
       organization: this.context.org.id,

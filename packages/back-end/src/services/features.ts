@@ -1132,30 +1132,49 @@ export async function buildSDKPayloadForConnection(
     projectsMap = new Map(allProjects.map((p) => [p.id, p]));
   }
 
-  // Pre-fetch CB docs for any contextual-bandit experiments so payload builder
-  // can inject per-context weights without additional async calls per rule.
+  // Pre-fetch CB docs so the payload builder can inject per-context weights
+  // without additional async calls per rule. Keyed by CB id (`cb.id`), with
+  // two source paths during the decoupling window:
+  //   - Legacy: `exp.contextualBanditId` on CB-typed experiments referenced
+  //     by `experiment-ref` feature rules. Goes away when PR-8 rewrites
+  //     those rules to `contextual-bandit-ref`.
+  //   - Native: `rule.contextualBanditId` on `contextual-bandit-ref`
+  //     feature rules. Added in PR-3 alongside the new rule type.
+  // After PR-8, the experiment-derived source path is dropped.
   let cbMap:
     | Map<string, import("shared/validators").ContextualBanditInterface>
     | undefined;
-  const cbExperimentIds = [...filteredExperimentMap.values()]
-    .filter((exp) => exp.type === "contextual-bandit")
-    .map((exp) => exp.id);
-  if (cbExperimentIds.length > 0) {
+  const cbIdsFromExperiments = [...filteredExperimentMap.values()]
+    .filter((exp) => exp.type === "contextual-bandit" && exp.contextualBanditId)
+    .map((exp) => exp.contextualBanditId as string);
+  const cbIdsFromRules: string[] = [];
+  for (const feature of filteredFeatures) {
+    // v2 schema keeps rules on the top-level `feature.rules` array; v0/v1
+    // legacy shapes are normalized before reaching here, so walking the top
+    // level is sufficient. The CB-ref branch in `getFeatureDefinition`
+    // looks up the cached CB by id, so we just need to surface every
+    // referenced CB id here.
+    const rules = feature.rules ?? [];
+    for (const rule of rules) {
+      if (rule.type === "contextual-bandit-ref" && rule.contextualBanditId) {
+        cbIdsFromRules.push(rule.contextualBanditId);
+      }
+    }
+  }
+  const cbIds = Array.from(
+    new Set([...cbIdsFromExperiments, ...cbIdsFromRules]),
+  );
+  if (cbIds.length > 0) {
     const cbDocs = await Promise.all(
-      cbExperimentIds.map((id) =>
-        context.models.contextualBandits.getByExperimentId(id),
-      ),
+      cbIds.map((id) => context.models.contextualBandits.getById(id)),
     );
     cbMap = new Map(
       cbDocs
         .filter(
           (cb): cb is import("shared/validators").ContextualBanditInterface =>
-            cb !== null && cb.experiment !== undefined,
+            cb !== null,
         )
-        // After PR-8 lands and the FK is dropped, this map will be keyed by
-        // CB id (or via the new contextual-bandit-ref rule lookup) instead
-        // of the parent experiment id.
-        .map((cb) => [cb.experiment as string, cb]),
+        .map((cb) => [cb.id, cb]),
     );
   }
 

@@ -12,6 +12,7 @@ import { EventUser } from "shared/types/events/event-types";
 import { Variation } from "shared/types/experiment";
 import { OrganizationSettings } from "shared/types/organization";
 import {
+  ContextualBanditInterface,
   ExperimentInterface,
   ExperimentRefRule,
   ExperimentRefVariation,
@@ -477,6 +478,158 @@ export async function publishPendingFeatureDraftsForExperiment(
       logger.error(
         { err, experimentId: experiment.id, featureId, revisionVersion },
         "Failed to auto-publish pending feature draft on experiment start",
+      );
+      failed.push({ featureId, revisionVersion, reason: "publish-error" });
+      break;
+    }
+  }
+
+  return { published, failed };
+}
+
+// Sibling of `publishPendingFeatureDraftsForExperiment` for CBs. Same
+// two-phase shape (prune+gate, then sequential publish) since the
+// merge-conflict and approval semantics are identical — the only
+// differences are the parent doc type and which model holds
+// `pendingFeatureDrafts`. Called from the CB-start path landing in PR-5.
+export async function publishPendingFeatureDraftsForContextualBandit(
+  context: ReqContext | ApiReqContext,
+  cb: ContextualBanditInterface,
+): Promise<PendingDraftPublishResult> {
+  const drafts = cb.pendingFeatureDrafts ?? [];
+  if (!drafts.length) return { published: [], failed: [] };
+
+  const orgEnvIds = context.environments;
+  const failed: PendingDraftFailure[] = [];
+  const ready: ResolvedDraft[] = [];
+  const cbModel = context.models.contextualBandits;
+
+  // ── Phase 1: prune stale + gate on approval ──────────────────────────────
+  for (const { featureId, revisionVersion } of drafts) {
+    const feature = await getFeature(context, featureId);
+    if (!feature) {
+      await cbModel.removePendingFeatureDraft(
+        cb.id,
+        featureId,
+        revisionVersion,
+      );
+      continue;
+    }
+
+    const revision = await getRevision({
+      context,
+      organization: feature.organization,
+      featureId: feature.id,
+      feature,
+      version: revisionVersion,
+    });
+    if (
+      !revision ||
+      revision.status === "published" ||
+      revision.status === "discarded"
+    ) {
+      await cbModel.removePendingFeatureDraft(
+        cb.id,
+        featureId,
+        revisionVersion,
+      );
+      continue;
+    }
+
+    const { base } = await getLiveAndBaseRevisionsForFeature({
+      context,
+      feature,
+      revision,
+    });
+    const requiresReview = checkIfRevisionNeedsReview({
+      feature,
+      baseRevision: base,
+      revision,
+      allEnvironments: context.environments,
+      settings: context.org.settings,
+      requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
+    });
+    if (requiresReview && revision.status !== "approved") {
+      logger.warn(
+        { contextualBanditId: cb.id, featureId, revisionVersion },
+        "Cannot auto-publish pending feature draft: approval required but not yet approved",
+      );
+      failed.push({ featureId, revisionVersion, reason: "needs-approval" });
+      continue;
+    }
+
+    ready.push({ featureId, revisionVersion });
+  }
+
+  if (failed.length > 0) {
+    return { published: [], failed };
+  }
+
+  // ── Phase 2: sequential publish, re-merging each against fresh live ──────
+  ready.sort(
+    (a, b) =>
+      a.featureId.localeCompare(b.featureId) ||
+      a.revisionVersion - b.revisionVersion,
+  );
+
+  const published: ResolvedDraft[] = [];
+
+  for (const { featureId, revisionVersion } of ready) {
+    const feature = await getFeature(context, featureId);
+    if (!feature) continue;
+    const revision = await getRevision({
+      context,
+      organization: feature.organization,
+      featureId: feature.id,
+      feature,
+      version: revisionVersion,
+    });
+    if (
+      !revision ||
+      revision.status === "published" ||
+      revision.status === "discarded"
+    ) {
+      continue;
+    }
+
+    const { live, base } = await getLiveAndBaseRevisionsForFeature({
+      context,
+      feature,
+      revision,
+    });
+    const mergeResult = autoMerge(live, base, revision, orgEnvIds, {});
+    if (!mergeResult.success) {
+      logger.warn(
+        {
+          contextualBanditId: cb.id,
+          featureId,
+          revisionVersion,
+          conflicts: mergeResult.conflicts,
+        },
+        "Cannot auto-publish pending feature draft due to merge conflicts",
+      );
+      failed.push({ featureId, revisionVersion, reason: "merge-conflict" });
+      break;
+    }
+
+    try {
+      await publishRevision(
+        context,
+        feature,
+        revision,
+        mergeResult.result,
+        `Contextual Bandit "${cb.name}" started`,
+      );
+      await cbModel.removePendingFeatureDraft(
+        cb.id,
+        featureId,
+        revisionVersion,
+      );
+      published.push({ featureId, revisionVersion });
+    } catch (err) {
+      logger.error(
+        { err, contextualBanditId: cb.id, featureId, revisionVersion },
+        "Failed to auto-publish pending feature draft on CB start",
       );
       failed.push({ featureId, revisionVersion, reason: "publish-error" });
       break;
