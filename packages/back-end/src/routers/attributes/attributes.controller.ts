@@ -245,8 +245,14 @@ export const deleteAttribute = async (
       },
     ),
   });
+
+  const eventForwarderWarning = (await hasAnyEventForwarderConfig(context))
+    ? "This attribute has been removed from GrowthBook, but its field will be preserved in your event forwarder's data warehouse table to avoid breaking existing data."
+    : undefined;
+
   return res.status(200).json({
     status: 200,
+    ...(eventForwarderWarning ? { eventForwarderWarning } : {}),
   });
 };
 
