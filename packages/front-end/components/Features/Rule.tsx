@@ -26,6 +26,7 @@ import {
   PiLockSimple,
   PiCaretDoubleUp,
   PiCaretDoubleDown,
+  PiCaretRight,
 } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { format as formatTimeZone } from "date-fns-tz";
@@ -220,6 +221,8 @@ interface SortableProps {
   // prop is then a cosmetic placeholder and must NOT promote a "current env"
   // in the env-scope badges.
   isAllEnvsView?: boolean;
+  collapsed?: boolean;
+  onToggleCollapsed?: () => void;
   // Provided by RuleList to support keyboard/menu reordering. Each callback
   // moves the rule by one position in the current visible projection and
   // posts the equivalent flat-index reorder to the API. Undefined when the
@@ -293,6 +296,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       rampSchedule,
       draftRevision,
       isAllEnvsView,
+      collapsed,
+      onToggleCollapsed,
       onMoveUp,
       onMoveDown,
       onMoveToTop,
@@ -664,7 +669,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
           <Flex
             justify="between"
             align="start"
-            mb="3"
+            mb="1"
             gap="8"
             style={{ maxWidth: "100%" }}
           >
@@ -673,6 +678,19 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               gap="2"
               style={{ flex: "0 1 auto", flexWrap: "wrap" }}
             >
+              {onToggleCollapsed && (
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  color="gray"
+                  icon={collapsed ? <PiCaretRight /> : <PiCaretDown />}
+                  iconPosition="left"
+                  onClick={onToggleCollapsed}
+                  style={{ marginLeft: -8, marginRight: -4 }}
+                >
+                  {collapsed ? "Expand" : "Collapse"}
+                </Button>
+              )}
               <Heading as="h4" size="medium" weight="medium" mb="0">
                 {linkedExperiment ? (
                   <>
@@ -1189,260 +1207,280 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               )}
             </Flex>
           </Flex>
-          <Box>{info.callout}</Box>
-          {liveEnabledDraftDisabled && (
-            <Callout status="warning" mt="3" size="sm">
-              This rule is <strong>enabled</strong> in the live feature but{" "}
-              <strong>disabled</strong> in this draft. Publishing may revert a
-              schedule-driven enable.
-            </Callout>
-          )}
-          {rampSchedule &&
-            isReadyForApproval(rampSchedule) &&
-            rampSchedule.steps[rampSchedule.currentStepIndex]
-              ?.approvalNotes && (
-              <Callout status="info" mt="3" color="orange" size="sm">
-                <strong>Approval Notes:</strong>{" "}
-                {
-                  rampSchedule.steps[rampSchedule.currentStepIndex]
-                    ?.approvalNotes
-                }
-              </Callout>
-            )}
-          {attributesWithVersionStringOperatorMismatches &&
-            attributesWithVersionStringOperatorMismatches.length > 0 && (
-              <Callout status="warning" mt="3">
-                <Flex direction="column" gap="2">
-                  <Text>
-                    This rule uses string operators on version attributes, which
-                    can have unintended effects. Edit this rule and change{" "}
-                    <strong>
-                      {attributesWithVersionStringOperatorMismatches.join(", ")}
-                    </strong>{" "}
-                    to use version operators ($vgt, $vlt, etc.) instead.
-                  </Text>
-                </Flex>
-              </Callout>
-            )}
-          <RuleEnvScopeBadges
-            activeEnvironmentIds={
-              rule.allEnvironments === true || rule.environments === undefined
-                ? "all"
-                : rule.environments
-            }
-            environments={environments}
-            currentEnvironment={isAllEnvsView ? undefined : environment}
-          />
-          <Box style={{ opacity: isInactive ? 0.6 : 1 }} mt="3">
-            {rule.type === "safe-rollout" && safeRollout ? (
-              <>
-                <DecisionHelpText rule={rule} />
-                {rule.description ? <Box pb="3">{rule.description}</Box> : null}
-              </>
-            ) : null}
-            <Box mb="3">
-              {hasCondition && rule.type !== "experiment-ref" ? (
-                <TruncatedConditionDisplay
-                  condition={rule.condition || ""}
-                  savedGroups={rule.savedGroups}
-                  prerequisites={rule.prerequisites}
-                  maxLength={500}
-                  prefix={<Text weight="medium">IF</Text>}
-                />
-              ) : rule.type !== "experiment-ref" &&
-                rule.type !== "rollout" &&
-                rule.type !== "safe-rollout" ? (
-                <em>No targeting (all traffic will be included)</em>
-              ) : null}
-            </Box>
-            {rule.type === "force" && (
-              <ForceSummary value={rule.value} feature={feature} />
-            )}
-            {rule.type === "rollout" && (
-              <RolloutSummary
-                value={rule.value ?? ""}
-                coverage={rule.coverage ?? 1}
-                feature={feature}
-                hashAttribute={rule.hashAttribute || ""}
-                monitored={
-                  rampSchedule?.currentStepIndex !== undefined &&
-                  rampSchedule.currentStepIndex >= 0 &&
-                  rampSchedule.steps[rampSchedule.currentStepIndex]?.monitored
-                }
-              />
-            )}
-            {rule.type === "safe-rollout" &&
-              (safeRollout ? (
-                <Box>
-                  <SafeRolloutSummary
-                    safeRollout={safeRollout}
-                    rule={rule}
-                    feature={feature}
-                  />
-                  {safeRollout?.startedAt && (
-                    <SafeRolloutStatusModal
-                      safeRollout={safeRollout}
-                      rule={rule}
-                      feature={feature}
-                      environment={environment}
-                      setVersion={setVersion}
-                      mutate={mutate}
-                      open={safeRolloutStatusModalOpen}
-                      setStatusModalOpen={setSafeRolloutStatusModalOpen}
-                      valueType={feature.valueType}
-                    />
-                  )}
-                  {safeRollout?.startedAt && (
-                    <Flex direction="column" mt="4" gap="4">
-                      <SafeRolloutDetails
-                        safeRollout={safeRollout}
-                        projectId={feature.project}
-                      />
-                    </Flex>
-                  )}
-                  {!safeRollout?.startedAt && (
-                    <Callout status="info" mt="4">
-                      This Safe Rollout rule is in a draft state and will start
-                      when this feature revision is published.
-                    </Callout>
-                  )}
-                </Box>
-              ) : (
-                <div>
-                  {/* Better error state if safe rollout is not found */}
-                  <p>Safe Rollout not found</p>
-                </div>
-              ))}
-            {rule.type === "experiment" && (
-              <ExperimentSummary
-                feature={feature}
-                experiment={Array.from(experimentsMap.values()).find(
-                  (exp) => exp.trackingKey === (rule.trackingKey || feature.id),
+          {!collapsed && (
+            <>
+              <Box>{info.callout}</Box>
+              {liveEnabledDraftDisabled && (
+                <Callout status="warning" mt="3" size="sm">
+                  This rule is <strong>enabled</strong> in the live feature but{" "}
+                  <strong>disabled</strong> in this draft. Publishing may revert
+                  a schedule-driven enable.
+                </Callout>
+              )}
+              {rampSchedule &&
+                isReadyForApproval(rampSchedule) &&
+                rampSchedule.steps[rampSchedule.currentStepIndex]
+                  ?.approvalNotes && (
+                  <Callout status="info" mt="3" color="orange" size="sm">
+                    <strong>Approval Notes:</strong>{" "}
+                    {
+                      rampSchedule.steps[rampSchedule.currentStepIndex]
+                        ?.approvalNotes
+                    }
+                  </Callout>
                 )}
-                rule={rule}
-              />
-            )}
-            {rule.type === "experiment-ref" && (
-              <ExperimentRefSummary
-                feature={feature}
-                experiment={experimentsMap.get(rule.experimentId)}
-                rule={rule}
-                isDraft={isDraft}
-              />
-            )}
-            {rampSchedule && (
-              <Box mt="4">
-                {!isSimpleSchedule && (
-                  <Flex gapX="3" gapY="1" align="center" mb="4" wrap="wrap">
-                    <span style={{ display: "inline-block" }}>
-                      <Text weight="medium">RAMP-UP SCHEDULE</Text>
-                    </span>
-                    {!["pending", "ready", "completed", "rolled-back"].includes(
-                      rampSchedule.status,
-                    ) && (
+              {attributesWithVersionStringOperatorMismatches &&
+                attributesWithVersionStringOperatorMismatches.length > 0 && (
+                  <Callout status="warning" mt="3">
+                    <Flex direction="column" gap="2">
                       <Text>
-                        Step {getRampStepsCompleted(rampSchedule)} of{" "}
-                        {rampSchedule.steps.length}
+                        This rule uses string operators on version attributes,
+                        which can have unintended effects. Edit this rule and
+                        change{" "}
+                        <strong>
+                          {attributesWithVersionStringOperatorMismatches.join(
+                            ", ",
+                          )}
+                        </strong>{" "}
+                        to use version operators ($vgt, $vlt, etc.) instead.
                       </Text>
-                    )}
-                    {(() => {
-                      const remaining = computeRemainingTime(rampSchedule);
-                      if (!remaining) return null;
-                      const { seconds, manualApprovals } = remaining;
-                      if (seconds <= 0 && manualApprovals === 0) return null;
-                      let label: string;
-                      const approvalStr =
-                        manualApprovals > 0
-                          ? `${manualApprovals} manual approval${manualApprovals > 1 ? "s" : ""}`
-                          : "";
-                      if (seconds <= 0) {
-                        label = approvalStr;
-                      } else {
-                        label = formatRemainingDuration(seconds);
-                        if (approvalStr) label += ` + ${approvalStr}`;
-                      }
-                      return <Text color="text-low">({label} remaining)</Text>;
-                    })()}
-                    {rampSchedule.lockdownConfig?.mode === "locked" && (
-                      <Box style={{ flexBasis: "100%" }}>
-                        <HelperText
-                          status="warning"
-                          icon={<PiLockSimple size={15} />}
-                        >
-                          {rampSchedule.status === "running"
-                            ? "Feature locked during ramp-up"
-                            : "Feature will be locked while ramp-up is running"}
-                        </HelperText>
-                      </Box>
-                    )}
-                  </Flex>
-                )}
-                {isSimpleSchedule && (
-                  <Text weight="medium" mb="4">
-                    {formatSimpleScheduleLabel(rampSchedule)}
-                  </Text>
-                )}
-                {rampApproveError && (
-                  <Callout status="error" mb="2">
-                    <Flex justify="between" align="start" gap="3">
-                      <Text>{rampApproveError}</Text>
-                      <Flex gap="2" flexShrink="0">
-                        <Button
-                          size="xs"
-                          variant="ghost"
-                          onClick={() => setRampApproveError("")}
-                        >
-                          Dismiss
-                        </Button>
-                      </Flex>
                     </Flex>
                   </Callout>
                 )}
-                {rampSchedule.status === "rolled-back" &&
-                  !hasMonitoringStatusRow &&
-                  rampSchedule.lastRollbackReason && (
-                    <Callout status="error" mb="2">
-                      <Text>
-                        <Text weight="semibold">Rolled back:</Text>{" "}
-                        {formatRollbackReason(rampSchedule.lastRollbackReason)}
-                      </Text>
-                    </Callout>
-                  )}
-                <RampTimeline
-                  rs={rampSchedule}
-                  pendingDetach={!!hasPendingDetach}
-                  onJump={async (targetStepIndex) => {
-                    if (targetStepIndex === -1) {
-                      await rollbackToStart();
-                      return;
+              <RuleEnvScopeBadges
+                activeEnvironmentIds={
+                  rule.allEnvironments === true ||
+                  rule.environments === undefined
+                    ? "all"
+                    : rule.environments
+                }
+                environments={environments}
+                currentEnvironment={isAllEnvsView ? undefined : environment}
+              />
+              <Box style={{ opacity: isInactive ? 0.6 : 1 }} mt="3">
+                {rule.type === "safe-rollout" && safeRollout ? (
+                  <>
+                    <DecisionHelpText rule={rule} />
+                    {rule.description ? (
+                      <Box pb="3">{rule.description}</Box>
+                    ) : null}
+                  </>
+                ) : null}
+                <Box mb="3">
+                  {hasCondition && rule.type !== "experiment-ref" ? (
+                    <TruncatedConditionDisplay
+                      condition={rule.condition || ""}
+                      savedGroups={rule.savedGroups}
+                      prerequisites={rule.prerequisites}
+                      maxLength={500}
+                      prefix={<Text weight="medium">IF</Text>}
+                    />
+                  ) : rule.type !== "experiment-ref" &&
+                    rule.type !== "rollout" &&
+                    rule.type !== "safe-rollout" ? (
+                    <em>No targeting (all traffic will be included)</em>
+                  ) : null}
+                </Box>
+                {rule.type === "force" && (
+                  <ForceSummary value={rule.value} feature={feature} />
+                )}
+                {rule.type === "rollout" && (
+                  <RolloutSummary
+                    value={rule.value ?? ""}
+                    coverage={rule.coverage ?? 1}
+                    feature={feature}
+                    hashAttribute={rule.hashAttribute || ""}
+                    monitored={
+                      rampSchedule?.currentStepIndex !== undefined &&
+                      rampSchedule.currentStepIndex >= 0 &&
+                      rampSchedule.steps[rampSchedule.currentStepIndex]
+                        ?.monitored
                     }
-                    await apiCall(
-                      `/ramp-schedule/${rampSchedule.id}/actions/jump`,
-                      {
-                        method: "POST",
-                        body: JSON.stringify({ targetStepIndex }),
-                      },
-                    );
-                    await mutate();
-                  }}
-                  onComplete={async () => {
-                    await apiCall(
-                      `/ramp-schedule/${rampSchedule.id}/actions/complete`,
-                      { method: "POST" },
-                    );
-                    await mutate();
-                  }}
-                />
-                {rampSchedule.steps.some((s) => s.monitored) && (
-                  <SafeRolloutRuleDashboard
-                    safeRolloutId={rampSchedule.safeRolloutId ?? undefined}
-                    rampSchedule={rampSchedule}
-                    mutateRule={mutate}
                   />
                 )}
+                {rule.type === "safe-rollout" &&
+                  (safeRollout ? (
+                    <Box>
+                      <SafeRolloutSummary
+                        safeRollout={safeRollout}
+                        rule={rule}
+                        feature={feature}
+                      />
+                      {safeRollout?.startedAt && (
+                        <SafeRolloutStatusModal
+                          safeRollout={safeRollout}
+                          rule={rule}
+                          feature={feature}
+                          environment={environment}
+                          setVersion={setVersion}
+                          mutate={mutate}
+                          open={safeRolloutStatusModalOpen}
+                          setStatusModalOpen={setSafeRolloutStatusModalOpen}
+                          valueType={feature.valueType}
+                        />
+                      )}
+                      {safeRollout?.startedAt && (
+                        <Flex direction="column" mt="4" gap="4">
+                          <SafeRolloutDetails
+                            safeRollout={safeRollout}
+                            projectId={feature.project}
+                          />
+                        </Flex>
+                      )}
+                      {!safeRollout?.startedAt && (
+                        <Callout status="info" mt="4">
+                          This Safe Rollout rule is in a draft state and will
+                          start when this feature revision is published.
+                        </Callout>
+                      )}
+                    </Box>
+                  ) : (
+                    <div>
+                      {/* Better error state if safe rollout is not found */}
+                      <p>Safe Rollout not found</p>
+                    </div>
+                  ))}
+                {rule.type === "experiment" && (
+                  <ExperimentSummary
+                    feature={feature}
+                    experiment={Array.from(experimentsMap.values()).find(
+                      (exp) =>
+                        exp.trackingKey === (rule.trackingKey || feature.id),
+                    )}
+                    rule={rule}
+                  />
+                )}
+                {rule.type === "experiment-ref" && (
+                  <ExperimentRefSummary
+                    feature={feature}
+                    experiment={experimentsMap.get(rule.experimentId)}
+                    rule={rule}
+                    isDraft={isDraft}
+                  />
+                )}
+                {rampSchedule && (
+                  <Box mt="4">
+                    {!isSimpleSchedule && (
+                      <Flex gapX="3" gapY="1" align="center" mb="4" wrap="wrap">
+                        <span style={{ display: "inline-block" }}>
+                          <Text weight="medium">RAMP-UP SCHEDULE</Text>
+                        </span>
+                        {![
+                          "pending",
+                          "ready",
+                          "completed",
+                          "rolled-back",
+                        ].includes(rampSchedule.status) && (
+                          <Text>
+                            Step {getRampStepsCompleted(rampSchedule)} of{" "}
+                            {rampSchedule.steps.length}
+                          </Text>
+                        )}
+                        {(() => {
+                          const remaining = computeRemainingTime(rampSchedule);
+                          if (!remaining) return null;
+                          const { seconds, manualApprovals } = remaining;
+                          if (seconds <= 0 && manualApprovals === 0)
+                            return null;
+                          let label: string;
+                          const approvalStr =
+                            manualApprovals > 0
+                              ? `${manualApprovals} manual approval${manualApprovals > 1 ? "s" : ""}`
+                              : "";
+                          if (seconds <= 0) {
+                            label = approvalStr;
+                          } else {
+                            label = formatRemainingDuration(seconds);
+                            if (approvalStr) label += ` + ${approvalStr}`;
+                          }
+                          return (
+                            <Text color="text-low">({label} remaining)</Text>
+                          );
+                        })()}
+                        {rampSchedule.lockdownConfig?.mode === "locked" && (
+                          <Box style={{ flexBasis: "100%" }}>
+                            <HelperText
+                              status="warning"
+                              icon={<PiLockSimple size={15} />}
+                            >
+                              {rampSchedule.status === "running"
+                                ? "Feature locked during ramp-up"
+                                : "Feature will be locked while ramp-up is running"}
+                            </HelperText>
+                          </Box>
+                        )}
+                      </Flex>
+                    )}
+                    {isSimpleSchedule && (
+                      <Text weight="medium" mb="4">
+                        {formatSimpleScheduleLabel(rampSchedule)}
+                      </Text>
+                    )}
+                    {rampApproveError && (
+                      <Callout status="error" mb="2">
+                        <Flex justify="between" align="start" gap="3">
+                          <Text>{rampApproveError}</Text>
+                          <Flex gap="2" flexShrink="0">
+                            <Button
+                              size="xs"
+                              variant="ghost"
+                              onClick={() => setRampApproveError("")}
+                            >
+                              Dismiss
+                            </Button>
+                          </Flex>
+                        </Flex>
+                      </Callout>
+                    )}
+                    {rampSchedule.status === "rolled-back" &&
+                      !hasMonitoringStatusRow &&
+                      rampSchedule.lastRollbackReason && (
+                        <Callout status="error" mb="2">
+                          <Text>
+                            <Text weight="semibold">Rolled back:</Text>{" "}
+                            {formatRollbackReason(
+                              rampSchedule.lastRollbackReason,
+                            )}
+                          </Text>
+                        </Callout>
+                      )}
+                    <RampTimeline
+                      rs={rampSchedule}
+                      pendingDetach={!!hasPendingDetach}
+                      onJump={async (targetStepIndex) => {
+                        if (targetStepIndex === -1) {
+                          await rollbackToStart();
+                          return;
+                        }
+                        await apiCall(
+                          `/ramp-schedule/${rampSchedule.id}/actions/jump`,
+                          {
+                            method: "POST",
+                            body: JSON.stringify({ targetStepIndex }),
+                          },
+                        );
+                        await mutate();
+                      }}
+                      onComplete={async () => {
+                        await apiCall(
+                          `/ramp-schedule/${rampSchedule.id}/actions/complete`,
+                          { method: "POST" },
+                        );
+                        await mutate();
+                      }}
+                    />
+                    {rampSchedule.steps.some((s) => s.monitored) && (
+                      <SafeRolloutRuleDashboard
+                        safeRolloutId={rampSchedule.safeRolloutId ?? undefined}
+                        rampSchedule={rampSchedule}
+                        mutateRule={mutate}
+                      />
+                    )}
+                  </Box>
+                )}
               </Box>
-            )}
-          </Box>
+            </>
+          )}
         </RuleCard>
       </Box>
     );
