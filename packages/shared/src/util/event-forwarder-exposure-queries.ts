@@ -55,7 +55,7 @@ export function buildEventForwarderAttributeValueSql({
   return buildEventForwarderNestedAttributeValueSql({
     sinkType,
     attributeName: userIdType,
-    castSnowflakeToString: true,
+    castToString: true,
   });
 }
 

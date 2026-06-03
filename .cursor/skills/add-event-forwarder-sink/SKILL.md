@@ -66,7 +66,7 @@ Shared topic/table mapping lives in `central-license-server/src/services/eventFo
         - teardownEventForwarderConfluent switch (no silent skip)
 - [ ] 13. Tests: shared util, back-end services, central-license-server connector config unit tests
 - [ ] 14. Fact tables: ensureEventForwarderEventsFactTable SQL dialect if needed
-- [ ] 15. Manual: provision → attribute add → schema evolve → pause/resume → teardown
+- [ ] 15. Manual: provision → attribute add → fact-table refresh → pause/resume → teardown
 ```
 
 ## central-license-server pattern

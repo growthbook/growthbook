@@ -2,13 +2,14 @@ import type { CreateColumnProps } from "shared/types/fact-table";
 import type {
   SDKAttribute,
   SDKAttributeSchema,
+  SDKAttributeType,
 } from "shared/types/organization";
 import { attributeMatchesDatasourceProjects } from "./datasource";
 
 /** BigQuery daily partition column for BigQueryStorageSink (timestamp-millis). */
 export const EVENT_FORWARDER_AVRO_PARTITION_FIELD = "received_at" as const;
 
-/** Nested Avro record holding org targeting attributes in the forwarder schema. */
+/** Map field holding org targeting attributes in the forwarder Avro schema. */
 export const EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD = "attributes" as const;
 
 /**
@@ -82,29 +83,123 @@ function quoteSnowflakeVariantFieldName(fieldName: string): string {
   return `"${fieldName.replace(/"/g, '""')}"`;
 }
 
+/** Warehouse value type used when casting flat map<string, string> entries. */
+export type EventForwarderAttributeValueDatatype =
+  | "string"
+  | "number"
+  | "boolean"
+  | "json";
+
+function sdkAttributeTypeToValueDatatype(
+  attributeDatatype?: SDKAttributeType,
+): EventForwarderAttributeValueDatatype {
+  switch (attributeDatatype) {
+    case "number":
+      return "number";
+    case "boolean":
+      return "boolean";
+    case "string[]":
+    case "number[]":
+    case "secureString[]":
+      return "json";
+    default:
+      return "string";
+  }
+}
+
+function buildBigQueryFlatMapAttributeValueSql(
+  fieldName: string,
+  valueDatatype: EventForwarderAttributeValueDatatype,
+): string {
+  const quotedAttributes = quoteBigQueryIdentifier(
+    EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD,
+  );
+  const jsonPath = `'$."${fieldName}"'`;
+
+  switch (valueDatatype) {
+    case "number":
+      return `SAFE_CAST(JSON_VALUE(${quotedAttributes}, ${jsonPath}) AS FLOAT64)`;
+    case "boolean":
+      return `SAFE_CAST(JSON_VALUE(${quotedAttributes}, ${jsonPath}) AS BOOL)`;
+    case "json":
+      // JSON_QUERY on a native BigQuery JSON column returns JSON type (not STRING),
+      // so the fact table column refresh job will correctly infer the type as "json".
+      return `JSON_QUERY(${quotedAttributes}, ${jsonPath})`;
+    default:
+      return `JSON_VALUE(${quotedAttributes}, ${jsonPath})`;
+  }
+}
+
+function buildSnowflakeFlatMapAttributeValueSql(
+  fieldName: string,
+  valueDatatype: EventForwarderAttributeValueDatatype,
+): string {
+  const attributesCol = EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD.toUpperCase();
+  const quotedField = quoteSnowflakeVariantFieldName(fieldName);
+  const raw = `${attributesCol}:${quotedField}`;
+
+  switch (valueDatatype) {
+    case "number":
+      return `TRY_TO_DOUBLE(${raw})`;
+    case "boolean":
+      return `TRY_TO_BOOLEAN(${raw})`;
+    case "json":
+      return `TRY_PARSE_JSON(${raw})`;
+    default:
+      // Map values are strings in Avro; cast so Snowflake reports VARCHAR not VARIANT.
+      return `${raw}::STRING`;
+  }
+}
+
+function shouldCastValueDatatypeToString(
+  valueDatatype: EventForwarderAttributeValueDatatype,
+): boolean {
+  return valueDatatype === "string";
+}
+
 export function buildEventForwarderNestedAttributeValueSql({
   sinkType,
   attributeName,
-  castSnowflakeToString = false,
+  attributeDatatype,
+  valueDatatype,
+  castToString = false,
 }: {
   sinkType: "bigquery" | "snowflake";
   attributeName: string;
-  castSnowflakeToString?: boolean;
+  /** SDK attribute datatype (fact tables derive effective casts from this). */
+  attributeDatatype?: SDKAttributeType;
+  /** Explicit warehouse cast type; overrides attributeDatatype when set. */
+  valueDatatype?: EventForwarderAttributeValueDatatype;
+  /** Coerce attribute values to string (exposure hash ids). Typed columns skip double-cast. */
+  castToString?: boolean;
 }): string {
   const fieldName = sanitizeEventForwarderAvroFieldName(attributeName);
+  const resolvedValueDatatype =
+    valueDatatype ?? sdkAttributeTypeToValueDatatype(attributeDatatype);
 
   if (sinkType === "bigquery") {
-    const quotedAttributes = quoteBigQueryIdentifier(
-      EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD,
+    const valueSql = buildBigQueryFlatMapAttributeValueSql(
+      fieldName,
+      resolvedValueDatatype,
     );
-    const quotedField = quoteBigQueryIdentifier(fieldName);
-    return `${quotedAttributes}.${quotedField}`;
+    if (
+      castToString &&
+      shouldCastValueDatatypeToString(resolvedValueDatatype)
+    ) {
+      return `CAST(${valueSql} AS STRING)`;
+    }
+    return valueSql;
   }
 
   const attributesCol = EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD.toUpperCase();
   const quotedField = quoteSnowflakeVariantFieldName(fieldName);
-  const valueSql = `${attributesCol}:${quotedField}`;
-  return castSnowflakeToString ? `${valueSql}::STRING` : valueSql;
+  if (castToString) {
+    return `${attributesCol}:${quotedField}::STRING`;
+  }
+  return buildSnowflakeFlatMapAttributeValueSql(
+    fieldName,
+    resolvedValueDatatype,
+  );
 }
 
 function getEventForwarderEventsFactTableAttributes(
@@ -139,10 +234,12 @@ function buildEventForwarderEventsFactTableSelect({
   sinkType,
   attributeSchema,
   datasourceProjects,
+  userIdTypes = [],
 }: {
   sinkType: "bigquery" | "snowflake";
   attributeSchema?: SDKAttributeSchema;
   datasourceProjects?: string[];
+  userIdTypes?: string[];
 }): string {
   const baseColumns =
     sinkType === "bigquery"
@@ -153,18 +250,45 @@ function buildEventForwarderEventsFactTableSelect({
     datasourceProjects,
   );
 
-  if (attributes.length === 0) {
-    return `SELECT\n${baseColumns.join(",\n")}`;
+  const projectedFieldKeys = new Set<string>();
+  const attributeColumns: string[] = [];
+
+  for (const userIdType of userIdTypes) {
+    const fieldName = sanitizeEventForwarderAvroFieldName(userIdType);
+    const key = fieldName.toLowerCase();
+    if (projectedFieldKeys.has(key)) {
+      continue;
+    }
+    projectedFieldKeys.add(key);
+    const valueSql = buildEventForwarderNestedAttributeValueSql({
+      sinkType,
+      attributeName: userIdType,
+      valueDatatype: "string",
+      castToString: true,
+    });
+    attributeColumns.push(`  ${valueSql} AS ${fieldName}`);
   }
 
-  const attributeColumns = attributes.map((attribute) => {
+  for (const attribute of attributes) {
     const fieldName = sanitizeEventForwarderAvroFieldName(attribute.property);
+    const key = fieldName.toLowerCase();
+    if (projectedFieldKeys.has(key)) {
+      continue;
+    }
+    projectedFieldKeys.add(key);
+
+    const valueDatatype = getEventForwarderFactTableColumnDatatype(attribute);
     const valueSql = buildEventForwarderNestedAttributeValueSql({
       sinkType,
       attributeName: attribute.property,
+      valueDatatype,
     });
-    return `  ${valueSql} AS ${fieldName}`;
-  });
+    attributeColumns.push(`  ${valueSql} AS ${fieldName}`);
+  }
+
+  if (attributeColumns.length === 0) {
+    return `SELECT\n${baseColumns.join(",\n")}`;
+  }
 
   return `SELECT\n${baseColumns.join(",\n")},\n  -- Attributes\n${attributeColumns.join(",\n")}`;
 }
@@ -177,6 +301,7 @@ export type BuildEventForwarderEventsFactTableSqlParams =
       tableName: string;
       attributeSchema?: SDKAttributeSchema;
       datasourceProjects?: string[];
+      userIdTypes?: string[];
     }
   | {
       sinkType: "snowflake";
@@ -185,6 +310,7 @@ export type BuildEventForwarderEventsFactTableSqlParams =
       tableName: string;
       attributeSchema?: SDKAttributeSchema;
       datasourceProjects?: string[];
+      userIdTypes?: string[];
     };
 
 export function buildEventForwarderEventsFactTableSql(
@@ -214,7 +340,7 @@ export function buildEventForwarderEventsFactTableSql(
 
 function getEventForwarderFactTableColumnDatatype(
   attribute: SDKAttribute,
-): CreateColumnProps["datatype"] {
+): EventForwarderAttributeValueDatatype {
   if (attribute.hashAttribute) {
     return "string";
   }
