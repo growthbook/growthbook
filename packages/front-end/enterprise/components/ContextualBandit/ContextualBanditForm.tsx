@@ -5,6 +5,10 @@ import {
   ExperimentStatus,
   Variation,
 } from "shared/types/experiment";
+import {
+  ApiContextualBanditInterface,
+  ApiCreateContextualBanditBody,
+} from "shared/validators";
 import { useRouter } from "next/router";
 import { datetime, getValidDate } from "shared/dates";
 import { validateAndFixCondition } from "shared/util";
@@ -425,56 +429,111 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
       }
     }
 
-    if (duplicate && data.phases?.[0]) {
-      data.phases[0].seed = useSameSeedAsOriginal
-        ? initialValue?.phases?.[lastPhase]?.seed
-        : undefined;
-    }
-
-    const body = JSON.stringify(data);
-
-    // `URLSearchParams` only emits strings on the wire, so flags travel as
-    // "true". The server already parses these as truthy strings.
-    const params: Record<string, string> = {};
-    if (allowDuplicateTrackingKey) {
-      params.allowDuplicateTrackingKey = "true";
-    }
-    if (duplicate && initialValue?.id) {
-      params.originalId = initialValue.id;
-      if (useSameSeedAsOriginal) {
-        params.allowSameSeedAsOriginal = "true";
+    // Project the experiment-shaped form values onto the CB-native REST
+    // create body. Fields the CB endpoint doesn't accept (phases,
+    // banditScheduleValue, attributionModel knobs we don't expose, …) are
+    // dropped here; the back-end fills them via defaultValues and
+    // ContextualBanditModel.processApiCreateBody. The duplicate-key
+    // sentinel that the legacy `/experiments` route returned isn't part
+    // of the BaseModel CRUD response, so we preflight via the list
+    // endpoint instead — unless the user already clicked through the
+    // duplicate-key warning, in which case we skip the preflight.
+    if (!allowDuplicateTrackingKey && data.trackingKey) {
+      const existing = await apiCall<{
+        contextualBandits: ApiContextualBanditInterface[];
+      }>(
+        `/api/v1/contextual-bandits?trackingKey=${encodeURIComponent(
+          data.trackingKey,
+        )}`,
+        { method: "GET" },
+      );
+      if ((existing.contextualBandits?.length ?? 0) > 0) {
+        setAllowDuplicateTrackingKey(true);
+        throw new Error(
+          "Warning: A Contextual Bandit with that tracking key already exists. To continue anyway, click 'Save' again.",
+        );
       }
     }
 
-    const res = await apiCall<
-      | { experiment: ExperimentInterfaceStringDates }
-      | { duplicateTrackingKey: true; existingId: string }
-    >(`/experiments?${new URLSearchParams(params).toString()}`, {
-      method: "POST",
-      body,
-    });
+    // The targeting-attribute columns come from the selected exposure
+    // query on the chosen datasource. `maybeCreateContextualBanditDoc`
+    // derived them server-side from the same lookup; we mirror it here so
+    // the create body carries the value the CB-native endpoint expects.
+    const submitDatasource = datasources.find(
+      (d) => d.id === data.datasource,
+    );
+    const submitExposureQuery = submitDatasource?.settings?.queries?.exposure?.find(
+      (q) => q.id === data.exposureQueryId,
+    );
+    const submitContextualAttributes =
+      submitExposureQuery?.targetingAttributeColumns ?? [];
 
-    if ("duplicateTrackingKey" in res) {
-      setAllowDuplicateTrackingKey(true);
-      throw new Error(
-        "Warning: An experiment with that tracking key already exists. To continue anyway, click 'Save' again.",
-      );
-    }
+    const createBody: ApiCreateContextualBanditBody = {
+      name: data.name ?? "",
+      description: data.description,
+      hypothesis: data.hypothesis,
+      project: data.project || undefined,
+      owner: data.owner || undefined,
+      tags: data.tags ?? [],
+      customFields: data.customFields,
+
+      trackingKey: data.trackingKey ?? "",
+      hashAttribute: data.hashAttribute || undefined,
+      fallbackAttribute: data.fallbackAttribute || undefined,
+      hashVersion: data.hashVersion as 1 | 2 | undefined,
+      disableStickyBucketing: data.disableStickyBucketing ?? true,
+
+      variations: (data.variations ?? []).map((v, i) => ({
+        key: v.key || `${i}`,
+        name: v.name ?? "",
+        description: v.description,
+      })),
+
+      datasource: data.datasource ?? "",
+      exposureQueryId: data.exposureQueryId ?? "",
+      segment: data.segment || undefined,
+      queryFilter: data.queryFilter || undefined,
+      goalMetrics: data.goalMetrics ?? [],
+      secondaryMetrics: data.secondaryMetrics ?? [],
+      guardrailMetrics: data.guardrailMetrics ?? [],
+      activationMetric: data.activationMetric || undefined,
+      attributionModel: data.attributionModel,
+      skipPartialData: data.skipPartialData,
+      regressionAdjustmentEnabled: data.regressionAdjustmentEnabled,
+
+      contextualAttributes: submitContextualAttributes,
+    };
+
+    const res = await apiCall<{ contextualBandit: ApiContextualBanditInterface }>(
+      "/api/v1/contextual-bandits",
+      {
+        method: "POST",
+        body: JSON.stringify(createBody),
+      },
+    );
 
     track("Create Contextual Bandit", {
       source,
-      numTags: data.tags?.length || 0,
+      numTags: createBody.tags?.length || 0,
       numMetrics:
-        (data.goalMetrics?.length || 0) + (data.secondaryMetrics?.length || 0),
-      numVariations: data.variations?.length || 0,
+        (createBody.goalMetrics?.length || 0) +
+        (createBody.secondaryMetrics?.length || 0),
+      numVariations: createBody.variations?.length || 0,
     });
     refreshWatching();
 
-    data.tags && refreshTags(data.tags);
+    createBody.tags && refreshTags(createBody.tags);
+
+    // TODO(pr-8): the detail page URL is still keyed by experiment id
+    // during the decoupling window (resolves CB via
+    // useContextualBanditByExperiment). Once the page reroutes by CB id,
+    // navigate to `/contextual-bandit/${res.contextualBandit.id}` directly.
+    const navId =
+      res.contextualBandit.experiment ?? res.contextualBandit.id;
     if (onCreate) {
-      onCreate(res.experiment.id);
+      onCreate(navId);
     } else {
-      router.push(`/contextual-bandit/${res.experiment.id}`);
+      router.push(`/contextual-bandit/${navId}`);
     }
   });
 

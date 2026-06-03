@@ -1,10 +1,12 @@
 import {
+  apiCreateContextualBanditBody,
   ApiContextualBanditInterface,
   ContextualBanditInterface,
   contextualBanditValidator,
   ExperimentInterface,
   LeafWeight,
 } from "shared/validators";
+import { generateVariationId } from "shared/util";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
   contextualBanditApiSpec,
@@ -35,12 +37,25 @@ const BaseClass = MakeModelClass({
       unique: true,
     },
   ],
-  // TODO(holdout-v1.5): these two fields are intentionally inert in v1; the
-  // defaults let callers omit them so future docs round-trip cleanly without
-  // a schema break when the holdout pipeline ships.
+  // Defaults supplied so the create flow (POST /api/v1/contextual-bandits)
+  // can omit fields the CB schema requires but the create body intentionally
+  // doesn't surface (tree config, holdout, phases, …). These mirror the
+  // values that the deleted `maybeCreateContextualBanditDoc` used to inject
+  // when a CB was created via the legacy experiment route.
+  //
+  // TODO(holdout-v1.5): `holdoutPercent` / `disableStickyBucketing` are
+  // intentionally inert in v1; the defaults let callers omit them so future
+  // docs round-trip cleanly without a schema break when the holdout
+  // pipeline ships.
   defaultValues: {
     holdoutPercent: 0,
     disableStickyBucketing: false,
+    archived: false,
+    maxContexts: 300,
+    treeModel: "regression_tree",
+    minUsersPerLeaf: 100,
+    maxLeaves: 12,
+    canonicalFormVersion: 1,
   },
   // Auto-emits contextualBandit.create / update / delete on the BaseModel
   // CRUD paths. Lifecycle events (`start` / `stop`) are emitted directly
@@ -331,17 +346,22 @@ export class ContextualBanditModel extends BaseClass {
   }
 
   /**
-   * List with optional `projectId` / `datasourceId` filters. Matches the
-   * pattern used by ExperimentTemplatesModel — derives the query from the
-   * spec's `apiListContextualBanditsValidator` schema.
+   * List with optional `projectId` / `datasourceId` / `trackingKey`
+   * filters. Matches the pattern used by ExperimentTemplatesModel —
+   * derives the query from the spec's `apiListContextualBanditsValidator`
+   * schema. `trackingKey` exists so the CB create form can preflight
+   * collisions before POSTing (the BaseModel CRUD response surface
+   * doesn't carry the duplicate-key sentinel the legacy experiment route
+   * used).
    */
   public override async handleApiList(
     req: Parameters<InstanceType<typeof BaseClass>["handleApiList"]>[0],
   ): Promise<ApiContextualBanditInterface[]> {
-    const { projectId, datasourceId } = req.query;
+    const { projectId, datasourceId, trackingKey } = req.query;
     const filter: Record<string, string> = {};
     if (projectId) filter.project = projectId;
     if (datasourceId) filter.datasource = datasourceId;
+    if (trackingKey) filter.trackingKey = trackingKey;
     const docs = Object.keys(filter).length
       ? await this._find(filter)
       : await this.getAll();
@@ -349,6 +369,78 @@ export class ContextualBanditModel extends BaseClass {
       docs.map((doc) => this.toApiInterface(doc)),
       this.context,
     );
+  }
+
+  /**
+   * Inject runtime-derived defaults onto the create body so the create
+   * flow succeeds with only the fields the REST `apiCreateContextualBanditBody`
+   * exposes. Static defaults (tree config, holdout, archived flags) live
+   * on `defaultValues` above; this hook covers values that need a fresh
+   * `Date` per call or that depend on per-org settings, which can't be
+   * frozen into the model config at module load.
+   *
+   * Mirrors the field-by-field defaults the deleted
+   * `maybeCreateContextualBanditDoc` used to inject when CBs were
+   * created via the legacy experiment-create flow.
+   */
+  protected async processApiCreateBody(rawBody: unknown) {
+    const body = apiCreateContextualBanditBody.parse(rawBody);
+    const orgPrior = this.context.org.settings?.metricDefaults?.priorSettings;
+
+    return {
+      ...body,
+      tags: body.tags ?? [],
+      // _createOne will resolve a missing owner to the current user; pass
+      // an empty fallback so the TS shape matches before that hook runs.
+      owner: body.owner ?? "",
+      // Required-in-validator, optional-in-body fields. `defaultValues`
+      // fills the same slots at runtime; we restate them here so the
+      // return type satisfies `CreateProps<ContextualBanditInterface>`
+      // without relying on the runtime default-merge — the type-checker
+      // can't see through that.
+      archived: false,
+      holdoutPercent: 0,
+      canonicalFormVersion: 1,
+      maxContexts: body.maxContexts ?? 300,
+      treeModel: body.treeModel ?? "regression_tree",
+      minUsersPerLeaf: body.minUsersPerLeaf ?? 100,
+      maxLeaves: body.maxLeaves ?? 12,
+      hashAttribute: body.hashAttribute ?? "id",
+      hashVersion: body.hashVersion ?? (2 as const),
+      disableStickyBucketing: body.disableStickyBucketing ?? false,
+      // The REST create body intentionally omits per-variation `id` /
+      // `screenshots` so callers don't have to invent ids; backfill them
+      // here so the internal `variation` validator (id + screenshots)
+      // accepts the doc.
+      variations: body.variations.map((v) => ({
+        ...v,
+        id: generateVariationId(),
+        screenshots: [],
+      })),
+      // `datasourceId` is an alias for `datasource` carried for legacy
+      // shape parity; the REST create body only exposes one.
+      datasourceId: body.datasource,
+      // `targetingAttributeColumns` is the SQL-side spelling of
+      // `contextualAttributes`; the snapshot orchestrator reads either.
+      targetingAttributeColumns: body.contextualAttributes,
+      contextualAttributes: body.contextualAttributes,
+      // Initial draft state — lifecycle transitions go through start/stop.
+      status: "draft" as const,
+      // Empty metric arrays so the model insert validates even when the
+      // form omits the optional fields.
+      secondaryMetrics: body.secondaryMetrics ?? [],
+      guardrailMetrics: body.guardrailMetrics ?? [],
+      // Phases must be non-undefined so the validator's `z.array(...)`
+      // is satisfied; seed with a single open phase so the CB has
+      // somewhere to record `currentLeafWeights` once it starts.
+      phases: [{ dateStarted: new Date(), currentLeafWeights: [] }],
+      defaultMetricPriorSettings: orgPrior ?? {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: 0.1,
+      },
+    };
   }
 
   /**

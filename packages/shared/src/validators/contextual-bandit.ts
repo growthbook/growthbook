@@ -352,6 +352,13 @@ export const apiListContextualBanditsValidator = {
   querySchema: z.strictObject({
     projectId: z.string().optional(),
     datasourceId: z.string().optional(),
+    /**
+     * Exact-match filter on `trackingKey`. Used by the CB create form to
+     * preflight whether the requested key collides with an existing CB
+     * before POSTing — mirrors the `allowDuplicateTrackingKey` flow on
+     * the legacy experiment-create path.
+     */
+    trackingKey: z.string().optional(),
   }),
   paramsSchema: z.never(),
 };
