@@ -571,13 +571,13 @@ const healthSummaryMetricSchema = z.object({
     .number()
     .optional()
     .describe(
-      "Expected relative lift of the treatment vs control (e.g. 0.05 = +5%).",
+      "Expected relative lift of the treatment arm vs the baseline arm (e.g. 0.05 = +5%). See `traffic.variationUnits` for what each arm represents.",
     ),
   absoluteLift: z
     .number()
     .optional()
     .describe(
-      "Absolute difference in conversion rate between treatment and control.",
+      "Absolute difference in conversion rate between the treatment and baseline arms.",
     ),
   ciHarmBound: z
     .number()
@@ -636,7 +636,7 @@ const healthSummarySchema = z.object({
       variationUnits: z
         .array(z.number())
         .describe(
-          "Per-variation user counts. Index 0 = control, index 1 = treatment.",
+          "Per-variation user counts. Index 0 = baseline arm (users continuing to see the existing behavior — either the configured control value on a v1 safe rollout, or users passed through to subsequent rules / feature default on a v2 monitored ramp). Index 1 = treatment arm (users exposed to the new rollout value).",
         ),
       srm: z
         .object({
