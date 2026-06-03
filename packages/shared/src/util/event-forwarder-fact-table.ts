@@ -114,17 +114,19 @@ function buildBigQueryFlatMapAttributeValueSql(
   const quotedAttributes = quoteBigQueryIdentifier(
     EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD,
   );
-  const rawValue = `(SELECT value FROM UNNEST(${quotedAttributes}) WHERE key = '${fieldName}')`;
+  const jsonPath = `'$.${fieldName}'`;
 
   switch (valueDatatype) {
     case "number":
-      return `SAFE_CAST(${rawValue} AS FLOAT64)`;
+      return `SAFE_CAST(JSON_VALUE(${quotedAttributes}, ${jsonPath}) AS FLOAT64)`;
     case "boolean":
-      return `SAFE_CAST(${rawValue} AS BOOL)`;
+      return `SAFE_CAST(JSON_VALUE(${quotedAttributes}, ${jsonPath}) AS BOOL)`;
     case "json":
-      return `PARSE_JSON(${rawValue})`;
+      // JSON_QUERY on a native BigQuery JSON column returns JSON type (not STRING),
+      // so the fact table column refresh job will correctly infer the type as "json".
+      return `JSON_QUERY(${quotedAttributes}, ${jsonPath})`;
     default:
-      return rawValue;
+      return `JSON_VALUE(${quotedAttributes}, ${jsonPath})`;
   }
 }
 
