@@ -1,10 +1,14 @@
 import { useState } from "react";
-import { isProjectListValidForProject } from "shared/util";
+import {
+  isProjectListValidForProject,
+  isLegacyMetricCreationDisabled,
+} from "shared/util";
 import { MetricInterface } from "shared/types/metric";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
 import MetricForm from "@/components/Metrics/MetricForm";
+import useOrgSettings from "@/hooks/useOrgSettings";
 
 export type MetricModalState = {
   currentMetric?: MetricInterface;
@@ -63,16 +67,19 @@ export function MetricModal({
 
 export function NewMetricModal({ close, source, datasource }: NewMetricProps) {
   const { factTables, project, getDatasourceById } = useDefinitions();
+  const settings = useOrgSettings();
+  const legacyMetricCreationDisabled = isLegacyMetricCreationDisabled(settings);
 
   const filteredFactTables = factTables
     .filter((f) => !datasource || f.datasource === datasource)
     .filter((f) => isProjectListValidForProject(f.projects, project));
 
   // Determine the most appropriate default type based on what the org has already created
+  // - If legacy creation is disabled, always use fact metrics
   // - If there are no fact tables, default to legacy
   // - Otherwise, default to fact
   let defaultType: "fact" | "legacy" = "fact";
-  if (filteredFactTables.length === 0) {
+  if (!legacyMetricCreationDisabled && filteredFactTables.length === 0) {
     defaultType = "legacy";
   }
 
@@ -84,9 +91,13 @@ export function NewMetricModal({ close, source, datasource }: NewMetricProps) {
       <FactMetricModal
         close={close}
         source={source}
-        switchToLegacy={() => {
-          setType("legacy");
-        }}
+        switchToLegacy={
+          legacyMetricCreationDisabled
+            ? undefined
+            : () => {
+                setType("legacy");
+              }
+        }
         datasource={datasource}
       />
     );
