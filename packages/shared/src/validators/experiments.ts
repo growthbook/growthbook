@@ -12,7 +12,12 @@ import {
   apiPaginationFieldsValidator,
 } from "./shared";
 import { windowTypeValidator } from "./fact-table";
-import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
+import {
+  ownerEmailField,
+  ownerField,
+  ownerInputField,
+  optionalOwnerInputField,
+} from "./owner-field";
 
 import { namedSchema } from "./openapi-helpers";
 
@@ -1084,7 +1089,7 @@ const postExperimentBody = z
       .string()
       .describe("WHERE clause to add to the default experiment query")
       .optional(),
-    owner: ownerInputField.optional(),
+    owner: optionalOwnerInputField,
     archived: z.boolean().optional(),
     status: z.enum(experimentStatus).optional(),
     autoRefresh: z.boolean().optional(),

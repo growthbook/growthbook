@@ -6,7 +6,7 @@ import {
   paginationQueryFields,
   skipPaginationQueryField,
 } from "./shared";
-import { ownerInputField } from "./owner-field";
+import { ownerInputField, optionalOwnerInputField } from "./owner-field";
 import {
   apiFeatureRuleValidator,
   apiRevisionPrerequisiteV2,
@@ -355,7 +355,7 @@ export const postFeatureBodyV2 = z
       .max(MAX_DESCRIPTION_LENGTH)
       .describe("Description of the feature")
       .optional(),
-    owner: ownerInputField,
+    owner: optionalOwnerInputField,
     project: z.string().describe("An associated project ID").optional(),
     valueType: z
       .enum(["boolean", "string", "number", "json"])

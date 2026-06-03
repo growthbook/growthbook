@@ -10,7 +10,12 @@ import {
   apiPaginationFieldsValidator,
 } from "./shared";
 import { safeRolloutStatusArray } from "./safe-rollout";
-import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
+import {
+  ownerEmailField,
+  ownerField,
+  ownerInputField,
+  optionalOwnerInputField,
+} from "./owner-field";
 import {
   featureRulePatch,
   lockdownConfigSchema,
@@ -1226,7 +1231,7 @@ const postFeatureBody = z
       .max(MAX_DESCRIPTION_LENGTH)
       .describe("Description of the feature")
       .optional(),
-    owner: ownerInputField,
+    owner: optionalOwnerInputField,
     project: z.string().describe("An associated project ID").optional(),
     valueType: z
       .enum(["boolean", "string", "number", "json"])
