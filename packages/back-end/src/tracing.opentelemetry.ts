@@ -86,22 +86,42 @@ const getCounter = (name: string) => {
   };
 };
 
+const attributeKey = (attributes?: Attributes) => {
+  if (!attributes) {
+    return "";
+  }
+  return Object.entries(attributes)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, v]) => `${k}=${v}`)
+    .join(",");
+};
+
+const gaugeByName = new Map<
+  string,
+  { record: (value: number, attributes?: Attributes) => void }
+>();
+
 const getGauge = (name: string) => {
+  const existing = gaugeByName.get(name);
+  if (existing) {
+    return existing;
+  }
+
   const gauge = otlMetrics.getMeter(name).createObservableGauge(name);
-  // One callback per gauge; record() only updates latest. Multiple attribute sets
-  // overwrite each other. That beats unbounded callback accumulation on every record().
-  let latest: { value: number; attributes?: Attributes } | null = null;
+  const series = new Map<string, { value: number; attributes?: Attributes }>();
   gauge.addCallback((observableResult) => {
-    if (latest) {
-      observableResult.observe(latest.value, latest.attributes);
+    for (const { value, attributes } of series.values()) {
+      observableResult.observe(value, attributes);
     }
   });
 
-  return {
+  const wrapper = {
     record: (value: number, attributes?: Attributes) => {
-      latest = { value, attributes };
+      series.set(attributeKey(attributes), { value, attributes });
     },
   };
+  gaugeByName.set(name, wrapper);
+  return wrapper;
 };
 
 setMetrics({
