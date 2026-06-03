@@ -165,6 +165,7 @@ type RrwebPrivacyOptions = Pick<
   | "maskTextClass"
   | "maskTextSelector"
   | "ignoreClass"
+  | "ignoreSelector"
   | "maskAllInputs"
   | "maskInputOptions"
   | "maskInputFn"
@@ -228,17 +229,10 @@ export function buildRrwebPrivacyOptions(
       privacy.maskTextSelector,
     ),
     ignoreClass: GB_IGNORE_CLASS,
-    // rrweb doesn't expose an `ignoreSelector` directly on every version,
-    // but recent versions accept it. Pass through with a compose so
-    // either layer's selector works.
-    ...("ignoreSelector" in {} === false
-      ? {}
-      : {
-          ignoreSelector: composeSelectors(
-            DEFAULT_IGNORE_SELECTOR,
-            privacy.ignoreSelector,
-          ),
-        }),
+    ignoreSelector: composeSelectors(
+      DEFAULT_IGNORE_SELECTOR,
+      privacy.ignoreSelector,
+    ),
     maskAllInputs: privacy.maskAllInputs ?? true,
     maskInputOptions: privacy.maskInputOptions,
     maskInputFn: buildMaskFn(privacy.maskInputFn),
