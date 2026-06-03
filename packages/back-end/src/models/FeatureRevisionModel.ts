@@ -42,6 +42,10 @@ import { logger } from "back-end/src/util/logger";
 import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
 import { createWithVersionRetry } from "back-end/src/util/mongo.util";
 import { runValidateFeatureRevisionHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
+import {
+  migrateRampScheduleEndCondition,
+  migrateRampStepTriggers,
+} from "./RampScheduleModel";
 
 export type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
 
@@ -200,6 +204,28 @@ export function buildFeatureRevisionInterface(
     revision.rules = flattenV1ToV2Rules(upgraded, {
       envOrder: orgEnvs.map((e) => e.id),
       applicableEnvs,
+    });
+  }
+
+  // JIT migration: normalize legacy ramp action shapes on read:
+  //   - endCondition → cutoffDate
+  //   - steps[].trigger discriminated union → steps[].interval + holdConditions
+  // Old DB documents may still hold these legacy shapes even though the schema
+  // no longer defines them — cast through `unknown` so the migration can read.
+  if (revision.rampActions?.length) {
+    revision.rampActions = revision.rampActions.map((action) => {
+      if (action.mode !== "create") return action;
+      const endCondMigrated = migrateRampScheduleEndCondition(
+        action as unknown as Parameters<
+          typeof migrateRampScheduleEndCondition
+        >[0],
+      );
+      const triggersMigrated = migrateRampStepTriggers(
+        endCondMigrated as unknown as Parameters<
+          typeof migrateRampStepTriggers
+        >[0],
+      );
+      return triggersMigrated as unknown as typeof action;
     });
   }
 
@@ -466,12 +492,24 @@ export async function getLatestActiveDraftForFeature(
   organization: string,
   featureId: string,
   feature: RevisionFeatureContext | undefined,
-  { involvedUserId }: { involvedUserId?: string } = {},
+  {
+    involvedUserId,
+    status,
+    author,
+  }: {
+    involvedUserId?: string;
+    status?: string | string[];
+    author?: string;
+  } = {},
 ): Promise<FeatureRevisionInterface | null> {
   const filter: Record<string, unknown> = {
     organization,
     featureId,
-    status: { $in: ACTIVE_DRAFT_STATUSES },
+    status: status
+      ? Array.isArray(status)
+        ? { $in: status }
+        : status
+      : { $in: ACTIVE_DRAFT_STATUSES },
   };
   if (involvedUserId) {
     filter.$or = [
@@ -479,6 +517,9 @@ export async function getLatestActiveDraftForFeature(
       { contributors: involvedUserId },
       { "contributors.id": involvedUserId },
     ];
+  }
+  if (author) {
+    filter["createdBy.id"] = author;
   }
   const doc = await FeatureRevisionModel.findOne(filter, { log: 0 }).sort({
     dateUpdated: -1,
@@ -1266,19 +1307,12 @@ export async function getFeatureRevisionsByFeatureIds(
   return revisionsByFeatureId;
 }
 
-// Higher number = higher priority. When a feature has multiple active
-// revisions, surface the most actionable one.
-const DRAFT_STATUS_PRIORITY: Record<ActiveDraftStatus, number> = {
-  "changes-requested": 4,
-  "pending-review": 3,
-  approved: 2,
-  draft: 1,
-};
+export type DraftStatusCounts = Partial<Record<ActiveDraftStatus, number>>;
 
 export async function getActiveDraftStates(
   orgId: string,
   featureIds?: string[],
-): Promise<Record<string, { status: ActiveDraftStatus; version: number }>> {
+): Promise<Record<string, DraftStatusCounts>> {
   const q: Record<string, unknown> = {
     organization: orgId,
     status: { $in: ACTIVE_DRAFT_STATUSES },
@@ -1289,22 +1323,15 @@ export async function getActiveDraftStates(
   const docs = await FeatureRevisionModel.find(q, {
     featureId: 1,
     status: 1,
-    version: 1,
     _id: 0,
   });
 
-  const result: Record<string, { status: ActiveDraftStatus; version: number }> =
-    {};
+  const result: Record<string, DraftStatusCounts> = {};
   for (const doc of docs) {
     const fid = doc.featureId;
     const status = doc.status as ActiveDraftStatus;
-    const existing = result[fid];
-    if (
-      !existing ||
-      DRAFT_STATUS_PRIORITY[status] > DRAFT_STATUS_PRIORITY[existing.status]
-    ) {
-      result[fid] = { status, version: doc.version };
-    }
+    if (!result[fid]) result[fid] = {};
+    result[fid][status] = (result[fid][status] ?? 0) + 1;
   }
   return result;
 }

@@ -921,6 +921,16 @@ app.get("/features/status", featuresController.getFeaturesStatus);
 app.get("/features/draft-states", featuresController.getFeatureDraftStates);
 app.get("/features/stale", featuresController.getFeaturesStaleStates);
 app.get("/features/dependents", featuresController.getFeaturesDependents);
+app.get("/features/content-search", featuresController.getFeatureContentSearch);
+app.get(
+  "/features/dependency-index",
+  featuresController.getFeatureDependencyIndex,
+);
+app.get("/features/ramp-states", featuresController.getFeatureRampStates);
+app.get(
+  "/features/experiment-states",
+  featuresController.getFeatureExperimentStates,
+);
 app.post(
   "/feature/:id/:version/reorder",
   featuresController.postFeatureMoveRule,

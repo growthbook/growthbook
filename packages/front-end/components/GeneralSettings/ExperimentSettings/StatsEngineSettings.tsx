@@ -76,7 +76,6 @@ export default function StatsEngineSettings() {
       <StatsEngineSelect
         label="Default statistics engine to use (Bayesian is most common)"
         allowUndefined={false}
-        showDefault={true}
         value={form.watch("statsEngine")}
         onChange={(value) => {
           form.setValue("statsEngine", value);

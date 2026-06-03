@@ -31,9 +31,11 @@ export default function RuleEnvironmentScopeField({
 
   return (
     <Box {...marginProps}>
-      <Text as="div" weight="semibold" mb="3">
-        {label}
-      </Text>
+      {label ? (
+        <Text as="div" weight="semibold" mb="3">
+          {label}
+        </Text>
+      ) : null}
       <RadioGroup
         value={allEnvironments ? "all" : "specific"}
         setValue={(v) => {

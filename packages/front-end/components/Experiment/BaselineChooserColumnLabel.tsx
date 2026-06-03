@@ -34,6 +34,7 @@ export interface BaselineChooserColumnLabelProps {
   mutate?: () => Promise<unknown>;
   dropdownEnabled?: boolean;
   isHoldout?: boolean;
+  labelMaxWidth?: number;
 }
 
 export default function BaselineChooserColumnLabel({
@@ -46,6 +47,7 @@ export default function BaselineChooserColumnLabel({
   mutate,
   dropdownEnabled,
   isHoldout = false,
+  labelMaxWidth = 75,
 }: BaselineChooserColumnLabelProps) {
   const { apiCall } = useAuth();
 
@@ -216,7 +218,7 @@ export default function BaselineChooserColumnLabel({
             </span>
           )}
           <OverflowText
-            maxWidth={75}
+            maxWidth={labelMaxWidth}
             style={{ color: "var(--color-text-mid)", fontSize: "13px" }}
           >
             {isHoldout ? "Holdout" : baselineVariation.name}

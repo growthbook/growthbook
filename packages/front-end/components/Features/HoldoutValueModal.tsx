@@ -55,7 +55,7 @@ const HoldoutValueModal = ({
 
   const defaultDraft = useDefaultDraft(revisionList);
   const [mode, setMode] = useState<DraftMode>(
-    defaultDraft != null ? "existing" : "new",
+    defaultDraft !== null ? "existing" : "new",
   );
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
@@ -100,7 +100,7 @@ const HoldoutValueModal = ({
         },
         ...(isPublish
           ? { autoPublish: true }
-          : mode === "existing" && selectedDraft != null
+          : mode === "existing" && selectedDraft !== null
             ? { targetDraftVersion: selectedDraft }
             : { forceNewDraft: true }),
       }),
@@ -108,7 +108,7 @@ const HoldoutValueModal = ({
     await mutate();
     const resolvedVersion =
       res.draftVersion ?? (mode === "existing" ? selectedDraft : null);
-    if (resolvedVersion != null) setVersion(resolvedVersion);
+    if (resolvedVersion !== null) setVersion(resolvedVersion);
     close();
   };
 
