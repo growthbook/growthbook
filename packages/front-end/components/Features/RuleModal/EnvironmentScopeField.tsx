@@ -35,13 +35,12 @@ export default function RuleEnvironmentScopeField({
   const affectedEnvIds = allEnvironments
     ? disabledEnvironmentIds
     : selectedEnvironments.filter((e) => disabledSet.has(e));
-  // Only warn when *some but not all* selected environments are disabled — if
-  // every targeted env is off there's nothing specific to call out here.
-  const totalSelected = allEnvironments
-    ? environments.length
-    : selectedEnvironments.length;
+  // Only warn when *some but not all* feature environments are disabled — if
+  // every environment is off the feature is entirely inactive and there's
+  // nothing specific to single out.
   const showDisabledWarning =
-    affectedEnvIds.length > 0 && affectedEnvIds.length < totalSelected;
+    affectedEnvIds.length > 0 &&
+    disabledEnvironmentIds.length < environments.length;
 
   const disabledWarning = showDisabledWarning ? (
     <Callout status="warning" size="sm" mt="2">
