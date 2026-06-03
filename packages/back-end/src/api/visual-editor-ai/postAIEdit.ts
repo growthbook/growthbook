@@ -156,13 +156,13 @@ const outputSchema = z.object({
     .string()
     .nullable()
     .describe(
-      "Global CSS to inject for this variation, or null when DOM mutations suffice.",
+      "Complete global CSS for this variation. REPLACES any prior CSS — to add, modify, or remove a rule, return the rest of the existing CSS verbatim alongside your change. Set to null when the user's request doesn't touch global CSS (the existing CSS stays as-is). Do NOT return a partial fragment or an empty string when CSS exists; that wipes it.",
     ),
   js: z
     .string()
     .nullable()
     .describe(
-      "Global JS executed once per page load, or null when not required.",
+      "Complete global JS for this variation. REPLACES any prior JS — to add, modify, or remove code, return the rest of the existing JS verbatim alongside your change. Set to null when the user's request doesn't touch global JS (the existing JS stays as-is). Do NOT return a partial fragment or an empty string when JS exists; that wipes it.",
     ),
   explanation: z
     .string()
@@ -205,6 +205,17 @@ Other rules:
 - Use global CSS only for sweeping changes (e.g. "make all buttons green") or for ::pseudo-element edits.
 - Never produce destructive JS. Only emit JS when the request cannot be done declaratively.
 
+Selector durability — critical for variations that survive future deploys:
+- Many sites (Next.js, CSS Modules, styled-components, Emotion, stitches) emit class names that include build-time hashes — e.g. \`styles_slice-homepage__hnn7Q\`, \`css-1abc234\`, \`sc-bdAaNb\`. These hashes ROTATE on every deploy. A mutation anchored to \`.styles_title__hnn7Q\` works today and silently breaks on the next ship.
+- The page-elements catalog above and elementContext have already been pre-filtered for you: hashed classes were removed from generated selectors and replaced with \`[class*="stem"]\` partial matches (e.g. \`[class*="slice-homepage"]\`) when a stable middle is recoverable. Trust these — use them verbatim.
+- When you must construct a selector that isn't already in the catalog, prefer this order:
+  1. \`[data-testid="..."]\`, other \`[data-*]\` attributes, and \`[id]\` — author-defined hooks; most durable.
+  2. \`[aria-*]\`, \`[role]\`, \`[name]\`, \`[type]\`, \`[href]\`, \`[alt]\` — semantic attributes.
+  3. Semantic tag selectors (\`h1\`, \`nav button\`, \`article\`, \`main > section\`).
+  4. \`[class*="stem"]\` partial-class matches (the catalog already does this where possible).
+  5. \`nth-of-type(...)\` position selectors — last resort; fragile to sibling additions.
+- NEVER emit a hash-bearing class verbatim in a selector. Specifically, do not write \`.styles_*__XXXXX\`, \`.css-XXXXXX\`, \`.sc-XXXXXX\`, or any all-lowercase-and-digits class name of length 8+ that mixes letters and digits — these are bundler hashes that change on every deploy. If those are the only class signals available, switch to a tag + ancestor structural path (e.g. \`section[data-text-color="black"] > div > p\`) anchored under the nearest element that DOES have a stable attribute.
+
 DOM mutations vs global JS precedence — critical:
 - Saved DOM mutations re-apply automatically via a MutationObserver. If JS modifies the same element + attribute after the mutation lands, the observer will overwrite the JS change on the next frame. The mutation effectively "wins" against any one-shot JS.
 - Therefore: NEVER emit BOTH a DOM mutation AND JS that target the same selector + attribute. Pick exactly one approach:
@@ -222,6 +233,19 @@ Iterating on existing mutations:
 - The "Existing mutations" block shows what's already applied to this variation. When the user wants to MODIFY an existing change (e.g. "actually make it red instead of blue", "increase the size further"), emit a new mutation with the SAME selector + attribute + action as the existing one and the updated value. The back-end automatically deduplicates — your new mutation replaces or merges with the existing one, you don't end up with two contradicting mutations stacked together.
 - For style mutations specifically: the merge is property-by-property. So if the existing mutation is "background-color:blue;padding:20px" and the user asks for red, you can emit ONLY "background-color:red" — the existing padding is preserved automatically. Don't restate properties you aren't changing.
 - This dedupe only applies when the (selector, attribute, action) triple matches exactly. If the user asks for a genuinely additive change (e.g. existing mutation sets the color; user now wants to also change the font-size), emit a separate mutation for the new property — those won't collide.
+
+Iterating on existing global CSS / JS (different rule from mutations — read carefully):
+- The \`css\` and \`js\` fields you return REPLACE the variation's prior global CSS / JS entirely on the back-end. There is NO merge or dedupe (unlike mutations).
+- Always consult the "Current variation global CSS" / "Current variation global JS" blocks above (when present) before deciding what to return.
+- When your change ADDS, MODIFIES, or REMOVES a rule in global CSS/JS, return the COMPLETE intended new global CSS/JS — existing rules verbatim, plus/minus/edited rules:
+  • ADD a new rule → echo the existing CSS, then append your new rule.
+  • MODIFY an existing rule (change a color, swap a value, retarget a selector) → echo the existing CSS with that rule edited in place.
+  • REMOVE a rule → echo the existing CSS with that rule omitted.
+- Make a best-effort judgment about which intent the user means based on the prior CSS. Examples (assume existing CSS is \`body { background: red; }\`):
+  • "Make the background blue instead" → MODIFY: return \`body { background: blue; }\`.
+  • "Also make buttons pink" → ADD: return \`body { background: red; }\\n\\nbutton { color: pink; }\`.
+  • "Take out the background" → REMOVE: return \`\` (empty string is fine when you intend to wipe the CSS) or the rest of the CSS without that rule.
+- Only set \`css\` (or \`js\`) to null when the user's request doesn't involve global CSS (or JS) at all and existing CSS/JS should stay untouched. Returning null when CSS exists is SAFE (no change). Returning a partial fragment when CSS exists is UNSAFE (clobbers it).
 
 Bias toward action when grounded:
 - If the catalog contains plausible targets and the request describes a visible change, ALWAYS attempt at least one mutation, with the rationale in the explanation.
