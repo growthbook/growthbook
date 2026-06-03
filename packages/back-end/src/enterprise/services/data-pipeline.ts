@@ -317,7 +317,6 @@ export function getFactTableSettingsHashForAggregatedFactTable(
   return hashObject({
     sql: factTable.sql,
     eventName: factTable.eventName,
-    userIdTypes: [...(factTable.userIdTypes ?? [])].sort(),
     filters: (factTable.filters ?? [])
       .map((f) => ({ id: f.id, value: f.value }))
       .sort((a, b) => a.id.localeCompare(b.id)),
