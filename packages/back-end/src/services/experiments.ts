@@ -1351,8 +1351,6 @@ async function planSnapshotQueryRunner({
 }): Promise<{
   runnerKind: SnapshotQueryRunnerKind;
   incrementalFallbackReason: string | null;
-  fullRefresh?: boolean;
-  fullRefreshReason?: string | null;
 }> {
   const decision = resolveSnapshotRunner({
     datasource,
@@ -1540,26 +1538,14 @@ export async function planSnapshot({
     fullRefresh,
   });
 
-  let resolvedFullRefresh = fullRefresh;
-  let resolvedFullRefreshReason = fullRefreshReason;
-  if (
-    runnerPlan.runnerKind === "incremental" ||
-    runnerPlan.runnerKind === "incremental-exploratory"
-  ) {
-    resolvedFullRefresh =
-      type === "standard" ? (runnerPlan.fullRefresh ?? false) : false;
-    resolvedFullRefreshReason =
-      type === "standard" ? (runnerPlan.fullRefreshReason ?? null) : null;
-  }
-
   return {
     snapshot: data,
     runnerKind: runnerPlan.runnerKind,
-    useCache,
-    fullRefresh: resolvedFullRefresh,
-    settingsForSnapshotMetrics,
     incrementalFallbackReason: runnerPlan.incrementalFallbackReason,
-    fullRefreshReason: resolvedFullRefreshReason,
+    useCache,
+    fullRefresh,
+    fullRefreshReason,
+    settingsForSnapshotMetrics,
   };
 }
 

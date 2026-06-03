@@ -203,6 +203,53 @@ describe("snapshot planning", () => {
     expect(plan.incrementalFallbackReason).toBe("metric not compatible");
   });
 
+  it("preserves the computed full refresh when using the incremental runner on a first run", async () => {
+    getDataSourceByIdMock.mockResolvedValue(
+      makeDatasource({
+        settings: {
+          queries: {},
+          pipelineSettings: {
+            allowWriting: true,
+            mode: "incremental",
+          },
+        },
+      }),
+    );
+    validateIncrementalPipelineMock.mockResolvedValue(undefined as never);
+
+    const context = makeContext();
+    // First run: no prior incremental state, so the warehouse units table
+    // does not exist yet and a full refresh is required.
+    context.models.incrementalRefresh = {
+      getByExperimentId: jest.fn().mockResolvedValue(null),
+    } as never;
+
+    const plan = await planSnapshot({
+      experiment: makeExperiment(),
+      context,
+      type: "standard",
+      triggeredBy: "manual-dashboard",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings(),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    expect(plan.runnerKind).toBe("incremental");
+    // The incremental runner must not discard the computed full refresh, or it
+    // would attempt an incremental update against a non-existent units table.
+    expect(plan.fullRefresh).toBe(true);
+    expect(plan.fullRefreshReason).toBe(
+      "No prior incremental refresh state for this experiment.",
+    );
+    expect(validateIncrementalPipelineMock).toHaveBeenCalledWith(
+      expect.objectContaining({ analysisType: "main-fullRefresh" }),
+    );
+  });
+
   it("falls back to the results runner when incremental state is outdated", async () => {
     getDataSourceByIdMock.mockResolvedValue(
       makeDatasource({
