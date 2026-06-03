@@ -1,6 +1,6 @@
-import { applyPatch, deepClone } from "fast-json-patch";
+import { applyPatch } from "fast-json-patch";
 import type { Operation } from "fast-json-patch";
-import { isEqual } from "lodash";
+import { cloneDeep, isEqual } from "lodash";
 import {
   JsonPatchOperation,
   Revision,
@@ -10,6 +10,26 @@ import {
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { getAdapter } from "back-end/src/revisions/index";
+
+/**
+ * Apply a set of JSON Patch ops to a snapshot, returning a new object.
+ *
+ * Clones with lodash `cloneDeep` (which preserves Date instances) and lets
+ * applyPatch mutate that throwaway copy in place (mutateDocument = true).
+ * Passing mutateDocument = false would make fast-json-patch internally
+ * JSON-clone the input, converting Date fields (e.g. dateCreated/dateUpdated on
+ * a saved-group snapshot) into ISO strings and breaking downstream serializers
+ * that call `.toISOString()`.
+ */
+export function applyPatchToSnapshot<T extends object>(
+  snapshot: T,
+  proposedChanges: JsonPatchOperation[] | unknown,
+): T {
+  const ops = normalizeProposedChanges(proposedChanges);
+  if (ops.length === 0) return snapshot;
+  return applyPatch(cloneDeep(snapshot), ops as Operation[], false, true)
+    .newDocument as T;
+}
 
 /**
  * Ensure a "live" merged revision exists representing the entity's current state.
@@ -81,15 +101,6 @@ export function isRevisionRequired(
  * Apply a JSON Patch (RFC 6902) operations array to a snapshot object and return
  * the patched document. The original snapshot is never mutated.
  */
-export function applyPatchToSnapshot<T extends object>(
-  snapshot: T,
-  proposedChanges: JsonPatchOperation[] | unknown,
-): T {
-  const ops = normalizeProposedChanges(proposedChanges);
-  if (ops.length === 0) return snapshot;
-  return applyPatch(deepClone(snapshot), ops as Operation[], false, false)
-    .newDocument as T;
-}
 
 /**
  * Compute the desired final state for a merge by layering the revision's

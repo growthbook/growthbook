@@ -225,7 +225,7 @@ export default function RevisionDropdown({
     >
       <Box style={{ flex: 1, minWidth: 0 }}>
         <Text weight="semibold">
-          {version != null ? (
+          {version !== null && version !== undefined ? (
             <span
               style={{
                 display: "block",

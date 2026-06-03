@@ -6,10 +6,11 @@ import {
   updateExperimentValidator,
 } from "shared/validators";
 import { DataSourceInterface } from "shared/types/datasource";
-import { ExperimentInterface } from "shared/types/experiment";
+import { ExperimentInterface, Variation } from "shared/types/experiment";
 import { OrganizationInterface } from "shared/types/organization";
 import {
   applyVariationWeightsToLatestPhase,
+  fillEmptyVariationKeys,
   normalizeStatusUpdateScheduleChanges,
   postExperimentApiPayloadToInterface,
   postMetricApiPayloadIsValid,
@@ -1659,6 +1660,130 @@ describe("normalizeStatusUpdateScheduleChanges", () => {
     normalizeStatusUpdateScheduleChanges(experiment, changes);
 
     expect(changes.nextScheduledStatusUpdate).toBeUndefined();
+  });
+});
+
+describe("fillEmptyVariationKeys", () => {
+  const makeVariation = (key: string, id = `v_${key || "new"}`): Variation => ({
+    id,
+    name: key || "New",
+    description: "",
+    key,
+    screenshots: [],
+  });
+
+  it("is a no-op when no variations have an empty key", () => {
+    const variations = [makeVariation("0"), makeVariation("1")];
+    const snapshot = variations.map((v) => ({ ...v }));
+
+    fillEmptyVariationKeys(variations, ["0", "1"]);
+
+    expect(variations).toEqual(snapshot);
+  });
+
+  it("is a no-op for an empty variations array", () => {
+    const variations: Variation[] = [];
+
+    fillEmptyVariationKeys(variations, ["0", "1"]);
+
+    expect(variations).toEqual([]);
+  });
+
+  it("assigns the next numeric key for the typical sequential case", () => {
+    const variations = [
+      makeVariation("0"),
+      makeVariation("1"),
+      makeVariation(""),
+    ];
+
+    fillEmptyVariationKeys(variations, ["0", "1"]);
+
+    expect(variations.map((v) => v.key)).toEqual(["0", "1", "2"]);
+  });
+
+  it("assigns monotonically increasing keys to multiple empties", () => {
+    const variations = [
+      makeVariation("0"),
+      makeVariation("1"),
+      makeVariation(""),
+      makeVariation(""),
+    ];
+
+    fillEmptyVariationKeys(variations, ["0", "1"]);
+
+    expect(variations.map((v) => v.key)).toEqual(["0", "1", "2", "3"]);
+  });
+
+  it("skips existing customized keys to avoid collision", () => {
+    const variations = [
+      makeVariation("0"),
+      makeVariation("2"),
+      makeVariation(""),
+    ];
+
+    fillEmptyVariationKeys(variations, ["0", "2"]);
+
+    expect(variations.map((v) => v.key)).toEqual(["0", "2", "3"]);
+  });
+
+  it("starts at 0 when no existing keys are non-negative integers", () => {
+    const variations = [
+      makeVariation("control"),
+      makeVariation("treatment"),
+      makeVariation(""),
+    ];
+
+    fillEmptyVariationKeys(variations, ["control", "treatment"]);
+
+    expect(variations.map((v) => v.key)).toEqual(["control", "treatment", "0"]);
+  });
+
+  it("uses the largest non-negative integer key in a mixed set", () => {
+    const variations = [
+      makeVariation("control"),
+      makeVariation("5"),
+      makeVariation(""),
+    ];
+
+    fillEmptyVariationKeys(variations, ["control", "5"]);
+
+    expect(variations.map((v) => v.key)).toEqual(["control", "5", "6"]);
+  });
+
+  it("ignores non-canonical numeric strings when finding the largest", () => {
+    const variations = [
+      makeVariation("0"),
+      makeVariation("007"),
+      makeVariation("-1"),
+      makeVariation("3.5"),
+      makeVariation(""),
+    ];
+
+    fillEmptyVariationKeys(variations, ["0", "007", "-1", "3.5"]);
+
+    expect(variations[variations.length - 1].key).toBe("1");
+  });
+
+  it("assigns 0 when there are no existing keys at all", () => {
+    const variations = [makeVariation(""), makeVariation("")];
+
+    fillEmptyVariationKeys(variations, []);
+
+    expect(variations.map((v) => v.key)).toEqual(["0", "1"]);
+  });
+
+  it("does not modify variations whose key is already set", () => {
+    const variations = [
+      makeVariation("0"),
+      makeVariation("custom"),
+      makeVariation(""),
+    ];
+
+    fillEmptyVariationKeys(variations, ["0", "custom"]);
+
+    expect(variations[0].key).toBe("0");
+    expect(variations[1].key).toBe("custom");
+    expect(variations[2].key).toBe("1");
   });
 });
 

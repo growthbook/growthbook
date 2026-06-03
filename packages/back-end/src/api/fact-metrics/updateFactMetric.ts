@@ -125,7 +125,7 @@ export async function getUpdateFactMetricPropsFromBody(
     if (regressionAdjustmentSettings.override) {
       updates.regressionAdjustmentEnabled =
         !!regressionAdjustmentSettings.enabled;
-      if (regressionAdjustmentSettings.days) {
+      if (regressionAdjustmentSettings.days != null) {
         updates.regressionAdjustmentDays = regressionAdjustmentSettings.days;
       }
     }

@@ -40,6 +40,7 @@ const CreateOrJoinOrganization: FC<{
       ownerJobTitle: "" as OwnerJobTitle,
       ownerFeatureFlagUsageIntent: false,
       ownerExperimentUsageIntent: false,
+      ownerProductAnalyticsUsageIntent: false,
     },
   });
 
@@ -242,6 +243,11 @@ const CreateOrJoinOrganization: FC<{
                           "experiments",
                         );
                       }
+                      if (value.ownerProductAnalyticsUsageIntent) {
+                        body.demographicData?.ownerUsageIntents?.push(
+                          "productAnalytics",
+                        );
+                      }
                       const resp = await apiCall<{
                         orgId: string;
                         status: number;
@@ -271,16 +277,10 @@ const CreateOrJoinOrganization: FC<{
                   </div>
                   <Field
                     label={
-                      <>
-                        <div className="font-weight-bold">
-                          Organization Name
-                          <span className="text-danger ml-1">*</span>
-                        </div>
-
-                        <div className={`${style.textMid}`}>
-                          Organization name can be edited anytime.
-                        </div>
-                      </>
+                      <div className="font-weight-bold">
+                        Organization Name
+                        <span className="text-danger ml-1">*</span>
+                      </div>
                     }
                     required
                     autoFocus
@@ -327,13 +327,29 @@ const CreateOrJoinOrganization: FC<{
                   <div>
                     <Checkbox
                       mt="2"
-                      mb="6"
                       size="md"
                       label="Run experiments"
                       value={!!newOrgForm.watch("ownerExperimentUsageIntent")}
                       setValue={(v) => {
                         newOrgForm.setValue(
                           "ownerExperimentUsageIntent",
+                          v === true,
+                        );
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <Checkbox
+                      mt="2"
+                      mb="6"
+                      size="md"
+                      label="Product analytics"
+                      value={
+                        !!newOrgForm.watch("ownerProductAnalyticsUsageIntent")
+                      }
+                      setValue={(v) => {
+                        newOrgForm.setValue(
+                          "ownerProductAnalyticsUsageIntent",
                           v === true,
                         );
                       }}

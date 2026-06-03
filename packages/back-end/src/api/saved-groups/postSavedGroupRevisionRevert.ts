@@ -13,6 +13,7 @@ import {
   createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
+import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
 import { toApiSavedGroupRevision } from "./toApiSavedGroupRevision";
 
@@ -147,6 +148,10 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
         revertedFrom: targetRevision.id,
       },
     );
+    await dispatchSavedGroupRevisionEvent(req.context, draft, {
+      type: "created",
+    });
+
     return {
       revision: await toApiSavedGroupRevision(draft, req.context),
     };
@@ -172,6 +177,10 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
     bypass: approvalRequired && canBypass,
     title,
     revertedFrom: targetRevision.id,
+  });
+
+  await dispatchSavedGroupRevisionEvent(req.context, merged, {
+    type: "reverted",
   });
 
   return {

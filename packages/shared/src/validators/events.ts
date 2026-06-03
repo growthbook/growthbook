@@ -39,6 +39,20 @@ import { experimentWarningNotificationPayload } from "./experiment-warnings";
 import { experimentInfoSignificance } from "./experiment-info";
 import { experimentDecisionNotificationPayload } from "./experiment-decision";
 import { userLoginInterface } from "./users";
+import { apiSavedGroupValidator } from "./saved-group";
+import {
+  savedGroupRevisionCreatedPayload,
+  savedGroupRevisionUpdatedPayload,
+  savedGroupRevisionReviewRequestedPayload,
+  savedGroupRevisionApprovedPayload,
+  savedGroupRevisionChangesRequestedPayload,
+  savedGroupRevisionCommentedPayload,
+  savedGroupRevisionDiscardedPayload,
+  savedGroupRevisionRebasedPayload,
+  savedGroupRevisionPublishedPayload,
+  savedGroupRevisionRevertedPayload,
+  savedGroupRevisionReopenedPayload,
+} from "./saved-group-revision-notifications";
 
 // Re-export for consumers of shared/validators
 export { eventUser } from "./event-user";
@@ -214,6 +228,71 @@ export const notificationEvents = {
     "decision.review": {
       schema: experimentDecisionNotificationPayload,
       description: `Triggered when an experiment has reached the desired power point, but the results may be ambiguous.`,
+    },
+  },
+  savedGroup: {
+    created: {
+      schema: apiSavedGroupValidator,
+      description: "Triggered when a saved group is created",
+    },
+    updated: {
+      schema: apiSavedGroupValidator,
+      description: "Triggered when a saved group is updated",
+      isDiff: true,
+    },
+    deleted: {
+      schema: apiSavedGroupValidator,
+      description: "Triggered when a saved group is deleted",
+    },
+    "revision.created": {
+      schema: savedGroupRevisionCreatedPayload,
+      description:
+        "Triggered when a new draft revision is created for a saved group",
+    },
+    "revision.updated": {
+      schema: savedGroupRevisionUpdatedPayload,
+      description:
+        "Triggered when a draft revision's proposed changes are modified (values, condition, archive, or metadata). The `change` field indicates the kind of mutation.",
+    },
+    "revision.reviewRequested": {
+      schema: savedGroupRevisionReviewRequestedPayload,
+      description: "Triggered when a draft revision is submitted for review",
+    },
+    "revision.approved": {
+      schema: savedGroupRevisionApprovedPayload,
+      description: "Triggered when a draft revision is approved by a reviewer",
+    },
+    "revision.changesRequested": {
+      schema: savedGroupRevisionChangesRequestedPayload,
+      description:
+        "Triggered when a reviewer requests changes on a draft revision",
+    },
+    "revision.commented": {
+      schema: savedGroupRevisionCommentedPayload,
+      description: "Triggered when a comment is added to a draft revision",
+    },
+    "revision.discarded": {
+      schema: savedGroupRevisionDiscardedPayload,
+      description: "Triggered when a draft revision is discarded",
+    },
+    "revision.rebased": {
+      schema: savedGroupRevisionRebasedPayload,
+      description:
+        "Triggered when a draft revision is rebased onto the latest live state",
+    },
+    "revision.published": {
+      schema: savedGroupRevisionPublishedPayload,
+      description:
+        "Triggered when a draft revision is published. Overlaps with `savedGroup.updated` but provides revision-specific context.",
+    },
+    "revision.reverted": {
+      schema: savedGroupRevisionRevertedPayload,
+      description:
+        "Triggered when a saved group is reverted to a previous published revision",
+    },
+    "revision.reopened": {
+      schema: savedGroupRevisionReopenedPayload,
+      description: "Triggered when a discarded revision is reopened",
     },
   },
   user: {

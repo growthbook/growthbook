@@ -17,6 +17,7 @@ import { DocLink } from "@/components/DocLink";
 import Code, { Language } from "@/components/SyntaxHighlighting/Code";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useSearch } from "@/services/search";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
@@ -87,7 +88,9 @@ const DimensionsPage: FC = () => {
   const { getOwnerDisplay } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
-  const hasCreateDimensionPermission = permissionsUtil.canCreateDimension();
+  const { currentProjectIsDemo } = useDemoDataSourceProject();
+  const hasCreateDimensionPermission =
+    permissionsUtil.canCreateDimension() && !currentProjectIsDemo;
   const hasEditDimensionPermission = permissionsUtil.canUpdateDimension();
   const hasDeleteDimensionPermissions = permissionsUtil.canDeleteDimension();
   const orgCanCreateDimensions = hasFileConfig()
@@ -242,14 +245,20 @@ const DimensionsPage: FC = () => {
       </Flex>
       <Flex align="center" justify="between" mb="3" wrap="wrap" gap="3">
         <h1 style={{ margin: 0 }}>Unit Dimensions</h1>
-        {orgCanCreateDimensions && hasCreateDimensionPermission && (
-          <Button
-            onClick={() => {
-              setDimensionForm({});
-            }}
+        {orgCanCreateDimensions && (
+          <Tooltip
+            body="You don't have permission to add dimensions."
+            shouldDisplay={!hasCreateDimensionPermission}
           >
-            Add Unit Dimension
-          </Button>
+            <Button
+              disabled={!hasCreateDimensionPermission}
+              onClick={() => {
+                setDimensionForm({});
+              }}
+            >
+              Add Unit Dimension
+            </Button>
+          </Tooltip>
         )}
       </Flex>
       {dimensions.length > 0 && (

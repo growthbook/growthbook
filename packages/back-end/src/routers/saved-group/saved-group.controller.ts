@@ -29,6 +29,10 @@ import {
 } from "back-end/src/revisions/util";
 import { getAdapter } from "back-end/src/revisions";
 import {
+  dispatchSavedGroupRevisionEvent,
+  deriveChange,
+} from "back-end/src/services/savedGroupRevisionEvents";
+import {
   loadSavedGroupReferences,
   totalSavedGroupReferences,
 } from "back-end/src/services/savedGroups";
@@ -278,6 +282,9 @@ export const postSavedGroupAddItems = async (
   // mark them as merged even though `savedGroups.update` only applies the
   // values change.
   let baseValues: string[] = savedGroup.values ?? [];
+  // Whether an open draft already existed (so we emit revision.updated rather
+  // than revision.created when stacking onto it).
+  let hadOpenDraft = false;
   if (approvalRequired) {
     const existingRevision =
       await context.models.revisions.getOpenByTargetAndAuthor(
@@ -285,6 +292,7 @@ export const postSavedGroupAddItems = async (
         id,
         context.userId,
       );
+    hadOpenDraft = !!existingRevision;
     if (existingRevision) {
       const currentState = applyPatchToSnapshot(
         existingRevision.target.snapshot as SavedGroupInterface,
@@ -320,6 +328,9 @@ export const postSavedGroupAddItems = async (
       context.userId,
       { bypass: false },
     );
+    await dispatchSavedGroupRevisionEvent(context, revision, {
+      type: "published",
+    });
     return res.status(200).json({
       status: 200,
       requiresApproval: false,
@@ -327,6 +338,11 @@ export const postSavedGroupAddItems = async (
     });
   }
 
+  await dispatchSavedGroupRevisionEvent(
+    context,
+    revision,
+    hadOpenDraft ? { type: "updated", change: "values" } : { type: "created" },
+  );
   return res.status(202).json({
     status: 202,
     requiresApproval: approvalRequired,
@@ -421,6 +437,9 @@ export const postSavedGroupRemoveItems = async (
   // mark them as merged even though `savedGroups.update` only applies the
   // values change.
   let baseValues: string[] = savedGroup.values ?? [];
+  // Whether an open draft already existed (so we emit revision.updated rather
+  // than revision.created when stacking onto it).
+  let hadOpenDraft = false;
   if (approvalRequired) {
     const existingRevision =
       await context.models.revisions.getOpenByTargetAndAuthor(
@@ -428,6 +447,7 @@ export const postSavedGroupRemoveItems = async (
         id,
         context.userId,
       );
+    hadOpenDraft = !!existingRevision;
     if (existingRevision) {
       const currentState = applyPatchToSnapshot(
         existingRevision.target.snapshot as SavedGroupInterface,
@@ -464,6 +484,9 @@ export const postSavedGroupRemoveItems = async (
       context.userId,
       { bypass: false },
     );
+    await dispatchSavedGroupRevisionEvent(context, revision, {
+      type: "published",
+    });
     return res.status(200).json({
       status: 200,
       requiresApproval: false,
@@ -471,6 +494,11 @@ export const postSavedGroupRemoveItems = async (
     });
   }
 
+  await dispatchSavedGroupRevisionEvent(
+    context,
+    revision,
+    hadOpenDraft ? { type: "updated", change: "values" } : { type: "created" },
+  );
   return res.status(202).json({
     status: 202,
     requiresApproval: approvalRequired,
@@ -718,6 +746,11 @@ export const putSavedGroup = async (
 
   const patchOps = buildPatchOps(fieldsToUpdate as Record<string, unknown>);
 
+  // When publishing or creating a fresh draft we force a new revision; an
+  // implicit save while approval is required also forces one (wantsMerge but
+  // can't merge yet). Otherwise we update the targeted draft.
+  const forceCreate = wantsMerge || forceCreateRevision;
+
   // When updating a revision, merge changes (don't replace) to preserve other fields
   let revision = await createOrUpdateRevision(
     context,
@@ -726,7 +759,7 @@ export const putSavedGroup = async (
     patchOps,
     {
       // replaceChanges: false (default) — merge with existing proposed changes
-      forceCreate: wantsMerge || forceCreateRevision, // when publishing or creating a fresh draft
+      forceCreate,
       title,
       revertedFrom,
       // Only update a specific draft revision when we're staying in draft mode
@@ -788,6 +821,10 @@ export const putSavedGroup = async (
         },
       );
 
+      await dispatchSavedGroupRevisionEvent(context, revision, {
+        type: revision.revertedFrom ? "reverted" : "published",
+      });
+
       return res.status(200).json({
         status: 200,
         revision,
@@ -795,6 +832,13 @@ export const putSavedGroup = async (
     }
   }
 
+  await dispatchSavedGroupRevisionEvent(
+    context,
+    revision,
+    forceCreate
+      ? { type: "created" }
+      : { type: "updated", change: deriveChange(patchOps) },
+  );
   return res.status(202).json({
     status: 202,
     requiresApproval: approvalRequired,
@@ -943,3 +987,19 @@ export function validateListSize(
     );
   }
 }
+
+// region GET /saved-groups/draft-states
+
+export const getSavedGroupDraftStates = async (
+  req: AuthRequest<null, Record<string, never>, { ids?: string }>,
+  res: Response,
+) => {
+  const context = getContextFromReq(req);
+  const groupIds = req.query.ids
+    ? req.query.ids.split(",").filter(Boolean)
+    : undefined;
+  const groups = await context.models.revisions.getActiveDraftStates(groupIds);
+  return res.status(200).json({ status: 200, groups });
+};
+
+// endregion GET /saved-groups/draft-states

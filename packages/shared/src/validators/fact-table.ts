@@ -181,7 +181,7 @@ export const cappingSettingsValidator = z
   .object({
     type: cappingTypeValidator,
     value: z.number(),
-    ignoreZeros: z.boolean().optional(),
+    ignoreZeros: z.boolean().nullable().optional(),
   })
   .strict();
 
