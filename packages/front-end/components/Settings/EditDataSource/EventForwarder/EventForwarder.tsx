@@ -643,6 +643,16 @@ export default function EventForwarder({
         your warehouse data. More information available on our docs.&nbsp;
         <DocLink docSection="eventForwarder">Event Forwarder Docs</DocLink>
       </p>
+      <Callout status="info">
+        Event Forwarder is not configured for this datasource.
+        {canEdit ? (
+          <Box mt="3">
+            <Button onClick={() => setShowEditModal(true)}>
+              Set Up Event Forwarder
+            </Button>
+          </Box>
+        ) : null}
+      </Callout>
 
       {!eventForwarderConfig ? (
         !isPaidPlan ? (

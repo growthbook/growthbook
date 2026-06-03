@@ -111,7 +111,7 @@ function buildBigQueryJsonAttributeValueSql(
   }
 }
 
-function shouldCastBigQueryAttributeToString(
+function shouldCastAttributeToString(
   attributeDatatype?: SDKAttributeType,
 ): boolean {
   return (
@@ -120,6 +120,28 @@ function shouldCastBigQueryAttributeToString(
     attributeDatatype === "secureString" ||
     attributeDatatype === "enum"
   );
+}
+
+function buildSnowflakeVariantAttributeValueSql(
+  fieldName: string,
+  attributeDatatype?: SDKAttributeType,
+): string {
+  const attributesCol = EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD.toUpperCase();
+  const quotedField = quoteSnowflakeVariantFieldName(fieldName);
+  const raw = `${attributesCol}:${quotedField}`;
+
+  switch (attributeDatatype) {
+    case "number":
+      return `TRY_TO_DOUBLE(${raw})`;
+    case "boolean":
+      return `TRY_TO_BOOLEAN(${raw})`;
+    case "string[]":
+    case "number[]":
+    case "secureString[]":
+      return `TRY_PARSE_JSON(${raw})`;
+    default:
+      return raw;
+  }
 }
 
 export function buildEventForwarderNestedAttributeValueSql({
@@ -131,7 +153,7 @@ export function buildEventForwarderNestedAttributeValueSql({
   sinkType: "bigquery" | "snowflake";
   attributeName: string;
   attributeDatatype?: SDKAttributeType;
-  /** Coerce attribute values to string (exposure hash ids). Typed BigQuery columns skip double-cast. */
+  /** Coerce attribute values to string (exposure hash ids). Typed columns skip double-cast. */
   castToString?: boolean;
 }): string {
   const fieldName = sanitizeEventForwarderAvroFieldName(attributeName);
@@ -141,10 +163,7 @@ export function buildEventForwarderNestedAttributeValueSql({
       fieldName,
       attributeDatatype,
     );
-    if (
-      castToString &&
-      shouldCastBigQueryAttributeToString(attributeDatatype)
-    ) {
+    if (castToString && shouldCastAttributeToString(attributeDatatype)) {
       return `CAST(${valueSql} AS STRING)`;
     }
     return valueSql;
@@ -152,8 +171,10 @@ export function buildEventForwarderNestedAttributeValueSql({
 
   const attributesCol = EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD.toUpperCase();
   const quotedField = quoteSnowflakeVariantFieldName(fieldName);
-  const valueSql = `${attributesCol}:${quotedField}`;
-  return castToString ? `${valueSql}::STRING` : valueSql;
+  if (castToString) {
+    return `${attributesCol}:${quotedField}::STRING`;
+  }
+  return buildSnowflakeVariantAttributeValueSql(fieldName, attributeDatatype);
 }
 
 function getEventForwarderEventsFactTableAttributes(

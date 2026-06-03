@@ -161,6 +161,30 @@ WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{end
   ATTRIBUTES:"browser" AS browser
 FROM MY_DB.PUBLIC.GB_EVENTS`);
   });
+
+  it("casts typed Snowflake attributes from flat string map values", () => {
+    const sql = buildEventForwarderEventsFactTableSql({
+      sinkType: "snowflake",
+      database: "MY_DB",
+      schema: "PUBLIC",
+      tableName: "GB_EVENTS",
+      attributeSchema: [
+        { property: "age", datatype: "number" },
+        { property: "is_active", datatype: "boolean" },
+        { property: "tags", datatype: "string[]" },
+        { property: "scores", datatype: "number[]" },
+        { property: "secrets", datatype: "secureString[]" },
+      ],
+    });
+
+    expect(sql).toContain('TRY_TO_DOUBLE(ATTRIBUTES:"age") AS age');
+    expect(sql).toContain(
+      'TRY_TO_BOOLEAN(ATTRIBUTES:"is_active") AS is_active',
+    );
+    expect(sql).toContain('TRY_PARSE_JSON(ATTRIBUTES:"tags") AS tags');
+    expect(sql).toContain('TRY_PARSE_JSON(ATTRIBUTES:"scores") AS scores');
+    expect(sql).toContain('TRY_PARSE_JSON(ATTRIBUTES:"secrets") AS secrets');
+  });
 });
 
 describe("buildEventForwarderEventsFactTableColumns", () => {
