@@ -20,9 +20,14 @@ import {
   executeContextualBanditStop,
 } from "back-end/src/services/contextualBanditChanges";
 import { runContextualBanditSnapshot } from "back-end/src/enterprise/services/contextualBandits";
-import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import {
+  getExperimentById,
+  updateExperiment,
+} from "back-end/src/models/ExperimentModel";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 import { getCollection } from "back-end/src/util/mongo.util";
+import { buildExperimentSyncChanges } from "back-end/src/enterprise/services/contextualBanditForwardSync";
+import { logger } from "back-end/src/util/logger";
 
 const COLLECTION = "contextualbandits";
 
@@ -369,6 +374,47 @@ export class ContextualBanditModel extends BaseClass {
       docs.map((doc) => this.toApiInterface(doc)),
       this.context,
     );
+  }
+
+  /**
+   * Forward-sync CB writes back onto the parent experiment doc for the
+   * narrow field set the still-experiment-keyed snapshot/event pipeline
+   * reads. One-way, idempotent (driven by `buildExperimentSyncChanges`,
+   * which only emits diffs for fields actually present in `updates`),
+   * and loop-safe: `updateExperiment` does not write back into the CB
+   * collection on this branch (post-Step 5 the only ExperimentModel →
+   * CB reference is the cascade-delete in `onExperimentDelete`).
+   *
+   * TODO(pr-8): delete this override + `buildExperimentSyncChanges`
+   * once snapshot/event indirection keys by CB id and the parent FK is
+   * dropped.
+   */
+  protected async afterUpdate(
+    existing: ContextualBanditInterface,
+    updates: Partial<ContextualBanditInterface>,
+    newDoc: ContextualBanditInterface,
+  ): Promise<void> {
+    if (!newDoc.experiment) return;
+    const changes = buildExperimentSyncChanges(updates, newDoc);
+    if (Object.keys(changes).length === 0) return;
+    try {
+      const exp = await getExperimentById(this.context, newDoc.experiment);
+      if (!exp) return;
+      await updateExperiment({
+        context: this.context,
+        experiment: exp,
+        changes,
+      });
+    } catch (e) {
+      // Surface the failure in logs but don't fail the CB write — the
+      // forward-sync is best-effort. A missing experiment doc, transient
+      // Mongo blip, or permission edge case shouldn't roll back the CB
+      // update the user just made. PR-8 removes this whole branch.
+      logger.error(
+        { err: e, cbId: newDoc.id, experimentId: newDoc.experiment },
+        "CB→Experiment forward-sync failed",
+      );
+    }
   }
 
   /**
