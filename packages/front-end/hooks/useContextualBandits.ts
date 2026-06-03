@@ -120,3 +120,30 @@ export function useContextualBandits(
     hasArchived: allContextualBandits.some((cb) => cb.archived),
   };
 }
+
+/**
+ * Single-CB fetch via `GET /api/v1/contextual-bandits/:id` (the standard
+ * CRUD endpoint added in PR-4). Returns the API-shape directly — no
+ * experiment-shape projection because callers of this hook are
+ * specifically opting into the CB-native surface.
+ *
+ * Building block for the PR-6 detail-page fork: once the detail page
+ * stops fetching `/experiment/${cbid}` and reads CB-native fields off
+ * this hook, the parent-experiment indirection (and its dependent
+ * components like SnapshotProvider, TabbedPage) can be refactored to
+ * accept a CB doc directly.
+ */
+export function useContextualBandit(cbId: string | undefined) {
+  const { data, error, mutate } = useApi<{
+    contextualBandit: ApiContextualBanditInterface;
+  }>(cbId ? `/contextual-bandits/${cbId}` : "/contextual-bandits/__missing__", {
+    shouldRun: () => !!cbId,
+  });
+
+  return {
+    loading: !!cbId && !error && !data,
+    contextualBandit: data?.contextualBandit,
+    error,
+    mutate,
+  };
+}
