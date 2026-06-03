@@ -41,7 +41,7 @@ describe("buildEventForwarderAttributeValueSql", () => {
         sinkType: "bigquery",
         userIdType: "user_id",
       }),
-    ).toBe('CAST(JSON_VALUE(`attributes`, \'$."user_id"\') AS STRING)');
+    ).toBe("CAST(JSON_VALUE(`attributes`, '$.\"user_id\"') AS STRING)");
   });
 
   it("reads hash ids from Snowflake VARIANT attributes with quoted paths", () => {
@@ -74,7 +74,7 @@ describe("buildEventForwarderExposureQuerySql", () => {
     });
 
     expect(sql).toContain(
-      'CAST(JSON_VALUE(`attributes`, \'$."user_id"\') AS STRING) AS `user_id`',
+      "CAST(JSON_VALUE(`attributes`, '$.\"user_id\"') AS STRING) AS `user_id`",
     );
     expect(sql).toContain("experiment_id AS experiment_id");
     expect(sql).toContain(`FROM ${tableRef}`);
@@ -93,7 +93,7 @@ describe("buildEventForwarderExposureQuerySql", () => {
     });
 
     expect(sql).toContain(
-      'CAST(JSON_VALUE(`attributes`, \'$."user"\') AS STRING) AS `user`',
+      "CAST(JSON_VALUE(`attributes`, '$.\"user\"') AS STRING) AS `user`",
     );
   });
 
