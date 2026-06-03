@@ -167,6 +167,15 @@ export type AIChatUserMessage = {
   id: string;
   ts: number;
   content: string | AIChatUserContentPart[];
+  /**
+   * URL path (+ search) the user was on when they sent this message.
+   * Captured at send time and persisted on the message so per-turn page
+   * context is preserved across navigation. Not displayed in the chat UI;
+   * `toModelMessages` injects it as a `[Page context: …]` prefix into the
+   * model-bound message so the agent can interpret references like "this
+   * experiment". Skills document the URL → entity mapping.
+   */
+  currentPage?: string;
 };
 
 export type AIChatAssistantMessage = {

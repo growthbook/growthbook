@@ -41,6 +41,8 @@ import { SidebarOpenProvider } from "@/components/Layout/SidebarOpenProvider";
 import { HoverTooltipProvider } from "@/hooks/useHoverTooltip";
 import { FeatureStaleStatesProvider } from "@/hooks/useFeatureStaleStates";
 import { CommandPaletteLauncher } from "@/components/CommandPalette/CommandPalette";
+import AgentLauncher from "@/components/Agent/AgentLauncher";
+import { AgentPanelProvider } from "@/components/Agent/AgentPanelContext";
 import Callout from "@/ui/Callout";
 
 // Make useLayoutEffect isomorphic (for SSR)
@@ -197,18 +199,24 @@ function App({
                             <GetStartedProvider>
                               <DefinitionsProvider>
                                 <FeatureStaleStatesProvider>
-                                  {liteLayout ? <LayoutLite /> : <Layout />}
-                                  <CommandPaletteLauncher />
-                                  <main className={`main ${parts[0]}`}>
-                                    <GuidedGetStartedBar />
-                                    <OrganizationMessagesContainer />
-                                    <DemoDataSourceGlobalBannerContainer />
-                                    <DefinitionsGuard>
-                                      <Component
-                                        {...{ ...pageProps, envReady: ready }}
-                                      />
-                                    </DefinitionsGuard>
-                                  </main>
+                                  <AgentPanelProvider>
+                                    {liteLayout ? <LayoutLite /> : <Layout />}
+                                    <CommandPaletteLauncher />
+                                    <AgentLauncher />
+                                    <main className={`main ${parts[0]}`}>
+                                      <GuidedGetStartedBar />
+                                      <OrganizationMessagesContainer />
+                                      <DemoDataSourceGlobalBannerContainer />
+                                      <DefinitionsGuard>
+                                        <Component
+                                          {...{
+                                            ...pageProps,
+                                            envReady: ready,
+                                          }}
+                                        />
+                                      </DefinitionsGuard>
+                                    </main>
+                                  </AgentPanelProvider>
                                 </FeatureStaleStatesProvider>
                               </DefinitionsProvider>
                             </GetStartedProvider>

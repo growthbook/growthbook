@@ -4,6 +4,7 @@ import "./instrumentation";
 import app from "./app";
 import { logger } from "./util/logger";
 import { getAgendaInstance } from "./services/queueing";
+import { logGeneralAgentSystemPrompt } from "./agent/general-agent";
 
 const server = app.listen(app.get("port"), () => {
   logger.info(
@@ -11,6 +12,7 @@ const server = app.listen(app.get("port"), () => {
       "env",
     )} mode. Press CTRL-C to stop`,
   );
+  logGeneralAgentSystemPrompt();
 });
 
 export default server;

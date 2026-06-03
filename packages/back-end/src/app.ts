@@ -143,6 +143,7 @@ import { dashboardsRouter } from "./routers/dashboards/dashboards.router";
 import { customHooksRouter } from "./routers/custom-hooks/custom-hooks.router";
 import { importingRouter } from "./routers/importing/importing.router";
 import { productAnalyticsRouter } from "./routers/product-analytics/product-analytics.router";
+import { agentRouter } from "./routers/agent/agent.router";
 
 const app = express();
 
@@ -1110,6 +1111,9 @@ app.use("/importing", importingRouter);
 
 // Product Analytics
 app.use("/product-analytics", productAnalyticsRouter);
+
+// Generic skill-based agent
+app.use("/agent", agentRouter);
 
 // Meta info
 app.get("/meta/ai", (req, res) => {
