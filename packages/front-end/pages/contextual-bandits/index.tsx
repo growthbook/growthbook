@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { RxDesktop } from "react-icons/rx";
 import { date, datetime } from "shared/dates";
 import Link from "next/link";
-import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
-import { PiShuffle } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
-import { ComputedExperimentInterface } from "shared/types/experiment";
+import { ExperimentDataForStatusStringDates } from "shared/types/experiment";
+import {
+  ComputedContextualBanditInterface,
+  useContextualBanditSearch,
+} from "@/services/contextualBandits";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -32,7 +33,6 @@ import Button from "@/ui/Button";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import LinkButton from "@/ui/LinkButton";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
-import { useExperimentSearch } from "@/services/experiments";
 import Callout from "@/ui/Callout";
 
 const NUM_PER_PAGE = 20;
@@ -45,18 +45,12 @@ const ContextualBanditsPage = (): React.ReactElement => {
     [],
   );
 
-  // PR-6 start: source the list from the CB REST API instead of the
-  // generic `useExperiments(type="contextual-bandit")` path. The hook
-  // also returns an experiment-shaped projection so the existing
-  // `useExperimentSearch` + `ComputedExperimentInterface` machinery
-  // below keeps working unchanged until the rest of PR-6 forks the
-  // search hook.
-  const {
-    experiments: allExperiments,
-    error,
-    loading,
-    hasArchived,
-  } = useContextualBandits(project, tabs.includes("archived"));
+  // PR-6: list is now fully CB-native. Source data from the CB REST API
+  // and run search/sort/filter through the dedicated
+  // `useContextualBanditSearch` instead of round-tripping through the
+  // experiment shape.
+  const { contextualBandits, error, loading, hasArchived } =
+    useContextualBandits(project, tabs.includes("archived"));
 
   const tagsFilter = useTagsFilter("contextual-bandits");
   const [showMineOnly, setShowMineOnly] = useLocalStorage(
@@ -73,7 +67,7 @@ const ContextualBanditsPage = (): React.ReactElement => {
   const { watchedExperiments } = useWatching();
 
   const filterResults = useCallback(
-    (items: ComputedExperimentInterface[]) => {
+    (items: ComputedContextualBanditInterface[]) => {
       if (showMineOnly) {
         items = items.filter(
           (item) =>
@@ -89,10 +83,11 @@ const ContextualBanditsPage = (): React.ReactElement => {
   );
 
   const { items, searchInputProps, isFiltered, SortableTH, setSearchValue } =
-    useExperimentSearch({
-      allExperiments,
+    useContextualBanditSearch({
+      contextualBandits,
       filterResults,
       localStorageKey: "contextual-bandits-page",
+      watchedIds: watchedExperiments,
     });
 
   const tabCounts = useMemo(() => {
@@ -125,7 +120,7 @@ const ContextualBanditsPage = (): React.ReactElement => {
     return <LoadingOverlay />;
   }
 
-  const hasExperiments = allExperiments.length > 0;
+  const hasExperiments = contextualBandits.length > 0;
 
   const canAdd = permissionsUtil.canViewExperimentModal(project, projects);
 
@@ -373,42 +368,16 @@ const ContextualBanditsPage = (): React.ReactElement => {
                             <Flex direction="column">
                               <Flex>
                                 <span className="testname">{e.name}</span>
-                                {e.hasVisualChangesets ? (
-                                  <Tooltip
-                                    style={{
-                                      display: "flex",
-                                      alignItems: "center",
-                                      marginLeft: "0.5rem",
-                                    }}
-                                    body="Visual experiment"
-                                  >
-                                    <RxDesktop className="text-blue" />
-                                  </Tooltip>
-                                ) : null}
-                                {(e.linkedFeatures || []).length > 0 ? (
-                                  <Tooltip
-                                    style={{
-                                      display: "flex",
-                                      alignItems: "center",
-                                      marginLeft: "0.5rem",
-                                    }}
-                                    body="Linked Feature Flag"
-                                  >
-                                    <BsFlag className="text-blue" />
-                                  </Tooltip>
-                                ) : null}
-                                {e.hasURLRedirects ? (
-                                  <Tooltip
-                                    style={{
-                                      display: "flex",
-                                      alignItems: "center",
-                                      marginLeft: "0.5rem",
-                                    }}
-                                    body="URL Redirect experiment"
-                                  >
-                                    <PiShuffle className="text-blue" />
-                                  </Tooltip>
-                                ) : null}
+                                {/*
+                                 * Linked-feature indicator removed when the
+                                 * list moved to the CB-native REST surface
+                                 * — `linkedFeatures` is intentionally not
+                                 * on the API DTO (the surface stays curated;
+                                 * see apiContextualBanditValidator). Add a
+                                 * `/:id/linked-features` summary endpoint
+                                 * if we want the badge back without leaking
+                                 * the full internal field set.
+                                 */}
                               </Flex>
                               {isFiltered && e.trackingKey && (
                                 <span
@@ -468,7 +437,50 @@ const ContextualBanditsPage = (): React.ReactElement => {
                           {date(e.date)}
                         </td>
                         <td className="nowrap" data-title="Status:">
-                          <ExperimentStatusIndicator experimentData={e} />
+                          {/*
+                           * ExperimentStatusIndicator expects an
+                           * ExperimentDataForStatusStringDates pick. CB has
+                           * almost the same shape — `results`,
+                           * `analysisSummary`, `decisionFrameworkSettings`,
+                           * `dismissedWarnings`, and the experiment-phase
+                           * envelope don't exist on CB. We supply harmless
+                           * defaults so the indicator falls through to the
+                           * raw status renderer.
+                           */}
+                          <ExperimentStatusIndicator
+                            experimentData={
+                              {
+                                type: "contextual-bandit",
+                                variations: e.variations,
+                                status: e.status,
+                                archived: e.archived,
+                                results: undefined,
+                                analysisSummary: undefined,
+                                phases: e.phases.map((p) => ({
+                                  dateStarted: p.dateStarted,
+                                  dateEnded: p.dateEnded ?? undefined,
+                                  name: "Main",
+                                  reason: "",
+                                  coverage: p.coverage ?? 1,
+                                  condition: p.condition ?? "",
+                                  variationWeights:
+                                    p.variationWeights ??
+                                    e.variations.map(() => 1),
+                                  variations: e.variations.map((v) => ({
+                                    id: v.id,
+                                  })),
+                                  seed: p.seed,
+                                })),
+                                dismissedWarnings: [],
+                                goalMetrics: e.goalMetrics,
+                                secondaryMetrics: e.secondaryMetrics,
+                                guardrailMetrics: e.guardrailMetrics,
+                                datasource: e.datasource,
+                                decisionFrameworkSettings: {},
+                                nextScheduledStatusUpdate: null,
+                              } as unknown as ExperimentDataForStatusStringDates
+                            }
+                          />
                         </td>
                       </tr>
                     );
