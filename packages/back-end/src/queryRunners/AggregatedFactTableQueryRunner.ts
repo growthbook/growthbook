@@ -146,16 +146,6 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
       );
     }
 
-    // Expand each base metric into the flat list of metrics actually
-    // materialized: the base metric plus any auto-slice variants. The schema /
-    // insert / column builders all key off `metric.id`, so passing the expanded
-    // list materializes one column group per (base metric, slice). Auto-slice
-    // expansion is shared with the experiment analysis path (`getAutoSliceMetrics`)
-    // and yields [] for metrics without configured auto slices.
-    const materializedMetrics: FactMetricInterface[] = metrics.flatMap(
-      (metric) => [metric, ...getAutoSliceMetrics({ metric, factTable })],
-    );
-
     const pipelineSettings = integration.datasource.settings.pipelineSettings;
 
     // Reuse the existing table when present; otherwise generate a new path.
@@ -186,8 +176,6 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
         lastMaxTimestamp: aggregatedFactTable.lastMaxTimestamp,
         metricCount: metrics.length,
         metricIds: metrics.map((m) => m.id),
-        materializedMetricCount: materializedMetrics.length,
-        materializedMetricIds: materializedMetrics.map((m) => m.id),
       },
       "[aggregated-fact-table] startQueries",
     );
@@ -222,7 +210,7 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
         query: integration.getCreateAggregatedFactTableQuery({
           factTableId: factTable.id,
           idType,
-          metrics: materializedMetrics,
+          metrics,
           tableFullName,
         }),
         dependencies: dropQuery ? [dropQuery.query] : [],
@@ -286,7 +274,7 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
       query: integration.getInsertAggregatedFactTableDataQuery({
         factTable,
         idType,
-        metrics: materializedMetrics,
+        metrics,
         tableFullName,
         windowStartDate,
         exclusiveStart,

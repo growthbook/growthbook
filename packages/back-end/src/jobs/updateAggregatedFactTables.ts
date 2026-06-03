@@ -1,6 +1,6 @@
 import Agenda, { Job } from "agenda";
 import uniqid from "uniqid";
-import { isRatioMetric, isRegressionAdjusted } from "shared/experiments";
+import { getAutoSliceMetrics, isRatioMetric } from "shared/experiments";
 import {
   FactMetricInterface,
   FactTableInterface,
@@ -113,19 +113,20 @@ export async function getNextAggregatedFactTableUpdate(): Promise<Date | null> {
   return job?.nextRunAt ?? null;
 }
 
-// Fact metrics whose materialized columns live in this fact table: the metric
-// is regression-adjustment eligible (CUPED is the consumer) and at least one of
-// its column refs points at this fact table.
+// Fact metrics whose materialized columns live in this fact table
 export function getMetricsForAggregatedFactTable(
   factMetrics: FactMetricInterface[],
   factTableId: string,
 ): FactMetricInterface[] {
+  // TODO(aggregated-fact-tables): Trim down to only metrics
+  // on the fact table AND either (in the existing registry OR
+  // on a draft or running experiment)
   return factMetrics.filter((metric) => {
     const referencesFactTable =
       metric.numerator.factTableId === factTableId ||
       (isRatioMetric(metric) &&
         metric.denominator?.factTableId === factTableId);
-    return referencesFactTable && isRegressionAdjusted(metric);
+    return referencesFactTable;
   });
 }
 
@@ -206,7 +207,15 @@ export async function runAggregatedFactTableUpdate(
   }
 
   const factMetrics = await context.models.factMetrics.getAll();
-  const metrics = getMetricsForAggregatedFactTable(factMetrics, factTable.id);
+  const baseMetrics = getMetricsForAggregatedFactTable(
+    factMetrics,
+    factTable.id,
+  );
+  // Add metric slices
+  const metrics = baseMetrics.flatMap((metric) => [
+    metric,
+    ...getAutoSliceMetrics({ metric, factTable }),
+  ]);
   if (!metrics.length) {
     logger.info(
       `Skipping aggregated fact table update for ${factTable.id}/${idType}: no regression-adjusted fact metrics reference this fact table`,
@@ -272,6 +281,7 @@ export async function runAggregatedFactTableUpdate(
     factTableId: factTable.id,
     idType,
     mode,
+    executionId,
     queries: [],
     runStarted: null,
     finishedAt: null,

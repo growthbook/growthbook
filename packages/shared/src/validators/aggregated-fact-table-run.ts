@@ -22,6 +22,11 @@ const aggregatedFactTableRun = z
     // Whether this run appended incrementally or fully restated the table.
     mode: z.enum(["incremental", "restate"]),
 
+    // The registry lock token this run holds. Stored so an out-of-process
+    // reaper (expireOldQueries) can release the exact lock this run acquired
+    // when finalizing a stalled/orphaned run.
+    executionId: z.string(),
+
     // Tracked async queries for this run (QueryRunner `InterfaceWithQueries`).
     queries: z.array(queryPointerValidator),
     runStarted: z.date().nullable(),

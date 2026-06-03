@@ -121,7 +121,6 @@ function ManageRefreshModal({
 
   const run = async () => {
     setRunError(null);
-    console.log(mode);
     const fullRestate = mode === "restate";
     try {
       await apiCall<RefreshResponse>(

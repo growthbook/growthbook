@@ -546,8 +546,14 @@ function deriveRunStatus(
   queries: { status: QueryStatus }[],
   error: string | null,
 ): QueryStatus {
+  // A recorded error means the run reached a failed terminal state. Surface it
+  // as failed regardless of any stale query pointers — e.g. a run finalized
+  // out-of-process by the expireOldQueries reaper can have an orphaned "queued"
+  // dependency that was never advanced.
+  if (error) return "failed";
+
   const total = queries.length;
-  if (!total) return error ? "failed" : "queued";
+  if (!total) return "queued";
 
   const failed = queries.filter((q) => q.status === "failed").length;
   const running = queries.filter((q) => q.status === "running").length;
