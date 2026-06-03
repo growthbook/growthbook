@@ -15,8 +15,7 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
-import { useUser } from "@/services/UserContext";
-import QueryStatsRow from "./QueryStatsRow";
+import QueryStatsRow, { getNumberOfMetricsInQuery } from "./QueryStatsRow";
 import QueryResultTable from "./QueryResultTable";
 
 const ExpandableQuery: FC<{
@@ -33,9 +32,6 @@ const ExpandableQuery: FC<{
   }
 
   const { getFactMetricById } = useDefinitions();
-
-  const { hasCommercialFeature } = useUser();
-  const hasOptimizedQueries = hasCommercialFeature("multi-metric-queries");
 
   const getResultCell = useCallback(
     (value: unknown): { content: ReactNode; text: string } => {
@@ -73,6 +69,13 @@ const ExpandableQuery: FC<{
     [getResultCell],
   );
 
+  // A fact-metric query is only "optimized" when it actually combines more than
+  // one metric. Single-metric queries share the same query type/builder but
+  // weren't combined, so don't surface the badge for them.
+  const isCombinedMetricQuery =
+    query.queryType === "experimentMultiMetric" &&
+    getNumberOfMetricsInQuery(query) > 1;
+
   return (
     <div className="mb-4">
       <h4 className="d-flex align-items-top">
@@ -93,7 +96,7 @@ const ExpandableQuery: FC<{
           {title && " - "}
           Query {i + 1} of {total}
         </span>
-        {query.queryType === "experimentMultiMetric" && hasOptimizedQueries && (
+        {isCombinedMetricQuery && (
           <div className="ml-auto">
             <Tooltip
               body={

@@ -583,6 +583,7 @@ paths:
                 description:
                   description: Description of the feature
                   type: string
+                  maxLength: 10000
                 owner:
                   description: >-
                     The userId or email address of the owner. If an email
@@ -633,6 +634,7 @@ paths:
                               properties:
                                 description:
                                   type: string
+                                  maxLength: 10000
                                 condition:
                                   description: Applied to everyone by default.
                                   type: string
@@ -691,6 +693,7 @@ paths:
                               properties:
                                 description:
                                   type: string
+                                  maxLength: 10000
                                 condition:
                                   description: Applied to everyone by default.
                                   type: string
@@ -771,6 +774,7 @@ paths:
                               properties:
                                 description:
                                   type: string
+                                  maxLength: 10000
                                 id:
                                   type: string
                                 enabled:
@@ -842,6 +846,7 @@ paths:
                               properties:
                                 description:
                                   type: string
+                                  maxLength: 10000
                                 condition:
                                   type: string
                                 id:
@@ -960,6 +965,7 @@ paths:
                                   properties:
                                     description:
                                       type: string
+                                      maxLength: 10000
                                     condition:
                                       description: Applied to everyone by default.
                                       type: string
@@ -1018,6 +1024,7 @@ paths:
                                   properties:
                                     description:
                                       type: string
+                                      maxLength: 10000
                                     condition:
                                       description: Applied to everyone by default.
                                       type: string
@@ -1098,6 +1105,7 @@ paths:
                                   properties:
                                     description:
                                       type: string
+                                      maxLength: 10000
                                     id:
                                       type: string
                                     enabled:
@@ -1169,6 +1177,7 @@ paths:
                                   properties:
                                     description:
                                       type: string
+                                      maxLength: 10000
                                     condition:
                                       type: string
                                     id:
@@ -1382,6 +1391,7 @@ paths:
                 description:
                   description: Description of the feature
                   type: string
+                  maxLength: 10000
                 archived:
                   type: boolean
                 project:
@@ -1420,6 +1430,7 @@ paths:
                               properties:
                                 description:
                                   type: string
+                                  maxLength: 10000
                                 condition:
                                   description: Applied to everyone by default.
                                   type: string
@@ -1478,6 +1489,7 @@ paths:
                               properties:
                                 description:
                                   type: string
+                                  maxLength: 10000
                                 condition:
                                   description: Applied to everyone by default.
                                   type: string
@@ -1558,6 +1570,7 @@ paths:
                               properties:
                                 description:
                                   type: string
+                                  maxLength: 10000
                                 id:
                                   type: string
                                 enabled:
@@ -1629,6 +1642,7 @@ paths:
                               properties:
                                 description:
                                   type: string
+                                  maxLength: 10000
                                 condition:
                                   type: string
                                 id:
@@ -1747,6 +1761,7 @@ paths:
                                   properties:
                                     description:
                                       type: string
+                                      maxLength: 10000
                                     condition:
                                       description: Applied to everyone by default.
                                       type: string
@@ -1805,6 +1820,7 @@ paths:
                                   properties:
                                     description:
                                       type: string
+                                      maxLength: 10000
                                     condition:
                                       description: Applied to everyone by default.
                                       type: string
@@ -1885,6 +1901,7 @@ paths:
                                   properties:
                                     description:
                                       type: string
+                                      maxLength: 10000
                                     id:
                                       type: string
                                     enabled:
@@ -1956,6 +1973,7 @@ paths:
                                   properties:
                                     description:
                                       type: string
+                                      maxLength: 10000
                                     condition:
                                       type: string
                                     id:
@@ -2738,7 +2756,7 @@ paths:
                                 maxLength: 256
                               description:
                                 type: string
-                                maxLength: 256
+                                maxLength: 10000
                               enum:
                                 maxItems: 256
                                 type: array
@@ -5671,6 +5689,7 @@ paths:
                 description:
                   description: Description of the feature
                   type: string
+                  maxLength: 10000
                 owner:
                   description: >-
                     The userId or email address of the owner. If an email
@@ -5710,6 +5729,7 @@ paths:
                         properties:
                           description:
                             type: string
+                            maxLength: 10000
                           condition:
                             type: string
                           savedGroupTargeting:
@@ -5793,6 +5813,7 @@ paths:
                         properties:
                           description:
                             type: string
+                            maxLength: 10000
                           condition:
                             type: string
                           savedGroupTargeting:
@@ -5888,6 +5909,7 @@ paths:
                         properties:
                           description:
                             type: string
+                            maxLength: 10000
                           id:
                             type: string
                           enabled:
@@ -5985,6 +6007,7 @@ paths:
                         properties:
                           description:
                             type: string
+                            maxLength: 10000
                           id:
                             type: string
                           enabled:
@@ -6196,6 +6219,7 @@ paths:
                 description:
                   description: Description of the feature
                   type: string
+                  maxLength: 10000
                 archived:
                   type: boolean
                 project:
@@ -6234,6 +6258,7 @@ paths:
                         properties:
                           description:
                             type: string
+                            maxLength: 10000
                           condition:
                             type: string
                           savedGroupTargeting:
@@ -6317,6 +6342,7 @@ paths:
                         properties:
                           description:
                             type: string
+                            maxLength: 10000
                           condition:
                             type: string
                           savedGroupTargeting:
@@ -6412,6 +6438,7 @@ paths:
                         properties:
                           description:
                             type: string
+                            maxLength: 10000
                           id:
                             type: string
                           enabled:
@@ -6509,6 +6536,7 @@ paths:
                         properties:
                           description:
                             type: string
+                            maxLength: 10000
                           id:
                             type: string
                           enabled:
@@ -7319,7 +7347,7 @@ paths:
                                 maxLength: 256
                               description:
                                 type: string
-                                maxLength: 256
+                                maxLength: 10000
                               enum:
                                 maxItems: 256
                                 type: array
@@ -9908,6 +9936,7 @@ paths:
                   type: string
                 description:
                   type: string
+                  maxLength: 10000
                 isPublic:
                   description: >-
                     Whether to make this Archetype available to other team
@@ -9987,6 +10016,7 @@ paths:
                   type: string
                 description:
                   type: string
+                  maxLength: 10000
                 isPublic:
                   description: >-
                     Whether to make this Archetype available to other team
@@ -10147,6 +10177,7 @@ paths:
                 description:
                   description: Description of the experiment
                   type: string
+                  maxLength: 10000
                 tags:
                   type: array
                   items:
@@ -10283,6 +10314,7 @@ paths:
                         type: string
                       description:
                         type: string
+                        maxLength: 10000
                       screenshots:
                         type: array
                         items:
@@ -10296,6 +10328,7 @@ paths:
                               type: number
                             description:
                               type: string
+                              maxLength: 10000
                           required:
                             - path
                           additionalProperties: false
@@ -10725,6 +10758,7 @@ paths:
                 description:
                   description: Description of the experiment
                   type: string
+                  maxLength: 10000
                 tags:
                   type: array
                   items:
@@ -10888,6 +10922,7 @@ paths:
                         type: string
                       description:
                         type: string
+                        maxLength: 10000
                       screenshots:
                         type: array
                         items:
@@ -10901,6 +10936,7 @@ paths:
                               type: number
                             description:
                               type: string
+                              maxLength: 10000
                           required:
                             - path
                           additionalProperties: false
@@ -11885,6 +11921,7 @@ paths:
                 description:
                   description: Description of the metric
                   type: string
+                  maxLength: 10000
                 type:
                   description: >-
                     Type of metric. See [Metrics
@@ -12312,6 +12349,7 @@ paths:
                 description:
                   description: Description of the metric
                   type: string
+                  maxLength: 10000
                 type:
                   description: >-
                     Type of metric. See [Metrics
@@ -12790,6 +12828,7 @@ paths:
                 description:
                   description: Description of the segment
                   type: string
+                  maxLength: 10000
                 datasourceId:
                   description: ID of the datasource this segment belongs to
                   type: string
@@ -12914,6 +12953,7 @@ paths:
                 description:
                   description: Description of the segment
                   type: string
+                  maxLength: 10000
                 datasourceId:
                   description: ID of the datasource this segment belongs to
                   type: string
@@ -13056,6 +13096,7 @@ paths:
                 description:
                   description: Description of the dimension
                   type: string
+                  maxLength: 10000
                 owner:
                   description: >-
                     The userId or email address of the owner. If an email
@@ -13150,6 +13191,7 @@ paths:
                 description:
                   description: Description of the dimension
                   type: string
+                  maxLength: 10000
                 owner:
                   description: >-
                     The userId or email address of the owner. If an email
@@ -13290,6 +13332,7 @@ paths:
                   type: string
                 description:
                   type: string
+                  maxLength: 10000
                 publicId:
                   description: >-
                     URL-safe slug (lowercase letters, numbers, dashes).
@@ -13380,6 +13423,7 @@ paths:
                 description:
                   description: Project description.
                   type: string
+                  maxLength: 10000
                 publicId:
                   description: URL-safe slug (lowercase letters, numbers, dashes).
                   type: string
@@ -16025,6 +16069,7 @@ paths:
                 description:
                   description: Description of the fact table
                   type: string
+                  maxLength: 10000
                 owner:
                   description: >-
                     The userId or email address of the owner. If an email
@@ -16134,6 +16179,7 @@ paths:
                 description:
                   description: Description of the fact table
                   type: string
+                  maxLength: 10000
                 owner:
                   description: >-
                     The userId or email address of the owner. If an email
@@ -16287,6 +16333,7 @@ paths:
                 description:
                   description: Description of the fact table filter
                   type: string
+                  maxLength: 10000
                 value:
                   description: The SQL expression for this filter.
                   example: country = 'US'
@@ -16372,6 +16419,7 @@ paths:
                 description:
                   description: Description of the fact table filter
                   type: string
+                  maxLength: 10000
                 value:
                   description: The SQL expression for this filter.
                   example: country = 'US'
@@ -16494,6 +16542,7 @@ paths:
                   type: string
                 description:
                   type: string
+                  maxLength: 10000
                 owner:
                   description: >-
                     The userId or email address of the owner. If an email
@@ -17022,6 +17071,7 @@ paths:
                   type: string
                 description:
                   type: string
+                  maxLength: 10000
                 owner:
                   description: >-
                     The userId or email address of the owner. If an email
@@ -26031,6 +26081,7 @@ paths:
                   type: string
                 description:
                   type: string
+                  maxLength: 10000
                 tags:
                   type: array
                   items:
@@ -26089,6 +26140,7 @@ paths:
                   type: string
                 description:
                   type: string
+                  maxLength: 10000
                 tags:
                   type: array
                   items:
@@ -26605,6 +26657,7 @@ paths:
                       type: string
                     description:
                       type: string
+                      maxLength: 10000
                   required:
                     - name
                   additionalProperties: false
@@ -26616,6 +26669,7 @@ paths:
                   type: string
                 description:
                   type: string
+                  maxLength: 10000
                 tags:
                   type: array
                   items:
@@ -26766,6 +26820,7 @@ paths:
                       type: string
                     description:
                       type: string
+                      maxLength: 10000
                   required:
                     - name
                   additionalProperties: false
@@ -26777,6 +26832,7 @@ paths:
                   type: string
                 description:
                   type: string
+                  maxLength: 10000
                 tags:
                   type: array
                   items:
@@ -26975,6 +27031,7 @@ paths:
                                 type: string
                               description:
                                 type: string
+                                maxLength: 10000
                             required:
                               - name
                             additionalProperties: false
@@ -26986,6 +27043,7 @@ paths:
                             type: string
                           description:
                             type: string
+                            maxLength: 10000
                           tags:
                             type: array
                             items:
@@ -30762,6 +30820,7 @@ components:
           type: boolean
         description:
           type: string
+          maxLength: 10000
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
@@ -30912,6 +30971,7 @@ components:
           properties:
             description:
               type: string
+              maxLength: 10000
             condition:
               type: string
             id:
@@ -31024,6 +31084,7 @@ components:
           properties:
             description:
               type: string
+              maxLength: 10000
             condition:
               type: string
             id:
@@ -31138,6 +31199,7 @@ components:
           properties:
             description:
               type: string
+              maxLength: 10000
             condition:
               type: string
             id:
@@ -31279,6 +31341,7 @@ components:
           properties:
             description:
               type: string
+              maxLength: 10000
             condition:
               type: string
             id:
@@ -31387,6 +31450,7 @@ components:
           properties:
             description:
               type: string
+              maxLength: 10000
             condition:
               type: string
             id:
@@ -31618,6 +31682,7 @@ components:
           properties:
             description:
               type: string
+              maxLength: 10000
             owner:
               description: >-
                 The userId of the owner (or raw owner name/email for legacy
@@ -32540,6 +32605,7 @@ components:
           type: boolean
         description:
           type: string
+          maxLength: 10000
         owner:
           description: >-
             The userId or email address of the owner. If an email address is
@@ -32785,6 +32851,7 @@ components:
           properties:
             description:
               type: string
+              maxLength: 10000
             owner:
               description: >-
                 The userId of the owner (or raw owner name/email for legacy
@@ -34007,6 +34074,7 @@ components:
           type: string
         description:
           type: string
+          maxLength: 10000
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
@@ -34063,6 +34131,7 @@ components:
           type: string
         description:
           type: string
+          maxLength: 10000
         tags:
           type: array
           items:
@@ -34110,6 +34179,7 @@ components:
                 type: string
               description:
                 type: string
+                maxLength: 10000
               screenshots:
                 type: array
                 items:
@@ -34769,6 +34839,7 @@ components:
               type: string
             description:
               type: string
+              maxLength: 10000
             tags:
               type: array
               items:
@@ -34818,6 +34889,7 @@ components:
                     type: string
                   description:
                     type: string
+                    maxLength: 10000
                   screenshots:
                     type: array
                     items:
@@ -35209,6 +35281,7 @@ components:
           type: string
         description:
           type: string
+          maxLength: 10000
         type:
           type: string
           enum:
@@ -35544,6 +35617,7 @@ components:
           type: string
         description:
           type: string
+          maxLength: 10000
         query:
           type: string
         dateCreated:
@@ -35608,6 +35682,7 @@ components:
           type: string
         description:
           type: string
+          maxLength: 10000
         query:
           type: string
         managedBy:
@@ -35644,6 +35719,7 @@ components:
           type: string
         description:
           type: string
+          maxLength: 10000
         publicId:
           description: >-
             URL-safe slug used in SDK payload metadata. Auto-generated from name
@@ -35837,6 +35913,7 @@ components:
           type: string
         description:
           type: string
+          maxLength: 10000
         projectIds:
           type: array
           items:
@@ -35852,6 +35929,7 @@ components:
                 type: string
               description:
                 type: string
+                maxLength: 10000
             required:
               - id
               - description
@@ -35867,6 +35945,7 @@ components:
                 type: string
               description:
                 type: string
+                maxLength: 10000
               identifierType:
                 type: string
               sql:
@@ -36081,6 +36160,7 @@ components:
             type: string
         description:
           type: string
+          maxLength: 10000
         projects:
           type: array
           items:
@@ -36424,6 +36504,7 @@ components:
           type: string
         description:
           type: string
+          maxLength: 10000
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
@@ -36544,6 +36625,7 @@ components:
           type: string
         description:
           type: string
+          maxLength: 10000
         alwaysInlineFilter:
           default: false
           description: >-
@@ -36593,6 +36675,7 @@ components:
           type: string
         description:
           type: string
+          maxLength: 10000
         value:
           type: string
         managedBy:
@@ -36627,6 +36710,7 @@ components:
           type: string
         description:
           type: string
+          maxLength: 10000
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
@@ -40377,6 +40461,7 @@ components:
           type: string
         description:
           type: string
+          maxLength: 10000
         tags:
           type: array
           items:
@@ -40519,6 +40604,7 @@ components:
               type: string
             description:
               type: string
+              maxLength: 10000
           required:
             - name
           additionalProperties: false
@@ -40530,6 +40616,7 @@ components:
           type: string
         description:
           type: string
+          maxLength: 10000
         tags:
           type: array
           items:
@@ -40950,6 +41037,7 @@ components:
       properties:
         description:
           type: string
+          maxLength: 10000
         condition:
           type: string
         id:
@@ -42163,6 +42251,7 @@ components:
                 properties:
                   description:
                     type: string
+                    maxLength: 10000
                   condition:
                     type: string
                   id:
@@ -42244,6 +42333,7 @@ components:
                 properties:
                   description:
                     type: string
+                    maxLength: 10000
                   condition:
                     type: string
                   id:
@@ -42339,6 +42429,7 @@ components:
                 properties:
                   description:
                     type: string
+                    maxLength: 10000
                   condition:
                     type: string
                   id:
@@ -42577,6 +42668,7 @@ components:
                 properties:
                   description:
                     type: string
+                    maxLength: 10000
                   condition:
                     type: string
                   id:
@@ -42672,6 +42764,7 @@ components:
                 properties:
                   description:
                     type: string
+                    maxLength: 10000
                   condition:
                     type: string
                   id:
@@ -43014,8 +43107,12 @@ components:
               type: number
             variationUnits:
               description: >-
-                Per-variation user counts. Index 0 = control, index 1 =
-                treatment.
+                Per-variation user counts. Index 0 = baseline arm (users
+                continuing to see the existing behavior — either the configured
+                control value on a v1 safe rollout, or users passed through to
+                subsequent rules / feature default on a v2 monitored ramp).
+                Index 1 = treatment arm (users exposed to the new rollout
+                value).
               type: array
               items:
                 type: number
@@ -43098,13 +43195,14 @@ components:
                   - signal
               relativeLift:
                 description: >-
-                  Expected relative lift of the treatment vs control (e.g. 0.05
-                  = +5%).
+                  Expected relative lift of the treatment arm vs the baseline
+                  arm (e.g. 0.05 = +5%). See `traffic.variationUnits` for what
+                  each arm represents.
                 type: number
               absoluteLift:
                 description: >-
-                  Absolute difference in conversion rate between treatment and
-                  control.
+                  Absolute difference in conversion rate between the treatment
+                  and baseline arms.
                 type: number
               ciHarmBound:
                 description: >-

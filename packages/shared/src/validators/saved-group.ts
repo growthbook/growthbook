@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
@@ -18,7 +19,7 @@ export const savedGroupValidator = z
     values: z.array(z.string()).optional(),
     dateUpdated: z.date(),
     dateCreated: z.date(),
-    description: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     projects: z.array(z.string()).optional(),
     useEmptyListGroup: z.boolean().optional(),
     archived: z.boolean().optional(),
@@ -47,7 +48,7 @@ export const postSavedGroupBodyValidator = z.object({
   condition: z.string().optional(),
   attributeKey: z.string().optional(),
   values: z.string().array().optional(),
-  description: z.string().optional(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   projects: z.string().array().optional(),
 });
 
@@ -56,7 +57,7 @@ export const putSavedGroupBodyValidator = z.object({
   owner: ownerInputField.optional(),
   values: z.string().array().optional(),
   condition: z.string().optional(),
-  description: z.string().optional(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   projects: z.string().array().optional(),
   archived: z.boolean().optional(),
 });
@@ -93,7 +94,7 @@ export const apiSavedGroupValidator = namedSchema(
           "When type = 'list', this is the list of values for the attribute key",
         )
         .optional(),
-      description: z.string().optional(),
+      description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
       projects: z.array(z.string()).optional(),
       archived: z.boolean().optional(),
       useEmptyListGroup: z.boolean().optional(),

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { statsEngines } from "shared/constants";
+import { statsEngines, MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { eventUser } from "./event-user";
 import {
   featurePrerequisite,
@@ -27,7 +27,7 @@ export const simpleSchemaFieldValidator = z.object({
   type: z.enum(["integer", "float", "string", "boolean"]),
   required: z.boolean(),
   default: z.string().max(256),
-  description: z.string().max(256),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH),
   enum: z.array(z.string().max(256)).max(256),
   min: z.number(),
   max: z.number(),
@@ -58,7 +58,7 @@ export type ScheduleRule = z.infer<typeof scheduleRule>;
 
 export const baseRule = z
   .object({
-    description: z.string(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH),
     condition: z.string().optional(),
     // `fr_<uniqid>` for new rules; post-migration rules from a v1 collision
     // carry a `__<env>` suffix. REST emits the qualified id; SDK/UI stem-strip.
@@ -225,7 +225,7 @@ export const v1FeatureRule = z
     id: z.string(),
     type: z.string().optional(),
     enabled: z.boolean().optional(),
-    description: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   })
   .passthrough();
 
@@ -367,7 +367,7 @@ export type MinimalFeatureRevisionInterface = z.infer<
 >;
 
 const revisionMetadataSchema = z.object({
-  description: z.string().optional(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   owner: ownerField.optional(),
   project: z.string().optional(),
   tags: z.array(z.string()).optional(),
@@ -537,7 +537,7 @@ export const featureInterface = z
   .object({
     id: z.string(),
     archived: z.boolean().optional(),
-    description: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     organization: z.string(),
     nextScheduledUpdate: z.union([z.date(), z.null()]).optional(),
     owner: ownerField,
@@ -618,7 +618,7 @@ export const apiFeatureBaseRuleValidator = namedSchema(
   "FeatureBaseRule",
   z
     .object({
-      description: z.string(),
+      description: z.string().max(MAX_DESCRIPTION_LENGTH),
       condition: z.string().optional(),
       id: z.string(),
       enabled: z.boolean(),
@@ -925,7 +925,7 @@ export type ApiRevisionPrerequisiteV2 = z.infer<
 // Revision metadata sub-object
 export const apiRevisionMetadata = z
   .object({
-    description: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     owner: ownerField.optional(),
     project: z.string().optional(),
     tags: z.array(z.string()).optional(),
@@ -1012,7 +1012,7 @@ export const apiFeatureValidator = namedSchema(
       dateCreated: z.string().meta({ format: "date-time" }),
       dateUpdated: z.string().meta({ format: "date-time" }),
       archived: z.boolean(),
-      description: z.string(),
+      description: z.string().max(MAX_DESCRIPTION_LENGTH),
       owner: ownerField,
       ownerEmail: ownerEmailField,
       project: z.string(),
@@ -1068,7 +1068,7 @@ const postFeaturePrerequisite = z.object({
 });
 
 const postFeatureForceRule = z.object({
-  description: z.string().optional(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   condition: z.string().describe("Applied to everyone by default.").optional(),
   savedGroupTargeting: z.array(postFeatureSavedGroupTargeting).optional(),
   prerequisites: z.array(apiRevisionPrerequisite).optional(),
@@ -1080,7 +1080,7 @@ const postFeatureForceRule = z.object({
 });
 
 const postFeatureRolloutRule = z.object({
-  description: z.string().optional(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   condition: z.string().describe("Applied to everyone by default.").optional(),
   savedGroupTargeting: z.array(postFeatureSavedGroupTargeting).optional(),
   prerequisites: z.array(postFeaturePrerequisite).optional(),
@@ -1105,7 +1105,7 @@ const postFeatureRolloutRule = z.object({
 });
 
 const postFeatureExperimentRefRule = z.object({
-  description: z.string().optional(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   id: z.string().optional(),
   enabled: z.boolean().describe("Enabled by default").optional(),
   type: z.literal("experiment-ref"),
@@ -1123,7 +1123,7 @@ const postFeatureExperimentRefRule = z.object({
 });
 
 const postFeatureExperimentRule = z.object({
-  description: z.string().optional(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   condition: z.string(),
   id: z.string().optional(),
   enabled: z.boolean().describe("Enabled by default").optional(),
@@ -1221,7 +1221,11 @@ const postFeatureBody = z
         "A unique key name for the feature. Feature keys can only include letters, numbers, hyphens, and underscores.",
       ),
     archived: z.boolean().optional(),
-    description: z.string().describe("Description of the feature").optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe("Description of the feature")
+      .optional(),
     owner: ownerInputField,
     project: z.string().describe("An associated project ID").optional(),
     valueType: z
@@ -1256,7 +1260,11 @@ const postFeatureBody = z
 // ---- UpdateFeaturePayload ----
 const updateFeatureBody = z
   .object({
-    description: z.string().describe("Description of the feature").optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe("Description of the feature")
+      .optional(),
     archived: z.boolean().optional(),
     project: z.string().describe("An associated project ID").optional(),
     owner: ownerInputField.optional(),
