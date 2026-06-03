@@ -260,6 +260,7 @@ export default abstract class SqlIntegration
       hasCountDistinctHLL: this.getSqlDialect().hasCountDistinctHLL(),
       hasQuantileSketch: this.hasQuantileSketch(),
       hasIncrementalRefresh: this.canRunIncrementalRefreshQueries(),
+      hasArrayQuantileGrid: this.getSqlDialect().hasArrayQuantileGrid(),
       maxColumns: 1000,
     };
   }
