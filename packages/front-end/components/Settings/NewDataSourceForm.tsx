@@ -59,7 +59,10 @@ const NewDataSourceForm: FC<{
   initial?: Partial<DataSourceInterfaceWithParams>;
   source: string;
   onCancel?: () => void;
-  onSuccess: (id: string) => Promise<void>;
+  onSuccess: (
+    id: string,
+    opts?: { openEventForwarderSetup?: boolean },
+  ) => Promise<void>;
   showImportSampleData: boolean;
   inline?: boolean;
   showBackButton?: boolean;

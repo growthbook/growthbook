@@ -124,11 +124,43 @@ WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{end
     expect(sql).toContain(
       `SAFE_CAST(JSON_VALUE(\`attributes\`, '$."is_active"') AS BOOL) AS is_active`,
     );
-    expect(sql).toContain(`JSON_QUERY(\`attributes\`, '$."tags"') AS tags`);
-    expect(sql).toContain(`JSON_QUERY(\`attributes\`, '$."scores"') AS scores`);
     expect(sql).toContain(
-      `JSON_QUERY(\`attributes\`, '$."secrets"') AS secrets`,
+      `PARSE_JSON(JSON_VALUE(\`attributes\`, '$."tags"')) AS tags`,
     );
+    expect(sql).toContain(
+      `PARSE_JSON(JSON_VALUE(\`attributes\`, '$."scores"')) AS scores`,
+    );
+    expect(sql).toContain(
+      `PARSE_JSON(JSON_VALUE(\`attributes\`, '$."secrets"')) AS secrets`,
+    );
+  });
+
+  it("projects userIdTypes with string cast when not in attribute schema", () => {
+    const sql = buildEventForwarderEventsFactTableSql({
+      sinkType: "snowflake",
+      database: "MY_DB",
+      schema: "PUBLIC",
+      tableName: "GB_EVENTS",
+      userIdTypes: ["device_id"],
+    });
+
+    expect(sql).toContain('ATTRIBUTES:"device_id"::STRING AS device_id');
+    expect(sql).toContain("-- Attributes");
+  });
+
+  it("casts hash attributes as strings even when SDK datatype is number", () => {
+    const sql = buildEventForwarderEventsFactTableSql({
+      sinkType: "snowflake",
+      database: "MY_DB",
+      schema: "PUBLIC",
+      tableName: "GB_EVENTS",
+      attributeSchema: [
+        { property: "employee_id", datatype: "number", hashAttribute: true },
+      ],
+    });
+
+    expect(sql).toContain('ATTRIBUTES:"employee_id"::STRING AS employee_id');
+    expect(sql).not.toContain('TRY_TO_DOUBLE(ATTRIBUTES:"employee_id")');
   });
 
   it("builds Snowflake table reference", () => {
@@ -157,8 +189,8 @@ WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{end
   TIMESTAMP AS timestamp,
   EVENT_NAME AS event_name,
   -- Attributes
-  ATTRIBUTES:"user_id" AS user_id,
-  ATTRIBUTES:"browser" AS browser
+  ATTRIBUTES:"user_id"::STRING AS user_id,
+  ATTRIBUTES:"browser"::STRING AS browser
 FROM MY_DB.PUBLIC.GB_EVENTS`);
   });
 
