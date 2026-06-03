@@ -86,6 +86,10 @@ import {
   CovariateWindowType,
   InsertMetricSourceCovariateDataQueryParams,
   CreateMetricSourceCovariateTableQueryParams,
+  CreateAggregatedFactTableQueryParams,
+  InsertAggregatedFactTableDataQueryParams,
+  AggregatedFactTableMaxTimestampQueryParams,
+  DropAggregatedFactTableQueryParams,
   PipelineIntegration,
 } from "shared/types/integrations";
 import { MetricInterface, MetricType } from "shared/types/metric";
@@ -134,6 +138,10 @@ import { getDimensionInStatement } from "back-end/src/integrations/sql/fact-metr
 import { getDimensionSlicesQuery as getDimensionSlicesQueryFromSql } from "back-end/src/integrations/sql/queries/dimension-slices-query";
 import { getDimensionValuePerUnit } from "back-end/src/integrations/sql/fact-metrics/dimension-value-per-unit";
 import { getDropMetricSourceCovariateTableQuery } from "back-end/src/integrations/sql/queries/drop-metric-source-covariate-table-query";
+import { getCreateAggregatedFactTableQuery } from "back-end/src/integrations/sql/queries/create-aggregated-fact-table-query";
+import { getInsertAggregatedFactTableDataQuery } from "back-end/src/integrations/sql/queries/insert-aggregated-fact-table-data-query";
+import { getAggregatedFactTableMaxTimestampQuery } from "back-end/src/integrations/sql/queries/aggregated-fact-table-max-timestamp-query";
+import { getDropAggregatedFactTableQuery } from "back-end/src/integrations/sql/queries/drop-aggregated-fact-table-query";
 import { getDropOldIncrementalUnitsQuery } from "back-end/src/integrations/sql/queries/drop-old-incremental-units-query";
 import { getDropUnitsTableQuery } from "back-end/src/integrations/sql/queries/drop-units-table-query";
 import { encodeMetricIdForColumnName } from "back-end/src/integrations/sql/fact-metrics/encode-metric-id-for-column-name";
@@ -784,7 +792,10 @@ export default abstract class SqlIntegration
     return "";
   }
 
-  createTablePartitions(_columns: string[]) {
+  createTablePartitions(
+    _columns: string[],
+    _opts?: { partitionByDate?: boolean },
+  ) {
     return "";
   }
 
@@ -1831,6 +1842,37 @@ export default abstract class SqlIntegration
     params: DropMetricSourceCovariateTableQueryParams,
   ): string {
     return getDropMetricSourceCovariateTableQuery(this.getSqlDialect(), params);
+  }
+
+  getCreateAggregatedFactTableQuery(
+    params: CreateAggregatedFactTableQueryParams,
+  ): string {
+    return getCreateAggregatedFactTableQuery(
+      this.getSqlDialect(),
+      params,
+      this.createTablePartitions.bind(this),
+    );
+  }
+
+  getInsertAggregatedFactTableDataQuery(
+    params: InsertAggregatedFactTableDataQueryParams,
+  ): string {
+    return getInsertAggregatedFactTableDataQuery(this.getSqlDialect(), params);
+  }
+
+  getAggregatedFactTableMaxTimestampQuery(
+    params: AggregatedFactTableMaxTimestampQueryParams,
+  ): string {
+    return getAggregatedFactTableMaxTimestampQuery(
+      this.getSqlDialect(),
+      params,
+    );
+  }
+
+  getDropAggregatedFactTableQuery(
+    params: DropAggregatedFactTableQueryParams,
+  ): string {
+    return getDropAggregatedFactTableQuery(this.getSqlDialect(), params);
   }
 
   getCreateMetricSourceCovariateTableQuery(

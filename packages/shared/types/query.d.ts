@@ -74,6 +74,12 @@ export type QueryType =
   | "experimentIncrementalRefreshStatistics"
   | "experimentIncrementalRefreshHealth"
 
+  // Queries that maintain shared daily aggregated fact tables (materialization)
+  | "aggregatedFactTableDrop"
+  | "aggregatedFactTableCreate"
+  | "aggregatedFactTableInsertData"
+  | "aggregatedFactTableMaxTimestamp"
+
   // ---
   // Standalone analysis queries
   // ---

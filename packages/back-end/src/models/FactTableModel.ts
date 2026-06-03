@@ -76,6 +76,7 @@ const factTableSchema = new mongoose.Schema({
   ],
   archived: Boolean,
   autoSliceUpdatesEnabled: Boolean,
+  aggregatedFactTableIdTypes: [String],
   columnRefreshPending: Boolean,
 });
 
@@ -142,6 +143,7 @@ function createPropsToInterface(
     columns,
     columnsError: null,
     managedBy: props.managedBy || "",
+    aggregatedFactTableIdTypes: props.aggregatedFactTableIdTypes || [],
     columnRefreshPending: props.columnRefreshPending || false,
   };
 }
@@ -236,6 +238,19 @@ export async function getAllFactTablesWithAutoSliceUpdatesEnabled(): Promise<
 > {
   const docs = await FactTableModel.find({
     autoSliceUpdatesEnabled: true,
+    archived: { $ne: true },
+  });
+  return docs.map((doc) => toInterface(doc));
+}
+
+// Get all fact tables that have at least one id type enabled for shared daily
+// aggregated tables, across all organizations. Used by the nightly job that
+// maintains the aggregated fact tables.
+export async function getAllFactTablesWithAggregatedTablesEnabled(): Promise<
+  FactTableInterface[]
+> {
+  const docs = await FactTableModel.find({
+    aggregatedFactTableIdTypes: { $exists: true, $ne: [] },
     archived: { $ne: true },
   });
   return docs.map((doc) => toInterface(doc));

@@ -93,6 +93,7 @@ export const createFactTablePropsValidator = z
     columns: z.array(createColumnPropsValidator).optional(),
     managedBy: z.enum(["", "api", "admin"]).optional(),
     autoSliceUpdatesEnabled: z.boolean().optional(),
+    aggregatedFactTableIdTypes: z.array(z.string()).optional(),
     columnRefreshPending: z.boolean().optional(),
   })
   .strict();
@@ -112,6 +113,7 @@ export const updateFactTablePropsValidator = z
     columnsError: z.string().nullable().optional(),
     archived: z.boolean().optional(),
     autoSliceUpdatesEnabled: z.boolean().optional(),
+    aggregatedFactTableIdTypes: z.array(z.string()).optional(),
     columnRefreshPending: z.boolean().optional(),
   })
   .strict();
@@ -407,6 +409,12 @@ export const apiFactTableValidator = namedSchema(
       tags: z.array(z.string()),
       datasource: z.string(),
       userIdTypes: z.array(z.string()),
+      aggregatedFactTableIdTypes: z
+        .array(z.string())
+        .describe(
+          "Identifier types (a subset of userIdTypes) to maintain shared daily aggregated tables for. Requires the data pipeline (pipeline-mode) feature.",
+        )
+        .optional(),
       sql: z.string(),
       eventName: z
         .string()
@@ -477,6 +485,12 @@ const postFactTableBody = z
       .describe(
         'List of identifier columns in this table. For example, "id" or "anonymous_id"',
       ),
+    aggregatedFactTableIdTypes: z
+      .array(z.string())
+      .describe(
+        "Identifier types (a subset of userIdTypes) to maintain shared daily aggregated tables for. Requires the data pipeline (pipeline-mode) feature.",
+      )
+      .optional(),
     sql: z.string().describe("The SQL query for this fact table"),
     eventName: z
       .string()
@@ -507,6 +521,12 @@ const updateFactTableBody = z
       .array(z.string())
       .describe(
         'List of identifier columns in this table. For example, "id" or "anonymous_id"',
+      )
+      .optional(),
+    aggregatedFactTableIdTypes: z
+      .array(z.string())
+      .describe(
+        "Identifier types (a subset of userIdTypes) to maintain shared daily aggregated tables for. Requires the data pipeline (pipeline-mode) feature.",
       )
       .optional(),
     sql: z.string().describe("The SQL query for this fact table").optional(),
@@ -796,4 +816,44 @@ export const deleteFactTableFilterValidator = {
   method: "delete" as const,
   path: "/fact-tables/:factTableId/filters/:id",
   exampleRequest: { params: { factTableId: "abc123", id: "abc123" } },
+};
+
+export const refreshAggregatedFactTableBody = z
+  .object({
+    idType: z
+      .string()
+      .optional()
+      .describe(
+        "Limit the refresh to a single id type. If omitted, all of the fact table's aggregatedFactTableIdTypes are refreshed.",
+      ),
+    fullRestate: z
+      .boolean()
+      .optional()
+      .describe(
+        "Drop and recreate the table, re-scanning the retained window. This is significantly more expensive than the default incremental append (it scans ~2-3 months of history).",
+      ),
+  })
+  .strict();
+
+export const refreshAggregatedFactTableValidator = {
+  bodySchema: refreshAggregatedFactTableBody,
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({
+      queued: z
+        .array(z.string())
+        .describe("The id types for which a materialization run was queued"),
+    })
+    .strict(),
+  summary:
+    "Force a refresh or full restate of a fact table's shared daily aggregated tables",
+  operationId: "refreshAggregatedFactTable",
+  tags: ["fact-tables"],
+  method: "post" as const,
+  path: "/fact-tables/:id/aggregated-tables/refresh",
+  exampleRequest: {
+    params: { id: "abc123" },
+    body: { fullRestate: false },
+  },
 };

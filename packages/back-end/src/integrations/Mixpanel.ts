@@ -35,6 +35,10 @@ import {
   UserExperimentExposuresQueryResponse,
   DropMetricSourceCovariateTableQueryParams,
   CreateMetricSourceCovariateTableQueryParams,
+  CreateAggregatedFactTableQueryParams,
+  InsertAggregatedFactTableDataQueryParams,
+  AggregatedFactTableMaxTimestampQueryParams,
+  DropAggregatedFactTableQueryParams,
   InsertMetricSourceCovariateDataQueryParams,
 } from "shared/types/integrations";
 import {
@@ -186,6 +190,26 @@ export default class Mixpanel implements SourceIntegrationInterface {
   }
   getDropMetricSourceCovariateTableQuery(
     _params: DropMetricSourceCovariateTableQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  getCreateAggregatedFactTableQuery(
+    _params: CreateAggregatedFactTableQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  getInsertAggregatedFactTableDataQuery(
+    _params: InsertAggregatedFactTableDataQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  getAggregatedFactTableMaxTimestampQuery(
+    _params: AggregatedFactTableMaxTimestampQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  getDropAggregatedFactTableQuery(
+    _params: DropAggregatedFactTableQueryParams,
   ): string {
     throw new Error("Method not implemented.");
   }

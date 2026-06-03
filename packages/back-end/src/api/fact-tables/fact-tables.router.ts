@@ -9,6 +9,7 @@ import { postFactTableFilter } from "./postFactTableFilter";
 import { getFactTableFilter } from "./getFactTableFilter";
 import { updateFactTableFilter } from "./updateFactTableFilter";
 import { deleteFactTableFilter } from "./deleteFactTableFilter";
+import { refreshAggregatedFactTable } from "./refreshAggregatedFactTable";
 
 export const factTablesRoutes: OpenApiRoute[] = [
   listFactTables,
@@ -21,4 +22,5 @@ export const factTablesRoutes: OpenApiRoute[] = [
   getFactTableFilter,
   updateFactTableFilter,
   deleteFactTableFilter,
+  refreshAggregatedFactTable,
 ];

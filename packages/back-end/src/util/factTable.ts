@@ -22,3 +22,20 @@ export function deriveUserIdTypesFromColumns(
     .map((u) => u.userIdType)
     .filter((id) => activeColumns.has(id));
 }
+
+/**
+ * Validates that every id type selected for shared daily aggregated tables is
+ * one of the fact table's identifier types. Throws on the first invalid entry.
+ */
+export function validateAggregatedFactTableIdTypes(
+  aggregatedFactTableIdTypes: string[],
+  userIdTypes: string[],
+): void {
+  for (const idType of aggregatedFactTableIdTypes) {
+    if (!userIdTypes.includes(idType)) {
+      throw new Error(
+        `Invalid aggregatedFactTableIdTypes entry "${idType}": must be one of the fact table's userIdTypes`,
+      );
+    }
+  }
+}

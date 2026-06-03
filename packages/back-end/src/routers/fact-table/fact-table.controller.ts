@@ -16,6 +16,7 @@ import {
   FactTableColumnType,
 } from "shared/types/fact-table";
 import { DataSourceInterface } from "shared/types/datasource";
+import { QueryStatus } from "shared/types/query";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { ReqContext } from "back-end/types/request";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
@@ -41,9 +42,16 @@ import {
   populateAutoSlices,
   queueFactTableColumnsRefresh,
 } from "back-end/src/jobs/refreshFactTableColumns";
-import { deriveUserIdTypesFromColumns } from "back-end/src/util/factTable";
+import {
+  deriveUserIdTypesFromColumns,
+  validateAggregatedFactTableIdTypes,
+} from "back-end/src/util/factTable";
 import { logger } from "back-end/src/util/logger";
 import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
+import {
+  getNextAggregatedFactTableUpdate,
+  runAggregatedFactTableUpdate,
+} from "back-end/src/jobs/updateAggregatedFactTables";
 
 export const getFactTables = async (
   req: AuthRequest,
@@ -259,6 +267,18 @@ export const postFactTable = async (
     data.columnRefreshPending = needsBackgroundRefresh;
   }
 
+  if (data.aggregatedFactTableIdTypes?.length) {
+    if (!context.hasPremiumFeature("pipeline-mode")) {
+      throw new Error(
+        "Maintaining shared daily aggregated tables requires the data pipeline feature.",
+      );
+    }
+    validateAggregatedFactTableIdTypes(
+      data.aggregatedFactTableIdTypes,
+      data.userIdTypes,
+    );
+  }
+
   const factTable = await createFactTable(context, data);
 
   if (data.columnRefreshPending) {
@@ -324,6 +344,23 @@ export const putFactTable = async (
     columnRefreshResults.userIdTypes = deriveUserIdTypesFromColumns(
       datasource,
       columns,
+    );
+  }
+
+  if (data.aggregatedFactTableIdTypes?.length) {
+    if (!context.hasPremiumFeature("pipeline-mode")) {
+      throw new Error(
+        "Maintaining shared daily aggregated tables requires the data pipeline feature.",
+      );
+    }
+    // Validate against the effective userIdTypes after any column refresh.
+    const effectiveUserIdTypes =
+      columnRefreshResults?.userIdTypes ??
+      data.userIdTypes ??
+      factTable.userIdTypes;
+    validateAggregatedFactTableIdTypes(
+      data.aggregatedFactTableIdTypes,
+      effectiveUserIdTypes,
     );
   }
 
@@ -417,6 +454,206 @@ export const deleteFactTable = async (
 
   res.status(200).json({
     status: 200,
+  });
+};
+
+type AggregatedFactTableMaterializationStatus =
+  | "running"
+  | "error"
+  | "pending"
+  | "active";
+
+type AggregatedFactTableStatus = {
+  idType: string;
+  status: AggregatedFactTableMaterializationStatus;
+  tableFullName: string | null;
+  firstEventDate: Date | null;
+  lastEventDate: Date | null;
+  lastMaxTimestamp: Date | null;
+  lastError: string | null;
+  dateUpdated: Date | null;
+};
+
+export const getAggregatedFactTables = async (
+  req: AuthRequest<null, { id: string }>,
+  res: Response<{
+    status: 200;
+    aggregatedFactTables: AggregatedFactTableStatus[];
+    nextScheduledUpdate: Date | null;
+  }>,
+) => {
+  const context = getContextFromReq(req);
+
+  const factTable = await getFactTable(context, req.params.id);
+  if (!factTable) {
+    throw new Error("Could not find fact table with that id");
+  }
+
+  const idTypes = factTable.aggregatedFactTableIdTypes ?? [];
+  const registryDocs =
+    await context.models.aggregatedFactTables.getByFactTableId(factTable.id);
+  const byIdType = new Map(registryDocs.map((doc) => [doc.idType, doc]));
+
+  // One row per configured id type, even if it has never been materialized yet.
+  const aggregatedFactTables: AggregatedFactTableStatus[] = idTypes.map(
+    (idType) => {
+      const doc = byIdType.get(idType);
+      const status: AggregatedFactTableMaterializationStatus = !doc
+        ? "pending"
+        : doc.currentExecutionId
+          ? "running"
+          : doc.lastError
+            ? "error"
+            : doc.tableFullName
+              ? "active"
+              : "pending";
+      return {
+        idType,
+        status,
+        tableFullName: doc?.tableFullName ?? null,
+        firstEventDate: doc?.firstEventDate ?? null,
+        lastEventDate: doc?.lastEventDate ?? null,
+        lastMaxTimestamp: doc?.lastMaxTimestamp ?? null,
+        lastError: doc?.lastError ?? null,
+        dateUpdated: doc?.dateUpdated ?? null,
+      };
+    },
+  );
+
+  const nextScheduledUpdate = await getNextAggregatedFactTableUpdate();
+
+  res.status(200).json({
+    status: 200,
+    aggregatedFactTables,
+    nextScheduledUpdate,
+  });
+};
+
+type AggregatedFactTableRunSummary = {
+  id: string;
+  mode: "incremental" | "restate";
+  status: QueryStatus;
+  runStarted: Date | null;
+  dateCreated: Date;
+  finishedAt: Date | null;
+  error: string | null;
+  queryIds: string[];
+};
+
+// Mirrors QueryRunner.getOverallQueryStatus so the history UI shows the same
+// status the runner used.
+function deriveRunStatus(
+  queries: { status: QueryStatus }[],
+  error: string | null,
+): QueryStatus {
+  const total = queries.length;
+  if (!total) return error ? "failed" : "queued";
+
+  const failed = queries.filter((q) => q.status === "failed").length;
+  const running = queries.filter((q) => q.status === "running").length;
+  const queued = queries.filter((q) => q.status === "queued").length;
+
+  if (failed >= total / 2) return "failed";
+  if (queued + running > 0) return "running";
+  if (failed > 0) return "partially-succeeded";
+  return "succeeded";
+}
+
+export const getAggregatedFactTableRuns = async (
+  req: AuthRequest<null, { id: string; idType: string }>,
+  res: Response<{
+    status: 200;
+    runs: AggregatedFactTableRunSummary[];
+  }>,
+) => {
+  const context = getContextFromReq(req);
+
+  const factTable = await getFactTable(context, req.params.id);
+  if (!factTable) {
+    throw new Error("Could not find fact table with that id");
+  }
+
+  const { idType } = req.params;
+  if (!(factTable.aggregatedFactTableIdTypes ?? []).includes(idType)) {
+    throw new Error(
+      `id type '${idType}' is not enabled for shared daily aggregated tables on this fact table.`,
+    );
+  }
+
+  const runDocs =
+    await context.models.aggregatedFactTableRuns.getRecentByFactTableAndIdType(
+      factTable.id,
+      idType,
+    );
+
+  const runs: AggregatedFactTableRunSummary[] = runDocs.map((run) => ({
+    id: run.id,
+    mode: run.mode,
+    status: deriveRunStatus(run.queries, run.error),
+    runStarted: run.runStarted,
+    dateCreated: run.dateCreated,
+    finishedAt: run.finishedAt,
+    error: run.error,
+    queryIds: run.queries.map((q) => q.query),
+  }));
+
+  res.status(200).json({
+    status: 200,
+    runs,
+  });
+};
+
+export const refreshAggregatedFactTables = async (
+  req: AuthRequest<{ idType?: string; fullRestate?: boolean }, { id: string }>,
+  res: Response<{ status: 200; queued: string[] }>,
+) => {
+  const context = getContextFromReq(req);
+
+  const factTable = await getFactTable(context, req.params.id);
+  if (!factTable) {
+    throw new Error("Could not find fact table with that id");
+  }
+
+  if (!context.hasPremiumFeature("pipeline-mode")) {
+    throw new Error(
+      "Maintaining shared daily aggregated tables requires the data pipeline feature.",
+    );
+  }
+
+  if (!context.permissions.canUpdateFactTable(factTable, {})) {
+    context.permissions.throwPermissionError();
+  }
+
+  const enabledIdTypes = factTable.aggregatedFactTableIdTypes ?? [];
+  if (!enabledIdTypes.length) {
+    throw new Error(
+      "This fact table does not have any id types enabled for shared daily aggregated tables.",
+    );
+  }
+
+  let idTypes = enabledIdTypes;
+  if (req.body.idType) {
+    if (!enabledIdTypes.includes(req.body.idType)) {
+      throw new Error(
+        `id type '${req.body.idType}' is not enabled for shared daily aggregated tables on this fact table.`,
+      );
+    }
+    idTypes = [req.body.idType];
+  }
+
+  // Kick off the materialization directly (not via the nightly agenda queue).
+  // Each call returns once the run doc + queries are created; the run then
+  // finishes in the background.
+  for (const idType of idTypes) {
+    await runAggregatedFactTableUpdate(context, factTable, idType, {
+      forceRestate: !!req.body.fullRestate,
+      awaitResults: false,
+    });
+  }
+
+  res.status(200).json({
+    status: 200,
+    queued: idTypes,
   });
 };
 

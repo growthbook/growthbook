@@ -29,6 +29,24 @@ export function datetime(date: string | Date, inTimezone?: string): string {
     ? formatInTimeZone(d, inTimezone, formatStr)
     : format(d, formatStr);
 }
+// ISO-style date only, e.g. "2026-01-05".
+export function dateOnly(date: string | Date, inTimezone?: string): string {
+  if (!date) return "";
+  const d = getValidDate(date);
+  const formatStr = "yyyy-MM-dd";
+  return inTimezone
+    ? formatInTimeZone(d, inTimezone, formatStr)
+    : format(d, formatStr);
+}
+// ISO-style timestamp, e.g. "2026-01-05 14:03:22".
+export function timestamp(date: string | Date, inTimezone?: string): string {
+  if (!date) return "";
+  const d = getValidDate(date);
+  const formatStr = "yyyy-MM-dd HH:mm:ss";
+  return inTimezone
+    ? formatInTimeZone(d, inTimezone, formatStr)
+    : format(d, formatStr);
+}
 export function relativeDate(date: string | Date): string {
   if (!date) return "";
   return formatRelative(getValidDate(date), new Date());

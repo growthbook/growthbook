@@ -81,6 +81,9 @@ export interface FactTableInterface {
   archived?: boolean;
   timestampColumn?: string;
   autoSliceUpdatesEnabled?: boolean;
+  // Identifier types (subset of userIdTypes) to maintain shared daily
+  // aggregated tables for. Consumed by the aggregated-fact-table pipeline.
+  aggregatedFactTableIdTypes?: string[];
 }
 
 export type ColumnRef = z.infer<typeof columnRefValidator>;

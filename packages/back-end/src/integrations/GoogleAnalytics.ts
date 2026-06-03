@@ -36,6 +36,10 @@ import {
   DropMetricSourceCovariateTableQueryParams,
   InsertMetricSourceCovariateDataQueryParams,
   CreateMetricSourceCovariateTableQueryParams,
+  CreateAggregatedFactTableQueryParams,
+  InsertAggregatedFactTableDataQueryParams,
+  AggregatedFactTableMaxTimestampQueryParams,
+  DropAggregatedFactTableQueryParams,
 } from "shared/types/integrations";
 import { parseIntWithDefault } from "shared/util";
 import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
@@ -232,6 +236,26 @@ export default class GoogleAnalytics implements SourceIntegrationInterface {
   }
   getDropMetricSourceCovariateTableQuery(
     _params: DropMetricSourceCovariateTableQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  getCreateAggregatedFactTableQuery(
+    _params: CreateAggregatedFactTableQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  getInsertAggregatedFactTableDataQuery(
+    _params: InsertAggregatedFactTableDataQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  getAggregatedFactTableMaxTimestampQuery(
+    _params: AggregatedFactTableMaxTimestampQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  getDropAggregatedFactTableQuery(
+    _params: DropAggregatedFactTableQueryParams,
   ): string {
     throw new Error("Method not implemented.");
   }

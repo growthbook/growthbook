@@ -1431,6 +1431,62 @@ export function createAutoSliceDataForMetric({
   return sliceData;
 }
 
+// Auto-slice metric variants for a single base fact metric, derived from the
+// metric's `metricAutoSlices` and the fact table's auto-slice columns. Each
+// returned metric is a clone of the base with a slice-encoded id
+// (`<baseId>?dim:col=value`, plus an "other" bucket for values outside the
+// configured auto slices). This is the experiment-independent core of the auto
+// slice handling in `expandAllSliceMetricsInMap`, factored out so it can be
+// reused anywhere auto slices need to be enumerated (e.g. materializing shared
+// aggregated fact tables) without an experiment in scope.
+export function getAutoSliceMetrics({
+  metric,
+  factTable,
+}: {
+  metric: FactMetricInterface;
+  factTable: FactTableInterface;
+}): FactMetricInterface[] {
+  if (!metric.metricAutoSlices?.length) return [];
+
+  const autoSliceColumns = factTable.columns.filter(
+    (col) =>
+      col.isAutoSliceColumn &&
+      !col.deleted &&
+      (col.autoSlices?.length || 0) > 0 &&
+      metric.metricAutoSlices?.includes(col.column),
+  );
+
+  const sliceMetrics: FactMetricInterface[] = [];
+
+  autoSliceColumns.forEach((col) => {
+    const autoSlices = col.autoSlices || [];
+
+    // One metric per configured auto slice value.
+    autoSlices.forEach((value: string) => {
+      const sliceString = generateSliceString({ [col.column]: value });
+      sliceMetrics.push({
+        ...metric,
+        id: `${metric.id}?${sliceString}`,
+        name: `${metric.name} (${col.name || col.column}: ${value})`,
+        description: `Slice analysis of ${metric.name} for ${col.name || col.column} = ${value}`,
+      });
+    });
+
+    // An "other" bucket for values not in autoSlices (includes NULL for boolean).
+    if (autoSlices.length > 0 || col.datatype === "boolean") {
+      const sliceString = generateSliceString({ [col.column]: "" });
+      sliceMetrics.push({
+        ...metric,
+        id: `${metric.id}?${sliceString}`,
+        name: `${metric.name} (${col.name || col.column}: other)`,
+        description: `Slice analysis of ${metric.name} for ${col.name || col.column} = other`,
+      });
+    }
+  });
+
+  return sliceMetrics;
+}
+
 // Creates custom slice data for a fact metric by using the experiment's customMetricSlices
 export function createCustomSliceDataForMetric({
   metricId,
@@ -1895,47 +1951,9 @@ export function expandAllSliceMetricsInMap({
     if (!factTable) continue;
 
     // 1. Add auto slice metrics
-    if (metric.metricAutoSlices?.length) {
-      const autoSliceColumns = factTable.columns.filter(
-        (col) =>
-          col.isAutoSliceColumn &&
-          !col.deleted &&
-          (col.autoSlices?.length || 0) > 0 &&
-          metric.metricAutoSlices?.includes(col.column),
-      );
-
-      autoSliceColumns.forEach((col) => {
-        const autoSlices = col.autoSlices || [];
-
-        // Create a metric for each auto slice
-        autoSlices.forEach((value: string) => {
-          const sliceString = generateSliceString({
-            [col.column]: value,
-          });
-          const sliceMetric: ExperimentMetricInterface = {
-            ...metric,
-            id: `${metric.id}?${sliceString}`,
-            name: `${metric.name} (${col.name || col.column}: ${value})`,
-            description: `Slice analysis of ${metric.name} for ${col.name || col.column} = ${value}`,
-          };
-          metricMap.set(sliceMetric.id, sliceMetric);
-        });
-
-        // Create an "other" metric for values not in autoSlices (includes NULL for boolean)
-        if (autoSlices.length > 0 || col.datatype === "boolean") {
-          const sliceString = generateSliceString({
-            [col.column]: "",
-          });
-          const otherMetric: ExperimentMetricInterface = {
-            ...metric,
-            id: `${metric.id}?${sliceString}`,
-            name: `${metric.name} (${col.name || col.column}: other)`,
-            description: `Slice analysis of ${metric.name} for ${col.name || col.column} = other`,
-          };
-          metricMap.set(otherMetric.id, otherMetric);
-        }
-      });
-    }
+    getAutoSliceMetrics({ metric, factTable }).forEach((sliceMetric) => {
+      metricMap.set(sliceMetric.id, sliceMetric);
+    });
 
     // 2. Add custom slice metrics
     if (experiment.customMetricSlices) {

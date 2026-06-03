@@ -273,8 +273,11 @@ export default class BigQuery extends SqlIntegration {
       .map((field) => mapField(field));
   }
 
-  createTablePartitions(columns: string[]): string {
-    return bigQueryCreateTablePartitions(columns);
+  createTablePartitions(
+    columns: string[],
+    opts?: { partitionByDate?: boolean },
+  ): string {
+    return bigQueryCreateTablePartitions(columns, opts);
   }
 
   getMaxTimestampMetricSourceQuery(

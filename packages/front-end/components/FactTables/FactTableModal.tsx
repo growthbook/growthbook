@@ -16,6 +16,7 @@ import track from "@/services/track";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
+import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { usesEventName } from "@/components/Metrics/MetricForm";
@@ -70,6 +71,7 @@ export default function FactTableModal({
       managedBy: existing?.managedBy || "",
       projects: existing?.projects || [],
       autoSliceUpdatesEnabled: existing?.autoSliceUpdatesEnabled ?? false,
+      aggregatedFactTableIdTypes: existing?.aggregatedFactTableIdTypes ?? [],
     },
   });
 
@@ -151,6 +153,10 @@ export default function FactTableModal({
               managedBy: value.managedBy,
               projects: value.projects,
               autoSliceUpdatesEnabled: value.autoSliceUpdatesEnabled,
+              // Only persist id types that are still valid identifier columns
+              aggregatedFactTableIdTypes: (
+                value.aggregatedFactTableIdTypes ?? []
+              ).filter((idType) => value.userIdTypes.includes(idType)),
             };
             await apiCall(`/fact-tables/${existing.id}`, {
               method: "PUT",
@@ -297,6 +303,26 @@ export default function FactTableModal({
               setValue={(value) => {
                 form.setValue("autoSliceUpdatesEnabled", value);
               }}
+            />
+          </div>
+        )}
+
+        {hasCommercialFeature("pipeline-mode") && !!existing && (
+          <div className="mt-4">
+            <MultiSelectField
+              label="Materialize shared daily aggregated tables for"
+              helpText="A nightly job maintains a shared daily aggregated table for each selected identifier type, used to speed up CUPED. Requires the data pipeline to be configured on the data source."
+              value={(form.watch("aggregatedFactTableIdTypes") ?? []).filter(
+                (idType) => form.watch("userIdTypes").includes(idType),
+              )}
+              options={(form.watch("userIdTypes") || []).map((idType) => ({
+                value: idType,
+                label: idType,
+              }))}
+              onChange={(value) => {
+                form.setValue("aggregatedFactTableIdTypes", value);
+              }}
+              placeholder="Select identifier types..."
             />
           </div>
         )}

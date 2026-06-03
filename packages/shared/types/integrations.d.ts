@@ -407,6 +407,48 @@ export interface InsertMetricSourceCovariateDataQueryParams {
   lastCovariateSuccessfulMaxTimestamp: Date | null;
 }
 
+// ---- Shared daily aggregated fact tables (materialization only) ----
+//
+// These are daily per-id aggregates of a single fact table, one warehouse
+// table per (organization, datasource, factTable, idType). Unlike the
+// per-experiment metric-source caches above, they are not scoped to an
+// experiment or units table; rows are aggregated at the native `<idType>` +
+// `event_date` grain and appended insert-only.
+
+export interface CreateAggregatedFactTableQueryParams {
+  // The fact table being materialized.
+  factTableId: string;
+  // Native id type (a member of the fact table's userIdTypes) this table is
+  // keyed on.
+  idType: string;
+  // Fact metrics whose values are materialized (numerator side when this FT is
+  // the metric's numerator FT, denominator side when this FT is the ratio
+  // metric's denominator FT).
+  metrics: FactMetricInterface[];
+  tableFullName: string;
+}
+
+export interface InsertAggregatedFactTableDataQueryParams {
+  factTable: FactTableInterface;
+  idType: string;
+  metrics: FactMetricInterface[];
+  tableFullName: string;
+  // Lower bound on the event timestamp. For an incremental append this is the
+  // event-time watermark (lastMaxTimestamp) and `exclusiveStart` is true so we
+  // slice strictly newer events; for a full restate this is the start of the
+  // retained window and `exclusiveStart` is false.
+  windowStartDate: Date;
+  exclusiveStart: boolean;
+}
+
+export interface AggregatedFactTableMaxTimestampQueryParams {
+  tableFullName: string;
+}
+
+export interface DropAggregatedFactTableQueryParams {
+  tableFullName: string;
+}
+
 export interface IncrementalRefreshStatisticsQueryParams {
   settings: ExperimentSnapshotSettings;
   activationMetric: ExperimentMetricInterface | null;

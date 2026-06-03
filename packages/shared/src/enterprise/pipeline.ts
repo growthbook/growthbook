@@ -131,9 +131,18 @@ export function getPipelineValidationDropTableQuery({
   });
 }
 
-export function bigQueryCreateTablePartitions(columns: string[]) {
-  // TODO(incremental-refresh): Is there a way to ensure the first argument is always a date column?
-  const partitionBy = `PARTITION BY TIMESTAMP_TRUNC(\`${columns[0]}\`, HOUR)`;
+export function bigQueryCreateTablePartitions(
+  columns: string[],
+  opts?: { partitionByDate?: boolean },
+) {
+  // When the leading column is already a DATE (e.g. the aggregated fact table's
+  // `event_date`), partition on it directly. BigQuery rejects TIMESTAMP_TRUNC
+  // on a DATE column, and DATE columns are valid partition keys as-is.
+  // Otherwise treat the leading column as a TIMESTAMP and truncate to the hour.
+  // TODO(incremental-refresh): Is there a way to ensure the first argument is always a date/timestamp column?
+  const partitionBy = opts?.partitionByDate
+    ? `PARTITION BY \`${columns[0]}\``
+    : `PARTITION BY TIMESTAMP_TRUNC(\`${columns[0]}\`, HOUR)`;
 
   // NB: BigQuery only supports one column for partitioning, so use cluster for the rest.
   if (columns.length === 1) {

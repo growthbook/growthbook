@@ -16052,6 +16052,14 @@ paths:
                   type: array
                   items:
                     type: string
+                aggregatedFactTableIdTypes:
+                  description: >-
+                    Identifier types (a subset of userIdTypes) to maintain
+                    shared daily aggregated tables for. Requires the data
+                    pipeline (pipeline-mode) feature.
+                  type: array
+                  items:
+                    type: string
                 sql:
                   description: The SQL query for this fact table
                   type: string
@@ -16155,6 +16163,14 @@ paths:
                   description: >-
                     List of identifier columns in this table. For example, "id"
                     or "anonymous_id"
+                  type: array
+                  items:
+                    type: string
+                aggregatedFactTableIdTypes:
+                  description: >-
+                    Identifier types (a subset of userIdTypes) to maintain
+                    shared daily aggregated tables for. Requires the data
+                    pipeline (pipeline-mode) feature.
                   type: array
                   items:
                     type: string
@@ -16436,6 +16452,60 @@ paths:
             'https://api.growthbook.io/api/v1/fact-tables/abc123/filters/abc123'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/fact-tables/{id}/aggregated-tables/refresh:
+    post:
+      operationId: refreshAggregatedFactTable
+      summary: >-
+        Force a refresh or full restate of a fact table's shared daily
+        aggregated tables
+      tags:
+        - fact-tables
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                idType:
+                  description: >-
+                    Limit the refresh to a single id type. If omitted, all of
+                    the fact table's aggregatedFactTableIdTypes are refreshed.
+                  type: string
+                fullRestate:
+                  description: >-
+                    Drop and recreate the table, re-scanning the retained
+                    window. This is significantly more expensive than the
+                    default incremental append (it scans ~2-3 months of
+                    history).
+                  type: boolean
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  queued:
+                    description: The id types for which a materialization run was queued
+                    type: array
+                    items:
+                      type: string
+                required:
+                  - queued
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/fact-tables/abc123/aggregated-tables/refresh'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"fullRestate":false}'
   /v1/fact-metrics:
     get:
       operationId: listFactMetrics
@@ -36443,6 +36513,14 @@ components:
         datasource:
           type: string
         userIdTypes:
+          type: array
+          items:
+            type: string
+        aggregatedFactTableIdTypes:
+          description: >-
+            Identifier types (a subset of userIdTypes) to maintain shared daily
+            aggregated tables for. Requires the data pipeline (pipeline-mode)
+            feature.
           type: array
           items:
             type: string
