@@ -17,6 +17,7 @@ import { isManagedWarehouse } from "shared/util";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { applyMetricOverrides } from "back-end/src/util/integration";
+import { getMaxHoursToConvert } from "back-end/src/integrations/sql/dates/max-hours-to-convert";
 import {
   BANDIT_CUPED_FLOAT_COLS,
   BASE_METRIC_CUPED_FLOAT_COLS,
@@ -228,7 +229,17 @@ export function chunkMetrics({
   return chunks;
 }
 
-export function getFactMetricGroup(metric: FactMetricInterface) {
+export function getFactMetricGroup(
+  metric: FactMetricInterface,
+  { skipPartialData }: { skipPartialData: boolean },
+) {
+  // When `skipPartialData` is enabled, the experiment end date is pulled back to
+  // exclude users who haven't had a full conversion window to convert.
+  // Add the conversion window to the group key to keep same-window metrics grouped together
+  const conversionWindowKey = skipPartialData
+    ? `_cw${getMaxHoursToConvert(false, [metric], null)}`
+    : "";
+
   // Ratio metrics must have the same numerator and denominator fact table to be grouped
   if (isRatioMetric(metric)) {
     if (metric.numerator.factTableId !== metric.denominator?.factTableId) {
@@ -238,7 +249,7 @@ export function getFactMetricGroup(metric: FactMetricInterface) {
         metric.denominator?.factTableId,
       ].sort((a, b) => a?.localeCompare(b ?? "") ?? 0);
       return tableIds.length >= 2
-        ? `${tableIds[0]} ${tableIds[1]} (cross-table ratio metrics)`
+        ? `${tableIds[0]} ${tableIds[1]} (cross-table ratio metrics)${conversionWindowKey}`
         : metric.id;
     }
   }
@@ -247,10 +258,12 @@ export function getFactMetricGroup(metric: FactMetricInterface) {
   // and because they do not support re-aggregation across pre-computed dimensions
   if (quantileMetricType(metric)) {
     return metric.numerator.factTableId
-      ? `${metric.numerator.factTableId}_qtile`
+      ? `${metric.numerator.factTableId}_qtile${conversionWindowKey}`
       : "";
   }
-  return metric.numerator.factTableId || "";
+  return metric.numerator.factTableId
+    ? `${metric.numerator.factTableId}${conversionWindowKey}`
+    : "";
 }
 
 export interface GroupedMetrics {
@@ -287,12 +300,6 @@ export function getFactMetricGroups(
     return defaultReturn;
   }
 
-  // Metrics might have different conversion windows which makes the query complicated
-  // TODO(sql): join together metrics with the same date windows for some added efficiency
-  if (settings.skipPartialData) {
-    return defaultReturn;
-  }
-
   // Group fact metrics into efficient groups (primarily if they share a fact table)
   const groups: Record<string, FactMetricInterface[]> = {};
   factMetrics.forEach((m) => {
@@ -312,7 +319,9 @@ export function getFactMetricGroups(
       return;
     }
 
-    const group = getFactMetricGroup(m);
+    const group = getFactMetricGroup(m, {
+      skipPartialData: !!settings.skipPartialData,
+    });
     if (group) {
       groups[group] = groups[group] || [];
       groups[group].push(m);
