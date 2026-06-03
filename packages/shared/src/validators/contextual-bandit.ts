@@ -410,12 +410,150 @@ export type ApiCreateContextualBanditBody = z.infer<
   typeof apiCreateContextualBanditBody
 >;
 
-export const apiUpdateContextualBanditBody =
-  apiCreateContextualBanditBody.partial();
+/**
+ * Update body for `PUT /api/v1/contextual-bandits/:id`.
+ *
+ * Two intentional differences from a simple
+ * `apiCreateContextualBanditBody.partial()`:
+ *
+ * 1.  `variations` accepts the rich `Variation` shape (id + screenshots)
+ *     rather than the create-only stripped shape. The shared
+ *     `EditVariationsForm` modal sends full variation objects (and the
+ *     existing CB doc carries them), so the update path needs to round-
+ *     trip those fields without stripping the user's screenshots.
+ *
+ * 2.  Non-strict (`z.object`, not `z.strictObject`) and carries
+ *     `z.unknown()` slots for the experiment-edit-modal extras
+ *     (variationWeights, customMetricSlices, winner, results, analysis,
+ *     condition, savedGroups, …). These have no CB-side meaning and the
+ *     model layer ignores them, but accepting them in the body validator
+ *     keeps the shared modals reusable against the CB endpoint without
+ *     per-modal patches. Filtering happens in
+ *     `ContextualBanditModel.processApiUpdateBody`.
+ *
+ * TODO(pr-8): once CB-native edit modals replace the shared
+ * experiment ones, drop the passthrough fields and lock this back down
+ * to a strict partial of the create body.
+ */
+export const apiUpdateContextualBanditBody = z.object({
+  name: z.string().optional(),
+  description: z.string().optional(),
+  hypothesis: z.string().optional(),
+  project: z.string().optional(),
+  owner: ownerInputField.optional(),
+  tags: z.array(z.string()).optional(),
+  customFields: z.record(z.string(), z.any()).optional(),
+
+  trackingKey: z.string().optional(),
+  hashAttribute: z.string().optional(),
+  fallbackAttribute: z.string().optional(),
+  hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
+  disableStickyBucketing: z.boolean().optional(),
+
+  variations: z.array(variation).optional(),
+
+  datasource: z.string().optional(),
+  exposureQueryId: z.string().optional(),
+  segment: z.string().optional(),
+  queryFilter: z.string().optional(),
+  goalMetrics: z.array(z.string()).optional(),
+  secondaryMetrics: z.array(z.string()).optional(),
+  guardrailMetrics: z.array(z.string()).optional(),
+  activationMetric: z.string().optional(),
+  metricOverrides: z.array(metricOverride).optional(),
+  attributionModel: z.enum(attributionModel).optional(),
+  skipPartialData: z.boolean().optional(),
+  regressionAdjustmentEnabled: z.boolean().optional(),
+
+  contextualAttributes: z.array(z.string()).optional(),
+  decisionMetric: z.string().optional(),
+  maxContexts: z.number().int().positive().optional(),
+  treeModel: z.string().optional(),
+  minUsersPerLeaf: z.number().int().positive().optional(),
+  maxLeaves: z.number().int().positive().optional(),
+
+  archived: z.boolean().optional(),
+  status: z.enum(contextualBanditStatus).optional(),
+
+  // ---------------------------------------------------------------------
+  // Passthrough fields — accepted from the shared experiment-edit modals
+  // and silently discarded by `ContextualBanditModel.processApiUpdateBody`.
+  // Documented as `unknown` so the OpenAPI spec doesn't lie about the
+  // CB-side semantics (there are none) but the body validator still
+  // accepts the payload shape the modals already send. TODO(pr-8): drop
+  // once CB-native edit modals exist.
+  // ---------------------------------------------------------------------
+  /** EditVariationsForm — phase-level weights, written via /experiment/:id. */
+  variationWeights: z.unknown().optional(),
+  /** EditMetricsForm — experiment-only slice config, no CB equivalent. */
+  customMetricSlices: z.unknown().optional(),
+  /** StopExperimentForm result-summary fields. */
+  winner: z.unknown().optional(),
+  results: z.unknown().optional(),
+  analysis: z.unknown().optional(),
+  releasedVariationId: z.unknown().optional(),
+  excludeFromPayload: z.unknown().optional(),
+  /** EditTargetingModal phase-shape fields. CB phase shape diverges. */
+  condition: z.unknown().optional(),
+  savedGroups: z.unknown().optional(),
+  prerequisites: z.unknown().optional(),
+  coverage: z.unknown().optional(),
+  namespace: z.unknown().optional(),
+  seed: z.unknown().optional(),
+  bucketVersion: z.unknown().optional(),
+  minBucketVersion: z.unknown().optional(),
+  phaseDateStarted: z.unknown().optional(),
+  reseed: z.unknown().optional(),
+  changeType: z.unknown().optional(),
+  newPhase: z.unknown().optional(),
+  reseedRecommended: z.unknown().optional(),
+});
 
 export type ApiUpdateContextualBanditBody = z.infer<
   typeof apiUpdateContextualBanditBody
 >;
+
+/**
+ * The CB-shaped subset of `ApiUpdateContextualBanditBody` — what
+ * `ContextualBanditModel.processApiUpdateBody` keeps after filtering.
+ * Mirrors the fields actually persisted onto the CB doc; the rest are
+ * the modal-only passthrough slots above.
+ */
+export const CONTEXTUAL_BANDIT_API_UPDATE_FIELDS = [
+  "name",
+  "description",
+  "hypothesis",
+  "project",
+  "owner",
+  "tags",
+  "customFields",
+  "trackingKey",
+  "hashAttribute",
+  "fallbackAttribute",
+  "hashVersion",
+  "disableStickyBucketing",
+  "variations",
+  "datasource",
+  "exposureQueryId",
+  "segment",
+  "queryFilter",
+  "goalMetrics",
+  "secondaryMetrics",
+  "guardrailMetrics",
+  "activationMetric",
+  "metricOverrides",
+  "attributionModel",
+  "skipPartialData",
+  "regressionAdjustmentEnabled",
+  "contextualAttributes",
+  "decisionMetric",
+  "maxContexts",
+  "treeModel",
+  "minUsersPerLeaf",
+  "maxLeaves",
+  "archived",
+  "status",
+] as const satisfies readonly (keyof ApiUpdateContextualBanditBody)[];
 
 // ---------------------------------------------------------------------------
 // Lifecycle endpoint schemas

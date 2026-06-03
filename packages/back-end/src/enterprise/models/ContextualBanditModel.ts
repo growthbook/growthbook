@@ -1,6 +1,8 @@
 import {
   apiCreateContextualBanditBody,
+  apiUpdateContextualBanditBody,
   ApiContextualBanditInterface,
+  CONTEXTUAL_BANDIT_API_UPDATE_FIELDS,
   ContextualBanditInterface,
   contextualBanditValidator,
   ExperimentInterface,
@@ -487,6 +489,53 @@ export class ContextualBanditModel extends BaseClass {
         stddev: 0.1,
       },
     };
+  }
+
+  /**
+   * Filter the incoming update body to the CB-shape subset before it
+   * reaches `updateById`. The body validator
+   * (`apiUpdateContextualBanditBody`) intentionally accepts a number of
+   * experiment-edit-modal extras (variationWeights, customMetricSlices,
+   * winner, results, analysis, condition, savedGroups, …) so the shared
+   * modals can target the CB endpoint without per-modal patches; this
+   * override is what enforces that those extras are dropped before they
+   * land on the persisted doc.
+   *
+   * `datasource` updates also propagate to the `datasourceId` alias so
+   * the snapshot orchestrator sees a consistent value regardless of
+   * which spelling it reads.
+   *
+   * TODO(pr-8): once CB-native edit modals replace the shared
+   * experiment ones, drop the passthrough fields from the body
+   * validator and simplify this override to a straight `parse` →
+   * `_.pick` of the CB-shape keys.
+   */
+  protected async processApiUpdateBody(rawBody: unknown) {
+    const body = apiUpdateContextualBanditBody.parse(rawBody);
+    const out: Partial<ContextualBanditInterface> = {};
+    for (const field of CONTEXTUAL_BANDIT_API_UPDATE_FIELDS) {
+      if (body[field] !== undefined) {
+        // Cast through Record<string, unknown>: the SYNC_FIELDS
+        // constant is `satisfies readonly (keyof ApiUpdateContextualBanditBody)[]`
+        // so the runtime keys are known-safe, but the per-field types
+        // diverge enough that an index assignment doesn't narrow
+        // through a `for-of` loop.
+        (out as Record<string, unknown>)[field] = body[field];
+      }
+    }
+    // Keep the `datasource` / `datasourceId` aliases in lockstep — the
+    // create body only exposes one, and downstream snapshot code reads
+    // whichever spelling is present.
+    if (body.datasource !== undefined) {
+      out.datasourceId = body.datasource;
+    }
+    // `contextualAttributes` is the user-facing spelling;
+    // `targetingAttributeColumns` is the SQL-side alias. Mirror writes
+    // so the snapshot orchestrator never sees a stale value.
+    if (body.contextualAttributes !== undefined) {
+      out.targetingAttributeColumns = body.contextualAttributes;
+    }
+    return out as Parameters<typeof this.updateById>[1];
   }
 
   /**
