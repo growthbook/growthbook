@@ -1,6 +1,12 @@
 import { z } from "zod";
 import { apiBaseSchema, baseSchema } from "./base-model";
-import { attributionModel, metricOverride, variation } from "./experiments";
+import {
+  attributionModel,
+  metricOverride,
+  nextScheduledStatusUpdateValidator,
+  statusUpdateScheduleValidator,
+  variation,
+} from "./experiments";
 import { priorSettingsValidator } from "./fact-table";
 import { namedSchema } from "./openapi-helpers";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
@@ -226,6 +232,17 @@ export const contextualBanditValidator = baseSchema
     autoSnapshots: z.boolean().optional(),
     lastSnapshotAttempt: z.date().optional(),
     nextSnapshotAttempt: z.date().optional(),
+
+    // ---------------------------------------------------------------------
+    // Scheduled status transitions — used by the CB scheduled-status agenda
+    // job to start / stop a CB at a future time. Same shape as the
+    // experiment equivalents so the retry-cap and failedAttempts semantics
+    // stay consistent across model families.
+    // ---------------------------------------------------------------------
+    statusUpdateSchedule: statusUpdateScheduleValidator.optional().nullable(),
+    nextScheduledStatusUpdate: nextScheduledStatusUpdateValidator
+      .optional()
+      .nullable(),
   })
   .strict();
 
