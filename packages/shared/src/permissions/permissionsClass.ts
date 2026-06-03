@@ -314,11 +314,18 @@ export class Permissions {
     allProjects?: { id: string }[],
   ): boolean => {
     if (!project && allProjects?.length) {
-      return allProjects.some((p) =>
-        this.checkProjectFilterPermission(
-          { projects: [p.id] },
-          "manageFeatures",
-        ),
+      // Allow if the user has the permission with no project (e.g. a global
+      // admin). Checking that first means a non-creatable project (like the
+      // read-only sample-data project) can't gate the CTA when it's the only
+      // project.
+      return (
+        this.checkProjectFilterPermission({ projects: [] }, "manageFeatures") ||
+        allProjects.some((p) =>
+          this.checkProjectFilterPermission(
+            { projects: [p.id] },
+            "manageFeatures",
+          ),
+        )
       );
     }
     return this.checkProjectFilterPermission(
@@ -368,11 +375,18 @@ export class Permissions {
     allProjects?: { id: string }[],
   ): boolean => {
     if (!project && allProjects?.length) {
-      return allProjects.some((p) =>
-        this.checkProjectFilterPermission(
-          { projects: [p.id] },
-          "createAnalyses",
-        ),
+      // Allow if the user has the permission with no project (e.g. a global
+      // admin). Checking that first means a non-creatable project (like the
+      // read-only sample-data project) can't gate the CTA when it's the only
+      // project.
+      return (
+        this.checkProjectFilterPermission({ projects: [] }, "createAnalyses") ||
+        allProjects.some((p) =>
+          this.checkProjectFilterPermission(
+            { projects: [p.id] },
+            "createAnalyses",
+          ),
+        )
       );
     }
     return this.checkProjectFilterPermission(
@@ -469,11 +483,18 @@ export class Permissions {
     allProjects?: { id: string }[],
   ): boolean => {
     if (!project && allProjects?.length) {
-      return allProjects.some((p) =>
-        this.checkProjectFilterPermission(
-          { projects: [p.id] },
-          "manageTemplates",
-        ),
+      // Allow if the user has the permission with no project (e.g. a global
+      // admin). Checking that first means a non-creatable project (like the
+      // read-only sample-data project) can't gate the CTA when it's the only
+      // project.
+      return (
+        this.checkProjectFilterPermission({ projects: [] }, "manageTemplates") ||
+        allProjects.some((p) =>
+          this.checkProjectFilterPermission(
+            { projects: [p.id] },
+            "manageTemplates",
+          ),
+        )
       );
     }
     return this.checkProjectFilterPermission(

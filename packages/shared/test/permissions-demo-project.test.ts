@@ -90,6 +90,12 @@ describe("demo (sample data) project does not lock out create CTAs", () => {
     permissions.canViewExperimentModal = wrapByProjectString(
       permissions.canViewExperimentModal,
     );
+    permissions.canCreateExperimentTemplate = wrapByProject(
+      permissions.canCreateExperimentTemplate,
+    );
+    permissions.canViewExperimentTemplateModal = wrapByProjectString(
+      permissions.canViewExperimentTemplateModal,
+    );
     permissions.canCreateHoldout = wrapByProjects(permissions.canCreateHoldout);
     permissions.canViewHoldoutModal = wrapByProjectString(
       permissions.canViewHoldoutModal,
@@ -114,6 +120,11 @@ describe("demo (sample data) project does not lock out create CTAs", () => {
   it("Add Fact Table stays enabled", () => {
     const p = getAdminPermissionsForDemoOnlyOrg();
     expect(p.canViewCreateFactTableModal("", allProjects)).toBe(true);
+  });
+
+  it("Add Template stays enabled", () => {
+    const p = getAdminPermissionsForDemoOnlyOrg();
+    expect(p.canViewExperimentTemplateModal("", allProjects)).toBe(true);
   });
 
   it("Add Feature stays enabled (canViewFeatureModal + global-first create check)", () => {
