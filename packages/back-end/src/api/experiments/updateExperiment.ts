@@ -52,6 +52,21 @@ export const updateExperiment = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
+  // Block transitions into the CB type via the experiment REST API. The
+  // CB-native /api/v1/contextual-bandits surface is the only supported
+  // path for CB authoring as of the decoupling work — see postExperiment
+  // for the symmetric guard on create. Existing CB-typed experiments
+  // remain readable here until PR-8's migration completes and we drop
+  // the "contextual-bandit" enum value entirely.
+  if (
+    req.body.type === "contextual-bandit" &&
+    experiment.type !== "contextual-bandit"
+  ) {
+    throw new Error(
+      "Cannot set type=contextual-bandit via the /experiments endpoint. " +
+        "Use POST /api/v1/contextual-bandits to create a Contextual Bandit.",
+    );
+  }
   const effectiveType = req.body.type ?? experiment.type;
   if (
     effectiveType === "contextual-bandit" &&

@@ -129,12 +129,15 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       req.context.permissions.throwPermissionError();
     }
 
-    if (
-      payload.type === "contextual-bandit" &&
-      !req.context.hasPremiumFeature("contextual-bandits")
-    ) {
-      req.context.throwPlanDoesNotAllowError(
-        "Contextual Bandits require an Enterprise plan.",
+    // Contextual Bandits must be authored via POST /api/v1/contextual-bandits
+    // (PR-4). The experiment REST API stopped accepting CB-typed experiments
+    // as part of the experiment-decoupling work — the legacy /experiments
+    // path created a parent Experiment + a paired CB doc, which is exactly
+    // the indirection the decoupling project removed.
+    if (payload.type === "contextual-bandit") {
+      throw new Error(
+        "Use POST /api/v1/contextual-bandits to create a Contextual Bandit. " +
+          "The /experiments endpoint no longer accepts type=contextual-bandit.",
       );
     }
 
