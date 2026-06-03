@@ -16,7 +16,7 @@ import SortedTags from "@/components/Tags/SortedTags";
 import { tagFilterOnClick, tagLinkProps } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import Switch from "@/ui/Switch";
-import { useExperiments } from "@/hooks/useExperiments";
+import { useContextualBandits } from "@/hooks/useContextualBandits";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import TagsFilter, {
   filterByTags,
@@ -45,12 +45,18 @@ const ContextualBanditsPage = (): React.ReactElement => {
     [],
   );
 
+  // PR-6 start: source the list from the CB REST API instead of the
+  // generic `useExperiments(type="contextual-bandit")` path. The hook
+  // also returns an experiment-shaped projection so the existing
+  // `useExperimentSearch` + `ComputedExperimentInterface` machinery
+  // below keeps working unchanged until the rest of PR-6 forks the
+  // search hook.
   const {
     experiments: allExperiments,
     error,
     loading,
     hasArchived,
-  } = useExperiments(project, tabs.includes("archived"), "contextual-bandit");
+  } = useContextualBandits(project, tabs.includes("archived"));
 
   const tagsFilter = useTagsFilter("contextual-bandits");
   const [showMineOnly, setShowMineOnly] = useLocalStorage(
