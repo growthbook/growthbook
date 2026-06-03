@@ -1,4 +1,11 @@
-import React, { ReactNode, useEffect, useRef, useState } from "react";
+import React, {
+  ReactNode,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
 import {
   PiPencil,
@@ -124,6 +131,23 @@ export default function RevisionStatusPanel({
     setBannerPinned(bannerRef.current.getBoundingClientRect().top <= 110);
   }, [scrollY]);
 
+  // Two slot refs and a persistent host: the action buttons live in the host
+  // and the host is DOM-moved between the panel slot and the banner slot when
+  // the banner becomes pinned. Mirrors the FeaturesOverview portal pattern.
+  const ctaSlotRef = useRef<HTMLDivElement>(null);
+  const bannerCtaSlotRef = useRef<HTMLDivElement>(null);
+  const [draftCtaPortalHost] = useState<HTMLDivElement | null>(() => {
+    if (typeof document === "undefined") return null;
+    const div = document.createElement("div");
+    div.style.display = "contents";
+    return div;
+  });
+  useLayoutEffect(() => {
+    if (!draftCtaPortalHost) return;
+    const target = bannerPinned ? bannerCtaSlotRef.current : ctaSlotRef.current;
+    if (target) target.appendChild(draftCtaPortalHost);
+  });
+
   useEffect(() => {
     setEditingTitle(false);
     setTitleDraft(selectedRevision?.title || "");
@@ -248,7 +272,8 @@ export default function RevisionStatusPanel({
             position: "sticky",
             top: 110,
             zIndex: 920,
-            marginBottom: 12,
+            marginTop: 16,
+            marginBottom: 16,
             display: "flex",
             justifyContent: "center",
             pointerEvents: "none",
@@ -260,28 +285,45 @@ export default function RevisionStatusPanel({
               backgroundColor: "var(--color-background)",
               borderRadius: "var(--radius-3)",
               overflow: "hidden",
-              maxWidth: bannerPinned ? "580px" : "2000px",
+              maxWidth: bannerPinned ? 1280 : 2000,
               boxShadow: bannerPinned ? "var(--shadow-3)" : undefined,
               transition: "all 200ms ease",
               pointerEvents: "auto",
             }}
           >
-            <Flex
-              align="center"
-              justify="center"
-              gap="2"
+            <Box
               px="4"
               py="3"
               style={{
                 color: bannerProps.color,
                 backgroundColor: bannerProps.bgColor,
+                display: "grid",
+                gridTemplateColumns: "1fr auto 1fr",
+                alignItems: "center",
+                gap: "12px",
               }}
             >
-              {bannerProps.icon}
-              <span style={{ fontSize: "var(--font-size-2)" }}>
-                {bannerProps.message}
-              </span>
-            </Flex>
+              <span />
+              <Flex
+                align="center"
+                justify="center"
+                gap="2"
+                style={{ gridColumn: 2 }}
+              >
+                {bannerProps.icon}
+                <span style={{ fontSize: "var(--font-size-2)" }}>
+                  {bannerProps.message}
+                </span>
+              </Flex>
+              <Flex
+                align="center"
+                gap="2"
+                justify="end"
+                style={{ flexShrink: 0, gridColumn: 3 }}
+              >
+                <div ref={bannerCtaSlotRef} />
+              </Flex>
+            </Box>
           </div>
         </div>
       )}
@@ -380,7 +422,7 @@ export default function RevisionStatusPanel({
             )}
           </Flex>
           <Flex align="center" justify="end" gap="4" flexGrow="1">
-            {actions}
+            <div ref={ctaSlotRef} />
           </Flex>
         </Flex>
         <Separator size="4" my="3" />
@@ -453,6 +495,9 @@ export default function RevisionStatusPanel({
             })()}
         </Flex>
       </Frame>
+      {/* Portal: renders actions into whichever slot is active
+          (ctaSlotRef in the panel, or bannerCtaSlotRef when the banner is pinned). */}
+      {draftCtaPortalHost && createPortal(actions, draftCtaPortalHost)}
     </>
   );
 }

@@ -5,6 +5,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { validateListSize } from "back-end/src/routers/saved-group/saved-group.controller";
 import { BadRequestError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
+import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 
 export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
   async (req) => {
@@ -48,7 +49,7 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
       // Scope the bypass permission to the *target* projects so a caller with
       // bypass in some projects can't create one in projects they can't bypass.
       const canBypass =
-        !!req.organization.settings?.restApiBypassesReviews ||
+        canUseRestApiBypassSetting(req) ||
         adapter.canBypassApproval(req.context, {
           projects: projects ?? [],
         } as Parameters<typeof adapter.canBypassApproval>[1]);

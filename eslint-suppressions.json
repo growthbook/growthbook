@@ -645,9 +645,9 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Features/SDKConnections/ConnectionStatus.tsx": {
-    "local/no-alert-classname": {
-      "count": 2
+  "packages/front-end/components/Features/SDKConnections/CompareSDKConnectionRevisionsModal.tsx": {
+    "no-restricted-imports": {
+      "count": 1
     }
   },
   "packages/front-end/components/Features/SDKConnections/InitialSDKConnectionForm.tsx": {
@@ -659,6 +659,11 @@
     "local/no-alert-classname": {
       "count": 2
     },
+    "no-restricted-imports": {
+      "count": 1
+    }
+  },
+  "packages/front-end/components/Features/SDKConnections/SDKConnectionArchiveModal.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -1855,6 +1860,11 @@
       "count": 3
     }
   },
+  "packages/front-end/pages/sdks/[sdkid].tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    }
+  },
   "packages/front-end/pages/sdks/index.tsx": {
     "local/no-alert-classname": {
       "count": 1
@@ -1896,16 +1906,6 @@
     },
     "no-restricted-imports": {
       "count": 1
-    }
-  },
-  "packages/sdk-js/rollup.config.mjs": {
-    "prettier/prettier": {
-      "count": 1
-    }
-  },
-  "packages/sdk-react/rollup.config.mjs": {
-    "prettier/prettier": {
-      "count": 2
     }
   }
 }

@@ -6,7 +6,7 @@ import { PiClockClockwise } from "react-icons/pi";
 import { datetime } from "shared/dates";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
-import Modal from "@/ui/Modal";
+import Modal from "@/components/Modal";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
 import Checkbox from "@/ui/Checkbox";

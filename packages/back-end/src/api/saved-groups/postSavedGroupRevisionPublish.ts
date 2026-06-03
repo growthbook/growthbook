@@ -12,6 +12,7 @@ import {
 } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
 import { buildMergeDesiredState } from "back-end/src/revisions/util";
+import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import { loadRevisionByVersion } from "./validations";
 import { toApiSavedGroupRevision } from "./toApiSavedGroupRevision";
 
@@ -56,7 +57,7 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
   // Bypass via either the org-wide `restApiBypassesReviews` flag or per-user
   // bypass permission. Mirrors postFeatureRevisionPublish.ts.
   const canBypass =
-    !!req.organization.settings?.restApiBypassesReviews ||
+    canUseRestApiBypassSetting(req) ||
     adapter.canBypassApproval(
       req.context,
       savedGroup as Record<string, unknown>,

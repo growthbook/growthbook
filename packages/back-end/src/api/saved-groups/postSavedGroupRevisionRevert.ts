@@ -13,6 +13,7 @@ import {
   createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
+import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 import { loadRevisionByVersion } from "./validations";
 import { toApiSavedGroupRevision } from "./toApiSavedGroupRevision";
 
@@ -106,7 +107,7 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
         } as unknown as Revision)
       : adapter.isApprovalRequired(req.context);
     canBypass =
-      !!req.organization.settings?.restApiBypassesReviews ||
+      canUseRestApiBypassSetting(req) ||
       adapter.canBypassApproval(
         req.context,
         savedGroup as Record<string, unknown>,

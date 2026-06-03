@@ -12,6 +12,7 @@ import {
   buildPatchOps,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
+import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 
 export const updateSavedGroup = createApiRequestHandler(
   updateSavedGroupValidator,
@@ -127,7 +128,7 @@ export const updateSavedGroup = createApiRequestHandler(
     // Scope the bypass permission to the *existing* group's projects so a
     // `projects` move can't be paired with bypass-merge to launder a permission gap.
     const canBypass =
-      !!req.organization.settings?.restApiBypassesReviews ||
+      canUseRestApiBypassSetting(req) ||
       adapter.canBypassApproval(
         req.context,
         savedGroup as Parameters<typeof adapter.canBypassApproval>[1],

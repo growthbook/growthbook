@@ -51,7 +51,7 @@ const VerifyConnectionPage = ({
   const { refreshOrganization, organization } = useUser();
   const settings = useOrgSettings();
   const attributeSchema = useAttributeSchema();
-  const { data, error, mutate } = useSDKConnections();
+  const { data, error } = useSDKConnections();
 
   const currentConnection: SDKConnectionInterface | null =
     data?.connections.find((c) => c.id === connection) || null;
@@ -123,7 +123,6 @@ const VerifyConnectionPage = ({
             }
             goToNextStep();
           }}
-          mutate={mutate}
           showModalClose
         />
       )}

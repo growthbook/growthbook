@@ -25,7 +25,7 @@ import Button from "@/ui/Button";
 import { capitalizeFirstLetter } from "@/services/utils";
 import Callout from "@/ui/Callout";
 import SDKLanguageLogo from "./SDKLanguageLogo";
-import SDKConnectionForm from "./SDKConnectionForm";
+import CreateSDKConnectionModal from "./CreateSDKConnectionModal";
 
 export default function SDKConnectionsList() {
   const { data, mutate, error } = useSDKConnections();
@@ -53,17 +53,12 @@ export default function SDKConnectionsList() {
   return (
     <div>
       {modalOpen && (
-        <SDKConnectionForm
-          initialValue={{
-            languages: [],
-            includeRuleIds: true,
-          }}
+        <CreateSDKConnectionModal
           close={() => setModalOpen(false)}
           mutate={() => {
             mutate();
             mutateWebhooks();
           }}
-          edit={false}
         />
       )}
 

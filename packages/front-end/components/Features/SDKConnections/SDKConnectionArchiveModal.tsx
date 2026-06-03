@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Revision, getSdkConnectionApprovalRule } from "shared/enterprise";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import Modal from "@/ui/Modal";
+import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";

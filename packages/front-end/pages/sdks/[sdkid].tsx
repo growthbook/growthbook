@@ -2,9 +2,13 @@ import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { SDKConnectionRevisionSnapshot } from "shared/validators";
 import { useRouter } from "next/router";
 import React, { useEffect, useMemo, useState } from "react";
-import { FaInfoCircle } from "react-icons/fa";
-import { BsLightningFill, BsThreeDotsVertical } from "react-icons/bs";
-import { Flex, IconButton } from "@radix-ui/themes";
+import {
+  PiGitDiff,
+  PiCaretDown,
+  PiCaretRight,
+  PiDotsThreeVertical,
+} from "react-icons/pi";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   Revision,
   applyTopLevelPatchOps,
@@ -20,19 +24,23 @@ import CompareSDKConnectionRevisionsModal from "@/components/Features/SDKConnect
 import CodeSnippetModal from "@/components/Features/CodeSnippetModal";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useSDKConnectionRevision } from "@/hooks/useSDKConnectionRevision";
-import { isCloud } from "@/services/env";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import PageHead from "@/components/Layout/PageHead";
 import SdkWebhooks from "@/components/Features/SDKConnections/SdkWebhooks";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
-import ConnectionDiagram from "@/components/Features/SDKConnections/ConnectionDiagram";
+import ConnectionDiagram, {
+  SDKConnectionEditSection,
+} from "@/components/Features/SDKConnections/ConnectionDiagram";
+import SDKConnectionCredentialsCard from "@/components/Features/SDKConnections/SDKConnectionCredentialsCard";
+import EditSDKOverviewModal from "@/components/Features/SDKConnections/edit-modals/EditSDKOverviewModal";
+import EditSDKSettingsModal from "@/components/Features/SDKConnections/edit-modals/EditSDKSettingsModal";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
-import Modal from "@/ui/Modal";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
+import Modal from "@/components/Modal";
 import RevisionDropdown from "@/components/Revision/RevisionDropdown";
 import RevisionDetail from "@/components/Revision/RevisionDetail";
 import RevisionStatusPanel from "@/components/Revision/RevisionStatusPanel";
@@ -58,22 +66,17 @@ function flattenConnection(
   };
 }
 
-// Build the edit form's initialValue from the live connection overlaid with a
-// draft's proposed (flattened) changes. Flattened proxy keys are mapped back
-// onto the nested `proxy` object the form reads from.
-function buildEditInitialValue(
+// Overlay a flattened snapshot-shaped object onto a live connection. Flattened
+// proxy keys (proxyEnabled/proxyHost) are mapped back onto the nested `proxy`
+// object that SDKConnectionInterface uses.
+function overlayFlattenedOnConnection(
   connection: SDKConnectionInterface,
-  revision: Revision | null,
-): Partial<SDKConnectionInterface> {
-  if (!revision) return connection;
-  const proposed = patchOpsToPartial(revision.target.proposedChanges) as Record<
-    string,
-    unknown
-  >;
+  flattened: Record<string, unknown>,
+): SDKConnectionInterface {
   const next: SDKConnectionInterface = { ...connection };
   const proxy = { ...connection.proxy };
   let proxyTouched = false;
-  for (const [key, value] of Object.entries(proposed)) {
+  for (const [key, value] of Object.entries(flattened)) {
     if (key === "proxyEnabled") {
       proxy.enabled = value as boolean;
       proxyTouched = true;
@@ -86,6 +89,36 @@ function buildEditInitialValue(
   }
   if (proxyTouched) next.proxy = proxy;
   return next;
+}
+
+// Build the edit form's initialValue from the live connection overlaid with a
+// draft's proposed (flattened) changes.
+function buildEditInitialValue(
+  connection: SDKConnectionInterface,
+  revision: Revision | null,
+): Partial<SDKConnectionInterface> {
+  if (!revision) return connection;
+  const proposed = patchOpsToPartial(revision.target.proposedChanges) as Record<
+    string,
+    unknown
+  >;
+  return overlayFlattenedOnConnection(connection, proposed);
+}
+
+// Build the connection shape that represents the revision's effective state
+// (snapshot + proposed changes), overlaid on the live connection so secret /
+// system fields excluded from the snapshot (key, encryptionKey, connected,
+// managedBy, proxy signing key) are preserved.
+function buildDisplayedConnection(
+  connection: SDKConnectionInterface,
+  revision: Revision | null,
+): SDKConnectionInterface {
+  if (!revision) return connection;
+  const effective = applyTopLevelPatchOps(
+    revision.target.snapshot as Record<string, unknown>,
+    revision.target.proposedChanges,
+  ) as Record<string, unknown>;
+  return overlayFlattenedOnConnection(connection, effective);
 }
 
 export default function SDKConnectionPage() {
@@ -105,8 +138,16 @@ export default function SDKConnectionPage() {
   }>({ mode: "closed" });
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showChangesModal, setShowChangesModal] = useState(false);
+  const [confirmNewDraft, setConfirmNewDraft] = useState(false);
+  const [creatingDraft, setCreatingDraft] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showCompareModal, setShowCompareModal] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>("overview");
+  const [instructionsOpen, setInstructionsOpen] = useState<boolean | null>(
+    null,
+  );
+  const [editSection, setEditSection] =
+    useState<SDKConnectionEditSection | null>(null);
 
   const connection: SDKConnectionInterface | undefined =
     data?.connections?.find((conn) => conn.id === sdkid);
@@ -153,6 +194,7 @@ export default function SDKConnectionPage() {
       selectedRevision.status === "approved");
   const isDiscarded =
     selectedRevision && selectedRevision.status === "discarded";
+  const isLive = !selectedRevision;
   const hasRevisions = allRevisions.length > 0;
 
   // Per-revision approval gate: a metadata-only revision (name only) can be
@@ -207,15 +249,14 @@ export default function SDKConnectionPage() {
     return getNumber(displayRevision);
   }, [selectedRevision, userOpenRevision, displayRevision, allRevisions]);
 
-  // The proposed state of the selected revision (flattened) — used for the
-  // draft-aware title / Archived badge in the header.
-  const displayed = useMemo(() => {
-    if (!selectedRevision) return null;
-    return applyTopLevelPatchOps(
-      selectedRevision.target.snapshot as Record<string, unknown>,
-      selectedRevision.target.proposedChanges,
-    ) as { name?: string; archived?: boolean };
-  }, [selectedRevision]);
+  // The connection shape representing the selected revision's effective state
+  // (snapshot + proposed changes), overlaid on the live connection so secret
+  // fields stay intact. Falls back to the live connection when nothing is
+  // selected. Used to drive the page's visual representation.
+  const displayedConnection = useMemo(() => {
+    if (!connection) return undefined;
+    return buildDisplayedConnection(connection, selectedRevision ?? null);
+  }, [connection, selectedRevision]);
 
   const liveSnapshot = useMemo(
     () => (connection ? flattenConnection(connection) : undefined),
@@ -259,12 +300,9 @@ export default function SDKConnectionPage() {
     !connection.managedBy?.type;
   const isExternallyManaged = !!connection.managedBy?.type;
 
-  const displayedName = displayed?.name ?? connection.name;
-  const displayedArchived = selectedRevision
-    ? !!displayed?.archived
-    : !!connection.archived;
-
-  const hasProxy = connection.proxy?.enabled;
+  const displayedConn = displayedConnection ?? connection;
+  const displayedName = displayedConn.name;
+  const displayedArchived = !!displayedConn.archived;
 
   // Whether to surface revision/approval UI. Without the feature, edits just
   // auto-publish and the page behaves as before (minus archive-then-delete).
@@ -278,6 +316,12 @@ export default function SDKConnectionPage() {
         : connection,
     });
   };
+
+  // Per-section edit modal routing. Each section opens its dedicated modal.
+  const openEditSection = (section: SDKConnectionEditSection) => {
+    setEditSection(section);
+  };
+  const closeEditSection = () => setEditSection(null);
 
   return (
     <div className="contents container pagecontents">
@@ -358,6 +402,41 @@ export default function SDKConnectionPage() {
         />
       )}
 
+      {confirmNewDraft && (
+        <Modal
+          trackingEventModalType="create-new-sdk-connection-draft"
+          open={true}
+          close={() => setConfirmNewDraft(false)}
+          header="Create New Draft"
+          cta="Create Draft"
+          loading={creatingDraft}
+          useRadixButton={true}
+          submit={async () => {
+            setCreatingDraft(true);
+            try {
+              const res = await apiCall<{
+                status: number;
+                requiresApproval?: boolean;
+                revision?: Revision;
+              }>(`/sdk-connections/${connection.id}?forceCreateRevision=1`, {
+                method: "PUT",
+                body: JSON.stringify({}),
+              });
+              if (res?.revision) {
+                await Promise.all([mutateRevisions(), mutate()]);
+                selectFlow(res.revision);
+              }
+              setConfirmNewDraft(false);
+            } finally {
+              setCreatingDraft(false);
+            }
+          }}
+        >
+          Create a new draft to make changes to this SDK connection. The live
+          version stays unchanged until the draft is published.
+        </Modal>
+      )}
+
       <PageHead
         breadcrumb={[
           { display: "SDK Connections", href: "/sdks" },
@@ -383,7 +462,7 @@ export default function SDKConnectionPage() {
           {displayedArchived && <Badge label="Archived" color="gray" />}
         </Flex>
         <Flex align="center" gap="4" pr="2">
-          {showRevisionUI && (
+          {showRevisionUI && activeTab === "overview" && (
             <RevisionDropdown
               entityId={connection.id}
               allRevisions={allRevisions}
@@ -406,7 +485,7 @@ export default function SDKConnectionPage() {
                   size="2"
                   highContrast
                 >
-                  <BsThreeDotsVertical size={16} />
+                  <PiDotsThreeVertical size={16} />
                 </IconButton>
               }
               menuPlacement="end"
@@ -422,19 +501,6 @@ export default function SDKConnectionPage() {
                 >
                   Edit
                 </DropdownMenuItem>
-              )}
-              {showRevisionUI && allRevisions.length > 1 && (
-                <>
-                  {canUpdate && <DropdownMenuSeparator />}
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setShowCompareModal(true);
-                      setDropdownOpen(false);
-                    }}
-                  >
-                    Compare versions
-                  </DropdownMenuItem>
-                </>
               )}
               {canDuplicate && (
                 <>
@@ -491,103 +557,209 @@ export default function SDKConnectionPage() {
         </Flex>
       </Flex>
 
-      {showRevisionUI && (
-        <RevisionStatusPanel
-          entityNoun="SDK connection"
-          allRevisions={allRevisions}
-          selectedRevision={selectedRevision}
-          displayRevision={displayRevision}
-          revisionNumber={revisionNumber}
-          metadataReviewRequired={metadataReviewRequired}
-          currentUserId={user?.id}
-          fallbackAuthorId=""
-          fallbackCreatedDate={connection.dateCreated}
-          selectFlow={selectFlow}
-          onSaveTitle={saveRevisionTitle}
-          actions={
-            <>
-              {isDiscarded && displayRevision && (
+      <Tabs value={activeTab} onValueChange={setActiveTab} mt="4">
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="webhooks">Webhooks</TabsTrigger>
+        </TabsList>
+        <TabsContent value="overview">
+          {showRevisionUI && (
+            <RevisionStatusPanel
+              entityNoun="SDK connection"
+              allRevisions={allRevisions}
+              selectedRevision={selectedRevision}
+              displayRevision={displayRevision}
+              revisionNumber={revisionNumber}
+              metadataReviewRequired={metadataReviewRequired}
+              currentUserId={user?.id}
+              fallbackAuthorId=""
+              fallbackCreatedDate={connection.dateCreated}
+              selectFlow={selectFlow}
+              onSaveTitle={saveRevisionTitle}
+              titleRowExtra={
                 <Button
-                  onClick={() => handleReopen(displayRevision.id)}
+                  variant="ghost"
                   size="sm"
+                  icon={<PiGitDiff />}
+                  onClick={() => setShowCompareModal(true)}
+                  style={{ position: "relative", top: -5 }}
                 >
-                  Reopen
+                  Compare revisions
                 </Button>
-              )}
-              {isDraft &&
-                displayRevision &&
-                displayRevision.authorId === user?.id && (
-                  <Button
-                    onClick={async () => {
-                      await handleDiscard(displayRevision.id);
+              }
+              actions={
+                <>
+                  {isLive && canUpdate && (
+                    <Button
+                      onClick={() => setConfirmNewDraft(true)}
+                      size="sm"
+                      variant="soft"
+                    >
+                      New Draft
+                    </Button>
+                  )}
+                  {isDiscarded && displayRevision && (
+                    <Button
+                      onClick={() => handleReopen(displayRevision.id)}
+                      size="sm"
+                    >
+                      Reopen
+                    </Button>
+                  )}
+                  {isDraft &&
+                    displayRevision &&
+                    displayRevision.authorId === user?.id && (
+                      <Button
+                        onClick={async () => {
+                          await handleDiscard(displayRevision.id);
+                        }}
+                        color="red"
+                        variant="ghost"
+                        size="sm"
+                      >
+                        Discard
+                      </Button>
+                    )}
+                  {isDraft && (
+                    <Button onClick={() => setShowChangesModal(true)} size="sm">
+                      {selectedRevisionRequiresApproval
+                        ? selectedRevision?.status === "draft"
+                          ? "Request Approval to Publish"
+                          : selectedRevision?.status === "pending-review"
+                            ? "View Approval Request"
+                            : "View Changes"
+                        : "Review & Publish"}
+                    </Button>
+                  )}
+                </>
+              }
+            />
+          )}
+
+          <div className="mt-4">
+            <ConnectionDiagram
+              connection={displayedConn}
+              canUpdate={canUpdate}
+              showConnectionTitle={true}
+              onEdit={openEditForm}
+              onEditSection={openEditSection}
+            />
+            {editSection === "overview" && (
+              <EditSDKOverviewModal
+                connection={displayedConn}
+                close={closeEditSection}
+                mutate={mutate}
+                {...(hasApprovalsFeature
+                  ? {
+                      onRevisionCreated,
+                      openRevisions,
+                      allRevisions,
+                      selectedRevision,
+                      onSelectRevision: selectFlow,
+                      approvalRequired,
+                      canAutoPublish,
+                      metadataReviewRequired,
+                    }
+                  : {})}
+              />
+            )}
+            {editSection === "settings" && (
+              <EditSDKSettingsModal
+                connection={displayedConn}
+                close={closeEditSection}
+                mutate={mutate}
+                {...(hasApprovalsFeature
+                  ? {
+                      onRevisionCreated,
+                      openRevisions,
+                      allRevisions,
+                      selectedRevision,
+                      onSelectRevision: selectFlow,
+                      approvalRequired,
+                      canAutoPublish,
+                      metadataReviewRequired,
+                    }
+                  : {})}
+              />
+            )}
+          </div>
+          <div className="mt-4">
+            <SDKConnectionCredentialsCard connection={displayedConn} />
+          </div>
+          <div className="mt-5">
+            {(() => {
+              const isOpen =
+                instructionsOpen === null
+                  ? !connection.connected
+                  : instructionsOpen;
+              return (
+                <Box
+                  style={{
+                    border: "1px solid var(--gray-a5)",
+                    borderRadius: 10,
+                    background: "var(--color-panel-solid)",
+                    overflow: "hidden",
+                  }}
+                >
+                  <Flex
+                    align="center"
+                    justify="between"
+                    gap="2"
+                    px="4"
+                    py="3"
+                    onClick={() => setInstructionsOpen(!isOpen)}
+                    style={{
+                      cursor: "pointer",
+                      borderBottom: isOpen
+                        ? "1px dashed var(--gray-a5)"
+                        : "none",
                     }}
-                    color="red"
-                    variant="ghost"
-                    size="sm"
                   >
-                    Discard
-                  </Button>
-                )}
-              {isDraft && (
-                <Button onClick={() => setShowChangesModal(true)} size="sm">
-                  {selectedRevisionRequiresApproval
-                    ? selectedRevision?.status === "draft"
-                      ? "Request Approval to Publish"
-                      : selectedRevision?.status === "pending-review"
-                        ? "View Approval Request"
-                        : "View Changes"
-                    : "Review & Publish"}
-                </Button>
-              )}
-            </>
-          }
-        />
-      )}
-
-      <ConnectionDiagram
-        connection={connection}
-        mutate={mutate}
-        canUpdate={canUpdate}
-        showConnectionTitle={true}
-      />
-
-      <div className="row mb-3 align-items-center">
-        <div className="flex-1"></div>
-        <div className="col-auto">
-          <Tooltip
-            body={
-              <div style={{ lineHeight: 1.5 }}>
-                <p className="mb-0">
-                  <BsLightningFill className="text-warning" />
-                  <strong>Streaming Updates</strong> allow you to instantly
-                  update any subscribed SDKs when you make any feature changes
-                  in GrowthBook. For front-end SDKs, active users will see the
-                  changes immediately without having to refresh the page.
-                </p>
-              </div>
-            }
-          >
-            <BsLightningFill className="text-warning" />
-            Streaming Updates:{" "}
-            <strong>{isCloud() || hasProxy ? "Enabled" : "Disabled"}</strong>
-            <div
-              className="text-right text-muted"
-              style={{ fontSize: "0.75rem" }}
-            >
-              What is this? <FaInfoCircle />
-            </div>
-          </Tooltip>
-        </div>
-      </div>
-      <SdkWebhooks connection={connection} />
-      <div className="mt-4">
-        <CodeSnippetModal
-          connections={data.connections}
-          mutateConnections={mutate}
-          sdkConnection={connection}
-          inline={true}
-        />
-      </div>
+                    <Flex align="center" gap="3">
+                      <h2 className="mb-0" style={{ fontSize: 17 }}>
+                        Setup instructions
+                      </h2>
+                    </Flex>
+                    <IconButton
+                      variant="ghost"
+                      color="gray"
+                      radius="full"
+                      size="2"
+                      highContrast
+                      aria-label={
+                        isOpen ? "Collapse instructions" : "Expand instructions"
+                      }
+                    >
+                      {isOpen ? (
+                        <PiCaretDown size={16} />
+                      ) : (
+                        <PiCaretRight size={16} />
+                      )}
+                    </IconButton>
+                  </Flex>
+                  {isOpen && (
+                    <Box px="4" py="4">
+                      <CodeSnippetModal
+                        connections={data.connections.map((c) =>
+                          c.id === displayedConn.id ? displayedConn : c,
+                        )}
+                        mutateConnections={mutate}
+                        sdkConnection={displayedConn}
+                        inline={true}
+                      />
+                    </Box>
+                  )}
+                </Box>
+              );
+            })()}
+          </div>
+        </TabsContent>
+        <TabsContent value="webhooks">
+          <div className="mt-4">
+            <SdkWebhooks connection={connection} />
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
