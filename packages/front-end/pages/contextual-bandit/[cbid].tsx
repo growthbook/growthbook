@@ -1,25 +1,22 @@
 import { useRouter } from "next/router";
-import {
-  ExperimentInterfaceStringDates,
-  LinkedChangeEnvStates,
-  LinkedFeatureInfo,
-} from "shared/types/experiment";
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import { URLRedirectInterface } from "shared/types/url-redirect";
-import React, { ReactElement, useEffect, useState } from "react";
-import { IdeaInterface } from "shared/types/idea";
+import React, { ReactElement, useMemo, useState } from "react";
 import { includeExperimentInPayload } from "shared/util";
-import useApi from "@/hooks/useApi";
-import { useContextualBanditByExperiment } from "@/hooks/useContextualBandits";
+import {
+  useContextualBandit,
+  useContextualBanditByExperiment,
+} from "@/hooks/useContextualBandits";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
+import { useUser } from "@/services/UserContext";
+import { useAuth } from "@/services/auth";
+import { useEnvironments } from "@/services/features";
+import { contextualBanditToExperimentShape } from "@/services/contextualBanditAsExperiment";
 import EditMetricsForm from "@/components/Experiment/EditMetricsForm";
 import StopExperimentForm from "@/components/Experiment/StopExperimentForm";
 import EditVariationsForm from "@/components/Experiment/EditVariationsForm";
 import ContextualBanditForm from "@/enterprise/components/ContextualBandit/ContextualBanditForm";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
 import EditProjectForm from "@/components/Experiment/EditProjectForm";
-import { useAuth } from "@/services/auth";
 import SnapshotProvider from "@/components/Experiment/SnapshotProvider";
 import NewPhaseForm from "@/components/Experiment/NewPhaseForm";
 import EditPhasesModal from "@/components/Experiment/EditPhasesModal";
@@ -31,33 +28,25 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
-import { useUser } from "@/services/UserContext";
 
-/**
- * Defensive warning when the underlying CB-typed experiment isn't paired
- * with a CB doc. Should be vacuously true once PR-8's migration has run;
- * dropped alongside the experiment-id URL scheme.
- */
-function CbPairCheck({ experimentId }: { experimentId: string }): ReactElement {
-  const cb = useContextualBanditByExperiment(experimentId);
-  if (cb) return <></>;
-  return (
-    <Callout status="warning" mb="3">
-      No Contextual Bandit doc is paired with this experiment. Results, weights,
-      and start/stop actions may not behave as expected. Run the CB-decoupling
-      migration (
-      <code>pnpm --filter back-end migrate-cb-decoupling --apply</code>) or
-      re-create the CB to repair the pairing.
-    </Callout>
-  );
+// Heuristic for distinguishing CB-native ids (`cb_…`) from experiment
+// ids during the decoupling window. The detail-page URL is still keyed
+// by experiment id on existing list links (PR-8 will switch the list
+// page to link by CB id); new creates write the experiment id into the
+// URL too — see `ContextualBanditForm.onSubmit`. Either kind of id
+// resolves to the same CB doc via the two hooks below.
+function looksLikeCbId(id: string): boolean {
+  return id.startsWith("cb_");
 }
 
 const ContextualBanditExperimentPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
   const router = useRouter();
   const { cbid } = router.query;
-  const { hasCommercialFeature } = useUser();
+  const { organization, hasCommercialFeature } = useUser();
   const hasContextualBanditFeature = hasCommercialFeature("contextual-bandits");
+  const environments = useEnvironments();
+  const { apiCall } = useAuth();
 
   const [stopModalOpen, setStopModalOpen] = useState(false);
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
@@ -74,49 +63,36 @@ const ContextualBanditExperimentPage = (): ReactElement => {
   >(null);
   const [checklistHardBlockerCount, setChecklistHardBlockerCount] = useState(0);
 
-  const { data, error, mutate } = useApi<{
-    experiment: ExperimentInterfaceStringDates;
-    idea?: IdeaInterface;
-    visualChangesets: VisualChangesetInterface[];
-    linkedFeatures: LinkedFeatureInfo[];
-    envs: string[];
-    urlRedirects: URLRedirectInterface[];
-    visualChangesetEnvStates?: LinkedChangeEnvStates;
-    urlRedirectEnvStates?: LinkedChangeEnvStates;
-  }>(`/experiment/${cbid}`);
+  // Two parallel resolvers — the URL parameter could be either a CB id
+  // (post-PR-8 links) or an experiment id (current list-page links and
+  // freshly created CBs that navigate via `experiment` FK). The hooks'
+  // `shouldRun` gates keep the unused branch idle.
+  const rawId = typeof cbid === "string" ? cbid : "";
+  const isCbId = !!rawId && looksLikeCbId(rawId);
+  const {
+    contextualBandit: cbById,
+    loading: loadingById,
+    mutate: mutateById,
+  } = useContextualBandit(isCbId ? rawId : undefined);
+  const cbByExperiment = useContextualBanditByExperiment(
+    !isCbId ? rawId : undefined,
+  );
+  // TODO(pr-8): when the list page links by CB id we can drop the
+  // experiment-id branch and keep only `useContextualBandit`.
+  const cb = isCbId ? cbById : cbByExperiment;
+  const loading = isCbId ? loadingById : !cbByExperiment;
+  const mutate = isCbId ? mutateById : () => {};
 
-  useSwitchOrg(data?.experiment?.organization ?? null);
+  const orgId = organization.id ?? "";
+  useSwitchOrg(cb?.id && orgId ? orgId : null);
 
-  const { apiCall } = useAuth();
+  const experiment = useMemo(
+    () => (cb ? contextualBanditToExperimentShape(cb, { id: orgId }) : null),
+    [cb, orgId],
+  );
 
-  useEffect(() => {
-    if (!data?.experiment) return;
-    if (!data.experiment?.type || data.experiment.type === "standard") {
-      router.replace(
-        window.location.href.replace("contextual-bandit/", "experiment/"),
-      );
-    }
-    if (data?.experiment?.type === "holdout") {
-      let url = window.location.href.replace(
-        /(.*)\/contextual-bandit\/.*/,
-        "$1/holdout/",
-      );
-      url += data?.experiment?.holdoutId;
-      router.replace(url);
-    }
-    if (data.experiment.type === "multi-armed-bandit") {
-      router.replace(
-        window.location.href.replace("contextual-bandit/", "bandit/"),
-      );
-    }
-  }, [data, router]);
+  const envs = useMemo(() => environments.map((e) => e.id), [environments]);
 
-  if (error) {
-    return <div>There was a problem loading the experiment</div>;
-  }
-  if (!data) {
-    return <LoadingOverlay />;
-  }
   if (!hasContextualBanditFeature) {
     return (
       <div className="contents container-fluid pagecontents">
@@ -131,22 +107,34 @@ const ContextualBanditExperimentPage = (): ReactElement => {
     );
   }
 
-  const {
-    experiment,
-    visualChangesets = [],
-    linkedFeatures = [],
-    urlRedirects = [],
-    visualChangesetEnvStates,
-    urlRedirectEnvStates,
-  } = data;
+  if (loading) {
+    return <LoadingOverlay />;
+  }
+  if (!cb || !experiment) {
+    return (
+      <div className="contents container-fluid pagecontents">
+        <Callout status="error" mt="4">
+          Contextual Bandit not found.
+        </Callout>
+      </div>
+    );
+  }
+
+  // Write endpoint for the CB-native edit modals refactored in Step 2.
+  // Phase-shape modals (NewPhase / EditPhase / EditPhases) intentionally
+  // continue to call the legacy experiment route this session — phase
+  // shape differs between CB and experiment, and that move is the
+  // remaining C2 punt for PR-8.
+  const cbUpdateEndpoint = `/api/v1/contextual-bandits/${cb.id}`;
+  const cbStopEndpoint = `/api/v1/contextual-bandits/${cb.id}/stop`;
 
   const canEditExperiment =
     permissionsUtil.canViewExperimentModal(experiment.project) &&
     !experiment.archived;
 
   let canRunExperiment = !experiment.archived;
-  if (data.envs.length > 0) {
-    if (!permissionsUtil.canRunExperiment(experiment, data.envs)) {
+  if (envs.length > 0) {
+    if (!permissionsUtil.canRunExperiment(experiment, envs)) {
       canRunExperiment = false;
     }
   }
@@ -171,12 +159,17 @@ const ContextualBanditExperimentPage = (): ReactElement => {
     ? () => setTargetingModalOpen(true)
     : null;
 
+  // TODO(pr-8): CBs don't ship linked-feature info on the GET response
+  // yet. The CB doc carries `linkedFeatures: string[]` (feature IDs
+  // maintained by `featureContextualBanditSync.ts`) but expanding them
+  // into `LinkedFeatureInfo[]` requires a parallel feature fetch we
+  // haven't wired up yet. Leave empty for session 1 so the tab tree
+  // renders; PR-8 plumbs the real data through the CB GET response.
+  const linkedFeatures = [];
+
   const safeToEdit =
     experiment.status !== "running" ||
-    !includeExperimentInPayload(
-      experiment,
-      linkedFeatures.map((f) => f.feature),
-    );
+    !includeExperimentInPayload(experiment, []);
 
   return (
     <>
@@ -186,6 +179,8 @@ const ContextualBanditExperimentPage = (): ReactElement => {
           cancel={() => setMetricsModalOpen(false)}
           mutate={mutate}
           source="cbid"
+          updateEndpoint={cbUpdateEndpoint}
+          updateMethod="PUT"
         />
       )}
       {stopModalOpen && (
@@ -194,6 +189,9 @@ const ContextualBanditExperimentPage = (): ReactElement => {
           mutate={mutate}
           experiment={experiment}
           source="cbid"
+          updateEndpoint={cbUpdateEndpoint}
+          updateMethod="PUT"
+          stopEndpoint={cbStopEndpoint}
         />
       )}
       {variationsModalOpen && (
@@ -203,6 +201,8 @@ const ContextualBanditExperimentPage = (): ReactElement => {
           onlySafeToEditVariationMetadata={false}
           mutate={mutate}
           source="cbid"
+          updateEndpoint={cbUpdateEndpoint}
+          updateMethod="PUT"
         />
       )}
       {duplicateModalOpen && (
@@ -236,8 +236,8 @@ const ContextualBanditExperimentPage = (): ReactElement => {
         <EditTagsForm
           tags={experiment.tags}
           save={async (tags) => {
-            await apiCall(`/experiment/${experiment.id}`, {
-              method: "POST",
+            await apiCall(cbUpdateEndpoint, {
+              method: "PUT",
               body: JSON.stringify({ tags }),
             });
           }}
@@ -264,7 +264,8 @@ const ContextualBanditExperimentPage = (): ReactElement => {
           }
           mutate={mutate}
           current={experiment.project}
-          apiEndpoint={`/experiment/${experiment.id}`}
+          apiEndpoint={cbUpdateEndpoint}
+          method="PUT"
           additionalMessage={
             experiment.status !== "draft" &&
             (experiment.linkedFeatures?.length ||
@@ -279,6 +280,14 @@ const ContextualBanditExperimentPage = (): ReactElement => {
           source="cbid"
         />
       )}
+      {/*
+       * TODO(pr-8): phase-shape modals (NewPhase, EditPhase, EditPhases)
+       * continue to write through the legacy /experiment/:id/phase[/i]
+       * route this session because the CB and experiment phase shapes
+       * diverge (CB: currentLeafWeights; experiment: banditEvents +
+       * name/reason). The CB→Experiment forward-sync (Step 4) does NOT
+       * cover phases, so these writes hit the experiment doc directly.
+       */}
       {phaseModalOpen && (
         <NewPhaseForm
           close={() => setPhaseModalOpen(false)}
@@ -312,6 +321,8 @@ const ContextualBanditExperimentPage = (): ReactElement => {
           mutate={mutate}
           experiment={experiment}
           safeToEdit={safeToEdit}
+          updateEndpoint={cbUpdateEndpoint}
+          updateMethod="PUT"
         />
       )}
 
@@ -325,25 +336,13 @@ const ContextualBanditExperimentPage = (): ReactElement => {
         ]}
       />
 
-      {/*
-       * Defensive pair-check: the page is keyed by experiment id during
-       * the decoupling window and the existing /experiment/${id} fetch
-       * doesn't know whether a CB doc actually exists for this id.
-       * Warn (don't block) so users can spot orphaned state — typically
-       * the result of a half-completed CB create, a mis-routed link, or
-       * a row left behind by an aborted migration.
-       *
-       * Removed in PR-8 alongside the URL switch to CB ids.
-       */}
-      <CbPairCheck experimentId={experiment.id} />
-
       <SnapshotProvider experiment={experiment}>
         <TabbedPage
           experiment={experiment}
           linkedFeatures={linkedFeatures}
           mutate={mutate}
-          visualChangesets={visualChangesets}
-          urlRedirects={urlRedirects}
+          visualChangesets={[]}
+          urlRedirects={[]}
           editMetrics={editMetrics}
           editResult={editResult}
           editVariations={editVariations}
@@ -352,14 +351,12 @@ const ContextualBanditExperimentPage = (): ReactElement => {
           newPhase={newPhase}
           editPhases={editPhases}
           editPhase={editPhase}
-          envs={data.envs}
+          envs={envs}
           editTargeting={editTargeting}
           checklistItemsRemaining={checklistItemsRemaining}
           checklistHardBlockerCount={checklistHardBlockerCount}
           setChecklistItemsRemaining={setChecklistItemsRemaining}
           setChecklistHardBlockerCount={setChecklistHardBlockerCount}
-          visualChangesetEnvStates={visualChangesetEnvStates}
-          urlRedirectEnvStates={urlRedirectEnvStates}
         />
       </SnapshotProvider>
     </>
