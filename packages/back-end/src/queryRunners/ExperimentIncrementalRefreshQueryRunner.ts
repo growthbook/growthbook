@@ -1158,6 +1158,12 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       analysisType: params.fullRefresh ? "main-fullRefresh" : "main-update",
     });
 
+    if (this.experimentUpdateExecutionLogger) {
+      this.experimentUpdateExecutionLogger.execution = {
+        incrementalRefreshMode: params.fullRefresh ? "full" : "incremental",
+      };
+    }
+
     return await startExperimentIncrementalRefreshQueries(
       this.context,
       params,
@@ -1302,6 +1308,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       context: this.context,
       id: this.model.id,
       updates,
+      experimentUpdateExecutionLogger: this.experimentUpdateExecutionLogger,
     });
     if (
       this.model.report &&

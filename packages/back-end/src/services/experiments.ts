@@ -190,6 +190,10 @@ import {
 } from "back-end/src/services/dimensions";
 import { ConcurrentIncrementalRefreshError } from "back-end/src/util/errors";
 import { validateIncrementalPipeline } from "back-end/src/enterprise/services/data-pipeline";
+import {
+  ExperimentUpdateLogPlan,
+  ExperimentUpdateExecutionLogger,
+} from "back-end/src/services/experimentUpdateExecutionLogger";
 import { getMetricForSnapshot } from "./reports";
 import {
   getIntegrationFromDatasourceId,
@@ -1233,40 +1237,93 @@ function isIncrementalRefreshEnabledForSnapshot({
   );
 }
 
-export function getSnapshotQueryRunnerKind({
-  isExperimentCompatibleWithIncrementalRefresh,
+export function resolveSnapshotRunner({
   datasource,
   experiment,
   snapshotType,
   hasSnapshotDimensions,
   hasMaterializedUnitsTable,
 }: {
-  isExperimentCompatibleWithIncrementalRefresh: boolean;
   datasource: DataSourceInterface;
   experiment: ExperimentInterface;
   snapshotType: SnapshotType;
   hasSnapshotDimensions: boolean;
   hasMaterializedUnitsTable: boolean;
-}): SnapshotQueryRunnerKind {
-  if (
-    isIncrementalRefreshEnabledForSnapshot({ datasource, experiment }) &&
-    (experiment.type === undefined || experiment.type === "standard") &&
-    isExperimentCompatibleWithIncrementalRefresh
-  ) {
-    if (snapshotType === "exploratory" && !hasSnapshotDimensions) {
-      // Dimension-less exploratory snapshots reuse the incremental runner in
-      // read-only mode (fullRefresh is clamped to false downstream). That only
-      // works if the warehouse units table has already been created by a prior
-      // standard snapshot — otherwise fall back to the non-pipeline runner.
-      return hasMaterializedUnitsTable ? "incremental" : "results";
-    }
-
-    return snapshotType === "exploratory"
-      ? "incremental-exploratory"
-      : "incremental";
+}): {
+  runnerKind: SnapshotQueryRunnerKind;
+  incrementalFallbackReason: string | null;
+} {
+  if (!isIncrementalRefreshEnabledForSnapshot({ datasource, experiment })) {
+    return { runnerKind: "results", incrementalFallbackReason: null };
   }
 
-  return "results";
+  if (experiment.type !== undefined && experiment.type !== "standard") {
+    return {
+      runnerKind: "results",
+      incrementalFallbackReason: `Experiment type "${experiment.type}" is not supported for incremental refresh.`,
+    };
+  }
+
+  if (snapshotType === "exploratory" && !hasSnapshotDimensions) {
+    // Dimension-less exploratory snapshots reuse the incremental runner in
+    // read-only mode (fullRefresh is always false on exploratory snapshots). That only
+    // works if the warehouse units table has already been created by a prior
+    // standard snapshot — otherwise fall back to the non-pipeline runner.
+    if (!hasMaterializedUnitsTable) {
+      return {
+        runnerKind: "results",
+        incrementalFallbackReason:
+          "No materialized units table yet for this dimension-less exploratory snapshot.",
+      };
+    }
+    return { runnerKind: "incremental", incrementalFallbackReason: null };
+  }
+
+  return {
+    runnerKind:
+      snapshotType === "exploratory"
+        ? "incremental-exploratory"
+        : "incremental",
+    incrementalFallbackReason: null,
+  };
+}
+
+/**
+ * Determines if a full refresh is needed for an incremental experiment snapshot.
+ *
+ * Returns true in the following cases:
+ * - A full refresh is explicitly requested (`useCache` is false).
+ * - There is no prior incremental state for this experiment.
+ * - The state document exists but has no `unitsTableFullName`, meaning
+ *   the warehouse units table was never created (e.g., the initial attempt failed).
+ */
+function resolveFullRefresh(
+  useCache: boolean,
+  incrementalRefreshModel: IncrementalRefreshInterface | null,
+): { fullRefresh: boolean; fullRefreshReason: string | null } {
+  if (!useCache) {
+    return {
+      fullRefresh: true,
+      fullRefreshReason: "Full refresh explicitly requested.",
+    };
+  }
+
+  if (!incrementalRefreshModel) {
+    return {
+      fullRefresh: true,
+      fullRefreshReason:
+        "No prior incremental refresh state for this experiment.",
+    };
+  }
+
+  if (!incrementalRefreshModel.unitsTableFullName) {
+    return {
+      fullRefresh: true,
+      fullRefreshReason: "Units table was never materialized by a prior run.",
+    };
+  }
+
+  return { fullRefresh: false, fullRefreshReason: null };
 }
 
 async function planSnapshotQueryRunner({
@@ -1291,8 +1348,24 @@ async function planSnapshotQueryRunner({
   incrementalRefreshModel: IncrementalRefreshInterface | null;
   snapshotType: SnapshotType;
   fullRefresh: boolean;
-}): Promise<SnapshotQueryRunnerKind> {
-  let isExperimentCompatibleWithIncrementalRefresh = false;
+}): Promise<{
+  runnerKind: SnapshotQueryRunnerKind;
+  incrementalFallbackReason: string | null;
+  fullRefresh?: boolean;
+  fullRefreshReason?: string | null;
+}> {
+  const decision = resolveSnapshotRunner({
+    datasource,
+    experiment,
+    snapshotType,
+    hasSnapshotDimensions: snapshotSettings.dimensions.length > 0,
+    hasMaterializedUnitsTable: !!incrementalRefreshModel?.unitsTableFullName,
+  });
+
+  if (decision.runnerKind === "results") {
+    return decision;
+  }
+
   try {
     await validateIncrementalPipeline({
       org: organization,
@@ -1308,21 +1381,18 @@ async function planSnapshotQueryRunner({
           ? "main-update"
           : "exploratory",
     });
-    isExperimentCompatibleWithIncrementalRefresh = true;
+    return decision;
   } catch (error) {
+    const validationError = "message" in error ? error.message : String(error);
     logger.info(
-      `Experiment ${experiment.id} does not support incremental refresh: ${"message" in error ? error.message : error}`,
+      `Experiment ${experiment.id} does not support incremental refresh: ${validationError}`,
     );
-  }
 
-  return getSnapshotQueryRunnerKind({
-    isExperimentCompatibleWithIncrementalRefresh,
-    datasource,
-    experiment,
-    snapshotType,
-    hasSnapshotDimensions: snapshotSettings.dimensions.length > 0,
-    hasMaterializedUnitsTable: !!incrementalRefreshModel?.unitsTableFullName,
-  });
+    return {
+      runnerKind: "results",
+      incrementalFallbackReason: validationError,
+    };
+  }
 }
 
 export type PlannedExperimentSnapshot = {
@@ -1331,6 +1401,8 @@ export type PlannedExperimentSnapshot = {
   useCache: boolean;
   fullRefresh: boolean;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
+  incrementalFallbackReason: string | null;
+  fullRefreshReason: string | null;
 };
 
 export async function planSnapshot({
@@ -1373,16 +1445,13 @@ export async function planSnapshot({
     ? await context.models.incrementalRefresh.getByExperimentId(experiment.id)
     : null;
 
-  // Full refresh when explicitly requested (!useCache), when no prior
-  // incremental state exists, or when the state doc exists but has no
-  // unitsTableFullName. The latter happens because acquireLock() upserts the
-  // doc before any warehouse table is created — unitsTableFullName is only
-  // populated after a successful CREATE, so a null value means the units
-  // table was never materialized (e.g. lock acquired but first run failed).
-  const fullRefresh =
-    !useCache ||
-    !incrementalRefreshModel ||
-    !incrementalRefreshModel.unitsTableFullName;
+  const {
+    fullRefresh: standardFullRefresh,
+    fullRefreshReason: standardFullRefreshReason,
+  } = resolveFullRefresh(useCache, incrementalRefreshModel);
+  const fullRefresh = type === "standard" ? standardFullRefresh : false;
+  const fullRefreshReason =
+    type === "standard" ? standardFullRefreshReason : null;
 
   const requestedPrecomputedUnitDimensionIds =
     experiment.precomputedUnitDimensionIds ?? [];
@@ -1458,7 +1527,7 @@ export async function planSnapshot({
   };
   const integration = getSourceIntegrationObject(context, datasource, true);
 
-  const runnerKind = await planSnapshotQueryRunner({
+  const runnerPlan = await planSnapshotQueryRunner({
     organization,
     datasource,
     integration,
@@ -1471,12 +1540,26 @@ export async function planSnapshot({
     fullRefresh,
   });
 
+  let resolvedFullRefresh = fullRefresh;
+  let resolvedFullRefreshReason = fullRefreshReason;
+  if (
+    runnerPlan.runnerKind === "incremental" ||
+    runnerPlan.runnerKind === "incremental-exploratory"
+  ) {
+    resolvedFullRefresh =
+      type === "standard" ? (runnerPlan.fullRefresh ?? false) : false;
+    resolvedFullRefreshReason =
+      type === "standard" ? (runnerPlan.fullRefreshReason ?? null) : null;
+  }
+
   return {
     snapshot: data,
-    runnerKind,
+    runnerKind: runnerPlan.runnerKind,
     useCache,
-    fullRefresh,
+    fullRefresh: resolvedFullRefresh,
     settingsForSnapshotMetrics,
+    incrementalFallbackReason: runnerPlan.incrementalFallbackReason,
+    fullRefreshReason: resolvedFullRefreshReason,
   };
 }
 
@@ -1525,6 +1608,8 @@ export async function createSnapshotFromPlan({
   }
 
   let createdSnapshotId: string | null = null;
+  let experimentUpdateExecutionLogger: ExperimentUpdateExecutionLogger | null =
+    null;
 
   try {
     let scheduleNextSnapshot = true;
@@ -1559,6 +1644,31 @@ export async function createSnapshotFromPlan({
     });
     createdSnapshotId = snapshot.id;
 
+    const experimentUpdateLog: ExperimentUpdateLogPlan = {
+      runnerKind: plan.runnerKind,
+      incrementalFallbackReason: plan.incrementalFallbackReason,
+      useCache: plan.useCache,
+      fullRefresh: plan.fullRefresh,
+      fullRefreshReason: plan.fullRefreshReason,
+    };
+
+    const snapshotType = plan.snapshot.type;
+    if (!snapshotType) {
+      throw new Error("Snapshot plan is missing a snapshot type");
+    }
+
+    experimentUpdateExecutionLogger = new ExperimentUpdateExecutionLogger(
+      experimentUpdateLog,
+      {
+        experimentId: experiment.id,
+        snapshotId: snapshot.id,
+        snapshotType,
+        triggeredBy:
+          snapshot.triggeredBy ?? plan.snapshot.triggeredBy ?? "manual",
+        datasource,
+      },
+    );
+
     let queryRunner: ExperimentSnapshotQueryRunner;
     switch (plan.runnerKind) {
       case "incremental-exploratory":
@@ -1590,10 +1700,9 @@ export async function createSnapshotFromPlan({
         throw new Error(`Unknown snapshot runner kind: ${plan.runnerKind}`);
     }
 
-    const snapshotType = plan.snapshot.type;
-    if (!snapshotType) {
-      throw new Error("Snapshot plan is missing a snapshot type");
-    }
+    queryRunner.setExperimentUpdateExecutionLogger(
+      experimentUpdateExecutionLogger,
+    );
 
     const analysisProps = {
       snapshotType,
@@ -1615,7 +1724,7 @@ export async function createSnapshotFromPlan({
         ...analysisProps,
         experimentId: experiment.id,
         incrementalRefreshStartTime: new Date(),
-        fullRefresh: plan.fullRefresh && plan.snapshot.type === "standard",
+        fullRefresh: plan.fullRefresh,
       });
     } else if (plan.runnerKind === "incremental-exploratory") {
       await (
@@ -1680,6 +1789,7 @@ export async function createSnapshotFromPlan({
           status: "error",
           error: e.message,
         },
+        experimentUpdateExecutionLogger,
       });
     }
     throw e;
