@@ -111,16 +111,28 @@ function buildBigQueryJsonAttributeValueSql(
   }
 }
 
+function shouldCastBigQueryAttributeToString(
+  attributeDatatype?: SDKAttributeType,
+): boolean {
+  return (
+    !attributeDatatype ||
+    attributeDatatype === "string" ||
+    attributeDatatype === "secureString" ||
+    attributeDatatype === "enum"
+  );
+}
+
 export function buildEventForwarderNestedAttributeValueSql({
   sinkType,
   attributeName,
   attributeDatatype,
-  castSnowflakeToString = false,
+  castToString = false,
 }: {
   sinkType: "bigquery" | "snowflake";
   attributeName: string;
   attributeDatatype?: SDKAttributeType;
-  castSnowflakeToString?: boolean;
+  /** Coerce attribute values to string (exposure hash ids). Typed BigQuery columns skip double-cast. */
+  castToString?: boolean;
 }): string {
   const fieldName = sanitizeEventForwarderAvroFieldName(attributeName);
 
@@ -129,7 +141,10 @@ export function buildEventForwarderNestedAttributeValueSql({
       fieldName,
       attributeDatatype,
     );
-    if (castSnowflakeToString) {
+    if (
+      castToString &&
+      shouldCastBigQueryAttributeToString(attributeDatatype)
+    ) {
       return `CAST(${valueSql} AS STRING)`;
     }
     return valueSql;
@@ -138,7 +153,7 @@ export function buildEventForwarderNestedAttributeValueSql({
   const attributesCol = EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD.toUpperCase();
   const quotedField = quoteSnowflakeVariantFieldName(fieldName);
   const valueSql = `${attributesCol}:${quotedField}`;
-  return castSnowflakeToString ? `${valueSql}::STRING` : valueSql;
+  return castToString ? `${valueSql}::STRING` : valueSql;
 }
 
 function getEventForwarderEventsFactTableAttributes(

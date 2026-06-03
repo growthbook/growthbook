@@ -103,6 +103,34 @@ FROM \`my-project\`.\`analytics_123\`.\`gb_events\`
 WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{endDate}}'`);
   });
 
+  it("casts typed BigQuery attributes with SAFE_CAST or JSON_QUERY", () => {
+    const sql = buildEventForwarderEventsFactTableSql({
+      sinkType: "bigquery",
+      projectId: "my-project",
+      dataset: "analytics_123",
+      tableName: "gb_events",
+      attributeSchema: [
+        { property: "age", datatype: "number" },
+        { property: "is_active", datatype: "boolean" },
+        { property: "tags", datatype: "string[]" },
+        { property: "scores", datatype: "number[]" },
+        { property: "secrets", datatype: "secureString[]" },
+      ],
+    });
+
+    expect(sql).toContain(
+      `SAFE_CAST(JSON_VALUE(\`attributes\`, '$."age"') AS FLOAT64) AS age`,
+    );
+    expect(sql).toContain(
+      `SAFE_CAST(JSON_VALUE(\`attributes\`, '$."is_active"') AS BOOL) AS is_active`,
+    );
+    expect(sql).toContain(`JSON_QUERY(\`attributes\`, '$."tags"') AS tags`);
+    expect(sql).toContain(`JSON_QUERY(\`attributes\`, '$."scores"') AS scores`);
+    expect(sql).toContain(
+      `JSON_QUERY(\`attributes\`, '$."secrets"') AS secrets`,
+    );
+  });
+
   it("builds Snowflake table reference", () => {
     expect(
       buildSnowflakeEventForwarderTableReference(
