@@ -5,6 +5,7 @@ import React, {
   useEffect,
   useState,
 } from "react";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useUser } from "@/services/UserContext";
 import { useAISettings } from "@/hooks/useOrgSettings";
 
@@ -39,7 +40,9 @@ export function AgentPanelProvider({
 }) {
   const { hasCommercialFeature } = useUser();
   const { aiEnabled } = useAISettings();
-  const available = hasCommercialFeature("ai-suggestions") && aiEnabled;
+  const gateEnabled = useFeatureIsOn("oe-general-agent-gate");
+  const available =
+    gateEnabled && hasCommercialFeature("ai-suggestions") && aiEnabled;
 
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);

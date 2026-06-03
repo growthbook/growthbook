@@ -16,9 +16,27 @@ import { logger } from "back-end/src/util/logger";
  * What this skips compared to a real HTTP request:
  *  - `authenticateApiRequestMiddleware` (the caller already has a context)
  *  - body parsing, rate limit, CORS
- *  - any per-route `middleware` array attached to the route descriptor —
- *    this is a deliberate trade-off: the auth/rate-limit middlewares are
- *    moot in-process; route-specific middlewares are uncommon for our API.
+ *  - any per-route `middleware` array attached to the route descriptor, plus
+ *    the `deprecationDate` response-header middleware injected in
+ *    `api.router.ts`. Today only `getSdkPayload`'s preflight middleware is
+ *    affected; the auth/rate-limit middlewares are moot in-process.
+ *
+ * Known fidelity gaps an external HTTP caller would not have:
+ *  - `query`/`params` are forwarded as-is. Over real HTTP these are always
+ *    strings (or string[]); here a caller can pass numbers/booleans/objects,
+ *    so Zod validation may behave differently from a real request. Callers
+ *    should send query values as strings to match the public API.
+ *
+ * Security model: dispatch runs every handler with the caller's own context,
+ * so authorization is identical to a real request from that caller. Handlers
+ * gate writes through `req.context.permissions` (the caller's role-scoped
+ * `Permissions` instance) and the `checkPermissions` shim delegates to the
+ * same role check, so this CANNOT let a caller do anything their org role
+ * doesn't already allow — there is no privilege elevation. What it *does* do
+ * is expose the entire REST surface in one place with no per-endpoint
+ * allowlist, so any higher-level gating (mutation confirmation, read-only
+ * exploration allowlist) must live upstream of this function (see
+ * `general-agent.ts`). Never expose dispatch without that gate.
  */
 
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -105,6 +123,8 @@ export function normalizePath(rawPath: string): string {
   return noQuery;
 }
 
+class MalformedPathError extends Error {}
+
 function matchRoute(
   method: string,
   path: string,
@@ -117,7 +137,17 @@ function matchRoute(
     if (match) {
       const params: Record<string, string> = {};
       c.paramNames.forEach((name, i) => {
-        params[name] = decodeURIComponent(match[i + 1] ?? "");
+        const raw = match[i + 1] ?? "";
+        try {
+          // Mirror Express: path params are percent-decoded. Malformed
+          // encoding (e.g. a stray "%") makes decodeURIComponent throw —
+          // surface it as a 400 rather than an uncaught rejection.
+          params[name] = decodeURIComponent(raw);
+        } catch {
+          throw new MalformedPathError(
+            `Malformed path parameter "${name}": ${raw}`,
+          );
+        }
       });
       return { route: c.route, params };
     }
@@ -129,7 +159,15 @@ function matchRoute(
  * Build a minimal Express-shaped request that satisfies the fields our API
  * handlers actually read: `method`, `path`, `params`, `query`, `body`,
  * `context`, `user`, `organization`, `apiKey`, `audit`, `eventAudit`,
- * plus a `get(name)` header lookup.
+ * `checkPermissions`, plus a `get(name)` header lookup.
+ *
+ * Authorization note: every field that gates access is derived from the
+ * caller's `ctx`, so a handler can only do what the caller's org role allows.
+ * `req.context.permissions` (the path all `/api/*` handlers use today) is the
+ * caller's role-scoped `Permissions` instance, and `checkPermissions` (the
+ * legacy `ApiRequestLocals` gate, unused by current `/api/*` handlers but part
+ * of the contract) delegates to the same role check. There is no privilege
+ * elevation here: dispatch is exactly as capable as the caller's role.
  */
 function buildFakeReq(
   ctx: ReqContext,
@@ -138,11 +176,16 @@ function buildFakeReq(
 ): Record<string, unknown> {
   const headers: Record<string, string> = {};
 
+  // Use the canonical `/api/v1/...` form (matching what the router resolved)
+  // so any handler reading `req.path`/`req.originalUrl` sees the same value a
+  // real request would, regardless of the prefix shape the caller sent.
+  const canonicalPath = normalizePath(input.path);
+
   return {
     method: input.method,
-    path: input.path,
-    url: input.path,
-    originalUrl: input.path,
+    path: canonicalPath,
+    url: canonicalPath,
+    originalUrl: canonicalPath,
     baseUrl: "",
     params,
     query: input.query ?? {},
@@ -154,6 +197,9 @@ function buildFakeReq(
           id: ctx.userId,
           email: ctx.email ?? "",
           name: ctx.userName ?? "",
+          // Carry the caller's super-admin flag so super-admin-gated handlers
+          // make the same allow/deny decision they would for a real request.
+          superAdmin: ctx.superAdmin,
         }
       : undefined,
     organization: ctx.org,
@@ -162,10 +208,35 @@ function buildFakeReq(
     audit: async (data: Parameters<ReqContext["auditLog"]>[0]) => {
       await ctx.auditLog(data);
     },
+    // Faithful implementation of the `ApiRequestLocals` permission gate.
+    // Delegates to the caller's role-scoped permissions and throws the same
+    // error the real session/API-key middleware throws on denial — so a
+    // handler that relies on this (none in `/api/*` do today) still enforces
+    // the caller's role rather than silently passing or crashing.
+    checkPermissions: (
+      permission: Parameters<ReqContext["requirePermission"]>[0],
+      project?: Parameters<ReqContext["requirePermission"]>[1],
+      envs?: Parameters<ReqContext["requirePermission"]>[2],
+    ) => {
+      ctx.requirePermission(permission, project, envs);
+    },
     get(name: string) {
       return headers[String(name).toLowerCase()];
     },
   };
+}
+
+/**
+ * Mirror what Express `res.json` puts on the wire: the body is run through
+ * `JSON.stringify`/`JSON.parse`, so `Date` becomes an ISO string, `undefined`
+ * fields are dropped, Mongoose documents collapse to plain objects, etc. An
+ * external caller never sees the in-memory object, and neither should the
+ * agent. A non-serializable body (e.g. a circular structure) throws here, the
+ * same way it would for a real HTTP response.
+ */
+function toJsonWire(b: unknown): unknown {
+  if (b === undefined) return undefined;
+  return JSON.parse(JSON.stringify(b));
 }
 
 function buildFakeRes(): {
@@ -185,12 +256,14 @@ function buildFakeRes(): {
       return res;
     },
     json(b: unknown) {
-      body = b;
+      body = toJsonWire(b);
       ended = true;
       return res;
     },
     send(b: unknown) {
-      body = b;
+      // `res.send` serializes objects/arrays as JSON too; strings/buffers are
+      // sent verbatim. Only round-trip non-string bodies to match that.
+      body = typeof b === "string" ? b : toJsonWire(b);
       ended = true;
       return res;
     },
@@ -231,7 +304,15 @@ export async function dispatchInternal(
     };
   }
 
-  const matched = matchRoute(input.method, input.path);
+  let matched: ReturnType<typeof matchRoute>;
+  try {
+    matched = matchRoute(input.method, input.path);
+  } catch (err) {
+    if (err instanceof MalformedPathError) {
+      return { status: 400, body: { message: err.message } };
+    }
+    throw err;
+  }
   if (!matched) {
     return {
       status: 404,
@@ -266,9 +347,22 @@ export async function dispatchInternal(
   }
 
   if (nextErr) {
+    // Errors that escape to here come from layers outside the wrapped handler
+    // (its inner catch already maps thrown errors to `e.status || 400`). Honor
+    // a `status`/`conflicts` carried on the error so the response still matches
+    // the public `ApiErrorResponse` contract; default to 500 for anything
+    // genuinely unexpected.
+    const e = nextErr as {
+      message?: unknown;
+      status?: unknown;
+      conflicts?: unknown;
+    };
     const message =
       nextErr instanceof Error ? nextErr.message : "Internal server error";
-    return { status: 500, body: { message } };
+    const status = typeof e.status === "number" ? e.status : 500;
+    const body: Record<string, unknown> = { message };
+    if (e.conflicts !== undefined) body.conflicts = e.conflicts;
+    return { status, body };
   }
 
   const { status, body, ended } = capture();

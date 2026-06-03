@@ -310,7 +310,7 @@ const COLUMN_VALUES_PATH_RE =
 function requiresMutationConfirmation(input: DispatchInput): boolean {
   if (input.method === "GET") return false;
   const path = normalizePath(input.path);
-  if (/^\/api\/v1\/experiments\/[^/]+\/snapshot\/?$/.test(path)) {
+  if (/^\/api\/v[12]\/experiments\/[^/]+\/snapshot\/?$/.test(path)) {
     return false;
   }
   if (isExplorationPath(path)) {

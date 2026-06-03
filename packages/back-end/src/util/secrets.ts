@@ -13,11 +13,11 @@ export const LOG_LEVEL = process.env.LOG_LEVEL;
 export const IS_CLOUD = stringToBoolean(process.env.IS_CLOUD);
 export const IS_MULTI_ORG = stringToBoolean(process.env.IS_MULTI_ORG);
 
-// Logs the assembled general agent system prompt at startup. Defaults to true;
-// set to "false" to disable.
+// Logs the assembled general agent system prompt at startup. Defaults to false;
+// set to "true" to enable (useful in development).
 export const LOG_AGENT_SYSTEM_PROMPT = stringToBoolean(
   process.env.LOG_AGENT_SYSTEM_PROMPT,
-  true,
+  false,
 );
 
 // Default to true

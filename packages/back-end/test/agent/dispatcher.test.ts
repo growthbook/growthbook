@@ -17,18 +17,22 @@ import {
 
 // Minimal context stub — handlers in this test only read `req.context` if
 // they need anything; the routes here keep it simple.
-function makeCtx(): ReqContext {
+function makeCtx(overrides: Partial<ReqContext> = {}): ReqContext {
   const audited: unknown[] = [];
   return {
     userId: "u_test",
     email: "test@example.com",
     userName: "Test",
+    superAdmin: false,
     apiKey: undefined,
     auditUser: { type: "dashboard", id: "u_test", email: "test@example.com" },
     org: { id: "org_test" },
     auditLog: async (data: unknown) => {
       audited.push(data);
     },
+    // Default to allow; individual tests override to assert denial behavior.
+    requirePermission: () => {},
+    ...overrides,
     // Satisfy the rest of ReqContext via cast — handlers in these tests
     // don't touch the rest.
   } as unknown as ReqContext;
@@ -291,6 +295,143 @@ describe("dispatchInternal", () => {
       });
       expect(result).toEqual({ status: 200, body: { ok: true } });
     }
+  });
+
+  it("JSON-serializes the response body the way res.json would (Date -> ISO, drops undefined)", async () => {
+    const when = new Date("2026-01-02T03:04:05.000Z");
+    _setRoutesForTests([
+      makeRoute("get", "/wire", (_req, res) => {
+        res.status(200).json({ when, keep: 1, drop: undefined });
+      }),
+    ]);
+
+    const result = await dispatchInternal(makeCtx(), {
+      method: "GET",
+      path: "/v1/wire",
+    });
+
+    expect(result.status).toBe(200);
+    expect(result.body).toEqual({
+      when: "2026-01-02T03:04:05.000Z",
+      keep: 1,
+    });
+  });
+
+  it("returns 400 for a malformed percent-encoded path param", async () => {
+    _setRoutesForTests([
+      makeRoute("get", "/features/:id", (_req, res) => {
+        res.status(200).json({ ok: true });
+      }),
+    ]);
+
+    const result = await dispatchInternal(makeCtx(), {
+      method: "GET",
+      path: "/v1/features/%E0%A4",
+    });
+
+    expect(result.status).toBe(400);
+    expect(result.body).toEqual({
+      message: expect.stringContaining("Malformed path parameter"),
+    });
+  });
+
+  it("honors err.status and err.conflicts carried on a next(err)", async () => {
+    _setRoutesForTests([
+      makeRoute("post", "/conflict", (_req, _res, next) => {
+        const err = Object.assign(new Error("revision is stale"), {
+          status: 409,
+          conflicts: [{ field: "base" }],
+        });
+        next(err);
+      }),
+    ]);
+
+    const result = await dispatchInternal(makeCtx(), {
+      method: "POST",
+      path: "/v1/conflict",
+    });
+
+    expect(result.status).toBe(409);
+    expect(result.body).toEqual({
+      message: "revision is stale",
+      conflicts: [{ field: "base" }],
+    });
+  });
+
+  it("normalizes req.path to the canonical /api/v1 form regardless of input prefix", async () => {
+    let seenPath: string | undefined;
+    _setRoutesForTests([
+      makeRoute("get", "/whereami", (req, res) => {
+        seenPath = req.path;
+        res.status(200).json({ ok: true });
+      }),
+    ]);
+
+    await dispatchInternal(makeCtx(), {
+      method: "GET",
+      path: "/whereami",
+    });
+
+    expect(seenPath).toBe("/api/v1/whereami");
+  });
+
+  it("exposes checkPermissions that delegates to the caller's role and denies when it throws", async () => {
+    let received: { permission: string; project: unknown } | undefined;
+    _setRoutesForTests([
+      makeRoute("post", "/guarded", (req, res) => {
+        (
+          req as unknown as {
+            checkPermissions: (p: string, project?: unknown) => void;
+          }
+        ).checkPermissions("manageFeatures", "proj_1");
+        res.status(200).json({ ok: true });
+      }),
+    ]);
+
+    const denyingCtx = makeCtx({
+      requirePermission: ((permission: string, project: unknown) => {
+        received = { permission, project };
+        throw new Error("You do not have permission to complete that action.");
+      }) as unknown as ReqContext["requirePermission"],
+    });
+
+    const result = await dispatchInternal(denyingCtx, {
+      method: "POST",
+      path: "/v1/guarded",
+    });
+
+    expect(result.status).toBe(500);
+    expect(result.body).toEqual({
+      message: "You do not have permission to complete that action.",
+    });
+    expect(received).toEqual({
+      permission: "manageFeatures",
+      project: "proj_1",
+    });
+  });
+
+  it("forwards the caller's superAdmin flag to req.user", async () => {
+    const seen: Array<boolean | undefined> = [];
+    _setRoutesForTests([
+      makeRoute("get", "/su", (req, res) => {
+        seen.push(
+          (req as unknown as { user?: { superAdmin?: boolean } }).user
+            ?.superAdmin,
+        );
+        res.status(200).json({ ok: true });
+      }),
+    ]);
+
+    await dispatchInternal(makeCtx({ superAdmin: true }), {
+      method: "GET",
+      path: "/v1/su",
+    });
+    await dispatchInternal(makeCtx({ superAdmin: false }), {
+      method: "GET",
+      path: "/v1/su",
+    });
+
+    expect(seen).toEqual([true, false]);
   });
 
   it("ignores a query string included in the path itself", async () => {
