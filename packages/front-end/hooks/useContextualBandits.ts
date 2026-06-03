@@ -43,14 +43,47 @@ export function useContextualBandits(
     [allContextualBandits],
   );
 
+  // Parallel index keyed by the paired experiment FK so callers that
+  // only have an experiment id (e.g. the detail page at
+  // /contextual-bandit/[cbid] which is keyed by experiment id during the
+  // decoupling window) can resolve to a CB. Skips entries without an
+  // `experiment` field (orphaned post-PR-8). Drop the experiment-side
+  // index when PR-8 removes the FK; everything will key by cb.id only.
+  const contextualBanditsByExperimentMap = useMemo(
+    () =>
+      new Map(
+        allContextualBandits
+          .filter((cb) => !!cb.experiment)
+          .map((cb) => [cb.experiment as string, cb]),
+      ),
+    [allContextualBandits],
+  );
+
   return {
     loading: !error && !data,
     contextualBandits,
     contextualBanditsMap,
+    contextualBanditsByExperimentMap,
     error,
     mutate,
     hasArchived: allContextualBandits.some((cb) => cb.archived),
   };
+}
+
+/**
+ * Resolve a CB doc from a paired experiment id. Used by the detail page
+ * (URL still keyed by experiment id) so the page can read CB-native
+ * fields alongside the existing experiment fetch.
+ *
+ * Returns `undefined` while the list is still loading or when no CB
+ * is paired with the experiment.
+ */
+export function useContextualBanditByExperiment(
+  experimentId: string | undefined,
+) {
+  const { contextualBanditsByExperimentMap, loading } = useContextualBandits();
+  if (!experimentId || loading) return undefined;
+  return contextualBanditsByExperimentMap?.get(experimentId);
 }
 
 /**
