@@ -420,8 +420,13 @@ export class Permissions {
     allProjects?: { id: string }[],
   ): boolean => {
     if (!project && allProjects?.length) {
-      return allProjects.some((p) =>
-        this.canCreateHoldout({ projects: [p.id] }),
+      // Allow if the user can create a holdout with no project (e.g. a global
+      // admin). Checking that first means a non-creatable project (like the
+      // read-only sample-data project) can't gate the CTA when it's the only
+      // project.
+      return (
+        this.canCreateHoldout({ projects: [] }) ||
+        allProjects.some((p) => this.canCreateHoldout({ projects: [p.id] }))
       );
     }
     return this.canCreateHoldout({ projects: project ? [project] : [] });
@@ -661,8 +666,13 @@ export class Permissions {
     allProjects?: { id: string }[],
   ): boolean => {
     if (!project && allProjects?.length) {
-      return allProjects.some((p) =>
-        this.canCreateFactTable({ projects: [p.id] }),
+      // Allow if the user can create a fact table with no project (e.g. a
+      // global admin). Checking that first means a non-creatable project (like
+      // the read-only sample-data project) can't gate the CTA when it's the
+      // only project.
+      return (
+        this.canCreateFactTable({ projects: [] }) ||
+        allProjects.some((p) => this.canCreateFactTable({ projects: [p.id] }))
       );
     }
     return this.canCreateFactTable({ projects: project ? [project] : [] });
