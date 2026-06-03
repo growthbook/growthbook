@@ -78,7 +78,7 @@ describe("event-forwarder-fact-table SQL", () => {
     );
   });
 
-  it("projects selected BigQuery attributes from the nested attributes column", () => {
+  it("projects selected BigQuery attributes from the JSON attributes column", () => {
     const sql = buildEventForwarderEventsFactTableSql({
       sinkType: "bigquery",
       projectId: "my-project",
@@ -97,10 +97,66 @@ describe("event-forwarder-fact-table SQL", () => {
   timestamp,
   event_name,
   -- Attributes
-  \`attributes\`.\`user_id\` AS user_id,
-  \`attributes\`.\`browser_type\` AS browser_type
+  JSON_VALUE(\`attributes\`, '$."user_id"') AS user_id,
+  JSON_VALUE(\`attributes\`, '$."browser_type"') AS browser_type
 FROM \`my-project\`.\`analytics_123\`.\`gb_events\`
 WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{endDate}}'`);
+  });
+
+  it("casts typed BigQuery attributes with SAFE_CAST or JSON_QUERY", () => {
+    const sql = buildEventForwarderEventsFactTableSql({
+      sinkType: "bigquery",
+      projectId: "my-project",
+      dataset: "analytics_123",
+      tableName: "gb_events",
+      attributeSchema: [
+        { property: "age", datatype: "number" },
+        { property: "is_active", datatype: "boolean" },
+        { property: "tags", datatype: "string[]" },
+        { property: "scores", datatype: "number[]" },
+        { property: "secrets", datatype: "secureString[]" },
+      ],
+    });
+
+    expect(sql).toContain(
+      `SAFE_CAST(JSON_VALUE(\`attributes\`, '$."age"') AS FLOAT64) AS age`,
+    );
+    expect(sql).toContain(
+      `SAFE_CAST(JSON_VALUE(\`attributes\`, '$."is_active"') AS BOOL) AS is_active`,
+    );
+    expect(sql).toContain(`JSON_QUERY(\`attributes\`, '$."tags"') AS tags`);
+    expect(sql).toContain(`JSON_QUERY(\`attributes\`, '$."scores"') AS scores`);
+    expect(sql).toContain(
+      `JSON_QUERY(\`attributes\`, '$."secrets"') AS secrets`,
+    );
+  });
+
+  it("projects userIdTypes with string cast when not in attribute schema", () => {
+    const sql = buildEventForwarderEventsFactTableSql({
+      sinkType: "snowflake",
+      database: "MY_DB",
+      schema: "PUBLIC",
+      tableName: "GB_EVENTS",
+      userIdTypes: ["device_id"],
+    });
+
+    expect(sql).toContain('ATTRIBUTES:"device_id"::STRING AS device_id');
+    expect(sql).toContain("-- Attributes");
+  });
+
+  it("casts hash attributes as strings even when SDK datatype is number", () => {
+    const sql = buildEventForwarderEventsFactTableSql({
+      sinkType: "snowflake",
+      database: "MY_DB",
+      schema: "PUBLIC",
+      tableName: "GB_EVENTS",
+      attributeSchema: [
+        { property: "employee_id", datatype: "number", hashAttribute: true },
+      ],
+    });
+
+    expect(sql).toContain('ATTRIBUTES:"employee_id"::STRING AS employee_id');
+    expect(sql).not.toContain('TRY_TO_DOUBLE(ATTRIBUTES:"employee_id")');
   });
 
   it("builds Snowflake table reference", () => {
@@ -113,7 +169,7 @@ WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{end
     ).toBe("MY_DB.PUBLIC.GB_EVENTS");
   });
 
-  it("projects selected Snowflake attributes from the nested attributes column", () => {
+  it("projects selected Snowflake attributes from the VARIANT attributes column", () => {
     const sql = buildEventForwarderEventsFactTableSql({
       sinkType: "snowflake",
       database: "MY_DB",
@@ -129,9 +185,33 @@ WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{end
   TIMESTAMP AS timestamp,
   EVENT_NAME AS event_name,
   -- Attributes
-  ATTRIBUTES:"user_id" AS user_id,
-  ATTRIBUTES:"browser" AS browser
+  ATTRIBUTES:"user_id"::STRING AS user_id,
+  ATTRIBUTES:"browser"::STRING AS browser
 FROM MY_DB.PUBLIC.GB_EVENTS`);
+  });
+
+  it("casts typed Snowflake attributes from flat string map values", () => {
+    const sql = buildEventForwarderEventsFactTableSql({
+      sinkType: "snowflake",
+      database: "MY_DB",
+      schema: "PUBLIC",
+      tableName: "GB_EVENTS",
+      attributeSchema: [
+        { property: "age", datatype: "number" },
+        { property: "is_active", datatype: "boolean" },
+        { property: "tags", datatype: "string[]" },
+        { property: "scores", datatype: "number[]" },
+        { property: "secrets", datatype: "secureString[]" },
+      ],
+    });
+
+    expect(sql).toContain('TRY_TO_DOUBLE(ATTRIBUTES:"age") AS age');
+    expect(sql).toContain(
+      'TRY_TO_BOOLEAN(ATTRIBUTES:"is_active") AS is_active',
+    );
+    expect(sql).toContain('TRY_PARSE_JSON(ATTRIBUTES:"tags") AS tags');
+    expect(sql).toContain('TRY_PARSE_JSON(ATTRIBUTES:"scores") AS scores');
+    expect(sql).toContain('TRY_PARSE_JSON(ATTRIBUTES:"secrets") AS secrets');
   });
 });
 
