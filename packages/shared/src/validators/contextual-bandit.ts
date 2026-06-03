@@ -422,3 +422,180 @@ export const apiContextualBanditRefreshReturn = z.object({
   snapshotId: z.string(),
   cbeId: z.string().optional(),
 });
+
+// ---------------------------------------------------------------------------
+// CB-native read endpoints
+// ---------------------------------------------------------------------------
+// These are intentionally NOT wired through the spec-pattern apiConfig — the
+// TypeScript inference cascade that shows up when too many spec-style
+// customHandlers share a model file makes that path unworkable for now.
+// Instead they live as standalone non-BaseModel routes registered in
+// `api/contextual-bandits/contextual-bandits.router.ts`, matching the
+// pattern described in `api-patterns.md` for endpoints that don't fit the
+// spec-based model.
+//
+// Wire shape parity with the legacy `/experiments/:id/contextual-bandit/*`
+// GET endpoints is intentional: customers migrating from the old paths see
+// identical response bodies. The `experiment` field on snapshot / event
+// objects still refers to the parent experiment id (the snapshot/event
+// collections key by experiment id under the hood) — that rename ships
+// with PR-8 alongside the FK drop.
+
+const cbIdAndSnapshotParam = z
+  .object({
+    id: z.string().describe("The Contextual Bandit id"),
+    snapshotId: z.string().describe("The snapshot id"),
+  })
+  .strict();
+
+const cbIdAndEventParam = z
+  .object({
+    id: z.string().describe("The Contextual Bandit id"),
+    eventId: z.string().describe("The event id"),
+  })
+  .strict();
+
+const cbIdOnlyParam = z
+  .object({ id: z.string().describe("The Contextual Bandit id") })
+  .strict();
+
+const cbSnapshotResponseShape = z.object({
+  id: z.string(),
+  experiment: z.string(),
+  phase: z.number(),
+  status: z.enum(["pending", "running", "success", "error", "partial"]),
+  weightsWereUpdated: z.boolean().optional(),
+  contextualBanditEventId: z.string().nullable().optional(),
+  error: z.string().optional(),
+  dateCreated: z.string(),
+});
+
+const cbEventResponseShape = z.object({
+  id: z.string(),
+  experiment: z.string(),
+  phase: z.number(),
+  snapshotId: z.string(),
+  weightsWereUpdated: z.boolean(),
+  dateCreated: z.string(),
+});
+
+export const getCbCurrentValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: cbIdOnlyParam,
+  responseSchema: z
+    .object({
+      phaseWeights: z
+        .array(
+          z.object({ contextId: z.string(), weights: z.array(z.number()) }),
+        )
+        .optional(),
+      latestEvent: cbEventResponseShape.nullable(),
+    })
+    .strict(),
+  summary: "Get current Contextual Bandit phase weights and latest event",
+  operationId: "getCbCurrent",
+  tags: ["contextual-bandits"],
+  method: "get" as const,
+  path: "/contextual-bandits/:id/current",
+};
+
+export const listCbSnapshotsValidator = {
+  bodySchema: z.never(),
+  querySchema: z
+    .object({
+      limit: z.coerce.number().int().positive().max(100).optional(),
+    })
+    .strict()
+    .optional(),
+  paramsSchema: cbIdOnlyParam,
+  responseSchema: z
+    .object({ snapshots: z.array(cbSnapshotResponseShape) })
+    .strict(),
+  summary: "List Contextual Bandit snapshots",
+  operationId: "listCbSnapshots",
+  tags: ["contextual-bandits"],
+  method: "get" as const,
+  path: "/contextual-bandits/:id/snapshots",
+};
+
+export const getCbSnapshotValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: cbIdAndSnapshotParam,
+  responseSchema: z.object({ snapshot: cbSnapshotResponseShape }).strict(),
+  summary: "Get a single Contextual Bandit snapshot",
+  operationId: "getCbSnapshot",
+  tags: ["contextual-bandits"],
+  method: "get" as const,
+  path: "/contextual-bandits/:id/snapshots/:snapshotId",
+};
+
+export const listCbEventsValidator = {
+  bodySchema: z.never(),
+  querySchema: z
+    .object({
+      limit: z.coerce.number().int().positive().max(100).optional(),
+    })
+    .strict()
+    .optional(),
+  paramsSchema: cbIdOnlyParam,
+  responseSchema: z.object({ events: z.array(cbEventResponseShape) }).strict(),
+  summary: "List Contextual Bandit weight-update events",
+  operationId: "listCbEvents",
+  tags: ["contextual-bandits"],
+  method: "get" as const,
+  path: "/contextual-bandits/:id/events",
+};
+
+export const getCbEventValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: cbIdAndEventParam,
+  responseSchema: z.object({ event: cbEventResponseShape }).strict(),
+  summary: "Get a single Contextual Bandit weight-update event",
+  operationId: "getCbEvent",
+  tags: ["contextual-bandits"],
+  method: "get" as const,
+  path: "/contextual-bandits/:id/events/:eventId",
+};
+
+export const getCbResultsValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: cbIdOnlyParam,
+  responseSchema: z
+    .object({
+      contextualBanditSnapshot: z
+        .object({
+          attributes: z.array(z.string()),
+          // Kept loose to avoid pulling the heavier stats validators into
+          // this file. Internal Zod types in `validators/experiments.ts`
+          // stay authoritative for runtime checking.
+          responses: z.array(z.unknown()),
+          leaf_map: z.array(z.unknown()).optional(),
+        })
+        .nullable(),
+      latest: z
+        .object({
+          id: z.string(),
+          status: z.enum(["running", "success", "error"]),
+          error: z.string(),
+          queries: z.array(z.unknown()),
+          runStarted: z.string().nullable(),
+          dateCreated: z.string(),
+          multipleExposures: z.number(),
+          type: z.string(),
+          triggeredBy: z.string(),
+        })
+        .nullable(),
+    })
+    .strict(),
+  summary: "Get latest Contextual Bandit results",
+  description:
+    "Returns the latest contextual-bandit stats engine output and the status of the most recent snapshot run for the CB's current phase. Same payload the GrowthBook UI uses to render the CB results table.",
+  operationId: "getCbResults",
+  tags: ["contextual-bandits"],
+  method: "get" as const,
+  path: "/contextual-bandits/:id/results",
+};
