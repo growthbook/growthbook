@@ -15,6 +15,7 @@ export type EnvScopeProps = {
   setAllEnvironments: (v: boolean) => void;
   selectedEnvironments: string[];
   setSelectedEnvironments: (v: string[]) => void;
+  disabledEnvironmentIds?: string[];
   label?: string;
 } & MarginProps;
 
@@ -24,10 +25,44 @@ export default function RuleEnvironmentScopeField({
   setAllEnvironments,
   selectedEnvironments,
   setSelectedEnvironments,
+  disabledEnvironmentIds = [],
   label = "Rule Environments",
   ...marginProps
 }: EnvScopeProps) {
   const options = environments.map((e) => ({ label: e.id, value: e.id }));
+
+  const disabledSet = new Set(disabledEnvironmentIds);
+  const affectedEnvIds = allEnvironments
+    ? disabledEnvironmentIds
+    : selectedEnvironments.filter((e) => disabledSet.has(e));
+  // Only warn when *some but not all* selected environments are disabled — if
+  // every targeted env is off there's nothing specific to call out here.
+  const totalSelected = allEnvironments
+    ? environments.length
+    : selectedEnvironments.length;
+  const showDisabledWarning =
+    affectedEnvIds.length > 0 && affectedEnvIds.length < totalSelected;
+
+  const disabledWarning = showDisabledWarning ? (
+    <Callout status="warning" size="sm" mt="2">
+      {affectedEnvIds.length === 1 ? (
+        <>
+          <strong>{affectedEnvIds[0]}</strong> is not enabled for this feature.
+          This rule will have no effect there until the feature is enabled in
+          that environment.
+        </>
+      ) : (
+        <>
+          <strong>
+            {affectedEnvIds.slice(0, -1).join(", ")} and{" "}
+            {affectedEnvIds[affectedEnvIds.length - 1]}
+          </strong>{" "}
+          are not enabled for this feature. This rule will have no effect there
+          until the feature is enabled in those environments.
+        </>
+      )}
+    </Callout>
+  ) : null;
 
   return (
     <Box {...marginProps}>
@@ -49,6 +84,7 @@ export default function RuleEnvironmentScopeField({
           { value: "specific", label: "Specific Environments" },
         ]}
       />
+      {allEnvironments && disabledWarning}
       {!allEnvironments && (
         <Box pl="5">
           <MultiSelectField
@@ -66,6 +102,7 @@ export default function RuleEnvironmentScopeField({
               selected.
             </Callout>
           )}
+          {disabledWarning}
         </Box>
       )}
     </Box>

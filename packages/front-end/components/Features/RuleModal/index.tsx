@@ -297,6 +297,9 @@ export default function RuleModal({
   const { templates: allTemplates } = useTemplates();
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
+  const disabledEnvironmentIds = environments
+    .filter((e) => feature.environmentSettings[e.id]?.enabled === false)
+    .map((e) => e.id);
 
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
@@ -1739,6 +1742,7 @@ export default function RuleModal({
     setAllEnvironments: setScopeAllEnvs,
     selectedEnvironments,
     setSelectedEnvironments,
+    disabledEnvironmentIds,
   };
 
   // Resolved env list used by child components that care about which envs the
