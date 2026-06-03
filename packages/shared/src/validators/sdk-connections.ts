@@ -26,6 +26,12 @@ export const apiSdkConnectionValidator = namedSchema(
       encryptionKey: z.string(),
       includeVisualExperiments: z.boolean().optional(),
       includeDraftExperiments: z.boolean().optional(),
+      includeDraftExperimentRefs: z
+        .boolean()
+        .optional()
+        .describe(
+          "When true, experiment-ref rules linked to draft experiments are included in feature definitions. Off by default.",
+        ),
       includeExperimentNames: z.boolean().optional(),
       includeRedirectExperiments: z.boolean().optional(),
       includeRuleIds: z.boolean().optional(),
@@ -33,6 +39,12 @@ export const apiSdkConnectionValidator = namedSchema(
       includeCustomFieldsInMetadata: z.boolean().optional(),
       allowedCustomFieldsInMetadata: z.array(z.string()).optional(),
       includeTagsInMetadata: z.boolean().optional(),
+      omitSafeRolloutLabels: z
+        .boolean()
+        .optional()
+        .describe(
+          'Advanced/opt-in. When true, safe rollout and monitored ramp rules emit `name === key` (no human-readable suffix like \' - Safe Rollout\') and omit per-variation labels ("Control"/"Variation") in the SDK payload. Useful when downstream analytics capture `experiment.name` / `result.name` and need them to match GrowthBook\'s internal tracking keys. Defaults to false.',
+        ),
       key: z.string(),
       proxyEnabled: z.boolean(),
       proxyHost: z.string(),
@@ -58,6 +70,12 @@ const postSdkConnectionBody = z
     encryptPayload: z.boolean().optional(),
     includeVisualExperiments: z.boolean().optional(),
     includeDraftExperiments: z.boolean().optional(),
+    includeDraftExperimentRefs: z
+      .boolean()
+      .optional()
+      .describe(
+        "When true, experiment-ref rules linked to draft experiments are included in feature definitions. Off by default.",
+      ),
     includeExperimentNames: z.boolean().optional(),
     includeRedirectExperiments: z.boolean().optional(),
     includeRuleIds: z.boolean().optional(),
@@ -65,6 +83,12 @@ const postSdkConnectionBody = z
     includeCustomFieldsInMetadata: z.boolean().optional(),
     allowedCustomFieldsInMetadata: z.array(z.string()).optional(),
     includeTagsInMetadata: z.boolean().optional(),
+    omitSafeRolloutLabels: z
+      .boolean()
+      .optional()
+      .describe(
+        'Advanced/opt-in. When true, safe rollout and monitored ramp rules emit `name === key` (no human-readable suffix like \' - Safe Rollout\') and omit per-variation labels ("Control"/"Variation") in the SDK payload. Useful when downstream analytics capture `experiment.name` / `result.name` and need them to match GrowthBook\'s internal tracking keys. Defaults to false.',
+      ),
     proxyEnabled: z.boolean().optional(),
     proxyHost: z.string().optional(),
     hashSecureAttributes: z.boolean().optional(),

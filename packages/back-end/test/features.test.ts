@@ -1735,6 +1735,94 @@ describe("SDK Payloads", () => {
     });
   });
 
+  it("omitSafeRolloutLabels=true: v1 safe rollout emits name===trackingKey, meta keeps variation labels", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "safe-rollout",
+        controlValue: "false",
+        variationValue: "true",
+        safeRolloutId: "sr_123",
+        status: "running",
+        hashAttribute: "user_id",
+        seed: "testing",
+        trackingKey: "exp-key",
+        description: "",
+        id: "abc",
+        enabled: true,
+      },
+    ];
+
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      includeExperimentNames: true,
+      omitSafeRolloutLabels: true,
+      includeRuleIds: true,
+    });
+
+    expect(def).toEqual({
+      defaultValue: true,
+      rules: [
+        {
+          id: "abc",
+          key: "exp-key",
+          coverage: 1,
+          hashAttribute: "user_id",
+          hashVersion: 2,
+          meta: [
+            { key: "0", name: "Control" },
+            { key: "1", name: "Variation" },
+          ],
+          name: "exp-key",
+          phase: "0",
+          seed: "testing",
+          variations: [false, true],
+          weights: [0.5, 0.5],
+        },
+      ],
+    });
+  });
+
+  it("omitSafeRolloutLabels=true with includeExperimentNames=false: meta has no labels, rule.name is omitted", () => {
+    const feature = cloneDeep(baseFeature);
+    feature.environmentSettings["production"].rules = [
+      {
+        type: "safe-rollout",
+        controlValue: "false",
+        variationValue: "true",
+        safeRolloutId: "sr_123",
+        status: "running",
+        hashAttribute: "user_id",
+        seed: "testing",
+        trackingKey: "exp-key",
+        description: "",
+        id: "abc",
+        enabled: true,
+      },
+    ];
+
+    const def = getFeatureDefinition({
+      feature,
+      environment: "production",
+      groupMap,
+      experimentMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      includeExperimentNames: false,
+      omitSafeRolloutLabels: true,
+      includeRuleIds: true,
+    });
+
+    const rule = def!.rules![0];
+    expect(rule.name).toBeUndefined();
+    expect(rule.meta).toEqual([{ key: "0" }, { key: "1" }]);
+  });
+
   it("Injects ExperimentMetadata into experiment-ref rules when metadataOptions are set", () => {
     const feature = cloneDeep(baseFeature);
     feature.project = "proj_feature";

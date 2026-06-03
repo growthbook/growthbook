@@ -516,6 +516,8 @@ export function getFeatureDefinition({
   savedGroupsMap,
   includeRuleIds,
   includeExperimentNames,
+  omitSafeRolloutLabels,
+  includeDraftExperimentRefs,
   namespaces,
   metadataOptions,
   projectsMap,
@@ -538,6 +540,14 @@ export function getFeatureDefinition({
   savedGroupsMap?: Record<string, SavedGroupInterface>;
   includeRuleIds?: boolean;
   includeExperimentNames?: boolean;
+  // Advanced/opt-in SDK Connection flag. When true, safe rollouts and
+  // monitored ramps emit `rule.name = rule.key` (no human-readable suffix
+  // like " - Safe Rollout") and omit per-variation labels ("Control" /
+  // "Variation"). Lets downstream warehouses/ETLs that capture
+  // `experiment.name` / `result.name` see values that match GrowthBook's
+  // internal tracking keys.
+  omitSafeRolloutLabels?: boolean;
+  includeDraftExperimentRefs?: boolean;
   namespaces?: Map<
     string,
     { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
@@ -687,8 +697,8 @@ export function getFeatureDefinition({
 
           if (!includeExperimentInPayload(exp)) return null;
 
-          // Never include experiment drafts
-          if (exp.status === "draft") return null;
+          if (exp.status === "draft" && !includeDraftExperimentRefs)
+            return null;
 
           // Get current experiment phase and use it to set rule properties
           const phase = exp.phases[exp.phases.length - 1];
@@ -939,8 +949,14 @@ export function getFeatureDefinition({
             // shift as coverage increases, and a stale sticky-bucket assignment
             // would lock a user to the wrong arm or prevent new enrollment.
             rule.disableStickyBucketing = true;
-            if (includeExperimentNames)
-              rule.name = `${feature.id} - Monitored Ramp`;
+            if (includeExperimentNames) {
+              // omitSafeRolloutLabels aligns rule.name with rule.key so
+              // `experiment.name` in trackingCallback matches the warehouse
+              // tracking key, eliminating the " - Monitored Ramp" suffix.
+              rule.name = omitSafeRolloutLabels
+                ? rule.key
+                : `${feature.id} - Monitored Ramp`;
+            }
           } else {
             if (monitorInfo && !r.hashAttribute) {
               logger.warn(
@@ -1016,8 +1032,11 @@ export function getFeatureDefinition({
                 ]
               : [{ key: "0" }, { key: "1" }];
             rule.phase = "0";
-            if (includeExperimentNames)
-              rule.name = `${feature.id} - Safe Rollout`;
+            if (includeExperimentNames) {
+              rule.name = omitSafeRolloutLabels
+                ? rule.key
+                : `${feature.id} - Safe Rollout`;
+            }
           }
         }
         if (shouldExpandSavedGroups && savedGroupsMap && organization) {

@@ -13921,6 +13921,11 @@ paths:
                   type: boolean
                 includeDraftExperiments:
                   type: boolean
+                includeDraftExperimentRefs:
+                  description: >-
+                    When true, experiment-ref rules linked to draft experiments
+                    are included in feature definitions. Off by default.
+                  type: boolean
                 includeExperimentNames:
                   type: boolean
                 includeRedirectExperiments:
@@ -13936,6 +13941,16 @@ paths:
                   items:
                     type: string
                 includeTagsInMetadata:
+                  type: boolean
+                omitSafeRolloutLabels:
+                  description: >-
+                    Advanced/opt-in. When true, safe rollout and monitored ramp
+                    rules emit `name === key` (no human-readable suffix like ' -
+                    Safe Rollout') and omit per-variation labels
+                    ("Control"/"Variation") in the SDK payload. Useful when
+                    downstream analytics capture `experiment.name` /
+                    `result.name` and need them to match GrowthBook's internal
+                    tracking keys. Defaults to false.
                   type: boolean
                 proxyEnabled:
                   type: boolean
@@ -14027,6 +14042,11 @@ paths:
                   type: boolean
                 includeDraftExperiments:
                   type: boolean
+                includeDraftExperimentRefs:
+                  description: >-
+                    When true, experiment-ref rules linked to draft experiments
+                    are included in feature definitions. Off by default.
+                  type: boolean
                 includeExperimentNames:
                   type: boolean
                 includeRedirectExperiments:
@@ -14042,6 +14062,16 @@ paths:
                   items:
                     type: string
                 includeTagsInMetadata:
+                  type: boolean
+                omitSafeRolloutLabels:
+                  description: >-
+                    Advanced/opt-in. When true, safe rollout and monitored ramp
+                    rules emit `name === key` (no human-readable suffix like ' -
+                    Safe Rollout') and omit per-variation labels
+                    ("Control"/"Variation") in the SDK payload. Useful when
+                    downstream analytics capture `experiment.name` /
+                    `result.name` and need them to match GrowthBook's internal
+                    tracking keys. Defaults to false.
                   type: boolean
                 proxyEnabled:
                   type: boolean
@@ -35848,6 +35878,11 @@ components:
           type: boolean
         includeDraftExperiments:
           type: boolean
+        includeDraftExperimentRefs:
+          description: >-
+            When true, experiment-ref rules linked to draft experiments are
+            included in feature definitions. Off by default.
+          type: boolean
         includeExperimentNames:
           type: boolean
         includeRedirectExperiments:
@@ -35863,6 +35898,15 @@ components:
           items:
             type: string
         includeTagsInMetadata:
+          type: boolean
+        omitSafeRolloutLabels:
+          description: >-
+            Advanced/opt-in. When true, safe rollout and monitored ramp rules
+            emit `name === key` (no human-readable suffix like ' - Safe
+            Rollout') and omit per-variation labels ("Control"/"Variation") in
+            the SDK payload. Useful when downstream analytics capture
+            `experiment.name` / `result.name` and need them to match
+            GrowthBook's internal tracking keys. Defaults to false.
           type: boolean
         key:
           type: string

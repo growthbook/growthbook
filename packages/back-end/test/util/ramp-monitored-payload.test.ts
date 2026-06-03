@@ -391,6 +391,64 @@ describe("ramp-monitored SDK payload", () => {
       ]);
     });
 
+    it("omitSafeRolloutLabels=true: name === key, meta still has variation labels (with includeExperimentNames)", () => {
+      const def = getFeatureDefinition({
+        feature: makeRolloutFeature(),
+        environment: "production",
+        groupMap: new Map(),
+        experimentMap: new Map(),
+        safeRolloutMap: new Map(),
+        rampMonitoredRuleMap: monitoredMap("rule_1"),
+        includeExperimentNames: true,
+        omitSafeRolloutLabels: true,
+      });
+      const rule = def!.rules![0];
+      expect(rule.name).toBe("ramp_rs_abc");
+      expect(rule.name).toBe(rule.key);
+      expect(rule.meta).toEqual([
+        { key: "0", name: "Variation" },
+        { key: "1", name: "Control", passthrough: true },
+      ]);
+    });
+
+    it("omitSafeRolloutLabels=true: no rule.name when includeExperimentNames is false (meta stripped, passthrough preserved)", () => {
+      const def = getFeatureDefinition({
+        feature: makeRolloutFeature(),
+        environment: "production",
+        groupMap: new Map(),
+        experimentMap: new Map(),
+        safeRolloutMap: new Map(),
+        rampMonitoredRuleMap: monitoredMap("rule_1"),
+        includeExperimentNames: false,
+        omitSafeRolloutLabels: true,
+      });
+      const rule = def!.rules![0];
+      expect(rule.name).toBeUndefined();
+      expect(rule.meta).toEqual([
+        { key: "0" },
+        { key: "1", passthrough: true },
+      ]);
+    });
+
+    it("omitSafeRolloutLabels=false (default) preserves legacy labels with includeExperimentNames", () => {
+      const def = getFeatureDefinition({
+        feature: makeRolloutFeature(),
+        environment: "production",
+        groupMap: new Map(),
+        experimentMap: new Map(),
+        safeRolloutMap: new Map(),
+        rampMonitoredRuleMap: monitoredMap("rule_1"),
+        includeExperimentNames: true,
+        omitSafeRolloutLabels: false,
+      });
+      const rule = def!.rules![0];
+      expect(rule.name).toBe("feat_test - Monitored Ramp");
+      expect(rule.meta).toEqual([
+        { key: "0", name: "Variation" },
+        { key: "1", name: "Control", passthrough: true },
+      ]);
+    });
+
     it("bucketingV2 SDK receives coverage=2*step.coverage and seed", () => {
       // Default fixture step.coverage=0.8 (API-rejected >0.5, graceful degradation)
       // rule.coverage = min(0.8*2, 1) = 1; no explicit ranges.

@@ -149,6 +149,8 @@ export function generateFeaturesPayload({
   savedGroupsMap,
   includeRuleIds,
   includeExperimentNames,
+  omitSafeRolloutLabels,
+  includeDraftExperimentRefs,
   rampMonitoredRuleMap,
 }: {
   features: FeatureInterface[];
@@ -172,6 +174,8 @@ export function generateFeaturesPayload({
   savedGroupsMap?: Record<string, SavedGroupInterface>;
   includeRuleIds?: boolean;
   includeExperimentNames?: boolean;
+  omitSafeRolloutLabels?: boolean;
+  includeDraftExperimentRefs?: boolean;
   rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
 }): Record<string, FeatureDefinition> {
   const defs: Record<string, FeatureDefinition> = {};
@@ -195,6 +199,8 @@ export function generateFeaturesPayload({
       savedGroupsMap,
       includeRuleIds,
       includeExperimentNames,
+      omitSafeRolloutLabels,
+      includeDraftExperimentRefs,
       rampMonitoredRuleMap,
       metadataOptions: {
         includeProjectIdInMetadata,
@@ -777,7 +783,9 @@ export async function refreshSDKPayloadCache({
             encryptionKey: connection.encryptionKey,
             includeVisualExperiments: connection.includeVisualExperiments,
             includeDraftExperiments: connection.includeDraftExperiments,
+            includeDraftExperimentRefs: connection.includeDraftExperimentRefs,
             includeExperimentNames: connection.includeExperimentNames,
+            omitSafeRolloutLabels: connection.omitSafeRolloutLabels,
             includeRedirectExperiments: connection.includeRedirectExperiments,
             includeRuleIds: connection.includeRuleIds,
             hashSecureAttributes: connection.hashSecureAttributes,
@@ -985,7 +993,9 @@ export type FeatureDefinitionArgs = {
   encryptionKey?: string;
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
+  includeDraftExperimentRefs?: boolean;
   includeExperimentNames?: boolean;
+  omitSafeRolloutLabels?: boolean;
   includeRedirectExperiments?: boolean;
   includeRuleIds?: boolean;
   includeProjectIdInMetadata?: boolean;
@@ -1022,7 +1032,9 @@ export type ConnectionPayloadOptions = {
   encryptionKey?: string;
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
+  includeDraftExperimentRefs?: boolean;
   includeExperimentNames?: boolean;
+  omitSafeRolloutLabels?: boolean;
   includeRedirectExperiments?: boolean;
   includeRuleIds?: boolean;
   hashSecureAttributes?: boolean;
@@ -1072,6 +1084,7 @@ export async function buildSDKPayloadForConnection(
     includeExperimentNames,
     includeRedirectExperiments,
     includeRuleIds,
+    omitSafeRolloutLabels,
     hashSecureAttributes,
     savedGroupReferencesEnabled,
     includeProjectIdInMetadata,
@@ -1151,6 +1164,8 @@ export async function buildSDKPayloadForConnection(
     savedGroupsMap,
     includeRuleIds,
     includeExperimentNames: connection.includeExperimentNames,
+    omitSafeRolloutLabels,
+    includeDraftExperimentRefs: connection.includeDraftExperimentRefs,
     includeProjectIdInMetadata,
     includeCustomFieldsInMetadata,
     allowedCustomFieldsInMetadata,
@@ -1272,6 +1287,7 @@ export async function getFeatureDefinitions(
       includeVisualExperiments: args.includeVisualExperiments,
       includeDraftExperiments: args.includeDraftExperiments,
       includeExperimentNames: args.includeExperimentNames,
+      omitSafeRolloutLabels: args.omitSafeRolloutLabels,
       includeRedirectExperiments: args.includeRedirectExperiments,
       includeRuleIds: args.includeRuleIds,
       hashSecureAttributes: args.hashSecureAttributes,
