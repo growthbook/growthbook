@@ -343,7 +343,7 @@ export function buildEventForwarderEventsFactTableSql(
 
 function getEventForwarderFactTableColumnDatatype(
   attribute: SDKAttribute,
-): CreateColumnProps["datatype"] {
+): EventForwarderAttributeValueDatatype {
   if (attribute.hashAttribute) {
     return "string";
   }
