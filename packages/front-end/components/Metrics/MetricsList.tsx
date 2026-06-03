@@ -1,7 +1,11 @@
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { date, datetime } from "shared/dates";
-import { isProjectListValidForProject } from "shared/util";
+import {
+  isProjectListValidForProject,
+  canCreateLegacyMetric,
+  isLegacyMetricCreationDisabled,
+} from "shared/util";
 import { getMetricLink, isFactMetricId } from "shared/experiments";
 import { useRouter } from "next/router";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
@@ -204,12 +208,13 @@ export function useCombinedMetrics({
   } = useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
+  const settings = useOrgSettings();
 
   const { apiCall } = useAuth();
 
   const combinedMetrics = [
     ...inlineMetrics.map((m) => {
-      const canDuplicate = permissionsUtil.canCreateMetric({
+      const canDuplicate = canCreateLegacyMetric(settings, permissionsUtil, {
         // Don't pass in managedBy as we allow non-admins to duplicate official metrics - the duplicated metric will be non-official
         projects: m.projects,
       });
@@ -398,7 +403,7 @@ const MetricsList = (): React.ReactElement => {
   const router = useRouter();
   const permissionsUtil = usePermissionsUtil();
   const settings = useOrgSettings();
-  const { disableLegacyMetricCreation } = settings;
+  const legacyMetricCreationDisabled = isLegacyMetricCreationDisabled(settings);
 
   const [showArchived, setShowArchived] = useState(false);
   const combinedMetrics = useCombinedMetrics({
@@ -433,11 +438,15 @@ const MetricsList = (): React.ReactElement => {
     isProjectListValidForProject(f.projects, project),
   );
 
-  // Show the create fact table button if there are no legacy metrics and no fact tables
-  // If disableLegacyMetricCreation is true, show the create fact table button if there are no fact tables
-  const showCreateFactTableButton = disableLegacyMetricCreation
+  // When legacy creation is disabled, prompt for a fact table if none exist.
+  // Otherwise, prompt if there are no legacy metrics and no fact tables yet.
+  const showCreateFactTableButton = legacyMetricCreationDisabled
     ? !hasFactTables
     : !hasLegacyMetrics && !hasFactTables;
+
+  const canAddMetric =
+    permissionsUtil.canCreateFactMetric({ projects: [project] }) ||
+    canCreateLegacyMetric(settings, permissionsUtil, { projects: [project] });
 
   //searching:
   const filterResults = useCallback(
@@ -549,7 +558,9 @@ const MetricsList = (): React.ReactElement => {
           </DocLink>
         </Flex>
         <Box style={{ flex: 1 }} />
-        {envAllowsCreatingMetrics() && !showCreateFactTableButton ? (
+        {canAddMetric &&
+        envAllowsCreatingMetrics() &&
+        !showCreateFactTableButton ? (
           <Flex gap="2">
             <AutoGenerateMetricsButton
               setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}

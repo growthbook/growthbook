@@ -7,7 +7,10 @@ import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
 } from "shared/constants";
-import { isProjectListValidForProject } from "shared/util";
+import {
+  isProjectListValidForProject,
+  isLegacyMetricCreationDisabled,
+} from "shared/util";
 import {
   CreateFactMetricProps,
   FactMetricInterface,
@@ -1278,7 +1281,7 @@ export default function FactMetricModal({
   const settings = useOrgSettings();
 
   const { hasCommercialFeature, permissionsUtil } = useUser();
-  const { disableLegacyMetricCreation } = settings;
+  const legacyMetricCreationDisabled = isLegacyMetricCreationDisabled(settings);
 
   const hasMetricSlicesFeature = hasCommercialFeature("metric-slices");
 
@@ -1311,7 +1314,7 @@ export default function FactMetricModal({
     .filter((f) => f.datasource !== demoDataSourceId); // Don't factor in demo datasource metrics
 
   const showSwitchToLegacy =
-    filteredMetrics.length > 0 && !disableLegacyMetricCreation;
+    filteredMetrics.length > 0 && !legacyMetricCreationDisabled;
 
   const defaultValues = getDefaultFactMetricProps({
     datasources,

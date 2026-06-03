@@ -5,6 +5,10 @@ import clsx from "clsx";
 import { getMetricLink } from "shared/experiments";
 import { Box, Card, Flex, Heading } from "@radix-ui/themes";
 import Link from "@/ui/Link";
+import {
+  canCreateLegacyMetric,
+  isLegacyMetricCreationDisabled,
+} from "shared/util";
 import { DocLink } from "@/components/DocLink";
 import { envAllowsCreatingMetrics } from "@/services/env";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
@@ -41,7 +45,7 @@ export default function DataSourceMetrics({
   const [metricsOpen, setMetricsOpen] = useState(false);
   const [modalData, setModalData] = useState<MetricModalState | null>(null);
   const settings = useOrgSettings();
-  const { disableLegacyMetricCreation } = settings;
+  const legacyMetricCreationDisabled = isLegacyMetricCreationDisabled(settings);
   const {
     mutateDefinitions,
     factTables,
@@ -60,15 +64,19 @@ export default function DataSourceMetrics({
 
   const hasFactTables = factTables.some((f) => f.datasource === dataSource.id);
 
-  // Show the create fact table button if there are no legacy metrics and no fact tables
-  // If disableLegacyMetricCreation is true, show the create fact table button if there are no fact tables
-  const showCreateFactTableButton = disableLegacyMetricCreation
+  // When legacy creation is disabled, prompt for a fact table if none exist.
+  // Otherwise, prompt if there are no legacy metrics and no fact tables yet.
+  const showCreateFactTableButton = legacyMetricCreationDisabled
     ? !hasFactTables
     : !hasLegacyMetrics && !hasFactTables;
 
-  // Auto-generated metrics inherit the data source's projects, so check that the user has createMetric permission for all of them
-  const canCreateMetricsInAllDataSourceProjects =
-    permissionsUtil.canCreateMetric({ projects: dataSource.projects });
+  const canAddMetric =
+    permissionsUtil.canCreateFactMetric({
+      projects: dataSource.projects || [],
+    }) ||
+    canCreateLegacyMetric(settings, permissionsUtil, {
+      projects: dataSource.projects,
+    });
 
   return (
     <>
@@ -103,7 +111,7 @@ export default function DataSourceMetrics({
         </Box>
         {canEdit &&
         envAllowsCreatingMetrics() &&
-        canCreateMetricsInAllDataSourceProjects &&
+        canAddMetric &&
         !showCreateFactTableButton ? (
           <>
             <AutoGenerateMetricsButton
