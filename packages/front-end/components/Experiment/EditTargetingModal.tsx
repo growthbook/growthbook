@@ -69,6 +69,16 @@ export interface Props {
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   safeToEdit: boolean;
+  /**
+   * Override the targeting write endpoint. Defaults to the legacy
+   * `POST /experiment/:id/targeting` sub-route. The CB detail page
+   * passes `PUT /api/v1/contextual-bandits/:id`, which accepts the
+   * targeting-shaped subset (hashAttribute, fallbackAttribute,
+   * hashVersion, disableStickyBucketing). Phase-shape edits are
+   * intentionally left on the experiment route this session (C2).
+   */
+  updateEndpoint?: string;
+  updateMethod?: "POST" | "PUT";
 }
 
 export default function EditTargetingModal({
@@ -76,6 +86,8 @@ export default function EditTargetingModal({
   experiment,
   mutate,
   safeToEdit,
+  updateEndpoint,
+  updateMethod,
 }: Props) {
   const { apiCall } = useAuth();
   const orgSettings = useOrgSettings();
@@ -233,10 +245,13 @@ export default function EditTargetingModal({
       ns.ranges = mergeContiguousRanges(ns.ranges);
     }
 
-    await apiCall(`/experiment/${experiment.id}/targeting`, {
-      method: "POST",
-      body: JSON.stringify(value),
-    });
+    await apiCall(
+      updateEndpoint ?? `/experiment/${experiment.id}/targeting`,
+      {
+        method: updateMethod ?? "POST",
+        body: JSON.stringify(value),
+      },
+    );
     mutate();
     track("edit-experiment-targeting", {
       type: changeType,
