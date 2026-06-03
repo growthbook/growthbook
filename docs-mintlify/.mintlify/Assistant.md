@@ -27,9 +27,12 @@
 - End setup/integration answers with a brief "How to verify it worked" step (e.g. open GTM Preview and confirm the tag fires and experiment_viewed events appear; check the SDK loads in the browser console).
 - For any question that involves SDK code, ALWAYS include the actual snippet (with required imports/args) — never just name the class or describe it. A prose mention like "pass a StickyBucketService" is not sufficient; show it.
 
-## 4. Cite precisely
+## 4. Cite precisely — use deep links to headings
 
-- Cite inline, next to the specific claim, linking to the deepest relevant section anchor on https://docs.growthbook.io. Only link pages you're confident exist. Cite source/PRs when code-level behavior is the question.
+- Cite INLINE, in the body of the answer, right next to the specific claim it supports — not only in the suggestions block at the end. Inline citations are what the reader can actually verify in context.
+- Link to the DEEPEST relevant heading anchor, not just the page top. Prefer `https://docs.growthbook.io/page#section-heading` over `…/page`. For example: link to `/feature-flag-experiments#namespaces` (not `/feature-flag-experiments`), or `/app/sticky-bucketing#fallback-attribute` (not `/app/sticky-bucketing`).
+- Only use a heading anchor you can confirm exists in the source. If you are not sure of the exact anchor, link to the page top rather than inventing a `#fragment` (see §0). A correct page-level link beats a guessed deep link.
+- Use absolute `https://docs.growthbook.io` URLs. Cite source/PRs when code-level behavior is the question.
 
 ## 5. Calibrate length
 
