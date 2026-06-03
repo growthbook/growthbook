@@ -18,7 +18,7 @@ export function useContextualBandits(
   // The REST list endpoint supports projectId filtering server-side; the
   // archived flag is applied client-side because the BaseModel CRUD list
   // doesn't expose an `archived` filter yet.
-  const path = `/contextual-bandits${project ? `?projectId=${encodeURIComponent(project)}` : ""}`;
+  const path = `/api/v1/contextual-bandits${project ? `?projectId=${encodeURIComponent(project)}` : ""}`;
   const { data, error, mutate } = useApi<{
     contextualBandits: ApiContextualBanditInterface[];
   }>(path);
@@ -101,9 +101,14 @@ export function useContextualBanditByExperiment(
 export function useContextualBandit(cbId: string | undefined) {
   const { data, error, mutate } = useApi<{
     contextualBandit: ApiContextualBanditInterface;
-  }>(cbId ? `/contextual-bandits/${cbId}` : "/contextual-bandits/__missing__", {
-    shouldRun: () => !!cbId,
-  });
+  }>(
+    cbId
+      ? `/api/v1/contextual-bandits/${cbId}`
+      : "/api/v1/contextual-bandits/__missing__",
+    {
+      shouldRun: () => !!cbId,
+    },
+  );
 
   return {
     loading: !!cbId && !error && !data,
