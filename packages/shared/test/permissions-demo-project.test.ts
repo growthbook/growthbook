@@ -138,4 +138,24 @@ describe("demo (sample data) project does not lock out create CTAs", () => {
         p.canManageFeatureDrafts({ project: "" }),
     ).toBe(true);
   });
+
+  it("Add Attribute stays enabled", () => {
+    const p = getAdminPermissionsForDemoOnlyOrg();
+    expect(p.canViewAttributeModal("", allProjects)).toBe(true);
+  });
+
+  it("Add Idea stays enabled", () => {
+    const p = getAdminPermissionsForDemoOnlyOrg();
+    expect(p.canViewIdeaModal("", allProjects)).toBe(true);
+  });
+
+  it("Add Data Source stays enabled", () => {
+    const p = getAdminPermissionsForDemoOnlyOrg();
+    expect(p.canViewCreateDataSourceModal("", allProjects)).toBe(true);
+  });
+
+  it("Add Saved Group stays enabled", () => {
+    const p = getAdminPermissionsForDemoOnlyOrg();
+    expect(p.canViewSavedGroupModal("", allProjects)).toBe(true);
+  });
 });

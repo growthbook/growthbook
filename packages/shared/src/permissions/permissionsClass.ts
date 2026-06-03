@@ -270,8 +270,13 @@ export class Permissions {
     allProjects?: { id: string }[],
   ): boolean => {
     if (!project && allProjects?.length) {
-      return allProjects.some((p) =>
-        this.canCreateAttribute({ projects: [p.id] }),
+      // Allow if the user can create an attribute with no project (e.g. a
+      // global admin). Checking that first means a non-creatable project (like
+      // the read-only sample-data project) can't gate the CTA when it's the
+      // only project.
+      return (
+        this.canCreateAttribute({ projects: [] }) ||
+        allProjects.some((p) => this.canCreateAttribute({ projects: [p.id] }))
       );
     }
     return this.canCreateAttribute({ projects: project ? [project] : [] });
@@ -620,7 +625,14 @@ export class Permissions {
     allProjects?: { id: string }[],
   ): boolean => {
     if (!project && allProjects?.length) {
-      return allProjects.some((p) => this.canCreateIdea({ project: p.id }));
+      // Allow if the user can create an idea with no project (e.g. a global
+      // admin). Checking that first means a non-creatable project (like the
+      // read-only sample-data project) can't gate the CTA when it's the only
+      // project.
+      return (
+        this.canCreateIdea({ project: "" }) ||
+        allProjects.some((p) => this.canCreateIdea({ project: p.id }))
+      );
     }
     return this.canCreateIdea({ project });
   };
@@ -937,8 +949,15 @@ export class Permissions {
     allProjects?: { id: string }[],
   ): boolean => {
     if (!project && allProjects?.length) {
-      return allProjects.some((p) =>
-        this.canCreateDataSource({ projects: [p.id], type: undefined }),
+      // Allow if the user can create a data source with no project (e.g. a
+      // global admin). Checking that first means a non-creatable project (like
+      // the read-only sample-data project) can't gate the CTA when it's the
+      // only project.
+      return (
+        this.canCreateDataSource({ projects: [], type: undefined }) ||
+        allProjects.some((p) =>
+          this.canCreateDataSource({ projects: [p.id], type: undefined }),
+        )
       );
     }
     return this.canCreateDataSource({
@@ -1219,8 +1238,13 @@ export class Permissions {
     allProjects?: { id: string }[],
   ): boolean => {
     if (!project && allProjects?.length) {
-      return allProjects.some((p) =>
-        this.canCreateSavedGroup({ projects: [p.id] }),
+      // Allow if the user can create a saved group with no project (e.g. a
+      // global admin). Checking that first means a non-creatable project (like
+      // the read-only sample-data project) can't gate the CTA when it's the
+      // only project.
+      return (
+        this.canCreateSavedGroup({ projects: [] }) ||
+        allProjects.some((p) => this.canCreateSavedGroup({ projects: [p.id] }))
       );
     }
     return this.canCreateSavedGroup({ projects: project ? [project] : [] });
