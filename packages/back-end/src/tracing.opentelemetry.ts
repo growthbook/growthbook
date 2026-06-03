@@ -90,10 +90,9 @@ const attributeKey = (attributes?: Attributes) => {
   if (!attributes) {
     return "";
   }
-  return Object.entries(attributes)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([k, v]) => `${k}=${v}`)
-    .join(",");
+  return JSON.stringify(
+    Object.entries(attributes).sort(([a], [b]) => a.localeCompare(b)),
+  );
 };
 
 const gaugeByName = new Map<
@@ -108,6 +107,7 @@ const getGauge = (name: string) => {
   }
 
   const gauge = otlMetrics.getMeter(name).createObservableGauge(name);
+  // Entries stay until removed via remove(); stale label combos are not dropped on their own.
   const series = new Map<string, { value: number; attributes?: Attributes }>();
   gauge.addCallback((observableResult) => {
     for (const { value, attributes } of series.values()) {
@@ -118,6 +118,9 @@ const getGauge = (name: string) => {
   const wrapper = {
     record: (value: number, attributes?: Attributes) => {
       series.set(attributeKey(attributes), { value, attributes });
+    },
+    remove: (attributes?: Attributes) => {
+      series.delete(attributeKey(attributes));
     },
   };
   gaugeByName.set(name, wrapper);
