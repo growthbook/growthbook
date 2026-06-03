@@ -141,6 +141,8 @@ function getRuleTypeLabel(type: FeatureRule["type"]): string {
       return "Experiment";
     case "experiment-ref":
       return "Experiment ref";
+    case "contextual-bandit-ref":
+      return "Contextual Bandit ref";
     case "safe-rollout":
       return "Safe rollout";
   }
@@ -437,6 +439,12 @@ function RuleHeading({ rule, index }: { rule: FeatureRule; index: number }) {
     detail = `key: ${rule.trackingKey}`;
   } else if (rule.type === "experiment-ref") {
     detail = <ExperimentLink experimentId={rule.experimentId} />;
+  } else if (rule.type === "contextual-bandit-ref") {
+    // No ContextualBanditLink yet — the CB detail page route is still keyed
+    // by the experiment id (see Rule.tsx). Render the raw CB id so diffs at
+    // least identify which CB the rule points at. A proper
+    // ContextualBanditLink follows alongside the dedicated CB-ref summary.
+    detail = `cb: ${rule.contextualBanditId}`;
   }
   return (
     <div className="mb-2">
@@ -879,6 +887,30 @@ function NewRuleDetails({
         post={formatValue(rule.variationValue)}
       />,
     );
+  }
+
+  if (rule.type === "contextual-bandit-ref") {
+    rows.push(
+      <ChangeField
+        key="contextualBanditId"
+        label="Contextual Bandit"
+        changed
+        oldNode={<em>unset</em>}
+        // No ContextualBanditLink yet — render the raw id for now. Same
+        // rationale as the RuleHeading branch above.
+        newNode={<code>{rule.contextualBanditId}</code>}
+      />,
+    );
+    rule.variations.forEach((v, i) => {
+      rows.push(
+        <ValueChangedField
+          key={`cb-var-${i}`}
+          label={`Variation ${i} value`}
+          pre={null}
+          post={formatValue(v.value)}
+        />,
+      );
+    });
   }
 
   if (rule.type === "experiment-ref") {
