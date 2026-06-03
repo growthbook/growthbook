@@ -1,0 +1,138 @@
+import {
+  ApiContextualBanditInterface,
+  ContextualBanditRefRule,
+} from "shared/validators";
+import { FeatureInterface } from "shared/types/feature";
+import React from "react";
+import { Box, Flex } from "@radix-ui/themes";
+import { useContextualBandits } from "@/hooks/useContextualBandits";
+import Link from "@/ui/Link";
+import Callout from "@/ui/Callout";
+import Badge from "@/ui/Badge";
+import Table, { TableBody, TableRow, TableCell } from "@/ui/Table";
+import Text from "@/ui/Text";
+import { getVariationColor } from "@/services/features";
+import ValueDisplay from "@/components/Features/ValueDisplay";
+
+/**
+ * Summary card for a `contextual-bandit-ref` feature rule. Parallel to
+ * `ExperimentRefSummary` but scoped to the CB-ref shape — keeps the
+ * surface area smaller than the experiment summary because CB doesn't
+ * yet carry sticky-bucketing, namespace coverage, winner / released
+ * variation, or hypothesis-as-tag, so the only useful things to render
+ * today are status, variation values, and any current per-leaf weights.
+ *
+ * When the CB API surfaces those concepts (decision framework in v1.5,
+ * holdout in v1.5) this component grows to match.
+ */
+export default function ContextualBanditRefSummary({
+  rule,
+  feature,
+}: {
+  rule: ContextualBanditRefRule;
+  feature: FeatureInterface;
+}) {
+  const { contextualBanditsMap, loading } = useContextualBandits();
+  const cb: ApiContextualBanditInterface | undefined =
+    contextualBanditsMap?.get(rule.contextualBanditId);
+  const type = feature.valueType;
+
+  if (loading) return null;
+
+  if (!cb) {
+    return (
+      <Callout status="error">
+        The Contextual Bandit <code>{rule.contextualBanditId}</code> could not
+        be found.
+      </Callout>
+    );
+  }
+
+  // Route to /contextual-bandit/${cb.experiment ?? cb.id} during the
+  // decoupling window — same fall-back the list page uses.
+  const detailHref = `/contextual-bandit/${cb.experiment ?? cb.id}`;
+
+  if (cb.archived) {
+    return (
+      <Callout status="info">
+        This Contextual Bandit is archived and will be skipped.{" "}
+        <Link href={detailHref}>View CB</Link>
+      </Callout>
+    );
+  }
+
+  if (cb.status === "stopped") {
+    return (
+      <Callout status="info">
+        This Contextual Bandit is stopped and will be skipped.{" "}
+        <Link href={detailHref}>View CB</Link>
+      </Callout>
+    );
+  }
+
+  const currentPhase = cb.phases[cb.phases.length - 1];
+  const phaseWeights = currentPhase?.variationWeights ?? [];
+
+  return (
+    <Box>
+      <Flex align="center" gap="2" mb="2" wrap="wrap">
+        <Text size="medium" weight="medium">
+          <Link href={detailHref}>{cb.name}</Link>
+        </Text>
+        <Badge
+          color={cb.status === "running" ? "green" : "gray"}
+          label={cb.status}
+        />
+        {cb.contextualAttributes.length > 0 && (
+          <Text size="small" color="text-low">
+            Context: {cb.contextualAttributes.join(", ")}
+          </Text>
+        )}
+      </Flex>
+
+      <Table>
+        <TableBody>
+          {cb.variations.map((v, i) => {
+            // The rule maps CB variation ids → feature values; fall back
+            // to the variation name when the rule predates a new variation.
+            const ruleVariation = rule.variations.find(
+              (rv) => rv.variationId === v.id,
+            );
+            const weight = phaseWeights[i];
+            return (
+              <TableRow key={v.id}>
+                <TableCell>
+                  <Box
+                    style={{
+                      display: "inline-block",
+                      width: 10,
+                      height: 10,
+                      borderRadius: 2,
+                      background: getVariationColor(i, true),
+                      marginRight: 6,
+                    }}
+                  />
+                  {v.name || v.key}
+                </TableCell>
+                <TableCell>
+                  {ruleVariation ? (
+                    <ValueDisplay value={ruleVariation.value} type={type} />
+                  ) : (
+                    <em>not set</em>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {weight != null ? (
+                    `${Math.round(weight * 10000) / 100}%`
+                  ) : (
+                    <em>—</em>
+                  )}
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </Box>
+  );
+}

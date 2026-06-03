@@ -41,7 +41,7 @@ import RampTimeline, {
 import Button from "@/ui/Button";
 import { useAuth } from "@/services/auth";
 import Text from "@/ui/Text";
-import ContextualBanditLink from "@/components/ContextualBandit/ContextualBanditLink";
+import ContextualBanditRefSummary from "@/components/ContextualBandit/ContextualBanditRefSummary";
 import track from "@/services/track";
 import {
   isRuleInactive,
@@ -1224,21 +1224,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
              * PR-6 commit.
              */}
             {rule.type === "contextual-bandit-ref" && (
-              <Box mt="2">
-                <Text size="small">
-                  Linked Contextual Bandit:{" "}
-                  <ContextualBanditLink
-                    contextualBanditId={rule.contextualBanditId}
-                  />
-                </Text>
-                {rule.variations.length > 0 && (
-                  <Box mt="2">
-                    <Text size="small" weight="medium">
-                      Variations ({rule.variations.length})
-                    </Text>
-                  </Box>
-                )}
-              </Box>
+              <ContextualBanditRefSummary rule={rule} feature={feature} />
             )}
             {rampSchedule && (
               <Box mt="4">
