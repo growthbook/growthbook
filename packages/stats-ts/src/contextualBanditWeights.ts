@@ -33,6 +33,7 @@ import {
   updateVariationWeights,
   type VariationWeightResult,
 } from "./banditWeights";
+import { varianceOfRatios } from "./utils";
 
 // Sentinel used by gbstats `context_tuple_from_row` for a missing attribute.
 const COMBINED_CONTEXT_ATTRIBUTE_VALUE = "Combined";
@@ -163,7 +164,7 @@ function proportionStat(sum: number, n: number): BaseStat {
  * `base_statistic_from_metric_row`: binomial -> ProportionStatistic,
  * count -> SampleMeanStatistic.
  */
-function baseStat(
+function baseStatForMetricType(
   metricType: "count" | "binomial" | "quantile" | undefined,
   sum: number,
   sumSquares: number,
@@ -193,22 +194,6 @@ function computeCovariance(
     return sumOfProducts / n - (aSum * bSum) / (n * n);
   }
   return (sumOfProducts - (aSum * bSum) / n) / (n - 1);
-}
-
-/** gbstats `variance_of_ratios`. */
-function varianceOfRatios(
-  meanM: number,
-  varM: number,
-  meanD: number,
-  varD: number,
-  covMD: number,
-): number {
-  if (meanD === 0) return 0;
-  return (
-    varM / meanD ** 2 +
-    (varD * meanM ** 2) / meanD ** 4 -
-    (2 * covMD * meanM) / meanD ** 3
-  );
 }
 
 /**
@@ -253,13 +238,13 @@ function armMomentStat(
       };
     }
     case "ratio": {
-      const m = baseStat(
+      const m = baseStatForMetricType(
         metric.main_metric_type,
         arm.main_sum,
         arm.main_sum_squares,
         n,
       );
-      const d = baseStat(
+      const d = baseStatForMetricType(
         metric.denominator_metric_type,
         arm.denominator_sum,
         arm.denominator_sum_squares,

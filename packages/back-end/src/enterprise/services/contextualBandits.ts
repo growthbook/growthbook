@@ -1,20 +1,3 @@
-// See contextual-bandit-fix-prompt.md for the v1 scope and the v1.5 holdout TODOs.
-//
-// SMITH: When the real Python stats engine grows new output fields, those
-// fields must be plumbed through in BOTH places:
-//   1. `persistContextualBanditEvent` below (mapping result → CBE create payload), and
-//   2. the validators in shared/src/validators/contextual-bandit-event.ts
-//      (`contextualBanditResponseValidator`).
-// Skipping either side will either drop the field on the floor or fail
-// schema validation on write.
-//
-// TODO(holdout-v1.5): SDK tracking callback for holdout-bucket users is
-// deferred. When holdout ships, the orchestrator must emit (or the SDK must
-// receive) per-user assignment events that distinguish holdout vs bandit
-// buckets. See sdk-callback-design-summary.md for the Option A (combined
-// callback with a `train_id` column) vs Option B (separate callbacks)
-// decision.
-
 import { ExperimentInterface } from "shared/types/experiment";
 import type {
   ExperimentSnapshotSettings,
