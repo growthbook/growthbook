@@ -35,13 +35,13 @@ describe("event-forwarder-exposure-queries table reference", () => {
 });
 
 describe("buildEventForwarderAttributeValueSql", () => {
-  it("reads hash ids from BigQuery STRUCT attributes", () => {
+  it("reads hash ids from BigQuery JSON attributes", () => {
     expect(
       buildEventForwarderAttributeValueSql({
         sinkType: "bigquery",
         userIdType: "user_id",
       }),
-    ).toBe("`attributes`.`user_id`");
+    ).toBe("CAST(JSON_VALUE(`attributes`, '$.\"user_id\"') AS STRING)");
   });
 
   it("reads hash ids from Snowflake VARIANT attributes with quoted paths", () => {
@@ -53,7 +53,7 @@ describe("buildEventForwarderAttributeValueSql", () => {
     ).toBe('ATTRIBUTES:"device_id"::STRING');
   });
 
-  it("sanitizes property names to match Avro nested record fields", () => {
+  it("sanitizes property names to match Avro map keys", () => {
     expect(
       buildEventForwarderAttributeValueSql({
         sinkType: "snowflake",
@@ -73,7 +73,9 @@ describe("buildEventForwarderExposureQuerySql", () => {
       userIdType: "user_id",
     });
 
-    expect(sql).toContain("`attributes`.`user_id` AS `user_id`");
+    expect(sql).toContain(
+      "CAST(JSON_VALUE(`attributes`, '$.\"user_id\"') AS STRING) AS `user_id`",
+    );
     expect(sql).toContain("experiment_id AS experiment_id");
     expect(sql).toContain(`FROM ${tableRef}`);
     expect(sql).toContain(
@@ -90,7 +92,9 @@ describe("buildEventForwarderExposureQuerySql", () => {
       userIdType: "user",
     });
 
-    expect(sql).toContain("`attributes`.`user` AS `user`");
+    expect(sql).toContain(
+      "CAST(JSON_VALUE(`attributes`, '$.\"user\"') AS STRING) AS `user`",
+    );
   });
 
   it("has no WHERE clause for Snowflake", () => {
