@@ -88,12 +88,18 @@ const getCounter = (name: string) => {
 
 const getGauge = (name: string) => {
   const gauge = otlMetrics.getMeter(name).createObservableGauge(name);
+  // One callback per gauge; record() only updates latest. Multiple attribute sets
+  // overwrite each other. That beats unbounded callback accumulation on every record().
+  let latest: { value: number; attributes?: Attributes } | null = null;
+  gauge.addCallback((observableResult) => {
+    if (latest) {
+      observableResult.observe(latest.value, latest.attributes);
+    }
+  });
 
   return {
     record: (value: number, attributes?: Attributes) => {
-      gauge.addCallback((observableResult) => {
-        observableResult.observe(value, attributes);
-      });
+      latest = { value, attributes };
     },
   };
 };
