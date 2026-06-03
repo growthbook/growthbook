@@ -41,8 +41,8 @@ export default function ClickhouseManagedWarehouseIdentifiers({
         Identifiers are managed through your organization&apos;s{" "}
         <Link href="/attributes">attributes</Link> (those marked as
         identifiers). Every other attribute your SDK sends is automatically
-        queryable from the <code>attributes</code> JSON column on your fact
-        tables&mdash;no setup required.
+        queryable from the <code>attributes</code>
+        <span> </span>JSON column on your fact tables&mdash;no setup required.
       </Callout>
     </Box>
   );
