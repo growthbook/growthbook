@@ -83,10 +83,6 @@ function quoteSnowflakeVariantFieldName(fieldName: string): string {
   return `"${fieldName.replace(/"/g, '""')}"`;
 }
 
-function quoteBigQueryJsonPathField(fieldName: string): string {
-  return fieldName.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-}
-
 /** Warehouse value type used when casting flat map<string, string> entries. */
 export type EventForwarderAttributeValueDatatype =
   | "string"
@@ -118,18 +114,17 @@ function buildBigQueryFlatMapAttributeValueSql(
   const quotedAttributes = quoteBigQueryIdentifier(
     EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD,
   );
-  const jsonPathField = quoteBigQueryJsonPathField(fieldName);
-  const jsonValue = `JSON_VALUE(${quotedAttributes}, '$."${jsonPathField}"')`;
+  const rawValue = `(SELECT value FROM UNNEST(${quotedAttributes}) WHERE key = '${fieldName}')`;
 
   switch (valueDatatype) {
     case "number":
-      return `SAFE_CAST(${jsonValue} AS FLOAT64)`;
+      return `SAFE_CAST(${rawValue} AS FLOAT64)`;
     case "boolean":
-      return `SAFE_CAST(${jsonValue} AS BOOL)`;
+      return `SAFE_CAST(${rawValue} AS BOOL)`;
     case "json":
-      return `PARSE_JSON(${jsonValue})`;
+      return `PARSE_JSON(${rawValue})`;
     default:
-      return jsonValue;
+      return rawValue;
   }
 }
 
