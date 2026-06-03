@@ -62,7 +62,6 @@ import {
   validateVariationIds,
   validateExperimentData,
   validateContextualBanditExperimentForSave,
-  maybeCreateContextualBanditDoc,
 } from "back-end/src/services/experiments";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
@@ -1349,7 +1348,13 @@ export async function postExperiments(
       context,
     });
 
-    await maybeCreateContextualBanditDoc(context, experiment);
+    // CB doc creation no longer happens here; the CB create flow has
+    // its own POST endpoint (POST /api/v1/contextual-bandits) that
+    // creates a CB-native doc directly. Callers using the legacy
+    // experiment-create path with `type: "contextual-bandit"` will get
+    // only the experiment doc — the SDK bandit rule won't fire without
+    // a paired CB. PR-8 removes the `contextual-bandit` branch from
+    // this route entirely.
 
     if (holdoutId) {
       const holdoutObj = await context.models.holdout.getById(holdoutId);

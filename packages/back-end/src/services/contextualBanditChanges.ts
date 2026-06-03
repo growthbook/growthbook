@@ -164,9 +164,10 @@ export async function executeContextualBanditStart(
 
   const now = new Date();
 
-  // Ensure a phase exists. CBs are typically seeded with an initial phase by
-  // `maybeCreateContextualBanditDoc`, but defensive-creation here matches
-  // `executeExperimentStart`'s default-phase fallback for older docs.
+  // Ensure a phase exists. CBs are typically seeded with an initial phase
+  // by `ContextualBanditModel.processApiCreateBody`, but defensive-creation
+  // here matches `executeExperimentStart`'s default-phase fallback for
+  // older docs that predate the CB-decoupling create flow.
   const phases =
     cb.phases.length > 0
       ? cb.phases

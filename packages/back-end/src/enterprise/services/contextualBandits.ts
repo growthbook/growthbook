@@ -16,10 +16,7 @@ import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import {
-  getSettingsForSnapshotMetrics,
-  maybeCreateContextualBanditDoc,
-} from "back-end/src/services/experiments";
+import { getSettingsForSnapshotMetrics } from "back-end/src/services/experiments";
 import {
   getExperimentById,
   getPayloadKeys,
@@ -126,20 +123,14 @@ export async function runContextualBanditSnapshot(
     );
   }
 
-  let cb = await context.models.contextualBandits.getByExperimentId(
+  const cb = await context.models.contextualBandits.getByExperimentId(
     experiment.id,
   );
-  if (!cb) {
-    // A `contextual-bandit` experiment can reach this path without a linked
-    // CB doc — e.g. a doc forward-migrated from the deprecated
-    // `banditIsContextual` flag (see upgradeExperimentDoc), or one whose
-    // creation-time provisioning didn't complete. Lazily provision it
-    // (idempotent) so we self-heal instead of failing every scheduled refresh.
-    await maybeCreateContextualBanditDoc(context, experiment);
-    cb = await context.models.contextualBandits.getByExperimentId(
-      experiment.id,
-    );
-  }
+  // With the CB create flow flipped to `POST /api/v1/contextual-bandits`,
+  // any CB experiment that reaches the snapshot path without a paired
+  // CB doc is a data-integrity bug, not a state to silently paper over.
+  // Fail loudly so the missing doc surfaces in the snapshot error
+  // instead of being lazily provisioned with the wrong defaults.
   if (!cb) throw new Error(`No CB doc for experiment ${experiment.id}`);
 
   const ds = await getDataSourceById(context, cb.datasourceId);

@@ -15,7 +15,6 @@ import {
   postExperimentApiPayloadToInterface,
   toExperimentApiInterface,
   validateVariationIds,
-  maybeCreateContextualBanditDoc,
 } from "back-end/src/services/experiments";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -317,7 +316,15 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       context: req.context,
     });
 
-    await maybeCreateContextualBanditDoc(req.context, experiment);
+    // Note: CB doc creation no longer happens here. The CB create flow
+    // owns its own POST endpoint now (POST /api/v1/contextual-bandits)
+    // and creates a CB-native doc directly. The legacy
+    // `POST /experiments` route still exists for non-CB experiment
+    // creation; if a caller posts `type: "contextual-bandit"` here they
+    // get just the experiment doc — without a paired CB doc the SDK
+    // bandit rule won't fire, but this is the intended behaviour while
+    // the FK is being phased out. PR-8 removes the `contextual-bandit`
+    // branch from this route entirely.
 
     if (ownerId) {
       // add owner as watcher

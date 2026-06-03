@@ -456,9 +456,10 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
     }
 
     // The targeting-attribute columns come from the selected exposure
-    // query on the chosen datasource. `maybeCreateContextualBanditDoc`
-    // derived them server-side from the same lookup; we mirror it here so
-    // the create body carries the value the CB-native endpoint expects.
+    // query on the chosen datasource. The CB-native create endpoint
+    // expects them in the POST body, so we resolve them here from the
+    // datasource the form has loaded rather than letting the backend
+    // re-derive them.
     const submitDatasource = datasources.find(
       (d) => d.id === data.datasource,
     );

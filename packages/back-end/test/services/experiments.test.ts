@@ -17,7 +17,6 @@ import {
   putMetricApiPayloadIsValid,
   putMetricApiPayloadToMetricInterface,
   updateExperimentApiPayloadToInterface,
-  maybeCreateContextualBanditDoc,
 } from "back-end/src/services/experiments";
 
 describe("experiments utils", () => {
@@ -1698,29 +1697,7 @@ describe("normalizeStatusUpdateScheduleChanges", () => {
   });
 });
 
-describe("maybeCreateContextualBanditDoc", () => {
-  it("does not create a second doc when one already exists for the experiment", async () => {
-    const createMock = jest.fn();
-    const experiment = {
-      id: "exp_1",
-      type: "contextual-bandit",
-      contextualBanditId: "cb_existing",
-      datasource: "ds_1",
-      exposureQueryId: "eaq_1",
-    } as ExperimentInterface;
-
-    const context = {
-      hasPremiumFeature: () => true,
-      models: {
-        contextualBandits: {
-          getByExperimentId: jest.fn().mockResolvedValue({ id: "cb_existing" }),
-          create: createMock,
-        },
-      },
-    } as unknown as import("back-end/types/request").ReqContext;
-
-    await maybeCreateContextualBanditDoc(context, experiment);
-
-    expect(createMock).not.toHaveBeenCalled();
-  });
-});
+// `maybeCreateContextualBanditDoc` test block removed alongside the
+// function in the CB-decoupling work. Its unit-test coverage is
+// superseded by the forward-sync helper test in
+// `contextualBanditForwardSync.test.ts`.

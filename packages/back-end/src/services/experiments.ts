@@ -4819,125 +4819,17 @@ export async function validateContextualBanditExperimentForSave(
   });
 }
 
-/**
- * Creates the linked ContextualBandit doc when a new contextual bandit
- * experiment is saved, and patches the experiment with `contextualBanditId`.
- *
- * Idempotent: if a CB doc already exists for the experiment it is a no-op.
- */
-export async function maybeCreateContextualBanditDoc(
-  context: ReqContext,
-  experiment: ExperimentInterface,
-): Promise<void> {
-  // TODO(holdout-v1.5): when holdout ships,
-  // `createContextualExperimentInterface` (per the original engineering plan)
-  // will need a sibling holdout-experiment doc, and the bandit creation flow
-  // will create both. See contextual-bandit-fix-prompt.md.
-  if (experiment.type !== "contextual-bandit") return;
-
-  // Defense-in-depth: every code path that creates a CB experiment should
-  // already have gated on this feature flag, but block here too so a future
-  // caller can't accidentally bypass licensing.
-  if (!context.hasPremiumFeature("contextual-bandits")) {
-    context.throwPlanDoesNotAllowError(
-      "Contextual Bandits require an Enterprise plan.",
-    );
-  }
-
-  const existing = await context.models.contextualBandits.getByExperimentId(
-    experiment.id,
-  );
-  if (existing) {
-    if (!experiment.contextualBanditId) {
-      await updateExperiment({
-        context,
-        experiment,
-        changes: { contextualBanditId: existing.id },
-      });
-    }
-    return;
-  }
-  if (experiment.contextualBanditId) return;
-
-  const datasource = experiment.datasource
-    ? await getDataSourceById(context, experiment.datasource)
-    : null;
-  const eaq = datasource?.settings?.queries?.exposure?.find(
-    (q) => q.id === experiment.exposureQueryId,
-  );
-
-  const cb = await context.models.contextualBandits.create({
-    experiment: experiment.id,
-
-    // CB-native ownership/lifecycle fields — sourced from the parent
-    // experiment during the decoupling window. Once PR-8 lands and the
-    // FK is dropped, the create-site moves to a CB-native handler and
-    // these will be supplied directly by the caller.
-    name: experiment.name,
-    description: experiment.description,
-    hypothesis: experiment.hypothesis,
-    project: experiment.project,
-    owner: experiment.owner,
-    tags: experiment.tags ?? [],
-    archived: experiment.archived ?? false,
-    customFields: experiment.customFields,
-    status:
-      experiment.status === "running" || experiment.status === "stopped"
-        ? experiment.status
-        : "draft",
-
-    // Assignment / SDK rule
-    trackingKey: experiment.trackingKey,
-    hashAttribute: experiment.hashAttribute,
-    fallbackAttribute: experiment.fallbackAttribute,
-    hashVersion: experiment.hashVersion,
-    disableStickyBucketing: experiment.disableStickyBucketing ?? false,
-    variations: experiment.variations,
-
-    // Datasource / analysis
-    datasourceId: experiment.datasource ?? "",
-    datasource: experiment.datasource ?? "",
-    exposureQueryId: experiment.exposureQueryId ?? "",
-    segment: experiment.segment,
-    queryFilter: experiment.queryFilter,
-    goalMetrics: experiment.goalMetrics ?? [],
-    secondaryMetrics: experiment.secondaryMetrics ?? [],
-    guardrailMetrics: experiment.guardrailMetrics ?? [],
-    activationMetric: experiment.activationMetric,
-    metricOverrides: experiment.metricOverrides,
-    defaultMetricPriorSettings: context.org.settings?.metricDefaults
-      ?.priorSettings ?? {
-      override: false,
-      proper: false,
-      mean: 0,
-      stddev: 0.1,
-    },
-    attributionModel: experiment.attributionModel,
-    skipPartialData: experiment.skipPartialData,
-    regressionAdjustmentEnabled: experiment.regressionAdjustmentEnabled,
-
-    // CB-specific configuration
-    contextualAttributes: eaq?.targetingAttributeColumns ?? [],
-    targetingAttributeColumns: eaq?.targetingAttributeColumns ?? [],
-    maxContexts: 300,
-    treeModel: "regression_tree",
-    minUsersPerLeaf: 100,
-    maxLeaves: 12,
-    // TODO(holdout-v1.5): inert defaults; the model also declares defaultValues
-    // for these so future create-sites (migrations, dangerous bypass paths)
-    // don't need to repeat them.
-    holdoutPercent: 0,
-    canonicalFormVersion: 1,
-    phases: [{ dateStarted: new Date(), currentLeafWeights: [] }],
-  });
-
-  // Back-patch the experiment doc so callers can discover the CB doc
-  await updateExperiment({
-    context,
-    experiment,
-    changes: { contextualBanditId: cb.id },
-  });
-}
+// `maybeCreateContextualBanditDoc` was removed in the CB-decoupling work
+// — the CB create flow now goes directly through
+// `POST /api/v1/contextual-bandits` (see
+// `ContextualBanditModel.processApiCreateBody`), so the experiment-create
+// path no longer back-fills a paired CB doc. The lazy self-heal in
+// `runContextualBanditSnapshot` is gone too; any CB experiment that
+// reaches the snapshot path without a CB doc is a data-integrity bug
+// rather than a state we should silently paper over.
+//
+// TODO(pr-8): delete `contextualBanditId` from `ExperimentInterface`
+// once the FK is dropped and the snapshot pipeline keys by CB id.
 
 export async function validateExperimentData(
   context: ReqContext,
