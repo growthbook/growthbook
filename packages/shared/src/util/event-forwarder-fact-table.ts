@@ -114,7 +114,7 @@ function buildBigQueryFlatMapAttributeValueSql(
   const quotedAttributes = quoteBigQueryIdentifier(
     EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD,
   );
-  const jsonPath = `'$.${fieldName}'`;
+  const jsonPath = `'$."${fieldName}"'`;
 
   switch (valueDatatype) {
     case "number":

@@ -124,14 +124,10 @@ WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{end
     expect(sql).toContain(
       `SAFE_CAST(JSON_VALUE(\`attributes\`, '$."is_active"') AS BOOL) AS is_active`,
     );
+    expect(sql).toContain(`JSON_QUERY(\`attributes\`, '$."tags"') AS tags`);
+    expect(sql).toContain(`JSON_QUERY(\`attributes\`, '$."scores"') AS scores`);
     expect(sql).toContain(
-      `PARSE_JSON(JSON_VALUE(\`attributes\`, '$."tags"')) AS tags`,
-    );
-    expect(sql).toContain(
-      `PARSE_JSON(JSON_VALUE(\`attributes\`, '$."scores"')) AS scores`,
-    );
-    expect(sql).toContain(
-      `PARSE_JSON(JSON_VALUE(\`attributes\`, '$."secrets"')) AS secrets`,
+      `JSON_QUERY(\`attributes\`, '$."secrets"') AS secrets`,
     );
   });
 
