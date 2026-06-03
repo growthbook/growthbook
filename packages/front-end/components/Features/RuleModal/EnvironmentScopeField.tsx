@@ -52,12 +52,9 @@ export default function RuleEnvironmentScopeField({
         </>
       ) : (
         <>
-          <strong>
-            {affectedEnvIds.slice(0, -1).join(", ")} and{" "}
-            {affectedEnvIds[affectedEnvIds.length - 1]}
-          </strong>{" "}
-          are not enabled for this feature. This rule will have no effect there
-          until the feature is enabled in those environments.
+          <strong>{affectedEnvIds.join(", ")}</strong> are not enabled for this
+          feature. This rule will have no effect there until the feature is
+          enabled in those environments.
         </>
       )}
     </Callout>

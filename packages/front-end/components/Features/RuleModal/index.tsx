@@ -298,7 +298,7 @@ export default function RuleModal({
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const disabledEnvironmentIds = environments
-    .filter((e) => feature.environmentSettings[e.id]?.enabled === false)
+    .filter((e) => !feature.environmentSettings[e.id]?.enabled)
     .map((e) => e.id);
 
   const { data: sdkConnectionsData } = useSDKConnections();
