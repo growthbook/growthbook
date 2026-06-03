@@ -12,8 +12,11 @@ import type {
   ContextualBanditSettingsForStatsEngine as PythonContextualBanditSettings,
   ContextualBanditSnapshot,
 } from "shared/types/stats";
+import {
+  computeContextualBanditWeights,
+  ContextualBanditWeightsInput,
+} from "stats-ts";
 import { logger } from "back-end/src/util/logger";
-import { CB_MOCK_STATS } from "back-end/src/util/secrets";
 import {
   getAnalysisSettingsForStatsEngine,
   getMetricSettingsForStatsEngine,
@@ -29,6 +32,10 @@ export type ContextualBanditSettingsForStatsEngine = {
   current_weights_by_context: Record<string, number[]>;
   max_leaves: number;
   min_users_per_leaf: number;
+  // When true, the updated variation weights are computed by the Python stats
+  // engine (gbstats). When false, they are computed in TypeScript by
+  // `computeContextualBanditWeights` without spawning Python.
+  update_weights_using_python: boolean;
 };
 
 /** Mirrors gbstats `ContextualBanditResult` (per-context responses + optional tree leaf_map). */
@@ -69,14 +76,17 @@ export async function runContextualStatsEngine(
     prepareRowsForContextualStats(rows),
     settings.var_ids,
   );
-  // Mock is opt-in only (tests / dev without the stats engine). Default path
-  // calls the Python contextual tree bandit in gbstats.
-  if (CB_MOCK_STATS) {
-    return mockFit(settings, normalizedRows);
-  }
   if (!runParams) {
     throw new Error(
       "Contextual stats engine requires runParams when mock stats are disabled",
+    );
+  }
+  // Default path computes the updated variation weights in TypeScript. Set
+  // `update_weights_using_python` to true to delegate to the Python stats
+  // engine instead.
+  if (!settings.update_weights_using_python) {
+    return computeContextualBanditWeights(
+      buildContextualBanditWeightsInput(settings, normalizedRows, runParams),
     );
   }
   return runContextualStatsEngineWithPython(
@@ -84,6 +94,61 @@ export async function runContextualStatsEngine(
     normalizedRows,
     runParams,
   );
+}
+
+/**
+ * Resolves the metric/analysis settings the pure `stats-ts` weight engine needs
+ * (it has no back-end coupling, so the caller loads these here) and packages
+ * them with the rows into the engine's input contract.
+ */
+function buildContextualBanditWeightsInput(
+  settings: ContextualBanditSettingsForStatsEngine,
+  rows: ExperimentMetricQueryResponseRows,
+  runParams: RunContextualStatsEngineOptions,
+): ContextualBanditWeightsInput {
+  const {
+    decisionMetricId,
+    snapshotSettings,
+    analysisSettings,
+    metricMap,
+    variations,
+    coverage,
+    phaseLengthDays,
+  } = runParams;
+
+  const decisionMetric = metricMap.get(decisionMetricId);
+  if (!decisionMetric) {
+    throw new Error(`Decision metric not found: ${decisionMetricId}`);
+  }
+
+  const metricSettings = getMetricSettingsForStatsEngine(
+    decisionMetric,
+    metricMap,
+    snapshotSettings,
+  );
+
+  const reportVariations = variations.map((v, index) => ({
+    id: v.id,
+    name: v.name,
+    weight: v.weight,
+    index,
+  }));
+  const analysisForEngine = getAnalysisSettingsForStatsEngine(
+    analysisSettings,
+    reportVariations,
+    coverage,
+    phaseLengthDays,
+  );
+
+  return {
+    varIds: settings.var_ids,
+    attributes: settings.contextual_attributes,
+    maxLeaves: settings.max_leaves,
+    minUsersPerLeaf: settings.min_users_per_leaf,
+    metricSettings,
+    analysisWeights: analysisForEngine.weights,
+    rows,
+  };
 }
 
 function stripInternalRowFields(
@@ -275,50 +340,5 @@ async function runContextualStatsEngineWithPython(
     attributes: settings.contextual_attributes,
     responses: analysis.contextualBanditResult.responses,
     leaf_map: analysis.contextualBanditResult.leaf_map,
-  };
-}
-
-// SMITH: delete this whole function once `runContextualStatsEngine` calls
-// the real Python stats engine. The single-leaf catch-all fit it produces
-// is intentionally not representative of any real tree; it's only here so
-// downstream code paths (CBE persistence, payload refresh, SDK threading)
-// can be exercised against deterministic output.
-function mockFit(
-  settings: ContextualBanditSettingsForStatsEngine,
-  rows: ExperimentMetricQueryResponseRows,
-): ContextualBanditResult {
-  // Bucket all rows into a single "catch-all" leaf and compute simple
-  // posterior-mean weights (Thompson on aggregate).
-  const numVar = settings.var_names.length;
-  const sumByVar = Array(numVar).fill(0) as number[];
-  const nByVar = Array(numVar).fill(0) as number[];
-
-  rows.forEach((r) => {
-    const v = variationIndexFromRow(r, settings.var_ids);
-    if (v === null) {
-      return;
-    }
-    const mainSum = Number(r.main_sum ?? 0);
-    sumByVar[v] += Number.isFinite(mainSum) ? mainSum : 0;
-    nByVar[v] += r.users ?? r.count ?? 0;
-  });
-
-  const means = sumByVar.map((s, i) => (nByVar[i] ? s / nByVar[i] : 0));
-  const expMeans = means.map((m) => Math.exp(m * 100));
-  const total = expMeans.reduce((a, b) => a + b, 0) || 1;
-  const weights = expMeans.map((e) => e / total);
-
-  return {
-    attributes: settings.contextual_attributes,
-    responses: [
-      {
-        context: {},
-        sampleSizePerVariation: nByVar,
-        variationMeans: means,
-        updatedWeights: weights,
-        bestArmProbabilities: weights,
-        updateMessage: "Mock fitter: single catch-all leaf",
-      },
-    ],
   };
 }

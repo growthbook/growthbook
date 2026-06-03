@@ -2446,18 +2446,6 @@ class UpdateWeightsContextualTree:
                 )
             )
 
-            dir_desktop = "/Users/lukesmith/Desktop/"
-            self.stats_encoded.to_csv(dir_desktop + "stats_encoded.csv", index=False)
-            pd.DataFrame(self.leaf_map.items(), columns=["key", "value"]).to_csv(
-                dir_desktop + "leaf_map.csv", index=False
-            )
-            pd.DataFrame([asdict(response) for response in responses_context]).to_csv(
-                dir_desktop + "responses_ctx.csv", index=False
-            )
-            pd.DataFrame([asdict(response) for response in responses_leaf]).to_csv(
-                dir_desktop + "responses_leaf.csv", index=False
-            )
-
         return ContextualBanditResult(
             attributes=self.bandit_settings.attributes,
             responses=responses_leaf,

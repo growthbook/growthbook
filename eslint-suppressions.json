@@ -1925,5 +1925,10 @@
     "prettier/prettier": {
       "count": 2
     }
+  },
+  "packages/stats-ts/test/statistics.test.ts": {
+    "no-loss-of-precision": {
+      "count": 1
+    }
   }
 }

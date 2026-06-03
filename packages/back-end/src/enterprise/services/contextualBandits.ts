@@ -33,13 +33,15 @@ import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { getSettingsForSnapshotMetrics } from "back-end/src/services/experiments";
+import {
+  getSettingsForSnapshotMetrics,
+  maybeCreateContextualBanditDoc,
+} from "back-end/src/services/experiments";
 import {
   getExperimentById,
   getPayloadKeys,
 } from "back-end/src/models/ExperimentModel";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
-import { maybeCreateContextualBanditDoc } from "back-end/src/services/experiments";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { ContextualBanditResultsQueryRunner } from "back-end/src/enterprise/queryRunners/ContextualBanditResultsQueryRunner";
 import {
@@ -496,11 +498,15 @@ export function buildExperimentSnapshotSettingsForCb(
 }
 
 /**
+ * Whether updated contextual bandit variation weights are computed by the
+ * Python stats engine (`true`) or in TypeScript by
+ * `computeContextualBanditWeights` (`false`). Hardcoded for now; flip to
+ * `false` to use the TypeScript path.
+ */
+const UPDATE_WEIGHTS_USING_PYTHON = false;
+
+/**
  * Builds the settings object passed to the stats engine.
- *
- * SMITH: the `tree_model` enum and the dataclass fields here must stay in
- * lockstep with the Python `ContextualBanditSettings` dataclass; growing
- * either side without the other will surface as a Python serialization error.
  */
 export function getContextualBanditSettingsForStatsEngine(
   cb: ContextualBanditInterface,
@@ -517,5 +523,6 @@ export function getContextualBanditSettingsForStatsEngine(
     current_weights_by_context: currentWeightsByContext,
     max_leaves: cb.maxLeaves,
     min_users_per_leaf: cb.minUsersPerLeaf,
+    update_weights_using_python: UPDATE_WEIGHTS_USING_PYTHON,
   };
 }

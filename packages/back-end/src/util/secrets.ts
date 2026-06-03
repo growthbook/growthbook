@@ -13,13 +13,6 @@ export const LOG_LEVEL = process.env.LOG_LEVEL;
 export const IS_CLOUD = stringToBoolean(process.env.IS_CLOUD);
 export const IS_MULTI_ORG = stringToBoolean(process.env.IS_MULTI_ORG);
 
-// Opt-in mock for the Python contextual bandit stats engine. Used by tests
-// and local dev when the stats engine isn't available. Default path calls
-// the real Python tree bandit in gbstats.
-export const CB_MOCK_STATS = stringToBoolean(
-  process.env.GROWTHBOOK_CB_MOCK_STATS,
-);
-
 // Default to true
 export const ALLOW_SELF_ORG_CREATION = stringToBoolean(
   process.env.ALLOW_SELF_ORG_CREATION,
