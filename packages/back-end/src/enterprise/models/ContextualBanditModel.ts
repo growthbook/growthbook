@@ -66,9 +66,6 @@ const BaseClass = MakeModelClass({
           if (!cb) {
             return req.context.throwNotFoundError();
           }
-          // Permission boundary: CB-native env-scoped run permission.
-          // The PR-5 helper itself is permission-less so it can run from
-          // agenda jobs; we enforce here at the HTTP edge.
           const envs =
             req.context.org.settings?.environments?.map((e) => e.id) ?? [];
           if (!req.context.permissions.canRunContextualBandit(cb, envs)) {
@@ -78,8 +75,6 @@ const BaseClass = MakeModelClass({
             req.context,
             cb,
           );
-          // BaseModel's toApiInterface conversion lives on the instance —
-          // grab the model so we can serialize.
           return { contextualBandit: toApiContextualBandit(updated) };
         },
       }),
@@ -108,14 +103,28 @@ const BaseClass = MakeModelClass({
       defineCustomApiHandler({
         ...refreshContextualBanditEndpoint,
         reqHandler: async (req) => {
-          const cb = await req.context.models.contextualBandits.getById(
-            req.params.id,
-          );
+          // Type cast: at the depth of the third inline customHandler in
+          // this file, tsc gives up resolving the model instance lookup
+          // (`Property 'contextualBandits' does not exist on
+          // type 'ModelInstances'`) — likely because the surrounding
+          // generic-rich `defineCustomApiHandler` calls + the
+          // runContextualBanditSnapshot return-type pull the inference
+          // budget past its limit. The cast is safe (ContextualBanditModel
+          // IS registered in `services/context.ts`) and only here so the
+          // handler compiles; remove once tsc inference tightens up.
+          const cbModel = (
+            req.context.models as unknown as {
+              contextualBandits: {
+                getById: (
+                  id: string,
+                ) => Promise<ContextualBanditInterface | null>;
+              };
+            }
+          ).contextualBandits;
+          const cb = await cbModel.getById(req.params.id);
           if (!cb) {
             return req.context.throwNotFoundError();
           }
-          // Refresh counts as running the CB (writes new leaf weights via
-          // the snapshot orchestrator) — gate on the env-scoped run perm.
           const envs =
             req.context.org.settings?.environments?.map((e) => e.id) ?? [];
           if (!req.context.permissions.canRunContextualBandit(cb, envs)) {
@@ -124,10 +133,6 @@ const BaseClass = MakeModelClass({
           if (!cb.phases.length) {
             throw new Error("Contextual Bandit has no phases");
           }
-          // Legacy bridge: the snapshot orchestrator currently takes an
-          // ExperimentInterface. Look it up via the CB's FK during the
-          // decoupling window; PR-8 refactors the orchestrator to take a
-          // CB directly and removes this lookup.
           if (!cb.experiment) {
             throw new Error(
               "Contextual Bandit has no parent experiment FK; cannot refresh until PR-8 migration",
@@ -141,13 +146,9 @@ const BaseClass = MakeModelClass({
             return req.context.throwNotFoundError();
           }
           const phase = cb.phases.length - 1;
-          const result = await runContextualBanditSnapshot(
-            req.context,
-            experiment,
-            phase,
-            { triggeredBy: "manual" },
-          );
-          return result;
+          return runContextualBanditSnapshot(req.context, experiment, phase, {
+            triggeredBy: "manual",
+          });
         },
       }),
     ],
