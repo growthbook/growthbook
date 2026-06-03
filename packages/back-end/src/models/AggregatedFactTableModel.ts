@@ -10,9 +10,8 @@ export const COLLECTION_NAME = "aggregatedfacttables";
 
 const ID_PREFIX = "aft_";
 
-// A lock is considered stale once its heartbeat is older than this. The runner
-// refreshes the heartbeat periodically while queries execute, so this only
-// needs to cover slow polls / brief stalls — not a full materialization run.
+// Lock is stale once its heartbeat is older than this; the runner refreshes
+// periodically, so this only needs to cover slow polls/brief stalls, not a full run.
 export const AGGREGATED_FACT_TABLE_LOCK_STALE_MS = 30 * 60 * 1000;
 
 const BaseClass = MakeModelClass({
@@ -117,8 +116,7 @@ export class AggregatedFactTableModel extends BaseClass {
         },
         { upsert: true },
       );
-      // upsertedCount > 0 means we created a new doc with the lock
-      // modifiedCount > 0 means we updated an existing unlocked doc
+      // upserted = created a new locked doc; modified = took over an unlocked/stale doc
       return (result.upsertedCount ?? 0) > 0 || (result.modifiedCount ?? 0) > 0;
     } catch (error) {
       // Duplicate key error from concurrent upserts — another process won

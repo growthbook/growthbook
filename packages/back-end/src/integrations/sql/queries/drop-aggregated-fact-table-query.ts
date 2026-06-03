@@ -3,11 +3,9 @@ import type { DropAggregatedFactTableQueryParams } from "shared/types/integratio
 import type { SqlDialect } from "shared/types/sql";
 import { AGGREGATED_FACT_TABLE_PREFIX } from "back-end/src/queryRunners/AggregatedFactTableQueryRunner";
 
-// Drops an entire aggregated fact table. This is the single mechanism for any
-// backfill — new metric, schema-breaking change, or forced restate — since a
-// full fact-table scan produces all columns in one pass and restating one
-// metric costs essentially the same as restating the whole table. Outside of a
-// restate the data path stays insert-only.
+// Drops the whole table. This is the only backfill mechanism (new metric,
+// schema change, forced restate) since restating one metric costs about the
+// same as the whole table; outside a restate the data path stays insert-only.
 export function getDropAggregatedFactTableQuery(
   dialect: SqlDialect,
   params: DropAggregatedFactTableQueryParams,

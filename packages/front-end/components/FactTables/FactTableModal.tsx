@@ -153,7 +153,7 @@ export default function FactTableModal({
               managedBy: value.managedBy,
               projects: value.projects,
               autoSliceUpdatesEnabled: value.autoSliceUpdatesEnabled,
-              // Only persist id types that are still valid identifier columns
+              // Drop id types no longer in userIdTypes
               aggregatedFactTableIdTypes: (
                 value.aggregatedFactTableIdTypes ?? []
               ).filter((idType) => value.userIdTypes.includes(idType)),

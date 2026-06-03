@@ -33,14 +33,13 @@ export type AggregatedFactTableQueryParams = {
   factTable: FactTableInterface;
   idType: string;
   metrics: FactMetricInterface[];
-  // `restate` drops + recreates the table and re-scans the retained window.
-  // `incremental` appends the new event slice since `lastMaxTimestamp`.
+  // `restate` drops/recreates and re-scans the retained window; `incremental`
+  // appends events since `lastMaxTimestamp`.
   mode: AggregatedFactTableRunMode;
-  // The lock token held for this run; durable writes are gated on it.
+  // Lock token for this run; durable writes are gated on it.
   executionId: string;
-  // Durable registry snapshot the worker already loaded. The runner reads prior
-  // watermark/tableFullName from here (it operates on a per-run doc as its
-  // model) and writes the final coverage back to the registry when the run ends.
+  // Registry snapshot loaded by the worker; the runner reads prior
+  // watermark/tableFullName and writes final coverage back when the run ends.
   aggregatedFactTable: AggregatedFactTableInterface;
 };
 
@@ -52,10 +51,8 @@ export type AggregatedFactTableResult = {
 
 const MAX_TIMESTAMP_QUERY_NAME = "aggregated_fact_table_max_timestamp";
 
-// Parse a single coverage row (from the max-timestamp watermark query) into the
-// registry watermark fields. Exported as a pure helper for unit testing. A null
-// `max_timestamp` means the table is empty (e.g. a restate that materialized no
-// rows), in which case all coverage fields are null.
+// Parse a coverage row into registry watermark fields. A null `max_timestamp`
+// means the table is empty, so all coverage fields are null.
 export function parseAggregatedFactTableCoverage(
   row: Record<string, unknown> | undefined,
 ): AggregatedFactTableResult {
@@ -72,8 +69,8 @@ export function parseAggregatedFactTableCoverage(
   };
 }
 
-// Warehouse-safe columns a metric materializes in this table (role-gated on
-// the table's fact table), mirroring `getAggregatedFactTableSchema`.
+// Columns a metric materializes in this table (role-gated), mirroring
+// `getAggregatedFactTableSchema`.
 export function getColumnsForMetric(
   metric: FactMetricInterface,
   factTableId: string,
@@ -148,7 +145,6 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
 
     const pipelineSettings = integration.datasource.settings.pipelineSettings;
 
-    // Reuse the existing table when present; otherwise generate a new path.
     const tableFullName =
       aggregatedFactTable.tableFullName ??
       integration.generateTablePath(
@@ -186,7 +182,6 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
     let createQuery: QueryPointer | null = null;
 
     if (effectiveMode === "restate") {
-      // Try to drop any table with the same name
       dropQuery = await this.startQuery({
         name: "drop_aggregated_fact_table",
         displayTitle: `Drop Aggregated Fact Table (${factTable.name} / ${idType})`,
@@ -425,8 +420,8 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
       runUpdates,
     );
 
-    // The durable registry is updated only when the run finishes: write the
-    // final coverage/error, point lastRunId at this run, and release the lock.
+    // Registry is updated only when the run finishes: write final coverage/error,
+    // point lastRunId at this run, and release the lock.
     if (isTerminal && executionId) {
       const lockHeld =
         await this.context.models.aggregatedFactTables.updateByKeyIfCurrentExecution(

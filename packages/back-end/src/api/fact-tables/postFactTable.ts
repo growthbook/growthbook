@@ -60,7 +60,6 @@ export const postFactTable = createApiRequestHandler(postFactTableValidator)(
       }
     }
 
-    // Validate aggregatedFactTableIdTypes
     if (req.body.aggregatedFactTableIdTypes?.length) {
       if (!req.context.hasPremiumFeature("pipeline-mode")) {
         throw new Error(

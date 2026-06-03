@@ -546,10 +546,8 @@ function deriveRunStatus(
   queries: { status: QueryStatus }[],
   error: string | null,
 ): QueryStatus {
-  // A recorded error means the run reached a failed terminal state. Surface it
-  // as failed regardless of any stale query pointers — e.g. a run finalized
-  // out-of-process by the expireOldQueries reaper can have an orphaned "queued"
-  // dependency that was never advanced.
+  // A recorded error is terminal; surface as failed even if query pointers are
+  // stale (e.g. a run finalized out-of-process by the expireOldQueries reaper).
   if (error) return "failed";
 
   const total = queries.length;
@@ -647,9 +645,8 @@ export const refreshAggregatedFactTables = async (
     idTypes = [req.body.idType];
   }
 
-  // Kick off the materialization directly (not via the nightly agenda queue).
-  // Each call returns once the run doc + queries are created; the run then
-  // finishes in the background.
+  // Kick off directly (not via the nightly agenda queue); each call returns
+  // once the run doc + queries exist and finishes in the background.
   for (const idType of idTypes) {
     await runAggregatedFactTableUpdate(context, factTable, idType, {
       forceRestate: !!req.body.fullRestate,

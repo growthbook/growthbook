@@ -61,7 +61,6 @@ export const updateFactTable = createApiRequestHandler(
     }
   }
 
-  // Validate aggregatedFactTableIdTypes against the effective userIdTypes
   if (req.body.aggregatedFactTableIdTypes?.length) {
     if (!req.context.hasPremiumFeature("pipeline-mode")) {
       throw new Error(

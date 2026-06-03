@@ -9,27 +9,13 @@ import { getAggregationMetadata } from "back-end/src/integrations/sql/fact-metri
 export const AGGREGATED_FACT_TABLE_EVENT_DATE_COLUMN = "event_date";
 export const AGGREGATED_FACT_TABLE_INSERTION_TIMESTAMP_COLUMN =
   "insertion_timestamp";
-// Event-time high-water mark of the slice that produced each row. Used to
-// advance the registry watermark (mirrors the metric-source cache's
-// `max_timestamp`). Distinct from `insertion_timestamp`, which is wall-clock
-// provenance of when the row was written.
+// Event-time high-water mark of the slice; advances the registry watermark.
+// Distinct from `insertion_timestamp` (wall-clock provenance of the write).
 export const AGGREGATED_FACT_TABLE_MAX_TIMESTAMP_COLUMN = "max_timestamp";
 
-// Generates the schema (column name -> warehouse data type) for a shared daily
-// aggregated fact table keyed on `idType`.
-//
-// Each metric contributes columns based on which of its column refs live in
-// this fact table (role-gated, mirroring `getMetricSourceTableSchema`):
-//   - numerator side (`<metric>_value`, plus `<metric>_n_events` for event
-//     quantiles) when `metric.numerator.factTableId === factTableId`
-//   - denominator side (`<metric>_denominator_value`) when the metric is a
-//     ratio and `metric.denominator.factTableId === factTableId`
-//
-// IMPORTANT: these daily partials are re-aggregated over a *variable* covariate
-// window at read time, so we store each metric's mergeable
-// `intermediateDataType` (integer/float/date/hll/quantileSketch), NOT the
-// `finalDataType` the per-experiment covariate cache uses. The read path
-// re-aggregates the disjoint partials with `reAggregationFunction`.
+// Schema (column -> warehouse type) for an aggregated fact table keyed on
+// `idType`. Stores each metric's mergeable `intermediateDataType` (not
+// `finalDataType`) so the read path can re-aggregate disjoint daily partials.
 export function getAggregatedFactTableSchema(
   dialect: SqlDialect,
   {
@@ -58,8 +44,7 @@ export function getAggregatedFactTableSchema(
     dialect.getDataType("timestamp"),
   );
 
-  // Sort by metric id so column order is stable across runs regardless of the
-  // order metrics are supplied.
+  // Sort by metric id so column order is stable across runs.
   const sortedMetrics = [...metrics].sort((a, b) => a.id.localeCompare(b.id));
 
   sortedMetrics.forEach((metric) => {
@@ -89,10 +74,8 @@ export function getAggregatedFactTableSchema(
       );
     }
 
-    // Event quantile metrics store a KLL sketch in _value plus a raw event
-    // count per (idType, event_date). The count is needed downstream to
-    // compute n_events and the clustered-variance denominator (sketches cannot
-    // answer rank queries). Only emitted when this table holds the numerator.
+    // Event quantiles need a raw event count alongside the KLL sketch, since
+    // sketches can't answer rank queries (used for n_events + clustered variance).
     if (includeNumerator && quantileMetricType(metric) === "event") {
       schema.set(
         `${encodeMetricIdForColumnName(metric.id)}_n_events`,

@@ -72,8 +72,7 @@ export default async function (agenda: Agenda) {
   }
 }
 
-// Enqueue a single (org, factTable, idType) worker run. Exported so the
-// force refresh/restate back door can enqueue on-demand runs.
+// Enqueue a single (org, factTable, idType) worker run; exported for the force refresh/restate back door.
 export async function queueAggregatedFactTableUpdate({
   organization,
   factTableId,
@@ -101,9 +100,7 @@ export async function queueAggregatedFactTableUpdate({
   await job.save();
 }
 
-// The next time the nightly poller is scheduled to run (i.e. when the next
-// round of aggregated fact table updates will be enqueued). Global across the
-// instance, not per fact table. Returns null if the job hasn't been scheduled.
+// Next scheduled nightly poller run; global across the instance, not per fact table.
 export async function getNextAggregatedFactTableUpdate(): Promise<Date | null> {
   const agenda = getAgendaInstance();
   const job = await agenda._collection.findOne(
@@ -118,9 +115,7 @@ export function getMetricsForAggregatedFactTable(
   factMetrics: FactMetricInterface[],
   factTableId: string,
 ): FactMetricInterface[] {
-  // TODO(aggregated-fact-tables): Trim down to only metrics
-  // on the fact table AND either (in the existing registry OR
-  // on a draft or running experiment)
+  // TODO(aggregated-fact-tables): trim to metrics on this fact table that are also in the registry or on a draft/running experiment
   return factMetrics.filter((metric) => {
     const referencesFactTable =
       metric.numerator.factTableId === factTableId ||
@@ -173,17 +168,14 @@ const updateSingleAggregatedFactTable = async (
   });
 };
 
-// Shared materialization driver used by both the nightly worker and the
-// force refresh/restate back door.
+// Shared materialization driver for both the nightly worker and the force refresh/restate back door.
 export async function runAggregatedFactTableUpdate(
   context: ReqContext,
   factTable: FactTableInterface,
   idType: string,
   {
     forceRestate,
-    // When true (the nightly agenda worker), block until the queries finish so
-    // the job stays alive. When false (the manual UI trigger), return as soon
-    // as the run doc + queries are created and finish in the background.
+    // true (nightly worker): block until queries finish. false (manual UI trigger): return after creating the run and finish in the background.
     awaitResults = true,
   }: { forceRestate: boolean; awaitResults?: boolean },
 ): Promise<void> {
@@ -211,7 +203,6 @@ export async function runAggregatedFactTableUpdate(
     factMetrics,
     factTable.id,
   );
-  // Add metric slices
   const metrics = baseMetrics.flatMap((metric) => [
     metric,
     ...getAutoSliceMetrics({ metric, factTable }),
@@ -264,17 +255,14 @@ export async function runAggregatedFactTableUpdate(
 
   const registry = await context.models.aggregatedFactTables.getByKey(key);
   if (!registry) {
-    // We acquired the lock but the registry doc vanished; release it so the
-    // next run isn't blocked.
+    // Lock acquired but the registry doc vanished; release it so the next run isn't blocked.
     await context.models.aggregatedFactTables.releaseLock(key, executionId);
     throw new Error(
       "Aggregated fact table registry doc missing after acquiring lock",
     );
   }
 
-  // Each materialization run gets its own document (the QueryRunner model) so
-  // run history can be referenced later. The durable registry is updated when
-  // the run finishes.
+  // Each run gets its own doc so run history can be referenced later; the registry is updated when the run finishes.
   const run = await context.models.aggregatedFactTableRuns.create({
     aggregatedFactTableId: registry.id,
     datasourceId: datasource.id,
@@ -289,9 +277,8 @@ export async function runAggregatedFactTableUpdate(
     result: null,
   });
 
-  // Records the failure on the run doc + registry and releases the lock so the
-  // next run can retry. The watermark is left untouched, so a failed/partial
-  // run self-heals next time.
+  // Record the failure and release the lock; the watermark is left untouched so
+  // the next run self-heals.
   const handleFailure = async (e: unknown) => {
     const message = e instanceof Error ? e.message : String(e);
     logger.error(
@@ -324,8 +311,7 @@ export async function runAggregatedFactTableUpdate(
     false,
   );
 
-  // Kick off the queries: submits them to the warehouse and persists the run
-  // doc with its query pointers. Returns before the queries finish.
+  // Kick off the queries (submitted to the warehouse); returns before they finish.
   try {
     await runner.startAnalysis({
       factTable,
@@ -340,8 +326,7 @@ export async function runAggregatedFactTableUpdate(
     return;
   }
 
-  // Poll the queries to completion and finalize the registry (the runner's
-  // updateModel releases the lock on a terminal status).
+  // Poll to completion and finalize; the runner's updateModel releases the lock on a terminal status.
   const waitForCompletion = async () => {
     try {
       await runner.waitForResults();
@@ -356,8 +341,7 @@ export async function runAggregatedFactTableUpdate(
   if (awaitResults) {
     await waitForCompletion();
   } else {
-    // Manual UI trigger: the run doc + queries already exist, so return now and
-    // let the materialization finish in the background.
+    // Manual UI trigger: return now and let materialization finish in the background.
     void waitForCompletion();
   }
 }

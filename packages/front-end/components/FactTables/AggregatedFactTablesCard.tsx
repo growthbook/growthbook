@@ -71,12 +71,10 @@ type AggregatedFactTableRunSummary = {
   queryIds: string[];
 };
 
-// Event dates are calendar dates (truncate to YYYY-MM-DD).
 function formatDay(value: string | null): string {
   return value ? dateOnly(value) : "—";
 }
 
-// Timestamps keep the full YYYY-MM-DD HH:MM:SS.
 function formatTimestamp(value: string | null): string {
   return value ? timestamp(value) : "—";
 }
@@ -104,7 +102,6 @@ function ManageRefreshModal({
 }) {
   const { apiCall } = useAuth();
   const [mode, setMode] = useState<"incremental" | "restate">("incremental");
-  // The run whose queries are shown in the (non-inline) AsyncQueriesModal.
   const [viewQueriesRunId, setViewQueriesRunId] = useState<string | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
 
@@ -130,7 +127,6 @@ function ManageRefreshModal({
           body: JSON.stringify({ idType: status.idType, fullRestate }),
         },
       );
-      // Surface the newly-queued run in the history table.
       await mutateRuns();
     } catch (e) {
       setRunError(e instanceof Error ? e.message : String(e));
@@ -290,7 +286,6 @@ export default function AggregatedFactTablesCard({ factTable }: Props) {
   const { hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
-  // The id type currently being managed in the refresh modal (null = closed).
   const [manageIdType, setManageIdType] = useState<string | null>(null);
 
   const idTypes = factTable.aggregatedFactTableIdTypes ?? [];
@@ -303,8 +298,6 @@ export default function AggregatedFactTablesCard({ factTable }: Props) {
       hasCommercialFeature("pipeline-mode") && idTypes.length > 0,
   });
 
-  // Only show the card when the feature is licensed and at least one id type is
-  // configured for materialization.
   if (!hasCommercialFeature("pipeline-mode") || idTypes.length === 0) {
     return null;
   }
@@ -317,8 +310,7 @@ export default function AggregatedFactTablesCard({ factTable }: Props) {
 
   const nextScheduledUpdate = data?.nextScheduledUpdate ?? null;
 
-  // Always render a row per configured id type, even if it has not been
-  // materialized yet (no registry doc => empty dates).
+  // Render a row per configured id type, even if not yet materialized.
   const rows: AggregatedFactTableStatus[] = idTypes.map(
     (idType) =>
       statusByIdType.get(idType) ?? {
@@ -425,7 +417,6 @@ export default function AggregatedFactTablesCard({ factTable }: Props) {
           status={manageStatus}
           close={async () => {
             setManageIdType(null);
-            // Refresh the status table so a just-queued run is reflected.
             await mutate();
           }}
         />

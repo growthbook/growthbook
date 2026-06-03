@@ -39,9 +39,7 @@ const STALLED_SNAPSHOT_THRESHOLD_MS = 60 * 60 * 1000;
 const STALLED_FINALIZE_GRACE_MS = 10 * 60 * 1000;
 const STALLED_SNAPSHOT_REAP_LIMIT = 50;
 
-// Collections for the shared daily aggregated fact table run + registry docs.
-// Accessed via raw collections (not the context-scoped BaseModel classes) so
-// this cross-org reaper can operate without an org context per run.
+// Accessed via raw collections (not context-scoped BaseModel) so this cross-org reaper needs no per-run org context.
 const AGGREGATED_FACT_TABLE_RUN_COLLECTION = "aggregatedfacttableruns";
 const AGGREGATED_FACT_TABLE_COLLECTION = "aggregatedfacttables";
 
@@ -172,10 +170,9 @@ const expireOldQueries = async () => {
     );
   }
 
-  // Look for matching aggregated fact table runs and finalize them. Unlike the
-  // models above, these are driven only by an in-memory QueryRunner (no client
-  // polling), so if the process dies the run pointers are never advanced even
-  // though getStaleQueries() has flipped the underlying query docs to failed.
+  // Finalize matching aggregated runs: driven only by an in-memory QueryRunner
+  // (no client polling), so a dead process leaves run pointers stuck even though
+  // the query docs were flipped to failed.
   const aggregatedRuns = await findRunningAggregatedFactTableRunsByQueryId([
     ...queryIds,
   ]);
@@ -305,9 +302,7 @@ async function findRunningSafeRolloutSnapshotsByQueryId(
     .toArray();
 }
 
-// In-flight aggregated fact table runs (finishedAt null) with a still-"running"
-// pointer to one of the now-failed query ids. Mirrors
-// findRunningSnapshotsByQueryId.
+// In-flight runs with a still-"running" pointer to a now-failed query. Mirrors findRunningSnapshotsByQueryId.
 async function findRunningAggregatedFactTableRunsByQueryId(
   ids: string[],
 ): Promise<AggregatedFactTableRunInterface[]> {
@@ -326,8 +321,7 @@ async function findRunningAggregatedFactTableRunsByQueryId(
     .toArray();
 }
 
-// In-flight aggregated fact table runs created long enough ago to be considered
-// stalled. Mirrors dangerousFindStalledRunningSnapshotsFromAllOrgs.
+// In-flight runs old enough to be considered stalled. Mirrors dangerousFindStalledRunningSnapshotsFromAllOrgs.
 async function dangerousFindStalledAggregatedFactTableRunsFromAllOrgs(
   stalledBefore: Date,
   limit: number,
@@ -346,13 +340,10 @@ async function dangerousFindStalledAggregatedFactTableRunsFromAllOrgs(
     .toArray();
 }
 
-// Finalize a stalled/orphaned run: write the (already-updated) query pointers,
-// error, and finishedAt to the run doc, then reflect the failure on the
-// registry and release the lock this run held. The run-doc write is guarded on
-// `finishedAt: null` so a live runner that just finished wins the race; the
-// registry write is guarded on `currentExecutionId` so we never clobber a newer
-// run that already (re)acquired the lock (e.g. after the 30m stale-lock
-// self-heal). Returns true if this call finalized the run.
+// Finalize a stalled/orphaned run and release its lock. The run-doc write is
+// guarded on finishedAt:null so a live runner that just finished wins the race;
+// the registry write is guarded on currentExecutionId so we never clobber a
+// newer run that reacquired the lock. Returns true if this call finalized it.
 async function finalizeStuckAggregatedFactTableRun(
   run: AggregatedFactTableRunInterface,
   { queries, error }: { queries: Queries; error: string },
@@ -390,11 +381,9 @@ async function finalizeStuckAggregatedFactTableRun(
   return true;
 }
 
-// Catches stalled aggregated fact table runs that the stale-query fan-out above
-// can't: an orphaned DAG (e.g. the insert query failed and the dependent
-// max-timestamp query is stuck "queued" with no heartbeat), or queries that all
-// reached a terminal state but the run was never finalized (process restarted
-// after the queries finished). Mirrors reapStalledSnapshots.
+// Catches stalled runs the stale-query fan-out can't: an orphaned DAG (a query
+// stuck "queued" with nothing running) or all-terminal queries whose run was
+// never finalized. Mirrors reapStalledSnapshots.
 async function reapStalledAggregatedFactTableRuns() {
   const stalledBefore = new Date(Date.now() - STALLED_SNAPSHOT_THRESHOLD_MS);
   const candidates =
@@ -416,8 +405,7 @@ async function reapStalledAggregatedFactTableRuns() {
       (q) => q.status === "succeeded" || q.status === "failed",
     );
 
-    // Nothing executing, but one or more queries are stuck "queued" and will
-    // never start (the in-memory timer that drives the DAG was lost).
+    // Stuck "queued" with nothing running: the in-memory timer driving the DAG was lost.
     const orphanedDag = running.length === 0 && queued.length > 0;
 
     if (!allTerminal && !orphanedDag) continue;
@@ -426,8 +414,7 @@ async function reapStalledAggregatedFactTableRuns() {
       0,
       ...statuses.map((s) => s.finishedAt?.getTime() ?? 0),
     );
-    // For an orphaned DAG nothing may have finished yet (latestFinishedAt
-    // stays 0); fall back to the run's age, already past the stalled threshold.
+    // Orphaned DAG may have nothing finished yet (latestFinishedAt 0); fall back to the run's age.
     const lastActivityAt =
       latestFinishedAt > 0 ? latestFinishedAt : run.dateCreated.getTime();
     if (Date.now() - lastActivityAt < STALLED_FINALIZE_GRACE_MS) continue;

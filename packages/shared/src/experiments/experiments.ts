@@ -1431,14 +1431,9 @@ export function createAutoSliceDataForMetric({
   return sliceData;
 }
 
-// Auto-slice metric variants for a single base fact metric, derived from the
-// metric's `metricAutoSlices` and the fact table's auto-slice columns. Each
-// returned metric is a clone of the base with a slice-encoded id
-// (`<baseId>?dim:col=value`, plus an "other" bucket for values outside the
-// configured auto slices). This is the experiment-independent core of the auto
-// slice handling in `expandAllSliceMetricsInMap`, factored out so it can be
-// reused anywhere auto slices need to be enumerated (e.g. materializing shared
-// aggregated fact tables) without an experiment in scope.
+// Auto-slice metric variants of a base fact metric (clones with slice-encoded
+// ids `<baseId>?dim:col=value`, plus an "other" bucket). Experiment-independent
+// so it can be reused outside `expandAllSliceMetricsInMap`.
 export function getAutoSliceMetrics({
   metric,
   factTable,

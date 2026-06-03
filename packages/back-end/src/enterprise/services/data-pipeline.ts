@@ -264,19 +264,12 @@ export function getMetricSettingsHashForIncrementalRefresh({
   });
 }
 
-// Hash of the *schema-breaking* parts of a fact metric for shared daily
-// aggregated fact tables. Unlike the incremental-refresh hash above, this is
-// intentionally narrow: it only includes fields that change the materialized
-// table's *column set* or *stored data types* (see `getAggregationMetadata` /
-// `getAggregatedFactTableSchema`). Tolerable changes (capping, conversion
-// windows, regression-adjustment settings, aggregate-filter thresholds, prior
-// settings, etc.) only affect read-time interpretation, so they are excluded —
-// we keep the existing materialized values and fill forward. A change to one of
-// the included fields, by contrast, would make the existing columns
-// incompatible and triggers a nightly full-table restate.
-//
-// `factTableId` here is the table being materialized; it decides which side(s)
-// of the metric (numerator and/or denominator) this table actually stores.
+// Hash of only the schema-breaking parts of a fact metric (fields that change
+// the materialized table's column set or stored data types). Tolerable changes
+// (capping, conversion windows, thresholds, etc.) affect read-time
+// interpretation only and are excluded; an included field changing triggers a
+// nightly full-table restate. `factTableId` decides which metric side(s) this
+// table stores.
 export function getMetricSettingsHashForAggregatedFactTable({
   factMetric,
   factTableId,
@@ -284,17 +277,13 @@ export function getMetricSettingsHashForAggregatedFactTable({
   factMetric: FactMetricInterface;
   factTableId: string;
 }): string {
-  // Only the column ref(s) whose fact table is the one being materialized
-  // contribute columns to this table.
   const includeNumerator = factMetric.numerator.factTableId === factTableId;
   const includeDenominator =
     !!factMetric.denominator &&
     factMetric.denominator.factTableId === factTableId;
 
-  // Only the parts of a column ref that change the stored data type / column
-  // name. The aggregate-filter *threshold* is deliberately omitted (it changes
-  // values, not schema); only its presence-driving column is relevant, which is
-  // already captured by `column`/`aggregation`.
+  // Only the column-ref parts that change stored data type / column name. The
+  // aggregate-filter threshold is omitted (it changes values, not schema).
   const schemaBreakingColumnRef = (
     ref: FactMetricInterface["numerator"] | null | undefined,
   ) =>
@@ -320,10 +309,8 @@ export function getMetricSettingsHashForAggregatedFactTable({
   });
 }
 
-// Hash of the fact-table definition that, when changed, may invalidate the
-// materialized aggregated tables. Stored on the registry to detect FT drift.
-// In this PR it is recorded but only acted on when a forced restate is
-// requested (FT edits do not auto-restate).
+// Hash of the fact-table definition, stored on the registry to detect FT drift.
+// Only acted on when a forced restate is requested (FT edits do not auto-restate).
 export function getFactTableSettingsHashForAggregatedFactTable(
   factTable: FactTableInterface,
 ): string {

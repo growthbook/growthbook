@@ -27,10 +27,8 @@ const BaseClass = MakeModelClass({
 });
 
 export class AggregatedFactTableRunModel extends BaseClass {
-  // Raw field setter for the in-flight run. The registry lock already serializes
-  // runs per (org, datasource, factTable, idType), so no lock gating is needed
-  // here; this avoids the audit overhead of a full BaseModel update on every
-  // QueryRunner poll.
+  // Raw field setter: the registry lock already serializes runs, so this skips
+  // the audit overhead of a full BaseModel update on every QueryRunner poll.
   public async updateRunFields(
     id: string,
     data: UpdateProps<AggregatedFactTableRunInterface>,

@@ -243,9 +243,7 @@ export async function getAllFactTablesWithAutoSliceUpdatesEnabled(): Promise<
   return docs.map((doc) => toInterface(doc));
 }
 
-// Get all fact tables that have at least one id type enabled for shared daily
-// aggregated tables, across all organizations. Used by the nightly job that
-// maintains the aggregated fact tables.
+// Across all organizations; used by the nightly aggregated fact table job.
 export async function getAllFactTablesWithAggregatedTablesEnabled(): Promise<
   FactTableInterface[]
 > {

@@ -2,10 +2,8 @@ import { format } from "shared/sql";
 import type { AggregatedFactTableMaxTimestampQueryParams } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
 
-// Reconciles the registry watermark + coverage against the materialized table.
-// Returns the event-time high-water mark (`MAX(max_timestamp)`) used to advance
-// `lastMaxTimestamp`, plus `MIN/MAX(event_date)` used for `firstEventDate` /
-// `lastEventDate`. Mirrors `getMaxTimestampMetricSourceQuery`.
+// Returns the event-time high-water mark and event_date range, used to advance
+// the registry watermark and coverage after a run.
 export function getAggregatedFactTableMaxTimestampQuery(
   dialect: SqlDialect,
   params: AggregatedFactTableMaxTimestampQueryParams,

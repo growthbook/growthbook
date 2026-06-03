@@ -1,7 +1,7 @@
 import { refreshAggregatedFactTableValidator } from "shared/validators";
 import { getFactTable } from "back-end/src/models/FactTableModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { queueAggregatedFactTableUpdate } from "back-end/src/jobs/updateAggregatedFactTables";
+import { runAggregatedFactTableUpdate } from "back-end/src/jobs/updateAggregatedFactTables";
 
 export const refreshAggregatedFactTable = createApiRequestHandler(
   refreshAggregatedFactTableValidator,
@@ -28,7 +28,6 @@ export const refreshAggregatedFactTable = createApiRequestHandler(
     );
   }
 
-  // Default to all enabled id types; otherwise validate the requested one.
   let idTypes = enabledIdTypes;
   if (req.body.idType) {
     if (!enabledIdTypes.includes(req.body.idType)) {
@@ -39,12 +38,12 @@ export const refreshAggregatedFactTable = createApiRequestHandler(
     idTypes = [req.body.idType];
   }
 
+  // Kick off directly (not via the nightly agenda queue); each call returns
+  // once the run doc + queries exist and finishes in the background.
   for (const idType of idTypes) {
-    await queueAggregatedFactTableUpdate({
-      organization: factTable.organization,
-      factTableId: factTable.id,
-      idType,
+    await runAggregatedFactTableUpdate(req.context, factTable, idType, {
       forceRestate: !!req.body.fullRestate,
+      awaitResults: false,
     });
   }
 
