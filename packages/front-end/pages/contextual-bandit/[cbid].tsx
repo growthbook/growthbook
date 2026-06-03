@@ -10,6 +10,7 @@ import React, { ReactElement, useEffect, useState } from "react";
 import { IdeaInterface } from "shared/types/idea";
 import { includeExperimentInPayload } from "shared/util";
 import useApi from "@/hooks/useApi";
+import { useContextualBanditByExperiment } from "@/hooks/useContextualBandits";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
 import EditMetricsForm from "@/components/Experiment/EditMetricsForm";
@@ -31,6 +32,25 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import { useUser } from "@/services/UserContext";
+
+/**
+ * Defensive warning when the underlying CB-typed experiment isn't paired
+ * with a CB doc. Should be vacuously true once PR-8's migration has run;
+ * dropped alongside the experiment-id URL scheme.
+ */
+function CbPairCheck({ experimentId }: { experimentId: string }): ReactElement {
+  const cb = useContextualBanditByExperiment(experimentId);
+  if (cb) return <></>;
+  return (
+    <Callout status="warning" mb="3">
+      No Contextual Bandit doc is paired with this experiment. Results, weights,
+      and start/stop actions may not behave as expected. Run the CB-decoupling
+      migration (
+      <code>pnpm --filter back-end migrate-cb-decoupling --apply</code>) or
+      re-create the CB to repair the pairing.
+    </Callout>
+  );
+}
 
 const ContextualBanditExperimentPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -304,6 +324,18 @@ const ContextualBanditExperimentPage = (): ReactElement => {
           { display: experiment.name },
         ]}
       />
+
+      {/*
+       * Defensive pair-check: the page is keyed by experiment id during
+       * the decoupling window and the existing /experiment/${id} fetch
+       * doesn't know whether a CB doc actually exists for this id.
+       * Warn (don't block) so users can spot orphaned state — typically
+       * the result of a half-completed CB create, a mis-routed link, or
+       * a row left behind by an aborted migration.
+       *
+       * Removed in PR-8 alongside the URL switch to CB ids.
+       */}
+      <CbPairCheck experimentId={experiment.id} />
 
       <SnapshotProvider experiment={experiment}>
         <TabbedPage
