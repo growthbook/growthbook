@@ -32,17 +32,23 @@ export default function RuleEnvironmentScopeField({
   const options = environments.map((e) => ({ label: e.id, value: e.id }));
 
   const disabledSet = new Set(disabledEnvironmentIds);
+  const allEnvsDisabled =
+    environments.length > 0 &&
+    disabledEnvironmentIds.length === environments.length;
   const affectedEnvIds = allEnvironments
     ? disabledEnvironmentIds
     : selectedEnvironments.filter((e) => disabledSet.has(e));
-  // Only warn when *some but not all* feature environments are disabled — if
-  // every environment is off the feature is entirely inactive and there's
-  // nothing specific to single out.
-  const showDisabledWarning =
+  const showPartialDisabledWarning =
+    !allEnvsDisabled &&
     affectedEnvIds.length > 0 &&
     disabledEnvironmentIds.length < environments.length;
 
-  const disabledWarning = showDisabledWarning ? (
+  const disabledWarning = allEnvsDisabled ? (
+    <Callout status="warning" size="sm" mt="2">
+      This feature is not enabled in any environment. This rule will have no
+      effect until at least one environment is enabled.
+    </Callout>
+  ) : showPartialDisabledWarning ? (
     <Callout status="warning" size="sm" mt="2">
       {affectedEnvIds.length === 1 ? (
         <>
