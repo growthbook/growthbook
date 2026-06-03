@@ -19,6 +19,7 @@ import { resolveBigQueryEventForwarderTableName } from "back-end/src/services/ev
 import { testEventForwarderWriteAccess } from "back-end/src/services/eventForwarderWriteAccessValidation";
 import { initializeDatasourceUserIdTypesFromOrgAttributeSchema } from "back-end/src/services/eventForwarderUserIdTypes";
 import { ensureEventForwarderEventsFactTable } from "back-end/src/services/eventForwarderFactTable";
+import { ensureEventForwarderBigQueryTables } from "back-end/src/services/eventForwarderBqTables";
 import { ensureEventForwarderFeatureUsageQuery } from "back-end/src/services/eventForwarderFeatureUsageQueries";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
@@ -96,6 +97,13 @@ export async function provisionEventForwarderThroughLicenseServer(
             config: decrypted,
           }),
         );
+
+        await ensureEventForwarderBigQueryTables({
+          projectId,
+          dataset: decrypted.dataset.trim(),
+          tableName: resolvedTableName,
+          serviceAccountKey: decrypted.serviceAccountKey,
+        });
 
         result = await postProvisionEventForwarderToLicenseServer({
           organizationId: context.org.id,

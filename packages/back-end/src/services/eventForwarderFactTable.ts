@@ -153,6 +153,8 @@ function buildEventForwarderEventsFactTableSqlForDatasource(
         tableName: decrypted.tableName.trim(),
         attributeSchema,
         datasourceProjects: datasource.projects,
+        userIdTypes:
+          datasource.settings?.userIdTypes?.map((u) => u.userIdType) ?? [],
       });
     }
     case "snowflake": {
@@ -167,6 +169,8 @@ function buildEventForwarderEventsFactTableSqlForDatasource(
         tableName: decrypted.tableName.trim(),
         attributeSchema,
         datasourceProjects: datasource.projects,
+        userIdTypes:
+          datasource.settings?.userIdTypes?.map((u) => u.userIdType) ?? [],
       });
     }
     default:
@@ -333,6 +337,7 @@ export async function ensureEventForwarderEventsFactTable(
         tableName: decrypted.tableName.trim(),
         attributeSchema: context.org.settings?.attributeSchema,
         datasourceProjects: datasource.projects,
+        userIdTypes,
       });
       break;
     }
@@ -349,6 +354,7 @@ export async function ensureEventForwarderEventsFactTable(
         tableName: decrypted.tableName.trim(),
         attributeSchema: context.org.settings?.attributeSchema,
         datasourceProjects: datasource.projects,
+        userIdTypes,
       });
       break;
     }

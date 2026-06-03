@@ -356,7 +356,9 @@ describe("syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange", 
             },
           }),
         ],
-        sql: expect.stringContaining("`attributes`.`age` AS age"),
+        sql: expect.stringContaining(
+          "SAFE_CAST(JSON_VALUE(`attributes`, '$.\"age\"') AS FLOAT64) AS age",
+        ),
       },
       ctx,
     );

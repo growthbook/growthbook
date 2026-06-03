@@ -107,6 +107,11 @@ describe("attributes API", () => {
 
   it("can delete attributes", async () => {
     setReqContext({
+      models: {
+        eventForwarderConfigs: {
+          getAll: () => [],
+        },
+      },
       org: {
         id: "org1",
         settings: {
