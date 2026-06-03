@@ -20,6 +20,7 @@ import type {
 } from "shared/validators";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
+import ContextualBanditLink from "@/components/ContextualBandit/ContextualBanditLink";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
@@ -440,11 +441,9 @@ function RuleHeading({ rule, index }: { rule: FeatureRule; index: number }) {
   } else if (rule.type === "experiment-ref") {
     detail = <ExperimentLink experimentId={rule.experimentId} />;
   } else if (rule.type === "contextual-bandit-ref") {
-    // No ContextualBanditLink yet — the CB detail page route is still keyed
-    // by the experiment id (see Rule.tsx). Render the raw CB id so diffs at
-    // least identify which CB the rule points at. A proper
-    // ContextualBanditLink follows alongside the dedicated CB-ref summary.
-    detail = `cb: ${rule.contextualBanditId}`;
+    detail = (
+      <ContextualBanditLink contextualBanditId={rule.contextualBanditId} />
+    );
   }
   return (
     <div className="mb-2">
@@ -896,9 +895,9 @@ function NewRuleDetails({
         label="Contextual Bandit"
         changed
         oldNode={<em>unset</em>}
-        // No ContextualBanditLink yet — render the raw id for now. Same
-        // rationale as the RuleHeading branch above.
-        newNode={<code>{rule.contextualBanditId}</code>}
+        newNode={
+          <ContextualBanditLink contextualBanditId={rule.contextualBanditId} />
+        }
       />,
     );
     rule.variations.forEach((v, i) => {

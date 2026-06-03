@@ -36,9 +36,17 @@ export function useContextualBandits(
     [allContextualBandits, includeArchived],
   );
 
+  // Map view for O(1) lookups from id → CB (used by ContextualBanditLink
+  // and any other resolver that has only an id in hand).
+  const contextualBanditsMap = useMemo(
+    () => new Map(allContextualBandits.map((cb) => [cb.id, cb])),
+    [allContextualBandits],
+  );
+
   return {
     loading: !error && !data,
     contextualBandits,
+    contextualBanditsMap,
     error,
     mutate,
     hasArchived: allContextualBandits.some((cb) => cb.archived),
