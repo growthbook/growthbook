@@ -488,7 +488,10 @@ export class Permissions {
       // read-only sample-data project) can't gate the CTA when it's the only
       // project.
       return (
-        this.checkProjectFilterPermission({ projects: [] }, "manageTemplates") ||
+        this.checkProjectFilterPermission(
+          { projects: [] },
+          "manageTemplates",
+        ) ||
         allProjects.some((p) =>
           this.checkProjectFilterPermission(
             { projects: [p.id] },
