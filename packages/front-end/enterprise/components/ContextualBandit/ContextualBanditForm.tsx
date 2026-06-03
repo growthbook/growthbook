@@ -460,12 +460,11 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
     // expects them in the POST body, so we resolve them here from the
     // datasource the form has loaded rather than letting the backend
     // re-derive them.
-    const submitDatasource = datasources.find(
-      (d) => d.id === data.datasource,
-    );
-    const submitExposureQuery = submitDatasource?.settings?.queries?.exposure?.find(
-      (q) => q.id === data.exposureQueryId,
-    );
+    const submitDatasource = datasources.find((d) => d.id === data.datasource);
+    const submitExposureQuery =
+      submitDatasource?.settings?.queries?.exposure?.find(
+        (q) => q.id === data.exposureQueryId,
+      );
     const submitContextualAttributes =
       submitExposureQuery?.targetingAttributeColumns ?? [];
 
@@ -505,13 +504,12 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
       contextualAttributes: submitContextualAttributes,
     };
 
-    const res = await apiCall<{ contextualBandit: ApiContextualBanditInterface }>(
-      "/api/v1/contextual-bandits",
-      {
-        method: "POST",
-        body: JSON.stringify(createBody),
-      },
-    );
+    const res = await apiCall<{
+      contextualBandit: ApiContextualBanditInterface;
+    }>("/api/v1/contextual-bandits", {
+      method: "POST",
+      body: JSON.stringify(createBody),
+    });
 
     track("Create Contextual Bandit", {
       source,
@@ -529,8 +527,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
     // during the decoupling window (resolves CB via
     // useContextualBanditByExperiment). Once the page reroutes by CB id,
     // navigate to `/contextual-bandit/${res.contextualBandit.id}` directly.
-    const navId =
-      res.contextualBandit.experiment ?? res.contextualBandit.id;
+    const navId = res.contextualBandit.experiment ?? res.contextualBandit.id;
     if (onCreate) {
       onCreate(navId);
     } else {

@@ -245,13 +245,10 @@ export default function EditTargetingModal({
       ns.ranges = mergeContiguousRanges(ns.ranges);
     }
 
-    await apiCall(
-      updateEndpoint ?? `/experiment/${experiment.id}/targeting`,
-      {
-        method: updateMethod ?? "POST",
-        body: JSON.stringify(value),
-      },
-    );
+    await apiCall(updateEndpoint ?? `/experiment/${experiment.id}/targeting`, {
+      method: updateMethod ?? "POST",
+      body: JSON.stringify(value),
+    });
     mutate();
     track("edit-experiment-targeting", {
       type: changeType,

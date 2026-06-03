@@ -145,14 +145,7 @@ const EditMetricsForm: FC<{
    */
   updateEndpoint?: string;
   updateMethod?: "POST" | "PUT";
-}> = ({
-  experiment,
-  cancel,
-  mutate,
-  source,
-  updateEndpoint,
-  updateMethod,
-}) => {
+}> = ({ experiment, cancel, mutate, source, updateEndpoint, updateMethod }) => {
   const [upgradeModal, setUpgradeModal] = useState(false);
   const settings = useOrgSettings();
   const { hasCommercialFeature } = useUser();

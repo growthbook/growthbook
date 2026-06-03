@@ -1,4 +1,7 @@
-import { ContextualBanditInterface, ExperimentInterface } from "shared/validators";
+import {
+  ContextualBanditInterface,
+  ExperimentInterface,
+} from "shared/validators";
 
 /**
  * Fields the CB→Experiment forward-sync copies when a CB is updated.
