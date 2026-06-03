@@ -2,13 +2,14 @@ import type { CreateColumnProps } from "shared/types/fact-table";
 import type {
   SDKAttribute,
   SDKAttributeSchema,
+  SDKAttributeType,
 } from "shared/types/organization";
 import { attributeMatchesDatasourceProjects } from "./datasource";
 
 /** BigQuery daily partition column for BigQueryStorageSink (timestamp-millis). */
 export const EVENT_FORWARDER_AVRO_PARTITION_FIELD = "received_at" as const;
 
-/** Nested Avro record holding org targeting attributes in the forwarder schema. */
+/** Map field holding org targeting attributes in the forwarder Avro schema. */
 export const EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD = "attributes" as const;
 
 /**
@@ -82,23 +83,56 @@ function quoteSnowflakeVariantFieldName(fieldName: string): string {
   return `"${fieldName.replace(/"/g, '""')}"`;
 }
 
+function quoteBigQueryJsonPathField(fieldName: string): string {
+  return fieldName.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+function buildBigQueryJsonAttributeValueSql(
+  fieldName: string,
+  attributeDatatype?: SDKAttributeType,
+): string {
+  const quotedAttributes = quoteBigQueryIdentifier(
+    EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD,
+  );
+  const jsonPathField = quoteBigQueryJsonPathField(fieldName);
+  const jsonValue = `JSON_VALUE(${quotedAttributes}, '$."${jsonPathField}"')`;
+
+  switch (attributeDatatype) {
+    case "number":
+      return `SAFE_CAST(${jsonValue} AS FLOAT64)`;
+    case "boolean":
+      return `SAFE_CAST(${jsonValue} AS BOOL)`;
+    case "string[]":
+    case "number[]":
+    case "secureString[]":
+      return `JSON_QUERY(${quotedAttributes}, '$."${jsonPathField}"')`;
+    default:
+      return jsonValue;
+  }
+}
+
 export function buildEventForwarderNestedAttributeValueSql({
   sinkType,
   attributeName,
+  attributeDatatype,
   castSnowflakeToString = false,
 }: {
   sinkType: "bigquery" | "snowflake";
   attributeName: string;
+  attributeDatatype?: SDKAttributeType;
   castSnowflakeToString?: boolean;
 }): string {
   const fieldName = sanitizeEventForwarderAvroFieldName(attributeName);
 
   if (sinkType === "bigquery") {
-    const quotedAttributes = quoteBigQueryIdentifier(
-      EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD,
+    const valueSql = buildBigQueryJsonAttributeValueSql(
+      fieldName,
+      attributeDatatype,
     );
-    const quotedField = quoteBigQueryIdentifier(fieldName);
-    return `${quotedAttributes}.${quotedField}`;
+    if (castSnowflakeToString) {
+      return `CAST(${valueSql} AS STRING)`;
+    }
+    return valueSql;
   }
 
   const attributesCol = EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD.toUpperCase();
@@ -162,6 +196,7 @@ function buildEventForwarderEventsFactTableSelect({
     const valueSql = buildEventForwarderNestedAttributeValueSql({
       sinkType,
       attributeName: attribute.property,
+      attributeDatatype: attribute.datatype,
     });
     return `  ${valueSql} AS ${fieldName}`;
   });

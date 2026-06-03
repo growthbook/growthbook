@@ -78,7 +78,7 @@ describe("event-forwarder-fact-table SQL", () => {
     );
   });
 
-  it("projects selected BigQuery attributes from the nested attributes column", () => {
+  it("projects selected BigQuery attributes from the JSON attributes column", () => {
     const sql = buildEventForwarderEventsFactTableSql({
       sinkType: "bigquery",
       projectId: "my-project",
@@ -97,8 +97,8 @@ describe("event-forwarder-fact-table SQL", () => {
   timestamp,
   event_name,
   -- Attributes
-  \`attributes\`.\`user_id\` AS user_id,
-  \`attributes\`.\`browser_type\` AS browser_type
+  JSON_VALUE(\`attributes\`, '$."user_id"') AS user_id,
+  JSON_VALUE(\`attributes\`, '$."browser_type"') AS browser_type
 FROM \`my-project\`.\`analytics_123\`.\`gb_events\`
 WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{endDate}}'`);
   });
@@ -113,7 +113,7 @@ WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{end
     ).toBe("MY_DB.PUBLIC.GB_EVENTS");
   });
 
-  it("projects selected Snowflake attributes from the nested attributes column", () => {
+  it("projects selected Snowflake attributes from the VARIANT attributes column", () => {
     const sql = buildEventForwarderEventsFactTableSql({
       sinkType: "snowflake",
       database: "MY_DB",
