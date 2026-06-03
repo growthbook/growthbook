@@ -25,10 +25,6 @@ import { logger } from "back-end/src/util/logger";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
-import {
-  ExperimentUpdateExecutionLogger,
-  ExperimentUpdateTimingPhase,
-} from "back-end/src/services/experimentUpdateExecutionLogger";
 
 export type QueryMap = Map<string, QueryInterface>;
 
@@ -139,8 +135,6 @@ export abstract class QueryRunner<
   private pendingTimers: Record<string, NodeJS.Timeout> = {};
   private lockHeartbeatTimer: null | NodeJS.Timeout = null;
   private finishedQueryMapCache: QueryMap = new Map();
-  protected experimentUpdateExecutionLogger: ExperimentUpdateExecutionLogger | null =
-    null;
 
   public constructor(
     context: ReqContext | ApiReqContext,
@@ -200,6 +194,24 @@ export abstract class QueryRunner<
   // Called periodically while the runner is active. Override to refresh an
   // external lock; default is a no-op.
   protected onHeartbeat(): void {}
+
+  /** Called immediately before `startQueries` runs. */
+  protected onGenerateQueriesStart(): void {}
+
+  /** Called after `startQueries` completes (success or failure). */
+  protected onGenerateQueriesEnd(): void {}
+
+  /** Called when the query DAG is ready to execute in the warehouse. */
+  protected onRunQueriesStart(): void {}
+
+  /** Called when all queries have finished and analysis is about to begin. */
+  protected onRunQueriesEnd(): void {}
+
+  /** Called immediately before `runAnalysis` runs. */
+  protected onRunAnalysisStart(): void {}
+
+  /** Called after `runAnalysis` completes (success or failure). */
+  protected onRunAnalysisEnd(): void {}
 
   private startLockHeartbeat(): void {
     if (this.lockHeartbeatTimer) return;
@@ -286,32 +298,20 @@ export abstract class QueryRunner<
     return getQueryMap(this.context, pointers, this.finishedQueryMapCache);
   }
 
-  setExperimentUpdateExecutionLogger(
-    logger: ExperimentUpdateExecutionLogger | null,
-  ): void {
-    this.experimentUpdateExecutionLogger = logger;
-  }
-
-  withExperimentUpdateTiming<T>(
-    phase: ExperimentUpdateTimingPhase,
-    fn: () => Promise<T> | T,
-  ): Promise<T> | T {
-    if (!this.experimentUpdateExecutionLogger) {
-      return fn();
-    }
-    return this.experimentUpdateExecutionLogger.withTiming(phase, fn);
-  }
-
   public async startAnalysis(params: Params): Promise<Model> {
     logger.debug(this.model.id + " runner: Starting queries");
-    const queries = await this.withExperimentUpdateTiming("generateSql", () =>
-      this.startQueries(params),
-    );
-    this.experimentUpdateExecutionLogger?.startPhase("runQueries");
+    this.onGenerateQueriesStart();
+    let queries: Queries;
+    try {
+      queries = await this.startQueries(params);
+    } finally {
+      this.onGenerateQueriesEnd();
+    }
+    this.onRunQueriesStart();
     this.model.queries = queries;
 
     if (queries.length === 0) {
-      this.experimentUpdateExecutionLogger?.endPhase("runQueries");
+      this.onRunQueriesEnd();
       const noQueriesError = "No queries were generated for this analysis";
       logger.debug(this.model.id + " runner: " + noQueriesError);
       const newModel = await this.updateModel({
@@ -334,17 +334,20 @@ export abstract class QueryRunner<
       logger.debug(this.model.id + " runner: Query already succeeded (cached)");
       const queryMap = await this.getQueryMap(queries);
       try {
-        this.experimentUpdateExecutionLogger?.endPhase("runQueries");
-        result = await this.withExperimentUpdateTiming("analyze", () =>
-          this.runAnalysis(queryMap),
-        );
-        logger.debug(this.model.id + " runner: Ran analysis successfully");
+        this.onRunQueriesEnd();
+        this.onRunAnalysisStart();
+        try {
+          result = await this.runAnalysis(queryMap);
+          logger.debug(this.model.id + " runner: Ran analysis successfully");
+        } finally {
+          this.onRunAnalysisEnd();
+        }
       } catch (e) {
         logger.error(e, this.model.id + " runner: Error running analysis");
         error = "Error running analysis: " + e.message;
       }
     } else if (queryStatus === "failed") {
-      this.experimentUpdateExecutionLogger?.endPhase("runQueries");
+      this.onRunQueriesEnd();
       logger.debug(this.model.id + " runner: Query failed immediately");
       error = "Error running one or more database queries";
     }
@@ -578,7 +581,7 @@ export abstract class QueryRunner<
         error = query.error || error;
       }
 
-      this.experimentUpdateExecutionLogger?.endPhase("runQueries");
+      this.onRunQueriesEnd();
 
       logger.debug(
         "Query failed for " +
@@ -591,11 +594,14 @@ export abstract class QueryRunner<
       (newStatus === "succeeded" || newStatus === "partially-succeeded")
     ) {
       try {
-        this.experimentUpdateExecutionLogger?.endPhase("runQueries");
-        result = await this.withExperimentUpdateTiming("analyze", () =>
-          this.runAnalysis(queryMap),
-        );
-        logger.debug(`Queries ${newStatus}, ran analysis successfully`);
+        this.onRunQueriesEnd();
+        this.onRunAnalysisStart();
+        try {
+          result = await this.runAnalysis(queryMap);
+          logger.debug(`Queries ${newStatus}, ran analysis successfully`);
+        } finally {
+          this.onRunAnalysisEnd();
+        }
       } catch (e) {
         error = "Error running analysis: " + e.message;
         logger.error(e, `Queries ${newStatus}, failed running analysis`);

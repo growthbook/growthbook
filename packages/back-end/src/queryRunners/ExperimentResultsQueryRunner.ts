@@ -54,6 +54,15 @@ import { expandDenominatorMetrics } from "back-end/src/util/sql";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { updateReport } from "back-end/src/models/ReportModel";
+import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimentUpdateExecutionLogger";
+import {
+  onGenerateQueriesEnd,
+  onGenerateQueriesStart,
+  onRunAnalysisEnd,
+  onRunAnalysisStart,
+  onRunQueriesEnd,
+  onRunQueriesStart,
+} from "./experimentUpdateTiming";
 import {
   QueryRunner,
   QueryMap,
@@ -472,6 +481,39 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   ExperimentResultsQueryParams,
   SnapshotResult
 > {
+  protected experimentUpdateExecutionLogger: ExperimentUpdateExecutionLogger | null =
+    null;
+
+  setExperimentUpdateExecutionLogger(
+    logger: ExperimentUpdateExecutionLogger | null,
+  ): void {
+    this.experimentUpdateExecutionLogger = logger;
+  }
+
+  protected override onGenerateQueriesStart(): void {
+    onGenerateQueriesStart(this.experimentUpdateExecutionLogger);
+  }
+
+  protected override onGenerateQueriesEnd(): void {
+    onGenerateQueriesEnd(this.experimentUpdateExecutionLogger);
+  }
+
+  protected override onRunQueriesStart(): void {
+    onRunQueriesStart(this.experimentUpdateExecutionLogger);
+  }
+
+  protected override onRunQueriesEnd(): void {
+    onRunQueriesEnd(this.experimentUpdateExecutionLogger);
+  }
+
+  protected override onRunAnalysisStart(): void {
+    onRunAnalysisStart(this.experimentUpdateExecutionLogger);
+  }
+
+  protected override onRunAnalysisEnd(): void {
+    onRunAnalysisEnd(this.experimentUpdateExecutionLogger);
+  }
+
   private variationNames: string[] = [];
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
 

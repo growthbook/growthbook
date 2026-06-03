@@ -1633,9 +1633,10 @@ export async function createSnapshotFromPlan({
     const experimentUpdateLog: ExperimentUpdateLogPlan = {
       runnerKind: plan.runnerKind,
       incrementalFallbackReason: plan.incrementalFallbackReason,
-      useCache: plan.useCache,
-      fullRefresh: plan.fullRefresh,
-      fullRefreshReason: plan.fullRefreshReason,
+      useCache: plan.runnerKind === "results" ? plan.useCache : null,
+      fullRefresh: plan.runnerKind === "incremental" ? plan.fullRefresh : null,
+      fullRefreshReason:
+        plan.runnerKind === "incremental" ? plan.fullRefreshReason : null,
     };
 
     const snapshotType = plan.snapshot.type;

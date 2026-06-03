@@ -58,10 +58,19 @@ import {
 import { buildCrossFtSubGroups } from "back-end/src/services/experimentQueries/crossFtSubGroups";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { applyMetricOverrides } from "back-end/src/util/integration";
+import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimentUpdateExecutionLogger";
 import {
   SnapshotResult,
   TRAFFIC_QUERY_NAME,
 } from "./ExperimentResultsQueryRunner";
+import {
+  onGenerateQueriesEnd,
+  onGenerateQueriesStart,
+  onRunAnalysisEnd,
+  onRunAnalysisStart,
+  onRunQueriesEnd,
+  onRunQueriesStart,
+} from "./experimentUpdateTiming";
 import {
   QueryRunner,
   QueryMap,
@@ -1103,6 +1112,39 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
   ExperimentIncrementalRefreshQueryParams,
   SnapshotResult
 > {
+  protected experimentUpdateExecutionLogger: ExperimentUpdateExecutionLogger | null =
+    null;
+
+  setExperimentUpdateExecutionLogger(
+    logger: ExperimentUpdateExecutionLogger | null,
+  ): void {
+    this.experimentUpdateExecutionLogger = logger;
+  }
+
+  protected override onGenerateQueriesStart(): void {
+    onGenerateQueriesStart(this.experimentUpdateExecutionLogger);
+  }
+
+  protected override onGenerateQueriesEnd(): void {
+    onGenerateQueriesEnd(this.experimentUpdateExecutionLogger);
+  }
+
+  protected override onRunQueriesStart(): void {
+    onRunQueriesStart(this.experimentUpdateExecutionLogger);
+  }
+
+  protected override onRunQueriesEnd(): void {
+    onRunQueriesEnd(this.experimentUpdateExecutionLogger);
+  }
+
+  protected override onRunAnalysisStart(): void {
+    onRunAnalysisStart(this.experimentUpdateExecutionLogger);
+  }
+
+  protected override onRunAnalysisEnd(): void {
+    onRunAnalysisEnd(this.experimentUpdateExecutionLogger);
+  }
+
   private variationNames: string[] = [];
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
 

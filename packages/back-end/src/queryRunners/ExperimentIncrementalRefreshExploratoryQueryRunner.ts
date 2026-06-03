@@ -34,6 +34,15 @@ import { parseDimension } from "back-end/src/services/experiments";
 import { analyzeExperimentResults } from "back-end/src/services/stats";
 import { validateIncrementalPipeline } from "back-end/src/enterprise/services/data-pipeline";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimentUpdateExecutionLogger";
+import {
+  onGenerateQueriesEnd,
+  onGenerateQueriesStart,
+  onRunAnalysisEnd,
+  onRunAnalysisStart,
+  onRunQueriesEnd,
+  onRunQueriesStart,
+} from "./experimentUpdateTiming";
 import {
   QueryRunner,
   QueryMap,
@@ -339,6 +348,39 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
   ExperimentIncrementalRefreshExploratoryQueryParams,
   SnapshotResult
 > {
+  protected experimentUpdateExecutionLogger: ExperimentUpdateExecutionLogger | null =
+    null;
+
+  setExperimentUpdateExecutionLogger(
+    logger: ExperimentUpdateExecutionLogger | null,
+  ): void {
+    this.experimentUpdateExecutionLogger = logger;
+  }
+
+  protected override onGenerateQueriesStart(): void {
+    onGenerateQueriesStart(this.experimentUpdateExecutionLogger);
+  }
+
+  protected override onGenerateQueriesEnd(): void {
+    onGenerateQueriesEnd(this.experimentUpdateExecutionLogger);
+  }
+
+  protected override onRunQueriesStart(): void {
+    onRunQueriesStart(this.experimentUpdateExecutionLogger);
+  }
+
+  protected override onRunQueriesEnd(): void {
+    onRunQueriesEnd(this.experimentUpdateExecutionLogger);
+  }
+
+  protected override onRunAnalysisStart(): void {
+    onRunAnalysisStart(this.experimentUpdateExecutionLogger);
+  }
+
+  protected override onRunAnalysisEnd(): void {
+    onRunAnalysisEnd(this.experimentUpdateExecutionLogger);
+  }
+
   private variationNames: string[] = [];
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
 

@@ -3,7 +3,7 @@ import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimen
 describe("ExperimentUpdateExecutionLogger", () => {
   const plan = {
     runnerKind: "incremental" as const,
-    useCache: false,
+    useCache: null,
     fullRefresh: true,
     fullRefreshReason:
       "No prior incremental refresh state for this experiment.",
@@ -120,20 +120,22 @@ describe("ExperimentUpdateExecutionLogger", () => {
     expect(info.mock.calls[0][0]).toMatchObject({
       event: "experiment_updated",
       snapshotStatus: "success",
-      timingsMs: expect.objectContaining({
-        generateSql: 0,
-        analyze: 0,
+      updateMetadata: expect.objectContaining({
+        timingsMs: expect.objectContaining({
+          generateSql: 0,
+          analyze: 0,
+        }),
       }),
     });
   });
 
-  it("emits structured fields including plan metadata and execution mode", () => {
+  it("emits structured fields including updateMetadata and execution mode", () => {
     const logger = new ExperimentUpdateExecutionLogger(
       {
         runnerKind: "results",
         incrementalFallbackReason: "metric not compatible",
         useCache: true,
-        fullRefresh: false,
+        fullRefresh: null,
         fullRefreshReason: null,
       },
       {
@@ -159,12 +161,15 @@ describe("ExperimentUpdateExecutionLogger", () => {
         triggeredBy: "manual",
         snapshotStatus: "error",
         error: "Failed to run queries",
-        runnerKind: "results",
-        incrementalFallbackReason: "metric not compatible",
-        plannedFullRefresh: false,
-        fullRefreshReason: null,
-        incrementalRefreshMode: "incremental",
-        timingsMs: expect.any(Object),
+        updateMetadata: {
+          runnerKind: "results",
+          incrementalFallbackReason: "metric not compatible",
+          useCache: true,
+          fullRefresh: null,
+          fullRefreshReason: null,
+          incrementalRefreshMode: "incremental",
+          timingsMs: expect.any(Object),
+        },
       }),
       "Experiment update completed",
     );
