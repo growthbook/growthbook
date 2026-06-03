@@ -359,7 +359,12 @@ const ContextualBanditsPage = (): React.ReactElement => {
                           className="p-0"
                         >
                           <Link
-                            href={`/contextual-bandit/${e.id}`}
+                            // Transitional: the detail page still fetches
+                            // /experiment/${id}, so link with the paired
+                            // experiment FK when present (fall back to the
+                            // CB id for orphaned docs). PR-6's detail-page
+                            // fork will switch this to e.id directly.
+                            href={`/contextual-bandit/${e.experiment ?? e.id}`}
                             style={{
                               display: "block",
                               padding: "0.5rem",

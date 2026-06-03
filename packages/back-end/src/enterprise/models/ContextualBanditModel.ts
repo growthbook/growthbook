@@ -250,6 +250,9 @@ export function toApiContextualBandit(
 ): ApiContextualBanditInterface {
   return {
     id: doc.id,
+    // Transitional FK — see the validator for why this stays on the
+    // API surface through the decoupling window.
+    experiment: doc.experiment,
     dateCreated: doc.dateCreated.toISOString(),
     dateUpdated: doc.dateUpdated.toISOString(),
     name: doc.name,

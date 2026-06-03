@@ -280,6 +280,17 @@ const apiContextualBanditVariation = z.object({
 export const apiContextualBanditValidator = namedSchema(
   "ContextualBandit",
   apiBaseSchema.safeExtend({
+    /**
+     * Transitional: parent experiment FK exposed on the API surface during
+     * the decoupling window so callers (e.g. the front-end list page
+     * linking to the detail page, which still reads from the experiment
+     * endpoint) can resolve the paired experiment id without an extra
+     * round-trip. Dropped in PR-8 once the detail page reads CB-native
+     * data and the FK comes off the internal validator.
+     *
+     * @deprecated Will be removed after the CB decoupling migration.
+     */
+    experiment: z.string().optional(),
     name: z.string(),
     description: z.string().optional(),
     hypothesis: z.string().optional(),
