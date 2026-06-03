@@ -75,3 +75,37 @@ export function parseEnvInt(
   }
   return n;
 }
+
+export type ParseEnvFloatOptions = {
+  /** Env var name (for warnings when the value is invalid or outside bounds). */
+  name: string;
+  min?: number;
+  max?: number;
+};
+
+/**
+ * Parse a floating point number from a Node `process.env` entry (`string | undefined`).
+ * Only `undefined` is treated as unset (uses `defaultValue`). Other values are
+ * parsed with `Number`; invalid or out-of-range values fall back to
+ * `defaultValue` and emit **`console.warn`**.
+ */
+export function parseEnvFloat(
+  value: string | undefined,
+  defaultValue: number,
+  opts: ParseEnvFloatOptions,
+): number {
+  if (value === undefined) return defaultValue;
+  const n = value.trim() === "" ? NaN : Number(value.trim());
+  const invalid =
+    !Number.isFinite(n) ||
+    (opts.min !== undefined && n < opts.min) ||
+    (opts.max !== undefined && n > opts.max);
+  if (invalid) {
+    // eslint-disable-next-line no-console -- shared does not import app loggers
+    console.warn(
+      `WARNING! Invalid value for ${opts.name}: "${value ?? ""}". Falling back to default: ${defaultValue}`,
+    );
+    return defaultValue;
+  }
+  return n;
+}

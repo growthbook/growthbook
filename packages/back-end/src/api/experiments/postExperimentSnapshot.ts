@@ -5,6 +5,7 @@ import { auditDetailsCreate } from "back-end/src/services/audit";
 import { createExperimentSnapshot } from "back-end/src/services/experiments";
 import { validateSnapshotDimension } from "back-end/src/services/snapshotDimension";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { withExperimentUpdateTrace } from "back-end/src/util/metrics";
 
 export const postExperimentSnapshot = createApiRequestHandler(
   postExperimentSnapshotValidator,
@@ -63,12 +64,18 @@ export const postExperimentSnapshot = createApiRequestHandler(
     useCache: true,
   };
 
-  const snapshot = await createExperimentSnapshot({
-    context,
-    experiment,
-    datasource,
-    triggeredBy,
-    ...createSnapshotPayload,
+  const snapshot = await withExperimentUpdateTrace({
+    trigger: "manual",
+    experimentId: experiment.id,
+    orgId: context.org.id,
+    run: () =>
+      createExperimentSnapshot({
+        context,
+        experiment,
+        datasource,
+        triggeredBy,
+        ...createSnapshotPayload,
+      }),
   });
 
   await req.audit({

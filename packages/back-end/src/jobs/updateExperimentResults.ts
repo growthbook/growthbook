@@ -21,6 +21,7 @@ import { notifyAutoUpdate } from "back-end/src/services/experimentNotifications"
 import { EXPERIMENT_REFRESH_FREQUENCY } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
+import { withExperimentUpdateTrace } from "back-end/src/util/metrics";
 
 // Time between experiment result updates (default 6 hours)
 const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;
@@ -135,84 +136,95 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
 
   try {
     logger.info("Start Refreshing Results for experiment " + experimentId);
-    const datasource = await getDataSourceById(
-      context,
-      experiment.datasource || "",
-    );
-    if (!datasource) {
-      throw new Error("Error refreshing experiment, could not find datasource");
-    }
+    await withExperimentUpdateTrace({
+      trigger: "schedule",
+      experimentId: experiment.id,
+      orgId,
+      run: async () => {
+        const datasource = await getDataSourceById(
+          context,
+          experiment.datasource || "",
+        );
+        if (!datasource) {
+          throw new Error(
+            "Error refreshing experiment, could not find datasource",
+          );
+        }
 
-    const { regressionAdjustmentEnabled, settingsForSnapshotMetrics } =
-      await getSettingsForSnapshotMetrics(context, experiment);
+        const { regressionAdjustmentEnabled, settingsForSnapshotMetrics } =
+          await getSettingsForSnapshotMetrics(context, experiment);
 
-    const metricGroups = await context.models.metricGroups.getAll();
+        const metricGroups = await context.models.metricGroups.getAll();
 
-    const analysisSettings = getDefaultExperimentAnalysisSettings({
-      statsEngine: experiment.statsEngine || scopedSettings.statsEngine.value,
-      experiment,
-      organization,
-      regressionAdjustmentEnabled,
-      postStratificationEnabled: scopedSettings.postStratificationEnabled.value,
-      pValueThreshold: scopedSettings.pValueThreshold.value,
-      metricGroups,
+        const analysisSettings = getDefaultExperimentAnalysisSettings({
+          statsEngine:
+            experiment.statsEngine || scopedSettings.statsEngine.value,
+          experiment,
+          organization,
+          regressionAdjustmentEnabled,
+          postStratificationEnabled:
+            scopedSettings.postStratificationEnabled.value,
+          pValueThreshold: scopedSettings.pValueThreshold.value,
+          metricGroups,
+        });
+
+        const metricMap = await getMetricMap(context);
+        const factTableMap = await getFactTableMap(context);
+
+        let reweight =
+          experiment.type === "multi-armed-bandit" &&
+          experiment.banditStage === "exploit";
+
+        if (experiment.type === "multi-armed-bandit" && !reweight) {
+          // Quick check to see if we're about to enter "exploit" stage and will need to reweight
+          const tempChanges = updateExperimentBanditSettings({
+            experiment,
+            isScheduled: true,
+          });
+          if (tempChanges.banditStage === "exploit") {
+            reweight = true;
+          }
+        }
+
+        const queryRunner = await createSnapshot({
+          experiment,
+          context,
+          phaseIndex: experiment.phases.length - 1,
+          defaultAnalysisSettings: analysisSettings,
+          additionalAnalysisSettings:
+            getAdditionalExperimentAnalysisSettings(analysisSettings),
+          settingsForSnapshotMetrics: settingsForSnapshotMetrics || [],
+          metricMap,
+          factTableMap,
+          useCache: true,
+          type: "standard",
+          triggeredBy: "schedule",
+          reweight,
+        });
+        await queryRunner.waitForResults();
+        const currentSnapshot = queryRunner.model;
+
+        logger.info(
+          "Successfully Refreshed Results for experiment " + experimentId,
+        );
+
+        if (experiment.type === "multi-armed-bandit") {
+          const changes = updateExperimentBanditSettings({
+            experiment,
+            snapshot: currentSnapshot,
+            reweight:
+              currentSnapshot?.banditResult?.reweight &&
+              experiment.banditStage === "exploit",
+            isScheduled: true,
+          });
+          await updateExperiment({
+            context,
+            experiment,
+            changes,
+          });
+        }
+      },
     });
-
-    const metricMap = await getMetricMap(context);
-    const factTableMap = await getFactTableMap(context);
-
-    let reweight =
-      experiment.type === "multi-armed-bandit" &&
-      experiment.banditStage === "exploit";
-
-    if (experiment.type === "multi-armed-bandit" && !reweight) {
-      // Quick check to see if we're about to enter "exploit" stage and will need to reweight
-      const tempChanges = updateExperimentBanditSettings({
-        experiment,
-        isScheduled: true,
-      });
-      if (tempChanges.banditStage === "exploit") {
-        reweight = true;
-      }
-    }
-
-    const queryRunner = await createSnapshot({
-      experiment,
-      context,
-      phaseIndex: experiment.phases.length - 1,
-      defaultAnalysisSettings: analysisSettings,
-      additionalAnalysisSettings:
-        getAdditionalExperimentAnalysisSettings(analysisSettings),
-      settingsForSnapshotMetrics: settingsForSnapshotMetrics || [],
-      metricMap,
-      factTableMap,
-      useCache: true,
-      type: "standard",
-      triggeredBy: "schedule",
-      reweight,
-    });
-    await queryRunner.waitForResults();
-    const currentSnapshot = queryRunner.model;
-
-    logger.info(
-      "Successfully Refreshed Results for experiment " + experimentId,
-    );
-
-    if (experiment.type === "multi-armed-bandit") {
-      const changes = updateExperimentBanditSettings({
-        experiment,
-        snapshot: currentSnapshot,
-        reweight:
-          currentSnapshot?.banditResult?.reweight &&
-          experiment.banditStage === "exploit",
-        isScheduled: true,
-      });
-      await updateExperiment({
-        context,
-        experiment,
-        changes,
-      });
-    }
   } catch (e) {
     // Lock contention is transient so we don't disable auto-updates
     if (e instanceof ConcurrentIncrementalRefreshError) {

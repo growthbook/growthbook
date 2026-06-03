@@ -130,6 +130,7 @@ import { PastExperimentsQueryRunner } from "back-end/src/queryRunners/PastExperi
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
+import { withExperimentUpdateTrace } from "back-end/src/util/metrics";
 import {
   getFeature,
   getFeaturesByIds,
@@ -1393,13 +1394,19 @@ export async function postExperiments(
 
     if (datasource && req.query.autoRefreshResults && metricIds.length > 0) {
       try {
-        await createExperimentSnapshot({
-          context,
-          experiment,
-          datasource,
-          dimension: "",
-          phase: 0,
-          useCache: true,
+        await withExperimentUpdateTrace({
+          trigger: "manual",
+          experimentId: experiment.id,
+          orgId: context.org.id,
+          run: () =>
+            createExperimentSnapshot({
+              context,
+              experiment,
+              datasource,
+              dimension: "",
+              phase: 0,
+              useCache: true,
+            }),
         });
       } catch (e) {
         logger.error(e, "Failed to auto-refresh imported experiment");
@@ -3174,15 +3181,23 @@ export async function postSnapshot(
   const useCache = !req.query["force"];
 
   try {
-    const { snapshot } = await createExperimentSnapshot({
-      context,
-      experiment,
-      datasource,
-      dimension,
-      phase,
-      useCache,
-      type:
-        experiment.type === "multi-armed-bandit" ? "exploratory" : undefined,
+    const { snapshot } = await withExperimentUpdateTrace({
+      trigger: "manual",
+      experimentId: experiment.id,
+      orgId: context.org.id,
+      run: () =>
+        createExperimentSnapshot({
+          context,
+          experiment,
+          datasource,
+          dimension,
+          phase,
+          useCache,
+          type:
+            experiment.type === "multi-armed-bandit"
+              ? "exploratory"
+              : undefined,
+        }),
     });
 
     await req.audit({
@@ -3333,15 +3348,21 @@ export async function postBanditSnapshot(
   let snapshot: ExperimentSnapshotInterface | undefined = undefined;
 
   try {
-    const { queryRunner } = await createExperimentSnapshot({
-      context,
-      experiment,
-      datasource,
-      dimension: "",
-      phase,
-      useCache: false,
-      type: "standard",
-      reweight,
+    const { queryRunner } = await withExperimentUpdateTrace({
+      trigger: "manual",
+      experimentId: experiment.id,
+      orgId: context.org.id,
+      run: () =>
+        createExperimentSnapshot({
+          context,
+          experiment,
+          datasource,
+          dimension: "",
+          phase,
+          useCache: false,
+          type: "standard",
+          reweight,
+        }),
     });
 
     await queryRunner.waitForResults();

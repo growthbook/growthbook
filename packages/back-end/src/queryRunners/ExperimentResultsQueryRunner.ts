@@ -85,6 +85,24 @@ export const TRAFFIC_QUERY_NAME = "traffic";
 
 export const UNITS_TABLE_PREFIX = "growthbook_tmp_units";
 
+export const shouldUseUnitsTable = ({
+  integration,
+  hasPipelineModeFeature,
+}: {
+  integration: SourceIntegrationInterface;
+  hasPipelineModeFeature: boolean;
+}): boolean => {
+  const settings = integration.datasource.settings;
+  return (
+    (integration.getSourceProperties().supportsWritingTables &&
+      settings.pipelineSettings?.allowWriting &&
+      settings.pipelineSettings?.mode === "ephemeral" &&
+      !!settings.pipelineSettings?.writeDataset &&
+      hasPipelineModeFeature) ??
+    false
+  );
+};
+
 export const startExperimentResultQueries = async (
   context: ApiReqContext,
   params: ExperimentResultsQueryParams,
@@ -137,13 +155,10 @@ export const startExperimentResultQueries = async (
   const queries: Queries = [];
 
   // Settings for units table
-  const useUnitsTable =
-    (integration.getSourceProperties().supportsWritingTables &&
-      settings.pipelineSettings?.allowWriting &&
-      settings.pipelineSettings?.mode === "ephemeral" &&
-      !!settings.pipelineSettings?.writeDataset &&
-      hasPipelineModeFeature) ??
-    false;
+  const useUnitsTable = shouldUseUnitsTable({
+    integration,
+    hasPipelineModeFeature,
+  });
 
   // Configured "always-computed" unit dimensions. These are materialized as
   // extra dim_unit_<id> columns on the shared units table and get isolated
@@ -475,6 +490,18 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   private variationNames: string[] = [];
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
 
+  protected override getUpdateMode(): string {
+    return shouldUseUnitsTable({
+      integration: this.integration,
+      hasPipelineModeFeature: orgHasPremiumFeature(
+        this.context.org,
+        "pipeline-mode",
+      ),
+    })
+      ? "ephemeral"
+      : "inline";
+  }
+
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(
       this.integration.datasource,
@@ -489,18 +516,23 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         params.experimentQueryMetadata,
       );
     }
-    if (
-      this.integration.getSourceProperties().separateExperimentResultQueries
-    ) {
-      return startExperimentResultQueries(
-        this.context,
-        params,
-        this.integration,
-        this.startQuery.bind(this),
-      );
-    } else {
-      return this.startLegacyQueries(params);
-    }
+    return this.instrumentPhase(
+      "experiment.queries.generate_sql",
+      { "snapshot.type": params.snapshotType },
+      async (span) => {
+        const queries = this.integration.getSourceProperties()
+          .separateExperimentResultQueries
+          ? await startExperimentResultQueries(
+              this.context,
+              params,
+              this.integration,
+              this.startQuery.bind(this),
+            )
+          : await this.startLegacyQueries(params);
+        span.setAttribute("queries.count", queries.length);
+        return queries;
+      },
+    );
   }
 
   async runAnalysis(queryMap: QueryMap): Promise<SnapshotResult> {
@@ -618,35 +650,41 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
     result?: SnapshotResult;
     error?: string;
   }): Promise<ExperimentSnapshotInterface> {
-    const updates: Partial<ExperimentSnapshotInterface> = {
-      queries,
-      runStarted,
-      error,
-      ...result,
-      status:
-        status === "running"
-          ? "running"
-          : status === "failed"
-            ? "error"
-            : "success",
-    };
-    await updateSnapshot({
-      context: this.context,
-      id: this.model.id,
-      updates,
-    });
-    if (
-      this.model.report &&
-      ["failed", "partially-succeeded", "succeeded"].includes(status)
-    ) {
-      await updateReport(this.model.organization, this.model.report, {
-        snapshot: this.model.id,
-      });
-    }
-    return {
-      ...this.model,
-      ...updates,
-    };
+    return this.instrumentPhase(
+      "experiment.snapshot.update_model",
+      { "snapshot.status": status },
+      async () => {
+        const updates: Partial<ExperimentSnapshotInterface> = {
+          queries,
+          runStarted,
+          error,
+          ...result,
+          status:
+            status === "running"
+              ? "running"
+              : status === "failed"
+                ? "error"
+                : "success",
+        };
+        await updateSnapshot({
+          context: this.context,
+          id: this.model.id,
+          updates,
+        });
+        if (
+          this.model.report &&
+          ["failed", "partially-succeeded", "succeeded"].includes(status)
+        ) {
+          await updateReport(this.model.organization, this.model.report, {
+            snapshot: this.model.id,
+          });
+        }
+        return {
+          ...this.model,
+          ...updates,
+        };
+      },
+    );
   }
 
   private async startLegacyQueries(

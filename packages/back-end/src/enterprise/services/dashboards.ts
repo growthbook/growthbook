@@ -40,6 +40,7 @@ import {
 import { createMetricAnalysis } from "back-end/src/services/metric-analysis";
 import { runProductAnalyticsExploration } from "back-end/src/enterprise/services/product-analytics";
 import { logger } from "back-end/src/util/logger";
+import { withExperimentUpdateTrace } from "back-end/src/util/metrics";
 
 /**
  * Determines if nextUpdate should be recalculated based on changes to auto-updates or schedule
@@ -192,20 +193,26 @@ export async function updateExperimentDashboards({
       metricGroups,
     });
 
-    const queryRunner = await createSnapshot({
-      experiment,
-      context,
-      phaseIndex: experiment.phases.length - 1,
-      defaultAnalysisSettings: analysisSettings,
-      additionalAnalysisSettings: getAdditionalExperimentAnalysisSettings(
-        analysisSettings,
-      ).concat(additionalAnalysisSettings),
-      settingsForSnapshotMetrics: settingsForSnapshotMetrics || [],
-      metricMap,
-      factTableMap,
-      useCache: true,
-      type: "exploratory",
-      triggeredBy: "update-dashboards",
+    const queryRunner = await withExperimentUpdateTrace({
+      trigger: "dashboard",
+      experimentId: experiment.id,
+      orgId: context.org.id,
+      run: () =>
+        createSnapshot({
+          experiment,
+          context,
+          phaseIndex: experiment.phases.length - 1,
+          defaultAnalysisSettings: analysisSettings,
+          additionalAnalysisSettings: getAdditionalExperimentAnalysisSettings(
+            analysisSettings,
+          ).concat(additionalAnalysisSettings),
+          settingsForSnapshotMetrics: settingsForSnapshotMetrics || [],
+          metricMap,
+          factTableMap,
+          useCache: true,
+          type: "exploratory",
+          triggeredBy: "update-dashboards",
+        }),
     });
     await queryRunner.waitForResults();
   }

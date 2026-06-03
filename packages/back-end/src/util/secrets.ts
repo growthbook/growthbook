@@ -1,7 +1,7 @@
 import Handlebars from "handlebars";
 import escapeRegExp from "lodash/escapeRegExp";
 import trimEnd from "lodash/trimEnd";
-import { parseEnvInt, stringToBoolean } from "shared/util";
+import { parseEnvFloat, parseEnvInt, stringToBoolean } from "shared/util";
 import { DEFAULT_METRIC_WINDOW_HOURS } from "shared/constants";
 import { z } from "zod";
 
@@ -128,6 +128,16 @@ export const EXPERIMENT_REFRESH_FREQUENCY = parseEnvInt(
   process.env.EXPERIMENT_REFRESH_FREQUENCY,
   6,
   { min: 1, name: "EXPERIMENT_REFRESH_FREQUENCY" },
+);
+
+/**
+ * How often to emit distributed traces for experiment-update operations.
+ * 0 is no traces, 1 is all traces.
+ */
+export const EXPERIMENT_UPDATE_TRACE_SAMPLE_RATE = parseEnvFloat(
+  process.env.EXPERIMENT_UPDATE_TRACE_SAMPLE_RATE,
+  0,
+  { min: 0, max: 1, name: "EXPERIMENT_UPDATE_TRACE_SAMPLE_RATE" },
 );
 
 export const DEFAULT_CONVERSION_WINDOW_HOURS = parseEnvInt(

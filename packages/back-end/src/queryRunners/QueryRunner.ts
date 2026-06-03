@@ -22,6 +22,13 @@ import {
 } from "back-end/src/models/QueryModel";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { logger } from "back-end/src/util/logger";
+import {
+  AsyncTraceHandle,
+  claimExperimentUpdateTraceForAsyncCompletion,
+  instrumentPhase as instrumentTelemetryPhase,
+  Span,
+  SpanAttributes,
+} from "back-end/src/util/metrics";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
@@ -135,6 +142,7 @@ export abstract class QueryRunner<
   private pendingTimers: Record<string, NodeJS.Timeout> = {};
   private lockHeartbeatTimer: null | NodeJS.Timeout = null;
   private finishedQueryMapCache: QueryMap = new Map();
+  private readonly telemetryTrace: AsyncTraceHandle;
 
   public constructor(
     context: ReqContext | ApiReqContext,
@@ -147,6 +155,7 @@ export abstract class QueryRunner<
     this.useCache = useCache;
     this.context = context;
     this.emitter = new EventEmitter();
+    this.telemetryTrace = claimExperimentUpdateTraceForAsyncCompletion();
 
     if (!this.checkPermissions()) {
       this.context.permissions.throwPermissionError();
@@ -168,6 +177,30 @@ export abstract class QueryRunner<
     result?: Result;
     error?: string;
   }): Promise<Model>;
+
+  protected getUpdateMode(): string | undefined {
+    return undefined;
+  }
+
+  protected getRunnerAttributes(): SpanAttributes {
+    const updateMode = this.getUpdateMode();
+    return {
+      "query_runner.kind": this.constructor.name,
+      ...(updateMode ? { "update.mode": updateMode } : {}),
+    };
+  }
+
+  protected instrumentPhase<T>(
+    phase: string,
+    attrs: SpanAttributes,
+    fn: (span: Span) => Promise<T> | T,
+  ): Promise<T> {
+    return instrumentTelemetryPhase(
+      phase,
+      { ...this.getRunnerAttributes(), ...attrs },
+      fn,
+    );
+  }
 
   private setTimer(id: string, timer: NodeJS.Timeout): void {
     this.pendingTimers[id] = timer;
@@ -216,56 +249,9 @@ export abstract class QueryRunner<
           this.model.id +
           " runner, refreshing in 1 second",
       );
-      this.timer = setTimeout(async () => {
+      this.timer = setTimeout(() => {
         this.timer = null;
-        // Fetch the latest model in its own try so we can distinguish
-        // "model is gone or unreadable" from a genuine refresh failure.
-        // The most common cause of getLatestModel throwing here is a
-        // concurrent cancel: cancelSnapshot constructs its own runner
-        // instance to call cancelQueries() and then deletes the snapshot,
-        // so this (separate) instance never sees the status flip and only
-        // learns about the cancellation when getLatestModel returns null.
-        // There's nothing useful to refresh in that case; if instead this
-        // was a transient DB error, one of the other onQueryFinish call
-        // sites will retry on the next query state change.
-        let latest: Model;
-        try {
-          logger.debug("Getting latest model for " + this.model.id);
-          latest = await this.getLatestModel();
-        } catch (e) {
-          logger.debug(
-            `Skipping refresh for ${this.model.id}: ${
-              e instanceof Error ? e.message : String(e)
-            }`,
-          );
-          return;
-        }
-        this.model = latest;
-        try {
-          const queryMap = await this.refreshQueryStatuses();
-          await this.startReadyQueries(queryMap);
-        } catch (e) {
-          logger.error(
-            e,
-            "Error refreshing query statuses for runner of " + this.model.id,
-          );
-          if (this.status !== "finished") {
-            const error = "Error finalizing query results: " + e.message;
-            try {
-              this.model = await this.updateModel({
-                status: "failed",
-                queries: this.model.queries,
-                error,
-              });
-            } catch (writeErr) {
-              logger.error(
-                writeErr,
-                "Failed to persist error status for runner of " + this.model.id,
-              );
-            }
-            this.setStatus("finished", error);
-          }
-        }
+        this.telemetryTrace.runInContext(() => this.runRefreshCycle());
       }, 1000);
     } else {
       logger.debug(
@@ -273,6 +259,57 @@ export abstract class QueryRunner<
           this.model.id +
           " runner, timer already started",
       );
+    }
+  }
+
+  private async runRefreshCycle(): Promise<void> {
+    // Fetch the latest model in its own try so we can distinguish
+    // "model is gone or unreadable" from a genuine refresh failure.
+    // The most common cause of getLatestModel throwing here is a
+    // concurrent cancel: cancelSnapshot constructs its own runner
+    // instance to call cancelQueries() and then deletes the snapshot,
+    // so this (separate) instance never sees the status flip and only
+    // learns about the cancellation when getLatestModel returns null.
+    // There's nothing useful to refresh in that case; if instead this
+    // was a transient DB error, one of the other onQueryFinish call
+    // sites will retry on the next query state change.
+    let latest: Model;
+    try {
+      logger.debug("Getting latest model for " + this.model.id);
+      latest = await this.getLatestModel();
+    } catch (e) {
+      logger.debug(
+        `Skipping refresh for ${this.model.id}: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+      return;
+    }
+    this.model = latest;
+    try {
+      const queryMap = await this.refreshQueryStatuses();
+      await this.startReadyQueries(queryMap);
+    } catch (e) {
+      logger.error(
+        e,
+        "Error refreshing query statuses for runner of " + this.model.id,
+      );
+      if (this.status !== "finished") {
+        const error = "Error finalizing query results: " + e.message;
+        try {
+          this.model = await this.updateModel({
+            status: "failed",
+            queries: this.model.queries,
+            error,
+          });
+        } catch (writeErr) {
+          logger.error(
+            writeErr,
+            "Failed to persist error status for runner of " + this.model.id,
+          );
+        }
+        this.setStatus("finished", error);
+      }
     }
   }
 
@@ -308,7 +345,11 @@ export abstract class QueryRunner<
       logger.debug(this.model.id + " runner: Query already succeeded (cached)");
       const queryMap = await this.getQueryMap(queries);
       try {
-        result = await this.runAnalysis(queryMap);
+        result = await this.instrumentPhase(
+          "query_runner.analysis.run",
+          {},
+          () => this.runAnalysis(queryMap),
+        );
         logger.debug(this.model.id + " runner: Ran analysis successfully");
       } catch (e) {
         logger.error(e, this.model.id + " runner: Error running analysis");
@@ -373,6 +414,15 @@ export abstract class QueryRunner<
 
     if (this.status === "finished") {
       this.stopLockHeartbeat();
+      this.telemetryTrace.finish(
+        this.error ? "error" : "ok",
+        {
+          ...this.getRunnerAttributes(),
+          "query_runner.status": this.status,
+          ...(this.error ? { "query_runner.error": this.error } : {}),
+        },
+        this.error || undefined,
+      );
       this.emitter.emit(FINISH_EVENT);
     }
   }
@@ -559,7 +609,11 @@ export abstract class QueryRunner<
       (newStatus === "succeeded" || newStatus === "partially-succeeded")
     ) {
       try {
-        result = await this.runAnalysis(queryMap);
+        result = await this.instrumentPhase(
+          "query_runner.analysis.run",
+          {},
+          () => this.runAnalysis(queryMap),
+        );
         logger.debug(`Queries ${newStatus}, ran analysis successfully`);
       } catch (e) {
         error = "Error running analysis: " + e.message;
@@ -801,7 +855,20 @@ export abstract class QueryRunner<
       });
     };
 
-    run(doc.query, setExternalId, { queryType: doc.queryType })
+    const queryAttrs: SpanAttributes = {
+      ...this.getRunnerAttributes(),
+      "query.id": doc.id,
+      "query.type": doc.queryType ?? "unknown",
+    };
+    const runQuery = () =>
+      run(doc.query, setExternalId, { queryType: doc.queryType });
+    const queryPromise = this.telemetryTrace.startSpan(
+      "query_runner.query.execute",
+      queryAttrs,
+      runQuery,
+    );
+
+    queryPromise
       .then(async ({ rows, statistics }) => {
         clearInterval(timer);
         logger.debug("Query succeeded: " + doc.id);

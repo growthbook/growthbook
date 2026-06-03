@@ -1104,6 +1104,17 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
   private variationNames: string[] = [];
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
 
+  // Set from the startQueries params; distinguishes a full rebuild of the
+  // pipeline tables from an incremental update over already-materialized data.
+  // Defaults to false until startQueries runs.
+  private isFullRefresh = false;
+
+  protected override getUpdateMode(): string {
+    return this.isFullRefresh
+      ? "incremental-full-refresh"
+      : "incremental-update";
+  }
+
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(
       this.integration.datasource,
@@ -1126,6 +1137,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
   ): Promise<Queries> {
     this.metricMap = params.metricMap;
     this.variationNames = params.variationNames;
+    this.isFullRefresh = params.fullRefresh;
     if (params.experimentQueryMetadata) {
       this.integration.setAdditionalQueryMetadata?.(
         params.experimentQueryMetadata,
@@ -1158,11 +1170,21 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       analysisType: params.fullRefresh ? "main-fullRefresh" : "main-update",
     });
 
-    return await startExperimentIncrementalRefreshQueries(
-      this.context,
-      params,
-      this.integration,
-      this.startQuery.bind(this),
+    return this.instrumentPhase(
+      "experiment.queries.generate_sql",
+      {
+        "snapshot.type": params.snapshotType,
+      },
+      async (span) => {
+        const queries = await startExperimentIncrementalRefreshQueries(
+          this.context,
+          params,
+          this.integration,
+          this.startQuery.bind(this),
+        );
+        span.setAttribute("queries.count", queries.length);
+        return queries;
+      },
     );
   }
 
@@ -1284,50 +1306,56 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
     result?: SnapshotResult;
     error?: string;
   }): Promise<ExperimentSnapshotInterface> {
-    const snapshotStatus =
-      status === "running"
-        ? "running"
-        : status === "failed"
-          ? "error"
-          : "success";
+    return this.instrumentPhase(
+      "experiment.snapshot.update_model",
+      { "snapshot.status": status },
+      async () => {
+        const snapshotStatus =
+          status === "running"
+            ? "running"
+            : status === "failed"
+              ? "error"
+              : "success";
 
-    const updates: Partial<ExperimentSnapshotInterface> = {
-      queries,
-      runStarted,
-      error,
-      ...result,
-      status: snapshotStatus,
-    };
-    await updateSnapshot({
-      context: this.context,
-      id: this.model.id,
-      updates,
-    });
-    if (
-      this.model.report &&
-      ["failed", "partially-succeeded", "succeeded"].includes(status)
-    ) {
-      await updateReport(this.model.organization, this.model.report, {
-        snapshot: this.model.id,
-      });
-    }
+        const updates: Partial<ExperimentSnapshotInterface> = {
+          queries,
+          runStarted,
+          error,
+          ...result,
+          status: snapshotStatus,
+        };
+        await updateSnapshot({
+          context: this.context,
+          id: this.model.id,
+          updates,
+        });
+        if (
+          this.model.report &&
+          ["failed", "partially-succeeded", "succeeded"].includes(status)
+        ) {
+          await updateReport(this.model.organization, this.model.report, {
+            snapshot: this.model.id,
+          });
+        }
 
-    // Release the incremental refresh lock on any terminal status
-    // TODO: Properly handle partially-succeeded status that also becomes terminal??
-    if (snapshotStatus !== "running") {
-      await this.context.models.incrementalRefresh
-        .releaseLock(this.model.experiment, this.model.id)
-        .catch((e) =>
-          this.context.logger.warn(
-            e,
-            "Failed to release incremental refresh lock on terminal status",
-          ),
-        );
-    }
+        // Release the incremental refresh lock on any terminal status
+        // TODO: Properly handle partially-succeeded status that also becomes terminal??
+        if (snapshotStatus !== "running") {
+          await this.context.models.incrementalRefresh
+            .releaseLock(this.model.experiment, this.model.id)
+            .catch((e) =>
+              this.context.logger.warn(
+                e,
+                "Failed to release incremental refresh lock on terminal status",
+              ),
+            );
+        }
 
-    return {
-      ...this.model,
-      ...updates,
-    };
+        return {
+          ...this.model,
+          ...updates,
+        };
+      },
+    );
   }
 }

@@ -342,6 +342,10 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
   private variationNames: string[] = [];
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
 
+  protected override getUpdateMode(): string {
+    return "incremental-exploratory";
+  }
+
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(
       this.integration.datasource,
@@ -394,11 +398,20 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
       analysisType: "exploratory",
     });
 
-    return startExperimentIncrementalRefreshExploratoryQueries(
-      this.context,
-      params,
-      this.integration,
-      this.startQuery.bind(this),
+    return this.instrumentPhase(
+      "experiment.queries.generate_sql",
+      { "snapshot.type": params.snapshotType },
+      async (span) => {
+        const queries =
+          await startExperimentIncrementalRefreshExploratoryQueries(
+            this.context,
+            params,
+            this.integration,
+            this.startQuery.bind(this),
+          );
+        span.setAttribute("queries.count", queries.length);
+        return queries;
+      },
     );
   }
 
@@ -455,49 +468,55 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
     result?: SnapshotResult;
     error?: string;
   }): Promise<ExperimentSnapshotInterface> {
-    const updates: Partial<ExperimentSnapshotInterface> = {
-      queries,
-      runStarted,
-      error,
-      ...result,
-      status:
-        status === "running"
-          ? "running"
-          : status === "failed"
-            ? "error"
-            : "success",
-    };
-    await updateSnapshot({
-      context: this.context,
-      id: this.model.id,
-      updates,
-    });
-    if (
-      this.model.report &&
-      ["failed", "partially-succeeded", "succeeded"].includes(status)
-    ) {
-      await updateReport(this.model.organization, this.model.report, {
-        snapshot: this.model.id,
-      });
-    }
+    return this.instrumentPhase(
+      "experiment.snapshot.update_model",
+      { "snapshot.status": status },
+      async () => {
+        const updates: Partial<ExperimentSnapshotInterface> = {
+          queries,
+          runStarted,
+          error,
+          ...result,
+          status:
+            status === "running"
+              ? "running"
+              : status === "failed"
+                ? "error"
+                : "success",
+        };
+        await updateSnapshot({
+          context: this.context,
+          id: this.model.id,
+          updates,
+        });
+        if (
+          this.model.report &&
+          ["failed", "partially-succeeded", "succeeded"].includes(status)
+        ) {
+          await updateReport(this.model.organization, this.model.report, {
+            snapshot: this.model.id,
+          });
+        }
 
-    // Release the incremental refresh lock on any terminal status. This runner
-    // acquires the lock (see createSnapshotFromPlan) so that it does not read
-    // the shared pipeline tables while an incremental refresh is mutating them.
-    if (updates.status !== "running") {
-      await this.context.models.incrementalRefresh
-        .releaseLock(this.model.experiment, this.model.id)
-        .catch((e) =>
-          this.context.logger.warn(
-            e,
-            "Failed to release incremental refresh lock on terminal status",
-          ),
-        );
-    }
+        // Release the incremental refresh lock on any terminal status. This runner
+        // acquires the lock (see createSnapshotFromPlan) so that it does not read
+        // the shared pipeline tables while an incremental refresh is mutating them.
+        if (updates.status !== "running") {
+          await this.context.models.incrementalRefresh
+            .releaseLock(this.model.experiment, this.model.id)
+            .catch((e) =>
+              this.context.logger.warn(
+                e,
+                "Failed to release incremental refresh lock on terminal status",
+              ),
+            );
+        }
 
-    return {
-      ...this.model,
-      ...updates,
-    };
+        return {
+          ...this.model,
+          ...updates,
+        };
+      },
+    );
   }
 }

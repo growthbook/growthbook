@@ -190,6 +190,7 @@ import {
 } from "back-end/src/services/dimensions";
 import { ConcurrentIncrementalRefreshError } from "back-end/src/util/errors";
 import { validateIncrementalPipeline } from "back-end/src/enterprise/services/data-pipeline";
+import { instrumentPhase, SpanAttributes } from "back-end/src/util/metrics";
 import { getMetricForSnapshot } from "./reports";
 import {
   getIntegrationFromDatasourceId,
@@ -1220,6 +1221,17 @@ export type SnapshotQueryRunnerKind =
   | "incremental"
   | "incremental-exploratory";
 
+const getRunnerKindLabel = (kind: SnapshotQueryRunnerKind): string => {
+  switch (kind) {
+    case "results":
+      return ExperimentResultsQueryRunner.name;
+    case "incremental":
+      return ExperimentIncrementalRefreshQueryRunner.name;
+    case "incremental-exploratory":
+      return ExperimentIncrementalRefreshExploratoryQueryRunner.name;
+  }
+};
+
 function isIncrementalRefreshEnabledForSnapshot({
   datasource,
   experiment,
@@ -1341,21 +1353,7 @@ export type PlannedExperimentSnapshot = {
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
 };
 
-export async function planSnapshot({
-  experiment,
-  context,
-  type,
-  triggeredBy,
-  phaseIndex,
-  useCache = false,
-  defaultAnalysisSettings,
-  additionalAnalysisSettings,
-  settingsForSnapshotMetrics,
-  metricMap,
-  factTableMap,
-  reweight,
-  allowIncrementalRefresh = true,
-}: {
+type PlanSnapshotParams = {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
   type: SnapshotType;
@@ -1369,7 +1367,47 @@ export async function planSnapshot({
   factTableMap: FactTableMap;
   reweight?: boolean;
   allowIncrementalRefresh?: boolean;
-}): Promise<PlannedExperimentSnapshot> {
+};
+
+// Plans a snapshot (resolves runner kind, builds settings) under its own
+// telemetry span, so callers just call planSnapshot() without knowing the
+// phase is instrumented.
+export async function planSnapshot(
+  params: PlanSnapshotParams,
+): Promise<PlannedExperimentSnapshot> {
+  return instrumentPhase(
+    "experiment.snapshot.plan",
+    {
+      "snapshot.type": params.type,
+      "metrics.count": params.metricMap.size,
+      "fact_tables.count": params.factTableMap.size,
+    },
+    async (span) => {
+      const planned = await planSnapshotImpl(params);
+      span.setAttribute(
+        "query_runner.kind",
+        getRunnerKindLabel(planned.runnerKind),
+      );
+      return planned;
+    },
+  );
+}
+
+async function planSnapshotImpl({
+  experiment,
+  context,
+  type,
+  triggeredBy,
+  phaseIndex,
+  useCache = false,
+  defaultAnalysisSettings,
+  additionalAnalysisSettings,
+  settingsForSnapshotMetrics,
+  metricMap,
+  factTableMap,
+  reweight,
+  allowIncrementalRefresh = true,
+}: PlanSnapshotParams): Promise<PlannedExperimentSnapshot> {
   const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
   const metricGroups = await context.models.metricGroups.getAll();
@@ -1491,24 +1529,25 @@ export async function planSnapshot({
   };
 }
 
-export async function createSnapshotFromPlan({
-  plan,
-  context,
-  experiment,
-  metricMap,
-  factTableMap,
-}: {
+type CreateSnapshotFromPlanParams = {
   plan: PlannedExperimentSnapshot;
   context: ReqContext | ApiReqContext;
   experiment: ExperimentInterface;
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
-}): Promise<ExperimentSnapshotQueryRunner> {
-  const datasource = await getDataSourceById(context, experiment.datasource);
-  if (!datasource) {
-    throw new Error("Could not load data source");
-  }
-  const integration = getSourceIntegrationObject(context, datasource, true);
+};
+
+export async function createSnapshotFromPlan(
+  params: CreateSnapshotFromPlanParams,
+): Promise<ExperimentSnapshotQueryRunner> {
+  const { plan } = params;
+  const runnerKind = getRunnerKindLabel(plan.runnerKind);
+  // Attributes attached to every phase span in this snapshot's pipeline.
+  const planPhaseAttrs: SpanAttributes = {
+    "snapshot.id": plan.snapshot.id,
+    "snapshot.type": plan.snapshot.type ?? "unknown",
+    "query_runner.kind": runnerKind,
+  };
 
   // Both incremental runner kinds need exclusive access to the per-experiment
   // pipeline tables: "incremental" mutates them (DROP/CREATE/RENAME on the
@@ -1521,13 +1560,55 @@ export async function createSnapshotFromPlan({
     plan.runnerKind === "incremental" ||
     plan.runnerKind === "incremental-exploratory";
 
+  // The pipeline body runs under a single create_from_plan span; its sub-steps
+  // (lock, persist, dashboards) open their own child spans inside the impl.
+  return instrumentPhase(
+    "experiment.snapshot.create_from_plan",
+    {
+      ...planPhaseAttrs,
+      needs_incremental_lock: needsIncrementalRefreshLock,
+    },
+    () =>
+      createSnapshotFromPlanImpl({
+        ...params,
+        runnerKind,
+        planPhaseAttrs,
+        needsIncrementalRefreshLock,
+      }),
+  );
+}
+
+async function createSnapshotFromPlanImpl({
+  plan,
+  context,
+  experiment,
+  metricMap,
+  factTableMap,
+  runnerKind,
+  planPhaseAttrs,
+  needsIncrementalRefreshLock,
+}: CreateSnapshotFromPlanParams & {
+  runnerKind: string;
+  planPhaseAttrs: SpanAttributes;
+  needsIncrementalRefreshLock: boolean;
+}): Promise<ExperimentSnapshotQueryRunner> {
+  const datasource = await getDataSourceById(context, experiment.datasource);
+  if (!datasource) {
+    throw new Error("Could not load data source");
+  }
+  const integration = getSourceIntegrationObject(context, datasource, true);
+
   let hasIncrementalRefreshLock = false;
   if (needsIncrementalRefreshLock) {
-    hasIncrementalRefreshLock =
-      await context.models.incrementalRefresh.acquireLock(
-        experiment.id,
-        plan.snapshot.id,
-      );
+    hasIncrementalRefreshLock = await instrumentPhase(
+      "experiment.snapshot.acquire_incremental_lock",
+      planPhaseAttrs,
+      () =>
+        context.models.incrementalRefresh.acquireLock(
+          experiment.id,
+          plan.snapshot.id,
+        ),
+    );
     if (!hasIncrementalRefreshLock) {
       throw new ConcurrentIncrementalRefreshError(
         "There is already an update in progress for this experiment.",
@@ -1564,10 +1645,15 @@ export async function createSnapshotFromPlan({
       });
     }
 
-    const snapshot = await createExperimentSnapshotModel({
-      context,
-      data: plan.snapshot,
-    });
+    const snapshot = await instrumentPhase(
+      "experiment.snapshot.persist_initial",
+      planPhaseAttrs,
+      () =>
+        createExperimentSnapshotModel({
+          context,
+          data: plan.snapshot,
+        }),
+    );
     createdSnapshotId = snapshot.id;
 
     let queryRunner: ExperimentSnapshotQueryRunner;
@@ -1600,7 +1686,6 @@ export async function createSnapshotFromPlan({
         plan.runnerKind satisfies never;
         throw new Error(`Unknown snapshot runner kind: ${plan.runnerKind}`);
     }
-
     const snapshotType = plan.snapshot.type;
     if (!snapshotType) {
       throw new Error("Snapshot plan is missing a snapshot type");
@@ -1653,21 +1738,32 @@ export async function createSnapshotFromPlan({
         throw new Error("Snapshot is missing its default analysis settings");
       }
 
-      updateExperimentDashboards({
-        context,
-        experiment,
-        mainSnapshot: runningSnapshot,
-        statsEngine: defaultAnalysisSettings.statsEngine,
-        regressionAdjustmentEnabled:
-          defaultAnalysisSettings.regressionAdjusted ??
-          DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-        postStratificationEnabled:
-          defaultAnalysisSettings.postStratificationEnabled ??
-          DEFAULT_POST_STRATIFICATION_ENABLED,
-        settingsForSnapshotMetrics: plan.settingsForSnapshotMetrics,
-        metricMap,
-        factTableMap,
-      });
+      instrumentPhase(
+        "experiment.dashboard.refresh",
+        {
+          "snapshot.id": runningSnapshot.id,
+          "snapshot.type": runningSnapshot.type,
+          "query_runner.kind": runnerKind,
+        },
+        () =>
+          updateExperimentDashboards({
+            context,
+            experiment,
+            mainSnapshot: runningSnapshot,
+            statsEngine: defaultAnalysisSettings.statsEngine,
+            regressionAdjustmentEnabled:
+              defaultAnalysisSettings.regressionAdjusted ??
+              DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+            postStratificationEnabled:
+              defaultAnalysisSettings.postStratificationEnabled ??
+              DEFAULT_POST_STRATIFICATION_ENABLED,
+            settingsForSnapshotMetrics: plan.settingsForSnapshotMetrics,
+            metricMap,
+            factTableMap,
+          }),
+      ).catch((err) =>
+        logger.error(err, "Failed to refresh experiment dashboards"),
+      );
     }
 
     return queryRunner;

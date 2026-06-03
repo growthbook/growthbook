@@ -38,6 +38,7 @@ import {
   removeHoldoutFromFeature,
 } from "back-end/src/models/FeatureModel";
 import { logger } from "back-end/src/util/logger";
+import { withExperimentUpdateTrace } from "back-end/src/util/metrics";
 import {
   createExperimentSnapshot,
   getChangesToStartExperiment,
@@ -260,13 +261,19 @@ export const createHoldout = async (
 
     if (datasource && req.query.autoRefreshResults && metricIds.length > 0) {
       try {
-        await createExperimentSnapshot({
-          context,
-          experiment,
-          datasource,
-          dimension: "",
-          phase: 0,
-          useCache: true,
+        await withExperimentUpdateTrace({
+          trigger: "manual",
+          experimentId: experiment.id,
+          orgId: context.org.id,
+          run: () =>
+            createExperimentSnapshot({
+              context,
+              experiment,
+              datasource,
+              dimension: "",
+              phase: 0,
+              useCache: true,
+            }),
         });
       } catch (e) {
         logger.error(e, "Failed to auto-refresh imported experiment");

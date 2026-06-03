@@ -22,7 +22,11 @@ import {
   diag,
   metrics as otlMetrics,
   DiagConsoleLogger,
+  context as otelContext,
+  trace,
+  SpanStatusCode,
 } from "@opentelemetry/api";
+import type { Context, Span as OtelSpan } from "@opentelemetry/api";
 import {
   getNodeAutoInstrumentations,
   getResourceDetectors,
@@ -32,7 +36,16 @@ import { SemanticResourceAttributes } from "@opentelemetry/semantic-conventions"
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-proto";
 import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
 import { getBuild } from "./util/build";
-import { setMetrics, Attributes } from "./util/metrics";
+import {
+  setMetrics,
+  MetricAttributes,
+  HistogramOptions,
+  noopSpan,
+  setTracer,
+  Span,
+  SpanAttributes,
+  SpanAttributeValue,
+} from "./util/metrics";
 
 diag.setLogger(
   new DiagConsoleLogger(),
@@ -43,6 +56,12 @@ const metricReader = new PeriodicExportingMetricReader({
   exporter: new OTLPMetricExporter(),
 });
 
+// Experiment-update traces are head-sampled in application code: the dedicated
+// `experiment.update` root span (and its async query spans) is only created for
+// a sampled refresh. So no backend sampler is installed here — the SDK default
+// (and any OTEL_TRACES_SAMPLER configuration) governs everything else as before,
+// including the auto-instrumented request spans that unsampled refreshes may
+// still attach synchronous phase spans to.
 const sdk = new opentelemetry.NodeSDK({
   instrumentations: [
     ...getNodeAutoInstrumentations(),
@@ -81,26 +100,105 @@ const getCounter = (name: string) => {
   const counter = otlMetrics.getMeter(name).createUpDownCounter(name);
 
   return {
-    increment: (attributes?: Attributes) => counter.add(1, attributes),
-    decrement: (attributes?: Attributes) => counter.add(-1, attributes),
+    increment: (attributes?: MetricAttributes) => counter.add(1, attributes),
+    decrement: (attributes?: MetricAttributes) => counter.add(-1, attributes),
   };
 };
 
 const getGauge = (name: string) => {
   const gauge = otlMetrics.getMeter(name).createObservableGauge(name);
+  let latest: { value: number; attributes?: MetricAttributes } | null = null;
+
+  gauge.addCallback((observableResult) => {
+    if (latest) {
+      observableResult.observe(latest.value, latest.attributes);
+    }
+  });
 
   return {
-    record: (value: number, attributes?: Attributes) => {
-      gauge.addCallback((observableResult) => {
-        observableResult.observe(value, attributes);
-      });
+    record: (value: number, attributes?: MetricAttributes) => {
+      latest = { value, attributes };
     },
   };
 };
 
 setMetrics({
   getCounter,
-  getHistogram: (name: string) =>
-    otlMetrics.getMeter(name).createHistogram(name),
+  getHistogram: (name: string, opts?: HistogramOptions) =>
+    otlMetrics.getMeter(name).createHistogram(name, opts),
   getGauge,
+});
+
+const otelTracer = trace.getTracer("growthbook-backend");
+
+const wrapSpan = (span: OtelSpan): Span => {
+  // Once a span has ended, ownership is final: ignore any further mutation so
+  // an abandoned runner racing with the caller's error handling cannot re-tag,
+  // re-status, or double-end the span.
+  let ended = false;
+  let asyncCompletionClaimed = false;
+
+  return {
+    setAttribute: (key: string, value: SpanAttributeValue) => {
+      if (ended) return;
+      span.setAttribute(key, value);
+    },
+    setAttributes: (attrs: SpanAttributes) => {
+      if (ended) return;
+      span.setAttributes(attrs);
+    },
+    recordException: (err: unknown) => {
+      if (ended) return;
+      span.recordException(err instanceof Error ? err : String(err));
+    },
+    setStatus: (status: "ok" | "error", message?: string) => {
+      if (ended) return;
+      span.setStatus({
+        code: status === "ok" ? SpanStatusCode.OK : SpanStatusCode.ERROR,
+        message,
+      });
+    },
+    end: () => {
+      if (ended) return;
+      ended = true;
+      span.end();
+    },
+    isEnded: () => ended,
+    claimAsyncCompletion: () => {
+      asyncCompletionClaimed = true;
+    },
+    isAsyncCompletionClaimed: () => asyncCompletionClaimed,
+  };
+};
+
+setTracer({
+  startActiveSpan: (name, attributes, fn, options) => {
+    // For a new root, detach from the ambient parent (so this opens its own
+    // trace) but link back to it to preserve the causal hop from the trigger.
+    const parentSpanContext = options?.newRoot
+      ? trace.getSpanContext(otelContext.active())
+      : undefined;
+
+    return otelTracer.startActiveSpan(
+      name,
+      {
+        attributes,
+        ...(options?.newRoot
+          ? {
+              root: true,
+              ...(parentSpanContext
+                ? { links: [{ context: parentSpanContext }] }
+                : {}),
+            }
+          : {}),
+      },
+      (span) => fn(wrapSpan(span)),
+    );
+  },
+  getActiveSpan: () => {
+    const span = trace.getSpan(otelContext.active());
+    return span ? wrapSpan(span) : noopSpan;
+  },
+  captureContext: () => otelContext.active(),
+  withContext: (context, fn) => otelContext.with(context as Context, fn),
 });

@@ -1,4 +1,5 @@
 import {
+  parseEnvFloat,
   parseEnvInt,
   parseIntWithDefault,
   parseIntWithDefaultCapped,
@@ -114,6 +115,38 @@ describe("parseEnvInt", () => {
     expect(parseEnvInt("nope", 100, { name: "MY_VAR" })).toBe(100);
     expect(warn).toHaveBeenCalledWith(
       'WARNING! Invalid value for MY_VAR: "nope". Falling back to default: 100',
+    );
+  });
+});
+
+describe("parseEnvFloat", () => {
+  beforeEach(() => {
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("returns default only when value is undefined", () => {
+    expect(parseEnvFloat(undefined, 0.5, { name: "TEST_VAR" })).toBe(0.5);
+    expect(parseEnvFloat("0.25", 0.5, { name: "TEST_VAR" })).toBe(0.25);
+  });
+
+  it("returns default for invalid or out-of-range values", () => {
+    expect(parseEnvFloat("x", 0.7, { name: "TEST_VAR" })).toBe(0.7);
+    expect(parseEnvFloat("", 0.7, { name: "TEST_VAR" })).toBe(0.7);
+    expect(parseEnvFloat("0.05", 0.9, { min: 0.1, name: "TEST_VAR" })).toBe(
+      0.9,
+    );
+    expect(parseEnvFloat("1.5", 0.9, { max: 1, name: "TEST_VAR" })).toBe(0.9);
+  });
+
+  it("warns when invalid", () => {
+    jest.restoreAllMocks();
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    expect(parseEnvFloat("nope", 0.5, { name: "MY_VAR" })).toBe(0.5);
+    expect(warn).toHaveBeenCalledWith(
+      'WARNING! Invalid value for MY_VAR: "nope". Falling back to default: 0.5',
     );
   });
 });
