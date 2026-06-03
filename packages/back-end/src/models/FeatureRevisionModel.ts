@@ -492,12 +492,24 @@ export async function getLatestActiveDraftForFeature(
   organization: string,
   featureId: string,
   feature: RevisionFeatureContext | undefined,
-  { involvedUserId }: { involvedUserId?: string } = {},
+  {
+    involvedUserId,
+    status,
+    author,
+  }: {
+    involvedUserId?: string;
+    status?: string | string[];
+    author?: string;
+  } = {},
 ): Promise<FeatureRevisionInterface | null> {
   const filter: Record<string, unknown> = {
     organization,
     featureId,
-    status: { $in: ACTIVE_DRAFT_STATUSES },
+    status: status
+      ? Array.isArray(status)
+        ? { $in: status }
+        : status
+      : { $in: ACTIVE_DRAFT_STATUSES },
   };
   if (involvedUserId) {
     filter.$or = [
@@ -505,6 +517,9 @@ export async function getLatestActiveDraftForFeature(
       { contributors: involvedUserId },
       { "contributors.id": involvedUserId },
     ];
+  }
+  if (author) {
+    filter["createdBy.id"] = author;
   }
   const doc = await FeatureRevisionModel.findOne(filter, { log: 0 }).sort({
     dateUpdated: -1,

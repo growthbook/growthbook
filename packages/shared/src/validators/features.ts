@@ -290,6 +290,65 @@ export type ActiveDraftStatus = z.infer<typeof activeDraftStatusSchema>;
 
 export const ACTIVE_DRAFT_STATUSES = activeDraftStatusSchema.options;
 
+/**
+ * Status filter for revision list endpoints. Accepts a single value
+ * (`draft`), comma-separated values (`draft,approved`), or the shorthand
+ * `all-drafts` (expands to draft, pending-review, approved,
+ * changes-requested). On v2 endpoints, omitting this parameter defaults to
+ * `all-drafts`. Parsing is handled at the handler layer via
+ * `parseRevisionStatusFilter`.
+ */
+export const revisionStatusFilterSchema = z
+  .union([z.string(), z.array(z.string())])
+  .describe(
+    "Filter by revision status. Single value, comma-separated list, repeated params (?status=draft&status=approved), or `all-drafts` shorthand for all active-draft statuses (draft, pending-review, approved, changes-requested).",
+  )
+  .optional();
+
+export type RevisionStatusFilter = z.infer<typeof revisionStatusFilterSchema>;
+
+/**
+ * Parse a raw status query-param value into the form expected by
+ * `getFeatureRevisionsByStatus`. Handles:
+ * - Single values:          "draft"
+ * - Comma-separated:        "draft,approved"
+ * - "all-drafts" shorthand: expands to all four active-draft statuses
+ * - Repeated query params:  ["all-drafts", "draft"] (from Express array parsing)
+ *
+ * Throws a plain Error (caught as 400 by createApiRequestHandler) if any
+ * token is not a recognised RevisionStatus or "all-drafts".
+ */
+export function parseRevisionStatusFilter(
+  val: string | string[] | undefined,
+): RevisionStatus | RevisionStatus[] | undefined {
+  if (!val || (Array.isArray(val) && val.length === 0)) return undefined;
+
+  const valid = new Set<string>([
+    ...revisionStatusSchema.options,
+    "all-drafts",
+  ]);
+
+  const expand = (token: string): RevisionStatus[] => {
+    if (!valid.has(token)) {
+      throw new Error(
+        `Invalid status value: "${token}". Must be one of: ${[...revisionStatusSchema.options, "all-drafts"].join(", ")}.`,
+      );
+    }
+    return token === "all-drafts"
+      ? [...ACTIVE_DRAFT_STATUSES]
+      : [token as RevisionStatus];
+  };
+
+  const tokens = Array.isArray(val)
+    ? val
+    : val.includes(",")
+      ? val.split(",").map((s) => s.trim())
+      : [val];
+
+  const expanded = [...new Set(tokens.flatMap(expand))]; // deduplicate
+  return expanded.length === 1 ? expanded[0] : expanded;
+}
+
 const minimalFeatureRevisionInterface = z
   .object({
     version: z.number(),
@@ -853,6 +912,15 @@ export const apiRevisionPrerequisite = z.object({
   id: z.string().describe("Feature ID"),
   condition: z.string(),
 });
+
+// v2 prerequisite shapes: condition is always {"value":true} and not exposed
+// as a settable field — only the prerequisite flag's ID is accepted/returned.
+export const apiRevisionPrerequisiteV2 = z.object({
+  id: z.string().describe("Feature ID of the prerequisite boolean flag"),
+});
+export type ApiRevisionPrerequisiteV2 = z.infer<
+  typeof apiRevisionPrerequisiteV2
+>;
 
 // Revision metadata sub-object
 export const apiRevisionMetadata = z
@@ -1426,7 +1494,7 @@ export const getFeatureRevisionsValidator = {
     .object({
       ...paginationQueryFields,
       ...skipPaginationQueryField,
-      status: revisionStatusSchema.optional(),
+      status: revisionStatusFilterSchema,
       author: z.string().optional(),
     })
     .strict(),

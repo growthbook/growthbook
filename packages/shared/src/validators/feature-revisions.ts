@@ -10,7 +10,7 @@ import {
   apiRevisionRampCreateAction,
   apiFeatureRevisionValidator,
   JSONSchemaDef,
-  revisionStatusSchema,
+  revisionStatusFilterSchema,
   featureRule,
   FEATURE_V1_DEPRECATED,
 } from "./features";
@@ -711,7 +711,7 @@ export const listRevisionsValidator = {
       ...paginationQueryFields,
       ...skipPaginationQueryField,
       featureId: z.string().optional(),
-      status: revisionStatusSchema.optional(),
+      status: revisionStatusFilterSchema,
       author: z.string().optional(),
       mine: booleanQueryField.describe(
         "If true, return only revisions authored by or contributed to by the calling user. Requires a user-scoped API key. Mutually exclusive with `author`.",

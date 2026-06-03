@@ -3,6 +3,7 @@ import { postSavedGroupRevisionSubmitReviewValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
+import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
 import { toApiSavedGroupRevision } from "./toApiSavedGroupRevision";
 
@@ -74,6 +75,13 @@ export const postSavedGroupRevisionSubmitReview = createApiRequestHandler(
     decision,
     comment ?? "",
   );
+
+  await dispatchSavedGroupRevisionEvent(req.context, updated, {
+    type: "reviewed",
+    decision,
+    userId: req.context.userId,
+    ...(comment ? { comment } : {}),
+  });
 
   return {
     revision: await toApiSavedGroupRevision(updated, req.context),

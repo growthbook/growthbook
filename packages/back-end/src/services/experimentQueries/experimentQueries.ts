@@ -13,6 +13,7 @@ import { MetricInterface } from "shared/types/metric";
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { OrganizationInterface } from "shared/types/organization";
 import cloneDeep from "lodash/cloneDeep";
+import { isManagedWarehouse } from "shared/util";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { applyMetricOverrides } from "back-end/src/util/integration";
@@ -270,20 +271,19 @@ export function getFactMetricGroups(
     legacyMetricSingles: legacyMetrics,
   };
 
-  // Combining metrics in a single query is an Enterprise-only feature
-  if (!orgHasPremiumFeature(organization, "multi-metric-queries")) {
+  // Combining metrics in a single query is normally an Enterprise feature, but
+  // we also enable it for the Managed Warehouse since GrowthBook owns the
+  // compute and wants to run every optimization it can.
+  if (
+    !isManagedWarehouse(integration.datasource) &&
+    !orgHasPremiumFeature(organization, "multi-metric-queries")
+  ) {
     return defaultReturn;
   }
 
   // Metrics might have different conversion windows which makes the query complicated
   // TODO(sql): join together metrics with the same date windows for some added efficiency
   if (settings.skipPartialData) {
-    return defaultReturn;
-  }
-
-  // Org-level setting (in case the multi-metric query introduces bugs)
-  // TODO(sql): deprecate this setting and hide it for orgs that have not set it
-  if (organization.settings?.disableMultiMetricQueries) {
     return defaultReturn;
   }
 
