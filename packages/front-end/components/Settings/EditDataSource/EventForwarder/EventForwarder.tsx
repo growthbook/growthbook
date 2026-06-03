@@ -561,8 +561,8 @@ export default function EventForwarder({
             <Flex align="center" gap="2">
               {isProvisioning ? <LoadingSpinner /> : null}
               <Badge
-                label={statusLabels["pending"]}
-                color={statusColors["pending"]}
+                label={statusLabels[eventForwarderConfig.status]}
+                color={statusColors[eventForwarderConfig.status]}
                 variant="soft"
               />
             </Flex>
