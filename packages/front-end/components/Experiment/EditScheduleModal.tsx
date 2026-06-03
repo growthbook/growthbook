@@ -2,7 +2,7 @@
  * EditScheduleModal
  *
  * Thin wrapper that fetches the live ramp schedule (if any) and renders
- * the new paged ExperimentRampScheduleModal.
+ * ExperimentRampScheduleModal.
  */
 import { type ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { type RampScheduleInterface } from "shared/validators";

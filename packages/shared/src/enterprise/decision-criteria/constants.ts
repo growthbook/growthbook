@@ -49,6 +49,11 @@ export const PRESET_DECISION_CRITERIA: DecisionCriteriaData = {
     },
   ],
   defaultAction: "review",
+  rampBehavior: {
+    srmAction: "warn",
+    noTrafficAction: "warn",
+    multipleExposureAction: "warn",
+  },
 };
 
 export const DO_NO_HARM_DECISION_CRITERIA: DecisionCriteriaData = {
@@ -74,6 +79,11 @@ export const DO_NO_HARM_DECISION_CRITERIA: DecisionCriteriaData = {
     },
   ],
   defaultAction: "rollback",
+  rampBehavior: {
+    srmAction: "warn",
+    noTrafficAction: "warn",
+    multipleExposureAction: "warn",
+  },
 };
 
 export const PRESET_DECISION_CRITERIAS: DecisionCriteriaData[] = [

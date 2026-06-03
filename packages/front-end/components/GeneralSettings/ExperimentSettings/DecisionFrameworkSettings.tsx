@@ -114,8 +114,8 @@ const DecisionFrameworkSettings = () => {
         </Flex>
         <Box mb="4">
           <Text size="2" style={{ color: "var(--color-text-mid)" }}>
-            Calculates the estimated duration of your experiment using target
-            minimum detectable effects and makes shipping recommendations.
+            Evaluates metric and guardrail signals to guide experiment
+            decisions — ship, rollback, or hold — with optional automation.
           </Text>
         </Box>
         <Flex

@@ -216,7 +216,6 @@ export async function applyExperimentEndStrategy(
   const now = new Date();
 
   switch (strategy.type) {
-    case "none":
     case "soft":
       // No automatic action — surface as a CTA in the UI.
       return experiment;
@@ -306,11 +305,14 @@ export async function applyExperimentEndStrategy(
  * Gate order (same as feature ramp monitored steps):
  *  1. Interval elapsed
  *  2. Fresh post-interval snapshot available
- *  3. Health signals (SRM, multiple exposures, covariate imbalance)
- *  4. No-traffic grace period / no-data
+ *  3. No-traffic grace period / no-data
+ *  4. Health signals (SRM, multiple exposures) per resolved rampBehavior
  *  5. EDF mid-ramp decision (super-stat-sig via getMidRampDecisionStatus)
  *  6. Minimum sample size
  *  7. Approval gate (final)
+ *
+ * Per-signal actions resolve with precedence:
+ *  schedule.rampBehavior > EDF.rampBehavior > "warn"
  */
 export async function evaluateExperimentRampStep(
   ctx: ReqContext | ApiReqContext,
@@ -321,8 +323,18 @@ export async function evaluateExperimentRampStep(
   const step = schedule.steps[schedule.currentStepIndex];
   if (!step) return { action: "advance" };
 
-  // pauseOnHealthSignal defaults to true — hold step on any health signal.
-  const pauseOnHealth = schedule.pauseOnHealthSignal ?? true;
+  // Resolve per-signal ramp health actions with a 3-tier precedence:
+  //   1. Per-experiment override on the schedule (`schedule.rampBehavior`)
+  //   2. EDF defaults (`dc.rampBehavior`)
+  //   3. "warn" (surface but don't auto-act)
+  const dc = await resolveDecisionCriteria(ctx, experiment);
+  const edfRb = dc.rampBehavior;
+  const schedRb = schedule.rampBehavior;
+  const srmAction = schedRb?.srmAction ?? edfRb?.srmAction ?? "warn";
+  const noTrafficAction =
+    schedRb?.noTrafficAction ?? edfRb?.noTrafficAction ?? "warn";
+  const multipleExposureAction =
+    schedRb?.multipleExposureAction ?? edfRb?.multipleExposureAction ?? "warn";
 
   // 1. Interval gate
   const stepEnteredAt = schedule.currentStepEnteredAt;
@@ -377,6 +389,7 @@ export async function evaluateExperimentRampStep(
   if (!health) {
     return { action: "hold", reason: "Waiting for analysis results" };
   }
+  const totalUsers = health.totalUsers ?? 0;
 
   // 3–4. No-traffic gate (runs before other health checks: zero users makes
   //      downstream analyses unreliable)
@@ -398,56 +411,74 @@ export async function evaluateExperimentRampStep(
         };
       }
     }
-    if (pauseOnHealth) {
+    if (noTrafficAction === "rollback") {
+      return {
+        action: "rollback",
+        reason: "No traffic detected — rolling back",
+      };
+    }
+    if (noTrafficAction === "hold") {
       return {
         action: "hold",
         reason: "No traffic detected — holding step until traffic arrives",
       };
     }
-    // pauseOnHealthSignal=false: surface as warning only, continue
   }
 
   // 3. SRM and multiple-exposure health checks
-  if (pauseOnHealth) {
+  {
     const healthSettings = getHealthSettings(ctx.org.settings);
-    const totalUsers = health.totalUsers ?? 0;
 
-    const srmData = getSRMHealthData({
-      srm: health.srm,
-      srmThreshold: healthSettings.srmThreshold,
-      totalUsersCount: totalUsers,
-      numOfVariations:
-        summary?.resultsStatus?.variations?.length ?? experiment.variations.length,
-      minUsersPerVariation: DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
-    });
+    if (srmAction !== "warn") {
+      const srmData = getSRMHealthData({
+        srm: health.srm,
+        srmThreshold: healthSettings.srmThreshold,
+        totalUsersCount: totalUsers,
+        numOfVariations:
+          summary?.resultsStatus?.variations?.length ??
+          experiment.variations.length,
+        minUsersPerVariation: DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
+      });
 
-    if (srmData === "unhealthy") {
-      return {
-        action: "hold",
-        reason: `SRM check failed — holding step (p=${health.srm?.toFixed(4) ?? "?"})`,
-      };
+      if (srmData === "unhealthy") {
+        if (srmAction === "rollback") {
+          return {
+            action: "rollback",
+            reason: `SRM check failed (p=${health.srm?.toFixed(4) ?? "?"})`,
+          };
+        }
+        return {
+          action: "hold",
+          reason: `SRM check failed — holding step (p=${health.srm?.toFixed(4) ?? "?"})`,
+        };
+      }
     }
 
-    const meData = getMultipleExposureHealthData({
-      multipleExposuresCount: health.multipleExposures ?? 0,
-      totalUsersCount: totalUsers,
-      minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
-      minPercentThreshold: healthSettings.multipleExposureMinPercent,
-    });
+    if (multipleExposureAction !== "warn") {
+      const meData = getMultipleExposureHealthData({
+        multipleExposuresCount: health.multipleExposures ?? 0,
+        totalUsersCount: totalUsers,
+        minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
+        minPercentThreshold: healthSettings.multipleExposureMinPercent,
+      });
 
-    if (meData.status === "unhealthy") {
-      return {
-        action: "hold",
-        reason: `Multiple exposures detected — holding step (${(meData.rawDecimal * 100).toFixed(1)}% of users)`,
-      };
+      if (meData.status === "unhealthy") {
+        if (multipleExposureAction === "rollback") {
+          return {
+            action: "rollback",
+            reason: `Multiple exposures detected (${(meData.rawDecimal * 100).toFixed(1)}% of users)`,
+          };
+        }
+        return {
+          action: "hold",
+          reason: `Multiple exposures detected — holding step (${(meData.rawDecimal * 100).toFixed(1)}% of users)`,
+        };
+      }
     }
 
-    if (health.covariateImbalance?.isImbalanced) {
-      return {
-        action: "hold",
-        reason: "Covariate imbalance detected — holding step",
-      };
-    }
+    // NOTE: covariate imbalance is intentionally not gated here. If/when we
+    // want to act on it, add `covariateImbalanceAction` to the EDF
+    // `rampBehavior` alongside the other per-signal actions.
   }
 
   // 5. EDF mid-ramp gate — the EDF itself encodes the desired action via

@@ -77,6 +77,7 @@ export const postDecisionCriteria = async (
     description: data.description,
     rules: data.rules,
     defaultAction: data.defaultAction,
+    rampBehavior: data.rampBehavior,
     owner: context.userId,
   });
 
@@ -124,7 +125,13 @@ export const putDecisionCriteria = async (
   res: Response<{ status: 200; decisionCriteria: DecisionCriteriaInterface }>,
 ) => {
   const context = getContextFromReq(req);
-  const updates = req.body;
+
+  // Strip undefined values so they don't get persisted as explicit clears.
+  // Callers should send `null` (where allowed) to deliberately unset a field.
+  const updates: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(req.body ?? {})) {
+    if (v !== undefined) updates[k] = v;
+  }
 
   const existingDecisionCriteria =
     await context.models.decisionCriteria.getById(req.params.id);
@@ -133,9 +140,11 @@ export const putDecisionCriteria = async (
     throw new Error("Could not find decision criteria with that id");
   }
 
-  // Update the decision criteria
   const updatedDecisionCriteria =
-    await context.models.decisionCriteria.updateById(req.params.id, updates);
+    await context.models.decisionCriteria.updateById(
+      req.params.id,
+      updates as UpdateDecisionCriteriaProps,
+    );
 
   res.status(200).json({
     status: 200,

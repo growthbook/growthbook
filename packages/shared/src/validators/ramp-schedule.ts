@@ -113,7 +113,6 @@ export type RampStepAction = z.infer<typeof rampStepAction>;
 // ---------------------------------------------------------------------------
 
 export const experimentEndStrategyTypeArray = [
-  "none",
   "soft",
   "soft-edf",
   "hard-planned",
@@ -121,26 +120,19 @@ export const experimentEndStrategyTypeArray = [
 export type ExperimentEndStrategyType =
   (typeof experimentEndStrategyTypeArray)[number];
 
+/**
+ * Action applied when the experiment reaches its scheduled `endDate`. Stored
+ * on the experiment, not on the ramp schedule. The date itself lives on the
+ * experiment (`endDate`) — strategy is a pure "what happens at endDate" field.
+ * Absent/null means "no automatic action".
+ */
 export const experimentEndStrategy = z
   .object({
     type: z.enum(experimentEndStrategyTypeArray),
-    date: z.date().optional(),
     plannedVariationId: z.string().optional(),
     minimumRuntimeDays: z.number().positive().optional(),
   })
   .superRefine((data, ctx) => {
-    if (
-      (data.type === "soft" ||
-        data.type === "soft-edf" ||
-        data.type === "hard-planned") &&
-      !data.date
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: `End strategy type "${data.type}" requires a date.`,
-        path: ["date"],
-      });
-    }
     if (data.type === "hard-planned" && !data.plannedVariationId) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -258,9 +250,20 @@ export const rampScheduleValidator = baseSchema
     endActions: z.array(rampStepAction).optional(),
 
     // Experiment-ramp-only fields (ignored for feature ramps)
-    /** When true (default), the ramp holds step advancement on SRM / multiple-exposure / no-traffic signals. */
-    pauseOnHealthSignal: z.boolean().optional(),
-    endStrategy: experimentEndStrategy.optional(),
+    /**
+     * Per-experiment ramp behavior override. Each field, when set, overrides
+     * the corresponding action from the experiment's EDF `rampBehavior`. Unset
+     * fields inherit from the EDF (which itself defaults to "warn" in presets).
+     * Allowed actions match `decisionCriteriaRampHealthAction`:
+     * "warn" | "hold" | "rollback".
+     */
+    rampBehavior: z
+      .object({
+        srmAction: z.enum(["warn", "hold", "rollback"]).optional(),
+        noTrafficAction: z.enum(["warn", "hold", "rollback"]).optional(),
+        multipleExposureAction: z.enum(["warn", "hold", "rollback"]).optional(),
+      })
+      .optional(),
     // When set, the rule stays disabled until this activation date.
     startDate: z.date().nullish(),
     cutoffDate: z.date().nullish(),
@@ -436,11 +439,10 @@ const templateFeatureRulePatch = featureRulePatch.omit({ force: true });
 const templateFeatureRuleStepAction = featureRuleStepAction.extend({
   patch: templateFeatureRulePatch,
 });
-// Templates support both feature-rule and experiment step actions
-const templateRampStepAction = z.discriminatedUnion("targetType", [
-  templateFeatureRuleStepAction,
-  experimentStepAction,
-]);
+// Templates only support feature-rule step actions. Experiment ramps configure
+// their schedule directly on the experiment and inherit ramp behavior from the
+// EDF; saving/loading experiment ramps as templates is intentionally unsupported.
+const templateRampStepAction = templateFeatureRuleStepAction;
 const templateRampStep = rampStep.extend({
   actions: z.array(templateRampStepAction),
 });
@@ -457,15 +459,17 @@ export type TemplateEndPatch = z.infer<typeof templateEndPatchValidator>;
 
 export const rampScheduleTemplateValidator = baseSchema.extend({
   name: z.string(),
-  /** Discriminator matching the entity type this template applies to. Defaults to "feature" for legacy templates. */
-  entityType: z.enum(["feature", "experiment"]).optional(),
+  /**
+   * Templates are feature-only. The `entityType` field is retained (and pinned
+   * to "feature") for forward-compat with any existing documents that may have
+   * been written with the discriminator.
+   */
+  entityType: z.literal("feature").optional(),
   steps: z.array(templateRampStep),
   endPatch: templateEndPatchValidator.optional(),
   official: z.boolean().optional(),
   lockdownConfig: lockdownConfigSchema.optional(),
   monitoringConfig: rampMonitoringConfig.nullish(),
-  pauseOnHealthSignal: z.boolean().optional(),
-  endStrategy: experimentEndStrategy.optional(),
 });
 export type RampScheduleTemplateInterface = z.infer<
   typeof rampScheduleTemplateValidator

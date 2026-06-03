@@ -1,10 +1,6 @@
 import type { Response } from "express";
 import { z } from "zod";
-import {
-  RampScheduleInterface,
-  experimentEndStrategy,
-  rampStep,
-} from "shared/validators";
+import { RampScheduleInterface, rampStep } from "shared/validators";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
@@ -54,13 +50,20 @@ export async function getRampSchedule(
 // POST /experiments/:id/ramp-schedule  (attach / create)
 // ---------------------------------------------------------------------------
 
+const rampBehaviorOverride = z
+  .object({
+    srmAction: z.enum(["warn", "hold", "rollback"]).optional(),
+    noTrafficAction: z.enum(["warn", "hold", "rollback"]).optional(),
+    multipleExposureAction: z.enum(["warn", "hold", "rollback"]).optional(),
+  })
+  .optional();
+
 const attachRampBody = z.object({
   name: z.string().min(1),
   steps: z.array(rampStep),
   startDate: z.iso.datetime().nullish(),
   cutoffDate: z.iso.datetime().nullish(),
-  pauseOnHealthSignal: z.boolean().optional(),
-  endStrategy: experimentEndStrategy.optional(),
+  rampBehavior: rampBehaviorOverride,
 });
 
 export async function postRampSchedule(
@@ -105,8 +108,7 @@ export async function postRampSchedule(
     steps: body.steps,
     startDate: body.startDate ? new Date(body.startDate) : null,
     cutoffDate: body.cutoffDate ? new Date(body.cutoffDate) : null,
-    pauseOnHealthSignal: body.pauseOnHealthSignal ?? true,
-    endStrategy: body.endStrategy,
+    rampBehavior: body.rampBehavior,
     status: "ready" as const,
     currentStepIndex: -1,
     nextStepAt: null,
@@ -131,8 +133,7 @@ const updateRampBody = z.object({
   steps: z.array(rampStep).optional(),
   startDate: z.iso.datetime().nullish(),
   cutoffDate: z.iso.datetime().nullish(),
-  pauseOnHealthSignal: z.boolean().optional(),
-  endStrategy: experimentEndStrategy.nullish(),
+  rampBehavior: rampBehaviorOverride,
 });
 
 export async function putRampSchedule(
@@ -170,10 +171,7 @@ export async function putRampSchedule(
     changes.startDate = body.startDate ? new Date(body.startDate) : null;
   if ("cutoffDate" in body)
     changes.cutoffDate = body.cutoffDate ? new Date(body.cutoffDate) : null;
-  if (body.pauseOnHealthSignal !== undefined)
-    changes.pauseOnHealthSignal = body.pauseOnHealthSignal;
-  if ("endStrategy" in body)
-    changes.endStrategy = body.endStrategy ?? undefined;
+  if ("rampBehavior" in body) changes.rampBehavior = body.rampBehavior;
 
   const updated = await context.models.rampSchedules.updateById(
     schedule.id,

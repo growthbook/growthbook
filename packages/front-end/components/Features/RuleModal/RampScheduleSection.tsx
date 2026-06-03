@@ -4398,15 +4398,19 @@ export function buildTemplatePayload(
   const PLACEHOLDER_TARGET = "template-target";
   const PLACEHOLDER_RULE = "template-rule";
 
-  function stripIds(actions: RampStepAction[]): RampStepAction[] {
-    return actions.map((a) => ({
-      ...a,
-      targetId: PLACEHOLDER_TARGET,
-      patch: {
-        ...pick(a.patch, TEMPLATE_PATCH_FIELDS),
-        ruleId: PLACEHOLDER_RULE,
-      },
-    }));
+  // Templates only support feature-rule actions; narrow + drop any others.
+  type TemplateAction = Extract<RampStepAction, { targetType: "feature-rule" }>;
+  function stripIds(actions: RampStepAction[]): TemplateAction[] {
+    return actions
+      .filter((a): a is TemplateAction => a.targetType === "feature-rule")
+      .map((a) => ({
+        ...a,
+        targetId: PLACEHOLDER_TARGET,
+        patch: {
+          ...pick(a.patch, TEMPLATE_PATCH_FIELDS),
+          ruleId: PLACEHOLDER_RULE,
+        },
+      }));
   }
 
   const steps = buildRampSteps(

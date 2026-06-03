@@ -1,5 +1,6 @@
 import { FC } from "react";
-import { Box, Flex, IconButton, Separator, Text } from "@radix-ui/themes";
+import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
+import type { DecisionCriteriaRampHealthAction } from "shared/enterprise";
 import { FaPlusCircle } from "react-icons/fa";
 import {
   PiArrowDown,
@@ -11,6 +12,9 @@ import {
 } from "react-icons/pi";
 import { Select, SelectItem } from "@/ui/Select";
 import { useDecisionCriteriaForm } from "@/hooks/useDecisionCriteriaForm";
+import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
+import Link from "@/ui/Link";
 
 // Match options
 const MATCH_OPTIONS = [
@@ -88,6 +92,24 @@ const ACTION_OPTIONS: {
   },
 ];
 
+const RAMP_HEALTH_ACTION_OPTIONS: {
+  value: DecisionCriteriaRampHealthAction;
+  label: string;
+}[] = [
+  { value: "warn", label: "Warn" },
+  { value: "hold", label: "Hold step" },
+  { value: "rollback", label: "Rollback" },
+];
+
+const RAMP_HEALTH_SIGNAL_FIELDS: {
+  key: "srmAction" | "noTrafficAction" | "multipleExposureAction";
+  label: string;
+}[] = [
+  { key: "srmAction", label: "SRM detected" },
+  { key: "noTrafficAction", label: "No traffic" },
+  { key: "multipleExposureAction", label: "Multiple exposures" },
+];
+
 interface DecisionCriteriaModalContentProps {
   decisionCriteriaFormProps: ReturnType<typeof useDecisionCriteriaForm>;
   editable?: boolean;
@@ -117,7 +139,7 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
   return (
     <Flex direction="column" gap="2">
       <Flex direction="column" gap="1">
-        <Text weight="bold" size="2">
+        <Text as="div" weight="semibold">
           Name
         </Text>
         <div className="form-group">
@@ -131,7 +153,7 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
             disabled={!editable}
           />
         </div>
-        <Text weight="bold" size="2">
+        <Text as="div" weight="semibold">
           Description
         </Text>
         <div className="form-group">
@@ -146,10 +168,10 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
         </div>
       </Flex>
 
-      <Text weight="bold" size="2">
+      <Heading as="h4" size="x-small" mt="2">
         Rules
-      </Text>
-      <Text size="2">
+      </Heading>
+      <Text as="div" size="small" color="text-mid">
         Rules are evaluated in order. If a rule matches, an action is
         recommended and no further rules are evaluated.
       </Text>
@@ -163,7 +185,7 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
           p="2"
         >
           <Flex justify="between" align="center" mb="1">
-            <Text weight="bold" size="2">
+            <Text as="div" weight="semibold">
               Rule {ruleIndex + 1}
             </Text>
             {ruleIndex > 0 && editable && (
@@ -182,7 +204,7 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
             <Flex key={condition.key} direction="column">
               <Flex align="center" gap="4" width="100%">
                 <Box width="40px">
-                  <Text size="2" color={"gray"}>
+                  <Text as="div" color="text-mid">
                     {conditionIndex === 0 ? "If" : "and"}
                   </Text>
                 </Box>
@@ -286,29 +308,25 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
 
           <Flex justify="start" mt="1" mb="1">
             {editable && (
-              <Text
-                as="span"
+              <Link
+                color="violet"
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
                   addCondition(rule.key);
-                }}
-                color="purple"
-                style={{
-                  cursor: "pointer",
                 }}
               >
                 <Flex align="center" gap="1">
                   <FaPlusCircle size={10} />
                   <span>Add condition</span>
                 </Flex>
-              </Text>
+              </Link>
             )}
           </Flex>
 
           <Flex gap="4" align="center" width="100%">
             <Box width="70px">
-              <Text weight="medium" size="2">
+              <Text as="div" weight="medium">
                 Then
               </Text>
             </Box>
@@ -339,26 +357,19 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
       ))}
       <Flex justify="start" mt="1" mb="1">
         {editable && (
-          <Text
-            as="span"
-            onClick={handleAddRuleClick}
-            color="purple"
-            style={{
-              cursor: "pointer",
-            }}
-          >
+          <Link color="violet" onClick={handleAddRuleClick}>
             <Flex align="center" gap="1">
               <FaPlusCircle size={10} />
               <span>Add rule</span>
             </Flex>
-          </Text>
+          </Link>
         )}
       </Flex>
 
       <Flex direction="column" gap="1" className="appbox bg-light p-2 mb-0">
         <Flex gap="4" align="center" width="100%">
           <Box width="70px">
-            <Text weight="medium" size="2">
+            <Text as="div" weight="medium">
               Otherwise
             </Text>
           </Box>
@@ -383,6 +394,45 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
             ))}
           </Select>
         </Flex>
+      </Flex>
+
+      <Separator size="4" my="3" />
+
+      <Heading as="h4" size="x-small">
+        Ramp Schedule Behavior
+      </Heading>
+      <Text as="div" size="small" color="text-mid">
+        Applies only while an experiment with a ramp schedule is actively
+        stepping through ramp-up stages.
+      </Text>
+
+      <Flex direction="column" gap="2" mt="2">
+        {RAMP_HEALTH_SIGNAL_FIELDS.map((field) => (
+          <Flex key={field.key} align="center" gap="3">
+            <Box style={{ width: 160, flexShrink: 0 }}>
+              <Text as="div" weight="medium">
+                {field.label}
+              </Text>
+            </Box>
+            <Select
+              size="2"
+              value={form.watch(`rampBehavior.${field.key}`)}
+              setValue={(value) =>
+                form.setValue(
+                  `rampBehavior.${field.key}`,
+                  value as "warn" | "hold" | "rollback",
+                )
+              }
+              disabled={!editable}
+            >
+              {RAMP_HEALTH_ACTION_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </Select>
+          </Flex>
+        ))}
       </Flex>
     </Flex>
   );

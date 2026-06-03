@@ -26,7 +26,18 @@ const BaseClass = MakeModelClass({
 
 export class RampScheduleTemplateModel extends BaseClass {
   protected migrate(legacyDoc: unknown): RampScheduleTemplateInterface {
-    const doc = legacyDoc as RampScheduleTemplateInterface;
+    // Drop experiment-specific fields from legacy template documents. Templates
+    // are feature-only now; any pre-existing experiment template fields would
+    // otherwise fail schema validation on read.
+    const raw = legacyDoc as Record<string, unknown> | null;
+    if (raw) {
+      if (raw.entityType && raw.entityType !== "feature") {
+        delete raw.entityType;
+      }
+      delete raw.rampBehavior;
+      delete raw.endStrategy;
+    }
+    const doc = raw as RampScheduleTemplateInterface;
     return migrateRampStepTriggers(
       doc as unknown as Parameters<typeof migrateRampStepTriggers>[0],
     ) as unknown as RampScheduleTemplateInterface;

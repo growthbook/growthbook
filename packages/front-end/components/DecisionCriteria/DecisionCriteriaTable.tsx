@@ -1,5 +1,5 @@
 import { FC, useState, MouseEvent } from "react";
-import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { FaCheck } from "react-icons/fa";
 import { DecisionCriteriaData } from "shared/types/experiment";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -9,6 +9,7 @@ import {
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import Badge from "@/ui/Badge";
+import Text from "@/ui/Text";
 
 interface DecisionCriteriaTableProps {
   defaultCriteriaId: string;
@@ -67,7 +68,7 @@ const DecisionCriteriaTable: FC<DecisionCriteriaTableProps> = ({
               <td className="align-middle">
                 <Flex direction="column" gap="1">
                   <Box className="d-flex align-items-center gap-2">
-                    <Text weight="bold">{criteria.name}</Text>
+                    <Text weight="semibold">{criteria.name}</Text>
                     {isEditable(criteria) && (
                       <Badge
                         label="CUSTOM"
@@ -78,7 +79,7 @@ const DecisionCriteriaTable: FC<DecisionCriteriaTableProps> = ({
                     )}
                   </Box>
                   {criteria.description && (
-                    <Text color="gray" size="1">
+                    <Text as="div" color="text-mid" size="small">
                       {criteria.description}
                     </Text>
                   )}

@@ -12,6 +12,7 @@ import {
 } from "./shared";
 import { windowTypeValidator } from "./fact-table";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
+import { experimentEndStrategy } from "./ramp-schedule";
 
 import { namedSchema } from "./openapi-helpers";
 
@@ -442,6 +443,20 @@ export const experimentInterface = z
       .optional(),
     /** ID of the attached RampSchedule for this experiment. Set when a ramp is configured. */
     rampScheduleId: z.string().optional(),
+    /**
+     * Scheduled end timestamp for the experiment. Distinct from
+     * `phases[last].dateEnded`, which records the actual moment the experiment
+     * was stopped. `endDate` is the target/scheduled end and is paired with
+     * `endStrategy` to describe what happens when that date is reached.
+     * Absent (or null) means "manual end" — no scheduled end date.
+     */
+    endDate: z.date().nullish(),
+    /**
+     * Refinement applied when the experiment's scheduled `endDate` is reached.
+     * Independent of any ramp schedule — applies to both ramp and non-ramp
+     * experiments. Absent (or null) means "no automatic action".
+     */
+    endStrategy: experimentEndStrategy.nullish(),
   })
   .strict()
   .merge(experimentAnalysisSettings);

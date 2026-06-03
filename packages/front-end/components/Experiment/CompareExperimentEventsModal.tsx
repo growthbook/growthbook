@@ -208,6 +208,8 @@ const EXPERIMENT_SECTION_KEYS: Record<
   status: "metadata",
   statusUpdateSchedule: "metadata",
   nextScheduledStatusUpdate: "metadata",
+  endDate: "metadata",
+  endStrategy: "metadata",
   winner: "metadata",
   owner: "metadata",
   type: "metadata",

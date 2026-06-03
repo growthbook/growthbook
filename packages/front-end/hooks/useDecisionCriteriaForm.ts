@@ -5,6 +5,7 @@ import {
   DecisionCriteriaCondition,
   DecisionCriteriaRule,
   DecisionCriteriaData,
+  DecisionCriteriaRampBehavior,
 } from "shared/enterprise";
 import { useAuth } from "@/services/auth";
 
@@ -25,6 +26,12 @@ interface DecisionCriteriaFormData
     "name" | "description" | "rules" | "defaultAction"
   > {
   rules: DecisionCriteriaRuleUI[];
+  rampBehavior: Required<
+    Pick<
+      DecisionCriteriaRampBehavior,
+      "srmAction" | "noTrafficAction" | "multipleExposureAction"
+    >
+  >;
 }
 
 interface UseDecisionCriteriaFormProps {
@@ -45,6 +52,11 @@ export const useDecisionCriteriaForm = ({
       description: "",
       defaultAction: "review",
       rules: [],
+      rampBehavior: {
+        srmAction: "warn",
+        noTrafficAction: "warn",
+        multipleExposureAction: "warn",
+      },
     },
   });
 
@@ -61,10 +73,16 @@ export const useDecisionCriteriaForm = ({
 
   // Set initial form values after functions are defined
   useEffect(() => {
+    const rb = decisionCriteria?.rampBehavior;
     form.reset({
       name: decisionCriteria?.name || "",
       description: decisionCriteria?.description || "",
       defaultAction: decisionCriteria?.defaultAction || "review",
+      rampBehavior: {
+        srmAction: rb?.srmAction ?? "warn",
+        noTrafficAction: rb?.noTrafficAction ?? "warn",
+        multipleExposureAction: rb?.multipleExposureAction ?? "warn",
+      },
       rules: decisionCriteria?.rules?.length
         ? decisionCriteria.rules.map((rule) => ({
             ...rule,
@@ -211,6 +229,7 @@ export const useDecisionCriteriaForm = ({
       description: formData.description,
       rules: rulesToSave,
       defaultAction: formData.defaultAction,
+      rampBehavior: formData.rampBehavior,
     };
 
     // If we have an ID, we're updating an existing decision criteria
