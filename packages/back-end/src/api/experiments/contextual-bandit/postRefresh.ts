@@ -2,11 +2,17 @@ import { postContextualBanditRefreshValidator } from "shared/validators";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { runContextualBanditSnapshot } from "back-end/src/enterprise/services/contextualBandits";
-import { requireCBPermission } from "./_shared";
+import { markLegacyCBRouteDeprecated, requireCBPermission } from "./_shared";
 
 export const postContextualBanditRefresh = createApiRequestHandler(
   postContextualBanditRefreshValidator,
 )(async (req) => {
+  markLegacyCBRouteDeprecated(
+    req.res!,
+    "/experiments/:id/contextual-bandit/refresh",
+    "/contextual-bandits/:id/refresh",
+  );
+
   if (!req.context.hasPremiumFeature("contextual-bandits")) {
     req.context.throwPlanDoesNotAllowError(
       "Contextual Bandits require an Enterprise plan.",

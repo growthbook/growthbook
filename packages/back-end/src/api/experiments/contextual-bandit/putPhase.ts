@@ -1,11 +1,16 @@
 import { putContextualBanditPhaseValidator } from "shared/validators";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { requireCBPermission } from "./_shared";
+import { markLegacyCBRouteDeprecated, requireCBPermission } from "./_shared";
 
 export const putContextualBanditPhase = createApiRequestHandler(
   putContextualBanditPhaseValidator,
 )(async (req) => {
+  markLegacyCBRouteDeprecated(
+    req.res!,
+    "/experiments/:id/contextual-bandit/phase/:phase",
+    "/contextual-bandits/:id (PATCH the CB doc directly via the CRUD API)",
+  );
   if (!req.context.hasPremiumFeature("contextual-bandits")) {
     req.context.throwPlanDoesNotAllowError(
       "Contextual Bandits require an Enterprise plan.",
