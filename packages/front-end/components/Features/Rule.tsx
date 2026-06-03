@@ -1212,6 +1212,36 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 isDraft={isDraft}
               />
             )}
+            {/*
+             * Contextual-bandit-ref rules don't have a dedicated summary
+             * component yet (would need to load the CB doc + render its
+             * weights / contexts). For now we render the bare minimum so
+             * the rule is visible — link to the CB detail page and show
+             * the variations the SDK will emit. ExperimentRefSummary-class
+             * details (status, conversion progress, etc.) will come with
+             * the dedicated ContextualBanditRefSummary in a follow-up
+             * PR-6 commit.
+             */}
+            {rule.type === "contextual-bandit-ref" && (
+              <Box mt="2">
+                <Text size="small">
+                  Linked Contextual Bandit:{" "}
+                  <Link
+                    href={`/contextual-bandit/${rule.contextualBanditId}`}
+                    className="text-monospace"
+                  >
+                    {rule.contextualBanditId}
+                  </Link>
+                </Text>
+                {rule.variations.length > 0 && (
+                  <Box mt="2">
+                    <Text size="small" weight="medium">
+                      Variations ({rule.variations.length})
+                    </Text>
+                  </Box>
+                )}
+              </Box>
+            )}
             {rampSchedule && (
               <Box mt="4">
                 {!isSimpleSchedule && (
