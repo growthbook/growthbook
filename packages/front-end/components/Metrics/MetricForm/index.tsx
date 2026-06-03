@@ -17,7 +17,11 @@ import {
   DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
-import { isProjectListValidForProject } from "shared/util";
+import {
+  isProjectListValidForProject,
+  LEGACY_METRIC_CREATION_DISABLED_MESSAGE,
+  isLegacyMetricCreationDisabled,
+} from "shared/util";
 import { isBinomialMetric } from "shared/experiments";
 import Link from "@/ui/Link";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
@@ -226,6 +230,8 @@ const MetricForm: FC<MetricFormProps> = ({
   const settings = useOrgSettings();
   const { hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
+  const legacyMetricCreationDisabled = isLegacyMetricCreationDisabled(settings);
+  const isLegacyCreationBlocked = !edit && legacyMetricCreationDisabled;
 
   const [step, setStep] = useState(initialStep);
   const [showAdvanced, setShowAdvanced] = useState(advanced);
@@ -513,6 +519,10 @@ const MetricForm: FC<MetricFormProps> = ({
   };
 
   const onSubmit = form.handleSubmit(async (value) => {
+    if (isLegacyCreationBlocked) {
+      throw new Error(LEGACY_METRIC_CREATION_DISABLED_MESSAGE);
+    }
+
     const {
       winRisk,
       loseRisk,
@@ -600,6 +610,9 @@ const MetricForm: FC<MetricFormProps> = ({
   if (!permissionsUtil.canCreateMetric({ projects: value.projects })) {
     ctaEnabled = false;
     disabledMessage = "You don't have permission to create metrics.";
+  } else if (isLegacyCreationBlocked) {
+    ctaEnabled = false;
+    disabledMessage = LEGACY_METRIC_CREATION_DISABLED_MESSAGE;
   }
 
   const projectOptions = useProjectOptions(
@@ -663,7 +676,11 @@ const MetricForm: FC<MetricFormProps> = ({
             }
           }}
         >
-          {isExclusivelyForDemoDatasourceProject ? (
+          {isLegacyCreationBlocked ? (
+            <Callout status="error" mb="3">
+              {LEGACY_METRIC_CREATION_DISABLED_MESSAGE}
+            </Callout>
+          ) : isExclusivelyForDemoDatasourceProject ? (
             <Callout status="warning">
               You are creating a metric under the demo datasource project.
             </Callout>

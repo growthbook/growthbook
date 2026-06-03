@@ -6,6 +6,10 @@ import {
   LegacyMetricInterface,
   MetricInterface,
 } from "shared/types/metric";
+import {
+  isLegacyMetricCreationDisabled,
+  LEGACY_METRIC_CREATION_DISABLED_MESSAGE,
+} from "shared/util";
 import { getConfigMetrics, usingFileConfig } from "back-end/src/init/config";
 import { upgradeMetricDoc } from "back-end/src/util/migrations";
 import { ALLOW_CREATE_METRICS } from "back-end/src/util/secrets";
@@ -172,6 +176,10 @@ export async function insertMetric(
     throw new Error("Cannot add new metrics. Metrics managed by config.yml");
   }
 
+  if (isLegacyMetricCreationDisabled(context.org.settings)) {
+    throw new Error(LEGACY_METRIC_CREATION_DISABLED_MESSAGE);
+  }
+
   if (
     metricWithOrganization.managedBy === "api" &&
     context.auditUser?.type !== "api_key"
@@ -203,6 +211,10 @@ export async function insertMetrics(
   if (usingFileConfig() && !ALLOW_CREATE_METRICS) {
     throw new Error("Cannot add metrics. Metrics managed by config.yml");
   }
+  if (isLegacyMetricCreationDisabled(context.org.settings)) {
+    throw new Error(LEGACY_METRIC_CREATION_DISABLED_MESSAGE);
+  }
+
   const metricsWithOrganization = metrics.map((metric) => ({
     ...metric,
     organization: context.org.id,

@@ -1,4 +1,8 @@
 import { postMetricValidator } from "shared/validators";
+import {
+  isLegacyMetricCreationDisabled,
+  LEGACY_METRIC_CREATION_DISABLED_MESSAGE,
+} from "shared/util";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   resolveOwnerToUserId,
@@ -15,6 +19,10 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 export const postMetric = createApiRequestHandler(postMetricValidator)(async (
   req,
 ) => {
+  if (isLegacyMetricCreationDisabled(req.organization.settings)) {
+    throw new Error(LEGACY_METRIC_CREATION_DISABLED_MESSAGE);
+  }
+
   const { datasourceId, projects } = req.body;
 
   const datasource = await getDataSourceById(req.context, datasourceId);
