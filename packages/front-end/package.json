@@ -34,6 +34,7 @@
     "@stdlib/stats": "^0.1.1",
     "@stripe/react-stripe-js": "^3.1.1",
     "@stripe/stripe-js": "^5.5.0",
+    "@tanstack/react-virtual": "^3.13.26",
     "@visx/axis": "^2.1.0",
     "@visx/curve": "^2.1.0",
     "@visx/event": "^2.6.0",

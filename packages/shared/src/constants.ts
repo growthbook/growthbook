@@ -55,6 +55,7 @@ export const NULL_DIMENSION_VALUE = "__NULL_DIMENSION";
 export const NULL_VARIATION_VALUE = "__NULL_VARIATION";
 export const NULL_DIMENSION_DISPLAY = "NULL (unset)";
 export const PRECOMPUTED_DIMENSION_PREFIX = "precomputed:";
+export const MAX_PRECOMPUTED_UNIT_DIMENSIONS = 3;
 // Colors:
 // export const variant_null = "#999";
 // export const variant_0 = "#4f69ff";
@@ -76,6 +77,7 @@ export const OWNER_JOB_TITLES = {
 export const USAGE_INTENTS = {
   featureFlags: "Feature Flags",
   experiments: "Experiments",
+  productAnalytics: "Product Analytics",
 } as const;
 
 // Health
@@ -253,7 +255,13 @@ export const entityEvents = {
   customHook: ["create", "update", "delete"],
   ssoConnection: ["create", "update", "delete"],
   sqlResultChunk: ["create", "update", "delete"],
-  rampSchedule: ["create", "update", "delete"],
+  rampSchedule: [
+    "create",
+    "update",
+    "delete",
+    "step-approved",
+    "approval-bypassed",
+  ],
   rampScheduleTemplate: ["create", "update", "delete"],
 } as const;
 

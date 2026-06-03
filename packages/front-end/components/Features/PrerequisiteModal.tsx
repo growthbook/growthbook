@@ -79,7 +79,7 @@ export default function PrerequisiteModal({
   const defaultDraft = useDefaultDraft(revisionList);
 
   const [mode, setMode] = useState<DraftMode>(
-    defaultDraft != null ? "existing" : "new",
+    defaultDraft !== null ? "existing" : "new",
   );
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
@@ -272,7 +272,7 @@ export default function PrerequisiteModal({
           mode === "existing"
             ? { targetDraftVersion: selectedDraft }
             : { forceNewDraft: true };
-        const res = await apiCall<{ version: number }>(
+        const res = await apiCall<{ draftVersion: number }>(
           `/feature/${feature.id}/prerequisite`,
           {
             method: action === "add" ? "POST" : "PUT",
@@ -281,8 +281,8 @@ export default function PrerequisiteModal({
         );
         await mutate();
         const resolvedVersion =
-          res?.version ?? (mode === "existing" ? selectedDraft : null);
-        if (resolvedVersion != null) setVersion(resolvedVersion);
+          res?.draftVersion ?? (mode === "existing" ? selectedDraft : null);
+        if (resolvedVersion !== null) setVersion(resolvedVersion);
       })}
     >
       <DraftSelectorForChanges

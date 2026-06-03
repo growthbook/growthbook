@@ -411,5 +411,92 @@ describe("experimentQueries", () => {
         });
       });
     });
+
+    describe("efficient quantile grid (array column packing)", () => {
+      // BigQuery emits the unit-quantile n_star confidence-interval grid as a
+      // single ARRAY column instead of N_STAR_VALUES.length*2 scalar columns,
+      // so each quantile metric costs far fewer output columns. chunkMetrics
+      // must honor this so it packs more metrics per query and reduces the
+      // BQ job fan-out per snapshot.
+      it("dramatically increases the quantile chunk size when set", () => {
+        const maxColumnsPerQuery = 1000;
+        const baseColumnsNeeded = 103;
+
+        const quantileColsLegacy = maxColumnsNeededForMetric({
+          metric: factMetricFactory.build({
+            metricType: "quantile",
+            numerator: { factTableId: "ft_1" },
+          }),
+          regressionAdjusted: false,
+          isBandit: false,
+        });
+        const quantileColsEfficient = maxColumnsNeededForMetric({
+          metric: factMetricFactory.build({
+            metricType: "quantile",
+            numerator: { factTableId: "ft_1" },
+          }),
+          regressionAdjusted: false,
+          isBandit: false,
+          efficientQuantileGrid: true,
+        });
+        // Efficient mode must reduce the per-metric column cost by at least 5×.
+        expect(quantileColsEfficient * 5).toBeLessThan(quantileColsLegacy);
+
+        const metrics: FactMetricInterface[] = Array.from({ length: 100 }, () =>
+          factMetricFactory.build({
+            metricType: "quantile",
+            numerator: { factTableId: "ft_1" },
+          }),
+        );
+        const wrap = metrics.map((m) => ({
+          metric: m,
+          regressionAdjusted: false,
+        }));
+
+        const legacyChunks = chunkMetrics({
+          metrics: wrap,
+          maxColumnsPerQuery,
+          isBandit: false,
+        });
+        const efficientChunks = chunkMetrics({
+          metrics: wrap,
+          maxColumnsPerQuery,
+          isBandit: false,
+          efficientQuantileGrid: true,
+        });
+
+        // All 100 metrics still present in both modes.
+        expect(legacyChunks.reduce((s, c) => s + c.length, 0)).toBe(100);
+        expect(efficientChunks.reduce((s, c) => s + c.length, 0)).toBe(100);
+
+        // Concrete expected packing for 100 unit-quantile metrics under a
+        // 1000-column / 103-base budget:
+        //   legacy quantile cost     = 1 + 5 + 2 + N_STAR_VALUES.length * 2 = 48
+        //   efficient quantile cost  = 1 + 5 + 2 + 1                       = 9
+        //   legacy chunks    = ceil(100 / floor(897/48))  = ceil(100/18) = 6
+        //   efficient chunks = ceil(100 / floor(897/9))   = ceil(100/99) = 2
+        expect(legacyChunks.length).toBe(6);
+        expect(efficientChunks.length).toBe(2);
+
+        // No chunk in efficient mode may exceed maxColumnsPerQuery.
+        efficientChunks.forEach((chunk) => {
+          const totalCols =
+            baseColumnsNeeded +
+            chunk.reduce(
+              (sum, m) =>
+                sum +
+                maxColumnsNeededForMetric({
+                  metric: m,
+                  regressionAdjusted: false,
+                  isBandit: false,
+                  efficientQuantileGrid: true,
+                }),
+              0,
+            );
+          expect(totalCols).toBeLessThanOrEqual(maxColumnsPerQuery);
+          expect(chunk.length).toBeLessThanOrEqual(MAX_METRICS_PER_QUERY);
+        });
+      });
+    });
   });
 });

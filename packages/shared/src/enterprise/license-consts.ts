@@ -215,6 +215,7 @@ const commercialFeaturesPro: CommercialFeature[] = [
   "historical-power",
   "decision-framework",
   "safe-rollout",
+  "ramp-schedules",
   "unlimited-managed-warehouse-usage",
   "saveSqlExplorerQueries",
   "precomputed-dimensions",
@@ -261,7 +262,6 @@ const commercialFeaturesEnterpriseOnly: CommercialFeature[] = [
   "share-product-analytics-dashboards",
   "incremental-refresh",
   "adv-presentations",
-  "ramp-schedules",
 ];
 
 const commercialFeaturesEnterprise: CommercialFeature[] = [

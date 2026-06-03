@@ -209,7 +209,12 @@ export function encodeSQLResults(
     return [];
   }
 
-  const columns = Object.keys(results[0]);
+  const columns = Array.from(
+    results.reduce((acc, row) => {
+      Object.keys(row).forEach((column) => acc.add(column));
+      return acc;
+    }, new Set<string>()),
+  );
   const encodedResults: SqlResultChunkData[] = [];
 
   function createChunk(): SqlResultChunkData {
@@ -239,7 +244,7 @@ export function encodeSQLResults(
   for (const row of results) {
     currentChunk.numRows++;
     for (const col of columns) {
-      const value = row[col];
+      const value = row[col] ?? null;
       currentChunk.data[col].push(value);
       currentChunkSize += getSize(value);
     }

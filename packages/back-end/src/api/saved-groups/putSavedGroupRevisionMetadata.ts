@@ -6,6 +6,7 @@ import {
   createOrUpdateRevision,
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
+import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import {
   assertValidDescription,
   discardIfJustCreated,
@@ -102,6 +103,17 @@ export const putSavedGroupRevisionMetadata = createApiRequestHandler(
       patchOps,
       { revisionId: revision.id },
     );
+
+    if (created) {
+      await dispatchSavedGroupRevisionEvent(req.context, updated, {
+        type: "created",
+      });
+    } else {
+      await dispatchSavedGroupRevisionEvent(req.context, updated, {
+        type: "updated",
+        change: "metadata",
+      });
+    }
 
     return {
       revision: await toApiSavedGroupRevision(updated, req.context),

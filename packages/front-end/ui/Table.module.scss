@@ -136,12 +136,6 @@
     z-index: 900;
   }
 
-  // Suppress the row separator for middle rows within a grouped set.
-  :global(.rt-TableBody .rt-TableRow[data-group-inner] .rt-TableCell) {
-    box-shadow: none;
-    --table-row-box-shadow: none;
-  }
-
   // Nested table headers must not be sticky even when the outer one is
   &[data-sticky-header="true"] :global(.rt-TableCell .rt-TableHeader) {
     position: unset;
