@@ -613,19 +613,21 @@ export default function FeaturesPage() {
     if (project) {
       return permissionsUtil.canManageFeatureDrafts({ project });
     }
-    if (projects?.length) {
-      // If "All Projects" is selected, check if user has permissions for at least one project
-
-      return projects.some(
-        (p) =>
-          permissionsUtil.canCreateFeature({ project: p.id }) &&
-          permissionsUtil.canManageFeatureDrafts({ project: p.id }),
-      );
-    }
-    // No projects - fall back to global permission check (e.g. admin in new org)
-    return (
+    // "All Projects" selected. Check the global (no-project) permission first so
+    // a user who can create features at the org level (e.g. an admin) isn't
+    // blocked by a non-creatable project. Otherwise the read-only sample-data
+    // project would disable the button whenever it's the only project.
+    if (
       permissionsUtil.canCreateFeature({ project: "" }) &&
       permissionsUtil.canManageFeatureDrafts({ project: "" })
+    ) {
+      return true;
+    }
+    // Otherwise, allow if they can create in at least one specific project.
+    return (projects ?? []).some(
+      (p) =>
+        permissionsUtil.canCreateFeature({ project: p.id }) &&
+        permissionsUtil.canManageFeatureDrafts({ project: p.id }),
     );
   }, [project, projects, permissionsUtil]);
 
