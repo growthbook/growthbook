@@ -9,11 +9,9 @@ import { useState } from "react";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { Flex } from "@radix-ui/themes";
-import AddLinkedChanges from "@/components/Experiment/LinkedChanges/AddLinkedChanges";
 import LinkedChanges from "@/components/Experiment/LinkedChanges/LinkedChanges";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
-import VariationsTable from "@/components/Experiment/VariationsTable";
 import EditVariationMetadataModal from "@/components/Experiment/EditVariationMetadataModal";
 import TrafficAndTargeting from "@/components/Experiment/TabbedPage/TrafficAndTargeting";
 import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
@@ -96,11 +94,6 @@ export default function Implementation({
     linkedFeatures.length > 0 ||
     experiment.hasURLRedirects;
 
-  const numLinkedChanges =
-    (linkedFeatures.length || 0) +
-    (visualChangesets.length || 0) +
-    (urlRedirects.length || 0);
-
   const holdoutHasLinkedExpOrFeatures =
     holdoutExperiments?.length || holdoutFeatures?.length;
 
@@ -175,22 +168,11 @@ export default function Implementation({
             setFeatureModal={setFeatureModal}
             setUrlRedirectModal={setUrlRedirectModal}
             onAddVariation={editVariations ?? undefined}
-            variationsTable={
-              <VariationsTable
-                experiment={experiment}
-                canEditExperiment={canEditExperiment}
-                mutate={mutate}
-                noMargin
-                onEditMetadata={
-                  canEditExperiment
-                    ? (index) => setEditMetadataIndex(index)
-                    : undefined
-                }
-              />
-            }
+            canEditExperiment={canEditExperiment}
+            setEditVariationIndex={setEditMetadataIndex}
           />
         ) : null}
-        {!isHoldout && (
+        {/* {!isHoldout && (
           <AddLinkedChanges
             experiment={experiment}
             numLinkedChanges={numLinkedChanges}
@@ -199,7 +181,7 @@ export default function Implementation({
             setVisualEditorModal={setVisualEditorModal}
             setUrlRedirectModal={setUrlRedirectModal}
           />
-        )}
+        )} */}
 
         {isHoldout && holdout ? (
           <HoldoutEnvironments
@@ -308,7 +290,6 @@ export default function Implementation({
         <DecisionMakingSettings
           experiment={experiment}
           mutate={mutate}
-          envs={envs}
           canEdit={!!editTargeting && !experiment.nextScheduledStatusUpdate}
         />
       </div>

@@ -13,7 +13,7 @@ import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunc
 import { PiArrowSquareOut } from "react-icons/pi";
 import Collapsible from "react-collapsible";
 import clsx from "clsx";
-import { Theme } from "@radix-ui/themes";
+import { Box, Flex, Theme } from "@radix-ui/themes";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Link from "@/ui/Link";
 import track from "@/services/track";
@@ -961,16 +961,16 @@ export function PreLaunchChecklistDrawer(props: PreLaunchChecklistProps) {
   }, [checklistItemsRemaining, setOpen]);
 
   return (
-    <div className="dark-theme">
+    <Box className="dark-theme">
       <Theme appearance="dark">
-        <div className={styles.drawer}>
-          <div className={styles.drawerInner}>
-            <div
+        <Box className={styles.drawer}>
+          <Box className={styles.drawerInner}>
+            <Box
               className={styles.drawerHeader}
               onClick={() => setOpen(!open)}
               role="button"
             >
-              <div className="d-flex align-items-center">
+              <Flex align="center">
                 <strong>Pre-Launch Checklist</strong>
                 {checklistItemsRemaining !== null && (
                   <span
@@ -988,10 +988,10 @@ export function PreLaunchChecklistDrawer(props: PreLaunchChecklistProps) {
                     )}
                   </span>
                 )}
-              </div>
+              </Flex>
               {open ? <FaAngleDown size={14} /> : <FaAngleUp size={14} />}
-            </div>
-            <div
+            </Box>
+            <Box
               className={styles.drawerBody}
               style={open ? undefined : { display: "none" }}
             >
@@ -1000,10 +1000,10 @@ export function PreLaunchChecklistDrawer(props: PreLaunchChecklistProps) {
                 collapsible={false}
                 showHeader={false}
               />
-            </div>
-          </div>
-        </div>
+            </Box>
+          </Box>
+        </Box>
       </Theme>
-    </div>
+    </Box>
   );
 }

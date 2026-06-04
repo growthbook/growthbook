@@ -13,7 +13,6 @@ import Text from "@/ui/Text";
 import Avatar from "@/ui/Avatar";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
-import Frame from "@/ui/Frame";
 import { ICON_PROPERTIES, LinkedChange } from "./constants";
 
 export const LINKED_CHANGES: Record<
@@ -184,7 +183,7 @@ export default function AddLinkedChanges({
   const possibleSections = Object.keys(sections);
 
   return (
-    <Frame>
+    <>
       {numLinkedChanges > 0 ? (
         <>
           <Heading color="text-high" as="h4" size="small">
@@ -212,6 +211,6 @@ export default function AddLinkedChanges({
           );
         })}
       </Box>
-    </Frame>
+    </>
   );
 }

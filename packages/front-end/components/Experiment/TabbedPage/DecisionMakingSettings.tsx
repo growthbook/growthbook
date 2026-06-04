@@ -22,7 +22,6 @@ import Frame from "@/ui/Frame";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
-  envs: string[];
   mutate?: () => void;
   canEdit: boolean;
   ssrPolyfills?: SSRPolyfills;
@@ -47,6 +46,7 @@ export default function DecisionMakingSettings({
   mutate,
   canEdit,
   ssrPolyfills,
+  isPublic,
 }: Props) {
   const { getExperimentMetricById, getMetricById, metricGroups } =
     useDefinitions();
@@ -105,7 +105,7 @@ export default function DecisionMakingSettings({
   const isBandit = experiment.type === "multi-armed-bandit";
   const isHoldout = experiment.type === "holdout";
 
-  if (!hasDecisionFramework || isBandit || isHoldout) {
+  if (!hasDecisionFramework || isBandit || isHoldout || isPublic) {
     return null;
   }
 
