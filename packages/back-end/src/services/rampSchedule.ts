@@ -827,18 +827,6 @@ export async function advanceStep(
     if (schedule.cutoffDate && schedule.cutoffDate > now) {
       const effective = computeEffectivePatch(schedule, schedule.steps.length);
 
-      if (schedule.currentStepIndex < 0 && schedule.steps.length > 0) {
-        for (const target of schedule.targets) {
-          if (target.status !== "active" || target.entityType !== "feature") {
-            continue;
-          }
-          const existing = effective.get(target.id) ?? {
-            ruleId: target.ruleId ?? "",
-          };
-          effective.set(target.id, { ...existing, enabled: true });
-        }
-      }
-
       const actionsToApply: RampStepAction[] = [...effective.entries()].map(
         ([targetId, patch]) => ({
           targetType: "feature-rule" as const,
