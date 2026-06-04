@@ -23,9 +23,6 @@ export const getContextualBanditResults = createApiRequestHandler(
   if (!experiment) {
     throw new Error("Could not find experiment with that id");
   }
-  if (experiment.type !== "contextual-bandit") {
-    throw new Error("Experiment is not a contextual bandit");
-  }
   requireCBPermission(req.context, experiment, "read");
 
   // PR-8 Commit 2: results helper takes a CB now. Deleted with this whole
@@ -34,20 +31,15 @@ export const getContextualBanditResults = createApiRequestHandler(
     experiment.id,
   );
   if (!cb) {
-    return { contextualBanditSnapshot: null, latest: null };
+    return { latest: null };
   }
 
-  const { contextualBanditSnapshot, latest } =
-    await getContextualBanditResultsForUi(req.context, cb);
+  // PR-8 Commit 4: the legacy wire shape no longer exposes the
+  // `contextualBanditSnapshot` stats payload — clients should call
+  // `/api/v1/contextual-bandits/:id/results` for the full payload.
+  const { latest } = await getContextualBanditResultsForUi(req.context, cb);
 
   return {
-    contextualBanditSnapshot: contextualBanditSnapshot
-      ? {
-          attributes: contextualBanditSnapshot.attributes,
-          responses: contextualBanditSnapshot.responses,
-          leaf_map: contextualBanditSnapshot.leaf_map,
-        }
-      : null,
     // Normalize Date fields to ISO strings so the wire shape matches the
     // OpenAPI spec and is consistent with the other CB endpoints (which all
     // emit `dateCreated` as `.toISOString()`).

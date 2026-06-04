@@ -1133,20 +1133,13 @@ export async function buildSDKPayloadForConnection(
   }
 
   // Pre-fetch CB docs so the payload builder can inject per-context weights
-  // without additional async calls per rule. Keyed by CB id (`cb.id`), with
-  // two source paths during the decoupling window:
-  //   - Legacy: `exp.contextualBanditId` on CB-typed experiments referenced
-  //     by `experiment-ref` feature rules. Goes away when PR-8 rewrites
-  //     those rules to `contextual-bandit-ref`.
-  //   - Native: `rule.contextualBanditId` on `contextual-bandit-ref`
-  //     feature rules. Added in PR-3 alongside the new rule type.
-  // After PR-8, the experiment-derived source path is dropped.
+  // without additional async calls per rule. Sourced exclusively from
+  // `contextual-bandit-ref` feature rules now that PR-8 removed the
+  // experiment-derived path: CBs no longer live behind a paired Experiment
+  // doc, so the legacy `exp.contextualBanditId` collection step is gone.
   let cbMap:
     | Map<string, import("shared/validators").ContextualBanditInterface>
     | undefined;
-  const cbIdsFromExperiments = [...filteredExperimentMap.values()]
-    .filter((exp) => exp.type === "contextual-bandit" && exp.contextualBanditId)
-    .map((exp) => exp.contextualBanditId as string);
   const cbIdsFromRules: string[] = [];
   for (const feature of filteredFeatures) {
     // v2 schema keeps rules on the top-level `feature.rules` array; v0/v1
@@ -1161,9 +1154,7 @@ export async function buildSDKPayloadForConnection(
       }
     }
   }
-  const cbIds = Array.from(
-    new Set([...cbIdsFromExperiments, ...cbIdsFromRules]),
-  );
+  const cbIds = Array.from(new Set(cbIdsFromRules));
   if (cbIds.length > 0) {
     const cbDocs = await Promise.all(
       cbIds.map((id) => context.models.contextualBandits.getById(id)),

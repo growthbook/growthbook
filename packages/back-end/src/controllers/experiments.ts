@@ -61,7 +61,6 @@ import {
   updateExperimentAndSync,
   validateVariationIds,
   validateExperimentData,
-  validateContextualBanditExperimentForSave,
 } from "back-end/src/services/experiments";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
@@ -1113,15 +1112,6 @@ export async function postExperiments(
     context.permissions.throwPermissionError();
   }
 
-  if (
-    data.type === "contextual-bandit" &&
-    !context.hasPremiumFeature("contextual-bandits")
-  ) {
-    context.throwPlanDoesNotAllowError(
-      "Contextual Bandits require an Enterprise plan.",
-    );
-  }
-
   let result:
     | {
         metricIds: string[];
@@ -1245,8 +1235,7 @@ export async function postExperiments(
     ideaSource: data.ideaSource || "",
     // todo: revisit this logic for project level settings, as well as "override stats settings" toggle:
     sequentialTestingEnabled:
-      experimentType === "multi-armed-bandit" ||
-      experimentType === "contextual-bandit"
+      experimentType === "multi-armed-bandit"
         ? false
         : (data.sequentialTestingEnabled ??
           !!org?.settings?.sequentialTestingEnabled),
@@ -1256,10 +1245,7 @@ export async function postExperiments(
       DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
     regressionAdjustmentEnabled: data.regressionAdjustmentEnabled ?? undefined,
     statsEngine:
-      experimentType === "multi-armed-bandit" ||
-      experimentType === "contextual-bandit"
-        ? "bayesian"
-        : data.statsEngine,
+      experimentType === "multi-armed-bandit" ? "bayesian" : data.statsEngine,
     type: experimentType,
     banditScheduleValue: data.banditScheduleValue ?? 1,
     banditScheduleUnit: data.banditScheduleUnit ?? "days",
@@ -1347,14 +1333,6 @@ export async function postExperiments(
       data: obj,
       context,
     });
-
-    // CB doc creation no longer happens here; the CB create flow has
-    // its own POST endpoint (POST /api/v1/contextual-bandits) that
-    // creates a CB-native doc directly. Callers using the legacy
-    // experiment-create path with `type: "contextual-bandit"` will get
-    // only the experiment doc — the SDK bandit rule won't fire without
-    // a paired CB. PR-8 removes the `contextual-bandit` branch from
-    // this route entirely.
 
     if (holdoutId) {
       const holdoutObj = await context.models.holdout.getById(holdoutId);
@@ -1489,15 +1467,10 @@ export async function postExperiment(
     context.permissions.throwPermissionError();
   }
 
-  const effectiveType = data.type ?? experiment.type;
-  if (
-    effectiveType === "contextual-bandit" &&
-    !context.hasPremiumFeature("contextual-bandits")
-  ) {
-    context.throwPlanDoesNotAllowError(
-      "Contextual Bandits require an Enterprise plan.",
-    );
-  }
+  // PR-8 Commit 4 dropped `"contextual-bandit"` from the experimentType
+  // enum; the CB premium-feature gate moved to
+  // POST /api/v1/contextual-bandits, which is now the only path to
+  // create or mutate a CB.
 
   // Opt-in attribute registration check (org-level setting).
   assertRegisteredAttributes(
@@ -1966,19 +1939,9 @@ export async function postExperiment(
     }
   }
 
-  try {
-    await validateContextualBanditExperimentForSave(context, {
-      type: changes.type ?? experiment.type,
-      datasourceId: changes.datasource ?? experiment.datasource,
-      exposureQueryId: changes.exposureQueryId ?? experiment.exposureQueryId,
-    });
-  } catch (e) {
-    res.status(400).json({
-      status: 400,
-      message: e instanceof Error ? e.message : String(e),
-    });
-    return;
-  }
+  // CB-specific pre-save validation lived here pre-decoupling; CBs are
+  // now authored via POST /api/v1/contextual-bandits and never reach
+  // this experiment update path.
 
   const updated = await updateExperimentAndSync({
     context,
@@ -3064,12 +3027,14 @@ export async function deleteExperiment(
     }
   }
 
-  if (experiment.type === "contextual-bandit") {
-    try {
-      await context.models.contextualBandits.deleteForExperiment(experiment.id);
-    } catch (e) {
-      logger.warn(e, "Error cascade-deleting CB doc for experiment");
-    }
+  // Cascade-delete the paired CB doc if one exists. Post-decoupling
+  // CBs are no longer keyed by an experiment FK in their primary
+  // identity, but the legacy `experiment` field still serves as a
+  // fallback lookup until Commits 5–6 remove the bridge entirely.
+  try {
+    await context.models.contextualBandits.deleteForExperiment(experiment.id);
+  } catch (e) {
+    logger.warn(e, "Error cascade-deleting CB doc for experiment");
   }
 
   await req.audit({

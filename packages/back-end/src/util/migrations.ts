@@ -757,18 +757,13 @@ export function upgradeExperimentDoc(
     experiment.uid = uuidv4().replace(/-/g, "");
   }
 
-  // Forward-migrate the deprecated `banditIsContextual` boolean to the
-  // first-class `experimentType` enum value `"contextual-bandit"`. Old docs
-  // had `type: "multi-armed-bandit", banditIsContextual: true`; new docs use
-  // `type: "contextual-bandit"` and don't carry the boolean. Idempotent: if
-  // the field is already absent or already `contextual-bandit`-typed, this
-  // is a no-op.
+  // PR-8 dropped `"contextual-bandit"` from the experimentType enum:
+  // legacy MAB docs flagged with `banditIsContextual: true` are no
+  // longer upgraded into CB-typed experiments here. They were either
+  // migrated into the CB collection by the CB-decoupling script or
+  // remain as plain MAB docs. We still unset the boolean so downstream
+  // consumers don't have to branch on a vestigial field.
   const legacyExperiment = experiment as LegacyExperimentInterface;
-  if (legacyExperiment.banditIsContextual === true) {
-    if (experiment.type === "multi-armed-bandit") {
-      experiment.type = "contextual-bandit";
-    }
-  }
   if ("banditIsContextual" in legacyExperiment) {
     delete legacyExperiment.banditIsContextual;
   }

@@ -319,7 +319,6 @@ const experimentSchema = new mongoose.Schema({
   banditBurnInUnit: String,
   banditConversionWindowValue: Number,
   banditConversionWindowUnit: String,
-  contextualBanditId: String,
   customFields: {},
   templateId: String,
   shareLevel: String,
@@ -402,19 +401,12 @@ export function applyExperimentTypeQuery(
     return;
   }
 
-  if (type === "contextual-bandit") {
-    query.$or = [
-      { type: "contextual-bandit" },
-      { type: "multi-armed-bandit", banditIsContextual: true },
-      { contextualBanditId: { $exists: true, $ne: "" } },
-    ];
-    return;
-  }
-
   if (type === "multi-armed-bandit") {
+    // Legacy `banditIsContextual: true` docs were folded into the CB
+    // collection during the decoupling migration; any remaining
+    // `banditIsContextual` flags are now stable MAB docs.
     query.type = "multi-armed-bandit";
     query.banditIsContextual = { $ne: true };
-    query.contextualBanditId = { $in: [null, ""] };
     return;
   }
 
@@ -2127,13 +2119,16 @@ const onExperimentDelete = async (
       organization: context.org,
     });
 
-  if (experiment.contextualBanditId) {
-    try {
-      const cbModel = new ContextualBanditModel(context);
-      await cbModel.deleteForExperiment(experiment.id);
-    } catch (e) {
-      logger.error(e, "Failed to cascade-delete contextual bandit doc");
-    }
+  // Cascade-delete any paired CB doc that still references this
+  // experiment via the legacy `experiment` FK. CBs no longer carry a
+  // primary `experiment` reference post-PR-8, but the FK-keyed
+  // `deleteForExperiment` model helper stays until Commits 5–6 remove
+  // the bridge layer.
+  try {
+    const cbModel = new ContextualBanditModel(context);
+    await cbModel.deleteForExperiment(experiment.id);
+  } catch (e) {
+    logger.error(e, "Failed to cascade-delete contextual bandit doc");
   }
 };
 

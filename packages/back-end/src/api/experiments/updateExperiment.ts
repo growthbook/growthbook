@@ -14,7 +14,6 @@ import {
   normalizeStatusUpdateScheduleChanges,
   toExperimentApiInterface,
   updateExperimentApiPayloadToInterface,
-  validateContextualBanditExperimentForSave,
   validateVariationIds,
 } from "back-end/src/services/experiments";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
@@ -52,30 +51,10 @@ export const updateExperiment = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
-  // Block transitions into the CB type via the experiment REST API. The
-  // CB-native /api/v1/contextual-bandits surface is the only supported
-  // path for CB authoring as of the decoupling work — see postExperiment
-  // for the symmetric guard on create. Existing CB-typed experiments
-  // remain readable here until PR-8's migration completes and we drop
-  // the "contextual-bandit" enum value entirely.
-  if (
-    req.body.type === "contextual-bandit" &&
-    experiment.type !== "contextual-bandit"
-  ) {
-    throw new Error(
-      "Cannot set type=contextual-bandit via the /experiments endpoint. " +
-        "Use POST /api/v1/contextual-bandits to create a Contextual Bandit.",
-    );
-  }
-  const effectiveType = req.body.type ?? experiment.type;
-  if (
-    effectiveType === "contextual-bandit" &&
-    !req.context.hasPremiumFeature("contextual-bandits")
-  ) {
-    req.context.throwPlanDoesNotAllowError(
-      "Contextual Bandits require an Enterprise plan.",
-    );
-  }
+  // PR-8 dropped `"contextual-bandit"` from the experimentType enum;
+  // the validator now rejects CB-typed payloads before they reach this
+  // handler. CB authoring lives exclusively at
+  // POST /api/v1/contextual-bandits.
 
   assertExperimentPayloadCommercialFeatures(req.context, {
     postStratificationEnabled: req.body.postStratificationEnabled,
@@ -265,12 +244,8 @@ export const updateExperiment = createApiRequestHandler(
     );
   }
 
-  await validateContextualBanditExperimentForSave(req.context, {
-    type: req.body.type ?? experiment.type,
-    datasourceId: datasourceId || undefined,
-    exposureQueryId: req.body.assignmentQueryId ?? experiment.exposureQueryId,
-    datasource,
-  });
+  // CB-specific pre-save validation was removed in PR-8 — the
+  // experiment REST API no longer accepts CB-typed updates.
 
   // Opt-in attribute registration check (org-level setting). Covers the
   // experiment-level hash/fallback attributes and every provided phase.

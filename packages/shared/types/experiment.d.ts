@@ -188,8 +188,10 @@ export interface LegacyExperimentInterface
   guardrailMetrics?: string[];
   decisionFrameworkSettings?: ExperimentDecisionFrameworkSettings;
   /**
-   * @deprecated Replaced by `type === "contextual-bandit"` in the
-   * `experimentType` enum. Migration upgrades legacy docs and unsets the field.
+   * @deprecated Legacy flag for `type: "multi-armed-bandit"` docs that
+   * predated the CB-native split. Carried on `LegacyExperimentInterface`
+   * for documents that may still have the field at rest; the migration
+   * unsets it on read so consumers don't have to branch on it.
    */
   banditIsContextual?: boolean;
 }

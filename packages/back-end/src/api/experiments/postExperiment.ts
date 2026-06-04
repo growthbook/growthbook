@@ -128,17 +128,10 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       req.context.permissions.throwPermissionError();
     }
 
-    // Contextual Bandits must be authored via POST /api/v1/contextual-bandits
-    // (PR-4). The experiment REST API stopped accepting CB-typed experiments
-    // as part of the experiment-decoupling work — the legacy /experiments
-    // path created a parent Experiment + a paired CB doc, which is exactly
-    // the indirection the decoupling project removed.
-    if (payload.type === "contextual-bandit") {
-      throw new Error(
-        "Use POST /api/v1/contextual-bandits to create a Contextual Bandit. " +
-          "The /experiments endpoint no longer accepts type=contextual-bandit.",
-      );
-    }
+    // PR-8 dropped `"contextual-bandit"` from the experimentType enum;
+    // the validator now rejects CB-typed payloads before this handler
+    // runs. CB authoring lives exclusively at
+    // POST /api/v1/contextual-bandits.
 
     assertExperimentPayloadCommercialFeatures(req.context, {
       postStratificationEnabled: payload.postStratificationEnabled,
@@ -315,16 +308,6 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       data: newExperiment,
       context: req.context,
     });
-
-    // Note: CB doc creation no longer happens here. The CB create flow
-    // owns its own POST endpoint now (POST /api/v1/contextual-bandits)
-    // and creates a CB-native doc directly. The legacy
-    // `POST /experiments` route still exists for non-CB experiment
-    // creation; if a caller posts `type: "contextual-bandit"` here they
-    // get just the experiment doc — without a paired CB doc the SDK
-    // bandit rule won't fire, but this is the intended behaviour while
-    // the FK is being phased out. PR-8 removes the `contextual-bandit`
-    // branch from this route entirely.
 
     if (ownerId) {
       // add owner as watcher

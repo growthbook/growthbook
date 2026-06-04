@@ -414,9 +414,10 @@ export function buildContextualBanditSnapshotSettings(
  * `banditSettings.targetingAttributeColumns` so the contextual-bandit CTEs in
  * `contextual-bandit-experiment-units-cte.ts` fire on the warehouse side.
  *
- * The source of `banditIsContextual` is the CB snapshot doc — NOT
- * `ExperimentInterface.banditIsContextual`, which was migrated to
- * `experiment.type === "contextual-bandit"` in `util/migrations.ts:760-774`.
+ * The source of `banditIsContextual` is the CB snapshot doc — CB-typed
+ * experiments no longer exist post-PR-8, so this flag is sourced
+ * exclusively from the CB orchestrator and never from
+ * `ExperimentInterface`.
  */
 export function buildSnapshotMetricRequestForCb(
   cbSnapshotSettings: ContextualBanditSnapshotSettings,

@@ -23,9 +23,6 @@ export const postContextualBanditRefresh = createApiRequestHandler(
   if (!experiment) {
     throw new Error("Could not find experiment with that id");
   }
-  if (experiment.type !== "contextual-bandit") {
-    throw new Error("Experiment is not a contextual bandit");
-  }
   requireCBPermission(req.context, experiment, "run");
   if (!experiment.phases.length) {
     throw new Error("Experiment has no phases");

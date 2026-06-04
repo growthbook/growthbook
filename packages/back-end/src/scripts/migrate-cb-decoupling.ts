@@ -30,14 +30,14 @@
 // ---------------------
 //
 //   - Does not drop the `experiment` FK on the CB doc.
-//   - Does not remove `contextualBanditId`/`contextualBanditEventId` from
-//     the experiment validator.
-//   - Does not remove `"contextual-bandit"` from the experimentType enum.
 //   - Does not delete the `/experiments/:id/contextual-bandit/*` legacy
 //     REST routes.
 //
-// Those four cleanups land in a follow-up PR-8 commit once this migration
-// has been run on every target environment.
+// The validator-level field drops (`contextualBanditId` on
+// `experimentInterface`, `"contextual-bandit"` in the experimentType
+// enum, and the legacy `cbResultsSnapshotShape` wire field) landed in
+// PR-8 Commit 4 once this migration finished rolling out. The
+// remaining items above are cleaned up by Commits 5 and 6.
 //
 // Idempotency
 // -----------

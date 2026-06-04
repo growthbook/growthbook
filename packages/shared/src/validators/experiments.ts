@@ -187,7 +187,6 @@ export type MetricOverride = z.infer<typeof metricOverride>;
 export const experimentType = [
   "standard",
   "multi-armed-bandit",
-  "contextual-bandit",
   "holdout",
 ] as const;
 export type ExperimentType = (typeof experimentType)[number];
@@ -419,7 +418,6 @@ export const experimentInterface = z
     banditBurnInUnit: z.enum(["hours", "days"]).optional(),
     banditConversionWindowValue: z.number().optional().nullable(),
     banditConversionWindowUnit: z.enum(["hours", "days"]).optional().nullable(),
-    contextualBanditId: z.string().optional(),
     customFields: z.record(z.string(), z.any()).optional(),
     templateId: z.string().optional(),
     shareLevel: z.enum(["public", "organization"]).optional(),
@@ -734,12 +732,7 @@ const apiExperimentShape = z.object({
   dateCreated: z.string().meta({ format: "date-time" }),
   dateUpdated: z.string().meta({ format: "date-time" }),
   name: z.string(),
-  type: z.enum([
-    "standard",
-    "multi-armed-bandit",
-    "contextual-bandit",
-    "holdout",
-  ]),
+  type: z.enum(["standard", "multi-armed-bandit", "holdout"]),
   project: z.string(),
   hypothesis: z.string(),
   description: z.string(),
@@ -1042,9 +1035,7 @@ const postExperimentBody = z
       )
       .optional(),
     name: z.string().describe("Name of the experiment"),
-    type: z
-      .enum(["standard", "multi-armed-bandit", "contextual-bandit"])
-      .optional(),
+    type: z.enum(["standard", "multi-armed-bandit"]).optional(),
     project: z
       .string()
       .describe("Project ID which the experiment belongs to")
@@ -1158,9 +1149,7 @@ const updateExperimentBody = z
       )
       .optional(),
     name: z.string().describe("Name of the experiment").optional(),
-    type: z
-      .enum(["standard", "multi-armed-bandit", "contextual-bandit"])
-      .optional(),
+    type: z.enum(["standard", "multi-armed-bandit"]).optional(),
     project: z
       .string()
       .describe("Project ID which the experiment belongs to")
@@ -2026,32 +2015,11 @@ export const getContextualBanditEventValidator = {
   path: "/experiments/:id/contextual-bandit/events/:eventId",
 };
 
-// One per-leaf response surfaced on the CBE doc. Mirrors
-// `ContextualBanditResponseSnapshot` in shared/types/stats.d.ts; kept loose
-// (`z.record(z.string(), z.unknown())` for `context`) because Mongo targeting
-// conditions may contain operator expressions (`$in`, `$gte`, etc.).
-const cbResponseShape = z.object({
-  context: z.record(z.string(), z.unknown()),
-  sampleSizePerVariation: z.array(z.number()).nullable().optional(),
-  variationMeans: z.array(z.number()).nullable().optional(),
-  updatedWeights: z.array(z.number()).nullable().optional(),
-  bestArmProbabilities: z.array(z.number()).nullable().optional(),
-  updateMessage: z.string().nullable().optional(),
-  error: z.string().nullable().optional(),
-});
-
-const cbLeafMapEntryShape = z.object({
-  context: z.record(z.string(), z.string()),
-  leafId: z.number().int(),
-});
-
-// CBE stats payload mirrored from the latest event for the most recent phase.
-const cbResultsSnapshotShape = z.object({
-  attributes: z.array(z.string()),
-  responses: z.array(cbResponseShape),
-  leaf_map: z.array(cbLeafMapEntryShape).optional(),
-});
-
+// Legacy `/experiments/:id/contextual-bandit/results` only emits the
+// snapshot run-status now; the per-leaf stats payload moved to the
+// CB-native `/api/v1/contextual-bandits/:id/results` route (which defines
+// its own inline schema). The whole legacy router is deleted in Commit 6.
+//
 // Subset of the internal `SnapshotStatusSummary` we surface externally —
 // dates are ISO strings on the wire; `queries` is left loose so future
 // query-pointer fields don't churn the OpenAPI spec.
@@ -2073,7 +2041,6 @@ export const getContextualBanditResultsValidator = {
   paramsSchema: cbIdParam,
   responseSchema: z
     .object({
-      contextualBanditSnapshot: cbResultsSnapshotShape.nullable(),
       latest: cbResultsLatestShape.nullable(),
     })
     .strict(),

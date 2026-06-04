@@ -119,12 +119,13 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
   });
 
   // Disable auto snapshots for the experiment so it doesn't keep trying to
-  // update if schedule is off. Bandits (regular + contextual) maintain their
-  // own internal schedule lifecycle, so don't auto-disable them here.
+  // update if schedule is off. MABs maintain their own internal schedule
+  // lifecycle, so don't auto-disable them here. CBs no longer reach this
+  // job (the "contextual-bandit" experimentType enum value was dropped in
+  // PR-8 Commit 4).
   if (
     organization?.settings?.updateSchedule?.type === "never" &&
-    experiment.type !== "multi-armed-bandit" &&
-    experiment.type !== "contextual-bandit"
+    experiment.type !== "multi-armed-bandit"
   ) {
     await updateExperiment({
       context,
@@ -147,19 +148,11 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
     }
 
     // Contextual bandits have their own agenda job
-    // (`jobs/updateContextualBanditResults.ts`) and parallel pipeline
-    // (ContextualBanditSnapshot + ContextualBanditEvent +
-    // ContextualBanditResultsQueryRunner). They MUST NOT go through the
-    // standard ExperimentResultsQueryRunner below — if a CB-typed
-    // experiment slips through here (legacy state during the decoupling
-    // window) we bail rather than corrupt results.
-    if (experiment.type === "contextual-bandit") {
-      logger.info(
-        "Skipping CB-typed experiment in experiment-results job; handled by updateContextualBanditResults: " +
-          experimentId,
-      );
-      return;
-    }
+    // (`jobs/updateContextualBanditResults.ts`) and parallel pipeline.
+    // Post-PR-8 they no longer reach this job because the
+    // `"contextual-bandit"` experimentType enum value is gone — the
+    // experiment validator rejects CB-typed docs before this runner
+    // is ever scheduled for them.
 
     const { regressionAdjustmentEnabled, settingsForSnapshotMetrics } =
       await getSettingsForSnapshotMetrics(context, experiment);
@@ -244,12 +237,10 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
 
     logger.error(e, "Failed to update experiment: " + experimentId);
     // If we failed to update the experiment, turn off auto-updating for the
-    // future. Bandits (regular + contextual) are exempt: they have their own
-    // retry / lifecycle handling so we don't want to silently disable them.
-    if (
-      experiment.type === "multi-armed-bandit" ||
-      experiment.type === "contextual-bandit"
-    ) {
+    // future. MABs are exempt — they have their own retry / lifecycle
+    // handling and we don't want to silently disable them. CBs no longer
+    // reach this job (see CB-typed bail-out removal above).
+    if (experiment.type === "multi-armed-bandit") {
       return;
     }
     try {

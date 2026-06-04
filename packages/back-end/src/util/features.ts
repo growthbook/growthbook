@@ -750,35 +750,12 @@ export function getFeatureDefinition({
             });
             rule.weights = phase.variationWeights;
 
-            // Inject contextual-bandit payload fields only for connections
-            // whose SDK declares the `contextualBandits` capability. Older
-            // SDKs receive a byte-equivalent `type:"standard"` payload and
-            // silently fall back to MAB on the server-supplied
-            // `phase.variationWeights` (matches the safe-rollout downgrade
-            // precedent at the bottom of this file).
-            // `capabilities === undefined` means "all capabilities" (used by
-            // server-side evaluation/diff paths), so allow injection there.
-            const cbCapable =
-              capabilities === undefined ||
-              capabilities.includes("contextualBandits");
-            if (
-              cbCapable &&
-              exp.type === "contextual-bandit" &&
-              exp.contextualBanditId &&
-              cbMap
-            ) {
-              const cb = cbMap.get(exp.contextualBanditId);
-              if (cb) {
-                rule.isContextualBandit = true;
-                rule.attributesRequired = cb.contextualAttributes;
-                // TODO(post-stats-engine): re-introduce contexts injection
-                // once Python emits per-leaf split predicates. Until then we
-                // omit `rule.contexts` entirely rather than ship empty
-                // `condition: {}` placeholders that every CB-capable SDK
-                // would evaluate as always-true and collapse to the first
-                // leaf's weights.
-              }
-            }
+            // CB-typed experiments no longer exist post-PR-8: CBs are
+            // sourced exclusively from `contextual-bandit-ref` feature
+            // rules, which are rendered by the dedicated branch below
+            // and inject `isContextualBandit` / `attributesRequired`
+            // directly from the CB doc rather than from a paired
+            // Experiment.
 
             rule.key = exp.trackingKey;
             const phaseVariations = getLatestPhaseVariations(exp);

@@ -82,7 +82,6 @@ import {
   ApiExperimentMetric,
   ApiExperimentResults,
   ApiMetric,
-  assertContextualBanditExperimentFieldsValid,
 } from "shared/validators";
 import { Dimension } from "shared/types/integrations";
 import {
@@ -2463,8 +2462,7 @@ export async function toExperimentApiInterface(
           publicUrl: `${appOrigin}/public/e/${experiment.uid}`,
         }
       : null),
-    ...(experimentType === "multi-armed-bandit" ||
-    experimentType === "contextual-bandit"
+    ...(experimentType === "multi-armed-bandit"
       ? {
           banditScheduleValue: experiment.banditScheduleValue ?? 1,
           banditScheduleUnit: experiment.banditScheduleUnit ?? "days",
@@ -3728,10 +3726,7 @@ export function postExperimentApiPayloadToInterface(
     organization,
   });
 
-  if (
-    payload.type === "multi-armed-bandit" ||
-    payload.type === "contextual-bandit"
-  ) {
+  if (payload.type === "multi-armed-bandit") {
     Object.assign(
       obj,
       resetExperimentBanditSettings({
@@ -3750,11 +3745,6 @@ export function postExperimentApiPayloadToInterface(
       obj.banditConversionWindowValue = payload.banditConversionWindowValue;
       obj.banditConversionWindowUnit = payload.banditConversionWindowUnit;
     }
-    assertContextualBanditExperimentFieldsValid({
-      experimentType: obj.type,
-      exposureQueryId: obj.exposureQueryId,
-      exposureQueries: datasource?.settings?.queries?.exposure,
-    });
   }
 
   return obj;
@@ -4787,69 +4777,6 @@ export async function computeResultsStatus({
   };
 }
 
-export async function validateContextualBanditExperimentForSave(
-  context: ReqContext,
-  params: {
-    type?: string;
-    datasourceId?: string;
-    exposureQueryId?: string;
-    datasource?: DataSourceInterface | null;
-    /** If provided, the function will block datasource/EAQ changes for this existing experiment. */
-    existingExperiment?: ExperimentInterface;
-  },
-): Promise<void> {
-  if (params.type !== "contextual-bandit") {
-    return;
-  }
-
-  // Block datasource / exposureQueryId changes for existing contextual-bandit experiments
-  if (params.existingExperiment?.contextualBanditId) {
-    const existing = params.existingExperiment;
-    if (
-      params.datasourceId !== undefined &&
-      params.datasourceId !== existing.datasource
-    ) {
-      throw new Error(
-        "Cannot change datasource on a contextual bandit experiment after it has been created.",
-      );
-    }
-    if (
-      params.exposureQueryId !== undefined &&
-      params.exposureQueryId !== existing.exposureQueryId
-    ) {
-      throw new Error(
-        "Cannot change exposure query on a contextual bandit experiment after it has been created.",
-      );
-    }
-  }
-
-  const datasource =
-    params.datasource ??
-    (params.datasourceId
-      ? await getDataSourceById(context, params.datasourceId)
-      : null);
-  if (params.datasourceId && !datasource) {
-    throw new Error("Invalid datasource: " + params.datasourceId);
-  }
-  assertContextualBanditExperimentFieldsValid({
-    experimentType: params.type,
-    exposureQueryId: params.exposureQueryId,
-    exposureQueries: datasource?.settings?.queries?.exposure,
-  });
-}
-
-// `maybeCreateContextualBanditDoc` was removed in the CB-decoupling work
-// — the CB create flow now goes directly through
-// `POST /api/v1/contextual-bandits` (see
-// `ContextualBanditModel.processApiCreateBody`), so the experiment-create
-// path no longer back-fills a paired CB doc. The lazy self-heal in
-// `runContextualBanditSnapshot` is gone too; any CB experiment that
-// reaches the snapshot path without a CB doc is a data-integrity bug
-// rather than a state we should silently paper over.
-//
-// TODO(pr-8): delete `contextualBanditId` from `ExperimentInterface`
-// once the FK is dropped and the snapshot pipeline keys by CB id.
-
 export async function validateExperimentData(
   context: ReqContext,
   data: Partial<ExperimentInterfaceStringDates>,
@@ -4905,13 +4832,6 @@ export async function validateExperimentData(
       }
     }
   }
-
-  await validateContextualBanditExperimentForSave(context, {
-    type: data.type,
-    datasourceId: data.datasource,
-    exposureQueryId: data.exposureQueryId,
-    datasource,
-  });
 
   return { metricIds, datasource, invalidMetricIds };
 }

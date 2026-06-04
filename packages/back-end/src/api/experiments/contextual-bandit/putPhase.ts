@@ -21,9 +21,6 @@ export const putContextualBanditPhase = createApiRequestHandler(
   if (!experiment) {
     throw new Error("Could not find experiment with that id");
   }
-  if (experiment.type !== "contextual-bandit") {
-    throw new Error("Experiment is not a contextual bandit");
-  }
   // "Updating a phase" counts as running the experiment — the operator is
   // actively reweighting the CB. Mirrors the gate on `postRefresh`.
   requireCBPermission(req.context, experiment, "run");

@@ -163,7 +163,6 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
         initialHashAttribute,
       }),
       name: initialValue?.name || "",
-      type: "contextual-bandit",
       disableStickyBucketing: true,
       activationMetric: initialValue?.activationMetric || "",
       hashAttribute: initialHashAttribute,
@@ -373,7 +372,6 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
       }
 
       data.statsEngine = "bayesian";
-      data.type = "contextual-bandit";
       data.secondaryMetrics = [];
       data.guardrailMetrics = [];
       data.customMetricSlices = [];

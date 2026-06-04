@@ -46,20 +46,15 @@ export async function getContextualBanditResults(
     });
     return;
   }
-  if (experiment.type !== "contextual-bandit") {
-    res.status(400).json({
-      status: 400,
-      message: "Experiment is not a contextual bandit",
-    });
-    return;
-  }
   if (!context.permissions.canReadSingleProjectResource(experiment.project)) {
     context.permissions.throwPermissionError();
   }
 
   // The results helper takes a CB directly post-PR-8 Commit 2. The
   // controller URL still carries an experiment id; resolve the paired
-  // CB before delegating.
+  // CB before delegating. PR-8 Commit 4 dropped the
+  // `"contextual-bandit"` experimentType check above because the enum
+  // value is gone; the CB lookup itself is the gate now.
   const cb = await context.models.contextualBandits.getByExperimentId(
     experiment.id,
   );
@@ -100,13 +95,6 @@ export async function postContextualBanditRefresh(
     res.status(404).json({
       status: 404,
       message: "Experiment not found",
-    });
-    return;
-  }
-  if (experiment.type !== "contextual-bandit") {
-    res.status(400).json({
-      status: 400,
-      message: "Experiment is not a contextual bandit",
     });
     return;
   }

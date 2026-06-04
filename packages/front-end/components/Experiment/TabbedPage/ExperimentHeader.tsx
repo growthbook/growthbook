@@ -21,6 +21,7 @@ import {
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { format } from "date-fns";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { isContextualBanditExperiment } from "@/services/contextualBanditAsExperiment";
 import { useAuth } from "@/services/auth";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Avatar from "@/ui/Avatar";
@@ -247,7 +248,7 @@ export default function ExperimentHeader({
   const disableHealthTab = isUsingHealthUnsupportDatasource;
 
   const isBandit = experiment.type === "multi-armed-bandit";
-  const isContextualBandit = experiment.type === "contextual-bandit";
+  const isContextualBandit = isContextualBanditExperiment(experiment);
   const isHoldout = experiment.type === "holdout";
 
   const hasResults = !!analysis?.results?.[0];

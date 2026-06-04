@@ -22,9 +22,11 @@ export const getContextualBanditCurrent = createApiRequestHandler(
   if (!experiment) {
     throw new Error("Could not find experiment with that id");
   }
-  if (experiment.type !== "contextual-bandit") {
-    throw new Error("Experiment is not a contextual bandit");
-  }
+  // PR-8 Commit 4 dropped the `"contextual-bandit"` experimentType enum
+  // value, so this route is reachable only via the experiment id of a
+  // CB-paired legacy experiment. The `getByExperimentId` lookup below
+  // gates the actual CB resolution and returns an empty payload if no
+  // paired CB exists.
   requireCBPermission(req.context, experiment, "read");
 
   // PR-8 Commit 2: event collection is keyed by CB id now. Deleted with

@@ -12,6 +12,7 @@ import {
 import { isPrecomputedDimension } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import { trackSnapshot } from "@/services/track";
+import { isContextualBanditExperiment } from "@/services/contextualBanditAsExperiment";
 import RunQueriesButton from "@/components/Queries/RunQueriesButton";
 import ExperimentRefreshSnapshotButton from "@/components/Experiment/RefreshSnapshotButton";
 import SafeRolloutRefreshSnapshotButton from "@/components/SafeRollout/RefreshSnapshotButton";
@@ -107,7 +108,7 @@ export default function RefreshResultsButton<
   const snapshotEndpoint =
     entityType === "safe-rollout"
       ? `/safe-rollout/${entityId}/snapshot`
-      : experiment?.type === "contextual-bandit"
+      : isContextualBanditExperiment(experiment)
         ? `/experiment/${entityId}/contextual-bandit/refresh`
         : `/experiment/${entityId}/snapshot`;
 
@@ -148,7 +149,7 @@ export default function RefreshResultsButton<
                   snapshotEndpoint,
                   { method: "POST" },
                 );
-              } else if (experiment?.type === "contextual-bandit") {
+              } else if (isContextualBanditExperiment(experiment)) {
                 await apiCall<{ snapshotId: string; cbeId?: string }>(
                   snapshotEndpoint,
                   { method: "POST" },

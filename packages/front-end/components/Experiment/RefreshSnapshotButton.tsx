@@ -8,6 +8,7 @@ import { isPrecomputedDimension } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { trackSnapshot } from "@/services/track";
+import { isContextualBanditExperiment } from "@/services/contextualBanditAsExperiment";
 import Button from "@/components/Button";
 import RadixButton from "@/ui/Button";
 
@@ -35,7 +36,7 @@ const RefreshSnapshotButton: FC<{
   const { apiCall } = useAuth();
 
   const refreshSnapshot = async () => {
-    if (experiment.type === "contextual-bandit") {
+    if (isContextualBanditExperiment(experiment)) {
       await apiCall<{
         status: number;
         snapshotId: string;

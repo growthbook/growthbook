@@ -1964,20 +1964,20 @@ describe("Experiment Migration", () => {
     });
   });
 
-  describe("banditIsContextual → experimentType: contextual-bandit", () => {
-    it("upgrades multi-armed-bandit + banditIsContextual=true to type=contextual-bandit", () => {
+  describe("banditIsContextual cleanup", () => {
+    it("strips banditIsContextual=true from legacy MAB docs without upgrading the type", () => {
       const result = upgradeExperimentDoc({
         ...exp,
         type: "multi-armed-bandit",
         banditIsContextual: true,
       } as unknown as Parameters<typeof upgradeExperimentDoc>[0]);
-      expect(result.type).toBe("contextual-bandit");
+      expect(result.type).toBe("multi-armed-bandit");
       expect(
         (result as { banditIsContextual?: boolean }).banditIsContextual,
       ).toBeUndefined();
     });
 
-    it("leaves multi-armed-bandit + banditIsContextual=false alone (and unsets the flag)", () => {
+    it("strips banditIsContextual=false from legacy MAB docs", () => {
       const result = upgradeExperimentDoc({
         ...exp,
         type: "multi-armed-bandit",
@@ -1989,7 +1989,7 @@ describe("Experiment Migration", () => {
       ).toBeUndefined();
     });
 
-    it("is idempotent on already-migrated docs", () => {
+    it("is idempotent on already-cleaned docs", () => {
       const once = upgradeExperimentDoc({
         ...exp,
         type: "multi-armed-bandit",
@@ -1998,7 +1998,7 @@ describe("Experiment Migration", () => {
       const twice = upgradeExperimentDoc(
         once as unknown as Parameters<typeof upgradeExperimentDoc>[0],
       );
-      expect(twice.type).toBe("contextual-bandit");
+      expect(twice.type).toBe("multi-armed-bandit");
       expect(
         (twice as { banditIsContextual?: boolean }).banditIsContextual,
       ).toBeUndefined();

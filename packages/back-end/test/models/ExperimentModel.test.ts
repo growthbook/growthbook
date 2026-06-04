@@ -96,21 +96,7 @@ describe("ExperimentModel", () => {
   });
 
   describe("applyExperimentTypeQuery", () => {
-    it("filters contextual bandits across current and legacy persisted shapes", () => {
-      const query = {};
-
-      applyExperimentTypeQuery(query, "contextual-bandit");
-
-      expect(query).toEqual({
-        $or: [
-          { type: "contextual-bandit" },
-          { type: "multi-armed-bandit", banditIsContextual: true },
-          { contextualBanditId: { $exists: true, $ne: "" } },
-        ],
-      });
-    });
-
-    it("filters regular bandits without legacy contextual bandits", () => {
+    it("filters regular bandits while excluding legacy contextual bandit shapes", () => {
       const query = {};
 
       applyExperimentTypeQuery(query, "multi-armed-bandit");
@@ -118,7 +104,6 @@ describe("ExperimentModel", () => {
       expect(query).toEqual({
         type: "multi-armed-bandit",
         banditIsContextual: { $ne: true },
-        contextualBanditId: { $in: [null, ""] },
       });
     });
 

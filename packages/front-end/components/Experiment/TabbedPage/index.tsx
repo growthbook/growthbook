@@ -20,6 +20,7 @@ import {
   getAvailableMetricTags,
   getAvailableSliceTags,
 } from "@/services/experiments";
+import { isContextualBanditExperiment } from "@/services/contextualBanditAsExperiment";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import FeatureFromExperimentModal from "@/components/Features/FeatureModal/FeatureFromExperimentModal";
 import Modal from "@/components/Modal";
@@ -224,9 +225,11 @@ export default function TabbedPage({
 
   const { dashboards } = useExperimentDashboards(experiment.id);
 
+  const isContextualBandit = isContextualBanditExperiment(experiment);
+
   // If experiment now has a default dashboard, show the dashboard view
   useEffect(() => {
-    if (experiment.type === "contextual-bandit") {
+    if (isContextualBandit) {
       setShowDashboardView(false);
       return;
     }
@@ -242,7 +245,7 @@ export default function TabbedPage({
       return;
     }
     setShowDashboardView(true);
-  }, [experiment.defaultDashboardId, experiment.type, dashboards]);
+  }, [experiment.defaultDashboardId, isContextualBandit, dashboards]);
 
   const { phase, setPhase } = useSnapshot();
   const {
@@ -417,7 +420,6 @@ export default function TabbedPage({
     return getBrowserDevice(ua);
   }, []);
 
-  const isContextualBandit = experiment.type === "contextual-bandit";
   const isBandit =
     experiment.type === "multi-armed-bandit" || isContextualBandit;
   const trackSource = "tabbed-page";
@@ -610,7 +612,7 @@ export default function TabbedPage({
             </Callout>
           )}
 
-        {showDashboardView && experiment.type !== "contextual-bandit" && (
+        {showDashboardView && !isContextualBanditExperiment(experiment) && (
           <DashboardsTab
             experiment={experiment}
             initialDashboardId={experiment.defaultDashboardId ?? ""}

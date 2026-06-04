@@ -2,6 +2,29 @@ import { ApiContextualBanditInterface } from "shared/validators";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 
 /**
+ * Runtime marker used by `contextualBanditToExperimentShape` to flag the
+ * synthesized experiment object as CB-backed. PR-8 dropped
+ * `"contextual-bandit"` from the `experimentType` enum, so consumers can
+ * no longer compare `experiment.type === "contextual-bandit"` — the
+ * literal is no longer in the union. Frontend components that still need
+ * to gate CB-specific rendering should call this helper instead. The
+ * marker is invisible to anything that types the input strictly as
+ * `ExperimentInterfaceStringDates` because the adapter sets it via an
+ * `as unknown as` cast at the boundary.
+ */
+export const CB_AS_EXPERIMENT_TYPE = "contextual-bandit" as const;
+
+export function isContextualBanditExperiment(
+  experiment: { type?: string | null } | null | undefined,
+): boolean {
+  return (
+    !!experiment &&
+    "type" in experiment &&
+    (experiment.type as string | null | undefined) === CB_AS_EXPERIMENT_TYPE
+  );
+}
+
+/**
  * Project an `ApiContextualBanditInterface` (PR-4 API shape) into the
  * `ExperimentInterfaceStringDates` shape that all the legacy
  * experiment-aware components consume: `TabbedPage`, `SnapshotProvider`,
@@ -92,7 +115,7 @@ export function contextualBanditToExperimentShape(
     attributionModel: cb.attributionModel,
     skipPartialData: cb.skipPartialData,
     regressionAdjustmentEnabled: cb.regressionAdjustmentEnabled,
-    type: "contextual-bandit",
+    type: CB_AS_EXPERIMENT_TYPE,
     implementation: "code",
     autoAssign: false,
     previewURL: "",

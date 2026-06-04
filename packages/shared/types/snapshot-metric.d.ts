@@ -74,9 +74,9 @@ export interface SnapshotBanditSettings {
   windowSettings?: MetricWindowSettings;
   /**
    * True when the snapshot is a contextual-bandit run. Set by
-   * `buildSnapshotMetricRequestForCb` from the CB doc — NOT from
-   * `ExperimentInterface.banditIsContextual`, which was migrated to
-   * `experiment.type === "contextual-bandit"` in `util/migrations.ts:760-774`.
+   * `buildSnapshotMetricRequestForCb` directly from the CB doc; CB
+   * snapshots no longer flow through ExperimentInterface so this flag
+   * is sourced exclusively from the CB orchestrator.
    */
   banditIsContextual?: boolean;
   /** Targeting attribute column aliases from the experiment's exposure query at snapshot time. */
