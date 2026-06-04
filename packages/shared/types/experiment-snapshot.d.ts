@@ -190,6 +190,12 @@ export interface SnapshotBanditSettings {
 // Also used to determine when to show "out-of-date" in the UI
 export interface ExperimentSnapshotSettings {
   dimensions: DimensionForSnapshot[];
+  /**
+   * Experiment-level always-computed unit dimensions.
+   * We use this field to gather the required data in 1 pass, and then this is used
+   * to create individual analyses for each unit dimension.
+   */
+  precomputedUnitDimensionIds?: string[];
   metricSettings: MetricForSnapshot[];
   goalMetrics: string[];
   secondaryMetrics: string[];

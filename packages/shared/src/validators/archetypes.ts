@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { ownerEmailField, ownerField } from "./owner-field";
 import { namedSchema } from "./openapi-helpers";
 
@@ -11,7 +12,7 @@ export const apiArchetypeValidator = namedSchema(
       dateCreated: z.string(),
       dateUpdated: z.string(),
       name: z.string(),
-      description: z.string().optional(),
+      description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
       owner: ownerField,
       ownerEmail: ownerEmailField,
       isPublic: z.boolean(),
@@ -35,7 +36,7 @@ export type ApiArchetype = z.infer<typeof apiArchetypeValidator>;
 const postArchetypeBody = z
   .object({
     name: z.string(),
-    description: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     isPublic: z
       .boolean()
       .describe(

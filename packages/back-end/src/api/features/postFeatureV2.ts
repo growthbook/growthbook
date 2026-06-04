@@ -4,7 +4,7 @@ import { FeatureInterface } from "shared/types/feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   resolveOwnerEmail,
-  resolveOwnerToUserId,
+  resolveOwnerForCreate,
 } from "back-end/src/services/owner";
 import { createFeature, getFeature } from "back-end/src/models/FeatureModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
@@ -21,7 +21,7 @@ import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { addTags } from "back-end/src/models/TagModel";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import type { ApiFeatureEnvSettings } from "./postFeature";
-import { validateCustomFields } from "./validations";
+import { validateCustomFields, validateRuleAttributes } from "./validations";
 import { validateEnvKeys } from "./postFeature";
 import { assertValidProjectId, mapV2ApiRuleToFeatureRule } from "./v2Shared";
 
@@ -72,7 +72,7 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
     const feature: FeatureInterface = {
       defaultValue: req.body.defaultValue ?? "",
       valueType: req.body.valueType,
-      owner: (await resolveOwnerToUserId(req.body.owner, req.context)) ?? "",
+      owner: await resolveOwnerForCreate(req.body.owner, req.context),
       description: req.body.description || "",
       project: req.body.project || "",
       dateCreated: new Date(),
@@ -96,6 +96,18 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       orgEnvs,
       (req.body.environments ?? {}) as ApiFeatureEnvSettings,
     );
+
+    // Opt-in registered-attribute check before any DB writes. The env-rules
+    // path runs the same check inside `fromApiEnvSettingsRulesToFeatureEnvSettingsRules`,
+    // but flat v2 rules go through `mapV2ApiRuleToFeatureRule` which doesn't
+    // validate, so we cover them explicitly here.
+    for (const rule of req.body.rules ?? []) {
+      validateRuleAttributes(
+        rule as Parameters<typeof validateRuleAttributes>[0],
+        req.context,
+        req.body.project,
+      );
+    }
 
     feature.rules = (req.body.rules ?? []).map((rule) =>
       mapV2ApiRuleToFeatureRule(rule),

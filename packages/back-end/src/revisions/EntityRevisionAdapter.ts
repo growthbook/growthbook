@@ -57,10 +57,15 @@ export interface EntityRevisionAdapter<
   /**
    * Persist the computed changes (already filtered to updatable fields) back to
    * the live entity. Called by postMerge after conflicts are resolved.
+   *
+   * `options.isRevert` is set when the revision being merged carries a
+   * `revertedFrom` link, so adapters can skip validations that would otherwise
+   * block restoring a previously-published state.
    */
   applyChanges(
     context: Context,
     entity: TSnapshot,
     changes: Record<string, unknown>,
+    options?: { isRevert?: boolean },
   ): Promise<void>;
 }

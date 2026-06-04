@@ -1,4 +1,5 @@
 import React, { FC } from "react";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { useForm } from "react-hook-form";
 import { ArchetypeInterface } from "shared/types/archetype";
 import Field from "@/components/Forms/Field";
@@ -105,6 +106,7 @@ const ArchetypeAttributesModal: FC<{
           <div>
             <Field
               label={"Description"}
+              maxLength={MAX_DESCRIPTION_LENGTH}
               {...form.register("description")}
               textarea
             />

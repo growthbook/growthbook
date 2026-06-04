@@ -1,89 +1,92 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { RxDesktop } from "react-icons/rx";
-import { date, datetime } from "shared/dates";
-import Link from "next/link";
-import { BsFlag } from "react-icons/bs";
-import clsx from "clsx";
-import { PiShuffle } from "react-icons/pi";
-import { ComputedExperimentInterface } from "shared/types/experiment";
-import LoadingOverlay from "@/components/LoadingOverlay";
-import WatchButton from "@/components/WatchButton";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Box, Flex } from "@radix-ui/themes";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Pagination from "@/components/Pagination";
 import { useUser } from "@/services/UserContext";
-import SortedTags from "@/components/Tags/SortedTags";
-import { tagFilterOnClick, tagLinkProps } from "@/services/search";
-import Field from "@/components/Forms/Field";
-import Switch from "@/ui/Switch";
 import { useExperiments } from "@/hooks/useExperiments";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import TagsFilter, {
-  filterByTags,
-  useTagsFilter,
-} from "@/components/Tags/TagsFilter";
 import { useWatching } from "@/services/WatchProvider";
-import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import Button from "@/ui/Button";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import LinkButton from "@/ui/LinkButton";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
-import { useExperimentSearch } from "@/services/experiments";
 import Callout from "@/ui/Callout";
+import LoadingOverlay from "@/components/LoadingOverlay";
+import Field from "@/components/Forms/Field";
+import { useExperimentSearch } from "@/services/experiments";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
+import ExperimentSearchFilters from "@/components/Search/ExperimentSearchFilters";
+import ExperimentsListTable from "@/components/Experiment/ExperimentsListTable";
+import useURLHash from "@/hooks/useURLHash";
 
-const NUM_PER_PAGE = 20;
+const BANDIT_LIST_TABS = [
+  "all",
+  "running",
+  "drafts",
+  "stopped",
+  "archived",
+] as const;
+type BanditListTab = (typeof BANDIT_LIST_TABS)[number];
+const isBanditListTab = (v: string): v is BanditListTab =>
+  BANDIT_LIST_TABS.includes(v as BanditListTab);
 
 const ExperimentsPage = (): React.ReactElement => {
   const { ready, project, projects } = useDefinitions();
 
-  const [tabs, setTabs] = useLocalStorage<string[]>("experiment_tabs", []);
+  const initialHashRef = useRef(
+    globalThis?.window ? window.location.hash.slice(1) : "",
+  );
+  const hasInitialValidHash = isBanditListTab(initialHashRef.current);
+  const [urlTab, setTab] = useURLHash<BanditListTab>(BANDIT_LIST_TABS);
+  const tab: BanditListTab = urlTab && isBanditListTab(urlTab) ? urlTab : "all";
+  const [storedTab, setStoredTab] = useLocalStorage<BanditListTab>(
+    "bandits-list-tab",
+    "all",
+  );
+  const [didInitializeTab, setDidInitializeTab] = useState(false);
+  const activeTab: BanditListTab =
+    !hasInitialValidHash && !didInitializeTab ? storedTab : tab;
+
+  useEffect(() => {
+    if (didInitializeTab) return;
+    if (!hasInitialValidHash && storedTab !== tab) setTab(storedTab);
+    setDidInitializeTab(true);
+  }, [didInitializeTab, hasInitialValidHash, setTab, storedTab, tab]);
+
+  useEffect(() => {
+    if (!didInitializeTab) return;
+    if (storedTab !== tab) setStoredTab(tab);
+  }, [didInitializeTab, setStoredTab, storedTab, tab]);
 
   const {
     experiments: allExperiments,
     error,
     loading,
     hasArchived,
-  } = useExperiments(project, tabs.includes("archived"), "multi-armed-bandit");
+  } = useExperiments(project, activeTab === "archived", "multi-armed-bandit");
 
-  const tagsFilter = useTagsFilter("experiments");
-  const [showMineOnly, setShowMineOnly] = useLocalStorage(
-    "showMyExperimentsOnly",
-    false,
-  );
   const [openNewExperimentModal, setOpenNewExperimentModal] = useState(false);
 
-  const { userId, hasCommercialFeature } = useUser();
+  const { hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
-
-  const [currentPage, setCurrentPage] = useState(1);
 
   const { watchedExperiments } = useWatching();
 
-  const filterResults = useCallback(
-    (items: ComputedExperimentInterface[]) => {
-      if (showMineOnly) {
-        items = items.filter(
-          (item) =>
-            item.owner === userId || watchedExperiments.includes(item.id),
-        );
-      }
-
-      items = filterByTags(items, tagsFilter.tags);
-
-      return items;
-    },
-    [showMineOnly, userId, tagsFilter.tags, watchedExperiments],
-  );
-
-  const { items, searchInputProps, isFiltered, SortableTH, setSearchValue } =
-    useExperimentSearch({
-      allExperiments,
-      filterResults,
-      localStorageKey: "bandits-page",
-    });
+  const {
+    items,
+    searchInputProps,
+    isFiltered,
+    SortableTableColumnHeader,
+    syntaxFilters,
+    setSearchValue,
+  } = useExperimentSearch({
+    allExperiments,
+    watchedExperimentIds: watchedExperiments,
+    localStorageKey: "bandits-page",
+  });
 
   const tabCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -95,25 +98,21 @@ const ExperimentsPage = (): React.ReactElement => {
   }, [items]);
 
   const filtered = useMemo(() => {
-    return tabs.length
-      ? items.filter((item) => tabs.includes(item.tab))
+    return activeTab !== "all"
+      ? items.filter((item) => item.tab === activeTab)
       : items;
-  }, [tabs, items]);
-
-  // If "All Projects" is selected is selected and some experiments are in a project, show the project column
-  const showProjectColumn = !project && items.some((e) => e.project);
+  }, [activeTab, items]);
 
   const hasMultiArmedBanditFeature = hasCommercialFeature(
     "multi-armed-bandits",
   );
 
-  // Reset to page 1 when a filter is applied or tabs change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [filtered.length]);
-
   if (error) {
-    return <Callout status="error">An error occurred: {error.message}</Callout>;
+    return (
+      <Callout status="error" mb="3">
+        An error occurred: {error.message}
+      </Callout>
+    );
   }
   if (loading || !ready) {
     return <LoadingOverlay />;
@@ -123,21 +122,9 @@ const ExperimentsPage = (): React.ReactElement => {
 
   const canAdd = permissionsUtil.canViewExperimentModal(project, projects);
 
-  const start = (currentPage - 1) * NUM_PER_PAGE;
-  const end = start + NUM_PER_PAGE;
-
-  function onToggleTab(tab: string) {
-    return () => {
-      const newTabs = new Set(tabs);
-      if (newTabs.has(tab)) newTabs.delete(tab);
-      else newTabs.add(tab);
-      setTabs([...newTabs]);
-    };
-  }
-
   if (!hasMultiArmedBanditFeature) {
     return (
-      <div className="contents container-fluid pagecontents">
+      <Box className="contents container-fluid pagecontents">
         <PremiumEmptyState
           h1="Bandits"
           title="Run Adaptive Experiments with Bandits"
@@ -145,291 +132,159 @@ const ExperimentsPage = (): React.ReactElement => {
           commercialFeature="multi-armed-bandits"
           learnMoreLink="https://docs.growthbook.io/bandits/overview"
         />
-      </div>
+      </Box>
     );
   }
 
   return (
     <>
-      <div className="contents experiments container-fluid pagecontents">
-        <div className="mb-3 mt-2">
-          <div className="filters md-form row mb-3 align-items-center">
-            <div className="col d-flex align-items-center">
-              <h1>Bandits</h1>
-            </div>
-            <div style={{ flex: 1 }} />
-            {canAdd && (
-              <div className="col-auto">
-                <PremiumTooltip
-                  tipPosition="left"
-                  commercialFeature="multi-armed-bandits"
+      <Box className="contents container-fluid pagecontents" mb="3" mt="2">
+        <Flex
+          className="filters md-form"
+          mb="3"
+          align="center"
+          gap="3"
+          wrap="wrap"
+        >
+          <Flex align="center">
+            <h1>Bandits</h1>
+          </Flex>
+          <Box style={{ flex: 1 }} />
+          <Box>
+            <PremiumTooltip
+              tipPosition="left"
+              commercialFeature="multi-armed-bandits"
+            >
+              <Tooltip
+                body="You don't have permission to add bandits in this project."
+                shouldDisplay={hasMultiArmedBanditFeature && !canAdd}
+              >
+                <Button
+                  onClick={() => {
+                    setOpenNewExperimentModal(true);
+                  }}
+                  disabled={!hasMultiArmedBanditFeature || !canAdd}
+                >
+                  Add Bandit
+                </Button>
+              </Tooltip>
+            </PremiumTooltip>
+          </Box>
+        </Flex>
+        <CustomMarkdown page={"experimentList"} />
+        {!hasExperiments ? (
+          <Box className="box" py="5" style={{ textAlign: "center" }}>
+            <Box style={{ maxWidth: 650, margin: "0 auto" }}>
+              <h1>Adaptively experiment with bandits.</h1>
+              <p className="">Run adaptive experiments with Bandits.</p>
+            </Box>
+            <Flex justify="center" pt="2" gap="3">
+              <LinkButton
+                href="/getstarted/experiment-guide"
+                variant="outline"
+                mr="4"
+              >
+                Setup Instructions
+              </LinkButton>
+              <PremiumTooltip
+                tipPosition="left"
+                popperStyle={{ top: 15 }}
+                commercialFeature="multi-armed-bandits"
+              >
+                <Tooltip
+                  body="You don't have permission to add bandits in this project."
+                  shouldDisplay={hasMultiArmedBanditFeature && !canAdd}
                 >
                   <Button
                     onClick={() => {
                       setOpenNewExperimentModal(true);
                     }}
-                    disabled={!hasMultiArmedBanditFeature}
+                    disabled={!hasMultiArmedBanditFeature || !canAdd}
                   >
                     Add Bandit
                   </Button>
-                </PremiumTooltip>
-              </div>
-            )}
-          </div>
-          <CustomMarkdown page={"experimentList"} />
-          {!hasExperiments ? (
-            <div className="box py-5 text-center">
-              <div className="mx-auto" style={{ maxWidth: 650 }}>
-                <h1>Adaptively experiment with bandits.</h1>
-                <p className="">Run adaptive experiments with Bandits.</p>
-              </div>
-              <div className="d-flex justify-content-center pt-2">
-                <LinkButton
-                  href="/getstarted/experiment-guide"
-                  variant="outline"
-                  mr="4"
-                >
-                  Setup Instructions
-                </LinkButton>
-                {canAdd && (
-                  <PremiumTooltip
-                    tipPosition="left"
-                    popperStyle={{ top: 15 }}
-                    commercialFeature="multi-armed-bandits"
-                  >
-                    <Button
-                      onClick={() => {
-                        setOpenNewExperimentModal(true);
-                      }}
-                      disabled={!hasMultiArmedBanditFeature}
-                    >
-                      Add Bandit
-                    </Button>
-                  </PremiumTooltip>
-                )}
-              </div>
-              <div className="mt-5">
-                <img
-                  src="/images/empty-states/bandits.png"
-                  alt="Bandits"
-                  style={{ width: "100%", maxWidth: "740px", height: "auto" }}
-                />
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="row align-items-center mb-3">
-                <div className="col-auto d-flex">
-                  {["running", "drafts", "stopped", "archived"].map(
-                    (tab, i) => {
-                      const active = tabs.includes(tab);
-
-                      if (tab === "archived" && !hasArchived) return null;
-
+                </Tooltip>
+              </PremiumTooltip>
+            </Flex>
+            <Box mt="5">
+              <img
+                src="/images/empty-states/bandits.png"
+                alt="Bandits"
+                style={{ width: "100%", maxWidth: "740px", height: "auto" }}
+              />
+            </Box>
+          </Box>
+        ) : (
+          <>
+            <Tabs
+              value={activeTab}
+              onValueChange={(value) => {
+                if (isBanditListTab(value)) setTab(value);
+              }}
+            >
+              <Box mb="3">
+                <TabsList>
+                  <TabsTrigger value="all">All Bandits</TabsTrigger>
+                  {(["running", "drafts", "stopped", "archived"] as const).map(
+                    (tabValue) => {
+                      if (tabValue === "archived" && !hasArchived) return null;
                       return (
-                        <button
-                          key={tab}
-                          className={clsx("border mb-0", {
-                            "badge-purple font-weight-bold": active,
-                            "text-secondary": !active,
-                            "rounded-left": i === 0,
-                            "rounded-right":
-                              tab === "archived" ||
-                              (tab === "stopped" && !hasArchived),
-                          })}
-                          style={{
-                            fontSize: "1em",
-                            opacity: active ? 1 : 0.8,
-                            padding: "6px 12px",
-                            backgroundColor: active ? "" : "var(--color-panel)",
-                          }}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            onToggleTab(tab)();
-                          }}
-                          title={
-                            active && tabs.length > 1
-                              ? `Hide ${tab} experiments`
-                              : active
-                                ? `Remove filter`
-                                : tabs.length === 0
-                                  ? `View only ${tab} experiments`
-                                  : `Include ${tab} experiments`
-                          }
-                        >
-                          <span className="mr-1">
-                            {tab.slice(0, 1).toUpperCase()}
-                            {tab.slice(1)}
-                          </span>
-                          {tab !== "archived" && (
-                            <span className="badge bg-white border text-dark mr-2">
-                              {tabCounts[tab] || 0}
+                        <TabsTrigger value={tabValue} key={tabValue}>
+                          {tabValue.slice(0, 1).toUpperCase()}
+                          {tabValue.slice(1)}
+                          {tabValue !== "archived" && (
+                            <span
+                              style={{
+                                marginLeft: "var(--space-2)",
+                                background: "var(--gray-3)",
+                                border: "1px solid var(--gray-6)",
+                                borderRadius: "var(--radius-2)",
+                                padding: "0 var(--space-2)",
+                                fontSize: "var(--font-size-1)",
+                                color: "var(--gray-11)",
+                              }}
+                            >
+                              {tabCounts[tabValue] || 0}
                             </span>
                           )}
-                        </button>
+                        </TabsTrigger>
                       );
                     },
                   )}
-                </div>
-                <div className="col-auto">
+                </TabsList>
+              </Box>
+              <Flex gap="4" align="center" justify="between" mb="4" wrap="wrap">
+                <Box flexBasis="300px" flexShrink="0">
                   <Field
                     placeholder="Search..."
                     type="search"
                     {...searchInputProps}
                   />
-                </div>
-                <div className="col-auto">
-                  <TagsFilter filter={tagsFilter} items={items} />
-                </div>
-                <div className="col-auto ml-auto">
-                  <Switch
-                    id="my-experiments-toggle"
-                    label="My Bandits Only"
-                    value={showMineOnly}
-                    onChange={(value) => {
-                      setShowMineOnly(value);
-                    }}
-                  />
-                </div>
-              </div>
-
-              <table className="appbox table experiment-table gbtable responsive-table">
-                <thead>
-                  <tr>
-                    <th></th>
-                    <SortableTH field="name" className="w-100">
-                      Bandit
-                    </SortableTH>
-                    {showProjectColumn && (
-                      <SortableTH field="projectName">Project</SortableTH>
-                    )}
-                    <SortableTH field="tags">Tags</SortableTH>
-                    <SortableTH field="ownerName">Owner</SortableTH>
-                    <SortableTH field="date">Date</SortableTH>
-                    <SortableTH field="status">Status</SortableTH>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.slice(start, end).map((e) => {
-                    return (
-                      <tr key={e.id} className="hover-highlight">
-                        <td data-title="Watching status:" className="watching">
-                          <WatchButton
-                            item={e.id}
-                            itemType="experiment"
-                            type="icon"
-                          />
-                        </td>
-                        <td data-title="Bandit name:" className="p-0">
-                          <Link
-                            href={`/bandit/${e.id}`}
-                            className="d-block p-2"
-                          >
-                            <div className="d-flex flex-column">
-                              <div className="d-flex">
-                                <span className="testname">{e.name}</span>
-                                {e.hasVisualChangesets ? (
-                                  <Tooltip
-                                    className="d-flex align-items-center ml-2"
-                                    body="Visual experiment"
-                                  >
-                                    <RxDesktop className="text-blue" />
-                                  </Tooltip>
-                                ) : null}
-                                {(e.linkedFeatures || []).length > 0 ? (
-                                  <Tooltip
-                                    className="d-flex align-items-center ml-2"
-                                    body="Linked Feature Flag"
-                                  >
-                                    <BsFlag className="text-blue" />
-                                  </Tooltip>
-                                ) : null}
-                                {e.hasURLRedirects ? (
-                                  <Tooltip
-                                    className="d-flex align-items-center ml-2"
-                                    body="URL Redirect experiment"
-                                  >
-                                    <PiShuffle className="text-blue" />
-                                  </Tooltip>
-                                ) : null}
-                              </div>
-                              {isFiltered && e.trackingKey && (
-                                <span
-                                  className="testid text-muted small"
-                                  title="Experiment Id"
-                                >
-                                  {e.trackingKey}
-                                </span>
-                              )}
-                            </div>
-                          </Link>
-                        </td>
-                        {showProjectColumn && (
-                          <td className="nowrap" data-title="Project:">
-                            {e.projectIsDeReferenced ? (
-                              <Tooltip
-                                body={
-                                  <>
-                                    Project <code>{e.project}</code> not found
-                                  </>
-                                }
-                              >
-                                <span className="text-danger">
-                                  Invalid project
-                                </span>
-                              </Tooltip>
-                            ) : (
-                              (e.projectName ?? <em>None</em>)
-                            )}
-                          </td>
-                        )}
-
-                        <td data-title="Tags:" className="table-tags">
-                          <SortedTags
-                            tags={Object.values(e.tags)}
-                            useFlex={true}
-                            {...tagLinkProps("bandits")}
-                            onTagClick={tagFilterOnClick(
-                              searchInputProps.value,
-                              setSearchValue,
-                            )}
-                          />
-                        </td>
-                        <td className="nowrap" data-title="Owner:">
-                          {e.ownerName}
-                        </td>
-                        <td className="nowrap" title={datetime(e.date)}>
-                          {e.tab === "running"
-                            ? "started"
-                            : e.tab === "drafts"
-                              ? "created"
-                              : e.tab === "stopped"
-                                ? "ended"
-                                : e.tab === "archived"
-                                  ? "updated"
-                                  : ""}{" "}
-                          {date(e.date)}
-                        </td>
-                        <td className="nowrap" data-title="Status:">
-                          <ExperimentStatusIndicator experimentData={e} />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              {filtered.length > NUM_PER_PAGE && (
-                <Pagination
-                  numItemsTotal={filtered.length}
-                  currentPage={currentPage}
-                  perPage={NUM_PER_PAGE}
-                  onPageChange={setCurrentPage}
+                </Box>
+                <ExperimentSearchFilters
+                  searchInputProps={searchInputProps}
+                  syntaxFilters={syntaxFilters}
+                  setSearchValue={setSearchValue}
+                  experiments={allExperiments}
                 />
-              )}
-            </>
-          )}
-        </div>
-      </div>
+              </Flex>
+
+              <TabsContent value={activeTab}>
+                <ExperimentsListTable
+                  tab={activeTab}
+                  SortableTableColumnHeader={SortableTableColumnHeader}
+                  filtered={filtered}
+                  isFiltered={isFiltered}
+                  project={project}
+                  searchValue={searchInputProps.value}
+                  setSearchValue={setSearchValue}
+                  hrefBase="/bandit"
+                />
+              </TabsContent>
+            </Tabs>
+          </>
+        )}
+      </Box>
       {openNewExperimentModal && (
         <NewExperimentForm
           onClose={() => setOpenNewExperimentModal(false)}

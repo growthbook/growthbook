@@ -28,6 +28,14 @@ export const srm = z
   })
   .strict();
 
+export const noData = z
+  .object({
+    type: z.literal("no-data"),
+    experimentName: z.string(),
+    experimentId: z.string(),
+  })
+  .strict();
+
 export const scheduledStatusUpdateFailed = z
   .object({
     type: z.literal("scheduled-status-update-failed"),
@@ -47,6 +55,7 @@ export const experimentWarningNotificationPayload = z.union([
   autoUpdateFailed,
   multipleExposures,
   srm,
+  noData,
   scheduledStatusUpdateFailed,
 ]);
 

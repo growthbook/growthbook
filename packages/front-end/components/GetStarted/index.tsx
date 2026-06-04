@@ -11,7 +11,6 @@ import {
 import { PiArrowSquareOut, PiCaretDownFill } from "react-icons/pi";
 import { CommercialFeature } from "shared/enterprise";
 import router from "next/router";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { useGetStarted } from "@/services/GetStartedProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -26,7 +25,6 @@ import {
 } from "@/components/GetStarted/FeaturedCards";
 import DocumentationSidebar from "@/components/GetStarted/DocumentationSidebar";
 import YouTubeLightBox from "@/components/GetStarted/YoutubeLightbox";
-import OverviewCard from "@/components/GetStarted/OverviewCard";
 import WorkspaceLinks from "@/components/GetStarted/WorkspaceLinks";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
@@ -39,8 +37,8 @@ import AdvancedFeaturesCard from "@/components/GetStarted/AdvancedFeaturesCard";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import FeatureModal from "@/components/Features/FeatureModal";
 import { isCloud } from "@/services/env";
+import { isExperimentationLeaning } from "@/services/onboarding";
 import { DocSection } from "@/components/DocLink";
-import { AppFeatures } from "@/types/app-features";
 import useApi from "@/hooks/useApi";
 
 type AdvancedFeature = (
@@ -127,7 +125,6 @@ const GetStartedAndHomePage = (): React.ReactElement => {
   const permissionsUtils = usePermissionsUtil();
   const { project } = useDefinitions();
   const { organization } = useUser();
-  const gb = useGrowthBook<AppFeatures>();
 
   const { data } = useApi<{ hasFeatures: boolean; hasExperiments: boolean }>(
     "/organization/feature-exp-usage",
@@ -155,15 +152,9 @@ const GetStartedAndHomePage = (): React.ReactElement => {
   const hasExperiments = data?.hasExperiments || false;
   const orgIsUsingFeatureOrExperiment = hasFeatures || hasExperiments;
 
-  const intentToExperiment =
-    organization?.demographicData?.ownerUsageIntents?.includes("experiments") ||
-    organization?.demographicData?.ownerUsageIntents?.length === 0 ||
-    !organization?.demographicData?.ownerUsageIntents; // If no intents, assume interest in experimentation
-
-  const showDataScientistView =
-    intentToExperiment &&
-    isCloud() &&
-    gb.isOn("experimentation-focused-onboarding");
+  const showDataScientistView = isExperimentationLeaning(
+    organization?.demographicData,
+  );
 
   const [showGettingStarted, setShowGettingStarted] = useState<boolean>(
     !orgIsUsingFeatureOrExperiment,
@@ -385,43 +376,6 @@ const GetStartedAndHomePage = (): React.ReactElement => {
                       </Link>{" "}
                       <PiArrowSquareOut />
                     </Callout>
-                  )}
-
-                  {!showDataScientistView && (
-                    <Box mb="6">
-                      <Box mb="3">
-                        <Text size="1" weight="bold">
-                          PRODUCT OVERVIEW
-                        </Text>
-                      </Box>
-
-                      <Flex
-                        direction={{ initial: "column", sm: "row" }}
-                        gap="4"
-                      >
-                        <OverviewCard
-                          imgUrl="/images/get-started/thumbnails/intro-to-growthbook.svg"
-                          hoverText="Launch Video Player"
-                          onClick={() => setShowVideoId("b4xUnDGRKRQ")}
-                          playTime={5}
-                          type="video"
-                        />
-
-                        <OverviewCard
-                          imgUrl="/images/get-started/thumbnails/quantile-metrics-blog.png"
-                          hoverText="View Blog Post"
-                          href="https://blog.growthbook.io/measuring-a-b-test-impacts-on-website-latency-using-quantile-metrics-in-growthbook/"
-                          type="link"
-                        />
-
-                        <OverviewCard
-                          imgUrl="/images/get-started/thumbnails/4.3-release.png"
-                          hoverText="View Blog Post"
-                          href="https://blog.growthbook.io/growthbook-version-4-3/"
-                          type="link"
-                        />
-                      </Flex>
-                    </Box>
                   )}
 
                   {showDataScientistView && (
