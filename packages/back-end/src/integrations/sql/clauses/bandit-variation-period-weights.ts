@@ -42,7 +42,7 @@ export function getBanditDates(
   // so they skip the multi-armed-bandit period weighting and run through the
   // same aggregation as a standard experiment. Short-circuit here so every
   // caller treats the CB path as "no bandit dates" without re-checking.
-  if (banditSettings?.banditIsContextual) {
+  if (banditSettings?.contextualBandit) {
     return undefined;
   }
   const historicalWeights = banditSettings?.historicalWeights;

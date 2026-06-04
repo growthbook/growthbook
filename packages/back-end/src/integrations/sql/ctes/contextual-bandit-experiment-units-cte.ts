@@ -42,7 +42,7 @@ export function getContextualBanditUnitsSqlConfig(
   settings: SnapshotMetricRequest,
 ): ContextualBanditUnitsSqlConfig | null {
   const bs = settings.banditSettings;
-  if (!bs?.banditIsContextual || !bs.targetingAttributeColumns?.length) {
+  if (!bs?.contextualBandit || !bs.targetingAttributeColumns?.length) {
     return null;
   }
   const aliases = getSafeTargetingSqlIdentifiers(bs.targetingAttributeColumns);

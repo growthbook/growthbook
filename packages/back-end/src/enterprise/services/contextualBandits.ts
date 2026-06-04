@@ -410,14 +410,13 @@ export function buildContextualBanditSnapshotSettings(
  * Translates the parallel-pipeline `ContextualBanditSnapshotSettings` into the
  * shape `SqlIntegration.getSnapshotMetricQuery` expects.
  *
- * Sets `banditSettings.banditIsContextual = true` and
+ * Sets `banditSettings.contextualBandit = true` and
  * `banditSettings.targetingAttributeColumns` so the contextual-bandit CTEs in
  * `contextual-bandit-experiment-units-cte.ts` fire on the warehouse side.
  *
- * The source of `banditIsContextual` is the CB snapshot doc — CB-typed
- * experiments no longer exist post-PR-8, so this flag is sourced
- * exclusively from the CB orchestrator and never from the experiment
- * interface.
+ * The flag is sourced exclusively from the CB orchestrator — CB-typed
+ * experiments no longer exist on the experiment interface, so there is
+ * no fallback path here.
  */
 export function buildSnapshotMetricRequestForCb(
   cbSnapshotSettings: ContextualBanditSnapshotSettings,
@@ -454,7 +453,7 @@ export function buildSnapshotMetricRequestForCb(
       stddev: DEFAULT_PROPER_PRIOR_STDDEV,
     },
     banditSettings: {
-      banditIsContextual: true,
+      contextualBandit: true,
       targetingAttributeColumns: cbSnapshotSettings.contextualAttributes,
       reweight: cbSnapshotSettings.reweight,
       decisionMetric,

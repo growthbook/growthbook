@@ -138,7 +138,7 @@ export function getExperimentFactMetricsQuery(
   // so they skip the multi-armed-bandit period weighting and run through the
   // same aggregation as a standard experiment (just with the attr_cb_* context
   // columns appended to the dimensions). `getBanditDates` returns undefined
-  // when `banditIsContextual` is set, which short-circuits the CB path here.
+  // when `contextualBandit` is set, which short-circuits the CB path here.
   const banditDates = getBanditDates(settings.banditSettings);
   const poolRegressionTheta =
     settings.banditSettings?.poolRegressionTheta !== false;

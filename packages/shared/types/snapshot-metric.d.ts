@@ -78,7 +78,7 @@ export interface SnapshotBanditSettings {
    * snapshots no longer flow through ExperimentInterface so this flag
    * is sourced exclusively from the CB orchestrator.
    */
-  banditIsContextual?: boolean;
+  contextualBandit?: boolean;
   /** Targeting attribute column aliases from the experiment's exposure query at snapshot time. */
   targetingAttributeColumns?: string[];
   /**

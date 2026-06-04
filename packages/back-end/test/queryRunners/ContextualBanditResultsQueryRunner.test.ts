@@ -444,7 +444,7 @@ describe("ContextualBanditResultsQueryRunner", () => {
       const callArgs = (integration.getSnapshotMetricQuery as jest.Mock).mock
         .calls[0][0];
       expect(callArgs.settings.experimentId).toBe("exp_1");
-      expect(callArgs.settings.banditSettings.banditIsContextual).toBe(true);
+      expect(callArgs.settings.banditSettings.contextualBandit).toBe(true);
       expect(
         callArgs.settings.banditSettings.targetingAttributeColumns,
       ).toEqual(["country"]);
