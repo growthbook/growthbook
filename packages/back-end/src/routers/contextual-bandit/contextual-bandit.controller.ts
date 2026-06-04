@@ -57,7 +57,21 @@ export async function getContextualBanditResults(
     context.permissions.throwPermissionError();
   }
 
-  const results = await getContextualBanditResultsForUi(context, experiment);
+  // The results helper takes a CB directly post-PR-8 Commit 2. The
+  // controller URL still carries an experiment id; resolve the paired
+  // CB before delegating.
+  const cb = await context.models.contextualBandits.getByExperimentId(
+    experiment.id,
+  );
+  if (!cb) {
+    res.status(200).json({
+      status: 200,
+      contextualBanditSnapshot: null,
+      latest: null,
+    });
+    return;
+  }
+  const results = await getContextualBanditResultsForUi(context, cb);
 
   res.status(200).json({
     status: 200,

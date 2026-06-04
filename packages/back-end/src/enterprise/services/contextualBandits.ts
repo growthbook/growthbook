@@ -1,4 +1,3 @@
-import { ExperimentInterface } from "shared/types/experiment";
 import type {
   SnapshotMetricRequest,
   SnapshotStatusSummary,
@@ -17,12 +16,9 @@ import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getSettingsForSnapshotMetrics } from "back-end/src/services/experiments";
-import {
-  getExperimentById,
-  getPayloadKeys,
-} from "back-end/src/models/ExperimentModel";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
+import { getPayloadKeysForContextualBandit } from "back-end/src/services/contextualBanditChanges";
 import { ContextualBanditResultsQueryRunner } from "back-end/src/enterprise/queryRunners/ContextualBanditResultsQueryRunner";
 import {
   ContextualBanditResult,
@@ -77,19 +73,19 @@ export function toContextualBanditSnapshotStatusSummary(
   };
 }
 
-/** Latest CBS run status + CBE stats payload for the experiment results UI. */
+/** Latest CBS run status + CBE stats payload for the CB results UI. */
 export async function getContextualBanditResultsForUi(
   context: ReqContext,
-  experiment: ExperimentInterface,
+  cb: ContextualBanditInterface,
 ): Promise<ContextualBanditResultsForUi> {
-  const phase = Math.max(0, experiment.phases.length - 1);
+  const phase = Math.max(0, cb.phases.length - 1);
   const [latestCbs, latestCbe] = await Promise.all([
-    context.models.contextualBanditSnapshots.getLatestForExperiment(
-      experiment.id,
+    context.models.contextualBanditSnapshots.getLatestForContextualBandit(
+      cb.id,
       phase,
     ),
-    context.models.contextualBanditEvents.getLatestForExperiment(
-      experiment.id,
+    context.models.contextualBanditEvents.getLatestForContextualBandit(
+      cb.id,
       phase,
     ),
   ]);
@@ -143,12 +139,8 @@ export async function runContextualBanditSnapshot(
     regressionAdjustmentEnabled,
   );
 
-  // The CBS collection still keys by experiment id during the decoupling
-  // window — Commit 2 re-keys it to `contextualBandit`. Use the FK while
-  // it exists; fall back to `cb.id` so a CB created post-decoupling (no
-  // FK) still gets a CBS row that survives the re-key migration.
   const cbs = await context.models.contextualBanditSnapshots.create({
-    experiment: cb.experiment ?? cb.id,
+    contextualBandit: cb.id,
     phase,
     status: "running",
     queries: [],
@@ -192,15 +184,23 @@ export async function runContextualBanditSnapshot(
   };
 }
 
-/** Derives stable leaf ids from per-leaf targeting conditions. */
+/**
+ * Derives stable leaf ids from per-leaf targeting conditions.
+ *
+ * The `seed` is mixed into `deriveContextId` to namespace ids per parent.
+ * Post-PR-8 the seed is the CB id; pre-decoupling it was the paired
+ * experiment id. Always pass the same seed used when reading existing
+ * `currentLeafWeights` off the CB doc so context-id matching stays
+ * internally consistent.
+ */
 export function leafWeightsFromContextualBanditResult(
-  experimentId: string,
+  seed: string,
   result: ContextualBanditResult,
 ): { contextId: string; weights: number[] }[] {
   return result.responses
     .filter((r) => r.updatedWeights != null && r.updatedWeights.length > 0)
     .map((r) => ({
-      contextId: deriveContextId(experimentId, r.context),
+      contextId: deriveContextId(seed, r.context),
       weights: r.updatedWeights!,
     }));
 }
@@ -208,7 +208,7 @@ export function leafWeightsFromContextualBanditResult(
 /** True when any leaf's updated weights differ from the current phase weights. */
 export function contextualBanditWeightsWereUpdated(
   result: ContextualBanditResult,
-  experimentId: string,
+  seed: string,
   currentLeafWeights: { contextId: string; weights: number[] }[],
 ): boolean {
   const currentByContext = Object.fromEntries(
@@ -219,7 +219,7 @@ export function contextualBanditWeightsWereUpdated(
     if (r.error || !r.updatedWeights?.length) {
       return false;
     }
-    const contextId = deriveContextId(experimentId, r.context);
+    const contextId = deriveContextId(seed, r.context);
     const current = currentByContext[contextId];
     if (!current) {
       return true;
@@ -252,32 +252,24 @@ export async function persistContextualBanditEvent(
   cbs: ContextualBanditSnapshotInterface,
   result: ContextualBanditResult,
 ): Promise<ContextualBanditEventInterface> {
-  const cb = await context.models.contextualBandits.getByExperimentId(
-    cbs.experiment,
+  const cb = await context.models.contextualBandits.getById(
+    cbs.contextualBandit,
   );
   if (!cb) {
-    throw new Error(`No CB doc for experiment ${cbs.experiment}`);
-  }
-
-  const experiment = await getExperimentById(context, cbs.experiment);
-  if (!experiment) {
-    throw new Error(`No experiment doc for ${cbs.experiment}`);
+    throw new Error(`No CB doc for ${cbs.contextualBandit}`);
   }
 
   const currentLeafWeights = cb.phases[cbs.phase]?.currentLeafWeights ?? [];
   const weightsWereUpdated = contextualBanditWeightsWereUpdated(
     result,
-    cbs.experiment,
+    cb.id,
     currentLeafWeights,
   );
-  const leafWeights = leafWeightsFromContextualBanditResult(
-    cbs.experiment,
-    result,
-  );
+  const leafWeights = leafWeightsFromContextualBanditResult(cb.id, result);
 
   // 1. Create CBE doc
   const cbe = await context.models.contextualBanditEvents.create({
-    experiment: cbs.experiment,
+    contextualBandit: cb.id,
     phase: cbs.phase,
     snapshotId: cbs.id,
     attributes: result.attributes,
@@ -295,16 +287,18 @@ export async function persistContextualBanditEvent(
     );
   }
 
-  // 3. Refresh SDK payload so live clients pick up the new weights
-  const payloadKeys = getPayloadKeys(context, experiment);
+  // 3. Refresh SDK payload so live clients pick up the new weights.
+  // Sourced from the CB's `linkedFeatures` (PR-3) — no experiment lookup
+  // needed.
+  const payloadKeys = getPayloadKeysForContextualBandit(context, cb);
   if (payloadKeys.length > 0) {
     queueSDKPayloadRefresh({
       context,
       payloadKeys,
       auditContext: {
-        event: "contextual-bandit.refresh",
-        model: "experiment",
-        id: cbs.experiment,
+        event: "contextualBandit.refresh",
+        model: "contextualBandit",
+        id: cb.id,
       },
     });
   }

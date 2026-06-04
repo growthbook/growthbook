@@ -1890,9 +1890,15 @@ const cbIdParam = z
   .object({ id: z.string().describe("The experiment id") })
   .strict();
 
+// PR-8 Commit 2: the legacy /experiments/:id/contextual-bandit/* routes
+// preserve wire-shape parity with the new /contextual-bandits/* routes,
+// which means they also expose `contextualBandit` (the parent CB id) on
+// snapshot/event objects instead of the pre-decoupling `experiment`
+// field. The whole router file is deleted in Commit 6.
+
 const cbSnapshotShape = z.object({
   id: z.string(),
-  experiment: z.string(),
+  contextualBandit: z.string(),
   phase: z.number(),
   status: z.enum(["pending", "running", "success", "error", "partial"]),
   weightsWereUpdated: z.boolean().optional(),
@@ -1903,7 +1909,7 @@ const cbSnapshotShape = z.object({
 
 const cbEventShape = z.object({
   id: z.string(),
-  experiment: z.string(),
+  contextualBandit: z.string(),
   phase: z.number(),
   snapshotId: z.string(),
   weightsWereUpdated: z.boolean(),

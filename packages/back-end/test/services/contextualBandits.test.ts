@@ -1,4 +1,3 @@
-import { ExperimentInterface } from "shared/types/experiment";
 import { ExposureQuery } from "shared/types/datasource";
 import {
   ContextualBanditInterface,
@@ -15,26 +14,26 @@ import {
   persistContextualBanditEvent,
   toContextualBanditSnapshotStatusSummary,
 } from "back-end/src/enterprise/services/contextualBandits";
-import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
+import { getPayloadKeysForContextualBandit } from "back-end/src/services/contextualBanditChanges";
 import { ContextualBanditResult } from "back-end/src/enterprise/services/contextualBanditStats";
-
-jest.mock("back-end/src/models/ExperimentModel", () => ({
-  getExperimentById: jest.fn(),
-  getPayloadKeys: jest
-    .fn()
-    .mockReturnValue([{ project: "", environment: "production" }]),
-}));
 
 jest.mock("back-end/src/services/features", () => ({
   queueSDKPayloadRefresh: jest.fn(),
 }));
 
-const getExperimentByIdMock = getExperimentById as jest.MockedFunction<
-  typeof getExperimentById
->;
+jest.mock("back-end/src/services/contextualBanditChanges", () => ({
+  getPayloadKeysForContextualBandit: jest
+    .fn()
+    .mockReturnValue([{ project: "", environment: "production" }]),
+}));
+
 const queueSDKPayloadRefreshMock =
   queueSDKPayloadRefresh as jest.MockedFunction<typeof queueSDKPayloadRefresh>;
+const getPayloadKeysForContextualBanditMock =
+  getPayloadKeysForContextualBandit as jest.MockedFunction<
+    typeof getPayloadKeysForContextualBandit
+  >;
 
 function makeCb(
   overrides: Partial<ContextualBanditInterface> = {},
@@ -44,7 +43,11 @@ function makeCb(
     organization: "org_1",
     dateCreated: new Date("2025-01-01T00:00:00Z"),
     dateUpdated: new Date("2025-01-01T00:00:00Z"),
+    // Legacy paired-experiment FK survives through PR-8 Commit 3.
     experiment: "exp_1",
+    project: "",
+    name: "CB 1",
+    trackingKey: "",
     datasourceId: "ds_1",
     exposureQueryId: "eq_1",
     contextualAttributes: ["country", "device"],
@@ -53,27 +56,15 @@ function makeCb(
     minUsersPerLeaf: 100,
     maxLeaves: 8,
     holdoutPercent: 0,
-    stickyBucketing: false,
+    disableStickyBucketing: false,
     canonicalFormVersion: 1,
-    phases: [
-      {
-        dateStarted: new Date("2025-01-02T00:00:00Z"),
-        dateEnded: null,
-        currentLeafWeights: [
-          { contextId: "ctx_catchall", weights: [0.5, 0.5] },
-        ],
-      },
-    ],
-    ...overrides,
-  } as ContextualBanditInterface;
-}
-
-function makeExperiment(
-  overrides: Partial<ExperimentInterface> = {},
-): ExperimentInterface {
-  return {
-    id: "exp_1",
-    organization: "org_1",
+    goalMetrics: ["met_g1"],
+    secondaryMetrics: ["met_s1"],
+    // CB has a real `guardrailMetrics` slot but the snapshot DTO must NOT
+    // surface it. Covered explicitly in the first test.
+    guardrailMetrics: ["met_guard"],
+    metricOverrides: [],
+    regressionAdjustmentEnabled: false,
     variations: [
       { id: "v0", name: "Control", key: "0", screenshots: [] },
       { id: "v1", name: "Treatment", key: "1", screenshots: [] },
@@ -81,17 +72,16 @@ function makeExperiment(
     phases: [
       {
         dateStarted: new Date("2025-01-02T00:00:00Z"),
+        dateEnded: null,
         variationWeights: [0.4, 0.6],
+        currentLeafWeights: [
+          { contextId: "ctx_catchall", weights: [0.5, 0.5] },
+        ],
       },
     ],
-    goalMetrics: ["met_g1"],
-    secondaryMetrics: ["met_s1"],
-    // CB must IGNORE this field — verified explicitly below.
-    guardrailMetrics: ["met_guard"],
-    metricOverrides: [],
-    type: "contextual-bandit",
+    linkedFeatures: [],
     ...overrides,
-  } as unknown as ExperimentInterface;
+  } as unknown as ContextualBanditInterface;
 }
 
 function makeExposureQuery(
@@ -117,7 +107,7 @@ function makeCbs(
     organization: "org_1",
     dateCreated: new Date(),
     dateUpdated: new Date(),
-    experiment: "exp_1",
+    contextualBandit: "cb_1",
     phase: 0,
     status: "running",
     runStarted: null,
@@ -160,18 +150,11 @@ function makeResult(
 }
 
 describe("buildContextualBanditSnapshotSettings", () => {
-  it("produces strict-valid settings with no `guardrailMetrics` even when the experiment has them", () => {
-    const cb = makeCb();
-    const exp = makeExperiment({ guardrailMetrics: ["met_guard"] });
+  it("produces strict-valid settings with no `guardrailMetrics` even when the CB has them", () => {
+    const cb = makeCb({ guardrailMetrics: ["met_guard"] });
     const eaq = makeExposureQuery();
 
-    const settings = buildContextualBanditSnapshotSettings(
-      cb,
-      exp,
-      0,
-      eaq,
-      false,
-    );
+    const settings = buildContextualBanditSnapshotSettings(cb, 0, eaq, false);
 
     expect(settings).not.toHaveProperty("guardrailMetrics");
     expect(settings).not.toHaveProperty("activationMetric");
@@ -198,8 +181,7 @@ describe("buildContextualBanditSnapshotSettings", () => {
 
   it("stores trackingKey separately from experimentId for warehouse SQL", () => {
     const settings = buildContextualBanditSnapshotSettings(
-      makeCb(),
-      makeExperiment({ trackingKey: "first_contextual_bandit" }),
+      makeCb({ trackingKey: "first_contextual_bandit" }),
       0,
       makeExposureQuery(),
       false,
@@ -211,8 +193,7 @@ describe("buildContextualBanditSnapshotSettings", () => {
 
   it("maps trackingKey to SnapshotMetricRequest.experimentId for SQL", () => {
     const cbSettings = buildContextualBanditSnapshotSettings(
-      makeCb(),
-      makeExperiment({ trackingKey: "first_contextual_bandit" }),
+      makeCb({ trackingKey: "first_contextual_bandit" }),
       0,
       makeExposureQuery(),
       false,
@@ -225,38 +206,31 @@ describe("buildContextualBanditSnapshotSettings", () => {
 
   it("falls back to CB.contextualAttributes when EAQ has no targeting columns", () => {
     const cb = makeCb({ contextualAttributes: ["plan_tier"] });
-    const exp = makeExperiment();
     const eaq = makeExposureQuery({ targetingAttributeColumns: undefined });
 
-    const settings = buildContextualBanditSnapshotSettings(
-      cb,
-      exp,
-      0,
-      eaq,
-      false,
-    );
+    const settings = buildContextualBanditSnapshotSettings(cb, 0, eaq, false);
 
     expect(settings.contextualAttributes).toEqual(["plan_tier"]);
   });
 
-  it("defaults variation weights to uniform when the experiment phase has none", () => {
-    const exp = makeExperiment({
-      phases: [
-        {
-          // Intentionally missing variationWeights.
-          dateStarted: new Date("2025-01-02T00:00:00Z"),
-        },
-      ] as unknown as ExperimentInterface["phases"],
+  it("defaults variation weights to uniform when the CB phase has none", () => {
+    const cb = makeCb({
       variations: [
         { id: "v0", name: "Control", key: "0", screenshots: [] },
         { id: "v1", name: "T1", key: "1", screenshots: [] },
         { id: "v2", name: "T2", key: "2", screenshots: [] },
-      ] as unknown as ExperimentInterface["variations"],
+      ] as unknown as ContextualBanditInterface["variations"],
+      phases: [
+        {
+          dateStarted: new Date("2025-01-02T00:00:00Z"),
+          dateEnded: null,
+          currentLeafWeights: [],
+        },
+      ] as unknown as ContextualBanditInterface["phases"],
     });
 
     const settings = buildContextualBanditSnapshotSettings(
-      makeCb(),
-      exp,
+      cb,
       0,
       makeExposureQuery(),
       false,
@@ -273,7 +247,6 @@ describe("buildContextualBanditSnapshotSettings", () => {
     const cb = makeCb({ treeModel: "some_legacy_value" });
     const settings = buildContextualBanditSnapshotSettings(
       cb,
-      makeExperiment(),
       0,
       makeExposureQuery(),
       false,
@@ -283,8 +256,7 @@ describe("buildContextualBanditSnapshotSettings", () => {
 
   it("threads CUPED into SQL settings without pooled theta", () => {
     const cbSettings = buildContextualBanditSnapshotSettings(
-      makeCb(),
-      makeExperiment({ regressionAdjustmentEnabled: true }),
+      makeCb({ regressionAdjustmentEnabled: true }),
       0,
       makeExposureQuery(),
       true,
@@ -301,6 +273,9 @@ describe("buildContextualBanditSnapshotSettings", () => {
 describe("persistContextualBanditEvent", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    getPayloadKeysForContextualBanditMock.mockReturnValue([
+      { project: "", environment: "production" },
+    ]);
   });
 
   it("creates a CBE with N leaves and patches CB phase weights to match", async () => {
@@ -311,7 +286,7 @@ describe("persistContextualBanditEvent", () => {
     const createCbeMock = jest.fn().mockResolvedValue({
       id: "cbe_1",
       organization: "org_1",
-      experiment: cbs.experiment,
+      contextualBandit: cb.id,
       phase: cbs.phase,
       snapshotId: cbs.id,
       attributes: result.attributes,
@@ -321,13 +296,13 @@ describe("persistContextualBanditEvent", () => {
       dateUpdated: new Date(),
     });
     const patchPhaseWeightsMock = jest.fn().mockResolvedValue(cb);
-    const getByExperimentIdMock = jest.fn().mockResolvedValue(cb);
+    const getByIdMock = jest.fn().mockResolvedValue(cb);
 
     const context = {
       org: { id: "org_1" },
       models: {
         contextualBandits: {
-          getByExperimentId: getByExperimentIdMock,
+          getById: getByIdMock,
           patchPhaseWeights: patchPhaseWeightsMock,
         },
         contextualBanditEvents: {
@@ -336,18 +311,14 @@ describe("persistContextualBanditEvent", () => {
       },
     } as unknown as ReqContext;
 
-    const experiment = makeExperiment();
-    getExperimentByIdMock.mockResolvedValueOnce(experiment);
-
     const cbe = await persistContextualBanditEvent(context, cbs, result);
 
     expect(cbe.id).toBe("cbe_1");
-    expect(getByExperimentIdMock).toHaveBeenCalledWith(cbs.experiment);
-    expect(getExperimentByIdMock).toHaveBeenCalledWith(context, cbs.experiment);
+    expect(getByIdMock).toHaveBeenCalledWith(cbs.contextualBandit);
 
     // CBE create payload mirrors the result.
     expect(createCbeMock).toHaveBeenCalledWith({
-      experiment: cbs.experiment,
+      contextualBandit: cb.id,
       phase: cbs.phase,
       snapshotId: cbs.id,
       attributes: result.attributes,
@@ -363,23 +334,26 @@ describe("persistContextualBanditEvent", () => {
     expect(cbIdArg).toBe(cb.id);
     expect(phaseArg).toBe(cbs.phase);
     expect(leafWeightsArg).toHaveLength(2);
+    // Seed for deriveContextId is the CB id post-PR-8 Commit 2 — matches
+    // the seed `persistContextualBanditEvent` uses internally and what
+    // the CB doc's `currentLeafWeights` are keyed by going forward.
     const expectedLeafWeights = leafWeightsFromContextualBanditResult(
-      cbs.experiment,
+      cb.id,
       result,
     );
     expect(leafWeightsArg).toEqual(expectedLeafWeights);
     expect(leafWeightsArg[0].contextId).toBe(
-      deriveContextId(cbs.experiment, { country: "US" }),
+      deriveContextId(cb.id, { country: "US" }),
     );
 
-    // SDK payload refresh fired with the CB-specific audit event.
+    // SDK payload refresh fired with the CB-native audit event.
     expect(queueSDKPayloadRefreshMock).toHaveBeenCalledWith(
       expect.objectContaining({
         context,
         auditContext: expect.objectContaining({
-          event: "contextual-bandit.refresh",
-          model: "experiment",
-          id: cbs.experiment,
+          event: "contextualBandit.refresh",
+          model: "contextualBandit",
+          id: cb.id,
         }),
       }),
     );
@@ -390,7 +364,7 @@ describe("persistContextualBanditEvent", () => {
       org: { id: "org_1" },
       models: {
         contextualBandits: {
-          getByExperimentId: jest.fn().mockResolvedValue(null),
+          getById: jest.fn().mockResolvedValue(null),
           patchPhaseWeights: jest.fn(),
         },
         contextualBanditEvents: { create: jest.fn() },
@@ -402,30 +376,42 @@ describe("persistContextualBanditEvent", () => {
     ).rejects.toThrow(/No CB doc/);
   });
 
-  it("throws when the experiment is missing", async () => {
+  it("skips the SDK payload refresh when there are no payload keys", async () => {
+    getPayloadKeysForContextualBanditMock.mockReturnValueOnce([]);
     const cb = makeCb();
     const context = {
       org: { id: "org_1" },
       models: {
         contextualBandits: {
-          getByExperimentId: jest.fn().mockResolvedValue(cb),
-          patchPhaseWeights: jest.fn(),
+          getById: jest.fn().mockResolvedValue(cb),
+          patchPhaseWeights: jest.fn().mockResolvedValue(cb),
         },
-        contextualBanditEvents: { create: jest.fn() },
+        contextualBanditEvents: {
+          create: jest.fn().mockResolvedValue({
+            id: "cbe_1",
+            organization: "org_1",
+            contextualBandit: cb.id,
+            phase: 0,
+            snapshotId: "cbs_1",
+            attributes: [],
+            responses: [],
+            weightsWereUpdated: false,
+            dateCreated: new Date(),
+            dateUpdated: new Date(),
+          }),
+        },
       },
     } as unknown as ReqContext;
 
-    getExperimentByIdMock.mockResolvedValueOnce(null);
+    await persistContextualBanditEvent(context, makeCbs(), makeResult());
 
-    await expect(
-      persistContextualBanditEvent(context, makeCbs(), makeResult()),
-    ).rejects.toThrow(/No experiment doc/);
+    expect(queueSDKPayloadRefreshMock).not.toHaveBeenCalled();
   });
 });
 
 describe("getContextualBanditResultsForUi", () => {
   it("returns latest CBE payload and CBS status summary", async () => {
-    const experiment = makeExperiment();
+    const cb = makeCb();
     const cbs = {
       id: "cbs_1",
       status: "running",
@@ -452,15 +438,15 @@ describe("getContextualBanditResultsForUi", () => {
     const context = {
       models: {
         contextualBanditSnapshots: {
-          getLatestForExperiment: jest.fn().mockResolvedValue(cbs),
+          getLatestForContextualBandit: jest.fn().mockResolvedValue(cbs),
         },
         contextualBanditEvents: {
-          getLatestForExperiment: jest.fn().mockResolvedValue(cbe),
+          getLatestForContextualBandit: jest.fn().mockResolvedValue(cbe),
         },
       },
     } as unknown as ReqContext;
 
-    const results = await getContextualBanditResultsForUi(context, experiment);
+    const results = await getContextualBanditResultsForUi(context, cb);
 
     expect(results.contextualBanditSnapshot).toEqual({
       attributes: ["country"],

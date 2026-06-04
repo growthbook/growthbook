@@ -24,22 +24,31 @@ export const getContextualBanditEvent = createApiRequestHandler(
   }
   requireCBPermission(req.context, experiment, "read");
 
+  // PR-8 Commit 2: event collection is keyed by CB id now. Deleted with
+  // this whole file in Commit 6.
+  const cb = await req.context.models.contextualBandits.getByExperimentId(
+    experiment.id,
+  );
+  if (!cb) {
+    throw new Error("No contextual bandit found for this experiment");
+  }
+
   const events =
-    await req.context.models.contextualBanditEvents.listForExperiment(
-      experiment.id,
-      experiment.phases.length - 1,
+    await req.context.models.contextualBanditEvents.listForContextualBandit(
+      cb.id,
+      cb.phases.length - 1,
       100,
     );
 
   const event = events.find((e) => e.id === req.params.eventId);
-  if (!event || event.experiment !== experiment.id) {
+  if (!event || event.contextualBandit !== cb.id) {
     throw new Error("Event not found");
   }
 
   return {
     event: {
       id: event.id,
-      experiment: event.experiment,
+      contextualBandit: event.contextualBandit,
       phase: event.phase,
       snapshotId: event.snapshotId,
       weightsWereUpdated: event.weightsWereUpdated,

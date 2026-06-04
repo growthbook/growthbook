@@ -4,14 +4,11 @@ import { loadCbForRead } from "./_shared";
 
 export const getCbCurrent = createApiRequestHandler(getCbCurrentValidator)(
   async (req) => {
-    const { cb, experiment } = await loadCbForRead(req.context, req.params.id);
-    if (!experiment) {
-      return { phaseWeights: [], latestEvent: null };
-    }
+    const { cb } = await loadCbForRead(req.context, req.params.id);
     const phase = cb.phases.length - 1;
     const latestCBE =
-      await req.context.models.contextualBanditEvents.getLatestForExperiment(
-        experiment.id,
+      await req.context.models.contextualBanditEvents.getLatestForContextualBandit(
+        cb.id,
         phase,
       );
     return {
@@ -19,7 +16,7 @@ export const getCbCurrent = createApiRequestHandler(getCbCurrentValidator)(
       latestEvent: latestCBE
         ? {
             id: latestCBE.id,
-            experiment: latestCBE.experiment,
+            contextualBandit: latestCBE.contextualBandit,
             phase: latestCBE.phase,
             snapshotId: latestCBE.snapshotId,
             weightsWereUpdated: latestCBE.weightsWereUpdated,

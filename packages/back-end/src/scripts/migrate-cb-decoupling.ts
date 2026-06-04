@@ -18,6 +18,14 @@
 //      revision's rules are updated. The wire-format SDK payload doesn't
 //      change — getFeatureDefinition already dual-reads both rule types.
 //
+//   3. Re-keys the contextual-bandit snapshot + event collections from
+//      the legacy `experiment` field to the new `contextualBandit`
+//      field, and unsets `experiment`. PR-8 Commit 2 collapses the two
+//      schemas down to a single `contextualBandit` FK, and the model
+//      class only reads/writes that field — operators MUST run this
+//      pass before deploying the Commit 2 code so existing docs stay
+//      readable.
+//
 // What this does NOT do
 // ---------------------
 //
@@ -71,6 +79,8 @@ const APPLY = process.argv.includes("--apply");
 const CB_COLLECTION = "contextualbandits";
 const FEATURE_COLLECTION = "features";
 const REVISION_COLLECTION = "featurerevisions";
+const CBS_COLLECTION = "contextualbanditsnapshots";
+const CBE_COLLECTION = "contextualbanditevents";
 
 type CBKey = Pick<
   ContextualBanditInterface,
@@ -263,6 +273,102 @@ async function migrateFeatureRules(): Promise<{
   };
 }
 
+/**
+ * Re-key CBS + CBE docs from `experiment` to `contextualBandit`. Looks
+ * up the paired CB id via the legacy `experiment` FK on the
+ * `contextualbandits` collection (which still carries it through PR-8
+ * Commit 3), copies the value into a new `contextualBandit` field on
+ * each snapshot/event doc, and unsets the old `experiment` field.
+ *
+ * Idempotent: docs whose `contextualBandit` is already set skip the
+ * lookup-and-write step.
+ */
+async function migrateSnapshotAndEventCollections(): Promise<{
+  snapshotsScanned: number;
+  snapshotsUpdated: number;
+  snapshotsOrphaned: number;
+  eventsScanned: number;
+  eventsUpdated: number;
+  eventsOrphaned: number;
+}> {
+  type LegacyKeyed = {
+    _id: unknown;
+    organization: string;
+    experiment?: string;
+    contextualBandit?: string;
+  };
+
+  // Cross-org experiment-id → CB-id map (CBs still carry the FK at this
+  // point; PR-8 Commit 3 drops it). Org-scoped so two different orgs
+  // that happen to share an experiment id don't cross-pollinate.
+  const cbDocs = await getCollection<CBKey>(CB_COLLECTION)
+    .find({ experiment: { $exists: true } })
+    .project<CBKey>({ id: true, organization: true, experiment: true })
+    .toArray();
+  const byOrg = new Map<string, Map<string, string>>();
+  for (const cb of cbDocs) {
+    if (!cb.experiment) continue;
+    if (!byOrg.has(cb.organization)) byOrg.set(cb.organization, new Map());
+    byOrg.get(cb.organization)!.set(cb.experiment, cb.id);
+  }
+
+  async function rekeyCollection(collectionName: string): Promise<{
+    scanned: number;
+    updated: number;
+    orphaned: number;
+  }> {
+    const collection = getCollection<LegacyKeyed>(collectionName);
+    // Only touch docs that still need the rekey — already-migrated docs
+    // (contextualBandit set) are skipped. Docs with neither field are
+    // skipped too; they're either future-shape inserts or corrupt.
+    const docs = await collection
+      .find({
+        experiment: { $exists: true },
+        contextualBandit: { $exists: false },
+      })
+      .project<LegacyKeyed>({
+        _id: true,
+        organization: true,
+        experiment: true,
+      })
+      .toArray();
+
+    let updated = 0;
+    let orphaned = 0;
+    for (const doc of docs) {
+      if (!doc.experiment) continue;
+      const cbId = byOrg.get(doc.organization)?.get(doc.experiment);
+      if (!cbId) {
+        orphaned++;
+        continue;
+      }
+      if (APPLY) {
+        await collection.updateOne(
+          { _id: doc._id },
+          {
+            $set: { contextualBandit: cbId },
+            $unset: { experiment: "" },
+          },
+        );
+      }
+      updated++;
+    }
+    return { scanned: docs.length, updated, orphaned };
+  }
+
+  const snap = await rekeyCollection(CBS_COLLECTION);
+  const evt = await rekeyCollection(CBE_COLLECTION);
+
+  return {
+    snapshotsScanned: snap.scanned,
+    snapshotsUpdated: snap.updated,
+    snapshotsOrphaned: snap.orphaned,
+    eventsScanned: evt.scanned,
+    eventsUpdated: evt.updated,
+    eventsOrphaned: evt.orphaned,
+  };
+}
+
 async function run() {
   await init();
 
@@ -278,6 +384,14 @@ async function run() {
   const ruleStats = await migrateFeatureRules();
   logger.info(
     `Feature rules: ${ruleStats.featuresUpdated}/${ruleStats.featuresScanned} features, ${ruleStats.revisionsUpdated}/${ruleStats.revisionsScanned} revisions would-be-rewritten (apply=${APPLY})`,
+  );
+
+  const rekey = await migrateSnapshotAndEventCollections();
+  logger.info(
+    `CB snapshots: ${rekey.snapshotsUpdated}/${rekey.snapshotsScanned} would-be-rekeyed, ${rekey.snapshotsOrphaned} orphaned (apply=${APPLY})`,
+  );
+  logger.info(
+    `CB events:    ${rekey.eventsUpdated}/${rekey.eventsScanned} would-be-rekeyed, ${rekey.eventsOrphaned} orphaned (apply=${APPLY})`,
   );
 
   if (!APPLY) {

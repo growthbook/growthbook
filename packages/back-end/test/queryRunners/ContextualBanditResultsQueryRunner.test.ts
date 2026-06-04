@@ -146,7 +146,7 @@ function makeCbsModel(
     organization: "org_1",
     dateCreated: new Date(),
     dateUpdated: new Date(),
-    experiment: "exp_1",
+    contextualBandit: "cb_1",
     phase: 0,
     status: "running",
     runStarted: null,
@@ -200,7 +200,7 @@ function makeContext(cb: ContextualBanditInterface): ReqContext {
         patchPhaseWeights: jest.fn().mockResolvedValue(cb),
       },
       contextualBanditEvents: {
-        getLatestForExperiment: jest.fn().mockResolvedValue(null),
+        getLatestForContextualBandit: jest.fn().mockResolvedValue(null),
         create: jest.fn().mockImplementation(async (payload) => ({
           id: "cbe_new",
           organization: "org_1",
@@ -341,7 +341,7 @@ describe("ContextualBanditResultsQueryRunner", () => {
       persistContextualBanditEventMock.mockResolvedValueOnce({
         id: "cbe_42",
         organization: "org_1",
-        experiment: "exp_1",
+        contextualBandit: "cb_1",
         phase: 0,
         snapshotId: "cbs_1",
         attributes: ["country"],

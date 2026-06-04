@@ -609,10 +609,11 @@ export const apiContextualBanditRefreshReturn = z.object({
 //
 // Wire shape parity with the legacy `/experiments/:id/contextual-bandit/*`
 // GET endpoints is intentional: customers migrating from the old paths see
-// identical response bodies. The `experiment` field on snapshot / event
-// objects still refers to the parent experiment id (the snapshot/event
-// collections key by experiment id under the hood) — that rename ships
-// with PR-8 alongside the FK drop.
+// identical response bodies — except for one explicit rename that PR-8
+// ships alongside the FK drop: snapshot / event responses now expose
+// `contextualBandit` (the parent CB id) instead of `experiment`. The
+// underlying collections are CB-keyed too; the legacy spelling was a
+// transitional remnant.
 
 const cbIdAndSnapshotParam = z
   .object({
@@ -634,7 +635,7 @@ const cbIdOnlyParam = z
 
 const cbSnapshotResponseShape = z.object({
   id: z.string(),
-  experiment: z.string(),
+  contextualBandit: z.string(),
   phase: z.number(),
   status: z.enum(["pending", "running", "success", "error", "partial"]),
   weightsWereUpdated: z.boolean().optional(),
@@ -645,7 +646,7 @@ const cbSnapshotResponseShape = z.object({
 
 const cbEventResponseShape = z.object({
   id: z.string(),
-  experiment: z.string(),
+  contextualBandit: z.string(),
   phase: z.number(),
   snapshotId: z.string(),
   weightsWereUpdated: z.boolean(),

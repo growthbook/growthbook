@@ -24,18 +24,28 @@ export const getContextualBanditSnapshot = createApiRequestHandler(
   }
   requireCBPermission(req.context, experiment, "read");
 
+  // PR-8 Commit 2: snapshot collection is now keyed by CB id, not by
+  // experiment id. The legacy route URL still carries an experiment id
+  // — resolve the paired CB before delegating, then verify the snapshot
+  // belongs to that CB. The whole file is deleted in Commit 6.
+  const cb = await req.context.models.contextualBandits.getByExperimentId(
+    experiment.id,
+  );
+  if (!cb) {
+    throw new Error("No contextual bandit found for this experiment");
+  }
   const snapshot =
     await req.context.models.contextualBanditSnapshots.getBySnapshotIdInOrg(
       req.params.snapshotId,
     );
-  if (!snapshot || snapshot.experiment !== experiment.id) {
+  if (!snapshot || snapshot.contextualBandit !== cb.id) {
     throw new Error("Snapshot not found");
   }
 
   return {
     snapshot: {
       id: snapshot.id,
-      experiment: snapshot.experiment,
+      contextualBandit: snapshot.contextualBandit,
       phase: snapshot.phase,
       status: snapshot.status,
       weightsWereUpdated: snapshot.weightsWereUpdated,

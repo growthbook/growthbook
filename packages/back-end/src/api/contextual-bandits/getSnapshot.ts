@@ -4,7 +4,7 @@ import { loadCbForRead } from "./_shared";
 
 export const getCbSnapshot = createApiRequestHandler(getCbSnapshotValidator)(
   async (req) => {
-    const { experiment } = await loadCbForRead(req.context, req.params.id);
+    const { cb } = await loadCbForRead(req.context, req.params.id);
     const snapshot =
       await req.context.models.contextualBanditSnapshots.getBySnapshotIdInOrg(
         req.params.snapshotId,
@@ -12,13 +12,13 @@ export const getCbSnapshot = createApiRequestHandler(getCbSnapshotValidator)(
     // Guard against cross-CB snapshot access: a customer with read
     // access to CB-A shouldn't fetch a snapshot belonging to CB-B by
     // guessing the snapshot id.
-    if (!snapshot || !experiment || snapshot.experiment !== experiment.id) {
+    if (!snapshot || snapshot.contextualBandit !== cb.id) {
       return req.context.throwNotFoundError();
     }
     return {
       snapshot: {
         id: snapshot.id,
-        experiment: snapshot.experiment,
+        contextualBandit: snapshot.contextualBandit,
         phase: snapshot.phase,
         status: snapshot.status,
         weightsWereUpdated: snapshot.weightsWereUpdated,

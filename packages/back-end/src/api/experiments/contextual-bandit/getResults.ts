@@ -28,8 +28,17 @@ export const getContextualBanditResults = createApiRequestHandler(
   }
   requireCBPermission(req.context, experiment, "read");
 
+  // PR-8 Commit 2: results helper takes a CB now. Deleted with this whole
+  // file in Commit 6.
+  const cb = await req.context.models.contextualBandits.getByExperimentId(
+    experiment.id,
+  );
+  if (!cb) {
+    return { contextualBanditSnapshot: null, latest: null };
+  }
+
   const { contextualBanditSnapshot, latest } =
-    await getContextualBanditResultsForUi(req.context, experiment);
+    await getContextualBanditResultsForUi(req.context, cb);
 
   return {
     contextualBanditSnapshot: contextualBanditSnapshot

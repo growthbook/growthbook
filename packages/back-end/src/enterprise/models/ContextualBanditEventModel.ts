@@ -1,4 +1,4 @@
-import { deriveContextId, getAffectedEnvsForExperiment } from "shared/util";
+import { deriveContextId } from "shared/util";
 import {
   ContextualBanditEventInterface,
   contextualBanditEventValidator,
@@ -14,7 +14,7 @@ const BaseClass = MakeModelClass({
     {
       fields: {
         organization: 1,
-        experiment: 1,
+        contextualBandit: 1,
         phase: 1,
         dateCreated: -1,
       },
@@ -26,77 +26,69 @@ const BaseClass = MakeModelClass({
 });
 
 export class ContextualBanditEventModel extends BaseClass {
-  // CBE docs are scoped to a parent experiment; delegate all RBAC to the
-  // parent. Missing parent → no-access (never default-allow).
-  protected canRead(doc: ContextualBanditEventInterface): boolean {
-    const { experiment } = this.getForeignRefs(doc, false);
-    if (!experiment) return false;
-    return this.context.permissions.canReadSingleProjectResource(
-      experiment.project,
-    );
+  // ACL is gated at the HTTP boundary; see the matching comment on
+  // ContextualBanditSnapshotModel for the rationale.
+  protected canRead(): boolean {
+    return true;
+  }
+  protected canCreate(): boolean {
+    return true;
+  }
+  protected canUpdate(): boolean {
+    return true;
+  }
+  protected canDelete(): boolean {
+    return true;
   }
 
-  private canWrite(doc: ContextualBanditEventInterface): boolean {
-    const { experiment } = this.getForeignRefs(doc, false);
-    if (!experiment) return false;
-    const envs = getAffectedEnvsForExperiment({
-      experiment,
-      orgEnvironments: this.context.org.settings?.environments || [],
-    });
-    return this.context.permissions.canRunExperiment(experiment, envs);
-  }
-
-  protected canCreate(doc: ContextualBanditEventInterface): boolean {
-    return this.canWrite(doc);
-  }
-  protected canUpdate(existing: ContextualBanditEventInterface): boolean {
-    return this.canWrite(existing);
-  }
-  protected canDelete(doc: ContextualBanditEventInterface): boolean {
-    const { experiment } = this.getForeignRefs(doc, false);
-    if (!experiment) return false;
-    return this.context.permissions.canDeleteExperiment(experiment);
-  }
-
-  public async getLatestForExperiment(
-    experiment: string,
+  public async getLatestForContextualBandit(
+    contextualBandit: string,
     phase: number,
   ): Promise<ContextualBanditEventInterface | null> {
     const results = await this._find(
-      { experiment, phase },
+      { contextualBandit, phase },
       { sort: { dateCreated: -1 }, limit: 1 },
     );
     return results[0] ?? null;
   }
 
-  public async listForExperiment(
-    experiment: string,
+  public async listForContextualBandit(
+    contextualBandit: string,
     phase: number,
     limit = 20,
   ): Promise<ContextualBanditEventInterface[]> {
     return this._find(
-      { experiment, phase },
+      { contextualBandit, phase },
       { sort: { dateCreated: -1 }, limit },
     );
   }
 
   public async getContextHistory(
-    experiment: string,
+    contextualBandit: string,
     phase: number,
     contextId: string,
   ): Promise<ContextualBanditEventInterface[]> {
-    const events = await this.listForExperiment(experiment, phase, 100);
+    const events = await this.listForContextualBandit(
+      contextualBandit,
+      phase,
+      100,
+    );
     return events.filter((e) =>
       e.responses.some(
-        (r) => deriveContextId(experiment, r.context) === contextId,
+        // `deriveContextId` is seeded with the CB id post-PR-8 (matches
+        // the seed used by `persistContextualBanditEvent` when writing
+        // these context ids in the first place).
+        (r) => deriveContextId(contextualBandit, r.context) === contextId,
       ),
     );
   }
 
-  public async deleteForExperiment(experiment: string): Promise<void> {
+  public async deleteForContextualBandit(
+    contextualBandit: string,
+  ): Promise<void> {
     await this._dangerousGetCollection().deleteMany({
       organization: this.context.org.id,
-      experiment,
+      contextualBandit,
     });
   }
 }

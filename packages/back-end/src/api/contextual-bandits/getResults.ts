@@ -5,12 +5,9 @@ import { loadCbForRead } from "./_shared";
 
 export const getCbResults = createApiRequestHandler(getCbResultsValidator)(
   async (req) => {
-    const { experiment } = await loadCbForRead(req.context, req.params.id);
-    if (!experiment) {
-      return { contextualBanditSnapshot: null, latest: null };
-    }
+    const { cb } = await loadCbForRead(req.context, req.params.id);
     const { contextualBanditSnapshot, latest } =
-      await getContextualBanditResultsForUi(req.context, experiment);
+      await getContextualBanditResultsForUi(req.context, cb);
     return {
       contextualBanditSnapshot: contextualBanditSnapshot
         ? {

@@ -5,20 +5,19 @@ import { loadCbForRead } from "./_shared";
 export const listCbSnapshots = createApiRequestHandler(
   listCbSnapshotsValidator,
 )(async (req) => {
-  const { cb, experiment } = await loadCbForRead(req.context, req.params.id);
-  if (!experiment) return { snapshots: [] };
+  const { cb } = await loadCbForRead(req.context, req.params.id);
   const phase = cb.phases.length - 1;
   const limit = req.query?.limit ?? 20;
   const snapshots =
-    await req.context.models.contextualBanditSnapshots.listForExperiment(
-      experiment.id,
+    await req.context.models.contextualBanditSnapshots.listForContextualBandit(
+      cb.id,
       phase,
       limit,
     );
   return {
     snapshots: snapshots.map((s) => ({
       id: s.id,
-      experiment: s.experiment,
+      contextualBandit: s.contextualBandit,
       phase: s.phase,
       status: s.status,
       weightsWereUpdated: s.weightsWereUpdated,

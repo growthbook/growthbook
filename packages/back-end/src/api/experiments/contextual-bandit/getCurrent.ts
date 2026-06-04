@@ -27,25 +27,30 @@ export const getContextualBanditCurrent = createApiRequestHandler(
   }
   requireCBPermission(req.context, experiment, "read");
 
+  // PR-8 Commit 2: event collection is keyed by CB id now. Deleted with
+  // this whole file in Commit 6.
   const cb = await req.context.models.contextualBandits.getByExperimentId(
     experiment.id,
   );
+  if (!cb) {
+    return { phaseWeights: [], latestEvent: null };
+  }
 
-  const phase = experiment.phases.length - 1;
+  const phase = cb.phases.length - 1;
   const latestCBE =
-    await req.context.models.contextualBanditEvents.getLatestForExperiment(
-      experiment.id,
+    await req.context.models.contextualBanditEvents.getLatestForContextualBandit(
+      cb.id,
       phase,
     );
 
-  const phaseWeights = cb?.phases[phase]?.currentLeafWeights;
+  const phaseWeights = cb.phases[phase]?.currentLeafWeights;
 
   return {
     phaseWeights: phaseWeights ?? [],
     latestEvent: latestCBE
       ? {
           id: latestCBE.id,
-          experiment: latestCBE.experiment,
+          contextualBandit: latestCBE.contextualBandit,
           phase: latestCBE.phase,
           snapshotId: latestCBE.snapshotId,
           weightsWereUpdated: latestCBE.weightsWereUpdated,
