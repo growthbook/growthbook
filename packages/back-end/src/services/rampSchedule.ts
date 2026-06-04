@@ -521,6 +521,8 @@ export function computeNextProcessAt(schedule: {
     }
     case "ready":
       return schedule.startDate ?? null;
+    case "paused":
+      return cutoff;
     default:
       return null;
   }
@@ -818,6 +820,63 @@ export async function advanceStep(
   const step = schedule.steps[nextStepIndex];
 
   if (!step) {
+    const now = new Date();
+    // All steps are done. If there's a future cutoffDate, apply end actions
+    // (so the rule reaches its final state, e.g. coverage 100%) but keep the
+    // schedule running so the cutoff-driven disable fires at the right time.
+    if (schedule.cutoffDate && schedule.cutoffDate > now) {
+      const effective = computeEffectivePatch(schedule, schedule.steps.length);
+
+      if (schedule.currentStepIndex < 0 && schedule.steps.length > 0) {
+        for (const target of schedule.targets) {
+          if (target.status !== "active" || target.entityType !== "feature") {
+            continue;
+          }
+          const existing = effective.get(target.id) ?? {
+            ruleId: target.ruleId ?? "",
+          };
+          effective.set(target.id, { ...existing, enabled: true });
+        }
+      }
+
+      const actionsToApply: RampStepAction[] = [...effective.entries()].map(
+        ([targetId, patch]) => ({
+          targetType: "feature-rule" as const,
+          targetId,
+          patch,
+        }),
+      );
+      if (actionsToApply.length > 0) {
+        await executeStepActions(
+          ctx,
+          schedule,
+          schedule.steps.length,
+          actionsToApply,
+        );
+      }
+
+      const pastEndIndex = schedule.steps.length;
+      const updated = await ctx.models.rampSchedules.updateById(schedule.id, {
+        currentStepIndex: pastEndIndex,
+        currentStepEnteredAt: now,
+        nextStepAt: null,
+        nextSnapshotAt: null,
+        nextProcessAt: computeNextProcessAt({
+          status: "running",
+          cutoffDate: schedule.cutoffDate,
+        }),
+        eventHistory: appendRampEvent(schedule, "step-advanced", {
+          stepIndex: pastEndIndex,
+          previousStepIndex: schedule.currentStepIndex,
+          status: "running",
+          previousStatus: schedule.status,
+        }),
+      });
+
+      await syncLinkedSafeRolloutForRampState(ctx, updated);
+      return updated;
+    }
+
     return completeRollout(ctx, schedule);
   }
 

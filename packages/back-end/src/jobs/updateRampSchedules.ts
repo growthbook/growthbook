@@ -160,14 +160,18 @@ export const advanceSingleRampSchedule = async (
       // via onActivatingRevisionPublished.
     }
 
-    if (current.status === "running") {
-      if (current.cutoffDate && current.cutoffDate <= now) {
-        await completeRollout(context, current, {
-          disableActiveTargets: true,
-        });
-        return;
-      }
+    if (
+      current.cutoffDate &&
+      current.cutoffDate <= now &&
+      ["running", "paused"].includes(current.status)
+    ) {
+      await completeRollout(context, current, {
+        disableActiveTargets: true,
+      });
+      return;
+    }
 
+    if (current.status === "running") {
       current = await ensureSafeRolloutForMonitoredRamp(context, current);
 
       const decision = await evaluateCurrentStep(context, current, now);

@@ -44,13 +44,20 @@ export async function evaluateCurrentStep(
 ): Promise<EvalDecision> {
   const step = schedule.steps[schedule.currentStepIndex];
   if (!step) {
-    // 0-step simple schedules (start/end date only) have no steps to advance
-    // through. Without this guard, returning "advance" causes advanceStep to
-    // see steps[0] === undefined and call completeRollout immediately —
-    // ignoring the configured cutoffDate entirely.
-    // Scoped to steps.length === 0 so multi-step ramps are never affected.
+    // No current step. This happens in two cases:
+    //  1. 0-step simple schedules at currentStepIndex -1 (no steps to run)
+    //  2. Multi-step ramps where currentStepIndex is past the last step
+    //     (all steps done, waiting for cutoffDate to fire the disable)
+    //
+    // In both cases, if there's a future cutoffDate we hold until it arrives.
+    // Without this guard, returning "advance" causes advanceStep → completeRollout,
+    // which would end the schedule without honoring the configured end date.
+    //
+    // Multi-step ramps at currentStepIndex -1 with steps still to run are NOT
+    // caught here: nextStepIndex 0 < steps.length, so the guard doesn't fire.
+    const nextStepIndex = schedule.currentStepIndex + 1;
     if (
-      schedule.steps.length === 0 &&
+      nextStepIndex >= schedule.steps.length &&
       schedule.cutoffDate &&
       schedule.cutoffDate > now
     ) {
