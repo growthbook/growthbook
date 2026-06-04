@@ -19516,13 +19516,9 @@ paths:
         schedule as `completed`, skipping any remaining steps.
 
 
-        Use this when you are confident the rollout is successful and want to
-        lock
+        Pass `disableRule: true` to also disable the linked rule (equivalent to
 
-        in the final traffic allocation without waiting. For a full traffic
-        revert
-
-        instead, use `/actions/rollback`.
+        the cutoff-date-driven completion).
       tags:
         - ramp-schedules
       parameters:
@@ -19532,6 +19528,16 @@ paths:
           description: ''
           schema:
             type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                disableRule:
+                  type: boolean
+              additionalProperties: false
       responses:
         '200':
           content:

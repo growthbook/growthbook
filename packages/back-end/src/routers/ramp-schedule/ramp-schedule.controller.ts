@@ -52,6 +52,7 @@ type ActionBody = {
   enabled?: boolean;
   monitoringMode?: "auto" | "manual";
   force?: boolean;
+  disableRule?: boolean;
 };
 
 function normalizeMonitoringConfig(
@@ -361,7 +362,12 @@ export const postRampScheduleAction = async (
           message: `Schedule is already in terminal status "${schedule.status}"`,
         });
       }
-      updated = await completeRollout(context, schedule);
+      {
+        const isSimple = schedule.steps.length === 0 && !!schedule.cutoffDate;
+        updated = await completeRollout(context, schedule, {
+          disableActiveTargets: req.body?.disableRule === true || isSimple,
+        });
+      }
       break;
 
     case "rollback": {
