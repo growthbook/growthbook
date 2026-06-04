@@ -506,6 +506,7 @@ export default function EventForwarder({
 }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [pauseResumeLoading, setPauseResumeLoading] = useState(false);
   const autoOpenedRef = useRef(false);
   const { apiCall } = useAuth();
   const { effectiveAccountPlan, subscription } = useUser();
@@ -628,7 +629,9 @@ export default function EventForwarder({
                 color={isReady ? "red" : undefined}
                 icon={isReady ? <PiPause /> : <PiPlay />}
                 iconPosition="left"
+                loading={pauseResumeLoading}
                 onClick={async () => {
+                  setPauseResumeLoading(true);
                   try {
                     await apiCall(
                       `/datasource/${dataSource.id}/event-forwarder/${action}`,
@@ -637,6 +640,8 @@ export default function EventForwarder({
                     await onRefresh();
                   } catch (e) {
                     setError(e instanceof Error ? e.message : "Action failed");
+                  } finally {
+                    setPauseResumeLoading(false);
                   }
                 }}
               >
