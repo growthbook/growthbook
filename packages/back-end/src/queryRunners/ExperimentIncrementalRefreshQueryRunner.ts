@@ -50,7 +50,11 @@ import {
   validateIncrementalPipeline,
 } from "back-end/src/enterprise/services/data-pipeline";
 import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
-import { chunkMetrics } from "back-end/src/services/experimentQueries/experimentQueries";
+import {
+  chunkMetrics,
+  groupMetricsByConversionWindowHours,
+} from "back-end/src/services/experimentQueries/experimentQueries";
+import { getExperimentEndDate } from "back-end/src/integrations/sql/dates/experiment-end-date";
 import {
   filterRegressionAdjustedMetrics,
   planMetricFanOut,
@@ -519,6 +523,11 @@ const startExperimentIncrementalRefreshQueries = async (
             {
               unitsTableFullName: unitsTableFullName,
               unitsMaxTimestamp: maxTimestamp,
+              // Records how current the materialized caches are, so read-only
+              // exploratory runs apply the same skipPartialData maturity cutoff
+              // as this main run (see getExperimentEndDate usage in the stats
+              // query partitioning).
+              lastRefreshTimestamp: params.incrementalRefreshStartTime,
               experimentSettingsHash:
                 getExperimentSettingsHashForIncrementalRefresh(
                   snapshotSettings,
@@ -934,52 +943,87 @@ const startExperimentIncrementalRefreshQueries = async (
     // only host one half of a cross-FT ratio skip this — those metrics'
     // stats are computed in the cross-FT pair pass below.
     if (sameFtMetrics.length > 0) {
-      // Match standard query runner behavior: quantiles only run overall
-      // stats (no pre-computed dimensions), regardless of requested
-      // dimensions.
-      const runOverallQuantileAnalysis = sameFtMetrics.some(quantileMetricType);
-      const dimensionsForPrecomputation =
-        org.settings?.disablePrecomputedDimensions || runOverallQuantileAnalysis
-          ? []
-          : eligibleDimensionsWithSlicesUnderMaxCells;
-
-      const statisticsQuery = await startQuery({
-        name: `statistics_${group.groupId}`,
-        displayTitle: `Compute Statistics ${sourceName}`,
-        query: integration.getIncrementalRefreshStatisticsQuery({
-          settings: snapshotSettings,
-          activationMetric: activationMetric,
-          factTableMap: params.factTableMap,
-          unitsSourceTableFullName: unitsTableFullName,
-          metrics: sameFtMetrics,
-          lastMaxTimestamp: existingSource?.maxTimestamp || null,
-          dimensionsForPrecomputation,
-          dimensionsForAnalysis: [],
-          metricSources: [
+      // When skipPartialData ("Exclude In-Progress Conversions") is on,
+      // partition this cache's metrics into separate statistics queries by
+      // conversion window, each with its own first_exposure_timestamp cutoff.
+      // Every metric in a query must share one cutoff because per-variation N
+      // is shared across the query. The caches stay untouched (window-agnostic);
+      // only the cheap read-time stats queries split. When the setting is off,
+      // this is a single query over all metrics with no cutoff (unchanged).
+      const statsBuckets = snapshotSettings.skipPartialData
+        ? Array.from(
+            groupMetricsByConversionWindowHours(sameFtMetrics).entries(),
+          ).map(([conversionWindowHours, bucketMetrics]) => ({
+            metrics: bucketMetrics,
+            maxFirstExposureTimestamp: getExperimentEndDate(
+              snapshotSettings,
+              conversionWindowHours,
+              params.incrementalRefreshStartTime,
+            ),
+            nameSuffix: `_cw${conversionWindowHours}`,
+          }))
+        : [
             {
-              factTableId: group.factTableId,
-              tableFullName: metricSourceTableFullName,
-              ...(anyMetricHasCuped && metricSourceCovariateTableFullName
-                ? { covariateTableFullName: metricSourceCovariateTableFullName }
-                : {}),
+              metrics: sameFtMetrics,
+              maxFirstExposureTimestamp: null,
+              nameSuffix: "",
             },
+          ];
+
+      for (const bucket of statsBuckets) {
+        // Match standard query runner behavior: quantiles only run overall
+        // stats (no pre-computed dimensions), regardless of requested
+        // dimensions.
+        const runOverallQuantileAnalysis =
+          bucket.metrics.some(quantileMetricType);
+        const dimensionsForPrecomputation =
+          org.settings?.disablePrecomputedDimensions ||
+          runOverallQuantileAnalysis
+            ? []
+            : eligibleDimensionsWithSlicesUnderMaxCells;
+
+        const statisticsQuery = await startQuery({
+          name: `statistics_${group.groupId}${bucket.nameSuffix}`,
+          displayTitle: `Compute Statistics ${sourceName}`,
+          query: integration.getIncrementalRefreshStatisticsQuery({
+            settings: snapshotSettings,
+            activationMetric: activationMetric,
+            factTableMap: params.factTableMap,
+            unitsSourceTableFullName: unitsTableFullName,
+            metrics: bucket.metrics,
+            lastMaxTimestamp: existingSource?.maxTimestamp || null,
+            maxFirstExposureTimestamp: bucket.maxFirstExposureTimestamp,
+            dimensionsForPrecomputation,
+            dimensionsForAnalysis: [],
+            metricSources: [
+              {
+                factTableId: group.factTableId,
+                tableFullName: metricSourceTableFullName,
+                ...(anyMetricHasCuped && metricSourceCovariateTableFullName
+                  ? {
+                      covariateTableFullName:
+                        metricSourceCovariateTableFullName,
+                    }
+                  : {}),
+              },
+            ],
+          }),
+          dependencies: [
+            insertMetricsSourceDataQuery.query,
+            ...(insertMetricCovariateDataQuery
+              ? [insertMetricCovariateDataQuery.query]
+              : []),
           ],
-        }),
-        dependencies: [
-          insertMetricsSourceDataQuery.query,
-          ...(insertMetricCovariateDataQuery
-            ? [insertMetricCovariateDataQuery.query]
-            : []),
-        ],
-        run: (query, setExternalId, queryMetadata) =>
-          integration.runIncrementalRefreshStatisticsQuery(
-            query,
-            setExternalId,
-            queryMetadata,
-          ),
-        queryType: "experimentIncrementalRefreshStatistics",
-      });
-      queries.push(statisticsQuery);
+          run: (query, setExternalId, queryMetadata) =>
+            integration.runIncrementalRefreshStatisticsQuery(
+              query,
+              setExternalId,
+              queryMetadata,
+            ),
+          queryType: "experimentIncrementalRefreshStatistics",
+        });
+        queries.push(statisticsQuery);
+      }
     }
   }
 
@@ -1011,64 +1055,92 @@ const startExperimentIncrementalRefreshQueries = async (
       ? []
       : eligibleDimensionsWithSlicesUnderMaxCells;
 
-    const crossStatsQuery = await startQuery({
-      name: `statistics_cross_${pipelineA.group.groupId}__${pipelineB.group.groupId}`,
-      displayTitle: `Compute Cross-Fact Statistics ${sourceName}`,
-      query: integration.getIncrementalRefreshStatisticsQuery({
-        settings: snapshotSettings,
-        activationMetric: activationMetric,
-        factTableMap: params.factTableMap,
-        unitsSourceTableFullName: unitsTableFullName,
-        metrics: subGroup.metrics.map((m) => m.metric),
-        // The earliest of the two caches' max timestamps gates which rows
-        // we can trust as fully populated. For simplicity we just pass
-        // null; the stats query reads whatever each cache holds and the
-        // ratio aggregation works regardless of catch-up state.
-        lastMaxTimestamp: null,
-        dimensionsForPrecomputation,
-        dimensionsForAnalysis: [],
-        // Cross-FT CUPED uses one covariate cache per pipeline — the
-        // numerator FT's cache carries `_value` covariates, the
-        // denominator FT's cache carries `_denominator_value` covariates,
-        // and the per-source covariate LEFT JOIN inside each
-        // `__joinedData{i}` picks the right side from each side's cache.
-        // Pipelines with no RA metrics omit `covariateTableFullName`.
-        metricSources: [
+    const crossFtMetrics = subGroup.metrics.map((m) => m.metric);
+    // Same window-partitioning as the same-FT pass: when skipPartialData is on,
+    // emit one stats query per conversion window (a single cross-FT pair can
+    // host ratio metrics with different windows), each with its own
+    // first_exposure_timestamp cutoff. Off => a single query, unchanged.
+    const statsBuckets = snapshotSettings.skipPartialData
+      ? Array.from(
+          groupMetricsByConversionWindowHours(crossFtMetrics).entries(),
+        ).map(([conversionWindowHours, bucketMetrics]) => ({
+          metrics: bucketMetrics,
+          maxFirstExposureTimestamp: getExperimentEndDate(
+            snapshotSettings,
+            conversionWindowHours,
+            params.incrementalRefreshStartTime,
+          ),
+          nameSuffix: `_cw${conversionWindowHours}`,
+        }))
+      : [
           {
-            factTableId: pipelineA.group.factTableId,
-            tableFullName: pipelineA.tableFullName,
-            ...(pipelineA.covariateTableFullName
-              ? { covariateTableFullName: pipelineA.covariateTableFullName }
-              : {}),
+            metrics: crossFtMetrics,
+            maxFirstExposureTimestamp: null,
+            nameSuffix: "",
           },
-          {
-            factTableId: pipelineB.group.factTableId,
-            tableFullName: pipelineB.tableFullName,
-            ...(pipelineB.covariateTableFullName
-              ? { covariateTableFullName: pipelineB.covariateTableFullName }
-              : {}),
-          },
+        ];
+
+    for (const bucket of statsBuckets) {
+      const crossStatsQuery = await startQuery({
+        name: `statistics_cross_${pipelineA.group.groupId}__${pipelineB.group.groupId}${bucket.nameSuffix}`,
+        displayTitle: `Compute Cross-Fact Statistics ${sourceName}`,
+        query: integration.getIncrementalRefreshStatisticsQuery({
+          settings: snapshotSettings,
+          activationMetric: activationMetric,
+          factTableMap: params.factTableMap,
+          unitsSourceTableFullName: unitsTableFullName,
+          metrics: bucket.metrics,
+          // The earliest of the two caches' max timestamps gates which rows
+          // we can trust as fully populated. For simplicity we just pass
+          // null; the stats query reads whatever each cache holds and the
+          // ratio aggregation works regardless of catch-up state.
+          lastMaxTimestamp: null,
+          maxFirstExposureTimestamp: bucket.maxFirstExposureTimestamp,
+          dimensionsForPrecomputation,
+          dimensionsForAnalysis: [],
+          // Cross-FT CUPED uses one covariate cache per pipeline — the
+          // numerator FT's cache carries `_value` covariates, the
+          // denominator FT's cache carries `_denominator_value` covariates,
+          // and the per-source covariate LEFT JOIN inside each
+          // `__joinedData{i}` picks the right side from each side's cache.
+          // Pipelines with no RA metrics omit `covariateTableFullName`.
+          metricSources: [
+            {
+              factTableId: pipelineA.group.factTableId,
+              tableFullName: pipelineA.tableFullName,
+              ...(pipelineA.covariateTableFullName
+                ? { covariateTableFullName: pipelineA.covariateTableFullName }
+                : {}),
+            },
+            {
+              factTableId: pipelineB.group.factTableId,
+              tableFullName: pipelineB.tableFullName,
+              ...(pipelineB.covariateTableFullName
+                ? { covariateTableFullName: pipelineB.covariateTableFullName }
+                : {}),
+            },
+          ],
+        }),
+        dependencies: [
+          pipelineA.insertQuery.query,
+          pipelineB.insertQuery.query,
+          ...(pipelineA.covariateInsertQuery
+            ? [pipelineA.covariateInsertQuery.query]
+            : []),
+          ...(pipelineB.covariateInsertQuery
+            ? [pipelineB.covariateInsertQuery.query]
+            : []),
         ],
-      }),
-      dependencies: [
-        pipelineA.insertQuery.query,
-        pipelineB.insertQuery.query,
-        ...(pipelineA.covariateInsertQuery
-          ? [pipelineA.covariateInsertQuery.query]
-          : []),
-        ...(pipelineB.covariateInsertQuery
-          ? [pipelineB.covariateInsertQuery.query]
-          : []),
-      ],
-      run: (query, setExternalId, queryMetadata) =>
-        integration.runIncrementalRefreshStatisticsQuery(
-          query,
-          setExternalId,
-          queryMetadata,
-        ),
-      queryType: "experimentIncrementalRefreshStatistics",
-    });
-    queries.push(crossStatsQuery);
+        run: (query, setExternalId, queryMetadata) =>
+          integration.runIncrementalRefreshStatisticsQuery(
+            query,
+            setExternalId,
+            queryMetadata,
+          ),
+        queryType: "experimentIncrementalRefreshStatistics",
+      });
+      queries.push(crossStatsQuery);
+    }
   }
   const runTrafficQuery = shouldRunHealthTrafficQuery({
     snapshotType: params.snapshotType,

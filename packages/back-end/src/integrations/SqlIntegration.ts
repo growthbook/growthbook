@@ -2715,6 +2715,19 @@ export default abstract class SqlIntegration
         })
         .join("\n");
 
+    // skipPartialData ("Exclude In-Progress Conversions"): restrict the analysis
+    // to units exposed early enough to have completed their conversion window.
+    // The runner partitions stats queries by conversion window, so every metric
+    // in this query shares one cutoff. Applied to `__experimentUnits` — the
+    // single source of users and per-variation N — so both N and metric values
+    // consistently exclude not-yet-mature units. Uses `toTimestamp` (no ms) to
+    // match the non-incremental skipPartialData filter in getExperimentFactMetricsQuery.
+    const firstExposureWhere = params.maxFirstExposureTimestamp
+      ? `WHERE e.first_exposure_timestamp <= ${this.getSqlDialect().toTimestamp(
+          params.maxFirstExposureTimestamp,
+        )}`
+      : "";
+
     // TODO(incremental-refresh): Handle activation metric in dimensions
     // like in getExperimentFactMetricsQuery
     // TODO(incremental-refresh): Validate with existing columns
@@ -2758,6 +2771,7 @@ export default abstract class SqlIntegration
           )`,
             )
             .join("\n")}
+          ${firstExposureWhere}
           GROUP BY
             e.${baseIdType}
       `
@@ -2766,7 +2780,8 @@ export default abstract class SqlIntegration
           , e.variation AS variation
           , e.first_exposure_timestamp AS first_exposure_timestamp
           ${nonUnitDimensionCols.map((d) => `, ${d.value} AS ${d.alias}`).join("")}
-        FROM ${params.unitsSourceTableFullName} e`
+        FROM ${params.unitsSourceTableFullName} e
+        ${firstExposureWhere}`
       })
       ${sources
         .map(

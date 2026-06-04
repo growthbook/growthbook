@@ -266,6 +266,29 @@ export function getFactMetricGroup(
     : "";
 }
 
+// Group fact metrics by their conversion-window hours (delay + window; 0 for
+// non-conversion windows). Used to partition statistics queries when
+// `skipPartialData` is enabled: every metric in a bucket shares the same
+// experiment end-date cutoff, so they can be analyzed in one query with a
+// single user-maturity filter on `first_exposure_timestamp`. Keyed on the same
+// value `getFactMetricGroup` uses for its `_cw` group-key suffix, so the two
+// stay consistent. Insertion order of metrics is preserved within each bucket.
+export function groupMetricsByConversionWindowHours(
+  metrics: FactMetricInterface[],
+): Map<number, FactMetricInterface[]> {
+  const groups = new Map<number, FactMetricInterface[]>();
+  metrics.forEach((metric) => {
+    const hours = getMaxHoursToConvert(false, [metric], null);
+    const existing = groups.get(hours);
+    if (existing) {
+      existing.push(metric);
+    } else {
+      groups.set(hours, [metric]);
+    }
+  });
+  return groups;
+}
+
 export interface GroupedMetrics {
   // Fact metrics grouped together or alone
   factMetricGroups: FactMetricInterface[][];

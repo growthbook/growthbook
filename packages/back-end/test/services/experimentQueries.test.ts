@@ -2,6 +2,7 @@ import { FactMetricInterface } from "shared/types/fact-table";
 import {
   chunkMetrics,
   getFactMetricGroup,
+  groupMetricsByConversionWindowHours,
   maxColumnsNeededForMetric,
 } from "back-end/src/services/experimentQueries/experimentQueries";
 import { MAX_METRICS_PER_QUERY } from "back-end/src/services/experimentQueries/constants";
@@ -688,6 +689,96 @@ describe("experimentQueries", () => {
           getFactMetricGroup(b, { skipPartialData: true }),
         );
       });
+    });
+  });
+
+  describe("groupMetricsByConversionWindowHours", () => {
+    const conversionWindow = (
+      windowValue: number,
+      windowUnit: "minutes" | "hours" | "days" | "weeks",
+      delayValue = 0,
+      delayUnit: "minutes" | "hours" | "days" | "weeks" = "hours",
+    ) => ({
+      type: "conversion" as const,
+      delayValue,
+      delayUnit,
+      windowValue,
+      windowUnit,
+    });
+
+    const metric = (
+      id: string,
+      windowSettings: FactMetricInterface["windowSettings"],
+    ) =>
+      factMetricFactory.build({
+        id,
+        metricType: "mean",
+        numerator: { factTableId: "ft_1" },
+        windowSettings,
+      });
+
+    it("groups metrics with the same conversion window into one bucket", () => {
+      const a = metric("a", conversionWindow(3, "days"));
+      const b = metric("b", conversionWindow(3, "days"));
+
+      const groups = groupMetricsByConversionWindowHours([a, b]);
+
+      expect(groups.size).toBe(1);
+      // 3 days = 72 hours
+      expect(groups.get(72)?.map((m) => m.id)).toEqual(["a", "b"]);
+    });
+
+    it("separates metrics with different conversion windows into different buckets", () => {
+      const a = metric("a", conversionWindow(3, "days")); // 72h
+      const b = metric("b", conversionWindow(7, "days")); // 168h
+
+      const groups = groupMetricsByConversionWindowHours([a, b]);
+
+      expect(groups.size).toBe(2);
+      expect(groups.get(72)?.map((m) => m.id)).toEqual(["a"]);
+      expect(groups.get(168)?.map((m) => m.id)).toEqual(["b"]);
+    });
+
+    it("groups equivalent windows expressed in different units together", () => {
+      const days = metric("days", conversionWindow(1, "days")); // 24h
+      const hours = metric("hours", conversionWindow(24, "hours")); // 24h
+
+      const groups = groupMetricsByConversionWindowHours([days, hours]);
+
+      expect(groups.size).toBe(1);
+      expect(groups.get(24)?.map((m) => m.id)).toEqual(["days", "hours"]);
+    });
+
+    it("buckets lookback and no-window metrics together under 0 hours", () => {
+      const noWindow = metric("none", {
+        type: "",
+        delayValue: 0,
+        delayUnit: "hours",
+        windowValue: 0,
+        windowUnit: "hours",
+      });
+      const lookback = metric("lookback", {
+        type: "lookback",
+        delayValue: 0,
+        delayUnit: "hours",
+        windowValue: 3,
+        windowUnit: "days",
+      });
+      const conversion = metric("conversion", conversionWindow(3, "days"));
+
+      const groups = groupMetricsByConversionWindowHours([
+        noWindow,
+        lookback,
+        conversion,
+      ]);
+
+      expect(groups.size).toBe(2);
+      expect(groups.get(0)?.map((m) => m.id)).toEqual(["none", "lookback"]);
+      expect(groups.get(72)?.map((m) => m.id)).toEqual(["conversion"]);
+    });
+
+    it("returns an empty map for no metrics", () => {
+      expect(groupMetricsByConversionWindowHours([]).size).toBe(0);
     });
   });
 });

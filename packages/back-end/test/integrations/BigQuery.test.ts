@@ -657,6 +657,83 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     expect(joinedPos).toBeGreaterThan(gridPos);
   });
 
+  describe("getIncrementalRefreshStatisticsQuery skipPartialData cutoff", () => {
+    const meanMetric = factMetricFactory.build({
+      id: "fact_mean_cw",
+      metricType: "mean",
+      numerator: {
+        factTableId: "ft_events",
+        column: "amount",
+        aggregation: "sum",
+      },
+    });
+
+    const baseParams = {
+      settings,
+      activationMetric: null,
+      dimensionsForPrecomputation: [],
+      dimensionsForAnalysis: [],
+      factTableMap,
+      metricSources: [
+        { factTableId: "ft_events", tableFullName: "proj.ds.metric_source" },
+      ],
+      unitsSourceTableFullName: "proj.ds.units",
+      metrics: [meanMetric],
+      lastMaxTimestamp: null,
+    };
+
+    it("filters __experimentUnits by first_exposure_timestamp when maxFirstExposureTimestamp is set", () => {
+      const sql = integration.getIncrementalRefreshStatisticsQuery({
+        ...baseParams,
+        maxFirstExposureTimestamp: new Date("2024-01-20T00:00:00Z"),
+      });
+
+      // The cutoff is applied as a read-time WHERE on the units cache.
+      expect(sql).toContain("first_exposure_timestamp <=");
+
+      // ...and it lives inside the __experimentUnits CTE, before the metric
+      // aggregation CTE — so it filters both per-variation N and metric values.
+      const unitsPos = sql.indexOf("__experimentUnits");
+      const filterPos = sql.indexOf("first_exposure_timestamp <=");
+      const aggPos = sql.indexOf("__metricDataAggregated");
+      expect(unitsPos).toBeGreaterThan(-1);
+      expect(filterPos).toBeGreaterThan(unitsPos);
+      expect(aggPos).toBeGreaterThan(filterPos);
+    });
+
+    it("omits the cutoff filter when maxFirstExposureTimestamp is not set", () => {
+      const sql = integration.getIncrementalRefreshStatisticsQuery(baseParams);
+      expect(sql).not.toContain("first_exposure_timestamp <=");
+    });
+
+    it("renders the provided cutoff value (different cutoffs => different SQL)", () => {
+      const early = integration.getIncrementalRefreshStatisticsQuery({
+        ...baseParams,
+        maxFirstExposureTimestamp: new Date("2024-01-10T00:00:00Z"),
+      });
+      const late = integration.getIncrementalRefreshStatisticsQuery({
+        ...baseParams,
+        maxFirstExposureTimestamp: new Date("2024-01-25T00:00:00Z"),
+      });
+      expect(early).toContain("first_exposure_timestamp <=");
+      expect(late).toContain("first_exposure_timestamp <=");
+      expect(early).not.toBe(late);
+    });
+
+    it("is deterministic for a fixed cutoff (no wall-clock drift)", () => {
+      const cutoff = new Date("2024-01-20T12:34:56Z");
+      const a = integration.getIncrementalRefreshStatisticsQuery({
+        ...baseParams,
+        maxFirstExposureTimestamp: cutoff,
+      });
+      const b = integration.getIncrementalRefreshStatisticsQuery({
+        ...baseParams,
+        maxFirstExposureTimestamp: cutoff,
+      });
+      expect(a).toBe(b);
+    });
+  });
+
   it("getExperimentFactMetricsQuery uses kll grid extraction and post-aggregation rank recovery for 'kll merge' event quantiles", () => {
     const prebuiltSketchMetric = factMetricFactory.build({
       id: "fact_eq_sketch_xp",

@@ -42,12 +42,13 @@ export async function validateIncrementalPipeline({
   incrementalRefreshModel: IncrementalRefreshInterface | null;
   analysisType: "main-update" | "main-fullRefresh" | "exploratory";
 }): Promise<void> {
-  if (snapshotSettings.skipPartialData) {
-    throw new Error(
-      "'Exclude In-Progress Conversions' is not supported for incremental refresh queries while in beta. Please select 'Include' in the Analysis Settings for Metric Conversion Windows.",
-    );
-  }
-
+  // "Exclude In-Progress Conversions" (skipPartialData) is supported via a
+  // read-time exposure cutoff in the statistics query — the runners partition
+  // stats queries by conversion window and pass `maxFirstExposureTimestamp`
+  // (see getIncrementalRefreshStatisticsQuery). It never affects materialization,
+  // so it is excluded from the cache-invalidation hash (hard-coded `false` in
+  // getExperimentSettingsHashForIncrementalRefresh below) — toggling it needs
+  // no full refresh.
   if (!integration.getSourceProperties().hasIncrementalRefresh) {
     throw new Error("Integration does not support incremental refresh queries");
   }
@@ -164,7 +165,14 @@ export function getExperimentSettingsHashForIncrementalRefresh(
     attributionModel: snapshotSettings.attributionModel,
     queryFilter: snapshotSettings.queryFilter,
     segment: snapshotSettings.segment,
-    skipPartialData: snapshotSettings.skipPartialData,
+    // skipPartialData ("Exclude In-Progress Conversions") only affects the
+    // read-time statistics query (the exposure cutoff in
+    // getIncrementalRefreshStatisticsQuery), never materialization — so it must
+    // not invalidate the cache. We hard-code `false` rather than dropping the
+    // key so the hash stays byte-identical to existing models (all built while
+    // skipPartialData was forced off): existing incremental experiments stay
+    // valid AND users can toggle the setting without forcing a full refresh.
+    skipPartialData: false,
     datasourceId: snapshotSettings.datasourceId,
     exposureQueryId: snapshotSettings.exposureQueryId,
     startDate: snapshotSettings.startDate,
