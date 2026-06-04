@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { isReadyForApproval, RampScheduleInterface } from "shared/validators";
-import { abbreviateAgo, datetime } from "shared/dates";
+import { abbreviateAgo, dateNoYear, datetime } from "shared/dates";
 import Badge from "@/ui/Badge";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import {
@@ -71,12 +71,15 @@ export default function RampScheduleBadge({
       : (statusLabels[rs.status] ??
         `Schedule ${getRampStatusLabel(rs).toLowerCase()}`);
 
+    const endAt = rs.cutoffDate ? new Date(rs.cutoffDate) : null;
+    const futureEnd = endAt && endAt > now;
+
     let timingLabel: string | null = null;
     if (preStart && futureStart) {
       timingLabel = `Starts ${abbreviateAgo(startAt)}`;
+    } else if (rs.status === "running" && futureEnd) {
+      timingLabel = `Disables ${dateNoYear(endAt)}`;
     }
-
-    const endAt = rs.cutoffDate ? new Date(rs.cutoffDate) : null;
     const tooltipRows: ReactNode[] = [];
     if (startAt) tooltipRows.push(dateRow("Starts", startAt));
     if (endAt) tooltipRows.push(dateRow("Disables", endAt));
@@ -108,11 +111,20 @@ export default function RampScheduleBadge({
   const pausedAt =
     rs.status === "paused" && rs.pausedAt ? new Date(rs.pausedAt) : null;
 
+  const endAt = rs.cutoffDate ? new Date(rs.cutoffDate) : null;
+  const futureEnd = endAt && endAt > now;
+  const allStepsDone =
+    rs.status === "running" &&
+    rs.steps.length > 0 &&
+    rs.currentStepIndex >= rs.steps.length;
+
   let timingLabel: string | null = null;
   const timingTooltipRows: ReactNode[] = [];
   if (preStart && futureStart) {
     timingLabel = `Starts ${abbreviateAgo(startAt)}`;
     timingTooltipRows.push(dateRow("Starts", startAt));
+  } else if (allStepsDone && futureEnd) {
+    timingLabel = `Disables ${dateNoYear(endAt)}`;
   }
   if (rs.cutoffDate) {
     timingTooltipRows.push(dateRow("Disables", new Date(rs.cutoffDate)));
@@ -131,9 +143,12 @@ export default function RampScheduleBadge({
     completed: "Ramp complete",
     "rolled-back": "Rolled back",
   };
-  const featureContextLabel = isReadyForApproval(rs)
+  let featureContextLabel = isReadyForApproval(rs)
     ? "Ramp needs approval"
     : (featureContextLabels[rs.status] ?? `Ramp ${baseLabel.toLowerCase()}`);
+  if (allStepsDone && futureEnd) {
+    featureContextLabel = "Ramp complete";
+  }
   const displayLabel = featureRuleContext ? featureContextLabel : baseLabel;
 
   const badge = (
