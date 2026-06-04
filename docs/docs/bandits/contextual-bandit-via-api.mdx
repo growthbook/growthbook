@@ -7,55 +7,57 @@ import CommercialFeature from '@site/src/components/CommercialFeature';
 
 <CommercialFeature feature="contextual-bandits" />
 
-This runbook walks through the full lifecycle of a Contextual Bandit experiment driven entirely from the REST API. Every step assumes you have a valid Personal Access Token or Secret Key with the `canRunExperiment` permission on the target project.
+This runbook walks through the full lifecycle of a Contextual Bandit driven entirely from the REST API. Every step assumes you have a valid Personal Access Token or Secret Key with the `canRunContextualBandit` permission on the target project.
 
-All endpoints below sit under the `/v1/experiments` namespace. See the [REST API reference](https://docs.growthbook.io/api) for the full schema.
+All endpoints below sit under the `/v1/contextual-bandits` namespace. See the [REST API reference](https://docs.growthbook.io/api) for the full schema.
 
 :::info
 Contextual Bandits are an Enterprise-only feature. Every endpoint below returns `402 Plan Does Not Allow` on Pro / Free plans.
 :::
 
-## 1. Create the experiment
+:::warning Breaking change in v1.5
+The legacy `/v1/experiments/:id/contextual-bandit/*` endpoints (refresh, results, current, snapshots, events, phase) were removed in v1.5 along with the `experimentType: "contextual-bandit"` value. Migrate any integrations that still call the experiment-nested routes to the CB-native `/v1/contextual-bandits/*` surface documented below — the wire shapes are the same, only the path prefix and id space (`cb_…` instead of `exp_cb_…`) changed.
+:::
 
-Use the standard experiment-create endpoint with `type: "contextual-bandit"`. Tracking-key uniqueness, datasource, exposure query, goal metric and variation list are all validated up front.
+## 1. Create the Contextual Bandit
 
 ```bash
-curl -X POST 'https://api.growthbook.io/api/v1/experiments' \
+curl -X POST 'https://api.growthbook.io/api/v1/contextual-bandits' \
   -H 'Authorization: Bearer YOUR_API_KEY' \
   -H 'Content-Type: application/json' \
   -d '{
     "name": "Homepage CTA bandit",
     "trackingKey": "homepage-cta-bandit",
-    "type": "contextual-bandit",
-    "datasourceId": "ds_abc",
+    "datasource": "ds_abc",
     "exposureQueryId": "logged_in_users",
     "hashAttribute": "user_id",
-    "goalMetric": "metric_signup",
+    "goalMetrics": ["metric_signup"],
     "variations": [
-      { "key": "control",  "name": "Control"  },
-      { "key": "treatment","name": "Treatment" }
+      { "key": "control",   "name": "Control"  },
+      { "key": "treatment", "name": "Treatment" }
     ],
+    "contextualAttributes": ["country", "device"],
     "project": "proj_a"
   }'
 ```
 
-The response includes the new experiment id (`exp_…`). The server provisions the matching ContextualBandit (`cb_…`) doc with one phase whose `currentLeafWeights` is empty until the first refresh.
+The response includes the new Contextual Bandit id (`cb_…`). The CB is provisioned in `status: "draft"` with one phase whose `currentLeafWeights` is empty until the first refresh.
 
-## 2. Start the experiment
+## 2. Start the Contextual Bandit
 
-Move the experiment out of `draft` so it is eligible for refresh. Optionally adjust the initial phase (date ranges, variation weights):
+Move the CB out of `draft` so it is eligible for refresh:
 
 ```bash
-curl -X POST 'https://api.growthbook.io/api/v1/experiments/exp_cb_xxx/start' \
+curl -X POST 'https://api.growthbook.io/api/v1/contextual-bandits/cb_xxx/start' \
   -H 'Authorization: Bearer YOUR_API_KEY'
 ```
 
 ## 3. Refresh — run a snapshot
 
-Triggers the contextual-bandit snapshot pipeline. The orchestrator builds frozen settings, opens a CBS doc, runs the warehouse query and the stats engine, and on success persists a ContextualBanditEvent (CBE) with the new per-leaf weights.
+Triggers the contextual-bandit snapshot pipeline. The orchestrator builds frozen settings, opens a ContextualBanditSnapshot (CBS) doc, runs the warehouse query and the stats engine, and on success persists a ContextualBanditEvent (CBE) with the new per-leaf weights.
 
 ```bash
-curl -X POST 'https://api.growthbook.io/api/v1/experiments/exp_cb_xxx/contextual-bandit/refresh' \
+curl -X POST 'https://api.growthbook.io/api/v1/contextual-bandits/cb_xxx/refresh' \
   -H 'Authorization: Bearer YOUR_API_KEY'
 ```
 
@@ -72,7 +74,7 @@ Response shape:
 Returns the same payload the GrowthBook UI uses to render the CB results table — the latest CBE stats plus a snapshot-status summary.
 
 ```bash
-curl 'https://api.growthbook.io/api/v1/experiments/exp_cb_xxx/contextual-bandit/results' \
+curl 'https://api.growthbook.io/api/v1/contextual-bandits/cb_xxx/results' \
   -H 'Authorization: Bearer YOUR_API_KEY'
 ```
 
@@ -107,63 +109,29 @@ Response (abbreviated):
 
 Use the companion endpoints for finer-grained inspection:
 
-- `GET /experiments/:id/contextual-bandit/snapshots` — list recent snapshot runs.
-- `GET /experiments/:id/contextual-bandit/snapshots/:snapshotId` — single snapshot status.
-- `GET /experiments/:id/contextual-bandit/events` — list CBE outputs (one per successful snapshot).
-- `GET /experiments/:id/contextual-bandit/events/:eventId` — single CBE.
-- `GET /experiments/:id/contextual-bandit/current` — current phase weights + the latest CBE id.
+- `GET /v1/contextual-bandits/:id/snapshots` — list recent snapshot runs.
+- `GET /v1/contextual-bandits/:id/snapshots/:snapshotId` — single snapshot status.
+- `GET /v1/contextual-bandits/:id/events` — list CBE outputs (one per successful snapshot).
+- `GET /v1/contextual-bandits/:id/events/:eventId` — single CBE.
+- `GET /v1/contextual-bandits/:id/current` — current phase weights + the latest CBE id.
 
-## 5. Override a phase
+## 5. Stop the Contextual Bandit
 
-You can manually override the per-leaf weights for the current phase. This is the operator escape hatch for "force these leaves to use these weights between refreshes".
-
-```bash
-curl -X PUT 'https://api.growthbook.io/api/v1/experiments/exp_cb_xxx/contextual-bandit/phase/0' \
-  -H 'Authorization: Bearer YOUR_API_KEY' \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "currentLeafWeights": [
-      { "contextId": "ctx_us", "weights": [0.5, 0.5] },
-      { "contextId": "ctx_ca", "weights": [0.3, 0.7] }
-    ]
-  }'
-```
-
-The endpoint validates `canRunExperiment` on the parent and rejects out-of-range phase indices. It returns the updated phase:
-
-```json
-{
-  "phase": {
-    "index": 0,
-    "dateStarted": "2026-05-29T12:00:00.000Z",
-    "dateEnded": null,
-    "currentLeafWeights": [
-      { "contextId": "ctx_us", "weights": [0.5, 0.5] },
-      { "contextId": "ctx_ca", "weights": [0.3, 0.7] }
-    ]
-  }
-}
-```
-
-The next SDK payload refresh picks up the new weights automatically.
-
-## 6. Stop the experiment
-
-When you're done, stop the experiment via the standard endpoint. A new phase can be started later if you want to compare against a different baseline:
+When you're done, stop the CB. A new phase can be started later if you want to compare against a different baseline:
 
 ```bash
-curl -X POST 'https://api.growthbook.io/api/v1/experiments/exp_cb_xxx/stop' \
-  -H 'Authorization: Bearer YOUR_API_KEY' \
-  -H 'Content-Type: application/json' \
-  -d '{ "winner": "treatment", "releasedVariationId": "var_treatment" }'
+curl -X POST 'https://api.growthbook.io/api/v1/contextual-bandits/cb_xxx/stop' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
 ```
 
 ## Permissions cheat sheet
 
-All CB endpoints delegate RBAC to the parent experiment:
+Permissions are checked directly against the Contextual Bandit doc (CBs no longer delegate RBAC to a paired experiment):
 
-- **Read** (`GET results`, `GET current`, `GET snapshot(s)`, `GET event(s)`) — `canReadSingleProjectResource(experiment.project)`.
-- **Run** (`POST refresh`, `PUT phase/:i`) — `canRunExperiment(experiment, environments)`.
-- **Delete** — `canDeleteExperiment(experiment)`.
+- **Read** (`GET results`, `GET current`, `GET snapshot(s)`, `GET event(s)`, `GET /:id`, `GET /`) — `canReadSingleProjectResource(cb.project)`.
+- **Create** (`POST /`) — `canCreateContextualBandit({ project })`.
+- **Update** (`PUT /:id`) — `canUpdateContextualBandit(existing, updated)`.
+- **Run** (`POST refresh`, `POST start`, `POST stop`) — `canRunContextualBandit(cb, environments)`.
+- **Delete** (`DELETE /:id`) — `canDeleteContextualBandit(cb)`.
 
 Plan gate (`hasPremiumFeature("contextual-bandits")`) is checked first on every endpoint and short-circuits with `402` before any data access.
