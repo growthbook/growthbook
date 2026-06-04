@@ -6,6 +6,7 @@ import {
   useCallback,
   ReactNode,
 } from "react";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import {
   DataSourceInterfaceWithParams,
   SchemaFormat,
@@ -601,6 +602,7 @@ const NewDataSourceForm: FC<{
           <label>Description</label>
           <textarea
             className="form-control"
+            maxLength={MAX_DESCRIPTION_LENGTH}
             name="description"
             onChange={onChange}
             value={connectionInfo.description}

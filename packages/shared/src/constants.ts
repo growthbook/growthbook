@@ -56,6 +56,9 @@ export const NULL_VARIATION_VALUE = "__NULL_VARIATION";
 export const NULL_DIMENSION_DISPLAY = "NULL (unset)";
 export const PRECOMPUTED_DIMENSION_PREFIX = "precomputed:";
 export const MAX_PRECOMPUTED_UNIT_DIMENSIONS = 3;
+
+// Max length for entity description fields (features, experiments, metrics, etc.)
+export const MAX_DESCRIPTION_LENGTH = 10000;
 // Colors:
 // export const variant_null = "#999";
 // export const variant_0 = "#4f69ff";

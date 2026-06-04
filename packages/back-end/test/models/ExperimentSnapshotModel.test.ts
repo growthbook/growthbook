@@ -22,6 +22,7 @@ import { updateExperimentAnalysisSummary } from "back-end/src/services/experimen
 import { notifyExperimentChange } from "back-end/src/services/experimentNotifications";
 import { updateExperimentTimeSeries } from "back-end/src/services/experimentTimeSeries";
 import { runEagerExperimentAndUnitDimensionsAnalyses } from "back-end/src/services/experimentDimensionAnalyses";
+import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimentUpdateExecutionLogger";
 import { snapshotFactory } from "back-end/test/factories/Snapshot.factory";
 
 jest.mock("back-end/src/models/ExperimentModel", () => ({
@@ -759,6 +760,124 @@ describe("ExperimentSnapshotModel", () => {
           ]),
         }),
       });
+    });
+
+    it("logs experiment_updated for error snapshots without propagation side effects", async () => {
+      const info = jest.fn();
+      const context = getSnapshotUpdateContext();
+      context.logger = {
+        info,
+        warn: jest.fn(),
+        error: jest.fn(),
+        debug: jest.fn(),
+      } as never;
+
+      const snapshot = makeSnapshotWithMetric("snp_error_log");
+      snapshot.type = "standard";
+      await createExperimentSnapshotModel({ data: snapshot, context });
+
+      const executionLogger = new ExperimentUpdateExecutionLogger(
+        {
+          runnerKind: "results",
+          incrementalFallbackReason: null,
+          useCache: true,
+          fullRefresh: false,
+          fullRefreshReason: null,
+        },
+        {
+          experimentId: snapshot.experiment,
+          snapshotId: snapshot.id,
+          snapshotType: "standard",
+          triggeredBy: "schedule",
+          datasource: { id: "ds_1", type: "bigquery" } as never,
+        },
+      );
+
+      await updateSnapshot({
+        context,
+        id: snapshot.id,
+        updates: {
+          status: "error",
+          error: "Failed to run queries",
+        },
+        experimentUpdateExecutionLogger: executionLogger,
+      });
+
+      expect(getExperimentById).not.toHaveBeenCalled();
+      expect(updateExperimentAnalysisSummary).not.toHaveBeenCalled();
+      expect(info).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: "experiment_updated",
+          snapshotStatus: "error",
+          error: "Failed to run queries",
+          timingsMs: expect.objectContaining({
+            persistSnapshot: expect.any(Number),
+            propagateSnapshot: 0,
+          }),
+        }),
+        "Experiment update completed",
+      );
+    });
+
+    it("logs experiment_updated for exploratory success without propagation", async () => {
+      const info = jest.fn();
+      const context = getSnapshotUpdateContext();
+      context.logger = {
+        info,
+        warn: jest.fn(),
+        error: jest.fn(),
+        debug: jest.fn(),
+      } as never;
+
+      const snapshot = makeSnapshotWithMetric("snp_exploratory_log");
+      snapshot.type = "exploratory";
+      await createExperimentSnapshotModel({ data: snapshot, context });
+
+      const executionLogger = new ExperimentUpdateExecutionLogger(
+        {
+          runnerKind: "incremental-exploratory",
+          incrementalFallbackReason: null,
+          useCache: true,
+          fullRefresh: false,
+          fullRefreshReason: null,
+        },
+        {
+          experimentId: snapshot.experiment,
+          snapshotId: snapshot.id,
+          snapshotType: "exploratory",
+          triggeredBy: "manual",
+          datasource: { id: "ds_1", type: "bigquery" } as never,
+        },
+      );
+
+      await updateSnapshot({
+        context,
+        id: snapshot.id,
+        updates: {
+          status: "success",
+          analyses: [
+            makeAnalysis({
+              settings: makeAnalysisSettings(),
+              value: 10,
+            }),
+          ],
+        },
+        experimentUpdateExecutionLogger: executionLogger,
+      });
+
+      expect(updateExperimentAnalysisSummary).not.toHaveBeenCalled();
+      expect(info).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: "experiment_updated",
+          snapshotType: "exploratory",
+          snapshotStatus: "success",
+          timingsMs: expect.objectContaining({
+            persistSnapshot: expect.any(Number),
+            propagateSnapshot: 0,
+          }),
+        }),
+        "Experiment update completed",
+      );
     });
 
     it("passes populated chunked analyses to post-success side effects", async () => {

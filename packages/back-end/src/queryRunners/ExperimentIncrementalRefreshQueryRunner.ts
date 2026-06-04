@@ -178,6 +178,7 @@ export function getIncrementalRefreshMetricSources({
     });
   });
 
+  const sourceProps = integration.getSourceProperties();
   newBuckets.forEach((bucket, baseGroupId) => {
     const chunks = chunkMetrics({
       metrics: bucket.metrics.map((m) => {
@@ -191,8 +192,9 @@ export function getIncrementalRefreshMetricSources({
             snapshotSettings.regressionAdjustmentEnabled,
         };
       }),
-      maxColumnsPerQuery: integration.getSourceProperties().maxColumns,
+      maxColumnsPerQuery: sourceProps.maxColumns,
       isBandit: !!snapshotSettings.banditSettings,
+      efficientQuantileGrid: !!sourceProps.hasArrayQuantileGrid,
     });
     chunks.forEach((chunk, i) => {
       const randomId = Math.random().toString(36).substring(2, 15);
@@ -1201,6 +1203,12 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       analysisType: params.fullRefresh ? "main-fullRefresh" : "main-update",
     });
 
+    if (this.experimentUpdateExecutionLogger) {
+      this.experimentUpdateExecutionLogger.execution = {
+        incrementalRefreshMode: params.fullRefresh ? "full" : "incremental",
+      };
+    }
+
     return await startExperimentIncrementalRefreshQueries(
       this.context,
       params,
@@ -1345,6 +1353,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       context: this.context,
       id: this.model.id,
       updates,
+      experimentUpdateExecutionLogger: this.experimentUpdateExecutionLogger,
     });
     if (
       this.model.report &&

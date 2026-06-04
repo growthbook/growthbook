@@ -111,7 +111,9 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
       type: type,
       values: values || [],
       groupName: name,
-      owner: owner || "",
+      // Falls back to the authenticated user (only present for Personal Access
+      // Tokens) when no owner is provided, otherwise stays empty.
+      owner: owner || req.context.userId || "",
       condition: condition || "",
       attributeKey,
       projects,
