@@ -906,12 +906,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                             onClick={async () => {
                               await apiCall(
                                 `/ramp-schedule/${rampSchedule.id}/actions/complete`,
-                                {
-                                  method: "POST",
-                                  body: JSON.stringify({
-                                    disableRule: true,
-                                  }),
-                                },
+                                { method: "POST" },
                               );
                               await mutate();
                               setDropdownOpen(false);
@@ -1183,8 +1178,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                   </DropdownSubMenu>
                                 )}
                                 {(() => {
-                                  const isSimple =
-                                    rampSchedule.steps.length === 0;
                                   const hasCutoff = !!rampSchedule.cutoffDate;
                                   return (
                                     <>
@@ -1192,28 +1185,17 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                         onClick={async () => {
                                           await apiCall(
                                             `/ramp-schedule/${rampSchedule.id}/actions/complete`,
-                                            {
-                                              method: "POST",
-                                              body:
-                                                isSimple && hasCutoff
-                                                  ? JSON.stringify({
-                                                      disableRule: true,
-                                                    })
-                                                  : undefined,
-                                            },
+                                            { method: "POST" },
                                           );
                                           await mutate();
                                           setDropdownOpen(false);
                                         }}
                                       >
                                         <Flex align="center" gap="2">
-                                          <PiFastForward />{" "}
-                                          {isSimple && hasCutoff
-                                            ? "Complete schedule and disable"
-                                            : "Complete ramp"}
+                                          <PiFastForward /> Complete ramp
                                         </Flex>
                                       </DropdownMenuItem>
-                                      {!isSimple && hasCutoff && (
+                                      {hasCutoff && (
                                         <DropdownMenuItem
                                           onClick={async () => {
                                             await apiCall(

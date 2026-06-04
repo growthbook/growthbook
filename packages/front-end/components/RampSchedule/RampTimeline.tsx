@@ -997,11 +997,7 @@ export default function RampTimeline({
               isActive={getState(endNodeIndex) === "active"}
               rs={rs}
               onJump={onJump}
-              onComplete={hasDisableDate ? undefined : onComplete}
-              onCompleteAndDisable={
-                hasDisableDate ? onCompleteAndDisable : undefined
-              }
-              isDisableNode={hasDisableDate}
+              onComplete={onComplete}
               ctaLabelOverride={
                 hasDisableDate ? "Complete schedule and disable" : undefined
               }

@@ -195,8 +195,9 @@ export const completeRampSchedule = createApiRequestHandler({
     );
   }
 
+  const isSimple = schedule.steps.length === 0 && !!schedule.cutoffDate;
   const completed = await completeRollout(req.context, schedule, {
-    disableActiveTargets: req.body?.disableRule === true,
+    disableActiveTargets: req.body?.disableRule === true || isSimple,
   });
 
   return { rampSchedule: rampScheduleToApiInterface(completed) };
