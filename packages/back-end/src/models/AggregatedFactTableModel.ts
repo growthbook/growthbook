@@ -68,6 +68,7 @@ export class AggregatedFactTableModel extends BaseClass {
       factTableSettingsHash: null,
       metricState: [],
       currentExecutionId: null,
+      inFlightExecutionId: null,
       lastRunId: null,
       ...data,
     });
@@ -111,6 +112,7 @@ export class AggregatedFactTableModel extends BaseClass {
             lastEventDate: null,
             factTableSettingsHash: null,
             metricState: [],
+            inFlightExecutionId: null,
             lastRunId: null,
           },
         },

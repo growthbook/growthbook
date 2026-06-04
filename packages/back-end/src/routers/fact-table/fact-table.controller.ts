@@ -49,9 +49,15 @@ import {
 import { logger } from "back-end/src/util/logger";
 import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
 import {
+  getAggregatedFactTableMetrics,
   getNextAggregatedFactTableUpdate,
   runAggregatedFactTableUpdate,
 } from "back-end/src/jobs/updateAggregatedFactTables";
+import {
+  AggregatedFactTableRestateReason,
+  buildAggregatedFactTableSchemaState,
+  getAggregatedFactTableRestateReason,
+} from "back-end/src/enterprise/services/data-pipeline";
 
 export const getFactTables = async (
   req: AuthRequest,
@@ -472,6 +478,10 @@ type AggregatedFactTableStatus = {
   lastMaxTimestamp: Date | null;
   lastError: string | null;
   dateUpdated: Date | null;
+  // true when the table is materialized but the next scheduled run will be
+  // forced to rebuild it (schema changed, or a prior run didn't finish cleanly).
+  pendingRestate: boolean;
+  pendingRestateReason: AggregatedFactTableRestateReason;
 };
 
 export const getAggregatedFactTables = async (
@@ -494,6 +504,13 @@ export const getAggregatedFactTables = async (
     await context.models.aggregatedFactTables.getByFactTableId(factTable.id);
   const byIdType = new Map(registryDocs.map((doc) => [doc.idType, doc]));
 
+  // Build the same schema state the nightly driver would, so the UI can warn
+  // when the next run will be forced to restate. Read-only; no warehouse query.
+  const factMetrics = await context.models.factMetrics.getAll();
+  const metrics = getAggregatedFactTableMetrics({ factMetrics, factTable });
+  const { factTableSettingsHash, metricState } =
+    buildAggregatedFactTableSchemaState({ factTable, metrics });
+
   // One row per configured id type, even if it has never been materialized yet.
   const aggregatedFactTables: AggregatedFactTableStatus[] = idTypes.map(
     (idType) => {
@@ -507,6 +524,18 @@ export const getAggregatedFactTables = async (
             : doc.tableFullName
               ? "active"
               : "pending";
+
+      // Only meaningful for a materialized table that isn't mid-run; pending /
+      // running rows already rebuild (first run) or are in progress.
+      const pendingRestateReason: AggregatedFactTableRestateReason =
+        doc && status !== "running"
+          ? getAggregatedFactTableRestateReason({
+              registry: doc,
+              factTableSettingsHash,
+              metricState,
+            })
+          : null;
+
       return {
         idType,
         status,
@@ -516,6 +545,8 @@ export const getAggregatedFactTables = async (
         lastMaxTimestamp: doc?.lastMaxTimestamp ?? null,
         lastError: doc?.lastError ?? null,
         dateUpdated: doc?.dateUpdated ?? null,
+        pendingRestate: pendingRestateReason !== null,
+        pendingRestateReason,
       };
     },
   );

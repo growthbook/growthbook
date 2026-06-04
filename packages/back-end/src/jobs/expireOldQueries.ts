@@ -374,6 +374,11 @@ async function finalizeStuckAggregatedFactTableRun(
         currentExecutionId: null,
         lockHeartbeatAt: null,
         dateUpdated: now,
+        // Deliberately does NOT touch inFlightExecutionId: a reaped run may have
+        // committed an insert without durably advancing the watermark, so the
+        // marker must stay set to force the next run to restate instead of
+        // re-appending the same window (only an observed atomic insert failure
+        // or a durable watermark advance clears it).
       },
     },
   );

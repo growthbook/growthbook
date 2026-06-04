@@ -15,7 +15,14 @@ import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { getAgendaInstance } from "back-end/src/services/queueing";
 import { logger } from "back-end/src/util/logger";
-import { AggregatedFactTableQueryRunner } from "back-end/src/queryRunners/AggregatedFactTableQueryRunner";
+import {
+  AggregatedFactTableQueryRunner,
+  AggregatedFactTableRunMode,
+} from "back-end/src/queryRunners/AggregatedFactTableQueryRunner";
+import {
+  buildAggregatedFactTableSchemaState,
+  getAggregatedFactTableRestateReason,
+} from "back-end/src/enterprise/services/data-pipeline";
 
 const QUEUE_AGGREGATED_FACT_TABLE_UPDATES = "queueAggregatedFactTableUpdates";
 const UPDATE_SINGLE_AGGREGATED_FACT_TABLE = "updateSingleAggregatedFactTable";
@@ -115,7 +122,6 @@ export function getMetricsForAggregatedFactTable(
   factMetrics: FactMetricInterface[],
   factTableId: string,
 ): FactMetricInterface[] {
-  // TODO(aggregated-fact-tables): trim to metrics on this fact table that are also in the registry or on a draft/running experiment
   return factMetrics.filter((metric) => {
     const referencesFactTable =
       metric.numerator.factTableId === factTableId ||
@@ -123,6 +129,27 @@ export function getMetricsForAggregatedFactTable(
         metric.denominator?.factTableId === factTableId);
     return referencesFactTable;
   });
+}
+
+// The full flattened metric set the aggregated table materializes: base metrics
+// referencing the fact table plus their auto-slice variants. The nightly driver
+// and the status endpoint both use this so they agree on the schema state (and
+// therefore on drift verdicts).
+export function getAggregatedFactTableMetrics({
+  factMetrics,
+  factTable,
+}: {
+  factMetrics: FactMetricInterface[];
+  factTable: FactTableInterface;
+}): FactMetricInterface[] {
+  const baseMetrics = getMetricsForAggregatedFactTable(
+    factMetrics,
+    factTable.id,
+  );
+  return baseMetrics.flatMap((metric) => [
+    metric,
+    ...getAutoSliceMetrics({ metric, factTable }),
+  ]);
 }
 
 const updateSingleAggregatedFactTable = async (
@@ -199,14 +226,7 @@ export async function runAggregatedFactTableUpdate(
   }
 
   const factMetrics = await context.models.factMetrics.getAll();
-  const baseMetrics = getMetricsForAggregatedFactTable(
-    factMetrics,
-    factTable.id,
-  );
-  const metrics = baseMetrics.flatMap((metric) => [
-    metric,
-    ...getAutoSliceMetrics({ metric, factTable }),
-  ]);
+  const metrics = getAggregatedFactTableMetrics({ factMetrics, factTable });
   if (!metrics.length) {
     logger.info(
       `Skipping aggregated fact table update for ${factTable.id}/${idType}: no regression-adjusted fact metrics reference this fact table`,
@@ -251,14 +271,36 @@ export async function runAggregatedFactTableUpdate(
     "[aggregated-fact-table] lock acquired, starting query runner",
   );
 
-  const mode = forceRestate ? "restate" : "incremental";
-
   const registry = await context.models.aggregatedFactTables.getByKey(key);
   if (!registry) {
     // Lock acquired but the registry doc vanished; release it so the next run isn't blocked.
     await context.models.aggregatedFactTables.releaseLock(key, executionId);
     throw new Error(
       "Aggregated fact table registry doc missing after acquiring lock",
+    );
+  }
+
+  // Schema state this run will persist; also feeds drift detection below.
+  const { factTableSettingsHash, metricState } =
+    buildAggregatedFactTableSchemaState({ factTable, metrics });
+
+  // Resolve the effective mode here (the runner is a dumb executor of it). A
+  // never-materialized table, an explicit restate request, schema drift, or an
+  // incomplete prior write (in-flight marker still set) all force a full
+  // rebuild; otherwise we incrementally append.
+  const restateReason = getAggregatedFactTableRestateReason({
+    registry,
+    factTableSettingsHash,
+    metricState,
+  });
+  const mode: AggregatedFactTableRunMode =
+    forceRestate || !registry.tableFullName || restateReason !== null
+      ? "restate"
+      : "incremental";
+  if (restateReason) {
+    logger.info(
+      { factTableId: factTable.id, idType, restateReason },
+      "[aggregated-fact-table] forcing restate",
     );
   }
 
@@ -313,6 +355,17 @@ export async function runAggregatedFactTableUpdate(
 
   // Kick off the queries (submitted to the warehouse); returns before they finish.
   try {
+    // Mark the write in flight BEFORE submitting the insert so any committed
+    // insert is guaranteed to have a corresponding marker. The marker is cleared
+    // only once the watermark is durably advanced (coverage onSuccess /
+    // updateModel) or on an observed atomic insert failure; otherwise the next
+    // run sees it set and restates instead of double-appending.
+    await context.models.aggregatedFactTables.updateByKeyIfCurrentExecution(
+      key,
+      executionId,
+      { inFlightExecutionId: executionId },
+    );
+
     await runner.startAnalysis({
       factTable,
       idType,
@@ -320,6 +373,8 @@ export async function runAggregatedFactTableUpdate(
       mode,
       executionId,
       aggregatedFactTable: registry,
+      factTableSettingsHash,
+      metricState,
     });
   } catch (e) {
     await handleFailure(e);

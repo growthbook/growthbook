@@ -44,6 +44,10 @@ const aggregatedFactTable = z
     lockHeartbeatAt: z.date().nullable().optional(),
     lastError: z.string().nullable().optional(),
 
+    // In-flight write marker to force a restate if the insert succeeds
+    // without advancing the watermark.
+    inFlightExecutionId: z.string().nullable().optional(),
+
     lastRunId: z.string().nullable(),
   })
   .strict();

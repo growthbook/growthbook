@@ -1,4 +1,3 @@
-import { getAutoSliceMetrics } from "shared/experiments";
 import {
   AggregatedFactTableInterface,
   AggregatedFactTableMetricStateInterface,
@@ -10,11 +9,7 @@ import {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
-import {
-  getFactTableSettingsHashForAggregatedFactTable,
-  getMetricSettingsHashForAggregatedFactTable,
-} from "back-end/src/enterprise/services/data-pipeline";
-import { getColumnsForMetric } from "back-end/src/integrations/sql/fact-metrics/columns-for-metric";
+import { mergeAggregatedFactTableCoverage } from "back-end/src/enterprise/services/data-pipeline";
 import { AggregatedFactTableKey } from "back-end/src/models/AggregatedFactTableModel";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 
@@ -37,6 +32,10 @@ export type AggregatedFactTableQueryParams = {
   // Registry snapshot loaded by the worker; the runner reads prior
   // watermark/tableFullName and writes final coverage back when the run ends.
   aggregatedFactTable: AggregatedFactTableInterface;
+  // Schema state resolved by the driver (the runner does not recompute it); the
+  // insert onSuccess persists these onto the registry.
+  factTableSettingsHash: string;
+  metricState: AggregatedFactTableMetricStateInterface[];
 };
 
 export type AggregatedFactTableResult = {
@@ -107,6 +106,8 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
       mode,
       executionId,
       aggregatedFactTable,
+      factTableSettingsHash,
+      metricState,
     } = params;
     const integration = this.integration;
 
@@ -127,19 +128,12 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
         true,
       );
 
-    // A table that has never been materialized must always do a full restate.
-    const effectiveMode: AggregatedFactTableRunMode =
-      mode === "restate" || !aggregatedFactTable.tableFullName
-        ? "restate"
-        : mode;
-
     // TODO(aggregated-fact-tables): remove debug logging before merging
     this.context.logger.info(
       {
         factTableId: factTable.id,
         idType,
-        requestedMode: mode,
-        effectiveMode,
+        mode,
         tableFullName,
         existingTableFullName: aggregatedFactTable.tableFullName,
         lastMaxTimestamp: aggregatedFactTable.lastMaxTimestamp,
@@ -154,7 +148,7 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
     let dropQuery: QueryPointer | null = null;
     let createQuery: QueryPointer | null = null;
 
-    if (effectiveMode === "restate") {
+    if (mode === "restate") {
       dropQuery = await this.startQuery({
         name: "drop_aggregated_fact_table",
         displayTitle: `Drop Aggregated Fact Table (${factTable.name} / ${idType})`,
@@ -199,11 +193,11 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
       Date.now() - AGGREGATED_FACT_TABLE_MAX_RESTATE_DAYS * 24 * 60 * 60 * 1000,
     );
     const windowStartDate =
-      effectiveMode === "restate"
+      mode === "restate"
         ? restateWindowStart
         : (aggregatedFactTable.lastMaxTimestamp ?? restateWindowStart);
     const exclusiveStart =
-      effectiveMode === "incremental" && !!aggregatedFactTable.lastMaxTimestamp;
+      mode === "incremental" && !!aggregatedFactTable.lastMaxTimestamp;
 
     // TODO(aggregated-fact-tables): remove debug logging before merging
     this.context.logger.info(
@@ -214,26 +208,6 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
         exclusiveStart,
       },
       "[aggregated-fact-table] computed insert window",
-    );
-
-    const factTableSettingsHash =
-      getFactTableSettingsHashForAggregatedFactTable(factTable);
-    const metricState: AggregatedFactTableMetricStateInterface[] = metrics.map(
-      (metric) => ({
-        metricId: metric.id,
-        settingsHash: getMetricSettingsHashForAggregatedFactTable({
-          factMetric: metric,
-          factTableId: factTable.id,
-        }),
-        columns: getColumnsForMetric(metric, factTable.id),
-        slices: getAutoSliceMetrics({ metric, factTable }).map(
-          (sliceMetric) => ({
-            metricId: sliceMetric.id,
-            columns: getColumnsForMetric(sliceMetric, factTable.id),
-          }),
-        ),
-        builtAt: new Date(),
-      }),
     );
 
     const insertQuery = await this.startQuery({
@@ -281,6 +255,22 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
           );
         }
       },
+      onFailure: () => {
+        // An observed failure of INSERT means nothing committed
+        // (true for BigQuery/Snowflake/Redshift/Postgres). So we clear the
+        // in-flight marker: the next run can safely retry the same incremental
+        // window instead of rebuilding.
+        this.context.models.aggregatedFactTables
+          .updateByKeyIfCurrentExecution(this.getKey(), executionId, {
+            inFlightExecutionId: null,
+          })
+          .catch((e) =>
+            this.context.logger.warn(
+              e,
+              "Failed to clear aggregated fact table in-flight marker on insert failure",
+            ),
+          );
+      },
       queryType: "aggregatedFactTableInsertData",
     });
     queries.push(insertQuery);
@@ -298,6 +288,37 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
           setExternalId,
           queryMetadata,
         ),
+      onSuccess: async (rows) => {
+        // The watermark is durably advanced the instant coverage succeeds.
+        // The merge guard prevents a transient empty/unparseable read
+        // from regressing a non-null watermark and re-scanning the window.
+        const parsed = parseAggregatedFactTableCoverage(rows?.[0]);
+        const merged = mergeAggregatedFactTableCoverage(
+          {
+            lastMaxTimestamp: aggregatedFactTable.lastMaxTimestamp ?? null,
+            firstEventDate: aggregatedFactTable.firstEventDate ?? null,
+            lastEventDate: aggregatedFactTable.lastEventDate ?? null,
+          },
+          parsed,
+        );
+        const lockHeld =
+          await this.context.models.aggregatedFactTables.updateByKeyIfCurrentExecution(
+            this.getKey(),
+            executionId,
+            {
+              lastMaxTimestamp: merged.lastMaxTimestamp,
+              firstEventDate: merged.firstEventDate,
+              lastEventDate: merged.lastEventDate,
+              lastError: null,
+              inFlightExecutionId: null,
+            },
+          );
+        if (!lockHeld) {
+          this.context.logger.warn(
+            "Aggregated fact table execution lock lost during coverage success",
+          );
+        }
+      },
       queryType: "aggregatedFactTableMaxTimestamp",
     });
     queries.push(maxTimestampQuery);
@@ -396,6 +417,34 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
     // Registry is updated only when the run finishes: write final coverage/error,
     // point lastRunId at this run, and release the lock.
     if (isTerminal && executionId) {
+      // Backstop for the coverage onSuccess path: when we have a coverage result
+      // (success), persist the merged watermark and clear the in-flight marker
+      // (idempotent if onSuccess already did). On a failed terminal status there
+      // is no result, so we leave the marker untouched - only the targeted insert
+      // onFailure clears it on failure, so a crash / coverage failure / ambiguous
+      // commit still forces the next run to restate.
+      const coverageUpdates = result
+        ? (() => {
+            const merged = mergeAggregatedFactTableCoverage(
+              {
+                lastMaxTimestamp:
+                  this.params?.aggregatedFactTable.lastMaxTimestamp ?? null,
+                firstEventDate:
+                  this.params?.aggregatedFactTable.firstEventDate ?? null,
+                lastEventDate:
+                  this.params?.aggregatedFactTable.lastEventDate ?? null,
+              },
+              result,
+            );
+            return {
+              lastMaxTimestamp: merged.lastMaxTimestamp,
+              firstEventDate: merged.firstEventDate,
+              lastEventDate: merged.lastEventDate,
+              inFlightExecutionId: null,
+            };
+          })()
+        : {};
+
       const lockHeld =
         await this.context.models.aggregatedFactTables.updateByKeyIfCurrentExecution(
           this.getKey(),
@@ -403,13 +452,7 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
           {
             lastError: error ?? null,
             lastRunId: this.model.id,
-            ...(result
-              ? {
-                  lastMaxTimestamp: result.lastMaxTimestamp,
-                  firstEventDate: result.firstEventDate,
-                  lastEventDate: result.lastEventDate,
-                }
-              : {}),
+            ...coverageUpdates,
           },
         );
       if (!lockHeld) {

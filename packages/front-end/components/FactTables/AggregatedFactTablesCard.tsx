@@ -39,6 +39,11 @@ type AggregatedFactTableMaterializationStatus =
   | "pending"
   | "active";
 
+type AggregatedFactTableRestateReason =
+  | "schema-drift"
+  | "incomplete-write"
+  | null;
+
 type AggregatedFactTableStatus = {
   idType: string;
   status: AggregatedFactTableMaterializationStatus;
@@ -48,6 +53,18 @@ type AggregatedFactTableStatus = {
   lastMaxTimestamp: string | null;
   lastError: string | null;
   dateUpdated: string | null;
+  pendingRestate: boolean;
+  pendingRestateReason: AggregatedFactTableRestateReason;
+};
+
+const pendingRestateCopy: Record<
+  Exclude<AggregatedFactTableRestateReason, null>,
+  string
+> = {
+  "schema-drift":
+    "Metric or fact table configuration changed since this table was built. A full restate will run on the next scheduled update.",
+  "incomplete-write":
+    "A previous run did not finish cleanly. The next scheduled update will rebuild this table to avoid double-counting.",
 };
 
 const materializationStatusDisplay: Record<
@@ -322,6 +339,8 @@ export default function AggregatedFactTablesCard({ factTable }: Props) {
         lastMaxTimestamp: null,
         lastError: null,
         dateUpdated: null,
+        pendingRestate: false,
+        pendingRestateReason: null,
       },
   );
 
@@ -368,6 +387,17 @@ export default function AggregatedFactTablesCard({ factTable }: Props) {
                 {row.status === "error" && row.lastError && (
                   <Tooltip body={row.lastError}>
                     <span className="text-danger ml-2 small">(details)</span>
+                  </Tooltip>
+                )}
+                {row.pendingRestate && row.pendingRestateReason && (
+                  <Tooltip body={pendingRestateCopy[row.pendingRestateReason]}>
+                    <span className="ml-2">
+                      <Badge
+                        color="amber"
+                        variant="soft"
+                        label="Restate queued"
+                      />
+                    </span>
                   </Tooltip>
                 )}
               </td>
