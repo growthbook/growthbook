@@ -43,7 +43,25 @@ export async function evaluateCurrentStep(
   now: Date,
 ): Promise<EvalDecision> {
   const step = schedule.steps[schedule.currentStepIndex];
-  if (!step) return { action: "advance" };
+  if (!step) {
+    // For 0-step schedules (simple start/end date) waiting for a future
+    // cutoffDate, hold rather than advance — advancing a schedule with no
+    // remaining steps triggers completeRollout, which would end the schedule
+    // immediately instead of honoring the configured end date.
+    const nextStepIndex = schedule.currentStepIndex + 1;
+    if (
+      nextStepIndex >= schedule.steps.length &&
+      schedule.cutoffDate &&
+      schedule.cutoffDate > now
+    ) {
+      return {
+        action: "hold",
+        reason: "Waiting for scheduled end date",
+        nextProcessAt: schedule.cutoffDate,
+      };
+    }
+    return { action: "advance" };
+  }
 
   if (step.monitored) {
     const decision = await evaluateMonitoredStep(ctx, schedule, now);

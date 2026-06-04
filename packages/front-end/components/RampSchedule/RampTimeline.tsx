@@ -109,23 +109,24 @@ export function formatStepGateInline(
   return requiresApproval ? `${duration}, approval` : duration;
 }
 
-// Two-line ReactNode for a scheduled datetime; shows year only when it differs from current year.
+// Scheduled datetime label. Two-line by default (for node sublabels);
+// pass `inline` for single-line rendering in popovers.
 export function formatScheduledDate(
   d: Date | string,
-  { compact }: { compact?: boolean } = {},
+  { inline }: { inline?: boolean } = {},
 ): ReactNode {
   const parsed = new Date(d);
   const now = new Date();
   const sameYear = parsed.getFullYear() === now.getFullYear();
   const dateLine = format(parsed, sameYear ? "MMM d" : "MMM d, yyyy");
-  if (compact) {
+  const timeLine = format(parsed, "h:mm a");
+  if (inline) {
     return (
-      <div className={styles.scheduledDateLine}>
-        <Text size="small">{dateLine}</Text>
-      </div>
+      <Text size="small">
+        {dateLine}, {timeLine}
+      </Text>
     );
   }
-  const timeLine = format(parsed, "h:mm a");
   return (
     <>
       <div className={styles.scheduledDateLine}>
@@ -815,6 +816,9 @@ export default function RampTimeline({
   const showStartDate =
     !!startDate && (status === "pending" || status === "ready");
   const startSublabel = showStartDate ? formatScheduledDate(startDate!) : null;
+  const startInline = showStartDate
+    ? formatScheduledDate(startDate!, { inline: true })
+    : null;
   const nodes: NodeMeta[] = [
     {
       key: "start",
@@ -828,7 +832,7 @@ export default function RampTimeline({
           nodeState={getState(0)}
           status={status}
           interval={null}
-          triggerLabel={startSublabel}
+          triggerLabel={startInline}
           actions={rs.startActions ?? []}
           stepIndex="start"
           isActive={getState(0) === "active"}
@@ -920,7 +924,7 @@ export default function RampTimeline({
           {
             key: "end-cutoff",
             label: "disable",
-            sublabel: formatScheduledDate(rs.cutoffDate!, { compact: true }),
+            sublabel: formatScheduledDate(rs.cutoffDate!),
             popoverContent: (
               <NodePopoverContent
                 heading="Disable"
@@ -929,7 +933,9 @@ export default function RampTimeline({
                 nodeState={getState(cutoffIdx)}
                 status={status}
                 interval={null}
-                triggerLabel={formatScheduledDate(rs.cutoffDate!)}
+                triggerLabel={formatScheduledDate(rs.cutoffDate!, {
+                  inline: true,
+                })}
                 actions={[]}
                 stepIndex="end"
                 isActive={getState(cutoffIdx) === "active"}
@@ -949,9 +955,7 @@ export default function RampTimeline({
         {
           key: "end",
           label: hasDisableDate ? "disable" : "end",
-          sublabel: singleDate
-            ? formatScheduledDate(singleDate, { compact: true })
-            : null,
+          sublabel: singleDate ? formatScheduledDate(singleDate) : null,
           connectorLabel: lastStepConnector,
           popoverContent: (
             <NodePopoverContent
@@ -961,7 +965,11 @@ export default function RampTimeline({
               nodeState={getState(endNodeIndex)}
               status={status}
               interval={null}
-              triggerLabel={singleDate ? formatScheduledDate(singleDate) : null}
+              triggerLabel={
+                singleDate
+                  ? formatScheduledDate(singleDate, { inline: true })
+                  : null
+              }
               actions={rs.endActions ?? []}
               stepIndex="end"
               isActive={getState(endNodeIndex) === "active"}
