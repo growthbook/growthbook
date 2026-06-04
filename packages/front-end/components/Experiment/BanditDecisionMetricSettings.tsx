@@ -1,6 +1,7 @@
 import { useFormContext } from "react-hook-form";
 import { useEffect, useMemo, useRef } from "react";
 import { getMetricWindowHours } from "shared/experiments";
+import { isProjectListValidForProject } from "shared/util";
 import { MetricWindowSettings } from "shared/types/metric";
 import { Box, Grid } from "@radix-ui/themes";
 import clsx from "clsx";
@@ -62,10 +63,23 @@ export default function BanditDecisionMetricSettings({
 }: BanditDecisionMetricSettingsProps) {
   const form = useFormContext();
   const settings = useOrgSettings();
-  const { getExperimentMetricById } = useDefinitions();
+  const { getExperimentMetricById, factMetrics } = useDefinitions();
 
   const datasourceId = form.watch("datasource") ?? "";
   const exposureQueryId = form.watch("exposureQueryId");
+
+  // Contextual bandits require a fact metric as the decision metric. Surface a
+  // friendly message when the selected data source has no fact metrics to pick.
+  const hasFactMetricForDatasource = useMemo(() => {
+    if (!datasourceId) return true;
+    return factMetrics.some(
+      (m) =>
+        m.datasource === datasourceId &&
+        isProjectListValidForProject(m.projects, project),
+    );
+  }, [factMetrics, datasourceId, project]);
+  const showNoFactMetricsMessage =
+    contextualBandit && !!datasourceId && !hasFactMetricForDatasource;
 
   const goalMetricId = form.watch("goalMetrics")?.[0];
   const goalMetric = goalMetricId
@@ -202,6 +216,16 @@ export default function BanditDecisionMetricSettings({
     </Callout>
   );
 
+  if (showNoFactMetricsMessage) {
+    return (
+      <Callout status="info" my="2">
+        This data source has no fact metrics. Contextual bandits can only use a
+        fact metric as the decision metric, so create a fact metric for this
+        data source before continuing.
+      </Callout>
+    );
+  }
+
   return (
     <>
       <ExperimentMetricsSelector
@@ -210,6 +234,7 @@ export default function BanditDecisionMetricSettings({
         project={project}
         forceSingleGoalMetric={true}
         noQuantileGoalMetrics={true}
+        noLegacyMetrics={contextualBandit}
         requireDatasource={contextualBandit}
         goalMetricsDescription={
           contextualBandit && !datasourceId

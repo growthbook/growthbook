@@ -9,12 +9,25 @@ export type ContextualLeafMapEntryInterface = z.infer<
   typeof contextualLeafMapEntryValidator
 >;
 
+/** Aggregated per-leaf sample (data-only) statistics. */
+export const contextualLeafStatsEntryValidator = z.object({
+  leafId: z.number().int(),
+  sampleSizePerVariation: z.array(z.number()).nullable().optional(),
+  sampleMeans: z.array(z.number()).nullable().optional(),
+  sampleVariances: z.array(z.number()).nullable().optional(),
+});
+export type ContextualLeafStatsEntryInterface = z.infer<
+  typeof contextualLeafStatsEntryValidator
+>;
+
 /** One leaf-level contextual bandit response (mirrors gbstats `ContextualBanditResponse`). */
 export const contextualBanditResponseValidator = z.object({
   /** Targeting condition for this leaf, e.g. `{ country: { $in: ["US"] } }`. */
   context: z.record(z.string(), z.unknown()),
   sampleSizePerVariation: z.array(z.number()).nullable().optional(),
-  variationMeans: z.array(z.number()).nullable().optional(),
+  // Sample (data-only) means/variances, not posterior estimates.
+  sampleMeans: z.array(z.number()).nullable().optional(),
+  sampleVariances: z.array(z.number()).nullable().optional(),
   updatedWeights: z.array(z.number()).nullable().optional(),
   bestArmProbabilities: z.array(z.number()).nullable().optional(),
   updateMessage: z.string().nullable().optional(),
@@ -44,6 +57,8 @@ export const contextualBanditEventValidator = baseSchema
     responses: z.array(contextualBanditResponseValidator),
     /** Maps each observed context to its regression-tree leaf id (when tree model is used). */
     leaf_map: z.array(contextualLeafMapEntryValidator).optional(),
+    /** Aggregated per-leaf sample stats (when tree model is used). */
+    leaf_stats: z.array(contextualLeafStatsEntryValidator).optional(),
     /** True when arm weights were actually changed by this event. */
     weightsWereUpdated: z.boolean(),
   })

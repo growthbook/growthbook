@@ -7,7 +7,10 @@ import {
 } from "shared/types/datasource";
 import {
   formatInvalidTargetingAttributeColumnMessages,
+  formatMalformedTargetingAttributeColumnMessages,
   getInvalidTargetingAttributeColumnsForExposureQueries,
+  getMalformedTargetingAttributeColumnsForExposureQueries,
+  TARGETING_ATTRIBUTE_COLUMN_FORMAT_HELP,
   TARGETING_ATTRIBUTE_COLUMN_HELP_AFTER_SETTINGS_LINK,
   TARGETING_ATTRIBUTE_COLUMN_HELP_BEFORE_SETTINGS_LINK,
   TARGETING_ATTRIBUTE_COLUMN_SETTINGS_LINK_LABEL,
@@ -52,6 +55,25 @@ function targetingAttributeColumnsValidationError(columns: string[]): Error {
             {TARGETING_ATTRIBUTE_COLUMN_HELP_AFTER_SETTINGS_LINK}
           </div>
         </Fragment>
+      ))}
+    </Box>
+  );
+  return err;
+}
+
+function malformedTargetingAttributeColumnsValidationError(
+  columns: string[],
+): Error {
+  const unique = [...new Set(columns)];
+  const plain = formatMalformedTargetingAttributeColumnMessages(unique);
+  const err = new Error(plain);
+  (err as Error & { display?: React.ReactNode }).display = (
+    <Box>
+      {unique.map((col, i) => (
+        <div key={col} style={{ marginTop: i > 0 ? "var(--space-3)" : 0 }}>
+          &quot;{col}&quot; is not a valid column name.{" "}
+          {TARGETING_ATTRIBUTE_COLUMN_FORMAT_HELP}
+        </div>
       ))}
     </Box>
   );
@@ -153,17 +175,28 @@ export const AddEditExperimentAssignmentQueryModal: FC<
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     const value = composeExposureQueryPayload();
-    const invalid = isContextualBanditQuery
-      ? getInvalidTargetingAttributeColumnsForExposureQueries(attributeSchema, [
-          value,
-        ])
-      : [];
-    if (invalid.length > 0) {
-      // Must reject so Modal does not treat submit as success and auto-close
-      // (see Modal.tsx: await submit() then close when autoCloseOnSubmit).
-      throw targetingAttributeColumnsValidationError(
-        invalid.map((i) => i.column),
+    if (isContextualBanditQuery) {
+      // Format is a hard constraint (these columns are interpolated into SQL),
+      // so reject malformed identifiers before the membership check.
+      const malformed = getMalformedTargetingAttributeColumnsForExposureQueries(
+        [value],
       );
+      if (malformed.length > 0) {
+        // Must reject so Modal does not treat submit as success and auto-close
+        // (see Modal.tsx: await submit() then close when autoCloseOnSubmit).
+        throw malformedTargetingAttributeColumnsValidationError(
+          malformed.map((i) => i.column),
+        );
+      }
+      const invalid = getInvalidTargetingAttributeColumnsForExposureQueries(
+        attributeSchema,
+        [value],
+      );
+      if (invalid.length > 0) {
+        throw targetingAttributeColumnsValidationError(
+          invalid.map((i) => i.column),
+        );
+      }
     }
     await onSave(value);
 

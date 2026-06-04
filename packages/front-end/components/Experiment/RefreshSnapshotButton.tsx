@@ -40,11 +40,14 @@ const RefreshSnapshotButton: FC<{
 
   const refreshSnapshot = async () => {
     if (isContextualBanditExperiment(experiment)) {
+      // CB-backed experiments have no experiment doc behind `experiment.id`
+      // (it's a `cb_` id), so refresh goes through the CB-native REST endpoint
+      // rather than the legacy `/experiment/:id/contextual-bandit/refresh`
+      // route, which 404s with "Experiment not found".
       await apiCall<{
-        status: number;
         snapshotId: string;
         cbeId?: string;
-      }>(`/experiment/${experiment.id}/contextual-bandit/refresh`, {
+      }>(`/api/v1/contextual-bandits/${experiment.id}/refresh`, {
         method: "POST",
       });
       return;

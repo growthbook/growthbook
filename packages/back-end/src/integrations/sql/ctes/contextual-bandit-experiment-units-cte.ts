@@ -9,14 +9,17 @@ import {
 import type { SnapshotMetricRequest } from "shared/types/experiment-snapshot";
 import type { DimensionColumnData } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
+import {
+  formatMalformedTargetingAttributeColumnMessages,
+  isSafeSqlIdentifier,
+} from "shared/validators";
 
-const SAFE_SQL_IDENT = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
-
-export function appendContextualBanditTargetingDimensionCols(
+export function appendContextualBanditTargetingAttributeCols(
+  dialect: SqlDialect,
   dimensionCols: DimensionColumnData[],
   settings: SnapshotMetricRequest,
 ): void {
-  const cfg = getContextualBanditUnitsSqlConfig(settings);
+  const cfg = getContextualBanditUnitsSqlConfig(dialect, settings);
   if (!cfg) {
     return;
   }
@@ -29,8 +32,20 @@ export function appendContextualBanditTargetingDimensionCols(
   }
 }
 
-export function getSafeTargetingSqlIdentifiers(columns: string[]): string[] {
-  return columns.filter((c) => SAFE_SQL_IDENT.test(c));
+/**
+ * Last-line injection guard before targeting columns are interpolated into raw
+ * SQL. Columns are validated at input time
+ * (`assertExposureQueriesTargetingAttributeColumnsValid`), so any unsafe
+ * identifier reaching here indicates a validation bypass or corrupted data:
+ * fail loudly rather than silently dropping it (which would produce subtly
+ * wrong results). Returns the columns unchanged when all are safe.
+ */
+export function assertSafeTargetingSqlIdentifiers(columns: string[]): string[] {
+  const unsafe = columns.filter((c) => !isSafeSqlIdentifier(c));
+  if (unsafe.length > 0) {
+    throw new Error(formatMalformedTargetingAttributeColumnMessages(unsafe));
+  }
+  return columns;
 }
 
 export type ContextualBanditUnitsSqlConfig = {
@@ -39,19 +54,52 @@ export type ContextualBanditUnitsSqlConfig = {
 };
 
 export function getContextualBanditUnitsSqlConfig(
+  dialect: SqlDialect,
   settings: SnapshotMetricRequest,
 ): ContextualBanditUnitsSqlConfig | null {
   const bs = settings.banditSettings;
-  if (!bs?.contextualBandit || !bs.targetingAttributeColumns?.length) {
+  // Not a contextual bandit at all — nothing to append, run as a standard query.
+  if (!bs?.contextualBandit) {
     return null;
   }
-  const aliases = getSafeTargetingSqlIdentifiers(bs.targetingAttributeColumns);
-  if (!aliases.length) {
+  const columns = bs.targetingAttributeColumns ?? [];
+  // Contextual bandit with no targeting attribute columns configured.
+  // Rather than failing the run, we intentionally fall back to a null config:
+  // the query is generated without any `attr_cb_*` context columns, so the
+  // downstream weight engine collapses every user into a single global context
+  // and still updates the variation weights — just identically for all users.
+  // The caller is responsible for surfacing a warning (see
+  // `hasUsableContextualBanditTargeting`), since this is a degraded state for
+  // what is supposed to be a contextual bandit.
+  if (!columns.length) {
     return null;
   }
+  // Columns are present: they must be SQL-safe before interpolation. This throws
+  // (rather than degrading) so a misconfigured/bypassed column fails loudly.
+  const aliases = assertSafeTargetingSqlIdentifiers(columns);
   const k = Math.max(1, settings.variations?.length ?? 1);
-  const maxRankedContexts = Math.max(1, Math.floor(3000 / k) - 1);
+  const maxRankedContexts = Math.max(
+    1,
+    Math.floor(dialect.maxContextualBanditContexts / k) - 1,
+  );
   return { aliases, maxRankedContexts };
+}
+
+/**
+ * True when a contextual bandit has at least one targeting attribute column
+ * configured, i.e. it can actually segment users into distinct contexts. When
+ * this is false the bandit still runs, but produces a single uniform set of
+ * variation weights for every user. Column format is enforced separately at
+ * query-build time (see `assertSafeTargetingSqlIdentifiers`).
+ */
+export function hasUsableContextualBanditTargeting(
+  settings: ExperimentSnapshotSettings,
+): boolean {
+  const bs = settings.banditSettings;
+  if (!bs?.contextualBandit) {
+    return true;
+  }
+  return (bs.targetingAttributeColumns ?? []).length > 0;
 }
 
 /** Pass-through columns from __rawExperiment for contextual bandit targeting attributes. */
@@ -100,21 +148,29 @@ export function getContextualBanditUnitsBaseSelectCols(
 }
 
 /**
- * CTEs after __experimentUnitsBase: global counts by context tuple, top-(3000/K)
- * bucketing, and one mapped context row per user.
+ * CTEs after __experimentUnitsBase: global counts by context tuple,
+ * top-(maxRankedContexts) bucketing, and the final __experimentUnits.
+ *
+ * The bucketing step carries the base unit columns (`baseColumnRefs`) straight
+ * through, so __experimentUnits is produced by a single LEFT JOIN from the
+ * one-row-per-user base table to the ranked context counts. Because that join
+ * never fans out (ranked counts are one row per distinct context tuple), there
+ * is no need for a second join back to __experimentUnitsBase to re-attach the
+ * base columns.
  */
-export function getContextualBanditIntermediateCTEs(
+export function getContextualBanditUnitsCTEs(
   dialect: SqlDialect,
   {
-    baseIdType,
     aliases,
     maxRankedContexts,
     unitsBaseCteName,
+    baseColumnRefs,
   }: {
-    baseIdType: string;
     aliases: string[];
     maxRankedContexts: number;
     unitsBaseCteName: string;
+    /** Base unit columns to pass through, each already prefixed with `u.`. */
+    baseColumnRefs: string;
   },
 ): string {
   const ctxGroupBy = aliases
@@ -156,40 +212,14 @@ export function getContextualBanditIntermediateCTEs(
       FROM
         __contextCounts
     )
-    , __attr_cb_userContextMapped AS (
+    , __experimentUnits AS (
       SELECT
-        u.${baseIdType}
+        ${baseColumnRefs}
         ${caseCols}
       FROM
         ${unitsBaseCteName} u
       LEFT JOIN __contextCountsRanked cc ON (
         ${joinOnMapped}
-      )
-    )`;
-}
-
-/**
- * Final __experimentUnits with bucketed attr_cb_* columns joined from mapped contexts.
- */
-export function getContextualBanditFinalUnitsCTE(
-  baseIdType: string,
-  aliases: string[],
-  baseColumnRefs: string,
-): string {
-  return `
-    , __experimentUnits AS (
-      SELECT
-        ${baseColumnRefs}
-        ${aliases
-          .map(
-            (a) =>
-              `, m.${contextualBanditAttrCol(a)} AS ${contextualBanditAttrCol(a)}`,
-          )
-          .join("")}
-      FROM
-        __experimentUnitsBase b
-      INNER JOIN __attr_cb_userContextMapped m ON (
-        m.${baseIdType} = b.${baseIdType}
       )
     )`;
 }

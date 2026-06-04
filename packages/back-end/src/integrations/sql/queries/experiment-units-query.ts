@@ -20,9 +20,8 @@ import { processDimensions } from "back-end/src/integrations/sql/processing/proc
 import { getSegmentCTE } from "back-end/src/integrations/sql/ctes/segment-cte";
 import {
   getContextualBanditExposureSelectCols,
-  getContextualBanditFinalUnitsCTE,
-  getContextualBanditIntermediateCTEs,
   getContextualBanditUnitsBaseSelectCols,
+  getContextualBanditUnitsCTEs,
   getContextualBanditUnitsSqlConfig,
 } from "back-end/src/integrations/sql/ctes/contextual-bandit-experiment-units-cte";
 
@@ -82,7 +81,10 @@ export function getExperimentUnitsQuery(
     settings.attributionModel === "experimentDuration" ||
     settings.attributionModel === "lookbackOverride";
 
-  const contextualBanditCfg = getContextualBanditUnitsSqlConfig(settings);
+  const contextualBanditCfg = getContextualBanditUnitsSqlConfig(
+    dialect,
+    settings,
+  );
   const contextualExposureSelectCols = contextualBanditCfg
     ? getContextualBanditExposureSelectCols(contextualBanditCfg.aliases)
     : "";
@@ -99,26 +101,22 @@ export function getExperimentUnitsQuery(
 
   const unitsBaseColumnRefs = contextualBanditCfg
     ? [
-        `b.${baseIdType}`,
-        "b.variation",
-        "b.first_exposure_timestamp",
-        ...unitDimensions.map((d) => `b.dim_unit_${d.dimension.id}`),
-        ...experimentDimensions.map((d) => `b.dim_exp_${d.id}`),
-        ...(activationMetric ? ["b.first_activation_timestamp"] : []),
+        `u.${baseIdType}`,
+        "u.variation",
+        "u.first_exposure_timestamp",
+        ...unitDimensions.map((d) => `u.dim_unit_${d.dimension.id}`),
+        ...experimentDimensions.map((d) => `u.dim_exp_${d.id}`),
+        ...(activationMetric ? ["u.first_activation_timestamp"] : []),
       ].join("\n        , ")
     : "";
 
   const contextualAfterUnitsCtes = contextualBanditCfg
-    ? `${getContextualBanditIntermediateCTEs(dialect, {
-        baseIdType,
+    ? getContextualBanditUnitsCTEs(dialect, {
         aliases: contextualBanditCfg.aliases,
         maxRankedContexts: contextualBanditCfg.maxRankedContexts,
         unitsBaseCteName: unitsCteName,
-      })}${getContextualBanditFinalUnitsCTE(
-        baseIdType,
-        contextualBanditCfg.aliases,
-        unitsBaseColumnRefs,
-      )}`
+        baseColumnRefs: unitsBaseColumnRefs,
+      })
     : "";
 
   return `

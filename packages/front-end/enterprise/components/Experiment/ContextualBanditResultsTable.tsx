@@ -124,7 +124,7 @@ function cellValues(
 ): (number | null)[] {
   const source =
     mode === "means"
-      ? row.variationMeans
+      ? row.sampleMeans
       : (row.updatedWeights ?? row.bestArmProbabilities);
   if (!source || source.length === 0) {
     return Array(numVariations).fill(null);
@@ -301,7 +301,9 @@ export default function ContextualBanditResultsTable({
 
   const { data: cbResults, mutate: mutateCbResults } =
     useApi<ContextualBanditResultsResponse>(
-      `/experiment/${experiment.id}/contextual-bandit/results`,
+      // CB-native REST endpoint — `experiment.id` is a `cb_` id, so the legacy
+      // `/experiment/:id/contextual-bandit/results` route would 404.
+      `/api/v1/contextual-bandits/${experiment.id}/results`,
     );
 
   const contextualBanditSnapshot = cbResults?.contextualBanditSnapshot;
@@ -477,7 +479,7 @@ export default function ContextualBanditResultsTable({
                       snapshotId: string;
                       cbeId?: string;
                     }>(
-                      `/experiment/${experiment.id}/contextual-bandit/refresh`,
+                      `/api/v1/contextual-bandits/${experiment.id}/refresh`,
                       { method: "POST" },
                     )
                       .then(() => {

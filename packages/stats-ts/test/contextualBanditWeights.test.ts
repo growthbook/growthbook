@@ -84,7 +84,7 @@ describe("computeContextualBanditWeights", () => {
     const r = result.responses[0];
     expect(r.context).toEqual({ country: "US" });
     expect(r.sampleSizePerVariation).toEqual([200, 200]);
-    expect(r.variationMeans).toEqual([1, 2]);
+    expect(r.sampleMeans).toEqual([1, 2]);
     expect(r.updateMessage).toBe("successfully updated");
 
     const weights = r.updatedWeights as number[];

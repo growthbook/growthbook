@@ -312,7 +312,15 @@ export default function ExperimentHeader({
       }
     }
 
-    if (isHoldout) {
+    if (isContextualBandit) {
+      // CB-backed experiments have no experiment doc behind `experiment.id`
+      // (it's a `cb_` id). Status changes go through the CB-native REST
+      // lifecycle endpoint instead of the legacy `/experiment/:id/status`
+      // route, which would 404 with "Experiment not found".
+      await apiCall(`/api/v1/contextual-bandits/${experiment.id}/start`, {
+        method: "POST",
+      });
+    } else if (isHoldout) {
       await apiCall(`/holdout/${holdout?.id}/edit-status`, {
         method: "POST",
         body: JSON.stringify({

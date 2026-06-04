@@ -27,7 +27,7 @@ import { getIdentitiesCTE } from "back-end/src/integrations/sql/ctes/identities-
 import { getMetricData } from "back-end/src/integrations/sql/fact-metrics/metric-data";
 import { processActivationMetric } from "back-end/src/integrations/sql/processing/process-activation-metric";
 import { processDimensions } from "back-end/src/integrations/sql/processing/process-dimensions";
-import { appendContextualBanditTargetingDimensionCols } from "back-end/src/integrations/sql/ctes/contextual-bandit-experiment-units-cte";
+import { appendContextualBanditTargetingAttributeCols } from "back-end/src/integrations/sql/ctes/contextual-bandit-experiment-units-cte";
 import { getQuantileGridColumns } from "back-end/src/integrations/sql/columns/quantile-grid-columns";
 import { getQuantileSketchGridColumns } from "back-end/src/integrations/sql/columns/quantile-sketch-grid-columns";
 
@@ -156,7 +156,11 @@ export function getExperimentFactMetricsQuery(
     });
   }
 
-  appendContextualBanditTargetingDimensionCols(dimensionCols, settings);
+  appendContextualBanditTargetingAttributeCols(
+    dialect,
+    dimensionCols,
+    settings,
+  );
 
   const computeOnActivatedUsersOnly =
     activationMetric !== null &&

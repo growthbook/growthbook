@@ -218,9 +218,14 @@ export function updateVariationWeights(
   );
   const posteriorStd = posteriorVariance.map((pv) => Math.sqrt(pv));
 
-  const bestArm = thompsonSampler(posteriorMean, posteriorStd, inverse, true);
+  const bestArmProbabilities = thompsonSampler(
+    posteriorMean,
+    posteriorStd,
+    inverse,
+    true,
+  );
 
-  const clamped = bestArm.map((p) =>
+  const clamped = bestArmProbabilities.map((p) =>
     p < MIN_VARIATION_WEIGHT ? MIN_VARIATION_WEIGHT : p,
   );
   const sum = clamped.reduce((a, b) => a + b, 0) || 1;
@@ -228,7 +233,7 @@ export function updateVariationWeights(
 
   return {
     updatedWeights,
-    bestArmProbabilities: bestArm,
+    bestArmProbabilities,
     updateMessage: "successfully updated",
     error: "",
   };

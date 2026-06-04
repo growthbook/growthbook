@@ -7,7 +7,6 @@ import {
   getFactTableTemplateVariables,
   isRatioMetric,
   quantileMetricType,
-  isContextualBanditAttrColumn,
 } from "shared/experiments";
 import {
   DEFAULT_TEST_QUERY_DAYS,
@@ -548,17 +547,10 @@ export default abstract class SqlIntegration
           .forEach(([key, value]) => {
             dimensionData[key] = value;
           });
-        const attributeData: Record<string, string> = {};
-        Object.entries(row)
-          .filter(([key, _]) => isContextualBanditAttrColumn(key))
-          .forEach(([key, value]) => {
-            attributeData[key] = value;
-          });
         // Build result object by processing all field types
         const result: ExperimentMetricQueryResponseRows[number] = {
           variation: row.variation ?? "",
           ...dimensionData,
-          ...attributeData,
           users: parseIntWithDefault(row.users, 0),
           count: parseIntWithDefault(row.users, 0),
           main_sum: parseFloat(row.main_sum as string) || 0,

@@ -95,6 +95,7 @@ export async function getContextualBanditResultsForUi(
         attributes: latestCbe.attributes,
         responses: latestCbe.responses,
         leaf_map: latestCbe.leaf_map,
+        leaf_stats: latestCbe.leaf_stats,
       }
     : null;
 
@@ -275,6 +276,7 @@ export async function persistContextualBanditEvent(
     attributes: result.attributes,
     responses: result.responses,
     leaf_map: result.leaf_map,
+    leaf_stats: result.leaf_stats,
     weightsWereUpdated,
   });
 
