@@ -56,6 +56,7 @@ import {
   planMetricFanOut,
 } from "back-end/src/services/experimentQueries/planMetricFanOut";
 import { buildCrossFtSubGroups } from "back-end/src/services/experimentQueries/crossFtSubGroups";
+import { resolveCovariateInsertPath } from "back-end/src/integrations/sql/fact-metrics/resolve-covariate-insert-path";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import {
@@ -711,11 +712,9 @@ const startExperimentIncrementalRefreshQueries = async (
         "Unable to generate table; table path generator not specified.",
       );
     }
-    // Only RA-eligible metrics drive the covariate cache — non-RA metrics
-    // have nothing to put in there and would just bloat the schema and the
-    // insert. The stats query is symmetric: its covariate LEFT JOIN is
-    // gated per-metric on `isRegressionAdjusted`, so a missing column for a
-    // non-RA metric never matters.
+    // Only RA-eligible metrics drive the covariate cache; the stats query's
+    // covariate join is gated on `isRegressionAdjusted`, so non-RA metrics need
+    // nothing here.
     const regressionAdjustedMetrics = filterRegressionAdjustedMetrics(
       group.metrics,
       snapshotSettings,
@@ -762,27 +761,31 @@ const startExperimentIncrementalRefreshQueries = async (
         queries.push(createMetricCovariateTableQuery);
       }
 
-      insertMetricCovariateDataQuery = await startQuery({
+      // Pre-aggregated read when the whole group validates, else legacy scan.
+      const covariatePath = await resolveCovariateInsertPath({
+        context,
+        factTable,
+        datasourceId: integration.datasource.id,
+        exposureUserIdType: exposureQuery.userIdType,
+        regressionAdjustedMetrics,
+        settings: snapshotSettings,
+        activationMetric,
+      });
+
+      const covariateInsertBaseParams = {
         name: `insert_metrics_covariate_data_${group.groupId}`,
         displayTitle: `Update Metric Covariate Data ${sourceName}`,
-        query: integration.getInsertMetricSourceCovariateDataQuery({
-          settings: snapshotSettings,
-          activationMetric: activationMetric,
-          factTableMap: params.factTableMap,
-          factTableId: group.factTableId,
-          metricSourceCovariateTableFullName,
-          unitsSourceTableFullName: unitsTableFullName,
-          metrics: regressionAdjustedMetrics,
-          lastCovariateSuccessfulMaxTimestamp:
-            existingCovariateSource?.lastSuccessfulMaxTimestamp || null,
-        }),
         dependencies: [
           maxTimestampUnitsTableQuery.query,
           ...(createMetricCovariateTableQuery
             ? [createMetricCovariateTableQuery.query]
             : []),
         ],
-        run: (query, setExternalId, queryMetadata) =>
+        run: (
+          query: string,
+          setExternalId: ExternalIdCallback,
+          queryMetadata?: QueryMetadata,
+        ) =>
           integration.runIncrementalWithNoOutputQuery(
             query,
             setExternalId,
@@ -830,8 +833,48 @@ const startExperimentIncrementalRefreshQueries = async (
             );
           }
         },
-        queryType: "experimentIncrementalRefreshInsertMetricsCovariateData",
-      });
+      };
+
+      const commonCovariateQueryParams = {
+        settings: snapshotSettings,
+        activationMetric: activationMetric,
+        factTableMap: params.factTableMap,
+        factTableId: group.factTableId,
+        metricSourceCovariateTableFullName,
+        unitsSourceTableFullName: unitsTableFullName,
+        metrics: regressionAdjustedMetrics,
+        lastCovariateSuccessfulMaxTimestamp:
+          existingCovariateSource?.lastSuccessfulMaxTimestamp || null,
+      };
+
+      if (covariatePath.path === "aggregated") {
+        insertMetricCovariateDataQuery = await startQuery({
+          ...covariateInsertBaseParams,
+          query:
+            integration.getInsertMetricSourceCovariateFromAggregatedFactTableQuery(
+              {
+                ...commonCovariateQueryParams,
+                aggregatedTableFullName: covariatePath.aggregatedTableFullName,
+                idType: covariatePath.idType,
+              },
+            ),
+          queryType:
+            "experimentIncrementalRefreshInsertMetricsCovariateDataFromAggregated",
+        });
+      } else {
+        insertMetricCovariateDataQuery = await startQuery({
+          ...covariateInsertBaseParams,
+          query: integration.getInsertMetricSourceCovariateDataQuery({
+            ...commonCovariateQueryParams,
+            // Align to daily grain whenever the exposure id type is materialized,
+            // so the fallback window always matches the pre-aggregated path.
+            alignLegacyScanToDailyGrain: (
+              factTable?.aggregatedFactTableIdTypes ?? []
+            ).includes(exposureQuery.userIdType),
+          }),
+          queryType: "experimentIncrementalRefreshInsertMetricsCovariateData",
+        });
+      }
       queries.push(insertMetricCovariateDataQuery);
     }
 

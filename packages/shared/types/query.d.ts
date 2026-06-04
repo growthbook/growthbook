@@ -71,6 +71,7 @@ export type QueryType =
   | "experimentIncrementalRefreshDropMetricsCovariateTable"
   | "experimentIncrementalRefreshCreateMetricsCovariateTable"
   | "experimentIncrementalRefreshInsertMetricsCovariateData"
+  | "experimentIncrementalRefreshInsertMetricsCovariateDataFromAggregated"
   | "experimentIncrementalRefreshStatistics"
   | "experimentIncrementalRefreshHealth"
 

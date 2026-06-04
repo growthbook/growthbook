@@ -1,8 +1,4 @@
-import {
-  getAutoSliceMetrics,
-  isRatioMetric,
-  quantileMetricType,
-} from "shared/experiments";
+import { getAutoSliceMetrics } from "shared/experiments";
 import {
   AggregatedFactTableInterface,
   AggregatedFactTableMetricStateInterface,
@@ -18,7 +14,7 @@ import {
   getFactTableSettingsHashForAggregatedFactTable,
   getMetricSettingsHashForAggregatedFactTable,
 } from "back-end/src/enterprise/services/data-pipeline";
-import { encodeMetricIdForColumnName } from "back-end/src/integrations/sql/fact-metrics/encode-metric-id-for-column-name";
+import { getColumnsForMetric } from "back-end/src/integrations/sql/fact-metrics/columns-for-metric";
 import { AggregatedFactTableKey } from "back-end/src/models/AggregatedFactTableModel";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 
@@ -67,29 +63,6 @@ export function parseAggregatedFactTableCoverage(
     firstEventDate: toDate(row?.first_event_date),
     lastEventDate: toDate(row?.last_event_date),
   };
-}
-
-// Columns a metric materializes in this table (role-gated), mirroring
-// `getAggregatedFactTableSchema`.
-export function getColumnsForMetric(
-  metric: FactMetricInterface,
-  factTableId: string,
-): string[] {
-  const enc = encodeMetricIdForColumnName(metric.id);
-  const columns: string[] = [];
-  if (metric.numerator.factTableId === factTableId) {
-    columns.push(`${enc}_value`);
-    if (quantileMetricType(metric) === "event") {
-      columns.push(`${enc}_n_events`);
-    }
-  }
-  if (
-    isRatioMetric(metric) &&
-    metric.denominator?.factTableId === factTableId
-  ) {
-    columns.push(`${enc}_denominator_value`);
-  }
-  return columns;
 }
 
 export class AggregatedFactTableQueryRunner extends QueryRunner<

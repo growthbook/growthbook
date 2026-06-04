@@ -40,6 +40,7 @@ import {
   AggregatedFactTableMaxTimestampQueryParams,
   DropAggregatedFactTableQueryParams,
   InsertMetricSourceCovariateDataQueryParams,
+  InsertMetricSourceCovariateFromAggregatedFactTableQueryParams,
 } from "shared/types/integrations";
 import {
   DataSourceInterface,
@@ -220,6 +221,11 @@ export default class Mixpanel implements SourceIntegrationInterface {
   }
   getInsertMetricSourceCovariateDataQuery(
     _params: InsertMetricSourceCovariateDataQueryParams,
+  ): string {
+    throw new Error("Method not implemented.");
+  }
+  getInsertMetricSourceCovariateFromAggregatedFactTableQuery(
+    _params: InsertMetricSourceCovariateFromAggregatedFactTableQueryParams,
   ): string {
     throw new Error("Method not implemented.");
   }

@@ -36,6 +36,7 @@ import {
   IncrementalWithNoOutputQueryResponse,
   InformationSchema,
   InsertMetricSourceCovariateDataQueryParams,
+  InsertMetricSourceCovariateFromAggregatedFactTableQueryParams,
   InsertMetricSourceDataQueryParams,
   MaxTimestampIncrementalUnitsQueryParams,
   MaxTimestampMetricSourceQueryParams,
@@ -191,6 +192,9 @@ export interface SourceIntegrationInterface {
   ): string;
   getInsertMetricSourceCovariateDataQuery(
     params: InsertMetricSourceCovariateDataQueryParams,
+  ): string;
+  getInsertMetricSourceCovariateFromAggregatedFactTableQuery(
+    params: InsertMetricSourceCovariateFromAggregatedFactTableQueryParams,
   ): string;
   getIncrementalRefreshStatisticsQuery(
     params: IncrementalRefreshStatisticsQueryParams,

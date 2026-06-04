@@ -405,6 +405,27 @@ export interface InsertMetricSourceCovariateDataQueryParams {
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   lastCovariateSuccessfulMaxTimestamp: Date | null;
+  // When true, snap the raw scan to daily grain so this fallback covers the same
+  // days the pre-aggregated table would. Set by the runner when the exposure id
+  // type is in the fact table's aggregatedFactTableIdTypes.
+  alignLegacyScanToDailyGrain: boolean;
+}
+
+// Reads daily partials from an aggregated fact table and re-aggregates them per
+// unit into the experiment covariate cache, in place of scanning raw events.
+export interface InsertMetricSourceCovariateFromAggregatedFactTableQueryParams {
+  settings: ExperimentSnapshotSettings;
+  activationMetric: ExperimentMetricInterface | null;
+  factTableMap: FactTableMap;
+  factTableId: string;
+  metricSourceCovariateTableFullName: string;
+  unitsSourceTableFullName: string;
+  metrics: FactMetricInterface[];
+  lastCovariateSuccessfulMaxTimestamp: Date | null;
+  // Warehouse table the daily partials are read from (registry.tableFullName).
+  aggregatedTableFullName: string;
+  // Native id type the aggregated table is keyed on (= exposure userIdType).
+  idType: string;
 }
 
 // ---- Shared daily aggregated fact tables (materialization only) ----
