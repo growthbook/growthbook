@@ -344,15 +344,14 @@ export function buildContextualBanditSnapshotSettings(
   const numVariations = cb.variations?.length || 1;
 
   // The frozen `experimentId` on the snapshot settings DTO is the
-  // historical identifier the SQL pipeline (snapshot query CTEs,
-  // trackingKey fallback) keys on; the CBS collection itself is also
-  // still keyed by `experiment` until Commit 2 re-keys it. Fall back to
-  // `cb.id` for CBs created post-decoupling that no longer carry an FK.
-  const snapshotExperimentId = cb.experiment ?? cb.id;
-
+  // identifier the SQL pipeline (snapshot query CTEs, trackingKey
+  // fallback) keys on. Post-PR-8 Commit 3 the CB is its own root —
+  // there is no paired experiment id to fall back to, so `cb.id` is
+  // authoritative for both the snapshot id and the trackingKey
+  // fallback.
   return {
-    experimentId: snapshotExperimentId,
-    trackingKey: cb.trackingKey || snapshotExperimentId,
+    experimentId: cb.id,
+    trackingKey: cb.trackingKey || cb.id,
     contextualBanditId: cb.id,
     phase,
 

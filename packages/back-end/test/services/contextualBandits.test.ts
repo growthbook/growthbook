@@ -43,8 +43,6 @@ function makeCb(
     organization: "org_1",
     dateCreated: new Date("2025-01-01T00:00:00Z"),
     dateUpdated: new Date("2025-01-01T00:00:00Z"),
-    // Legacy paired-experiment FK survives through PR-8 Commit 3.
-    experiment: "exp_1",
     project: "",
     name: "CB 1",
     trackingKey: "",
@@ -166,7 +164,7 @@ describe("buildContextualBanditSnapshotSettings", () => {
     ).not.toThrow();
 
     // Spot-check the carried-over fields.
-    expect(settings.experimentId).toBe("exp_1");
+    expect(settings.experimentId).toBe("cb_1");
     expect(settings.contextualBanditId).toBe("cb_1");
     expect(settings.phase).toBe(0);
     expect(settings.goalMetrics).toEqual(["met_g1"]);
@@ -187,7 +185,11 @@ describe("buildContextualBanditSnapshotSettings", () => {
       false,
     );
 
-    expect(settings.experimentId).toBe("exp_1");
+    // Post-PR-8 Commit 3 the snapshot DTO's `experimentId` is just the CB
+    // id (no paired-experiment fallback). The trackingKey stays
+    // independent so the warehouse SQL keeps using the human-readable
+    // exposure-filter key.
+    expect(settings.experimentId).toBe("cb_1");
     expect(settings.trackingKey).toBe("first_contextual_bandit");
   });
 

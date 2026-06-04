@@ -523,15 +523,10 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
 
     createBody.tags && refreshTags(createBody.tags);
 
-    // TODO(pr-8): the detail page URL is still keyed by experiment id
-    // during the decoupling window (resolves CB via
-    // useContextualBanditByExperiment). Once the page reroutes by CB id,
-    // navigate to `/contextual-bandit/${res.contextualBandit.id}` directly.
-    const navId = res.contextualBandit.experiment ?? res.contextualBandit.id;
     if (onCreate) {
-      onCreate(navId);
+      onCreate(res.contextualBandit.id);
     } else {
-      router.push(`/contextual-bandit/${navId}`);
+      router.push(`/contextual-bandit/${res.contextualBandit.id}`);
     }
   });
 

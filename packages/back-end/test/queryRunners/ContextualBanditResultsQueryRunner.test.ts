@@ -114,7 +114,6 @@ function makeCb(
     organization: "org_1",
     dateCreated: new Date("2025-01-01T00:00:00Z"),
     dateUpdated: new Date("2025-01-01T00:00:00Z"),
-    experiment: "exp_1",
     datasourceId: "ds_1",
     exposureQueryId: "eq_1",
     contextualAttributes: ["country"],

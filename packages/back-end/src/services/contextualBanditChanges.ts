@@ -47,9 +47,13 @@ import { SDKPayloadKey } from "back-end/types/sdk-payload";
  * SDK-payload keys affected by a CB status change. Mirrors `getPayloadKeys`
  * for experiments — uses the CB's `linkedFeatures` to find which envs/projects
  * to refresh. Walks both feature-rule families during the decoupling window:
- *   - `contextual-bandit-ref` rules pointing at this CB (the native path).
- *   - `experiment-ref` rules where the CB's FK matches the experiment id
- *     (legacy path; goes away after PR-8).
+ * Matches `contextual-bandit-ref` rules pointing at this CB. The legacy
+ * `experiment-ref` fallback was retired in PR-8 Commit 3 — the migration
+ * script (`scripts/migrate-cb-decoupling.ts`) rewrites every
+ * `experiment-ref` that targeted a CB-typed experiment to a
+ * `contextual-bandit-ref` before this code ships, and post-Commit-3 the
+ * experiment FK on the CB is gone so there's no fallback id to match
+ * against anyway.
  */
 function getPayloadKeysForContextualBandit(
   context: ReqContext | ApiReqContext,
@@ -64,20 +68,10 @@ function getPayloadKeysForContextualBandit(
     environments,
     (rule) => {
       if (rule.enabled === false) return false;
-      if (
+      return (
         rule.type === "contextual-bandit-ref" &&
         rule.contextualBanditId === cb.id
-      ) {
-        return true;
-      }
-      if (
-        rule.type === "experiment-ref" &&
-        cb.experiment &&
-        rule.experimentId === cb.experiment
-      ) {
-        return true;
-      }
-      return false;
+      );
     },
   );
 }
@@ -99,25 +93,12 @@ async function refreshLinkedFeaturePayloads(
     environments,
     (rule) => {
       if (rule.enabled === false) return false;
-      if (
+      return (
         rule.type === "contextual-bandit-ref" &&
         rule.contextualBanditId === cb.id
-      ) {
-        return true;
-      }
-      if (
-        rule.type === "experiment-ref" &&
-        cb.experiment &&
-        rule.experimentId === cb.experiment
-      ) {
-        return true;
-      }
-      return false;
+      );
     },
   );
-  // Capture the deduped union (legacy + native paths) and queue a single
-  // payload refresh. `getPayloadKeysForContextualBandit` is intentionally
-  // kept around for callers that want the no-feature-fetch version.
   if (payloadKeys.length === 0) return;
   queueSDKPayloadRefresh({
     context,

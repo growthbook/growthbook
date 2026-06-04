@@ -48,9 +48,7 @@ export default function ContextualBanditRefSummary({
     );
   }
 
-  // Route to /contextual-bandit/${cb.experiment ?? cb.id} during the
-  // decoupling window — same fall-back the list page uses.
-  const detailHref = `/contextual-bandit/${cb.experiment ?? cb.id}`;
+  const detailHref = `/contextual-bandit/${cb.id}`;
 
   if (cb.archived) {
     return (

@@ -60,20 +60,6 @@ export type ContextualBanditStatus = (typeof contextualBanditStatus)[number];
 export const contextualBanditValidator = baseSchema
   .extend({
     // ---------------------------------------------------------------------
-    // Cross-model FK (transitional)
-    // ---------------------------------------------------------------------
-    /**
-     * Foreign key → ExperimentInterface.id. Retained for the duration of the
-     * decoupling project so existing CB docs can be backfilled from their
-     * parent experiment on read. Dropped in PR-8 once the data migration has
-     * landed. New writes should treat the CB doc as the source of truth.
-     *
-     * @deprecated Will be removed after the CB experiment-decoupling
-     * migration. Read CB-native fields directly off this doc instead.
-     */
-    experiment: z.string().optional(),
-
-    // ---------------------------------------------------------------------
     // Ownership / project / lifecycle metadata
     // (mirrors the relevant subset of `experimentInterface`)
     // ---------------------------------------------------------------------
@@ -256,8 +242,8 @@ export type ContextualBanditInterface = z.infer<
 // Mirrors the experiment-template pattern: a `namedSchema` response shape +
 // flat create/update bodies. The API DTO is intentionally a curated subset
 // of `ContextualBanditInterface` so internal-only fields (linkedFeatures,
-// pendingFeatureDrafts, snapshot scheduling, the legacy `experiment` FK)
-// don't leak through the REST contract.
+// pendingFeatureDrafts, snapshot scheduling) don't leak through the REST
+// contract.
 // ---------------------------------------------------------------------------
 
 const apiContextualBanditPhase = z.object({
@@ -280,17 +266,6 @@ const apiContextualBanditVariation = z.object({
 export const apiContextualBanditValidator = namedSchema(
   "ContextualBandit",
   apiBaseSchema.safeExtend({
-    /**
-     * Transitional: parent experiment FK exposed on the API surface during
-     * the decoupling window so callers (e.g. the front-end list page
-     * linking to the detail page, which still reads from the experiment
-     * endpoint) can resolve the paired experiment id without an extra
-     * round-trip. Dropped in PR-8 once the detail page reads CB-native
-     * data and the FK comes off the internal validator.
-     *
-     * @deprecated Will be removed after the CB decoupling migration.
-     */
-    experiment: z.string().optional(),
     name: z.string(),
     description: z.string().optional(),
     hypothesis: z.string().optional(),

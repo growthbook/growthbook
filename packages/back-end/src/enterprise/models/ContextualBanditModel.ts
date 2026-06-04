@@ -22,14 +22,8 @@ import {
   executeContextualBanditStop,
 } from "back-end/src/services/contextualBanditChanges";
 import { runContextualBanditSnapshot } from "back-end/src/enterprise/services/contextualBandits";
-import {
-  getExperimentById,
-  updateExperiment,
-} from "back-end/src/models/ExperimentModel";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 import { getCollection } from "back-end/src/util/mongo.util";
-import { buildExperimentSyncChanges } from "back-end/src/enterprise/services/contextualBanditForwardSync";
-import { logger } from "back-end/src/util/logger";
 
 const COLLECTION = "contextualbandits";
 
@@ -38,12 +32,10 @@ const BaseClass = MakeModelClass({
   collectionName: "contextualbandits",
   idPrefix: "cb_",
   globallyUniquePrimaryKeys: true,
-  additionalIndexes: [
-    {
-      fields: { organization: 1, experiment: 1 },
-      unique: true,
-    },
-  ],
+  // The legacy `{ organization, experiment }` unique index was dropped in
+  // PR-8 Commit 3 with the experiment FK. The Mongo index is left around
+  // operationally — it's harmless on writes (no field to set) and dropping
+  // it is a separate ops task.
   // Defaults supplied so the create flow (POST /api/v1/contextual-bandits)
   // can omit fields the CB schema requires but the create body intentionally
   // doesn't surface (tree config, holdout, phases, …). These mirror the
@@ -249,7 +241,7 @@ function backfillFromExperiment(
  * Convert an internal CB doc to the REST API response shape. The API
  * surface is intentionally a curated subset of `ContextualBanditInterface`
  * so internal-only state (linkedFeatures, pendingFeatureDrafts, snapshot
- * scheduling, the legacy `experiment` FK) is not exposed.
+ * scheduling) is not exposed.
  *
  * Defined as a free function (rather than a model method) so the custom
  * lifecycle handlers in the apiConfig can serialize without inducing a
@@ -260,9 +252,6 @@ export function toApiContextualBandit(
 ): ApiContextualBanditInterface {
   return {
     id: doc.id,
-    // Transitional FK — see the validator for why this stays on the
-    // API surface through the decoupling window.
-    experiment: doc.experiment,
     dateCreated: doc.dateCreated.toISOString(),
     dateUpdated: doc.dateUpdated.toISOString(),
     name: doc.name,
@@ -367,44 +356,14 @@ export class ContextualBanditModel extends BaseClass {
   }
 
   /**
-   * Forward-sync CB writes back onto the parent experiment doc for the
-   * narrow field set the still-experiment-keyed snapshot/event pipeline
-   * reads. One-way, idempotent (driven by `buildExperimentSyncChanges`,
-   * which only emits diffs for fields actually present in `updates`),
-   * and loop-safe: `updateExperiment` does not write back into the CB
-   * collection on this branch (post-Step 5 the only ExperimentModel →
-   * CB reference is the cascade-delete in `onExperimentDelete`).
-   *
-   * TODO(pr-8): delete this override + `buildExperimentSyncChanges`
-   * once snapshot/event indirection keys by CB id and the parent FK is
-   * dropped.
+   * Forward-sync used to push CB writes back onto the paired experiment
+   * doc through the decoupling window. With the experiment FK gone in
+   * PR-8 Commit 3, there's nothing to sync to — the method is a no-op.
+   * The whole override (plus `buildExperimentSyncChanges`) is deleted
+   * in Commit 5.
    */
-  protected async afterUpdate(
-    existing: ContextualBanditInterface,
-    updates: Partial<ContextualBanditInterface>,
-    newDoc: ContextualBanditInterface,
-  ): Promise<void> {
-    if (!newDoc.experiment) return;
-    const changes = buildExperimentSyncChanges(updates, newDoc);
-    if (Object.keys(changes).length === 0) return;
-    try {
-      const exp = await getExperimentById(this.context, newDoc.experiment);
-      if (!exp) return;
-      await updateExperiment({
-        context: this.context,
-        experiment: exp,
-        changes,
-      });
-    } catch (e) {
-      // Surface the failure in logs but don't fail the CB write — the
-      // forward-sync is best-effort. A missing experiment doc, transient
-      // Mongo blip, or permission edge case shouldn't roll back the CB
-      // update the user just made. PR-8 removes this whole branch.
-      logger.error(
-        { err: e, cbId: newDoc.id, experimentId: newDoc.experiment },
-        "CB→Experiment forward-sync failed",
-      );
-    }
+  protected async afterUpdate(): Promise<void> {
+    return;
   }
 
   /**
@@ -692,12 +651,23 @@ export class ContextualBanditModel extends BaseClass {
     return this.hydrateMany(await super.getAll());
   }
 
+  /**
+   * Look up a CB by the legacy paired-experiment FK. The FK is off the
+   * validator post-Commit-3, so this reads the raw Mongo collection to
+   * keep the cascade-delete in `onExperimentDelete` and the legacy
+   * `/experiments/:id/contextual-bandit/*` routes working through
+   * Commit 6. After Commit 6 the routes go away; the cascade path
+   * keeps using this helper.
+   */
   public async getByExperimentId(
     experiment: string,
   ): Promise<ContextualBanditInterface | null> {
-    const results = await this._find({ experiment });
-    const doc = results[0] ?? null;
-    return doc ? this.hydrate(doc) : null;
+    const raw = await this._dangerousGetCollection().findOne({
+      organization: this.context.org.id,
+      experiment,
+    });
+    if (!raw) return null;
+    return this.hydrate(raw as unknown as ContextualBanditInterface);
   }
 
   /**

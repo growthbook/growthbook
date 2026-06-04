@@ -1,10 +1,7 @@
 import { useRouter } from "next/router";
 import React, { ReactElement, useMemo, useState } from "react";
 import { includeExperimentInPayload } from "shared/util";
-import {
-  useContextualBandit,
-  useContextualBanditByExperiment,
-} from "@/hooks/useContextualBandits";
+import { useContextualBandit } from "@/hooks/useContextualBandits";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
 import { useUser } from "@/services/UserContext";
@@ -28,16 +25,6 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
-
-// Heuristic for distinguishing CB-native ids (`cb_…`) from experiment
-// ids during the decoupling window. The detail-page URL is still keyed
-// by experiment id on existing list links (PR-8 will switch the list
-// page to link by CB id); new creates write the experiment id into the
-// URL too — see `ContextualBanditForm.onSubmit`. Either kind of id
-// resolves to the same CB doc via the two hooks below.
-function looksLikeCbId(id: string): boolean {
-  return id.startsWith("cb_");
-}
 
 const ContextualBanditExperimentPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -63,25 +50,15 @@ const ContextualBanditExperimentPage = (): ReactElement => {
   >(null);
   const [checklistHardBlockerCount, setChecklistHardBlockerCount] = useState(0);
 
-  // Two parallel resolvers — the URL parameter could be either a CB id
-  // (post-PR-8 links) or an experiment id (current list-page links and
-  // freshly created CBs that navigate via `experiment` FK). The hooks'
-  // `shouldRun` gates keep the unused branch idle.
+  // Post-PR-8 Commit 3 the URL parameter is always a CB id — the
+  // experiment-id-in-URL fallback was retired with the paired-experiment
+  // FK. `useContextualBandit` handles the single-doc fetch.
   const rawId = typeof cbid === "string" ? cbid : "";
-  const isCbId = !!rawId && looksLikeCbId(rawId);
   const {
-    contextualBandit: cbById,
-    loading: loadingById,
-    mutate: mutateById,
-  } = useContextualBandit(isCbId ? rawId : undefined);
-  const cbByExperiment = useContextualBanditByExperiment(
-    !isCbId ? rawId : undefined,
-  );
-  // TODO(pr-8): when the list page links by CB id we can drop the
-  // experiment-id branch and keep only `useContextualBandit`.
-  const cb = isCbId ? cbById : cbByExperiment;
-  const loading = isCbId ? loadingById : !cbByExperiment;
-  const mutate = isCbId ? mutateById : () => {};
+    contextualBandit: cb,
+    loading,
+    mutate,
+  } = useContextualBandit(rawId || undefined);
 
   const orgId = organization.id ?? "";
   useSwitchOrg(cb?.id && orgId ? orgId : null);

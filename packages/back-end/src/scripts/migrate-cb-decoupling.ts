@@ -64,7 +64,6 @@ import "../init/aliases";
 /* eslint-enable no-restricted-imports */
 
 import {
-  ContextualBanditInterface,
   FeatureRule,
   ContextualBanditRefRule,
   ExperimentRefRule,
@@ -82,10 +81,15 @@ const REVISION_COLLECTION = "featurerevisions";
 const CBS_COLLECTION = "contextualbanditsnapshots";
 const CBE_COLLECTION = "contextualbanditevents";
 
-type CBKey = Pick<
-  ContextualBanditInterface,
-  "id" | "organization" | "experiment"
->;
+// The script reads the legacy `experiment` FK off existing CB docs even
+// though it's no longer on the validator post-PR-8 Commit 3 — that's
+// the entire point of the migration. Typed as a raw Mongo shape so the
+// reads don't have to fight the post-decoupling validator.
+type CBKey = {
+  id: string;
+  organization: string;
+  experiment?: string;
+};
 
 /**
  * Rewrite a feature-rule list, replacing any `experiment-ref` rule that
