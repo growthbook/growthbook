@@ -93,16 +93,8 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     );
   }
 
-  // Cutoff reference for skipPartialData ("Exclude In-Progress Conversions").
-  // Use the timestamp the caches were last refreshed at (persisted by the last
-  // main run), NOT this exploratory run's clock — the caches only contain data
-  // up to that point, so a fresher cutoff would surface not-yet-materialized
-  // partial data. For models built before lastRefreshTimestamp was tracked,
-  // fall back to the materialized units' max timestamp (a data-bounded, safe
-  // proxy for cache freshness), and only then to this run's clock. This value
-  // is only ever applied when skipPartialData is on; experiments predating the
-  // field always have it off, so it's computed but never used until the next
-  // main run backfills lastRefreshTimestamp.
+  // Cutoff reference = when the caches were last refreshed, NOT this run's clock
+  // (older models fall back to the units watermark, then this run's start).
   const skipPartialDataReferenceTime =
     incrementalRefreshModel.lastRefreshTimestamp ??
     incrementalRefreshModel.unitsMaxTimestamp ??
@@ -243,10 +235,7 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     // in case same fact table is split across multiple sources
     const sourceName = factTable ? `(${factTable.name})` : "";
 
-    // When skipPartialData is on, partition into one stats query per
-    // conversion window, each with its own first_exposure_timestamp cutoff
-    // (see main runner). Uses the persisted cache-freshness timestamp as the
-    // reference so the cutoff matches what the caches actually contain.
+    // skipPartialData: one stats query per conversion window (see main runner).
     const statsBuckets = snapshotSettings.skipPartialData
       ? Array.from(
           groupMetricsByConversionWindowHours(sameFtMetrics).entries(),

@@ -2715,13 +2715,8 @@ export default abstract class SqlIntegration
         })
         .join("\n");
 
-    // skipPartialData ("Exclude In-Progress Conversions"): restrict the analysis
-    // to units exposed early enough to have completed their conversion window.
-    // The runner partitions stats queries by conversion window, so every metric
-    // in this query shares one cutoff. Applied to `__experimentUnits` — the
-    // single source of users and per-variation N — so both N and metric values
-    // consistently exclude not-yet-mature units. Uses `toTimestamp` (no ms) to
-    // match the non-incremental skipPartialData filter in getExperimentFactMetricsQuery.
+    // skipPartialData cutoff on __experimentUnits (the single source of users +
+    // N), so both N and metric values exclude not-yet-mature units.
     const firstExposureWhere = params.maxFirstExposureTimestamp
       ? `WHERE e.first_exposure_timestamp <= ${this.getSqlDialect().toTimestamp(
           params.maxFirstExposureTimestamp,

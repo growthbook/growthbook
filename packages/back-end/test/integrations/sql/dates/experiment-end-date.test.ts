@@ -47,8 +47,7 @@ describe("getExperimentEndDate", () => {
   });
 
   it("returns the phase end date when the conversion-window cutoff is later than it", () => {
-    // now is months after endDate, so now - 1h is still well past endDate and
-    // min() keeps the phase end date.
+    // now is long after endDate, so min() keeps the phase end date.
     const endDate = new Date("2024-01-31T00:00:00Z");
     const now = new Date("2024-06-01T00:00:00Z");
     expect(getExperimentEndDate(settingsWith(true, endDate), 1, now)).toEqual(
@@ -57,9 +56,8 @@ describe("getExperimentEndDate", () => {
   });
 
   it("honors the explicit reference time instead of the wall clock", () => {
-    // Far-future end date + 0-hour window => cutoff is exactly `now`. If the
-    // function used the real wall clock instead of the passed-in time, the
-    // result would be today's date, not the pinned 2024-01-10.
+    // Far-future endDate + 0h window => cutoff is exactly the passed-in now
+    // (a wall-clock fallback would yield today, not 2024-01-10).
     const farEndDate = new Date("2025-01-01T00:00:00Z");
     const now = new Date("2024-01-10T00:00:00Z");
     expect(
@@ -80,8 +78,7 @@ describe("getExperimentEndDate", () => {
       48,
       now,
     );
-    // 0-hour window => cutoff is exactly now; a 48h window must be strictly
-    // earlier (and never reaches the far-future end date).
+    // 0h window => cutoff is exactly now; 48h must be strictly earlier.
     expect(noWindow).toEqual(now);
     expect(dayWindow.getTime()).toBeLessThan(now.getTime());
   });

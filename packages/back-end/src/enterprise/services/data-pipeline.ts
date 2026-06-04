@@ -42,13 +42,8 @@ export async function validateIncrementalPipeline({
   incrementalRefreshModel: IncrementalRefreshInterface | null;
   analysisType: "main-update" | "main-fullRefresh" | "exploratory";
 }): Promise<void> {
-  // "Exclude In-Progress Conversions" (skipPartialData) is supported via a
-  // read-time exposure cutoff in the statistics query — the runners partition
-  // stats queries by conversion window and pass `maxFirstExposureTimestamp`
-  // (see getIncrementalRefreshStatisticsQuery). It never affects materialization,
-  // so it is excluded from the cache-invalidation hash (hard-coded `false` in
-  // getExperimentSettingsHashForIncrementalRefresh below) — toggling it needs
-  // no full refresh.
+  // skipPartialData no longer blocks incremental refresh — it's applied as a
+  // read-time cutoff in the stats query (see getIncrementalRefreshStatisticsQuery).
   if (!integration.getSourceProperties().hasIncrementalRefresh) {
     throw new Error("Integration does not support incremental refresh queries");
   }
@@ -165,13 +160,8 @@ export function getExperimentSettingsHashForIncrementalRefresh(
     attributionModel: snapshotSettings.attributionModel,
     queryFilter: snapshotSettings.queryFilter,
     segment: snapshotSettings.segment,
-    // skipPartialData ("Exclude In-Progress Conversions") only affects the
-    // read-time statistics query (the exposure cutoff in
-    // getIncrementalRefreshStatisticsQuery), never materialization — so it must
-    // not invalidate the cache. We hard-code `false` rather than dropping the
-    // key so the hash stays byte-identical to existing models (all built while
-    // skipPartialData was forced off): existing incremental experiments stay
-    // valid AND users can toggle the setting without forcing a full refresh.
+    // Hard-coded (not dropped) to keep the hash byte-identical to existing
+    // models — skipPartialData only affects read-time stats, never the cache.
     skipPartialData: false,
     datasourceId: snapshotSettings.datasourceId,
     exposureQueryId: snapshotSettings.exposureQueryId,

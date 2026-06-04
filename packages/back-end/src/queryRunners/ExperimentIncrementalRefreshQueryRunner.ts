@@ -523,10 +523,7 @@ const startExperimentIncrementalRefreshQueries = async (
             {
               unitsTableFullName: unitsTableFullName,
               unitsMaxTimestamp: maxTimestamp,
-              // Records how current the materialized caches are, so read-only
-              // exploratory runs apply the same skipPartialData maturity cutoff
-              // as this main run (see getExperimentEndDate usage in the stats
-              // query partitioning).
+              // Cache-freshness marker; exploratory runs use it as their cutoff reference.
               lastRefreshTimestamp: params.incrementalRefreshStartTime,
               experimentSettingsHash:
                 getExperimentSettingsHashForIncrementalRefresh(
@@ -943,13 +940,8 @@ const startExperimentIncrementalRefreshQueries = async (
     // only host one half of a cross-FT ratio skip this — those metrics'
     // stats are computed in the cross-FT pair pass below.
     if (sameFtMetrics.length > 0) {
-      // When skipPartialData ("Exclude In-Progress Conversions") is on,
-      // partition this cache's metrics into separate statistics queries by
-      // conversion window, each with its own first_exposure_timestamp cutoff.
-      // Every metric in a query must share one cutoff because per-variation N
-      // is shared across the query. The caches stay untouched (window-agnostic);
-      // only the cheap read-time stats queries split. When the setting is off,
-      // this is a single query over all metrics with no cutoff (unchanged).
+      // skipPartialData: split into one stats query per conversion window (each
+      // needs its own cutoff, since per-variation N is shared within a query).
       const statsBuckets = snapshotSettings.skipPartialData
         ? Array.from(
             groupMetricsByConversionWindowHours(sameFtMetrics).entries(),
@@ -1056,10 +1048,8 @@ const startExperimentIncrementalRefreshQueries = async (
       : eligibleDimensionsWithSlicesUnderMaxCells;
 
     const crossFtMetrics = subGroup.metrics.map((m) => m.metric);
-    // Same window-partitioning as the same-FT pass: when skipPartialData is on,
-    // emit one stats query per conversion window (a single cross-FT pair can
-    // host ratio metrics with different windows), each with its own
-    // first_exposure_timestamp cutoff. Off => a single query, unchanged.
+    // Window-partition like the same-FT pass (a pair can host metrics with
+    // different windows).
     const statsBuckets = snapshotSettings.skipPartialData
       ? Array.from(
           groupMetricsByConversionWindowHours(crossFtMetrics).entries(),

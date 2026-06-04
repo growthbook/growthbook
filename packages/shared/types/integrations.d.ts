@@ -432,13 +432,8 @@ export interface IncrementalRefreshStatisticsQueryParams {
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   lastMaxTimestamp: Date | null;
-  // When set ("Exclude In-Progress Conversions" / skipPartialData), restricts
-  // the analysis to units exposed early enough to have completed their full
-  // conversion window: `__experimentUnits` is filtered to
-  // `first_exposure_timestamp <= maxFirstExposureTimestamp`. All metrics in a
-  // given query must share one conversion window (the runner partitions stats
-  // queries by window) so this single cutoff is correct. Undefined/null => no
-  // exposure cutoff (include in-progress conversions).
+  // skipPartialData cutoff: filters __experimentUnits to
+  // first_exposure_timestamp <= this. Unset => include in-progress conversions.
   maxFirstExposureTimestamp?: Date | null;
 }
 

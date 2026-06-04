@@ -34,12 +34,8 @@ const incrementalRefresh = z
     unitsMaxTimestamp: z.date().nullable(),
     unitsDimensions: z.array(z.string()),
 
-    // Wall-clock reference time of the last successful main refresh — i.e. how
-    // current the materialized caches are. The "Exclude In-Progress
-    // Conversions" (skipPartialData) cutoff is computed relative to this so
-    // that read-only exploratory runs, which don't refresh the caches, use the
-    // same maturity boundary as the main run that built them (rather than their
-    // own later clock, which would surface not-yet-materialized partial data).
+    // When the caches were last refreshed; exploratory runs use it as the
+    // skipPartialData cutoff reference so it matches what the caches contain.
     lastRefreshTimestamp: z.date().nullable().optional(),
 
     // Experiment Settings Hash

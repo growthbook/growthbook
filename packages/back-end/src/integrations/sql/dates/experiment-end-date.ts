@@ -3,10 +3,8 @@ import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 export function getExperimentEndDate(
   settings: ExperimentSnapshotSettings,
   conversionWindowHours: number,
-  // Reference "now" for the conversion-window cutoff. Defaults to the current
-  // time, but callers (e.g. incremental refresh) pass a pinned timestamp so the
-  // cutoff is deterministic across the many queries in a run and matches the
-  // freshness of materialized caches.
+  // Reference "now" for the cutoff; callers can pin it (e.g. incremental
+  // refresh) for determinism across a run.
   now: Date = new Date(),
 ): Date {
   // Only include users who entered the experiment before this timestamp
