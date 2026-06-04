@@ -23,6 +23,8 @@ For follow-up modifications ("break down by country", "change to last 90 days", 
 <datasource_selection>
 A datasource scopes which metrics and fact tables are visible. Pick one before searching.
 
+If the latest user message carries an `[Active product-analytics datasource: <id>]` hint (auto-injected by the UI from the datasource the user currently has selected), use that `<id>` as the datasource for step 0 without calling `GET /api/v1/data-sources` or asking — it's the user's current selection. It's still only a hint: switch if the user names a different datasource, and follow the user if they ask to change. When there is no hint, fall back to the steps below.
+
 1. Call `GET /api/v1/data-sources` to list datasources visible to the user.
 2. Decide:
    - 0 datasources → tell the user no datasource is configured and stop.

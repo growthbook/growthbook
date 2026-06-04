@@ -2,16 +2,12 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiX, PiPlus, PiArrowLineLeft, PiArrowLineRight } from "react-icons/pi";
-import type {
-  AIChatMessage,
-  AIChatTextPart,
-  AIChatToolCallPart,
-} from "shared/ai-chat";
+import type { AIChatMessage } from "shared/ai-chat";
 import Markdown from "@/components/Markdown/Markdown";
 import Text from "@/ui/Text";
-import Button from "@/ui/Button";
 import { useAIChat } from "@/enterprise/hooks/useAIChat";
 import type { ActiveTurnItem } from "@/enterprise/hooks/useAIChat/types";
+import { useDefaultDataSourceId } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import {
   AssistantBubble,
   UserBubble,
@@ -25,10 +21,30 @@ import CollapsedSteps, {
 } from "@/enterprise/components/AIChat/CollapsedSteps";
 import { useCollapsibleActiveTurnItems } from "@/enterprise/components/AIChat/useCollapsibleActiveTurnItems";
 import ToolUsageDetails from "@/enterprise/components/AIChat/ToolUsageDetails";
+import {
+  AIChatFeedback,
+  type FeedbackState,
+} from "@/enterprise/components/AIChat/AIChatFeedback";
+import { useChatFeedback } from "@/enterprise/components/AIChat/useChatFeedback";
 import { findToolCallPart } from "@/enterprise/hooks/useAIChat/pairAIChatToolMessages";
 import aiChatStyles from "@/enterprise/components/AIChat/AIChatPrimitives.module.scss";
 import ChatInputBar from "@/enterprise/components/AIChat/ChatInputBar";
 import AgentChatHistory from "./AgentChatHistory";
+import {
+  type MessageTurn,
+  groupMessagesByTurn,
+  classifyTurn,
+  assistantText,
+  getUserText,
+} from "./agentMessageUtils";
+import AskUserCard, {
+  type AskUserOption,
+  type AskUserPrompt,
+} from "./AskUserCard";
+import ConfirmActionCard, {
+  type ConfirmActionPrompt,
+  type ConfirmDecisionBody,
+} from "./ConfirmActionCard";
 
 const STORAGE_KEY = "growthbook.agent.conversationId";
 
@@ -42,14 +58,6 @@ const TOOL_STATUS_LABELS: Record<string, string> = {
   loadSkill: LOAD_SKILL_LABEL,
 };
 
-/**
- * Legacy: older conversations were persisted with a `finalAnswer` tool call
- * carrying the visible reply in `args.content`. New conversations no longer
- * use that tool — the trailing plain-text message is the reply. We still
- * surface the legacy content here so older transcripts render correctly.
- */
-const LEGACY_FINAL_ANSWER_TOOL = "finalAnswer";
-
 interface AgentPanelProps {
   open: boolean;
   /** When true, the panel renders at a wider width to give the chat more focus. */
@@ -58,144 +66,9 @@ interface AgentPanelProps {
   onToggleExpanded?: () => void;
 }
 
-interface AskUserOption {
-  id: string;
-  label: string;
-  description?: string;
-}
-
-interface AskUserPrompt {
-  /** Sequential id so we can detect a fresh question superseding an older one. */
-  seq: number;
-  question: string;
-  options: AskUserOption[];
-  allowMultiple: boolean;
-  /** Once the user picks (or sends another message), the prompt is resolved. */
-  resolved: boolean;
-}
-
-interface ConfirmActionPrompt {
-  /** Sequential id so a fresh prompt supersedes an older one. */
-  seq: number;
-  /** Server-issued id for the parked mutation; echoed back on the decision. */
-  actionId: string;
-  method: string;
-  path: string;
-  summary: string;
-  /** Parsed query params for the parked call, if any. */
-  query?: Record<string, unknown>;
-  /** Request body for the parked call, if any. */
-  body?: unknown;
-  /**
-   * Once the user decides (or sends another message) the prompt resolves and
-   * the card is hidden — the decision plays out in the streamed reply and the
-   * persisted "Completed steps", so a lingering card would render out of order.
-   */
-  resolved: boolean;
-}
-
-/** Body fields sent alongside the next message to resolve a parked mutation. */
-interface ConfirmDecisionBody {
-  confirmActionId: string;
-  confirmDecision: "confirm" | "cancel";
-}
-
 // ---------------------------------------------------------------------------
-// Persisted turn classification
+// Persisted turn rendering helpers
 // ---------------------------------------------------------------------------
-
-interface MessageTurn {
-  user: AIChatMessage | null;
-  rest: AIChatMessage[];
-}
-
-function groupMessagesByTurn(messages: AIChatMessage[]): MessageTurn[] {
-  const turns: MessageTurn[] = [];
-  let current: MessageTurn | null = null;
-  for (const m of messages) {
-    if (m.role === "user") {
-      if (current) turns.push(current);
-      current = { user: m, rest: [] };
-    } else if (m.role === "assistant" || m.role === "tool") {
-      if (!current) current = { user: null, rest: [] };
-      current.rest.push(m);
-    }
-  }
-  if (current) turns.push(current);
-  return turns;
-}
-
-function assistantMessageHasText(msg: AIChatMessage): boolean {
-  if (msg.role !== "assistant") return false;
-  if (typeof msg.content === "string") return msg.content.trim().length > 0;
-  return msg.content.some(
-    (p) => p.type === "text" && (p as AIChatTextPart).text.trim().length > 0,
-  );
-}
-
-function findLegacyFinalAnswer(rest: AIChatMessage[]): string | null {
-  for (const msg of rest) {
-    if (msg.role !== "assistant" || typeof msg.content === "string") continue;
-    for (const part of msg.content) {
-      if (
-        part.type === "tool-call" &&
-        (part as AIChatToolCallPart).toolName === LEGACY_FINAL_ANSWER_TOOL
-      ) {
-        const content = (part as AIChatToolCallPart).args?.content;
-        if (typeof content === "string" && content.trim().length > 0) {
-          return content;
-        }
-      }
-    }
-  }
-  return null;
-}
-
-/**
- * Split a turn into intermediate "pre-work" (collapsed behind a toggle) and
- * the user-visible final reply.
- *
- * Preference order:
- *   1. Legacy `finalAnswer` tool-call content (old conversations).
- *   2. The last assistant message containing plain text — its text is the
- *      reply, everything else is pre-work.
- *   3. No reply found — surface everything as pre-work (the agent ended the
- *      turn without saying anything visible; usually means it called
- *      `askUser` and the question UI handles display).
- */
-function classifyTurn(rest: AIChatMessage[]): {
-  preWork: AIChatMessage[];
-  replyContent: string | null;
-} {
-  const legacy = findLegacyFinalAnswer(rest);
-  if (legacy !== null) {
-    return { preWork: rest, replyContent: legacy };
-  }
-
-  let lastTextIdx = -1;
-  for (let i = rest.length - 1; i >= 0; i--) {
-    if (assistantMessageHasText(rest[i])) {
-      lastTextIdx = i;
-      break;
-    }
-  }
-  if (lastTextIdx < 0) {
-    return { preWork: rest, replyContent: null };
-  }
-  const replyMsg = rest[lastTextIdx];
-  const preWork = rest.filter((_, i) => i !== lastTextIdx);
-  return { preWork, replyContent: assistantText(replyMsg) };
-}
-
-/** Concatenated text from an assistant message (string content or text parts). */
-function assistantText(msg: AIChatMessage): string {
-  if (msg.role !== "assistant") return "";
-  if (typeof msg.content === "string") return msg.content;
-  return msg.content
-    .filter((p): p is AIChatTextPart => p.type === "text")
-    .map((p) => p.text)
-    .join("\n\n");
-}
 
 function persistedToolLabel(toolName: string): string {
   return TOOL_STATUS_LABELS[toolName] ?? toolName;
@@ -278,6 +151,13 @@ export default function AgentPanel({
   // were when the panel rendered.
   const routerRef = useRef(router);
   routerRef.current = router;
+  // The general agent runs site-wide (outside the PA ExplorerProvider), so we
+  // read the user's last-selected product-analytics datasource from the shared
+  // localStorage-backed hook. Captured in a ref and read at send time (like the
+  // router path) so buildRequestBody stays stable and reflects the latest value.
+  const datasourceId = useDefaultDataSourceId();
+  const datasourceIdRef = useRef(datasourceId);
+  datasourceIdRef.current = datasourceId;
   const [askPrompt, setAskPrompt] = useState<AskUserPrompt | null>(null);
   const [confirmPrompt, setConfirmPrompt] =
     useState<ConfirmActionPrompt | null>(null);
@@ -285,6 +165,14 @@ export default function AgentPanel({
   // Holds the decision to attach to the next outgoing message. Consumed (and
   // cleared) by buildRequestBody so it only rides along with one request.
   const pendingDecisionRef = useRef<ConfirmDecisionBody | null>(null);
+
+  const {
+    feedbackMap,
+    handleFeedbackSubmit,
+    loadFeedbackFromConversation,
+    clearFeedback,
+    conversationIdRef: feedbackConversationIdRef,
+  } = useChatFeedback("/agent/chat");
 
   // Below this width the left sidebar collapses (see TopNav.module.scss
   // `@media (max-width: 1180px)`), so the docked expanded panel must run to
@@ -309,12 +197,14 @@ export default function AgentPanel({
     // router.asPath is the path + search (no host); cap to match the
     // back-end validator (z.string().max(2048)).
     const path = (routerRef.current?.asPath ?? "").slice(0, 2048);
+    const dsId = datasourceIdRef.current;
     const decision = pendingDecisionRef.current;
     pendingDecisionRef.current = null;
     return {
       message,
       conversationId: cid,
       ...(path ? { currentPage: path } : {}),
+      ...(dsId ? { datasourceId: dsId } : {}),
       ...(decision ?? {}),
     };
   }, []);
@@ -415,6 +305,16 @@ export default function AgentPanel({
     }
   }, []);
 
+  // On load, hydrate both the parked confirmation prompt and any persisted
+  // message feedback from the same raw conversation payload.
+  const handleConversationLoaded = useCallback(
+    (data: unknown) => {
+      syncConfirmFromLoad(data);
+      loadFeedbackFromConversation(data);
+    },
+    [syncConfirmFromLoad, loadFeedbackFromConversation],
+  );
+
   const {
     messages,
     activeTurnItems,
@@ -437,9 +337,13 @@ export default function AgentPanel({
     getConversationEndpoint: (cid) => `/agent/chat/${cid}`,
     getCancelEndpoint: (cid) => `/agent/chat/${cid}/cancel`,
     onSSEEvent: handleSSEEvent,
-    onConversationLoaded: syncConfirmFromLoad,
+    onConversationLoaded: handleConversationLoaded,
     conversationStorageKey: STORAGE_KEY,
   });
+
+  // Keep the feedback hook's ref in sync with the current conversation id.
+  // The ref is only read inside event handlers, never during render.
+  feedbackConversationIdRef.current = conversationId;
 
   const { collapsedItems, visibleItems } = useCollapsibleActiveTurnItems(
     activeTurnItems,
@@ -534,8 +438,9 @@ export default function AgentPanel({
   const handleNewChat = useCallback(() => {
     newChat();
     resetTransientState();
+    clearFeedback();
     focusInput();
-  }, [newChat, resetTransientState, focusInput]);
+  }, [newChat, resetTransientState, clearFeedback, focusInput]);
 
   const handleSelectConversation = useCallback(
     (id: string) => {
@@ -655,6 +560,8 @@ export default function AgentPanel({
               turn={turn}
               onInternalLinkClick={navigateInApp}
               toolDetailsOpenRef={toolDetailsOpenRef}
+              feedbackMap={feedbackMap}
+              onFeedbackSubmit={handleFeedbackSubmit}
             />
           ))}
 
@@ -693,95 +600,19 @@ export default function AgentPanel({
           {error && <ErrorBubble>{error}</ErrorBubble>}
 
           {askPrompt && !askPrompt.resolved && (
-            <AssistantBubble>
-              <Flex direction="column" gap="2">
-                <Text size="small">{askPrompt.question}</Text>
-                <Flex direction="column" gap="2">
-                  {askPrompt.options.map((opt) => (
-                    <AskUserOptionButton
-                      key={opt.id}
-                      option={opt}
-                      disabled={loading}
-                      onClick={() => handleAskOption(opt)}
-                    />
-                  ))}
-                </Flex>
-              </Flex>
-            </AssistantBubble>
+            <AskUserCard
+              prompt={askPrompt}
+              loading={loading}
+              onSelect={handleAskOption}
+            />
           )}
 
           {confirmPrompt && !confirmPrompt.resolved && (
-            <AssistantBubble>
-              <Flex direction="column" gap="2">
-                <Text size="small" weight="medium">
-                  Apply this change?
-                </Text>
-                <Flex
-                  align="center"
-                  gap="2"
-                  wrap="wrap"
-                  style={{
-                    padding: "6px 8px",
-                    borderRadius: "var(--radius-2)",
-                    background: "var(--gray-a3)",
-                  }}
-                >
-                  <MethodPill method={confirmPrompt.method} />
-                  <code
-                    style={{
-                      fontSize: 12,
-                      color: "var(--gray-12)",
-                      overflowWrap: "anywhere",
-                    }}
-                  >
-                    {confirmPrompt.path}
-                  </code>
-                </Flex>
-                {confirmPrompt.summary &&
-                  confirmPrompt.summary !==
-                    `${confirmPrompt.method} ${confirmPrompt.path}` && (
-                    <Text size="small" color="text-low">
-                      {confirmPrompt.summary}
-                    </Text>
-                  )}
-                {(confirmPrompt.body !== undefined || confirmPrompt.query) && (
-                  <ToolUsageDetails
-                    summaryLabel="Request details"
-                    toolInput={{
-                      method: confirmPrompt.method,
-                      path: confirmPrompt.path,
-                      ...(confirmPrompt.query
-                        ? { query: confirmPrompt.query }
-                        : {}),
-                      ...(confirmPrompt.body !== undefined
-                        ? { body: confirmPrompt.body }
-                        : {}),
-                    }}
-                  />
-                )}
-                <Text size="small" color="text-low">
-                  This is a write to GrowthBook. Confirm to run it, or cancel to
-                  keep it from happening.
-                </Text>
-                <Flex gap="2">
-                  <Button
-                    size="xs"
-                    disabled={loading}
-                    onClick={() => handleConfirmAction("confirm")}
-                  >
-                    Confirm
-                  </Button>
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    disabled={loading}
-                    onClick={() => handleConfirmAction("cancel")}
-                  >
-                    Cancel
-                  </Button>
-                </Flex>
-              </Flex>
-            </AssistantBubble>
+            <ConfirmActionCard
+              prompt={confirmPrompt}
+              loading={loading}
+              onDecide={handleConfirmAction}
+            />
           )}
 
           <div ref={messagesEndRef} />
@@ -886,20 +717,28 @@ function ActiveTurnItemRow({
 /**
  * Renders a single persisted turn: user bubble (if any), the collapsed
  * "Completed N steps" drawer for intermediate work, then the assistant's
- * visible reply (the last plain-text message, or a legacy `finalAnswer`
- * tool-call's content for older conversations).
+ * visible reply (the last plain-text message).
  */
 function PersistedTurn({
   turn,
   onInternalLinkClick,
   toolDetailsOpenRef,
+  feedbackMap,
+  onFeedbackSubmit,
 }: {
   turn: MessageTurn;
   onInternalLinkClick?: (href: string) => void;
   toolDetailsOpenRef: React.MutableRefObject<Record<string, boolean>>;
+  feedbackMap: Record<string, FeedbackState>;
+  onFeedbackSubmit: (
+    messageId: string,
+    rating: "positive" | "negative" | null,
+    comment: string,
+  ) => void;
 }) {
-  const { preWork, replyContent } = classifyTurn(turn.rest);
+  const { preWork, replyContent, replyMessageId } = classifyTurn(turn.rest);
   const steps = preWorkToSteps(preWork, turn.rest, toolDetailsOpenRef);
+  const hasReply = replyContent !== null && replyContent.trim().length > 0;
 
   return (
     <>
@@ -913,112 +752,21 @@ function PersistedTurn({
         <CollapsedSteps count={steps.length} items={steps} />
       )}
 
-      {replyContent !== null && replyContent.trim() && (
+      {hasReply && (
         <AssistantBubble>
           <Markdown onInternalLinkClick={onInternalLinkClick}>
             {replyContent}
           </Markdown>
         </AssistantBubble>
       )}
+
+      {hasReply && replyMessageId && (
+        <AIChatFeedback
+          messageId={replyMessageId}
+          value={feedbackMap[replyMessageId] ?? { rating: null, comment: "" }}
+          onSubmit={onFeedbackSubmit}
+        />
+      )}
     </>
   );
-}
-
-/**
- * Multi-line "option card" rendered for each `askUser` choice. Uses a native
- * `<button>` instead of the design-system `Button` because the latter is
- * fixed single-line height — two-line label + description content overflows
- * and overlaps. Visual style matches a soft/violet button so it still reads
- * as clickable.
- */
-function AskUserOptionButton({
-  option,
-  disabled,
-  onClick,
-}: {
-  option: AskUserOption;
-  disabled: boolean;
-  onClick: () => void;
-}) {
-  const [hover, setHover] = useState(false);
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        display: "block",
-        width: "100%",
-        textAlign: "left",
-        padding: "8px 12px",
-        borderRadius: "var(--radius-2)",
-        border: "1px solid var(--violet-a5)",
-        background:
-          hover && !disabled ? "var(--violet-a4)" : "var(--violet-a3)",
-        color: "var(--violet-12)",
-        cursor: disabled ? "not-allowed" : "pointer",
-        opacity: disabled ? 0.6 : 1,
-        font: "inherit",
-        transition: "background 120ms ease",
-      }}
-    >
-      <Flex direction="column" gap="1" align="start">
-        <Text size="small" weight="medium">
-          {option.label}
-        </Text>
-        {option.description && (
-          <Text size="small" color="text-low">
-            {option.description}
-          </Text>
-        )}
-      </Flex>
-    </button>
-  );
-}
-
-/** HTTP-method color mapping for the gated-call pill. */
-const METHOD_COLORS: Record<string, { bg: string; fg: string }> = {
-  GET: { bg: "var(--blue-a4)", fg: "var(--blue-11)" },
-  POST: { bg: "var(--green-a4)", fg: "var(--green-11)" },
-  PUT: { bg: "var(--amber-a4)", fg: "var(--amber-11)" },
-  PATCH: { bg: "var(--amber-a4)", fg: "var(--amber-11)" },
-  DELETE: { bg: "var(--red-a4)", fg: "var(--red-11)" },
-};
-
-/** Small colored badge showing the HTTP method of a gated mutation. */
-function MethodPill({ method }: { method: string }) {
-  const upper = (method || "").toUpperCase();
-  const colors = METHOD_COLORS[upper] ?? {
-    bg: "var(--gray-a4)",
-    fg: "var(--gray-11)",
-  };
-  return (
-    <span
-      style={{
-        flexShrink: 0,
-        padding: "1px 6px",
-        borderRadius: "var(--radius-1)",
-        background: colors.bg,
-        color: colors.fg,
-        fontSize: 11,
-        fontWeight: 600,
-        letterSpacing: 0.3,
-        fontFamily: "var(--font-mono, monospace)",
-      }}
-    >
-      {upper || "?"}
-    </span>
-  );
-}
-
-/** Extract user-visible text from a user message. */
-function getUserText(msg: AIChatMessage): string {
-  if (msg.role !== "user") return "";
-  if (typeof msg.content === "string") return msg.content;
-  return msg.content
-    .filter((p): p is AIChatTextPart => p.type === "text")
-    .map((p) => p.text)
-    .join("\n");
 }

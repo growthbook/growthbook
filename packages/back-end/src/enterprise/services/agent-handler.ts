@@ -66,6 +66,16 @@ export interface AgentConfig<TParams = unknown> {
   buildSystemPrompt: (ctx: ReqContext, params: TParams) => Promise<string>;
 
   /**
+   * When true, a `datasourceId` on the request body is persisted on the user
+   * message as a soft `datasourceHint` and surfaced to the LLM via an
+   * `[Active product-analytics datasource: …]` prefix (see `toModelMessages`).
+   * Kept off the static system prompt so the prompt stays cache-friendly.
+   * Agents that scope themselves to a datasource via params (e.g. PA chat)
+   * leave this off and use the param directly instead.
+   */
+  injectDatasourceHint?: boolean;
+
+  /**
    * Build the tool set for the current request.
    * The `buffer` provides sync access to the conversation's messages and
    * metadata within tool execute functions. The `emit` function writes SSE
@@ -127,6 +137,12 @@ type AgentRequestBody = {
    * need page awareness (e.g. PA chat) just won't pass it through.
    */
   currentPage?: string;
+  /**
+   * Optional product-analytics datasource the client had selected. When the
+   * agent config sets `injectDatasourceHint`, this is persisted on the user
+   * message as a soft `datasourceHint` (see `AIChatUserMessage`).
+   */
+  datasourceId?: string;
 } & Record<string, unknown>;
 
 type ErrorPart = Extract<AgentStreamPart, { type: "error" }>;
@@ -254,7 +270,11 @@ export function createAgentHandler<TParams>(config: AgentConfig<TParams>) {
     // message (including one that supersedes a pending action) is a normal
     // user turn, appended after the parked action has been resolved.
     if (!isConfirm && !isCancel) {
-      appendUserMessage(buffer, message, body.currentPage);
+      const datasourceHint =
+        config.injectDatasourceHint && typeof body.datasourceId === "string"
+          ? body.datasourceId
+          : undefined;
+      appendUserMessage(buffer, message, body.currentPage, datasourceHint);
     }
     buffer.setStreaming(true);
 
@@ -364,6 +384,7 @@ function appendUserMessage(
   buffer: ConversationBuffer,
   message: string,
   currentPage?: string,
+  datasourceHint?: string,
 ): void {
   const userMessage: AIChatMessage = {
     role: "user",
@@ -373,6 +394,9 @@ function appendUserMessage(
     // Trim and drop empties so we never persist whitespace-only context.
     ...(currentPage && currentPage.trim()
       ? { currentPage: currentPage.trim() }
+      : {}),
+    ...(datasourceHint && datasourceHint.trim()
+      ? { datasourceHint: datasourceHint.trim() }
       : {}),
   };
   buffer.appendMessages([userMessage]);

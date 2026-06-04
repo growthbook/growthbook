@@ -91,6 +91,13 @@ document the URL → entity mapping (e.g. \`/experiment/<id>\` →
 page context. If the page context is irrelevant to the user's request,
 ignore it.
 
+A user message may carry other auto-injected lines of the same
+\`[Label: value]\` shape — e.g. \`[Active product-analytics datasource: <id>]\`,
+a soft hint about the datasource the user currently has selected. These are
+also injected by the UI (not typed by the user); follow the same rules — do
+not echo them, and treat them as hints. The product-analytics skill documents
+how to use the datasource hint.
+
 # Linking to pages
 
 You run inside the user's GrowthBook session as a sidebar assistant, so you
@@ -173,27 +180,13 @@ keys, experiment names) over internal IDs in your replies. Use internal
 IDs only for API calls or when constructing URLs.
 `.trim();
 
-function buildGeneralAgentSystemPrompt(
-  params: GeneralAgentParams = {},
-): string {
+function buildGeneralAgentSystemPrompt(): string {
   const skillsIndex = assembleSkillsIndexForPrompt();
-  const requestContext = params.datasourceId
-    ? [
-        "# Request context",
-        "",
-        "A product analytics datasource has already been selected for this " +
-          `chat: \`${params.datasourceId}\`.`,
-        "When using the product-analytics skill, use this datasourceId in " +
-          "search and exploration calls and do not ask the user to choose a " +
-          "datasource unless they explicitly ask to switch.",
-      ].join("\n")
-    : "";
   if (!skillsIndex) {
-    return [GENERIC_PREAMBLE, requestContext].filter(Boolean).join("\n\n");
+    return GENERIC_PREAMBLE;
   }
   return [
     GENERIC_PREAMBLE,
-    ...(requestContext ? [requestContext] : []),
     "",
     "# Available skills",
     "",
@@ -242,59 +235,24 @@ export function logGeneralAgentSystemPrompt(): void {
 }
 
 // =============================================================================
-// callApi tool
+// Path matchers & helpers
 // =============================================================================
 
-const callApiInputSchema = z.object({
-  method: z
-    .enum(["GET", "POST", "PUT", "PATCH", "DELETE"])
-    .describe("HTTP method for the request"),
-  path: z
-    .string()
-    .describe(
-      "Full path including version prefix, e.g. '/api/v1/features/feat_abc'",
-    ),
-  query: z
-    .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
-    .optional()
-    .describe("Query string parameters as a flat object of strings"),
-  body: z
-    .unknown()
-    .optional()
-    .describe(
-      "Request body for POST/PUT/PATCH. Pass it as a JSON object/array " +
-        "directly — do NOT wrap it in a JSON-encoded string. Example: " +
-        '`{"foo": "bar"}`, not `"{\\"foo\\":\\"bar\\"}"`.',
-    ),
-});
-
-/**
- * Models occasionally serialize `body` as a JSON-encoded string ("the JSON")
- * instead of an object even when told not to. Detect that and parse it back
- * to an object so the underlying handler's schema validates cleanly.
- *
- * This is intentionally permissive — only triggers when the string starts
- * with `{` or `[` after trim. Anything else is passed through unchanged.
- */
-function coerceBody(body: unknown): unknown {
-  if (typeof body !== "string") return body;
-  const trimmed = body.trim();
-  if (!trimmed || (trimmed[0] !== "{" && trimmed[0] !== "[")) {
-    return body;
-  }
-  try {
-    return JSON.parse(trimmed);
-  } catch {
-    // Not valid JSON — let the handler reject it with a real error.
-    return body;
-  }
-}
+const EXPLORATION_PATH_RE =
+  /^\/api\/v[12]\/product-analytics\/(metric|fact-table|data-source)-exploration\/?$/;
 
 /** Read-only POST that looks up distinct column values for a fact table. The
  * product-analytics skill mandates calling this during normal chart building,
  * so it must be exempt from the mutation-confirmation gate. */
 const COLUMN_VALUES_PATH_RE =
   /^\/api\/v[12]\/product-analytics\/column-values\/?$/;
+
+function isExplorationPath(path: string): boolean {
+  // Normalize first so we match the canonical `/api/v1/...` form the
+  // dispatcher routes to, regardless of the prefix shape the LLM sent
+  // (`/api/v1/...`, `/v1/...`, or `/...`). Also strips any query string.
+  return EXPLORATION_PATH_RE.test(normalizePath(path));
+}
 
 /**
  * Deterministic mutation gate. Any non-GET call mutates configuration and is
@@ -322,15 +280,136 @@ function requiresMutationConfirmation(input: DispatchInput): boolean {
   return true;
 }
 
+/**
+ * Models occasionally serialize `body` as a JSON-encoded string ("the JSON")
+ * instead of an object even when told not to. Detect that and parse it back
+ * to an object so the underlying handler's schema validates cleanly.
+ *
+ * This is intentionally permissive — only triggers when the string starts
+ * with `{` or `[` after trim. Anything else is passed through unchanged.
+ */
+function coerceBody(body: unknown): unknown {
+  if (typeof body !== "string") return body;
+  const trimmed = body.trim();
+  if (!trimmed || (trimmed[0] !== "{" && trimmed[0] !== "[")) {
+    return body;
+  }
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    // Not valid JSON — let the handler reject it with a real error.
+    return body;
+  }
+}
+
+/**
+ * Trim the response body the agent sees for two reasons: keep token usage
+ * sane on big list endpoints, and keep the agent focused on actionable parts
+ * (status, message, the relevant top-level fields).
+ *
+ * For successful exploration responses we elide `exploration.result.rows`
+ * (which the chart UI uses but the agent doesn't read row-by-row) and
+ * surface only summary fields.
+ */
+const MAX_BODY_CHARS = 16_000;
+
+function summarizeResult(result: DispatchResult): {
+  status: number;
+  body: unknown;
+} {
+  const { status, body } = result;
+  if (
+    status >= 200 &&
+    status < 300 &&
+    body &&
+    typeof body === "object" &&
+    !Array.isArray(body)
+  ) {
+    const b = body as Record<string, unknown>;
+    if (b.exploration && typeof b.exploration === "object") {
+      const exp = b.exploration as Record<string, unknown>;
+      const result = exp.result as { rows?: unknown[] } | undefined;
+      const rowCount = Array.isArray(result?.rows) ? result.rows.length : 0;
+      // Keep config but elide row data — the chart UI gets the full body
+      // through the chart-result SSE event.
+      return {
+        status,
+        body: {
+          ...b,
+          exploration: {
+            ...exp,
+            result: {
+              ...(result ?? {}),
+              rows: undefined,
+              rowCount,
+            },
+          },
+        },
+      };
+    }
+  }
+
+  // Fall-through: cap body size as a guardrail against runaway responses.
+  const serialized = safeStringify(body);
+  if (serialized.length > MAX_BODY_CHARS) {
+    return {
+      status,
+      body: {
+        truncated: true,
+        message:
+          "Response was too large to include in full. Re-call with narrower filters or pagination params.",
+        preview: serialized.slice(0, MAX_BODY_CHARS),
+      },
+    };
+  }
+
+  return result;
+}
+
+function safeStringify(v: unknown): string {
+  try {
+    return JSON.stringify(v);
+  } catch {
+    return String(v);
+  }
+}
+
+// =============================================================================
+// Tool schemas & descriptions
+// =============================================================================
+
+// --- callApi ---------------------------------------------------------------
+
+const callApiInputSchema = z.object({
+  method: z
+    .enum(["GET", "POST", "PUT", "PATCH", "DELETE"])
+    .describe("HTTP method for the request"),
+  path: z
+    .string()
+    .describe(
+      "Full path including version prefix, e.g. '/api/v1/features/feat_abc'",
+    ),
+  query: z
+    .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
+    .optional()
+    .describe("Query string parameters as a flat object of strings"),
+  body: z
+    .unknown()
+    .optional()
+    .describe(
+      "Request body for POST/PUT/PATCH. Pass it as a JSON object/array " +
+        "directly — do NOT wrap it in a JSON-encoded string. Example: " +
+        '`{"foo": "bar"}`, not `"{\\"foo\\":\\"bar\\"}"`.',
+    ),
+});
+
 const CALL_API_DESCRIPTION =
   "Make a request to the GrowthBook REST API. " +
   "Use `loadSkill` first to get the workflow and endpoint details for the " +
   "capability area you need. Returns { status, body }: 2xx is success, " +
   "non-2xx contains an error message in body.message.";
 
-// =============================================================================
-// loadSkill tool
-// =============================================================================
+// --- loadSkill -------------------------------------------------------------
 
 const loadSkillInputSchema = z.object({
   name: z
@@ -349,9 +428,7 @@ const LOAD_SKILL_DESCRIPTION =
   "body } on a hit, or { status: 'not_found', availableSkills } if the " +
   "name doesn't match — in which case retry with a valid name.";
 
-// =============================================================================
-// askUser tool
-// =============================================================================
+// --- askUser ---------------------------------------------------------------
 
 const askUserOptionSchema = z.object({
   id: z
@@ -400,36 +477,25 @@ const ASK_USER_DESCRIPTION =
   "message. Use only when the request is ambiguous and you cannot pick a " +
   "sensible default. After calling this, end your turn.";
 
-const EXPLORATION_PATH_RE =
-  /^\/api\/v[12]\/product-analytics\/(metric|fact-table|data-source)-exploration\/?$/;
-
-function isExplorationPath(path: string): boolean {
-  // Normalize first so we match the canonical `/api/v1/...` form the
-  // dispatcher routes to, regardless of the prefix shape the LLM sent
-  // (`/api/v1/...`, `/v1/...`, or `/...`). Also strips any query string.
-  return EXPLORATION_PATH_RE.test(normalizePath(path));
-}
-
 // =============================================================================
 // AgentConfig
 // =============================================================================
 
-interface GeneralAgentParams {
-  datasourceId?: string;
-}
+type GeneralAgentParams = Record<string, never>;
 
 const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
   agentType: "general",
   promptType: "general-chat",
 
-  parseParams: (body) => ({
-    ...(typeof body.datasourceId === "string" && body.datasourceId.trim()
-      ? { datasourceId: body.datasourceId.trim() }
-      : {}),
-  }),
+  // No per-request params shape the system prompt — it's fully static so the
+  // LLM provider can cache it across conversations. A preselected datasource
+  // rides along as a soft per-message hint instead (see `injectDatasourceHint`
+  // and the `[Active product-analytics datasource: …]` prefix).
+  parseParams: () => ({}),
 
-  buildSystemPrompt: async (_ctx, params) =>
-    buildGeneralAgentSystemPrompt(params),
+  injectDatasourceHint: true,
+
+  buildSystemPrompt: async () => buildGeneralAgentSystemPrompt(),
 
   buildTools: (ctx, buffer, _params, emit) => {
     const stripQueryStrings = (
@@ -562,82 +628,6 @@ const generalAgentConfig: AgentConfig<GeneralAgentParams> = {
   maxSteps: 20,
   maxConsecutiveToolErrors: 5,
 };
-
-// =============================================================================
-// Helpers
-// =============================================================================
-
-/**
- * Trim the response body the agent sees for two reasons: keep token usage
- * sane on big list endpoints, and keep the agent focused on actionable parts
- * (status, message, the relevant top-level fields).
- *
- * For successful exploration responses we elide `exploration.result.rows`
- * (which the chart UI uses but the agent doesn't read row-by-row) and
- * surface only summary fields.
- */
-const MAX_BODY_CHARS = 16_000;
-
-function summarizeResult(result: DispatchResult): {
-  status: number;
-  body: unknown;
-} {
-  const { status, body } = result;
-  if (
-    status >= 200 &&
-    status < 300 &&
-    body &&
-    typeof body === "object" &&
-    !Array.isArray(body)
-  ) {
-    const b = body as Record<string, unknown>;
-    if (b.exploration && typeof b.exploration === "object") {
-      const exp = b.exploration as Record<string, unknown>;
-      const result = exp.result as { rows?: unknown[] } | undefined;
-      const rowCount = Array.isArray(result?.rows) ? result.rows.length : 0;
-      // Keep config but elide row data — the chart UI gets the full body
-      // through the chart-result SSE event.
-      return {
-        status,
-        body: {
-          ...b,
-          exploration: {
-            ...exp,
-            result: {
-              ...(result ?? {}),
-              rows: undefined,
-              rowCount,
-            },
-          },
-        },
-      };
-    }
-  }
-
-  // Fall-through: cap body size as a guardrail against runaway responses.
-  const serialized = safeStringify(body);
-  if (serialized.length > MAX_BODY_CHARS) {
-    return {
-      status,
-      body: {
-        truncated: true,
-        message:
-          "Response was too large to include in full. Re-call with narrower filters or pagination params.",
-        preview: serialized.slice(0, MAX_BODY_CHARS),
-      },
-    };
-  }
-
-  return result;
-}
-
-function safeStringify(v: unknown): string {
-  try {
-    return JSON.stringify(v);
-  } catch {
-    return String(v);
-  }
-}
 
 // =============================================================================
 // Public exports

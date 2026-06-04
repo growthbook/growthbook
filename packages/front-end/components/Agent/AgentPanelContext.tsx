@@ -1,16 +1,7 @@
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useState,
-} from "react";
+import React, { createContext, useCallback, useContext, useState } from "react";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useUser } from "@/services/UserContext";
 import { useAISettings } from "@/hooks/useOrgSettings";
-
-const OPEN_KEY = "growthbook.agent.open";
-const EXPANDED_KEY = "growthbook.agent.expanded";
 
 interface AgentPanelContextValue {
   /** Whether the agent UI should be available to the current user/org. */
@@ -28,10 +19,11 @@ const AgentPanelContext = createContext<AgentPanelContextValue | null>(null);
 /**
  * Holds the open / expanded state for the site-wide agent panel so that
  * the trigger (rendered inside the TopNav) and the panel itself (mounted
- * at the app shell) stay in sync. Both flags are persisted to
- * sessionStorage so the panel survives in-tab navigation and reloads but
- * does NOT leak across tabs — the conversation id itself is also per-tab
- * (see useAIChat), so opening a new tab should give a clean slate.
+ * at the app shell) stay in sync. State lives in plain React state: it
+ * survives in-tab client-side navigation (the provider is mounted in
+ * _app.tsx, which is not remounted on route changes) but intentionally
+ * resets on a full page reload, so a refresh always starts with the panel
+ * closed.
  */
 export function AgentPanelProvider({
   children,
@@ -47,56 +39,21 @@ export function AgentPanelProvider({
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
-  useEffect(() => {
-    try {
-      if (sessionStorage.getItem(OPEN_KEY) === "true") setOpen(true);
-      if (sessionStorage.getItem(EXPANDED_KEY) === "true") setExpanded(true);
-    } catch {
-      // ignore
-    }
-  }, []);
-
-  const persistOpen = useCallback((value: boolean) => {
-    try {
-      sessionStorage.setItem(OPEN_KEY, value ? "true" : "false");
-    } catch {
-      // ignore
-    }
-  }, []);
-
-  const persistExpanded = useCallback((value: boolean) => {
-    try {
-      sessionStorage.setItem(EXPANDED_KEY, value ? "true" : "false");
-    } catch {
-      // ignore
-    }
-  }, []);
-
   const openPanel = useCallback(() => {
     setOpen(true);
-    persistOpen(true);
-  }, [persistOpen]);
+  }, []);
 
   const closePanel = useCallback(() => {
     setOpen(false);
-    persistOpen(false);
-  }, [persistOpen]);
+  }, []);
 
   const togglePanel = useCallback(() => {
-    setOpen((prev) => {
-      const next = !prev;
-      persistOpen(next);
-      return next;
-    });
-  }, [persistOpen]);
+    setOpen((prev) => !prev);
+  }, []);
 
   const toggleExpanded = useCallback(() => {
-    setExpanded((prev) => {
-      const next = !prev;
-      persistExpanded(next);
-      return next;
-    });
-  }, [persistExpanded]);
+    setExpanded((prev) => !prev);
+  }, []);
 
   return (
     <AgentPanelContext.Provider

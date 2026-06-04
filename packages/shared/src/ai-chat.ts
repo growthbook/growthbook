@@ -176,6 +176,15 @@ export type AIChatUserMessage = {
    * experiment". Skills document the URL → entity mapping.
    */
   currentPage?: string;
+  /**
+   * Optional product-analytics datasource the client had selected when this
+   * message was sent (e.g. the explorer's last-used datasource). Kept off the
+   * static system prompt so the prompt stays cacheable; instead persisted on
+   * the message and injected by `toModelMessages` as an
+   * `[Active product-analytics datasource: …]` prefix. It is a soft hint — the
+   * agent may still search other datasources or ask the user to switch.
+   */
+  datasourceHint?: string;
 };
 
 export type AIChatAssistantMessage = {

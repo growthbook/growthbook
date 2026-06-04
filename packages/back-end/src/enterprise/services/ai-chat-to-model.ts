@@ -16,22 +16,35 @@ function mapMediaPart(p: AIChatImagePart | AIChatFilePart) {
 }
 
 /**
- * Format the `currentPage` prefix injected into the model-bound user message.
- * Kept on a single line so it doesn't visually compete with the user's text
- * when the model formats it back; followed by a blank line for separation.
+ * Build the auto-injected context prefix for a model-bound user message.
+ *
+ * Each piece of client context is one bracketed line; they're kept off the
+ * static system prompt so it stays prompt-cache friendly and instead ride
+ * along with the (already per-turn-unique) user message. A trailing blank
+ * line separates the prefix from the user's actual text.
  */
-function buildPageContextPrefix(currentPage: string): string {
-  return `[Page context: ${currentPage}]\n\n`;
+function buildContextPrefix(
+  currentPage?: string,
+  datasourceHint?: string,
+): string {
+  const lines: string[] = [];
+  if (currentPage && currentPage.trim()) {
+    lines.push(`[Page context: ${currentPage.trim()}]`);
+  }
+  if (datasourceHint && datasourceHint.trim()) {
+    lines.push(
+      `[Active product-analytics datasource: ${datasourceHint.trim()}]`,
+    );
+  }
+  return lines.length ? `${lines.join("\n")}\n\n` : "";
 }
 
 function mapUserContent(
   content: string | AIChatUserContentPart[],
   currentPage?: string,
+  datasourceHint?: string,
 ) {
-  const prefix =
-    currentPage && currentPage.trim()
-      ? buildPageContextPrefix(currentPage.trim())
-      : "";
+  const prefix = buildContextPrefix(currentPage, datasourceHint);
 
   if (typeof content === "string") {
     return prefix ? `${prefix}${content}` : content;
@@ -119,7 +132,11 @@ export function toModelMessages(messages: AIChatMessage[]): ModelMessage[] {
       case "user":
         return {
           role: "user",
-          content: mapUserContent(msg.content, msg.currentPage),
+          content: mapUserContent(
+            msg.content,
+            msg.currentPage,
+            msg.datasourceHint,
+          ),
         } as ModelMessage;
       case "assistant":
         return {

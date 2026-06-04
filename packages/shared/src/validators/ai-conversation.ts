@@ -81,6 +81,9 @@ const aiChatUserMessageValidator = z
     // Optional URL the user was on when sending this message — see
     // AIChatUserMessage in shared/ai-chat.ts. Cap matches the agent router.
     currentPage: z.string().max(2048).optional(),
+    // Optional soft datasource hint — see AIChatUserMessage in
+    // shared/ai-chat.ts. Cap matches the agent router's datasourceId.
+    datasourceHint: z.string().max(256).optional(),
   })
   .passthrough();
 
