@@ -2,6 +2,8 @@ import { z } from "zod";
 import {
   apiRampScheduleTemplateValidator,
   apiTemplateRampStep,
+  lockdownConfigSchema,
+  rampMonitoringConfig,
   templateEndPatchValidator,
 } from "shared/validators";
 import { OpenApiModelSpec } from "back-end/src/api/ApiModel";
@@ -17,12 +19,16 @@ export const rampScheduleTemplateApiSpec = {
       steps: z.array(apiTemplateRampStep),
       endPatch: templateEndPatchValidator.optional(),
       official: z.boolean().optional(),
+      monitoringConfig: rampMonitoringConfig.nullish(),
+      lockdownConfig: lockdownConfigSchema.optional(),
     }),
     updateBody: z.object({
       name: z.string().optional(),
       steps: z.array(apiTemplateRampStep).optional(),
       endPatch: templateEndPatchValidator.optional(),
       official: z.boolean().optional(),
+      monitoringConfig: rampMonitoringConfig.nullish(),
+      lockdownConfig: lockdownConfigSchema.optional(),
     }),
   },
   includeDefaultCrud: true,

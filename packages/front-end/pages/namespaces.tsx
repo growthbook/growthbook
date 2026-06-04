@@ -1,6 +1,7 @@
 import { useState, FC } from "react";
 import { Flex } from "@radix-ui/themes";
 import { Namespaces, NamespaceUsage } from "shared/types/organization";
+import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import NamespaceModal from "@/components/Experiment/NamespaceModal";
@@ -12,6 +13,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import Table, {
   TableHeader,
   TableBody,
@@ -29,7 +31,9 @@ const NamespacesPage: FC = () => {
   );
 
   const permissionsUtil = usePermissionsUtil();
-  const canCreate = permissionsUtil.canCreateNamespace();
+  const { currentProjectIsDemo } = useDemoDataSourceProject();
+  const canCreate =
+    permissionsUtil.canCreateNamespace() && !currentProjectIsDemo;
 
   const { refreshOrganization } = useUser();
   const { namespaces = [] } = useOrgSettings();
@@ -41,11 +45,7 @@ const NamespacesPage: FC = () => {
   const { apiCall } = useAuth();
 
   if (error) {
-    return (
-      <div className="alert alert-danger">
-        An error occurred: {error.message}
-      </div>
-    );
+    return <Callout status="error">An error occurred: {error.message}</Callout>;
   }
   if (!data) {
     return <LoadingOverlay />;

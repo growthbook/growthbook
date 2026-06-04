@@ -5,6 +5,7 @@ import {
   getMetricLink,
   ExperimentMetricInterface,
   ExperimentSortBy,
+  isDimensionPrecomputed,
 } from "shared/experiments";
 import {
   DifferenceType,
@@ -17,21 +18,25 @@ import {
   LookbackOverride,
   MetricOverride,
 } from "shared/types/experiment";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
   MetricSnapshotSettings,
 } from "shared/types/report";
 import Modal from "@/components/Modal";
-import { ExperimentTableRow } from "@/services/experiments";
+import {
+  ExperimentTableRow,
+  getHonoredPrecomputedUnitDimensionIds,
+} from "@/services/experiments";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
 import Link from "@/ui/Link";
 import MetricName from "@/components/Metrics/MetricName";
-import { useKeydown } from "@/hooks/useKeydown";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import {
@@ -46,6 +51,7 @@ import MetricDrilldownDebug from "./MetricDrilldownDebug";
 import {
   MetricDrilldownContext,
   type MetricDrilldownTab,
+  type DrilldownDimensionInfo,
 } from "./useMetricDrilldownContext";
 
 export type { MetricDrilldownTab };
@@ -99,10 +105,15 @@ interface MetricDrilldownModalProps {
   initialSliceSearchTerm?: string;
 
   // Dimension info
-  dimensionInfo?: { name: string; value: string; index: number };
+  dimensionInfo?: DrilldownDimensionInfo;
 
   // When true, timeseries is unavailable and a message is shown instead
   isReportContext?: boolean;
+
+  // Snapshot for report context (no parent SnapshotProvider).
+  // When provided, a LocalSnapshotProvider is created so the modal can refresh
+  // when baseline/difference settings change.
+  snapshot?: ExperimentSnapshotInterface;
 }
 
 /**
@@ -149,7 +160,7 @@ interface MetricDrilldownContentProps {
   localSortDirection: "asc" | "desc" | null;
   initialSliceSearchTerm?: string;
   initialTab?: MetricDrilldownTab;
-  dimensionInfo?: { name: string; value: string; index: number };
+  dimensionInfo?: DrilldownDimensionInfo;
   isReportContext: boolean;
 }
 
@@ -191,15 +202,23 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
   isReportContext,
 }) => {
   const { isAuthenticated } = useAuth();
-  const { analysis } = useSnapshot();
+  const { hasCommercialFeature } = useUser();
+  const { getDatasourceById } = useDefinitions();
+  const { analysis, experiment } = useSnapshot();
 
-  // When dimensionInfo is provided (from BreakDownResults), use the dimension-specific
-  // results from the current analysis (which updates after baseline/difference changes),
-  // falling back to initialResults only when analysis isn't available yet.
-  // Without dimensionInfo, use the first result (aggregate view).
-  const results = dimensionInfo
-    ? (analysis?.results?.[dimensionInfo.index] ?? initialResults)
-    : (analysis?.results?.[0] ?? initialResults);
+  const liveResults = useMemo(() => {
+    if (!dimensionInfo) {
+      return analysis?.results?.[0];
+    }
+    return analysis?.results?.find(
+      (result) => result.name === dimensionInfo.rawValue,
+    );
+  }, [analysis?.results, dimensionInfo]);
+
+  // Re-resolve the selected slice on every render against the latest
+  // analysis results. If the slice disappears after a refresh, keep showing
+  // the data captured at open-time and surface that staleness explicitly.
+  const results = liveResults ?? initialResults;
 
   // TODO: Check what we need here
   const [expandedMetrics] = useState<Record<string, boolean>>(() => {
@@ -237,7 +256,19 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
   const [sliceSearchTerm, setSliceSearchTerm] = useState(
     initialSliceSearchTerm || "",
   );
-  const hideTimeSeries = isReportContext || !!dimensionInfo;
+  const hasDimensionTimeSeries =
+    !dimensionInfo ||
+    isDimensionPrecomputed(
+      dimensionInfo.id,
+      getHonoredPrecomputedUnitDimensionIds(
+        experiment?.precomputedUnitDimensionIds,
+        experiment?.datasource
+          ? getDatasourceById(experiment.datasource)
+          : undefined,
+        hasCommercialFeature("pipeline-mode"),
+      ),
+    );
+  const hideTimeSeries = isReportContext || !hasDimensionTimeSeries;
   const [visibleSliceTimeSeriesRowIds, setVisibleSliceTimeSeriesRowIds] =
     useState<string[]>(() => {
       if (
@@ -326,10 +357,11 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           timeSeriesMessage={
             isReportContext
               ? "Time series data is not available for custom reports."
-              : dimensionInfo
-                ? "Time series is not available for unit dimension breakdowns."
+              : !hasDimensionTimeSeries
+                ? "Configure 'Always computed unit-dimensions' in Analysis Settings to generate time series for this dimension."
                 : undefined
           }
+          dimensionInfo={dimensionInfo}
         />
       </TabsContent>
       <TabsContent value="slices">
@@ -363,6 +395,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           setVisibleTimeSeriesRowIds={setVisibleSliceTimeSeriesRowIds}
           ssrPolyfills={ssrPolyfills}
           hideTimeSeries={hideTimeSeries}
+          dimensionInfo={dimensionInfo}
         />
       </TabsContent>
       <TabsContent value="debug">
@@ -434,8 +467,9 @@ const MetricDrilldownModal = ({
   dimensionInfo,
   // Report context
   isReportContext: isReportContextProp,
+  // Snapshot for report context (no parent SnapshotProvider)
+  snapshot: snapshotProp,
 }: MetricDrilldownModalProps) => {
-  useKeydown("Escape", close);
   useBodyScrollLock(true);
   const { metric } = row;
   const { hasCommercialFeature } = useUser();
@@ -450,9 +484,17 @@ const MetricDrilldownModal = ({
     snapshot: parentSnapshot,
     experiment,
     phase: contextPhase,
-    dimension,
+    dimension: contextDimension,
     analysisSettings: parentAnalysisSettings,
   } = useSnapshot();
+
+  // Use prop values when parent context is empty (report context)
+  const effectiveSnapshot = parentSnapshot ?? snapshotProp;
+  // Prefer the context dimension, then fall back to the snapshot's own dimension
+  const effectiveDimension =
+    contextDimension || effectiveSnapshot?.dimension || "";
+  // Use contextPhase from snapshot context when available, otherwise use phase prop
+  const effectivePhase = parentSnapshot ? contextPhase : phase;
 
   const isReportContext = isReportContextProp ?? false;
 
@@ -508,11 +550,14 @@ const MetricDrilldownModal = ({
     <Tabs defaultValue={initialTab}>
       <Modal
         open={true}
+        close={close}
         borderlessHeader={true}
         backgroundlessHeader={true}
         headerClassName={styles.metricDrilldownModalHeader}
         bodyClassName={styles.metricDrilldownModalBody}
-        onBackdropClick={close}
+        showHeaderCloseButton={false}
+        includeCloseCta={false}
+        dismissible
         header={
           <Flex align="center" gap="0">
             <Text size="6" weight="bold">
@@ -590,12 +635,12 @@ const MetricDrilldownModal = ({
         autoFocusSelector=""
       >
         <MetricDrilldownContext.Provider value={null}>
-          {parentSnapshot && experiment ? (
+          {effectiveSnapshot ? (
             <LocalSnapshotProvider
               experiment={experiment}
-              snapshot={parentSnapshot}
-              phase={contextPhase}
-              dimension={dimension}
+              snapshot={effectiveSnapshot}
+              phase={effectivePhase}
+              dimension={effectiveDimension}
               initialAnalysisSettings={parentAnalysisSettings}
             >
               <MetricDrilldownContent {...contentProps} />

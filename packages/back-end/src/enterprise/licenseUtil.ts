@@ -54,12 +54,16 @@ function getStripeSubscriptionStatus(
 export function getSubscriptionFromLicense(
   license: Partial<LicenseInterface>,
 ): SubscriptionInfo | null {
-  const sub = license.orbSubscription || license.stripeSubscription;
+  const orbSub = license.orbSubscription?.id ? license.orbSubscription : null;
+  const stripeSub = license.stripeSubscription?.id
+    ? license.stripeSubscription
+    : null;
+  const sub = orbSub || stripeSub;
 
   if (!sub) return null;
 
   return {
-    billingPlatform: license.orbSubscription ? "orb" : "stripe",
+    billingPlatform: orbSub ? "orb" : "stripe",
     externalId: sub.id,
     trialEnd: sub.trialEnd,
     status: getStripeSubscriptionStatus(sub.status),
@@ -503,6 +507,7 @@ export async function postNewProSubscriptionIntentToLicenseServer(
   companyName: string,
   ownerEmail: string,
   name: string,
+  options?: { radarSessionId?: string },
 ) {
   const url = `${LICENSE_SERVER_URL}subscription/setup-subscription-intent`;
   return await callLicenseServer({
@@ -514,6 +519,7 @@ export async function postNewProSubscriptionIntentToLicenseServer(
       companyName,
       ownerEmail,
       name,
+      radarSessionId: options?.radarSessionId,
     }),
   });
 }

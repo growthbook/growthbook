@@ -1,8 +1,8 @@
 import { useForm } from "react-hook-form";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
-import Modal from "@/components/Modal";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 export const AddMembersModal = ({
   teamId,
@@ -38,11 +38,11 @@ export const AddMembersModal = ({
   };
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType=""
       open={open}
       close={() => handleClose()}
-      header={"Add Team Members"}
+      header="Add Team Members"
       submit={form.handleSubmit(async (value) => {
         await apiCall(`/teams/${team?.id}/members`, {
           method: "POST",
@@ -65,6 +65,6 @@ export const AddMembersModal = ({
         customClassName="label-overflow-ellipsis"
         helpText={"Assign users to this team."}
       />
-    </Modal>
+    </ModalStandard>
   );
 };

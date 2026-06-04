@@ -15,6 +15,7 @@ import * as Sentry from "@sentry/node";
 import { parseEnvInt, stringToBoolean } from "shared/util";
 import { populationDataRouter } from "back-end/src/routers/population-data/population-data.router";
 import decisionCriteriaRouter from "back-end/src/enterprise/routers/decision-criteria/decision-criteria.router";
+import { revisionRouter } from "back-end/src/routers/revision/revision.router";
 import { usingFileConfig } from "./init/config";
 import { AuthRequest } from "./types/AuthRequest";
 import {
@@ -103,6 +104,7 @@ import { isEmailEnabled } from "./services/email";
 import { init } from "./init";
 import { aiRouter } from "./routers/ai/ai.router";
 import { getCustomLogProps, httpLogger, logger } from "./util/logger";
+import { shouldSkipErrorLog } from "./util/errors";
 import { usersRouter } from "./routers/users/users.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
 import { uploadRouter } from "./routers/upload/upload.router";
@@ -125,7 +127,6 @@ import { dataExportRouter } from "./routers/data-export/data-export.router";
 import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/demo-datasource-project.router";
 import { environmentRouter } from "./routers/environment/environment.router";
 import { teamRouter } from "./routers/teams/teams.router";
-import { githubIntegrationRouter } from "./routers/github-integration/github-integration.router";
 import { urlRedirectRouter } from "./routers/url-redirects/url-redirects.router";
 import { metricAnalysisRouter } from "./routers/metric-analysis/metric-analysis.router";
 import { metricGroupRouter } from "./routers/metric-group/metric-group.router";
@@ -362,11 +363,23 @@ app.get(
 );
 
 // Secret API routes (no JWT or CORS)
+// Routes register themselves with version prefixes (/v1/..., /v2/...) so we
+// mount the router at /api — yielding /api/v1/<route> and /api/v2/<route>.
 app.use(
-  "/api/v1",
-  // TODO add authentication
+  "/api",
+  // Authentication is done via Auth headers and not cookies,
+  // so we can safely allow any origin
   cors({
     origin: "*",
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Organization",
+      "X-SSO-Connection-ID",
+    ],
+    credentials: false,
+    maxAge: 86400,
   }),
   apiRouter,
 );
@@ -644,6 +657,10 @@ app.get(
   "/experiment/:id/snapshot/:phase/:dimension",
   experimentsController.getSnapshotWithDimension,
 );
+app.get(
+  "/experiment/:id/snapshot-summary/:phase",
+  experimentsController.getSnapshotSummary,
+);
 app.post("/experiment/:id/snapshot", experimentsController.postSnapshot);
 app.post(
   "/experiment/:id/banditSnapshot",
@@ -677,6 +694,14 @@ app.post(
   experimentsController.postExperimentFeatureValues,
 );
 app.post("/experiment/:id/status", experimentsController.postExperimentStatus);
+app.post(
+  "/experiment/:id/approve-scheduled-start",
+  experimentsController.postApproveScheduledExperimentStart,
+);
+app.post(
+  "/experiment/:id/unschedule-start",
+  experimentsController.postUnapproveScheduledExperimentStart,
+);
 app.put(
   "/experiment/:id/phase/:phase",
   experimentsController.putExperimentPhase,
@@ -813,6 +838,12 @@ app.use("/projects", projectRouter);
 
 app.use(factTableRouter);
 
+// Must be registered before mounting revisionRouter — the router's GET /:id
+// catch-all would otherwise consume this path and resolve `id = "feature"`.
+app.get("/revision/feature", featuresController.getDraftandReviewRevisions);
+
+app.use("/revision", revisionRouter);
+
 app.use("/demo-datasource-project", demoDatasourceProjectRouter);
 
 // Features
@@ -862,6 +893,10 @@ app.post(
   "/feature/:id/:version/experiment",
   featuresController.postFeatureExperimentRefRule,
 );
+app.delete(
+  "/experiment/:id/linked-feature/:featureId",
+  experimentsController.deleteExperimentLinkedFeature,
+);
 app.put("/feature/:id/:version/comment", featuresController.putRevisionComment);
 app.put("/feature/:id/:version/title", featuresController.putRevisionTitle);
 app.put("/feature/:id/:version/rule", featuresController.putFeatureRule);
@@ -886,6 +921,16 @@ app.get("/features/status", featuresController.getFeaturesStatus);
 app.get("/features/draft-states", featuresController.getFeatureDraftStates);
 app.get("/features/stale", featuresController.getFeaturesStaleStates);
 app.get("/features/dependents", featuresController.getFeaturesDependents);
+app.get("/features/content-search", featuresController.getFeatureContentSearch);
+app.get(
+  "/features/dependency-index",
+  featuresController.getFeatureDependencyIndex,
+);
+app.get("/features/ramp-states", featuresController.getFeatureRampStates);
+app.get(
+  "/features/experiment-states",
+  featuresController.getFeatureExperimentStates,
+);
 app.post(
   "/feature/:id/:version/reorder",
   featuresController.postFeatureMoveRule,
@@ -901,12 +946,6 @@ app.post(
   "/feature/:id/:version/comment",
   featuresController.postFeatureReviewOrComment,
 );
-app.post(
-  "/feature/:id/:version/copyEnvironment",
-  featuresController.postCopyEnvironmentRules,
-);
-
-app.get("/revision/feature", featuresController.getDraftandReviewRevisions);
 
 // Data Sources
 app.get("/datasources", datasourcesController.getDataSources);
@@ -985,7 +1024,6 @@ app.use(eventWebHooksRouter);
 
 // Slack integration
 app.use("/integrations/slack", slackIntegrationRouter);
-app.use("/integrations/github", githubIntegrationRouter);
 
 // Data Export
 app.use("/data-export", dataExportRouter);
@@ -1132,11 +1170,12 @@ const errorHandler: ErrorRequestHandler = (
   next,
 ) => {
   const status = err.status || 400;
+  const level = shouldSkipErrorLog(err) ? "debug" : "error";
 
   if (req.log) {
-    req.log.error(err.message);
+    req.log[level](err.message);
   } else {
-    httpLogger.logger.error(getCustomLogProps(req), err.message);
+    httpLogger.logger[level](getCustomLogProps(req), err.message);
   }
 
   res.status(status).json({

@@ -44,6 +44,7 @@ export interface AuthContextValue {
     errorHandler?: ErrorHandler,
   ) => Promise<T>;
   fetchRaw: (url: string, options?: RequestInit) => Promise<Response>;
+  ssoConnectionId: string;
   orgId: string | null;
   setOrgId?: (orgId: string) => void;
   organizations?: UserOrganizations;
@@ -67,6 +68,7 @@ export const AuthContext = React.createContext<AuthContextValue>({
     return x;
   },
   fetchRaw: async () => new Response(),
+  ssoConnectionId: "",
   orgId: null,
 });
 
@@ -212,6 +214,7 @@ export const AuthProvider: React.FC<{
 }> = ({ exitOnNoAuth = true, children }) => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState("");
+  const [ssoConnectionId, setSsoConnectionId] = useState("");
   const [orgId, setOrgId] = useState<string | null>(null);
   const [organizations, setOrganizations] = useState<UserOrganizations>([]);
   const [specialOrg, setSpecialOrg] =
@@ -240,6 +243,9 @@ export const AuthProvider: React.FC<{
     if ("token" in resp) {
       setInitError("");
       setToken(resp.token);
+      if (resp.ssoConnectionId) {
+        setSsoConnectionId(resp.ssoConnectionId);
+      }
       setLoading(false);
     } else if (!exitOnNoAuth) {
       setInitError("");
@@ -361,7 +367,10 @@ export const AuthProvider: React.FC<{
       const init = { ...options };
       init.headers = init.headers || {};
       init.headers["Authorization"] = `Bearer ${token}`;
-      init.credentials = "include";
+
+      if (!init.credentials) {
+        init.credentials = "include";
+      }
 
       if (init.body && !init.headers["Content-Type"]) {
         init.headers["Content-Type"] = "application/json";
@@ -383,6 +392,9 @@ export const AuthProvider: React.FC<{
             const resp = await refreshToken();
             if ("token" in resp) {
               setToken(resp.token);
+              if (resp.ssoConnectionId) {
+                setSsoConnectionId(resp.ssoConnectionId);
+              }
               init.headers["Authorization"] = `Bearer ${resp.token}`;
               return fetch(getApiHost() + url, init);
             } else if ("redirectURI" in resp) {
@@ -432,6 +444,9 @@ export const AuthProvider: React.FC<{
           const resp = await refreshToken();
           if ("token" in resp) {
             setToken(resp.token);
+            if (resp.ssoConnectionId) {
+              setSsoConnectionId(resp.ssoConnectionId);
+            }
             responseData = await _makeApiCall(url, resp.token, options);
             // Still failing
             if (responseData.status && responseData.status >= 400) {
@@ -563,6 +578,7 @@ export const AuthProvider: React.FC<{
           setOrganizations([]);
           setSpecialOrg(null);
           setToken("");
+          setSsoConnectionId("");
           setInitialPlanSelection("");
           if (isSentryEnabled()) {
             sentrySetUser(null);
@@ -571,6 +587,7 @@ export const AuthProvider: React.FC<{
         },
         apiCall,
         fetchRaw,
+        ssoConnectionId,
         orgId,
         setOrgId,
         organizations: orgList,

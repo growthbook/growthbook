@@ -73,11 +73,12 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
   createExperimentSnapshotModel,
-  getLatestSnapshot,
+  getLatestSuccessfulSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import {
-  getAdditionalQueryMetadataForExperiment,
+  getExperimentQueryMetadata,
+  getSnapshotQueryMetadata,
   getDefaultExperimentAnalysisSettings,
   isJoinableMetric,
 } from "back-end/src/services/experiments";
@@ -461,7 +462,7 @@ export async function createReportSnapshot({
         "Unable to create snapshot for report: invalid experiment",
       );
     snapshotData =
-      (await getLatestSnapshot({
+      (await getLatestSuccessfulSnapshot({
         context,
         experiment: experiment.id,
         phase: Math.max(experiment.phases.length - 1, 0),
@@ -620,7 +621,10 @@ export async function createReportSnapshot({
     queryParentId: snapshot.id,
     factTableMap,
     experimentQueryMetadata: experiment
-      ? getAdditionalQueryMetadataForExperiment(experiment)
+      ? {
+          ...getExperimentQueryMetadata(experiment),
+          ...getSnapshotQueryMetadata(snapshot),
+        }
       : null,
   });
 

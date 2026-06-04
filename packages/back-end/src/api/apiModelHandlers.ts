@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { apiHttpVerbs, HttpVerb } from "shared/api-spec";
 import { ApiRequest, RequestSchemas } from "back-end/src/util/handler";
 
 export const crudActions = [
@@ -9,8 +10,8 @@ export const crudActions = [
   "update",
 ] as const;
 export type CrudAction = (typeof crudActions)[number];
-export const apiHttpVerbs = ["get", "post", "put", "delete", "patch"] as const;
-export type HttpVerb = (typeof apiHttpVerbs)[number];
+export { apiHttpVerbs };
+export type { HttpVerb };
 
 export const defaultHandlers = {
   get: "handleApiGet",

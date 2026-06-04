@@ -8,7 +8,7 @@ import { useFeatureDependents } from "@/hooks/useFeatureDependents";
 import { getEnabledEnvironments, useEnvironments } from "@/services/features";
 import Callout from "@/ui/Callout";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Checkbox from "@/ui/Checkbox";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -75,7 +75,7 @@ export default function FeatureArchiveModal({
     !loading && totalDependents === 0 && (confirmEnvBypass || !hasActiveEnvs);
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType=""
       header={isArchived ? "Unarchive Feature" : "Archive Feature"}
       size="lg"
@@ -88,7 +88,7 @@ export default function FeatureArchiveModal({
             : "Archive"
           : "Save to draft"
       }
-      submitColor={mode === "publish" ? "danger" : "primary"}
+      ctaColor={mode === "publish" ? "red" : "violet"}
       submit={async () => {
         // Explicit so the endpoint doesn't have to guess by toggling feature.archived
         const desiredArchived = !isArchived;
@@ -109,11 +109,9 @@ export default function FeatureArchiveModal({
         mutate();
         const resolvedVersion =
           res?.draftVersion ?? (mode === "existing" ? selectedDraft : null);
-        if (resolvedVersion != null && setVersion) setVersion(resolvedVersion);
-        close();
+        if (resolvedVersion !== null && setVersion) setVersion(resolvedVersion);
       }}
       ctaEnabled={canSubmit}
-      useRadixButton={true}
     >
       <DraftSelectorForChanges
         feature={feature}
@@ -175,6 +173,6 @@ export default function FeatureArchiveModal({
           payloads.
         </p>
       )}
-    </Modal>
+    </ModalStandard>
   );
 }

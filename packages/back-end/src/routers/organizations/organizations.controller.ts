@@ -3,6 +3,7 @@ import { cloneDeep } from "lodash";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import {
   experimentHasLinkedChanges,
+  getRulesForEnvironment,
   getNamespaceRanges,
   parseIntWithDefaultCapped,
 } from "shared/util";
@@ -258,7 +259,8 @@ export async function getAllHistory(
   req: AuthRequest<null, { type: string }, { cursor?: string; limit?: string }>,
   res: Response,
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { type } = req.params;
   const limit = parseIntWithDefaultCapped(req.query.limit, 50, 100); // Max 100 per page
   const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
@@ -341,7 +343,8 @@ export async function getHistory(
   >,
   res: Response,
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
+  const { org } = context;
   const { type, id } = req.params;
   const limit = parseIntWithDefaultCapped(req.query.limit, 50, 100); // Max 100 per page
   const cursor = req.query.cursor ? new Date(req.query.cursor) : null;
@@ -620,8 +623,9 @@ export async function putMember(
   }
 
   try {
+    const reqEmailLower = req.email.toLowerCase();
     const invite: Invite | undefined = organization.invites.find(
-      (inv) => inv.email === req.email,
+      (inv) => inv.email.toLowerCase() === reqEmailLower,
     );
     if (invite) {
       // if user already invited, accept invite
@@ -901,7 +905,6 @@ export async function getOrganization(
     : invites.map((i) => ({ email: i.email }));
 
   // Some other global org data needed by the front-end
-  const apiKeys = await context.models.apiKeys.getAll();
   const enterpriseSSO = isEnterpriseSSO(req.loginMethod)
     ? getSSOConnectionSummary(req.loginMethod)
     : null;
@@ -935,7 +938,6 @@ export async function getOrganization(
 
   return res.status(200).json({
     status: 200,
-    apiKeys,
     enterpriseSSO,
     accountPlan: getAccountPlan(org),
     effectiveAccountPlan: getEffectiveAccountPlan(org),
@@ -1008,7 +1010,8 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
     if (f.archived) return;
     environments.forEach((env) => {
       if (!f.environmentSettings?.[env]?.enabled) return;
-      const rules = f.environmentSettings?.[env]?.rules || [];
+      // v2: rules live on feature.rules, filter to this env.
+      const rules = getRulesForEnvironment(f.rules ?? [], env);
       rules
         .filter(
           (r) =>
@@ -1602,6 +1605,13 @@ export async function putOrganization(
     const updates: Partial<OrganizationInterface> = {};
 
     const orig: Partial<OrganizationInterface> = {};
+    if (!context.hasPremiumFeature("require-approvals")) {
+      if (settings?.approvalFlows?.savedGroups?.some((sg) => sg?.required)) {
+        throw new Error(
+          "Saved Groups approval flows require the Require Approvals enterprise feature.",
+        );
+      }
+    }
 
     if (name) {
       updates.name = name;

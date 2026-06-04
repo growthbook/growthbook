@@ -641,6 +641,39 @@ describe("mergeResultHasChanges with new envelopes", () => {
       }),
     ).toBe(false);
   });
+
+  // `autoMerge` only sets `rules` when revision rules diverged from base, so
+  // presence — even an explicit [] meaning "all rules deleted" — is a real change.
+  it("returns true when rules is an explicit empty array (all rules deleted)", () => {
+    expect(
+      mergeResultHasChanges({
+        success: true,
+        result: { rules: [] },
+        conflicts: [],
+      }),
+    ).toBe(true);
+  });
+
+  it("returns true when rules contains entries", () => {
+    expect(
+      mergeResultHasChanges({
+        success: true,
+        result: {
+          rules: [
+            {
+              id: "r_1",
+              type: "force",
+              value: "true",
+              description: "",
+              enabled: true,
+              allEnvironments: true,
+            },
+          ],
+        },
+        conflicts: [],
+      }),
+    ).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1192,6 +1225,56 @@ describe("getDraftAffectedEnvironments", () => {
         "staging",
       ]),
     ).toBe("all");
+  });
+
+  it("does not flag an environment that is missing on the base (added after base was published)", () => {
+    // base predates the "vertex" env → no key at all
+    const oldBase: RevisionFields = {
+      version: 3,
+      defaultValue: "false",
+      rules: { production: [], staging: [] },
+      environmentsEnabled: { production: true, staging: false },
+      prerequisites: [],
+    };
+    // draft snapshots all current envs; the user only changed staging rules
+    const revision: RevisionFields = {
+      ...oldBase,
+      version: 4,
+      rules: {
+        ...oldBase.rules,
+        staging: [{ type: "force", id: "r1", description: "", value: "x" }],
+      },
+      environmentsEnabled: { production: true, staging: false, vertex: false },
+    };
+    expect(
+      getDraftAffectedEnvironments(revision, oldBase, [
+        "production",
+        "staging",
+        "vertex",
+      ]),
+    ).toEqual(["staging"]);
+  });
+
+  it("still flags an environment missing on the base when the draft enables it", () => {
+    const oldBase: RevisionFields = {
+      version: 3,
+      defaultValue: "false",
+      rules: { production: [], staging: [] },
+      environmentsEnabled: { production: true, staging: false },
+      prerequisites: [],
+    };
+    const revision: RevisionFields = {
+      ...oldBase,
+      version: 4,
+      environmentsEnabled: { production: true, staging: false, vertex: true },
+    };
+    expect(
+      getDraftAffectedEnvironments(revision, oldBase, [
+        "production",
+        "staging",
+        "vertex",
+      ]),
+    ).toEqual(["vertex"]);
   });
 
   it('collapses to "all" when every environment is affected', () => {

@@ -6,6 +6,7 @@ import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
 import {
   DataSourceInterface,
   DataSourceParams,
+  DataSourcePipelineSettings,
   DataSourceSettings,
   DataSourceType,
 } from "shared/types/datasource";
@@ -28,17 +29,29 @@ import { IS_CLOUD } from "back-end/src/util/secrets";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
-import { deleteClickhouseUser } from "back-end/src/services/clickhouse";
+import { deleteClickhouseUser } from "back-end/src/services/licenseServerManagedClickhouse";
 import { createModelAuditLogger } from "back-end/src/services/audit";
 import { deleteFactTable, getFactTable } from "./FactTableModel";
 
-const audit = createModelAuditLogger({
+const dataSourceAuditConfig = {
   entity: "datasource",
   createEvent: "datasource.create",
   updateEvent: "datasource.update",
   deleteEvent: "datasource.delete",
-  omitDetails: true,
-});
+  detailsAllowlist: [
+    "id",
+    "name",
+    "description",
+    "organization",
+    "dateCreated",
+    "dateUpdated",
+    "type",
+    "projects",
+    "settings",
+  ],
+} as const;
+
+const audit = createModelAuditLogger(dataSourceAuditConfig);
 
 const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
   id: String,
@@ -57,7 +70,6 @@ const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
     index: true,
   },
   settings: {},
-  lockUntil: Date,
 });
 dataSourceSchema.index({ id: 1, organization: 1 }, { unique: true });
 type DataSourceDocument = mongoose.Document & DataSourceInterface;
@@ -296,6 +308,8 @@ export async function createDataSource(
     true,
   );
 
+  validatePipelineSettingsInvariants(settings.pipelineSettings);
+
   const model = (await DataSourceModel.create(
     datasource,
   )) as DataSourceDocument;
@@ -376,6 +390,36 @@ export function hasActualChanges(
   return updateKeys.some((key) => !isEqual(datasource[key], updates[key]));
 }
 
+// Sanity-check pipeline settings before persisting. Mirrors the UI-level
+// validation in EditDataSourcePipeline so direct API / config.yml callers
+// can't save an opt-in list that snapshot planning will silently reject.
+//
+// We only enforce this for the new `incrementalOptInExperimentIds` path so
+// existing customers updating an unrelated field on a data source with
+// pre-existing (potentially non-strict) pipeline settings aren't affected.
+function validatePipelineSettingsInvariants(
+  pipelineSettings: DataSourcePipelineSettings | undefined,
+) {
+  if (!pipelineSettings) return;
+
+  const optInCount =
+    pipelineSettings.mode === "ephemeral"
+      ? (pipelineSettings.incrementalOptInExperimentIds?.length ?? 0)
+      : 0;
+  if (optInCount === 0) return;
+
+  if (!pipelineSettings.allowWriting) {
+    throw new Error(
+      "Cannot opt experiments into incremental refresh without allowWriting set to true.",
+    );
+  }
+  if (!pipelineSettings.writeDataset) {
+    throw new Error(
+      "Cannot opt experiments into incremental refresh without a writeDataset configured.",
+    );
+  }
+}
+
 export async function updateDataSource(
   context: ReqContext | ApiReqContext,
   datasource: DataSourceInterface,
@@ -391,6 +435,7 @@ export async function updateDataSource(
       datasource,
       updates.settings,
     );
+    validatePipelineSettingsInvariants(updates.settings.pipelineSettings);
   }
   if (!hasActualChanges(datasource, updates)) {
     return;
@@ -407,63 +452,6 @@ export async function updateDataSource(
   );
 
   await audit.logUpdate(context, datasource, { ...datasource, ...updates });
-}
-
-function isLocked(datasource: DataSourceInterface): boolean {
-  if (usingFileConfig() || !datasource.lockUntil) return false;
-  return datasource.lockUntil > new Date();
-}
-
-export async function lockDataSource(
-  context: ReqContext | ApiReqContext,
-  datasource: DataSourceInterface,
-  seconds: number,
-) {
-  if (usingFileConfig()) {
-    throw new Error("Cannot lock. Data sources managed by config.yml");
-  }
-  if (datasource.organization !== context.org.id) {
-    throw new Error("Cannot lock data source from another organization");
-  }
-
-  // Already locked, throw error
-  if (isLocked(datasource)) {
-    throw new Error(
-      "Data source is currently being modified. Please try again later.",
-    );
-  }
-
-  await DataSourceModel.updateOne(
-    {
-      id: datasource.id,
-      organization: context.org.id,
-    },
-    {
-      $set: { lockUntil: new Date(Date.now() + seconds * 1000) },
-    },
-  );
-}
-
-export async function unlockDataSource(
-  context: ReqContext | ApiReqContext,
-  datasource: DataSourceInterface,
-) {
-  if (usingFileConfig()) {
-    throw new Error("Cannot unlock. Data sources managed by config.yml");
-  }
-  if (datasource.organization !== context.org.id) {
-    throw new Error("Cannot unlock data source from another organization");
-  }
-
-  await DataSourceModel.updateOne(
-    {
-      id: datasource.id,
-      organization: context.org.id,
-    },
-    {
-      $set: { lockUntil: null },
-    },
-  );
 }
 
 // WARNING: This does not restrict by organization

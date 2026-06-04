@@ -26,15 +26,24 @@ import {
   OrganizationSettings,
   RequireReview,
   Environment,
+  SDKAttributeSchema,
 } from "shared/types/organization";
 import { ProjectInterface } from "shared/types/project";
 import { GroupMap } from "shared/types/saved-group";
+import { RampScheduleInterface } from "../validators/ramp-schedule";
 import { getValidDate } from "../dates";
 import {
   conditionHasSavedGroupErrors,
   expandNestedSavedGroups,
 } from "../sdk-versioning";
-import { getMatchingRules, includeExperimentInPayload, recursiveWalk } from ".";
+import { stemRuleId } from "./ruleId";
+import {
+  getMatchingRules,
+  getRulesForEnvironment,
+  includeExperimentInPayload,
+  naiveFlattenV1Rules,
+  recursiveWalk,
+} from ".";
 
 export const DRAFT_REVISION_STATUSES = [
   "draft",
@@ -82,6 +91,60 @@ export function getValidation(feature: Pick<FeatureInterface, "jsonSchema">) {
   }
 }
 
+/**
+ * View-only JIT migration of a v1 feature snapshot (rules under
+ * `environmentSettings[env].rules`) to v2 (top-level `feature.rules`).
+ *
+ * Used at the front-end model boundary for audit log snapshots, cached
+ * responses, fixtures. Idempotent. Does NOT merge content-identical rules
+ * across envs — naive stamp with `allEnvironments: false` +
+ * `environments: [env]`. For persistence use `normalizeRulesInputToV2`.
+ */
+export function toV2FeatureSnapshot<T extends Partial<FeatureInterface>>(
+  snapshot: T,
+): T {
+  if (!snapshot) return snapshot;
+  // Already v2 — trust the top-level array (empty is meaningful).
+  if (Array.isArray(snapshot.rules)) return snapshot;
+
+  const envSettings = snapshot.environmentSettings;
+  if (!envSettings || typeof envSettings !== "object") return snapshot;
+
+  // v2 `FeatureEnvironment` has no `rules` field; cast is load-bearing
+  // for historical audit snapshots.
+  const rulesByEnv: Record<string, FeatureRule[]> = {};
+  let sawV1Rules = false;
+  for (const [env, setting] of Object.entries(envSettings)) {
+    const legacyRules = (setting as unknown as { rules?: FeatureRule[] })
+      ?.rules;
+    if (Array.isArray(legacyRules)) {
+      sawV1Rules = true;
+      rulesByEnv[env] = legacyRules;
+    }
+  }
+  if (!sawV1Rules) return snapshot;
+
+  const flat = naiveFlattenV1Rules(rulesByEnv);
+
+  const strippedEnvSettings: Record<string, unknown> = {};
+  for (const [env, setting] of Object.entries(envSettings)) {
+    if (setting && typeof setting === "object" && "rules" in setting) {
+      const { rules: _stripped, ...rest } = setting as unknown as {
+        rules?: FeatureRule[];
+      } & Record<string, unknown>;
+      strippedEnvSettings[env] = rest;
+    } else {
+      strippedEnvSettings[env] = setting;
+    }
+  }
+
+  return {
+    ...snapshot,
+    rules: flat,
+    environmentSettings: strippedEnvSettings,
+  } as T;
+}
+
 export function mergeRevision(
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
@@ -91,12 +154,16 @@ export function mergeRevision(
 
   newFeature.defaultValue = revision.defaultValue;
 
+  // A revision carries the full intended rule set; replace wholesale when
+  // present. `undefined` means the revision didn't touch rules.
+  if (revision.rules !== undefined) {
+    newFeature.rules = naiveFlattenV1Rules(revision.rules);
+  }
+
   const envSettings = newFeature.environmentSettings;
   environments.forEach((env) => {
-    envSettings[env] = envSettings[env] || {};
+    envSettings[env] = envSettings[env] || { enabled: false };
     envSettings[env].enabled = envSettings[env].enabled || false;
-    envSettings[env].rules =
-      revision.rules?.[env] || envSettings[env].rules || [];
 
     if (revision.environmentsEnabled && env in revision.environmentsEnabled) {
       envSettings[env].enabled = revision.environmentsEnabled[env];
@@ -361,13 +428,13 @@ const areRulesOneSided = (
 
 interface IsFeatureStaleInterface {
   feature: FeatureInterface;
-  features?: FeatureInterface[];
+  features: FeatureInterface[];
+  environments: string[];
   experiments?: ExperimentInterfaceStringDates[];
   dependentExperiments?: ExperimentInterfaceStringDates[];
-  environments?: string[];
   featuresMap?: Map<string, FeatureInterface>;
   experimentMap?: Map<string, ExperimentInterfaceStringDates>;
-  // Most recent dateUpdated among active drafts; null = no active drafts.
+  reverseDependencyIndex?: ReverseDependencyIndex;
   mostRecentDraftDate?: Date | null;
 }
 
@@ -422,7 +489,15 @@ function buildEnvResults(
       continue;
     }
 
-    const rules = (envSetting.rules ?? []).filter((r) => r.enabled);
+    // Fall back to v1 `environmentSettings[env].rules` for test fixtures
+    // that skip `migrateRawFeatureToV2`'s JIT upgrade.
+    const v2RulesForEnv = getRulesForEnvironment(feature.rules, envId);
+    const legacyRules = Array.isArray(feature.rules)
+      ? []
+      : ((envSetting as unknown as { rules?: FeatureRule[] }).rules ?? []);
+    const rules = (v2RulesForEnv.length ? v2RulesForEnv : legacyRules).filter(
+      (r) => r.enabled,
+    );
 
     const hasDependentsInEnv =
       hasActiveDependentExperiment ||
@@ -431,8 +506,17 @@ function buildEnvResults(
         if (!f) return false;
         // Global feature-level prerequisite
         if (f.prerequisites?.some((p) => p.id === feature.id)) return true;
-        // Rule-level prerequisite in this specific environment
-        return (f.environmentSettings?.[envId]?.rules ?? []).some(
+        // Rule-level prerequisite in this specific environment (v2 or legacy)
+        const depV2Rules = getRulesForEnvironment(f.rules, envId);
+        const depLegacyRules = Array.isArray(f.rules)
+          ? []
+          : ((
+              f.environmentSettings?.[envId] as unknown as {
+                rules?: FeatureRule[];
+              }
+            )?.rules ?? []);
+        const depRules = depV2Rules.length ? depV2Rules : depLegacyRules;
+        return depRules.some(
           (r) => r.enabled && r.prerequisites?.some((p) => p.id === feature.id),
         );
       });
@@ -497,16 +581,17 @@ function buildEnvResults(
 export function isFeatureStale({
   feature,
   features,
+  environments,
   experiments = [],
   dependentExperiments,
-  environments = [],
   featuresMap: prebuiltFeaturesMap,
   experimentMap: prebuiltExperimentMap,
+  reverseDependencyIndex,
   mostRecentDraftDate,
 }: IsFeatureStaleInterface): IsFeatureStaleResult {
   const featuresMap =
     prebuiltFeaturesMap ??
-    new Map<string, FeatureInterface>((features ?? []).map((f) => [f.id, f]));
+    new Map<string, FeatureInterface>(features.map((f) => [f.id, f]));
   const experimentMap =
     prebuiltExperimentMap ??
     new Map<string, ExperimentInterfaceStringDates>(
@@ -514,13 +599,6 @@ export function isFeatureStale({
     );
 
   const visitedFeatures = new Set<string>();
-
-  if (!features) {
-    features = [feature];
-  }
-  if (!environments.length) {
-    environments = Object.keys(feature.environmentSettings);
-  }
 
   const visit = (feature: FeatureInterface): IsFeatureStaleResult => {
     if (visitedFeatures.has(feature.id)) {
@@ -532,7 +610,13 @@ export function isFeatureStale({
       // Compute dependents before buildEnvResults so per-env results can use them.
       const dependentFeatureIds =
         features && features.length > 1
-          ? getDependentFeatures(feature, features, environments)
+          ? getDependentFeatures(
+              feature,
+              features,
+              environments,
+              reverseDependencyIndex,
+              featuresMap,
+            )
           : [];
       // Only non-stale dependents protect an env from being marked stale.
       const nonStaleDependentFeatureIds = dependentFeatureIds.filter((id) => {
@@ -619,7 +703,7 @@ export interface MergeConflict {
 export type MergeStrategy = "" | "overwrite" | "discard";
 export type MergeResultChanges = {
   defaultValue?: string;
-  rules?: Record<string, FeatureRule[]>;
+  rules?: FeatureRule[];
   environmentsEnabled?: Record<string, boolean>;
   prerequisites?: FeaturePrerequisite[];
   archived?: boolean;
@@ -714,12 +798,7 @@ export function liveRevisionFromFeature(
   return {
     ...liveRevision,
     defaultValue: feature.defaultValue,
-    rules: Object.fromEntries(
-      Object.entries(feature.environmentSettings ?? {}).map(([env, val]) => [
-        env,
-        val.rules ?? [],
-      ]),
-    ),
+    rules: feature.rules ?? [],
     environmentsEnabled: Object.fromEntries(
       Object.entries(feature.environmentSettings ?? {}).map(([env, val]) => [
         env,
@@ -783,12 +862,11 @@ export function draftDiffersFromLive(
 
   if (draft.defaultValue !== filledLive.defaultValue) return true;
   if (draft.archived !== filledLive.archived) return true;
+  // Whole-array diff is the canonical "did rules change" check; per-env
+  // projection is only needed for UX/gating (see `getDraftAffectedEnvironments`).
   if (
-    envIds.some(
-      (env) =>
-        JSON.stringify(draft.rules[env] ?? []) !==
-        JSON.stringify(filledLive.rules[env] ?? []),
-    )
+    JSON.stringify(naiveFlattenV1Rules(draft.rules)) !==
+    JSON.stringify(naiveFlattenV1Rules(filledLive.rules))
   )
     return true;
   if (
@@ -829,13 +907,47 @@ export function mergeResultHasChanges(mergeResult: AutoMergeResult): boolean {
   if (!mergeResult.success) return true;
   const r = mergeResult.result;
   if (r.defaultValue !== undefined) return true;
-  if (Object.keys(r.rules || {}).length > 0) return true;
+  // `autoMerge` sets `rules` only when they differ from base. Presence
+  // (including an explicit `[]` meaning "all rules deleted") is meaningful.
+  if (r.rules !== undefined) return true;
   if (Object.keys(r.environmentsEnabled || {}).length > 0) return true;
   if (r.prerequisites !== undefined) return true;
   if (r.archived !== undefined) return true;
   if ("holdout" in r) return true;
   if (r.metadata !== undefined && Object.keys(r.metadata).length > 0)
     return true;
+  return false;
+}
+
+// True if publishing the draft would change anything outside the target
+// experiment's experiment-ref rule(s). Compares effective post-publish state
+// (live overlaid with draft-set fields) vs live, sidestepping autoMerge's
+// phantom diffs from sparse legacy revisions. Skips environmentsEnabled
+// (auto-toggled on link) and metadata (no SDK payload impact).
+export function draftHasChangesOutsideExperiment(
+  draftRevision: RevisionFields,
+  filledLive: RevisionFields,
+  experimentId: string,
+): boolean {
+  const effective = buildEffectiveDraft(draftRevision, filledLive);
+
+  if (effective.defaultValue !== filledLive.defaultValue) return true;
+  if ((effective.archived ?? false) !== (filledLive.archived ?? false))
+    return true;
+  if (!isEqual(effective.prerequisites ?? [], filledLive.prerequisites ?? []))
+    return true;
+  if (!isEqual(effective.holdout ?? null, filledLive.holdout ?? null))
+    return true;
+
+  const stripTargetRefs = (rules: FeatureRule[] | undefined) =>
+    (rules ?? []).filter(
+      (rule) =>
+        !(rule.type === "experiment-ref" && rule.experimentId === experimentId),
+    );
+  const liveOther = stripTargetRefs(naiveFlattenV1Rules(filledLive.rules));
+  const draftOther = stripTargetRefs(naiveFlattenV1Rules(effective.rules));
+  if (!isEqual(liveOther, draftOther)) return true;
+
   return false;
 }
 // Normalize a metadata field value for comparison.
@@ -917,6 +1029,18 @@ function tryRuleLevelMerge(
   live: FeatureRule[],
   revision: FeatureRule[],
 ): FeatureRule[] | null {
+  // Defensive: callers route through `naiveFlattenV1Rules` which already
+  // filters nullish slots, but the merge keys by `r.id` and a stray nullish
+  // entry would collapse every other rule into the `undefined` map slot.
+  // Skip them here too rather than corrupting the merge silently.
+  const filterValid = (rules: FeatureRule[]) =>
+    rules.filter(
+      (r): r is FeatureRule => r != null && typeof r === "object" && !!r.id,
+    );
+  base = filterValid(base);
+  live = filterValid(live);
+  revision = filterValid(revision);
+
   const baseById = new Map(base.map((r) => [r.id, r]));
   const liveById = new Map(live.map((r) => [r.id, r]));
   const revById = new Map(revision.map((r) => [r.id, r]));
@@ -977,19 +1101,26 @@ export function autoMerge(
   const result: MergeResultChanges = {};
   const diverged = live.version !== base.version;
 
+  // Normalize all three sides up front. Pre-migration audit logs / draft
+  // revisions may still arrive in v1 shape (Record<env, FeatureRule[]>);
+  // normalize to a canonical v2 FeatureRule[] before any merge reasoning.
+  const liveRules = naiveFlattenV1Rules(live.rules);
+  const baseRules = naiveFlattenV1Rules(base.rules);
+  const revRules = naiveFlattenV1Rules(revision.rules);
+  // `environments` is retained in the signature for call-site compatibility
+  // and for the environmentsEnabled / override paths below, but rule merging
+  // now operates on the flat v2 array — not a per-env projection.
+  void environments;
+
   // No divergence path: only include revision changes that differ from base
   if (!diverged) {
     if (revision.defaultValue !== base.defaultValue) {
       result.defaultValue = revision.defaultValue;
     }
 
-    environments.forEach((env) => {
-      const rules = revision.rules?.[env];
-      if (!rules) return;
-      if (isEqual(rules, base.rules[env] || [])) return;
-      result.rules = result.rules || {};
-      result.rules[env] = rules;
-    });
+    if (revision.rules !== undefined && !isEqual(revRules, baseRules)) {
+      result.rules = revRules;
+    }
 
     // environmentsEnabled
     if (revision.environmentsEnabled) {
@@ -1077,54 +1208,42 @@ export function autoMerge(
     }
   }
 
-  // rules (per-env)
-  environments.forEach((env) => {
-    const rules = revision.rules?.[env];
-    if (!rules) return;
-    if (
-      isEqual(rules, base.rules[env] || []) ||
-      isEqual(rules, live.rules[env] || [])
-    ) {
-      return;
-    }
-
-    result.rules = result.rules || {};
-
-    if (
-      env in live.rules &&
-      !isEqual(live.rules[env] || [], base.rules[env] || []) &&
-      !isEqual(live.rules[env] || [], rules)
-    ) {
-      // Both sides changed — try per-rule merge before raising a conflict.
-      const autoMerged = tryRuleLevelMerge(
-        base.rules[env] || [],
-        live.rules[env] || [],
-        rules,
-      );
-      if (autoMerged !== null) {
-        result.rules[env] = autoMerged;
-      } else {
-        const conflictInfo: MergeConflict = {
-          name: `Rules - ${env}`,
-          key: `rules.${env}`,
-          base: JSON.stringify(base.rules[env], null, 2),
-          live: JSON.stringify(live.rules[env], null, 2),
-          revision: JSON.stringify(rules, null, 2),
-          resolved: false,
-        };
-        const strategy = strategies[conflictInfo.key];
-        if (strategy === "overwrite") {
-          conflictInfo.resolved = true;
-          result.rules[env] = rules;
-        } else if (strategy === "discard") {
-          conflictInfo.resolved = true;
+  // rules (flat v2 array — one conflict bucket for the whole rule set)
+  if (revision.rules !== undefined && !isEqual(revRules, baseRules)) {
+    if (!isEqual(revRules, liveRules)) {
+      if (!isEqual(liveRules, baseRules)) {
+        // Both sides diverged from base. Try a per-rule id-level merge before
+        // escalating to a conflict. The merge walks live order, substitutes
+        // revision-side edits for rules the revision changed, and appends
+        // rules the revision added. Rules the revision-didn't touch but live
+        // deleted stay deleted.
+        const autoMerged = tryRuleLevelMerge(baseRules, liveRules, revRules);
+        if (autoMerged !== null) {
+          result.rules = autoMerged;
+        } else {
+          const conflictInfo: MergeConflict = {
+            name: "Rules",
+            key: "rules",
+            base: JSON.stringify(baseRules, null, 2),
+            live: JSON.stringify(liveRules, null, 2),
+            revision: JSON.stringify(revRules, null, 2),
+            resolved: false,
+          };
+          const strategy = strategies[conflictInfo.key];
+          if (strategy === "overwrite") {
+            conflictInfo.resolved = true;
+            result.rules = revRules;
+          } else if (strategy === "discard") {
+            conflictInfo.resolved = true;
+          }
+          conflicts.push(conflictInfo);
         }
-        conflicts.push(conflictInfo);
+      } else {
+        // Only revision changed; adopt its rules wholesale.
+        result.rules = revRules;
       }
-    } else {
-      result.rules[env] = rules;
     }
-  });
+  }
 
   // environmentsEnabled (per-env boolean)
   if (revision.environmentsEnabled) {
@@ -1363,6 +1482,142 @@ export function validateAndFixCondition(
   throw new Error("Invalid targeting condition JSON: " + res.error);
 }
 
+// MongoDB-style logical operators whose values wrap nested sub-conditions
+// rather than attribute keys. $and/$or/$nor take arrays; $not takes a single
+// object (or inline operators).
+const LOGICAL_CONDITION_OPS = new Set(["$and", "$or", "$nor", "$not"]);
+
+// Walks a parsed targeting condition and returns the set of attribute field
+// names referenced at the root (e.g. "userId" in { userId: { $eq: "x" } }).
+// - Skips any $-prefixed operator keys (values are either nested conditions
+//   or literal comparators, never attribute names).
+// - Recurses into $and/$or/$nor/$not so nested targeting still surfaces its
+//   attribute keys.
+// - Dot-notation keys (e.g. "user.id") are reported as the full key; callers
+//   that check against attributeSchema should compare against the root segment.
+export function extractConditionAttributeKeys(condition: unknown): string[] {
+  const found = new Set<string>();
+
+  const walk = (node: unknown): void => {
+    if (!node || typeof node !== "object") return;
+    if (Array.isArray(node)) {
+      for (const item of node) walk(item);
+      return;
+    }
+    for (const [key, value] of Object.entries(
+      node as Record<string, unknown>,
+    )) {
+      if (LOGICAL_CONDITION_OPS.has(key)) {
+        walk(value);
+        continue;
+      }
+      if (key.startsWith("$")) {
+        // Non-logical operators ($eq, $in, $elemMatch, $inGroup, ...) — their
+        // values are comparison operands / nested conditions, not attribute keys.
+        continue;
+      }
+      found.add(key);
+    }
+  };
+
+  walk(condition);
+  return Array.from(found);
+}
+
+// Canonical shape for the opt-in attribute registration check. The org
+// setting is stored as either a legacy boolean (older orgs) or this object
+// (new orgs / orgs that have toggled the new project-scoping switch). All
+// readers should funnel through `getRequireRegisteredAttributesSettings`
+// rather than poking at the raw setting so they handle both shapes.
+export type RequireRegisteredAttributesSettings = {
+  // Master switch — when false, all checks are skipped.
+  isOn: boolean;
+  // When true, attributes that exist but aren't scoped to the current
+  // project are also rejected. When false, project-scope mismatches are
+  // ignored and only truly-unknown attribute keys fail.
+  requireProjectScoping: boolean;
+};
+
+// Normalizes the raw org setting into `{ isOn, requireProjectScoping }`.
+// Legacy boolean `true` maps to `{ isOn: true, requireProjectScoping: true }`
+// to preserve the strict behavior orgs were already getting before the
+// project-scoping toggle existed. `false` / undefined / null map to off.
+export function getRequireRegisteredAttributesSettings(
+  raw: boolean | RequireRegisteredAttributesSettings | undefined | null,
+): RequireRegisteredAttributesSettings {
+  if (!raw) return { isOn: false, requireProjectScoping: false };
+  if (typeof raw === "boolean") {
+    return { isOn: true, requireProjectScoping: true };
+  }
+  return {
+    isOn: !!raw.isOn,
+    // Default to `true` when the object is missing the field — keeps strict
+    // behavior the default for newly-created objects too.
+    requireProjectScoping: raw.requireProjectScoping !== false,
+  };
+}
+
+// Splits `keys` into two buckets so callers can write a precise error:
+//   - `unknown`: not declared in the schema at all (or archived) — typical typo.
+//   - `outOfProject`: declared and active, but scoped to a different project
+//     than the rule/experiment lives in. Catches the "attribute exists but
+//     this project isn't on its scope list" case, which the user otherwise
+//     reads as "Unknown attribute" and tries to re-create.
+// Dot-notation keys are checked against their root segment, matching how
+// attribute schema is declared.
+export function categorizeUnregisteredAttributes(
+  keys: string[],
+  attributeSchema: SDKAttributeSchema | undefined,
+  project?: string | string[],
+): { unknown: string[]; outOfProject: string[] } {
+  const projects = Array.isArray(project) ? project : project ? [project] : [];
+  // root segment -> projects[] declared on the (active) attribute. Missing
+  // entries mean the attribute isn't declared (or is archived).
+  const declared = new Map<string, string[] | undefined>();
+  for (const attr of attributeSchema ?? []) {
+    if (attr.archived) continue;
+    declared.set(attr.property, attr.projects);
+  }
+
+  const unknown: string[] = [];
+  const outOfProject: string[] = [];
+  const seen = new Set<string>();
+  for (const key of keys) {
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const root = key.split(".")[0];
+    if (!declared.has(root)) {
+      unknown.push(key);
+      continue;
+    }
+    const attrProjects = declared.get(root);
+    // No project context, or the attribute is org-wide: registered.
+    if (!projects.length || !attrProjects?.length) continue;
+    if (!projects.some((p) => attrProjects.includes(p))) {
+      outOfProject.push(key);
+    }
+  }
+  return { unknown, outOfProject };
+}
+
+// Returns the subset of `keys` that are NOT declared as active attributes in
+// `attributeSchema`, including those scoped to other projects. Equivalent to
+// `unknown ∪ outOfProject` from `categorizeUnregisteredAttributes`. Kept for
+// backward compatibility; new callers that need a richer error should use
+// `categorizeUnregisteredAttributes` directly.
+export function findUnregisteredAttributes(
+  keys: string[],
+  attributeSchema: SDKAttributeSchema | undefined,
+  project?: string | string[],
+): string[] {
+  const { unknown, outOfProject } = categorizeUnregisteredAttributes(
+    keys,
+    attributeSchema,
+    project,
+  );
+  return [...unknown, ...outOfProject];
+}
+
 export function getDefaultPrerequisiteCondition(parentFeature?: {
   valueType?: "boolean" | "string" | "number" | "json";
 }) {
@@ -1383,10 +1638,10 @@ export function isFeatureCyclic(
   const stack = new Set<string>();
 
   const newFeature = cloneDeep(feature);
-  if (revision) {
-    for (const env of Object.keys(newFeature.environmentSettings || {})) {
-      newFeature.environmentSettings[env].rules = revision?.rules?.[env] || [];
-    }
+  if (revision && revision.rules !== undefined) {
+    // v2: overlay the revision's top-level rules onto the feature. Per-env
+    // filtering happens downstream via `getRulesForEnvironment`.
+    newFeature.rules = naiveFlattenV1Rules(revision.rules);
   }
   if (!envs) {
     envs = Object.keys(newFeature.environmentSettings || {});
@@ -1400,11 +1655,23 @@ export function isFeatureCyclic(
     visited.add(feature.id);
 
     const prerequisiteIds = (feature.prerequisites || []).map((p) => p.id);
-    for (const eid in feature.environmentSettings || {}) {
+    for (const eid of Object.keys(feature.environmentSettings || {})) {
       if (!envs?.includes(eid)) continue;
-      const env = feature.environmentSettings?.[eid];
-      if (!env?.rules) continue;
-      for (const rule of env.rules || []) {
+      // v2: project the flat top-level rules array to this env and inspect
+      // each rule's `prerequisites[]`. Legacy test fixtures still carry v1
+      // `environmentSettings[eid].rules` — fall back when v2 array is absent.
+      const v2RulesForEnv = getRulesForEnvironment(feature.rules, eid);
+      const legacyRulesForEnv = Array.isArray(feature.rules)
+        ? []
+        : ((
+            feature.environmentSettings?.[eid] as unknown as {
+              rules?: FeatureRule[];
+            }
+          )?.rules ?? []);
+      const rulesForEnv = v2RulesForEnv.length
+        ? v2RulesForEnv
+        : legacyRulesForEnv;
+      for (const rule of rulesForEnv) {
         if (rule?.prerequisites?.length) {
           const rulePrerequisiteIds = rule.prerequisites.map((p) => p.id);
           prerequisiteIds.push(...rulePrerequisiteIds);
@@ -1473,10 +1740,22 @@ export function evaluatePrerequisiteState(
     }
 
     if (!skipRootConditions || !isTopLevel) {
-      if (
-        feature.environmentSettings[env].rules?.filter((r) => !!r.enabled)
-          ?.length
-      ) {
+      // v2: project the flat top-level rules array to this env. Legacy test
+      // fixtures still carry v1 `environmentSettings[env].rules`; fall back
+      // to that shape when the v2 array is absent. Production readers JIT
+      // upgrade at the model boundary so this fallback is test-only.
+      const v2RulesForEnv = getRulesForEnvironment(feature.rules, env);
+      const legacyRulesForEnv = Array.isArray(feature.rules)
+        ? []
+        : ((
+            feature.environmentSettings[env] as unknown as {
+              rules?: FeatureRule[];
+            }
+          ).rules ?? []);
+      const rulesForEnv = v2RulesForEnv.length
+        ? v2RulesForEnv
+        : legacyRulesForEnv;
+      if (rulesForEnv.some((r) => !!r.enabled)) {
         state = "conditional";
         value = undefined;
       }
@@ -1531,22 +1810,70 @@ export function evalDeterministicPrereqValue(
   return pass ? "pass" : "fail";
 }
 
+/** Maps each feature ID to the set of features that depend on it as a prerequisite. */
+export type ReverseDependencyIndex = Map<string, Set<string>>;
+
+export function buildReverseDependencyIndex(
+  features: FeatureInterface[],
+): ReverseDependencyIndex {
+  const index: ReverseDependencyIndex = new Map();
+
+  for (const f of features) {
+    for (const p of f.prerequisites || []) {
+      let set = index.get(p.id);
+      if (!set) {
+        set = new Set();
+        index.set(p.id, set);
+      }
+      set.add(f.id);
+    }
+    for (const rule of f.rules ?? []) {
+      if (!rule?.enabled || !rule.prerequisites?.length) continue;
+      for (const p of rule.prerequisites) {
+        let set = index.get(p.id);
+        if (!set) {
+          set = new Set();
+          index.set(p.id, set);
+        }
+        set.add(f.id);
+      }
+    }
+  }
+
+  return index;
+}
+
 export function getDependentFeatures(
   feature: FeatureInterface,
   features: FeatureInterface[],
   environments: string[],
+  reverseDependencyIndex?: ReverseDependencyIndex,
+  featuresMap?: Map<string, FeatureInterface>,
 ): string[] {
-  const dependentFeatures = features.filter((f) => {
-    const prerequisites = f.prerequisites || [];
-    const rules = getMatchingRules(
-      f,
-      (r) =>
-        !!r.enabled && (r.prerequisites || []).some((p) => p.id === feature.id),
-      environments,
+  const isDependent = (f: FeatureInterface) => {
+    if ((f.prerequisites || []).some((p) => p.id === feature.id)) return true;
+    return (
+      getMatchingRules(
+        f,
+        (r) =>
+          !!r.enabled &&
+          (r.prerequisites || []).some((p) => p.id === feature.id),
+        environments,
+      ).length > 0
     );
-    return prerequisites.some((p) => p.id === feature.id) || rules.length > 0;
-  });
-  return dependentFeatures.map((f) => f.id);
+  };
+
+  if (reverseDependencyIndex) {
+    const candidates = reverseDependencyIndex.get(feature.id);
+    if (!candidates || candidates.size === 0) return [];
+    const lookup = featuresMap ?? new Map(features.map((f) => [f.id, f]));
+    return [...candidates].filter((id) => {
+      const f = lookup.get(id);
+      return f && isDependent(f);
+    });
+  }
+
+  return features.filter(isDependent).map((f) => f.id);
 }
 
 export function getDependentExperiments(
@@ -1677,22 +2004,63 @@ function normalizeRuleForDiff(
   return rest as Omit<FeatureRule, "scheduleType">;
 }
 
+/**
+ * Returns the union of all environments explicitly targeted by a ramp
+ * schedule's patch actions (startActions, steps, endActions).  Returns "all"
+ * if any patch sets `allEnvironments: true`.
+ */
+export function getEnvsFromRampSchedule(
+  schedule: Pick<
+    RampScheduleInterface,
+    "startActions" | "steps" | "endActions"
+  >,
+): string[] | "all" {
+  const envs = new Set<string>();
+  const allPatches = [
+    ...(schedule.startActions ?? []).map((a) => a.patch),
+    ...schedule.steps.flatMap((s) => s.actions.map((a) => a.patch)),
+    ...(schedule.endActions ?? []).map((a) => a.patch),
+  ];
+  for (const patch of allPatches) {
+    if (patch.allEnvironments) return "all";
+    for (const env of patch.environments ?? []) {
+      envs.add(env);
+    }
+  }
+  return [...envs];
+}
+
 export function getDraftAffectedEnvironments(
   revision: RevisionFields,
   baseRevision: RevisionFields,
   allEnvironments: string[],
+  liveRampScheduleEnvs?: Map<string, string[] | "all">,
 ): string[] | "all" {
   if (revisionHasGlobalChange(revision, baseRevision)) return "all";
 
-  // Per-environment changes
+  // Per-environment changes. v2 `rules` is a flat array, so derive the per-env
+  // projection via `getRulesForEnvironment`. This preserves the env-granular
+  // "affected envs" semantic used by the review-gating UI: a rule with
+  // `allEnvironments: true` counts as touching every allowed env; a v2 rule
+  // with `environments: ["prod"]` counts only as touching prod.
+  const revRulesAll = naiveFlattenV1Rules(revision.rules);
+  const baseRulesAll = naiveFlattenV1Rules(baseRevision.rules);
   const envs = new Set<string>();
   for (const env of allEnvironments) {
-    const revRules = (revision.rules[env] || []).map(normalizeRuleForDiff);
-    const baseRules = (baseRevision.rules[env] || []).map(normalizeRuleForDiff);
+    const revRules = getRulesForEnvironment(revRulesAll, env).map(
+      normalizeRuleForDiff,
+    );
+    const baseRules = getRulesForEnvironment(baseRulesAll, env).map(
+      normalizeRuleForDiff,
+    );
     if (!isEqual(revRules, baseRules)) {
       envs.add(env);
     }
-    const effectiveBaseEnvVal = baseRevision.environmentsEnabled?.[env];
+    // Base revisions that predate an environment have no key for it at all;
+    // treat missing as false so a freshly-snapshotted `false` on the draft side
+    // doesn't register as a kill-switch change.
+    const effectiveBaseEnvVal =
+      baseRevision.environmentsEnabled?.[env] ?? false;
     if (
       revision.environmentsEnabled?.[env] !== undefined &&
       revision.environmentsEnabled[env] !== effectiveBaseEnvVal
@@ -1700,6 +2068,49 @@ export function getDraftAffectedEnvironments(
       envs.add(env);
     }
   }
+  // rampActions target a specific rule by ruleId; the environments that rule
+  // is active in are affected by the ramp. Step patches can also widen the
+  // scope if they explicitly set `environments` or `allEnvironments`.
+  if ((revision.rampActions ?? []).length > 0) {
+    for (const action of revision.rampActions!) {
+      // Look up the rule in the draft rules first, then the base rules (e.g.
+      // for a detach where the rule may already have been removed from draft).
+      const rule =
+        revRulesAll.find(
+          (r) => stemRuleId(r.id ?? "") === stemRuleId(action.ruleId),
+        ) ??
+        baseRulesAll.find(
+          (r) => stemRuleId(r.id ?? "") === stemRuleId(action.ruleId),
+        );
+      if (rule?.allEnvironments) return "all";
+      for (const env of rule?.environments ?? []) {
+        if (allEnvironments.includes(env)) envs.add(env);
+      }
+      if (action.mode !== "detach") {
+        // For update actions, also include environments from the CURRENT live
+        // schedule so that removing an env from the new steps is still detected.
+        if (action.mode === "update" && liveRampScheduleEnvs) {
+          const liveEnvs = liveRampScheduleEnvs.get(action.rampScheduleId);
+          if (liveEnvs === "all") return "all";
+          for (const env of liveEnvs ?? []) {
+            if (allEnvironments.includes(env)) envs.add(env);
+          }
+        }
+        const allPatches = [
+          ...(action.startActions ?? []).map((a) => a.patch),
+          ...action.steps.flatMap((s) => s.actions.map((a) => a.patch)),
+          ...(action.endActions ?? []).map((a) => a.patch),
+        ];
+        for (const patch of allPatches) {
+          if (patch.allEnvironments) return "all";
+          for (const env of patch.environments ?? []) {
+            if (allEnvironments.includes(env)) envs.add(env);
+          }
+        }
+      }
+    }
+  }
+
   // Collapse to "all" when every environment is affected
   if (allEnvironments.length > 0 && envs.size === allEnvironments.length) {
     return "all";
@@ -1714,6 +2125,7 @@ export function checkIfRevisionNeedsReview({
   allEnvironments,
   settings,
   requireApprovalsLicensed = true,
+  liveRampScheduleEnvs,
 }: {
   feature: FeatureInterface;
   baseRevision: FeatureRevisionInterface;
@@ -1721,6 +2133,7 @@ export function checkIfRevisionNeedsReview({
   allEnvironments: string[];
   settings?: OrganizationSettings;
   requireApprovalsLicensed?: boolean;
+  liveRampScheduleEnvs?: Map<string, string[] | "all">;
 }) {
   if (!requireApprovalsLicensed) return false;
   const requireReviews = settings?.requireReviews;
@@ -1734,6 +2147,7 @@ export function checkIfRevisionNeedsReview({
     revision,
     baseRevision,
     allEnvironments,
+    liveRampScheduleEnvs,
   );
 
   if (affected === "all") {
@@ -1745,12 +2159,17 @@ export function checkIfRevisionNeedsReview({
   }
   if (affected.length === 0) return false;
 
-  // Environment-specific changes: split into rules/values vs kill switches.
-  // Rules/values always require approval. Kill switches only require approval
-  // when featureRequireEnvironmentReview is true (default: true when unset).
+  // Env-specific changes split into rules/values vs kill switches.
+  // Rules/values always require approval; kill switches only when
+  // `featureRequireEnvironmentReview` is true (default when unset).
+  // Project rules per-env to account for `allEnvironments` / `environments` scopes.
+  const revRulesAll = naiveFlattenV1Rules(revision.rules);
+  const baseRulesAll = naiveFlattenV1Rules(baseRevision.rules);
   const envsWithRuleChanges = affected.filter((env) => {
-    const revRules = (revision.rules?.[env] || []).map(normalizeRuleForDiff);
-    const baseRules = (baseRevision.rules?.[env] || []).map(
+    const revRules = getRulesForEnvironment(revRulesAll, env).map(
+      normalizeRuleForDiff,
+    );
+    const baseRules = getRulesForEnvironment(baseRulesAll, env).map(
       normalizeRuleForDiff,
     );
     return !isEqual(revRules, baseRules);
@@ -1759,7 +2178,7 @@ export function checkIfRevisionNeedsReview({
     (env) =>
       revision.environmentsEnabled?.[env] !== undefined &&
       revision.environmentsEnabled[env] !==
-        baseRevision.environmentsEnabled?.[env],
+        (baseRevision.environmentsEnabled?.[env] ?? false),
   );
 
   const gatedEnvs = reviewSetting.environments;
@@ -1778,6 +2197,21 @@ export function checkIfRevisionNeedsReview({
     if (gatedEnvs.length === 0) return true;
     if (envKillSwitchChanges.some((env) => gatedEnvs.includes(env)))
       return true;
+  }
+
+  // Ramp actions (create/update/detach) change how the feature is rolled out
+  // across environments. They are treated like rule changes and always require
+  // approval when any of the targeted environments are gated.
+  if ((revision.rampActions ?? []).length > 0) {
+    const rampEnvs = affected.filter(
+      (env) =>
+        !envsWithRuleChanges.includes(env) &&
+        !envKillSwitchChanges.includes(env),
+    );
+    if (rampEnvs.length > 0) {
+      if (gatedEnvs.length === 0) return true;
+      if (rampEnvs.some((env) => gatedEnvs.includes(env))) return true;
+    }
   }
 
   return false;

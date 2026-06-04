@@ -1,13 +1,21 @@
 import dynamic from "next/dynamic";
+import { createPortal } from "react-dom";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import {
+  useMemo,
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useCallback,
+} from "react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
 import {
   PiPlusCircleBold,
   PiPlus,
-  PiArrowsLeftRightBold,
+  PiGitDiff,
   PiPencilSimpleFill,
   PiCaretRightBold,
   PiPencil,
@@ -21,6 +29,7 @@ import {
   fillRevisionFromFeature,
   liveRevisionFromFeature,
   filterEnvironmentsByFeature,
+  getEnvsFromRampSchedule,
   getReviewSetting,
   draftDiffersFromLive,
 } from "shared/util";
@@ -52,7 +61,6 @@ import {
   getAffectedRevisionEnvs,
   getPrerequisites,
   getRules,
-  isRuleInactive,
 } from "@/services/features";
 import { useFeatureDefaultValues } from "@/hooks/useFeatureDefaultValues";
 import { useFeatureDependents } from "@/hooks/useFeatureDependents";
@@ -70,7 +78,7 @@ import {
   useFeatureUsage,
 } from "@/components/Features/FeatureUsageGraph";
 import EditRevisionCommentModal from "@/components/Features/EditRevisionCommentModal";
-import FixConflictsModal from "@/components/Features/FixConflictsModal";
+import FeatureFixConflictsModal from "@/components/Features/FeatureFixConflictsModal";
 import CompareRevisionsModal from "@/components/Features/CompareRevisionsModal";
 import RevisionStatusBadge from "@/components/Features/RevisionStatusBadge";
 import RevisionLabel, {
@@ -89,13 +97,11 @@ import {
   filterCustomFieldsForSectionAndProject,
 } from "@/hooks/useCustomFields";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import { useScrollPosition } from "@/hooks/useScrollPosition";
 import Badge from "@/ui/Badge";
 import Frame from "@/ui/Frame";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Metadata from "@/ui/Metadata";
-import Switch from "@/ui/Switch";
 import Link from "@/ui/Link";
 import JSONValidation from "@/components/Features/JSONValidation";
 import {
@@ -242,10 +248,6 @@ export default function FeaturesOverview({
   const [creatingDraft, setCreatingDraft] = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState("");
-  const [hideInactive, setHideInactive] = useLocalStorage(
-    `hide-disabled-rules`,
-    false,
-  );
   const [descriptionExpanded, setDescriptionExpanded] = useLocalStorage(
     `feature-description-expanded`,
     false,
@@ -453,11 +455,63 @@ export default function FeaturesOverview({
     });
     ro.observe(el);
   }, []);
-  const { scrollY } = useScrollPosition();
-  useEffect(() => {
-    if (!bannerRef.current) return;
-    setBannerPinned(bannerRef.current.getBoundingClientRect().top <= 110);
-  }, [scrollY]);
+  // Watch a sentinel just above the sticky banner. When the sentinel scrolls
+  // out of the viewport (above the 110px sticky offset), the banner is
+  // genuinely pinned — a more reliable signal than getBoundingClientRect math,
+  // which falsely reports "pinned" whenever the banner's natural position
+  // already sits near the top of the page.
+  //
+  // Use a ref callback (not useRef + useEffect[]) so the observer re-attaches
+  // when the sentinel later mounts — e.g. when a user creates a draft on a
+  // page that initially had no banner.
+  const bannerSentinelObserver = useRef<IntersectionObserver | null>(null);
+  const bannerSentinelRef = useCallback((el: HTMLDivElement | null) => {
+    if (bannerSentinelObserver.current) {
+      bannerSentinelObserver.current.disconnect();
+      bannerSentinelObserver.current = null;
+    }
+    if (!el) {
+      setBannerPinned(false);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => setBannerPinned(!entry.isIntersecting),
+      { rootMargin: "-110px 0px 0px 0px", threshold: 0 },
+    );
+    observer.observe(el);
+    bannerSentinelObserver.current = observer;
+  }, []);
+
+  // Slot refs for the draft CTA portal (Discard / Review & Publish / Fix conflicts).
+  // The portal host migrates between the revision card slot and the sticky banner
+  // slot so the same DOM node is reused without duplicating handler logic.
+  const ctaSlotRef = useRef<HTMLDivElement>(null);
+  const bannerCtaSlotRef = useRef<HTMLDivElement>(null);
+  const [draftCtaPortalHost] = useState<HTMLDivElement | null>(() => {
+    if (typeof document === "undefined") return null;
+    const div = document.createElement("div");
+    div.style.display = "contents";
+    return div;
+  });
+  // No deps array: the effect must re-run on every render because ctaSlotRef
+  // isn't a stable dep — it starts null while the component's early return
+  // fires (props loading), then becomes populated once the full JSX renders.
+  // useLayoutEffect ensures refs are set before the effect runs, so appendChild
+  // always sees the correct target. The call is idempotent when the portal host
+  // is already in the right slot.
+  useLayoutEffect(() => {
+    if (!draftCtaPortalHost) return;
+    const target = bannerPinned ? bannerCtaSlotRef.current : ctaSlotRef.current;
+    if (target) target.appendChild(draftCtaPortalHost);
+  });
+
+  const featureLockedByRamp = useMemo(
+    () =>
+      rampSchedules?.some(
+        (rs) => rs.lockdownConfig?.mode === "locked" && rs.status === "running",
+      ) ?? false,
+    [rampSchedules],
+  );
 
   if (!baseFeature || !feature || !revision) return null;
 
@@ -493,18 +547,17 @@ export default function FeaturesOverview({
         ...liveRevision,
         ...liveRevisionFromFeature(liveRevision, baseFeature),
       };
+      // v2 rules are a flat FeatureRule[]; the mergeResult carries either the
+      // full replacement array (when rules changed) or nothing (when only
+      // non-rule fields changed). Never object-spread an array.
+      // rampActions live on the draft; autoMerge doesn't carry them through
+      // MergeResultChanges, so re-attach them here so the review gate can
+      // detect that production environments are affected.
       effectiveRevision = {
         ...filledLive,
         ...mergeResult.result,
-        // Merge rules per-environment so that environments absent from the
-        // sparse mergeResult.result (e.g. production when only dev/staging
-        // changed) inherit their live rules rather than defaulting to [].
-        // Without this, getDraftAffectedEnvironments incorrectly detects a
-        // diff in untouched environments and over-triggers review requirements.
-        rules: {
-          ...filledLive.rules,
-          ...(mergeResult.result.rules ?? {}),
-        },
+        rules: mergeResult.result.rules ?? filledLive.rules,
+        rampActions: revision?.rampActions,
       };
       effectiveBase = filledLive;
     }
@@ -516,6 +569,22 @@ export default function FeaturesOverview({
       allEnvironments: environments.map((e) => e.id),
       settings,
       requireApprovalsLicensed: hasCommercialFeature("require-approvals"),
+      liveRampScheduleEnvs: (() => {
+        const map = new Map<string, string[] | "all">();
+        for (const action of effectiveRevision.rampActions ?? []) {
+          if (action.mode !== "update") continue;
+          const liveSchedule = rampSchedules?.find(
+            (rs) => rs.id === action.rampScheduleId,
+          );
+          if (liveSchedule) {
+            map.set(
+              action.rampScheduleId,
+              getEnvsFromRampSchedule(liveSchedule),
+            );
+          }
+        }
+        return map;
+      })(),
     });
   }
   const isLive = revision?.version === feature.version;
@@ -563,13 +632,6 @@ export default function FeaturesOverview({
       : ("inactive" as const)
     : false;
 
-  const enabledEnvsSubtext =
-    isDraft || isPendingReview
-      ? "in this draft"
-      : !isLive
-        ? "in this revision"
-        : null;
-
   // TODO: support multiple per-project approval configs
   const featureReviewConfig = getReviewSetting(
     Array.isArray(settings?.requireReviews)
@@ -607,13 +669,9 @@ export default function FeaturesOverview({
   const hasCustomFields = (featureCustomFields?.length ?? 0) > 0;
 
   let hasRules = false;
-  let hasInactiveRules = false;
   environments?.forEach((e) => {
     const r = getRules(feature, e.id) || [];
     if (r.length > 0) hasRules = true;
-    if (r.some((r) => isRuleInactive(r, experimentsMap))) {
-      hasInactiveRules = true;
-    }
   });
 
   const variables = {
@@ -623,6 +681,18 @@ export default function FeaturesOverview({
   };
 
   const renderDraftBannerCopy = () => {
+    if (featureLockedByRamp) {
+      return (
+        <>
+          <PiLockSimple />{" "}
+          {isPendingReview
+            ? "Review and Approve"
+            : approved
+              ? "Review and Publish"
+              : "Request Approval to Publish"}
+        </>
+      );
+    }
     if (isPendingReview) {
       return (
         <>
@@ -646,6 +716,7 @@ export default function FeaturesOverview({
 
   const renderRevisionCTA = () => {
     const actions: JSX.Element[] = [];
+    const nowrap = { whiteSpace: "nowrap" as const };
 
     if (canEditDrafts) {
       if (isLocked && !isLive && !isDiscarded) {
@@ -655,6 +726,7 @@ export default function FeaturesOverview({
             color="red"
             onClick={() => setRevertIndex(revision.version)}
             title="Create a new Draft based on this revision"
+            style={nowrap}
           >
             Revert to this version
           </Button>,
@@ -671,7 +743,7 @@ export default function FeaturesOverview({
             (r) =>
               r.status === "published" &&
               r.version !== feature.version &&
-              r.datePublished != null &&
+              !!r.datePublished &&
               new Date(r.datePublished).getTime() < livePublishedAt,
           )
           .sort((a, b) => {
@@ -692,6 +764,7 @@ export default function FeaturesOverview({
               onClick={() => {
                 setRevertIndex(previousRevision.version);
               }}
+              style={nowrap}
             >
               Revert to Previous
             </Button>,
@@ -706,6 +779,7 @@ export default function FeaturesOverview({
             loading={creatingDraft}
             onClick={() => setConfirmNewDraft(true)}
             variant="soft"
+            style={nowrap}
           >
             New Draft
           </Button>,
@@ -713,76 +787,8 @@ export default function FeaturesOverview({
       }
 
       if (isDraft) {
-        actions.push(
-          <Button
-            variant="ghost"
-            color="red"
-            onClick={() => {
-              setConfirmDiscard(true);
-            }}
-          >
-            Discard draft
-          </Button>,
-        );
-
-        if (mergeResult?.success) {
-          if (requireReviews) {
-            actions.push(
-              <Tooltip
-                body={
-                  !revisionHasChanges
-                    ? "Draft is identical to the live version. Make changes first before requesting review"
-                    : ""
-                }
-              >
-                <Button
-                  disabled={!revisionHasChanges}
-                  onClick={() => {
-                    setReviewModal(true);
-                  }}
-                >
-                  {renderDraftBannerCopy()}
-                </Button>
-              </Tooltip>,
-            );
-          } else {
-            actions.push(
-              <Tooltip
-                body={
-                  !revisionHasChanges
-                    ? "Draft is identical to the live version. Make changes first before publishing"
-                    : !hasDraftPublishPermission
-                      ? "You do not have permission to publish this draft."
-                      : ""
-                }
-              >
-                <Button
-                  disabled={!revisionHasChanges || !hasDraftPublishPermission}
-                  onClick={() => {
-                    setDraftModal(true);
-                  }}
-                >
-                  Review &amp; Publish
-                </Button>
-              </Tooltip>,
-            );
-          }
-        } else {
-          if (mergeResult) {
-            actions.push(
-              <Tooltip body="There have been new conflicting changes published since this draft was created that must be resolved before you can publish">
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setConflictModal(true);
-                  }}
-                >
-                  Fix conflicts
-                </Button>
-              </Tooltip>,
-            );
-          }
-        }
+        // Slot: draftCtaGroup portal mounts here when not scrolled past the revision card
+        actions.push(<div key="draft-cta-slot" ref={ctaSlotRef} />);
       }
     }
 
@@ -794,6 +800,80 @@ export default function FeaturesOverview({
       </>
     );
   };
+
+  // Draft CTA group — defined once and rendered via a stable portal host.
+  // The portal host is physically moved between the revision card's ctaSlotRef
+  // and the sticky banner's bannerCtaSlotRef so CTAs only need to be defined here.
+  const nowrap = { whiteSpace: "nowrap" as const };
+  const draftCtaGroup =
+    isDraft && canEditDrafts ? (
+      <Flex align="center" gap="4">
+        <Box>
+          <Button
+            variant="ghost"
+            color="red"
+            onClick={() => setConfirmDiscard(true)}
+            style={nowrap}
+          >
+            Discard draft
+          </Button>
+        </Box>
+        {mergeResult?.success ? (
+          requireReviews ? (
+            <Box>
+              <Tooltip
+                body={
+                  !revisionHasChanges
+                    ? "Draft is identical to the live version. Make changes first before requesting review"
+                    : ""
+                }
+              >
+                <Button
+                  disabled={!revisionHasChanges}
+                  onClick={() => setReviewModal(true)}
+                  style={nowrap}
+                >
+                  {renderDraftBannerCopy()}
+                </Button>
+              </Tooltip>
+            </Box>
+          ) : (
+            <Box>
+              <Tooltip
+                body={
+                  !revisionHasChanges
+                    ? "Draft is identical to the live version. Make changes first before publishing"
+                    : !hasDraftPublishPermission
+                      ? "You do not have permission to publish this draft."
+                      : ""
+                }
+              >
+                <Button
+                  disabled={!revisionHasChanges || !hasDraftPublishPermission}
+                  icon={featureLockedByRamp ? <PiLockSimple /> : undefined}
+                  onClick={() => setDraftModal(true)}
+                  style={nowrap}
+                >
+                  Review &amp; Publish
+                </Button>
+              </Tooltip>
+            </Box>
+          )
+        ) : mergeResult ? (
+          <Box>
+            <Tooltip body="There have been new conflicting changes published since this draft was created that must be resolved before you can publish">
+              <Button
+                variant="ghost"
+                onClick={() => setConflictModal(true)}
+                style={nowrap}
+              >
+                Fix conflicts
+              </Button>
+            </Tooltip>
+          </Box>
+        ) : null}
+      </Flex>
+    ) : null;
 
   const onCompareRevisions =
     (revisionList?.length ?? 0) >= 2
@@ -1027,54 +1107,75 @@ export default function FeaturesOverview({
 
           if (!bannerProps) return null;
           return (
-            <div
-              ref={bannerRef}
-              style={{
-                position: "sticky",
-                top: 110,
-                zIndex: 920,
-                marginBottom: 12,
-                display: "flex",
-                justifyContent: "center",
-                pointerEvents: "none",
-              }}
-            >
+            <>
+              <div ref={bannerSentinelRef} aria-hidden style={{ height: 0 }} />
               <div
+                ref={bannerRef}
                 style={{
-                  width: "100%",
-                  backgroundColor: "var(--color-background)",
-                  borderRadius: "var(--radius-3)",
-                  overflow: "hidden",
-                  maxWidth: bannerPinned ? "580px" : "2000px",
-                  boxShadow: bannerPinned ? "var(--shadow-3)" : undefined,
-                  transition: "all 200ms ease",
-                  pointerEvents: "auto",
+                  position: "sticky",
+                  top: 110,
+                  zIndex: 920,
+                  marginBottom: 12,
+                  display: "flex",
+                  justifyContent: "center",
+                  pointerEvents: "none",
                 }}
               >
-                <Flex
-                  align="center"
-                  justify="center"
-                  gap="2"
-                  px="4"
-                  py="3"
+                <div
                   style={{
-                    color: bannerProps.color,
-                    backgroundColor: bannerProps.bgColor,
+                    width: "100%",
+                    backgroundColor: "var(--color-background)",
+                    borderRadius: "var(--radius-3)",
+                    overflow: "hidden",
+                    maxWidth: bannerPinned ? 1280 : 1500,
+                    boxShadow: bannerPinned ? "var(--shadow-3)" : undefined,
+                    transition: "all 200ms ease",
+                    pointerEvents: "auto",
                   }}
                 >
-                  {bannerProps.icon}
-                  <span style={{ fontSize: "var(--font-size-2)" }}>
-                    {bannerProps.message}
-                  </span>
-                </Flex>
+                  <Box
+                    px="4"
+                    py="3"
+                    style={{
+                      color: bannerProps.color,
+                      backgroundColor: bannerProps.bgColor,
+                      display: "grid",
+                      gridTemplateColumns: "1fr auto 1fr",
+                      alignItems: "center",
+                      gap: "12px",
+                    }}
+                  >
+                    <span />
+                    <Flex
+                      align="center"
+                      justify="center"
+                      gap="2"
+                      style={{ gridColumn: 2 }}
+                    >
+                      {bannerProps.icon}
+                      <span style={{ fontSize: "var(--font-size-2)" }}>
+                        {bannerProps.message}
+                      </span>
+                    </Flex>
+                    <Flex
+                      align="center"
+                      gap="2"
+                      justify="end"
+                      style={{ flexShrink: 0, gridColumn: 3 }}
+                    >
+                      {/* Slot: draftCtaGroup portal mounts here when banner is pinned */}
+                      <div ref={bannerCtaSlotRef} />
+                    </Flex>
+                  </Box>
+                </div>
               </div>
-            </div>
+            </>
           );
         })()}
         {revision && (
           <Frame mt="2" mb="4" px="6" py="4">
             <Flex align="start" justify="between" mb="2" wrap="wrap" gap="2">
-              <Flex align="start" gap="4" style={{ marginTop: 6 }}>
+              <Flex align="start" gap="4" style={{ marginTop: 5 }}>
                 <Flex direction="column" gap="1">
                   <Flex align="center" gap="2">
                     {revision.title && (
@@ -1176,12 +1277,15 @@ export default function FeaturesOverview({
                       orientation="vertical"
                       style={{ marginTop: 2 }}
                     />
-                    <Link onClick={onCompareRevisions}>
-                      <PiArrowsLeftRightBold
-                        style={{ marginRight: 4, verticalAlign: "middle" }}
-                      />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      icon={<PiGitDiff />}
+                      onClick={onCompareRevisions}
+                      style={{ position: "relative", top: -5 }}
+                    >
                       Compare revisions
-                    </Link>
+                    </Button>
                   </>
                 )}
               </Flex>
@@ -1194,6 +1298,8 @@ export default function FeaturesOverview({
             {renderRevisionInfo()}
           </Frame>
         )}
+        {/* Portal: renders draftCtaGroup into whichever slot is active (ctaSlotRef or bannerCtaSlotRef) */}
+        {draftCtaPortalHost && createPortal(draftCtaGroup, draftCtaPortalHost)}
 
         <Frame mt="2" mb="4" px="0" py="0" style={{ overflow: "hidden" }}>
           <Collapsible
@@ -1278,10 +1384,7 @@ export default function FeaturesOverview({
               Environment Status
             </Heading>
             {showFeatureUsage && (
-              <FeatureUsageSparkline
-                valueType={feature.valueType}
-                environments={envs}
-              />
+              <FeatureUsageSparkline valueType={feature.valueType} />
             )}
           </Flex>
           <div className="mb-4">
@@ -1299,7 +1402,7 @@ export default function FeaturesOverview({
                       envGridWidth > 0 &&
                       200 + envs.length * 120 < envGridWidth - 80
                         ? -26 // align to the env grid's labels' baseline
-                        : undefined,
+                        : 8,
                   }}
                 >
                   <Button
@@ -1323,13 +1426,6 @@ export default function FeaturesOverview({
                       <span className="font-weight-bold">
                         Enabled Environments
                       </span>
-                      {enabledEnvsSubtext ? (
-                        <div style={{ marginBottom: -20 }}>
-                          <Text as="div" size="small" color="text-mid">
-                            {enabledEnvsSubtext}
-                          </Text>
-                        </div>
-                      ) : null}
                     </Box>
                     {envs.map((env) => (
                       <Box
@@ -1511,11 +1607,6 @@ export default function FeaturesOverview({
               <Flex align="center" justify="between" mb="2">
                 <span>
                   <span className="font-weight-bold">Enabled Environments</span>
-                  {enabledEnvsSubtext ? (
-                    <Text as="div" size="small" color="text-mid">
-                      {enabledEnvsSubtext}
-                    </Text>
-                  ) : null}
                 </span>
                 {!isReadOnly && (
                   <Button
@@ -1527,8 +1618,8 @@ export default function FeaturesOverview({
                   </Button>
                 )}
               </Flex>
-              <Separator size="4" mt="1" mb="3" />
               <Flex
+                mt="3"
                 mb="4"
                 justify="start"
                 align="center"
@@ -1660,6 +1751,7 @@ export default function FeaturesOverview({
             />
           )}
         </Frame>
+
         {dependents > 0 && (
           <Frame mb="4" px="6" py="4">
             <Flex mb="2" gap="2" align="center">
@@ -1792,19 +1884,9 @@ export default function FeaturesOverview({
                 pt="4"
                 style={{ borderTop: "1px solid var(--gray-a4)" }}
               >
-                <Flex align="center" justify="between" mb="2">
-                  <Heading as="h4" size="small" mb="0">
-                    Rules
-                  </Heading>
-                  <label className="font-weight-semibold">
-                    <Switch
-                      disabled={!hasInactiveRules}
-                      value={!hasInactiveRules ? false : !hideInactive}
-                      onChange={(state) => setHideInactive(!state)}
-                      label="Show inactive"
-                    />
-                  </label>
-                </Flex>
+                <Heading as="h4" size="small" mb="2">
+                  Rules
+                </Heading>
                 {environments.length > 0 ? (
                   <>
                     {!hasRules && (
@@ -1825,7 +1907,6 @@ export default function FeaturesOverview({
                       mutate={mutate}
                       currentVersion={currentVersion}
                       setVersion={setVersion}
-                      hideInactive={hideInactive}
                       isDraft={isDraft}
                       safeRolloutsMap={safeRolloutsMap}
                       holdout={holdout}
@@ -1955,7 +2036,7 @@ export default function FeaturesOverview({
           />
         )}
         {conflictModal && revision && (
-          <FixConflictsModal
+          <FeatureFixConflictsModal
             feature={baseFeature}
             revisions={revisions}
             version={revision.version}
@@ -2070,6 +2151,7 @@ export default function FeaturesOverview({
                           revisions.find((r) => r.version === feature.version)
                             ?.title
                         }
+                        minWidth={0}
                       />
                     </OverflowText>
                   </Text>

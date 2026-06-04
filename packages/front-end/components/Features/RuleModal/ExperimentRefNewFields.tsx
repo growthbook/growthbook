@@ -1,4 +1,5 @@
 import { useFormContext } from "react-hook-form";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import {
   FeatureInterface,
   FeaturePrerequisite,
@@ -30,7 +31,9 @@ import {
 import useSDKConnections from "@/hooks/useSDKConnections";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import ConditionInput from "@/components/Features/ConditionInput";
-import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
+import PrerequisiteInput, {
+  type RuleCyclicResult,
+} from "@/components/Features/PrerequisiteInput";
 import NamespaceSelector from "@/components/Features/NamespaceSelector";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import ScheduleInputs from "@/components/Features/LegacyScheduleInputs";
@@ -53,6 +56,9 @@ import {
   useCustomFields,
 } from "@/hooks/useCustomFields";
 import HelperText from "@/ui/HelperText";
+import RuleEnvironmentScopeField, {
+  type EnvScopeProps,
+} from "@/components/Features/RuleModal/EnvironmentScopeField";
 import { getExposureQuery } from "@/services/datasources";
 import Text from "@/ui/Text";
 import {
@@ -93,6 +99,8 @@ export default function ExperimentRefNewFields({
   setCustomFields,
   isTemplate = false,
   holdoutHashAttribute,
+  envScope,
+  onRuleCyclicChange,
 }: {
   step: number;
   source: "rule" | "experiment";
@@ -126,6 +134,8 @@ export default function ExperimentRefNewFields({
   setCustomFields?: (customFields: Record<string, string>) => void;
   isTemplate?: boolean;
   holdoutHashAttribute?: string;
+  envScope?: EnvScopeProps;
+  onRuleCyclicChange?: (result: RuleCyclicResult) => void;
 }) {
   const form = useFormContext();
 
@@ -350,9 +360,12 @@ export default function ExperimentRefNewFields({
             label="Description"
             textarea
             minRows={1}
+            maxLength={MAX_DESCRIPTION_LENGTH}
             {...form.register("description")}
             placeholder="Short human-readable description of the Experiment"
           />
+
+          {envScope && <RuleEnvironmentScopeField {...envScope} my="5" />}
 
           {hasCommercialFeature("custom-metadata") &&
             !!customFields?.length && (
@@ -370,9 +383,15 @@ export default function ExperimentRefNewFields({
       {step === 1 ? (
         <>
           <div className="mb-4">
+            <Text as="label" weight="semibold" mb="1">
+              Assign Variation by Attribute
+            </Text>
+            <Text as="div" color="text-mid" mb="2">
+              Will be hashed together with the Tracking Key to determine which
+              variation to assign
+            </Text>
             <SelectField
               withRadixThemedPortal
-              label="Assign Variation by Attribute"
               containerClassName="flex-1"
               options={attributeSchema
                 .filter((s) => !hasHashAttributes || s.hashAttribute)
@@ -387,7 +406,6 @@ export default function ExperimentRefNewFields({
               value={hashAttribute}
               onChange={(v) => {
                 form.setValue("hashAttribute", v);
-                // Try and find a matching exposure query for the new hash attribute
                 const exposureQueryId = getMatchingExposureQuery(v, datasource);
                 if (exposureQueryId) {
                   form.setValue("exposureQueryId", exposureQueryId);
@@ -403,9 +421,6 @@ export default function ExperimentRefNewFields({
                   </AttributeOptionWithTooltip>
                 );
               }}
-              helpText={
-                "Will be hashed together with the Tracking Key to determine which variation to assign"
-              }
             />
             {!!holdoutHashAttribute &&
               form.watch("hashAttribute") !== holdoutHashAttribute && (
@@ -496,6 +511,7 @@ export default function ExperimentRefNewFields({
             setPrerequisiteTargetingSdkIssues={
               setPrerequisiteTargetingSdkIssues
             }
+            onRuleCyclicChange={onRuleCyclicChange}
           />
           {isCyclic && (
             <Callout status="error">

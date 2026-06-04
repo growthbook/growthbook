@@ -4,15 +4,19 @@ import {
   DiscussionInterface,
   Comment,
 } from "shared/types/discussion";
-import { FaPencilAlt } from "react-icons/fa";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import { date } from "shared/dates";
+import { Box, Card, Flex, IconButton, Separator } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import LoadingSpinner from "./LoadingSpinner";
 import EventUser from "./Avatar/EventUser";
-import DeleteButton from "./DeleteButton/DeleteButton";
 import CommentForm from "./CommentForm";
 import Markdown from "./Markdown/Markdown";
 
@@ -46,7 +50,7 @@ const DiscussionThread: FC<{
   );
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <Callout status="error">{error.message}</Callout>;
   }
   if (!data) {
     return <LoadingSpinner />;
@@ -55,9 +59,9 @@ const DiscussionThread: FC<{
   const comments: Comment[] = data.discussion ? data.discussion.comments : [];
 
   return (
-    <div className="pagecontents">
+    <Box>
       {comments.length > 0 ? (
-        <ul className="list-unstyled">
+        <Flex direction="column" gap="4">
           {comments.map((comment, i) => {
             const user = users.get(comment.userId);
             const email = user ? user.email : comment.userEmail;
@@ -70,11 +74,8 @@ const DiscussionThread: FC<{
             };
 
             return (
-              <li className="media mb-3" key={i}>
-                <div className="mr-2">
-                  <EventUser user={eventUser} display="avatar" size="sm" />
-                </div>
-                <div className="media-body">
+              <Flex key={i} align="start">
+                <Box flexGrow="1">
                   {edit === i ? (
                     <CommentForm
                       cta="Save"
@@ -90,68 +91,117 @@ const DiscussionThread: FC<{
                       onCancel={() => setEdit(null)}
                     />
                   ) : (
-                    <div className="card">
-                      <div className="card-header">
-                        <strong>
-                          <EventUser user={eventUser} display="name" />
-                        </strong>{" "}
-                        commented on {date(comment.date)}
-                        {comment.edited && (
-                          <em className="ml-3 text-muted">&bull; edited</em>
-                        )}
-                        {comment.userId === userId && (
-                          <div className="float-right ml-4 card-hover">
-                            <a
-                              href="#"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setEdit(i);
-                              }}
-                            >
-                              <FaPencilAlt />
-                            </a>
-                            <DeleteButton
-                              displayName="Comment"
-                              className="ml-4"
-                              link={true}
-                              onClick={async () => {
-                                await apiCall(
-                                  `/discussion/${type}/${id}/${i}`,
-                                  {
-                                    method: "DELETE",
-                                  },
-                                );
-                                mutate();
-                              }}
-                            />
-                          </div>
-                        )}
-                      </div>
-                      <div className="card-body">
-                        <Markdown className="card-text">
-                          {comment.content || ""}
-                        </Markdown>
-                      </div>
-                    </div>
+                    <Flex align="start" gap="3">
+                      <Box flexShrink="0" pt="2">
+                        <EventUser
+                          user={eventUser}
+                          display="avatar"
+                          size="sm"
+                        />
+                      </Box>
+                      <Card
+                        size="1"
+                        style={{ overflow: "hidden", flexGrow: 1 }}
+                      >
+                        <div
+                          style={{
+                            position: "absolute",
+                            left: 0,
+                            top: 0,
+                            bottom: 0,
+                            width: 4,
+                            backgroundColor: "var(--violet-7)",
+                          }}
+                        />
+                        <Box px="1">
+                          <Flex justify="between" align="center" mb="2" gap="2">
+                            <Flex align="center" gap="2" wrap="wrap">
+                              <EventUser
+                                user={eventUser}
+                                display="name-email"
+                                size="sm"
+                              />
+                              <Text color="text-low" size="small">
+                                commented on {date(comment.date)}
+                              </Text>
+                              {comment.edited && (
+                                <Text
+                                  color="text-low"
+                                  size="small"
+                                  fontStyle="italic"
+                                >
+                                  &bull; edited
+                                </Text>
+                              )}
+                            </Flex>
+                            {comment.userId === userId && (
+                              <DropdownMenu
+                                trigger={
+                                  <IconButton
+                                    variant="ghost"
+                                    color="gray"
+                                    radius="full"
+                                    size="2"
+                                    highContrast
+                                  >
+                                    <BsThreeDotsVertical size={14} />
+                                  </IconButton>
+                                }
+                                variant="soft"
+                                menuPlacement="end"
+                              >
+                                <DropdownMenuItem onClick={() => setEdit(i)}>
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  color="red"
+                                  confirmation={{
+                                    confirmationTitle: "Delete Comment",
+                                    cta: "Delete",
+                                    submit: async () => {
+                                      await apiCall(
+                                        `/discussion/${type}/${id}/${i}`,
+                                        { method: "DELETE" },
+                                      );
+                                      mutate();
+                                    },
+                                  }}
+                                >
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenu>
+                            )}
+                          </Flex>
+                          <Box pt="1">
+                            <Markdown className="speech-bubble">
+                              {comment.content || ""}
+                            </Markdown>
+                          </Box>
+                        </Box>
+                      </Card>
+                    </Flex>
                   )}
-                </div>
-              </li>
+                </Box>
+              </Flex>
             );
           })}
-        </ul>
+        </Flex>
       ) : (
-        <p>
-          <em>
-            {allowNewComments
-              ? "No comments yet. Add the first one!"
-              : "No comments."}
-          </em>
-        </p>
+        <Text color="text-low" fontStyle="italic">
+          {allowNewComments
+            ? "No comments yet. Add the first one!"
+            : "No comments."}
+        </Text>
       )}
       {allowNewComments && (
-        <div className="d-print-none">
-          {!showTitle && <hr />}
-          {showTitle && <h4 className="add-comment-title">{title}</h4>}
+        <Box mt="4">
+          {!showTitle ? (
+            <Separator size="4" mb="4" />
+          ) : (
+            <Heading as="h4" size="small" mb="3">
+              {title}
+            </Heading>
+          )}
           <CommentForm
             cta="Comment"
             onSave={mutate}
@@ -159,9 +209,9 @@ const DiscussionThread: FC<{
             id={id}
             type={type}
           />
-        </div>
+        </Box>
       )}
-    </div>
+    </Box>
   );
 };
 

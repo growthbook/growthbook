@@ -10,6 +10,7 @@ import React, { useEffect, useState } from "react";
 import { GrowthBookProvider } from "@growthbook/growthbook-react";
 import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
 import { Inter } from "next/font/google";
+import { Container } from "@radix-ui/themes";
 import { OrganizationMessagesContainer } from "@/components/OrganizationMessages/OrganizationMessages";
 import { OrgSuspendedBannerContainer } from "@/components/OrgSuspendedBanner/OrgSuspendedBanner";
 import { DemoDataSourceGlobalBannerContainer } from "@/components/DemoDataSourceGlobalBanner/DemoDataSourceGlobalBanner";
@@ -29,6 +30,7 @@ import {
 } from "@/services/env";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import "diff2html/bundles/css/diff2html.min.css";
+import "react-grid-layout/css/styles.css";
 import Layout from "@/components/Layout/Layout";
 import { AppearanceUIThemeProvider } from "@/services/AppearanceUIThemeProvider";
 import TopNavLite from "@/components/Layout/TopNavLite";
@@ -41,6 +43,7 @@ import { SidebarOpenProvider } from "@/components/Layout/SidebarOpenProvider";
 import { HoverTooltipProvider } from "@/hooks/useHoverTooltip";
 import { FeatureStaleStatesProvider } from "@/hooks/useFeatureStaleStates";
 import { CommandPaletteLauncher } from "@/components/CommandPalette/CommandPalette";
+import Callout from "@/ui/Callout";
 
 // Make useLayoutEffect isomorphic (for SSR)
 if (typeof window === "undefined") React.useLayoutEffect = React.useEffect;
@@ -185,9 +188,9 @@ function App({
         <title>GrowthBook</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
-      {ready || noLoadingOverlay ? (
-        <AppearanceUIThemeProvider>
-          <RadixTheme>
+      <AppearanceUIThemeProvider>
+        <RadixTheme>
+          {ready || noLoadingOverlay ? (
             <HoverTooltipProvider>
               <SidebarOpenProvider>
                 <GrowthBookProvider growthbook={growthbook}>
@@ -242,17 +245,20 @@ function App({
                 </GrowthBookProvider>
               </SidebarOpenProvider>
             </HoverTooltipProvider>
-          </RadixTheme>
-        </AppearanceUIThemeProvider>
-      ) : error ? (
-        <div className="container">
-          <div className="alert alert-danger">
-            Error Initializing GrowthBook: {error}
-          </div>
-        </div>
-      ) : (
-        <LoadingOverlay />
-      )}
+          ) : error ? (
+            <Container mt="9">
+              <Callout status="error">
+                Error Initializing GrowthBook:
+                <br />
+                <br />
+                {error}
+              </Callout>
+            </Container>
+          ) : (
+            <LoadingOverlay />
+          )}
+        </RadixTheme>
+      </AppearanceUIThemeProvider>
     </>
   );
 }

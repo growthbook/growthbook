@@ -1,4 +1,5 @@
 import { useFormContext } from "react-hook-form";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { Box, TextField, Text, Flex, Grid, Separator } from "@radix-ui/themes";
@@ -15,7 +16,9 @@ import { FIVE_LINES_HEIGHT } from "@/components/Forms/CodeTextArea";
 import { NewExperimentRefRule, useAttributeSchema } from "@/services/features";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import ConditionInput from "@/components/Features/ConditionInput";
-import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
+import PrerequisiteInput, {
+  type RuleCyclicResult,
+} from "@/components/Features/PrerequisiteInput";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import Checkbox from "@/ui/Checkbox";
@@ -27,6 +30,10 @@ import {
   AttributeOptionWithTooltip,
   type AttributeOptionForTooltip,
 } from "@/components/Features/AttributeOptionTooltip";
+import RuleEnvironmentScopeField, {
+  type EnvScopeProps,
+} from "@/components/Features/RuleModal/EnvironmentScopeField";
+
 export default function SafeRolloutFields({
   feature,
   environment,
@@ -39,6 +46,8 @@ export default function SafeRolloutFields({
   defaultValues,
   setScheduleToggleEnabled,
   scheduleToggleEnabled,
+  envScope,
+  onRuleCyclicChange,
 }: {
   feature: FeatureInterface;
   environment: string;
@@ -51,6 +60,8 @@ export default function SafeRolloutFields({
   setScheduleToggleEnabled: (b: boolean) => void;
   mode: "create" | "edit" | "duplicate";
   isDraft: boolean;
+  envScope: EnvScopeProps;
+  onRuleCyclicChange?: (result: RuleCyclicResult) => void;
 }) {
   const form = useFormContext();
   const [advancedOptionsOpen, setAdvancedOptionsOpen] = useState(false);
@@ -111,6 +122,7 @@ export default function SafeRolloutFields({
           feature={feature}
           environments={[environment]}
           setPrerequisiteTargetingSdkIssues={setPrerequisiteTargetingSdkIssues}
+          onRuleCyclicChange={onRuleCyclicChange}
         />
         {isCyclic && (
           <div className="alert alert-danger">
@@ -450,9 +462,11 @@ export default function SafeRolloutFields({
       </Text>
       <TextField.Root
         mb="6"
+        maxLength={MAX_DESCRIPTION_LENGTH}
         {...form.register("description")}
         placeholder="Short human-readable description of the safe rollout"
       />
+      <RuleEnvironmentScopeField {...envScope} mt="2" mb="7" />
       {renderVariationFieldSelector()}
       {renderDataAndMetrics()}
       <ScheduleInputs

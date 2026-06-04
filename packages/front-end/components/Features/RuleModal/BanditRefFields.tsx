@@ -1,4 +1,5 @@
 import { useFormContext } from "react-hook-form";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { FeatureInterface } from "shared/types/feature";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { date } from "shared/dates";
@@ -16,15 +17,20 @@ import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/Experi
 import { useExperiments } from "@/hooks/useExperiments";
 import HelperText from "@/ui/HelperText";
 import Callout from "@/ui/Callout";
+import RuleEnvironmentScopeField, {
+  type EnvScopeProps,
+} from "@/components/Features/RuleModal/EnvironmentScopeField";
 
 export default function BanditRefFields({
   feature,
   existingRule,
   changeRuleType,
+  envScope,
 }: {
   feature: FeatureInterface;
   existingRule: boolean;
   changeRuleType: (v: string) => void;
+  envScope: EnvScopeProps;
 }) {
   const form = useFormContext();
 
@@ -156,9 +162,12 @@ export default function BanditRefFields({
         label="Description"
         textarea
         minRows={1}
+        maxLength={MAX_DESCRIPTION_LENGTH}
         {...form.register("description")}
         placeholder="Short human-readable description of the rule"
       />
+
+      <RuleEnvironmentScopeField {...envScope} my="5" />
     </>
   );
 }

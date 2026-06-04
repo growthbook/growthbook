@@ -18,7 +18,6 @@ import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
-import Modal from "@/components/Modal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useEnvironments } from "@/services/features";
@@ -29,6 +28,7 @@ import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 function EnvStateIcon({ enabled }: { enabled: boolean }) {
   return enabled ? (
@@ -320,7 +320,7 @@ export default function KillSwitchModal({
     revisions: FeatureRevisionInterface[];
   }>(
     `/feature/${feature.id}/revisions?versions=${feature.version},${draftVersionForFetch ?? 0}`,
-    { shouldRun: () => draftVersionForFetch != null },
+    { shouldRun: () => draftVersionForFetch !== null },
   );
   const revisions = ctx?.revisions ?? fetchedRevisionsData?.revisions;
 
@@ -334,7 +334,7 @@ export default function KillSwitchModal({
     const liveRevision = revisions?.find((r) => r.version === feature.version);
     if (liveRevision) {
       const filledLive = liveRevisionFromFeature(liveRevision, liveDoc);
-      if (mode === "existing" && selectedDraft != null) {
+      if (mode === "existing" && selectedDraft !== null) {
         const draftRevision = revisions?.find(
           (r) => r.version === selectedDraft,
         );
@@ -442,7 +442,7 @@ export default function KillSwitchModal({
     await mutate();
     const finalVersion =
       res?.draftVersion ?? (mode === "existing" ? selectedDraft : null);
-    if (finalVersion != null) setVersion(finalVersion);
+    if (finalVersion !== null) setVersion(finalVersion);
   };
 
   const noNetChange = visibleEnvs.every(
@@ -469,7 +469,7 @@ export default function KillSwitchModal({
       : "Change enabled environments";
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType="kill-switch-toggle"
       header={modalHeader}
       close={close}
@@ -477,7 +477,6 @@ export default function KillSwitchModal({
       cta={mode === "publish" ? "Publish now" : "Save to draft"}
       size="lg"
       submit={submit}
-      useRadixButton={true}
     >
       <div style={{ minHeight: 300 }}>
         <DraftSelectorForChanges
@@ -520,6 +519,6 @@ export default function KillSwitchModal({
             )}
         </Flex>
       </div>
-    </Modal>
+    </ModalStandard>
   );
 }

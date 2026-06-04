@@ -167,6 +167,7 @@ export interface ModelConfig<
   additionalIndexes?: {
     fields: Partial<Record<IndexableFieldPath<z.infer<T>>, 1 | -1>>;
     unique?: boolean;
+    sparse?: boolean;
   }[];
   // NB: Names of indexes to remove
   indexesToRemove?: string[];
@@ -1182,6 +1183,7 @@ export abstract class BaseModel<
         this._dangerousGetCollection()
           .createIndex(index.fields as { [key: string]: number }, {
             unique: !!index.unique,
+            sparse: !!index.sparse,
           })
           .catch((err) => {
             logger.error(

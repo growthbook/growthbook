@@ -161,12 +161,17 @@ export function getCommonColumns(
 ): Pick<ColumnInterface, "column" | "name">[] {
   if (!dataset || !dataset.values || dataset.values.length === 0) return [];
 
-  type SimpleColumn = Pick<ColumnInterface, "column" | "name" | "deleted">;
+  type SimpleColumn = Pick<
+    ColumnInterface,
+    "column" | "name" | "deleted" | "datatype"
+  >;
   let columns: SimpleColumn[] | null = null;
+  const userIdTypes = new Set<string>();
 
   if (dataset.type === "fact_table") {
     const ft = getFactTableById(dataset.factTableId || "");
     columns = ft?.columns || [];
+    ft?.userIdTypes?.forEach((u) => userIdTypes.add(u));
   } else if (dataset.type === "metric") {
     for (const value of dataset.values) {
       const metricId = value.metricId;
@@ -176,6 +181,7 @@ export function getCommonColumns(
       if (factMetric) {
         const ft = getFactTableById(factMetric.numerator.factTableId);
         valueColumns = ft?.columns || [];
+        ft?.userIdTypes?.forEach((u) => userIdTypes.add(u));
       }
 
       if (columns === null) {
@@ -187,15 +193,18 @@ export function getCommonColumns(
       }
     }
   } else if (dataset.type === "data_source") {
-    columns = Object.keys(dataset.columnTypes).map((name) => ({
+    columns = Object.entries(dataset.columnTypes).map(([name, datatype]) => ({
       column: name,
       name,
       deleted: false,
+      datatype,
     }));
   }
 
   return (columns || [])
     .filter((c) => !c.deleted)
+    .filter((c) => c.datatype === "string")
+    .filter((c) => !userIdTypes.has(c.column))
     .sort((a, b) => (a.name || a.column).localeCompare(b.name || b.column))
     .map((c) => ({ column: c.column, name: c.name }));
 }
@@ -489,6 +498,45 @@ export function compareConfig(
     toFetchKey(newConfig),
   );
   return { needsFetch, needsUpdate: true };
+}
+
+export type ResolvedGranularity = "hour" | "day" | "week" | "month" | "year";
+
+export function formatDateByGranularity(
+  date: Date,
+  granularity: ResolvedGranularity,
+): string {
+  switch (granularity) {
+    case "year":
+      return date.toLocaleDateString(undefined, { year: "numeric" });
+    case "month":
+      return date.toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "long",
+      });
+    case "week":
+      return `Week of ${date.toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })}`;
+    case "hour":
+      return `${date.toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })} ${date.toLocaleTimeString(undefined, {
+        hour: "2-digit",
+        minute: "2-digit",
+      })}`;
+    case "day":
+    default:
+      return date.toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+  }
 }
 
 export function getRefreshInterval(elapsedSeconds: number): number {

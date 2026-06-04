@@ -19,7 +19,6 @@ import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiArrowSquareOut } from "react-icons/pi";
-import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Metadata from "@/ui/Metadata";
@@ -44,7 +43,7 @@ import {
   getPercentileLabel,
 } from "@/services/metrics";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import { capitalizeFirstLetter } from "@/services/utils";
 import MetricName from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -69,9 +68,11 @@ import OfficialResourceModal from "@/components/OfficialResourceModal";
 import { useUser } from "@/services/UserContext";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { DocLink } from "@/components/DocLink";
-import Callout from "@/ui/Callout";
-import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import Code from "@/components/SyntaxHighlighting/Code";
+import {
+  isMergeAggregationMetric,
+  REST_API_ONLY_EDIT_MESSAGE,
+} from "@/services/factMetrics";
 
 function FactTableLink({ id }: { id?: string }) {
   const { getFactTableById } = useDefinitions();
@@ -198,7 +199,7 @@ export default function FactMetricPage() {
   );
   const { apiCall } = useAuth();
 
-  const { hasCommercialFeature, organization, getOwnerDisplay } = useUser();
+  const { hasCommercialFeature, getOwnerDisplay } = useUser();
 
   const permissionsUtil = usePermissionsUtil();
 
@@ -242,6 +243,7 @@ export default function FactMetricPage() {
 
   let canEdit = permissionsUtil.canUpdateFactMetric(factMetric, {});
   let canDelete = permissionsUtil.canDeleteFactMetric(factMetric);
+  const editViaApiOnly = isMergeAggregationMetric(factMetric);
 
   if (
     factMetric.managedBy &&
@@ -454,7 +456,7 @@ export default function FactMetricPage() {
             <>
               Projects{" "}
               <Tooltip
-                body={
+                content={
                   "The dropdown below has been filtered to only include projects where you have permission to update Metrics"
                 }
               />
@@ -511,25 +513,6 @@ export default function FactMetricPage() {
         ]}
       />
 
-      {factMetric.projects?.includes(
-        getDemoDatasourceProjectIdForOrganization(organization.id),
-      ) && (
-        <Callout status="info" contentsAs="div" mb="2">
-          <Flex align="center" justify="between">
-            <Text>
-              This Fact Metric is part of our sample dataset. You can safely
-              delete this once you are done exploring.
-            </Text>
-            <Box ml="auto">
-              <DeleteDemoDatasourceButton
-                onDelete={() => router.push("/metrics")}
-                source="fact-metric"
-              />
-            </Box>
-          </Flex>
-        </Callout>
-      )}
-
       {factMetric.archived && (
         <div className="alert alert-secondary mb-2">
           <strong>This metric is archived.</strong> Existing references will
@@ -560,16 +543,20 @@ export default function FactMetricPage() {
             open={openDropdown}
             onOpenChange={setOpenDropdown}
           >
-            {canEdit && (
-              <DropdownMenuItem
-                onClick={() => {
-                  setOpenDropdown(false);
-                  setEditOpen("open");
-                }}
+            <DropdownMenuItem
+              onClick={() => {
+                setOpenDropdown(false);
+                setEditOpen("open");
+              }}
+              disabled={!canEdit || editViaApiOnly}
+            >
+              <Tooltip
+                content={REST_API_ONLY_EDIT_MESSAGE}
+                enabled={editViaApiOnly}
               >
-                Edit Metric
-              </DropdownMenuItem>
-            )}
+                <span>Edit Metric</span>
+              </Tooltip>
+            </DropdownMenuItem>
             {canEdit &&
             !factMetric.managedBy &&
             permissionsUtil.canCreateOfficialResources(factMetric) &&
@@ -639,7 +626,7 @@ export default function FactMetricPage() {
                     All Projects
                   </Text>
                 )}
-                {canEdit && (
+                {canEdit ? (
                   <Link
                     onClick={(e) => {
                       e.preventDefault();
@@ -648,6 +635,10 @@ export default function FactMetricPage() {
                   >
                     <GBEdit />
                   </Link>
+                ) : (
+                  <span style={{ opacity: 0.4, cursor: "not-allowed" }}>
+                    <GBEdit />
+                  </span>
                 )}
               </Flex>
             }
@@ -660,10 +651,14 @@ export default function FactMetricPage() {
               <Text weight="regular" color="text-mid">
                 {getOwnerDisplay(factMetric.owner) || "None"}
               </Text>
-              {canEdit && (
+              {canEdit ? (
                 <Link onClick={() => setEditOwnerModal(true)}>
                   <GBEdit />
                 </Link>
+              ) : (
+                <span style={{ opacity: 0.4, cursor: "not-allowed" }}>
+                  <GBEdit />
+                </span>
               )}
             </Flex>
           }
@@ -681,24 +676,26 @@ export default function FactMetricPage() {
         />
       </Flex>
       <Box mt="3" mb="3">
-        {factMetric.tags?.length || canEdit ? (
-          <Flex align="center" gap="1">
-            <Text weight="medium">Tags:</Text>
-            {factMetric.tags?.length ? (
-              <SortedTags
-                tags={factMetric.tags}
-                useFlex
-                shouldShowEllipsis={false}
-                {...tagLinkProps("metrics")}
-              />
-            ) : null}
-            {canEdit && (
-              <Link onClick={() => setEditTagsModal(true)}>
-                <GBEdit />
-              </Link>
-            )}
-          </Flex>
-        ) : null}
+        <Flex align="center" gap="1">
+          <Text weight="medium">Tags:</Text>
+          {factMetric.tags?.length ? (
+            <SortedTags
+              tags={factMetric.tags}
+              useFlex
+              shouldShowEllipsis={false}
+              {...tagLinkProps("metrics")}
+            />
+          ) : null}
+          {canEdit ? (
+            <Link onClick={() => setEditTagsModal(true)}>
+              <GBEdit />
+            </Link>
+          ) : (
+            <span style={{ opacity: 0.4, cursor: "not-allowed" }}>
+              <GBEdit />
+            </span>
+          )}
+        </Flex>
       </Box>
 
       <div className="row">
@@ -879,7 +876,7 @@ export default function FactMetricPage() {
             <RightRailSection
               title="Advanced Settings"
               open={() => setEditOpen("openWithAdvanced")}
-              canOpen={canEdit}
+              canOpen={canEdit && !editViaApiOnly}
             >
               {factMetric.windowSettings.delayValue ? (
                 <RightRailSectionGroup type="custom" empty="" className="mt-3">

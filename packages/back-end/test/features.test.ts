@@ -10,7 +10,10 @@ import {
 import { ExperimentInterface } from "shared/types/experiment";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import {
-  createInterfaceEnvSettingsFromApiEnvSettings,
+  buildFeatureRulesFromApiEnvSettings,
+  generateRuleId,
+  addIdsToFlatRules,
+  addIdsToRules,
   getFeatureDefinitionsResponse,
   hashStrings,
   sha256,
@@ -2111,21 +2114,28 @@ describe("SDK Payloads", () => {
   });
 });
 
-describe("createInterfaceEnvSettingsFromApiEnvSettings", () => {
+describe("buildFeatureRulesFromApiEnvSettings", () => {
   const baseFeature = {
     id: "test-feature",
     valueType: "boolean",
     defaultValue: "false",
     environmentSettings: {},
-  } as FeatureInterface;
+    rules: [],
+  } as unknown as FeatureInterface;
+  // requireRegisteredAttributes is opt-in; an empty settings object skips the
+  // registered-attribute check so these tests focus on rule-shape concerns.
+  const mockContext = {
+    org: { settings: {} },
+  } as unknown as Parameters<typeof buildFeatureRulesFromApiEnvSettings>[0];
 
   it("preserves rule-level prerequisites across rule types", () => {
     const prerequisites = [
       { id: "parent-feature", condition: '{"value": true}' },
     ];
-    const result = createInterfaceEnvSettingsFromApiEnvSettings(
+    const rules = buildFeatureRulesFromApiEnvSettings(
+      mockContext,
       baseFeature,
-      [{ id: "production" }],
+      [{ id: "production" }, { id: "dev" }],
       {
         production: {
           enabled: true,
@@ -2159,17 +2169,19 @@ describe("createInterfaceEnvSettingsFromApiEnvSettings", () => {
       },
     );
 
-    const rules = result.production.rules;
     expect(rules).toHaveLength(4);
     rules.forEach((rule) => {
       expect(rule.prerequisites).toEqual(prerequisites);
+      expect(rule.allEnvironments).toBe(false);
+      expect(rule.environments).toEqual(["production"]);
     });
   });
 
   it("omits prerequisites when not provided", () => {
-    const result = createInterfaceEnvSettingsFromApiEnvSettings(
+    const rules = buildFeatureRulesFromApiEnvSettings(
+      mockContext,
       baseFeature,
-      [{ id: "production" }],
+      [{ id: "production" }, { id: "dev" }],
       {
         production: {
           enabled: true,
@@ -2177,6 +2189,282 @@ describe("createInterfaceEnvSettingsFromApiEnvSettings", () => {
         },
       },
     );
-    expect(result.production.rules[0]).not.toHaveProperty("prerequisites");
+    expect(rules[0]).not.toHaveProperty("prerequisites");
+  });
+
+  // ---------------------------------------------------------------------------
+  // Content-identical rules across envs must merge into ONE v2 rule with a
+  // multi-env footprint — not two split rules with the second id suffixed by
+  // `ensureUniqueRuleIds`. The naive per-env stamping path used to produce
+  // duplicate ids; this is the regression guard for that fix.
+  // ---------------------------------------------------------------------------
+
+  it("merges content-identical rules across envs (matched by id) into one v2 rule with a multi-env footprint", () => {
+    const sharedRule = {
+      id: "fr_shared",
+      type: "force" as const,
+      value: "true",
+      description: "shared across envs",
+    };
+    const rules = buildFeatureRulesFromApiEnvSettings(
+      mockContext,
+      baseFeature,
+      [{ id: "production" }, { id: "dev" }, { id: "staging" }],
+      {
+        production: { enabled: true, rules: [sharedRule] },
+        dev: { enabled: true, rules: [sharedRule] },
+      },
+    );
+    expect(rules).toHaveLength(1);
+    expect(rules[0].id).toBe("fr_shared");
+    expect(rules[0].allEnvironments).toBe(false);
+    expect(rules[0].environments).toEqual(["production", "dev"]);
+  });
+
+  it("collapses to allEnvironments:true when an id-matched rule covers every applicable env", () => {
+    const sharedRule = {
+      id: "fr_universal",
+      type: "force" as const,
+      value: "true",
+    };
+    const rules = buildFeatureRulesFromApiEnvSettings(
+      mockContext,
+      baseFeature,
+      [{ id: "production" }, { id: "dev" }],
+      {
+        production: { enabled: true, rules: [sharedRule] },
+        dev: { enabled: true, rules: [sharedRule] },
+      },
+    );
+    expect(rules).toHaveLength(1);
+    expect(rules[0].id).toBe("fr_universal");
+    expect(rules[0].allEnvironments).toBe(true);
+    expect(rules[0].environments).toBeUndefined();
+  });
+
+  it("does not merge when only content (not id) matches — matching is by id, distinct ids stay split", () => {
+    const rules = buildFeatureRulesFromApiEnvSettings(
+      mockContext,
+      baseFeature,
+      [{ id: "production" }, { id: "dev" }],
+      {
+        production: {
+          enabled: true,
+          rules: [{ id: "fr_a", type: "force", value: "true" }],
+        },
+        dev: {
+          enabled: true,
+          rules: [{ id: "fr_b", type: "force", value: "true" }],
+        },
+      },
+    );
+    expect(rules).toHaveLength(2);
+    expect(rules.map((r) => r.id).sort()).toEqual(["fr_a", "fr_b"]);
+    rules.forEach((r) => {
+      expect(r.allEnvironments).toBe(false);
+      expect(r.environments?.length).toBe(1);
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// generateRuleId invariant lock
+// ---------------------------------------------------------------------------
+// The v1→v2 flatten layer appends `__<env>` to rule ids on collision. The
+// stem-strip convention (`id.split("__")[0]`) only works if server-generated
+// rule ids never contain `__`. uniqid() produces alphanumeric output, so the
+// invariant holds by construction — this test locks it in so a future change
+// to the id format can't silently break every stem-matching call site (ramp
+// resolution, SDK payload stripping, telemetry lookup, audit renderers).
+// ---------------------------------------------------------------------------
+
+describe("generateRuleId invariant", () => {
+  it("never produces an id containing the `__` migration-suffix delimiter", () => {
+    for (let i = 0; i < 200; i++) {
+      const id = generateRuleId();
+      expect(id.startsWith("fr_")).toBe(true);
+      expect(id.includes("__")).toBe(false);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// addIdsToFlatRules / addIdsToRules — rollout seed backfill
+// ---------------------------------------------------------------------------
+// Rollout rules must always carry an explicit seed so that the monitored-ramp
+// payload and the plain-rollout payload hash users through the same seed,
+// preventing variation hopping when a rule transitions between states.
+// ---------------------------------------------------------------------------
+
+describe("addIdsToFlatRules — rollout seed backfill", () => {
+  it("backfills seed = id for a rollout rule with no explicit seed", () => {
+    const rules: FeatureInterface["rules"] = [
+      {
+        type: "rollout",
+        id: "fr_abc",
+        description: "",
+        enabled: true,
+        value: "true",
+        coverage: 0.5,
+        hashAttribute: "id",
+        allEnvironments: true,
+      },
+    ];
+    addIdsToFlatRules(
+      rules as Parameters<typeof addIdsToFlatRules>[0],
+      "feat_1",
+    );
+    expect((rules[0] as { seed?: string }).seed).toBe("fr_abc");
+  });
+
+  it("assigns a new id AND backfills seed when rule has neither", () => {
+    const rules = [
+      {
+        type: "rollout" as const,
+        description: "",
+        enabled: true,
+        value: "true",
+        coverage: 0.5,
+        hashAttribute: "id",
+        allEnvironments: true,
+      },
+    ] as Parameters<typeof addIdsToFlatRules>[0];
+    addIdsToFlatRules(rules, "feat_1");
+    const r = rules[0] as { id?: string; seed?: string };
+    expect(r.id).toBeDefined();
+    expect(r.id!.startsWith("fr_")).toBe(true);
+    expect(r.seed).toBe(r.id);
+  });
+
+  it("preserves an explicitly-set seed and does not overwrite it", () => {
+    const rules = [
+      {
+        type: "rollout" as const,
+        id: "fr_xyz",
+        description: "",
+        enabled: true,
+        value: "true",
+        coverage: 0.5,
+        hashAttribute: "id",
+        seed: "custom-seed",
+        allEnvironments: true,
+      },
+    ] as Parameters<typeof addIdsToFlatRules>[0];
+    addIdsToFlatRules(rules, "feat_1");
+    expect((rules[0] as { seed?: string }).seed).toBe("custom-seed");
+  });
+
+  it("does not add seed to non-rollout rules (force, experiment)", () => {
+    const rules = [
+      {
+        type: "force" as const,
+        id: "fr_force",
+        description: "",
+        enabled: true,
+        value: "true",
+        allEnvironments: true,
+      },
+      {
+        type: "experiment" as const,
+        id: "fr_exp",
+        description: "",
+        enabled: true,
+        trackingKey: "exp-1",
+        hashAttribute: "id",
+        values: [
+          { value: "a", weight: 0.5 },
+          { value: "b", weight: 0.5 },
+        ],
+        coverage: 1,
+        allEnvironments: true,
+      },
+    ] as Parameters<typeof addIdsToFlatRules>[0];
+    addIdsToFlatRules(rules, "feat_1");
+    expect((rules[0] as { seed?: string }).seed).toBeUndefined();
+    expect((rules[1] as { seed?: string }).seed).toBeUndefined();
+  });
+
+  it("backfills all rollout rules in a multi-rule array", () => {
+    const rules = [
+      {
+        type: "rollout" as const,
+        id: "fr_1",
+        description: "",
+        enabled: true,
+        value: "a",
+        coverage: 0.3,
+        hashAttribute: "id",
+        allEnvironments: true,
+      },
+      {
+        type: "rollout" as const,
+        id: "fr_2",
+        description: "",
+        enabled: true,
+        value: "b",
+        coverage: 0.6,
+        hashAttribute: "id",
+        seed: "explicit",
+        allEnvironments: true,
+      },
+    ] as Parameters<typeof addIdsToFlatRules>[0];
+    addIdsToFlatRules(rules, "feat_1");
+    expect((rules[0] as { seed?: string }).seed).toBe("fr_1");
+    expect((rules[1] as { seed?: string }).seed).toBe("explicit"); // untouched
+  });
+});
+
+describe("addIdsToRules — rollout seed backfill (legacy env format)", () => {
+  it("backfills seed = id for rollout rules in legacy environmentSettings", () => {
+    const envSettings = {
+      production: {
+        enabled: true,
+        rules: [
+          {
+            type: "rollout" as const,
+            id: "fr_legacy",
+            description: "",
+            enabled: true,
+            value: "true",
+            coverage: 0.4,
+            hashAttribute: "id",
+          },
+        ] as FeatureInterface["rules"],
+      },
+    };
+    addIdsToRules(
+      envSettings as Parameters<typeof addIdsToRules>[0],
+      "feat_legacy",
+    );
+    const rule = (envSettings.production as { rules?: { seed?: string }[] })
+      .rules?.[0];
+    expect(rule?.seed).toBe("fr_legacy");
+  });
+
+  it("preserves an explicit seed in the legacy path", () => {
+    const envSettings = {
+      production: {
+        enabled: true,
+        rules: [
+          {
+            type: "rollout" as const,
+            id: "fr_kept",
+            description: "",
+            enabled: true,
+            value: "true",
+            coverage: 0.4,
+            hashAttribute: "id",
+            seed: "keep-me",
+          },
+        ] as FeatureInterface["rules"],
+      },
+    };
+    addIdsToRules(
+      envSettings as Parameters<typeof addIdsToRules>[0],
+      "feat_legacy",
+    );
+    const rule = (envSettings.production as { rules?: { seed?: string }[] })
+      .rules?.[0];
+    expect(rule?.seed).toBe("keep-me");
   });
 });
