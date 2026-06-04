@@ -54,6 +54,7 @@ import {
 import { ProjectInterface } from "shared/types/project";
 import {
   HoldoutInterface,
+  ContextualBanditInterface,
   SdkConnectionCacheAuditContext,
   apiFeatureRevisionValidator,
   ApiFeatureWithRevisions,
@@ -174,7 +175,7 @@ export function generateFeaturesPayload({
   includeRuleIds?: boolean;
   includeExperimentNames?: boolean;
   /** Optional map of experimentId → CB doc for contextual-bandit payload injection. */
-  cbMap?: Map<string, import("shared/validators").ContextualBanditInterface>;
+  cbMap?: Map<string, ContextualBanditInterface>;
   rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
 }): Record<string, FeatureDefinition> {
   const defs: Record<string, FeatureDefinition> = {};
@@ -1140,9 +1141,7 @@ export async function buildSDKPayloadForConnection(
   }
 
   // Pre-fetch CB docs referenced by contextual-bandit-ref rules so the payload builder can inject CB fields without per-rule async calls.
-  let cbMap:
-    | Map<string, import("shared/validators").ContextualBanditInterface>
-    | undefined;
+  let cbMap: Map<string, ContextualBanditInterface> | undefined;
   const cbIdsFromRules: string[] = [];
   for (const feature of filteredFeatures) {
     const rules = feature.rules ?? [];
@@ -1159,10 +1158,7 @@ export async function buildSDKPayloadForConnection(
     );
     cbMap = new Map(
       cbDocs
-        .filter(
-          (cb): cb is import("shared/validators").ContextualBanditInterface =>
-            cb !== null,
-        )
+        .filter((cb): cb is ContextualBanditInterface => cb !== null)
         .map((cb) => [cb.id, cb]),
     );
   }
