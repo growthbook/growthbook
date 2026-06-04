@@ -3,6 +3,16 @@ import type { eventWithTime } from "@rrweb/types";
 import { Box, Flex } from "@radix-ui/themes";
 import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import {
+  PiCaretDoubleLeft,
+  PiCaretDoubleRight,
+  PiCopy,
+  PiListBullets,
+  PiPlus,
+  PiX,
+} from "react-icons/pi";
+import Avatar from "@/ui/Avatar";
+import Badge from "@/ui/Badge";
 import { AppFeatures } from "@/types/app-features";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
@@ -11,9 +21,10 @@ import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import RrwebPlayer, {
   RrwebPlayerHandle,
-} from "@/components/SessionReplay/RrwebPlayer";
+} from "@/components/SessionReplay/player";
 import Custom404 from "@/pages/404";
 
 type SessionReplayRow = {
@@ -168,6 +179,11 @@ export default function SessionReplayPage() {
   const [stateFilter, setStateFilter] = useState("");
   const [urlFilter, setUrlFilter] = useState("");
 
+  // ---- UI panel state ------------------------------------------------------
+  const [leftCollapsed, setLeftCollapsed] = useState(false);
+  const [evalOpen, setEvalOpen] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+
   const page = useMemo(() => {
     const raw = router.query.page;
     const value = parseInt(typeof raw === "string" ? raw : "1", 10);
@@ -190,6 +206,13 @@ export default function SessionReplayPage() {
     );
     setUrlFilter(typeof router.query.url === "string" ? router.query.url : "");
   }, [router.isReady, router.query]);
+
+  // Close evaluations panel when no session is selected
+  useEffect(() => {
+    if (!selectedSessionId) {
+      setEvalOpen(false);
+    }
+  }, [selectedSessionId]);
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
@@ -334,19 +357,11 @@ export default function SessionReplayPage() {
         label: `client: ${router.query.clientKey}`,
       });
     }
-    if (typeof router.query.state === "string" && router.query.state) {
-      chips.push({ key: "state", label: router.query.state });
-    }
     if (typeof router.query.url === "string" && router.query.url) {
       chips.push({ key: "url", label: `url: ${router.query.url}` });
     }
     return chips;
-  }, [
-    router.query.userId,
-    router.query.clientKey,
-    router.query.state,
-    router.query.url,
-  ]);
+  }, [router.query.userId, router.query.clientKey, router.query.url]);
 
   const removeFilter = (key: string) => {
     const next = {
@@ -367,15 +382,38 @@ export default function SessionReplayPage() {
       next.clientKey = "";
       setClientKeyFilter("");
     }
-    if (key === "state") {
-      next.state = "";
-      setStateFilter("");
-    }
     if (key === "url") {
       next.url = "";
       setUrlFilter("");
     }
     updateRouteQuery({ ...next, page: 1, sessionId: selectedSessionId });
+  };
+
+  // ---- show tabs (maps to stateFilter) ------------------------------------
+  // "All" → no state filter, "Recorded" → finalized, "Live" → recording
+  const showTab = useMemo(() => {
+    const s = typeof router.query.state === "string" ? router.query.state : "";
+    if (s === "finalized") return "recorded";
+    if (s === "recording") return "live";
+    return "all";
+  }, [router.query.state]);
+
+  const handleShowTabChange = (tab: string) => {
+    const newState =
+      tab === "recorded" ? "finalized" : tab === "live" ? "recording" : "";
+    setStateFilter(newState);
+    updateRouteQuery({
+      userId:
+        typeof router.query.userId === "string" ? router.query.userId : "",
+      clientKey:
+        typeof router.query.clientKey === "string"
+          ? router.query.clientKey
+          : "",
+      state: newState,
+      url: typeof router.query.url === "string" ? router.query.url : "",
+      page: 1,
+      sessionId: selectedSessionId,
+    });
   };
 
   // ---- player / chunk loading ----------------------------------------------
@@ -502,76 +540,144 @@ export default function SessionReplayPage() {
     return evaluations.filter((e) => e.kind === "exp");
   }, [evaluations, evalTab]);
 
+  const flagCount = useMemo(
+    () => evaluations.filter((e) => e.kind === "flag").length,
+    [evaluations],
+  );
+  const expCount = useMemo(
+    () => evaluations.filter((e) => e.kind === "exp").length,
+    [evaluations],
+  );
+
+  const copySessionId = () => {
+    const id = metadata?.sessionId ?? selectedSessionId;
+    if (id) void navigator.clipboard.writeText(id);
+  };
+
   if (!sessionReplayEnabled) {
     return <Custom404 />;
   }
 
   return (
-    <div className="pagecontents">
-      <Flex align="center" gap="2" mb="3">
-        <Text color="text-mid">Product Analytics</Text>
-        <Text color="text-mid">›</Text>
-        <Text weight="semibold">Session Replay</Text>
-      </Flex>
-
-      <Flex
-        gap="3"
-        align="stretch"
-        style={{
-          height: "calc(100vh - 180px)",
-          minHeight: 520,
-          maxHeight: "calc(100vh - 180px)",
-        }}
-      >
-        {/* ----- LEFT: Recorded Sessions ------------------------------------ */}
-        <Box
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "row",
+        alignItems: "stretch",
+        height: "calc(100vh - 72px)",
+        minHeight: 520,
+        overflow: "hidden",
+      }}
+    >
+      {/* ----- LEFT: Sessions sidebar ------------------------------------- */}
+      {leftCollapsed ? (
+        // Collapsed state: narrow strip with expand button
+        <div
+          style={{
+            width: 36,
+            flexShrink: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Button
+            variant="soft"
+            size="xs"
+            icon={<PiCaretDoubleRight />}
+            aria-label="Expand sessions panel"
+            title="Expand sessions panel"
+            onClick={() => setLeftCollapsed(false)}
+          >
+            {""}
+          </Button>
+        </div>
+      ) : (
+        // Expanded state: full sessions panel
+        <div
           className="box"
           style={{
-            width: 340,
+            width: 310,
             flexShrink: 0,
             display: "flex",
             flexDirection: "column",
             padding: 16,
             minHeight: 0,
             overflow: "hidden",
+            marginBottom: 0,
           }}
         >
-          <Text size="large" weight="semibold">
-            Recorded Sessions
-          </Text>
-          <Text color="text-mid" size="small">
-            Select a session to begin playback
-          </Text>
+          {/* Header */}
+          <Flex justify="between" align="start">
+            <Box>
+              <Text size="large" weight="semibold" color="text-high">
+                Recorded Sessions
+              </Text>
+              <Text color="text-mid" size="small" as="div">
+                Select a session to begin playback
+              </Text>
+            </Box>
+            <Button
+              variant="soft"
+              size="xs"
+              icon={<PiCaretDoubleLeft />}
+              aria-label="Collapse sessions panel"
+              title="Collapse sessions panel"
+              onClick={() => setLeftCollapsed(true)}
+              style={{ flexShrink: 0 }}
+            >
+              {""}
+            </Button>
+          </Flex>
 
-          <Box mt="3">
-            <Field
-              label="User ID"
-              placeholder="exact user id"
-              value={userIdFilter}
-              onChange={(e) => setUserIdFilter(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") applyFilters();
-              }}
-              containerStyle={{ marginBottom: 8 }}
-            />
-            <Field
-              label="URL contains"
-              placeholder="substring of first URL"
-              value={urlFilter}
-              onChange={(e) => setUrlFilter(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") applyFilters();
-              }}
-              containerStyle={{ marginBottom: 8 }}
-            />
-            <Flex gap="2" wrap="wrap" align="end">
+          {/* Show tabs */}
+          <Flex align="center" gap="2" mt="3">
+            <Text size="small" color="text-high" weight="medium">
+              Show:
+            </Text>
+            <Tabs value={showTab} onValueChange={handleShowTabChange}>
+              <TabsList size="1">
+                <TabsTrigger value="all">All</TabsTrigger>
+                <TabsTrigger value="recorded">Recorded</TabsTrigger>
+                <TabsTrigger value="live">Live</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </Flex>
+
+          {/* Add filter toggle */}
+          <Box mt="2">
+            <Button
+              variant="ghost"
+              size="xs"
+              icon={<PiPlus />}
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              {showFilters ? "Hide filters" : "Add filter"}
+            </Button>
+          </Box>
+
+          {/* Expandable filters */}
+          {showFilters && (
+            <Box mt="2">
               <Field
-                label="State"
-                options={["recording", "finalized", "deleted"]}
-                initialOption="All states"
-                value={stateFilter}
-                onChange={(e) => setStateFilter(e.target.value)}
-                containerStyle={{ flex: 1, minWidth: 120, marginBottom: 0 }}
+                label="User ID"
+                placeholder="exact user id"
+                value={userIdFilter}
+                onChange={(e) => setUserIdFilter(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") applyFilters();
+                }}
+                containerStyle={{ marginBottom: 8 }}
+              />
+              <Field
+                label="URL contains"
+                placeholder="substring of first URL"
+                value={urlFilter}
+                onChange={(e) => setUrlFilter(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") applyFilters();
+                }}
+                containerStyle={{ marginBottom: 8 }}
               />
               <Field
                 label="Client key"
@@ -581,41 +687,44 @@ export default function SessionReplayPage() {
                 onKeyDown={(e) => {
                   if (e.key === "Enter") applyFilters();
                 }}
-                containerStyle={{ flex: 1, minWidth: 120, marginBottom: 0 }}
+                containerStyle={{ marginBottom: 8 }}
               />
-            </Flex>
-            <Flex gap="2" mt="2" align="center">
-              <Button onClick={applyFilters}>Filter</Button>
-              <Button variant="ghost" onClick={clearFilters}>
-                Clear
-              </Button>
-            </Flex>
-            {activeFilters.length > 0 && (
-              <Flex gap="1" wrap="wrap" mt="2">
-                {activeFilters.map((chip) => (
-                  <Box
-                    key={chip.key}
-                    onClick={() => removeFilter(chip.key)}
-                    style={{
-                      cursor: "pointer",
-                      padding: "2px 8px",
-                      borderRadius: 999,
-                      background: "var(--accent-3)",
-                      color: "var(--accent-11)",
-                      fontSize: 12,
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: 4,
-                    }}
-                    title="Click to remove filter"
-                  >
-                    {chip.label} <span style={{ opacity: 0.7 }}>×</span>
-                  </Box>
-                ))}
+              <Flex gap="2">
+                <Button size="xs" onClick={applyFilters}>
+                  Apply
+                </Button>
+                <Button size="xs" variant="ghost" onClick={clearFilters}>
+                  Clear
+                </Button>
               </Flex>
-            )}
-          </Box>
+              {activeFilters.length > 0 && (
+                <Flex gap="1" wrap="wrap" mt="2">
+                  {activeFilters.map((chip) => (
+                    <Box
+                      key={chip.key}
+                      onClick={() => removeFilter(chip.key)}
+                      style={{
+                        cursor: "pointer",
+                        padding: "2px 8px",
+                        borderRadius: 999,
+                        background: "var(--accent-3)",
+                        color: "var(--accent-11)",
+                        fontSize: 12,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                      title="Click to remove filter"
+                    >
+                      {chip.label} <span style={{ opacity: 0.7 }}>×</span>
+                    </Box>
+                  ))}
+                </Flex>
+              )}
+            </Box>
+          )}
 
+          {/* Session list */}
           <Box
             mt="3"
             style={{
@@ -630,7 +739,10 @@ export default function SessionReplayPage() {
               <Callout status="warning">Failed to load sessions</Callout>
             )}
             {!sessionsData && !sessionsError && (
-              <Text color="text-mid">Loading sessions…</Text>
+              <Flex align="center" gap="2">
+                <LoadingSpinner />
+                <Text color="text-mid">Loading sessions…</Text>
+              </Flex>
             )}
             {sessionsData && sessions.length === 0 && (
               <Text color="text-mid">
@@ -660,41 +772,44 @@ export default function SessionReplayPage() {
                     }}
                   >
                     <Flex justify="between" align="center">
-                      <Flex gap="2" align="center">
-                        <Box
-                          style={{
-                            width: 22,
-                            height: 22,
-                            borderRadius: 999,
-                            background: "var(--accent-4)",
-                            color: "var(--accent-11)",
-                            fontSize: 11,
-                            fontWeight: 600,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
-                        >
+                      <Flex
+                        gap="2"
+                        align="center"
+                        style={{ minWidth: 0, flex: 1 }}
+                      >
+                        <Avatar size="sm" variant="soft">
                           {avatarInitial(session.userId)}
-                        </Box>
-                        <Text weight="medium">
+                        </Avatar>
+                        <Text weight="medium" color="text-high" truncate={true}>
                           {session.userId || "anonymous"}
                         </Text>
                       </Flex>
-                      <Text color="text-mid" size="small">
+                      <Text
+                        color="text-low"
+                        size="small"
+                        whiteSpace="nowrap"
+                        ml="2"
+                      >
                         {formatRelative(session.startedAt)}
                       </Text>
                     </Flex>
-                    <Text color="text-mid" size="small" as="div">
-                      <code style={{ fontSize: 11 }}>
-                        ID: {session.sessionId?.slice(0, 18) ?? "unknown"}…
-                      </code>
-                    </Text>
+                    <Box style={{ marginTop: 2 }}>
+                      <Text size="small">
+                        <span
+                          style={{
+                            fontFamily: "monospace",
+                            color: "var(--accent-9)",
+                          }}
+                        >
+                          ID: {session.sessionId?.slice(0, 20) ?? "unknown"}…
+                        </span>
+                      </Text>
+                    </Box>
                     <Flex gap="3" mt="1">
-                      <Text color="text-mid" size="small">
+                      <Text color="text-low" size="small">
                         ⌁ {session.eventCount} events
                       </Text>
-                      <Text color="text-mid" size="small">
+                      <Text color="text-low" size="small">
                         ⏱ {formatDuration(session.durationMs)}
                       </Text>
                     </Flex>
@@ -703,9 +818,11 @@ export default function SessionReplayPage() {
               })}
           </Box>
 
+          {/* Pagination */}
           <Flex justify="between" align="center" mt="3">
-            <Text color="text-mid" size="small">
-              {sessions.length} session{sessions.length === 1 ? "" : "s"}
+            <Text color="text-low" size="small">
+              {sessions.length} session{sessions.length === 1 ? "" : "s"}{" "}
+              matched
             </Text>
             <Flex gap="1">
               <Button
@@ -725,193 +842,313 @@ export default function SessionReplayPage() {
               </Button>
             </Flex>
           </Flex>
-        </Box>
+        </div>
+      )}
 
-        {/* ----- CENTER: Player --------------------------------------------- */}
-        <Box
-          className="box"
+      {/* ----- CENTER: Player -------------------------------------------- */}
+      <div
+        className="box"
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          minWidth: 0,
+          minHeight: 0,
+          overflow: "hidden",
+          marginBottom: 0,
+          position: "relative",
+        }}
+      >
+        {/* Session header bar */}
+        <Flex
+          align="center"
+          gap="4"
+          wrap="wrap"
           style={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            padding: 16,
-            minWidth: 0,
-            minHeight: 0,
-            overflow: "hidden",
+            padding: "14px 24px 14px 20px",
+            borderBottom: "1px solid var(--slate-a5)",
+            flexShrink: 0,
           }}
         >
-          {!selectedSessionId && (
+          {selectedSessionId ? (
+            <>
+              {/* ID + copy */}
+              <Flex gap="1" align="center">
+                <Text weight="medium" color="text-high">
+                  ID:
+                </Text>
+                <Text color="text-low">
+                  <span style={{ fontFamily: "monospace" }}>
+                    {(metadata?.sessionId ?? selectedSessionId).slice(0, 16)}…
+                  </span>
+                </Text>
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  icon={<PiCopy />}
+                  aria-label="Copy session ID"
+                  title="Copy session ID"
+                  onClick={copySessionId}
+                >
+                  {""}
+                </Button>
+              </Flex>
+              <Flex gap="1" align="center">
+                <Text weight="medium" color="text-high">
+                  User
+                </Text>
+                <Text color="text-low">{metadata?.userId || "anonymous"}</Text>
+              </Flex>
+              <Flex gap="1" align="center">
+                <Text weight="medium" color="text-high">
+                  Started
+                </Text>
+                <Text color="text-low">
+                  {metadata
+                    ? new Date(metadata.startedAt).toLocaleString()
+                    : "—"}
+                </Text>
+              </Flex>
+              <Flex gap="1" align="center">
+                <Text weight="medium" color="text-high">
+                  Duration
+                </Text>
+                <Text color="text-low">
+                  {metadata ? formatDuration(metadata.durationMs) : "—"}
+                </Text>
+              </Flex>
+              <Flex gap="1" align="center">
+                <Text weight="medium" color="text-high">
+                  Events
+                </Text>
+                <Text color="text-low">{metadata?.eventCount ?? "—"}</Text>
+              </Flex>
+              {/* Evaluations toggle — pushed to far right */}
+              <Box style={{ marginLeft: "auto" }}>
+                <Button
+                  variant={evalOpen ? "soft" : "outline"}
+                  size="sm"
+                  icon={<PiListBullets />}
+                  onClick={() => setEvalOpen(!evalOpen)}
+                >
+                  <>
+                    Evaluations
+                    {evaluations.length > 0 && (
+                      <Box
+                        as="span"
+                        style={{
+                          marginLeft: 6,
+                          background: "var(--violet-a3)",
+                          color: "var(--violet-a11)",
+                          fontSize: 10,
+                          fontWeight: 500,
+                          lineHeight: "15px",
+                          padding: "0 4px",
+                          borderRadius: 2,
+                          minWidth: 16,
+                          textAlign: "center",
+                          display: "inline-block",
+                        }}
+                      >
+                        {evaluations.length}
+                      </Box>
+                    )}
+                  </>
+                </Button>
+              </Box>
+            </>
+          ) : (
+            <Text color="text-mid">Select a session to view details</Text>
+          )}
+        </Flex>
+
+        {/* Player area — fills remaining space; player is mounted edge-to-edge */}
+        <Box
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflow: "hidden",
+            position: "relative",
+          }}
+        >
+          {/* Empty / error / loading states: centered inside the container */}
+          {(!selectedSessionId || playerLoading || playerError) && (
             <Flex
               align="center"
               justify="center"
-              style={{ flex: 1, minHeight: 400 }}
+              style={{ width: "100%", height: "100%" }}
             >
-              <Text color="text-mid">
-                Select a session on the left to begin playback.
-              </Text>
-            </Flex>
-          )}
-
-          {selectedSessionId && (
-            <>
-              <Flex gap="4" wrap="wrap" align="center" mb="3">
-                <Flex gap="1" align="center">
-                  <Text size="small" color="text-mid">
-                    ID:
-                  </Text>
-                  <Text size="small">
-                    <code>
-                      {metadata?.sessionId?.slice(0, 12) ??
-                        selectedSessionId.slice(0, 12)}
-                      …
-                    </code>
-                  </Text>
-                </Flex>
-                <Flex gap="1" align="center">
-                  <Text size="small" color="text-mid">
-                    User:
-                  </Text>
-                  <Text size="small">{metadata?.userId || "anonymous"}</Text>
-                </Flex>
-                <Flex gap="1" align="center">
-                  <Text size="small" color="text-mid">
-                    Started:
-                  </Text>
-                  <Text size="small">
-                    {metadata
-                      ? new Date(metadata.startedAt).toLocaleString()
-                      : "—"}
-                  </Text>
-                </Flex>
-                <Flex gap="1" align="center">
-                  <Text size="small" color="text-mid">
-                    Duration:
-                  </Text>
-                  <Text size="small">
-                    {metadata ? formatDuration(metadata.durationMs) : "—"}
-                  </Text>
-                </Flex>
-                <Flex gap="1" align="center">
-                  <Text size="small" color="text-mid">
-                    Events:
-                  </Text>
-                  <Text size="small">{metadata?.eventCount ?? "—"}</Text>
-                </Flex>
-              </Flex>
-
-              {playerError && (
-                <Box mb="3">
+              {!selectedSessionId && (
+                <Text color="text-mid">
+                  Select a session on the left to begin playback.
+                </Text>
+              )}
+              {selectedSessionId && playerError && (
+                <Box style={{ maxWidth: 480, padding: 16 }}>
                   <Callout status="warning">{playerError}</Callout>
                 </Box>
               )}
-              {playerLoading && !playerError && (
-                <Box mb="3">
+              {selectedSessionId && playerLoading && !playerError && (
+                <Flex align="center" gap="2">
+                  <LoadingSpinner />
                   <Text color="text-mid">Loading session data…</Text>
-                </Box>
+                </Flex>
               )}
-
-              <Box
-                style={{
-                  flex: 1,
-                  minHeight: 0,
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  overflow: "auto",
-                }}
-              >
-                {events && (
-                  <RrwebPlayer
-                    key={selectedSessionId}
-                    events={events}
-                    ref={playerHandle}
-                  />
-                )}
-              </Box>
-            </>
+            </Flex>
+          )}
+          {/* Player fills the full container — dimensions measured from container */}
+          {events && (
+            <RrwebPlayer
+              key={selectedSessionId}
+              events={events}
+              ref={playerHandle}
+            />
           )}
         </Box>
 
-        {/* ----- RIGHT: Evaluations ----------------------------------------- */}
-        <Box
-          className="box"
-          style={{
-            width: 300,
-            flexShrink: 0,
-            display: "flex",
-            flexDirection: "column",
-            padding: 16,
-            minHeight: 0,
-            overflow: "hidden",
-          }}
-        >
-          <Flex justify="between" align="center" mb="2">
-            <Text size="large" weight="semibold">
-              Evaluations
-            </Text>
-            <Tabs
-              value={evalTab}
-              onValueChange={(v) =>
-                setEvalTab((v as "all" | "flags" | "exp") || "all")
-              }
+        {/* ----- Evaluations overlay — absolute over player --------------- */}
+        {evalOpen && (
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              right: 0,
+              height: "100%",
+              width: 324,
+              display: "flex",
+              flexDirection: "column",
+              background: "var(--color-panel-solid)",
+              boxShadow: "-3px 0px 4.4px rgba(0,0,0,0.25)",
+              zIndex: 10,
+            }}
+          >
+            {/* Header */}
+            <Flex
+              align="center"
+              justify="between"
+              style={{
+                padding: "8px 16px",
+                borderBottom: "1px solid var(--slate-a3)",
+                flexShrink: 0,
+              }}
             >
-              <TabsList size="1">
-                <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="flags">Flags</TabsTrigger>
-                <TabsTrigger value="exp">Exp</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </Flex>
-
-          <Box style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
-            {!selectedSessionId && (
-              <Text color="text-mid" size="small">
-                Evaluations will appear here once a session is loaded.
+              <Text size="large" weight="semibold" color="text-high">
+                Evaluations
               </Text>
-            )}
-            {selectedSessionId && events && visibleEvaluations.length === 0 && (
-              <Text color="text-mid" size="small">
-                No evaluations recorded for this session.
-              </Text>
-            )}
-            {visibleEvaluations.map((evt, index) => (
-              <Box
-                key={index}
-                onClick={() => jumpToEvent(evt.timestamp)}
-                style={{
-                  cursor: "pointer",
-                  padding: "8px 10px",
-                  borderRadius: 6,
-                  marginBottom: 6,
-                  border: "1px solid var(--slate-a4)",
-                }}
+              <Button
+                variant="ghost"
+                size="xs"
+                icon={<PiX />}
+                aria-label="Close evaluations"
+                title="Close evaluations"
+                onClick={() => setEvalOpen(false)}
               >
-                <Flex justify="between" align="center">
-                  <Text size="small" weight="medium">
-                    {evt.formattedMessage}
-                  </Text>
-                  <Box
-                    style={{
-                      fontSize: 10,
-                      padding: "1px 6px",
-                      borderRadius: 4,
-                      background: "var(--accent-3)",
-                      color: "var(--accent-11)",
-                      textTransform: "uppercase",
-                      letterSpacing: 0.4,
-                    }}
-                  >
-                    {evt.kind === "flag" ? "Flag" : "Exp"}
+                {""}
+              </Button>
+            </Flex>
+
+            {/* Tabs with counts — active: text-high/medium, inactive: text-low/medium */}
+            <Box style={{ flexShrink: 0 }}>
+              <Tabs
+                value={evalTab}
+                onValueChange={(v) =>
+                  setEvalTab((v as "all" | "flags" | "exp") || "all")
+                }
+              >
+                <TabsList size="2">
+                  <TabsTrigger value="all">
+                    <Text
+                      size="medium"
+                      weight="medium"
+                      color={evalTab === "all" ? "text-high" : "text-low"}
+                    >
+                      All ({evaluations.length})
+                    </Text>
+                  </TabsTrigger>
+                  <TabsTrigger value="flags">
+                    <Text
+                      size="medium"
+                      weight="medium"
+                      color={evalTab === "flags" ? "text-high" : "text-low"}
+                    >
+                      Flags ({flagCount})
+                    </Text>
+                  </TabsTrigger>
+                  <TabsTrigger value="exp">
+                    <Text
+                      size="medium"
+                      weight="medium"
+                      color={evalTab === "exp" ? "text-high" : "text-low"}
+                    >
+                      Experiments ({expCount})
+                    </Text>
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </Box>
+
+            {/* Evaluation rows */}
+            <Box style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+              {selectedSessionId &&
+                events &&
+                visibleEvaluations.length === 0 && (
+                  <Box style={{ padding: "12px 16px" }}>
+                    <Text size="small" color="text-low" weight="regular">
+                      No evaluations recorded for this session.
+                    </Text>
                   </Box>
+                )}
+              {!events && !playerError && selectedSessionId && (
+                <Box style={{ padding: "12px 16px" }}>
+                  <Text size="small" color="text-low" weight="regular">
+                    Loading evaluations…
+                  </Text>
+                </Box>
+              )}
+              {visibleEvaluations.map((evt, index) => (
+                <Flex
+                  key={index}
+                  align="center"
+                  justify="between"
+                  gap="2"
+                  onClick={() => jumpToEvent(evt.timestamp)}
+                  style={{
+                    padding: "0 16px",
+                    height: 49,
+                    borderBottom: "1px solid var(--slate-a3)",
+                    cursor: "pointer",
+                    flexShrink: 0,
+                  }}
+                >
+                  <Box style={{ flex: 1, minWidth: 0 }}>
+                    {/* 14px semibold text-high — body/medium/semibold */}
+                    <Text
+                      size="medium"
+                      weight="semibold"
+                      color="text-high"
+                      truncate={true}
+                    >
+                      {evt.formattedMessage}
+                    </Text>
+                    {/* 12px regular text-low — body/small/regular */}
+                    <Text size="small" weight="regular" color="text-low">
+                      {new Date(evt.timestamp).toLocaleString()}
+                    </Text>
+                  </Box>
+                  <Badge
+                    label={evt.kind === "flag" ? "Flag" : "Exp"}
+                    size="xs"
+                    variant="soft"
+                    color={evt.kind === "flag" ? "indigo" : "violet"}
+                    radius="full"
+                    style={{ flexShrink: 0 }}
+                  />
                 </Flex>
-                <Text color="text-mid" size="small">
-                  {new Date(evt.timestamp).toLocaleString()}
-                </Text>
-              </Box>
-            ))}
-          </Box>
-        </Box>
-      </Flex>
+              ))}
+            </Box>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
