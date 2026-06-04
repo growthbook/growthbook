@@ -44,13 +44,13 @@ export async function evaluateCurrentStep(
 ): Promise<EvalDecision> {
   const step = schedule.steps[schedule.currentStepIndex];
   if (!step) {
-    // For 0-step schedules (simple start/end date) waiting for a future
-    // cutoffDate, hold rather than advance — advancing a schedule with no
-    // remaining steps triggers completeRollout, which would end the schedule
-    // immediately instead of honoring the configured end date.
-    const nextStepIndex = schedule.currentStepIndex + 1;
+    // 0-step simple schedules (start/end date only) have no steps to advance
+    // through. Without this guard, returning "advance" causes advanceStep to
+    // see steps[0] === undefined and call completeRollout immediately —
+    // ignoring the configured cutoffDate entirely.
+    // Scoped to steps.length === 0 so multi-step ramps are never affected.
     if (
-      nextStepIndex >= schedule.steps.length &&
+      schedule.steps.length === 0 &&
       schedule.cutoffDate &&
       schedule.cutoffDate > now
     ) {
