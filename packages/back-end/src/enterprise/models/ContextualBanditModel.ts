@@ -31,20 +31,7 @@ const BaseClass = MakeModelClass({
   collectionName: "contextualbandits",
   idPrefix: "cb_",
   globallyUniquePrimaryKeys: true,
-  // The legacy `{ organization, experiment }` unique index was dropped in
-  // PR-8 Commit 3 with the experiment FK. The Mongo index is left around
-  // operationally — it's harmless on writes (no field to set) and dropping
-  // it is a separate ops task.
-  // Defaults supplied so the create flow (POST /api/v1/contextual-bandits)
-  // can omit fields the CB schema requires but the create body intentionally
-  // doesn't surface (tree config, holdout, phases, …). These mirror the
-  // values that the deleted `maybeCreateContextualBanditDoc` used to inject
-  // when a CB was created via the legacy experiment route.
-  //
-  // TODO(holdout-v1.5): `holdoutPercent` / `disableStickyBucketing` are
-  // intentionally inert in v1; the defaults let callers omit them so future
-  // docs round-trip cleanly without a schema break when the holdout
-  // pipeline ships.
+  // Defaults so the REST create can omit fields the schema requires (tree config, holdout, phases, …).
   defaultValues: {
     holdoutPercent: 0,
     disableStickyBucketing: false,
@@ -55,11 +42,6 @@ const BaseClass = MakeModelClass({
     maxLeaves: 12,
     canonicalFormVersion: 1,
   },
-  // Auto-emits contextualBandit.create / update / delete on the BaseModel
-  // CRUD paths. Lifecycle events (`start` / `stop`) are emitted directly
-  // from `services/contextualBanditChanges.ts`. v1.5 will wire the
-  // events/handlers/{slack,webhooks,email} subscribers — for now these
-  // events are recorded but not propagated to any subscriber surface.
   auditLog: {
     entity: "contextualBandit",
     createEvent: "contextualBandit.create",
@@ -116,15 +98,7 @@ const BaseClass = MakeModelClass({
       defineCustomApiHandler({
         ...refreshContextualBanditEndpoint,
         reqHandler: async (req) => {
-          // Type cast: at the depth of the third inline customHandler in
-          // this file, tsc gives up resolving the model instance lookup
-          // (`Property 'contextualBandits' does not exist on
-          // type 'ModelInstances'`) — likely because the surrounding
-          // generic-rich `defineCustomApiHandler` calls + the
-          // runContextualBanditSnapshot return-type pull the inference
-          // budget past its limit. The cast is safe (ContextualBanditModel
-          // IS registered in `services/context.ts`) and only here so the
-          // handler compiles; remove once tsc inference tightens up.
+          // Cast required: tsc fails to resolve `models.contextualBandits` at this nesting depth.
           const cbModel = (
             req.context.models as unknown as {
               contextualBandits: {
@@ -156,16 +130,7 @@ const BaseClass = MakeModelClass({
   },
 });
 
-/**
- * Convert an internal CB doc to the REST API response shape. The API
- * surface is intentionally a curated subset of `ContextualBanditInterface`
- * so internal-only state (linkedFeatures, pendingFeatureDrafts, snapshot
- * scheduling) is not exposed.
- *
- * Defined as a free function (rather than a model method) so the custom
- * lifecycle handlers in the apiConfig can serialize without inducing a
- * circular type-inference cycle through `req.context.models.contextualBandits`.
- */
+/** Curated CB → REST response shape; internal-only fields are omitted. Free function to avoid circular type inference. */
 export function toApiContextualBandit(
   doc: ContextualBanditInterface,
 ): ApiContextualBanditInterface {
@@ -227,36 +192,18 @@ export function toApiContextualBandit(
 }
 
 export class ContextualBanditModel extends BaseClass {
-  /**
-   * BaseModel hook: returns the API-shaped response for default CRUD paths.
-   * Delegates to the free function so custom handlers can serialize without
-   * needing a model-instance reference.
-   */
   protected toApiInterface(
     doc: ContextualBanditInterface,
   ): ApiContextualBanditInterface {
     return toApiContextualBandit(doc);
   }
 
-  /**
-   * Gate the REST surface on the commercial feature flag. The internal
-   * GrowthBook app is allowed to read CBs even on plans without the
-   * feature (the front-end UI hides the workflow itself), but external
-   * customers shouldn't be able to author them.
-   */
+  /** Gate the REST surface on the commercial feature flag (internal app reads bypass via UI). */
   protected hasPremiumFeature(): boolean {
     return this.context.hasPremiumFeature("contextual-bandits");
   }
 
-  /**
-   * List with optional `projectId` / `datasourceId` / `trackingKey`
-   * filters. Matches the pattern used by ExperimentTemplatesModel —
-   * derives the query from the spec's `apiListContextualBanditsValidator`
-   * schema. `trackingKey` exists so the CB create form can preflight
-   * collisions before POSTing (the BaseModel CRUD response surface
-   * doesn't carry the duplicate-key sentinel the legacy experiment route
-   * used).
-   */
+  /** List with optional projectId/datasourceId/trackingKey filters; trackingKey supports create-form collision preflight. */
   public override async handleApiList(
     req: Parameters<InstanceType<typeof BaseClass>["handleApiList"]>[0],
   ): Promise<ApiContextualBanditInterface[]> {
@@ -274,18 +221,7 @@ export class ContextualBanditModel extends BaseClass {
     );
   }
 
-  /**
-   * Inject runtime-derived defaults onto the create body so the create
-   * flow succeeds with only the fields the REST `apiCreateContextualBanditBody`
-   * exposes. Static defaults (tree config, holdout, archived flags) live
-   * on `defaultValues` above; this hook covers values that need a fresh
-   * `Date` per call or that depend on per-org settings, which can't be
-   * frozen into the model config at module load.
-   *
-   * Mirrors the field-by-field defaults the deleted
-   * `maybeCreateContextualBanditDoc` used to inject when CBs were
-   * created via the legacy experiment-create flow.
-   */
+  /** Injects runtime-derived defaults (fresh Date, per-org settings) the static `defaultValues` can't carry. */
   protected async processApiCreateBody(rawBody: unknown) {
     const body = apiCreateContextualBanditBody.parse(rawBody);
     const orgPrior = this.context.org.settings?.metricDefaults?.priorSettings;
@@ -293,14 +229,9 @@ export class ContextualBanditModel extends BaseClass {
     return {
       ...body,
       tags: body.tags ?? [],
-      // _createOne will resolve a missing owner to the current user; pass
-      // an empty fallback so the TS shape matches before that hook runs.
+      // `_createOne` resolves owner; empty fallback satisfies the TS shape pre-hook.
       owner: body.owner ?? "",
-      // Required-in-validator, optional-in-body fields. `defaultValues`
-      // fills the same slots at runtime; we restate them here so the
-      // return type satisfies `CreateProps<ContextualBanditInterface>`
-      // without relying on the runtime default-merge — the type-checker
-      // can't see through that.
+      // Restated so the return type satisfies `CreateProps` (tsc can't see runtime default-merge).
       archived: false,
       holdoutPercent: 0,
       canonicalFormVersion: 1,
@@ -311,31 +242,21 @@ export class ContextualBanditModel extends BaseClass {
       hashAttribute: body.hashAttribute ?? "id",
       hashVersion: body.hashVersion ?? (2 as const),
       disableStickyBucketing: body.disableStickyBucketing ?? false,
-      // The REST create body intentionally omits per-variation `id` /
-      // `screenshots` so callers don't have to invent ids; backfill them
-      // here so the internal `variation` validator (id + screenshots)
-      // accepts the doc.
+      // Backfill per-variation id/screenshots so the internal validator accepts the doc.
       variations: body.variations.map((v) => ({
         ...v,
         id: generateVariationId(),
         screenshots: [],
       })),
-      // `datasourceId` is an alias for `datasource` carried for legacy
-      // shape parity; the REST create body only exposes one.
+      // Alias kept in lockstep with `datasource` for legacy shape parity.
       datasourceId: body.datasource,
-      // `targetingAttributeColumns` is the SQL-side spelling of
-      // `contextualAttributes`; the snapshot orchestrator reads either.
+      // SQL-side spelling mirrored so the snapshot orchestrator reads either.
       targetingAttributeColumns: body.contextualAttributes,
       contextualAttributes: body.contextualAttributes,
-      // Initial draft state — lifecycle transitions go through start/stop.
       status: "draft" as const,
-      // Empty metric arrays so the model insert validates even when the
-      // form omits the optional fields.
       secondaryMetrics: body.secondaryMetrics ?? [],
       guardrailMetrics: body.guardrailMetrics ?? [],
-      // Phases must be non-undefined so the validator's `z.array(...)`
-      // is satisfied; seed with a single open phase so the CB has
-      // somewhere to record `currentLeafWeights` once it starts.
+      // Seed an open phase so the CB has somewhere to record `currentLeafWeights` once it starts.
       phases: [{ dateStarted: new Date(), currentLeafWeights: [] }],
       defaultMetricPriorSettings: orgPrior ?? {
         override: false,
@@ -346,61 +267,26 @@ export class ContextualBanditModel extends BaseClass {
     };
   }
 
-  /**
-   * Filter the incoming update body to the CB-shape subset before it
-   * reaches `updateById`. The body validator
-   * (`apiUpdateContextualBanditBody`) intentionally accepts a number of
-   * experiment-edit-modal extras (variationWeights, customMetricSlices,
-   * winner, results, analysis, condition, savedGroups, …) so the shared
-   * modals can target the CB endpoint without per-modal patches; this
-   * override is what enforces that those extras are dropped before they
-   * land on the persisted doc.
-   *
-   * `datasource` updates also propagate to the `datasourceId` alias so
-   * the snapshot orchestrator sees a consistent value regardless of
-   * which spelling it reads.
-   *
-   * TODO(pr-8): once CB-native edit modals replace the shared
-   * experiment ones, drop the passthrough fields from the body
-   * validator and simplify this override to a straight `parse` →
-   * `_.pick` of the CB-shape keys.
-   */
+  /** Filters the update body to the CB-shape subset and mirrors datasource/contextualAttributes aliases. */
   protected async processApiUpdateBody(rawBody: unknown) {
     const body = apiUpdateContextualBanditBody.parse(rawBody);
     const out: Partial<ContextualBanditInterface> = {};
     for (const field of CONTEXTUAL_BANDIT_API_UPDATE_FIELDS) {
       if (body[field] !== undefined) {
-        // Cast through Record<string, unknown>: the SYNC_FIELDS
-        // constant is `satisfies readonly (keyof ApiUpdateContextualBanditBody)[]`
-        // so the runtime keys are known-safe, but the per-field types
-        // diverge enough that an index assignment doesn't narrow
-        // through a `for-of` loop.
+        // Cast: per-field types diverge enough that index assignment doesn't narrow through the loop.
         (out as Record<string, unknown>)[field] = body[field];
       }
     }
-    // Keep the `datasource` / `datasourceId` aliases in lockstep — the
-    // create body only exposes one, and downstream snapshot code reads
-    // whichever spelling is present.
     if (body.datasource !== undefined) {
       out.datasourceId = body.datasource;
     }
-    // `contextualAttributes` is the user-facing spelling;
-    // `targetingAttributeColumns` is the SQL-side alias. Mirror writes
-    // so the snapshot orchestrator never sees a stale value.
     if (body.contextualAttributes !== undefined) {
       out.targetingAttributeColumns = body.contextualAttributes;
     }
     return out as Parameters<typeof this.updateById>[1];
   }
 
-  /**
-   * BaseModel pre-validation hook: coerce missing CB-native fields to safe
-   * defaults so a doc reads cleanly even if the on-disk shape predates a
-   * later schema addition. After PR-8's data migration this is effectively
-   * a no-op for every persisted doc (every field below is already populated
-   * in Mongo), but it stays in place so future schema additions can rely on
-   * the same default-injection pattern without a separate read-time wrapper.
-   */
+  /** Coerce missing CB-native fields to safe defaults so older on-disk docs read cleanly. */
   protected migrate(legacyDoc: unknown): ContextualBanditInterface {
     const doc = legacyDoc as Partial<ContextualBanditInterface> &
       Record<string, unknown>;
@@ -431,17 +317,6 @@ export class ContextualBanditModel extends BaseClass {
     } as ContextualBanditInterface;
   }
 
-  // ---------------------------------------------------------------------
-  // Permission checks
-  //
-  // CB doc is the unconditional source of truth — the legacy
-  // experiment-fallback branches were dropped in PR-8 Commit 5 once the
-  // data migration filled in CB-native ownership/lifecycle fields on
-  // every doc. The previous fallback path resolved the paired experiment
-  // via the FK and read `project` off it; with the FK gone there's
-  // nothing to fall back to and nothing to fall back from.
-  // ---------------------------------------------------------------------
-
   protected canRead(doc: ContextualBanditInterface): boolean {
     return this.context.permissions.canReadSingleProjectResource(doc.project);
   }
@@ -464,14 +339,7 @@ export class ContextualBanditModel extends BaseClass {
     return this.context.permissions.canDeleteContextualBandit(doc);
   }
 
-  /**
-   * Look up a CB by the legacy paired-experiment FK. The FK is off the
-   * validator post-Commit-3, so this reads the raw Mongo collection to
-   * keep the cascade-delete in `onExperimentDelete` and the legacy
-   * `/experiments/:id/contextual-bandit/*` routes working through
-   * Commit 6. After Commit 6 the routes go away; the cascade path
-   * keeps using this helper.
-   */
+  /** Look up a CB by the legacy paired-experiment FK via raw Mongo (FK is off the validator). */
   public async getByExperimentId(
     experiment: string,
   ): Promise<ContextualBanditInterface | null> {
@@ -483,15 +351,7 @@ export class ContextualBanditModel extends BaseClass {
     return raw as unknown as ContextualBanditInterface;
   }
 
-  /**
-   * Atomically update the leaf weights for a specific phase index.
-   * Replaces `phases[phaseIndex].currentLeafWeights` in place via a single
-   * Mongo `$set` with positional dot-notation — concurrent refreshes (cron
-   * + manual API + scheduled retraining) can collide on the same CB doc,
-   * and a read-modify-write would lose updates between the read and the
-   * write. The atomic positional update guarantees only the target field
-   * changes regardless of overlapping writers.
-   */
+  /** Atomically update `phases[i].currentLeafWeights` via positional `$set` so concurrent refreshes can't lose writes. */
   public async patchPhaseWeights(
     cbId: string,
     phaseIndex: number,
@@ -506,8 +366,7 @@ export class ContextualBanditModel extends BaseClass {
         `Phase index ${phaseIndex} out of range (0..${existing.phases.length - 1})`,
       );
     }
-    // BaseModel.updateById would re-check canUpdate; we bypass it for the
-    // atomic single-field update below, so re-assert the same gate here.
+    // Re-assert canUpdate because the atomic write below bypasses BaseModel.updateById's gate.
     if (!this.canUpdate(existing)) {
       this.context.permissions.throwPermissionError();
     }
@@ -518,9 +377,7 @@ export class ContextualBanditModel extends BaseClass {
       {
         organization: this.context.org.id,
         id: cbId,
-        // Guard against the phase being removed between the bounds check
-        // above and this write. If the phase array shrank, the update no-ops
-        // and we surface a clear error below.
+        // Guard against the phase being removed between the bounds check and this write.
         [`phases.${phaseIndex}`]: { $exists: true },
       },
       {
@@ -543,16 +400,7 @@ export class ContextualBanditModel extends BaseClass {
     return refreshed;
   }
 
-  // ---------------------------------------------------------------------
-  // Linked-features / pendingFeatureDrafts maintenance
-  //
-  // Atomic Mongo updates so the feature-revision sync path
-  // (`featureContextualBanditSync.ts`) can reconcile linkages without
-  // having to read-modify-write the whole CB doc. Permission checks are
-  // intentionally bypassed here — the sync runs fire-and-forget after a
-  // revision write has already been authorized.
-  // ---------------------------------------------------------------------
-
+  // Atomic linked-feature / pendingFeatureDraft updates; permission checks intentionally bypassed (sync runs post-auth).
   public async addLinkedFeature(
     cbId: string,
     featureId: string,
@@ -573,9 +421,7 @@ export class ContextualBanditModel extends BaseClass {
     );
   }
 
-  // $addToSet is atomic and idempotent on (featureId, revisionVersion).
-  // Multiple drafts of the same feature are intentionally allowed and
-  // applied sequentially at CB start.
+  // $addToSet is atomic and idempotent on (featureId, revisionVersion); multiple drafts intentionally allowed.
   public async addPendingFeatureDraft(
     cbId: string,
     featureId: string,
@@ -604,8 +450,7 @@ export class ContextualBanditModel extends BaseClass {
     );
   }
 
-  // Strip pending drafts for `featureId` on every CB *not* in `keepIds`.
-  // Mirrors `ExperimentModel.updateMany` cleanup in the experiment sync.
+  // Strip pending drafts for `featureId` on every CB not in `keepIds`.
   public async clearStalePendingFeatureDrafts(
     featureId: string,
     keepIds: string[],
@@ -616,10 +461,7 @@ export class ContextualBanditModel extends BaseClass {
         "pendingFeatureDrafts.featureId": featureId,
         id: { $nin: keepIds },
       },
-      // Cast required because the Mongo driver's $pull typing is invariant
-      // over the array element shape, and the BaseModel collection is typed
-      // with the full Zod-inferred ContextualBanditInterface; the filter
-      // `{ featureId }` is a valid element-shaped predicate at runtime.
+      // Cast required: Mongo's $pull typing is invariant over the element shape.
       {
         $pull: {
           pendingFeatureDrafts: { featureId },
@@ -640,19 +482,7 @@ export class ContextualBanditModel extends BaseClass {
   }
 }
 
-/**
- * Cross-org CB query for the auto-snapshot agenda job. Lives as a free
- * function (not a model method) because the job runs without a user
- * context — there's no `req.context.models.contextualBandits` to call.
- *
- * Mirrors `getExperimentsToUpdate` for experiments: returns running CBs
- * whose `nextSnapshotAttempt` is due, scoped per org. The agenda job
- * resolves a per-org `ReqContext` for each result.
- *
- * The `dangerous` prefix matches the static-method convention from
- * `legacy-model-migration-patterns.md`: this bypasses BaseModel's
- * in-org query protections (it has to, the job has no org context).
- */
+/** Cross-org auto-snapshot agenda query; bypasses BaseModel in-org protections because the job has no org context. */
 export async function dangerousFindContextualBanditsToUpdate(
   excludeIds: string[],
 ): Promise<Pick<ContextualBanditInterface, "id" | "organization">[]> {
@@ -678,11 +508,7 @@ export async function dangerousFindContextualBanditsToUpdate(
   return docs.map((d) => ({ id: d.id, organization: d.organization }));
 }
 
-/**
- * Cross-org CB query for the scheduled-status agenda job. Returns running
- * or draft CBs whose `nextScheduledStatusUpdate.date` is due, scoped per
- * org. Mirrors `getExperimentsWithScheduledStatusUpdate` for experiments.
- */
+/** Cross-org scheduled-status agenda query: CBs whose `nextScheduledStatusUpdate.date` is due. */
 export async function dangerousFindContextualBanditsWithScheduledStatusUpdate(): Promise<
   Pick<ContextualBanditInterface, "id" | "organization">[]
 > {

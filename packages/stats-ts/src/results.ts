@@ -1,18 +1,4 @@
-/**
- * TypeScript port of gbstats `models/results.py`.
- *
- * These are the result/return shapes produced by the stats engine. They are
- * plain data containers, so they are modeled as `interface`s (with `extends`
- * for the dataclass inheritance chains) and `type` unions. Field names are kept
- * exactly as in Python because they are the JSON contract returned to the
- * back-end.
- *
- * The pandas `to_df` helpers on `DimensionResponse` /
- * `DimensionResponseIndividual` are intentionally omitted — they have no analog
- * without pandas and are a serialization convenience, not part of the contract.
- */
-
-// --- Internal results ---
+/** TypeScript port of gbstats `models/results.py`; field names match the wire contract. */
 
 export interface EffectMomentsResult {
   point_estimate: number;
@@ -53,8 +39,6 @@ export interface PValueResult {
   p_value?: number | null;
   p_value_error_message?: PValueErrorMessage | null;
 }
-
-// --- Data classes returned to the back end ---
 
 export interface RealizedSettings {
   postStratificationApplied: boolean;

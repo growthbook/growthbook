@@ -175,10 +175,7 @@ export interface ExposureQuery {
   query: string;
   hasNameCol?: boolean;
   dimensions: string[];
-  /**
-   * Assignment-query result columns that map to organization targeting attributes
-   * (`settings.attributeSchema[].property`). Must exist on the org and appear in the SQL SELECT.
-   */
+  /** Assignment-query columns mapping to org targeting attributes (must appear in SELECT). */
   targetingAttributeColumns?: string[];
   dimensionSlicesId?: string;
   dimensionMetadata?: ExperimentDimensionMetadata[];

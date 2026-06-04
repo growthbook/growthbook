@@ -9,7 +9,6 @@ export type ContextualLeafMapEntryInterface = z.infer<
   typeof contextualLeafMapEntryValidator
 >;
 
-/** Aggregated per-leaf sample (data-only) statistics. */
 export const contextualLeafStatsEntryValidator = z.object({
   leafId: z.number().int(),
   sampleSizePerVariation: z.array(z.number()).nullable().optional(),
@@ -20,12 +19,10 @@ export type ContextualLeafStatsEntryInterface = z.infer<
   typeof contextualLeafStatsEntryValidator
 >;
 
-/** One leaf-level contextual bandit response (mirrors gbstats `ContextualBanditResponse`). */
+/** Mirrors gbstats `ContextualBanditResponse`. */
 export const contextualBanditResponseValidator = z.object({
-  /** Targeting condition for this leaf, e.g. `{ country: { $in: ["US"] } }`. */
   context: z.record(z.string(), z.unknown()),
   sampleSizePerVariation: z.array(z.number()).nullable().optional(),
-  // Sample (data-only) means/variances, not posterior estimates.
   sampleMeans: z.array(z.number()).nullable().optional(),
   sampleVariances: z.array(z.number()).nullable().optional(),
   updatedWeights: z.array(z.number()).nullable().optional(),
@@ -37,29 +34,19 @@ export type ContextualBanditResponseInterface = z.infer<
   typeof contextualBanditResponseValidator
 >;
 
-// TODO(holdout-v1.5): the holdout pipeline will introduce new output fields
-// from the stats engine (e.g. `holdoutComparison` with sample sizes, effect
-// estimate, and an EDF-style decision flag). Those fields must be added BOTH
-// here (so `persistContextualBanditEvent` doesn't fail strict validation)
-// AND in the matching `ContextualBanditResult` type in
-// back-end/src/enterprise/services/contextualBanditStats.ts, AND consumed by the
-// results UI. See contextual-bandit-fix-prompt.md.
+// TODO(holdout-v1.5): the holdout pipeline will add new stats-engine output fields
+// (e.g. `holdoutComparison`); update this schema, the matching `ContextualBanditResult`
+// type in back-end/src/enterprise/services/contextualBanditStats.ts, and the results UI.
 
 export const contextualBanditEventValidator = baseSchema
   .extend({
-    /** Parent contextual bandit id (`cb_*`). Event collection is keyed by CB id. */
     contextualBandit: z.string(),
     phase: z.number(),
     snapshotId: z.string(),
-    /** Contextual attributes used for this run (mirrors gbstats `ContextualBanditResult.attributes`). */
     attributes: z.array(z.string()),
-    /** Per-leaf stats and weight updates from the stats engine. */
     responses: z.array(contextualBanditResponseValidator),
-    /** Maps each observed context to its regression-tree leaf id (when tree model is used). */
     leaf_map: z.array(contextualLeafMapEntryValidator).optional(),
-    /** Aggregated per-leaf sample stats (when tree model is used). */
     leaf_stats: z.array(contextualLeafStatsEntryValidator).optional(),
-    /** True when arm weights were actually changed by this event. */
     weightsWereUpdated: z.boolean(),
   })
   .strict();

@@ -137,12 +137,7 @@ const EditMetricsForm: FC<{
   cancel: () => void;
   mutate: () => void;
   source?: string;
-  /**
-   * Override the write endpoint + HTTP method. The default
-   * (`POST /experiment/:id`) is the legacy experiment route. The CB
-   * detail page passes `PUT /api/v1/contextual-bandits/:id` so edits
-   * land on the CB-native surface during the CB decoupling window.
-   */
+  /** Override the write endpoint + HTTP method. Defaults to `POST /experiment/:id`. */
   updateEndpoint?: string;
   updateMethod?: "POST" | "PUT";
 }> = ({ experiment, cancel, mutate, source, updateEndpoint, updateMethod }) => {

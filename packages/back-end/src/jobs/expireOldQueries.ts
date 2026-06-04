@@ -165,9 +165,7 @@ const expireOldQueries = async () => {
     );
   }
 
-  // Look for matching contextual bandit snapshots and update the status.
-  // CB runs through a parallel snapshot pipeline (CBS) — without this
-  // pass, a stale query would leak a running CBS doc forever.
+  // Update matching contextual bandit snapshots so stale queries don't leak a running CBS doc.
   const cbSnapshots = await findRunningContextualBanditSnapshotsByQueryId([
     ...queryIds,
   ]);
@@ -324,14 +322,9 @@ async function findRunningContextualBanditSnapshotsByQueryId(
     .toArray();
 }
 
-// Mirrors `reapStalledSnapshots` but walks the ContextualBanditSnapshot
-// collection. Without this, a back-end crash mid-refresh leaks a
-// `status: "running"` CBS forever — the underlying Query docs get reaped
-// via heartbeat, but no CB-aware code follows the back-pointer to mark
-// the CBS errored.
+// Mirrors `reapStalledSnapshots` for the ContextualBanditSnapshot collection.
 async function reapStalledContextualBanditSnapshots() {
   const stalledBefore = new Date(Date.now() - STALLED_SNAPSHOT_THRESHOLD_MS);
-  // Only look back 24 hours to keep the scan bounded
   const earliestDate = new Date();
   earliestDate.setDate(earliestDate.getDate() - 1);
 
@@ -363,7 +356,6 @@ async function reapStalledContextualBanditSnapshots() {
       (q) => q.status === "succeeded" || q.status === "failed",
     );
 
-    // Same orphan-DAG branch as the experiment-snapshot reaper.
     const orphanedDag = running.length === 0 && queued.length > 0;
     if (!allTerminal && !orphanedDag) continue;
 
@@ -384,8 +376,7 @@ async function reapStalledContextualBanditSnapshots() {
       ? "Snapshot stalled: queries were never started. This can happen when the server restarts mid-refresh. Please try updating results again."
       : "Snapshot stalled: queries finished but results were never finalized. This usually means the analysis step failed (check server logs) or the process was restarted.";
 
-    // Atomic transition: only flip if still "running" so we don't race
-    // with the orchestrator's success-path write.
+    // Atomic transition: only flip if still "running" to avoid racing the orchestrator's success-path write.
     const res = await cbsCollection.updateOne(
       { id: snapshot.id, status: "running" },
       {

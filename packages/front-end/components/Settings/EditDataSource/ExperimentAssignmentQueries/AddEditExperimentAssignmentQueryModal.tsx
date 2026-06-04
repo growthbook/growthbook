@@ -149,8 +149,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       mode === "edit" && exposureQuery
         ? cloneDeep<ExposureQuery>(exposureQuery)
         : ({} as ExposureQuery);
-    // Dimensions / query / targeting columns use `setValue` + watch, not `register`.
-    // Prefer `getValues()` after blur, then fall back to watch.
+    // Dimensions / query / targeting columns are managed via setValue+watch, so prefer getValues after blur with watch as fallback.
     return {
       ...base,
       ...registered,
@@ -169,21 +168,18 @@ export const AddEditExperimentAssignmentQueryModal: FC<
   };
 
   const handleSubmit = form.handleSubmit(async () => {
-    // CreatableSelect only commits pending text on blur; blur before read so
-    // `getValues` / watch include the last token when Save is clicked.
+    // CreatableSelect only commits pending text on blur; force blur first so the last token is captured.
     (document.activeElement as HTMLElement | null)?.blur?.();
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     const value = composeExposureQueryPayload();
     if (isContextualBanditQuery) {
-      // Format is a hard constraint (these columns are interpolated into SQL),
-      // so reject malformed identifiers before the membership check.
+      // Reject malformed identifiers first since these columns get interpolated into SQL.
       const malformed = getMalformedTargetingAttributeColumnsForExposureQueries(
         [value],
       );
       if (malformed.length > 0) {
-        // Must reject so Modal does not treat submit as success and auto-close
-        // (see Modal.tsx: await submit() then close when autoCloseOnSubmit).
+        // Throw so Modal does not auto-close on success.
         throw malformedTargetingAttributeColumnsValidationError(
           malformed.map((i) => i.column),
         );

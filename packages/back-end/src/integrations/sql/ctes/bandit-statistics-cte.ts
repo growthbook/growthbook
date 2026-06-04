@@ -40,7 +40,6 @@ export function getBanditStatisticsCTE(
     denominatorIsPercentileCapped?: boolean;
   },
 ): string {
-  //for contextual bandits, remove the contextual attributes
   return `-- One row per variation/dimension with aggregations
   , __banditPeriodStatistics AS (
     SELECT

@@ -18,13 +18,8 @@ import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { ReqContext } from "back-end/types/api";
 
-// Swap the runner's one external seam (the Python stats engine) for a jest.fn
-// so we can exercise the row-tagging / context-cap / settings-building glue
-// without depending on the real stats body. The SQL itself is generated and
-// executed inline through the datasource integration (mocked per-test). The
-// orchestrator-module mock keeps the pure helpers (attributesToCondition,
-// getContextualBanditSettingsForStatsEngine, buildSnapshotMetricRequestForCb)
-// real and intercepts only the side-effecting `persistContextualBanditEvent`.
+// Stub the Python stats engine and the side-effecting CBE persistence so we can
+// exercise the row-tagging / context-cap / settings-building glue in isolation.
 jest.mock("back-end/src/enterprise/services/contextualBanditStats", () => ({
   runContextualStatsEngine: jest.fn(),
 }));
@@ -42,8 +37,6 @@ jest.mock("back-end/src/models/MetricModel", () => ({
     new Map([
       [
         "fact__g1",
-        // Minimal fact metric stub — `isFactMetric` keys off `metricType`,
-        // which is all `startQueries` checks.
         {
           id: "fact__g1",
           name: "Goal",
@@ -242,8 +235,7 @@ describe("ContextualBanditResultsQueryRunner", () => {
       const context = makeContext(cb);
       const runner = newRunner(context);
 
-      // Seed the params normally written by startQueries(). Setting them
-      // directly keeps the test from running real SQL bookkeeping.
+      // Seed params normally set by startQueries() to skip the real SQL path.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (runner as any).snapshotSettings = makeSnapshotSettings();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -302,7 +294,6 @@ describe("ContextualBanditResultsQueryRunner", () => {
       expect(statsSettings.contextual_attributes).toEqual(["country"]);
       expect(runParams?.snapshotId).toBe("cbs_1");
       expect(runParams?.decisionMetricId).toBe("fact__g1");
-      // Every row passed to the stats engine has a derived contextId.
       expect(
         taggedRows.every(
           (r) =>
@@ -374,7 +365,6 @@ describe("ContextualBanditResultsQueryRunner", () => {
       });
 
       expect(persistContextualBanditEventMock).toHaveBeenCalledTimes(1);
-      // updateById persists the CBE pointer and weightsWereUpdated flag.
       expect(
         context.models.contextualBanditSnapshots.updateById,
       ).toHaveBeenCalledWith(
@@ -413,7 +403,6 @@ describe("ContextualBanditResultsQueryRunner", () => {
         }),
       );
       expect(updated.status).toBe("error");
-      // No CBE pointer set on error.
       expect(updated.contextualBanditEventId).toBeUndefined();
     });
   });
@@ -423,9 +412,7 @@ describe("ContextualBanditResultsQueryRunner", () => {
       const cb = makeCb();
       const context = makeContext(cb);
       const integration = makeIntegration();
-      // Bypass the abstract base class's `startQuery` bookkeeping by stubbing
-      // it on the runner instance — we only care that the integration call
-      // shape is correct here.
+      // Stub the base class's startQuery; we only care about the integration call shape.
       const runner = newRunner(context, makeCbsModel(), integration);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (runner as any).startQuery = jest

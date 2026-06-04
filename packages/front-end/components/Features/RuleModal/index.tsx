@@ -900,12 +900,6 @@ export default function RuleModal({
             throw new Error("Bandits are a premium feature");
           }
           if (contextualBandit) {
-            // PR-8 Commit 4 dropped `"contextual-bandit"` from the
-            // experimentType enum; Contextual Bandits are no longer
-            // created via the experiment-from-feature-rule flow. The
-            // toggle stays in the UI as a discoverability affordance
-            // but the CB-native creation form is the only supported
-            // path now.
             throw new Error(
               "Create Contextual Bandits from the dedicated Contextual Bandit page (Experiments → Contextual Bandits → New). The feature-rule flow no longer supports CB authoring.",
             );
@@ -1045,13 +1039,9 @@ export default function RuleModal({
           regressionAdjustmentEnabled:
             values.regressionAdjustmentEnabled ?? undefined,
           statsEngine: values.statsEngine ?? undefined,
-          // PR-8 Commit 4 removed the "contextual-bandit" branch here —
-          // CB creation throws above before reaching this object. The
-          // feature-rule wire shape (`validators/features.ts`) keeps
-          // `"contextual-bandit"` in its `experimentType` enum for
-          // backward-compat reading of historical payloads, so we
-          // narrow back to the live `ExperimentInterface` type union
-          // before assigning.
+          // The validator's experimentType enum still includes the legacy
+          // "contextual-bandit" value for historical payloads; narrow it back
+          // to the live ExperimentInterface union before assigning.
           type:
             values.experimentType === "contextual-bandit"
               ? "multi-armed-bandit"

@@ -1,7 +1,4 @@
-// TODO(holdout-v1.5): the holdout-vs-bandit comparison view (the "Is the CB
-// leading to higher reward?" panel from the original engineering plan)
-// attaches in this component. EDF integration for end-of-experiment
-// recommendations also lives here. See contextual-bandit-fix-prompt.md.
+// TODO(holdout-v1.5): attach holdout-vs-bandit comparison view and EDF recommendations here.
 import {
   useEffect,
   useMemo,
@@ -301,8 +298,7 @@ export default function ContextualBanditResultsTable({
 
   const { data: cbResults, mutate: mutateCbResults } =
     useApi<ContextualBanditResultsResponse>(
-      // CB-native REST endpoint — `experiment.id` is a `cb_` id, so the legacy
-      // `/experiment/:id/contextual-bandit/results` route would 404.
+      // `experiment.id` is a `cb_` id, so the legacy route would 404.
       `/api/v1/contextual-bandits/${experiment.id}/results`,
     );
 
@@ -478,10 +474,9 @@ export default function ContextualBanditResultsTable({
                     await apiCall<{
                       snapshotId: string;
                       cbeId?: string;
-                    }>(
-                      `/api/v1/contextual-bandits/${experiment.id}/refresh`,
-                      { method: "POST" },
-                    )
+                    }>(`/api/v1/contextual-bandits/${experiment.id}/refresh`, {
+                      method: "POST",
+                    })
                       .then(() => {
                         refreshAll();
                         setRefreshError("");

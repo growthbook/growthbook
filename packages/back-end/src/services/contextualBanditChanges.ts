@@ -14,59 +14,18 @@ import {
 } from "back-end/src/services/experiment-feature";
 import { SDKPayloadKey } from "back-end/types/sdk-payload";
 
-/**
- * Status transitions for ContextualBandit docs — the CB equivalent of
- * `executeExperimentStart` / `stopExperiment` in
- * `services/experimentChanges/changeExperimentStatus.ts`.
- *
- * Kept deliberately narrow in PR-5:
- *   - No winner / released-variation bookkeeping. CBs don't yet carry a
- *     released-variation concept; that ships with the decision tab in PR-6.
- *   - No status-update scheduling. The scheduled-start agenda job lands
- *     with the auto-snapshot job in a later PR.
- *   - No checklist / approval gating. CBs don't expose a start checklist.
- *
- * Everything that DOES need to happen on start/stop lives here:
- *   - Phase open/close on the CB doc.
- *   - dateStarted / dateStopped timestamps.
- *   - SDK payload refresh for every linked feature, so connections that
- *     reach `getFeatureDefinition` see the new status (and the running CB
- *     becomes eligible for the contextual-bandit-ref payload branch).
- *   - Pending-draft autopublish via the PR-3 helper.
- *
- * Permission checks live at the HTTP boundary (the CB REST handlers added
- * in PR-4/PR-4-cleanup) so these helpers are safe to call from agenda
- * jobs without a user context.
- */
-
-// ---------------------------------------------------------------------------
-// Shared payload-refresh helper
-// ---------------------------------------------------------------------------
-
-/**
- * SDK-payload keys affected by a CB status change. Mirrors `getPayloadKeys`
- * for experiments — uses the CB's `linkedFeatures` to find which envs/projects
- * to refresh. Matches `contextual-bandit-ref` rules pointing at this CB.
- */
+/** SDK-payload keys affected by a CB status change; matches `contextual-bandit-ref` rules pointing at this CB. */
 function getPayloadKeysForContextualBandit(
   context: ReqContext | ApiReqContext,
   cb: ContextualBanditInterface,
 ): SDKPayloadKey[] {
   const environments = getEnvironmentIdsFromOrg(context.org);
-  return getAffectedSDKPayloadKeys(
-    // The features themselves are loaded by the caller; here we only need
-    // the predicate, so build the keys from the in-context linked-features
-    // list. `queueSDKPayloadRefresh` deduplicates downstream.
-    [],
-    environments,
-    (rule) => {
-      if (rule.enabled === false) return false;
-      return (
-        rule.type === "contextual-bandit-ref" &&
-        rule.contextualBanditId === cb.id
-      );
-    },
-  );
+  return getAffectedSDKPayloadKeys([], environments, (rule) => {
+    if (rule.enabled === false) return false;
+    return (
+      rule.type === "contextual-bandit-ref" && rule.contextualBanditId === cb.id
+    );
+  });
 }
 
 async function refreshLinkedFeaturePayloads(
@@ -100,23 +59,10 @@ async function refreshLinkedFeaturePayloads(
   });
 }
 
-// Exported for callers (agenda jobs in a later PR) that don't have
-// linked-feature docs in scope yet.
+// Exported for callers without linked-feature docs in scope.
 export { getPayloadKeysForContextualBandit };
 
-// ---------------------------------------------------------------------------
-// Start
-// ---------------------------------------------------------------------------
-
-/**
- * Core CB start — no permission checks, works from any context (HTTP
- * request or Agenda job).
- *
- * Publishes pending linked feature drafts BEFORE the status flip so a
- * single atomic state transition is observable to the SDK payload refresh
- * that follows. Throws (with `failedFeatureDrafts` attached) if any draft
- * cannot be published — mirrors `executeExperimentStart`.
- */
+/** Core CB start (no permission checks). Publishes pending drafts BEFORE the status flip; throws with `failedFeatureDrafts` on failure. */
 export async function executeContextualBanditStart(
   context: ReqContext | ApiReqContext,
   cb: ContextualBanditInterface,
@@ -138,10 +84,7 @@ export async function executeContextualBanditStart(
 
   const now = new Date();
 
-  // Ensure a phase exists. CBs are typically seeded with an initial phase
-  // by `ContextualBanditModel.processApiCreateBody`, but defensive-creation
-  // here matches `executeExperimentStart`'s default-phase fallback for
-  // older docs that predate the CB-decoupling create flow.
+  // Defensive default-phase fallback for older docs that predate the CB-decoupling create flow.
   const phases =
     cb.phases.length > 0
       ? cb.phases
@@ -176,18 +119,7 @@ export async function executeContextualBanditStart(
   return { updated, publishResult };
 }
 
-// ---------------------------------------------------------------------------
-// Stop
-// ---------------------------------------------------------------------------
-
-/**
- * Core CB stop — no permission checks, works from any context.
- *
- * Closes the current phase (sets `dateEnded` if not already set), records
- * `dateStopped`, and refreshes the SDK payload so the running rule drops
- * out of the experiment-rule emitter. `allowAlreadyStopped` lets idempotent
- * callers (agenda jobs, retries) skip the status-guard error.
- */
+/** Core CB stop (no permission checks). Closes the current phase, records `dateStopped`, refreshes SDK payload. */
 export async function executeContextualBanditStop(
   context: ReqContext | ApiReqContext,
   cb: ContextualBanditInterface,

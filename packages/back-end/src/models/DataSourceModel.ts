@@ -438,15 +438,12 @@ export async function updateDataSource(
   }
 
   if (updates.settings) {
-    // Validate exposure from updates when provided; lodash.merge would keep stale
-    // targetingAttributeColumns when the client sends [] to clear them.
+    // Use updates' exposure when provided so a client-sent [] clears targetingAttributeColumns (lodash.merge would keep stale entries).
     const exposureQueries =
       updates.settings.queries?.exposure !== undefined
         ? updates.settings.queries.exposure
         : datasource.settings?.queries?.exposure;
-    // Only validate newly added targeting columns. Passing the previously
-    // saved exposure queries means a pre-existing column that now references
-    // an archived attribute won't block an otherwise-unrelated update.
+    // Pass previously-saved exposure queries so pre-existing columns referencing archived attributes don't block unrelated updates.
     assertExposureQueriesTargetingAttributeColumnsValid(
       context.org.settings?.attributeSchema,
       exposureQueries,

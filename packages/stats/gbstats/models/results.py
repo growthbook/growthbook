@@ -82,7 +82,6 @@ class BanditResult:
     weightsWereUpdated: bool
 
 
-# examplecontext: { country: { $in: ["UK", "CA", "DE"] } },
 Context = dict[str, Any]
 
 

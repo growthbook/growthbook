@@ -57,7 +57,6 @@ describe("invertSymmetricMatrix", () => {
     expect(result.success).toBe(true);
     const inv = result.inverse!;
 
-    // v · inv should be the identity.
     for (let i = 0; i < 3; i++) {
       for (let j = 0; j < 3; j++) {
         let sum = 0;
@@ -88,10 +87,7 @@ describe("invertSymmetricMatrix", () => {
 });
 
 describe("randomNormal", () => {
-  /**
-   * Linear-interpolated sample quantile (R `quantile` type 7, the default),
-   * assuming `sorted` is ascending.
-   */
+  /** Linear-interpolated sample quantile (R `quantile` type 7), ascending input. */
   function sampleQuantile(sorted: number[], p: number): number {
     const idx = (sorted.length - 1) * p;
     const lo = Math.floor(idx);
@@ -101,12 +97,6 @@ describe("randomNormal", () => {
   }
 
   it("produces tail quantiles that match the theoretical normal", () => {
-    // R template:
-    //   mu <- 3; sigma <- sqrt(2); n_samples <- 1e7
-    //   y <- RandomNormal(n_samples, mu, sigma)
-    //   density <- dnorm(qnorm(q, mu, sigma), mu, sigma)
-    //   tolerance <- sqrt(q * (1 - q) / (n_samples * density^2))
-    //   expect_equal(q_samp, qnorm(q, mu, sigma), tolerance = tolerance)
     const mu = 3;
     const sigma = Math.sqrt(2);
     const nSamples = 1e7;
@@ -114,10 +104,7 @@ describe("randomNormal", () => {
     const samples = randomNormal(nSamples, mu, sigma);
     samples.sort((a, b) => a - b);
 
-    // `tolerance` below is the asymptotic standard error of a sample quantile.
-    // The literal 1-SE check from the template would fail ~32% of the time, so
-    // we allow a fixed multiple of the SE to keep the test stable in CI while
-    // still being tight enough to catch a broken generator.
+    // Allow a multiple of the asymptotic quantile SE; 1-SE alone fails ~32% of the time.
     const N_STANDARD_ERRORS = 6;
 
     for (const q of [0.0001, 0.9999]) {

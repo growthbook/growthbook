@@ -26,8 +26,7 @@ const BaseClass = MakeModelClass({
 });
 
 export class ContextualBanditEventModel extends BaseClass {
-  // ACL is gated at the HTTP boundary; see the matching comment on
-  // ContextualBanditSnapshotModel for the rationale.
+  // ACL is gated at the HTTP boundary; see ContextualBanditSnapshotModel.
   protected canRead(): boolean {
     return true;
   }
@@ -75,9 +74,7 @@ export class ContextualBanditEventModel extends BaseClass {
     );
     return events.filter((e) =>
       e.responses.some(
-        // `deriveContextId` is seeded with the CB id post-PR-8 (matches
-        // the seed used by `persistContextualBanditEvent` when writing
-        // these context ids in the first place).
+        // Seed must match `persistContextualBanditEvent`'s write seed (the CB id).
         (r) => deriveContextId(contextualBandit, r.context) === contextId,
       ),
     );

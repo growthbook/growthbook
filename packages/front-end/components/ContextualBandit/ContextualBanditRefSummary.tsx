@@ -14,17 +14,7 @@ import Text from "@/ui/Text";
 import { getVariationColor } from "@/services/features";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 
-/**
- * Summary card for a `contextual-bandit-ref` feature rule. Parallel to
- * `ExperimentRefSummary` but scoped to the CB-ref shape — keeps the
- * surface area smaller than the experiment summary because CB doesn't
- * yet carry sticky-bucketing, namespace coverage, winner / released
- * variation, or hypothesis-as-tag, so the only useful things to render
- * today are status, variation values, and any current per-leaf weights.
- *
- * When the CB API surfaces those concepts (decision framework in v1.5,
- * holdout in v1.5) this component grows to match.
- */
+/** Summary card for a `contextual-bandit-ref` feature rule (status, variation values, weights). */
 export default function ContextualBanditRefSummary({
   rule,
   feature,
@@ -91,8 +81,7 @@ export default function ContextualBanditRefSummary({
       <Table>
         <TableBody>
           {cb.variations.map((v, i) => {
-            // The rule maps CB variation ids → feature values; fall back
-            // to the variation name when the rule predates a new variation.
+            // Rule may predate a new variation; fall back to the variation name.
             const ruleVariation = rule.variations.find(
               (rv) => rv.variationId === v.id,
             );

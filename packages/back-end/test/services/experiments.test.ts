@@ -1663,11 +1663,6 @@ describe("normalizeStatusUpdateScheduleChanges", () => {
   });
 });
 
-// `maybeCreateContextualBanditDoc` test block removed alongside the
-// function in the CB-decoupling work. The forward-sync helper that
-// previously carried the bridge between experiment writes and CB writes
-// was deleted in PR-8 Commit 5; CBs now own their writes end-to-end.
-
 describe("fillEmptyVariationKeys", () => {
   const makeVariation = (key: string, id = `v_${key || "new"}`): Variation => ({
     id,

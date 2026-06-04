@@ -1883,11 +1883,3 @@ describe("SDK payload generation (scenario-specific)", () => {
     });
   });
 });
-
-// The legacy `contextual-bandit SDK payload capability gating` suite was
-// removed in PR-8 Commit 4: the CB-via-experiment-ref code path it
-// exercised (`exp.type === "contextual-bandit" && exp.contextualBanditId`
-// in `util/features.ts`) was deleted alongside the `"contextual-bandit"`
-// experimentType enum value. CB SDK payload coverage moved to the
-// dedicated `contextual-bandit-ref` rule type, exercised by
-// `sdk-payload-cb-ref.test.ts` and friends.

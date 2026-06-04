@@ -1,15 +1,5 @@
-// Model-agnostic DTO consumed by the SQL/stats pipeline.
-//
-// Historically this was named `ExperimentSnapshotSettings` and lived in
-// `experiment-snapshot.d.ts`, but the same shape is used by Experiments,
-// Contextual Bandits, and ad-hoc snapshot runs — none of which need to
-// share the experiment-shaped vocabulary. Moving the DTO here decouples
-// the SQL/stats integration path from the Experiment model.
-//
-// The sub-types in this file (DimensionForSnapshot, MetricForSnapshot,
-// SnapshotSettingsVariation, SnapshotBanditSettings) are the snapshot-
-// specific descriptors of inputs to a metric query — they are NOT
-// experiment-specific and live here alongside the request DTO.
+// Model-agnostic DTO consumed by the SQL/stats pipeline; shared by Experiments,
+// Contextual Bandits, and ad-hoc snapshot runs.
 import { DimensionInterface } from "./dimension";
 import { AttributionModel, LookbackOverride } from "./experiment";
 import { MetricPriorSettings, MetricWindowSettings } from "./fact-table";
@@ -18,7 +8,7 @@ import { PhaseSQLVar } from "./sql";
 
 export interface MetricForSnapshot {
   id: string;
-  // Settings directly from the Metric object at the time the snapshot was created
+  /** Snapshot-time copy of the Metric object's settings. */
   settings?: Pick<
     MetricInterface,
     | "datasource"
@@ -29,8 +19,7 @@ export interface MetricForSnapshot {
     | "userIdTypes"
     | "type"
   >;
-  // Computed settings that take into account overrides
-  // see MetricSnapshotSettings
+  /** Settings after overrides applied; see MetricSnapshotSettings. */
   computedSettings?: {
     regressionAdjustmentEnabled: boolean;
     regressionAdjustmentAvailable: boolean;
@@ -45,13 +34,10 @@ export interface MetricForSnapshot {
 }
 
 export interface DimensionForSnapshot {
-  // The same format we use today that encodes both the type and id
-  // For example: `exp:country` or `pre:date`
+  /** Encodes type and id (e.g. `exp:country`, `pre:date`). */
   id: string;
-  // Pre-defined dimension levels, if they exist
   slices?: string[];
-  // Dimension settings at the time the snapshot was created
-  // Used to show an "out-of-date" warning on the front-end
+  /** Snapshot-time settings, used by the front-end "out-of-date" warning. */
   settings?: Pick<DimensionInterface, "datasource" | "userIdType" | "sql">;
 }
 
@@ -72,32 +58,16 @@ export interface SnapshotBanditSettings {
   }[];
   useFirstExposure?: boolean;
   windowSettings?: MetricWindowSettings;
-  /**
-   * True when the snapshot is a contextual-bandit run. Set by
-   * `buildSnapshotMetricRequestForCb` directly from the CB doc; CB
-   * snapshots no longer flow through ExperimentInterface so this flag
-   * is sourced exclusively from the CB orchestrator.
-   */
+  /** Set by `buildSnapshotMetricRequestForCb` directly from the CB doc. */
   contextualBandit?: boolean;
-  /** Targeting attribute column aliases from the experiment's exposure query at snapshot time. */
   targetingAttributeColumns?: string[];
-  /**
-   * When false, SQL still emits CUPED covariate aggregates but skips pooled
-   * `__theta` calculation (used by contextual bandits). Defaults to true for MAB.
-   */
+  /** When false, SQL skips pooled `__theta` (used by CB). Defaults to true for MAB. */
   poolRegressionTheta?: boolean;
 }
 
-// Settings that control which queries are run
-// Used to determine which types of analyses are possible
-// Also used to determine when to show "out-of-date" in the UI
 export interface SnapshotMetricRequest {
   dimensions: DimensionForSnapshot[];
-  /**
-   * Experiment-level always-computed unit dimensions.
-   * We use this field to gather the required data in 1 pass, and then this is used
-   * to create individual analyses for each unit dimension.
-   */
+  /** Always-computed unit dimensions gathered in 1 pass and split into per-dimension analyses. */
   precomputedUnitDimensionIds?: string[];
   metricSettings: MetricForSnapshot[];
   goalMetrics: string[];

@@ -1,24 +1,7 @@
 /**
- * TypeScript port of gbstats `models/settings.py`.
- *
- * These mirror the stats-engine input data contract (the JSON payload the
- * back-end sends to gbstats), so field names are kept in the Python snake_case
- * form on purpose. Dataclasses with defaults are modeled as classes whose
- * constructors apply the same defaults; `__post_init__` validation moves into
- * the constructor.
- *
- * Deviation from Python: `bandit_weights_rng` (a `numpy.random.Generator`) is
- * represented by the integer `bandit_weights_seed` it is built from. numpy's
- * RNG has no analog here, and the seed is the only serializable, meaningful
- * part of that field; the deterministic TS weight engine does not draw from it.
- *
- * NOTE: `MetricSettingsForStatsEngine` / `AnalysisSettingsForStatsEngine` also
- * exist as plain types in `shared/types/stats` (consumed by the back-end). The
- * versions here are the self-contained gbstats-model port; keep the two in
- * sync if the wire format changes.
+ * TypeScript port of gbstats `models/settings.py`; snake_case names match the wire format.
+ * `bandit_weights_rng` is represented by the integer seed it was built from.
  */
-
-// --- Type aliases (Python Literal/Union) ---
 
 export type DifferenceType = "relative" | "absolute" | "scaled";
 export type StatsEngine = "bayesian" | "frequentist";
@@ -37,10 +20,7 @@ export type BusinessMetricType = "goal" | "guardrail" | "secondary";
 export const CONTEXTUAL_BANDIT_DIMENSION_COLUMN = "dimension";
 export const CONTEXTUAL_BANDIT_DIMENSION_VALUE = "All";
 
-// Default seed used when a payload omits `bandit_weights_seed`.
 const DEFAULT_BANDIT_WEIGHTS_SEED = 100;
-
-// --- Analysis settings ---
 
 export type AnalysisSettingsForStatsEngineInit = {
   var_names: string[];
@@ -115,8 +95,6 @@ export type BanditWeightsSinglePeriod = {
   total_users: number; // sample size across all variations
 };
 
-// --- Bandit settings ---
-
 export type BanditSettingsForStatsEngineInit = {
   var_names: string[];
   var_ids: string[];
@@ -134,7 +112,6 @@ export class BanditSettingsForStatsEngine {
   current_weights: number[];
   reweight: boolean;
   decision_metric: string;
-  // Replaces numpy `bandit_weights_rng`; see file header.
   bandit_weights_seed: number;
   weight_by_period: boolean;
   top_two: boolean;
@@ -163,9 +140,7 @@ export class ContextualBanditSettingsForStatsEngine extends BanditSettingsForSta
   // Columns used to create context keys (not column values).
   attributes: string[];
   max_leaves: number;
-  // Per-context current weights, keyed by contextId. Distinct from the
-  // inherited single-vector `current_weights`, which only the non-contextual
-  // code path consumes.
+  // Per-context current weights, keyed by contextId (distinct from inherited single-vector).
   current_contextual_weights: Record<string, number[]>;
 
   constructor(args: ContextualBanditSettingsForStatsEngineInit) {
@@ -179,8 +154,6 @@ export class ContextualBanditSettingsForStatsEngine extends BanditSettingsForSta
     }
   }
 }
-
-// --- Query results + metric settings ---
 
 export type ExperimentMetricQueryResponseRows = Record<
   string,
@@ -261,8 +234,6 @@ export type ExperimentDataForStatsEngine = {
   data: Record<string, unknown>;
 };
 
-// --- Payload parsers ---
-
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
     return null;
@@ -277,12 +248,7 @@ function readSeed(raw: Record<string, unknown>): number {
     : Math.trunc(Number(seed));
 }
 
-/**
- * Builds a `BanditSettingsForStatsEngine` from the stats-engine payload.
- * Copies the known fields from `data["bandit_settings"]`, derives the seed
- * (default 100), and ignores extra keys (e.g. `historical_weights`). Returns
- * null when `bandit_settings` is missing/null.
- */
+/** Build a `BanditSettingsForStatsEngine` from the payload, or null when absent. */
 export function getBanditSettings(
   data: Record<string, unknown>,
 ): BanditSettingsForStatsEngine | null {
@@ -301,13 +267,7 @@ export function getBanditSettings(
   });
 }
 
-/**
- * Builds a `ContextualBanditSettingsForStatsEngine` from
- * `data["contextual_bandit_settings"]`. Throws on a shape mismatch (e.g. empty
- * `attributes`) — failing loudly here is intentional, since silently returning
- * null would fall through to the standard analysis path with no contextual
- * output. Returns null only when the payload key is absent/null.
- */
+/** Build `ContextualBanditSettingsForStatsEngine` from payload; throws on shape mismatch. */
 export function getContextualBanditSettings(
   data: Record<string, unknown>,
 ): ContextualBanditSettingsForStatsEngine | null {

@@ -1,31 +1,12 @@
-/**
- * Core Gaussian-Gaussian Thompson weighting for bandit variation weights.
- *
- * `updateVariationWeights` takes the per-variation bandit statistics for one
- * unit of data and returns updated traffic weights. In the contextual case the
- * caller invokes it once per regression-tree leaf (passing that leaf's
- * aggregated arm statistics); in the (not-yet-ported) non-contextual case it
- * would be invoked once over all of the experiment's data. The algorithm
- * mirrors gbstats `Bandits.compute_result` + `get_bandit_result`: posterior
- * moments, best-arm (Thompson) sampling, min-weight clamp + renormalize, and
- * the >=100-units gate.
- *
- * Best-arm probabilities use Monte Carlo draws here, matching Python's approach
- * (so weights are numerically close to, but not bit-identical with, the Python
- * output).
- */
+/** Gaussian-Gaussian Thompson weighting for bandit variation weights. */
 import { randomNormal } from "./utils";
 
-// gbstats bandit prior: GaussianPrior(mean=0, variance=1e4, proper=True).
 const BANDIT_PRIOR_MEAN = 0;
 const BANDIT_PRIOR_VARIANCE = 1e4;
 const BANDIT_PRIOR_PRECISION = 1 / BANDIT_PRIOR_VARIANCE;
-// gbstats BanditConfig.min_variation_weight.
 const MIN_VARIATION_WEIGHT = 0.01;
-// gbstats Bandits.compute_result enough_units gate.
 const MIN_UNITS_PER_VARIATION = 100;
 
-/** Per-variation statistics needed to update bandit weights. */
 export type BanditArmStatistic = {
   n: number;
   mean: number;
@@ -68,7 +49,7 @@ function adaptiveSimpsons(
     const right = simpson(f, m, b);
     const delta = left + right - whole;
 
-    if (depth >= maxDepth) return left + right; // give up, return best estimate
+    if (depth >= maxDepth) return left + right;
 
     // Richardson extrapolation error estimate
     if (Math.abs(delta) <= 15 * tol) {
@@ -87,7 +68,6 @@ function adaptiveSimpsons(
   return { value, error: tol };
 }
 
-// Normal PDF and CDF helpers
 function normalPdf(x: number, mean: number, sd: number): number {
   const z = (x - mean) / sd;
   return Math.exp(-0.5 * z * z) / (sd * Math.sqrt(2 * Math.PI));
@@ -110,16 +90,16 @@ function erf(x: number): number {
   return x >= 0 ? v : -v;
 }
 
-// Main function: probability that arm k has the largest mean
+/** P(arm k has the largest mean) via numeric integration. */
 function probKthArmIsBiggest(
   means: number[],
   sds: number[],
-  k: number, // 0-indexed
+  k: number,
 ): IntegrateResult {
   const integrand = (x: number): number => {
     const pdfK = normalPdf(x, means[k], sds[k]);
 
-    // Sum log-CDFs for numerical stability when K is large
+    // Sum log-CDFs for numerical stability when K is large.
     let logProd = 0;
     for (let i = 0; i < means.length; i++) {
       if (i !== k) {
@@ -130,7 +110,7 @@ function probKthArmIsBiggest(
     return pdfK * Math.exp(logProd);
   };
 
-  // Integrate over +/- 7 sigma around the spread of means for safety
+  // Integrate over +/- 7 sigma around the spread of means for safety.
   const allMeans = means;
   const centre = means[k];
   const spread =
@@ -140,13 +120,7 @@ function probKthArmIsBiggest(
   return adaptiveSimpsons(integrand, centre - spread, centre + spread);
 }
 
-/**
- * P(arm i has the largest value) for independent Normal(mean_i, std_i^2) arms
- * (or the smallest, when `inverse`). When `useApproximate` is true, the
- * probabilities are computed via deterministic adaptive Simpson's quadrature
- * over the closed-form best-arm integral; otherwise they are estimated via
- * Monte Carlo (Thompson) sampling.
- */
+/** P(arm i is largest/smallest); deterministic Simpson when useApproximate, else Monte Carlo. */
 export function thompsonSampler(
   means: number[],
   sigmas: number[],
@@ -180,14 +154,7 @@ export function thompsonSampler(
   return wins.map((w) => w / nSamples);
 }
 
-/**
- * Update bandit variation weights from per-variation statistics.
- *
- * Operates on a single leaf's aggregated arm statistics (contextual case) or on
- * all of the experiment's arm statistics (non-contextual case); the algorithm
- * is identical. When any variation has fewer than 100 units no update is made
- * and the current weights are returned unchanged.
- */
+/** Update bandit variation weights from per-variation statistics (one leaf or all data). */
 export function updateVariationWeights(
   stats: BanditArmStatistic[],
   currentWeights: number[],

@@ -9,9 +9,7 @@ export const getCbSnapshot = createApiRequestHandler(getCbSnapshotValidator)(
       await req.context.models.contextualBanditSnapshots.getBySnapshotIdInOrg(
         req.params.snapshotId,
       );
-    // Guard against cross-CB snapshot access: a customer with read
-    // access to CB-A shouldn't fetch a snapshot belonging to CB-B by
-    // guessing the snapshot id.
+    // Guard against cross-CB access: read on CB-A must not leak CB-B snapshots.
     if (!snapshot || snapshot.contextualBandit !== cb.id) {
       return req.context.throwNotFoundError();
     }

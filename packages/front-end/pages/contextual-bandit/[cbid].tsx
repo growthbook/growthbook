@@ -50,9 +50,6 @@ const ContextualBanditExperimentPage = (): ReactElement => {
   >(null);
   const [checklistHardBlockerCount, setChecklistHardBlockerCount] = useState(0);
 
-  // Post-PR-8 Commit 3 the URL parameter is always a CB id — the
-  // experiment-id-in-URL fallback was retired with the paired-experiment
-  // FK. `useContextualBandit` handles the single-doc fetch.
   const rawId = typeof cbid === "string" ? cbid : "";
   const {
     contextualBandit: cb,
@@ -97,11 +94,7 @@ const ContextualBanditExperimentPage = (): ReactElement => {
     );
   }
 
-  // Write endpoint for the CB-native edit modals refactored in Step 2.
-  // Phase-shape modals (NewPhase / EditPhase / EditPhases) intentionally
-  // continue to call the legacy experiment route this session — phase
-  // shape differs between CB and experiment, and that move is the
-  // remaining C2 punt for PR-8.
+  // Phase-shape modals still call legacy experiment routes; phase shape diverges.
   const cbUpdateEndpoint = `/api/v1/contextual-bandits/${cb.id}`;
   const cbStopEndpoint = `/api/v1/contextual-bandits/${cb.id}/stop`;
 
@@ -136,12 +129,7 @@ const ContextualBanditExperimentPage = (): ReactElement => {
     ? () => setTargetingModalOpen(true)
     : null;
 
-  // TODO(pr-8): CBs don't ship linked-feature info on the GET response
-  // yet. The CB doc carries `linkedFeatures: string[]` (feature IDs
-  // maintained by `featureContextualBanditSync.ts`) but expanding them
-  // into `LinkedFeatureInfo[]` requires a parallel feature fetch we
-  // haven't wired up yet. Leave empty for session 1 so the tab tree
-  // renders; PR-8 plumbs the real data through the CB GET response.
+  // TODO(pr-8): plumb linked-feature info through the CB GET response.
   const linkedFeatures = [];
 
   const safeToEdit =
@@ -257,14 +245,7 @@ const ContextualBanditExperimentPage = (): ReactElement => {
           source="cbid"
         />
       )}
-      {/*
-       * TODO(pr-8): phase-shape modals (NewPhase, EditPhase, EditPhases)
-       * continue to write through the legacy /experiment/:id/phase[/i]
-       * route this session because the CB and experiment phase shapes
-       * diverge (CB: currentLeafWeights; experiment: banditEvents +
-       * name/reason). The CB→Experiment forward-sync (Step 4) does NOT
-       * cover phases, so these writes hit the experiment doc directly.
-       */}
+      {/* TODO(pr-8): phase-shape modals still write through the legacy experiment phase route. */}
       {phaseModalOpen && (
         <NewPhaseForm
           close={() => setPhaseModalOpen(false)}

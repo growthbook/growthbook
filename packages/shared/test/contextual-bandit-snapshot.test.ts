@@ -54,7 +54,6 @@ describe("contextualBanditSnapshotSettingsValidator", () => {
     const parsed = contextualBanditSnapshotSettingsValidator.parse(original);
 
     expect(parsed).toEqual(original);
-    // Round-trip identity for nested arrays/records as well.
     expect(parsed.variations).toEqual(original.variations);
     expect(parsed.metricSettings).toEqual(original.metricSettings);
     expect(parsed.contextualAttributes).toEqual(original.contextualAttributes);
@@ -84,8 +83,7 @@ describe("contextualBanditSnapshotSettingsValidator", () => {
   });
 
   it("rejects `guardrailMetrics` (strict mode forbids unknown keys)", () => {
-    // This is the core invariant: even if an experiment doc carries
-    // guardrailMetrics, the CB snapshot settings must NEVER allow them in.
+    // Core invariant: CB snapshot settings must NEVER admit experiment-only fields.
     const bogus = {
       ...buildSettings(),
       guardrailMetrics: ["met_guard"],
@@ -93,10 +91,7 @@ describe("contextualBanditSnapshotSettingsValidator", () => {
     const result = contextualBanditSnapshotSettingsValidator.safeParse(bogus);
     expect(result.success).toBe(false);
     if (!result.success) {
-      // Strict-mode rejection surfaces as an `unrecognized_keys` issue. The
-      // exact path depends on the zod version (in v4 the path is empty + the
-      // offending keys live on the issue itself; in older versions the path
-      // includes the key). Accept either by searching the serialized issue.
+      // Issue path differs across zod versions; search the serialized form.
       const serialized = JSON.stringify(result.error.issues);
       expect(serialized).toMatch(/guardrailMetrics/);
     }
@@ -113,7 +108,6 @@ describe("contextualBanditSnapshotSettingsValidator", () => {
 
   it("rejects a missing required field", () => {
     const partial = buildSettings();
-    // Drop the required `treeModel` field.
     delete (partial as Partial<ContextualBanditSnapshotSettings>).treeModel;
     const result = contextualBanditSnapshotSettingsValidator.safeParse(partial);
     expect(result.success).toBe(false);

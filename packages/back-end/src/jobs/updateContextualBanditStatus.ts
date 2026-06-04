@@ -5,27 +5,10 @@ import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizatio
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { logger } from "back-end/src/util/logger";
 
-/**
- * Background agenda job for scheduled CB status transitions.
- *
- * Parallel to `updateExperimentStatus.ts` but scoped to ContextualBandit
- * docs. Polls CBs whose `nextScheduledStatusUpdate.date` is due and runs
- * the requested transition (start today; stop will follow once
- * `statusUpdateSchedule.stopAt` lands per the experiment TODO).
- *
- * Retry semantics mirror the experiment job: each failure increments
- * `failedAttempts`; once the count hits the cap the schedule is cleared
- * and a terminal warning event is recorded (Slack / email / webhook
- * subscribers come with the v1.5 CB notifications work — for now we just
- * audit and log).
- */
-
 const QUEUE_CB_STATUS_UPDATES = "queueContextualBanditScheduledStatusUpdates";
 const UPDATE_SINGLE_CB_STATUS = "updateSingleContextualBanditStatus";
 
-// Caps retries of a scheduled CB status transition. Mirrors the experiment
-// job's value — if a CB's linked-feature draft has a persistent merge
-// conflict or approval block, we don't want the agenda to retry forever.
+// Cap retries so a persistently failing CB doesn't get retried forever.
 const SCHEDULED_STATUS_UPDATE_MAX_ATTEMPTS = 5;
 
 type UpdateSingleCBStatusJob = Job<{
@@ -48,7 +31,6 @@ export default async function (agenda: Agenda) {
   async function startUpdateJob() {
     const job = agenda.create(QUEUE_CB_STATUS_UPDATES, {});
     job.unique({});
-    // Same cadence as the experiment status job.
     job.repeatEvery("1 minute");
     await job.save();
   }
@@ -77,8 +59,7 @@ const updateSingleCBStatus = async (job: UpdateSingleCBStatusJob) => {
   const cb = await context.models.contextualBandits.getById(cbId);
   if (!cb) return;
 
-  // Already past the transition window — clear the schedule and bail
-  // (matches the experiment job's archived/already-transitioned guard).
+  // Past the transition window: clear the schedule and bail.
   if (cb.archived || cb.status === "running" || cb.status === "stopped") {
     logger.info(
       `Skipping CB status update: ${cb.id} is ${cb.archived ? "archived" : cb.status}`,
@@ -120,8 +101,7 @@ const updateSingleCBStatus = async (job: UpdateSingleCBStatusJob) => {
 
         const cbBefore = cb;
         const { updated } = await executeContextualBanditStart(context, cb);
-        // Clear the schedule on success; the start helper itself doesn't
-        // know it was schedule-driven, so we do the bookkeeping here.
+        // Clear the schedule on success (start helper is schedule-agnostic).
         const cleared = await context.models.contextualBandits.update(updated, {
           nextScheduledStatusUpdate: null,
         });
@@ -135,9 +115,7 @@ const updateSingleCBStatus = async (job: UpdateSingleCBStatusJob) => {
         });
         break;
       }
-      // TODO(schedule-status-updates): handle "stop" once
-      // statusUpdateScheduleValidator carries `stopAt` — mirrors the
-      // experiment-side TODO so the two stay aligned.
+      // TODO(schedule-status-updates): handle "stop" once `statusUpdateScheduleValidator` carries `stopAt`.
       default:
         logger.info(
           `Skipping CB status update: ${cb.id} has unsupported scheduled type ${scheduled.type}`,
@@ -163,9 +141,7 @@ const updateSingleCBStatus = async (job: UpdateSingleCBStatusJob) => {
       );
     }
 
-    // Persist the new attempt count (or clear the schedule once we've hit
-    // the cap). Wrapped so a failure to record state doesn't mask the
-    // original error in the logs.
+    // Persist the attempt count (or clear on cap); wrapped so a state-write failure can't mask the original error.
     try {
       await context.models.contextualBandits.update(cb, {
         nextScheduledStatusUpdate: willRetry
@@ -179,8 +155,6 @@ const updateSingleCBStatus = async (job: UpdateSingleCBStatusJob) => {
       );
     }
 
-    // v1.5: dispatch Slack / email / webhook notifications here once the CB
-    // notifications subscriber surface lands (mirrors
-    // `notifyScheduledStatusUpdateFailed` on the experiment side).
+    // TODO(v1.5): dispatch Slack/email/webhook notifications once the CB subscriber surface lands.
   }
 };

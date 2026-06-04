@@ -777,13 +777,6 @@ export function getFeatureDefinition({
             });
             rule.weights = phase.variationWeights;
 
-            // CB-typed experiments no longer exist post-PR-8: CBs are
-            // sourced exclusively from `contextual-bandit-ref` feature
-            // rules, which are rendered by the dedicated branch below
-            // and inject `isContextualBandit` / `attributesRequired`
-            // directly from the CB doc rather than from a paired
-            // Experiment.
-
             rule.key = exp.trackingKey;
             const phaseVariations = getLatestPhaseVariations(exp);
             rule.meta = includeExperimentNames
@@ -830,28 +823,17 @@ export function getFeatureDefinition({
           return rule;
         }
 
-        // Contextual-bandit reference rules: parallel to experiment-ref but
-        // sourced from the CB doc directly, with no parent experiment. SDK
-        // wire format is identical to a CB-driven experiment-rule — the
-        // payload builder produces an `experiment-rule` shape decorated
-        // with `isContextualBandit`, `attributesRequired`, and (eventually)
-        // `contexts`. SDKs that lack the `contextualBandits` capability get
-        // a byte-equivalent payload without the CB-specific fields and fall
-        // back to MAB on `phase.variationWeights`, matching the legacy
-        // experiment-ref + CB-typed-experiment path.
+        // Contextual-bandit reference rules: parallel to experiment-ref but sourced
+        // directly from the CB doc; SDKs without `contextualBandits` capability fall back to MAB.
         if (r.type === "contextual-bandit-ref") {
           const cb = cbMap?.get(r.contextualBanditId);
           if (!cb) return null;
 
-          // Never include CB drafts.
           if (cb.status === "draft") return null;
 
           const phase = cb.phases[cb.phases.length - 1];
           if (!phase) return null;
 
-          // Condition + targeting come off the CB phase, mirroring the
-          // experiment-ref path. CB phases don't yet carry `savedGroups` or
-          // `prerequisites`, so we only need the raw condition string.
           const phaseCondition = getParsedCondition(groupMap, phase.condition);
           if (phaseCondition) {
             rule.condition = phaseCondition;
@@ -874,15 +856,10 @@ export function getFeatureDefinition({
           rule.hashVersion = cb.hashVersion;
 
           if (cb.status === "stopped") {
-            // CBs don't yet track a `releasedVariationId` on stop, so a
-            // stopped CB simply drops out of the payload — equivalent to a
-            // stopped experiment with no released variation. The decision
-            // tab in PR-6 will introduce a release-variation concept; until
-            // then we fall through to `return null`.
+            // CBs don't yet track `releasedVariationId`; a stopped CB drops out of the payload.
             return null;
           }
 
-          // Running CB: emit the SDK experiment-rule.
           rule.variations = cb.variations.map((v) => {
             const variation = r.variations?.find(
               (rv) => rv.variationId === v.id,
@@ -899,9 +876,7 @@ export function getFeatureDefinition({
           if (cbCapable) {
             rule.isContextualBandit = true;
             rule.attributesRequired = cb.contextualAttributes;
-            // TODO(post-stats-engine): same caveat as the experiment-ref
-            // branch — omit `rule.contexts` until per-leaf split predicates
-            // are emitted.
+            // TODO(post-stats-engine): emit `rule.contexts` once per-leaf split predicates exist.
           }
 
           rule.key = cb.trackingKey;

@@ -38,10 +38,7 @@ export function getBanditVariationPeriodWeights(
 export function getBanditDates(
   banditSettings: SnapshotBanditSettings | undefined,
 ): Date[] | undefined {
-  // Contextual bandits weight variations in TypeScript from raw summable stats,
-  // so they skip the multi-armed-bandit period weighting and run through the
-  // same aggregation as a standard experiment. Short-circuit here so every
-  // caller treats the CB path as "no bandit dates" without re-checking.
+  // CBs weight in TS from raw stats and skip MAB period weighting; short-circuit so callers see "no bandit dates".
   if (banditSettings?.contextualBandit) {
     return undefined;
   }

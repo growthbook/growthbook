@@ -14,7 +14,6 @@ function rows(
   return data as unknown as ExperimentMetricQueryResponseRows;
 }
 
-/** A count-metric row whose arm has the given posterior mean and within-arm variance. */
 function countRow(
   country: string,
   variation: string,
@@ -89,8 +88,7 @@ describe("computeContextualBanditWeights", () => {
 
     const weights = r.updatedWeights as number[];
     expect(weights[1]).toBeGreaterThan(weights[0]);
-    // The loser is clamped to the 0.01 floor before the set renormalizes to 1,
-    // so it lands just under 0.01 (0.01 / (0.01 + ~0.99)).
+    // Loser clamped to 0.01 floor, then renormalized => just under 0.01.
     expect(weights[0]).toBeGreaterThan(0);
     expect(weights[0]).toBeLessThan(0.02);
     expect(weights.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 6);
@@ -104,7 +102,6 @@ describe("computeContextualBanditWeights", () => {
 
     const result = computeContextualBanditWeights(input(data, true));
     const weights = result.responses[0].updatedWeights as number[];
-    // With inverse, the lower-mean arm (v0) should win.
     expect(weights[0]).toBeGreaterThan(weights[1]);
   });
 
@@ -125,10 +122,8 @@ describe("computeContextualBanditWeights", () => {
 
   it("splits differing contexts into separate leaves with distinct weights", () => {
     const data = rows([
-      // US: v1 is better
       countRow("US", "v0", 200, 1),
       countRow("US", "v1", 200, 2),
-      // CA: v0 is better
       countRow("CA", "v0", 200, 2),
       countRow("CA", "v1", 200, 1),
     ]);
@@ -178,8 +173,7 @@ describe("computeContextualBanditWeights", () => {
     const second = computeContextualBanditWeights(input(data));
     const w1 = first.responses[0].updatedWeights as number[];
     const w2 = second.responses[0].updatedWeights as number[];
-    // Thompson sampling is Monte Carlo, so weights vary slightly run-to-run
-    // (best-arm SE ~1e-3 at 1e5 samples); require closeness, not equality.
+    // Monte Carlo Thompson sampling: require closeness, not equality.
     expect(w1).toHaveLength(w2.length);
     w1.forEach((w, i) => {
       expect(Math.abs(w - w2[i])).toBeLessThan(0.02);

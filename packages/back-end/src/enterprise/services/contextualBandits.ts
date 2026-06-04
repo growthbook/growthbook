@@ -25,21 +25,6 @@ import {
   ContextualBanditSettingsForStatsEngine,
 } from "./contextualBanditStats";
 
-/**
- * Orchestrates one contextual-bandit snapshot run end-to-end.
- *
- * High-level flow:
- *   1. Resolve CB doc + datasource + integration + exposure-assignment query.
- *   2. Freeze a typed `ContextualBanditSnapshotSettings` so the run is
- *      reproducible even if the parent CB doc mutates afterward.
- *   3. Open the CBS doc (`status: "running"`, `runStarted: null`, with the
- *      frozen settings already persisted as `frozenSettings`).
- *   4. Hand control to `ContextualBanditResultsQueryRunner`, which owns the
- *      SQL query lifecycle, the stats-engine call, and (on success) the
- *      side effects in `persistContextualBanditEvent`.
- *   5. Re-read the CBS to surface the final status + the CBE id back to the
- *      caller. Throws if the runner left the CBS in `"error"`.
- */
 export type ContextualBanditResultsForUi = {
   contextualBanditSnapshot: ContextualBanditSnapshot | null;
   latest: SnapshotStatusSummary | null;
@@ -112,8 +97,7 @@ export async function runContextualBanditSnapshot(
   phase: number,
   opts: { triggeredBy: "manual" | "scheduled"; triggeredByUser?: string },
 ): Promise<{ snapshotId: string; cbeId?: string }> {
-  // Defense-in-depth: callers already gate this; check again so future callers
-  // (background jobs, internal scripts) can't bypass licensing.
+  // Defense-in-depth: re-check licensing so background jobs / internal callers can't bypass.
   if (!context.hasPremiumFeature("contextual-bandits")) {
     context.throwPlanDoesNotAllowError(
       "Contextual Bandits require an Enterprise plan.",
@@ -185,15 +169,7 @@ export async function runContextualBanditSnapshot(
   };
 }
 
-/**
- * Derives stable leaf ids from per-leaf targeting conditions.
- *
- * The `seed` is mixed into `deriveContextId` to namespace ids per parent.
- * Post-PR-8 the seed is the CB id; pre-decoupling it was the paired
- * experiment id. Always pass the same seed used when reading existing
- * `currentLeafWeights` off the CB doc so context-id matching stays
- * internally consistent.
- */
+/** Derives stable leaf ids from per-leaf targeting conditions; seed must match the one used when reading `currentLeafWeights`. */
 export function leafWeightsFromContextualBanditResult(
   seed: string,
   result: ContextualBanditResult,
@@ -229,25 +205,7 @@ export function contextualBanditWeightsWereUpdated(
   });
 }
 
-/**
- * Persists the result of one CB run to Mongo and fans out the side effects.
- *
- * Called from `ContextualBanditResultsQueryRunner.updateModel` on the
- * `succeeded` transition. The runner owns the CBS status / `queries` /
- * `runStarted` / `contextualBanditEventId` writes; this function only owns
- * the artifacts that aren't part of the CBS doc itself (CBE create, parent
- * CB patch, SDK payload refresh).
- *
- * Responsibilities (in order):
- *   1. Create a new ContextualBanditEvent doc with the stats engine output.
- *   2. Patch the parent CB doc's `phases[phase].currentLeafWeights`.
- *   3. Fire SDK payload refresh so live SDKs pick up the new weights.
- *
- * SMITH: every new Python output field needs two synchronized updates:
- *   - the CBE create payload below, AND
- *   - the validators in shared/src/validators/contextual-bandit-event.ts.
- * Keep the function signature stable — the query runner depends on it.
- */
+/** Persists one CB run's side effects: creates the CBE doc, patches parent CB phase weights, refreshes SDK payload. */
 export async function persistContextualBanditEvent(
   context: ReqContext,
   cbs: ContextualBanditSnapshotInterface,
@@ -268,7 +226,6 @@ export async function persistContextualBanditEvent(
   );
   const leafWeights = leafWeightsFromContextualBanditResult(cb.id, result);
 
-  // 1. Create CBE doc
   const cbe = await context.models.contextualBanditEvents.create({
     contextualBandit: cb.id,
     phase: cbs.phase,
@@ -280,7 +237,6 @@ export async function persistContextualBanditEvent(
     weightsWereUpdated,
   });
 
-  // 2. Patch parent CB doc's per-phase weights
   if (leafWeights.length > 0) {
     await context.models.contextualBandits.patchPhaseWeights(
       cb.id,
@@ -289,9 +245,6 @@ export async function persistContextualBanditEvent(
     );
   }
 
-  // 3. Refresh SDK payload so live clients pick up the new weights.
-  // Sourced from the CB's `linkedFeatures` (PR-3) — no experiment lookup
-  // needed.
   const payloadKeys = getPayloadKeysForContextualBandit(context, cb);
   if (payloadKeys.length > 0) {
     queueSDKPayloadRefresh({
@@ -325,17 +278,7 @@ export function attributesToCondition(
   return result;
 }
 
-/**
- * Pure transform: builds the frozen snapshot settings persisted on the CBS doc.
- *
- * Mirrors the *shape* of `SnapshotMetricRequest` for the fields that
- * apply, but is intentionally a separate type. Notably: no `guardrailMetrics`
- * (CB has a single decision metric in MVP, and the validator's `.strict()`
- * rejects it anyway).
- *
- * The output is what gets stored in `CBS.frozenSettings` so a run is
- * reproducible even if the parent CB doc mutates later.
- */
+/** Builds the frozen snapshot settings stored on CBS so the run is reproducible if the parent CB mutates. */
 export function buildContextualBanditSnapshotSettings(
   cb: ContextualBanditInterface,
   phase: number,
@@ -345,12 +288,6 @@ export function buildContextualBanditSnapshotSettings(
   const cbPhase = cb.phases[phase];
   const numVariations = cb.variations?.length || 1;
 
-  // The frozen `experimentId` on the snapshot settings DTO is the
-  // identifier the SQL pipeline (snapshot query CTEs, trackingKey
-  // fallback) keys on. Post-PR-8 Commit 3 the CB is its own root —
-  // there is no paired experiment id to fall back to, so `cb.id` is
-  // authoritative for both the snapshot id and the trackingKey
-  // fallback.
   return {
     experimentId: cb.id,
     trackingKey: cb.trackingKey || cb.id,
@@ -364,26 +301,18 @@ export function buildContextualBanditSnapshotSettings(
 
     goalMetrics: cb.goalMetrics ?? [],
     secondaryMetrics: cb.secondaryMetrics ?? [],
-    // TODO(D1.1): mirror `getMetricForSnapshot` from services/experiments.ts
-    // and produce a typed MetricForSnapshot[]. For now we key the raw
-    // overrides by metric id to satisfy `z.record(z.string(), z.unknown())`.
     metricSettings: Object.fromEntries(
       (cb.metricOverrides ?? []).map((m) => [m.id, m]),
     ),
 
-    // Per-period weights live on the CB phase row. Falls back to an even
-    // split when the phase is freshly created and the start hook hasn't
-    // populated `variationWeights` yet — matches the pre-decoupling
-    // behaviour where the experiment phase had the same optionality.
+    // Falls back to an even split when `variationWeights` hasn't been populated yet.
     variations: (cb.variations ?? []).map((v, i) => ({
       id: v.id,
       weight: cbPhase?.variationWeights?.[i] ?? 1 / numVariations,
     })),
 
     maxContexts: cb.maxContexts,
-    // `cb.treeModel` is typed as `z.string()` on the CB validator; narrow
-    // defensively so the strict snapshot validator never trips on a stray
-    // legacy/free-form value.
+    // Narrow defensively so the strict snapshot validator rejects stray legacy values.
     treeModel:
       cb.treeModel === "linear_thompson"
         ? "linear_thompson"
@@ -399,27 +328,11 @@ export function buildContextualBanditSnapshotSettings(
     reweight: true,
     banditWeightsSeed: phase,
 
-    // TODO(holdout-v1.5): `holdoutPercent` (and likely a holdout seed) will
-    // need to be threaded into the frozen snapshot settings so the SQL runner
-    // can split traffic into train_id=0 (holdout) and train_id=1 (bandit)
-    // buckets, and the stats engine can compute a holdout-vs-bandit lift
-    // comparison alongside the per-leaf weights. See
-    // contextual-bandit-fix-prompt.md for the full plug-in list.
+    // TODO(holdout-v1.5): thread `holdoutPercent` + seed so SQL can split train_id=0/1 and stats can compute holdout-vs-bandit lift.
   };
 }
 
-/**
- * Translates the parallel-pipeline `ContextualBanditSnapshotSettings` into the
- * shape `SqlIntegration.getSnapshotMetricQuery` expects.
- *
- * Sets `banditSettings.contextualBandit = true` and
- * `banditSettings.targetingAttributeColumns` so the contextual-bandit CTEs in
- * `contextual-bandit-experiment-units-cte.ts` fire on the warehouse side.
- *
- * The flag is sourced exclusively from the CB orchestrator — CB-typed
- * experiments no longer exist on the experiment interface, so there is
- * no fallback path here.
- */
+/** Translates `ContextualBanditSnapshotSettings` into the `SnapshotMetricRequest` shape used by `SqlIntegration.getSnapshotMetricQuery`. */
 export function buildSnapshotMetricRequestForCb(
   cbSnapshotSettings: ContextualBanditSnapshotSettings,
 ): SnapshotMetricRequest {
@@ -435,11 +348,7 @@ export function buildSnapshotMetricRequestForCb(
     secondaryMetrics: cbSnapshotSettings.secondaryMetrics,
     guardrailMetrics: [],
     activationMetric: null,
-    // The CB-side `metricSettings` is a loose `Record<string, unknown>` keyed
-    // by metric id; the standard pipeline expects an array of typed
-    // `MetricForSnapshot` entries. CB v1 doesn't apply per-metric overrides
-    // at SQL gen time, so an empty array is the safe default. Tighten when
-    // CB plan D1.1 lands.
+    // CB v1 doesn't apply per-metric overrides at SQL gen time; empty array is the safe default.
     metricSettings: [],
     variations: cbSnapshotSettings.variations,
     dimensions: [],
@@ -468,17 +377,9 @@ export function buildSnapshotMetricRequestForCb(
   };
 }
 
-/**
- * Whether updated contextual bandit variation weights are computed by the
- * Python stats engine (`true`) or in TypeScript by
- * `computeContextualBanditWeights` (`false`). Hardcoded for now; flip to
- * `false` to use the TypeScript path.
- */
+/** Whether updated CB variation weights are computed by the Python stats engine (`true`) or in TypeScript (`false`). */
 const UPDATE_WEIGHTS_USING_PYTHON = false;
 
-/**
- * Builds the settings object passed to the stats engine.
- */
 export function getContextualBanditSettingsForStatsEngine(
   cb: ContextualBanditInterface,
   phase: number,

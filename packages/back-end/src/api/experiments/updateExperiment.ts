@@ -53,11 +53,6 @@ export const updateExperiment = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
-  // PR-8 dropped `"contextual-bandit"` from the experimentType enum;
-  // the validator now rejects CB-typed payloads before they reach this
-  // handler. CB authoring lives exclusively at
-  // POST /api/v1/contextual-bandits.
-
   assertExperimentPayloadCommercialFeatures(req.context, {
     postStratificationEnabled: req.body.postStratificationEnabled,
     decisionFrameworkSettings: req.body.decisionFrameworkSettings,

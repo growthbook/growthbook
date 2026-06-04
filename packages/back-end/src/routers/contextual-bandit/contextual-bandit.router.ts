@@ -8,8 +8,7 @@ const contextualBanditController = wrapController(
   rawContextualBanditController,
 );
 
-// Internal UI endpoints mounted at the app root so the existing
-// /experiment/:id/... namespace is preserved.
+// Mounted at app root to preserve the existing /experiment/:id/... namespace.
 router.get(
   "/experiment/:id/contextual-bandit/results",
   contextualBanditController.getContextualBanditResults,

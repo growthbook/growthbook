@@ -432,24 +432,8 @@ export class Permissions {
     );
   };
 
-  // ---------------------------------------------------------------------
-  // Contextual Bandit permissions
-  //
-  // CB shares the experiment underlying permissions (`createAnalyses` for
-  // project-scoped operations and `runExperiments` for env-scoped ones) —
-  // see the CB decoupling plan §2: an org that grants `runExperiments` in
-  // an environment already trusts the grantee to start/stop bandits in
-  // that environment, so introducing a separate `runBandits` permission
-  // would add user-facing complexity without a security benefit.
-  //
-  // The dedicated method surface exists so callers don't need to pass a
-  // parent ExperimentInterface and so future divergence (e.g., a CB-only
-  // permission tier) is a non-breaking change.
-  // ---------------------------------------------------------------------
-
-  // Frontend helper to gate "Create Contextual Bandit" UI.
   // Pass allProjects on list pages where "All Projects" may be selected;
-  // omit it when checking a specific resource's project or global-only access.
+  // omit it when checking a specific resource's project.
   public canViewContextualBanditModal = (
     project?: string,
     allProjects?: { id: string }[],

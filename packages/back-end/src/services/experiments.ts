@@ -4315,15 +4315,7 @@ export function updateExperimentApiPayloadToInterface(
   return changes;
 }
 
-/**
- * Narrow input shape for `getSettingsForSnapshotMetrics` — only the metric-list
- * + RA + metric-override fields the helper actually reads. Widened from
- * `ExperimentInterface` so the contextual-bandit snapshot orchestrator
- * (which has a `ContextualBanditInterface`, not an `ExperimentInterface`)
- * can call the same helper without a cast. Both
- * `ExperimentInterface` and `ContextualBanditInterface` are assignable to
- * this shape today (PR-2 added the CB-native metric fields).
- */
+/** Narrow input shape for `getSettingsForSnapshotMetrics` so CB callers can pass a `ContextualBanditInterface`. */
 export type SnapshotMetricsLike = Pick<
   ExperimentInterface,
   | "goalMetrics"
@@ -5028,14 +5020,11 @@ export async function validateContextualBanditExperimentForSave(
     return;
   }
 
-  // Contextual bandits require the decision metric (first goal metric) to be a
-  // fact metric.
   const decisionMetricId = params.goalMetrics?.[0];
   if (decisionMetricId && !isFactMetricId(decisionMetricId)) {
     throw new Error("Contextual bandit decision metric must be a fact metric.");
   }
 
-  // Block datasource / exposureQueryId changes for existing contextual-bandit experiments
   if (params.existingExperiment?.contextualBanditId) {
     const existing = params.existingExperiment;
     if (
@@ -5071,25 +5060,13 @@ export async function validateContextualBanditExperimentForSave(
   });
 }
 
-/**
- * Creates the linked ContextualBandit doc when a new contextual bandit
- * experiment is saved, and patches the experiment with `contextualBanditId`.
- *
- * Idempotent: if a CB doc already exists for the experiment it is a no-op.
- */
+/** Idempotently creates the linked ContextualBandit doc for a CB experiment and back-patches `contextualBanditId`. */
 export async function maybeCreateContextualBanditDoc(
   context: ReqContext,
   experiment: ExperimentInterface,
 ): Promise<void> {
-  // TODO(holdout-v1.5): when holdout ships,
-  // `createContextualExperimentInterface` (per the original engineering plan)
-  // will need a sibling holdout-experiment doc, and the bandit creation flow
-  // will create both. See contextual-bandit-fix-prompt.md.
   if (experiment.type !== "contextual-bandit") return;
 
-  // Defense-in-depth: every code path that creates a CB experiment should
-  // already have gated on this feature flag, but block here too so a future
-  // caller can't accidentally bypass licensing.
   if (!context.hasPremiumFeature("contextual-bandits")) {
     context.throwPlanDoesNotAllowError(
       "Contextual Bandits require an Enterprise plan.",
@@ -5127,16 +5104,12 @@ export async function maybeCreateContextualBanditDoc(
     treeModel: "regression_tree",
     minUsersPerLeaf: 100,
     maxLeaves: 12,
-    // TODO(holdout-v1.5): inert defaults; the model also declares defaultValues
-    // for these so future create-sites (migrations, dangerous bypass paths)
-    // don't need to repeat them.
     holdoutPercent: 0,
     stickyBucketing: false,
     canonicalFormVersion: 1,
     phases: [{ dateStarted: new Date(), currentLeafWeights: [] }],
   });
 
-  // Back-patch the experiment doc so callers can discover the CB doc
   await updateExperiment({
     context,
     experiment,

@@ -36,11 +36,6 @@ export const experimentsRoutes: OpenApiRoute[] = [
   postVariationImageUpload,
   deleteVariationScreenshot,
   getExperimentNames,
-  // Legacy `/experiments/:id/contextual-bandit/*` route handlers (refresh,
-  // current, results, phase, snapshots, snapshot, events, event) were
-  // deleted in PR-8 Commit 6 along with their validators. Use the CB-native
-  // `/api/v1/contextual-bandits/*` surface (defined in
-  // `shared/src/validators/contextual-bandit.ts`) instead.
   // VisualChangeset Endpoints (mounted under /experiments)
   listVisualChangesets,
   postVisualChangesets,

@@ -1331,16 +1331,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 isDraft={isDraft}
               />
             )}
-            {/*
-             * Contextual-bandit-ref rules don't have a dedicated summary
-             * component yet (would need to load the CB doc + render its
-             * weights / contexts). For now we render the bare minimum so
-             * the rule is visible — link to the CB detail page and show
-             * the variations the SDK will emit. ExperimentRefSummary-class
-             * details (status, conversion progress, etc.) will come with
-             * the dedicated ContextualBanditRefSummary in a follow-up
-             * PR-6 commit.
-             */}
             {rule.type === "contextual-bandit-ref" && (
               <ContextualBanditRefSummary rule={rule} feature={feature} />
             )}

@@ -190,10 +190,8 @@ export default function BanditRefNewFields({
   const settings = useOrgSettings();
   const { namespaces } = useOrgSettings();
 
-  // Contextual bandits drive arm weights from targeting attribute contexts,
-  // so they skip the standard saved-group / condition / prerequisite
-  // targeting step. Regular multi-armed bandits keep it. Step indices shift
-  // accordingly: the metrics/data-source step is the last page in either case.
+  // Contextual bandits skip the targeting step (arm weights come from
+  // targeting attribute contexts), shifting the metrics step from 3 to 2.
   const showTargetingStep = !contextualBandit;
   const metricsStep = contextualBandit ? 2 : 3;
 

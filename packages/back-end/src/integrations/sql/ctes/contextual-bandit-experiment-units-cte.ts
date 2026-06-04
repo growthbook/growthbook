@@ -32,14 +32,7 @@ export function appendContextualBanditTargetingAttributeCols(
   }
 }
 
-/**
- * Last-line injection guard before targeting columns are interpolated into raw
- * SQL. Columns are validated at input time
- * (`assertExposureQueriesTargetingAttributeColumnsValid`), so any unsafe
- * identifier reaching here indicates a validation bypass or corrupted data:
- * fail loudly rather than silently dropping it (which would produce subtly
- * wrong results). Returns the columns unchanged when all are safe.
- */
+/** Last-line SQL-injection guard: throws on unsafe column identifiers rather than dropping silently. */
 export function assertSafeTargetingSqlIdentifiers(columns: string[]): string[] {
   const unsafe = columns.filter((c) => !isSafeSqlIdentifier(c));
   if (unsafe.length > 0) {
@@ -58,24 +51,15 @@ export function getContextualBanditUnitsSqlConfig(
   settings: SnapshotMetricRequest,
 ): ContextualBanditUnitsSqlConfig | null {
   const bs = settings.banditSettings;
-  // Not a contextual bandit at all — nothing to append, run as a standard query.
   if (!bs?.contextualBandit) {
     return null;
   }
   const columns = bs.targetingAttributeColumns ?? [];
-  // Contextual bandit with no targeting attribute columns configured.
-  // Rather than failing the run, we intentionally fall back to a null config:
-  // the query is generated without any `attr_cb_*` context columns, so the
-  // downstream weight engine collapses every user into a single global context
-  // and still updates the variation weights — just identically for all users.
-  // The caller is responsible for surfacing a warning (see
-  // `hasUsableContextualBanditTargeting`), since this is a degraded state for
-  // what is supposed to be a contextual bandit.
+  // No targeting columns: fall back to a single global context (degraded but
+  // still produces weight updates). Warning is surfaced by `hasUsableContextualBanditTargeting`.
   if (!columns.length) {
     return null;
   }
-  // Columns are present: they must be SQL-safe before interpolation. This throws
-  // (rather than degrading) so a misconfigured/bypassed column fails loudly.
   const aliases = assertSafeTargetingSqlIdentifiers(columns);
   const k = Math.max(1, settings.variations?.length ?? 1);
   const maxRankedContexts = Math.max(
@@ -85,13 +69,7 @@ export function getContextualBanditUnitsSqlConfig(
   return { aliases, maxRankedContexts };
 }
 
-/**
- * True when a contextual bandit has at least one targeting attribute column
- * configured, i.e. it can actually segment users into distinct contexts. When
- * this is false the bandit still runs, but produces a single uniform set of
- * variation weights for every user. Column format is enforced separately at
- * query-build time (see `assertSafeTargetingSqlIdentifiers`).
- */
+/** True when the CB has at least one targeting column and can segment users into distinct contexts. */
 export function hasUsableContextualBanditTargeting(
   settings: ExperimentSnapshotSettings,
 ): boolean {
@@ -109,9 +87,7 @@ export function getContextualBanditExposureSelectCols(
   return aliases.map((a) => `, e.${a}`).join("");
 }
 
-/**
- * First-exposure targeting attribute on __experimentUnitsBase (same pattern as experiment dimensions).
- */
+/** First-exposure targeting attribute on __experimentUnitsBase (same pattern as experiment dimensions). */
 export function getAttributeValuePerUnit(
   dialect: SqlDialect,
   alias: string,
@@ -147,17 +123,7 @@ export function getContextualBanditUnitsBaseSelectCols(
     .join("");
 }
 
-/**
- * CTEs after __experimentUnitsBase: global counts by context tuple,
- * top-(maxRankedContexts) bucketing, and the final __experimentUnits.
- *
- * The bucketing step carries the base unit columns (`baseColumnRefs`) straight
- * through, so __experimentUnits is produced by a single LEFT JOIN from the
- * one-row-per-user base table to the ranked context counts. Because that join
- * never fans out (ranked counts are one row per distinct context tuple), there
- * is no need for a second join back to __experimentUnitsBase to re-attach the
- * base columns.
- */
+/** CTEs after __experimentUnitsBase: context-tuple counts, top-N bucketing, final __experimentUnits. */
 export function getContextualBanditUnitsCTEs(
   dialect: SqlDialect,
   {

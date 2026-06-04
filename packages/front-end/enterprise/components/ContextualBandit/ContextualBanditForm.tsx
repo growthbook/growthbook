@@ -146,11 +146,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
     }));
   const toEqualWeights = (vars: Variation[]) => getEqualWeights(vars.length);
 
-  // TODO(holdout-v1.5): holdout configuration UI (toggle + percentage) is
-  // intentionally omitted from this form in v1. Wire it up here when the
-  // back-end `holdoutPercent` field is plumbed through the snapshot
-  // orchestrator, SQL runner, and stats engine. See
-  // contextual-bandit-fix-prompt.md.
+  // TODO(holdout-v1.5): wire up holdout configuration UI when back-end is ready.
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {
       project: initialValue?.project || project || "",
@@ -427,15 +423,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
       }
     }
 
-    // Project the experiment-shaped form values onto the CB-native REST
-    // create body. Fields the CB endpoint doesn't accept (phases,
-    // banditScheduleValue, attributionModel knobs we don't expose, …) are
-    // dropped here; the back-end fills them via defaultValues and
-    // ContextualBanditModel.processApiCreateBody. The duplicate-key
-    // sentinel that the legacy `/experiments` route returned isn't part
-    // of the BaseModel CRUD response, so we preflight via the list
-    // endpoint instead — unless the user already clicked through the
-    // duplicate-key warning, in which case we skip the preflight.
+    // Preflight tracking-key uniqueness since BaseModel CRUD response lacks the duplicate-key sentinel.
     if (!allowDuplicateTrackingKey && data.trackingKey) {
       const existing = await apiCall<{
         contextualBandits: ApiContextualBanditInterface[];
@@ -453,11 +441,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
       }
     }
 
-    // The targeting-attribute columns come from the selected exposure
-    // query on the chosen datasource. The CB-native create endpoint
-    // expects them in the POST body, so we resolve them here from the
-    // datasource the form has loaded rather than letting the backend
-    // re-derive them.
+    // CB create endpoint expects targeting-attribute columns in the POST body.
     const submitDatasource = datasources.find((d) => d.id === data.datasource);
     const submitExposureQuery =
       submitDatasource?.settings?.queries?.exposure?.find(

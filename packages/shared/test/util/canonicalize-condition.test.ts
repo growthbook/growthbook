@@ -3,14 +3,7 @@ import {
   deriveContextId,
 } from "../../src/util/canonicalize-condition";
 
-// ---------------------------------------------------------------------------
-// canonicalize()
-// ---------------------------------------------------------------------------
-
 describe("canonicalize", () => {
-  // -------------------------------------------------------------------------
-  // Rule 11: key sort
-  // -------------------------------------------------------------------------
   describe("key sort (rule 11)", () => {
     it("returns the same string regardless of key insertion order", () => {
       const a = canonicalize({ b: 2, a: 1 });
@@ -26,9 +19,6 @@ describe("canonicalize", () => {
     });
   });
 
-  // -------------------------------------------------------------------------
-  // Rule 3: $eq unwrap
-  // -------------------------------------------------------------------------
   describe("$eq unwrap (rule 3)", () => {
     it("unwraps $eq to implicit equality", () => {
       expect(canonicalize({ country: { $eq: "US" } })).toBe(
@@ -43,9 +33,6 @@ describe("canonicalize", () => {
     });
   });
 
-  // -------------------------------------------------------------------------
-  // Rule 4: $in / $nin / $all value sort
-  // -------------------------------------------------------------------------
   describe("$in / $nin / $all value sort (rule 4)", () => {
     it("produces the same result for $in regardless of array order", () => {
       const a = canonicalize({ plan: { $in: ["pro", "free", "enterprise"] } });
@@ -66,9 +53,6 @@ describe("canonicalize", () => {
     });
   });
 
-  // -------------------------------------------------------------------------
-  // Rule 5: $and flatten
-  // -------------------------------------------------------------------------
   describe("$and flatten (rule 5)", () => {
     it("flattens nested $and into a single $and", () => {
       const nested = canonicalize({
@@ -87,18 +71,12 @@ describe("canonicalize", () => {
     });
   });
 
-  // -------------------------------------------------------------------------
-  // Rule 6: $and single-element unwrap
-  // -------------------------------------------------------------------------
   describe("$and single-element unwrap (rule 6)", () => {
     it("unwraps a single-element $and to the bare condition", () => {
       expect(canonicalize({ $and: [{ a: 1 }] })).toBe(canonicalize({ a: 1 }));
     });
   });
 
-  // -------------------------------------------------------------------------
-  // Rule 7: $or / $nor element sort
-  // -------------------------------------------------------------------------
   describe("$or / $nor element sort (rule 7)", () => {
     it("produces the same result for $or regardless of clause order", () => {
       const a = canonicalize({ $or: [{ country: "US" }, { plan: "pro" }] });
@@ -113,9 +91,6 @@ describe("canonicalize", () => {
     });
   });
 
-  // -------------------------------------------------------------------------
-  // Rule 8: $not recursion
-  // -------------------------------------------------------------------------
   describe("$not recursion (rule 8)", () => {
     it("canonicalizes the inner condition of $not", () => {
       const a = canonicalize({ $not: { b: 2, a: 1 } });
@@ -130,9 +105,6 @@ describe("canonicalize", () => {
     });
   });
 
-  // -------------------------------------------------------------------------
-  // Rule 9: $regex / $options rewrite
-  // -------------------------------------------------------------------------
   describe("$regex / $options rewrite (rule 9)", () => {
     it("produces the same string regardless of $regex/$options key order", () => {
       const a = canonicalize({ name: { $regex: "^foo", $options: "i" } });
@@ -147,9 +119,6 @@ describe("canonicalize", () => {
     });
   });
 
-  // -------------------------------------------------------------------------
-  // Rule 10: number normalization
-  // -------------------------------------------------------------------------
   describe("number normalization (rule 10)", () => {
     it("serialises finite integers and floats stably", () => {
       expect(canonicalize({ n: 42 })).toBe('{"n":42}');
@@ -171,9 +140,6 @@ describe("canonicalize", () => {
     });
   });
 
-  // -------------------------------------------------------------------------
-  // Rule 1/2: empty / non-object handling
-  // -------------------------------------------------------------------------
   describe("empty / non-object handling (rules 1 & 2)", () => {
     it("returns {} string for an empty condition object", () => {
       expect(canonicalize({})).toBe("{}");
@@ -192,9 +158,6 @@ describe("canonicalize", () => {
     });
   });
 
-  // -------------------------------------------------------------------------
-  // Combined / integration scenarios
-  // -------------------------------------------------------------------------
   describe("combined normalization", () => {
     it("treats a complex condition as equal to its reordered equivalent", () => {
       const a = canonicalize({
@@ -232,10 +195,6 @@ describe("canonicalize", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// deriveContextId()
-// ---------------------------------------------------------------------------
-
 describe("deriveContextId", () => {
   it("returns a string with the ctx_ prefix", () => {
     const id = deriveContextId("exp_abc", { country: "US" });
@@ -268,14 +227,11 @@ describe("deriveContextId", () => {
       plan: { $in: ["free", "pro"] },
     });
     expect(first).toBe(second);
-    // Also check a fixed expected value to lock the hash algorithm
     expect(first).toMatch(/^ctx_[0-9a-f]{8}$/);
   });
 
   it("uses the | separator between experimentId and condition in the hash input", () => {
-    // Verify that "exp_ab" + condition starting with "c" is different from
-    // "exp_abc" + condition starting with "" — i.e. the separator prevents
-    // prefix-concatenation collisions.
+    // Separator prevents prefix-concatenation collisions.
     const a = deriveContextId("exp_ab", { c: 1 });
     const b = deriveContextId("exp_abc", {});
     expect(a).not.toBe(b);

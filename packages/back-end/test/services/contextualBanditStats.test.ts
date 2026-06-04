@@ -5,8 +5,7 @@ import {
   prepareRowsForContextualStats,
 } from "back-end/src/enterprise/services/contextualBanditStats";
 
-// These tests only exercise the pure row-shaping helpers, so stub out the
-// stats engine module to avoid loading/spawning the real Python engine.
+// Stub the stats engine module so the pure row-shaping helpers can run without Python.
 jest.mock("back-end/src/services/stats", () => ({
   getAnalysisSettingsForStatsEngine: jest.fn(),
   getMetricSettingsForStatsEngine: jest.fn(),

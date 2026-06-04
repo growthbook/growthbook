@@ -68,8 +68,7 @@ export default function BanditDecisionMetricSettings({
   const datasourceId = form.watch("datasource") ?? "";
   const exposureQueryId = form.watch("exposureQueryId");
 
-  // Contextual bandits require a fact metric as the decision metric. Surface a
-  // friendly message when the selected data source has no fact metrics to pick.
+  // Contextual bandits require a fact metric as the decision metric.
   const hasFactMetricForDatasource = useMemo(() => {
     if (!datasourceId) return true;
     return factMetrics.some(

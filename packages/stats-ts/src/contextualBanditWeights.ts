@@ -1,23 +1,4 @@
-/**
- * TypeScript port of the gbstats contextual-bandit weight pipeline.
- *
- * `computeContextualBanditWeights` computes updated contextual-bandit variation
- * weights in-process, returning the same `ContextualBanditSnapshot` shape the
- * Python stats engine produces. Callers resolve the metric/analysis settings
- * (see `ContextualBanditWeightsInput`) and pass plain values in; this module
- * has no back-end dependency.
- *
- * The three stages mirror gbstats (packages/stats/gbstats):
- *   1. Per-context, per-variation summable statistics (SUM_COLS merge).
- *   2. A greedy SSE regression tree over one-hot-encoded context attributes,
- *      bounded by `maxLeaves` (deterministic, matches Python for count
- *      metrics).
- *   3. Per-leaf Thompson weighting: Gaussian-Gaussian posterior + best-arm
- *      probabilities. Best-arm probabilities use deterministic numeric
- *      integration here rather than Python's Monte Carlo draws, so weights are
- *      reproducible and numerically close to (but not bit-identical with) the
- *      Python output.
- */
+/** TypeScript port of the gbstats contextual-bandit weight pipeline. */
 import type { ExperimentMetricQueryResponseRows } from "shared/types/integrations";
 import type {
   ContextualBanditResponseSnapshot,
@@ -36,34 +17,20 @@ import {
 } from "./banditWeights";
 import { varianceOfRatios } from "./utils";
 
-// Sentinel used by gbstats `context_tuple_from_row` for a missing attribute.
+// Sentinel for a missing attribute in `context_tuple_from_row`.
 const COMBINED_CONTEXT_ATTRIBUTE_VALUE = "Combined";
 
-/**
- * Everything `computeContextualBanditWeights` needs, with no back-end coupling.
- * The caller is responsible for resolving `metricSettings` (the decision
- * metric's settings for the stats engine; `keep_theta` is forced off
- * internally) and `analysisWeights` (the analysis traffic weights used as the
- * per-leaf prior / no-update fallback).
- */
+/** Inputs for `computeContextualBanditWeights`; `keep_theta` is forced off internally. */
 export type ContextualBanditWeightsInput = {
-  /** Variation ids, index-aligned with the experiment's variations. */
   varIds: string[];
-  /** Contextual attribute aliases (same order gbstats one-hot encodes). */
   attributes: string[];
-  /** Max leaves for the SSE regression tree. */
   maxLeaves: number;
-  /** Minimum total units required in a newly-split leaf. */
   minUsersPerLeaf: number;
-  /** Decision-metric settings for the stats engine. */
   metricSettings: MetricSettingsForStatsEngine;
-  /** Analysis traffic weights; the per-leaf fallback when no update is made. */
   analysisWeights: number[];
-  /** Per-context decision-metric rows from the warehouse query. */
   rows: ExperimentMetricQueryResponseRows;
 };
 
-/** Summed SUM_COLS fields for one variation arm (within a context or a leaf). */
 type ArmColumns = {
   n: number;
   main_sum: number;
@@ -103,7 +70,6 @@ function num(value: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-/** Mirrors gbstats `_narrow_experiment_metric_row`: n = count, falling back to users. */
 function rowUnits(row: ExperimentMetricQueryResponseRows[number]): number {
   if ("count" in row && row.count != null) return num(row.count);
   if ("users" in row && row.users != null) return num(row.users);
@@ -160,11 +126,6 @@ function proportionStat(sum: number, n: number): BaseStat {
   return { sum, mean, variance: mean * (1 - mean), isProp: true };
 }
 
-/**
- * Build a base statistic for a metric component. Mirrors gbstats
- * `base_statistic_from_metric_row`: binomial -> ProportionStatistic,
- * count -> SampleMeanStatistic.
- */
 function baseStatForMetricType(
   metricType: "count" | "binomial" | "quantile" | undefined,
   sum: number,
@@ -182,7 +143,6 @@ function baseStatForMetricType(
   );
 }
 
-/** gbstats `compute_covariance`. */
 function computeCovariance(
   n: number,
   aSum: number,
@@ -197,17 +157,7 @@ function computeCovariance(
   return (sumOfProducts - (aSum * bSum) / n) / (n - 1);
 }
 
-/**
- * Compute mean/variance for a variation arm from its summed columns.
- *
- * `forBandit` mirrors gbstats `create_bandit_statistics`, which recasts a
- * binomial ProportionStatistic to a SampleMeanStatistic (sum_squares = sum)
- * before Thompson sampling. For SSE / observed sample statistics
- * (`forBandit=false`) the ProportionStatistic variance p*(1-p) is used.
- *
- * `keep_theta` is forced off for contextual bandits, so `mean_ra` reduces to
- * its post (main) statistic (theta = 0).
- */
+/** Mean/variance for a variation arm; `forBandit` recasts binomial -> SampleMean for Thompson. */
 function armMomentStat(
   arm: ArmColumns,
   metric: MetricSettingsForStatsEngine,
@@ -219,7 +169,7 @@ function armMomentStat(
     case "mean_ra": {
       if (metric.main_metric_type === "binomial") {
         const stat = forBandit
-          ? sampleMeanStat(arm.main_sum, arm.main_sum, n) // recast
+          ? sampleMeanStat(arm.main_sum, arm.main_sum, n)
           : proportionStat(arm.main_sum, n);
         return {
           n,
@@ -278,11 +228,6 @@ function armMomentStat(
   }
 }
 
-/**
- * Compute one leaf's bandit weights: build the per-variation bandit statistics
- * from the leaf's aggregated arms (gbstats `create_bandit_statistics` recast),
- * then delegate to the shared `updateVariationWeights`.
- */
 function computeLeafWeights(
   armsByVariation: ArmColumns[],
   metric: MetricSettingsForStatsEngine,
@@ -292,17 +237,12 @@ function computeLeafWeights(
   return updateVariationWeights(stats, currentWeights, metric.inverse);
 }
 
-// --- Context partitioning + tree building ---
-
 type ContextEntry = {
   tuple: string[];
-  /** Bare attribute condition (alias -> value), matching the query-runner tagging. */
   condition: Record<string, unknown>;
-  /** Summed columns per variation index for this context. */
   arms: ArmColumns[];
 };
 
-/** gbstats `context_tuple_from_row`: one value per attribute column, missing -> "Combined". */
 function contextTuple(
   row: ExperimentMetricQueryResponseRows[number],
   attrColumns: string[],
@@ -355,7 +295,7 @@ function partitionByContext(
     }
     addRowToArm(entry.arms[variationIndex], row);
   }
-  // gbstats sorts unique context keys; sort by tuple for determinism.
+  // Sort unique context keys for determinism (matches gbstats).
   return [...byKey.values()].sort((a, b) =>
     JSON.stringify(a.tuple) < JSON.stringify(b.tuple) ? -1 : 1,
   );
@@ -363,10 +303,7 @@ function partitionByContext(
 
 type Feature = { attrIndex: number; category: string };
 
-/**
- * One-hot feature list in gbstats order: attribute-major, category-sorted.
- * Mirrors `one_hot_encode` over `bandit_settings.attributes`.
- */
+/** One-hot feature list: attribute-major, category-sorted (matches gbstats). */
 function buildFeatures(
   contexts: ContextEntry[],
   attrColumns: string[],
@@ -386,7 +323,7 @@ function featureValue(ctx: ContextEntry, feature: Feature): number {
   return ctx.tuple[feature.attrIndex] === feature.category ? 1 : 0;
 }
 
-/** Sum of (n-1)*variance across variations for a set of contexts (gbstats SSE). */
+/** SSE = sum of (n-1)*variance across variations for a set of contexts. */
 function leafSumOfSquaredErrors(
   contexts: ContextEntry[],
   metric: MetricSettingsForStatsEngine,
@@ -402,11 +339,7 @@ function leafSumOfSquaredErrors(
   return sse;
 }
 
-/**
- * gbstats `build_tree`: iteratively split the leaf/feature pair that most
- * reduces summed SSE, up to `maxLeaves` leaves. Returns the leaf id for each
- * context (index-aligned with `contexts`).
- */
+/** Greedy SSE regression tree up to `maxLeaves`; returns leaf id per context. */
 function buildTree(
   contexts: ContextEntry[],
   features: Feature[],
@@ -434,7 +367,6 @@ function buildTree(
     let bestFeature = -1;
     let bestLeaf = -1;
 
-    // gbstats iterates leaf ids as the contiguous range 0..numLeaves-1.
     for (let leafIndex = 0; leafIndex < numLeaves; leafIndex++) {
       const inLeaf: number[] = [];
       for (let c = 0; c < contexts.length; c++) {
@@ -454,7 +386,6 @@ function buildTree(
           else side0.push(c);
         }
         if (side0.length === 0 || side1.length === 0) continue;
-        // Respect the minimum-units-per-leaf guard on the newly created leaf.
         if (
           leafUnits(side1) < minUsersPerLeaf ||
           leafUnits(side0) < minUsersPerLeaf
@@ -473,8 +404,7 @@ function buildTree(
             numVariations,
           );
         const gain = sseCurrent - sseSplit;
-        // Strictly greater keeps gbstats' argmax tie-break (first in
-        // feature-major, leaf-minor order).
+        // Strict > preserves gbstats' argmax tie-break (feature-major, leaf-minor).
         if (gain > bestGain) {
           bestGain = gain;
           bestFeature = f;
@@ -499,10 +429,7 @@ function buildTree(
   return currentLeaf;
 }
 
-/**
- * Compute updated contextual bandit variation weights in TypeScript, returning
- * the same `ContextualBanditSnapshot` shape as the Python path.
- */
+/** Compute updated contextual-bandit weights, returning the Python-shape snapshot. */
 export function computeContextualBanditWeights(
   input: ContextualBanditWeightsInput,
 ): ContextualBanditSnapshot {
@@ -516,14 +443,13 @@ export function computeContextualBanditWeights(
     rows,
   } = input;
 
-  // Contextual bandits: CUPED covariate columns from SQL, but no pooled theta.
+  // Contextual bandits use CUPED covariate columns but no pooled theta.
   const metricSettings: MetricSettingsForStatsEngine = {
     ...metricSettingsInput,
     keep_theta: false,
   };
 
   const numVariations = varIds.length;
-  // gbstats leaf bandit current_weights default to the analysis weights.
   const defaultWeights =
     analysisWeights.length === numVariations
       ? analysisWeights.slice()
@@ -547,7 +473,6 @@ export function computeContextualBanditWeights(
     minUsersPerLeaf,
   );
 
-  // Aggregate context arms per leaf, then compute one weight set per leaf.
   const leafArms = new Map<number, ArmColumns[]>();
   for (let c = 0; c < contexts.length; c++) {
     const leafId = leafByContext[c];
@@ -569,8 +494,7 @@ export function computeContextualBanditWeights(
     );
   }
 
-  // Aggregated per-leaf sample (data-only) stats, mirroring the per-context
-  // sampleMeans/sampleVariances but over each leaf's pooled arms.
+  // Per-leaf pooled sample stats (data-only), parallel to the per-context ones.
   const leaf_stats: ContextualLeafStatsEntry[] = [...leafArms.entries()]
     .sort((a, b) => a[0] - b[0])
     .map(([leafId, arms]) => {

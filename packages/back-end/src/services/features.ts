@@ -1139,21 +1139,12 @@ export async function buildSDKPayloadForConnection(
     projectsMap = new Map(allProjects.map((p) => [p.id, p]));
   }
 
-  // Pre-fetch CB docs so the payload builder can inject per-context weights
-  // without additional async calls per rule. Sourced exclusively from
-  // `contextual-bandit-ref` feature rules now that PR-8 removed the
-  // experiment-derived path: CBs no longer live behind a paired Experiment
-  // doc, so the legacy `exp.contextualBanditId` collection step is gone.
+  // Pre-fetch CB docs referenced by contextual-bandit-ref rules so the payload builder can inject CB fields without per-rule async calls.
   let cbMap:
     | Map<string, import("shared/validators").ContextualBanditInterface>
     | undefined;
   const cbIdsFromRules: string[] = [];
   for (const feature of filteredFeatures) {
-    // v2 schema keeps rules on the top-level `feature.rules` array; v0/v1
-    // legacy shapes are normalized before reaching here, so walking the top
-    // level is sufficient. The CB-ref branch in `getFeatureDefinition`
-    // looks up the cached CB by id, so we just need to surface every
-    // referenced CB id here.
     const rules = feature.rules ?? [];
     for (const rule of rules) {
       if (rule.type === "contextual-bandit-ref" && rule.contextualBanditId) {

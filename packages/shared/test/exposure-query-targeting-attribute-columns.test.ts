@@ -166,7 +166,7 @@ describe("exposure query targeting attribute columns", () => {
           userIdType: "user_id",
           query: "SELECT 1",
           dimensions: [],
-          // "planet" would fail membership, but the malformed column is reported first.
+          // "planet" would fail membership, but malformed is reported first.
           targetingAttributeColumns: ["planet", "bad; SELECT"],
         },
       ]),

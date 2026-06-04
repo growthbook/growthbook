@@ -1,16 +1,4 @@
-/**
- * TypeScript port of gbstats `utils.py`.
- *
- * Numerical dependencies that Python pulls from numpy/scipy are implemented
- * inline here so the package stays dependency-free:
- *   - `normPdf` / `normCdf` / `normPpf` replace `scipy.stats.norm`.
- *   - `invertSymmetricMatrix` replaces `scipy.linalg` Cholesky inversion.
- *
- * `check_gbstats_compatibility` is intentionally omitted — it is specific to the
- * Python package's distribution metadata and has no analog here.
- */
-
-// --- Standard normal distribution ---
+/** TypeScript port of gbstats `utils.py`; inline normal/Cholesky helpers (no numpy/scipy). */
 
 /** Error function, Abramowitz & Stegun 7.1.26 (|error| < 1.5e-7). */
 function erf(x: number): number {
@@ -52,11 +40,7 @@ export function normCdf(x: number, loc = 0, scale = 1): number {
   return 0.5 * (1 + erf((x - loc) / (scale * Math.SQRT2)));
 }
 
-/**
- * Inverse standard normal CDF (quantile function), equivalent to
- * `scipy.stats.norm.ppf`. Uses Acklam's rational approximation
- * (relative error < 1.15e-9).
- */
+/** Inverse standard normal CDF via Acklam's rational approximation (rel err < 1.15e-9). */
 export function normPpf(p: number, loc = 0, scale = 1): number {
   if (p <= 0) return -Infinity;
   if (p >= 1) return Infinity;
@@ -104,8 +88,6 @@ export function normPpf(p: number, loc = 0, scale = 1): number {
   return loc + scale * z;
 }
 
-// --- Frequentist helpers ---
-
 export function frequentistDiff(
   meanA: number,
   meanB: number,
@@ -134,13 +116,7 @@ export function frequentistVariance(
   return varB / nB + varA / nA;
 }
 
-// --- variance of ratios ---
-
-/**
- * Given numerator random variable M (mean `meanM`, variance `varM`),
- * denominator D (mean `meanD`, variance `varD`), and covariance `covMD`,
- * returns the (delta-method) variance of M / D.
- */
+/** Delta-method variance of M / D given moments and covariance. */
 export function varianceOfRatios(
   meanM: number,
   varM: number,
@@ -155,8 +131,6 @@ export function varianceOfRatios(
     (2 * covMD * meanM) / meanD ** 3
   );
 }
-
-// --- Misc helpers ---
 
 export function gaussianCredibleInterval(
   meanDiff: number,
@@ -189,14 +163,10 @@ export function isStatisticallySignificant(ci: number[]): boolean {
   return ci[0] > 0 || ci[1] < 0;
 }
 
-/**
- * Covariance matrix of X ~ multinomial(1, nu): diag(nu) - outer(nu, nu).
- */
+/** Covariance matrix of X ~ multinomial(1, nu): diag(nu) - outer(nu, nu). */
 export function multinomialCovariance(nu: number[]): number[][] {
   return nu.map((ni, i) => nu.map((nj, j) => (i === j ? ni : 0) - ni * nj));
 }
-
-// --- Symmetric matrix inversion ---
 
 export type MatrixInversionResult = {
   success: boolean;
@@ -246,11 +216,7 @@ function invertLowerTriangular(l: number[][]): number[][] {
   return x;
 }
 
-/**
- * Inverts a symmetric positive-definite matrix via its Cholesky factorization,
- * returning a result object instead of throwing (mirrors gbstats
- * `invert_symmetric_matrix`).
- */
+/** Invert a symmetric positive-definite matrix via Cholesky; returns a result instead of throwing. */
 export function invertSymmetricMatrix(v: number[][]): MatrixInversionResult {
   const n = v.length;
   if (v.some((row) => row.length !== n)) {

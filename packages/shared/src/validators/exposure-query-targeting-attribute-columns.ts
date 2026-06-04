@@ -1,21 +1,13 @@
 import type { ExposureQuery } from "shared/types/datasource";
 import type { SDKAttributeSchema } from "shared/types/organization";
 
-/**
- * Targeting attribute columns are interpolated directly into generated SQL as
- * bare identifiers (column references), which cannot be parameterized. To keep
- * that interpolation injection-safe, every column must be a plain SQL
- * identifier: a letter or underscore followed by letters, numbers, or
- * underscores. This is the single source of truth for that constraint, shared
- * by the input-time validation here and the query builder's last-line guard.
- */
+/** Source of truth — these columns are interpolated as bare SQL identifiers, so injection-safety requires this exact shape. */
 export const SAFE_SQL_IDENTIFIER = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
 export function isSafeSqlIdentifier(name: string): boolean {
   return SAFE_SQL_IDENTIFIER.test(name);
 }
 
-/** Shared explanation of the SQL-identifier format requirement (plain text). */
 export const TARGETING_ATTRIBUTE_COLUMN_FORMAT_HELP =
   "Targeting attribute column names must be valid SQL identifiers: only letters, numbers, and underscores are allowed, and they cannot start with a number.";
 
@@ -31,18 +23,14 @@ export function formatMalformedTargetingAttributeColumnMessages(
     .join("\n\n");
 }
 
-/** Plain text before the phrase that maps to Settings → Attributes in the UI. */
 export const TARGETING_ATTRIBUTE_COLUMN_HELP_BEFORE_SETTINGS_LINK =
   "Column aliases in your assignment query must match organization targeting attributes (";
 
-/** Same phrase as in-app navigation; used in plain-text errors and link labels. */
 export const TARGETING_ATTRIBUTE_COLUMN_SETTINGS_LINK_LABEL =
   "Settings → Attributes";
 
-/** Closing punctuation after the settings phrase (parenthesis + sentence period). */
 export const TARGETING_ATTRIBUTE_COLUMN_HELP_AFTER_SETTINGS_LINK = ").";
 
-/** Shared suffix for UI and API validation errors (plain text). */
 export const TARGETING_ATTRIBUTE_COLUMN_HELP_SENTENCE =
   TARGETING_ATTRIBUTE_COLUMN_HELP_BEFORE_SETTINGS_LINK +
   TARGETING_ATTRIBUTE_COLUMN_SETTINGS_LINK_LABEL +
@@ -71,13 +59,7 @@ export function getAllowedTargetingAttributePropertyNames(
 export function getInvalidTargetingAttributeColumnsForExposureQueries(
   attributeSchema: SDKAttributeSchema | undefined,
   exposureQueries: ExposureQuery[] | undefined,
-  /**
-   * Previously-saved exposure queries. When provided, columns that already
-   * existed on the matching saved query (by id) are NOT re-validated. This
-   * keeps an unrelated datasource edit from being blocked because a
-   * pre-existing targeting column now points at an archived/removed
-   * attribute — only newly added columns are checked.
-   */
+  /** When provided, columns already present on the matching saved query are NOT re-validated. */
   previousExposureQueries?: ExposureQuery[],
 ): { queryLabel: string; column: string }[] {
   const allowed = getAllowedTargetingAttributePropertyNames(attributeSchema);
@@ -93,7 +75,6 @@ export function getInvalidTargetingAttributeColumnsForExposureQueries(
     const label = q.name?.trim() || q.id;
     const previousColumns = previousColumnsByQueryId.get(q.id);
     for (const col of q.targetingAttributeColumns ?? []) {
-      // Skip columns that were already saved on this query; only validate new ones.
       if (previousColumns?.has(col)) {
         continue;
       }
@@ -105,12 +86,7 @@ export function getInvalidTargetingAttributeColumnsForExposureQueries(
   return disallowed;
 }
 
-/**
- * Targeting columns that are not valid SQL identifiers. Unlike the membership
- * check, this validates every column (including previously saved ones): a
- * malformed identifier is always a hard error because it would otherwise be
- * interpolated into raw SQL, so it should never be allowed to persist.
- */
+/** Validates every column (including saved ones) because malformed identifiers must never persist. */
 export function getMalformedTargetingAttributeColumnsForExposureQueries(
   exposureQueries: ExposureQuery[] | undefined,
 ): { queryLabel: string; column: string }[] {
@@ -126,11 +102,7 @@ export function getMalformedTargetingAttributeColumnsForExposureQueries(
   return malformed;
 }
 
-/**
- * @throws Error with message listing malformed or unknown columns when
- * validation fails. Format problems are reported first since they are a hard
- * (security) constraint rather than a configuration mismatch.
- */
+/** Reports malformed (security) columns before unknown (configuration) ones. */
 export function assertExposureQueriesTargetingAttributeColumnsValid(
   attributeSchema: SDKAttributeSchema | undefined,
   exposureQueries: ExposureQuery[] | undefined,

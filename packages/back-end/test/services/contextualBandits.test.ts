@@ -58,8 +58,6 @@ function makeCb(
     canonicalFormVersion: 1,
     goalMetrics: ["met_g1"],
     secondaryMetrics: ["met_s1"],
-    // CB has a real `guardrailMetrics` slot but the snapshot DTO must NOT
-    // surface it. Covered explicitly in the first test.
     guardrailMetrics: ["met_guard"],
     metricOverrides: [],
     regressionAdjustmentEnabled: false,
@@ -158,12 +156,10 @@ describe("buildContextualBanditSnapshotSettings", () => {
     expect(settings).not.toHaveProperty("activationMetric");
     expect(settings.regressionAdjustmentEnabled).toBe(false);
 
-    // Strict validator must accept it (would reject any unknown key).
     expect(() =>
       contextualBanditSnapshotSettingsValidator.parse(settings),
     ).not.toThrow();
 
-    // Spot-check the carried-over fields.
     expect(settings.experimentId).toBe("cb_1");
     expect(settings.contextualBanditId).toBe("cb_1");
     expect(settings.phase).toBe(0);
@@ -185,10 +181,7 @@ describe("buildContextualBanditSnapshotSettings", () => {
       false,
     );
 
-    // Post-PR-8 Commit 3 the snapshot DTO's `experimentId` is just the CB
-    // id (no paired-experiment fallback). The trackingKey stays
-    // independent so the warehouse SQL keeps using the human-readable
-    // exposure-filter key.
+    // experimentId carries the CB id while trackingKey stays independent for warehouse SQL.
     expect(settings.experimentId).toBe("cb_1");
     expect(settings.trackingKey).toBe("first_contextual_bandit");
   });
@@ -318,7 +311,6 @@ describe("persistContextualBanditEvent", () => {
     expect(cbe.id).toBe("cbe_1");
     expect(getByIdMock).toHaveBeenCalledWith(cbs.contextualBandit);
 
-    // CBE create payload mirrors the result.
     expect(createCbeMock).toHaveBeenCalledWith({
       contextualBandit: cb.id,
       phase: cbs.phase,
@@ -329,16 +321,13 @@ describe("persistContextualBanditEvent", () => {
       weightsWereUpdated: true,
     });
 
-    // CB doc's phase weights get the per-leaf weights — same cardinality as responses.
     expect(patchPhaseWeightsMock).toHaveBeenCalledTimes(1);
     const [cbIdArg, phaseArg, leafWeightsArg] =
       patchPhaseWeightsMock.mock.calls[0];
     expect(cbIdArg).toBe(cb.id);
     expect(phaseArg).toBe(cbs.phase);
     expect(leafWeightsArg).toHaveLength(2);
-    // Seed for deriveContextId is the CB id post-PR-8 Commit 2 — matches
-    // the seed `persistContextualBanditEvent` uses internally and what
-    // the CB doc's `currentLeafWeights` are keyed by going forward.
+    // deriveContextId is seeded by CB id, matching persistContextualBanditEvent.
     const expectedLeafWeights = leafWeightsFromContextualBanditResult(
       cb.id,
       result,
@@ -348,7 +337,6 @@ describe("persistContextualBanditEvent", () => {
       deriveContextId(cb.id, { country: "US" }),
     );
 
-    // SDK payload refresh fired with the CB-native audit event.
     expect(queueSDKPayloadRefreshMock).toHaveBeenCalledWith(
       expect.objectContaining({
         context,

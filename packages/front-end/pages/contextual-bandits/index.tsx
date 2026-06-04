@@ -46,10 +46,6 @@ const ContextualBanditsPage = (): React.ReactElement => {
     [],
   );
 
-  // PR-6: list is now fully CB-native. Source data from the CB REST API
-  // and run search/sort/filter through the dedicated
-  // `useContextualBanditSearch` instead of round-tripping through the
-  // experiment shape.
   const { contextualBandits, error, loading, hasArchived } =
     useContextualBandits(project, tabs.includes("archived"));
 
@@ -239,9 +235,7 @@ const ContextualBanditsPage = (): React.ReactElement => {
                       return (
                         <button
                           key={tab}
-                          // badge-purple is a custom GrowthBook class; the rest
-                          // has been moved into inline styles to drop Bootstrap
-                          // utility classes.
+                          // badge-purple is a custom GrowthBook class; other styles are inline to drop Bootstrap utilities.
                           className={clsx({
                             "badge-purple": active,
                           })}
@@ -369,16 +363,6 @@ const ContextualBanditsPage = (): React.ReactElement => {
                             <Flex direction="column">
                               <Flex>
                                 <span className="testname">{e.name}</span>
-                                {/*
-                                 * Linked-feature indicator removed when the
-                                 * list moved to the CB-native REST surface
-                                 * — `linkedFeatures` is intentionally not
-                                 * on the API DTO (the surface stays curated;
-                                 * see apiContextualBanditValidator). Add a
-                                 * `/:id/linked-features` summary endpoint
-                                 * if we want the badge back without leaking
-                                 * the full internal field set.
-                                 */}
                               </Flex>
                               {isFiltered && e.trackingKey && (
                                 <span
@@ -438,16 +422,7 @@ const ContextualBanditsPage = (): React.ReactElement => {
                           {date(e.date)}
                         </td>
                         <td className="nowrap" data-title="Status:">
-                          {/*
-                           * ExperimentStatusIndicator expects an
-                           * ExperimentDataForStatusStringDates pick. CB has
-                           * almost the same shape — `results`,
-                           * `analysisSummary`, `decisionFrameworkSettings`,
-                           * `dismissedWarnings`, and the experiment-phase
-                           * envelope don't exist on CB. We supply harmless
-                           * defaults so the indicator falls through to the
-                           * raw status renderer.
-                           */}
+                          {/* CB lacks several experiment fields; supply harmless defaults for the indicator. */}
                           <ExperimentStatusIndicator
                             experimentData={
                               {

@@ -4,7 +4,6 @@ import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
 import express, {
   ErrorRequestHandler,
-  NextFunction,
   Request,
   RequestHandler,
   Response,
@@ -370,8 +369,6 @@ if (CORS_ORIGIN_REGEX) {
   origins.push(CORS_ORIGIN_REGEX);
 }
 
-// Whether an incoming Origin header matches one of the app's own trusted
-// origins (APP_ORIGIN or the optional CORS_ORIGIN_REGEX).
 function isAppOrigin(origin: string | undefined): boolean {
   if (!origin) return false;
   return origins.some((o) =>
@@ -384,13 +381,8 @@ function isAppOrigin(origin: string | undefined): boolean {
 // mount the router at /api — yielding /api/v1/<route> and /api/v2/<route>.
 app.use(
   "/api",
-  // External clients authenticate via Authorization headers (API keys), not
-  // cookies, so any origin is allowed for them. The GrowthBook app itself also
-  // consumes these endpoints (e.g. the Contextual Bandits pages) and its
-  // apiCall helper always sends `credentials: "include"`. Browsers reject a
-  // wildcard `Access-Control-Allow-Origin` on credentialed requests, so when a
-  // request comes from the app's own origin we echo that origin and enable
-  // credentials; all other origins keep the permissive wildcard policy.
+  // External clients use API-key auth (any origin allowed); the GrowthBook app sends credentialed requests
+  // which browsers reject with wildcard CORS, so echo the app origin + credentials when it matches.
   cors((req, callback) => {
     const corsOptions: CorsOptions = {
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -850,8 +842,7 @@ app.use("/segments", segmentRouter);
 
 app.use("/dimensions", dimensionRouter);
 
-// Mount at root so the /experiment/:id/contextual-bandit/... paths sit
-// alongside the legacy experiments routes above without a path prefix.
+// Mount at root so /experiment/:id/contextual-bandit/... sits alongside the legacy experiments routes.
 app.use(contextualBanditRouter);
 
 app.use("/sdk-connections", sdkConnectionRouter);

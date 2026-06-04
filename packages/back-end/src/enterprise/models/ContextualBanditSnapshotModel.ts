@@ -25,14 +25,7 @@ const BaseClass = MakeModelClass({
 });
 
 export class ContextualBanditSnapshotModel extends BaseClass {
-  // Snapshot ACL is delegated to the HTTP boundary post-PR-8: every CB
-  // GET / refresh handler resolves the parent CB first and gates on
-  // `canRunContextualBandit` / `canReadSingleProjectResource(cb.project)`
-  // before touching the CBS model. The framework's `getForeignRefs`
-  // experiment-keyed lookup is gone with the FK; there is no per-doc
-  // project to gate on, and the CB-level gate at the route is sufficient.
-  // Callers that bypass the route (none in v1) accept the risk by going
-  // through the model directly.
+  // ACL is delegated to the HTTP boundary: route handlers gate on the parent CB before touching CBS.
   protected canRead(): boolean {
     return true;
   }

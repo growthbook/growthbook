@@ -107,10 +107,6 @@ export interface SqlDialect {
     pairs: UnpivotLabeledPair[],
   ) => UnpivotLabeledPairsResult;
   stringLength: (column: string) => string;
-  /**
-   * Upper bound on the total number of distinct context tuples retained when
-   * bucketing contextual bandit targeting attributes. Higher values are
-   * supported on engines that can handle wider CASE expressions / more groups.
-   */
+  /** Max distinct context tuples retained when bucketing contextual bandit attributes. */
   maxContextualBanditContexts: number;
 }

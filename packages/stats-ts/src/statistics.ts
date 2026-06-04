@@ -1,19 +1,6 @@
-/**
- * TypeScript port of gbstats `models/statistics.py`.
- *
- * Each statistic mirrors the corresponding frozen Python dataclass: fields are
- * `readonly`, Python `@property` accessors become getters, and `__add__`
- * becomes an `add()` method. Matrix math in `RegressionAdjustedRatioStatistic`
- * (numpy in Python) is implemented with small explicit quadratic/bilinear
- * forms, and `scipy.stats.norm.ppf` is replaced by `normPpf` below.
- *
- * Keep this module pure (no back-end imports) and numerically faithful to the
- * Python source it is ported from.
- */
+/** TypeScript port of gbstats `models/statistics.py`; keep pure and numerically faithful. */
 
 import { normPpf, varianceOfRatios } from "./utils";
-
-// --- Shared math helpers (mirrors gbstats.utils + numpy/scipy usage) ---
 
 /** Quadratic form vᵀ·M·v for an n-vector and n×n matrix. */
 function quadForm(v: number[], m: number[][]): number {
@@ -37,8 +24,6 @@ function bilinearForm(u: number[], m: number[][], v: number[]): number {
   return total;
 }
 
-// --- Base statistic ---
-
 export abstract class Statistic {
   readonly n: number;
 
@@ -53,10 +38,7 @@ export abstract class Statistic {
     return this.variance <= 0 ? 0 : Math.sqrt(this.variance);
   }
 
-  /**
-   * Mean with no regression adjustments. Overridden by adjusted statistics
-   * (e.g. `RegressionAdjustedStatistic`).
-   */
+  /** Mean with no regression adjustments; overridden by adjusted statistics. */
   get unadjustedMean(): number {
     return this.mean;
   }
@@ -69,8 +51,6 @@ export abstract class Statistic {
     return this.variance <= 0.0;
   }
 }
-
-// --- Summable base statistics ---
 
 export class SampleMeanStatistic extends Statistic {
   readonly sum: number;
@@ -131,8 +111,6 @@ export class ProportionStatistic extends Statistic {
   }
 }
 
-// --- Ratio statistic ---
-
 export class RatioStatistic extends Statistic {
   readonly mStatistic: SampleMeanStatistic | ProportionStatistic;
   readonly dStatistic: SampleMeanStatistic | ProportionStatistic;
@@ -184,8 +162,6 @@ export class RatioStatistic extends Statistic {
     });
   }
 }
-
-// --- Regression-adjusted (CUPED) statistic ---
 
 export class RegressionAdjustedStatistic extends Statistic {
   readonly postStatistic: SampleMeanStatistic | ProportionStatistic;
@@ -266,8 +242,6 @@ export class RegressionAdjustedStatistic extends Statistic {
   }
 }
 
-// --- Covariance / theta helpers ---
-
 export function computeCovariance(
   n: number,
   statA: SampleMeanStatistic | ProportionStatistic,
@@ -332,8 +306,6 @@ export function computeTheta(
   });
   return joint.covariance / joint.preStatistic.variance;
 }
-
-// --- Regression-adjusted ratio statistic ---
 
 export class RegressionAdjustedRatioStatistic extends Statistic {
   readonly mStatisticPost: SampleMeanStatistic | ProportionStatistic;
@@ -607,14 +579,12 @@ export function computeThetaRegressionAdjustedRatio(
   a: RegressionAdjustedRatioStatistic,
   b: RegressionAdjustedRatioStatistic,
 ): number {
-  // Set theta to 1 so the partial derivatives are unaffected by theta.
+  // theta=1 makes the partial derivatives independent of theta.
   const aOne = a.withTheta(1);
   const bOne = b.withTheta(1);
   if (aOne.varPre + bOne.varPre === 0) return 0;
   return -(aOne.covariance + bOne.covariance) / (aOne.varPre + bOne.varPre);
 }
-
-// --- Quantile statistics ---
 
 // scipy.stats.norm.ppf(1.0 - 0.5 * 0.05): the 97.5th percentile multiplier.
 const QUANTILE_MULTIPLIER = normPpf(1.0 - 0.5 * 0.05);
@@ -744,8 +714,6 @@ export class QuantileClusteredStatistic extends QuantileStatistic {
   }
 }
 
-// --- Union types ---
-
 export type TestStatistic =
   | ProportionStatistic
   | SampleMeanStatistic
@@ -772,8 +740,6 @@ export type ScaledImpactStatistic =
   | SampleMeanStatistic
   | RegressionAdjustedStatistic;
 
-// --- Bandit period data ---
-
 export type BanditPeriodDataSampleMean = {
   stats: SampleMeanStatistic[];
   weights: number[];
@@ -789,11 +755,7 @@ export type BanditPeriodDataCuped = {
   weights: number[];
 };
 
-/**
- * gbstats `create_theta_adjusted_statistics`: given two regression-adjusted
- * statistics with uninitialized theta, compute the shared theta and return
- * copies with it applied (reverting to non-RA statistics when theta is ~0).
- */
+/** Apply a shared theta to two RA statistics; revert to non-RA when theta is ~0. */
 export function createThetaAdjustedStatistics(
   statA: TestStatistic,
   statB: TestStatistic,
@@ -805,7 +767,7 @@ export function createThetaAdjustedStatistics(
   ) {
     const theta = computeTheta(statA, statB);
     if (theta === 0) {
-      // Revert to non-RA under the hood if no variance in a time period.
+      // Revert to non-RA if no variance in a time period.
       return [statA.postStatistic, statB.postStatistic];
     }
     return [statA.withTheta(theta), statB.withTheta(theta)];
@@ -818,7 +780,7 @@ export function createThetaAdjustedStatistics(
   ) {
     const theta = computeThetaRegressionAdjustedRatio(statA, statB);
     if (Math.abs(theta) < 1e-8) {
-      // Revert to non-RA under the hood if no variance in a time period.
+      // Revert to non-RA if no variance in a time period.
       const revertedA = new RatioStatistic({
         n: statA.n,
         mStatistic: statA.mStatisticPost,

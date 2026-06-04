@@ -33,11 +33,7 @@ import {
   SnapshotMetricRequest,
 } from "./snapshot-metric";
 
-// The model-agnostic metric-query DTO and its sub-types live in
-// `./snapshot-metric`. Re-exported here so existing imports from
-// `shared/types/experiment-snapshot` continue to compile during the
-// rename window — prefer importing from `shared/types/snapshot-metric`
-// directly in new code.
+// Re-exported from `./snapshot-metric`; prefer importing from there in new code.
 export type {
   DimensionForSnapshot,
   MetricForSnapshot,
@@ -46,11 +42,7 @@ export type {
   SnapshotSettingsVariation,
 } from "./snapshot-metric";
 
-/**
- * @deprecated Renamed to `SnapshotMetricRequest`. This alias keeps existing
- * imports working during the model-agnostic rename — prefer the new name in
- * new code, and migrate sites incrementally.
- */
+/** @deprecated Use `SnapshotMetricRequest`. */
 export type ExperimentSnapshotSettings = SnapshotMetricRequest;
 
 export interface SnapshotMetric {

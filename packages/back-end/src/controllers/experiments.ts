@@ -1482,11 +1482,6 @@ export async function postExperiment(
     context.permissions.throwPermissionError();
   }
 
-  // PR-8 Commit 4 dropped `"contextual-bandit"` from the experimentType
-  // enum; the CB premium-feature gate moved to
-  // POST /api/v1/contextual-bandits, which is now the only path to
-  // create or mutate a CB.
-
   // Opt-in attribute registration check (org-level setting).
   assertRegisteredAttributes(
     context,
@@ -3092,10 +3087,7 @@ export async function deleteExperiment(
     }
   }
 
-  // Cascade-delete the paired CB doc if one exists. Post-decoupling
-  // CBs are no longer keyed by an experiment FK in their primary
-  // identity, but the legacy `experiment` field still serves as a
-  // fallback lookup until Commits 5–6 remove the bridge entirely.
+  // Cascade-delete the paired CB doc via the legacy `experiment` FK if one exists.
   try {
     await context.models.contextualBandits.deleteForExperiment(experiment.id);
   } catch (e) {

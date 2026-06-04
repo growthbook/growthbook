@@ -778,8 +778,6 @@ export function validateFeatureRule(
       }
     });
   } else if (rule.type === "contextual-bandit-ref") {
-    // Same variation-array shape as experiment-ref; the only difference is
-    // the FK target. Validate each variation value identically.
     rule.variations.forEach((v, i) => {
       const newValue = validateFeatureValue(
         feature,
@@ -788,8 +786,6 @@ export function validateFeatureRule(
       );
       if (newValue !== v.value) {
         hasChanges = true;
-        // The validator's variations shape matches ExperimentRefRule's
-        // variations[i].value field, so cast through that shape.
         (ruleCopy as unknown as { variations: { value: string }[] }).variations[
           i
         ].value = newValue;

@@ -114,9 +114,7 @@ export default function RefreshResultsButton<
     entityType === "safe-rollout"
       ? `/safe-rollout/${entityId}/snapshot`
       : isContextualBanditExperiment(experiment)
-        ? // CB-backed experiments use the CB-native REST refresh endpoint; the
-          // legacy `/experiment/:id/contextual-bandit/refresh` route 404s
-          // because `entityId` is a `cb_` id, not an experiment id.
+        ? // CB ids (cb_*) have no experiment doc; use the CB-native refresh endpoint.
           `/api/v1/contextual-bandits/${entityId}/refresh`
         : `/experiment/${entityId}/snapshot`;
 

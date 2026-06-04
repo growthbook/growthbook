@@ -76,18 +76,11 @@ class ContextualBanditSettingsForStatsEngine(BanditSettingsForStatsEngine):
     bandit_weights_rng: np.random.Generator = field(
         default_factory=lambda: np.random.default_rng()
     )
-    # we can delete the next two attributes, which are currently used in sim study testing
     weight_by_period: bool = True
     top_two: bool = False
-    attributes: List[str] = field(
-        default_factory=list
-    )  # columns that are used to create context keys; not column values
+    attributes: List[str] = field(default_factory=list)  # context-key columns
     max_leaves: int = 12
-    # Per-context current weights, keyed by contextId. The TS orchestrator
-    # populates this from CB.phases[phase].currentLeafWeights so the Python
-    # tree fitter can warm-start each leaf with the right prior. Distinct
-    # from the inherited single-vector `current_weights`, which only the
-    # non-contextual code path consumes.
+    # Per-leaf current weights keyed by contextId; warm-starts each leaf prior.
     current_contextual_weights: Dict[str, List[float]] = field(default_factory=dict)
 
     def __post_init__(self):
@@ -141,14 +134,7 @@ class ExperimentDataForStatsEngine:
 
 
 def get_bandit_settings(data: Dict[str, Any]) -> Optional[BanditSettingsForStatsEngine]:
-    """Build :class:`BanditSettingsForStatsEngine` from the stats-engine payload.
-
-    Copies every field defined on :class:`BanditSettingsForStatsEngine` from
-    ``data["bandit_settings"]`` except ``bandit_weights_rng``, which is always set to
-    :func:`numpy.random.default_rng` using ``bandit_weights_seed`` from that dict
-    (default ``100`` if the seed is omitted). Extra keys in the payload (e.g.
-    ``historical_weights`` from the API) are ignored.
-    """
+    """Build BanditSettingsForStatsEngine from payload, seeding rng from ``bandit_weights_seed`` (default 100)."""
     if "bandit_settings" not in data or data["bandit_settings"] is None:
         return None
     raw = dict(data["bandit_settings"])
@@ -164,14 +150,7 @@ def get_bandit_settings(data: Dict[str, Any]) -> Optional[BanditSettingsForStats
 def get_contextual_bandit_settings(
     data: Dict[str, Any],
 ) -> Optional[ContextualBanditSettingsForStatsEngine]:
-    """Build :class:`ContextualBanditSettingsForStatsEngine` from ``data["contextual_bandit_settings"]``.
-
-    Raises :class:`TypeError`/:class:`ValueError` if the payload doesn't match
-    the dataclass shape — failing loudly here is intentional. Silently
-    returning ``None`` on a wire-format mismatch causes
-    ``process_experiment_results`` to fall through to the standard analysis
-    path with no contextual output, which is invisible to the caller.
-    """
+    """Build ContextualBanditSettingsForStatsEngine from payload; raises loudly on shape mismatch."""
     raw_payload = data.get("contextual_bandit_settings")
     if raw_payload is None:
         return None

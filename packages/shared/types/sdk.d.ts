@@ -14,12 +14,6 @@ export type ExperimentMetadata = {
 
 // FeatureRule extended with optional metadata for experiment-ref rules
 // and (additive, backwards-compatible) contextual-bandit payload fields.
-// Newer SDKs evaluate per-context arm weights via `contexts`; older SDKs
-// ignore the CB fields entirely and fall back to the standard `weights`
-// array. The matching SDK-side type lives in
-// `sdk-js/src/types/growthbook.ts`. Aliased here (rather than on the
-// published `FeatureRule` directly) because `FeatureRule` is a `type`
-// alias and not amenable to module augmentation from the consumer side.
 export type FeatureDefinitionRule = FeatureRule & {
   metadata?: ExperimentMetadata;
   isContextualBandit?: boolean;

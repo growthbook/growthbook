@@ -69,14 +69,7 @@ export interface Props {
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   safeToEdit: boolean;
-  /**
-   * Override the targeting write endpoint. Defaults to the legacy
-   * `POST /experiment/:id/targeting` sub-route. The CB detail page
-   * passes `PUT /api/v1/contextual-bandits/:id`, which accepts the
-   * targeting-shaped subset (hashAttribute, fallbackAttribute,
-   * hashVersion, disableStickyBucketing). Phase-shape edits are
-   * intentionally left on the experiment route this session (C2).
-   */
+  /** Override the targeting write endpoint. Defaults to `POST /experiment/:id/targeting`. */
   updateEndpoint?: string;
   updateMethod?: "POST" | "PUT";
 }

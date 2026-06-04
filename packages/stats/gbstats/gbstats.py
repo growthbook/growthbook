@@ -1250,15 +1250,7 @@ def summable_statistics_per_variation_from_experiment_metric_rows(
     metric: MetricSettingsForStatsEngine,
     var_ids: List[str],
 ) -> List[SummableStatistic]:
-    """Build one :class:`~gbstats.models.statistics.SummableStatistic` per variation index.
-
-    ``rows`` must be the SQL-style narrow rows for a **single** context (or any set where
-    each row's ``variation`` identifies an arm). Rows for the same ``variation`` are merged
-    by summing :data:`SUM_COLS` like :func:`get_metric_dfs`. The *k*th list entry is the
-    statistic for ``var_ids[k]`` (same order as :func:`get_var_id_map`).
-
-    Quantile metric types are not supported (they are not ``SummableStatistic``).
-    """
+    """One SummableStatistic per variation index (k -> var_ids[k]); quantile metrics unsupported."""
     if metric.statistic_type in ("quantile_event", "quantile_unit"):
         raise ValueError(
             "summable_statistics_per_variation_from_experiment_metric_rows "
@@ -1565,7 +1557,7 @@ class ContextualBanditWeightsLookup:
 
 
 class UpdateWeightsContextualBandit:
-    """Updates variation weights per context. rows (ExperimentMetricQueryResponseRows) is an input; contexts are derived from analysis_settings.dimension. Call compute_result() to get per-context BanditResults (optionally pass rows to override, and current_weights_by_context for priors)."""
+    """Updates variation weights per context; call compute_result() for per-context BanditResults."""
 
     def __init__(
         self,
@@ -1574,7 +1566,6 @@ class UpdateWeightsContextualBandit:
         analysis_settings: AnalysisSettingsForStatsEngine,
         contextual_bandit_settings: ContextualBanditSettingsForStatsEngine,
     ):
-        """Store rows, metric/analysis settings, and contextual bandit settings for later use in compute_result()."""
         self.rows = rows
         self.metric_settings = metric_settings
         self.analysis_settings = analysis_settings
@@ -1655,7 +1646,7 @@ class UpdateWeightsContextualBandit:
         }
 
     def compute_result(self) -> ContextualBanditNoTreeResult:
-        """Derive contexts from rows and contextual_bandit_settings.contexts (list of column names); run bandit per context; return per-context BanditResult. If current_weights is provided per context, use it as prior; otherwise use analysis_settings.weights."""
+        """Run a bandit per context and return per-context BanditResult."""
         num_variations = len(self.contextual_bandit_settings.var_ids)
         default_weights = (
             list(self.analysis_settings.weights)
@@ -1672,11 +1663,9 @@ class UpdateWeightsContextualBandit:
             return self.no_update_result([], num_variations, update_message)
 
         else:
-            # Unique contexts: one tuple per combination of (col0, col1, ...) across rows
             contexts = self.create_contexts(
                 self.rows, self.contextual_bandit_settings.attributes
             )
-            # a row for each context
             rows_by_ctx = self.create_rows_by_context(
                 self.rows, self.contextual_bandit_settings.attributes, contexts
             )
@@ -1751,17 +1740,7 @@ def context_tuple_from_row(
     row: Dict[str, Any],
     context_columns: list[str],
 ) -> tuple[str, ...]:
-    """Read context tuple from a metric row; missing attrs bucket to Combined.
-
-    Example:
-        >>> context_tuple_from_row(
-        ...     {"country": "US", "plan_tier": "pro"},
-        ...     ["country", "plan_tier"],
-        ... )
-        ('US', 'pro')
-        >>> context_tuple_from_row({"country": "US"}, ["country", "plan_tier"])
-        ('US', 'Combined')
-    """
+    """Read context tuple from a metric row; missing attrs bucket to Combined."""
     return tuple(
         str(row.get(col, COMBINED_CONTEXT_ATTRIBUTE_VALUE)) for col in context_columns
     )
@@ -1769,16 +1748,7 @@ def context_tuple_from_row(
 
 @dataclass(frozen=True)
 class RowsByContextWithData:
-    """
-    Creates dict where the key is a context tuple and the value is a list of rows that belong to that context.
-    For example, if the context columns are ["country", "plan_tier"], and the rows are:
-    [{"country": "US", "plan_tier": "pro"}, {"country": "US", "plan_tier": "premium"}, {"country": "UK", "plan_tier": "pro"}],
-    then the rows_with_data dict will be:
-    {("US", "pro"): [{"country": "US", "plan_tier": "pro"}, {"country": "US", "plan_tier": "premium"}],
-    ("UK", "pro"): [{"country": "UK", "plan_tier": "pro"}]}
-    and the unique_keys list will be:
-    [("US", "pro"), ("UK", "pro")]
-    """
+    """Partition of metric rows keyed by context tuple, with sorted ``unique_keys``."""
 
     rows_with_data: dict[tuple[str, ...], ExperimentMetricQueryResponseRows]
     unique_keys: list[tuple[str, ...]]
@@ -1883,17 +1853,7 @@ def contextual_response_for_context_key(
 
 
 class UpdateWeightsContextualTree:
-    """Fits a tree over contexts and updates variation weights per leaf via UpdateWeightsContextualBandit.
-
-    Same constructor args as :class:`UpdateWeightsContextualBandit` except ``bandit_settings`` is
-    :class:`ContextualBanditSettingsForStatsEngine`. Subclass :class:`UpdateWeightsContextualTreePackage`
-    swaps :meth:`build_tree` for a greedy SSE-based partition. Default :meth:`build_tree` fits
-    :class:`BuildRegressionTree`.
-
-    **Variation encoding:** ``partition`` comes from :meth:`RowsByContextWithData.from_experiment_rows`
-    (``variation`` cells use ``var_ids``). Per-arm stats columns and synthesized leaf-bandit rows
-    use the same ids.
-    """
+    """Fits a tree over contexts and updates variation weights per leaf via UpdateWeightsContextualBandit."""
 
     def __init__(
         self,
@@ -1902,13 +1862,11 @@ class UpdateWeightsContextualTree:
         analysis_settings: AnalysisSettingsForStatsEngine,
         bandit_settings: ContextualBanditSettingsForStatsEngine,
     ):
-        """Initialize the tree with rows and settings; derive contexts from rows and analysis_settings.dimension, and set up leaf structure and internal bandit for per-leaf weight updates."""
         self.rows = rows
         self.metric_settings = metric_settings
         self.analysis_settings = analysis_settings
         self.bandit_settings = bandit_settings
         self.var_id_map = get_var_id_map(list(self.bandit_settings.var_ids))
-        # create dict where the key is a context tuple and the value is a list of rows that belong to that context.
         self.partition = RowsByContextWithData.from_experiment_rows(
             rows,
             bandit_settings,
@@ -1961,11 +1919,7 @@ class UpdateWeightsContextualTree:
     def contextual_bandit_settings_for_tree(
         tree_settings: ContextualBanditSettingsForStatsEngine,
     ) -> ContextualBanditSettingsForStatsEngine:
-        """Copy bandit + contextual fields from tree settings into ContextualBanditSettingsForStatsEngine.
-
-        Omits ``max_leaves``. Each key in ``current_contextual_weights`` is kept; weights are reset to
-        uniform ``1 / num_variations`` per arm.
-        """
+        """Build a leaf-keyed bandit settings from tree settings; omits ``max_leaves``."""
         bandit_fields = {
             k: v
             for k, v in asdict(tree_settings).items()
@@ -1976,40 +1930,20 @@ class UpdateWeightsContextualTree:
 
     @property
     def contexts_by_leaf(self) -> dict:
-        """Leaf id -> list of contexts in that leaf. Derived from leaf_map."""
+        """Leaf id -> list of contexts in that leaf."""
         out: dict = {}
         for ctx, leaf_id in self.leaf_map.items():
             out.setdefault(leaf_id, []).append(ctx)
         return out
 
     def set_leaf_structure(self, leaf_map: dict):
-        """Set leaf structure (called by build_tree)."""
         self.leaf_map = leaf_map
         self.leaf_ids = sorted(set(leaf_map.values()))
 
     def rows_to_rows_by_context(
         self, rows: ExperimentMetricQueryResponseRows
     ) -> dict[tuple, ExperimentMetricQueryResponseRows]:
-        """Transform flat ExperimentMetricQueryResponseRows into the structure expected by build_tree: dict mapping context (tuple of targeting attribute values) -> list of rows.
-        Uses bandit_settings.dimension for column names (arbitrary number of dimensions), falling back to analysis_settings.dimension for a single dimension.
-        Example:
-        rows = [
-            {"country": "US", "browser": "Chrome", "variation": 0, "users": 100, "main_sum": 1000},
-            {"country": "UK", "browser": "Firefox", "variation": 1, "users": 200, "main_sum": 2000},
-            {"country": "DE", "browser": "Chrome", "variation": 0, "users": 150, "main_sum": 1500},
-        ]
-        rows_by_context = {
-            ("US", "Chrome"): [
-                {"country": "US", "browser": "Chrome", "variation": 0, "users": 100, "main_sum": 1000},
-            ],
-            ("UK", "Firefox"): [
-                {"country": "UK", "browser": "Firefox", "variation": 1, "users": 200, "main_sum": 2000},
-            ],
-            ("DE", "Chrome"): [
-                {"country": "DE", "browser": "Chrome", "variation": 0, "users": 150, "main_sum": 1500},
-            ],
-        }
-        """
+        """Partition flat rows into dict keyed by context tuple (per bandit_settings.attributes)."""
         if not rows:
             return {}
         out: dict[tuple, ExperimentMetricQueryResponseRows] = {}
@@ -2056,11 +1990,7 @@ class UpdateWeightsContextualTree:
         metric_settings: MetricSettingsForStatsEngine,
         rng: np.random.Generator,
     ) -> tuple[int, int, float]:
-        """Given the current tree, which feature inside of which leaf most reduces SSE?
-
-        ``variation_columns`` must match stat columns from ``summable_statistics_...``, i.e.
-        ``bandit_settings.var_ids`` in canonical form.
-        """
+        """Pick the (feature, leaf) split that most reduces SSE under the current tree."""
         num_features = len(one_hot_encoded_feature_names)
         num_variations = len(variation_columns)
         num_leaves_current = len(np.unique(stats_encoded["current_leaf"]))
@@ -2068,9 +1998,7 @@ class UpdateWeightsContextualTree:
         sse_split = np.zeros((num_features, num_leaves_current, num_variations))
 
         for leaf_index in range(num_leaves_current):
-            # use observations only from the current leaf
             this_leaf = stats_encoded[stats_encoded["current_leaf"] == leaf_index]
-            # calculate SSE for the current leaf
             aggregated = UpdateWeightsContextualTree.aggregate_variation_columns(
                 this_leaf, variation_columns
             )
@@ -2078,7 +2006,6 @@ class UpdateWeightsContextualTree:
                 (stat.n - 1) * stat.variance for stat in aggregated.values()
             ]
             for feature_index in range(num_features):
-                # calculate SSE if the feature is split into 0 and 1
                 stats_df_0 = this_leaf[
                     this_leaf[one_hot_encoded_feature_names[feature_index]] == 0
                 ]
@@ -2138,15 +2065,7 @@ class UpdateWeightsContextualTree:
         prefix: Optional[List[str]] = None,
         dtype: type = float,
     ) -> pd.DataFrame:
-        """Replicate the subset of ``pd.get_dummies`` behavior this module relies on.
-
-        Each column in ``columns`` is dropped and replaced by one indicator column
-        per category, named ``f"{prefix}_{category}"`` (default separator ``_``).
-        Categories are emitted in sorted order and ``NaN`` values get no column
-        (i.e. ``dummy_na=False``), matching pandas. Columns not listed in ``columns``
-        are preserved as-is, in their original order, ahead of the new indicator
-        columns. The original index is preserved.
-        """
+        """Subset of ``pd.get_dummies``: replace ``columns`` with sorted indicator columns ``{prefix}_{cat}``."""
         prefixes = prefix if prefix is not None else columns
         if len(prefixes) != len(columns):
             raise ValueError("prefix must have the same length as columns")
@@ -2204,7 +2123,7 @@ class UpdateWeightsContextualTree:
         return sse_final
 
     def _build_by_leaf_cumulative(self, rows_by_context: dict) -> dict:
-        """Aggregate rows_by_context (context -> rows) into per-leaf rows by merging all contexts that map to the same leaf_id. Returns dict mapping leaf_id -> merged list of rows."""
+        """Merge per-context rows into per-leaf rows using ``leaf_map``."""
         by_leaf_cumulative = {}
         for leaf_id in self.leaf_ids:
             rows_leaf = None
@@ -2223,11 +2142,7 @@ class UpdateWeightsContextualTree:
     def _aggregate_leaf_rows_for_bandit(
         self, rows: ExperimentMetricQueryResponseRows, leaf_id: int
     ) -> ExperimentMetricQueryResponseRows:
-        """Merge all rows in a leaf (many contexts × variations) into one row per variation.
-
-        Sums every field in SUM_COLS that appears on any input row. Sets LEAF_ID_COLUMN for
-        UpdateWeightsContextualBandit (leaf as context).
-        """
+        """Merge all rows in a leaf into one row per variation; sets LEAF_ID_COLUMN."""
         if not rows:
             return []
         sum_cols_active = [c for c in SUM_COLS if any(c in r for r in rows)]
@@ -2268,12 +2183,10 @@ class UpdateWeightsContextualTree:
             self.metric_settings,
             self.bandit_settings,
         )
-        # store one-hot-encoding of the contextual features
         self.stats_encoded = self.create_stats_encoded(
             self.stats_df, self.bandit_settings
         )
 
-        # initialize the tree with all contexts in leaf 0
         self.stats_encoded["leaf_0"] = 0
         self.stats_encoded["current_leaf"] = copy.deepcopy(
             self.stats_encoded["leaf_0"].astype(int)
@@ -2323,7 +2236,7 @@ class UpdateWeightsContextualTree:
         self.sse_final = self.calculate_sse_final(self.stats_encoded, variation_columns)
 
     def compute_result(self) -> ContextualBanditResult:
-        """Fit tree, aggregate rows per leaf with LEAF_ID_COLUMN, run **one** UpdateWeightsContextualBandit with contexts=[LEAF_ID_COLUMN], then map leaf-level results and weights onto each real context via leaf_map."""
+        """Fit tree, run one leaf-keyed bandit, then map leaf results back onto each real context."""
         self.build_tree()
         if not self.leaf_ids:
             no_leaf_responses: List[ContextualBanditContextSummary] = []
@@ -2349,7 +2262,6 @@ class UpdateWeightsContextualTree:
                 responsesContext=no_leaf_responses,
                 leafMap=copy.copy(self.leaf_map),
             )
-        # create dict where the key is a leaf id and the value is a list of rows that belong to that leaf.
         by_leaf_cumulative = self._build_by_leaf_cumulative(
             self.partition.rows_with_data
         )
@@ -2364,7 +2276,6 @@ class UpdateWeightsContextualTree:
                 self._aggregate_leaf_rows_for_bandit(rows_leaf, leaf_id=leaf_id)
             )
 
-        # set leaf as the context
         leaf_bandit_settings = self.contextual_bandit_settings_for_tree(
             self.bandit_settings
         )
@@ -2382,7 +2293,6 @@ class UpdateWeightsContextualTree:
             )
         )
 
-        # create list of contextual bandit responses indexed by leaf id
         responses_leaf: List[ContextualBanditResponse] = []
         for leaf_id in self.leaf_ids:
             leaf_snapshot = leaf_responses_by_id.get(str(leaf_id))
@@ -2396,8 +2306,7 @@ class UpdateWeightsContextualTree:
                     )
                 )
 
-        # create list of contextual bandit responses indexed by context tuple
-        # used for deep diving
+        # Per-context responses for deep diving.
         responses_context: List[ContextualBanditContextSummary] = []
         var_ids = list(self.bandit_settings.var_ids)
         for ctx in self.partition.unique_keys:
@@ -2405,8 +2314,6 @@ class UpdateWeightsContextualTree:
                 ctx, self.bandit_settings.attributes
             )
 
-            # Sample sizes and means are reported at the context granularity:
-            # compute per-variation statistics from this context's own rows.
             ctx_stats = summable_statistics_per_variation_from_experiment_metric_rows(
                 self.partition.rows_with_data.get(ctx) or [],
                 self.metric_settings,
@@ -2416,8 +2323,7 @@ class UpdateWeightsContextualTree:
             sample_means = [float(s.unadjusted_mean) for s in ctx_stats]
             sample_variances = [float(s.unadjusted_variance) for s in ctx_stats]
 
-            # Weights are decided per leaf, so look up the leaf this context
-            # maps to and reuse its updated weights / best-arm probabilities.
+            # Reuse the per-leaf weights for every context that maps to that leaf.
             leaf_id = self.leaf_map.get(ctx)
             leaf_snapshot = (
                 leaf_responses_by_id.get(str(leaf_id)) if leaf_id is not None else None
@@ -2493,8 +2399,7 @@ def get_contextual_bandit_result(
         analysis_settings=settings,
         bandit_settings=contextual_bandit_settings,
     ).compute_result()
-    # leafMap is built with tuple context keys during the fit; convert it to
-    # JSON-serializable entries before the result leaves the stats engine.
+    # Tuple-keyed leafMap -> JSON-serializable entries before leaving the stats engine.
     result.leafMap = (
         serialize_leaf_map_for_json(result.leafMap, list(result.attributes))
         if result.leafMap

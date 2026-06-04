@@ -3,25 +3,15 @@ import { useAddComputedFields, useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 
-/**
- * Computed-fields shape that the CB list page consumes — same idea as
- * `ComputedExperimentInterface` for the experiment list, but typed
- * directly off `ApiContextualBanditInterface` so the page doesn't have
- * to round-trip through an experiment projection.
- *
- * The fields here are the union of what the list-page renderer reads
- * (ownerName, projectName, tab, date, isWatched) plus a few useful
- * search filters. Sort fields all live on the base CB API shape, so
- * sort by `name`/`tags`/`status` works without any extra computed work.
- */
+/** Computed-fields shape the CB list page consumes, typed off `ApiContextualBanditInterface`. */
 export type ComputedContextualBanditInterface = ApiContextualBanditInterface & {
   ownerName: string;
   projectId?: string;
   projectName?: string;
   projectIsDeReferenced?: string | boolean;
-  /** Bucket the CB falls into in the list-page tabs (`drafts` / `running` / `stopped` / `archived`). */
+  /** List-page tab bucket (`drafts` / `running` / `stopped` / `archived`). */
   tab: string;
-  /** ISO date used for the "Date" column — phase start / phase end / created depending on status. */
+  /** ISO date for the "Date" column — phase start / phase end / created depending on status. */
   date: string;
   isWatched?: boolean;
 };
@@ -38,16 +28,7 @@ function cbDate(cb: ApiContextualBanditInterface): string {
   return cb.dateCreated;
 }
 
-/**
- * CB-native equivalent of `useExperimentSearch`. Takes a flat array of
- * `ApiContextualBanditInterface[]` and returns the search/sort/filter
- * primitives the list page wires into its table.
- *
- * Deliberately a smaller surface than the experiment hook — CB doesn't
- * have visualChangesets, hypothesis-as-tag, results=won/lost/etc., or
- * the variation-level search filters that experiments do. Add those as
- * CBs grow features they need.
- */
+/** CB-native equivalent of `useExperimentSearch` — search/sort/filter primitives for the CB list. */
 export function useContextualBanditSearch({
   contextualBandits,
   defaultSortField = "date",

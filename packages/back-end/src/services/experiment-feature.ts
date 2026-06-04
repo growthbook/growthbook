@@ -508,11 +508,7 @@ export async function publishPendingFeatureDraftsForExperiment(
   return { published, failed };
 }
 
-// Sibling of `publishPendingFeatureDraftsForExperiment` for CBs. Same
-// two-phase shape (prune+gate, then sequential publish) since the
-// merge-conflict and approval semantics are identical — the only
-// differences are the parent doc type and which model holds
-// `pendingFeatureDrafts`. Called from the CB-start path landing in PR-5.
+// Sibling of `publishPendingFeatureDraftsForExperiment` for CBs; same two-phase shape (prune+gate, then sequential publish).
 export async function publishPendingFeatureDraftsForContextualBandit(
   context: ReqContext | ApiReqContext,
   cb: ContextualBanditInterface,

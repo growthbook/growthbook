@@ -33,19 +33,10 @@ const StopExperimentForm: FC<{
   mutate: () => void;
   close: () => void;
   source?: string;
-  /**
-   * Override the write endpoint used for the "already stopped" branch
-   * (post-stop edits of results/analysis/etc.). Defaults to
-   * `POST /experiment/:id`. The CB detail page passes
-   * `PUT /api/v1/contextual-bandits/:id`.
-   */
+  /** Override the write endpoint for post-stop edits. Defaults to `POST /experiment/:id`. */
   updateEndpoint?: string;
   updateMethod?: "POST" | "PUT";
-  /**
-   * Override the write endpoint used to actively stop the experiment.
-   * Defaults to `POST /experiment/:id/stop`. The CB detail page passes
-   * `POST /api/v1/contextual-bandits/:id/stop`.
-   */
+  /** Override the write endpoint used to stop the experiment. Defaults to `POST /experiment/:id/stop`. */
   stopEndpoint?: string;
 }> = ({
   experiment,

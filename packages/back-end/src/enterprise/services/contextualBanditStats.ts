@@ -1,4 +1,3 @@
-// See contextual-bandit-fix-prompt.md for the v1 scope and the v1.5 holdout TODOs.
 import {
   contextualBanditAttrCol,
   ExperimentMetricInterface,
@@ -36,9 +35,7 @@ export type ContextualBanditSettingsForStatsEngine = {
   current_weights_by_context: Record<string, number[]>;
   max_leaves: number;
   min_users_per_leaf: number;
-  // When true, the updated variation weights are computed by the Python stats
-  // engine (gbstats). When false, they are computed in TypeScript by
-  // `computeContextualBanditWeights` without spawning Python.
+  // True: weights computed by Python gbstats. False: computed in TS via `computeContextualBanditWeights`.
   update_weights_using_python: boolean;
 };
 
@@ -85,9 +82,6 @@ export async function runContextualStatsEngine(
       "Contextual stats engine requires runParams when mock stats are disabled",
     );
   }
-  // Default path computes the updated variation weights in TypeScript. Set
-  // `update_weights_using_python` to true to delegate to the Python stats
-  // engine instead.
   if (!settings.update_weights_using_python) {
     const result = computeContextualBanditWeights(
       buildContextualBanditWeightsInput(settings, normalizedRows, runParams),
@@ -103,11 +97,7 @@ export async function runContextualStatsEngine(
   );
 }
 
-/**
- * Resolves the metric/analysis settings the pure `stats-ts` weight engine needs
- * (it has no back-end coupling, so the caller loads these here) and packages
- * them with the rows into the engine's input contract.
- */
+/** Packages metric/analysis settings + rows into the `stats-ts` weight engine input contract. */
 function buildContextualBanditWeightsInput(
   settings: ContextualBanditSettingsForStatsEngine,
   rows: ExperimentMetricQueryResponseRows,
@@ -191,8 +181,7 @@ export function filterMetricQueryRowsForStatsEngine(
 export function prepareRowsForContextualStats(
   rows: ExperimentMetricQueryResponseRows,
 ): ExperimentMetricQueryResponseRows {
-  // Contextual bandit decision metrics are always fact metrics, so the rows are
-  // always fact-metric-query rows (m0_* prefixed columns).
+  // CB decision metrics are always fact metrics (m0_* prefixed columns).
   return filterMetricQueryRowsForStatsEngine(stripInternalRowFields(rows), 0);
 }
 
@@ -226,10 +215,7 @@ function buildPythonContextualBanditSettings(
   return {
     var_names: settings.var_names,
     var_ids: settings.var_ids,
-    // `current_weights` is inherited from BanditSettingsForStatsEngine and
-    // unused by the contextual code path (which reads
-    // `current_contextual_weights` instead). Kept populated with a sensible
-    // fallback so the parent dataclass invariant still holds.
+    // Unused by contextual path but populated to satisfy parent dataclass invariant.
     current_weights: fallbackWeights,
     current_contextual_weights: settings.current_weights_by_context,
     reweight: settings.reweight,
@@ -335,11 +321,7 @@ async function runContextualStatsEngineWithPython(
     );
   }
 
-  // gbstats serializes per-leaf posterior responses as `responses` and the
-  // per-context sample (data-only) summaries as `responsesContext` (with
-  // `leafMap`). The TypeScript weight path emits per-context sample summaries,
-  // so map the Python path the same way for consistency: surface the
-  // per-context sample stats as `responses`.
+  // Surface per-context sample stats as `responses` for parity with the TS weight path.
   const pyResult =
     analysis.contextualBanditResult as ContextualBanditSnapshot & {
       responsesContext?: ContextualBanditResponseSnapshot[];

@@ -49,10 +49,6 @@ export type FeatureRule<T = any> = {
     result: Result<T>;
   }>;
   // Contextual-bandit payload extensions (additive, backwards-compatible).
-  // Newer SDKs evaluate per-context arm weights; older SDKs ignore these
-  // fields entirely and fall back to the standard `weights` array. The
-  // back-end payload scrubber strips them for SDK versions below the
-  // contextual-bandit support floor.
   isContextualBandit?: boolean;
   attributesRequired?: string[];
   contexts?: {

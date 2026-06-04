@@ -134,11 +134,7 @@ export function getExperimentFactMetricsQuery(
   // Get date range for experiment and analysis
   const endDate: Date = getExperimentEndDate(settings, maxHoursToConvert);
 
-  // Contextual bandits weight variations in TypeScript from raw summable stats,
-  // so they skip the multi-armed-bandit period weighting and run through the
-  // same aggregation as a standard experiment (just with the attr_cb_* context
-  // columns appended to the dimensions). `getBanditDates` returns undefined
-  // when `contextualBandit` is set, which short-circuits the CB path here.
+  // CBs are weighted in TS from raw stats, so they skip MAB period weighting; `getBanditDates` returns undefined for them.
   const banditDates = getBanditDates(settings.banditSettings);
   const poolRegressionTheta =
     settings.banditSettings?.poolRegressionTheta !== false;

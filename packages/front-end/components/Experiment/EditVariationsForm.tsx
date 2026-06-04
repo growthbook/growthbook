@@ -17,11 +17,7 @@ const EditVariationsForm: FC<{
   cancel: () => void;
   mutate: () => void;
   source?: string;
-  /**
-   * Override the write endpoint + HTTP method. Defaults to the legacy
-   * `POST /experiment/:id` route; the CB detail page passes
-   * `PUT /api/v1/contextual-bandits/:id` for CB-native writes.
-   */
+  /** Override the write endpoint + HTTP method. Defaults to `POST /experiment/:id`. */
   updateEndpoint?: string;
   updateMethod?: "POST" | "PUT";
 }> = ({

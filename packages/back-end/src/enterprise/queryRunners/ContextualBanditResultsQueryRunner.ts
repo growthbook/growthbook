@@ -30,12 +30,7 @@ import {
 } from "back-end/src/enterprise/services/contextualBanditStats";
 import { QueryMap, QueryRunner } from "back-end/src/queryRunners/QueryRunner";
 
-/**
- * Parameters the orchestrator hands to the runner. The frozen snapshot
- * settings carry everything reproducibility-critical; `variationNames` is
- * supplied separately because the typed snapshot settings only persist
- * variation IDs + traffic weights (display names live on the experiment doc).
- */
+/** Orchestrator-to-runner params; `variationNames` is separate because frozen settings only persist IDs/weights. */
 export type ContextualBanditResultsQueryParams = {
   snapshotSettings: ContextualBanditSnapshotSettings;
   variationNames: string[];
@@ -44,10 +39,7 @@ export type ContextualBanditResultsQueryParams = {
 /** The successful output of one CB run. Returned from `runAnalysis`. */
 export type ContextualBanditQueryRunResult = ContextualBanditResult;
 
-/**
- * Name of the single sub-query this runner manages. Kept as a constant so the
- * `runAnalysis` lookup can't drift from the `startQueries` registration.
- */
+/** Name of the single sub-query this runner manages; shared by `startQueries` and `runAnalysis`. */
 export const CONTEXTUAL_BANDIT_ROWS_QUERY_NAME = "contextual-bandit-rows";
 
 export class ContextualBanditResultsQueryRunner extends QueryRunner<
@@ -81,11 +73,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       this.snapshotSettings,
     );
 
-    // A contextual bandit should always have usable targeting attributes; if it
-    // doesn't (none configured, or none that are SQL-safe identifiers), we don't
-    // fail the run — the bandit degrades to a single global context and updates
-    // variation weights identically for every user. Surface a warning so the
-    // unexpected configuration is visible.
+    // Without usable targeting we degrade to a single global context; warn so the misconfig is visible.
     if (!hasUsableContextualBanditTargeting(expSnapshotSettings)) {
       logger.warn(
         `Contextual bandit ${this.snapshotSettings.experimentId} (snapshot ${this.model.id}) has no usable targeting attribute columns ` +
@@ -108,7 +96,6 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
         `Contextual bandit decision metric not found: ${decisionMetricId}`,
       );
     }
-    // Contextual bandits only support fact metrics as the decision metric.
     if (!isFactMetric(decisionMetric)) {
       throw new Error(
         `Contextual bandit decision metric ${decisionMetricId} must be a fact metric`,
@@ -156,12 +143,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
   async runAnalysis(
     queryMap: QueryMap,
   ): Promise<ContextualBanditQueryRunResult> {
-    // TODO(holdout-v1.5): for holdout support, `runAnalysis` will need to
-    // receive both the holdout sample and the bandit sample (currently the
-    // single `contextual-bandit-rows` query) and compute the lift comparison
-    // alongside the per-leaf weights. The result shape change must be paired
-    // with validator updates per the SMITH rule in contextualBanditStats.ts.
-    // See contextual-bandit-fix-prompt.md.
+    // TODO(holdout-v1.5): accept both holdout and bandit samples and compute lift alongside per-leaf weights.
     if (!this.snapshotSettings) {
       throw new Error(
         "ContextualBanditResultsQueryRunner: snapshotSettings missing in runAnalysis",
@@ -174,18 +156,12 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
         `ContextualBanditResultsQueryRunner: query "${CONTEXTUAL_BANDIT_ROWS_QUERY_NAME}" missing from queryMap`,
       );
     }
-    // `result` is set to the raw rows array by the QueryRunner base class
-    // (see `executeQuery`'s success branch in QueryRunner.ts). The QueryDoc
-    // types this as Record<string, any> | Record<string, any>[]; cast back
-    // to the row type known to the stats engine.
     const rows = (queryDoc.result ??
       queryDoc.rawResult ??
       []) as ExperimentMetricQueryResponseRows;
 
     const attributeColumns = this.snapshotSettings.contextualAttributes;
 
-    // 1. Tag rows with derived contextIds (stable hash of experimentId + the
-    //    surviving attribute map).
     const tagged = rows.map((r) => ({
       ...r,
       contextId: deriveContextId(
@@ -196,8 +172,6 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       ),
     }));
 
-    // 2. Build the stats-engine settings from the frozen snapshot + latest
-    //    CBE weights for this (experiment, phase).
     const cb = await this.loadCbDoc();
     const currentWeightsByContext: Record<string, number[]> =
       Object.fromEntries(
@@ -303,10 +277,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
             : "success",
     };
 
-    // On a successful run, fan out the side effects (CBE create, CB phase
-    // weight patch, SDK payload refresh) *before* the final CBS write so the
-    // CBS row's `contextualBanditEventId` pointer is never published in a
-    // half-consistent state.
+    // Fan out side effects BEFORE the final CBS write so `contextualBanditEventId` is never published half-consistent.
     if (status === "succeeded" && result) {
       const cbe = await persistContextualBanditEvent(
         this.context,
@@ -328,11 +299,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
     };
   }
 
-  /**
-   * Resolves the parent ContextualBandit doc for the snapshot under analysis.
-   * Cached on the runner so `startQueries` and `runAnalysis` only hit Mongo
-   * once per run.
-   */
+  /** Resolves and caches the parent CB doc for the snapshot under analysis. */
   private async loadCbDoc(): Promise<ContextualBanditInterface> {
     if (this.cachedCb) return this.cachedCb;
     if (!this.snapshotSettings) {
@@ -352,10 +319,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
     return cb;
   }
 
-  /**
-   * Resolves the exposure-assignment query (EAQ) referenced by the snapshot
-   * from the integration's datasource settings.
-   */
+  /** Resolves and caches the exposure-assignment query referenced by the snapshot. */
   private loadExposureQuery(): ExposureQuery {
     if (this.cachedExposureQuery) return this.cachedExposureQuery;
     if (!this.snapshotSettings) {

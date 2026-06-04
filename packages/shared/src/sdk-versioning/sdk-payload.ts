@@ -45,13 +45,7 @@ export const STICKY_BUCKETING_RULE_KEYS = [
 
 export const PREREQUISITE_RULE_KEYS = ["parentConditions"] as const;
 
-// Contextual-bandit rule fields. Listed here (rather than under one of the
-// existing capability bundles) so the scrubber can preserve them only for
-// connections whose SDK declares `contextualBandits`, and strip them
-// otherwise — defense in depth around the injection-time gate in
-// `back-end/src/util/features.ts`. `contexts` is intentionally absent
-// because the injector does not emit it yet; add it back here when the
-// Python stats engine starts shipping per-leaf split predicates.
+// Preserved only when the SDK declares `contextualBandits` capability.
 export const CONTEXTUAL_BANDIT_RULE_KEYS = [
   "isContextualBandit",
   "attributesRequired",

@@ -4,26 +4,6 @@ import { runContextualBanditSnapshot } from "back-end/src/enterprise/services/co
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 
-/**
- * Background agenda job for refreshing CB snapshots.
- *
- * Parallel to `updateExperimentResults.ts` but scoped to ContextualBandit
- * docs only. The split mirrors the plan §6 decision: CB refresh cadence,
- * payload-refresh semantics, and failure handling diverge from regular
- * experiments enough that one polymorphic job became too branchy.
- *
- * Per-CB flow:
- *   1. Resolve a per-org agenda context.
- *   2. Load the CB doc and hand off to the snapshot orchestrator. The
- *      orchestrator takes the CB directly (PR-8 Commit 1); no parent
- *      experiment lookup is needed.
- *
- * Failures: CBs (like multi-armed bandits) have their own lifecycle
- * retry semantics — we log the error and bail without disabling
- * autoSnapshots, matching the bandit-exemption in
- * `updateExperimentResults.ts`.
- */
-
 const QUEUE_CB_RESULTS_UPDATES = "queueContextualBanditUpdates";
 const UPDATE_SINGLE_CB = "updateSingleContextualBandit";
 
@@ -47,10 +27,6 @@ export default async function (agenda: Agenda) {
   async function startUpdateJob() {
     const job = agenda.create(QUEUE_CB_RESULTS_UPDATES, {});
     job.unique({});
-    // CBs are intentionally polled more aggressively than experiments —
-    // every 10 minutes matches the experiment cadence today and is the
-    // safest starting point; we can tighten when the auto-retraining
-    // schedule fields land.
     job.repeatEvery("10 minutes");
     await job.save();
   }
@@ -94,8 +70,7 @@ const updateSingleContextualBandit = async (job: UpdateSingleCBJob) => {
     });
     logger.info("Successfully refreshed results for contextual bandit " + cbId);
   } catch (e) {
-    // CBs manage their own retry lifecycle (see the bandit exemption in
-    // updateExperimentResults.ts); log and bail without disabling.
+    // CBs manage their own retry lifecycle; log and bail without disabling.
     logger.error(e, "Failed to update contextual bandit: " + cbId);
   }
 };

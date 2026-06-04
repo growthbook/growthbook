@@ -1895,10 +1895,6 @@ export const getExperimentSnapshotValidator = {
   path: "/snapshots/:id",
 };
 
-// ---------------------------------------------------------------------------
-// Contextual Bandit endpoints
-// ---------------------------------------------------------------------------
-
 const cbIdParam = z
   .object({ id: z.string().describe("The experiment id") })
   .strict();
@@ -2033,10 +2029,7 @@ export const getContextualBanditEventValidator = {
   path: "/experiments/:id/contextual-bandit/events/:eventId",
 };
 
-// One per-leaf response surfaced on the CBE doc. Mirrors
-// `ContextualBanditResponseSnapshot` in shared/types/stats.d.ts; kept loose
-// (`z.record(z.string(), z.unknown())` for `context`) because Mongo targeting
-// conditions may contain operator expressions (`$in`, `$gte`, etc.).
+// `context` is loose to allow Mongo operator expressions (`$in`, `$gte`, etc.).
 const cbResponseShape = z.object({
   context: z.record(z.string(), z.unknown()),
   sampleSizePerVariation: z.array(z.number()).nullable().optional(),
@@ -2061,7 +2054,6 @@ const cbLeafStatsEntryShape = z.object({
   sampleVariances: z.array(z.number()).nullable().optional(),
 });
 
-// CBE stats payload mirrored from the latest event for the most recent phase.
 const cbResultsSnapshotShape = z.object({
   attributes: z.array(z.string()),
   responses: z.array(cbResponseShape),
@@ -2069,9 +2061,7 @@ const cbResultsSnapshotShape = z.object({
   leaf_stats: z.array(cbLeafStatsEntryShape).optional(),
 });
 
-// Subset of the internal `SnapshotStatusSummary` we surface externally —
-// dates are ISO strings on the wire; `queries` is left loose so future
-// query-pointer fields don't churn the OpenAPI spec.
+// Dates are ISO strings on the wire; `queries` is loose to avoid OpenAPI churn.
 const cbResultsLatestShape = z.object({
   id: z.string(),
   status: z.enum(["running", "success", "error"]),
@@ -2106,7 +2096,6 @@ export const getContextualBanditResultsValidator = {
 const cbPhaseParam = z
   .object({
     id: z.string().describe("The experiment id"),
-    // Coerce so `/phase/0` (string param) becomes `0` (number).
     phase: z.coerce
       .number()
       .int()
@@ -2115,8 +2104,7 @@ const cbPhaseParam = z
   })
   .strict();
 
-// CB phase shape returned by the PUT endpoint. Dates are ISO strings on the
-// wire even though the CB doc stores them as `Date` objects.
+// Dates are ISO strings on the wire even though the CB doc stores `Date` objects.
 const cbPhaseShape = z.object({
   index: z.number().int().nonnegative(),
   dateStarted: z.string(),
@@ -2132,10 +2120,6 @@ const cbPhaseShape = z.object({
 export const putContextualBanditPhaseValidator = {
   bodySchema: z
     .object({
-      // CB-specific ongoing operator action: manually override the per-leaf
-      // weights for a given phase. The plan also envisioned `contexts` and
-      // `status` fields but those are not part of the current CB-phase
-      // schema; they will be re-introduced once the data model supports them.
       currentLeafWeights: z
         .array(
           z.object({

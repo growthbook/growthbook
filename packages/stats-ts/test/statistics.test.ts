@@ -1,12 +1,4 @@
-/**
- * Tests for the gbstats `statistics.py` TypeScript port. Reference values mirror
- * the Python suite (`tests/test_shared_models.py`,
- * `tests/frequentist/test_tests.py`) and numpy equivalents:
- *   - mean              -> np.mean
- *   - variance          -> np.var(..., ddof=1) for sample means
- *   - ratio covariance  -> np.cov(a, b)[0, 1]
- *   - compute_theta     -> 0.01864 (rounded to 5 dp)
- */
+/** Tests for the gbstats `statistics.py` TS port; reference values from the Python suite. */
 
 import {
   ProportionStatistic,
@@ -24,8 +16,6 @@ import {
 } from "../src/statistics";
 import { varianceOfRatios } from "../src/utils";
 
-// --- Shared test data (mirrors test_shared_models.py) ---
-
 const N = 4;
 const METRIC_1 = [0.3, 0.5, 0.9, 22];
 const METRIC_2 = [1, 1, 1];
@@ -39,13 +29,11 @@ const sumProd = (a: number[], b: number[]) =>
 const sampleMean = (a: number[], n: number = a.length) =>
   new SampleMeanStatistic({ n, sum: sumOf(a), sumSquares: sumSq(a) });
 
-// --- SampleMeanStatistic ---
-
 describe("SampleMeanStatistic", () => {
   it("matches np.mean / np.var(ddof=1)", () => {
     const stat = sampleMean(METRIC_1, N);
-    expect(stat.mean).toBeCloseTo(5.925, 9); // np.mean(METRIC_1)
-    expect(stat.variance).toBeCloseTo(114.90916666666667, 9); // np.var(ddof=1)
+    expect(stat.mean).toBeCloseTo(5.925, 9);
+    expect(stat.variance).toBeCloseTo(114.90916666666667, 9);
     expect(stat.unadjustedMean).toBe(stat.mean);
     expect(stat.unadjustedVariance).toBe(stat.variance);
   });
@@ -73,15 +61,13 @@ describe("SampleMeanStatistic", () => {
   });
 });
 
-// --- ProportionStatistic ---
-
 describe("ProportionStatistic", () => {
   it("treats sumSquares as sum and uses p*(1-p) variance", () => {
     const stat = new ProportionStatistic({ n: N, sum: sumOf(METRIC_2) });
-    const p = sumOf(METRIC_2) / N; // 0.75
+    const p = sumOf(METRIC_2) / N;
     expect(stat.sumSquares).toBe(stat.sum);
     expect(stat.mean).toBeCloseTo(p, 12);
-    expect(stat.variance).toBeCloseTo(p * (1 - p), 12); // 0.1875
+    expect(stat.variance).toBeCloseTo(p * (1 - p), 12);
     expect(stat.unadjustedMean).toBe(stat.mean);
   });
 
@@ -99,8 +85,6 @@ describe("ProportionStatistic", () => {
     expect(sum.sumSquares).toBe(4);
   });
 });
-
-// --- RatioStatistic ---
 
 describe("RatioStatistic", () => {
   const makeRatio = (dSum?: number) => {
@@ -157,8 +141,6 @@ describe("RatioStatistic", () => {
   });
 });
 
-// --- RegressionAdjustedStatistic ---
-
 describe("RegressionAdjustedStatistic", () => {
   const makeRA = (theta: number | null) =>
     new RegressionAdjustedStatistic({
@@ -171,17 +153,15 @@ describe("RegressionAdjustedStatistic", () => {
 
   it("reduces to the post statistic when theta = 0", () => {
     const ra = makeRA(0);
-    expect(ra.mean).toBeCloseTo(2.75, 9); // np.mean(METRIC_3)
+    expect(ra.mean).toBeCloseTo(2.75, 9);
     expect(ra.variance).toBeCloseTo(ra.postStatistic.variance, 12);
   });
 
   it("adjusts the mean and variance when theta is non-zero", () => {
     const ra = makeRA(0.23);
-    // mean = post - theta * pre = 2.75 - 0.23 * 5.925
     expect(ra.mean).toBeCloseTo(1.38725, 9);
     expect(ra.unadjustedMean).toBeCloseTo(2.75, 9);
     expect(ra.unadjustedVariance).toBeCloseTo(ra.postStatistic.variance, 12);
-    // var = postVar + theta^2 preVar - 2 theta cov
     expect(ra.variance).toBeCloseTo(8.0101949, 5);
     expect(ra.variance).not.toBeCloseTo(ra.postStatistic.variance, 5);
   });
@@ -230,8 +210,6 @@ describe("RegressionAdjustedStatistic", () => {
   });
 });
 
-// --- computeCovariance ---
-
 describe("computeCovariance", () => {
   it("uses the sample-mean form for non-proportion statistics", () => {
     const a = sampleMean(METRIC_1, N);
@@ -243,7 +221,6 @@ describe("computeCovariance", () => {
   it("uses the proportion-specific form for two proportions", () => {
     const a = new ProportionStatistic({ n: 4, sum: 2 });
     const b = new ProportionStatistic({ n: 4, sum: 3 });
-    // sumProducts/n - sumA*sumB/n^2 = 2/4 - 6/16
     expect(computeCovariance(4, a, b, 2)).toBeCloseTo(0.125, 12);
   });
 
@@ -253,8 +230,6 @@ describe("computeCovariance", () => {
     expect(computeCovariance(1, a, b, 10)).toBe(0);
   });
 });
-
-// --- createJointStatistic ---
 
 describe("createJointStatistic", () => {
   it("joins two proportions into a proportion", () => {
@@ -290,8 +265,6 @@ describe("createJointStatistic", () => {
   });
 });
 
-// --- computeTheta ---
-
 describe("computeTheta", () => {
   const makeRA = () =>
     new RegressionAdjustedStatistic({
@@ -317,8 +290,6 @@ describe("computeTheta", () => {
     expect(computeTheta(zeroPre, zeroPre)).toBe(0);
   });
 });
-
-// --- RegressionAdjustedRatioStatistic ---
 
 // Reference inputs from tests/frequentist/test_tests.py.
 const makeRARatio = (theta: number | null = null) =>
@@ -402,7 +373,6 @@ describe("RegressionAdjustedRatioStatistic", () => {
       ),
       12,
     );
-    // The two cross-period covariances use deliberately crossed products.
     expect(stat.covMPostDPre).toBeCloseTo(
       computeCovariance(
         stat.n,
@@ -474,8 +444,6 @@ describe("RegressionAdjustedRatioStatistic", () => {
   });
 });
 
-// --- computeThetaRegressionAdjustedRatio ---
-
 describe("computeThetaRegressionAdjustedRatio", () => {
   it("returns a finite value for the reference pair", () => {
     const theta = computeThetaRegressionAdjustedRatio(
@@ -490,8 +458,6 @@ describe("computeThetaRegressionAdjustedRatio", () => {
     expect(computeThetaRegressionAdjustedRatio(zeroPre, zeroPre)).toBe(0);
   });
 });
-
-// --- QuantileStatistic ---
 
 describe("QuantileStatistic", () => {
   // Control-arm quantile data from test_shared_models.py.
@@ -524,7 +490,7 @@ describe("QuantileStatistic", () => {
   it("floors variance at 1e-5 for n >= 100", () => {
     const stat = makeQuantile({
       quantileLower: 7.15,
-      quantileUpper: 7.15, // zero-width CI => varianceInit 0
+      quantileUpper: 7.15,
     });
     expect(stat.varianceInit).toBe(0);
     expect(stat.variance).toBe(1e-5);
@@ -539,8 +505,6 @@ describe("QuantileStatistic", () => {
     expect(makeQuantile().hasZeroVariance).toBe(false);
   });
 });
-
-// --- QuantileClusteredStatistic ---
 
 describe("QuantileClusteredStatistic", () => {
   const makeClustered = (overrides: Partial<ClusteredArgs> = {}) =>
@@ -561,7 +525,6 @@ describe("QuantileClusteredStatistic", () => {
     });
 
   it("computes the cluster variance from cluster aggregates", () => {
-    // Two clusters: main = [4, 6], denom = [1, 3]; closed form gives 0.5625.
     expect(makeClustered().clusterVariance).toBeCloseTo(0.5625, 12);
   });
 
@@ -577,8 +540,6 @@ describe("QuantileClusteredStatistic", () => {
     expect(Number.isFinite(v)).toBe(true);
   });
 });
-
-// --- createThetaAdjustedStatistics ---
 
 describe("createThetaAdjustedStatistics", () => {
   const makeRA = (theta: number | null) =>
@@ -632,8 +593,6 @@ describe("createThetaAdjustedStatistics", () => {
   });
 });
 
-// --- helpers ---
-
 type QuantileArgs = ConstructorParameters<typeof QuantileStatistic>[0];
 type ClusteredArgs = ConstructorParameters<
   typeof QuantileClusteredStatistic
@@ -642,7 +601,6 @@ type RARatioArgs = ConstructorParameters<
   typeof RegressionAdjustedRatioStatistic
 >[0];
 
-/** Reconstruct the constructor args from an existing RA-ratio statistic. */
 function extractArgs(stat: RegressionAdjustedRatioStatistic): RARatioArgs {
   return {
     n: stat.n,
@@ -660,20 +618,17 @@ function extractArgs(stat: RegressionAdjustedRatioStatistic): RARatioArgs {
   };
 }
 
-/**
- * An RA-ratio statistic whose pre-period statistics have zero variance and zero
- * cross-covariance, so `varPre` (and hence the computed theta) is exactly 0.
- */
+/** RA-ratio statistic with zero pre-period variance and covariance, so varPre = 0. */
 function makeZeroPreVarianceRatio(): RegressionAdjustedRatioStatistic {
   const constantPreM = new SampleMeanStatistic({
     n: 100,
     sum: 100,
-    sumSquares: 100, // every value 1 => variance 0
+    sumSquares: 100,
   });
   const constantPreD = new SampleMeanStatistic({
     n: 100,
     sum: 200,
-    sumSquares: 400, // every value 2 => variance 0
+    sumSquares: 400,
   });
   return new RegressionAdjustedRatioStatistic({
     n: 100,
@@ -691,7 +646,7 @@ function makeZeroPreVarianceRatio(): RegressionAdjustedRatioStatistic {
     dStatisticPre: constantPreD,
     mPostMPreSumOfProducts: 0,
     dPostDPreSumOfProducts: 0,
-    mPreDPreSumOfProducts: 200, // sum_m_pre * sum_d_pre / n => covariance 0
+    mPreDPreSumOfProducts: 200,
     mPostDPostSumOfProducts: 3602.146836776702,
     mPostDPreSumOfProducts: 0,
     mPreDPostSumOfProducts: 0,

@@ -1041,10 +1041,7 @@ export async function updateRevision(
 
   const updatedRevision = doc ? toInterface(doc, context, feature) : null;
 
-  // Fire-and-forget linkage sync whenever draft rules change. Both the
-  // experiment-ref and contextual-bandit-ref families run independently;
-  // a single revision can carry rules from both, in which case both
-  // helpers reconcile their own model.
+  // Fire-and-forget linkage sync whenever draft rules change.
   if (updatedRevision && "rules" in changes) {
     FeatureRevisionModel.find({
       organization: revision.organization,
@@ -1256,9 +1253,6 @@ export async function discardRevision(
     });
 
   // Sync linkages — the discarded revision's rules no longer count as "open drafts".
-  // Sync linkages — the discarded revision's rules no longer count as "open
-  // drafts". Both experiment-ref and contextual-bandit-ref families reconcile
-  // here.
   FeatureRevisionModel.find({
     organization: revision.organization,
     featureId: revision.featureId,

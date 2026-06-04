@@ -10,15 +10,11 @@ import {
   runContextualBanditSnapshot,
 } from "back-end/src/enterprise/services/contextualBandits";
 
-// 30 minutes. Matches `SNAPSHOT_TIMEOUT` in controllers/experiments.ts —
-// duplicated rather than imported because the lint rules forbid one
-// controller importing from another.
+// 30 min. Duplicates `SNAPSHOT_TIMEOUT` from controllers/experiments.ts
+// because cross-controller imports are forbidden by lint.
 const CB_REFRESH_TIMEOUT_MS = 30 * 60 * 1000;
 
-/**
- * GET /experiment/:id/contextual-bandit/results
- * Latest contextual bandit results + status for the UI results tab.
- */
+/** GET /experiment/:id/contextual-bandit/results — latest CB results + status for the UI. */
 export async function getContextualBanditResults(
   req: AuthRequest<null, { id: string }>,
   res: Response,
@@ -50,11 +46,7 @@ export async function getContextualBanditResults(
     context.permissions.throwPermissionError();
   }
 
-  // The results helper takes a CB directly post-PR-8 Commit 2. The
-  // controller URL still carries an experiment id; resolve the paired
-  // CB before delegating. PR-8 Commit 4 dropped the
-  // `"contextual-bandit"` experimentType check above because the enum
-  // value is gone; the CB lookup itself is the gate now.
+  // URL still carries an experiment id; resolve the paired CB before delegating.
   const cb = await context.models.contextualBandits.getByExperimentId(
     experiment.id,
   );
@@ -74,10 +66,7 @@ export async function getContextualBanditResults(
   });
 }
 
-/**
- * POST /experiment/:id/contextual-bandit/refresh
- * Trigger a contextual bandit snapshot refresh (UI-triggered).
- */
+/** POST /experiment/:id/contextual-bandit/refresh — UI-triggered CB snapshot refresh. */
 export async function postContextualBanditRefresh(
   req: AuthRequest<null, { id: string }>,
   res: Response,
@@ -106,9 +95,7 @@ export async function postContextualBanditRefresh(
     return;
   }
 
-  // Refresh = running the bandit, so gate on canRunExperiment first. The
-  // datasource-level canRunExperimentQueries check below is additive (data
-  // access), not a substitute for project/env access on the experiment.
+  // Gate on canRunExperiment (project/env); the datasource check below is additive.
   const envs = getAffectedEnvsForExperiment({
     experiment,
     orgEnvironments: context.org.settings?.environments || [],
@@ -134,11 +121,7 @@ export async function postContextualBanditRefresh(
   const phase = experiment.phases.length - 1;
   req.setTimeout(CB_REFRESH_TIMEOUT_MS);
 
-  // The orchestrator now takes the CB directly; this legacy controller
-  // still receives an experiment id from the URL (`/experiment/:id/...`),
-  // so resolve the paired CB via the FK before handing off. The whole
-  // controller is deleted in PR-8 Commit 6 once the front-end stops
-  // calling the legacy path.
+  // URL has an experiment id; resolve the paired CB before handing off.
   const cb = await context.models.contextualBandits.getByExperimentId(
     experiment.id,
   );

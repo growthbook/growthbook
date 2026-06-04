@@ -2122,11 +2122,7 @@ const onExperimentDelete = async (
       organization: context.org,
     });
 
-  // Cascade-delete any paired CB doc that still references this
-  // experiment via the legacy `experiment` FK. CBs no longer carry a
-  // primary `experiment` reference post-PR-8, but the FK-keyed
-  // `deleteForExperiment` model helper stays until Commits 5–6 remove
-  // the bridge layer.
+  // Cascade-delete any paired CB doc still referencing this experiment via the legacy `experiment` FK.
   try {
     const cbModel = new ContextualBanditModel(context);
     await cbModel.deleteForExperiment(experiment.id);
