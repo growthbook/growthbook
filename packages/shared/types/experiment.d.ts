@@ -187,13 +187,6 @@ export interface LegacyExperimentInterface
   secondaryMetrics?: string[];
   guardrailMetrics?: string[];
   decisionFrameworkSettings?: ExperimentDecisionFrameworkSettings;
-  /**
-   * @deprecated Legacy flag for `type: "multi-armed-bandit"` docs that
-   * predated the CB-native split. Carried on `LegacyExperimentInterface`
-   * for documents that may still have the field at rest; the migration
-   * unsets it on read so consumers don't have to branch on it.
-   */
-  banditIsContextual?: boolean;
 }
 
 export type ExperimentInterfaceStringDates = Omit<

@@ -1964,46 +1964,6 @@ describe("Experiment Migration", () => {
     });
   });
 
-  describe("banditIsContextual cleanup", () => {
-    it("strips banditIsContextual=true from legacy MAB docs without upgrading the type", () => {
-      const result = upgradeExperimentDoc({
-        ...exp,
-        type: "multi-armed-bandit",
-        banditIsContextual: true,
-      } as unknown as Parameters<typeof upgradeExperimentDoc>[0]);
-      expect(result.type).toBe("multi-armed-bandit");
-      expect(
-        (result as { banditIsContextual?: boolean }).banditIsContextual,
-      ).toBeUndefined();
-    });
-
-    it("strips banditIsContextual=false from legacy MAB docs", () => {
-      const result = upgradeExperimentDoc({
-        ...exp,
-        type: "multi-armed-bandit",
-        banditIsContextual: false,
-      } as unknown as Parameters<typeof upgradeExperimentDoc>[0]);
-      expect(result.type).toBe("multi-armed-bandit");
-      expect(
-        (result as { banditIsContextual?: boolean }).banditIsContextual,
-      ).toBeUndefined();
-    });
-
-    it("is idempotent on already-cleaned docs", () => {
-      const once = upgradeExperimentDoc({
-        ...exp,
-        type: "multi-armed-bandit",
-        banditIsContextual: true,
-      } as unknown as Parameters<typeof upgradeExperimentDoc>[0]);
-      const twice = upgradeExperimentDoc(
-        once as unknown as Parameters<typeof upgradeExperimentDoc>[0],
-      );
-      expect(twice.type).toBe("multi-armed-bandit");
-      expect(
-        (twice as { banditIsContextual?: boolean }).banditIsContextual,
-      ).toBeUndefined();
-    });
-  });
 });
 
 describe("Organization Migration", () => {

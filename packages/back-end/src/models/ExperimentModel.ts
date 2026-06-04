@@ -403,11 +403,7 @@ export function applyExperimentTypeQuery(
   }
 
   if (type === "multi-armed-bandit") {
-    // Legacy `banditIsContextual: true` docs were folded into the CB
-    // collection during the decoupling migration; any remaining
-    // `banditIsContextual` flags are now stable MAB docs.
     query.type = "multi-armed-bandit";
-    query.banditIsContextual = { $ne: true };
     return;
   }
 

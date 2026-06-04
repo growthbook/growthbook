@@ -46,14 +46,7 @@ import { SDKPayloadKey } from "back-end/types/sdk-payload";
 /**
  * SDK-payload keys affected by a CB status change. Mirrors `getPayloadKeys`
  * for experiments — uses the CB's `linkedFeatures` to find which envs/projects
- * to refresh. Walks both feature-rule families during the decoupling window:
- * Matches `contextual-bandit-ref` rules pointing at this CB. The legacy
- * `experiment-ref` fallback was retired in PR-8 Commit 3 — the migration
- * script (`scripts/migrate-cb-decoupling.ts`) rewrites every
- * `experiment-ref` that targeted a CB-typed experiment to a
- * `contextual-bandit-ref` before this code ships, and post-Commit-3 the
- * experiment FK on the CB is gone so there's no fallback id to match
- * against anyway.
+ * to refresh. Matches `contextual-bandit-ref` rules pointing at this CB.
  */
 function getPayloadKeysForContextualBandit(
   context: ReqContext | ApiReqContext,

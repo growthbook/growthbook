@@ -71,14 +71,7 @@ export type ContextualBanditSnapshotSettings = z.infer<
 
 export const contextualBanditSnapshotValidator = baseSchema
   .extend({
-    /**
-     * Parent contextual bandit id (`cb_*`). Replaces the pre-PR-8
-     * `experiment` field — the snapshot pipeline is now keyed by CB id,
-     * not by the legacy paired experiment id. The migration script in
-     * `scripts/migrate-cb-decoupling.ts` rewrites `experiment` →
-     * `contextualBandit` on existing docs; this code expects the
-     * migration to have run before it boots.
-     */
+    /** Parent contextual bandit id (`cb_*`). Snapshot pipeline is keyed by CB id. */
     contextualBandit: z.string(),
     phase: z.number(),
     status: z.enum(["pending", "running", "success", "error", "partial"]),

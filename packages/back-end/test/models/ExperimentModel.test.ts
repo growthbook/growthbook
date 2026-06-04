@@ -96,14 +96,13 @@ describe("ExperimentModel", () => {
   });
 
   describe("applyExperimentTypeQuery", () => {
-    it("filters regular bandits while excluding legacy contextual bandit shapes", () => {
+    it("filters regular bandits", () => {
       const query = {};
 
       applyExperimentTypeQuery(query, "multi-armed-bandit");
 
       expect(query).toEqual({
         type: "multi-armed-bandit",
-        banditIsContextual: { $ne: true },
       });
     });
 

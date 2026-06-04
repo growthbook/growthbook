@@ -34,14 +34,7 @@ export type ContextualBanditResponseInterface = z.infer<
 
 export const contextualBanditEventValidator = baseSchema
   .extend({
-    /**
-     * Parent contextual bandit id (`cb_*`). Replaces the pre-PR-8
-     * `experiment` field — the event collection is now keyed by CB id,
-     * not by the legacy paired experiment id. See
-     * `contextual-bandit-snapshot.ts` for the deeper rationale; the
-     * migration script in `scripts/migrate-cb-decoupling.ts` rewrites
-     * `experiment` → `contextualBandit` on existing docs.
-     */
+    /** Parent contextual bandit id (`cb_*`). Event collection is keyed by CB id. */
     contextualBandit: z.string(),
     phase: z.number(),
     snapshotId: z.string(),
