@@ -62,7 +62,6 @@ interface CreateSdkConnectionRequestBody
   includeCustomFieldsInMetadata?: boolean;
   allowedCustomFieldsInMetadata?: string[];
   includeTagsInMetadata?: boolean;
-  omitSafeRolloutLabels?: boolean;
   proxyHost?: string;
   hashSecureAttributes?: boolean;
 }
@@ -194,7 +193,6 @@ export async function validatePostPayload(
     includeCustomFieldsInMetadata = false,
     allowedCustomFieldsInMetadata = [],
     includeTagsInMetadata = false,
-    omitSafeRolloutLabels = false,
     proxyEnabled,
     proxyHost,
     hashSecureAttributes = false,
@@ -234,7 +232,6 @@ export async function validatePostPayload(
     includeCustomFieldsInMetadata,
     allowedCustomFieldsInMetadata,
     includeTagsInMetadata,
-    omitSafeRolloutLabels,
     proxyEnabled,
     proxyHost,
     hashSecureAttributes,
@@ -266,7 +263,6 @@ export async function validatePutPayload(
     includeCustomFieldsInMetadata,
     allowedCustomFieldsInMetadata,
     includeTagsInMetadata,
-    omitSafeRolloutLabels,
     proxyEnabled,
     proxyHost,
     hashSecureAttributes,
@@ -311,7 +307,6 @@ export async function validatePutPayload(
     includeCustomFieldsInMetadata,
     allowedCustomFieldsInMetadata,
     includeTagsInMetadata,
-    omitSafeRolloutLabels,
     proxyEnabled,
     proxyHost,
     hashSecureAttributes,

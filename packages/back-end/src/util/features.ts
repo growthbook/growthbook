@@ -516,7 +516,6 @@ export function getFeatureDefinition({
   savedGroupsMap,
   includeRuleIds,
   includeExperimentNames,
-  omitSafeRolloutLabels,
   includeDraftExperimentRefs,
   namespaces,
   metadataOptions,
@@ -540,13 +539,6 @@ export function getFeatureDefinition({
   savedGroupsMap?: Record<string, SavedGroupInterface>;
   includeRuleIds?: boolean;
   includeExperimentNames?: boolean;
-  // Advanced/opt-in SDK Connection flag. When true, safe rollouts and
-  // monitored ramps emit `rule.name = rule.key` (no human-readable suffix
-  // like " - Safe Rollout") and omit per-variation labels ("Control" /
-  // "Variation"). Lets downstream warehouses/ETLs that capture
-  // `experiment.name` / `result.name` see values that match GrowthBook's
-  // internal tracking keys.
-  omitSafeRolloutLabels?: boolean;
   includeDraftExperimentRefs?: boolean;
   namespaces?: Map<
     string,
@@ -950,12 +942,7 @@ export function getFeatureDefinition({
             // would lock a user to the wrong arm or prevent new enrollment.
             rule.disableStickyBucketing = true;
             if (includeExperimentNames) {
-              // omitSafeRolloutLabels aligns rule.name with rule.key so
-              // `experiment.name` in trackingCallback matches the warehouse
-              // tracking key, eliminating the " - Monitored Ramp" suffix.
-              rule.name = omitSafeRolloutLabels
-                ? rule.key
-                : `${feature.id} - Monitored Ramp`;
+              rule.name = `${feature.id} - Monitored Ramp`;
             }
           } else {
             if (monitorInfo && !r.hashAttribute) {
@@ -1033,9 +1020,7 @@ export function getFeatureDefinition({
               : [{ key: "0" }, { key: "1" }];
             rule.phase = "0";
             if (includeExperimentNames) {
-              rule.name = omitSafeRolloutLabels
-                ? rule.key
-                : `${feature.id} - Safe Rollout`;
+              rule.name = `${feature.id} - Safe Rollout`;
             }
           }
         }

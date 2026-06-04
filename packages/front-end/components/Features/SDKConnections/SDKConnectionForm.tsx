@@ -189,17 +189,12 @@ export default function SDKConnectionForm({
         (initialValue as { includeTagsInPayload?: boolean })
           .includeTagsInPayload ??
         false,
-      omitSafeRolloutLabels: initialValue.omitSafeRolloutLabels ?? false,
     },
   });
 
   const usingLatestVersion = !isSDKOutdated(
     form.watch("languages")?.[0] || "other",
     form.watch("sdkVersion"),
-  );
-
-  const [showMoreExpOptions, setShowMoreExpOptions] = useState(
-    !!initialValue.omitSafeRolloutLabels,
   );
 
   const [languageFilter, setLanguageFilter] = useState<LanguageFilter>(
@@ -1136,42 +1131,6 @@ export default function SDKConnectionForm({
               }
             />
           </Box>
-          {showMoreExpOptions ? (
-            <Box>
-              <Checkbox
-                weight="regular"
-                value={!!form.watch("omitSafeRolloutLabels")}
-                setValue={(val) => form.setValue("omitSafeRolloutLabels", val)}
-                disabled={!form.watch("includeExperimentNames")}
-                label={
-                  <>
-                    Remove monitored ramp identifiers{" "}
-                    <Tooltip
-                      body={
-                        <p className="mb-0">
-                          Sets <code>experiment.name</code> to match{" "}
-                          <code>experiment.key</code>, removing the{" "}
-                          <code>&quot; - Safe Rollout&quot;</code> and{" "}
-                          <code>&quot; - Monitored Ramp&quot;</code> suffixes
-                          from the SDK payload.
-                        </p>
-                      }
-                    >
-                      <PiInfo />
-                    </Tooltip>
-                  </>
-                }
-              />
-            </Box>
-          ) : (
-            <a
-              role="button"
-              className="link-purple"
-              onClick={() => setShowMoreExpOptions(true)}
-            >
-              More options
-            </a>
-          )}
         </Flex>
       </Box>
 

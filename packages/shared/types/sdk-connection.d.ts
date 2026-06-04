@@ -33,11 +33,6 @@ export type EditSDKConnectionParams = {
   includeCustomFieldsInMetadata?: boolean;
   allowedCustomFieldsInMetadata?: string[];
   includeTagsInMetadata?: boolean;
-  // Advanced/opt-in: when true, safe rollouts and monitored ramps emit
-  // `rule.name = rule.key` and omit "Control"/"Variation" variation labels
-  // so customers whose ETL captures `experiment.name`/`result.name` see
-  // values that match GrowthBook's internal tracking keys.
-  omitSafeRolloutLabels?: boolean;
   remoteEvalEnabled?: boolean;
   eventTracker?: string;
 };
@@ -62,7 +57,6 @@ export type CreateSDKConnectionParams = {
   includeCustomFieldsInMetadata: boolean;
   allowedCustomFieldsInMetadata: string[];
   includeTagsInMetadata: boolean;
-  omitSafeRolloutLabels?: boolean;
   remoteEvalEnabled?: boolean;
   managedBy?: ManagedBy;
 };
@@ -100,8 +94,6 @@ export interface SDKConnectionInterface {
   includeCustomFieldsInMetadata?: boolean;
   allowedCustomFieldsInMetadata?: string[];
   includeTagsInMetadata?: boolean;
-  // See EditSDKConnectionParams above for semantics.
-  omitSafeRolloutLabels?: boolean;
 
   // URL slug for fetching features from the API
   key: string;
