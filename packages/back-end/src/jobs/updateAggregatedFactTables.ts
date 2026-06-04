@@ -305,17 +305,6 @@ export async function runAggregatedFactTableUpdate(
 
   // Kick off the queries (submitted to the warehouse); returns before they finish.
   try {
-    // Mark the write in flight BEFORE submitting the insert so any committed
-    // insert is guaranteed to have a corresponding marker. The marker is cleared
-    // only once the watermark is durably advanced (coverage onSuccess /
-    // updateModel) or on an observed atomic insert failure; otherwise the next
-    // run sees it set and restates instead of double-appending.
-    await context.models.aggregatedFactTables.updateByKeyIfCurrentExecution(
-      key,
-      executionId,
-      { inFlightExecutionId: executionId },
-    );
-
     await runner.startAnalysis({
       factTable,
       idType,

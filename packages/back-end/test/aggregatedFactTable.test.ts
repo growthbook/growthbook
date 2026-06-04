@@ -4,7 +4,6 @@ import {
   getAggregatedFactTableRestateReason,
   getMetricSettingsHashForAggregatedFactTable,
   getFactTableSettingsHashForAggregatedFactTable,
-  mergeAggregatedFactTableCoverage,
 } from "back-end/src/enterprise/services/data-pipeline";
 import { getAggregatedFactTableSchema } from "back-end/src/integrations/sql/fact-metrics/aggregated-fact-table-schema";
 import { encodeMetricIdForColumnName } from "back-end/src/integrations/sql/fact-metrics/encode-metric-id-for-column-name";
@@ -417,7 +416,7 @@ describe("detectAggregatedFactTableSchemaDrift", () => {
     ).toBe(true);
   });
 
-  it("detects a removed metric", () => {
+  it("tolerates a removed metric (orphan column)", () => {
     const prev = buildState([metricA, metricB]);
     const next = buildState([metricA]);
     expect(
@@ -426,7 +425,43 @@ describe("detectAggregatedFactTableSchemaDrift", () => {
         factTableSettingsHash: next.factTableSettingsHash,
         metricState: next.metricState,
       }).drift,
+    ).toBe(false);
+  });
+
+  it("detects a re-added metric after a tolerated removal", () => {
+    // The tolerating run persists the reduced metric set to the registry, so
+    // re-adding the metric reads as a new addition and must restate.
+    const persistedAfterRemoval = buildState([metricA]);
+    const next = buildState([metricA, metricB]);
+    expect(
+      detectAggregatedFactTableSchemaDrift({
+        registry: { tableFullName: "t", ...persistedAfterRemoval },
+        factTableSettingsHash: next.factTableSettingsHash,
+        metricState: next.metricState,
+      }).drift,
     ).toBe(true);
+  });
+
+  it("tolerates a removed slice", () => {
+    const withSlice = buildState([metricA]);
+    const prevState = withSlice.metricState.map((m) => ({
+      ...m,
+      slices: [
+        ...(m.slices ?? []),
+        { metricId: `${m.metricId}__slice`, columns: ["x"] },
+      ],
+    }));
+    expect(
+      detectAggregatedFactTableSchemaDrift({
+        registry: {
+          tableFullName: "t",
+          factTableSettingsHash: withSlice.factTableSettingsHash,
+          metricState: prevState,
+        },
+        factTableSettingsHash: withSlice.factTableSettingsHash,
+        metricState: withSlice.metricState,
+      }).drift,
+    ).toBe(false);
   });
 
   it("detects a changed metric settingsHash", () => {
@@ -598,68 +633,5 @@ describe("getAggregatedFactTableRestateReason", () => {
         metricState: drifted.metricState,
       }),
     ).toBeNull();
-  });
-});
-
-describe("mergeAggregatedFactTableCoverage", () => {
-  const d1 = new Date("2024-01-01T00:00:00Z");
-  const d2 = new Date("2024-02-01T00:00:00Z");
-  const nullCoverage = {
-    lastMaxTimestamp: null,
-    firstEventDate: null,
-    lastEventDate: null,
-  };
-
-  it("does not regress a non-null watermark to null", () => {
-    const merged = mergeAggregatedFactTableCoverage(
-      { lastMaxTimestamp: d2, firstEventDate: d1, lastEventDate: d2 },
-      nullCoverage,
-    );
-    expect(merged.lastMaxTimestamp).toEqual(d2);
-    expect(merged.firstEventDate).toEqual(d1);
-    expect(merged.lastEventDate).toEqual(d2);
-  });
-
-  it("advances to a newer non-null watermark", () => {
-    const merged = mergeAggregatedFactTableCoverage(
-      { lastMaxTimestamp: d1, firstEventDate: d1, lastEventDate: d1 },
-      { lastMaxTimestamp: d2, firstEventDate: d1, lastEventDate: d2 },
-    );
-    expect(merged.lastMaxTimestamp).toEqual(d2);
-    expect(merged.lastEventDate).toEqual(d2);
-  });
-
-  it("does not regress to an earlier watermark", () => {
-    const merged = mergeAggregatedFactTableCoverage(
-      { lastMaxTimestamp: d2, firstEventDate: d1, lastEventDate: d2 },
-      { lastMaxTimestamp: d1, firstEventDate: d1, lastEventDate: d1 },
-    );
-    expect(merged.lastMaxTimestamp).toEqual(d2);
-    expect(merged.lastEventDate).toEqual(d2);
-  });
-
-  it("extends the first event date earlier as more history is seen", () => {
-    const merged = mergeAggregatedFactTableCoverage(
-      { lastMaxTimestamp: d2, firstEventDate: d2, lastEventDate: d2 },
-      { lastMaxTimestamp: d2, firstEventDate: d1, lastEventDate: d2 },
-    );
-    expect(merged.firstEventDate).toEqual(d1);
-  });
-
-  it("stays null when both prior and parsed are null", () => {
-    expect(
-      mergeAggregatedFactTableCoverage(nullCoverage, nullCoverage),
-    ).toEqual(nullCoverage);
-  });
-
-  it("adopts the parsed coverage when the prior is null", () => {
-    const merged = mergeAggregatedFactTableCoverage(nullCoverage, {
-      lastMaxTimestamp: d1,
-      firstEventDate: d1,
-      lastEventDate: d1,
-    });
-    expect(merged.lastMaxTimestamp).toEqual(d1);
-    expect(merged.firstEventDate).toEqual(d1);
-    expect(merged.lastEventDate).toEqual(d1);
   });
 });

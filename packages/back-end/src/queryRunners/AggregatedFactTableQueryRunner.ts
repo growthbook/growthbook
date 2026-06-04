@@ -9,7 +9,6 @@ import {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
-import { mergeAggregatedFactTableCoverage } from "back-end/src/enterprise/services/data-pipeline";
 import { AggregatedFactTableKey } from "back-end/src/models/AggregatedFactTableModel";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 
@@ -85,6 +84,25 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
     };
   }
 
+  // Mark the write in flight so any committed insert is guaranteed to have a
+  // corresponding marker. Set immediately before the first warehouse-committing
+  // query; cleared only once the watermark is durably advanced (coverage
+  // onSuccess / updateModel) or on an observed atomic insert failure. Otherwise
+  // the next run sees it set and restates instead of double-appending.
+  private async markInFlight(executionId: string): Promise<void> {
+    const lockHeld =
+      await this.context.models.aggregatedFactTables.updateByKeyIfCurrentExecution(
+        this.getKey(),
+        executionId,
+        { inFlightExecutionId: executionId },
+      );
+    if (!lockHeld) {
+      this.context.logger.warn(
+        "Aggregated fact table execution lock lost before marking write in flight",
+      );
+    }
+  }
+
   protected override onHeartbeat(): void {
     if (!this.params) return;
     this.context.models.aggregatedFactTables
@@ -136,12 +154,26 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
     let createQuery: QueryPointer | null = null;
 
     if (mode === "restate") {
+      // Build the SQL before marking in flight so a build error here leaves the
+      // marker unset (nothing was submitted). The drop is the first destructive
+      // op, so the marker must be set before it: a partial restate (e.g. drop
+      // succeeds, create fails) must still force a restate on the next run.
+      const dropQueryString = integration.getDropAggregatedFactTableQuery({
+        tableFullName,
+      });
+      const createQueryString = integration.getCreateAggregatedFactTableQuery({
+        factTableId: factTable.id,
+        idType,
+        metrics,
+        tableFullName,
+      });
+
+      await this.markInFlight(executionId);
+
       dropQuery = await this.startQuery({
         name: "drop_aggregated_fact_table",
         displayTitle: `Drop Aggregated Fact Table (${factTable.name} / ${idType})`,
-        query: integration.getDropAggregatedFactTableQuery({
-          tableFullName,
-        }),
+        query: dropQueryString,
         dependencies: [],
         run: (query, setExternalId, queryMetadata) =>
           integration.runIncrementalWithNoOutputQuery(
@@ -156,12 +188,7 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
       createQuery = await this.startQuery({
         name: "create_aggregated_fact_table",
         displayTitle: `Create Aggregated Fact Table (${factTable.name} / ${idType})`,
-        query: integration.getCreateAggregatedFactTableQuery({
-          factTableId: factTable.id,
-          idType,
-          metrics,
-          tableFullName,
-        }),
+        query: createQueryString,
         dependencies: dropQuery ? [dropQuery.query] : [],
         run: (query, setExternalId, queryMetadata) =>
           integration.runIncrementalWithNoOutputQuery(
@@ -186,17 +213,28 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
     const exclusiveStart =
       mode === "incremental" && !!aggregatedFactTable.lastMaxTimestamp;
 
-    const insertQuery = await this.startQuery({
-      name: "insert_aggregated_fact_table_data",
-      displayTitle: `Update Aggregated Fact Table (${factTable.name} / ${idType})`,
-      query: integration.getInsertAggregatedFactTableDataQuery({
+    // Build the insert SQL before marking in flight so a build error leaves the
+    // marker unset. In incremental mode the insert is the first committing op,
+    // so set the marker now; in restate mode it was already set before the drop.
+    const insertQueryString = integration.getInsertAggregatedFactTableDataQuery(
+      {
         factTable,
         idType,
         metrics,
         tableFullName,
         windowStartDate,
         exclusiveStart,
-      }),
+      },
+    );
+
+    if (mode === "incremental") {
+      await this.markInFlight(executionId);
+    }
+
+    const insertQuery = await this.startQuery({
+      name: "insert_aggregated_fact_table_data",
+      displayTitle: `Update Aggregated Fact Table (${factTable.name} / ${idType})`,
+      query: insertQueryString,
       dependencies: createQuery ? [createQuery.query] : [],
       run: (query, setExternalId, queryMetadata) =>
         integration.runIncrementalWithNoOutputQuery(
@@ -256,25 +294,19 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
         ),
       onSuccess: async (rows) => {
         // The watermark is durably advanced the instant coverage succeeds.
-        // The merge guard prevents a transient empty/unparseable read
-        // from regressing a non-null watermark and re-scanning the window.
+        // The coverage query reads the whole table authoritatively: every row
+        // carries a non-null `max_timestamp`, so over a non-empty table the
+        // watermark is non-null and monotonic, and a null means the table is
+        // genuinely empty. So the parsed values are written directly.
         const parsed = parseAggregatedFactTableCoverage(rows?.[0]);
-        const merged = mergeAggregatedFactTableCoverage(
-          {
-            lastMaxTimestamp: aggregatedFactTable.lastMaxTimestamp ?? null,
-            firstEventDate: aggregatedFactTable.firstEventDate ?? null,
-            lastEventDate: aggregatedFactTable.lastEventDate ?? null,
-          },
-          parsed,
-        );
         const lockHeld =
           await this.context.models.aggregatedFactTables.updateByKeyIfCurrentExecution(
             this.getKey(),
             executionId,
             {
-              lastMaxTimestamp: merged.lastMaxTimestamp,
-              firstEventDate: merged.firstEventDate,
-              lastEventDate: merged.lastEventDate,
+              lastMaxTimestamp: parsed.lastMaxTimestamp,
+              firstEventDate: parsed.firstEventDate,
+              lastEventDate: parsed.lastEventDate,
               lastError: null,
               inFlightExecutionId: null,
             },
@@ -348,31 +380,20 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
     // point lastRunId at this run, and release the lock.
     if (isTerminal && executionId) {
       // Backstop for the coverage onSuccess path: when we have a coverage result
-      // (success), persist the merged watermark and clear the in-flight marker
-      // (idempotent if onSuccess already did). On a failed terminal status there
-      // is no result, so we leave the marker untouched - only the targeted insert
-      // onFailure clears it on failure, so a crash / coverage failure / ambiguous
-      // commit still forces the next run to restate.
+      // (success), persist the watermark and clear the in-flight marker
+      // (idempotent if onSuccess already did). The coverage query reads the whole
+      // table authoritatively, so the result values are written directly. On a
+      // failed terminal status there is no result, so we leave the marker
+      // untouched - only the targeted insert onFailure clears it on failure, so a
+      // crash / coverage failure / ambiguous commit still forces the next run to
+      // restate.
       const coverageUpdates = result
-        ? (() => {
-            const merged = mergeAggregatedFactTableCoverage(
-              {
-                lastMaxTimestamp:
-                  this.params?.aggregatedFactTable.lastMaxTimestamp ?? null,
-                firstEventDate:
-                  this.params?.aggregatedFactTable.firstEventDate ?? null,
-                lastEventDate:
-                  this.params?.aggregatedFactTable.lastEventDate ?? null,
-              },
-              result,
-            );
-            return {
-              lastMaxTimestamp: merged.lastMaxTimestamp,
-              firstEventDate: merged.firstEventDate,
-              lastEventDate: merged.lastEventDate,
-              inFlightExecutionId: null,
-            };
-          })()
+        ? {
+            lastMaxTimestamp: result.lastMaxTimestamp,
+            firstEventDate: result.firstEventDate,
+            lastEventDate: result.lastEventDate,
+            inFlightExecutionId: null,
+          }
         : {};
 
       const lockHeld =

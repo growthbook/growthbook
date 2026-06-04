@@ -364,10 +364,13 @@ export function buildAggregatedFactTableSchemaState({
   return { factTableSettingsHash, metricState };
 }
 
-// True when the materialized table's schema no longer matches what the current
-// metric set / fact-table definition would produce, i.e. an incremental insert
-// would either fail (missing/extra column) or silently write into a column
-// typed for a different metric. Comparisons are order-independent.
+// True when the materialized table is missing a column the current metric set
+// needs, or has a column whose type no longer matches. Only additions and
+// type changes drift: a removed/disabled metric or slice just leaves a harmless
+// orphan column the append insert and read path ignore, so it is tolerated to
+// avoid a needless restate. Re-adding such a metric still drifts, because the
+// reduced metric set was persisted to the registry on the tolerating run, so
+// the metric reads as a new addition. Comparisons are order-independent.
 export function detectAggregatedFactTableSchemaDrift({
   registry,
   factTableSettingsHash,
@@ -391,27 +394,24 @@ export function detectAggregatedFactTableSchemaDrift({
   }
 
   const prevById = new Map(registry.metricState.map((m) => [m.metricId, m]));
-  const nextById = new Map(metricState.map((m) => [m.metricId, m]));
 
-  if (prevById.size !== nextById.size) {
-    return { drift: true, reason: "metric set changed" };
-  }
-
-  for (const [metricId, next] of nextById) {
+  // Only inspect the current metric set: a metric in `prev` but not in `next`
+  // is a tolerated removal (orphan column). An added metric or a changed
+  // settings/slice column is what requires a rebuild.
+  for (const [metricId, next] of metricState.map(
+    (m) => [m.metricId, m] as const,
+  )) {
     const prev = prevById.get(metricId);
     if (!prev) {
-      return { drift: true, reason: "metric set changed" };
+      return { drift: true, reason: `metric ${metricId} added` };
     }
     if (prev.settingsHash !== next.settingsHash) {
       return { drift: true, reason: `metric ${metricId} settings changed` };
     }
     const prevSlices = new Set((prev.slices ?? []).map((s) => s.metricId));
     const nextSlices = new Set((next.slices ?? []).map((s) => s.metricId));
-    if (
-      prevSlices.size !== nextSlices.size ||
-      [...nextSlices].some((s) => !prevSlices.has(s))
-    ) {
-      return { drift: true, reason: `metric ${metricId} slices changed` };
+    if ([...nextSlices].some((s) => !prevSlices.has(s))) {
+      return { drift: true, reason: `metric ${metricId} slices added` };
     }
   }
 
@@ -455,48 +455,4 @@ export function getAggregatedFactTableRestateReason({
     return "schema-drift";
   }
   return null;
-}
-
-// Merge freshly-parsed coverage into the prior registry coverage without ever
-// regressing a non-null watermark to null or an earlier value. Guards against a
-// transient empty/unparseable coverage read clearing a watermark on a non-empty
-// table (which would re-scan from the restate window and append duplicates).
-export function mergeAggregatedFactTableCoverage(
-  prev: {
-    lastMaxTimestamp: Date | null;
-    firstEventDate: Date | null;
-    lastEventDate: Date | null;
-  },
-  parsed: {
-    lastMaxTimestamp: Date | null;
-    firstEventDate: Date | null;
-    lastEventDate: Date | null;
-  },
-): {
-  lastMaxTimestamp: Date | null;
-  firstEventDate: Date | null;
-  lastEventDate: Date | null;
-} {
-  const advance = (
-    prevValue: Date | null,
-    nextValue: Date | null,
-  ): Date | null => {
-    if (nextValue === null) return prevValue;
-    if (prevValue === null) return nextValue;
-    return nextValue.getTime() >= prevValue.getTime() ? nextValue : prevValue;
-  };
-
-  return {
-    lastMaxTimestamp: advance(prev.lastMaxTimestamp, parsed.lastMaxTimestamp),
-    firstEventDate:
-      parsed.firstEventDate === null
-        ? prev.firstEventDate
-        : prev.firstEventDate === null
-          ? parsed.firstEventDate
-          : // first event date should only ever move earlier as more history is seen
-            parsed.firstEventDate.getTime() <= prev.firstEventDate.getTime()
-            ? parsed.firstEventDate
-            : prev.firstEventDate,
-    lastEventDate: advance(prev.lastEventDate, parsed.lastEventDate),
-  };
 }
