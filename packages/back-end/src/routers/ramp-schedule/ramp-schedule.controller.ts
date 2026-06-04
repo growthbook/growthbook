@@ -7,6 +7,7 @@ import {
   appendRampEvent,
   assertCanUpdateLinkedSafeRolloutMonitoringConfig,
   approveAndPublishStep,
+  completeRampKeepCutoff,
   completeRollout,
   computeNextProcessAt,
   dispatchRampEvent,
@@ -364,9 +365,17 @@ export const postRampScheduleAction = async (
       }
       {
         const isSimple = schedule.steps.length === 0 && !!schedule.cutoffDate;
-        updated = await completeRollout(context, schedule, {
-          disableActiveTargets: req.body?.disableRule === true || isSimple,
-        });
+        const disableNow = req.body?.disableRule === true || isSimple;
+        const hasFutureCutoff =
+          schedule.cutoffDate && schedule.cutoffDate > new Date();
+
+        if (!disableNow && hasFutureCutoff) {
+          updated = await completeRampKeepCutoff(context, schedule);
+        } else {
+          updated = await completeRollout(context, schedule, {
+            disableActiveTargets: disableNow,
+          });
+        }
       }
       break;
 

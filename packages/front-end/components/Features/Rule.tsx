@@ -1179,22 +1179,27 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                 )}
                                 {(() => {
                                   const hasCutoff = !!rampSchedule.cutoffDate;
+                                  const allStepsDone =
+                                    rampSchedule.currentStepIndex >=
+                                    rampSchedule.steps.length;
                                   return (
                                     <>
-                                      <DropdownMenuItem
-                                        onClick={async () => {
-                                          await apiCall(
-                                            `/ramp-schedule/${rampSchedule.id}/actions/complete`,
-                                            { method: "POST" },
-                                          );
-                                          await mutate();
-                                          setDropdownOpen(false);
-                                        }}
-                                      >
-                                        <Flex align="center" gap="2">
-                                          <PiFastForward /> Complete ramp
-                                        </Flex>
-                                      </DropdownMenuItem>
+                                      {!allStepsDone && (
+                                        <DropdownMenuItem
+                                          onClick={async () => {
+                                            await apiCall(
+                                              `/ramp-schedule/${rampSchedule.id}/actions/complete`,
+                                              { method: "POST" },
+                                            );
+                                            await mutate();
+                                            setDropdownOpen(false);
+                                          }}
+                                        >
+                                          <Flex align="center" gap="2">
+                                            <PiFastForward /> Complete ramp
+                                          </Flex>
+                                        </DropdownMenuItem>
+                                      )}
                                       {hasCutoff && (
                                         <DropdownMenuItem
                                           onClick={async () => {

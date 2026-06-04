@@ -42,6 +42,8 @@ import {
   applyRampStartActions,
   startReadyScheduleNow,
   approveAndPublishStep,
+  computeNextProcessAt,
+  pauseSchedule,
 } from "back-end/src/services/rampSchedule";
 
 // ---------------------------------------------------------------------------
@@ -1762,11 +1764,11 @@ describe("resumeSchedule", () => {
     mockPublishRevision.mockResolvedValue(makeFeature() as never);
   });
 
-  it("resume after jump-to-last-step sets nextStepAt=now so advanceUntilBlocked can complete the schedule", async () => {
+  it("resume after jump-to-last-step honours the step interval before completing", async () => {
     // jumpAheadToStep stores nextStepAt:null and status:paused. The schedule
-    // has 3 steps; currentStepIndex=2 is the last one. Resuming should set
-    // nextStepAt to now so advanceUntilBlocked → advanceStep → completeRollout
-    // fires, rather than leaving the schedule stranded in "running" forever.
+    // has 3 steps; currentStepIndex=2 is the last one with interval=900s.
+    // Resuming should compute a future nextStepAt based on the step's interval
+    // so the step runs its hold time before advancing to completion.
     const schedule = makeSchedule({
       status: "paused",
       currentStepIndex: 2, // last step (steps.length - 1 = 2)
@@ -1800,16 +1802,19 @@ describe("resumeSchedule", () => {
 
     await resumeSchedule(ctx as never, schedule);
 
-    // The first updateById call is the resume update — nextStepAt must be set
-    // so advanceUntilBlocked can gate on it.
     const [, resumeUpdates] = updateById.mock.calls[0];
     expect(resumeUpdates.nextStepAt).not.toBeNull();
     expect(resumeUpdates.nextStepAt).toBeInstanceOf(Date);
 
-    // completeRollout (triggered by advanceUntilBlocked → advanceStep) calls
-    // publishRevision to apply endActions, confirming the schedule reached
-    // completion rather than stalling.
-    expect(mockPublishRevision).toHaveBeenCalled();
+    // nextStepAt should be in the future (step interval not yet elapsed),
+    // NOT set to now — the step needs to run its hold time first.
+    expect(resumeUpdates.nextStepAt.getTime()).toBeGreaterThan(
+      Date.now() - 1000,
+    );
+
+    // completeRollout should NOT fire immediately — the step interval must
+    // elapse first.
+    expect(mockPublishRevision).not.toHaveBeenCalled();
   });
 });
 
@@ -3776,5 +3781,231 @@ describe("isReadyForApproval", () => {
         steps: [{ interval: null, holdConditions: {} }],
       }),
     ).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeNextProcessAt
+// ---------------------------------------------------------------------------
+
+describe("computeNextProcessAt", () => {
+  it("running: returns earliest of nextStepAt, nextSnapshotAt, cutoffDate", () => {
+    const step = new Date("2026-06-10T00:00:00Z");
+    const snapshot = new Date("2026-06-08T00:00:00Z");
+    const cutoff = new Date("2026-06-15T00:00:00Z");
+    const result = computeNextProcessAt({
+      status: "running",
+      nextStepAt: step,
+      nextSnapshotAt: snapshot,
+      cutoffDate: cutoff,
+    });
+    expect(result).toEqual(snapshot);
+  });
+
+  it("running: returns cutoffDate when no step or snapshot timers exist", () => {
+    const cutoff = new Date("2026-06-15T00:00:00Z");
+    const result = computeNextProcessAt({
+      status: "running",
+      nextStepAt: null,
+      nextSnapshotAt: null,
+      cutoffDate: cutoff,
+    });
+    expect(result).toEqual(cutoff);
+  });
+
+  it("running: returns null when no timers exist at all", () => {
+    const result = computeNextProcessAt({
+      status: "running",
+      nextStepAt: null,
+      nextSnapshotAt: null,
+    });
+    expect(result).toBeNull();
+  });
+
+  it("ready: returns startDate", () => {
+    const start = new Date("2026-06-05T00:00:00Z");
+    const result = computeNextProcessAt({
+      status: "ready",
+      startDate: start,
+    });
+    expect(result).toEqual(start);
+  });
+
+  it("ready: returns null when no startDate", () => {
+    const result = computeNextProcessAt({ status: "ready" });
+    expect(result).toBeNull();
+  });
+
+  it("paused: returns cutoffDate so scheduler can enforce the cutoff", () => {
+    const cutoff = new Date("2026-06-15T00:00:00Z");
+    const result = computeNextProcessAt({
+      status: "paused",
+      cutoffDate: cutoff,
+    });
+    expect(result).toEqual(cutoff);
+  });
+
+  it("paused: returns null when no cutoffDate", () => {
+    const result = computeNextProcessAt({ status: "paused" });
+    expect(result).toBeNull();
+  });
+
+  it("completed: returns null (terminal state)", () => {
+    const result = computeNextProcessAt({
+      status: "completed",
+      cutoffDate: new Date("2026-06-15T00:00:00Z"),
+    });
+    expect(result).toBeNull();
+  });
+
+  it("rolled-back: returns null (terminal state)", () => {
+    const result = computeNextProcessAt({
+      status: "rolled-back",
+      cutoffDate: new Date("2026-06-15T00:00:00Z"),
+    });
+    expect(result).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// advanceStep — future cutoffDate keeps schedule running
+// ---------------------------------------------------------------------------
+
+describe("advanceStep — future cutoffDate keeps schedule running", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetFeature.mockResolvedValue(makeFeature() as never);
+    mockCreateRevision.mockResolvedValue(makeRevision() as never);
+    mockPublishRevision.mockResolvedValue(makeFeature() as never);
+  });
+
+  it("stays running with nextProcessAt=cutoffDate when all steps are done but cutoff is future", async () => {
+    const futureCutoff = new Date(Date.now() + 60 * 60_000);
+    const schedule = makeSchedule({
+      currentStepIndex: 2,
+      cutoffDate: futureCutoff,
+    });
+    const { ctx, updateById } = makeContext({
+      currentStepIndex: 2,
+      cutoffDate: futureCutoff,
+    });
+
+    await advanceStep(ctx as never, schedule);
+
+    expect(mockPublishRevision).toHaveBeenCalledTimes(1);
+
+    const [, updates] = updateById.mock.calls[0];
+    expect(updates.status).toBeUndefined();
+    expect(updates.currentStepIndex).toBe(3);
+    expect(updates.nextProcessAt).toEqual(futureCutoff);
+    expect(updates.nextStepAt).toBeNull();
+  });
+
+  it("completes normally when cutoffDate is in the past", async () => {
+    const pastCutoff = new Date(Date.now() - 60_000);
+    const schedule = makeSchedule({
+      currentStepIndex: 2,
+      cutoffDate: pastCutoff,
+    });
+    const { ctx, updateById } = makeContext({
+      currentStepIndex: 2,
+      cutoffDate: pastCutoff,
+    });
+
+    await advanceStep(ctx as never, schedule);
+
+    const [, updates] = updateById.mock.calls[0];
+    expect(updates.status).toBe("completed");
+  });
+
+  it("completes normally when no cutoffDate exists", async () => {
+    const schedule = makeSchedule({ currentStepIndex: 2 });
+    const { ctx, updateById } = makeContext({ currentStepIndex: 2 });
+
+    await advanceStep(ctx as never, schedule);
+
+    const [, updates] = updateById.mock.calls[0];
+    expect(updates.status).toBe("completed");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// pauseSchedule — nextProcessAt from cutoffDate
+// ---------------------------------------------------------------------------
+
+describe("pauseSchedule", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("sets nextProcessAt to cutoffDate when a cutoff exists", async () => {
+    const futureCutoff = new Date(Date.now() + 60 * 60_000);
+    const schedule = makeSchedule({
+      status: "running",
+      currentStepIndex: 1,
+      cutoffDate: futureCutoff,
+    });
+
+    const updateById = jest
+      .fn()
+      .mockImplementation(
+        (_id: string, updates: Partial<RampScheduleInterface>) => ({
+          ...schedule,
+          ...updates,
+        }),
+      );
+
+    const ctx = {
+      org: { id: ORG_ID, settings: {} },
+      auditUser: { type: "system" },
+      environments: [],
+      permissions: {
+        canUpdateFeature: jest.fn().mockReturnValue(true),
+      },
+      models: {
+        rampSchedules: { updateById, getById: jest.fn() },
+      },
+    };
+
+    await pauseSchedule(ctx as never, schedule);
+
+    const [, updates] = updateById.mock.calls[0];
+    expect(updates.status).toBe("paused");
+    expect(updates.nextProcessAt).toEqual(futureCutoff);
+    expect(updates.nextSnapshotAt).toBeNull();
+  });
+
+  it("sets nextProcessAt to null when no cutoffDate exists", async () => {
+    const schedule = makeSchedule({
+      status: "running",
+      currentStepIndex: 1,
+    });
+
+    const updateById = jest
+      .fn()
+      .mockImplementation(
+        (_id: string, updates: Partial<RampScheduleInterface>) => ({
+          ...schedule,
+          ...updates,
+        }),
+      );
+
+    const ctx = {
+      org: { id: ORG_ID, settings: {} },
+      auditUser: { type: "system" },
+      environments: [],
+      permissions: {
+        canUpdateFeature: jest.fn().mockReturnValue(true),
+      },
+      models: {
+        rampSchedules: { updateById, getById: jest.fn() },
+      },
+    };
+
+    await pauseSchedule(ctx as never, schedule);
+
+    const [, updates] = updateById.mock.calls[0];
+    expect(updates.status).toBe("paused");
+    expect(updates.nextProcessAt).toBeNull();
   });
 });
