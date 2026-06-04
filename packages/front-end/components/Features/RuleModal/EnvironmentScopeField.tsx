@@ -98,7 +98,7 @@ export default function RuleEnvironmentScopeField({
             showCopyButton={false}
             containerClassName="w-full"
           />
-          {selectedEnvironments.length === 0 && (
+          {selectedEnvironments.length === 0 && !disabledWarning && (
             <Callout status="warning" size="sm" mt="2">
               This rule will not apply in any environment until at least one is
               selected.
