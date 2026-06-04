@@ -400,7 +400,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
         }
       }
 
-      if ((data.goalMetrics?.length ?? 0) !== 1) {
+      if ((data.goalMetrics?.length ?? 0) !== 1 || !data.goalMetrics?.[0]) {
         throw new Error("You must select 1 decision metric");
       }
       const goalMetric = getExperimentMetricById(data.goalMetrics[0]);
