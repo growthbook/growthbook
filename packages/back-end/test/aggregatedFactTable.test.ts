@@ -4,10 +4,8 @@ import {
 } from "back-end/src/enterprise/services/data-pipeline";
 import { getAggregatedFactTableSchema } from "back-end/src/integrations/sql/fact-metrics/aggregated-fact-table-schema";
 import { encodeMetricIdForColumnName } from "back-end/src/integrations/sql/fact-metrics/encode-metric-id-for-column-name";
-import {
-  getColumnsForMetric,
-  parseAggregatedFactTableCoverage,
-} from "back-end/src/queryRunners/AggregatedFactTableQueryRunner";
+import { getColumnsForMetric } from "back-end/src/integrations/sql/fact-metrics/columns-for-metric";
+import { parseAggregatedFactTableCoverage } from "back-end/src/queryRunners/AggregatedFactTableQueryRunner";
 import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
 import { factMetricFactory } from "./factories/FactMetric.factory";
 import { factTableFactory } from "./factories/FactTable.factory";

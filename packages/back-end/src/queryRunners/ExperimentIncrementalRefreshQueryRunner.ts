@@ -56,6 +56,7 @@ import {
   planMetricFanOut,
 } from "back-end/src/services/experimentQueries/planMetricFanOut";
 import { buildCrossFtSubGroups } from "back-end/src/services/experimentQueries/crossFtSubGroups";
+import { resolveCovariateInsertPath } from "back-end/src/integrations/sql/fact-metrics/resolve-covariate-insert-path";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import {
@@ -762,27 +763,32 @@ const startExperimentIncrementalRefreshQueries = async (
         queries.push(createMetricCovariateTableQuery);
       }
 
-      insertMetricCovariateDataQuery = await startQuery({
+      // Per-group decision: read covariates from the pre-aggregated daily
+      // table when every RA metric validates against the registry, otherwise
+      // fall back to the legacy raw scan. All-or-nothing because one covariate
+      // INSERT writes a single row per unit with every metric column.
+      const covariatePath = await resolveCovariateInsertPath({
+        context,
+        factTable,
+        datasourceId: integration.datasource.id,
+        exposureUserIdType: exposureQuery.userIdType,
+        regressionAdjustedMetrics,
+      });
+
+      const covariateInsertBaseParams = {
         name: `insert_metrics_covariate_data_${group.groupId}`,
         displayTitle: `Update Metric Covariate Data ${sourceName}`,
-        query: integration.getInsertMetricSourceCovariateDataQuery({
-          settings: snapshotSettings,
-          activationMetric: activationMetric,
-          factTableMap: params.factTableMap,
-          factTableId: group.factTableId,
-          metricSourceCovariateTableFullName,
-          unitsSourceTableFullName: unitsTableFullName,
-          metrics: regressionAdjustedMetrics,
-          lastCovariateSuccessfulMaxTimestamp:
-            existingCovariateSource?.lastSuccessfulMaxTimestamp || null,
-        }),
         dependencies: [
           maxTimestampUnitsTableQuery.query,
           ...(createMetricCovariateTableQuery
             ? [createMetricCovariateTableQuery.query]
             : []),
         ],
-        run: (query, setExternalId, queryMetadata) =>
+        run: (
+          query: string,
+          setExternalId: ExternalIdCallback,
+          queryMetadata?: QueryMetadata,
+        ) =>
           integration.runIncrementalWithNoOutputQuery(
             query,
             setExternalId,
@@ -830,8 +836,49 @@ const startExperimentIncrementalRefreshQueries = async (
             );
           }
         },
-        queryType: "experimentIncrementalRefreshInsertMetricsCovariateData",
-      });
+      };
+
+      const commonCovariateQueryParams = {
+        settings: snapshotSettings,
+        activationMetric: activationMetric,
+        factTableMap: params.factTableMap,
+        factTableId: group.factTableId,
+        metricSourceCovariateTableFullName,
+        unitsSourceTableFullName: unitsTableFullName,
+        metrics: regressionAdjustedMetrics,
+        lastCovariateSuccessfulMaxTimestamp:
+          existingCovariateSource?.lastSuccessfulMaxTimestamp || null,
+      };
+
+      if (covariatePath.path === "aggregated") {
+        insertMetricCovariateDataQuery = await startQuery({
+          ...covariateInsertBaseParams,
+          query:
+            integration.getInsertMetricSourceCovariateFromAggregatedFactTableQuery(
+              {
+                ...commonCovariateQueryParams,
+                aggregatedTableFullName: covariatePath.aggregatedTableFullName,
+                idType: covariatePath.idType,
+              },
+            ),
+          queryType:
+            "experimentIncrementalRefreshInsertMetricsCovariateDataFromAggregated",
+        });
+      } else {
+        insertMetricCovariateDataQuery = await startQuery({
+          ...covariateInsertBaseParams,
+          query: integration.getInsertMetricSourceCovariateDataQuery({
+            ...commonCovariateQueryParams,
+            // Align the raw scan to daily grain only when the exposure id type
+            // is materialized, so the fallback covers the same days the
+            // pre-aggregated table would.
+            alignLegacyScanToDailyGrain: (
+              factTable?.aggregatedFactTableIdTypes ?? []
+            ).includes(exposureQuery.userIdType),
+          }),
+          queryType: "experimentIncrementalRefreshInsertMetricsCovariateData",
+        });
+      }
       queries.push(insertMetricCovariateDataQuery);
     }
 
