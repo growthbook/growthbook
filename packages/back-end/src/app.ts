@@ -4,6 +4,7 @@ import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
 import express, {
   ErrorRequestHandler,
+  NextFunction,
   Request,
   RequestHandler,
   Response,
@@ -363,25 +364,77 @@ app.get(
   uploadController.getSignedPublicImageToken,
 );
 
-// Secret API routes (no JWT or CORS)
-// Routes register themselves with version prefixes (/v1/..., /v2/...) so we
-// mount the router at /api — yielding /api/v1/<route> and /api/v2/<route>.
+// Trusted browser origins for the in-app frontend. Lifted above the /api
+// mount so the REST API CORS middleware can reflect them with
+// `credentials: true` (see comment on the /api mount below).
+const origins: (string | RegExp)[] = [APP_ORIGIN];
+if (CORS_ORIGIN_REGEX) {
+  origins.push(CORS_ORIGIN_REGEX);
+}
+
+const isTrustedBrowserOrigin = (origin: string | undefined): boolean => {
+  if (!origin) return false;
+  return origins.some((o) =>
+    typeof o === "string" ? o === origin : o.test(origin),
+  );
+};
+
+// REST API CORS.
+//
+// The REST API is meant to be called from two very different surfaces:
+//
+//   1.  External API clients (curl, server-side scripts, third-party
+//       browser apps) that authenticate with a Bearer token. These
+//       don't send a browser `Origin` we control, so we keep the
+//       existing `origin: "*"` + no-credentials behaviour for them.
+//
+//   2.  The in-app frontend (`APP_ORIGIN`), which routes every request
+//       through `apiCall` in `services/auth.tsx` — and `apiCall`
+//       hard-codes `credentials: "include"` for parity with the legacy
+//       internal routes. Browsers strictly reject the combination of
+//       `Access-Control-Allow-Origin: *` + a credentialed fetch, so
+//       requests from the in-app frontend to any `/api/v1/*` endpoint
+//       fail with a `TypeError: Failed to fetch` even though the API
+//       handler itself succeeds. (This surfaced on the new CB list page
+//       in PR-6, which is the first in-app caller of `/api/v1/*`; the
+//       fix has to live at the CORS layer so future in-app callers of
+//       the REST API don't hit the same wall.)
+//
+// We pick one of two cors configs per request based on the Origin
+// header so neither caller has to change.
+const apiCorsTrusted = cors({
+  origin: origins,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "X-Organization",
+    "X-SSO-Connection-ID",
+  ],
+  credentials: true,
+  maxAge: 86400,
+});
+const apiCorsPublic = cors({
+  origin: "*",
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "X-Organization",
+    "X-SSO-Connection-ID",
+  ],
+  credentials: false,
+  maxAge: 86400,
+});
+
 app.use(
   "/api",
-  // Authentication is done via Auth headers and not cookies,
-  // so we can safely allow any origin
-  cors({
-    origin: "*",
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-      "X-Organization",
-      "X-SSO-Connection-ID",
-    ],
-    credentials: false,
-    maxAge: 86400,
-  }),
+  (req: Request, res: Response, next: NextFunction) => {
+    if (isTrustedBrowserOrigin(req.headers.origin)) {
+      return apiCorsTrusted(req, res, next);
+    }
+    return apiCorsPublic(req, res, next);
+  },
   apiRouter,
 );
 
@@ -396,12 +449,6 @@ app.use(
   }),
   scimRouter,
 );
-
-// Accept cross-origin requests from the frontend app
-const origins: (string | RegExp)[] = [APP_ORIGIN];
-if (CORS_ORIGIN_REGEX) {
-  origins.push(CORS_ORIGIN_REGEX);
-}
 
 if (IS_CLOUD && VERCEL_CLIENT_ID && VERCEL_CLIENT_SECRET) {
   app.use(
