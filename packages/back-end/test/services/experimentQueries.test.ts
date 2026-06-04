@@ -1,7 +1,9 @@
 import { FactMetricInterface } from "shared/types/fact-table";
+import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import {
   chunkMetrics,
   getFactMetricGroup,
+  getStatsQueryBuckets,
   groupMetricsByConversionWindowHours,
   maxColumnsNeededForMetric,
 } from "back-end/src/services/experimentQueries/experimentQueries";
@@ -779,6 +781,105 @@ describe("experimentQueries", () => {
 
     it("returns an empty map for no metrics", () => {
       expect(groupMetricsByConversionWindowHours([]).size).toBe(0);
+    });
+  });
+
+  describe("getStatsQueryBuckets", () => {
+    const conversionWindow = (windowValue: number) => ({
+      type: "conversion" as const,
+      delayValue: 0,
+      delayUnit: "hours" as const,
+      windowValue,
+      windowUnit: "days" as const,
+    });
+
+    const metric = (
+      id: string,
+      windowSettings: FactMetricInterface["windowSettings"],
+    ) =>
+      factMetricFactory.build({
+        id,
+        metricType: "mean",
+        numerator: { factTableId: "ft_1" },
+        windowSettings,
+      });
+
+    const buildSettings = (
+      skipPartialData: boolean,
+      endDate: Date,
+    ): ExperimentSnapshotSettings => ({
+      manual: false,
+      dimensions: [],
+      metricSettings: [],
+      goalMetrics: [],
+      secondaryMetrics: [],
+      guardrailMetrics: [],
+      activationMetric: null,
+      defaultMetricPriorSettings: {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: 0,
+      },
+      regressionAdjustmentEnabled: false,
+      attributionModel: "firstExposure",
+      experimentId: "exp_1",
+      queryFilter: "",
+      segment: "",
+      skipPartialData,
+      datasourceId: "ds_1",
+      exposureQueryId: "exposure",
+      startDate: new Date("2024-01-01T00:00:00Z"),
+      endDate,
+      variations: [],
+    });
+
+    const referenceTime = new Date("2024-06-15T00:00:00Z");
+
+    it("returns a single uncut bucket when skipPartialData is off", () => {
+      const a = metric("a", conversionWindow(3));
+      const b = metric("b", conversionWindow(7));
+
+      const buckets = getStatsQueryBuckets({
+        metrics: [a, b],
+        snapshotSettings: buildSettings(
+          false,
+          new Date("2024-06-30T00:00:00Z"),
+        ),
+        referenceTime,
+      });
+
+      expect(buckets).toEqual([
+        { metrics: [a, b], maxFirstExposureTimestamp: null, nameSuffix: "" },
+      ]);
+    });
+
+    it("returns one bucket per conversion window when skipPartialData is on", () => {
+      const a = metric("a", conversionWindow(3)); // 72h
+      const b = metric("b", conversionWindow(3)); // 72h
+      const c = metric("c", conversionWindow(7)); // 168h
+
+      const buckets = getStatsQueryBuckets({
+        // far-future endDate so the cutoff is referenceTime - window
+        metrics: [a, b, c],
+        snapshotSettings: buildSettings(true, new Date("2025-01-01T00:00:00Z")),
+        referenceTime,
+      });
+
+      expect(buckets).toHaveLength(2);
+      const cw72 = buckets.find((x) => x.nameSuffix === "_cw72");
+      const cw168 = buckets.find((x) => x.nameSuffix === "_cw168");
+      expect(cw72?.metrics.map((m) => m.id)).toEqual(["a", "b"]);
+      expect(cw168?.metrics.map((m) => m.id)).toEqual(["c"]);
+
+      // Cutoff is derived from referenceTime (not wall clock) and is earlier
+      // for the longer window.
+      expect(cw72?.maxFirstExposureTimestamp?.getTime()).toBeLessThan(
+        referenceTime.getTime(),
+      );
+      expect(cw168?.maxFirstExposureTimestamp?.getTime()).toBeLessThan(
+        cw72?.maxFirstExposureTimestamp?.getTime() ?? 0,
+      );
     });
   });
 });

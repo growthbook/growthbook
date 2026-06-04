@@ -22,8 +22,7 @@ import {
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getIncrementalRefreshMetricSources } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
-import { groupMetricsByConversionWindowHours } from "back-end/src/services/experimentQueries/experimentQueries";
-import { getExperimentEndDate } from "back-end/src/integrations/sql/dates/experiment-end-date";
+import { getStatsQueryBuckets } from "back-end/src/services/experimentQueries/experimentQueries";
 import {
   hasAnyRegressionAdjustedMetric,
   planMetricFanOut,
@@ -235,26 +234,11 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     // in case same fact table is split across multiple sources
     const sourceName = factTable ? `(${factTable.name})` : "";
 
-    // skipPartialData: one stats query per conversion window (see main runner).
-    const statsBuckets = snapshotSettings.skipPartialData
-      ? Array.from(
-          groupMetricsByConversionWindowHours(sameFtMetrics).entries(),
-        ).map(([conversionWindowHours, bucketMetrics]) => ({
-          metrics: bucketMetrics,
-          maxFirstExposureTimestamp: getExperimentEndDate(
-            snapshotSettings,
-            conversionWindowHours,
-            skipPartialDataReferenceTime,
-          ),
-          nameSuffix: `_cw${conversionWindowHours}`,
-        }))
-      : [
-          {
-            metrics: sameFtMetrics,
-            maxFirstExposureTimestamp: null,
-            nameSuffix: "",
-          },
-        ];
+    const statsBuckets = getStatsQueryBuckets({
+      metrics: sameFtMetrics,
+      snapshotSettings,
+      referenceTime: skipPartialDataReferenceTime,
+    });
 
     for (const bucket of statsBuckets) {
       const statisticsQuery = await startQuery({
@@ -320,26 +304,11 @@ export const startExperimentIncrementalRefreshExploratoryQueries = async (
     const ftB = params.factTableMap.get(pipelineB.group.factTableId);
     const sourceName = ftA && ftB ? `(${ftA.name} x ${ftB.name})` : "";
 
-    const crossFtMetrics = subGroup.metrics.map((m) => m.metric);
-    const statsBuckets = snapshotSettings.skipPartialData
-      ? Array.from(
-          groupMetricsByConversionWindowHours(crossFtMetrics).entries(),
-        ).map(([conversionWindowHours, bucketMetrics]) => ({
-          metrics: bucketMetrics,
-          maxFirstExposureTimestamp: getExperimentEndDate(
-            snapshotSettings,
-            conversionWindowHours,
-            skipPartialDataReferenceTime,
-          ),
-          nameSuffix: `_cw${conversionWindowHours}`,
-        }))
-      : [
-          {
-            metrics: crossFtMetrics,
-            maxFirstExposureTimestamp: null,
-            nameSuffix: "",
-          },
-        ];
+    const statsBuckets = getStatsQueryBuckets({
+      metrics: subGroup.metrics.map((m) => m.metric),
+      snapshotSettings,
+      referenceTime: skipPartialDataReferenceTime,
+    });
 
     for (const bucket of statsBuckets) {
       const crossStatsQuery = await startQuery({

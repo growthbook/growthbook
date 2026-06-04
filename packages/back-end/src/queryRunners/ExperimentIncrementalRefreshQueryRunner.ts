@@ -52,9 +52,8 @@ import {
 import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
 import {
   chunkMetrics,
-  groupMetricsByConversionWindowHours,
+  getStatsQueryBuckets,
 } from "back-end/src/services/experimentQueries/experimentQueries";
-import { getExperimentEndDate } from "back-end/src/integrations/sql/dates/experiment-end-date";
 import {
   filterRegressionAdjustedMetrics,
   planMetricFanOut,
@@ -940,27 +939,11 @@ const startExperimentIncrementalRefreshQueries = async (
     // only host one half of a cross-FT ratio skip this — those metrics'
     // stats are computed in the cross-FT pair pass below.
     if (sameFtMetrics.length > 0) {
-      // skipPartialData: split into one stats query per conversion window (each
-      // needs its own cutoff, since per-variation N is shared within a query).
-      const statsBuckets = snapshotSettings.skipPartialData
-        ? Array.from(
-            groupMetricsByConversionWindowHours(sameFtMetrics).entries(),
-          ).map(([conversionWindowHours, bucketMetrics]) => ({
-            metrics: bucketMetrics,
-            maxFirstExposureTimestamp: getExperimentEndDate(
-              snapshotSettings,
-              conversionWindowHours,
-              params.incrementalRefreshStartTime,
-            ),
-            nameSuffix: `_cw${conversionWindowHours}`,
-          }))
-        : [
-            {
-              metrics: sameFtMetrics,
-              maxFirstExposureTimestamp: null,
-              nameSuffix: "",
-            },
-          ];
+      const statsBuckets = getStatsQueryBuckets({
+        metrics: sameFtMetrics,
+        snapshotSettings,
+        referenceTime: params.incrementalRefreshStartTime,
+      });
 
       for (const bucket of statsBuckets) {
         // Match standard query runner behavior: quantiles only run overall
@@ -1047,28 +1030,11 @@ const startExperimentIncrementalRefreshQueries = async (
       ? []
       : eligibleDimensionsWithSlicesUnderMaxCells;
 
-    const crossFtMetrics = subGroup.metrics.map((m) => m.metric);
-    // Window-partition like the same-FT pass (a pair can host metrics with
-    // different windows).
-    const statsBuckets = snapshotSettings.skipPartialData
-      ? Array.from(
-          groupMetricsByConversionWindowHours(crossFtMetrics).entries(),
-        ).map(([conversionWindowHours, bucketMetrics]) => ({
-          metrics: bucketMetrics,
-          maxFirstExposureTimestamp: getExperimentEndDate(
-            snapshotSettings,
-            conversionWindowHours,
-            params.incrementalRefreshStartTime,
-          ),
-          nameSuffix: `_cw${conversionWindowHours}`,
-        }))
-      : [
-          {
-            metrics: crossFtMetrics,
-            maxFirstExposureTimestamp: null,
-            nameSuffix: "",
-          },
-        ];
+    const statsBuckets = getStatsQueryBuckets({
+      metrics: subGroup.metrics.map((m) => m.metric),
+      snapshotSettings,
+      referenceTime: params.incrementalRefreshStartTime,
+    });
 
     for (const bucket of statsBuckets) {
       const crossStatsQuery = await startQuery({
