@@ -26,6 +26,7 @@ import {
   parseSliceQueryString,
   generateSliceString,
   expandMetricGroups,
+  isDimensionPrecomputed,
 } from "../../experiments/experiments";
 import { DataVizConfig } from "../../../validators";
 import { getInitialConfigByBlockType } from "../product-analytics/utils";
@@ -130,9 +131,19 @@ export function snapshotSatisfiesBlock(
     return snapshot.dimension === blockSettings.dimensionId;
   }
   if (!blockSettings.dimensionId) return true;
-  // If snapshot doesn't have a dimension, check whether the requested dimension is precomputed
-  return snapshot.settings.dimensions.some(
-    ({ id }) => blockSettings.dimensionId === id,
+  // If snapshot doesn't have a dimension, check whether the requested dimension
+  // is precomputed. Precomputed experiment dimensions live in settings.dimensions
+  // (as `precomputed:<id>`); precomputed unit dimensions live in
+  // settings.precomputedUnitDimensionIds. Both are analyzed eagerly on the
+  // dimensionless snapshot, so it satisfies the block without a separate fetch.
+  return (
+    snapshot.settings.dimensions.some(
+      ({ id }) => blockSettings.dimensionId === id,
+    ) ||
+    isDimensionPrecomputed(
+      blockSettings.dimensionId,
+      snapshot.settings.precomputedUnitDimensionIds ?? [],
+    )
   );
 }
 
@@ -146,6 +157,45 @@ export function getBlockSnapshotAnalysis<
     defaultAnalysis.settings,
   );
   return getSnapshotAnalysis(snapshot, blockAnalysisSettings);
+}
+
+// Declarative, per-block-type dimension behavior. Consumed generically by the
+// editor (and any block) so dimension support is data-driven rather than
+// special-cased by block type.
+export interface BlockDimensionConfig {
+  scope: "all" | "precomputed"; // which dimensions are selectable
+  required: boolean; // dimension selection required
+  allowNone: boolean; // offer an explicit "None" option to clear the dimension
+  showValues: boolean; // render the levels multiselect
+  hideWhenNoneAvailable: boolean; // hide selectors if no in-scope dimensions exist
+  valuesRequireSelection: boolean; // only show levels once a dimension is chosen
+}
+
+export const BLOCK_DIMENSION_CONFIG: Partial<
+  Record<DashboardBlockType, BlockDimensionConfig>
+> = {
+  "experiment-dimension": {
+    scope: "all",
+    required: true,
+    allowNone: false,
+    showValues: true,
+    hideWhenNoneAvailable: false,
+    valuesRequireSelection: false,
+  },
+  "experiment-time-series": {
+    scope: "precomputed",
+    required: false,
+    allowNone: true,
+    showValues: true,
+    hideWhenNoneAvailable: true,
+    valuesRequireSelection: true,
+  },
+};
+
+export function getBlockDimensionConfig(
+  block: DashboardBlockInterfaceOrData<DashboardBlockInterface>,
+): BlockDimensionConfig | undefined {
+  return BLOCK_DIMENSION_CONFIG[block.type];
 }
 
 type CreateBlock<T extends DashboardBlockInterface> = (args: {
@@ -221,6 +271,8 @@ export const CREATE_BLOCK_TYPE: {
     snapshotId: experiment.analysisSummary?.snapshotId || "",
     variationIds: [],
     differenceType: "relative",
+    dimensionId: "",
+    dimensionValues: [],
     sliceTagsFilter: [],
     metricTagFilter: [],
     sortBy: null,

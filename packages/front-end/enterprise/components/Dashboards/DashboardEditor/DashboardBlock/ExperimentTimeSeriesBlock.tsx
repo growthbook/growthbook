@@ -1,7 +1,10 @@
 import React, { useMemo, useCallback, useState } from "react";
 import { ExperimentTimeSeriesBlockInterface } from "shared/enterprise";
 import { MetricSnapshotSettings } from "shared/types/report";
-import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
+import {
+  DEFAULT_PROPER_PRIOR_STDDEV,
+  PRECOMPUTED_DIMENSION_PREFIX,
+} from "shared/constants";
 import { groupBy } from "lodash";
 import { getValidDate } from "shared/dates";
 import { getLatestPhaseVariations } from "shared/experiments";
@@ -11,6 +14,7 @@ import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
+import Text from "@/ui/Text";
 import { BlockProps } from ".";
 
 export default function ExperimentTimeSeriesBlock({
@@ -27,10 +31,29 @@ export default function ExperimentTimeSeriesBlock({
     metricTagFilter: blockMetricTagFilter,
     sortBy: blockSortBy,
     sortDirection: blockSortDirection,
+    dimensionId: blockDimensionId,
+    dimensionValues: blockDimensionValues,
   } = block;
 
+  // When a precomputed dimension is selected, the block's analysis is the
+  // per-dimension-value analysis (results = one entry per level), so we render
+  // one time series per level instead of the single dimensionless series.
+  const hasDimension = !!blockDimensionId && blockDimensionId.length > 0;
+
   const { pValueCorrection: hookPValueCorrection } = useOrgSettings();
-  const { getExperimentMetricById, getFactTableById } = useDefinitions();
+  const { getExperimentMetricById, getFactTableById, getDimensionById } =
+    useDefinitions();
+
+  // Resolve the dimension's display name. Precomputed experiment dimensions are
+  // stored as `precomputed:<name>`; precomputed unit dimensions are stored by id
+  // and resolved via the definitions store.
+  const dimensionName = useMemo(() => {
+    if (!blockDimensionId) return "";
+    if (blockDimensionId.startsWith(PRECOMPUTED_DIMENSION_PREFIX)) {
+      return blockDimensionId.slice(PRECOMPUTED_DIMENSION_PREFIX.length);
+    }
+    return getDimensionById(blockDimensionId)?.name ?? blockDimensionId;
+  }, [blockDimensionId, getDimensionById]);
 
   const statsEngine = analysis.settings.statsEngine;
   const pValueCorrection =
@@ -41,6 +64,19 @@ export default function ExperimentTimeSeriesBlock({
     ssrPolyfills?.usePValueThreshold?.(experiment.project) || _pValueThreshold;
 
   const result = analysis.results[0];
+
+  // Dimension levels to render graphs for: filtered by the block's selected
+  // values, or all available levels when none are explicitly selected.
+  const dimensionValuesToRender = useMemo(() => {
+    if (!hasDimension) return [];
+    const allValues = (analysis.results ?? [])
+      .map((r) => r.name)
+      .filter((name) => name !== "");
+    if (blockDimensionValues && blockDimensionValues.length > 0) {
+      return allValues.filter((v) => blockDimensionValues.includes(v));
+    }
+    return allValues;
+  }, [hasDimension, analysis.results, blockDimensionValues]);
 
   const currentPhase = experiment.phases[snapshot.phase];
   const phaseStartDate = currentPhase?.dateStarted
@@ -92,8 +128,8 @@ export default function ExperimentTimeSeriesBlock({
     statsEngine,
     pValueCorrection,
     settingsForSnapshotMetrics,
-    shouldShowMetricSlices: true,
-    enableExpansion: true,
+    shouldShowMetricSlices: !hasDimension,
+    enableExpansion: !hasDimension,
     expandedMetrics,
     sortBy: blockSortBy,
     sortDirection: blockSortDirection,
@@ -131,7 +167,7 @@ export default function ExperimentTimeSeriesBlock({
     toggleExpandedMetric,
     getExperimentMetricById,
     getFactTableById,
-    shouldShowMetricSlices: true,
+    shouldShowMetricSlices: !hasDimension,
     getChildRowCounts,
     sliceTagsFilter: blockSliceTagsFilter,
   });
@@ -141,9 +177,6 @@ export default function ExperimentTimeSeriesBlock({
       {Object.entries(rowGroups).map(([resultGroup, rows]) =>
         !rows.length ? null : (
           <div key={resultGroup} className="mb-4">
-            <h4 className="mb-3">
-              {`${resultGroup.charAt(0).toUpperCase() + resultGroup.slice(1)} Metrics`}
-            </h4>
             {rows.map((row) => {
               // Only render parent rows (not slice rows) for time series
               if (row.isSliceRow) return null;
@@ -174,6 +207,30 @@ export default function ExperimentTimeSeriesBlock({
                   return isExpanded;
                 });
 
+              // Shared by the dimensionless and per-dimension-level layouts;
+              // only the dimension props differ.
+              const renderGraph = (dimensionValue?: string) => (
+                <ExperimentMetricTimeSeriesGraphWrapper
+                  experimentId={experiment.id}
+                  pValueThreshold={pValueThreshold}
+                  phase={snapshot.phase}
+                  metric={metric}
+                  differenceType={
+                    analysis?.settings.differenceType || "relative"
+                  }
+                  showVariations={showVariations}
+                  variations={variations}
+                  statsEngine={statsEngine}
+                  pValueAdjustmentEnabled={!!appliedPValueCorrection}
+                  firstDateToRender={phaseStartDate}
+                  sliceId={row.sliceId}
+                  dimensionId={
+                    dimensionValue !== undefined ? blockDimensionId : undefined
+                  }
+                  dimensionValue={dimensionValue}
+                />
+              );
+
               return (
                 <div key={metric.id} className="mb-2">
                   <div className="py-2">
@@ -192,24 +249,35 @@ export default function ExperimentTimeSeriesBlock({
                       })}
                     </div>
 
-                    {!row.labelOnly && (
-                      <ExperimentMetricTimeSeriesGraphWrapper
-                        key={metric.id}
-                        experimentId={experiment.id}
-                        pValueThreshold={pValueThreshold}
-                        phase={snapshot.phase}
-                        metric={metric}
-                        differenceType={
-                          analysis?.settings.differenceType || "relative"
-                        }
-                        showVariations={showVariations}
-                        variations={variations}
-                        statsEngine={statsEngine}
-                        pValueAdjustmentEnabled={!!appliedPValueCorrection}
-                        firstDateToRender={phaseStartDate}
-                        sliceId={row.sliceId}
-                      />
-                    )}
+                    {!row.labelOnly &&
+                      (hasDimension
+                        ? dimensionValuesToRender.map((dimValue) => (
+                            <div
+                              key={`${metric.id}-${dimValue}`}
+                              className="mb-2"
+                            >
+                              {/* Match renderLabelColumn's indentation (pl-1 +
+                            pl-3 + ml-2) so the dimension text lines up with the
+                            fixed metric label column above. */}
+                              <div className="pl-1">
+                                <div className="pl-3 ml-2">
+                                  <Text
+                                    as="div"
+                                    mb="1"
+                                    size="medium"
+                                    weight="medium"
+                                  >
+                                    Dimension:{" "}
+                                    <Text size="medium" weight="regular">
+                                      {dimensionName}={dimValue}
+                                    </Text>
+                                  </Text>
+                                </div>
+                              </div>
+                              {renderGraph(dimValue)}
+                            </div>
+                          ))
+                        : renderGraph())}
                   </div>
 
                   <div>
