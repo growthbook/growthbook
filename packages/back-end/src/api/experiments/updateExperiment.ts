@@ -278,14 +278,6 @@ export const updateExperiment = createApiRequestHandler(
     );
   }
 
-  await validateContextualBanditExperimentForSave(req.context, {
-    type: req.body.type ?? experiment.type,
-    datasourceId: datasourceId || undefined,
-    exposureQueryId: req.body.assignmentQueryId ?? experiment.exposureQueryId,
-    datasource,
-    goalMetrics: req.body.metrics ?? experiment.goalMetrics,
-  });
-
   // Opt-in attribute registration check (org-level setting). Covers the
   // experiment-level hash/fallback attributes and every provided phase.
   assertRegisteredAttributes(

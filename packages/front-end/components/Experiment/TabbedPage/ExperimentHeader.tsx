@@ -21,7 +21,6 @@ import {
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { format } from "date-fns-tz";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { isContextualBanditExperiment } from "@/services/contextualBanditAsExperiment";
 import { useAuth } from "@/services/auth";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Avatar from "@/ui/Avatar";
@@ -248,7 +247,6 @@ export default function ExperimentHeader({
   const disableHealthTab = isUsingHealthUnsupportDatasource;
 
   const isBandit = experiment.type === "multi-armed-bandit";
-  const isContextualBandit = isContextualBanditExperiment(experiment);
   const isHoldout = experiment.type === "holdout";
 
   const hasResults = !!analysis?.results?.[0];
@@ -312,12 +310,7 @@ export default function ExperimentHeader({
       }
     }
 
-    if (isContextualBandit) {
-      // CB ids (cb_*) have no experiment doc, so use the CB-native lifecycle endpoint.
-      await apiCall(`/api/v1/contextual-bandits/${experiment.id}/start`, {
-        method: "POST",
-      });
-    } else if (isHoldout) {
+    if (isHoldout) {
       await apiCall(`/holdout/${holdout?.id}/edit-status`, {
         method: "POST",
         body: JSON.stringify({
@@ -1237,34 +1230,33 @@ export default function ExperimentHeader({
                     <Flex align="center" className="flex-1">
                       <TabsTrigger value="overview">Overview</TabsTrigger>
                       <TabsTrigger value="results">Results</TabsTrigger>
-                      {isBandit && !isContextualBandit ? (
+                      {isBandit ? (
                         <TabsTrigger value="explore">Explore</TabsTrigger>
                       ) : null}
-                      {!isBandit && !isHoldout && !isContextualBandit && (
+                      {!isBandit && !isHoldout && (
                         <TabsTrigger value="dashboards">Dashboards</TabsTrigger>
                       )}
-                      {!isContextualBandit &&
-                        (disableHealthTab ? (
-                          <DisabledHealthTabTooltip reason="UNSUPPORTED_DATASOURCE">
-                            <TabsTrigger disabled value="health">
-                              Health
-                            </TabsTrigger>
-                          </DisabledHealthTabTooltip>
-                        ) : (
-                          <TabsTrigger
-                            value="health"
-                            onClick={() => {
-                              track("Open health tab", { source: "tab-click" });
-                            }}
-                          >
+                      {disableHealthTab ? (
+                        <DisabledHealthTabTooltip reason="UNSUPPORTED_DATASOURCE">
+                          <TabsTrigger disabled value="health">
                             Health
-                            {healthNotificationCount > 0 ? (
-                              <Avatar size="sm" ml="2" color="red">
-                                {healthNotificationCount}
-                              </Avatar>
-                            ) : null}
                           </TabsTrigger>
-                        ))}
+                        </DisabledHealthTabTooltip>
+                      ) : (
+                        <TabsTrigger
+                          value="health"
+                          onClick={() => {
+                            track("Open health tab", { source: "tab-click" });
+                          }}
+                        >
+                          Health
+                          {healthNotificationCount > 0 ? (
+                            <Avatar size="sm" ml="2" color="red">
+                              {healthNotificationCount}
+                            </Avatar>
+                          ) : null}
+                        </TabsTrigger>
+                      )}
                       {hasMultiplePhases ? (
                         <>
                           <div className="flex-1" />

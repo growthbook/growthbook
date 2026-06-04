@@ -5003,120 +5003,6 @@ export async function computeResultsStatus({
   };
 }
 
-export async function validateContextualBanditExperimentForSave(
-  context: ReqContext,
-  params: {
-    type?: string;
-    datasourceId?: string;
-    exposureQueryId?: string;
-    datasource?: DataSourceInterface | null;
-    /** Goal metric IDs; the first is the contextual bandit decision metric. */
-    goalMetrics?: string[];
-    /** If provided, the function will block datasource/EAQ changes for this existing experiment. */
-    existingExperiment?: ExperimentInterface;
-  },
-): Promise<void> {
-  if (params.type !== "contextual-bandit") {
-    return;
-  }
-
-  const decisionMetricId = params.goalMetrics?.[0];
-  if (decisionMetricId && !isFactMetricId(decisionMetricId)) {
-    throw new Error("Contextual bandit decision metric must be a fact metric.");
-  }
-
-  if (params.existingExperiment?.contextualBanditId) {
-    const existing = params.existingExperiment;
-    if (
-      params.datasourceId !== undefined &&
-      params.datasourceId !== existing.datasource
-    ) {
-      throw new Error(
-        "Cannot change datasource on a contextual bandit experiment after it has been created.",
-      );
-    }
-    if (
-      params.exposureQueryId !== undefined &&
-      params.exposureQueryId !== existing.exposureQueryId
-    ) {
-      throw new Error(
-        "Cannot change exposure query on a contextual bandit experiment after it has been created.",
-      );
-    }
-  }
-
-  const datasource =
-    params.datasource ??
-    (params.datasourceId
-      ? await getDataSourceById(context, params.datasourceId)
-      : null);
-  if (params.datasourceId && !datasource) {
-    throw new Error("Invalid datasource: " + params.datasourceId);
-  }
-  assertContextualBanditExperimentFieldsValid({
-    experimentType: params.type,
-    exposureQueryId: params.exposureQueryId,
-    exposureQueries: datasource?.settings?.queries?.exposure,
-  });
-}
-
-/** Idempotently creates the linked ContextualBandit doc for a CB experiment and back-patches `contextualBanditId`. */
-export async function maybeCreateContextualBanditDoc(
-  context: ReqContext,
-  experiment: ExperimentInterface,
-): Promise<void> {
-  if (experiment.type !== "contextual-bandit") return;
-
-  if (!context.hasPremiumFeature("contextual-bandits")) {
-    context.throwPlanDoesNotAllowError(
-      "Contextual Bandits require an Enterprise plan.",
-    );
-  }
-
-  const existing = await context.models.contextualBandits.getByExperimentId(
-    experiment.id,
-  );
-  if (existing) {
-    if (!experiment.contextualBanditId) {
-      await updateExperiment({
-        context,
-        experiment,
-        changes: { contextualBanditId: existing.id },
-      });
-    }
-    return;
-  }
-  if (experiment.contextualBanditId) return;
-
-  const datasource = experiment.datasource
-    ? await getDataSourceById(context, experiment.datasource)
-    : null;
-  const eaq = datasource?.settings?.queries?.exposure?.find(
-    (q) => q.id === experiment.exposureQueryId,
-  );
-
-  const cb = await context.models.contextualBandits.create({
-    experiment: experiment.id,
-    datasourceId: experiment.datasource ?? "",
-    exposureQueryId: experiment.exposureQueryId ?? "",
-    contextualAttributes: eaq?.targetingAttributeColumns ?? [],
-    maxContexts: 300,
-    treeModel: "regression_tree",
-    minUsersPerLeaf: 100,
-    maxLeaves: 12,
-    holdoutPercent: 0,
-    stickyBucketing: false,
-    canonicalFormVersion: 1,
-    phases: [{ dateStarted: new Date(), currentLeafWeights: [] }],
-  });
-
-  await updateExperiment({
-    context,
-    experiment,
-    changes: { contextualBanditId: cb.id },
-  });
-}
-
 export async function validateExperimentData(
   context: ReqContext,
   data: Partial<ExperimentInterfaceStringDates>,
@@ -5172,14 +5058,6 @@ export async function validateExperimentData(
       }
     }
   }
-
-  await validateContextualBanditExperimentForSave(context, {
-    type: data.type,
-    datasourceId: data.datasource,
-    exposureQueryId: data.exposureQueryId,
-    datasource,
-    goalMetrics: data.goalMetrics,
-  });
 
   return { metricIds, datasource, invalidMetricIds };
 }

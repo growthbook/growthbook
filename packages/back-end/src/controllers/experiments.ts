@@ -1982,21 +1982,6 @@ export async function postExperiment(
     }
   }
 
-  try {
-    await validateContextualBanditExperimentForSave(context, {
-      type: changes.type ?? experiment.type,
-      datasourceId: changes.datasource ?? experiment.datasource,
-      exposureQueryId: changes.exposureQueryId ?? experiment.exposureQueryId,
-      goalMetrics: changes.goalMetrics ?? experiment.goalMetrics,
-    });
-  } catch (e) {
-    res.status(400).json({
-      status: 400,
-      message: e instanceof Error ? e.message : String(e),
-    });
-    return;
-  }
-
   const updated = await updateExperimentAndSync({
     context,
     experiment,
@@ -3085,13 +3070,6 @@ export async function deleteExperiment(
       // This is not a fatal error, so don't block the request from happening
       logger.warn(e, "Error removing experiment from holdout");
     }
-  }
-
-  // Cascade-delete the paired CB doc via the legacy `experiment` FK if one exists.
-  try {
-    await context.models.contextualBandits.deleteForExperiment(experiment.id);
-  } catch (e) {
-    logger.warn(e, "Error cascade-deleting CB doc for experiment");
   }
 
   await req.audit({

@@ -15,7 +15,6 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { getHonoredPrecomputedUnitDimensionIds } from "@/services/experiments";
 import { trackSnapshot } from "@/services/track";
-import { isContextualBanditExperiment } from "@/services/contextualBanditAsExperiment";
 import RunQueriesButton from "@/components/Queries/RunQueriesButton";
 import ExperimentRefreshSnapshotButton from "@/components/Experiment/RefreshSnapshotButton";
 import SafeRolloutRefreshSnapshotButton from "@/components/SafeRollout/RefreshSnapshotButton";
@@ -113,10 +112,7 @@ export default function RefreshResultsButton<
   const snapshotEndpoint =
     entityType === "safe-rollout"
       ? `/safe-rollout/${entityId}/snapshot`
-      : isContextualBanditExperiment(experiment)
-        ? // CB ids (cb_*) have no experiment doc; use the CB-native refresh endpoint.
-          `/api/v1/contextual-bandits/${entityId}/refresh`
-        : `/experiment/${entityId}/snapshot`;
+      : `/experiment/${entityId}/snapshot`;
 
   return (
     <>
@@ -161,11 +157,6 @@ export default function RefreshResultsButton<
             try {
               if (entityType === "safe-rollout") {
                 await apiCall<{ snapshot: SafeRolloutSnapshotInterface }>(
-                  snapshotEndpoint,
-                  { method: "POST" },
-                );
-              } else if (isContextualBanditExperiment(experiment)) {
-                await apiCall<{ snapshotId: string; cbeId?: string }>(
                   snapshotEndpoint,
                   { method: "POST" },
                 );

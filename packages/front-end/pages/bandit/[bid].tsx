@@ -12,7 +12,6 @@ import { includeExperimentInPayload } from "shared/util";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
-import { isContextualBanditExperiment } from "@/services/contextualBanditAsExperiment";
 import EditMetricsForm from "@/components/Experiment/EditMetricsForm";
 import StopExperimentForm from "@/components/Experiment/StopExperimentForm";
 import EditVariationsForm from "@/components/Experiment/EditVariationsForm";
@@ -69,11 +68,6 @@ const BanditExperimentPage = (): ReactElement => {
     if (!data?.experiment) return;
     if (!data.experiment?.type || data.experiment.type === "standard") {
       router.replace(window.location.href.replace("bandit/", "experiment/"));
-    }
-    if (isContextualBanditExperiment(data?.experiment)) {
-      router.replace(
-        window.location.href.replace("bandit/", "contextual-bandit/"),
-      );
     }
     if (data?.experiment?.type === "holdout") {
       let url = window.location.href.replace(/(.*)\/bandit\/.*/, "$1/holdout/");

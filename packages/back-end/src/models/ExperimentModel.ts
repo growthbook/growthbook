@@ -54,7 +54,6 @@ import {
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
 import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
-import { ContextualBanditModel } from "back-end/src/enterprise/models/ContextualBanditModel";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
@@ -2121,14 +2120,6 @@ const onExperimentDelete = async (
       experiment,
       organization: context.org,
     });
-
-  // Cascade-delete any paired CB doc still referencing this experiment via the legacy `experiment` FK.
-  try {
-    const cbModel = new ContextualBanditModel(context);
-    await cbModel.deleteForExperiment(experiment.id);
-  } catch (e) {
-    logger.error(e, "Failed to cascade-delete contextual bandit doc");
-  }
 };
 
 export async function hasNonDemoExperiment(

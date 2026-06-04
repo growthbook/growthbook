@@ -71,7 +71,7 @@ export function getContextualBanditUnitsSqlConfig(
 
 /** True when the CB has at least one targeting column and can segment users into distinct contexts. */
 export function hasUsableContextualBanditTargeting(
-  settings: ExperimentSnapshotSettings,
+  settings: SnapshotMetricRequest,
 ): boolean {
   const bs = settings.banditSettings;
   if (!bs?.contextualBandit) {

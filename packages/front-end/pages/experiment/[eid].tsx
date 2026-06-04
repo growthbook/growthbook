@@ -12,7 +12,6 @@ import { includeExperimentInPayload } from "shared/util";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
-import { isContextualBanditExperiment } from "@/services/contextualBanditAsExperiment";
 import EditMetricsForm from "@/components/Experiment/EditMetricsForm";
 import StopExperimentForm from "@/components/Experiment/StopExperimentForm";
 import EditVariationsForm from "@/components/Experiment/EditVariationsForm";
@@ -78,11 +77,6 @@ const ExperimentPage = (): ReactElement => {
   useEffect(() => {
     if (data?.experiment?.type === "multi-armed-bandit") {
       router.replace(window.location.href.replace("experiment/", "bandit/"));
-    }
-    if (isContextualBanditExperiment(data?.experiment)) {
-      router.replace(
-        window.location.href.replace("experiment/", "contextual-bandit/"),
-      );
     }
     if (data?.experiment?.type === "holdout") {
       const holdoutId = experimentToHoldoutsMap.get(data?.experiment?.id)?.id;

@@ -10,7 +10,6 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { getHonoredPrecomputedUnitDimensionIds } from "@/services/experiments";
 import { trackSnapshot } from "@/services/track";
-import { isContextualBanditExperiment } from "@/services/contextualBanditAsExperiment";
 import Button from "@/components/Button";
 import RadixButton from "@/ui/Button";
 
@@ -39,17 +38,6 @@ const RefreshSnapshotButton: FC<{
   const { apiCall } = useAuth();
 
   const refreshSnapshot = async () => {
-    if (isContextualBanditExperiment(experiment)) {
-      // CB ids (cb_*) have no experiment doc, so use the CB-native refresh endpoint.
-      await apiCall<{
-        snapshotId: string;
-        cbeId?: string;
-      }>(`/api/v1/contextual-bandits/${experiment.id}/refresh`, {
-        method: "POST",
-      });
-      return;
-    }
-
     // Precomputed dimensions are computed as part of a standard snapshot,
     // so we don't need to pass them to the backend for a new snapshot query
     const snapshotDimension = isDimensionPrecomputed(

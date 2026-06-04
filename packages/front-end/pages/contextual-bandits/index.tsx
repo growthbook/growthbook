@@ -18,7 +18,6 @@ import { tagFilterOnClick, tagLinkProps } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import Switch from "@/ui/Switch";
 import { useContextualBandits } from "@/hooks/useContextualBandits";
-import { CB_AS_EXPERIMENT_TYPE } from "@/services/contextualBanditAsExperiment";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import TagsFilter, {
   filterByTags,
@@ -426,7 +425,7 @@ const ContextualBanditsPage = (): React.ReactElement => {
                           <ExperimentStatusIndicator
                             experimentData={
                               {
-                                type: CB_AS_EXPERIMENT_TYPE,
+                                type: "contextual-bandit",
                                 variations: e.variations,
                                 status: e.status,
                                 archived: e.archived,

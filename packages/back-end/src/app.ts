@@ -117,7 +117,6 @@ import { AttributeRouter } from "./routers/attributes/attributes.router";
 import { customFieldsRouter } from "./routers/custom-fields/custom-fields.router";
 import { segmentRouter } from "./routers/segment/segment.router";
 import { dimensionRouter } from "./routers/dimension/dimension.router";
-import { contextualBanditRouter } from "./routers/contextual-bandit/contextual-bandit.router";
 import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.router";
 import { savedQueriesRouter } from "./routers/saved-queries/saved-queries.router";
 import { projectRouter } from "./routers/project/project.router";
@@ -841,9 +840,6 @@ app.get("/reports", reportsController.getReports);
 app.use("/segments", segmentRouter);
 
 app.use("/dimensions", dimensionRouter);
-
-// Mount at root so /experiment/:id/contextual-bandit/... sits alongside the legacy experiments routes.
-app.use(contextualBanditRouter);
 
 app.use("/sdk-connections", sdkConnectionRouter);
 

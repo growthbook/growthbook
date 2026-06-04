@@ -339,18 +339,6 @@ export class ContextualBanditModel extends BaseClass {
     return this.context.permissions.canDeleteContextualBandit(doc);
   }
 
-  /** Look up a CB by the legacy paired-experiment FK via raw Mongo (FK is off the validator). */
-  public async getByExperimentId(
-    experiment: string,
-  ): Promise<ContextualBanditInterface | null> {
-    const raw = await this._dangerousGetCollection().findOne({
-      organization: this.context.org.id,
-      experiment,
-    });
-    if (!raw) return null;
-    return raw as unknown as ContextualBanditInterface;
-  }
-
   /** Atomically update `phases[i].currentLeafWeights` via positional `$set` so concurrent refreshes can't lose writes. */
   public async patchPhaseWeights(
     cbId: string,
@@ -472,13 +460,6 @@ export class ContextualBanditModel extends BaseClass {
         >["updateMany"]
       >[1],
     );
-  }
-
-  public async deleteForExperiment(experiment: string): Promise<void> {
-    await this._dangerousGetCollection().deleteMany({
-      organization: this.context.org.id,
-      experiment,
-    });
   }
 }
 
