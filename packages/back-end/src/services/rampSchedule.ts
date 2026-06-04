@@ -1103,7 +1103,10 @@ export async function pauseSchedule(
     status: "paused",
     pausedAt: now,
     nextSnapshotAt: null,
-    nextProcessAt: null,
+    nextProcessAt: computeNextProcessAt({
+      status: "paused",
+      cutoffDate: schedule.cutoffDate,
+    }),
     eventHistory: appendRampEvent(schedule, "paused", {
       stepIndex: schedule.currentStepIndex,
       status: "paused",
