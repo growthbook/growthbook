@@ -3895,7 +3895,7 @@ describe("advanceStep — future cutoffDate keeps schedule running", () => {
     expect(mockPublishRevision).toHaveBeenCalledTimes(1);
 
     const [, updates] = updateById.mock.calls[0];
-    expect(updates.status).toBeUndefined();
+    expect(updates.status).toBe("running");
     expect(updates.currentStepIndex).toBe(3);
     expect(updates.nextProcessAt).toEqual(futureCutoff);
     expect(updates.nextStepAt).toBeNull();

@@ -820,51 +820,9 @@ export async function advanceStep(
   const step = schedule.steps[nextStepIndex];
 
   if (!step) {
-    const now = new Date();
-    // All steps are done. If there's a future cutoffDate, apply end actions
-    // (so the rule reaches its final state, e.g. coverage 100%) but keep the
-    // schedule running so the cutoff-driven disable fires at the right time.
-    if (schedule.cutoffDate && schedule.cutoffDate > now) {
-      const effective = computeEffectivePatch(schedule, schedule.steps.length);
-
-      const actionsToApply: RampStepAction[] = [...effective.entries()].map(
-        ([targetId, patch]) => ({
-          targetType: "feature-rule" as const,
-          targetId,
-          patch,
-        }),
-      );
-      if (actionsToApply.length > 0) {
-        await executeStepActions(
-          ctx,
-          schedule,
-          schedule.steps.length,
-          actionsToApply,
-        );
-      }
-
-      const pastEndIndex = schedule.steps.length;
-      const updated = await ctx.models.rampSchedules.updateById(schedule.id, {
-        currentStepIndex: pastEndIndex,
-        currentStepEnteredAt: now,
-        nextStepAt: null,
-        nextSnapshotAt: null,
-        nextProcessAt: computeNextProcessAt({
-          status: "running",
-          cutoffDate: schedule.cutoffDate,
-        }),
-        eventHistory: appendRampEvent(schedule, "step-advanced", {
-          stepIndex: pastEndIndex,
-          previousStepIndex: schedule.currentStepIndex,
-          status: "running",
-          previousStatus: schedule.status,
-        }),
-      });
-
-      await syncLinkedSafeRolloutForRampState(ctx, updated);
-      return updated;
+    if (schedule.cutoffDate && schedule.cutoffDate > new Date()) {
+      return applyEndActionsAndAwaitCutoff(ctx, schedule);
     }
-
     return completeRollout(ctx, schedule);
   }
 
@@ -1588,11 +1546,12 @@ export async function jumpAheadToStep(
 }
 
 /**
- * Applies end-state patches (final coverage, etc.) but keeps the schedule
- * "running" so the cutoff-date-driven disable still fires on time.
- * Use when the user wants to skip remaining steps but honour the cutoff.
+ * Applies end-state patches (final coverage, etc.) and transitions the
+ * schedule to "running" so the cutoff-date-driven disable still fires.
+ *
+ * Shared by `advanceStep` (automatic) and `completeRampKeepCutoff` (manual).
  */
-export async function completeRampKeepCutoff(
+async function applyEndActionsAndAwaitCutoff(
   ctx: ReqContext | ApiReqContext,
   schedule: RampScheduleInterface,
 ): Promise<RampScheduleInterface> {
@@ -1617,6 +1576,7 @@ export async function completeRampKeepCutoff(
 
   const pastEndIndex = schedule.steps.length;
   const updated = await ctx.models.rampSchedules.updateById(schedule.id, {
+    status: "running",
     currentStepIndex: pastEndIndex,
     currentStepEnteredAt: now,
     nextStepAt: null,
@@ -1635,6 +1595,18 @@ export async function completeRampKeepCutoff(
 
   await syncLinkedSafeRolloutForRampState(ctx, updated);
   return updated;
+}
+
+/**
+ * Applies end-state patches but keeps the schedule "running" so the
+ * cutoff-date-driven disable still fires on time. Use when the user
+ * wants to skip remaining steps but honour the cutoff.
+ */
+export async function completeRampKeepCutoff(
+  ctx: ReqContext | ApiReqContext,
+  schedule: RampScheduleInterface,
+): Promise<RampScheduleInterface> {
+  return applyEndActionsAndAwaitCutoff(ctx, schedule);
 }
 
 export async function completeRollout(
