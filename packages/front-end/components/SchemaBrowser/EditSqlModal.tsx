@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { Ace } from "ace-builds";
 import { useForm } from "react-hook-form";
 import { FaPlay, FaExclamationTriangle } from "react-icons/fa";
 import {
@@ -38,6 +39,16 @@ import Checkbox from "@/ui/Checkbox";
 import SchemaBrowser from "./SchemaBrowser";
 import { AreaWithHeader } from "./SqlExplorerModal";
 import styles from "./EditSqlModal.module.scss";
+
+function isKeyboardEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+  const tag = target.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") {
+    return !(target as HTMLInputElement).readOnly;
+  }
+  return !!target.closest(".ace_editor");
+}
 
 export type TestQueryResults = {
   duration?: string;
@@ -108,6 +119,11 @@ export default function EditSqlModal({
   const [testingQuery, setTestingQuery] = useState(false);
   const permissionsUtil = usePermissionsUtil();
   const [formatError, setFormatError] = useState<string | null>(null);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
+  const initialSqlRef = useRef(value);
+  const editorRef = useRef<Ace.Editor | null>(null);
+  const currentSql = form.watch("sql");
+  const isSqlDirty = currentSql !== initialSqlRef.current;
 
   const validateRequiredColumns = useCallback(
     (result: TestQueryRow) => {
@@ -174,7 +190,36 @@ export default function EditSqlModal({
       setTestQueryResults({ sql: sql, error: e.message });
     }
     setTestingQuery(false);
+    editorRef.current?.focus();
   }, [form, runTestQuery]);
+
+  const attemptClose = useCallback(() => {
+    if (isSqlDirty) {
+      setShowDiscardConfirm(true);
+    } else {
+      close();
+    }
+  }, [close, isSqlDirty]);
+
+  const confirmDiscard = useCallback(() => {
+    setShowDiscardConfirm(false);
+    close();
+  }, [close]);
+
+  useEffect(() => {
+    if (!isSqlDirty) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Backspace") return;
+      if (isKeyboardEditableTarget(e.target)) return;
+
+      e.preventDefault();
+      setShowDiscardConfirm(true);
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isSqlDirty]);
 
   const datasource = getDatasourceById(datasourceId);
   const canRunQueries = datasource
@@ -259,303 +304,325 @@ export default function EditSqlModal({
   }, [canRunQueries]);
 
   return (
-    <Modal
-      trackingEventModalType=""
-      open
-      header={
-        <span>
-          Edit SQL for {modalInfo.objectType}
-          {modalInfo.objectName && (
-            <>
-              {" "}
-              <i>{modalInfo.objectName}</i>
-            </>
-          )}
-        </span>
-      }
-      submit={form.handleSubmit(async (value) => {
-        if (testQueryBeforeSaving) {
-          let res: TestQueryResults;
-          try {
-            res = await runTestQuery(value.sql);
-          } catch (e) {
-            setTestQueryResults({ sql: value.sql, error: e.message });
-            // Rejecting with a blank error as we handle the error in the
-            // DisplayTestQueryResults component rather than in the Modal component
-            return Promise.reject(new Error());
-          }
-          if (res.error) {
-            setTestQueryResults(res);
-            // Rejecting with a blank error as we handle the error in the
-            // DisplayTestQueryResults component rather than in the Modal component
-            return Promise.reject(new Error());
-          }
-        }
-
-        await save(value.sql);
-      })}
-      close={close}
-      size="max"
-      overflowAuto={false}
-      bodyClassName="p-0"
-      cta="Confirm Changes"
-      closeCta="Back"
-      secondaryCTA={
-        <Tooltip
-          body="You do not have permission to run test queries"
-          shouldDisplay={!canRunQueries}
-          tipPosition="top"
+    <>
+      {showDiscardConfirm && (
+        <Modal
+          trackingEventModalType=""
+          header="Unsaved Changes"
+          close={() => setShowDiscardConfirm(false)}
+          open
+          cta="Discard Changes"
+          submitColor="danger"
+          closeCta="Keep Editing"
+          submit={confirmDiscard}
+          increasedElevation
         >
-          <label className="mx-4 mb-0">
-            <input
-              type="checkbox"
-              disabled={!canRunQueries}
-              className="form-check-input"
-              checked={testQueryBeforeSaving}
-              onChange={(e) => setTestQueryBeforeSaving(e.target.checked)}
-            />
-            Test query before confirming
-          </label>
-        </Tooltip>
-      }
-    >
-      <Box p="2" style={{ height: "calc(93vh - 140px)" }}>
-        <PanelGroup direction="horizontal">
-          <Panel defaultSize={supportsSchemaBrowser ? 75 : 100}>
-            <PanelGroup direction="vertical">
-              <Panel defaultSize={testQueryResults ? 60 : 100} minSize={30}>
-                <AreaWithHeader
-                  header={
-                    <Flex align="center" justify="between">
+          You have unsaved changes to your SQL query. Are you sure you want to
+          close? Your changes will be lost.
+        </Modal>
+      )}
+      <Modal
+        trackingEventModalType=""
+        open
+        header={
+          <span>
+            Edit SQL for {modalInfo.objectType}
+            {modalInfo.objectName && (
+              <>
+                {" "}
+                <i>{modalInfo.objectName}</i>
+              </>
+            )}
+          </span>
+        }
+        submit={form.handleSubmit(async (value) => {
+          if (testQueryBeforeSaving) {
+            let res: TestQueryResults;
+            try {
+              res = await runTestQuery(value.sql);
+            } catch (e) {
+              setTestQueryResults({ sql: value.sql, error: e.message });
+              // Rejecting with a blank error as we handle the error in the
+              // DisplayTestQueryResults component rather than in the Modal component
+              return Promise.reject(new Error());
+            }
+            if (res.error) {
+              setTestQueryResults(res);
+              // Rejecting with a blank error as we handle the error in the
+              // DisplayTestQueryResults component rather than in the Modal component
+              return Promise.reject(new Error());
+            }
+          }
+
+          await save(value.sql);
+        })}
+        close={attemptClose}
+        size="max"
+        overflowAuto={false}
+        bodyClassName="p-0"
+        cta="Confirm Changes"
+        closeCta="Back"
+        secondaryCTA={
+          <Tooltip
+            body="You do not have permission to run test queries"
+            shouldDisplay={!canRunQueries}
+            tipPosition="top"
+          >
+            <label className="mx-4 mb-0">
+              <input
+                type="checkbox"
+                disabled={!canRunQueries}
+                className="form-check-input"
+                checked={testQueryBeforeSaving}
+                onChange={(e) => setTestQueryBeforeSaving(e.target.checked)}
+              />
+              Test query before confirming
+            </label>
+          </Tooltip>
+        }
+      >
+        <Box p="2" style={{ height: "calc(93vh - 140px)" }}>
+          <PanelGroup direction="horizontal">
+            <Panel defaultSize={supportsSchemaBrowser ? 75 : 100}>
+              <PanelGroup direction="vertical">
+                <Panel defaultSize={testQueryResults ? 60 : 100} minSize={30}>
+                  <AreaWithHeader
+                    header={
+                      <Flex align="center" justify="between">
+                        <Text
+                          weight="bold"
+                          style={{ color: "var(--color-text-mid)" }}
+                        >
+                          SQL
+                        </Text>
+                        <Flex gap="3" align="center">
+                          {formatError && (
+                            <Tooltip body={formatError}>
+                              <FaExclamationTriangle className="text-danger" />
+                            </Tooltip>
+                          )}
+
+                          <Tooltip
+                            className="pt-1"
+                            shouldDisplay={!!canRunQueries}
+                            body={`If unchecked, GrowthBook will automatically apply a ${SQL_ROW_LIMIT} row limit for optimal performance.`}
+                          >
+                            <Checkbox
+                              label="Limit 5"
+                              weight="regular"
+                              disabled={!canRunQueries}
+                              value={apply5RowLimit}
+                              setValue={(v) => {
+                                setApply5RowLimit(v);
+                              }}
+                              mb="0"
+                            />
+                          </Tooltip>
+                          {canFormat ? (
+                            <RadixButton
+                              size="sm"
+                              variant="ghost"
+                              onClick={handleFormatClick}
+                              disabled={!form.watch("sql")}
+                            >
+                              Format
+                            </RadixButton>
+                          ) : null}
+                          <Tooltip
+                            body="You do not have permission to run test queries"
+                            shouldDisplay={!canRunQueries}
+                          >
+                            <Button
+                              color="primary"
+                              className="btn-sm"
+                              onClick={handleTestQuery}
+                              loading={testingQuery}
+                              disabled={!canRunQueries}
+                              type="button"
+                            >
+                              <span className="pr-2">
+                                <FaPlay />
+                              </span>
+                              Test Query
+                            </Button>
+                          </Tooltip>
+                          <DropdownMenu
+                            trigger={
+                              <IconButton
+                                variant="ghost"
+                                color="gray"
+                                radius="full"
+                                size="3"
+                              >
+                                <BsThreeDotsVertical size={16} />
+                              </IconButton>
+                            }
+                          >
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setIsAutocompleteEnabled(
+                                  !isAutocompleteEnabled,
+                                );
+                              }}
+                            >
+                              {isAutocompleteEnabled
+                                ? "Disable Autocomplete"
+                                : "Enable Autocomplete"}
+                            </DropdownMenuItem>
+                          </DropdownMenu>
+                        </Flex>
+                      </Flex>
+                    }
+                  >
+                    <Box style={{ position: "relative", height: "100%" }}>
+                      {Array.from(requiredColumns).length > 0 && (
+                        <Box
+                          p="2"
+                          style={{
+                            borderBottom: "1px solid var(--gray-a3)",
+                            backgroundColor: "var(--slate-a2)",
+                          }}
+                        >
+                          <Text size="2" weight="bold">
+                            Required Columns:
+                          </Text>
+                          {Array.from(requiredColumns).map((col) => (
+                            <code
+                              className="mx-1 border p-1"
+                              key={col}
+                              style={{
+                                backgroundColor: "var(--gray-a3)",
+                                borderRadius: "var(--radius-2)",
+                                fontSize: "12px",
+                              }}
+                            >
+                              {col}
+                            </code>
+                          ))}
+                        </Box>
+                      )}
+                      {setTemplateVariables &&
+                        (hasEventName || hasValueCol) && (
+                          <Box
+                            p="2"
+                            style={{
+                              borderBottom: "1px solid var(--gray-a3)",
+                              backgroundColor: "var(--slate-a2)",
+                            }}
+                          >
+                            <Flex align="center" gap="4">
+                              <Text size="2" weight="bold">
+                                SQL Template Variables:
+                              </Text>
+                              {hasEventName && (
+                                <Field
+                                  label="eventName"
+                                  labelClassName="mr-2"
+                                  value={templateVariables?.eventName || ""}
+                                  onChange={(e) =>
+                                    setTemplateVariables({
+                                      ...templateVariables,
+                                      eventName: e.target.value,
+                                    })
+                                  }
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter" && e.ctrlKey) {
+                                      handleTestQuery();
+                                    }
+                                  }}
+                                />
+                              )}
+                              {hasValueCol && (
+                                <Field
+                                  label="valueColumn"
+                                  labelClassName="mr-2"
+                                  value={templateVariables?.valueColumn || ""}
+                                  onChange={(e) =>
+                                    setTemplateVariables({
+                                      ...templateVariables,
+                                      valueColumn: e.target.value,
+                                    })
+                                  }
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter" && e.ctrlKey) {
+                                      handleTestQuery();
+                                    }
+                                  }}
+                                />
+                              )}
+                            </Flex>
+                          </Box>
+                        )}
+                      <CodeTextArea
+                        wrapperClassName={styles["sql-editor-wrapper"]}
+                        editorRef={editorRef}
+                        required
+                        language="sql"
+                        value={form.watch("sql")}
+                        setValue={(v) => {
+                          if (formatError) {
+                            // If there is a format error, clear it when the user changes the SQL
+                            setFormatError(null);
+                          }
+                          form.setValue("sql", v);
+                        }}
+                        placeholder={placeholder}
+                        helpText={""}
+                        fullHeight
+                        setCursorData={setCursorData}
+                        onCtrlEnter={handleTestQuery}
+                        completions={autoCompletions}
+                      />
+                    </Box>
+                  </AreaWithHeader>
+                </Panel>
+                {testQueryResults && (
+                  <>
+                    <PanelResizeHandle />
+                    <Panel minSize={20}>
+                      <DisplayTestQueryResults
+                        duration={parseInt(testQueryResults.duration || "0")}
+                        results={testQueryResults.results || []}
+                        sql={testQueryResults.sql || ""}
+                        error={testQueryResults.error || ""}
+                        close={() => setTestQueryResults(null)}
+                      />
+                    </Panel>
+                  </>
+                )}
+              </PanelGroup>
+            </Panel>
+            {supportsSchemaBrowser && (
+              <>
+                <PanelResizeHandle />
+                <Panel defaultSize={25} minSize={20} maxSize={50}>
+                  <AreaWithHeader
+                    header={
                       <Text
                         weight="bold"
-                        style={{ color: "var(--color-text-mid)" }}
+                        style={{ color: "var(--color-text-high)" }}
                       >
-                        SQL
+                        Schema Browser
                       </Text>
-                      <Flex gap="3" align="center">
-                        {formatError && (
-                          <Tooltip body={formatError}>
-                            <FaExclamationTriangle className="text-danger" />
-                          </Tooltip>
-                        )}
-
-                        <Tooltip
-                          className="pt-1"
-                          shouldDisplay={!!canRunQueries}
-                          body={`If unchecked, GrowthBook will automatically apply a ${SQL_ROW_LIMIT} row limit for optimal performance.`}
-                        >
-                          <Checkbox
-                            label="Limit 5"
-                            weight="regular"
-                            disabled={!canRunQueries}
-                            value={apply5RowLimit}
-                            setValue={(v) => {
-                              setApply5RowLimit(v);
-                            }}
-                            mb="0"
-                          />
-                        </Tooltip>
-                        {canFormat ? (
-                          <RadixButton
-                            size="sm"
-                            variant="ghost"
-                            onClick={handleFormatClick}
-                            disabled={!form.watch("sql")}
-                          >
-                            Format
-                          </RadixButton>
-                        ) : null}
-                        <Tooltip
-                          body="You do not have permission to run test queries"
-                          shouldDisplay={!canRunQueries}
-                        >
-                          <Button
-                            color="primary"
-                            className="btn-sm"
-                            onClick={handleTestQuery}
-                            loading={testingQuery}
-                            disabled={!canRunQueries}
-                            type="button"
-                          >
-                            <span className="pr-2">
-                              <FaPlay />
-                            </span>
-                            Test Query
-                          </Button>
-                        </Tooltip>
-                        <DropdownMenu
-                          trigger={
-                            <IconButton
-                              variant="ghost"
-                              color="gray"
-                              radius="full"
-                              size="3"
-                            >
-                              <BsThreeDotsVertical size={16} />
-                            </IconButton>
-                          }
-                        >
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setIsAutocompleteEnabled(!isAutocompleteEnabled);
-                            }}
-                          >
-                            {isAutocompleteEnabled
-                              ? "Disable Autocomplete"
-                              : "Enable Autocomplete"}
-                          </DropdownMenuItem>
-                        </DropdownMenu>
-                      </Flex>
+                    }
+                  >
+                    <Flex direction="column" height="100%" p="4">
+                      <SchemaBrowser
+                        updateSqlInput={(sql: string) => {
+                          form.setValue("sql", sql);
+                        }}
+                        datasource={datasource}
+                        cursorData={cursorData || undefined}
+                      />
                     </Flex>
-                  }
-                >
-                  <Box style={{ position: "relative", height: "100%" }}>
-                    {Array.from(requiredColumns).length > 0 && (
-                      <Box
-                        p="2"
-                        style={{
-                          borderBottom: "1px solid var(--gray-a3)",
-                          backgroundColor: "var(--slate-a2)",
-                        }}
-                      >
-                        <Text size="2" weight="bold">
-                          Required Columns:
-                        </Text>
-                        {Array.from(requiredColumns).map((col) => (
-                          <code
-                            className="mx-1 border p-1"
-                            key={col}
-                            style={{
-                              backgroundColor: "var(--gray-a3)",
-                              borderRadius: "var(--radius-2)",
-                              fontSize: "12px",
-                            }}
-                          >
-                            {col}
-                          </code>
-                        ))}
-                      </Box>
-                    )}
-                    {setTemplateVariables && (hasEventName || hasValueCol) && (
-                      <Box
-                        p="2"
-                        style={{
-                          borderBottom: "1px solid var(--gray-a3)",
-                          backgroundColor: "var(--slate-a2)",
-                        }}
-                      >
-                        <Flex align="center" gap="4">
-                          <Text size="2" weight="bold">
-                            SQL Template Variables:
-                          </Text>
-                          {hasEventName && (
-                            <Field
-                              label="eventName"
-                              labelClassName="mr-2"
-                              value={templateVariables?.eventName || ""}
-                              onChange={(e) =>
-                                setTemplateVariables({
-                                  ...templateVariables,
-                                  eventName: e.target.value,
-                                })
-                              }
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" && e.ctrlKey) {
-                                  handleTestQuery();
-                                }
-                              }}
-                            />
-                          )}
-                          {hasValueCol && (
-                            <Field
-                              label="valueColumn"
-                              labelClassName="mr-2"
-                              value={templateVariables?.valueColumn || ""}
-                              onChange={(e) =>
-                                setTemplateVariables({
-                                  ...templateVariables,
-                                  valueColumn: e.target.value,
-                                })
-                              }
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" && e.ctrlKey) {
-                                  handleTestQuery();
-                                }
-                              }}
-                            />
-                          )}
-                        </Flex>
-                      </Box>
-                    )}
-                    <CodeTextArea
-                      wrapperClassName={styles["sql-editor-wrapper"]}
-                      required
-                      language="sql"
-                      value={form.watch("sql")}
-                      setValue={(v) => {
-                        if (formatError) {
-                          // If there is a format error, clear it when the user changes the SQL
-                          setFormatError(null);
-                        }
-                        form.setValue("sql", v);
-                      }}
-                      placeholder={placeholder}
-                      helpText={""}
-                      fullHeight
-                      setCursorData={setCursorData}
-                      onCtrlEnter={handleTestQuery}
-                      completions={autoCompletions}
-                    />
-                  </Box>
-                </AreaWithHeader>
-              </Panel>
-              {testQueryResults && (
-                <>
-                  <PanelResizeHandle />
-                  <Panel minSize={20}>
-                    <DisplayTestQueryResults
-                      duration={parseInt(testQueryResults.duration || "0")}
-                      results={testQueryResults.results || []}
-                      sql={testQueryResults.sql || ""}
-                      error={testQueryResults.error || ""}
-                      close={() => setTestQueryResults(null)}
-                    />
-                  </Panel>
-                </>
-              )}
-            </PanelGroup>
-          </Panel>
-          {supportsSchemaBrowser && (
-            <>
-              <PanelResizeHandle />
-              <Panel defaultSize={25} minSize={20} maxSize={50}>
-                <AreaWithHeader
-                  header={
-                    <Text
-                      weight="bold"
-                      style={{ color: "var(--color-text-high)" }}
-                    >
-                      Schema Browser
-                    </Text>
-                  }
-                >
-                  <Flex direction="column" height="100%" p="4">
-                    <SchemaBrowser
-                      updateSqlInput={(sql: string) => {
-                        form.setValue("sql", sql);
-                      }}
-                      datasource={datasource}
-                      cursorData={cursorData || undefined}
-                    />
-                  </Flex>
-                  {/* </div> */}
-                </AreaWithHeader>
-              </Panel>
-            </>
-          )}
-        </PanelGroup>
-      </Box>
-    </Modal>
+                    {/* </div> */}
+                  </AreaWithHeader>
+                </Panel>
+              </>
+            )}
+          </PanelGroup>
+        </Box>
+      </Modal>
+    </>
   );
 }

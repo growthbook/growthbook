@@ -1,6 +1,7 @@
 import dynamic from "next/dynamic";
 import {
   type ComponentType,
+  type MutableRefObject,
   useEffect,
   useState,
   useRef,
@@ -200,6 +201,7 @@ export type Props = CodeTextAreaFieldProps & {
   defaultHeight?: number;
   showCopyButton?: boolean;
   showFullscreenButton?: boolean;
+  editorRef?: MutableRefObject<Ace.Editor | null>;
 };
 
 const LIGHT_THEME = "textmate";
@@ -221,6 +223,7 @@ export default function CodeTextArea({
   defaultHeight = TEN_LINES_HEIGHT, // for resizable
   showCopyButton = false,
   showFullscreenButton = false,
+  editorRef,
   ...otherProps
 }: Props) {
   const fieldProps = otherProps as CodeTextAreaFieldProps;
@@ -309,8 +312,11 @@ export default function CodeTextArea({
       if (cursorUpdateTimeoutRef.current) {
         clearTimeout(cursorUpdateTimeoutRef.current);
       }
+      if (editorRef) {
+        editorRef.current = null;
+      }
     };
-  }, []);
+  }, [editorRef]);
 
   return (
     <Field
@@ -403,6 +409,9 @@ export default function CodeTextArea({
                   name={id}
                   onLoad={(e) => {
                     setEditor(e);
+                    if (editorRef) {
+                      editorRef.current = e;
+                    }
                     // Clear auto-selection after editor loads
                     setTimeout(() => {
                       e.clearSelection();

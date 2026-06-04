@@ -8,4 +8,9 @@
     border-bottom-left-radius: 5px !important;
     border-bottom-right-radius: 5px !important;
   }
+
+  // Ace keeps a faint cursor visible when blurred, which is misleading
+  :global(.ace_editor:not(.ace_focus) .ace_cursor) {
+    opacity: 0 !important;
+  }
 }
