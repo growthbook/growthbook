@@ -33,12 +33,20 @@ export const postContextualBanditRefresh = createApiRequestHandler(
 
   const phase = experiment.phases.length - 1;
 
-  const result = await runContextualBanditSnapshot(
-    req.context,
-    experiment,
-    phase,
-    { triggeredBy: "manual" },
+  // The orchestrator takes a CB directly post-PR-8-Commit-1; this legacy
+  // route receives an experiment id from the URL, so resolve the paired
+  // CB via the FK before handing off. The whole legacy route file is
+  // deleted in Commit 6.
+  const cb = await req.context.models.contextualBandits.getByExperimentId(
+    experiment.id,
   );
+  if (!cb) {
+    throw new Error("No contextual bandit found for this experiment");
+  }
+
+  const result = await runContextualBanditSnapshot(req.context, cb, phase, {
+    triggeredBy: "manual",
+  });
 
   return result;
 });

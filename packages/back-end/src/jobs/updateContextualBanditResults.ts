@@ -1,6 +1,5 @@
 import Agenda, { Job } from "agenda";
 import { dangerousFindContextualBanditsToUpdate } from "back-end/src/enterprise/models/ContextualBanditModel";
-import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { runContextualBanditSnapshot } from "back-end/src/enterprise/services/contextualBandits";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
@@ -15,11 +14,9 @@ import { logger } from "back-end/src/util/logger";
  *
  * Per-CB flow:
  *   1. Resolve a per-org agenda context.
- *   2. Look up the parent experiment by the FK on the CB (legacy, still
- *      required because `runContextualBanditSnapshot` accepts an
- *      ExperimentInterface). Once PR-8 lands the orchestrator signature
- *      changes to accept the CB directly, and this lookup goes away.
- *   3. Hand off to the existing CB snapshot orchestrator.
+ *   2. Load the CB doc and hand off to the snapshot orchestrator. The
+ *      orchestrator takes the CB directly (PR-8 Commit 1); no parent
+ *      experiment lookup is needed.
  *
  * Failures: CBs (like multi-armed bandits) have their own lifecycle
  * retry semantics — we log the error and bail without disabling
@@ -82,34 +79,19 @@ const updateSingleContextualBandit = async (job: UpdateSingleCBJob) => {
   const cb = await context.models.contextualBandits.getById(cbId);
   if (!cb) return;
 
-  // Legacy bridge: the snapshot orchestrator currently takes an
-  // ExperimentInterface. Look it up via the CB's FK during the
-  // decoupling window; PR-8 will refactor the orchestrator to take a
-  // CB directly and remove this lookup.
-  if (!cb.experiment) {
+  if (!cb.phases.length) {
     logger.warn(
       { contextualBanditId: cbId },
-      "CB has no experiment FK; skipping scheduled refresh",
-    );
-    return;
-  }
-  const experiment = await getExperimentById(context, cb.experiment);
-  if (!experiment) {
-    logger.warn(
-      { contextualBanditId: cbId, experimentId: cb.experiment },
-      "CB parent experiment not found; skipping scheduled refresh",
+      "CB has no phases; skipping scheduled refresh",
     );
     return;
   }
 
   try {
     logger.info("Refreshing results for contextual bandit " + cbId);
-    await runContextualBanditSnapshot(
-      context,
-      experiment,
-      experiment.phases.length - 1,
-      { triggeredBy: "scheduled" },
-    );
+    await runContextualBanditSnapshot(context, cb, cb.phases.length - 1, {
+      triggeredBy: "scheduled",
+    });
     logger.info("Successfully refreshed results for contextual bandit " + cbId);
   } catch (e) {
     // CBs manage their own retry lifecycle (see the bandit exemption in

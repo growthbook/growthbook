@@ -132,13 +132,26 @@ export async function postContextualBanditRefresh(
   const phase = experiment.phases.length - 1;
   req.setTimeout(CB_REFRESH_TIMEOUT_MS);
 
+  // The orchestrator now takes the CB directly; this legacy controller
+  // still receives an experiment id from the URL (`/experiment/:id/...`),
+  // so resolve the paired CB via the FK before handing off. The whole
+  // controller is deleted in PR-8 Commit 6 once the front-end stops
+  // calling the legacy path.
+  const cb = await context.models.contextualBandits.getByExperimentId(
+    experiment.id,
+  );
+  if (!cb) {
+    res.status(404).json({
+      status: 404,
+      message: "No contextual bandit found for this experiment",
+    });
+    return;
+  }
+
   try {
-    const result = await runContextualBanditSnapshot(
-      context,
-      experiment,
-      phase,
-      { triggeredBy: "manual" },
-    );
+    const result = await runContextualBanditSnapshot(context, cb, phase, {
+      triggeredBy: "manual",
+    });
 
     await req.audit({
       event: "experiment.refresh",

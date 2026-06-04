@@ -111,7 +111,7 @@ export async function getContextualBanditResultsForUi(
 
 export async function runContextualBanditSnapshot(
   context: ApiReqContext,
-  experiment: ExperimentInterface,
+  cb: ContextualBanditInterface,
   phase: number,
   opts: { triggeredBy: "manual" | "scheduled"; triggeredByUser?: string },
 ): Promise<{ snapshotId: string; cbeId?: string }> {
@@ -123,16 +123,6 @@ export async function runContextualBanditSnapshot(
     );
   }
 
-  const cb = await context.models.contextualBandits.getByExperimentId(
-    experiment.id,
-  );
-  // With the CB create flow flipped to `POST /api/v1/contextual-bandits`,
-  // any CB experiment that reaches the snapshot path without a paired
-  // CB doc is a data-integrity bug, not a state to silently paper over.
-  // Fail loudly so the missing doc surfaces in the snapshot error
-  // instead of being lazily provisioned with the wrong defaults.
-  if (!cb) throw new Error(`No CB doc for experiment ${experiment.id}`);
-
   const ds = await getDataSourceById(context, cb.datasourceId);
   if (!ds) throw new Error(`Datasource missing: ${cb.datasourceId}`);
 
@@ -143,19 +133,22 @@ export async function runContextualBanditSnapshot(
 
   const { regressionAdjustmentEnabled } = await getSettingsForSnapshotMetrics(
     context,
-    experiment,
+    cb,
   );
 
   const snapshotSettings = buildContextualBanditSnapshotSettings(
     cb,
-    experiment,
     phase,
     eaq,
     regressionAdjustmentEnabled,
   );
 
+  // The CBS collection still keys by experiment id during the decoupling
+  // window — Commit 2 re-keys it to `contextualBandit`. Use the FK while
+  // it exists; fall back to `cb.id` so a CB created post-decoupling (no
+  // FK) still gets a CBS row that survives the re-key migration.
   const cbs = await context.models.contextualBanditSnapshots.create({
-    experiment: experiment.id,
+    experiment: cb.experiment ?? cb.id,
     phase,
     status: "running",
     queries: [],
@@ -173,7 +166,7 @@ export async function runContextualBanditSnapshot(
     false,
   );
 
-  const variationNames = (experiment.variations ?? []).map((v) => v.name);
+  const variationNames = (cb.variations ?? []).map((v) => v.name);
 
   await runner.startAnalysis({
     snapshotSettings,
@@ -349,18 +342,23 @@ export function attributesToCondition(
  */
 export function buildContextualBanditSnapshotSettings(
   cb: ContextualBanditInterface,
-  experiment: ExperimentInterface,
   phase: number,
   exposureQuery: ExposureQuery,
   regressionAdjustmentEnabled: boolean,
 ): ContextualBanditSnapshotSettings {
   const cbPhase = cb.phases[phase];
-  const expPhase = experiment.phases?.[phase];
-  const numVariations = experiment.variations?.length || 1;
+  const numVariations = cb.variations?.length || 1;
+
+  // The frozen `experimentId` on the snapshot settings DTO is the
+  // historical identifier the SQL pipeline (snapshot query CTEs,
+  // trackingKey fallback) keys on; the CBS collection itself is also
+  // still keyed by `experiment` until Commit 2 re-keys it. Fall back to
+  // `cb.id` for CBs created post-decoupling that no longer carry an FK.
+  const snapshotExperimentId = cb.experiment ?? cb.id;
 
   return {
-    experimentId: experiment.id,
-    trackingKey: experiment.trackingKey || experiment.id,
+    experimentId: snapshotExperimentId,
+    trackingKey: cb.trackingKey || snapshotExperimentId,
     contextualBanditId: cb.id,
     phase,
 
@@ -369,18 +367,22 @@ export function buildContextualBanditSnapshotSettings(
     contextualAttributes:
       exposureQuery.targetingAttributeColumns ?? cb.contextualAttributes,
 
-    goalMetrics: experiment.goalMetrics ?? [],
-    secondaryMetrics: experiment.secondaryMetrics ?? [],
+    goalMetrics: cb.goalMetrics ?? [],
+    secondaryMetrics: cb.secondaryMetrics ?? [],
     // TODO(D1.1): mirror `getMetricForSnapshot` from services/experiments.ts
     // and produce a typed MetricForSnapshot[]. For now we key the raw
     // overrides by metric id to satisfy `z.record(z.string(), z.unknown())`.
     metricSettings: Object.fromEntries(
-      (experiment.metricOverrides ?? []).map((m) => [m.id, m]),
+      (cb.metricOverrides ?? []).map((m) => [m.id, m]),
     ),
 
-    variations: (experiment.variations ?? []).map((v, i) => ({
+    // Per-period weights live on the CB phase row. Falls back to an even
+    // split when the phase is freshly created and the start hook hasn't
+    // populated `variationWeights` yet — matches the pre-decoupling
+    // behaviour where the experiment phase had the same optionality.
+    variations: (cb.variations ?? []).map((v, i) => ({
       id: v.id,
-      weight: expPhase?.variationWeights?.[i] ?? 1 / numVariations,
+      weight: cbPhase?.variationWeights?.[i] ?? 1 / numVariations,
     })),
 
     maxContexts: cb.maxContexts,

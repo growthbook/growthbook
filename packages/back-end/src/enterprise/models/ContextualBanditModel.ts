@@ -155,20 +155,8 @@ const BaseClass = MakeModelClass({
           if (!cb.phases.length) {
             throw new Error("Contextual Bandit has no phases");
           }
-          if (!cb.experiment) {
-            throw new Error(
-              "Contextual Bandit has no parent experiment FK; cannot refresh until PR-8 migration",
-            );
-          }
-          const experiment = await getExperimentById(
-            req.context,
-            cb.experiment,
-          );
-          if (!experiment) {
-            return req.context.throwNotFoundError();
-          }
           const phase = cb.phases.length - 1;
-          return runContextualBanditSnapshot(req.context, experiment, phase, {
+          return runContextualBanditSnapshot(req.context, cb, phase, {
             triggeredBy: "manual",
           });
         },

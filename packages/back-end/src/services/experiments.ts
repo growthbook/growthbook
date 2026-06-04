@@ -4132,9 +4132,28 @@ export function updateExperimentApiPayloadToInterface(
   return changes;
 }
 
+/**
+ * Narrow input shape for `getSettingsForSnapshotMetrics` — only the metric-list
+ * + RA + metric-override fields the helper actually reads. Widened from
+ * `ExperimentInterface` so the contextual-bandit snapshot orchestrator
+ * (which has a `ContextualBanditInterface`, not an `ExperimentInterface`)
+ * can call the same helper without a cast. Both
+ * `ExperimentInterface` and `ContextualBanditInterface` are assignable to
+ * this shape today (PR-2 added the CB-native metric fields).
+ */
+export type SnapshotMetricsLike = Pick<
+  ExperimentInterface,
+  | "goalMetrics"
+  | "secondaryMetrics"
+  | "guardrailMetrics"
+  | "activationMetric"
+  | "metricOverrides"
+  | "regressionAdjustmentEnabled"
+>;
+
 export async function getSettingsForSnapshotMetrics(
   context: ReqContext | ApiReqContext,
-  experiment: ExperimentInterface,
+  experiment: SnapshotMetricsLike,
 ): Promise<{
   regressionAdjustmentEnabled: boolean;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
