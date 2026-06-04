@@ -2,6 +2,7 @@ import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { ExposureQuery } from "shared/types/datasource";
 import BigQuery from "back-end/src/integrations/BigQuery";
 import { getAggregationMetadata } from "back-end/src/integrations/sql/fact-metrics/aggregation-metadata";
+import { getQuantileSketchGridColumns } from "back-end/src/integrations/sql/columns/quantile-sketch-grid-columns";
 import { N_STAR_VALUES } from "back-end/src/services/experimentQueries/constants";
 import { getFactTableTypeFromBigQueryType } from "back-end/src/services/bigquery";
 import { factTableFactory } from "../factories/FactTable.factory";
@@ -241,8 +242,16 @@ describe("BigQuery KLL quantile sketch methods", () => {
     expect(sql).toContain("COALESCE(");
   });
 
-  it("generates quantile grid columns from a quantile sketch", () => {
-    const grid = integration.getQuantileSketchGridColumns(
+  it("expands a quantile sketch into scalar grid columns when the dialect does not pack arrays", () => {
+    // Quantile sketches are BigQuery-only and the BigQuery dialect packs the
+    // grid into a single array, so exercise the scalar branch with a dialect
+    // that opts out.
+    const scalarDialect = {
+      ...integration.getSqlDialect(),
+      hasArrayQuantileGrid: () => false,
+    };
+    const grid = getQuantileSketchGridColumns(
+      scalarDialect,
       { type: "event", quantile: 0.9, ignoreZeros: false },
       "m0_sketch",
       "m0_",
@@ -261,6 +270,28 @@ describe("BigQuery KLL quantile sketch methods", () => {
       grid.match(/KLL_QUANTILES\.EXTRACT_POINT_FLOAT64\(m0_sketch,/g) || []
     ).length;
     expect(extractCount).toBe(1 + N_STAR_VALUES.length * 2);
+  });
+
+  it("packs quantile sketch grid columns into a single array (BigQuery dialect)", () => {
+    const grid = integration.getQuantileSketchGridColumns(
+      { type: "event", quantile: 0.9, ignoreZeros: false },
+      "m0_sketch",
+      "m0_",
+    );
+
+    expect(grid).toContain(
+      "KLL_QUANTILES.EXTRACT_POINT_FLOAT64(m0_sketch, 0.9) AS m0_quantile",
+    );
+    expect(grid).toContain("AS m0_quantile_grid");
+    expect(grid).not.toMatch(/m0_quantile_lower_\d+/);
+    expect(grid).not.toMatch(/m0_quantile_upper_\d+/);
+
+    const extractCount = (
+      grid.match(/KLL_QUANTILES\.EXTRACT_POINT_FLOAT64\(m0_sketch,/g) || []
+    ).length;
+    // 1 central point + 20 × 2 bounds, plus the first bound referenced once more
+    // in the IF(... IS NULL) guard that collapses the grid to NULL when empty.
+    expect(extractCount).toBe(1 + N_STAR_VALUES.length * 2 + 1);
   });
 
   it("returns kll intermediate data type for event quantile metrics", () => {
@@ -599,12 +630,18 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     expect(sql).toContain("__eventQuantileSketch");
     expect(sql).toContain("KLL_QUANTILES.MERGE_PARTIAL");
 
-    // Grid extraction: 1 point estimate + 20 × 2 bounds = 41 EXTRACT_POINT calls
+    // Grid extraction still computes 1 point estimate + 20 × 2 bounds, but the
+    // bound grid is packed into one array column for BigQuery.
     expect(sql).toContain("__eventQuantileMetric");
+    expect(sql).toContain("_quantile_grid");
+    expect(sql).not.toMatch(/_quantile_lower_\d+/);
+    expect(sql).not.toMatch(/_quantile_upper_\d+/);
     const extractPointCount = (
       sql.match(/KLL_QUANTILES\.EXTRACT_POINT_FLOAT64/g) || []
     ).length;
-    expect(extractPointCount).toBe(1 + N_STAR_VALUES.length * 2);
+    // 1 central point + 20 × 2 bounds, plus the first bound referenced once more
+    // in the IF(... IS NULL) guard that collapses the grid to NULL when empty.
+    expect(extractPointCount).toBe(1 + N_STAR_VALUES.length * 2 + 1);
 
     // Pass 2: per-user rank recovery via CDF counting
     expect(sql).toContain("KLL_QUANTILES.EXTRACT_FLOAT64");
@@ -659,6 +696,9 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     // tell-tale sign of kllRankApprox.
     expect(sql).toContain("__userMetricAggBase");
     expect(sql).toContain("KLL_QUANTILES.EXTRACT_FLOAT64");
+    expect(sql).toContain("_quantile_grid");
+    expect(sql).not.toMatch(/_quantile_lower_\d+/);
+    expect(sql).not.toMatch(/_quantile_upper_\d+/);
     expect(flat).toMatch(
       /FROM\s+__userMetricAggBase\s+base\s+LEFT\s+JOIN\s+__eventQuantileMetric/i,
     );
@@ -689,6 +729,9 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     // Raw event quantile uses APPROX_QUANTILES on the per-event values, no
     // KLL extraction or rank-recovery wrapper.
     expect(sql).toContain("APPROX_QUANTILES");
+    expect(sql).toContain("_quantile_grid");
+    expect(sql).not.toMatch(/_quantile_lower_\d+/);
+    expect(sql).not.toMatch(/_quantile_upper_\d+/);
     expect(sql).not.toContain("KLL_QUANTILES.EXTRACT_FLOAT64");
     // No KLL merge metrics → the per-user aggregation goes directly into
     // __userMetricAgg without the __userMetricAggBase wrapper.
@@ -1288,5 +1331,44 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
       // No numerator columns for either metric land on the FT_subs cache.
       expect(subsInsertSql).not.toMatch(/fact_ratio_a_b_value[^_]/);
     });
+  });
+
+  it("getExperimentFactMetricsQuery packs the unit-quantile n_star grid into a single ARRAY column", () => {
+    // Unit quantiles previously emitted 1 + N_STAR_VALUES.length*2 = 41 scalar
+    // columns per metric, which capped chunkMetrics at ~18 metrics/query and
+    // caused the BQ job fan-out reported by customers. The array packing keeps
+    // the same statistical content (same percentile values, same selection in
+    // getQuantileBoundsFromQueryResponse) but emits 2 columns per metric, so
+    // many more quantile metrics fit per query.
+    const unitQuantileMetric = factMetricFactory.build({
+      id: "fact_uq1",
+      metricType: "quantile",
+      quantileSettings: { type: "unit", quantile: 0.9, ignoreZeros: false },
+      numerator: {
+        factTableId: "ft_events",
+        column: "amount",
+        aggregation: "sum",
+      },
+    });
+    const sql = integration.getExperimentFactMetricsQuery({
+      settings,
+      activationMetric: null,
+      dimensions: [],
+      segment: null,
+      factTableMap,
+      metrics: [unitQuantileMetric],
+      unitsSource: "exposureQuery",
+    });
+
+    const flat = sql.replace(/\s+/g, " ");
+    expect(flat).toMatch(/AS\s+m0_quantile_grid/);
+    // The legacy per-nstar scalar columns must not appear when the grid is
+    // packed into an array.
+    expect(sql).not.toMatch(/m0_quantile_lower_\d+/);
+    expect(sql).not.toMatch(/m0_quantile_upper_\d+/);
+    // Central quantile and quantile_n are still required by the read-side
+    // selection logic.
+    expect(sql).toContain("m0_quantile");
+    expect(sql).toContain("m0_quantile_n");
   });
 });

@@ -33,6 +33,7 @@ export function getExperimentFactMetricStatisticsCTE(
     percentileTableIndices: Set<number>;
   },
 ): string {
+  const useArrayQuantileGrid = dialect.hasArrayQuantileGrid();
   return `SELECT
         m.variation AS variation
         ${dimensionCols.map((c) => `, m.${c.alias} AS ${c.alias}`).join("")}
@@ -78,12 +79,16 @@ export function getExperimentFactMetricStatisticsCTE(
                 data.alias
               }_quantile_n
               , MAX(qm.${data.alias}_quantile) AS ${data.alias}_quantile
-                ${N_STAR_VALUES.map(
-                  (
-                    n,
-                  ) => `, MAX(qm.${data.alias}_quantile_lower_${n}) AS ${data.alias}_quantile_lower_${n}
+                ${
+                  useArrayQuantileGrid
+                    ? `, ANY_VALUE(qm.${data.alias}_quantile_grid) AS ${data.alias}_quantile_grid`
+                    : N_STAR_VALUES.map(
+                        (
+                          n,
+                        ) => `, MAX(qm.${data.alias}_quantile_lower_${n}) AS ${data.alias}_quantile_lower_${n}
                         , MAX(qm.${data.alias}_quantile_upper_${n}) AS ${data.alias}_quantile_upper_${n}`,
-                ).join("\n")}`
+                      ).join("\n")
+                }`
                 : ""
             }
             ${
