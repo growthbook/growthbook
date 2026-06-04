@@ -57,6 +57,7 @@ import {
 } from "back-end/src/services/experimentQueries/planMetricFanOut";
 import { buildCrossFtSubGroups } from "back-end/src/services/experimentQueries/crossFtSubGroups";
 import { resolveCovariateInsertPath } from "back-end/src/integrations/sql/fact-metrics/resolve-covariate-insert-path";
+import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimentUpdateExecutionLogger";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import {
@@ -216,6 +217,7 @@ const startExperimentIncrementalRefreshQueries = async (
   startQuery: (
     params: StartQueryParams<RowsType, ProcessedRowsType>,
   ) => Promise<QueryPointer>,
+  experimentUpdateExecutionLogger: ExperimentUpdateExecutionLogger | null,
 ): Promise<Queries> => {
   const snapshotSettings = params.snapshotSettings;
   const queryParentId = params.queryParentId;
@@ -774,6 +776,17 @@ const startExperimentIncrementalRefreshQueries = async (
         activationMetric,
       });
 
+      experimentUpdateExecutionLogger?.recordCovariateSource({
+        groupId: group.groupId,
+        factTableId: group.factTableId ?? null,
+        path: covariatePath.path,
+        aggregatedTableFullName:
+          covariatePath.path === "aggregated"
+            ? covariatePath.aggregatedTableFullName
+            : null,
+        reason: covariatePath.reason,
+      });
+
       const covariateInsertBaseParams = {
         name: `insert_metrics_covariate_data_${group.groupId}`,
         displayTitle: `Update Metric Covariate Data ${sourceName}`,
@@ -1204,9 +1217,11 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
     });
 
     if (this.experimentUpdateExecutionLogger) {
-      this.experimentUpdateExecutionLogger.execution = {
-        incrementalRefreshMode: params.fullRefresh ? "full" : "incremental",
-      };
+      this.experimentUpdateExecutionLogger.execution.incrementalRefreshMode =
+        params.fullRefresh ? "full" : "incremental";
+      // Empty array distinguishes an incremental run with no RA covariate
+      // groups from a non-incremental run (which leaves this null).
+      this.experimentUpdateExecutionLogger.execution.covariateSources = [];
     }
 
     return await startExperimentIncrementalRefreshQueries(
@@ -1214,6 +1229,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       params,
       this.integration,
       this.startQuery.bind(this),
+      this.experimentUpdateExecutionLogger,
     );
   }
 

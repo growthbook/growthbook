@@ -197,7 +197,7 @@ export async function runAggregatedFactTableUpdate(
   const factMetrics = await context.models.factMetrics.getAll();
   const metrics = getAggregatedFactTableMetrics({ factMetrics, factTable });
   if (!metrics.length) {
-    logger.info(
+    logger.debug(
       `Skipping aggregated fact table update for ${factTable.id}/${idType}: no regression-adjusted fact metrics reference this fact table`,
     );
     return;
@@ -215,7 +215,7 @@ export async function runAggregatedFactTableUpdate(
     executionId,
   );
   if (!locked) {
-    logger.info(
+    logger.debug(
       `Aggregated fact table update for ${factTable.id}/${idType} already in progress; skipping`,
     );
     return;
@@ -335,7 +335,7 @@ export async function runAggregatedFactTableUpdate(
   const waitForCompletion = async () => {
     try {
       await runner.waitForResults();
-      logger.info(
+      logger.debug(
         `Updated aggregated fact table ${factTable.id}/${idType} (${mode})`,
       );
     } catch (e) {

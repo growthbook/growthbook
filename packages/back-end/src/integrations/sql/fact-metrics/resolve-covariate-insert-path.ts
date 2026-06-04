@@ -26,9 +26,26 @@ import { getMetricRegressionAdjustmentData } from "./metric-data";
 
 export const AGGREGATED_FACT_TABLE_COVARIATE_FRESHNESS_MS = 1000 * 60 * 60 * 36; // 36 hours
 
+export type CovariateInsertPathReason =
+  | "aggregated"
+  | "no-fact-table"
+  | "id-type-not-materialized"
+  | "no-materialized-table"
+  | "window-not-covered"
+  | "metrics-not-covered"
+  | "error";
+
 export type CovariateInsertPath =
-  | { path: "legacy" }
-  | { path: "aggregated"; aggregatedTableFullName: string; idType: string };
+  | {
+      path: "legacy";
+      reason: Exclude<CovariateInsertPathReason, "aggregated">;
+    }
+  | {
+      path: "aggregated";
+      aggregatedTableFullName: string;
+      idType: string;
+      reason: "aggregated";
+    };
 
 type ResolveCovariateInsertPathArgs = {
   context: ApiReqContext;
@@ -60,7 +77,7 @@ export async function resolveCovariateInsertPath(
       },
       "[resolveCovariateInsertPath] error resolving path; falling back to legacy",
     );
-    return { path: "legacy" };
+    return { path: "legacy", reason: "error" };
   }
 }
 
@@ -73,8 +90,6 @@ async function resolveCovariateInsertPathInner({
   settings,
   activationMetric,
 }: ResolveCovariateInsertPathArgs): Promise<CovariateInsertPath> {
-  const legacy: CovariateInsertPath = { path: "legacy" };
-
   const log = (msg: string, data: Record<string, unknown> = {}) =>
     context.logger.debug(
       { ...data, datasourceId, exposureUserIdType, factTableId: factTable?.id },
@@ -87,7 +102,7 @@ async function resolveCovariateInsertPathInner({
 
   if (!factTable) {
     log("legacy: no fact table provided");
-    return legacy;
+    return { path: "legacy", reason: "no-fact-table" };
   }
 
   const idTypes = factTable.aggregatedFactTableIdTypes ?? [];
@@ -95,7 +110,7 @@ async function resolveCovariateInsertPathInner({
     log("legacy: exposure id type not in aggregatedFactTableIdTypes", {
       aggregatedFactTableIdTypes: idTypes,
     });
-    return legacy;
+    return { path: "legacy", reason: "id-type-not-materialized" };
   }
 
   const registry = await context.models.aggregatedFactTables.getByKey({
@@ -108,7 +123,7 @@ async function resolveCovariateInsertPathInner({
       hasRegistry: !!registry,
       tableFullName: registry?.tableFullName ?? null,
     });
-    return legacy;
+    return { path: "legacy", reason: "no-materialized-table" };
   }
 
   // Freshness = does the table cover the covariate window (plus a buffer so the
@@ -142,7 +157,7 @@ async function resolveCovariateInsertPathInner({
       AGGREGATED_FACT_TABLE_COVARIATE_FRESHNESS_MS
   ) {
     log("legacy: table does not cover the covariate window (with buffer)");
-    return legacy;
+    return { path: "legacy", reason: "window-not-covered" };
   }
 
   const uncoveredMetricIds = regressionAdjustedMetrics
@@ -160,7 +175,7 @@ async function resolveCovariateInsertPathInner({
     log("legacy: one or more RA metrics not covered by registry", {
       uncoveredMetricIds,
     });
-    return legacy;
+    return { path: "legacy", reason: "metrics-not-covered" };
   }
 
   log("aggregated: all gates passed", {
@@ -171,6 +186,7 @@ async function resolveCovariateInsertPathInner({
     path: "aggregated",
     aggregatedTableFullName: registry.tableFullName,
     idType: exposureUserIdType,
+    reason: "aggregated",
   };
 }
 

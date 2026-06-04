@@ -122,6 +122,7 @@ describe("resolveCovariateInsertPath", () => {
       path: "aggregated",
       aggregatedTableFullName: TABLE,
       idType: ID_TYPE,
+      reason: "aggregated",
     });
   });
 
@@ -141,7 +142,7 @@ describe("resolveCovariateInsertPath", () => {
       settings,
       activationMetric: null,
     });
-    expect(result).toEqual({ path: "legacy" });
+    expect(result).toEqual({ path: "legacy", reason: "window-not-covered" });
   });
 
   it("uses the aggregated path for an old experiment when the table covers the past window even if the table is behind now", async () => {
@@ -164,6 +165,7 @@ describe("resolveCovariateInsertPath", () => {
       path: "aggregated",
       aggregatedTableFullName: TABLE,
       idType: ID_TYPE,
+      reason: "aggregated",
     });
   });
 
@@ -182,7 +184,7 @@ describe("resolveCovariateInsertPath", () => {
       settings,
       activationMetric: null,
     });
-    expect(result).toEqual({ path: "legacy" });
+    expect(result).toEqual({ path: "legacy", reason: "window-not-covered" });
   });
 
   it("falls back to legacy when the exposure id type is not materialized", async () => {
@@ -199,7 +201,10 @@ describe("resolveCovariateInsertPath", () => {
       settings,
       activationMetric: null,
     });
-    expect(result).toEqual({ path: "legacy" });
+    expect(result).toEqual({
+      path: "legacy",
+      reason: "id-type-not-materialized",
+    });
   });
 
   it("falls back to legacy when the registry lookup throws (failsafe)", async () => {
@@ -225,7 +230,7 @@ describe("resolveCovariateInsertPath", () => {
       settings,
       activationMetric: null,
     });
-    expect(result).toEqual({ path: "legacy" });
+    expect(result).toEqual({ path: "legacy", reason: "error" });
   });
 
   it("falls back to legacy when the registry has no materialized table", async () => {
@@ -238,7 +243,7 @@ describe("resolveCovariateInsertPath", () => {
       settings,
       activationMetric: null,
     });
-    expect(result).toEqual({ path: "legacy" });
+    expect(result).toEqual({ path: "legacy", reason: "no-materialized-table" });
   });
 
   it("falls back to legacy when a metric's settings hash drifted", async () => {
@@ -253,7 +258,7 @@ describe("resolveCovariateInsertPath", () => {
       settings,
       activationMetric: null,
     });
-    expect(result).toEqual({ path: "legacy" });
+    expect(result).toEqual({ path: "legacy", reason: "metrics-not-covered" });
   });
 
   it("falls back to legacy when any one metric in the group is missing (all-or-nothing)", async () => {
@@ -273,7 +278,7 @@ describe("resolveCovariateInsertPath", () => {
       settings,
       activationMetric: null,
     });
-    expect(result).toEqual({ path: "legacy" });
+    expect(result).toEqual({ path: "legacy", reason: "metrics-not-covered" });
   });
 
   it("falls back to legacy for event-quantile metrics (unsafe re-aggregation)", async () => {
@@ -293,7 +298,7 @@ describe("resolveCovariateInsertPath", () => {
       settings,
       activationMetric: null,
     });
-    expect(result).toEqual({ path: "legacy" });
+    expect(result).toEqual({ path: "legacy", reason: "metrics-not-covered" });
   });
 });
 
