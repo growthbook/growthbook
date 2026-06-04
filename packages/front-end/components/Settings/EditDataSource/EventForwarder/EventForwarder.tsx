@@ -578,12 +578,15 @@ export default function EventForwarder({
           </Heading>
           {eventForwarderConfig ? (
             <Flex align="center" gap="2">
-              {isProvisioning ? <EventForwarderSetupIndicator /> : null}
-              <Badge
-                label={statusLabels[eventForwarderConfig.status]}
-                color={statusColors[eventForwarderConfig.status]}
-                variant="soft"
-              />
+              {isProvisioning ? (
+                <EventForwarderSetupIndicator />
+              ) : (
+                <Badge
+                  label={statusLabels[eventForwarderConfig.status]}
+                  color={statusColors[eventForwarderConfig.status]}
+                  variant="soft"
+                />
+              )}
             </Flex>
           ) : null}
         </Flex>
