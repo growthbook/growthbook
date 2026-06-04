@@ -29,25 +29,25 @@
 // What this does NOT do
 // ---------------------
 //
-//   - Does not drop the `experiment` FK on the CB doc.
 //   - Does not delete the `/experiments/:id/contextual-bandit/*` legacy
-//     REST routes.
+//     REST routes (Commit 6 removes those).
 //
-// The validator-level field drops (`contextualBanditId` on
-// `experimentInterface`, `"contextual-bandit"` in the experimentType
-// enum, and the legacy `cbResultsSnapshotShape` wire field) landed in
-// PR-8 Commit 4 once this migration finished rolling out. The
-// remaining items above are cleaned up by Commits 5 and 6.
+// The validator-level field drops landed in earlier PR-8 commits once
+// this migration finished rolling out: `experiment` FK on the CB
+// validator (Commit 3); `contextualBanditId` + `"contextual-bandit"` +
+// `cbResultsSnapshotShape` on the experiment validator (Commit 4); the
+// `backfillFromExperiment` / `hasNativeShape` read-time hydration helpers
+// + the CB→experiment forward-sync (Commit 5).
 //
 // Idempotency
 // -----------
 //
-// Both passes are idempotent. The CB-doc pass is a no-op when the doc
-// already has CB-native data (`hasNativeShape` returns true). The
-// feature-rule pass only rewrites rules that still type as
-// `experiment-ref` and point at an experiment with `type:
-// "contextual-bandit"`; running it twice rewrites zero rules the second
-// time.
+// All passes are idempotent. The CB-doc pass is a no-op when the doc
+// already carries the post-PR-2 native field set (checked field-by-field
+// with `??` against the persisted doc). The feature-rule pass only
+// rewrites rules that still type as `experiment-ref` and point at an
+// experiment with `type: "contextual-bandit"`; running it twice rewrites
+// zero rules the second time.
 //
 // Usage
 // -----

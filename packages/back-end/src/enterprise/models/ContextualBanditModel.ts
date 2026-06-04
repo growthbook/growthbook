@@ -5,7 +5,6 @@ import {
   CONTEXTUAL_BANDIT_API_UPDATE_FIELDS,
   ContextualBanditInterface,
   contextualBanditValidator,
-  ExperimentInterface,
   LeafWeight,
 } from "shared/validators";
 import { generateVariationId } from "shared/util";
@@ -158,86 +157,6 @@ const BaseClass = MakeModelClass({
 });
 
 /**
- * Heuristic check for whether a CB doc was written against the post-PR-2
- * validator shape. The legacy shape only carried the FK + a handful of
- * tree-config fields; the new shape adds CB-native ownership/lifecycle data,
- * notably `name`. A non-empty `name` is the simplest, most stable signal.
- *
- * Once the data migration in PR-8 has run, every CB doc has CB-native data
- * and this guard becomes vacuously true — at which point both the helper
- * and the experiment-fallback branches in permission checks below can be
- * deleted.
- */
-function hasNativeShape(doc: ContextualBanditInterface): boolean {
-  return !!doc.name;
-}
-
-/**
- * Backfill CB-native ownership/lifecycle fields from the parent experiment
- * on read. Called after `_find`/`_findOne` have populated foreign refs but
- * before downstream consumers (snapshot orchestrator, REST API, results
- * UI, …) read the doc. Idempotent: a no-op for docs that already carry
- * native data.
- *
- * Returns a new object; does not mutate the input. The caller assigns the
- * result back into the doc list so subsequent reads (including the
- * permission check) see the backfilled values.
- *
- * Deleted in PR-8 along with the FK column and the legacy migrate branch.
- */
-function backfillFromExperiment(
-  doc: ContextualBanditInterface,
-  experiment: ExperimentInterface,
-): ContextualBanditInterface {
-  if (hasNativeShape(doc)) return doc;
-
-  return {
-    ...doc,
-    name: doc.name || experiment.name,
-    description: doc.description ?? experiment.description,
-    hypothesis: doc.hypothesis ?? experiment.hypothesis,
-    project: doc.project ?? experiment.project,
-    owner: doc.owner || experiment.owner,
-    tags: doc.tags?.length ? doc.tags : (experiment.tags ?? []),
-    archived: doc.archived ?? experiment.archived ?? false,
-    customFields: doc.customFields ?? experiment.customFields,
-    status:
-      doc.status ??
-      (experiment.status === "running" || experiment.status === "stopped"
-        ? experiment.status
-        : "draft"),
-    trackingKey: doc.trackingKey || experiment.trackingKey,
-    hashAttribute: doc.hashAttribute || experiment.hashAttribute,
-    fallbackAttribute: doc.fallbackAttribute ?? experiment.fallbackAttribute,
-    hashVersion: doc.hashVersion ?? experiment.hashVersion,
-    disableStickyBucketing:
-      doc.disableStickyBucketing ?? experiment.disableStickyBucketing ?? false,
-    variations: doc.variations?.length
-      ? doc.variations
-      : (experiment.variations ?? []),
-    datasource:
-      doc.datasource || doc.datasourceId || experiment.datasource || "",
-    segment: doc.segment ?? experiment.segment,
-    queryFilter: doc.queryFilter ?? experiment.queryFilter,
-    goalMetrics: doc.goalMetrics?.length
-      ? doc.goalMetrics
-      : (experiment.goalMetrics ?? []),
-    secondaryMetrics: doc.secondaryMetrics?.length
-      ? doc.secondaryMetrics
-      : (experiment.secondaryMetrics ?? []),
-    guardrailMetrics: doc.guardrailMetrics?.length
-      ? doc.guardrailMetrics
-      : (experiment.guardrailMetrics ?? []),
-    activationMetric: doc.activationMetric ?? experiment.activationMetric,
-    metricOverrides: doc.metricOverrides ?? experiment.metricOverrides,
-    attributionModel: doc.attributionModel ?? experiment.attributionModel,
-    skipPartialData: doc.skipPartialData ?? experiment.skipPartialData,
-    regressionAdjustmentEnabled:
-      doc.regressionAdjustmentEnabled ?? experiment.regressionAdjustmentEnabled,
-  };
-}
-
-/**
  * Convert an internal CB doc to the REST API response shape. The API
  * surface is intentionally a curated subset of `ContextualBanditInterface`
  * so internal-only state (linkedFeatures, pendingFeatureDrafts, snapshot
@@ -353,17 +272,6 @@ export class ContextualBanditModel extends BaseClass {
       docs.map((doc) => this.toApiInterface(doc)),
       this.context,
     );
-  }
-
-  /**
-   * Forward-sync used to push CB writes back onto the paired experiment
-   * doc through the decoupling window. With the experiment FK gone in
-   * PR-8 Commit 3, there's nothing to sync to — the method is a no-op.
-   * The whole override (plus `buildExperimentSyncChanges`) is deleted
-   * in Commit 5.
-   */
-  protected async afterUpdate(): Promise<void> {
-    return;
   }
 
   /**
@@ -486,13 +394,12 @@ export class ContextualBanditModel extends BaseClass {
   }
 
   /**
-   * Migration: backfill required CB-native fields with safe defaults so a
-   * legacy CB doc (FK-only, no ownership/lifecycle data) validates against
-   * the new schema. The *real* values for these fields come from the parent
-   * experiment via `backfillFromExperiment`, which runs after foreign refs
-   * are populated — see `_find` / `_findOne` overrides below.
-   *
-   * Dropped in PR-8 once the data migration runs.
+   * BaseModel pre-validation hook: coerce missing CB-native fields to safe
+   * defaults so a doc reads cleanly even if the on-disk shape predates a
+   * later schema addition. After PR-8's data migration this is effectively
+   * a no-op for every persisted doc (every field below is already populated
+   * in Mongo), but it stays in place so future schema additions can rely on
+   * the same default-injection pattern without a separate read-time wrapper.
    */
   protected migrate(legacyDoc: unknown): ContextualBanditInterface {
     const doc = legacyDoc as Partial<ContextualBanditInterface> &
@@ -527,128 +434,34 @@ export class ContextualBanditModel extends BaseClass {
   // ---------------------------------------------------------------------
   // Permission checks
   //
-  // Source of truth is the CB doc itself when it carries CB-native fields
-  // (`hasNativeShape`). Legacy docs (pre-decoupling) fall back to the
-  // parent experiment via the FK, matching the previous behaviour. Once
-  // the data migration in PR-8 runs, the fallback branch is unreachable
-  // and gets removed.
-  //
-  // Missing parent in the fallback path is treated as no-access —
-  // never default-allow.
+  // CB doc is the unconditional source of truth — the legacy
+  // experiment-fallback branches were dropped in PR-8 Commit 5 once the
+  // data migration filled in CB-native ownership/lifecycle fields on
+  // every doc. The previous fallback path resolved the paired experiment
+  // via the FK and read `project` off it; with the FK gone there's
+  // nothing to fall back to and nothing to fall back from.
   // ---------------------------------------------------------------------
 
   protected canRead(doc: ContextualBanditInterface): boolean {
-    if (hasNativeShape(doc)) {
-      return this.context.permissions.canReadSingleProjectResource(doc.project);
-    }
-    const { experiment } = this.getForeignRefs(doc, false);
-    if (!experiment) return false;
-    return this.context.permissions.canReadSingleProjectResource(
-      experiment.project,
-    );
-  }
-
-  /**
-   * Resolve the affected environments for a CB. CBs don't carry phase-level
-   * environment metadata yet (the SDK rule emitter scopes by feature
-   * environment instead) so we conservatively check every org environment —
-   * equivalent to `getAffectedEnvsForExperiment` for a no-phase experiment.
-   * The runExperiments env permission is reused per the decoupling plan §2.
-   */
-  private affectedEnvs(): string[] {
-    return (this.context.org.settings?.environments || []).map((e) => e.id);
-  }
-
-  private canWrite(doc: ContextualBanditInterface): boolean {
-    if (hasNativeShape(doc)) {
-      return this.context.permissions.canRunContextualBandit(
-        doc,
-        this.affectedEnvs(),
-      );
-    }
-    const { experiment } = this.getForeignRefs(doc, false);
-    if (!experiment) return false;
-    return this.context.permissions.canRunContextualBandit(
-      { project: experiment.project },
-      this.affectedEnvs(),
-    );
+    return this.context.permissions.canReadSingleProjectResource(doc.project);
   }
 
   protected canCreate(doc: ContextualBanditInterface): boolean {
-    if (hasNativeShape(doc)) {
-      return this.context.permissions.canCreateContextualBandit(doc);
-    }
-    // No native shape on a new create is unusual but treated as the legacy
-    // path: fall through to the env-scoped write check.
-    return this.canWrite(doc);
+    return this.context.permissions.canCreateContextualBandit(doc);
   }
 
   protected canUpdate(
     existing: ContextualBanditInterface,
     updated?: Partial<ContextualBanditInterface>,
   ): boolean {
-    if (hasNativeShape(existing)) {
-      return this.context.permissions.canUpdateContextualBandit(
-        existing,
-        updated ?? existing,
-      );
-    }
-    return this.canWrite(existing);
+    return this.context.permissions.canUpdateContextualBandit(
+      existing,
+      updated ?? existing,
+    );
   }
 
   protected canDelete(doc: ContextualBanditInterface): boolean {
-    if (hasNativeShape(doc)) {
-      return this.context.permissions.canDeleteContextualBandit(doc);
-    }
-    const { experiment } = this.getForeignRefs(doc, false);
-    if (!experiment) return false;
-    return this.context.permissions.canDeleteExperiment(experiment);
-  }
-
-  // ---------------------------------------------------------------------
-  // Read overrides — apply the experiment-backed backfill after foreign
-  // refs are loaded so downstream consumers see a fully populated doc.
-  //
-  // Hydration runs on the public read accessors rather than in `migrate`
-  // because the backfill needs the parent experiment, which is async and
-  // only available after `populateForeignRefs`. Every external read path
-  // funnels through one of the accessors below (single-doc reads via
-  // getById/getByExperimentId, list reads via getAll/getByIds), so they
-  // are each wrapped — this is what guarantees list pages, the REST list
-  // endpoint, and the agenda jobs see backfilled values, not just
-  // single-doc fetches. The only internal `_find` caller is
-  // getByExperimentId, which hydrates its result explicitly.
-  //
-  // The backfill is a no-op for native docs, so once the PR-8 data
-  // migration runs this whole block can be deleted.
-  // ---------------------------------------------------------------------
-
-  private hydrate(doc: ContextualBanditInterface): ContextualBanditInterface {
-    if (hasNativeShape(doc)) return doc;
-    const { experiment } = this.getForeignRefs(doc, false);
-    if (!experiment) return doc;
-    return backfillFromExperiment(doc, experiment);
-  }
-
-  private hydrateMany(
-    docs: ContextualBanditInterface[],
-  ): ContextualBanditInterface[] {
-    // Fast path: nothing to backfill once every doc carries native shape.
-    if (docs.every(hasNativeShape)) return docs;
-    return docs.map((doc) => this.hydrate(doc));
-  }
-
-  public async getById(id: string): Promise<ContextualBanditInterface | null> {
-    const doc = await super.getById(id);
-    return doc ? this.hydrate(doc) : null;
-  }
-
-  public async getByIds(ids: string[]): Promise<ContextualBanditInterface[]> {
-    return this.hydrateMany(await super.getByIds(ids));
-  }
-
-  public async getAll(): Promise<ContextualBanditInterface[]> {
-    return this.hydrateMany(await super.getAll());
+    return this.context.permissions.canDeleteContextualBandit(doc);
   }
 
   /**
@@ -667,7 +480,7 @@ export class ContextualBanditModel extends BaseClass {
       experiment,
     });
     if (!raw) return null;
-    return this.hydrate(raw as unknown as ContextualBanditInterface);
+    return raw as unknown as ContextualBanditInterface;
   }
 
   /**

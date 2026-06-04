@@ -1698,6 +1698,6 @@ describe("normalizeStatusUpdateScheduleChanges", () => {
 });
 
 // `maybeCreateContextualBanditDoc` test block removed alongside the
-// function in the CB-decoupling work. Its unit-test coverage is
-// superseded by the forward-sync helper test in
-// `contextualBanditForwardSync.test.ts`.
+// function in the CB-decoupling work. The forward-sync helper that
+// previously carried the bridge between experiment writes and CB writes
+// was deleted in PR-8 Commit 5; CBs now own their writes end-to-end.
