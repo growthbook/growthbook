@@ -6,6 +6,7 @@ import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
 import {
   DataSourceInterface,
   DataSourceParams,
+  DataSourcePipelineSettings,
   DataSourceSettings,
   DataSourceType,
 } from "shared/types/datasource";
@@ -32,13 +33,25 @@ import { deleteClickhouseUser } from "back-end/src/services/licenseServerManaged
 import { createModelAuditLogger } from "back-end/src/services/audit";
 import { deleteFactTable, getFactTable } from "./FactTableModel";
 
-const audit = createModelAuditLogger({
+const dataSourceAuditConfig = {
   entity: "datasource",
   createEvent: "datasource.create",
   updateEvent: "datasource.update",
   deleteEvent: "datasource.delete",
-  omitDetails: true,
-});
+  detailsAllowlist: [
+    "id",
+    "name",
+    "description",
+    "organization",
+    "dateCreated",
+    "dateUpdated",
+    "type",
+    "projects",
+    "settings",
+  ],
+} as const;
+
+const audit = createModelAuditLogger(dataSourceAuditConfig);
 
 const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
   id: String,
@@ -295,6 +308,8 @@ export async function createDataSource(
     true,
   );
 
+  validatePipelineSettingsInvariants(settings.pipelineSettings);
+
   const model = (await DataSourceModel.create(
     datasource,
   )) as DataSourceDocument;
@@ -375,6 +390,36 @@ export function hasActualChanges(
   return updateKeys.some((key) => !isEqual(datasource[key], updates[key]));
 }
 
+// Sanity-check pipeline settings before persisting. Mirrors the UI-level
+// validation in EditDataSourcePipeline so direct API / config.yml callers
+// can't save an opt-in list that snapshot planning will silently reject.
+//
+// We only enforce this for the new `incrementalOptInExperimentIds` path so
+// existing customers updating an unrelated field on a data source with
+// pre-existing (potentially non-strict) pipeline settings aren't affected.
+function validatePipelineSettingsInvariants(
+  pipelineSettings: DataSourcePipelineSettings | undefined,
+) {
+  if (!pipelineSettings) return;
+
+  const optInCount =
+    pipelineSettings.mode === "ephemeral"
+      ? (pipelineSettings.incrementalOptInExperimentIds?.length ?? 0)
+      : 0;
+  if (optInCount === 0) return;
+
+  if (!pipelineSettings.allowWriting) {
+    throw new Error(
+      "Cannot opt experiments into incremental refresh without allowWriting set to true.",
+    );
+  }
+  if (!pipelineSettings.writeDataset) {
+    throw new Error(
+      "Cannot opt experiments into incremental refresh without a writeDataset configured.",
+    );
+  }
+}
+
 export async function updateDataSource(
   context: ReqContext | ApiReqContext,
   datasource: DataSourceInterface,
@@ -390,6 +435,7 @@ export async function updateDataSource(
       datasource,
       updates.settings,
     );
+    validatePipelineSettingsInvariants(updates.settings.pipelineSettings);
   }
   if (!hasActualChanges(datasource, updates)) {
     return;

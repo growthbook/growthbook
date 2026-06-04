@@ -9,6 +9,7 @@ import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
+import { useEnvironments } from "@/services/features";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
@@ -42,6 +43,7 @@ interface EditModalProps {
 
 function EditModal({ template, onClose, onSave }: EditModalProps) {
   const { apiCall } = useAuth();
+  const environments = useEnvironments();
   const [name, setName] = useState(template?.name ?? "");
   const [official, setOfficial] = useState(template?.official ?? false);
   const [saving, setSaving] = useState(false);
@@ -112,7 +114,7 @@ function EditModal({ template, onClose, onSave }: EditModalProps) {
         hideNameField
         hideTemplateSave
         feature={GENERIC_FEATURE as FeatureInterface}
-        environments={[]}
+        environments={environments.map((e) => e.id)}
       />
     </Modal>
   );
@@ -211,6 +213,7 @@ export default function RampScheduleTemplates() {
                 </Box>
                 {canDelete && (
                   <ConfirmButton
+                    isDestructive
                     onClick={async () => {
                       await apiCall(`/ramp-schedule-templates/${tmpl.id}`, {
                         method: "DELETE",
@@ -220,7 +223,6 @@ export default function RampScheduleTemplates() {
                     modalHeader="Delete Template"
                     confirmationText={`Delete "${tmpl.name}"? This cannot be undone.`}
                     cta="Delete"
-                    ctaColor="danger"
                   >
                     <IconButton
                       type="button"

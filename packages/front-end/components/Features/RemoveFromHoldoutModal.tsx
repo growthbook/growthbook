@@ -3,7 +3,7 @@ import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { getReviewSetting } from "shared/util";
 import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Callout from "@/ui/Callout";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
@@ -41,7 +41,7 @@ export default function RemoveFromHoldoutModal({
 
   const defaultDraft = useDefaultDraft(revisionList);
   const [mode, setMode] = useState<DraftMode>(
-    defaultDraft != null ? "existing" : "new",
+    defaultDraft !== null ? "existing" : "new",
   );
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
@@ -58,7 +58,7 @@ export default function RemoveFromHoldoutModal({
         holdout: null,
         ...(isPublish
           ? { autoPublish: true }
-          : mode === "existing" && selectedDraft != null
+          : mode === "existing" && selectedDraft !== null
             ? { targetDraftVersion: selectedDraft }
             : { forceNewDraft: true }),
       }),
@@ -66,12 +66,11 @@ export default function RemoveFromHoldoutModal({
     await mutate();
     const resolvedVersion =
       res.draftVersion ?? (mode === "existing" ? selectedDraft : null);
-    if (resolvedVersion != null) setVersion(resolvedVersion);
-    close();
+    if (resolvedVersion !== null) setVersion(resolvedVersion);
   };
 
   return (
-    <Modal
+    <ModalStandard
       header="Remove from holdout"
       open={true}
       close={close}
@@ -96,6 +95,6 @@ export default function RemoveFromHoldoutModal({
           held-out units to the feature on next publish.
         </Callout>
       </div>
-    </Modal>
+    </ModalStandard>
   );
 }

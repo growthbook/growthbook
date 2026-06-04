@@ -11,7 +11,6 @@ export const putFeatureRevisionRuleRampScheduleV2 = createApiRequestHandler(
     req.organization,
     req.params,
     req.body,
-    "v2",
   );
   return { revision: toApiRevisionV2(revision) };
 });

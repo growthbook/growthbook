@@ -62,6 +62,7 @@ export type CommercialFeature =
   | "unlimited-managed-warehouse-usage"
   | "safe-rollout"
   | "require-project-for-features-setting"
+  | "require-project-for-sdk-connections-setting"
   | "holdouts"
   | "saveSqlExplorerQueries"
   | "metric-effects"
@@ -214,6 +215,7 @@ const commercialFeaturesPro: CommercialFeature[] = [
   "historical-power",
   "decision-framework",
   "safe-rollout",
+  "ramp-schedules",
   "unlimited-managed-warehouse-usage",
   "saveSqlExplorerQueries",
   "precomputed-dimensions",
@@ -249,6 +251,7 @@ const commercialFeaturesEnterpriseOnly: CommercialFeature[] = [
   "environment-inheritance",
   "templates",
   "require-project-for-features-setting",
+  "require-project-for-sdk-connections-setting",
   "holdouts",
   "metric-effects",
   "metric-correlations",
@@ -259,7 +262,6 @@ const commercialFeaturesEnterpriseOnly: CommercialFeature[] = [
   "share-product-analytics-dashboards",
   "incremental-refresh",
   "adv-presentations",
-  "ramp-schedules",
 ];
 
 const commercialFeaturesEnterprise: CommercialFeature[] = [

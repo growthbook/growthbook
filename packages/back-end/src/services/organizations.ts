@@ -90,7 +90,12 @@ import {
   mergeParams,
 } from "./datasource";
 import { createMetric } from "./experiments";
-import { isEmailEnabled, sendInviteEmail, sendNewMemberEmail } from "./email";
+import {
+  isEmailEnabled,
+  sendInviteEmail,
+  sendNewMemberEmail,
+  sendPendingMemberEmail,
+} from "./email";
 import { ReqContextClass } from "./context";
 
 export {
@@ -714,15 +719,17 @@ export async function inviteUser({
 } & MemberRoleWithProjects) {
   organization.invites = organization.invites || [];
 
-  // User is already invited
-  if (
-    organization.invites.filter((invite) => invite.email === email).length > 0
-  ) {
+  email = email.toLowerCase();
+
+  // User is already invited (legacy invites may have been stored with
+  // mixed case, so compare case-insensitively).
+  const existingInvite = organization.invites.find(
+    (invite) => invite.email.toLowerCase() === email,
+  );
+  if (existingInvite) {
     return {
       emailSent: true,
-      inviteUrl: getInviteUrl(
-        organization.invites.filter((invite) => invite.email === email)[0].key,
-      ),
+      inviteUrl: getInviteUrl(existingInvite.key),
     };
   }
 
@@ -1186,6 +1193,36 @@ export async function addMemberFromSSOConnection(
     organization = orgs[0];
   }
   if (!organization) return null;
+
+  // If the org has explicitly disabled autoApproveMembers, add the user as a pending member
+  // This differs from the non-SSO path (`undefined` is auto-approved there) to preserve existing behavior
+  if (organization.autoApproveMembers === false) {
+    const alreadyPending = organization.pendingMembers?.some(
+      (m) => m.id === req.userId,
+    );
+    if (!alreadyPending) {
+      await addPendingMemberToOrg({
+        organization,
+        name: req.name || "",
+        email: req.email || "",
+        userId: req.userId,
+        ...getDefaultRole(organization),
+      });
+      try {
+        const teamUrl = APP_ORIGIN + "/settings/team/?org=" + organization.id;
+        await sendPendingMemberEmail(
+          req.name || "",
+          req.email || "",
+          organization.name,
+          organization.ownerEmail,
+          teamUrl,
+        );
+      } catch (e) {
+        req.log.error(e, "Failed to send pending member email");
+      }
+    }
+    return null;
+  }
 
   await addMemberToOrg({
     organization,

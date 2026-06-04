@@ -21,7 +21,7 @@ import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Field from "@/components/Forms/Field";
 import Switch from "@/ui/Switch";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { GBAddCircle } from "@/components/Icons";
@@ -125,7 +125,10 @@ function EditSchemaField({
             value={value.enum}
             onChange={(e) => {
               if (e.length > 256) return;
-              e = e.filter((v) => v !== "" && v != null && v.length <= 256);
+              e = e.filter(
+                (v) =>
+                  v !== "" && v !== null && v !== undefined && v.length <= 256,
+              );
               onChange({ ...value, enum: e });
             }}
             options={value.enum.map((v) => ({ value: v, label: v }))}
@@ -485,7 +488,7 @@ export default function EditSchemaModal({
   );
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType=""
       header="Edit Feature Validation"
       cta={mode === "publish" ? "Publish" : "Save to Draft"}
@@ -550,7 +553,7 @@ export default function EditSchemaModal({
         mutate();
         const resolvedVersion =
           res?.draftVersion ?? (mode === "existing" ? selectedDraft : null);
-        if (resolvedVersion != null && setVersion) setVersion(resolvedVersion);
+        if (resolvedVersion !== null && setVersion) setVersion(resolvedVersion);
         onEnable && value.enabled && onEnable();
       })}
       close={close}
@@ -637,6 +640,6 @@ export default function EditSchemaModal({
           )}
         </>
       )}
-    </Modal>
+    </ModalStandard>
   );
 }

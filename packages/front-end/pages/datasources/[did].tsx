@@ -2,7 +2,6 @@ import { useRouter } from "next/router";
 import React, { FC, useCallback, useState } from "react";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { isManagedWarehouseAwaitingProvisioning } from "shared/util";
-import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiLinkBold } from "react-icons/pi";
@@ -22,7 +21,6 @@ import DataSourceForm from "@/components/Settings/DataSourceForm";
 import Code from "@/components/SyntaxHighlighting/Code";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import DataSourcePipeline from "@/components/Settings/EditDataSource/DataSourcePipeline/DataSourcePipeline";
-import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -40,6 +38,8 @@ import { useCombinedMetrics } from "@/components/Metrics/MetricsList";
 import { FeatureEvaluationQueries } from "@/components/Settings/EditDataSource/FeatureEvaluationQueries/FeatureEvaluationQueries";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import HistoryTable from "@/components/HistoryTable";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -55,6 +55,7 @@ const DataSourcePage: FC = () => {
   const [editConn, setEditConn] = useState(false);
   const [viewSqlExplorer, setViewSqlExplorer] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [auditModal, setAuditModal] = useState(false);
   const router = useRouter();
 
   const {
@@ -73,7 +74,7 @@ const DataSourcePage: FC = () => {
   const factTables = allFactTables.filter((ft) => ft.datasource === did);
 
   const { apiCall } = useAuth();
-  const { organization, hasCommercialFeature } = useUser();
+  const { hasCommercialFeature } = useUser();
 
   const isManagedWarehouse = d?.type === "growthbook_clickhouse";
   const managedWarehouseAwaitingProvisioning = d
@@ -150,23 +151,6 @@ const DataSourcePage: FC = () => {
         ]}
       />
 
-      {d.projects?.includes(
-        getDemoDatasourceProjectIdForOrganization(organization.id),
-      ) && (
-        <div className="alert alert-info mb-3 d-flex align-items-center mt-3">
-          <div className="flex-1">
-            This is part of our sample dataset. You can safely delete this once
-            you are done exploring.
-          </div>
-          <div style={{ width: 180 }} className="ml-2">
-            <DeleteDemoDatasourceButton
-              onDelete={() => router.push("/datasources")}
-              source="datasource"
-            />
-          </div>
-        </div>
-      )}
-
       {d.decryptionError && (
         <div className="alert alert-danger mb-2 d-flex justify-content-between align-items-center">
           <strong>Error Decrypting Data Source Credentials.</strong>{" "}
@@ -222,6 +206,14 @@ const DataSourcePage: FC = () => {
                   Edit Connection Info
                 </DropdownMenuItem>
               )}
+              <DropdownMenuItem
+                onClick={() => {
+                  setAuditModal(true);
+                  setDropdownOpen(false);
+                }}
+              >
+                Audit log
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => {
@@ -523,6 +515,17 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           lockDatasource={true}
           trackingEventModalSource="datasource-id-page"
         />
+      )}
+      {auditModal && (
+        <ModalStandard
+          trackingEventModalType=""
+          open={true}
+          header="Audit Log"
+          close={() => setAuditModal(false)}
+          size="lg"
+        >
+          <HistoryTable type={"datasource"} id={d.id} />
+        </ModalStandard>
       )}
     </div>
   );

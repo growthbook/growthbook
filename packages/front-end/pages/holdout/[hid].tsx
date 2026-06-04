@@ -18,11 +18,11 @@ import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import StartAnalysisModal from "@/components/Experiment/TabbedPage/startHoldoutAnalysisModal";
 import EditHoldoutTargetingModal from "@/components/Holdout/EditHoldoutTargetingModal";
 import NewHoldoutForm from "@/components/Holdout/NewHoldoutForm";
 import StopHoldoutModal from "@/components/Holdout/StopHoldoutModal";
 import EditScheduleModal from "@/components/Holdout/EditScheduleModal";
+import StartHoldoutAnalysisModal from "@/components/Experiment/TabbedPage/StartHoldoutAnalysisModal";
 
 const HoldoutPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
@@ -132,7 +132,7 @@ const HoldoutPage = (): ReactElement => {
   return (
     <>
       {startAnalysisModalOpen && (
-        <StartAnalysisModal
+        <StartHoldoutAnalysisModal
           close={() => setStartAnalysisModalOpen(false)}
           startAnalysis={startAnalysis}
         />
@@ -263,7 +263,7 @@ const HoldoutPage = (): ReactElement => {
           checklistHardBlockerCount={checklistHardBlockerCount}
           setChecklistItemsRemaining={setChecklistItemsRemaining}
           setChecklistHardBlockerCount={setChecklistHardBlockerCount}
-          editHoldoutSchedule={editHoldoutSchedule}
+          editSchedule={editHoldoutSchedule}
         />
       </SnapshotProvider>
     </>

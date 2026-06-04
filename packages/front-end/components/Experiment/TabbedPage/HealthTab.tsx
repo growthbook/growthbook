@@ -1,6 +1,6 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getLatestPhaseVariations } from "shared/experiments";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
 import { Flex } from "@radix-ui/themes";
 import Link from "@/ui/Link";
@@ -45,7 +45,7 @@ export default function HealthTab({
     error,
     dimensionless: snapshot,
     phase,
-    mutateSnapshot,
+    mutate,
     setAnalysisSettings,
   } = useSnapshot();
 
@@ -70,6 +70,14 @@ export default function HealthTab({
       permissionsUtil.canUpdateDataSourceSettings(datasource)) ||
     false;
   const [healthIssues, setHealthIssues] = useState<IssueValue[]>([]);
+  // Cards bubble issues via effects that re-fire on every snapshot reference
+  // change, even when the underlying issue is one we've already counted. The
+  // parent badge counter (`onHealthNotify`) is just an incrementer, so without
+  // a synchronous dedupe it would drift up on every poll/refetch. A Set ref
+  // is the dedupe source of truth.
+  // Ideally we have a separate service that does the health compuatation and it
+  // doesn't happen inside each card. TODO later.
+  const seenIssueValuesRef = useRef<Set<string>>(new Set());
   const [setupModalOpen, setSetupModalOpen] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
 
@@ -85,29 +93,29 @@ export default function HealthTab({
     experiment,
     phase,
     refreshOrganization,
-    mutateSnapshot,
+    mutate,
     setAnalysisSettings,
     setLoading,
     resetResultsSettings,
   };
 
-  // Clean up notification counter & health issues before unmounting
+  // Reset the parent counter, the local issues list, and the dedupe set
+  // together whenever the snapshot identity changes (or we unmount). Keeping
+  // these three in lockstep is what guarantees the badge counts only issues
+  // present in the current snapshot.
   useEffect(() => {
     return () => {
+      seenIssueValuesRef.current = new Set();
       onSnapshotUpdate();
       setHealthIssues([]);
     };
-  }, [experiment, snapshot, onSnapshotUpdate]);
+  }, [experiment.id, snapshot?.id, onSnapshotUpdate]);
 
   const handleHealthNotification = useCallback(
     (issue: IssueValue) => {
-      setHealthIssues((prev) => {
-        const issuesByValue = new Map(
-          prev.map((existing) => [existing.value, existing]),
-        );
-        issuesByValue.set(issue.value, issue);
-        return [...issuesByValue.values()];
-      });
+      if (seenIssueValuesRef.current.has(issue.value)) return;
+      seenIssueValuesRef.current.add(issue.value);
+      setHealthIssues((prev) => [...prev, issue]);
       onHealthNotify();
     },
     [onHealthNotify],

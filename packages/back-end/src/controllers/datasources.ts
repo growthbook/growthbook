@@ -1073,7 +1073,7 @@ export async function cancelDataSourceQuery(
 
   if (integration.cancelQuery && query.externalId) {
     try {
-      await integration.cancelQuery(query.externalId);
+      await integration.cancelQuery(query.externalId, query.externalIdMetadata);
     } catch (e: unknown) {
       // Log but continue - we'll still mark the query as failed
       const msg = e instanceof Error ? e.message : String(e);

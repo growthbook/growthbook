@@ -188,6 +188,17 @@ const experimentSchema = new mongoose.Schema({
   attributionModel: String,
   archived: Boolean,
   status: String,
+  statusUpdateSchedule: {
+    _id: false,
+    startAt: Date,
+    stopAt: Date,
+  },
+  nextScheduledStatusUpdate: {
+    _id: false,
+    type: { type: String },
+    date: Date,
+    failedAttempts: Number,
+  },
   results: String,
   analysis: String,
   winner: Number,
@@ -276,6 +287,7 @@ const experimentSchema = new mongoose.Schema({
   lastSnapshotAttempt: Date,
   nextSnapshotAttempt: Date,
   autoSnapshots: Boolean,
+  disableAutoSnapshots: Boolean,
   ideaSource: String,
   regressionAdjustmentEnabled: Boolean,
   postStratificationEnabled: Boolean,
@@ -365,12 +377,17 @@ const experimentSchema = new mongoose.Schema({
       ],
     },
   ],
+  precomputedUnitDimensionIds: [String],
 });
 
 // Compound indexes for API list filtering
 experimentSchema.index({ organization: 1, datasource: 1 });
 experimentSchema.index({ organization: 1, project: 1 });
 experimentSchema.index({ organization: 1, trackingKey: 1 });
+experimentSchema.index(
+  { "nextScheduledStatusUpdate.date": 1 },
+  { sparse: true },
+);
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;
 
@@ -590,7 +607,7 @@ export async function createExperiment({
     uid: uuidv4().replace(/-/g, ""),
     // If this is a sample experiment, we'll override the id with data.id
     ...data,
-    //set the default phase seed to uuid
+    // set the default phase seed to uuid
     phases: data.phases
       ? data.phases.map(({ ...phase }) => {
           return {
@@ -727,6 +744,7 @@ export async function getExperimentsToUpdate(
       },
       status: "running",
       autoSnapshots: true,
+      disableAutoSnapshots: { $ne: true },
       nextSnapshotAttempt: {
         $exists: true,
         $lte: new Date(),
@@ -760,6 +778,7 @@ export async function getExperimentsToUpdateLegacy(
       },
       status: "running",
       autoSnapshots: true,
+      disableAutoSnapshots: { $ne: true },
       nextSnapshotAttempt: {
         $exists: false,
       },
@@ -773,6 +792,32 @@ export async function getExperimentsToUpdateLegacy(
     })
     .limit(100)
     .sort({ nextSnapshotAttempt: 1 })
+    .toArray();
+
+  return experiments.map((exp) => ({
+    id: exp.id,
+    organization: exp.organization,
+  }));
+}
+
+export async function getExperimentsWithScheduledStatusUpdate(): Promise<
+  Pick<ExperimentInterface, "id" | "organization">[]
+> {
+  const now = new Date();
+  const experiments = await getCollection(COLLECTION)
+    .find({
+      "nextScheduledStatusUpdate.date": {
+        $exists: true,
+        $ne: null,
+        $lte: now,
+      },
+    })
+    .project({
+      id: true,
+      organization: true,
+    })
+    .limit(100)
+    .sort({ "nextScheduledStatusUpdate.date": 1 })
     .toArray();
 
   return experiments.map((exp) => ({
@@ -1181,7 +1226,10 @@ export async function deleteExperimentByIdForOrganization(
       organization: context.org.id,
     });
 
-    await VisualChangesetModel.deleteMany({ experiment: experiment.id });
+    await VisualChangesetModel.deleteMany({
+      experiment: experiment.id,
+      organization: context.org.id,
+    });
 
     await onExperimentDelete(context, experiment);
   } catch (e) {
@@ -1213,7 +1261,10 @@ export async function deleteAllExperimentsForAProject({
       id: experiment.id,
       organization: context.org.id,
     });
-    await VisualChangesetModel.deleteMany({ experiment: experiment.id });
+    await VisualChangesetModel.deleteMany({
+      experiment: experiment.id,
+      organization: context.org.id,
+    });
     await onExperimentDelete(context, toInterface(experiment));
   }
 }

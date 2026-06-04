@@ -14,6 +14,7 @@ import { useRouter } from "next/router";
 import MiniSearch from "minisearch";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Pagination from "@/components/Pagination";
+import { TableColumnHeader } from "@/ui/Table";
 
 export function useAddComputedFields<T, ExtraFields>(
   items: T[] | undefined,
@@ -94,6 +95,10 @@ export interface SearchProps<T extends { id: string }> {
   items: T[];
   searchFields: SearchFields<T>;
   localStorageKey: string;
+  // When false, the sort state is held in component state and reset each time
+  // the consumer remounts instead of being persisted to localStorage. Defaults
+  // to true to preserve existing behavior across the app.
+  persistSort?: boolean;
   defaultSortField: keyof T;
   defaultSortDir?: number;
   undefinedLast?: boolean;
@@ -112,7 +117,17 @@ export interface SearchProps<T extends { id: string }> {
       | (Date | null | undefined)[];
   };
   filterResults?: (items: T[]) => T[];
+  // Return true for (field, value) pairs that should always pass client-side
+  // syntax filtering. Useful when a search token is handled externally (e.g.
+  // via a server-side content search + filterResults) and shouldn't be
+  // double-filtered on the client.
+  syntaxFilterPassthrough?: (field: string, value: string) => boolean;
   updateSearchQueryOnChange?: boolean;
+  // When true, the hook will not initialize its search term from the URL `q`
+  // param. Use this when an enclosing useSearch instance owns the `q` param
+  // (e.g. a sort-only inner table inside a search-filtered page) so the inner
+  // hook doesn't latch onto the outer hook's filter string.
+  disableUrlSearchTerm?: boolean;
   pageSize?: number;
 }
 
@@ -134,6 +149,13 @@ export interface SearchReturn<T> {
     children: ReactNode;
     style?: React.CSSProperties;
   }>;
+  /** Radix Table header with same sort UI/callbacks; use with TableColumnHeader in ui/Table. */
+  SortableTableColumnHeader: FC<{
+    field: keyof T;
+    className?: string;
+    children: ReactNode;
+    style?: React.CSSProperties;
+  }>;
   page: number;
   resetPage: () => void;
   pagination: ReactNode;
@@ -144,22 +166,32 @@ export function useSearch<T extends { id: string }>({
   searchFields,
   filterResults,
   localStorageKey,
+  persistSort = true,
   defaultSortField,
   defaultSortDir,
   undefinedLast,
   defaultMappings = {},
   searchTermFilters,
+  syntaxFilterPassthrough,
   updateSearchQueryOnChange,
+  disableUrlSearchTerm,
   pageSize,
 }: SearchProps<T>): SearchReturn<T> {
-  const [sort, setSort] = useLocalStorage(`${localStorageKey}:sort-dir`, {
-    field: defaultSortField,
-    dir: defaultSortDir || 1,
-  });
+  const defaultSort = { field: defaultSortField, dir: defaultSortDir || 1 };
+  const persistedSort = useLocalStorage(
+    `${localStorageKey}:sort-dir`,
+    defaultSort,
+  );
+  const ephemeralSort = useState(defaultSort);
+  const [sort, setSort] = persistSort ? persistedSort : ephemeralSort;
 
   const router = useRouter();
   const { q } = router.query;
-  const initialSearchTerm = Array.isArray(q) ? q.join(" ") : q;
+  const initialSearchTerm = disableUrlSearchTerm
+    ? ""
+    : Array.isArray(q)
+      ? q.join(" ")
+      : q;
   const [value, setValue] = useState(initialSearchTerm ?? "");
   const [disableRelevanceSort, setDisableRelevanceSort] = useState(false);
 
@@ -261,6 +293,8 @@ export function useSearch<T extends { id: string }>({
         syntaxFilters.every((filter) => {
           // If a filter has multiple values, at least one has to match
           const res = filter.values.some((searchValue) => {
+            if (syntaxFilterPassthrough?.(filter.field, searchValue))
+              return true;
             const itemValue = searchTermFilters?.[filter.field]?.(item) ?? null;
             return filterSearchTerm(itemValue, filter.operator, searchValue);
           });
@@ -275,7 +309,13 @@ export function useSearch<T extends { id: string }>({
       filtered = filterResults(filtered);
     }
     return { filtered, syntaxFilters, searchTerm };
-  }, [value, miniSearch, filterResults, transformQuery]);
+  }, [
+    value,
+    miniSearch,
+    filterResults,
+    syntaxFilterPassthrough,
+    transformQuery,
+  ]);
 
   const previousSearchTerm = useRef(searchTerm);
   const hasSearchTerm = searchTerm.length > 0;
@@ -389,6 +429,50 @@ export function useSearch<T extends { id: string }>({
     return th;
   }, [sort.dir, sort.field, isRelevanceSortActive]);
 
+  const SortableTableColumnHeader = useMemo(() => {
+    const Header: FC<{
+      field: keyof T;
+      className?: string;
+      children: ReactNode;
+      style?: React.CSSProperties;
+    }> = ({ children, field, className, style }) => {
+      const showSortDirection = !isRelevanceSortActive && sort.field === field;
+
+      return (
+        <TableColumnHeader className={className} style={style}>
+          <span
+            className="cursor-pointer"
+            onClick={(e) => {
+              e.preventDefault();
+              setDisableRelevanceSort(true);
+              setSort({
+                field,
+                dir: sort.field === field ? sort.dir * -1 : 1,
+              });
+            }}
+          >
+            {children}{" "}
+            <a
+              href="#"
+              className={showSortDirection ? "activesort" : "inactivesort"}
+            >
+              {showSortDirection ? (
+                sort.dir < 0 ? (
+                  <FaSortDown />
+                ) : (
+                  <FaSortUp />
+                )
+              ) : (
+                <FaSort />
+              )}
+            </a>
+          </span>
+        </TableColumnHeader>
+      );
+    };
+    return Header;
+  }, [sort.dir, sort.field, isRelevanceSortActive]);
+
   const clear = useCallback(() => {
     setValue("");
   }, []);
@@ -410,6 +494,7 @@ export function useSearch<T extends { id: string }>({
     },
     setSearchValue: setValue,
     SortableTH,
+    SortableTableColumnHeader,
     page,
     resetPage: () => setPage(1),
     pagination:

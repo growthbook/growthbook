@@ -13,6 +13,12 @@ import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource
 import { SafeRolloutResultsQueryRunner } from "back-end/src/queryRunners/SafeRolloutResultsQueryRunner";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
+import {
+  appendRampEvent,
+  computeNextProcessAt,
+  syncLinkedSafeRolloutForRampState,
+} from "back-end/src/services/rampSchedule";
+import { logger } from "back-end/src/util/logger";
 
 // region GET /safe-rollout/:id/snapshot
 /**
@@ -85,6 +91,11 @@ export const postSafeRolloutSnapshot = async (
       message: "Feature not found",
     });
   }
+
+  logger.info(
+    { safeRolloutId: id, useCache },
+    "POST /safe-rollout/:id/snapshot — creating snapshot",
+  );
 
   const { snapshot } = await createSafeRolloutSnapshot({
     context,
@@ -193,21 +204,17 @@ export async function putSafeRollout(
   req: AuthRequest<
     {
       safeRolloutFields: Partial<CreateSafeRolloutInterface>;
-      environment: string;
     },
     { id: string }
   >,
   res: Response<{ status: 200 }>,
 ) {
   const { id } = req.params;
-  const { safeRolloutFields, environment } = req.body;
+  const { safeRolloutFields } = req.body;
   const context = getContextFromReq(req);
   const safeRollout = await context.models.safeRollout.getById(id);
   if (!safeRollout) {
     throw new Error("Could not find safe rollout");
-  }
-  if (safeRollout.environment !== environment) {
-    throw new Error("Safe rollout environment does not match");
   }
 
   const validatedSafeRolloutFields = await validateCreateSafeRolloutFields(
@@ -224,6 +231,60 @@ export async function putSafeRollout(
   });
 }
 // endregion PUT /safe-rollout/:id
+
+export async function putAutoSnapshots(
+  req: AuthRequest<{ enabled: boolean }, { id: string }>,
+  res: Response<{ status: 200 }>,
+) {
+  const { id } = req.params;
+  const { enabled } = req.body;
+  const context = getContextFromReq(req);
+  const safeRollout = await context.models.safeRollout.getById(id);
+  if (!safeRollout) {
+    throw new Error("Could not find safe rollout");
+  }
+
+  await context.models.safeRollout.update(safeRollout, {
+    autoSnapshots: enabled,
+  });
+
+  if (safeRollout.rampScheduleId) {
+    const schedule = await context.models.rampSchedules.getById(
+      safeRollout.rampScheduleId,
+    );
+    if (schedule?.monitoringConfig) {
+      const nextSnapshotAt = enabled
+        ? (safeRollout.nextSnapshotAttempt ?? new Date())
+        : null;
+      const updated = await context.models.rampSchedules.updateById(
+        schedule.id,
+        {
+          monitoringConfig: {
+            ...schedule.monitoringConfig,
+            monitoringMode: enabled ? "auto" : "manual",
+            autoUpdate: enabled,
+          },
+          nextSnapshotAt,
+          nextProcessAt: computeNextProcessAt({
+            status: schedule.status,
+            nextStepAt: schedule.nextStepAt,
+            nextSnapshotAt,
+            cutoffDate: schedule.cutoffDate,
+            startDate: schedule.startDate,
+          }),
+          eventHistory: appendRampEvent(schedule, "auto-update-toggled", {
+            stepIndex: schedule.currentStepIndex,
+            status: schedule.status,
+            reason: enabled ? "Auto-update enabled" : "Auto-update disabled",
+          }),
+        },
+      );
+      await syncLinkedSafeRolloutForRampState(context, updated);
+    }
+  }
+
+  res.status(200).json({ status: 200 });
+}
 
 // region GET /safe-rollout/:id/time-series
 /**
@@ -263,6 +324,23 @@ export const getSafeRolloutTimeSeries = async (
   });
 };
 // endregion GET /safe-rollout/:id/time-series
+
+export const getSafeRolloutById = async (
+  req: AuthRequest<null, { id: string }>,
+  res: Response<
+    | { status: 200; safeRollout: SafeRolloutInterface }
+    | { status: 404; message: string }
+  >,
+) => {
+  const context = getContextFromReq(req);
+  const safeRollout = await context.models.safeRollout.getById(req.params.id);
+  if (!safeRollout) {
+    return res
+      .status(404)
+      .json({ status: 404, message: "Safe Rollout not found" });
+  }
+  res.status(200).json({ status: 200, safeRollout });
+};
 
 // region GET /safe-rollout
 /**

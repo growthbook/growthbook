@@ -44,7 +44,7 @@ export const databricksDialect: SqlDialect = {
         return "TIMESTAMP";
       case "hll":
         return "BINARY";
-      case "kll":
+      case "quantileSketch":
         return "BINARY";
       default: {
         const _: never = dataType;
@@ -59,4 +59,20 @@ export const databricksDialect: SqlDialect = {
       metricTable,
       where,
     ),
+
+  // Qualify the STACK outputs with the __col table alias so they don't become
+  // ambiguous if the fact table also projects a column named `column_name` or
+  // `value` (the latter is common for metric/event value columns).
+  unpivotLabeledPairs: (pairs) => {
+    const stackPairs = pairs
+      .map((p) => `'${p.keyLiteral}', ${p.valueSql}`)
+      .join(", ");
+    return {
+      fromContinuation: `LATERAL VIEW STACK(${pairs.length},
+        ${stackPairs}
+      ) __col AS column_name, value`,
+      keyExpr: "__col.column_name",
+      valueExpr: "__col.value",
+    };
+  },
 };

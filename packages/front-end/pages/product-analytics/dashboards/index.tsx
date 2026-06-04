@@ -276,6 +276,7 @@ export default function DashboardsPage() {
                 description="Turn your data and metrics into actionable product insights, share with your team, and make smarter decisions about what to build next."
                 leftButton={
                   <Button
+                    disabled={!canCreate}
                     onClick={() =>
                       router.push("/product-analytics/dashboards/new")
                     }
