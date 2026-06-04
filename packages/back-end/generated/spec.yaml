@@ -13939,6 +13939,11 @@ paths:
                   type: boolean
                 includeDraftExperiments:
                   type: boolean
+                includeDraftExperimentRefs:
+                  description: >-
+                    When true, experiment-ref rules linked to draft experiments
+                    are included in feature definitions. Off by default.
+                  type: boolean
                 includeExperimentNames:
                   type: boolean
                 includeRedirectExperiments:
@@ -14044,6 +14049,11 @@ paths:
                 includeVisualExperiments:
                   type: boolean
                 includeDraftExperiments:
+                  type: boolean
+                includeDraftExperimentRefs:
+                  description: >-
+                    When true, experiment-ref rules linked to draft experiments
+                    are included in feature definitions. Off by default.
                   type: boolean
                 includeExperimentNames:
                   type: boolean
@@ -35880,6 +35890,11 @@ components:
         includeVisualExperiments:
           type: boolean
         includeDraftExperiments:
+          type: boolean
+        includeDraftExperimentRefs:
+          description: >-
+            When true, experiment-ref rules linked to draft experiments are
+            included in feature definitions. Off by default.
           type: boolean
         includeExperimentNames:
           type: boolean
