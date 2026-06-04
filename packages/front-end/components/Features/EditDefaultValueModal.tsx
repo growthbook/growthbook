@@ -7,7 +7,7 @@ import { Box } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { getFeatureDefaultValue } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import DraftSelectorDropdown, {
+import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorDropdown";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
@@ -49,7 +49,7 @@ export default function EditDefaultValueModal({
   const defaultDraft = useDefaultDraft(revisionList);
 
   const [mode, setMode] = useState<DraftMode>(
-    defaultDraft != null ? "existing" : "new",
+    defaultDraft !== null ? "existing" : "new",
   );
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
@@ -57,7 +57,7 @@ export default function EditDefaultValueModal({
 
   // URL version drives draft behavior: feature.version = new draft, draft version = modify existing.
   const targetVersion =
-    mode === "existing" && selectedDraft != null
+    mode === "existing" && selectedDraft !== null
       ? selectedDraft
       : feature.version;
 
@@ -65,18 +65,6 @@ export default function EditDefaultValueModal({
     <ModalStandard
       trackingEventModalType=""
       header="Edit Default Value"
-      headerAction={
-        <DraftSelectorDropdown
-          feature={feature}
-          revisionList={revisionList}
-          mode={mode}
-          setMode={setMode}
-          selectedDraft={selectedDraft}
-          setSelectedDraft={setSelectedDraft}
-          canAutoPublish={false}
-          gatedEnvSet={gatedEnvSet}
-        />
-      }
       cta="Save to draft"
       submit={form.handleSubmit(async (value) => {
         const newDefaultValue = validateFeatureValue(
@@ -106,6 +94,16 @@ export default function EditDefaultValueModal({
       open={true}
       size={feature.valueType === "json" ? "lg" : "md"}
     >
+      <DraftSelectorForChanges
+        feature={feature}
+        revisionList={revisionList}
+        mode={mode}
+        setMode={setMode}
+        selectedDraft={selectedDraft}
+        setSelectedDraft={setSelectedDraft}
+        canAutoPublish={false}
+        gatedEnvSet={gatedEnvSet}
+      />
       <Box>
         <FeatureValueField
           label="Value When Enabled"

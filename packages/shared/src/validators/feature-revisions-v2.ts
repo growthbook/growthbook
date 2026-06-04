@@ -5,6 +5,7 @@ import {
   paginationQueryFields,
   skipPaginationQueryField,
   apiPaginationFieldsValidator,
+  booleanQueryField,
 } from "./shared";
 import {
   inlineRampScheduleInput,
@@ -12,8 +13,9 @@ import {
   revisionVersionParam,
 } from "./feature-revisions";
 import { apiFeatureRevisionV2Validator } from "./features-v2";
-import { JSONSchemaDef, revisionStatusSchema } from "./features";
+import { JSONSchemaDef, revisionStatusFilterSchema } from "./features";
 import { ownerInputField } from "./owner-field";
+import { namedSchema } from "./openapi-helpers";
 
 // ---- Shared param schemas ----
 
@@ -28,23 +30,23 @@ const ruleParams = revisionParams.extend({ ruleId: z.string() });
 // Optional metadata applied when an endpoint auto-creates a draft via
 // `version: "new"`. Ignored when editing an existing revision.
 const newDraftMetadataFields = {
-  revisionTitle: z.string().optional(),
-  revisionComment: z.string().optional(),
+  revisionTitle: z
+    .string()
+    .optional()
+    .describe(
+      'Title for a newly created draft. Only used when version is "new"; ignored for existing revisions.',
+    ),
+  revisionComment: z
+    .string()
+    .optional()
+    .describe(
+      'Comment for a newly created draft. Only used when version is "new"; ignored for existing revisions.',
+    ),
 };
 
 // ---- Shared response schemas ----
 
 const revisionResponse = z.object({ revision: apiFeatureRevisionV2Validator });
-
-const booleanQueryField = z
-  .union([
-    z.literal("true"),
-    z.literal("false"),
-    z.literal("0"),
-    z.literal("1"),
-    z.boolean(),
-  ])
-  .optional();
 
 // Mirrors MergeConflict in shared/util/features.ts.
 const mergeConflictSchema = z
@@ -81,14 +83,24 @@ const mergeResultChangesSchema = z
 
 // ---- V2 Rule input schemas ----
 
-const scheduleRuleInput = z
-  .object({ timestamp: z.string().nullable(), enabled: z.boolean() })
-  .strict();
-
 const scheduleShorthand = z
   .object({
-    startDate: z.string().optional().nullable(),
-    endDate: z.string().optional().nullable(),
+    startDate: z
+      .string()
+      .datetime({ offset: true })
+      .optional()
+      .nullable()
+      .describe(
+        'ISO 8601 date-time, e.g. "2025-06-01T00:00:00Z". Rule is enabled at this time.',
+      ),
+    endDate: z
+      .string()
+      .datetime({ offset: true })
+      .optional()
+      .nullable()
+      .describe(
+        'ISO 8601 date-time, e.g. "2025-07-01T00:00:00Z". Rule is disabled at this time.',
+      ),
   })
   .strict();
 
@@ -98,8 +110,6 @@ const commonRuleFields = {
   condition: z.string().optional(),
   savedGroups: z.array(savedGroupTargeting).optional(),
   prerequisites: z.array(featurePrerequisite).optional(),
-  scheduleRules: z.array(scheduleRuleInput).optional(),
-  scheduleType: z.enum(["none", "schedule", "ramp"]).optional(),
 };
 
 // Scope fields for v2 — no `environment` needed; each rule carries its own.
@@ -118,73 +128,118 @@ const ruleScopeInput = {
     ),
 };
 
-const forceRolloutCreateInputV2 = z
-  .object({
-    ...commonRuleFields,
-    ...ruleScopeInput,
-    type: z.enum(["force", "rollout"]).optional(),
-    value: z.string(),
-    coverage: z.number().min(0).max(1).optional(),
-    hashAttribute: z.string().optional(),
-    seed: z.string().optional(),
-  })
-  .strict();
-
-const experimentRefCreateInputV2 = z
-  .object({
-    ...commonRuleFields,
-    ...ruleScopeInput,
-    type: z.literal("experiment-ref"),
-    experimentId: z.string(),
-    variations: z.array(
-      z
-        .object({ variationId: z.string().optional(), value: z.string() })
-        .strict(),
+const targetingRuleCreateInputV2 = namedSchema(
+  "Targeting Rule",
+  z
+    .object({
+      ...commonRuleFields,
+      ...ruleScopeInput,
+      type: z
+        .enum(["force", "rollout"])
+        .optional()
+        .describe(
+          'Use "force" for a standard targeting rule, or "rollout" for a percentage rollout (coverage < 1). Defaults to "force". Both are functionally equivalent; a force rule with coverage < 1 behaves as a rollout.',
+        ),
+      value: z.string().describe("The value to serve when this rule matches."),
+      coverage: z
+        .number()
+        .min(0)
+        .max(1)
+        .optional()
+        .describe(
+          "Percentage of users to include (0–1). Defaults to 1. When less than 1, hashAttribute is required.",
+        ),
+      hashAttribute: z
+        .string()
+        .optional()
+        .describe(
+          "Attribute to hash on for consistent assignment. Required when coverage < 1.",
+        ),
+      seed: z.string().optional(),
+      hashVersion: z
+        .union([z.literal(1), z.literal(2)])
+        .describe(
+          "Hash algorithm version for bucketing. Defaults to 2 (preferred) when not specified.",
+        )
+        .optional(),
+    })
+    .strict()
+    .describe(
+      "A targeting rule that serves a specific value to users matching the conditions. Set coverage < 1 for a percentage rollout.",
     ),
-  })
-  .strict();
+);
 
-const safeRolloutCreateInputV2 = z
-  .object({
-    ...commonRuleFields,
-    ...ruleScopeInput,
-    type: z.literal("safe-rollout"),
-    controlValue: z.string(),
-    variationValue: z.string(),
-    hashAttribute: z.string(),
-    trackingKey: z.string().optional(),
-    seed: z.string().optional(),
-    safeRolloutFields: z
-      .object({
-        datasourceId: z.string(),
-        exposureQueryId: z.string(),
-        guardrailMetricIds: z.array(z.string()),
-        maxDuration: z
-          .object({
-            amount: z.number().positive(),
-            unit: z.enum(["weeks", "days", "hours", "minutes"]),
-          })
+const experimentRefCreateInputV2 = namedSchema(
+  "Experiment Rule",
+  z
+    .object({
+      ...commonRuleFields,
+      ...ruleScopeInput,
+      type: z
+        .literal("experiment-ref")
+        .describe('Must be "experiment-ref" for an experiment rule.'),
+      experimentId: z.string().describe("ID of the linked experiment."),
+      variations: z.array(
+        z
+          .object({ variationId: z.string().optional(), value: z.string() })
           .strict(),
-        autoRollback: z.boolean().optional(),
-        rampUpSchedule: z
-          .object({
-            enabled: z.boolean(),
-            steps: z
-              .array(z.object({ percent: z.number().min(0).max(1) }).strict())
-              .min(1)
-              .optional(),
-          })
-          .strict()
-          .optional(),
-      })
-      .strict(),
-  })
-  .strict();
+      ),
+    })
+    .strict()
+    .describe(
+      "An experiment rule that links a feature value to an existing experiment.",
+    ),
+);
+
+const safeRolloutCreateInputV2 = namedSchema(
+  "Safe Rollout Rule",
+  z
+    .object({
+      ...commonRuleFields,
+      ...ruleScopeInput,
+      type: z
+        .literal("safe-rollout")
+        .describe('Must be "safe-rollout" for a safe rollout rule.'),
+      controlValue: z.string(),
+      variationValue: z.string(),
+      hashAttribute: z.string(),
+      trackingKey: z.string().optional(),
+      seed: z.string().optional(),
+      safeRolloutFields: z
+        .object({
+          datasourceId: z.string(),
+          exposureQueryId: z.string(),
+          guardrailMetricIds: z.array(z.string()).min(1),
+          maxDuration: z
+            .object({
+              amount: z.number().positive(),
+              unit: z.enum(["weeks", "days", "hours", "minutes"]),
+            })
+            .strict(),
+          autoRollback: z.boolean().optional(),
+          rampUpSchedule: z
+            .object({
+              enabled: z.boolean(),
+              steps: z
+                .array(z.object({ percent: z.number().min(0).max(1) }).strict())
+                .min(1)
+                .optional(),
+            })
+            .strict()
+            .optional(),
+        })
+        .strict(),
+    })
+    .strict()
+    .describe(
+      "A safe rollout rule with automated guardrail monitoring and optional auto-rollback.",
+    ),
+);
 
 const ruleCreateInputV2 = z.union([
+  targetingRuleCreateInputV2,
   experimentRefCreateInputV2,
   safeRolloutCreateInputV2,
-  forceRolloutCreateInputV2,
 ]);
 
 export type RuleCreateInputV2 = z.infer<typeof ruleCreateInputV2>;
@@ -196,8 +251,6 @@ const rulePatchSchemaV2 = z
     condition: z.string().optional(),
     savedGroups: z.array(savedGroupTargeting).optional(),
     prerequisites: z.array(featurePrerequisite).optional(),
-    scheduleRules: z.array(scheduleRuleInput).nullable().optional(),
-    scheduleType: z.enum(["none", "schedule", "ramp"]).nullable().optional(),
     type: z
       .enum(["force", "rollout", "experiment-ref", "safe-rollout"])
       .optional(),
@@ -205,6 +258,7 @@ const rulePatchSchemaV2 = z
     coverage: z.number().min(0).max(1).optional(),
     hashAttribute: z.string().optional(),
     seed: z.string().optional(),
+    hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
     experimentId: z.string().optional(),
     variations: z
       .array(z.object({ variationId: z.string(), value: z.string() }).strict())
@@ -242,7 +296,7 @@ export const getFeatureRevisionLatestV2Validator = {
   operationId: "getFeatureRevisionLatestV2",
   summary: "Get the most recent active draft revision",
   description:
-    "Returns the most recently updated draft revision for the feature. Returns 404 if there is no active draft.",
+    "Returns the most recently updated active draft revision for the feature. Returns 404 if no matching draft exists. Filter by status, author, or use `mine=true` to scope to the calling user's own drafts.",
   tags: ["feature-revisions-v2"],
   paramsSchema: idParams,
   bodySchema: z.never(),
@@ -251,6 +305,11 @@ export const getFeatureRevisionLatestV2Validator = {
       mine: booleanQueryField.describe(
         "If true, return only the most recent active draft authored by or contributed to by the calling user.",
       ),
+      status: revisionStatusFilterSchema,
+      author: z
+        .string()
+        .optional()
+        .describe("Filter to drafts created by this user (userId)."),
     })
     .strict(),
   responseSchema: revisionResponse,
@@ -293,7 +352,7 @@ export const postFeatureRevisionPublishV2Validator = {
   operationId: "postFeatureRevisionPublishV2",
   summary: "Publish a draft revision",
   description:
-    "Immediately publishes a draft revision, making it the live version of the feature.",
+    "Immediately publishes a draft revision, making it the live version of the feature. Any pending ramp actions (`pendingRamp` on rules) are executed atomically — ramp schedules are created or detached as queued.",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z.object({ comment: z.string().optional() }).strict(),
@@ -429,11 +488,21 @@ export const putFeatureRevisionPrerequisitesV2Validator = {
   path: "/features/:id/revisions/:version/prerequisites",
   operationId: "putFeatureRevisionPrerequisitesV2",
   summary: "Set feature-level prerequisites in a draft revision",
+  description:
+    "Sets the feature-level prerequisites for this revision. Each prerequisite must be a boolean feature flag; the gate is always 'prerequisite flag is on'. The condition is applied automatically — only the flag ID is required.",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParams,
   bodySchema: z
     .object({
-      prerequisites: z.array(featurePrerequisite),
+      prerequisites: z
+        .array(
+          z
+            .object({ id: z.string().describe("ID of a boolean feature flag") })
+            .strict(),
+        )
+        .describe(
+          "List of prerequisite boolean flags. When any prerequisite flag is off for a user, this flag returns its defaultValue for that user.",
+        ),
       ...newDraftMetadataFields,
     })
     .strict(),
@@ -513,14 +582,22 @@ export const postFeatureRevisionRuleAddV2Validator = {
   operationId: "postFeatureRevisionRuleAddV2",
   summary: "Add a rule to a draft revision",
   description:
-    "Appends a new rule to the revision's rule list. Supply `allEnvironments: true` to target all environments, or `environments: [...]` to scope to specific ones. Use `rampSchedule` for ramp configuration or `schedule` for a simple start/end window.",
+    'Appends a new rule to the revision\'s rule list. Supply `allEnvironments: true` on the rule to target all environments, or `environments: [...]` to scope to specific ones.\n\n**Scheduling:** For `force` and `rollout` rules, attach a schedule via `rampSchedule` (multi-step ramp) or `schedule` (simple start/end window) — these create standalone ramp actions and set `pendingRamp: "create"` on the rule. For `experiment-ref` and `safe-rollout` rules, only `schedule` is supported and is stored as legacy schedule fields on the rule itself (`rampSchedule` is not available for these rule types).',
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParams,
   bodySchema: z
     .object({
       rule: ruleCreateInputV2,
-      rampSchedule: inlineRampScheduleInput.optional(),
-      schedule: scheduleShorthand.optional(),
+      rampSchedule: inlineRampScheduleInput
+        .optional()
+        .describe(
+          "Multi-step ramp schedule for force/rollout rules. Not supported for experiment-ref or safe-rollout rules. Mutually exclusive with `schedule`.",
+        ),
+      schedule: scheduleShorthand
+        .optional()
+        .describe(
+          "Simple start/end date window. For force/rollout rules this creates a standalone ramp action; for experiment-ref/safe-rollout rules this sets legacy schedule fields on the rule. Mutually exclusive with `rampSchedule`.",
+        ),
       ...newDraftMetadataFields,
     })
     .strict(),
@@ -555,14 +632,22 @@ export const putFeatureRevisionRuleV2Validator = {
   operationId: "putFeatureRevisionRuleV2",
   summary: "Update a rule in a draft revision",
   description:
-    "Patches fields on an existing rule (identified by `ruleId`). The rule `type` cannot be changed. Scope can be updated via `allEnvironments` / `environments` patch fields.",
+    'Patches fields on an existing rule (identified by `ruleId`). The rule `type` cannot be changed. Scope can be updated via `allEnvironments` / `environments` patch fields.\n\n**Scheduling:** For `force` and `rollout` rules, update the schedule via `rampSchedule` (multi-step ramp) or `schedule` (simple start/end window) — these manage standalone ramp actions and set `pendingRamp: "create"` on the rule. For `experiment-ref` and `safe-rollout` rules, only `schedule` is supported and updates legacy schedule fields on the rule itself (`rampSchedule` is not available for these rule types).',
   tags: ["feature-revisions-v2"],
   paramsSchema: ruleParams,
   bodySchema: z
     .object({
       rule: rulePatchSchemaV2,
-      rampSchedule: inlineRampScheduleInput.optional(),
-      schedule: scheduleShorthand.optional(),
+      rampSchedule: inlineRampScheduleInput
+        .optional()
+        .describe(
+          "Multi-step ramp schedule for force/rollout rules. Not supported for experiment-ref or safe-rollout rules. Mutually exclusive with `schedule`.",
+        ),
+      schedule: scheduleShorthand
+        .optional()
+        .describe(
+          "Simple start/end date window. For force/rollout rules this manages a standalone ramp action; for experiment-ref/safe-rollout rules this updates legacy schedule fields on the rule. Mutually exclusive with `rampSchedule`.",
+        ),
       ...newDraftMetadataFields,
     })
     .strict(),
@@ -591,6 +676,8 @@ export const putFeatureRevisionRuleRampScheduleV2Validator = {
   path: "/features/:id/revisions/:version/rules/:ruleId/ramp-schedule",
   operationId: "putFeatureRevisionRuleRampScheduleV2",
   summary: "Set ramp schedule for a rule",
+  description:
+    "Queues a revision-controlled ramp action for this rule. If the rule already has a live ramp schedule, this stores an `update` action applied on publish; otherwise it stores a `create` action. No live schedule config changes are applied immediately by this endpoint.",
   tags: ["feature-revisions-v2"],
   paramsSchema: ruleParams,
   bodySchema: standaloneRampScheduleInput.extend(newDraftMetadataFields),
@@ -604,6 +691,8 @@ export const deleteFeatureRevisionRuleRampScheduleV2Validator = {
   path: "/features/:id/revisions/:version/rules/:ruleId/ramp-schedule",
   operationId: "deleteFeatureRevisionRuleRampScheduleV2",
   summary: "Remove ramp schedule from a rule",
+  description:
+    'Clears any pending ramp action for this rule. If a live ramp schedule exists, queues a detach that removes it on publish — the rule will show `pendingRamp: "detach"`. If only a pending create exists, it is removed and `pendingRamp` is cleared.',
   tags: ["feature-revisions-v2"],
   paramsSchema: ruleParams,
   bodySchema: z
@@ -618,11 +707,11 @@ export const deleteFeatureRevisionRuleRampScheduleV2Validator = {
 
 export const listRevisionsV2Validator = {
   method: "get" as const,
-  path: "/revisions",
+  path: "/feature-revisions",
   operationId: "listRevisionsV2",
-  summary: "List feature revisions",
+  summary: "List revisions across all features",
   description:
-    "Returns a paginated list of feature revisions across all features in the organization. Revision `rules` is a flat array with per-rule scope.",
+    "Returns a paginated list of feature revisions across all features in the organization. Use the `featureId` query parameter to filter to a single feature. Revision `rules` is a flat array with per-rule scope.",
   tags: ["feature-revisions-v2"],
   paramsSchema: z.never(),
   bodySchema: z.never(),
@@ -631,10 +720,13 @@ export const listRevisionsV2Validator = {
       ...paginationQueryFields,
       ...skipPaginationQueryField,
       featureId: z.string().optional(),
-      status: revisionStatusSchema.optional(),
+      status: revisionStatusFilterSchema,
       author: z.string().optional(),
       mine: booleanQueryField.describe(
         "If true, return only revisions authored by or contributed to by the calling user.",
+      ),
+      archived: booleanQueryField.describe(
+        "Whether to include revisions for archived features. Defaults to `false` (non-archived features only). Pass `true` to include revisions for archived features alongside non-archived ones.",
       ),
     })
     .strict(),

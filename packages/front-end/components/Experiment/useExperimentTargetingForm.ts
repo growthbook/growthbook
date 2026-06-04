@@ -13,6 +13,11 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
 import { useAuth } from "@/services/auth";
 import { useIncrementer } from "@/hooks/useIncrementer";
+import {
+  useAttributeSchema,
+  validateUnregisteredAttributes,
+} from "@/services/features";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import { allConnectionsSupportBucketingV2 } from "./HashVersionSelector";
 
 export interface UseExperimentTargetingFormResult {
@@ -36,6 +41,11 @@ export function useExperimentTargetingForm(
   experiment: ExperimentInterfaceStringDates,
 ): UseExperimentTargetingFormResult {
   const { apiCall } = useAuth();
+  const orgSettings = useOrgSettings();
+  // Unfiltered schema for client-side validation so requireProjectScoping
+  // gating in validateUnregisteredAttributes can actually distinguish
+  // unknown vs out-of-project attributes.
+  const allAttributesSchema = useAttributeSchema(false);
   const [conditionKey, forceConditionRender] = useIncrementer();
   const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
     useState(false);
@@ -119,6 +129,24 @@ export function useExperimentTargetingForm(
       if (prerequisiteTargetingSdkIssues) {
         throw new Error("Prerequisite targeting issues must be resolved");
       }
+
+      // Opt-in client-side pre-flight — mirrors the back-end check in
+      // postExperimentTargeting so typo'd attributes fail fast without a
+      // round-trip and with the same error wording.
+      validateUnregisteredAttributes(
+        {
+          hashAttribute: (value as { hashAttribute?: string }).hashAttribute,
+          fallbackAttribute: (value as { fallbackAttribute?: string })
+            .fallbackAttribute,
+          condition: value.condition,
+        },
+        "experiment",
+        {
+          attributeSchema: allAttributesSchema,
+          requireRegisteredAttributes: orgSettings.requireRegisteredAttributes,
+          project: experiment.project || undefined,
+        },
+      );
 
       // Collapse contiguous / overlapping namespace ranges on save so the
       // persisted phase carries a clean shape (e.g. [0.6, 0.9] + [0.9, 1] →

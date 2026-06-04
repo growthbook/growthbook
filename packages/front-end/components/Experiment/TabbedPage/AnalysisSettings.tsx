@@ -61,18 +61,30 @@ export default function AnalysisSettings({
 
   const { expandedGoals, expandedSecondaries, expandedGuardrails } =
     useMemo(() => {
-      const expandedGoals = expandMetricGroups(
-        experiment.goalMetrics,
-        ssrPolyfills?.metricGroups || metricGroups,
-      );
-      const expandedSecondaries = expandMetricGroups(
-        experiment.secondaryMetrics,
-        ssrPolyfills?.metricGroups || metricGroups,
-      );
-      const expandedGuardrails = expandMetricGroups(
-        experiment.guardrailMetrics,
-        ssrPolyfills?.metricGroups || metricGroups,
-      );
+      const expandedGoals = [
+        ...new Set(
+          expandMetricGroups(
+            experiment.goalMetrics,
+            ssrPolyfills?.metricGroups || metricGroups,
+          ),
+        ),
+      ];
+      const expandedSecondaries = [
+        ...new Set(
+          expandMetricGroups(
+            experiment.secondaryMetrics,
+            ssrPolyfills?.metricGroups || metricGroups,
+          ),
+        ),
+      ];
+      const expandedGuardrails = [
+        ...new Set(
+          expandMetricGroups(
+            experiment.guardrailMetrics,
+            ssrPolyfills?.metricGroups || metricGroups,
+          ),
+        ),
+      ];
 
       return { expandedGoals, expandedSecondaries, expandedGuardrails };
     }, [

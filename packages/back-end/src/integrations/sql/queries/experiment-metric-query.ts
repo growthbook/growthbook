@@ -18,6 +18,7 @@ import { addCaseWhenTimeFilter } from "back-end/src/integrations/sql/clauses/add
 import { addHours } from "back-end/src/integrations/sql/primitives/add-hours";
 import { getAggregateMetricColumnLegacyMetrics } from "back-end/src/integrations/sql/columns/aggregate-metric-column-legacy-metrics";
 import { getBanditCaseWhen } from "back-end/src/integrations/sql/clauses/bandit-case-when";
+import { getBanditDates } from "back-end/src/integrations/sql/clauses/bandit-variation-period-weights";
 import { getBanditStatisticsCTE } from "back-end/src/integrations/sql/ctes/bandit-statistics-cte";
 import { capCoalesceValue } from "back-end/src/integrations/sql/primitives/cap-coalesce-value";
 import { getConversionWindowClause } from "back-end/src/integrations/sql/clauses/conversion-window-clause";
@@ -86,9 +87,7 @@ export function getExperimentMetricQuery(
   const ratioMetric = isRatioMetric(metric, denominator);
   const funnelMetric = isFunnelMetric(metric, denominator);
 
-  const banditDates = settings.banditSettings?.historicalWeights.map(
-    (w) => w.date,
-  );
+  const banditDates = getBanditDates(settings.banditSettings);
 
   // redundant checks to make sure configuration makes sense and we only build expensive queries for the cases
   // where RA is actually possible
@@ -265,8 +264,12 @@ export function getExperimentMetricQuery(
     );
   }
 
+  const dimensionLabel = unitDimensions.length
+    ? `Dimension: ${unitDimensions.map((d) => d.dimension.name).join(", ")}; `
+    : "";
+
   return format(
-    `-- ${metric.name} (${metric.type})
+    `-- ${dimensionLabel}${metric.name} (${metric.type})
 WITH
   ${idJoinSQL}
   ${

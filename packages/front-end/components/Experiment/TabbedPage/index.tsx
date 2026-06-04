@@ -32,7 +32,6 @@ import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import DiscussionThread from "@/components/DiscussionThread";
 import { useAuth } from "@/services/auth";
-import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
 import EditStatusModal from "@/components/Experiment/EditStatusModal";
 import VisualChangesetModal from "@/components/Experiment/VisualChangesetModal";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
@@ -426,6 +425,13 @@ export default function TabbedPage({
   const showMetricGroupPromo = (): boolean => {
     if (metricGroups.length) return false;
 
+    if (
+      experiment.project ===
+      getDemoDatasourceProjectIdForOrganization(organization.id)
+    ) {
+      return false;
+    }
+
     // only show if there are atleast 2 metrics in any section
     if (
       experiment.goalMetrics.length > 2 ||
@@ -552,21 +558,6 @@ export default function TabbedPage({
           showDashboardView && "pt-0",
         )}
       >
-        {experiment.project ===
-          getDemoDatasourceProjectIdForOrganization(organization.id) && (
-          <Callout status="info" mb="0" mt="2">
-            <div className="flex-1">
-              This experiment is part of our sample dataset. You can safely
-              delete this once you are done exploring.
-            </div>
-            <div style={{ width: 180 }} className="ml-2">
-              <DeleteDemoDatasourceButton
-                onDelete={() => router.push("/experiments")}
-                source="experiment"
-              />
-            </div>
-          </Callout>
-        )}
         {experiment.type !== "holdout" &&
           tab !== "dashboards" &&
           !showDashboardView && (

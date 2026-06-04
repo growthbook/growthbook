@@ -184,7 +184,15 @@ export default function FeatureFromExperimentModal({
     return true;
   });
 
-  const form = useForm({ defaultValues });
+  // react-hook-form's DefaultValues<T> cannot accept `unknown` fields — it maps
+  // them to {} | undefined, which excludes null. force: unknown in FeatureRulePatch
+  // propagates through FeatureRule.rampActions and triggers this constraint. Since
+  // rules is always [] in these defaults and the form never sets rampActions fields,
+  // the explicit type parameter preserves full form type safety while the cast
+  // bypasses the DefaultValues constraint check.
+  const form = useForm<ReturnType<typeof genFormDefaultValues>>({
+    defaultValues: defaultValues as never,
+  });
 
   const [showTags, setShowTags] = useState(
     experiment.tags && experiment.tags.length > 0,
@@ -414,7 +422,7 @@ export default function FeatureFromExperimentModal({
 
         const autoPublish = existing && draftMode === "publish";
         const draftVersion =
-          existing && draftMode === "existing" && selectedDraft != null
+          existing && draftMode === "existing" && selectedDraft !== null
             ? selectedDraft
             : undefined;
         const forceNewDraft = !existing || draftMode === "new";

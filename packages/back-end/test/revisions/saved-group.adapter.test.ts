@@ -446,6 +446,7 @@ describe("savedGroupAdapter", () => {
       expect(update).toHaveBeenCalledWith(
         baseGroup,
         expect.objectContaining({ groupName: "renamed" }),
+        undefined,
       );
       const [, changes] = update.mock.calls[0];
       expect(changes).not.toHaveProperty("description");

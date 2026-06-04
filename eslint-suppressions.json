@@ -44,11 +44,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Auth/Welcome.tsx": {
-    "local/no-alert-classname": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/AutoGenerateMetricsModal.tsx": {
     "local/no-alert-classname": {
       "count": 5
@@ -267,7 +262,7 @@
       "count": 2
     },
     "no-restricted-imports": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/Experiment/NewPhaseForm.tsx": {
@@ -619,7 +614,7 @@
   },
   "packages/front-end/components/Features/RuleModal/index.tsx": {
     "no-restricted-imports": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/Features/SDKConnections/ConnectionStatus.tsx": {
@@ -713,7 +708,7 @@
   },
   "packages/front-end/components/GeneralSettings/ExperimentSettings/StickyBucketingSettings.tsx": {
     "no-restricted-imports": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/GeneralSettings/ExperimentSettings/index.tsx": {
@@ -862,9 +857,6 @@
   "packages/front-end/components/Holdout/NewHoldoutForm.tsx": {
     "local/no-alert-classname": {
       "count": 2
-    },
-    "no-restricted-imports": {
-      "count": 1
     }
   },
   "packages/front-end/components/HomePage/DiscussionFeed.tsx": {
@@ -987,11 +979,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Metrics/MetricGroupsList.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Modal.tsx": {
     "local/no-alert-classname": {
       "count": 1
@@ -1060,11 +1047,6 @@
       "count": 7
     },
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Queries/ExpandableQuery.tsx": {
-    "local/no-alert-classname": {
       "count": 1
     }
   },
@@ -1633,11 +1615,6 @@
       "count": 1
     }
   },
-  "packages/front-end/enterprise/components/Dashboards/DashboardEditor/index.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
   "packages/front-end/enterprise/components/Dashboards/DashboardModal.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -1728,7 +1705,7 @@
   },
   "packages/front-end/pages/datasources/[did].tsx": {
     "local/no-alert-classname": {
-      "count": 4
+      "count": 3
     }
   },
   "packages/front-end/pages/datasources/queries/[did].tsx": {
@@ -1738,11 +1715,6 @@
   },
   "packages/front-end/pages/environments.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/experiments/index.tsx": {
-    "local/no-alert-classname": {
       "count": 1
     }
   },
@@ -1777,16 +1749,6 @@
       "count": 1
     }
   },
-  "packages/front-end/pages/features/index.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/holdouts/index.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
   "packages/front-end/pages/interactions.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -1804,7 +1766,7 @@
   },
   "packages/front-end/pages/metric/[mid].tsx": {
     "local/no-alert-classname": {
-      "count": 7
+      "count": 6
     }
   },
   "packages/front-end/pages/presentations.tsx": {

@@ -16,17 +16,24 @@ import {
   validateCondition,
   checkEnvironmentsMatch,
   checkIfRevisionNeedsReview,
+  getDraftAffectedEnvironments,
+  getEnvsFromRampSchedule,
   liveRevisionFromFeature,
   resetReviewOnChange,
   simpleToJSONSchema,
   inferSchemaField,
   inferSchemaFields,
   inferSimpleSchemaFromValue,
+  extractConditionAttributeKeys,
+  findUnregisteredAttributes,
+  categorizeUnregisteredAttributes,
+  getRequireRegisteredAttributesSettings,
   ruleAppliesToEnv,
   ruleFootprint,
   getRulesForEnvironment,
   toV2FeatureSnapshot,
 } from "../../src/util";
+import type { RampScheduleInterface } from "../../src/validators/ramp-schedule";
 
 const feature: FeatureInterface = {
   dateCreated: new Date("2020-04-20"),
@@ -1476,6 +1483,232 @@ describe("validateCondition", () => {
   });
 });
 
+describe("extractConditionAttributeKeys", () => {
+  it("returns empty for nullish / non-object input", () => {
+    expect(extractConditionAttributeKeys(undefined)).toEqual([]);
+    expect(extractConditionAttributeKeys(null)).toEqual([]);
+    expect(extractConditionAttributeKeys("string")).toEqual([]);
+    expect(extractConditionAttributeKeys({})).toEqual([]);
+  });
+
+  it("extracts bare equality keys", () => {
+    expect(
+      extractConditionAttributeKeys({ userId: "abc", country: "US" }).sort(),
+    ).toEqual(["country", "userId"]);
+  });
+
+  it("skips operator keys ($eq, $gte, $in, $elemMatch)", () => {
+    expect(
+      extractConditionAttributeKeys({
+        age: { $gte: 18, $lte: 99 },
+        country: { $in: ["US", "CA"] },
+        roles: { $elemMatch: { $eq: "admin" } },
+      }).sort(),
+    ).toEqual(["age", "country", "roles"]);
+  });
+
+  it("treats $inGroup / $notInGroup as operators, not attributes", () => {
+    expect(
+      extractConditionAttributeKeys({
+        userId: { $inGroup: "sg_123" },
+        tenant: { $notInGroup: "sg_456" },
+      }).sort(),
+    ).toEqual(["tenant", "userId"]);
+  });
+
+  it("recurses into $and / $or / $nor / $not", () => {
+    expect(
+      extractConditionAttributeKeys({
+        $and: [{ userId: "x" }, { $or: [{ plan: "free" }, { plan: "trial" }] }],
+        $nor: [{ banned: true }],
+        $not: { archived: true },
+      }).sort(),
+    ).toEqual(["archived", "banned", "plan", "userId"]);
+  });
+
+  it("deduplicates repeated attribute keys", () => {
+    expect(
+      extractConditionAttributeKeys({
+        $or: [{ plan: "free" }, { plan: "trial" }, { plan: "paid" }],
+      }),
+    ).toEqual(["plan"]);
+  });
+
+  it("keeps dot-notation keys intact (caller checks root segment)", () => {
+    expect(
+      extractConditionAttributeKeys({ "user.id": "x", "user.role": "admin" }),
+    ).toEqual(["user.id", "user.role"]);
+  });
+});
+
+describe("findUnregisteredAttributes", () => {
+  const schema = [
+    { property: "userId", datatype: "string" as const },
+    { property: "country", datatype: "string" as const },
+    { property: "user", datatype: "string" as const },
+    {
+      property: "legacyId",
+      datatype: "string" as const,
+      archived: true,
+    },
+  ];
+
+  it("returns empty when every key is registered and active", () => {
+    expect(findUnregisteredAttributes(["userId", "country"], schema)).toEqual(
+      [],
+    );
+  });
+
+  it("flags truly unknown keys", () => {
+    expect(
+      findUnregisteredAttributes(["userId", "accountUUID"], schema),
+    ).toEqual(["accountUUID"]);
+  });
+
+  it("flags archived attributes as unregistered", () => {
+    expect(findUnregisteredAttributes(["legacyId"], schema)).toEqual([
+      "legacyId",
+    ]);
+  });
+
+  it("treats dot-notation keys as registered via their root segment", () => {
+    expect(
+      findUnregisteredAttributes(["user.id", "user.role"], schema),
+    ).toEqual([]);
+  });
+
+  it("deduplicates repeated bad keys in the output", () => {
+    expect(
+      findUnregisteredAttributes(["typo", "typo", "other_typo"], schema),
+    ).toEqual(["typo", "other_typo"]);
+  });
+
+  it("treats undefined schema as empty (everything unregistered)", () => {
+    expect(findUnregisteredAttributes(["userId"], undefined)).toEqual([
+      "userId",
+    ]);
+  });
+});
+
+describe("categorizeUnregisteredAttributes", () => {
+  const schema = [
+    { property: "userId", datatype: "string" as const },
+    {
+      property: "country",
+      datatype: "string" as const,
+      projects: ["proj_one"],
+    },
+    {
+      property: "betaFlag",
+      datatype: "string" as const,
+      projects: ["proj_two", "proj_three"],
+    },
+    {
+      property: "legacyId",
+      datatype: "string" as const,
+      archived: true,
+    },
+  ];
+
+  it("returns empty buckets when every key is registered for the project", () => {
+    expect(
+      categorizeUnregisteredAttributes(
+        ["userId", "country"],
+        schema,
+        "proj_one",
+      ),
+    ).toEqual({ unknown: [], outOfProject: [] });
+  });
+
+  it("flags truly unknown keys as unknown", () => {
+    expect(
+      categorizeUnregisteredAttributes(["typo"], schema, "proj_one"),
+    ).toEqual({ unknown: ["typo"], outOfProject: [] });
+  });
+
+  it("flags attributes scoped to other projects as outOfProject", () => {
+    expect(
+      categorizeUnregisteredAttributes(["betaFlag"], schema, "proj_one"),
+    ).toEqual({ unknown: [], outOfProject: ["betaFlag"] });
+  });
+
+  it("includes both buckets when input has a mix", () => {
+    expect(
+      categorizeUnregisteredAttributes(
+        ["userId", "betaFlag", "typo"],
+        schema,
+        "proj_one",
+      ),
+    ).toEqual({ unknown: ["typo"], outOfProject: ["betaFlag"] });
+  });
+
+  it("matches multi-project context if any project overlaps", () => {
+    expect(
+      categorizeUnregisteredAttributes(["betaFlag"], schema, [
+        "proj_one",
+        "proj_two",
+      ]),
+    ).toEqual({ unknown: [], outOfProject: [] });
+  });
+
+  it("treats archived attributes as unknown, not outOfProject", () => {
+    expect(
+      categorizeUnregisteredAttributes(["legacyId"], schema, "proj_one"),
+    ).toEqual({ unknown: ["legacyId"], outOfProject: [] });
+  });
+
+  it("does not produce outOfProject entries when no project context is provided", () => {
+    expect(categorizeUnregisteredAttributes(["betaFlag"], schema)).toEqual({
+      unknown: [],
+      outOfProject: [],
+    });
+  });
+});
+
+describe("getRequireRegisteredAttributesSettings", () => {
+  it("treats undefined / null / false / missing as fully off", () => {
+    for (const v of [undefined, null, false]) {
+      expect(getRequireRegisteredAttributesSettings(v)).toEqual({
+        isOn: false,
+        requireProjectScoping: false,
+      });
+    }
+  });
+
+  it("normalizes legacy boolean true to strict mode (preserves prior behavior)", () => {
+    // Older orgs only had the boolean and were already getting project-scoped
+    // checks. Migrating them to { isOn:false } or
+    // { requireProjectScoping:false } would silently relax their guards.
+    expect(getRequireRegisteredAttributesSettings(true)).toEqual({
+      isOn: true,
+      requireProjectScoping: true,
+    });
+  });
+
+  it("passes through the canonical object shape", () => {
+    expect(
+      getRequireRegisteredAttributesSettings({
+        isOn: true,
+        requireProjectScoping: false,
+      }),
+    ).toEqual({ isOn: true, requireProjectScoping: false });
+    expect(
+      getRequireRegisteredAttributesSettings({
+        isOn: false,
+        requireProjectScoping: true,
+      }),
+    ).toEqual({ isOn: false, requireProjectScoping: true });
+  });
+
+  it("defaults requireProjectScoping to true when missing on the object (strict default)", () => {
+    expect(
+      getRequireRegisteredAttributesSettings({
+        isOn: true,
+      } as unknown as { isOn: boolean; requireProjectScoping: boolean }),
+    ).toEqual({ isOn: true, requireProjectScoping: true });
+  });
+});
+
 describe("check enviroments match", () => {
   it("should find a environment match", () => {
     const environments = ["prod", "staging"];
@@ -2160,5 +2393,643 @@ describe("toV2FeatureSnapshot", () => {
     expect(
       (input as unknown as { rules?: FeatureRule[] }).rules,
     ).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// rampActions env-gating helpers
+// ---------------------------------------------------------------------------
+
+/** Minimal RampScheduleInterface for test purposes */
+function makeSchedule(
+  patches: Array<{ environments?: string[]; allEnvironments?: boolean }>,
+): Pick<RampScheduleInterface, "startActions" | "steps" | "endActions"> {
+  return {
+    startActions: [],
+    steps: patches.map((patch) => ({
+      interval: 86400,
+      actions: [
+        {
+          targetType: "feature-rule" as const,
+          targetId: "rule-1",
+          patch: {
+            ruleId: "rule-1",
+            ...patch,
+          },
+        },
+      ],
+    })),
+    endActions: [],
+  };
+}
+
+const allEnvs = ["dev", "staging", "prod"];
+// Wider env list used in tests that check specific env detection without
+// triggering the "all envs affected → collapse to 'all'" shortcut.
+const allEnvsWider = ["dev", "staging", "prod", "qa"];
+
+/** Base revision with no env changes (acts as a clean live state). */
+const baseRev: FeatureRevisionInterface = {
+  ...baseRevision,
+  rules: [
+    {
+      id: "rule-1",
+      type: "force" as const,
+      description: "",
+      value: "true",
+      allEnvironments: false,
+      environments: ["dev", "staging"],
+    },
+  ],
+  environmentsEnabled: {},
+};
+
+const noReviewSettings: OrganizationSettings = {
+  requireReviews: [
+    {
+      requireReviewOn: true,
+      resetReviewOnChange: false,
+      environments: ["prod"],
+      projects: [],
+    },
+  ],
+};
+
+describe("getEnvsFromRampSchedule", () => {
+  it("collects all environments mentioned in any step patch", () => {
+    const sched = makeSchedule([
+      { environments: ["dev"] },
+      { environments: ["dev", "staging"] },
+      { environments: ["dev", "staging", "prod"] },
+    ]);
+    expect(getEnvsFromRampSchedule(sched)).toEqual(
+      expect.arrayContaining(["dev", "staging", "prod"]),
+    );
+  });
+
+  it("returns 'all' if any patch has allEnvironments: true", () => {
+    const sched = makeSchedule([
+      { environments: ["dev"] },
+      { allEnvironments: true },
+    ]);
+    expect(getEnvsFromRampSchedule(sched)).toBe("all");
+  });
+
+  it("returns empty array when no patches specify environments", () => {
+    const sched = makeSchedule([{ environments: [] }, {}]);
+    expect(getEnvsFromRampSchedule(sched)).toEqual([]);
+  });
+
+  it("includes patches from startActions and endActions", () => {
+    const sched: Pick<
+      RampScheduleInterface,
+      "startActions" | "steps" | "endActions"
+    > = {
+      startActions: [
+        {
+          targetType: "feature-rule" as const,
+          targetId: "rule-1",
+          patch: { ruleId: "rule-1", environments: ["dev"] },
+        },
+      ],
+      steps: [],
+      endActions: [
+        {
+          targetType: "feature-rule" as const,
+          targetId: "rule-1",
+          patch: { ruleId: "rule-1", environments: ["prod"] },
+        },
+      ],
+    };
+    const result = getEnvsFromRampSchedule(sched);
+    expect(result).toEqual(expect.arrayContaining(["dev", "prod"]));
+  });
+});
+
+describe("getDraftAffectedEnvironments — rampActions", () => {
+  /** Draft revision with a ramp CREATE action on rule-1 */
+  function draftWithCreate(
+    stepEnvs: Array<string[] | null>,
+  ): FeatureRevisionInterface {
+    return {
+      ...baseRev,
+      rampActions: [
+        {
+          mode: "create",
+          ruleId: "rule-1",
+          steps: stepEnvs.map((envs) => ({
+            interval: 86400,
+            actions: [
+              {
+                targetType: "feature-rule" as const,
+                targetId: "rule-1",
+                patch: {
+                  ruleId: "rule-1",
+                  ...(envs !== null ? { environments: envs } : {}),
+                },
+              },
+            ],
+          })),
+        },
+      ],
+    };
+  }
+
+  it("create: includes rule base environments", () => {
+    // rule-1 has environments: ["dev", "staging"]; ramp steps don't add envs
+    const draft = draftWithCreate([["dev", "staging"]]);
+    const result = getDraftAffectedEnvironments(draft, baseRev, allEnvs);
+    expect(result).toEqual(expect.arrayContaining(["dev", "staging"]));
+    expect(result).not.toContain("prod");
+  });
+
+  it("create: step patches that add prod are captured even when rule has no prod", () => {
+    // rule starts as ["dev", "staging"]; step 2 adds prod
+    const draft = draftWithCreate([
+      ["dev", "staging"],
+      ["dev", "staging", "prod"],
+    ]);
+    const result = getDraftAffectedEnvironments(draft, baseRev, allEnvsWider);
+    expect(result).toEqual(expect.arrayContaining(["dev", "staging", "prod"]));
+    expect(result).not.toContain("qa");
+  });
+
+  it("create: rule has no environments, step patches are the sole source", () => {
+    const draftNoRuleEnvs: FeatureRevisionInterface = {
+      ...baseRev,
+      rules: [
+        {
+          id: "rule-1",
+          type: "force" as const,
+          description: "",
+          value: "true",
+          allEnvironments: false,
+          environments: [],
+        },
+      ],
+      rampActions: [
+        {
+          mode: "create",
+          ruleId: "rule-1",
+          steps: [
+            {
+              interval: 86400,
+              actions: [
+                {
+                  targetType: "feature-rule" as const,
+                  targetId: "rule-1",
+                  patch: { ruleId: "rule-1", environments: ["dev"] },
+                },
+              ],
+            },
+            {
+              interval: 86400,
+              actions: [
+                {
+                  targetType: "feature-rule" as const,
+                  targetId: "rule-1",
+                  patch: { ruleId: "rule-1", environments: ["dev", "staging"] },
+                },
+              ],
+            },
+            {
+              interval: 86400,
+              actions: [
+                {
+                  targetType: "feature-rule" as const,
+                  targetId: "rule-1",
+                  patch: {
+                    ruleId: "rule-1",
+                    environments: ["dev", "staging", "prod"],
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const result = getDraftAffectedEnvironments(
+      draftNoRuleEnvs,
+      baseRev,
+      allEnvsWider,
+    );
+    expect(result).toEqual(expect.arrayContaining(["dev", "staging", "prod"]));
+    expect(result).not.toContain("qa");
+  });
+
+  it("create: allEnvironments:true in a step patch returns 'all'", () => {
+    const draft: FeatureRevisionInterface = {
+      ...baseRev,
+      rules: [
+        {
+          id: "rule-1",
+          type: "force" as const,
+          description: "",
+          value: "true",
+          allEnvironments: false,
+          environments: [],
+        },
+      ],
+      rampActions: [
+        {
+          mode: "create",
+          ruleId: "rule-1",
+          steps: [
+            {
+              interval: 86400,
+              actions: [
+                {
+                  targetType: "feature-rule" as const,
+                  targetId: "rule-1",
+                  patch: { ruleId: "rule-1", allEnvironments: true },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    expect(getDraftAffectedEnvironments(draft, baseRev, allEnvs)).toBe("all");
+  });
+
+  it("detach: environments come from the rule lookup in base rules", () => {
+    // Rule in base has ["dev", "staging"]; draft removes it (detach)
+    const draftDetach: FeatureRevisionInterface = {
+      ...baseRev,
+      rules: [], // rule removed from draft
+      rampActions: [
+        {
+          mode: "detach",
+          ruleId: "rule-1",
+          rampScheduleId: "sched-1",
+        },
+      ],
+    };
+    const result = getDraftAffectedEnvironments(draftDetach, baseRev, allEnvs);
+    expect(result).toEqual(expect.arrayContaining(["dev", "staging"]));
+    expect(result).not.toContain("prod");
+  });
+
+  it("update: without liveRampScheduleEnvs only new step patches contribute", () => {
+    const draft: FeatureRevisionInterface = {
+      ...baseRev,
+      rampActions: [
+        {
+          mode: "update",
+          ruleId: "rule-1",
+          rampScheduleId: "sched-1",
+          steps: [
+            {
+              interval: 86400,
+              actions: [
+                {
+                  targetType: "feature-rule" as const,
+                  targetId: "rule-1",
+                  patch: { ruleId: "rule-1", environments: ["prod"] },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const result = getDraftAffectedEnvironments(draft, baseRev, allEnvsWider);
+    // rule-1 base envs ["dev","staging"] + new step patch ["prod"]
+    expect(result).toEqual(expect.arrayContaining(["dev", "staging", "prod"]));
+    expect(result).not.toContain("qa");
+  });
+
+  it("update: liveRampScheduleEnvs detects environments removed from steps", () => {
+    // New steps only target ["prod"]; live schedule used to target ["dev","staging","prod"]
+    const draft: FeatureRevisionInterface = {
+      ...baseRev,
+      rules: [
+        {
+          id: "rule-1",
+          type: "force" as const,
+          description: "",
+          value: "true",
+          allEnvironments: false,
+          environments: [], // rule has no base envs
+        },
+      ],
+      rampActions: [
+        {
+          mode: "update",
+          ruleId: "rule-1",
+          rampScheduleId: "sched-1",
+          steps: [
+            {
+              interval: 86400,
+              actions: [
+                {
+                  targetType: "feature-rule" as const,
+                  targetId: "rule-1",
+                  patch: { ruleId: "rule-1", environments: ["prod"] },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const liveRampScheduleEnvs = new Map<string, string[] | "all">([
+      ["sched-1", ["dev", "staging", "prod"]],
+    ]);
+    const result = getDraftAffectedEnvironments(
+      draft,
+      baseRev,
+      allEnvsWider,
+      liveRampScheduleEnvs,
+    );
+    // "dev" and "staging" are being removed; "prod" is being kept — all three affected
+    expect(result).toEqual(expect.arrayContaining(["dev", "staging", "prod"]));
+    expect(result).not.toContain("qa");
+  });
+});
+
+describe("checkIfRevisionNeedsReview — rampActions", () => {
+  const prodGatedSettings: OrganizationSettings = {
+    requireReviews: [
+      {
+        requireReviewOn: true,
+        resetReviewOnChange: false,
+        environments: ["prod"],
+        projects: [],
+      },
+    ],
+  };
+
+  it("create ramp targeting prod requires review", () => {
+    const draft: FeatureRevisionInterface = {
+      ...baseRev,
+      rules: [
+        {
+          id: "rule-1",
+          type: "force" as const,
+          description: "",
+          value: "true",
+          allEnvironments: false,
+          environments: ["prod"],
+        },
+      ],
+      rampActions: [
+        {
+          mode: "create",
+          ruleId: "rule-1",
+          steps: [
+            {
+              interval: 86400,
+              actions: [
+                {
+                  targetType: "feature-rule" as const,
+                  targetId: "rule-1",
+                  patch: { ruleId: "rule-1", coverage: 0.1 },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    expect(
+      checkIfRevisionNeedsReview({
+        feature,
+        baseRevision: baseRev,
+        revision: draft,
+        allEnvironments: allEnvs,
+        settings: prodGatedSettings,
+      }),
+    ).toBe(true);
+  });
+
+  it("create ramp only targeting dev/staging does not require prod review", () => {
+    const draft: FeatureRevisionInterface = {
+      ...baseRev,
+      rampActions: [
+        {
+          mode: "create",
+          ruleId: "rule-1",
+          steps: [
+            {
+              interval: 86400,
+              actions: [
+                {
+                  targetType: "feature-rule" as const,
+                  targetId: "rule-1",
+                  patch: { ruleId: "rule-1", environments: ["dev", "staging"] },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    expect(
+      checkIfRevisionNeedsReview({
+        feature,
+        baseRevision: baseRev,
+        revision: draft,
+        allEnvironments: allEnvs,
+        settings: prodGatedSettings,
+      }),
+    ).toBe(false);
+  });
+
+  it("step patch widening to prod mid-ramp requires review", () => {
+    // Rule starts on dev/staging; a later step patch adds prod
+    const draft: FeatureRevisionInterface = {
+      ...baseRev,
+      rules: [
+        {
+          id: "rule-1",
+          type: "force" as const,
+          description: "",
+          value: "true",
+          allEnvironments: false,
+          environments: [],
+        },
+      ],
+      rampActions: [
+        {
+          mode: "create",
+          ruleId: "rule-1",
+          steps: [
+            {
+              interval: 86400,
+              actions: [
+                {
+                  targetType: "feature-rule" as const,
+                  targetId: "rule-1",
+                  patch: { ruleId: "rule-1", environments: ["dev", "staging"] },
+                },
+              ],
+            },
+            {
+              interval: 86400,
+              actions: [
+                {
+                  targetType: "feature-rule" as const,
+                  targetId: "rule-1",
+                  patch: {
+                    ruleId: "rule-1",
+                    environments: ["dev", "staging", "prod"],
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    expect(
+      checkIfRevisionNeedsReview({
+        feature,
+        baseRevision: baseRev,
+        revision: draft,
+        allEnvironments: allEnvs,
+        settings: prodGatedSettings,
+      }),
+    ).toBe(true);
+  });
+
+  it("update that removes prod from steps still requires review when liveRampScheduleEnvs provided", () => {
+    const draftRemovesProd: FeatureRevisionInterface = {
+      ...baseRev,
+      rules: [
+        {
+          id: "rule-1",
+          type: "force" as const,
+          description: "",
+          value: "true",
+          allEnvironments: false,
+          environments: [],
+        },
+      ],
+      rampActions: [
+        {
+          mode: "update",
+          ruleId: "rule-1",
+          rampScheduleId: "sched-1",
+          steps: [
+            {
+              interval: 86400,
+              actions: [
+                {
+                  targetType: "feature-rule" as const,
+                  targetId: "rule-1",
+                  patch: { ruleId: "rule-1", environments: ["dev", "staging"] },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const liveRampScheduleEnvs = new Map<string, string[] | "all">([
+      ["sched-1", ["dev", "staging", "prod"]],
+    ]);
+    expect(
+      checkIfRevisionNeedsReview({
+        feature,
+        baseRevision: baseRev,
+        revision: draftRemovesProd,
+        allEnvironments: allEnvs,
+        settings: prodGatedSettings,
+        liveRampScheduleEnvs,
+      }),
+    ).toBe(true);
+  });
+
+  it("update that removes prod from steps bypasses review WITHOUT liveRampScheduleEnvs (known gap, documented)", () => {
+    // This is the partial coverage case: without live schedule data, we can't
+    // detect removed environments when the rule itself has no base envs.
+    const draftRemovesProd: FeatureRevisionInterface = {
+      ...baseRev,
+      rules: [
+        {
+          id: "rule-1",
+          type: "force" as const,
+          description: "",
+          value: "true",
+          allEnvironments: false,
+          environments: [],
+        },
+      ],
+      rampActions: [
+        {
+          mode: "update",
+          ruleId: "rule-1",
+          rampScheduleId: "sched-1",
+          steps: [
+            {
+              interval: 86400,
+              actions: [
+                {
+                  targetType: "feature-rule" as const,
+                  targetId: "rule-1",
+                  patch: { ruleId: "rule-1", environments: ["dev", "staging"] },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    expect(
+      checkIfRevisionNeedsReview({
+        feature,
+        baseRevision: baseRev,
+        revision: draftRemovesProd,
+        allEnvironments: allEnvs,
+        settings: prodGatedSettings,
+        // no liveRampScheduleEnvs
+      }),
+    ).toBe(false);
+  });
+
+  it("detach from a prod rule requires review", () => {
+    const draftDetach: FeatureRevisionInterface = {
+      ...baseRev,
+      rules: [
+        {
+          id: "rule-1",
+          type: "force" as const,
+          description: "",
+          value: "true",
+          allEnvironments: false,
+          environments: ["prod"],
+        },
+      ],
+      rampActions: [
+        {
+          mode: "detach",
+          ruleId: "rule-1",
+          rampScheduleId: "sched-1",
+        },
+      ],
+    };
+    expect(
+      checkIfRevisionNeedsReview({
+        feature,
+        baseRevision: baseRev,
+        revision: draftDetach,
+        allEnvironments: allEnvs,
+        settings: prodGatedSettings,
+      }),
+    ).toBe(true);
+  });
+
+  it("revision with no rampActions and no other changes does not require review", () => {
+    expect(
+      checkIfRevisionNeedsReview({
+        feature,
+        baseRevision: baseRev,
+        revision: { ...baseRev },
+        allEnvironments: allEnvs,
+        settings: noReviewSettings,
+      }),
+    ).toBe(false);
   });
 });

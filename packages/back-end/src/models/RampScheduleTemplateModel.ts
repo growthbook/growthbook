@@ -5,6 +5,7 @@ import {
 } from "shared/validators";
 import { rampScheduleTemplateApiSpec } from "back-end/src/api/specs/ramp-schedule-template.spec";
 import { MakeModelClass } from "./BaseModel";
+import { migrateRampStepTriggers } from "./RampScheduleModel";
 
 const BaseClass = MakeModelClass({
   schema: rampScheduleTemplateValidator,
@@ -24,6 +25,13 @@ const BaseClass = MakeModelClass({
 });
 
 export class RampScheduleTemplateModel extends BaseClass {
+  protected migrate(legacyDoc: unknown): RampScheduleTemplateInterface {
+    const doc = legacyDoc as RampScheduleTemplateInterface;
+    return migrateRampStepTriggers(
+      doc as unknown as Parameters<typeof migrateRampStepTriggers>[0],
+    ) as unknown as RampScheduleTemplateInterface;
+  }
+
   protected canRead() {
     return this.context.permissions.canViewFeatureModal(undefined);
   }

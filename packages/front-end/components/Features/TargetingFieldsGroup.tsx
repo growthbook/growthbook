@@ -6,7 +6,9 @@ import {
 import { Separator } from "@radix-ui/themes";
 import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
 import ConditionInput from "@/components/Features/ConditionInput";
-import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
+import PrerequisiteInput, {
+  RuleCyclicResult,
+} from "@/components/Features/PrerequisiteInput";
 
 export interface TargetingFieldsGroupProps {
   project: string;
@@ -27,6 +29,7 @@ export interface TargetingFieldsGroupProps {
   prerequisites: FeaturePrerequisite[];
   setPrerequisites: (v: FeaturePrerequisite[]) => void;
   setPrerequisiteTargetingSdkIssues: (v: boolean) => void;
+  onRuleCyclicChange?: (result: RuleCyclicResult) => void;
 }
 
 export default function TargetingFieldsGroup({
@@ -41,6 +44,7 @@ export default function TargetingFieldsGroup({
   prerequisites,
   setPrerequisites,
   setPrerequisiteTargetingSdkIssues,
+  onRuleCyclicChange,
 }: TargetingFieldsGroupProps) {
   return (
     <>
@@ -64,6 +68,7 @@ export default function TargetingFieldsGroup({
         project={project}
         environments={environments}
         setPrerequisiteTargetingSdkIssues={setPrerequisiteTargetingSdkIssues}
+        onRuleCyclicChange={onRuleCyclicChange}
       />
     </>
   );

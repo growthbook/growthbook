@@ -12,9 +12,10 @@ import {
   PiPencilSimpleFill,
   PiWarningFill,
 } from "react-icons/pi";
-import { format } from "date-fns";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { format } from "date-fns-tz";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import {
   CheckListItem,
   PreLaunchChecklistDrawer,
@@ -138,8 +139,12 @@ export default function SetupTabOverview({
     !!experiment.statusUpdateSchedule?.startAt &&
     new Date(experiment.statusUpdateSchedule.startAt) < new Date();
 
-  const { hasCommercialFeature } = useUser();
+  const { hasCommercialFeature, organization } = useUser();
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
+  const isDemoExperiment =
+    !!experiment.project &&
+    experiment.project ===
+      getDemoDatasourceProjectIdForOrganization(organization.id);
 
   return (
     <>
@@ -199,7 +204,7 @@ export default function SetupTabOverview({
                 {experiment.statusUpdateSchedule?.startAt
                   ? format(
                       new Date(experiment.statusUpdateSchedule.startAt),
-                      "MMM d, yyyy 'at' h:mm a",
+                      "MMM d, yyyy 'at' h:mm a (z)",
                     )
                   : ""}{" "}
                 <PiPencilSimpleFill className="ml-1" />
@@ -294,7 +299,10 @@ export default function SetupTabOverview({
                 >
                   <Markdown>{experiment.description}</Markdown>
                 </ScrollArea>
-                {!customFields.length && !isHoldout ? (
+                {!customFields.length &&
+                experiment.description &&
+                !isHoldout &&
+                !isDemoExperiment ? (
                   <PremiumCallout
                     mt="3"
                     commercialFeature="custom-metadata"
@@ -346,7 +354,7 @@ export default function SetupTabOverview({
                   <Markdown>{experiment.hypothesis}</Markdown>
                 </Box>
 
-                {!hasAISuggestions ? (
+                {isDemoExperiment ? null : !hasAISuggestions ? (
                   <PremiumCallout
                     id="ai-suggestions-hypothesis"
                     commercialFeature="ai-suggestions"

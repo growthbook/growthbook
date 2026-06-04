@@ -279,14 +279,6 @@ export default function ExperimentRefSummary({
                           <HelperText status="warning">
                             Define missing values
                           </HelperText>
-                        ) : type === "string" && value === "" ? (
-                          <Text
-                            color="text-low"
-                            fontStyle="italic"
-                            size="small"
-                          >
-                            Intentionally left empty
-                          </Text>
                         ) : (
                           <>
                             <ValueDisplay

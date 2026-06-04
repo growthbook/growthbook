@@ -1,29 +1,36 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { FeatureInterface } from "shared/types/feature";
-import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
+import {
+  FeatureRevisionInterface,
+  MinimalFeatureRevisionInterface,
+} from "shared/types/feature-revision";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
-import { ExperimentRefVariation, Screenshot } from "shared/validators";
+import {
+  ExperimentRefRule,
+  ExperimentRefVariation,
+  Screenshot,
+} from "shared/validators";
 import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
 import {
   validateFeatureValue,
   getReviewSetting,
   generateVariationId,
+  naiveFlattenV1Rules,
 } from "shared/util";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
-import { PiPlusCircleFill } from "react-icons/pi";
+import { PiArrowsClockwise, PiPlusCircleFill } from "react-icons/pi";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import DraftSelectorDropdown, {
   DraftMode,
 } from "@/components/Features/DraftSelectorDropdown";
-import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -43,11 +50,12 @@ import {
 } from "@/ui/DropdownMenu";
 import Link from "@/ui/Link";
 import { getDefaultVariationValue } from "@/services/features";
+import Button from "@/ui/Button";
 
 export interface Props {
   feature: FeatureInterface;
   experiment: ExperimentInterfaceStringDates;
-  info: LinkedFeatureInfo;
+  linkedFeatureInfo: LinkedFeatureInfo;
   numLinkedChanges: number;
   close: () => void;
   mutate: () => void;
@@ -55,6 +63,7 @@ export interface Props {
 
 type FeatureRevisionResponse = {
   revisionList: MinimalFeatureRevisionInterface[];
+  revisions: FeatureRevisionInterface[];
 };
 
 type VariationRow = {
@@ -125,19 +134,38 @@ function SplitField({
 export default function EditFeatureFlagValuesModal({
   feature,
   experiment,
-  info,
+  linkedFeatureInfo,
   numLinkedChanges,
   close,
   mutate,
 }: Props) {
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
-  const permissionsUtil = usePermissionsUtil();
-
   const { data, error } = useApi<FeatureRevisionResponse>(
     `/feature/${feature.id}`,
   );
   const revisionList = data?.revisionList ?? [];
+
+  // Mirror the back-end eligibility check in validateExperimentFeatureUpdates:
+  // a draft is selectable only if it contains an experiment-ref rule for this
+  // experiment. Otherwise submit fails with an opaque server-side error.
+  // Defensively union in linkedFeatureInfo.draftRevisionVersion so the
+  // default-selected draft is never hidden by a stale/empty revisions list.
+  const eligibleDraftVersions = useMemo(() => {
+    const set = new Set<number>();
+    for (const r of data?.revisions ?? []) {
+      const hasRefRule = naiveFlattenV1Rules(r.rules).some(
+        (rule) =>
+          rule.type === "experiment-ref" &&
+          (rule as ExperimentRefRule).experimentId === experiment.id,
+      );
+      if (hasRefRule) set.add(r.version);
+    }
+    if (linkedFeatureInfo.draftRevisionVersion != null) {
+      set.add(linkedFeatureInfo.draftRevisionVersion);
+    }
+    return set;
+  }, [data?.revisions, experiment.id, linkedFeatureInfo.draftRevisionVersion]);
 
   const latestPhase = experiment.phases?.[experiment.phases.length - 1];
 
@@ -151,13 +179,15 @@ export default function EditFeatureFlagValuesModal({
       phaseVariations.map((v, i) => ({
         id: v.id,
         name: v.name,
-        description: v.description ?? "",
+        description: v.description,
         key: v.key,
-        screenshots: v.screenshots ?? [],
+        screenshots: v.screenshots,
         weight: latestPhase?.variationWeights?.[i] ?? 0,
-        value: info.values.find((x) => x.variationId === v.id)?.value ?? "",
+        value:
+          linkedFeatureInfo.values.find((x) => x.variationId === v.id)?.value ??
+          "",
       })),
-    [phaseVariations, latestPhase?.variationWeights, info.values],
+    [phaseVariations, latestPhase?.variationWeights, linkedFeatureInfo.values],
   );
 
   const form = useForm<FormValues>({
@@ -183,31 +213,18 @@ export default function EditFeatureFlagValuesModal({
     return envList.length === 0 ? "all" : new Set(envList);
   }, [settings?.requireReviews, feature]);
 
-  const isAdmin = permissionsUtil.canBypassApprovalChecks(feature);
-  const canAutoPublish = isAdmin || gatedEnvSet === "none";
-
-  const defaultDraft = useDefaultDraft(revisionList);
-
   // The linking flow always creates a pending draft that adds the
-  // experiment-ref rule, so live doesn't have the rule yet. In that state,
-  // "Apply now" (publish to live) would fail on the back-end because there's
-  // no rule on live to update. Force the modal into the only path that works:
-  // save the change to the existing draft that already adds the rule.
+  // experiment-ref rule, so live doesn't have the rule yet. Saving to a new
+  // draft or a different existing draft would fail because those revisions
+  // don't contain the rule. Lock the dropdown to the one draft that does.
   const ruleOnlyOnDraft =
-    info.state === "draft" &&
-    !info.liveHasMatchingRule &&
-    info.draftRevisionVersion != null;
+    linkedFeatureInfo.state === "draft" &&
+    linkedFeatureInfo.liveHasMatchingRule === false &&
+    linkedFeatureInfo.draftRevisionVersion != null;
 
-  const initialMode: DraftMode = ruleOnlyOnDraft
-    ? "existing"
-    : defaultDraft != null
-      ? "existing"
-      : gatedEnvSet === "none"
-        ? "publish"
-        : "new";
-  const initialSelectedDraft = ruleOnlyOnDraft
-    ? (info.draftRevisionVersion ?? null)
-    : defaultDraft;
+  const initialMode: DraftMode =
+    linkedFeatureInfo.draftRevisionVersion != null ? "existing" : "new";
+  const initialSelectedDraft = linkedFeatureInfo.draftRevisionVersion ?? null;
 
   const [mode, setMode] = useState<DraftMode>(initialMode);
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
@@ -216,10 +233,9 @@ export default function EditFeatureFlagValuesModal({
   const [isEditingVariations, setIsEditingVariations] = useState(false);
 
   // On first render `useApi` hasn't resolved yet, so `revisionList` is empty
-  // and `defaultDraft` is null. Re-apply the correctly computed initial
-  // mode/selectedDraft once the feature revisions arrive, so the dropdown
-  // doesn't show a stale pre-selection (e.g. "publish" when there is an
-  // existing draft to default to).
+  // and the dropdown can't render revision labels. Re-apply the
+  // linkedFeatureInfo-derived initial mode/selectedDraft once feature data arrives so the
+  // dropdown reflects the linkedFeatureInfo defaults.
   const hasInitializedFromData = useRef(false);
   useEffect(() => {
     if (hasInitializedFromData.current || !data) return;
@@ -228,20 +244,18 @@ export default function EditFeatureFlagValuesModal({
     setSelectedDraft(initialSelectedDraft);
   }, [data, initialMode, initialSelectedDraft]);
 
-  useEffect(() => {
-    if (!canAutoPublish && mode === "publish") {
-      setMode("new");
-    }
-  }, [canAutoPublish, mode]);
-
   const watchedVariations = form.watch("variations");
 
-  const weightSum = (watchedVariations ?? []).reduce(
-    (acc, v) => acc + (Number(v?.weight) || 0),
-    0,
-  );
-  const weightSumPct = decimalToPercent(weightSum);
-  const weightsOutOfBalance = Math.abs(weightSum - 1) > 1e-4;
+  const weights = (watchedVariations ?? []).map((v) => Number(v?.weight) || 0);
+  const isEqualWeights =
+    weights.length === 0 ||
+    weights.every((w) => Math.abs(w - weights[0]) < 0.0001);
+
+  const setEqualWeights = () => {
+    getEqualWeights(fields.length).forEach((w, i) => {
+      form.setValue(`variations.${i}.weight`, w);
+    });
+  };
 
   const rebalanceWeights = (i: number, newDecimal: number) => {
     const currentWeights = (form.getValues("variations") ?? []).map(
@@ -252,6 +266,25 @@ export default function EditFeatureFlagValuesModal({
       if (w !== currentWeights[j]) {
         form.setValue(`variations.${j}.weight`, w);
       }
+    });
+  };
+
+  const handleRemoveVariation = (i: number) => {
+    const currentRows = form.getValues("variations") ?? [];
+    const currentWeights = currentRows.map((v) => Number(v?.weight) || 0);
+    const wasEqualWeights =
+      currentWeights.length > 0 &&
+      currentWeights.every((w) => Math.abs(w - currentWeights[0]) < 0.0001);
+
+    remove(i);
+
+    const remainingWeights = currentWeights.filter((_, j) => j !== i);
+    const newWeights = wasEqualWeights
+      ? getEqualWeights(remainingWeights.length)
+      : distributeWeights(remainingWeights, true);
+
+    newWeights.forEach((w, j) => {
+      form.setValue(`variations.${j}.weight`, w);
     });
   };
 
@@ -266,7 +299,7 @@ export default function EditFeatureFlagValuesModal({
       id: generateVariationId(),
       name: `Variation ${fields.length}`,
       description: "",
-      key: String(fields.length),
+      key: "",
       screenshots: [],
       weight: 0,
       value: getDefaultVariationValue(feature.defaultValue ?? ""),
@@ -297,7 +330,7 @@ export default function EditFeatureFlagValuesModal({
           setMode={setMode}
           selectedDraft={selectedDraft}
           setSelectedDraft={setSelectedDraft}
-          canAutoPublish={ruleOnlyOnDraft ? false : canAutoPublish}
+          canAutoPublish={false}
           gatedEnvSet={gatedEnvSet}
           locked={ruleOnlyOnDraft}
           lockedTooltip={
@@ -305,6 +338,7 @@ export default function EditFeatureFlagValuesModal({
               ? "This experiment rule is added in this draft revision. Changes will be saved to it."
               : undefined
           }
+          eligibleDraftVersions={eligibleDraftVersions}
         />
       }
       submit={form.handleSubmit(async (values) => {
@@ -347,11 +381,9 @@ export default function EditFeatureFlagValuesModal({
         }));
 
         const revisionOptions =
-          mode === "publish"
-            ? { autoPublish: true }
-            : mode === "existing" && selectedDraft != null
-              ? { targetVersion: selectedDraft }
-              : { forceNewDraft: true };
+          mode === "existing" && selectedDraft != null
+            ? { targetVersion: selectedDraft }
+            : { forceNewDraft: true };
 
         await apiCall<{ status: number }>(
           `/experiment/${experiment.id}/features`,
@@ -372,7 +404,7 @@ export default function EditFeatureFlagValuesModal({
 
         await mutate();
       })}
-      cta={mode === "publish" ? "Publish now" : "Save to draft"}
+      cta="Save to draft"
       close={close}
       open={true}
       size={"lg"}
@@ -387,12 +419,24 @@ export default function EditFeatureFlagValuesModal({
         </Box>
       ) : (
         <>
-          {isEditingVariations && weightsOutOfBalance && (
-            <Callout status="warning" my="2">
-              Variation splits must sum to 100% — currently {weightSumPct}%.
-            </Callout>
-          )}
           <Flex direction="column" gap="3" pt="2">
+            {isEditingVariations && !isEqualWeights && (
+              <Flex justify="end">
+                <Tooltip
+                  body="Assign equal weights to all variations"
+                  tipPosition="top"
+                >
+                  <Button
+                    variant="ghost"
+                    size="xs"
+                    onClick={setEqualWeights}
+                    icon={<PiArrowsClockwise size={12} />}
+                  >
+                    Set equal splits
+                  </Button>
+                </Tooltip>
+              </Flex>
+            )}
             {fields.map((field, i) => {
               const row = watchedVariations?.[i] ?? field;
               const rowWeight = Number(row?.weight) || 0;
@@ -430,11 +474,6 @@ export default function EditFeatureFlagValuesModal({
                             />
                           </Box>
                         </Flex>
-                        <Field
-                          label="Description"
-                          containerClassName="mb-0"
-                          {...form.register(`variations.${i}.description`)}
-                        />
                         <Box>
                           <Text as="label" weight="semibold">
                             Value
@@ -487,7 +526,7 @@ export default function EditFeatureFlagValuesModal({
                             }
                             onClick={() => {
                               if (!isNewVariation) return;
-                              remove(i);
+                              handleRemoveVariation(i);
                             }}
                           >
                             Delete
@@ -553,7 +592,7 @@ export default function EditFeatureFlagValuesModal({
                         }
                         onClick={() => {
                           if (!isNewVariation) return;
-                          remove(i);
+                          handleRemoveVariation(i);
                         }}
                       >
                         Delete

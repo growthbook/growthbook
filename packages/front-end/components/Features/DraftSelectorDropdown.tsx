@@ -37,6 +37,7 @@ export default function DraftSelectorDropdown({
   hideExisting = false,
   locked = false,
   lockedTooltip,
+  eligibleDraftVersions,
 }: {
   feature: FeatureInterface;
   revisionList: MinimalFeatureRevisionInterface[];
@@ -47,11 +48,20 @@ export default function DraftSelectorDropdown({
   canAutoPublish: boolean;
   gatedEnvSet: Set<string> | "all" | "none";
   hideExisting?: boolean;
-  // When true, the dropdown is rendered as a non-interactive label pinned to
-  // the currently-selected revision. The caller is responsible for ensuring
-  // `mode === "existing"` and `selectedDraft` points at the pinned revision.
+  /**
+   * When true, the dropdown is rendered as a non-interactive label pinned to
+   * the currently-selected revision. The caller is responsible for ensuring
+   * `mode === "existing"` and `selectedDraft` points at the pinned revision.
+   */
   locked?: boolean;
   lockedTooltip?: string;
+  /**
+   * When provided, only drafts whose version is in this set are listed under
+   * "Save to existing draft". Callers use this to mirror back-end eligibility
+   * (e.g. drafts containing a matching experiment-ref rule) so the submit
+   * can't fail with an opaque server-side error.
+   */
+  eligibleDraftVersions?: Set<number>;
 }) {
   const ctx = useFeatureRevisionsContext();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -62,10 +72,11 @@ export default function DraftSelectorDropdown({
         .filter(
           (r) =>
             !isRampGenerated(r) &&
-            (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
+            (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status) &&
+            (!eligibleDraftVersions || eligibleDraftVersions.has(r.version)),
         )
         .sort((a, b) => b.version - a.version),
-    [revisionList],
+    [revisionList, eligibleDraftVersions],
   );
 
   const currentVersionIsActiveDraft =
