@@ -15,6 +15,7 @@ import {
   PiWarningFill,
 } from "react-icons/pi";
 import { format } from "date-fns-tz";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { PreLaunchChecklist } from "@/components/Experiment/PreLaunchChecklist";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -135,8 +136,12 @@ export default function SetupTabOverview({
     !!experiment.statusUpdateSchedule?.startAt &&
     new Date(experiment.statusUpdateSchedule.startAt) < new Date();
 
-  const { hasCommercialFeature } = useUser();
+  const { hasCommercialFeature, organization } = useUser();
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
+  const isDemoExperiment =
+    !!experiment.project &&
+    experiment.project ===
+      getDemoDatasourceProjectIdForOrganization(organization.id);
 
   return (
     <>
@@ -316,7 +321,10 @@ export default function SetupTabOverview({
                 )}
               </Box>
             )}
-            {!customFields.length && experiment.description && !isHoldout ? (
+            {!customFields.length &&
+            experiment.description &&
+            !isHoldout &&
+            !isDemoExperiment ? (
               <PremiumCallout
                 mt="3"
                 commercialFeature="custom-metadata"
@@ -376,7 +384,7 @@ export default function SetupTabOverview({
               )}
             </div>
 
-            {!hasAISuggestions ? (
+            {isDemoExperiment ? null : !hasAISuggestions ? (
               <PremiumCallout
                 id="ai-suggestions-hypothesis"
                 commercialFeature="ai-suggestions"

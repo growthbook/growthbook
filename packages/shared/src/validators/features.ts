@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { statsEngines } from "shared/constants";
+import { statsEngines, MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { eventUser } from "./event-user";
 import {
   featurePrerequisite,
@@ -10,7 +10,12 @@ import {
   apiPaginationFieldsValidator,
 } from "./shared";
 import { safeRolloutStatusArray } from "./safe-rollout";
-import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
+import {
+  ownerEmailField,
+  ownerField,
+  ownerInputField,
+  optionalOwnerInputField,
+} from "./owner-field";
 import {
   featureRulePatch,
   lockdownConfigSchema,
@@ -27,7 +32,7 @@ export const simpleSchemaFieldValidator = z.object({
   type: z.enum(["integer", "float", "string", "boolean"]),
   required: z.boolean(),
   default: z.string().max(256),
-  description: z.string().max(256),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH),
   enum: z.array(z.string().max(256)).max(256),
   min: z.number(),
   max: z.number(),
@@ -58,7 +63,7 @@ export type ScheduleRule = z.infer<typeof scheduleRule>;
 
 export const baseRule = z
   .object({
-    description: z.string(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH),
     condition: z.string().optional(),
     // `fr_<uniqid>` for new rules; post-migration rules from a v1 collision
     // carry a `__<env>` suffix. REST emits the qualified id; SDK/UI stem-strip.
@@ -225,7 +230,7 @@ export const v1FeatureRule = z
     id: z.string(),
     type: z.string().optional(),
     enabled: z.boolean().optional(),
-    description: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   })
   .passthrough();
 
@@ -290,6 +295,65 @@ export type ActiveDraftStatus = z.infer<typeof activeDraftStatusSchema>;
 
 export const ACTIVE_DRAFT_STATUSES = activeDraftStatusSchema.options;
 
+/**
+ * Status filter for revision list endpoints. Accepts a single value
+ * (`draft`), comma-separated values (`draft,approved`), or the shorthand
+ * `all-drafts` (expands to draft, pending-review, approved,
+ * changes-requested). On v2 endpoints, omitting this parameter defaults to
+ * `all-drafts`. Parsing is handled at the handler layer via
+ * `parseRevisionStatusFilter`.
+ */
+export const revisionStatusFilterSchema = z
+  .union([z.string(), z.array(z.string())])
+  .describe(
+    "Filter by revision status. Single value, comma-separated list, repeated params (?status=draft&status=approved), or `all-drafts` shorthand for all active-draft statuses (draft, pending-review, approved, changes-requested).",
+  )
+  .optional();
+
+export type RevisionStatusFilter = z.infer<typeof revisionStatusFilterSchema>;
+
+/**
+ * Parse a raw status query-param value into the form expected by
+ * `getFeatureRevisionsByStatus`. Handles:
+ * - Single values:          "draft"
+ * - Comma-separated:        "draft,approved"
+ * - "all-drafts" shorthand: expands to all four active-draft statuses
+ * - Repeated query params:  ["all-drafts", "draft"] (from Express array parsing)
+ *
+ * Throws a plain Error (caught as 400 by createApiRequestHandler) if any
+ * token is not a recognised RevisionStatus or "all-drafts".
+ */
+export function parseRevisionStatusFilter(
+  val: string | string[] | undefined,
+): RevisionStatus | RevisionStatus[] | undefined {
+  if (!val || (Array.isArray(val) && val.length === 0)) return undefined;
+
+  const valid = new Set<string>([
+    ...revisionStatusSchema.options,
+    "all-drafts",
+  ]);
+
+  const expand = (token: string): RevisionStatus[] => {
+    if (!valid.has(token)) {
+      throw new Error(
+        `Invalid status value: "${token}". Must be one of: ${[...revisionStatusSchema.options, "all-drafts"].join(", ")}.`,
+      );
+    }
+    return token === "all-drafts"
+      ? [...ACTIVE_DRAFT_STATUSES]
+      : [token as RevisionStatus];
+  };
+
+  const tokens = Array.isArray(val)
+    ? val
+    : val.includes(",")
+      ? val.split(",").map((s) => s.trim())
+      : [val];
+
+  const expanded = [...new Set(tokens.flatMap(expand))]; // deduplicate
+  return expanded.length === 1 ? expanded[0] : expanded;
+}
+
 const minimalFeatureRevisionInterface = z
   .object({
     version: z.number(),
@@ -308,7 +372,7 @@ export type MinimalFeatureRevisionInterface = z.infer<
 >;
 
 const revisionMetadataSchema = z.object({
-  description: z.string().optional(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   owner: ownerField.optional(),
   project: z.string().optional(),
   tags: z.array(z.string()).optional(),
@@ -478,7 +542,7 @@ export const featureInterface = z
   .object({
     id: z.string(),
     archived: z.boolean().optional(),
-    description: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     organization: z.string(),
     nextScheduledUpdate: z.union([z.date(), z.null()]).optional(),
     owner: ownerField,
@@ -559,7 +623,7 @@ export const apiFeatureBaseRuleValidator = namedSchema(
   "FeatureBaseRule",
   z
     .object({
-      description: z.string(),
+      description: z.string().max(MAX_DESCRIPTION_LENGTH),
       condition: z.string().optional(),
       id: z.string(),
       enabled: z.boolean(),
@@ -854,10 +918,19 @@ export const apiRevisionPrerequisite = z.object({
   condition: z.string(),
 });
 
+// v2 prerequisite shapes: condition is always {"value":true} and not exposed
+// as a settable field — only the prerequisite flag's ID is accepted/returned.
+export const apiRevisionPrerequisiteV2 = z.object({
+  id: z.string().describe("Feature ID of the prerequisite boolean flag"),
+});
+export type ApiRevisionPrerequisiteV2 = z.infer<
+  typeof apiRevisionPrerequisiteV2
+>;
+
 // Revision metadata sub-object
 export const apiRevisionMetadata = z
   .object({
-    description: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     owner: ownerField.optional(),
     project: z.string().optional(),
     tags: z.array(z.string()).optional(),
@@ -944,7 +1017,7 @@ export const apiFeatureValidator = namedSchema(
       dateCreated: z.string().meta({ format: "date-time" }),
       dateUpdated: z.string().meta({ format: "date-time" }),
       archived: z.boolean(),
-      description: z.string(),
+      description: z.string().max(MAX_DESCRIPTION_LENGTH),
       owner: ownerField,
       ownerEmail: ownerEmailField,
       project: z.string(),
@@ -1000,7 +1073,7 @@ const postFeaturePrerequisite = z.object({
 });
 
 const postFeatureForceRule = z.object({
-  description: z.string().optional(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   condition: z.string().describe("Applied to everyone by default.").optional(),
   savedGroupTargeting: z.array(postFeatureSavedGroupTargeting).optional(),
   prerequisites: z.array(apiRevisionPrerequisite).optional(),
@@ -1012,7 +1085,7 @@ const postFeatureForceRule = z.object({
 });
 
 const postFeatureRolloutRule = z.object({
-  description: z.string().optional(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   condition: z.string().describe("Applied to everyone by default.").optional(),
   savedGroupTargeting: z.array(postFeatureSavedGroupTargeting).optional(),
   prerequisites: z.array(postFeaturePrerequisite).optional(),
@@ -1037,7 +1110,7 @@ const postFeatureRolloutRule = z.object({
 });
 
 const postFeatureExperimentRefRule = z.object({
-  description: z.string().optional(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   id: z.string().optional(),
   enabled: z.boolean().describe("Enabled by default").optional(),
   type: z.literal("experiment-ref"),
@@ -1055,7 +1128,7 @@ const postFeatureExperimentRefRule = z.object({
 });
 
 const postFeatureExperimentRule = z.object({
-  description: z.string().optional(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   condition: z.string(),
   id: z.string().optional(),
   enabled: z.boolean().describe("Enabled by default").optional(),
@@ -1153,8 +1226,12 @@ const postFeatureBody = z
         "A unique key name for the feature. Feature keys can only include letters, numbers, hyphens, and underscores.",
       ),
     archived: z.boolean().optional(),
-    description: z.string().describe("Description of the feature").optional(),
-    owner: ownerInputField,
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe("Description of the feature")
+      .optional(),
+    owner: optionalOwnerInputField,
     project: z.string().describe("An associated project ID").optional(),
     valueType: z
       .enum(["boolean", "string", "number", "json"])
@@ -1188,7 +1265,11 @@ const postFeatureBody = z
 // ---- UpdateFeaturePayload ----
 const updateFeatureBody = z
   .object({
-    description: z.string().describe("Description of the feature").optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe("Description of the feature")
+      .optional(),
     archived: z.boolean().optional(),
     project: z.string().describe("An associated project ID").optional(),
     owner: ownerInputField.optional(),
@@ -1426,7 +1507,7 @@ export const getFeatureRevisionsValidator = {
     .object({
       ...paginationQueryFields,
       ...skipPaginationQueryField,
-      status: revisionStatusSchema.optional(),
+      status: revisionStatusFilterSchema,
       author: z.string().optional(),
     })
     .strict(),

@@ -3,10 +3,8 @@ import { ExperimentInterface } from "shared/types/experiment";
 import { DataSourceInterface } from "shared/types/datasource";
 import { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
 import { ApiReqContext } from "back-end/types/api";
-import {
-  getSnapshotQueryRunnerKind,
-  planSnapshot,
-} from "back-end/src/services/experiments";
+import { validateIncrementalPipeline } from "back-end/src/enterprise/services/data-pipeline";
+import { planSnapshot } from "back-end/src/services/experiments";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { createExperimentSnapshotModel } from "back-end/src/models/ExperimentSnapshotModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -35,6 +33,10 @@ jest.mock("back-end/src/enterprise/services/dashboards", () => ({
   updateExperimentDashboards: jest.fn(),
 }));
 
+jest.mock("back-end/src/enterprise/services/data-pipeline", () => ({
+  validateIncrementalPipeline: jest.fn(),
+}));
+
 const updateExperimentMock = updateExperiment as jest.MockedFunction<
   typeof updateExperiment
 >;
@@ -52,6 +54,10 @@ const getSourceIntegrationObjectMock =
 const updateExperimentDashboardsMock =
   updateExperimentDashboards as jest.MockedFunction<
     typeof updateExperimentDashboards
+  >;
+const validateIncrementalPipelineMock =
+  validateIncrementalPipeline as jest.MockedFunction<
+    typeof validateIncrementalPipeline
   >;
 
 function makeContext(): ApiReqContext {
@@ -128,97 +134,6 @@ describe("snapshot planning", () => {
     getSourceIntegrationObjectMock.mockReturnValue({} as never);
   });
 
-  const incrementalDatasource = {
-    settings: {
-      pipelineSettings: {
-        allowWriting: true,
-        mode: "incremental",
-      },
-    },
-  } as unknown as DataSourceInterface;
-
-  it("forces the standard results runner when incremental refresh is disabled", () => {
-    const experiment = { type: "standard" } as unknown as ExperimentInterface;
-
-    expect(
-      getSnapshotQueryRunnerKind({
-        allowIncrementalRefresh: false,
-        isExperimentCompatibleWithIncrementalRefresh: true,
-        datasource: incrementalDatasource,
-        experiment,
-        snapshotType: "standard",
-        hasSnapshotDimensions: false,
-        hasMaterializedUnitsTable: true,
-      }),
-    ).toBe("results");
-  });
-
-  it("uses the incremental runner for eligible standard snapshots", () => {
-    const experiment = { type: "standard" } as unknown as ExperimentInterface;
-
-    expect(
-      getSnapshotQueryRunnerKind({
-        allowIncrementalRefresh: true,
-        isExperimentCompatibleWithIncrementalRefresh: true,
-        datasource: incrementalDatasource,
-        experiment,
-        snapshotType: "standard",
-        hasSnapshotDimensions: false,
-        hasMaterializedUnitsTable: true,
-      }),
-    ).toBe("incremental");
-  });
-
-  it("uses the exploratory incremental runner for eligible exploratory snapshots", () => {
-    const experiment = { type: "standard" } as unknown as ExperimentInterface;
-
-    expect(
-      getSnapshotQueryRunnerKind({
-        allowIncrementalRefresh: true,
-        isExperimentCompatibleWithIncrementalRefresh: true,
-        datasource: incrementalDatasource,
-        experiment,
-        snapshotType: "exploratory",
-        hasSnapshotDimensions: true,
-        hasMaterializedUnitsTable: true,
-      }),
-    ).toBe("incremental-exploratory");
-  });
-
-  it("uses the incremental runner for exploratory snapshots with no dimensions", () => {
-    const experiment = { type: "standard" } as unknown as ExperimentInterface;
-
-    expect(
-      getSnapshotQueryRunnerKind({
-        allowIncrementalRefresh: true,
-        isExperimentCompatibleWithIncrementalRefresh: true,
-        datasource: incrementalDatasource,
-        experiment,
-        snapshotType: "exploratory",
-        hasSnapshotDimensions: false,
-        hasMaterializedUnitsTable: true,
-      }),
-    ).toBe("incremental");
-  });
-
-  it("falls back to the standard results runner for unsupported experiment types", () => {
-    const experiment = {
-      type: "multi-armed-bandit",
-    } as unknown as ExperimentInterface;
-
-    expect(
-      getSnapshotQueryRunnerKind({
-        allowIncrementalRefresh: true,
-        isExperimentCompatibleWithIncrementalRefresh: true,
-        datasource: incrementalDatasource,
-        experiment,
-        snapshotType: "standard",
-        hasSnapshotDimensions: false,
-        hasMaterializedUnitsTable: true,
-      }),
-    ).toBe("results");
-  });
-
   it("plans a draft snapshot without persisting or mutating experiment state", async () => {
     const plan = await planSnapshot({
       experiment: makeExperiment(),
@@ -232,15 +147,156 @@ describe("snapshot planning", () => {
       settingsForSnapshotMetrics: [],
       metricMap: new Map<string, ExperimentMetricInterface>(),
       factTableMap: new Map() as FactTableMap,
-      allowIncrementalRefresh: false,
     });
 
     expect(plan.runnerKind).toBe("results");
+    // useCache: false → full refresh, with a free-form reason explaining why.
+    expect(plan.fullRefresh).toBe(true);
+    expect(plan.fullRefreshReason).toBe("Full refresh explicitly requested.");
     expect(plan.snapshot.status).toBe("running");
     expect(plan.snapshot.triggeredBy).toBe("manual-dashboard");
     expect(plan.snapshot.analyses).toHaveLength(1);
     expect(createExperimentSnapshotModelMock).not.toHaveBeenCalled();
     expect(updateExperimentMock).not.toHaveBeenCalled();
     expect(updateExperimentDashboardsMock).not.toHaveBeenCalled();
+  });
+
+  it("surfaces pipeline validation errors as incremental fallback reasons", async () => {
+    getDataSourceByIdMock.mockResolvedValue(
+      makeDatasource({
+        settings: {
+          queries: {},
+          pipelineSettings: {
+            allowWriting: true,
+            mode: "incremental",
+          },
+        },
+      }),
+    );
+    validateIncrementalPipelineMock.mockRejectedValue(
+      new Error("metric not compatible"),
+    );
+
+    const context = makeContext();
+    context.models.incrementalRefresh = {
+      getByExperimentId: jest.fn().mockResolvedValue({
+        unitsTableFullName: "db.schema.units_exp_123",
+      }),
+    } as never;
+
+    const plan = await planSnapshot({
+      experiment: makeExperiment(),
+      context,
+      type: "standard",
+      triggeredBy: "manual-dashboard",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings(),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    expect(validateIncrementalPipelineMock).toHaveBeenCalled();
+    expect(plan.runnerKind).toBe("results");
+    expect(plan.incrementalFallbackReason).toBe("metric not compatible");
+  });
+
+  it("preserves the computed full refresh when using the incremental runner on a first run", async () => {
+    getDataSourceByIdMock.mockResolvedValue(
+      makeDatasource({
+        settings: {
+          queries: {},
+          pipelineSettings: {
+            allowWriting: true,
+            mode: "incremental",
+          },
+        },
+      }),
+    );
+    validateIncrementalPipelineMock.mockResolvedValue(undefined as never);
+
+    const context = makeContext();
+    // First run: no prior incremental state, so the warehouse units table
+    // does not exist yet and a full refresh is required.
+    context.models.incrementalRefresh = {
+      getByExperimentId: jest.fn().mockResolvedValue(null),
+    } as never;
+
+    const plan = await planSnapshot({
+      experiment: makeExperiment(),
+      context,
+      type: "standard",
+      triggeredBy: "manual-dashboard",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings(),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    expect(plan.runnerKind).toBe("incremental");
+    // The incremental runner must not discard the computed full refresh, or it
+    // would attempt an incremental update against a non-existent units table.
+    expect(plan.fullRefresh).toBe(true);
+    expect(plan.fullRefreshReason).toBe(
+      "No prior incremental refresh state for this experiment.",
+    );
+    expect(validateIncrementalPipelineMock).toHaveBeenCalledWith(
+      expect.objectContaining({ analysisType: "main-fullRefresh" }),
+    );
+  });
+
+  it("falls back to the results runner when incremental state is outdated", async () => {
+    getDataSourceByIdMock.mockResolvedValue(
+      makeDatasource({
+        settings: {
+          queries: {},
+          pipelineSettings: {
+            allowWriting: true,
+            mode: "incremental",
+          },
+        },
+      }),
+    );
+    const staleConfigMessage =
+      "The experiment configuration is outdated. Please run a Full Refresh.";
+    validateIncrementalPipelineMock.mockRejectedValue(
+      new Error(staleConfigMessage),
+    );
+
+    const context = makeContext();
+    context.models.incrementalRefresh = {
+      getByExperimentId: jest.fn().mockResolvedValue({
+        unitsTableFullName: "db.schema.units_exp_123",
+        experimentSettingsHash: "stale_hash",
+      }),
+    } as never;
+
+    const plan = await planSnapshot({
+      experiment: makeExperiment(),
+      context,
+      type: "standard",
+      triggeredBy: "manual-dashboard",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings(),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    expect(validateIncrementalPipelineMock).toHaveBeenCalledWith(
+      expect.objectContaining({ analysisType: "main-update" }),
+    );
+    expect(validateIncrementalPipelineMock).toHaveBeenCalledTimes(1);
+    expect(plan.runnerKind).toBe("results");
+    expect(plan.incrementalFallbackReason).toBe(staleConfigMessage);
+    expect(plan.fullRefresh).toBe(false);
+    expect(plan.fullRefreshReason).toBeNull();
   });
 });

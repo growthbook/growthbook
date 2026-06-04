@@ -1,16 +1,18 @@
 import { z } from "zod";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import {
   apiPaginationFieldsValidator,
+  booleanQueryField,
   paginationQueryFields,
   skipPaginationQueryField,
 } from "./shared";
-import { ownerInputField } from "./owner-field";
+import { ownerInputField, optionalOwnerInputField } from "./owner-field";
 import {
   apiFeatureRuleValidator,
-  apiRevisionPrerequisite,
+  apiRevisionPrerequisiteV2,
   apiRevisionMetadata,
   apiFeatureHoldout,
-  revisionStatusSchema,
+  revisionStatusFilterSchema,
   apiRevisionRampAction,
 } from "./features";
 import { namedSchema } from "./openapi-helpers";
@@ -113,15 +115,15 @@ export const apiFeatureRevisionV2Validator = namedSchema(
         )
         .optional(),
       envPrerequisites: z
-        .record(z.string(), z.array(apiRevisionPrerequisite))
+        .record(z.string(), z.array(apiRevisionPrerequisiteV2))
         .describe(
           "Per-environment prerequisites captured in this revision (only present when prerequisite gating is enabled)",
         )
         .optional(),
       prerequisites: z
-        .array(apiRevisionPrerequisite)
+        .array(apiRevisionPrerequisiteV2)
         .describe(
-          "Feature-level prerequisites captured in this revision (only present when prerequisite gating is enabled)",
+          "Feature-level prerequisites captured in this revision. Each entry is a boolean flag ID that must evaluate to true for this flag to be active for a given user.",
         )
         .optional(),
       metadata: apiRevisionMetadata.optional(),
@@ -149,7 +151,7 @@ export const apiFeatureV2Validator = namedSchema(
       dateCreated: z.string().meta({ format: "date-time" }),
       dateUpdated: z.string().meta({ format: "date-time" }),
       archived: z.boolean(),
-      description: z.string(),
+      description: z.string().max(MAX_DESCRIPTION_LENGTH),
       owner: ownerInputField,
       project: z.string(),
       valueType: z.enum(["boolean", "string", "number", "json"]),
@@ -258,7 +260,7 @@ const apiScheduleRule = z.object({
 });
 
 const v2RuleForceBase = z.object({
-  description: z.string().optional(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   condition: z.string().optional(),
   savedGroupTargeting: z.array(postFeatureSavedGroupTargeting).optional(),
   prerequisites: z.array(postFeaturePrerequisite).optional(),
@@ -270,7 +272,7 @@ const v2RuleForceBase = z.object({
 });
 
 const v2RuleRolloutBase = z.object({
-  description: z.string().optional(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   condition: z.string().optional(),
   savedGroupTargeting: z.array(postFeatureSavedGroupTargeting).optional(),
   prerequisites: z.array(postFeaturePrerequisite).optional(),
@@ -285,7 +287,7 @@ const v2RuleRolloutBase = z.object({
 });
 
 const v2RuleExperimentRefBase = z.object({
-  description: z.string().optional(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   id: z.string().optional(),
   enabled: z.boolean().optional(),
   type: z.literal("experiment-ref"),
@@ -306,7 +308,7 @@ const v2RuleExperimentRefBase = z.object({
 // at an existing safe-rollout on the same feature. The handler rejects any
 // safeRolloutId that isn't already on the feature.
 const v2RuleSafeRolloutBase = z.object({
-  description: z.string().optional(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   id: z.string().optional(),
   enabled: z.boolean().optional(),
   type: z.literal("safe-rollout"),
@@ -348,8 +350,12 @@ export const postFeatureBodyV2 = z
         "A unique key name for the feature. Feature keys can only include letters, numbers, hyphens, and underscores.",
       ),
     archived: z.boolean().optional(),
-    description: z.string().describe("Description of the feature").optional(),
-    owner: ownerInputField,
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe("Description of the feature")
+      .optional(),
+    owner: optionalOwnerInputField,
     project: z.string().describe("An associated project ID").optional(),
     valueType: z
       .enum(["boolean", "string", "number", "json"])
@@ -389,7 +395,11 @@ export const postFeatureBodyV2 = z
 // ---- V2 UpdateFeaturePayload ----
 export const updateFeatureBodyV2 = z
   .object({
-    description: z.string().describe("Description of the feature").optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe("Description of the feature")
+      .optional(),
     archived: z.boolean().optional(),
     project: z.string().describe("An associated project ID").optional(),
     owner: ownerInputField.optional(),
@@ -452,6 +462,9 @@ export const listFeaturesV2Validator = {
         .string()
         .describe("Filter by a SDK connection's client key")
         .optional(),
+      archived: booleanQueryField.describe(
+        "Whether to include archived features. Defaults to `false` (non-archived only). Pass `true` to include archived features alongside non-archived ones.",
+      ),
       ...skipPaginationQueryField,
     })
     .strict(),
@@ -607,8 +620,11 @@ export const getFeatureRevisionsV2Validator = {
     .object({
       ...paginationQueryFields,
       ...skipPaginationQueryField,
-      status: revisionStatusSchema.optional(),
+      status: revisionStatusFilterSchema,
       author: z.string().optional(),
+      mine: booleanQueryField.describe(
+        "If true, return only revisions authored by or contributed to by the calling user. Requires a user-scoped API key. Mutually exclusive with `author`.",
+      ),
     })
     .strict(),
   paramsSchema: idParams,
