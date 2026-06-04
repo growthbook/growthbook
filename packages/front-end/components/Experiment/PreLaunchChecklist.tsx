@@ -848,7 +848,7 @@ export type PreLaunchChecklistProps = {
   collapsible?: boolean;
 };
 
-export function PreLaunchChecklist({
+function PreLaunchChecklist({
   experiment,
   linkedFeatures,
   visualChangesets,
