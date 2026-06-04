@@ -120,7 +120,7 @@ Uploaded and AI-generated images are stored in GrowthBook's image storage bucket
 A few specifics:
 
 - **Permanent storage** (accepted into a variation) lives at `<orgId>/visual-editor/`.
-- **Quarantine storage** (AI candidates not yet accepted) lives at `gen/<orgId>/visual-editor/` and is auto-reaped after 7 days.
+- **Quarantine storage** (AI candidates not yet accepted) lives at `gen/<orgId>/visual-editor/` and is auto-cleared after 7 days.
 - **Cross-org isolation** — the library API only returns objects under your org's prefix. Other organizations' images are never visible.
 - **Image URLs are public** in the sense that anyone with the URL can fetch the image. Don't AI-generate images containing sensitive information.
 

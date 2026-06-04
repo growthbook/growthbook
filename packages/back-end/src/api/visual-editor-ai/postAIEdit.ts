@@ -104,6 +104,18 @@ const bodySchema = z
     visualChangesetId: z.string(),
     domDigest: domDigestSchema.optional(),
     conversationHistory: z.array(conversationTurnSchema).max(12).optional(),
+    // BCP-47 primary subtag from the side panel's i18n resolver. We
+    // accept a relaxed shape (2-8 chars, optional region suffix) so
+    // future locale additions don't need a back-end schema change.
+    // When present and not English, the system prompt asks the model
+    // to write its `explanation` field in that language. Mutations,
+    // CSS, and JS are language-neutral and unaffected.
+    locale: z
+      .string()
+      .min(2)
+      .max(10)
+      .regex(/^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})?$/)
+      .optional(),
   })
   .strict();
 
@@ -408,6 +420,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     visualChangesetId,
     domDigest,
     conversationHistory,
+    locale,
   } = req.body;
 
   const context = req.context;
@@ -483,9 +496,19 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     context,
     true,
   );
-  const effectiveInstructions = visualEditorAIContext
+  let effectiveInstructions = visualEditorAIContext
     ? `${instructions}\n\nAdditional brand guidelines / context provided by the organization (these MUST be respected unless they conflict with the JSON output schema):\n${visualEditorAIContext}`
     : instructions;
+
+  // Localized explanation. When the user has set a non-English locale in
+  // the side panel's language picker, ask the model to write its prose
+  // output (`explanation`) in that language. Mutations, CSS, and JS are
+  // language-neutral so they stay as-is. We only act when the locale is
+  // present AND non-English — null/missing means "no preference, model
+  // default (English)" which keeps existing behavior for old clients.
+  if (locale && !locale.toLowerCase().startsWith("en")) {
+    effectiveInstructions = `${effectiveInstructions}\n\nLanguage:\n- The user's interface is set to locale "${locale}". Write the \`explanation\` field in that language (the natural language the user reads on screen).\n- Keep the JSON keys, selectors, attribute names, mutation actions ("set"/"append"/"remove"), CSS, JS, and any code identifiers in English — only the explanation prose is localized.`;
+  }
 
   const runModel = async (retryHint?: string) =>
     parsePrompt({

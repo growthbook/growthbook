@@ -19,9 +19,14 @@ These docs cover the current side-panel Visual Editor. If you're still on an old
 
 The GrowthBook Visual Editor is a Chrome side panel that lets you design A/B tests on a live website — change copy, swap images, tweak styles, even generate new variations with AI — and then ship those variations to production through your existing GrowthBook SDK. No code changes, no rebuilds, no separate staging site.
 
-<MaxWidthImage maxWidth={500}>
-![The GrowthBook Visual Editor side panel](/images/visual-editor-ui.png)
-</MaxWidthImage>
+<div style={{display: 'flex', gap: '16px', flexWrap: 'wrap'}}>
+  <MaxWidthImage maxWidth={300}>
+    ![The GrowthBook Visual Editor side panel](/images/visual-editor/ve-ai-main.png)
+  </MaxWidthImage>
+  <MaxWidthImage maxWidth={300}>
+    ![The GrowthBook Visual Editor side panel manual](/images/visual-editor/ve-manual-main.png)
+  </MaxWidthImage>
+</div>
 
 You can test virtually any change you can make to a page — and because the Visual Editor leads with AI, you don't have to think in CSS selectors or hand-edit code to get there. Describe the variation you want in plain English ("make the hero headline more urgent and the primary button green") and the editor generates the changes for you. That makes it uniquely approachable for product managers, marketers, designers, and anyone else who shouldn't have to write code to ship an experiment.
 
@@ -37,7 +42,7 @@ With heavily client-side rendered apps (e.g., complex React, Vue, Svelte apps th
 
 ## How it works
 
-1. **Install** the [GrowthBook DevTools extension](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) and open the side panel.
+1. **Install** the [GrowthBook Visual Editor Extension](https://chrome.google.com/webstore/detail/FIX THIS) and open the side panel.
 2. **Connect** it to your GrowthBook account with a Personal Access Token.
 3. **Edit** your live site — describe a variation in plain English (AI mode), or point and click (Manual mode).
 4. **Preview** with a single-click preview link, then publish through your existing SDK.
@@ -46,10 +51,8 @@ See [Install and connect](/app/visual/install-and-connect) for the full first-ti
 
 ## Requirements
 
-- A Chromium-based browser (Chrome, Edge, Brave, Arc) with the [GrowthBook DevTools extension](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) installed.
-- A GrowthBook account and a Personal Access Token.
-- The application you want to test on **must be a front-end web application viewed in a browser**. The Visual Editor does not work for native mobile apps (iOS, Android, React Native) or desktop apps (e.g., Electron). For those platforms, use [Feature Flags](/app/features) instead.
-- One of GrowthBook's client-side or edge SDKs integrated into your site: [Script Tag](/lib/script-tag), [JavaScript](/lib/js), [ReactJS](/lib/react), or an [Edge SDK](/lib/edge/cloudflare).
+- A Chromium-based browser (Chrome, Edge, Brave, Arc) with the [GrowthBook Visual Editor extension](https://chrome.google.com/webstore/detail/growthbook-devtools/FIX) installed.
+- One of GrowthBook's client-side or Edge SDKs integrated into your site: [Script Tag](/lib/script-tag), [JavaScript](/lib/js), [ReactJS](/lib/react), or an [Edge SDK](/lib/edge/cloudflare).
 
 ### Allow Visual Experiments on the SDK Connection
 
@@ -83,6 +86,12 @@ AI mode is the fastest way to:
 
 See [AI mode](/app/visual/ai-mode) for prompting tips, model selection, and how acceptance works.
 
+:::info AI Mode
+
+In order to enable AI mode, you must enable AI features from the GrowthBook Settings -> General -> AI Settings page.
+
+:::
+
 ### Manual mode — point and click
 
 Click any element on the page and you get a structured editor for its content, typography, background and border, spacing, and visibility. It's the right choice when you know exactly what you want to change and you want pixel-level control.
@@ -103,12 +112,11 @@ See [Manual mode](/app/visual/manual-mode) for the full reference.
 
 To create a new visual experiment:
 
-1. In the GrowthBook UI, click **Experiments** in the left nav and create a new experiment.
-2. Choose **Design with the Visual Editor**.
-3. Fill in the experiment basics (hypothesis, variation names, goal metrics). All of these can be changed later.
-4. When prompted, open the Visual Editor — the side panel will load and target the URL you provide.
-
-You can also create or open an experiment from inside the extension itself once you're connected — useful when you're already browsing the page you want to test.
+1. Navigate to the page you want to test in your browser.
+2. Open the GrowthBook side panel and click **Create Experiment**.
+3. Select the targeting URL rules, choose your randomization unit, add a hypothesis (optional), and click **Create**.
+4. Now edit the page. Updates will automatically be saved.
+5. Click "done" or return to the GrowthBook UI when you're ready to start the experiment.
 
 ### URL Targeting
 

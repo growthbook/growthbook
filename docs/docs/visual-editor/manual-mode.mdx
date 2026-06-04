@@ -26,8 +26,18 @@ Switch to the **Manual** tab in the side panel. With the panel open, hover any e
 A sticky bar at the top of the side panel shows what's currently selected (its tag, classes, and a short selector path). You can:
 
 - **Pick a different element** — click another element on the page, or click the picker icon in the sticky bar.
-- **Drill up or down** — use the parent/child controls in the sticky bar to navigate to ancestor or child elements.
-- **Deselect** — click outside the page or hit the X in the sticky bar.
+- **Navigate nearby** — use the "tree" icon to navigate to nearby elements. See below
+- **Deselect** — click the x on the right side of the selected bar or pick another element to deselect the current one.
+
+### Detailed Selector
+
+<MaxWidthImage maxWidth={300}>
+  ![The GrowthBook Visual Editor detailed selector](/images/visual-editor/ve-detailed-selector.png)
+</MaxWidthImage>
+
+Sometimes clicking on an element selects a parent or child instead of the one you want. In that case, use the sticky bar's
+selector path to select the exact element. The path shows the current element and its parent elements, sibling elements, and
+children. Hover over the path to see it selected on the page.
 
 ## Property groups
 
@@ -35,15 +45,43 @@ Once you've selected an element, the panel fills with collapsible property group
 
 ### Content
 
+<div style={{display: 'flex', gap: '16px', flexWrap: 'wrap'}}>
+  <MaxWidthImage maxWidth={300}>
+    ![The GrowthBook Visual Editor HTML options](/images/visual-editor/ve-text-editor.png)
+  </MaxWidthImage>
+  <MaxWidthImage maxWidth={300}>
+    ![The GrowthBook Visual Editor HTML editor](/images/visual-editor/ve-text-editor-html.png)
+  </MaxWidthImage>
+</div>
+
 Edit what the element actually says and links to:
 
 - **Inner HTML** — change the visible text or markup inside the element. Multiline-supported.
-- **Attributes** — any HTML attribute, most commonly `href` on links, `alt` on images, `aria-label` on buttons.
-- **CSS classes** — add or remove classes. Useful if your site has a utility-class system and you just want to swap variants ("`btn-primary` → `btn-secondary`").
 
-For images specifically, see [Images](/app/visual/images) — the Content group on an `<img>` element includes a richer image-replace flow.
+If the selected element has HTML inside of it, you'll be presented with two modes for editing content: edit as text and flatten the HTML, or edit as HTML.
+
+### Links
+
+<MaxWidthImage maxWidth={400}>
+  ![The GrowthBook Visual Editor Link Editor](/images/visual-editor/ve-link-editor.png)
+</MaxWidthImage>
+
+If the selected element is a link (`<a>`), you'll get additional controls for editing the URL and link behavior. It will
+let you set the `href`, and the option to open in a new tab (`target="_blank"`). If the link opens in a new tab, it will add `rel="noopener noreferrer"` attribute for security.
+
+### Classes
+
+<MaxWidthImage maxWidth={400}>
+  ![The GrowthBook Visual Editor Class Editor](/images/visual-editor/ve-class-editor.png)
+</MaxWidthImage>
+
+The **Classes** field shows the element's current classes and allows you to add or remove classes. This is a quick way to apply existing styles from your CSS without needing to copy individual properties.
 
 ### Typography
+
+<MaxWidthImage maxWidth={400}>
+  ![The GrowthBook Visual Editor Typography editor](/images/visual-editor/ve-typeography.png)
+</MaxWidthImage>
 
 Controls for text styling:
 
@@ -59,6 +97,10 @@ Alignment and text decoration share a single row to keep the panel compact.
 
 ### Background & Border
 
+<MaxWidthImage maxWidth={400}>
+  ![The GrowthBook Visual Editor Background and Border](/images/visual-editor/ve-background-borders.png)
+</MaxWidthImage>
+
 For containers, cards, and any visually styled element:
 
 - **Background color** — color picker with a clear option
@@ -66,57 +108,24 @@ For containers, cards, and any visually styled element:
 - **Border** — width, style (solid / dashed / dotted / none), and color. The color swatch is positioned so the native color picker doesn't render off-screen for elements near the right edge of the viewport.
 - **Box shadow** — None / Small / Medium / Large presets. The presets follow common design-system scales; for custom shadows, use Global CSS.
 
-### Spacing
-
-A concentric padding/margin editor. The visual metaphor is the CSS box model: the inner block is the element, the next ring is padding, and the outermost band is margin.
+### Layout
 
 <MaxWidthImage maxWidth={400}>
-![Spacing control concentric box model](/images/visual-editor-ui.png)
+  ![The GrowthBook Visual Editor Background and Border](/images/visual-editor/ve-layout.png)
 </MaxWidthImage>
 
-Each of the four sides for padding and the four sides for margin has its own field. Interactions:
+The Layout group includes controls for choosing the display mode and adjusting spacing with padding and margin editors.
 
-- **Type a value** — click any field and type a number, then pick a unit.
-- **Drag to scrub** — click and drag horizontally over a value to scrub it up or down (similar to Figma).
-- **Arrow keys** — focus a field and press up/down to nudge by 1; shift+up/down nudges by 10.
-- **Link mode** — top-right toggle to link all four sides together, link only the axis (top/bottom or left/right), or unlink. When linked, changing one side changes all linked sides.
-- **Center horizontally** — the ↔ **Center** quick action sets `margin-left: auto` and `margin-right: auto` in one click (used for centering fixed-width elements inside a flex/block parent).
-- **`auto` values** — type `auto` into any margin field to set it explicitly.
+- **Display type** — choose between `block`, `inline-block`, `inline`, `flex`, `grid`, and `none`. Setting to `none` is a quick way to hide an element without removing it from the DOM.
+- **spacing** — click and drag horizontally over a value to scrub it up or down (similar to Figma) for padding and margin.
+- **Width & Height** — Select the width, max-width, height and max-height for your element. With unit selectors. Setting to `auto` removes the mutation.
 
 Manual mode writes per-side longhands (`padding-top`, `margin-right`, etc.) and clears any shorthand `padding`/`margin` declaration, so the CSS cascade behaves predictably.
 
 ### Visibility
 
+- **Hide this element** — a quick toggle that sets `display: none`.
 - **Opacity** — slider from 0% to 100% plus a number input. Setting to 100% removes the mutation (no point keeping `opacity: 1` on the element).
-- **Display** — `block` / `inline-block` / `inline` / `flex` / `grid` / `none`. Useful for hiding an element from a variation without removing it from the DOM.
-
-## Drag and drop
-
-With an element selected, a drag handle appears at the corner. Drag it to move the element to a different position on the page.
-
-- A blue line shows the target drop position as you hover over candidate drop zones.
-- Release to commit; an **Undo** affordance appears on the moved element so you can revert the position change without losing other style changes.
-- Alternatively, click anywhere on the selected element to start a drag without using the handle.
-
-Drag and drop works best inside containers that use normal block or flex flow. Absolutely positioned elements (`position: absolute`, `fixed`) are repositioned with explicit `top`/`left` offsets rather than DOM reordering.
-
-## Change list
-
-The bottom of the side panel shows a collapsible **Changes** panel that lists every change in the current variation:
-
-- Each row shows the change kind (text, style, image, layout, etc.), the target selector, and a one-line summary.
-- Hover a row to highlight the affected element on the page.
-- Click a row to jump back to that element with the relevant property group expanded.
-- Each row has a **Revert** action to drop just that change while keeping the rest of the variation.
-
-Reverting an image change also clears any related `srcset` and `<picture>`-source removals the editor added when applying the swap, so the original image is fully restored.
-
-## Switching variations
-
-Above the property groups is a variation switcher. Switch between control, variant 1, variant 2, etc. The Changes panel updates to show changes for the active variation.
-
-- The **control** is read-only — you can browse changes (there shouldn't be any) but not edit.
-- Use the **+** button next to the variation tabs to add a new variant to the experiment.
 
 ## Global CSS and Custom JavaScript
 
@@ -162,11 +171,27 @@ waitFor(".my-element").then((el) => {
 
 Custom JS requires extra CSP changes on your site — see [Deploying to Production → CSP](/app/visual#content-security-policy-csp-changes) on the landing page.
 
+## Change list
+
+The bottom of the side panel shows a collapsible **Changes** panel that lists every change in the current variation:
+
+- Each row shows the change kind (text, style, image, layout, etc.), the target selector, and a one-line summary.
+- Hover a row to highlight the affected element on the page.
+- Click a row to jump back to that element with the relevant property group expanded.
+- Each row has a **Revert** action to drop just that change while keeping the rest of the variation.
+
+Reverting an image change also clears any related `srcset` and `<picture>`-source removals the editor added when applying the swap, so the original image is fully restored.
+
+## Switching variations
+
+At the top of the sidebar is a variation switcher. Switch between control, variant 1, variant 2, etc. The Changes panel updates to show changes for the active variation.
+
+- The **control** is read-only — you can browse changes (there shouldn't be any) but not edit.
+- Use the **+** button next to the variation tabs to add a new variant to the experiment.
+
 ## Finishing up
 
-When you're satisfied with the variation, click **Save variant** in the footer. Repeat for any additional variants in the experiment.
-
-Once all variations are saved, head back to GrowthBook to add the rest of the experiment configuration (audience targeting, metrics, traffic split) and start the experiment. While it's still a draft, use [preview links](/app/visual/preview-and-qa) to QA each variation on a real browser.
+Changes to your experiment are automatically saved to GrowthBook. When you're satisfied with the variants, click **Done** in the footer to return to GrowthBook. Once there you can manually edit the rules, and start/stop the experiment.
 
 ## Next steps
 
