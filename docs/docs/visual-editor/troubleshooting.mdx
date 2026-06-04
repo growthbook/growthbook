@@ -18,10 +18,11 @@ If your issue isn't here, the **Debug Panel** in the Visual Editor (see [Preview
 
 By far the most common issue. The fix is almost always one of:
 
-1. **`Include Visual Experiments` toggle is off** on the SDK Connection. Visual experiments are stripped from the SDK payload unless this is enabled. Go to **SDK Configuration → SDK Connections**, edit the connection your site uses, and turn it on.
-2. **The SDK isn't loaded yet** when the variation tries to render. Custom JS variations need to wait for the target element — use the `waitFor` helper from [Manual mode → Custom JavaScript](/app/visual/manual-mode#custom-javascript).
-3. **URL targeting doesn't match.** The current URL doesn't satisfy the experiment's URL targeting rule. Check the rule and verify with the Debug Panel.
-4. **The experiment is still a draft** and the SDK Connection doesn't have **Include Drafts** enabled. Draft experiments aren't delivered by default.
+1. **Refresh the page** Sometimes the visual editor's changes don't apply until a hard reload (Cmd-Shift-R) to bust the cache, especially if you had the page open while making changes in GrowthBook.
+2. **`Include Visual Experiments` toggle is off** on the SDK Connection. Visual experiments are stripped from the SDK payload unless this is enabled. Go to **SDK Configuration → SDK Connections**, edit the connection your site uses, and turn it on.
+3. **The SDK isn't loaded yet** when the variation tries to render. Custom JS variations need to wait for the target element — use the `waitFor` helper from [Manual mode → Custom JavaScript](/app/visual/manual-mode#custom-javascript).
+4. **URL targeting doesn't match.** The current URL doesn't satisfy the experiment's URL targeting rule. Check the rule and verify with the Debug Panel.
+5. **The experiment is still a draft** and the SDK Connection doesn't have **Include Drafts** enabled. Draft experiments aren't delivered by default.
 
 ## Preview link returns the control
 
@@ -76,21 +77,6 @@ If all three are in place and AI mode is still unavailable, hard-reload the side
 - **Test the API from `curl` first** with `Authorization: Bearer <PAT>`. If `curl` fails, the host or token is the problem. If `curl` works but the extension doesn't, your browser's network environment (proxy, VPN, split-DNS) is blocking extension requests.
 - **CORS** — your API host's CORS configuration must allow the extension's origin. The extension uses `chrome-extension://<extension-id>` as its origin.
 
-## Dark mode UI is light (or vice versa)
-
-The side panel's theme can be toggled in the gear menu. If it's stuck:
-
-- **Reload the side panel.** Right-click in the side panel → Reload.
-- **Reinstall the extension** if the theme persists across reloads. The theme is stored in extension local storage; reinstalling clears it.
-
-The side-panel theme is independent of your GrowthBook web UI theme — they don't sync.
-
-## Drag and drop didn't reposition the element
-
-- **Drop target wasn't valid.** Look for the blue drop indicator. If you don't see one as you drag, you're hovering over a region that isn't a valid drop zone.
-- **Absolutely-positioned elements** (`position: absolute`, `fixed`) are repositioned with explicit offsets rather than DOM moves. The "Undo" affordance reverts the offsets.
-- **Container has `display: contents` or other unusual layout** — drag targets need a real layout to anchor to.
-
 ## "Wrong domain" banner won't go away
 
 The Visual Editor scopes itself to the URL you set when creating the experiment. If you've moved to a different domain in the active tab, changes are paused intentionally.
@@ -110,8 +96,6 @@ Your Personal Access Token's user account doesn't have permission to edit this e
 - **Project permissions.** Your user role might be limited to a subset of projects, and this experiment lives in a different one.
 - **Experiment ownership.** Some orgs restrict editing to experiment owners or members of the assigned team.
 - **PAT scope.** Re-create the PAT if it was generated under an older account state.
-
-See [Permissions](/account/permissions) for the full permission model.
 
 ## Still stuck?
 
