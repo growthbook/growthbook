@@ -137,7 +137,7 @@ export default function AnalysisSettings({
   const isBandit = experiment.type === "multi-armed-bandit";
   const isHoldout = experiment.type === "holdout";
 
-  const isAnalysisSettingsEmpty =
+  const collapseAnalysisSettings =
     !isBandit &&
     !datasource &&
     !assignmentQuery &&
@@ -145,7 +145,8 @@ export default function AnalysisSettings({
     !secondary.length &&
     !guardrails.length &&
     !experiment.activationMetric &&
-    !experiment.segment;
+    !experiment.segment &&
+    !isPublic;
 
   return (
     <>
@@ -166,7 +167,7 @@ export default function AnalysisSettings({
       <Frame>
         <div
           className={`d-flex flex-row align-items-center justify-content-between text-dark${
-            isAnalysisSettingsEmpty ? "" : " mb-4"
+            collapseAnalysisSettings ? "" : " mb-4"
           }`}
         >
           <Heading color="text-high" as="h4" size="small" mb="0">
@@ -185,7 +186,7 @@ export default function AnalysisSettings({
           ) : null}
         </div>
 
-        {!isAnalysisSettingsEmpty && (
+        {!collapseAnalysisSettings && (
           <>
             {!isPublic && (
               <div className="row">

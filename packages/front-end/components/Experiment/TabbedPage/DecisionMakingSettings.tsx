@@ -105,7 +105,7 @@ export default function DecisionMakingSettings({
   const isBandit = experiment.type === "multi-armed-bandit";
   const isHoldout = experiment.type === "holdout";
 
-  if (!hasDecisionFramework || isBandit || isHoldout || isPublic) {
+  if (!hasDecisionFramework || isBandit || isHoldout) {
     return null;
   }
 
@@ -167,7 +167,7 @@ export default function DecisionMakingSettings({
                 <Text color="text-mid">--</Text>
               )}
             </Box>
-            {canEditDecisionSettings ? (
+            {canEditDecisionSettings && !isPublic ? (
               <Box mt="1">
                 <Link
                   onClick={() => {
@@ -193,7 +193,7 @@ export default function DecisionMakingSettings({
                   setDecisionCriteriaModal(true);
                 }}
               >
-                {canEditDecisionSettings ? "View/Edit" : "View"}
+                {canEditDecisionSettings && !isPublic ? "View/Edit" : "View"}
               </Link>
             </Box>
           </Box>
