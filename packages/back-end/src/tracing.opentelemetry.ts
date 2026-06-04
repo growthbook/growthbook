@@ -41,7 +41,7 @@ import { setMetrics, Attributes } from "./util/metrics";
 
 const envLevel = (process.env.OTEL_LOG_LEVEL ?? "").toUpperCase();
 const logLevel =
-  envLevel in DiagLogLevel
+  envLevel in DiagLogLevel && isNaN(Number(envLevel))
     ? DiagLogLevel[envLevel as keyof typeof DiagLogLevel]
     : DiagLogLevel.INFO;
 diag.setLogger(new DiagConsoleLogger(), logLevel);
