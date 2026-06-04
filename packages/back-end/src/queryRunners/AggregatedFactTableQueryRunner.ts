@@ -128,21 +128,8 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
         true,
       );
 
-    // TODO(aggregated-fact-tables): remove debug logging before merging
-    this.context.logger.info(
-      {
-        factTableId: factTable.id,
-        idType,
-        mode,
-        tableFullName,
-        existingTableFullName: aggregatedFactTable.tableFullName,
-        lastMaxTimestamp: aggregatedFactTable.lastMaxTimestamp,
-        metricCount: metrics.length,
-        metricIds: metrics.map((m) => m.id),
-      },
-      "[aggregated-fact-table] startQueries",
-    );
-
+    // The driver owns mode resolution (first-run, drift, incomplete-write, and
+    // explicit restate all decided there); the runner just executes it.
     const queries: Queries = [];
 
     let dropQuery: QueryPointer | null = null;
@@ -199,17 +186,6 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
     const exclusiveStart =
       mode === "incremental" && !!aggregatedFactTable.lastMaxTimestamp;
 
-    // TODO(aggregated-fact-tables): remove debug logging before merging
-    this.context.logger.info(
-      {
-        factTableId: factTable.id,
-        idType,
-        windowStartDate,
-        exclusiveStart,
-      },
-      "[aggregated-fact-table] computed insert window",
-    );
-
     const insertQuery = await this.startQuery({
       name: "insert_aggregated_fact_table_data",
       displayTitle: `Update Aggregated Fact Table (${factTable.name} / ${idType})`,
@@ -229,16 +205,6 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
           queryMetadata,
         ),
       onSuccess: async () => {
-        // TODO(aggregated-fact-tables): remove debug logging before merging
-        this.context.logger.info(
-          {
-            factTableId: factTable.id,
-            idType,
-            tableFullName,
-            metricStateCount: metricState.length,
-          },
-          "[aggregated-fact-table] insert query succeeded, persisting metric state",
-        );
         const lockHeld =
           await this.context.models.aggregatedFactTables.updateByKeyIfCurrentExecution(
             this.getKey(),
@@ -323,17 +289,6 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
     });
     queries.push(maxTimestampQuery);
 
-    // TODO(aggregated-fact-tables): remove debug logging before merging
-    this.context.logger.info(
-      {
-        factTableId: factTable.id,
-        idType,
-        queryCount: queries.length,
-        queryNames: queries.map((q) => q.name),
-      },
-      "[aggregated-fact-table] queued queries",
-    );
-
     return queries;
   }
 
@@ -341,16 +296,6 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
     const query = queryMap.get(MAX_TIMESTAMP_QUERY_NAME);
     const row = (query?.result as Record<string, unknown>[] | undefined)?.[0];
     const result = parseAggregatedFactTableCoverage(row);
-    // TODO(aggregated-fact-tables): remove debug logging before merging
-    this.context.logger.info(
-      {
-        modelId: this.model.id,
-        factTableId: this.model.factTableId,
-        idType: this.model.idType,
-        coverage: result,
-      },
-      "[aggregated-fact-table] runAnalysis parsed coverage",
-    );
     return result;
   }
 
@@ -385,21 +330,6 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
       null;
 
     const isTerminal = status !== "running" && status !== "queued";
-
-    // TODO(aggregated-fact-tables): remove debug logging before merging
-    this.context.logger.info(
-      {
-        runId: this.model.id,
-        aggregatedFactTableId: this.model.aggregatedFactTableId,
-        factTableId: this.model.factTableId,
-        idType: this.model.idType,
-        status,
-        queryCount: queries.length,
-        hasResult: !!result,
-        error: error ?? null,
-      },
-      "[aggregated-fact-table] updateModel",
-    );
 
     // Per-run state lives on the run doc.
     const runUpdates: UpdateProps<AggregatedFactTableRunInterface> = {

@@ -38,23 +38,8 @@ export default async function (agenda: Agenda) {
   agenda.define(QUEUE_AGGREGATED_FACT_TABLE_UPDATES, async () => {
     const factTables = await getAllFactTablesWithAggregatedTablesEnabled();
 
-    // TODO(aggregated-fact-tables): remove debug logging before merging
-    logger.info(
-      { factTableCount: factTables.length },
-      "[aggregated-fact-table] poller found fact tables with aggregated tables enabled",
-    );
-
     for (const factTable of factTables) {
       for (const idType of factTable.aggregatedFactTableIdTypes ?? []) {
-        // TODO(aggregated-fact-tables): remove debug logging before merging
-        logger.info(
-          {
-            organization: factTable.organization,
-            factTableId: factTable.id,
-            idType,
-          },
-          "[aggregated-fact-table] poller enqueuing worker",
-        );
         await queueAggregatedFactTableUpdate({
           organization: factTable.organization,
           factTableId: factTable.id,
@@ -160,20 +145,9 @@ const updateSingleAggregatedFactTable = async (
 
   if (!organization || !factTableId || !idType) return;
 
-  // TODO(aggregated-fact-tables): remove debug logging before merging
-  logger.info(
-    { organization, factTableId, idType, forceRestate: !!forceRestate },
-    "[aggregated-fact-table] worker started",
-  );
-
   const context = await getContextForAgendaJobByOrgId(organization);
 
   if (!context.hasPremiumFeature("pipeline-mode")) {
-    // TODO(aggregated-fact-tables): remove debug logging before merging
-    logger.info(
-      { organization, factTableId, idType },
-      "[aggregated-fact-table] worker skipped: no pipeline-mode premium feature",
-    );
     return;
   }
 
@@ -182,11 +156,6 @@ const updateSingleAggregatedFactTable = async (
 
   // The setting may have been removed for this id type since the job was queued
   if (!factTable.aggregatedFactTableIdTypes?.includes(idType)) {
-    // TODO(aggregated-fact-tables): remove debug logging before merging
-    logger.info(
-      { organization, factTableId, idType },
-      "[aggregated-fact-table] worker skipped: id type no longer enabled",
-    );
     return;
   }
 
@@ -234,19 +203,6 @@ export async function runAggregatedFactTableUpdate(
     return;
   }
 
-  // TODO(aggregated-fact-tables): remove debug logging before merging
-  logger.info(
-    {
-      factTableId: factTable.id,
-      idType,
-      datasourceId: datasource.id,
-      mode: forceRestate ? "restate" : "incremental",
-      metricCount: metrics.length,
-      metricIds: metrics.map((m) => m.id),
-    },
-    "[aggregated-fact-table] driver selected metrics, acquiring lock",
-  );
-
   const key = {
     datasourceId: datasource.id,
     factTableId: factTable.id,
@@ -264,12 +220,6 @@ export async function runAggregatedFactTableUpdate(
     );
     return;
   }
-
-  // TODO(aggregated-fact-tables): remove debug logging before merging
-  logger.info(
-    { factTableId: factTable.id, idType, executionId },
-    "[aggregated-fact-table] lock acquired, starting query runner",
-  );
 
   const registry = await context.models.aggregatedFactTables.getByKey(key);
   if (!registry) {
