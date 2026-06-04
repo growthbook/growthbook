@@ -1871,13 +1871,9 @@ export const getExperimentSnapshotValidator = {
   path: "/snapshots/:id",
 };
 
-// The legacy `/experiments/:id/contextual-bandit/*` validators
-// (postContextualBanditRefresh, getContextualBanditCurrent,
-// getContextualBanditSnapshots/Snapshot, getContextualBanditEvents/Event,
-// getContextualBanditResults, putContextualBanditPhase) lived here through
-// PR-8 Commits 2-5. PR-8 Commit 6 removed the handler files in
-// `back-end/src/api/experiments/contextual-bandit/`, the router entries
-// that wired them up, and these validators alongside them. The CB-native
-// surface at `/api/v1/contextual-bandits/*` (validators under
-// `shared/src/validators/contextual-bandit.ts`) is the only external
-// REST entry point for CBs from this commit onwards.
+// Legacy nested Contextual Bandit validators (postCbRefresh, getCbCurrent,
+// getCbSnapshots/Snapshot, getCbEvents/Event, getCbResults, putCbPhase)
+// lived here through PR-8 Commits 2-5. PR-8 Commit 6 removed the
+// experiment-nested handler files, the router entries that wired them up,
+// and these validators alongside them. CB-native validators now live in
+// their own module under `validators/`.

@@ -416,8 +416,8 @@ export function buildContextualBanditSnapshotSettings(
  *
  * The source of `banditIsContextual` is the CB snapshot doc — CB-typed
  * experiments no longer exist post-PR-8, so this flag is sourced
- * exclusively from the CB orchestrator and never from
- * `ExperimentInterface`.
+ * exclusively from the CB orchestrator and never from the experiment
+ * interface.
  */
 export function buildSnapshotMetricRequestForCb(
   cbSnapshotSettings: ContextualBanditSnapshotSettings,
