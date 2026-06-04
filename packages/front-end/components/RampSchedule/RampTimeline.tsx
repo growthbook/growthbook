@@ -562,8 +562,11 @@ function completedNodeCount(rs: RampScheduleInterface): number {
   const dual = hasDualEndNodes(rs);
   const extra = dual ? 1 : 0;
   if (rs.status === "completed") {
-    // If dual end nodes and the cutoff date is still in the future, the
-    // disable node was never reached — don't mark it as completed.
+    // When dual end nodes exist and the cutoff date hasn't passed, the
+    // disable node wasn't naturally reached by the scheduler. We can't
+    // distinguish "complete without disable" from "complete and disable"
+    // from the schedule data alone, so we conservatively show the disable
+    // node as not-yet-completed until the cutoff passes.
     if (dual && rs.cutoffDate && new Date(rs.cutoffDate) > new Date()) {
       return rs.steps.length + 2;
     }
