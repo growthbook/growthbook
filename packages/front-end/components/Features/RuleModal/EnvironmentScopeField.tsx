@@ -76,9 +76,7 @@ export default function RuleEnvironmentScopeField({
       <RadioGroup
         value={allEnvironments ? "all" : "specific"}
         setValue={(v) => {
-          const next = v === "all";
-          setAllEnvironments(next);
-          if (next) setSelectedEnvironments([]);
+          setAllEnvironments(v === "all");
         }}
         gap="0"
         options={[
