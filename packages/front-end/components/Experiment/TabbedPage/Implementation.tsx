@@ -27,6 +27,7 @@ import Link from "@/ui/Link";
 import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
 import Checkbox from "@/ui/Checkbox";
+import Heading from "@/ui/Heading";
 import HoldoutEnvironments from "./HoldoutEnvironments";
 
 export interface Props {
@@ -146,7 +147,9 @@ export default function Implementation({
         />
       )}
       <div className="my-4">
-        <h2>Implementation</h2>
+        <Heading as="h2" size="large" color="text-high" mb="2">
+          Implementation
+        </Heading>
         <TrafficAndTargeting
           experiment={experiment}
           editTraffic={

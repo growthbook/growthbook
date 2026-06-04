@@ -104,9 +104,8 @@ function LinkedChangeSection({
           <Icon />
         </Avatar>
         <Text weight="semibold" color="text-high">
-          {header}
+          {countLabel ?? count} {count > 1 ? header : header.slice(0, -1)}
         </Text>
-        <Text color="text-mid">{countLabel ?? count}</Text>
       </Flex>
       <Box pl="7">{children}</Box>
     </Flex>
@@ -317,7 +316,7 @@ export default function StartExperimentModal({
                 <Box
                   mt="3"
                   style={{
-                    backgroundColor: "var(--color-panel-translucent)",
+                    backgroundColor: "var(--slate-2)",
                     padding: "20px",
                     borderRadius: "var(--radius-3)",
                   }}
@@ -337,7 +336,13 @@ export default function StartExperimentModal({
                                 align="baseline"
                               >
                                 <Text color="text-mid">•</Text>
-                                <Box>{item.display}</Box>
+                                <Text
+                                  as="div"
+                                  weight="semibold"
+                                  color="text-mid"
+                                >
+                                  {item.display}
+                                </Text>
                               </Flex>
                             ))}
                           </Flex>
@@ -361,7 +366,13 @@ export default function StartExperimentModal({
                                   align="baseline"
                                 >
                                   <Text color="text-mid">•</Text>
-                                  <Box>{item.display}</Box>
+                                  <Text
+                                    as="div"
+                                    weight="semibold"
+                                    color="text-mid"
+                                  >
+                                    {item.display}
+                                  </Text>
                                 </Flex>
                               ))}
                             </Flex>
@@ -374,7 +385,9 @@ export default function StartExperimentModal({
                       {incompleteChecklistItems.map((item, i) => (
                         <Flex key={item.key ?? i} gap="2" align="baseline">
                           <Text color="text-mid">•</Text>
-                          <Box>{item.display}</Box>
+                          <Text as="div" weight="semibold" color="text-mid">
+                            {item.display}
+                          </Text>
                         </Flex>
                       ))}
                     </Flex>
@@ -395,7 +408,7 @@ export default function StartExperimentModal({
               <Box
                 mt="3"
                 style={{
-                  backgroundColor: "var(--color-panel-translucent)",
+                  backgroundColor: "var(--slate-2)",
                   padding: "20px",
                   borderRadius: "var(--radius-3)",
                 }}
@@ -484,7 +497,7 @@ export default function StartExperimentModal({
             <Box
               mt="3"
               style={{
-                backgroundColor: "var(--color-panel-translucent)",
+                backgroundColor: "var(--slate-2)",
                 padding: "20px",
                 borderRadius: "var(--radius-3)",
               }}
@@ -519,9 +532,9 @@ export default function StartExperimentModal({
                   <LinkedChangeSection
                     type="visual-editor"
                     count={visualChangesets.length}
-                    countLabel={`${visualChangesets.length} page${
+                    countLabel={`${visualChangesets.length} Page${
                       visualChangesets.length === 1 ? "" : "s"
-                    } targeted`}
+                    } with`}
                   >
                     <Flex wrap="wrap" gap="3">
                       {visualChangesets.map((vc) =>
