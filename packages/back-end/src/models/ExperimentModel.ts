@@ -374,6 +374,7 @@ const experimentSchema = new mongoose.Schema({
       ],
     },
   ],
+  precomputedUnitDimensionIds: [String],
 });
 
 // Compound indexes for API list filtering
@@ -1242,7 +1243,10 @@ export async function deleteExperimentByIdForOrganization(
       organization: context.org.id,
     });
 
-    await VisualChangesetModel.deleteMany({ experiment: experiment.id });
+    await VisualChangesetModel.deleteMany({
+      experiment: experiment.id,
+      organization: context.org.id,
+    });
 
     await onExperimentDelete(context, experiment);
   } catch (e) {
@@ -1274,7 +1278,10 @@ export async function deleteAllExperimentsForAProject({
       id: experiment.id,
       organization: context.org.id,
     });
-    await VisualChangesetModel.deleteMany({ experiment: experiment.id });
+    await VisualChangesetModel.deleteMany({
+      experiment: experiment.id,
+      organization: context.org.id,
+    });
     await onExperimentDelete(context, toInterface(experiment));
   }
 }

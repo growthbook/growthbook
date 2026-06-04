@@ -5,7 +5,7 @@ import {
   FeatureRule,
   ScheduleRule,
 } from "shared/types/feature";
-import { useMemo, useState, useEffect } from "react";
+import { useCallback, useMemo, useState, useEffect } from "react";
 import uniqId from "uniqid";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
@@ -13,18 +13,20 @@ import {
   generateVariationId,
   isProjectListValidForProject,
   getReviewSetting,
+  stemRuleId,
 } from "shared/util";
 import { PiCaretRight } from "react-icons/pi";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
 import { getAllVariations, getLatestPhaseVariations } from "shared/experiments";
 import { kebabCase } from "lodash";
-import { Text } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   CreateSafeRolloutInterface,
   SafeRolloutInterface,
   SafeRolloutRule,
   RampScheduleInterface,
+  RampStepAction,
 } from "shared/validators";
 import {
   PostFeatureRuleBody,
@@ -34,6 +36,8 @@ import {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
 } from "shared/types/feature-revision";
+import Button from "@/ui/Button";
+import Text from "@/ui/Text";
 import {
   NewExperimentRefRule,
   getDefaultRuleValue,
@@ -55,6 +59,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import RadioCards from "@/ui/RadioCards";
 import RadioGroup from "@/ui/RadioGroup";
+import Callout from "@/ui/Callout";
 import PagedModal from "@/components/Modal/PagedModal";
 import StandardRuleFields, {
   type ScheduleType,
@@ -67,24 +72,61 @@ import Page from "@/components/Modal/Page";
 import BanditRefFields from "@/components/Features/RuleModal/BanditRefFields";
 import BanditRefNewFields from "@/components/Features/RuleModal/BanditRefNewFields";
 import { useIncrementer } from "@/hooks/useIncrementer";
-import HelperText from "@/ui/HelperText";
+
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import { useTemplates } from "@/hooks/useTemplates";
-import { useBatchPrerequisiteStates } from "@/hooks/usePrerequisiteStates";
 import SafeRolloutFields from "@/components/Features/RuleModal/SafeRolloutFields";
+import RampScheduleSection from "@/components/Features/RuleModal/RampScheduleSection";
 import {
   type RampSectionState,
   defaultRampSectionState,
   rampScheduleToSectionState,
   createActionToSectionState,
+  updateActionToSectionState,
   buildRampSteps,
   buildEndActions,
+  buildMonitoringConfig,
   isRampSectionConfigured,
+  getMonitoringValidationError,
   scrubRampStateForRuleType,
 } from "@/components/Features/RuleModal/RampScheduleSection";
+
+function buildRampStartActionsFromRule(
+  values: FeatureRule,
+  targetId: string,
+  ruleId: string,
+): RampStepAction[] {
+  if (values.type !== "force" && values.type !== "rollout") return [];
+
+  const ruleState = values as FeatureRule & {
+    coverage?: number;
+    value?: unknown;
+  };
+  const patch: RampStepAction["patch"] = {
+    ruleId,
+    coverage: ruleState.coverage ?? null,
+    condition: ruleState.condition ?? null,
+    savedGroups: ruleState.savedGroups ?? null,
+    prerequisites: ruleState.prerequisites ?? null,
+    allEnvironments: ruleState.allEnvironments ?? null,
+    environments: ruleState.environments ?? null,
+  };
+
+  if ("value" in ruleState) {
+    patch.force = ruleState.value;
+  }
+
+  return [
+    {
+      targetType: "feature-rule",
+      targetId,
+      patch,
+    },
+  ];
+}
 export interface Props {
   close: () => void;
   // Merged feature (base + draft changes). Use baseFeature to check live/published state.
@@ -174,29 +216,49 @@ export default function RuleModal({
   // without an extra round-trip. The back-end preserves a truthy id sent by the client.
   const [pregenRuleId] = useState(() => uniqId("fr_"));
 
-  // Find any existing ramp schedule that already targets this specific rule
+  // Find any existing ramp schedule that already targets this specific rule.
+  // Uses stem matching so environment-suffixed rule IDs (e.g. fr_abc__production)
+  // still resolve to the same schedule as their bare stem (fr_abc).
   const ruleRampSchedule = rule?.id
-    ? rampSchedules.find((rs) => rs.targets.some((t) => t.ruleId === rule.id))
+    ? rampSchedules.find((rs) =>
+        rs.targets.some(
+          (t) => t.ruleId && stemRuleId(t.ruleId) === stemRuleId(rule.id),
+        ),
+      )
     : undefined;
 
   // Check if there's a pending detach action for this rule in the draft.
   // When true, the ramp section should open as "off" so users don't think
   // the schedule is still active. Re-enabling and saving will clear the detach.
   const hasPendingDetach =
-    rule?.id != null &&
+    !!rule?.id &&
     (draftRevision?.rampActions ?? []).some(
-      (a) => a.mode === "detach" && a.ruleId === rule.id,
+      (a) =>
+        a.mode === "detach" && stemRuleId(a.ruleId) === stemRuleId(rule.id),
     );
 
   // Find a pending create action for this rule, if any (used when no live schedule exists yet).
   const pendingCreateAction =
     !ruleRampSchedule && !hasPendingDetach && rule?.id
       ? (draftRevision?.rampActions ?? []).find(
-          (a) => a.mode === "create" && a.ruleId === rule.id,
+          (a) =>
+            a.mode === "create" && stemRuleId(a.ruleId) === stemRuleId(rule.id),
         )
       : undefined;
   const pendingCreateActionTyped =
     pendingCreateAction?.mode === "create" ? pendingCreateAction : undefined;
+
+  // Find a pending update action for this rule, if any (used when a live schedule exists
+  // but has already been modified in this draft session and the modal is re-opened).
+  const pendingUpdateAction =
+    ruleRampSchedule && !hasPendingDetach && rule?.id
+      ? (draftRevision?.rampActions ?? []).find(
+          (a) =>
+            a.mode === "update" && stemRuleId(a.ruleId) === stemRuleId(rule.id),
+        )
+      : undefined;
+  const pendingUpdateActionTyped =
+    pendingUpdateAction?.mode === "update" ? pendingUpdateAction : undefined;
 
   const [rampSectionState, setRampSectionState] = useState<RampSectionState>(
     () => {
@@ -219,6 +281,14 @@ export default function RuleModal({
       if (mode === "duplicate") {
         return defaultRampSectionState(undefined);
       }
+      // If a pending update action exists (modal re-opened after a prior edit in this draft),
+      // merge it on top of the live schedule so the user sees their pending changes.
+      if (pendingUpdateActionTyped && ruleRampSchedule) {
+        return updateActionToSectionState(
+          pendingUpdateActionTyped,
+          ruleRampSchedule,
+        );
+      }
       return defaultRampSectionState(ruleRampSchedule);
     },
   );
@@ -227,6 +297,12 @@ export default function RuleModal({
   const { templates: allTemplates } = useTemplates();
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
+
+  const { data: sdkConnectionsData } = useSDKConnections();
+  const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
+    sdkConnectionsData?.connections,
+    feature.project,
+  );
 
   const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] =
     useState(false);
@@ -240,7 +316,7 @@ export default function RuleModal({
   const defaultDraft = useDefaultDraft(revisionList);
 
   const [draftMode, setDraftMode] = useState<DraftMode>(
-    defaultDraft != null ? "existing" : "new",
+    defaultDraft !== null ? "existing" : "new",
   );
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
@@ -248,7 +324,7 @@ export default function RuleModal({
 
   // Determines which draft/revision to target in the API call.
   const targetVersion =
-    draftMode === "existing" && selectedDraft != null
+    draftMode === "existing" && selectedDraft !== null
       ? selectedDraft
       : feature.version;
 
@@ -262,12 +338,19 @@ export default function RuleModal({
     return envList.length === 0 ? "all" : new Set(envList);
   }, [settings?.requireReviews, feature]);
 
-  const defaultRuleValues = getDefaultRuleValue({
-    defaultValue: getFeatureDefaultValue(feature),
-    ruleType: defaultType,
-    attributeSchema,
-    isSafeRolloutAutoRollbackEnabled: true,
-  });
+  const defaultRuleValues = {
+    ...getDefaultRuleValue({
+      defaultValue: getFeatureDefaultValue(feature),
+      ruleType: defaultType,
+      attributeSchema,
+      isSafeRolloutAutoRollbackEnabled: true,
+      defaultHashVersion: hasSDKWithNoBucketingV2 ? 1 : 2,
+    }),
+    // hashVersion is computed for all rule types so the hashing widget always
+    // has a value. getDefaultRuleValue only sets it for ruleType === "rollout";
+    // other rule types ignore it at save time via their Zod validators.
+    hashVersion: (hasSDKWithNoBucketingV2 ? 1 : 2) as 1 | 2,
+  };
 
   const convertRuleToFormValues = (rule: FeatureRule | undefined) => {
     if (!rule) return undefined;
@@ -275,6 +358,14 @@ export default function RuleModal({
       return {
         ...rule,
         safeRolloutFields: safeRollout,
+      };
+    }
+    if (rule.type === "rollout") {
+      return {
+        ...rule,
+        // Existing rules without an explicit hashVersion have always used v1 implicitly.
+        // Default to 1 here so a re-save never silently rebuckets existing traffic.
+        hashVersion: (rule.hashVersion as 1 | 2 | undefined) ?? 1,
       };
     }
     return rule;
@@ -308,6 +399,41 @@ export default function RuleModal({
           seed: "",
         }
       : {}),
+    // Backward-compat: rules saved before the stripping logic was removed may
+    // have empty targeting on the rule with the real values in startActions.
+    // For pre-start/terminal states, restore from startActions if the rule's
+    // own fields are empty. For running/paused, the rule's live values are
+    // managed by the engine and are always correct.
+    ...(() => {
+      const isPreStartOrTerminal =
+        ruleRampSchedule == null ||
+        ["pending", "ready", "rolled-back", "completed"].includes(
+          ruleRampSchedule.status,
+        );
+      if (!isPreStartOrTerminal && !pendingCreateActionTyped) return {};
+
+      const startActions =
+        ruleRampSchedule?.startActions ??
+        pendingCreateActionTyped?.startActions;
+      if (!startActions?.length) return {};
+      // Safe to use .find() (first match): per-env entries always share the
+      // same targeting fields — only coverage differs across targets.
+      const patch = startActions.find(
+        (a) => a.targetType === "feature-rule",
+      )?.patch;
+      if (!patch) return {};
+      const restored: Record<string, unknown> = {};
+      if (patch.condition != null && !rule?.condition) {
+        restored.condition = patch.condition;
+      }
+      if (patch.savedGroups != null && !rule?.savedGroups?.length) {
+        restored.savedGroups = patch.savedGroups;
+      }
+      if (patch.prerequisites != null && !rule?.prerequisites?.length) {
+        restored.prerequisites = patch.prerequisites;
+      }
+      return restored;
+    })(),
   };
 
   // Overview Page
@@ -380,8 +506,6 @@ export default function RuleModal({
     "multi-armed-bandits",
   );
 
-  const hasSafeRolloutsFeature = hasCommercialFeature("safe-rollout");
-
   const experimentId = form.watch("experimentId");
   const selectedExperiment = experimentsMap.get(experimentId) || null;
 
@@ -452,11 +576,6 @@ export default function RuleModal({
     [headerText],
   );
 
-  const { data: sdkConnectionsData } = useSDKConnections();
-  const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
-    sdkConnectionsData?.connections,
-    feature.project,
-  );
   const availableTemplates = currentProject
     ? allTemplates.filter((t) =>
         isProjectListValidForProject(
@@ -472,34 +591,47 @@ export default function RuleModal({
     settings.requireExperimentTemplates &&
     availableTemplates.length >= 1;
 
-  const prerequisites = form.watch("prerequisites") || [];
-
-  const { checkRulePrerequisitesCyclic } = useBatchPrerequisiteStates({
-    baseFeatureId: feature.id,
-    featureIds: [],
-    environments: [environment],
-    enabled: prerequisites.length > 0,
-    checkRulePrerequisites:
-      prerequisites.length > 0
-        ? {
-            environment,
-            ruleId: rule?.id,
-            prerequisites: prerequisites.map((p) => ({
-              id: p.id,
-              condition: p.condition,
-            })),
-          }
-        : undefined,
+  const [ruleCyclicResult, setRuleCyclicResult] = useState({
+    wouldBeCyclic: false,
+    cyclicFeatureId: null as string | null,
   });
+  const isCyclic = ruleCyclicResult.wouldBeCyclic;
+  const cyclicFeatureId = ruleCyclicResult.cyclicFeatureId;
 
-  const isCyclic = checkRulePrerequisitesCyclic?.wouldBeCyclic ?? false;
-  const cyclicFeatureId = checkRulePrerequisitesCyclic?.cyclicFeatureId ?? null;
+  const onRuleCyclicChange = useCallback(
+    (result: { wouldBeCyclic: boolean; cyclicFeatureId: string | null }) => {
+      setRuleCyclicResult(result);
+    },
+    [],
+  );
 
   const [prerequisiteTargetingSdkIssues, setPrerequisiteTargetingSdkIssues] =
     useState(false);
+  const monitoringError =
+    scheduleType === "ramp"
+      ? getMonitoringValidationError(rampSectionState)
+      : null;
   const canSubmit = useMemo(() => {
-    return !isCyclic && !prerequisiteTargetingSdkIssues;
-  }, [isCyclic, prerequisiteTargetingSdkIssues]);
+    return !isCyclic && !prerequisiteTargetingSdkIssues && !monitoringError;
+  }, [isCyclic, prerequisiteTargetingSdkIssues, monitoringError]);
+
+  const isRampType = scheduleType === "ramp";
+  const hasRampPage =
+    isRampType && (ruleType === "force" || ruleType === "rollout");
+  const rampIsEditable =
+    !ruleRampSchedule || ruleRampSchedule.status !== "running";
+
+  // Reset to page 1 when the ramp page disappears (user switched away from ramp).
+  // Only applies to rollout/force rules — experiment rules have their own valid pages.
+  useEffect(() => {
+    if (
+      !hasRampPage &&
+      step > 0 &&
+      (ruleType === "force" || ruleType === "rollout")
+    ) {
+      setStep(0);
+    }
+  }, [hasRampPage, step, ruleType]);
 
   const [conditionKey, forceConditionRender] = useIncrementer();
 
@@ -515,7 +647,7 @@ export default function RuleModal({
   useEffect(() => {
     // Simple schedules never control coverage — only full ramp-ups do.
     const hasRampWithCoverage =
-      scheduleType === "ramp" &&
+      isRampType &&
       rampSectionState.mode !== "off" &&
       (rampSectionState.steps.some(
         (step) => step.patch.coverage !== undefined,
@@ -530,6 +662,9 @@ export default function RuleModal({
     // If there's a ramp with coverage, must be rollout
     if (hasRampWithCoverage) {
       targetType = "rollout";
+      if (!isLiveRule) {
+        targetCoverage = 0;
+      }
     }
     // If coverage < 100%, must be rollout
     else if (currentCoverage !== undefined && currentCoverage < 1) {
@@ -548,12 +683,14 @@ export default function RuleModal({
     ) {
       form.setValue("type", targetType);
       // When auto-promoting to rollout, ensure hashAttribute has a sensible value
-      if (targetType === "rollout" && !form.getValues("hashAttribute")) {
-        const defaultHash =
-          attributeSchema?.find((a) => a.hashAttribute)?.property ||
-          attributeSchema?.[0]?.property ||
-          "id";
-        form.setValue("hashAttribute", defaultHash);
+      if (targetType === "rollout") {
+        if (!form.getValues("hashAttribute")) {
+          const defaultHash =
+            attributeSchema?.find((a) => a.hashAttribute)?.property ||
+            attributeSchema?.[0]?.property ||
+            "id";
+          form.setValue("hashAttribute", defaultHash);
+        }
       }
     }
 
@@ -566,6 +703,8 @@ export default function RuleModal({
     currentCoverage,
     rampSectionState,
     scheduleType,
+    isRampType,
+    isLiveRule,
     form,
     attributeSchema,
   ]);
@@ -583,6 +722,7 @@ export default function RuleModal({
         settings,
         datasources,
         isSafeRolloutAutoRollbackEnabled: true,
+        defaultHashVersion: hasSDKWithNoBucketingV2 ? 1 : 2,
       }),
       description: form.watch("description"),
     };
@@ -676,21 +816,18 @@ export default function RuleModal({
       values.id = pregenRuleId;
     }
 
-    // Safe-rollout rules are pinned to one env by the controller; skip scope.
-    if (values.type !== "safe-rollout") {
-      if (scopeAllEnvs) {
-        values = {
-          ...values,
-          allEnvironments: true,
-          environments: [],
-        };
-      } else {
-        values = {
-          ...values,
-          allEnvironments: false,
-          environments: selectedEnvironments,
-        };
-      }
+    if (scopeAllEnvs) {
+      values = {
+        ...values,
+        allEnvironments: true,
+        environments: [],
+      };
+    } else {
+      values = {
+        ...values,
+        allEnvironments: false,
+        environments: selectedEnvironments,
+      };
     }
 
     // Loop through each scheduleRule and convert the timestamp to an ISOString()
@@ -1083,7 +1220,7 @@ export default function RuleModal({
       // Rollout rules with sub-100% coverage and ramp-up schedules that control
       // coverage both require a bucketing attribute to be set.
       const rampHasCoverage =
-        scheduleType === "ramp" &&
+        isRampType &&
         rampSectionState.mode !== "off" &&
         rampSectionState.steps.some((s) => s.patch.coverage !== undefined);
       if (
@@ -1114,7 +1251,6 @@ export default function RuleModal({
           res = await apiCall(`/safe-rollout/${values.safeRolloutId}`, {
             method: "PUT",
             body: JSON.stringify({
-              environment,
               safeRolloutFields,
             }),
           });
@@ -1167,10 +1303,19 @@ export default function RuleModal({
 
               // A "schedule" type with no start date and no end date is a no-op —
               // no schedule should be created or updated in this case.
+              // A ramp with zero steps and no bounding dates is equally meaningless
+              // and would Zod-fail at publish time; treat it the same way.
               const isNoOpSchedule =
-                isScheduleMode &&
-                !rampState.startDate &&
-                !rampState.endScheduleAt;
+                (isScheduleMode &&
+                  !rampState.startDate &&
+                  !rampState.endScheduleAt) ||
+                (!isScheduleMode &&
+                  rampState.steps.length === 0 &&
+                  !rampState.startDate &&
+                  !rampState.cutoffDate);
+              const activeTargetId =
+                ruleRampSchedule?.targets.find((t) => t.status === "active")
+                  ?.id ?? "t1";
 
               if (
                 rampState.mode === "create" &&
@@ -1183,6 +1328,15 @@ export default function RuleModal({
                     ? scheduleAutoName(rampState)
                     : rampState.name.trim(),
                   environment,
+                  ...(!isScheduleMode
+                    ? {
+                        startActions: buildRampStartActionsFromRule(
+                          values as FeatureRule,
+                          "t1",
+                          ruleId,
+                        ),
+                      }
+                    : {}),
                   steps: buildRampSteps(rampState.steps, "t1", ruleId),
                   endActions: !isScheduleMode
                     ? buildEndActions(rampState.endPatch, ruleId)
@@ -1196,23 +1350,22 @@ export default function RuleModal({
                         ]
                       : undefined,
                   startDate: rampState.startDate || null,
-                  endCondition:
-                    isScheduleMode && rampState.endScheduleAt
-                      ? {
-                          trigger: {
-                            type: "scheduled",
-                            at: rampState.endScheduleAt,
-                          },
-                        }
-                      : undefined,
+                  cutoffDate: isScheduleMode
+                    ? rampState.endScheduleAt || null
+                    : rampState.cutoffDate || null,
+                  monitoringConfig: buildMonitoringConfig(
+                    rampState.monitoring,
+                    rampState.steps,
+                  ),
+                  ...(rampState.lockFeature
+                    ? { lockdownConfig: { mode: "locked" as const } }
+                    : { lockdownConfig: { mode: "none" as const } }),
                 };
               } else if (
                 !isNoOpSchedule &&
                 rampState.mode === "edit" &&
                 ruleRampSchedule?.id &&
-                !["running", "pending-approval"].includes(
-                  ruleRampSchedule.status,
-                )
+                ruleRampSchedule.status !== "running"
               ) {
                 rampScheduleInline = {
                   mode: "update",
@@ -1220,10 +1373,29 @@ export default function RuleModal({
                   name: isScheduleMode
                     ? scheduleAutoName(rampState)
                     : rampState.name.trim() || undefined,
+                  ...(!isScheduleMode
+                    ? {
+                        // Only re-capture startActions for ramps that haven't
+                        // started yet. Once a ramp is paused/running, startActions
+                        // represent the pre-ramp rule state (the rollback restore
+                        // point) and must not be overwritten with the current
+                        // runtime coverage.
+                        ...(["pending", "ready"].includes(
+                          ruleRampSchedule?.status ?? "",
+                        )
+                          ? {
+                              startActions: buildRampStartActionsFromRule(
+                                values as FeatureRule,
+                                activeTargetId,
+                                ruleId,
+                              ),
+                            }
+                          : {}),
+                      }
+                    : {}),
                   steps: buildRampSteps(
                     rampState.steps,
-                    ruleRampSchedule.targets.find((t) => t.status === "active")
-                      ?.id ?? "t1",
+                    activeTargetId,
                     ruleId,
                   ),
                   endActions: !isScheduleMode
@@ -1232,24 +1404,22 @@ export default function RuleModal({
                       ? [
                           {
                             targetType: "feature-rule" as const,
-                            targetId:
-                              ruleRampSchedule.targets.find(
-                                (t) => t.status === "active",
-                              )?.id ?? "t1",
+                            targetId: activeTargetId,
                             patch: { ruleId, enabled: false },
                           },
                         ]
                       : undefined,
                   startDate: rampState.startDate || null,
-                  endCondition:
-                    isScheduleMode && rampState.endScheduleAt
-                      ? {
-                          trigger: {
-                            type: "scheduled",
-                            at: rampState.endScheduleAt,
-                          },
-                        }
-                      : null,
+                  cutoffDate: isScheduleMode
+                    ? rampState.endScheduleAt || null
+                    : rampState.cutoffDate || null,
+                  monitoringConfig: buildMonitoringConfig(
+                    rampState.monitoring,
+                    rampState.steps,
+                  ),
+                  ...(rampState.lockFeature
+                    ? { lockdownConfig: { mode: "locked" as const } }
+                    : { lockdownConfig: { mode: "none" as const } }),
                 };
               } else if (
                 isNoOpSchedule &&
@@ -1299,6 +1469,26 @@ export default function RuleModal({
             values.enabled = true;
           }
 
+          // Targeting fields (condition, savedGroups, prerequisites) are always
+          // written directly to the rule — they must be live immediately. For
+          // pre-start ramps (pending/ready), they're ALSO captured into
+          // startActions by buildRampStartActionsFromRule above, so the ramp
+          // knows the initial state for rollback purposes. We no longer strip
+          // these fields from the rule: the ramp engine overlays them via
+          // computeEffectivePatch (which seeds from startActions) when it
+          // advances, but the rule must have them set immediately for the period
+          // between publish and ramp-start (or if the ramp never starts).
+
+          // Future-dated schedule → publish the rule as disabled so it
+          // remains hidden until the schedule activates.
+          if (
+            rampScheduleInline &&
+            "startDate" in rampScheduleInline &&
+            rampScheduleInline.startDate
+          ) {
+            values = { ...values, enabled: false };
+          }
+
           res = await apiCall<{ version: number }>(
             `/feature/${feature.id}/${targetVersion}/rule`,
             {
@@ -1341,6 +1531,15 @@ export default function RuleModal({
                 selectedEnvironments.length === 1
                   ? selectedEnvironments[0]
                   : undefined,
+              ...(!isScheduleMode
+                ? {
+                    startActions: buildRampStartActionsFromRule(
+                      values as FeatureRule,
+                      "t1",
+                      effectiveRuleId,
+                    ),
+                  }
+                : {}),
               steps: buildRampSteps(rampState.steps, "t1", effectiveRuleId),
               endActions: !isScheduleMode
                 ? buildEndActions(rampState.endPatch, effectiveRuleId)
@@ -1354,15 +1553,16 @@ export default function RuleModal({
                     ]
                   : undefined,
               startDate: rampState.startDate || null,
-              endCondition:
-                isScheduleMode && rampState.endScheduleAt
-                  ? {
-                      trigger: {
-                        type: "scheduled",
-                        at: rampState.endScheduleAt,
-                      },
-                    }
-                  : undefined,
+              cutoffDate: isScheduleMode
+                ? rampState.endScheduleAt || null
+                : rampState.cutoffDate || null,
+              monitoringConfig: buildMonitoringConfig(
+                rampState.monitoring,
+                rampState.steps,
+              ),
+              ...(rampState.lockFeature
+                ? { lockdownConfig: { mode: "locked" as const } }
+                : { lockdownConfig: { mode: "none" as const } }),
             };
           }
         }
@@ -1378,23 +1578,10 @@ export default function RuleModal({
           values = { ...values, enabled: false };
         }
 
-        // Ramp-up steps own targeting over time; clear rule-level targeting so
-        // they don't conflict. Standard schedules (no steps) don't control
-        // targeting, so preserve user-set values.
-        if (
-          rampScheduleInline &&
-          "steps" in rampScheduleInline &&
-          rampScheduleInline.steps &&
-          rampScheduleInline.steps.length > 0 &&
-          (values.type === "rollout" || values.type === "force")
-        ) {
-          values = {
-            ...values,
-            condition: "",
-            savedGroups: [],
-            prerequisites: [],
-          };
-        }
+        // Targeting is always written directly to the rule so it's live
+        // immediately. For pre-start ramps, buildRampStartActionsFromRule
+        // (above) also captures it into startActions for rollback purposes.
+        // We no longer strip condition/savedGroups/prerequisites from the rule.
 
         res = await apiCall<{ version: number }>(
           `/feature/${feature.id}/${targetVersion}/rule`,
@@ -1402,12 +1589,9 @@ export default function RuleModal({
             method: "POST",
             body: JSON.stringify({
               rule: values,
-              environments:
-                values.type === "safe-rollout"
-                  ? [environment]
-                  : scopeAllEnvs
-                    ? environments.map((e) => e.id)
-                    : selectedEnvironments,
+              environments: scopeAllEnvs
+                ? environments.map((e) => e.id)
+                : selectedEnvironments,
               safeRolloutFields,
               rampSchedule: rampScheduleInline,
             } as PostFeatureRuleBody),
@@ -1465,8 +1649,8 @@ export default function RuleModal({
           gatedEnvSet={gatedEnvSet}
         />
         <div className="bg-highlight rounded p-3 mb-3">
-          <Text size="4" weight="bold" as="div" mb="4">
-            Select Implementation
+          <Text size="x-large" weight="semibold" as="div" mb="4">
+            Rule Type
           </Text>
           <RadioCards
             mt="4"
@@ -1475,34 +1659,9 @@ export default function RuleModal({
             options={[
               {
                 value: "force",
-                label: "Targeted release",
+                label: "Targeting rule",
                 description:
-                  "Assign a specific feature value to groups of users or control the rollout percentage",
-              },
-              {
-                value: "safe-rollout",
-                disabled: !hasSafeRolloutsFeature || datasources.length === 0,
-                label: (
-                  <PremiumTooltip
-                    commercialFeature="safe-rollout"
-                    usePortal={true}
-                  >
-                    Safe rollout
-                  </PremiumTooltip>
-                ),
-                description: (
-                  <>
-                    <div>
-                      Gradually release a value with automatic monitoring of
-                      guardrail metrics
-                    </div>
-                    {datasources.length === 0 && (
-                      <HelperText status="info" size="sm" mt="2">
-                        Create a data source to use Safe Rollouts
-                      </HelperText>
-                    )}
-                  </>
-                ),
+                  "Release a feature value with optional targeting, schedule, ramp-up, and monitoring",
               },
               {
                 value: "experiment",
@@ -1526,21 +1685,63 @@ export default function RuleModal({
               },
             ]}
             value={overviewRadioSelectorRuleType}
-            setValue={(
-              v: "force" | "rollout" | "safe-rollout" | "experiment" | "bandit",
-            ) => {
+            setValue={(v: "force" | "rollout" | "experiment" | "bandit") => {
               setOverviewRadioSelectorRuleType(v);
               if (v === "force") {
                 setOverviewRuleType("force");
               } else if (v === "rollout") {
                 setOverviewRuleType("rollout");
-              } else if (v === "safe-rollout") {
-                setOverviewRuleType("safe-rollout");
               } else {
                 setOverviewRuleType("experiment-ref-new");
               }
             }}
           />
+
+          <Callout status="wizard" mt="6" size="sm">
+            <Flex align="center" gap="2">
+              <Box flexGrow="1">
+                <Text as="div">
+                  Looking for <strong>Safe Rollouts</strong>?
+                </Text>
+                <Text as="div" size="small" mt="1">
+                  Guardrail monitoring can now be added to a Targeting
+                  Rule&apos;s <strong>Ramp-up</strong> schedule
+                </Text>
+              </Box>
+              {hasCommercialFeature("safe-rollout") ? (
+                <Button
+                  variant="soft"
+                  size="xs"
+                  onClick={() => {
+                    setOverviewRadioSelectorRuleType("rollout");
+                    setOverviewRuleType("rollout");
+                    setNewRuleOverviewPage(false);
+                    changeRuleType("rollout");
+                    setScheduleType("ramp");
+                    setRampSectionState((prev) => ({
+                      ...prev,
+                      mode: prev.mode === "off" ? "create" : prev.mode,
+                      steps: prev.steps.map((s) => ({
+                        ...s,
+                        monitored: true,
+                      })),
+                    }));
+                  }}
+                >
+                  Show me
+                </Button>
+              ) : (
+                <PremiumTooltip
+                  commercialFeature="safe-rollout"
+                  usePortal={true}
+                >
+                  <Button variant="soft" size="xs" disabled>
+                    Show me
+                  </Button>
+                </PremiumTooltip>
+              )}
+            </Flex>
+          </Callout>
         </div>
 
         {overviewRadioSelectorRuleType === "experiment" && (
@@ -1608,8 +1809,27 @@ export default function RuleModal({
         trackingEventModalType={trackingEventModalType}
         close={close}
         size="lg"
-        cta="Save to Draft"
-        ctaEnabled={newRuleOverviewPage ? ruleType !== undefined : canSubmit}
+        cta={
+          hasRampPage && step === 0 ? (
+            <>
+              Next: Ramp-up{" "}
+              <PiCaretRight className="position-relative" style={{ top: -1 }} />
+            </>
+          ) : (
+            "Save to Draft"
+          )
+        }
+        forceCtaText={hasRampPage && step === 0}
+        ctaEnabled={
+          newRuleOverviewPage
+            ? ruleType !== undefined
+            : hasRampPage && step === 0
+              ? !isCyclic && !prerequisiteTargetingSdkIssues
+              : canSubmit
+        }
+        disabledMessage={
+          hasRampPage && step === 0 ? undefined : (monitoringError ?? undefined)
+        }
         header={headerText}
         docSection={
           ruleType === "experiment-ref-new"
@@ -1618,7 +1838,11 @@ export default function RuleModal({
         }
         step={step}
         setStep={setStep}
-        hideNav={ruleType !== "experiment-ref-new" && ruleType !== "experiment"}
+        hideNav={
+          !hasRampPage &&
+          ruleType !== "experiment-ref-new" &&
+          ruleType !== "experiment"
+        }
         backButton={true}
         onBackFirstStep={
           mode === "create" ? () => setNewRuleOverviewPage(true) : undefined
@@ -1639,28 +1863,56 @@ export default function RuleModal({
         }
       >
         {(ruleType === "force" || ruleType === "rollout") && (
-          <StandardRuleFields
-            ruleType={ruleType}
-            feature={feature}
-            environments={effectiveEnvList}
-            defaultValues={defaultValues}
-            setPrerequisiteTargetingSdkIssues={
-              setPrerequisiteTargetingSdkIssues
-            }
-            isCyclic={isCyclic}
-            cyclicFeatureId={cyclicFeatureId}
-            conditionKey={conditionKey}
-            scheduleToggleEnabled={scheduleToggleEnabled}
-            setScheduleToggleEnabled={setScheduleToggleEnabled}
-            ruleRampSchedule={ruleRampSchedule}
-            rampSectionState={rampSectionState}
-            setRampSectionState={setRampSectionState}
-            scheduleType={scheduleType}
-            setScheduleType={setScheduleType}
-            pendingDetach={hasPendingDetach}
-            envScope={envScopeProps!}
-            isLiveRule={isLiveRule}
-          />
+          <Page display="Rule Configuration">
+            <StandardRuleFields
+              ruleType={ruleType}
+              feature={feature}
+              environments={effectiveEnvList}
+              defaultValues={defaultValues}
+              setPrerequisiteTargetingSdkIssues={
+                setPrerequisiteTargetingSdkIssues
+              }
+              isCyclic={isCyclic}
+              cyclicFeatureId={cyclicFeatureId}
+              conditionKey={conditionKey}
+              scheduleToggleEnabled={scheduleToggleEnabled}
+              setScheduleToggleEnabled={setScheduleToggleEnabled}
+              ruleRampSchedule={ruleRampSchedule}
+              rampSectionState={rampSectionState}
+              setRampSectionState={setRampSectionState}
+              scheduleType={scheduleType}
+              setScheduleType={setScheduleType}
+              envScope={envScopeProps!}
+              isLiveRule={isLiveRule}
+              isNew={mode === "create"}
+              onRuleCyclicChange={onRuleCyclicChange}
+            />
+          </Page>
+        )}
+
+        {hasRampPage && (
+          <Page display="Ramp-up Schedule">
+            <RampScheduleSection
+              ruleRampSchedule={ruleRampSchedule}
+              state={rampSectionState}
+              setState={setRampSectionState}
+              pendingDetach={hasPendingDetach}
+              embedded
+              readOnly={!!ruleRampSchedule && !rampIsEditable}
+              hideNameField={true}
+              feature={feature}
+              environments={environments.map((e) => e.id)}
+              hashAttribute={form.watch("hashAttribute") as string}
+              setHashAttribute={(v) => form.setValue("hashAttribute", v)}
+              seed={form.watch("seed") as string}
+              setSeed={(v) => form.setValue("seed", v)}
+              hashVersion={form.watch("hashVersion") as 1 | 2 | undefined}
+              setHashVersion={(v: 1 | 2) => form.setValue("hashVersion", v)}
+              attributeSchema={attributeSchema}
+              ruleId={form.watch("id") as string}
+              featureId={feature.id}
+            />
+          </Page>
         )}
 
         {ruleType === "safe-rollout" && (
@@ -1679,6 +1931,7 @@ export default function RuleModal({
             mode={mode}
             isDraft={!safeRollout?.startedAt}
             envScope={envScopeProps}
+            onRuleCyclicChange={onRuleCyclicChange}
           />
         )}
 
@@ -1768,6 +2021,7 @@ export default function RuleModal({
                     form.setValue("customFields", customFields)
                   }
                   envScope={i === 0 ? envScopeProps : undefined}
+                  onRuleCyclicChange={onRuleCyclicChange}
                 />
               </Page>
             ))
@@ -1832,6 +2086,7 @@ export default function RuleModal({
                   contextualBandit={contextualBandit}
                   setContextualBandit={setContextualBandit}
                   envScope={i === 0 ? envScopeProps : undefined}
+                  onRuleCyclicChange={onRuleCyclicChange}
                 />
               </Page>
             ))

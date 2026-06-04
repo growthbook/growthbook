@@ -56,12 +56,16 @@ import { getDimensionOptions } from "@/components/Dimensions/DimensionChooser";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import MetricName from "@/components/Metrics/MetricName";
 import Avatar from "@/ui/Avatar";
-import { getPrecomputedDimensions } from "@/components/Experiment/SnapshotProvider";
+import {
+  getPrecomputedDimensions,
+  getPrecomputedUnitDimensionIds,
+} from "@/components/Experiment/SnapshotProvider";
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
 import { useIncrementalRefresh } from "@/hooks/useIncrementalRefresh";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
 import {
   useDashboardSnapshot,
   DashboardSnapshotContext,
@@ -228,6 +232,8 @@ export default function EditSingleBlock({
     factTables,
   } = useDefinitions();
   const { apiCall } = useAuth();
+  const { hasCommercialFeature } = useUser();
+  const hasPipelineModeFeature = hasCommercialFeature("pipeline-mode");
   const {
     data: savedQueriesData,
     mutate: mutateQueries,
@@ -583,6 +589,12 @@ export default function EditSingleBlock({
         defaultSnapshot,
         dimensionless,
       ),
+      precomputedUnitDimensionIds: getPrecomputedUnitDimensionIds(
+        experiment,
+        defaultSnapshot,
+        dimensionless,
+      ),
+      hasPipelineModeFeature,
       datasource,
       dimensions,
       exposureQueryId: experiment.exposureQueryId,
@@ -602,6 +614,7 @@ export default function EditSingleBlock({
     defaultSnapshot,
     dimensionless,
     incrementalRefresh,
+    hasPipelineModeFeature,
   ]);
 
   const savedQueryId = blockHasFieldOfType(block, "savedQueryId", isString)

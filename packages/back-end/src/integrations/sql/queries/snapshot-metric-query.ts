@@ -18,6 +18,7 @@ import { addCaseWhenTimeFilter } from "back-end/src/integrations/sql/clauses/add
 import { addHours } from "back-end/src/integrations/sql/primitives/add-hours";
 import { getAggregateMetricColumnLegacyMetrics } from "back-end/src/integrations/sql/columns/aggregate-metric-column-legacy-metrics";
 import { getBanditCaseWhen } from "back-end/src/integrations/sql/clauses/bandit-case-when";
+import { getBanditDates } from "back-end/src/integrations/sql/clauses/bandit-variation-period-weights";
 import { getBanditStatisticsCTE } from "back-end/src/integrations/sql/ctes/bandit-statistics-cte";
 import { capCoalesceValue } from "back-end/src/integrations/sql/primitives/cap-coalesce-value";
 import { getConversionWindowClause } from "back-end/src/integrations/sql/clauses/conversion-window-clause";
@@ -90,11 +91,9 @@ export function getSnapshotMetricQuery(
   // Contextual bandits weight variations in TypeScript from raw summable stats,
   // so they skip the multi-armed-bandit period weighting and run through the
   // same aggregation as a standard experiment (just with the attr_cb_* context
-  // columns appended to the dimensions).
-  const isContextualBandit = !!settings.banditSettings?.banditIsContextual;
-  const banditDates = isContextualBandit
-    ? undefined
-    : settings.banditSettings?.historicalWeights.map((w) => w.date);
+  // columns appended to the dimensions). `getBanditDates` returns undefined
+  // when `banditIsContextual` is set, which short-circuits the CB path here.
+  const banditDates = getBanditDates(settings.banditSettings);
   const poolRegressionTheta =
     settings.banditSettings?.poolRegressionTheta !== false;
 
@@ -275,8 +274,12 @@ export function getSnapshotMetricQuery(
     );
   }
 
+  const dimensionLabel = unitDimensions.length
+    ? `Dimension: ${unitDimensions.map((d) => d.dimension.name).join(", ")}; `
+    : "";
+
   return format(
-    `-- ${metric.name} (${metric.type})
+    `-- ${dimensionLabel}${metric.name} (${metric.type})
 WITH
   ${idJoinSQL}
   ${

@@ -5,6 +5,7 @@ import {
   ChangeEventHandler,
   ReactElement,
 } from "react";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { dataSourceConnections } from "@/services/eventSchema";
@@ -268,6 +269,7 @@ const DataSourceForm: FC<{
         <label>Description</label>
         <textarea
           className="form-control"
+          maxLength={MAX_DESCRIPTION_LENGTH}
           name="description"
           onChange={onChange}
           value={datasource.description}

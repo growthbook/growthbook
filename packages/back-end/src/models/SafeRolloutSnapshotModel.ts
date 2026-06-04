@@ -13,6 +13,7 @@ import {
   checkAndRollbackSafeRollout,
   updateRampUpSchedule,
 } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
+import { evaluateRampScheduleAfterSafeRolloutSnapshot } from "back-end/src/services/rampScheduleEvaluator";
 import { MakeModelClass } from "./BaseModel";
 
 const BaseClass = MakeModelClass({
@@ -34,7 +35,9 @@ const BaseClass = MakeModelClass({
 });
 
 export class SafeRolloutSnapshotModel extends BaseClass {
-  // TODO: fix permissions
+  // Snapshots are created/updated/deleted by the job scheduler, not user
+  // actions, so permission checks are bypassed here. There is no external
+  // API endpoint that exposes these mutations directly.
   protected canCreate() {
     return true;
   }
@@ -123,6 +126,17 @@ export class SafeRolloutSnapshotModel extends BaseClass {
           analysisSummary: safeRolloutAnalysisSummary,
         });
 
+      if (safeRollout.rampScheduleId) {
+        await evaluateRampScheduleAfterSafeRolloutSnapshot(
+          this.context,
+          updatedSafeRollout,
+        );
+        // Fall through: ramp-linked safe rollouts still need webhook/notification
+        // events for data-quality signals (SRM, multiple exposures, ship, rollback).
+        // evaluateRampScheduleAfterSafeRolloutSnapshot handles the mechanical ramp
+        // action (pause/advance/rollback) but does not fire customer notifications.
+      }
+
       const notificationTriggered = await notifySafeRolloutChange({
         context: this.context,
         updatedSafeRollout,
@@ -143,31 +157,37 @@ export class SafeRolloutSnapshotModel extends BaseClass {
         );
       }
 
-      const feature = await getFeature(this.context, safeRollout.featureId);
-      if (!feature) {
-        throw new Error("Feature not found");
-      }
-      // Locate the safe-rollout rule by safeRolloutId on the flat rules array.
-      const matchingRule = (feature.rules ?? []).find(
-        (r) => r.type === "safe-rollout" && r.safeRolloutId === safeRollout.id,
-      );
-      if (!matchingRule) {
-        throw new Error("Rule not found");
-      }
+      // Ramp-linked SRs monitor a rollout rule — there is no safe-rollout type
+      // rule on the feature, so feature/rule lookup and checkAndRollbackSafeRollout
+      // only apply to standalone (non-ramp) SRs.
+      if (!safeRollout.rampScheduleId) {
+        const feature = await getFeature(this.context, safeRollout.featureId);
+        if (!feature) {
+          throw new Error("Feature not found");
+        }
+        // Locate the safe-rollout rule by safeRolloutId on the flat rules array.
+        const matchingRule = (feature.rules ?? []).find(
+          (r) =>
+            r.type === "safe-rollout" && r.safeRolloutId === safeRollout.id,
+        );
+        if (!matchingRule) {
+          throw new Error("Rule not found");
+        }
 
-      const status = await checkAndRollbackSafeRollout({
-        context: this.context,
-        updatedSafeRollout,
-        safeRolloutSnapshot: updatedDoc,
-        ruleId: matchingRule.id,
-        feature,
-      });
-      // update the ramp up Schedule if the status is running and the ramp up is enabled and not completed
-      if (status === "running") {
-        await updateRampUpSchedule({
+        const status = await checkAndRollbackSafeRollout({
           context: this.context,
-          safeRollout,
+          updatedSafeRollout,
+          safeRolloutSnapshot: updatedDoc,
+          ruleId: matchingRule.id,
+          feature,
         });
+        // update the ramp up Schedule if the status is running and the ramp up is enabled and not completed
+        if (status === "running") {
+          await updateRampUpSchedule({
+            context: this.context,
+            safeRollout,
+          });
+        }
       }
     }
   }

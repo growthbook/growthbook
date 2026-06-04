@@ -14,6 +14,7 @@ import {
   DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
   DEFAULT_DECISION_FRAMEWORK_ENABLED,
   DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
+  DEFAULT_REQUIRE_PROJECT_FOR_SDK_CONNECTIONS,
   DEFAULT_POST_STRATIFICATION_ENABLED,
   DEFAULT_REVISION_CONFIGURATION,
 } from "shared/constants";
@@ -51,6 +52,7 @@ import Frame from "@/ui/Frame";
 import SavedGroupSettings from "@/components/GeneralSettings/SavedGroupSettings";
 import TargetingAttributesSettings from "@/components/GeneralSettings/TargetingAttributesSettings";
 import ApprovalFlowSettings from "@/components/GeneralSettings/ApprovalFlowSettings";
+import SDKConnectionSettings from "@/components/GeneralSettings/SDKConnectionSettings";
 
 export const ConnectSettingsForm = ({ children }) => {
   const methods = useFormContext();
@@ -165,7 +167,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
       restApiBypassesReviews: settings.restApiBypassesReviews ?? false,
       defaultDataSource: settings.defaultDataSource || "",
       testQueryDays: DEFAULT_TEST_QUERY_DAYS,
-      disableMultiMetricQueries: false,
       disablePrecomputedDimensions:
         settings.disablePrecomputedDimensions ?? true,
       useStickyBucketing: false,
@@ -199,6 +200,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
       requireProjectForFeatures:
         settings.requireProjectForFeatures ??
         DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
+      requireProjectForSdkConnections:
+        settings.requireProjectForSdkConnections ??
+        DEFAULT_REQUIRE_PROJECT_FOR_SDK_CONNECTIONS,
       requireRegisteredAttributes: getRequireRegisteredAttributesSettings(
         settings.requireRegisteredAttributes,
       ),
@@ -551,6 +555,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
             </TabsContent>
             <TabsContent value="sdk">
               <>
+                <SDKConnectionSettings />
                 <SavedGroupSettings />
                 <TargetingAttributesSettings />
               </>

@@ -1,4 +1,5 @@
 import React, { FC, Fragment, useMemo, useState } from "react";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { Box, Flex } from "@radix-ui/themes";
 import {
   DataSourceInterfaceWithParams,
@@ -370,6 +371,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                 label="Description (optional)"
                 textarea
                 minRows={1}
+                maxLength={MAX_DESCRIPTION_LENGTH}
                 {...form.register("description")}
               />
               <Field

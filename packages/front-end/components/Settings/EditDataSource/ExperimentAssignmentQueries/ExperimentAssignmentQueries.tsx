@@ -127,13 +127,11 @@ export const ExperimentAssignmentQueries: FC<
           </Flex>
         </Box>
 
-        {canEdit && (
-          <Box>
-            <Button onClick={handleAdd}>
-              <FaPlus className="mr-1" /> Add
-            </Button>
-          </Box>
-        )}
+        <Box>
+          <Button onClick={handleAdd} disabled={!canEdit}>
+            <FaPlus className="mr-1" /> Add
+          </Button>
+        </Box>
       </Flex>
       <p>
         Queries that return a list of experiment variation assignment events.

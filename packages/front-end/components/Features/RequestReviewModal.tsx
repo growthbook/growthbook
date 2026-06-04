@@ -18,6 +18,7 @@ import {
 } from "shared/types/events/event-types";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FaArrowLeft } from "react-icons/fa";
+import { PiLockSimple } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import { format } from "date-fns";
 import EventUser from "@/components/Avatar/EventUser";
@@ -86,9 +87,13 @@ export default function RequestReviewModal({
 
   const { apiCall } = useAuth();
   const user = getCurrentUser();
-  const { organization } = useUser();
+  const { organization, users } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const canAdminPublish = permissionsUtil.canBypassApprovalChecks(feature);
+  const featureLockedByRamp =
+    rampSchedules?.some(
+      (rs) => rs.lockdownConfig?.mode === "locked" && rs.status === "running",
+    ) ?? false;
   const revision = revisions.find((r) => r.version === version);
   const isPendingReview =
     revision?.status === "pending-review" ||
@@ -103,9 +108,7 @@ export default function RequestReviewModal({
     : undefined;
   const isBlockedContributor =
     reviewSetting?.blockSelfApproval &&
-    (revision?.contributors ?? []).some(
-      (c) => c != null && "id" in c && c.id === user?.id,
-    );
+    (revision?.contributors ?? []).some((id) => id === user?.id);
   const canReview =
     isPendingReview &&
     createdBy?.id !== user?.id &&
@@ -187,8 +190,10 @@ export default function RequestReviewModal({
     [resultDiffs],
   );
 
-  // adminPublish bypasses both the approval requirement and the checklist gate.
-  const submitEnabled = !(experimentsStep && checklistBlocked && !adminPublish);
+  // adminPublish bypasses the approval requirement, checklist gate, and lockdown.
+  const submitEnabled =
+    !(experimentsStep && checklistBlocked && !adminPublish) &&
+    (!featureLockedByRamp || adminPublish);
   const hasNextStep =
     approved && selectedExperiments.size > 0 && !experimentsStep;
 
@@ -259,7 +264,6 @@ export default function RequestReviewModal({
       ),
   );
 
-  // Short date for diff summary lines ("May 19, 2026"); falls back to null when
   // 1-based rule indices for `Rule #N` refs in diff summaries. Holdout
   // occupies #1 (matching Rule.tsx's numbering) only when it's enabled in
   // some env; a feature can carry a holdout reference whose holdout is
@@ -288,13 +292,10 @@ export default function RequestReviewModal({
         targets: ramp.targets,
         startDate: ramp.startDate,
         steps: ramp.steps,
-        endCondition: ramp.endCondition,
+        cutoffDate: ramp.cutoffDate,
       };
       const isSimple = ramp.steps.length === 0;
-      const endAt =
-        ramp.endCondition?.trigger?.type === "scheduled"
-          ? ramp.endCondition.trigger.at
-          : undefined;
+      const endAt = ramp.cutoffDate ?? undefined;
       const kindLabel = isSimple ? "Schedule" : "Ramp Schedule";
       const detail = isSimple
         ? formatSimpleWindow(ramp.startDate, endAt)
@@ -334,13 +335,10 @@ export default function RequestReviewModal({
             ruleId: action.ruleId,
             startDate: action.startDate,
             steps: action.steps,
-            endCondition: action.endCondition,
+            cutoffDate: action.cutoffDate,
           };
           const isSimple = action.steps.length === 0;
-          const endAt =
-            action.endCondition?.trigger?.type === "scheduled"
-              ? action.endCondition.trigger.at
-              : undefined;
+          const endAt = action.cutoffDate ?? undefined;
           const kindLabel = isSimple ? "Schedule" : "Ramp Schedule";
           const displayName = action.name ?? "schedule";
           const detail = isSimple
@@ -363,6 +361,37 @@ export default function RequestReviewModal({
               {
                 label: `Create ${isSimple ? "schedule" : "ramp"}: ${displayName}`,
                 action: isSimple ? "create schedule" : "create ramp",
+              },
+            ],
+          } as FeatureRevisionDiff;
+        } else if (action.mode === "update") {
+          const rampConfig = {
+            rampScheduleId: action.rampScheduleId,
+            name: action.name,
+            ruleId: action.ruleId,
+            startDate: action.startDate,
+            steps: action.steps,
+            cutoffDate: action.cutoffDate,
+          };
+          const isSimpleUpdate = action.steps.length === 0;
+          const kindLabelUpdate = isSimpleUpdate ? "Schedule" : "Ramp Schedule";
+          const displayName = action.name ?? "schedule";
+          return {
+            title: `${kindLabelUpdate} – ${displayName}`,
+            titleSuffix: <RampActionLabel action="update" />,
+            a: "",
+            b: JSON.stringify(rampConfig, null, 2),
+            customRender: (
+              <p className="mb-0 text-muted">
+                {ruleRef(action.ruleId)} · updates schedule configuration.
+              </p>
+            ),
+            badges: [
+              {
+                label: isSimpleUpdate
+                  ? "Update schedule"
+                  : "Update ramp schedule",
+                action: "update ramp",
               },
             ],
           } as FeatureRevisionDiff;
@@ -417,9 +446,17 @@ export default function RequestReviewModal({
   if (!revision || !mergeResult) return null;
   const allDiffsWithChanges = [...resultDiffsWithChanges, ...rampDiffs];
   const hasChanges = mergeResultHasChanges(mergeResult) || rampDiffs.length > 0;
-  let ctaCopy = "Request Review";
+  let ctaCopy: string | JSX.Element = "Request Review";
   if (approved && !hasNextStep) {
-    ctaCopy = onlyScheduledSelected ? "Schedule to Start" : "Publish";
+    ctaCopy = featureLockedByRamp ? (
+      <>
+        <PiLockSimple /> Publish
+      </>
+    ) : onlyScheduledSelected ? (
+      "Schedule to Start"
+    ) : (
+      "Publish"
+    );
   } else if (canReview || hasNextStep) {
     ctaCopy = "Next";
   }
@@ -443,6 +480,7 @@ export default function RequestReviewModal({
         trackingEventModalType=""
         open={true}
         header={"Review Draft Changes"}
+        useRadixButton={true}
         cta={ctaCopy}
         ctaEnabled={submitEnabled}
         close={close}
@@ -492,45 +530,63 @@ export default function RequestReviewModal({
         {mergeResult.success && hasChanges && (
           <div>
             <div className="mb-2">{showRevisionStatus()}</div>
-            {revision.contributors && revision.contributors.length > 0 && (
-              <div className="mb-3">
-                <strong style={{ fontSize: "0.85rem" }}>Contributors</strong>
-                <Flex align="center" gap="2" wrap="wrap" mt="1">
-                  {[revision.createdBy, ...revision.contributors]
-                    .filter(
-                      (u): u is EventUserLoggedIn | EventUserApiKey =>
-                        u != null &&
-                        (u.type === "dashboard" || u.type === "api_key"),
-                    )
-                    .filter(
-                      (u, idx, arr) =>
-                        arr.findIndex(
-                          (x) => "id" in x && "id" in u && x.id === u.id,
-                        ) === idx,
-                    )
-                    .map((lu) => {
-                      return (
-                        <Flex
-                          key={"id" in lu ? lu.id : lu.apiKey}
-                          align="center"
-                          gap="1"
-                          wrap="wrap"
-                        >
-                          <EventUser
-                            user={lu}
-                            display="avatar-name-email"
-                            size="sm"
-                          />
-                        </Flex>
-                      );
-                    })}
-                </Flex>
-              </div>
+            {(() => {
+              const authorId =
+                revision.createdBy &&
+                "id" in revision.createdBy &&
+                revision.createdBy.id
+                  ? revision.createdBy.id
+                  : undefined;
+              const contribIds = revision.contributors ?? [];
+              const allIds =
+                authorId && !contribIds.includes(authorId)
+                  ? [authorId, ...contribIds]
+                  : contribIds;
+              return (
+                allIds.length > 0 && (
+                  <div className="mb-3">
+                    <strong style={{ fontSize: "0.85rem" }}>
+                      Contributors
+                    </strong>
+                    <Flex align="center" gap="2" wrap="wrap" mt="1">
+                      {allIds.map((id) => {
+                        const u = users.get(id);
+                        return (
+                          <Flex key={id} align="center" gap="1" wrap="wrap">
+                            <EventUser
+                              user={{
+                                type: "dashboard",
+                                id,
+                                name: u?.name || "",
+                                email: u?.email || "",
+                              }}
+                              display="avatar-name-email"
+                              size="sm"
+                            />
+                          </Flex>
+                        );
+                      })}
+                    </Flex>
+                  </div>
+                )
+              );
+            })()}
+            {featureLockedByRamp && (
+              <Callout
+                status="warning"
+                icon={<PiLockSimple size={15} />}
+                mb="3"
+              >
+                Publishing is locked by an active ramp-up schedule.
+                {canAdminPublish
+                  ? " Use the admin bypass below to publish anyway."
+                  : ""}
+              </Callout>
             )}
             {canAdminPublish && (
               <div className="mt-3 mb-4 ml-1">
                 <Checkbox
-                  label="Bypass approval requirement to publish (optional for Admins only)"
+                  label="Bypass approval and lockdown restrictions to publish (optional for Admins only)"
                   value={adminPublish}
                   setValue={(val) => {
                     setAdminPublish(!!val);
@@ -782,6 +838,7 @@ export default function RequestReviewModal({
         open={true}
         close={close}
         header={"Review Draft Changes"}
+        useRadixButton={true}
         cta={"Submit"}
         size="lg"
         includeCloseCta={false}

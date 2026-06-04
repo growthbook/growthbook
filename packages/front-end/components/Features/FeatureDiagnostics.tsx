@@ -13,13 +13,11 @@ import { Box, Flex } from "@radix-ui/themes";
 import { getValidDate } from "shared/dates";
 import { format } from "date-fns";
 import { isNull } from "lodash";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import Button from "@/ui/Button";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import SelectField from "@/components/Forms/SelectField";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
-import { AppFeatures } from "@/types/app-features";
 import LinkButton from "@/ui/LinkButton";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import Callout from "@/ui/Callout";
@@ -104,21 +102,14 @@ export default function FeatureDiagnostics({
   const { datasources, getDatasourceById } = useDefinitions();
   const settings = useOrgSettings();
   const { apiCall } = useAuth();
-  const growthbook = useGrowthBook<AppFeatures>();
-
-  const hasMWDiagnosticsFeature = growthbook?.isOn(
-    "managed-warehouse-diagnostics",
-  );
 
   const validDatasources = useMemo(() => {
     return datasources.filter((d) => {
       if (!isProjectListValidForProject(d.projects, feature.project))
         return false;
-      if (d.type === "growthbook_clickhouse" && !hasMWDiagnosticsFeature)
-        return false;
       return true;
     });
-  }, [datasources, feature.project, hasMWDiagnosticsFeature]);
+  }, [datasources, feature.project]);
 
   const form = useForm({
     defaultValues: {

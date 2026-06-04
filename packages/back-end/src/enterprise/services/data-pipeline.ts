@@ -2,9 +2,9 @@ import md5 from "md5";
 import {
   ExperimentMetricInterface,
   isFactMetric,
-  isRatioMetric,
   quantileMetricType,
 } from "shared/experiments";
+import { isExperimentIncrementalEnabled } from "shared/enterprise";
 import { IncrementalRefreshInterface } from "shared/validators";
 import {
   SnapshotMetricRequest,
@@ -63,30 +63,18 @@ export async function validateIncrementalPipeline({
     );
   }
 
-  // Check if pipeline mode is set to incremental
   const settings = integration.datasource.settings;
-  const canRunIncrementalRefreshQueries =
-    settings.pipelineSettings?.mode === "incremental";
-  if (!canRunIncrementalRefreshQueries) {
-    throw new Error("Integration does not have Pipeline Incremental enabled");
+  if (
+    !isExperimentIncrementalEnabled(settings.pipelineSettings, experiment.id)
+  ) {
+    throw new Error(
+      "This experiment is not enabled for incremental refresh on this data source.",
+    );
   }
 
   if (experiment.activationMetric) {
     throw new Error(
       "Activation metrics are not supported for incremental refresh while in beta.",
-    );
-  }
-
-  if (
-    (settings.pipelineSettings?.includedExperimentIds !== undefined &&
-      !settings.pipelineSettings?.includedExperimentIds.includes(
-        experiment.id,
-      )) ||
-    (settings.pipelineSettings?.excludedExperimentIds !== undefined &&
-      settings.pipelineSettings?.excludedExperimentIds.includes(experiment.id))
-  ) {
-    throw new Error(
-      "Experiment is not included in the Pipeline Incremental scope",
     );
   }
 
@@ -105,22 +93,13 @@ export async function validateIncrementalPipeline({
   }
 
   selectedMetrics.filter(isFactMetric).forEach((metric) => {
-    if (
-      isRatioMetric(metric) &&
-      metric.numerator.factTableId !== metric.denominator?.factTableId
-    ) {
-      throw new Error(
-        "Ratio metrics must have the same numerator and denominator fact table with incremental refresh.",
-      );
-    }
-
     // Unit quantiles store a float and re-aggregate via SUM, so they work on
-    // any incremental-capable warehouse. Only event quantiles need KLL (the
-    // quantile must be computed over raw event values, which requires a
-    // mergeable sketch for incremental aggregation).
+    // any incremental-capable warehouse. Only event quantiles need a quantile
+    // sketch (the quantile must be computed over raw event values, which
+    // requires a mergeable sketch for incremental aggregation).
     if (
       quantileMetricType(metric) === "event" &&
-      !integration.getSourceProperties().hasQuantileKLL
+      !integration.getSourceProperties().hasQuantileSketch
     ) {
       throw new Error(
         "Event quantile metrics are not supported with incremental refresh on this data source.",

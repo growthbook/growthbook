@@ -30,11 +30,13 @@ import {
 } from "shared/types/organization";
 import { ProjectInterface } from "shared/types/project";
 import { GroupMap } from "shared/types/saved-group";
+import { RampScheduleInterface } from "../validators/ramp-schedule";
 import { getValidDate } from "../dates";
 import {
   conditionHasSavedGroupErrors,
   expandNestedSavedGroups,
 } from "../sdk-versioning";
+import { stemRuleId } from "./ruleId";
 import {
   getMatchingRules,
   getRulesForEnvironment,
@@ -426,13 +428,13 @@ const areRulesOneSided = (
 
 interface IsFeatureStaleInterface {
   feature: FeatureInterface;
-  features?: FeatureInterface[];
+  features: FeatureInterface[];
+  environments: string[];
   experiments?: ExperimentInterfaceStringDates[];
   dependentExperiments?: ExperimentInterfaceStringDates[];
-  environments?: string[];
   featuresMap?: Map<string, FeatureInterface>;
   experimentMap?: Map<string, ExperimentInterfaceStringDates>;
-  // Most recent dateUpdated among active drafts; null = no active drafts.
+  reverseDependencyIndex?: ReverseDependencyIndex;
   mostRecentDraftDate?: Date | null;
 }
 
@@ -579,16 +581,17 @@ function buildEnvResults(
 export function isFeatureStale({
   feature,
   features,
+  environments,
   experiments = [],
   dependentExperiments,
-  environments = [],
   featuresMap: prebuiltFeaturesMap,
   experimentMap: prebuiltExperimentMap,
+  reverseDependencyIndex,
   mostRecentDraftDate,
 }: IsFeatureStaleInterface): IsFeatureStaleResult {
   const featuresMap =
     prebuiltFeaturesMap ??
-    new Map<string, FeatureInterface>((features ?? []).map((f) => [f.id, f]));
+    new Map<string, FeatureInterface>(features.map((f) => [f.id, f]));
   const experimentMap =
     prebuiltExperimentMap ??
     new Map<string, ExperimentInterfaceStringDates>(
@@ -596,13 +599,6 @@ export function isFeatureStale({
     );
 
   const visitedFeatures = new Set<string>();
-
-  if (!features) {
-    features = [feature];
-  }
-  if (!environments.length) {
-    environments = Object.keys(feature.environmentSettings);
-  }
 
   const visit = (feature: FeatureInterface): IsFeatureStaleResult => {
     if (visitedFeatures.has(feature.id)) {
@@ -614,7 +610,13 @@ export function isFeatureStale({
       // Compute dependents before buildEnvResults so per-env results can use them.
       const dependentFeatureIds =
         features && features.length > 1
-          ? getDependentFeatures(feature, features, environments)
+          ? getDependentFeatures(
+              feature,
+              features,
+              environments,
+              reverseDependencyIndex,
+              featuresMap,
+            )
           : [];
       // Only non-stale dependents protect an env from being marked stale.
       const nonStaleDependentFeatureIds = dependentFeatureIds.filter((id) => {
@@ -1808,22 +1810,70 @@ export function evalDeterministicPrereqValue(
   return pass ? "pass" : "fail";
 }
 
+/** Maps each feature ID to the set of features that depend on it as a prerequisite. */
+export type ReverseDependencyIndex = Map<string, Set<string>>;
+
+export function buildReverseDependencyIndex(
+  features: FeatureInterface[],
+): ReverseDependencyIndex {
+  const index: ReverseDependencyIndex = new Map();
+
+  for (const f of features) {
+    for (const p of f.prerequisites || []) {
+      let set = index.get(p.id);
+      if (!set) {
+        set = new Set();
+        index.set(p.id, set);
+      }
+      set.add(f.id);
+    }
+    for (const rule of f.rules ?? []) {
+      if (!rule?.enabled || !rule.prerequisites?.length) continue;
+      for (const p of rule.prerequisites) {
+        let set = index.get(p.id);
+        if (!set) {
+          set = new Set();
+          index.set(p.id, set);
+        }
+        set.add(f.id);
+      }
+    }
+  }
+
+  return index;
+}
+
 export function getDependentFeatures(
   feature: FeatureInterface,
   features: FeatureInterface[],
   environments: string[],
+  reverseDependencyIndex?: ReverseDependencyIndex,
+  featuresMap?: Map<string, FeatureInterface>,
 ): string[] {
-  const dependentFeatures = features.filter((f) => {
-    const prerequisites = f.prerequisites || [];
-    const rules = getMatchingRules(
-      f,
-      (r) =>
-        !!r.enabled && (r.prerequisites || []).some((p) => p.id === feature.id),
-      environments,
+  const isDependent = (f: FeatureInterface) => {
+    if ((f.prerequisites || []).some((p) => p.id === feature.id)) return true;
+    return (
+      getMatchingRules(
+        f,
+        (r) =>
+          !!r.enabled &&
+          (r.prerequisites || []).some((p) => p.id === feature.id),
+        environments,
+      ).length > 0
     );
-    return prerequisites.some((p) => p.id === feature.id) || rules.length > 0;
-  });
-  return dependentFeatures.map((f) => f.id);
+  };
+
+  if (reverseDependencyIndex) {
+    const candidates = reverseDependencyIndex.get(feature.id);
+    if (!candidates || candidates.size === 0) return [];
+    const lookup = featuresMap ?? new Map(features.map((f) => [f.id, f]));
+    return [...candidates].filter((id) => {
+      const f = lookup.get(id);
+      return f && isDependent(f);
+    });
+  }
+
+  return features.filter(isDependent).map((f) => f.id);
 }
 
 export function getDependentExperiments(
@@ -1954,10 +2004,37 @@ function normalizeRuleForDiff(
   return rest as Omit<FeatureRule, "scheduleType">;
 }
 
+/**
+ * Returns the union of all environments explicitly targeted by a ramp
+ * schedule's patch actions (startActions, steps, endActions).  Returns "all"
+ * if any patch sets `allEnvironments: true`.
+ */
+export function getEnvsFromRampSchedule(
+  schedule: Pick<
+    RampScheduleInterface,
+    "startActions" | "steps" | "endActions"
+  >,
+): string[] | "all" {
+  const envs = new Set<string>();
+  const allPatches = [
+    ...(schedule.startActions ?? []).map((a) => a.patch),
+    ...schedule.steps.flatMap((s) => s.actions.map((a) => a.patch)),
+    ...(schedule.endActions ?? []).map((a) => a.patch),
+  ];
+  for (const patch of allPatches) {
+    if (patch.allEnvironments) return "all";
+    for (const env of patch.environments ?? []) {
+      envs.add(env);
+    }
+  }
+  return [...envs];
+}
+
 export function getDraftAffectedEnvironments(
   revision: RevisionFields,
   baseRevision: RevisionFields,
   allEnvironments: string[],
+  liveRampScheduleEnvs?: Map<string, string[] | "all">,
 ): string[] | "all" {
   if (revisionHasGlobalChange(revision, baseRevision)) return "all";
 
@@ -1979,7 +2056,11 @@ export function getDraftAffectedEnvironments(
     if (!isEqual(revRules, baseRules)) {
       envs.add(env);
     }
-    const effectiveBaseEnvVal = baseRevision.environmentsEnabled?.[env];
+    // Base revisions that predate an environment have no key for it at all;
+    // treat missing as false so a freshly-snapshotted `false` on the draft side
+    // doesn't register as a kill-switch change.
+    const effectiveBaseEnvVal =
+      baseRevision.environmentsEnabled?.[env] ?? false;
     if (
       revision.environmentsEnabled?.[env] !== undefined &&
       revision.environmentsEnabled[env] !== effectiveBaseEnvVal
@@ -1987,6 +2068,49 @@ export function getDraftAffectedEnvironments(
       envs.add(env);
     }
   }
+  // rampActions target a specific rule by ruleId; the environments that rule
+  // is active in are affected by the ramp. Step patches can also widen the
+  // scope if they explicitly set `environments` or `allEnvironments`.
+  if ((revision.rampActions ?? []).length > 0) {
+    for (const action of revision.rampActions!) {
+      // Look up the rule in the draft rules first, then the base rules (e.g.
+      // for a detach where the rule may already have been removed from draft).
+      const rule =
+        revRulesAll.find(
+          (r) => stemRuleId(r.id ?? "") === stemRuleId(action.ruleId),
+        ) ??
+        baseRulesAll.find(
+          (r) => stemRuleId(r.id ?? "") === stemRuleId(action.ruleId),
+        );
+      if (rule?.allEnvironments) return "all";
+      for (const env of rule?.environments ?? []) {
+        if (allEnvironments.includes(env)) envs.add(env);
+      }
+      if (action.mode !== "detach") {
+        // For update actions, also include environments from the CURRENT live
+        // schedule so that removing an env from the new steps is still detected.
+        if (action.mode === "update" && liveRampScheduleEnvs) {
+          const liveEnvs = liveRampScheduleEnvs.get(action.rampScheduleId);
+          if (liveEnvs === "all") return "all";
+          for (const env of liveEnvs ?? []) {
+            if (allEnvironments.includes(env)) envs.add(env);
+          }
+        }
+        const allPatches = [
+          ...(action.startActions ?? []).map((a) => a.patch),
+          ...action.steps.flatMap((s) => s.actions.map((a) => a.patch)),
+          ...(action.endActions ?? []).map((a) => a.patch),
+        ];
+        for (const patch of allPatches) {
+          if (patch.allEnvironments) return "all";
+          for (const env of patch.environments ?? []) {
+            if (allEnvironments.includes(env)) envs.add(env);
+          }
+        }
+      }
+    }
+  }
+
   // Collapse to "all" when every environment is affected
   if (allEnvironments.length > 0 && envs.size === allEnvironments.length) {
     return "all";
@@ -2001,6 +2125,7 @@ export function checkIfRevisionNeedsReview({
   allEnvironments,
   settings,
   requireApprovalsLicensed = true,
+  liveRampScheduleEnvs,
 }: {
   feature: FeatureInterface;
   baseRevision: FeatureRevisionInterface;
@@ -2008,6 +2133,7 @@ export function checkIfRevisionNeedsReview({
   allEnvironments: string[];
   settings?: OrganizationSettings;
   requireApprovalsLicensed?: boolean;
+  liveRampScheduleEnvs?: Map<string, string[] | "all">;
 }) {
   if (!requireApprovalsLicensed) return false;
   const requireReviews = settings?.requireReviews;
@@ -2021,6 +2147,7 @@ export function checkIfRevisionNeedsReview({
     revision,
     baseRevision,
     allEnvironments,
+    liveRampScheduleEnvs,
   );
 
   if (affected === "all") {
@@ -2051,7 +2178,7 @@ export function checkIfRevisionNeedsReview({
     (env) =>
       revision.environmentsEnabled?.[env] !== undefined &&
       revision.environmentsEnabled[env] !==
-        baseRevision.environmentsEnabled?.[env],
+        (baseRevision.environmentsEnabled?.[env] ?? false),
   );
 
   const gatedEnvs = reviewSetting.environments;
@@ -2070,6 +2197,21 @@ export function checkIfRevisionNeedsReview({
     if (gatedEnvs.length === 0) return true;
     if (envKillSwitchChanges.some((env) => gatedEnvs.includes(env)))
       return true;
+  }
+
+  // Ramp actions (create/update/detach) change how the feature is rolled out
+  // across environments. They are treated like rule changes and always require
+  // approval when any of the targeted environments are gated.
+  if ((revision.rampActions ?? []).length > 0) {
+    const rampEnvs = affected.filter(
+      (env) =>
+        !envsWithRuleChanges.includes(env) &&
+        !envKillSwitchChanges.includes(env),
+    );
+    if (rampEnvs.length > 0) {
+      if (gatedEnvs.length === 0) return true;
+      if (rampEnvs.some((env) => gatedEnvs.includes(env))) return true;
+    }
   }
 
   return false;

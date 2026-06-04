@@ -27,6 +27,7 @@ import {
   checkIfRevisionNeedsReview,
   ruleAppliesToEnv,
   namespacesToMap,
+  stemRuleId,
 } from "shared/util";
 import {
   getConnectionSDKCapabilities,
@@ -123,6 +124,7 @@ import {
   normalizeRulesInputToV2,
 } from "back-end/src/models/FeatureRevisionModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
+import { RampMonitoredRuleInfo } from "back-end/src/models/RampScheduleModel";
 import {
   getContextForAgendaJobByOrgObject,
   getEnvironmentIdsFromOrg,
@@ -148,6 +150,7 @@ export function generateFeaturesPayload({
   includeRuleIds,
   includeExperimentNames,
   cbMap,
+  rampMonitoredRuleMap,
 }: {
   features: FeatureInterface[];
   experimentMap: Map<string, ExperimentInterface>;
@@ -172,6 +175,7 @@ export function generateFeaturesPayload({
   includeExperimentNames?: boolean;
   /** Optional map of experimentId → CB doc for contextual-bandit payload injection. */
   cbMap?: Map<string, import("shared/validators").ContextualBanditInterface>;
+  rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
 }): Record<string, FeatureDefinition> {
   const defs: Record<string, FeatureDefinition> = {};
   const newFeatures = reduceFeaturesWithPrerequisites(
@@ -194,6 +198,7 @@ export function generateFeaturesPayload({
       savedGroupsMap,
       includeRuleIds,
       includeExperimentNames,
+      rampMonitoredRuleMap,
       metadataOptions: {
         includeProjectIdInMetadata,
         includeCustomFieldsInMetadata,
@@ -682,6 +687,8 @@ export async function refreshSDKPayloadCache({
   const savedGroups = await context.models.savedGroups.getAll();
   const groupMap = await getSavedGroupMap(context, savedGroups);
   const allFeatures = await getAllFeatures(context);
+  const rampMonitoredRuleMap =
+    await context.models.rampSchedules.getPayloadRampMonitoredRuleMap();
 
   const [allVisualExperiments, allURLRedirectExperiments] = await Promise.all([
     getAllVisualExperiments(context, experimentMap),
@@ -696,6 +703,7 @@ export async function refreshSDKPayloadCache({
     savedGroups,
     visualExperiments: allVisualExperiments,
     urlRedirectExperiments: allURLRedirectExperiments,
+    rampMonitoredRuleMap,
   };
 
   const payloadKeyEnvironments = new Set(payloadKeys.map((k) => k.environment));
@@ -1000,14 +1008,13 @@ export type SDKPayloadRawData = {
   safeRolloutMap: Map<string, SafeRolloutInterface>;
   savedGroups: SavedGroupInterface[];
   holdoutsMap: Map<
-    string, // holdout id
-    // holdoutExperiment was named `experiment` on main; renamed here to be explicit
+    string,
     { holdout: HoldoutInterface; holdoutExperiment: ExperimentInterface }
   >;
   visualExperiments?: VisualExperiment[];
   urlRedirectExperiments?: URLRedirectExperiment[];
-  // Populated when any connection in the refresh has includeProjectIdInMetadata=true
   projectsMap?: Map<string, ProjectInterface>;
+  rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
 };
 
 // Payload-relevant subset of SDK connection (plus derived capabilities). Pass through encryptPayload + encryptionKey; effective key is derived inside buildSDKPayloadForConnection.
@@ -1191,6 +1198,7 @@ export async function buildSDKPayloadForConnection(
     includeTagsInMetadata,
     projectsMap,
     cbMap,
+    rampMonitoredRuleMap: data.rampMonitoredRuleMap,
   });
 
   const holdoutFeatureDefinitions = generateHoldoutsPayload({
@@ -1233,6 +1241,7 @@ export async function buildSDKPayloadForConnection(
     holdoutFeatureDefinitions,
     featureDefinitions,
   );
+
   const featuresWithHoldouts = {
     ...featureDefinitions,
     ...holdoutsInUse,
@@ -1291,6 +1300,8 @@ export async function getFeatureDefinitions(
     await context.models.safeRollout.getAllPayloadSafeRollouts();
   const holdoutsMap =
     await context.models.holdout.getAllPayloadHoldouts(environment);
+  const rampMonitoredRuleMap =
+    await context.models.rampSchedules.getPayloadRampMonitoredRuleMap();
 
   return buildSDKPayloadForConnection({
     context,
@@ -1319,6 +1330,7 @@ export async function getFeatureDefinitions(
       safeRolloutMap,
       savedGroups: allSavedGroups,
       holdoutsMap,
+      rampMonitoredRuleMap,
     },
   });
 }
@@ -1638,6 +1650,9 @@ export function addIdsToRules(
         if (!r.id) {
           r.id = generateRuleId();
         }
+        if (r.type === "rollout" && !r.seed) {
+          r.seed = r.id;
+        }
       });
     }
   });
@@ -1653,6 +1668,13 @@ export function addIdsToFlatRules(
     }
     if (!r.id) {
       r.id = generateRuleId();
+    }
+    // Rollout rules without an explicit seed default to their rule ID.
+    // This ensures the SDK (which falls back to rule.id when no seed is sent)
+    // and the monitored-ramp payload both bucket users identically, preventing
+    // variation hopping when a rule transitions between monitored/unmonitored.
+    if (r.type === "rollout" && !r.seed) {
+      r.seed = r.id;
     }
   });
 }
@@ -1875,6 +1897,9 @@ export function revisionToApiInterface(
           : undefined,
       },
     }),
+    ...(rev.rampActions !== undefined && {
+      rampActions: rev.rampActions,
+    }),
   };
 }
 
@@ -1895,8 +1920,19 @@ export function normalizeRuleForApiV2(rule: FeatureRule): ApiFeatureRuleV2 {
 export function revisionToApiInterfaceV2(
   rev: FeatureRevisionInterface,
 ): z.infer<typeof apiFeatureRevisionV2Validator> {
+  const rampActionsByRuleId = new Map<string, "create" | "detach">();
+  for (const a of rev.rampActions ?? []) {
+    if (a.mode === "create" || a.mode === "detach") {
+      rampActionsByRuleId.set(a.ruleId, a.mode);
+    }
+  }
+
   const rules: ApiFeatureRuleV2[] = Array.isArray(rev.rules)
-    ? rev.rules.map(normalizeRuleForApiV2)
+    ? rev.rules.map((rule) => {
+        const base = normalizeRuleForApiV2(rule);
+        const pendingRamp = rampActionsByRuleId.get(rule.id);
+        return pendingRamp ? { ...base, pendingRamp } : base;
+      })
     : [];
 
   return {
@@ -1916,7 +1952,8 @@ export function revisionToApiInterfaceV2(
       environmentsEnabled: rev.environmentsEnabled,
     }),
     ...(rev.prerequisites !== undefined && {
-      prerequisites: rev.prerequisites,
+      // Strip internal condition field — v2 only exposes the flag ID.
+      prerequisites: rev.prerequisites.map(({ id }) => ({ id })),
     }),
     ...(rev.metadata !== undefined && {
       metadata: {
@@ -1932,6 +1969,9 @@ export function revisionToApiInterfaceV2(
             }
           : undefined,
       },
+    }),
+    ...(rev.rampActions !== undefined && {
+      rampActions: rev.rampActions,
     }),
   };
 }
@@ -1955,6 +1995,7 @@ export function getApiFeatureObjV2({
   revision,
   revisions,
   safeRolloutMap,
+  rampScheduleMap,
 }: {
   feature: FeatureInterface;
   organization: OrganizationInterface;
@@ -1963,6 +2004,7 @@ export function getApiFeatureObjV2({
   revision: FeatureRevisionInterface | null;
   revisions?: FeatureRevisionInterface[];
   safeRolloutMap: Map<string, SafeRolloutInterface>;
+  rampScheduleMap?: Map<string, string>;
 }): ApiFeatureWithRevisionsV2 {
   const defaultValue = feature.defaultValue;
   const featureEnvironments: Record<string, ApiFeatureEnvironmentV2> = {};
@@ -1985,9 +2027,12 @@ export function getApiFeatureObjV2({
     }
   });
 
-  const apiRules: ApiFeatureRuleV2[] = (feature.rules ?? []).map(
-    normalizeRuleForApiV2,
-  );
+  const apiRules: ApiFeatureRuleV2[] = (feature.rules ?? []).map((rule) => {
+    const normalized = normalizeRuleForApiV2(rule);
+    const rampScheduleId =
+      rampScheduleMap?.get(stemRuleId(rule.id ?? "")) ?? undefined;
+    return rampScheduleId ? { ...normalized, rampScheduleId } : normalized;
+  });
 
   const revisionDefs = revisions?.map(revisionToApiInterfaceV2);
 

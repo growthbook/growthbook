@@ -35,7 +35,7 @@ export async function planContextualBanditMetricQuery(
     context,
     datasource.id,
   );
-  if (!integration.getExperimentMetricQuery) {
+  if (!integration.getSnapshotMetricQuery) {
     throw new Error(
       "Datasource integration does not support experiment queries",
     );
@@ -112,11 +112,11 @@ export async function planContextualBanditMetricQuery(
     factTableMap,
   };
 
-  const sql = integration.getExperimentMetricQuery(queryParams);
+  const sql = integration.getSnapshotMetricQuery(queryParams);
   return {
     sql,
     execute: async (querySql: string) => {
-      const { rows } = await integration.runExperimentMetricQuery(
+      const { rows } = await integration.runSnapshotMetricQuery(
         querySql,
         async () => {},
       );

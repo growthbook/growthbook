@@ -4,7 +4,7 @@ import {
   isFactMetricId,
   expandAllSliceMetricsInMap,
   getLatestPhaseVariations,
-  isPrecomputedDimension,
+  isDimensionPrecomputed,
 } from "shared/experiments";
 import {
   CreateMetricTimeSeriesSingleDataPoint,
@@ -48,9 +48,9 @@ export async function updateExperimentTimeSeries({
   experimentSnapshot: ExperimentSnapshotInterface;
   notificationsTriggered: string[];
 }) {
-  // This top-level update only handles the main experiment time series.
-  // Precomputed dimension time series are handled separately by
-  // runEagerPrecomputedDimensionAnalyses.
+  // This function handles the main (dimensionless) experiment time series.
+  // Precomputed dimension time series are written by
+  // runEagerExperimentAndUnitDimensionsAnalyses after their analyses are persisted.
   if (
     experimentSnapshot.dimension !== null &&
     experimentSnapshot.dimension !== ""
@@ -133,7 +133,7 @@ export async function getExperimentTimeSeriesContext({
 /**
  * Persists time series for a group of analyses that share the same snapshot
  * context. Dimensionless analyses write the main experiment series; analyses
- * for one precomputed dimension write one series per dimension value.
+ * for a precomputed dimension write one series per dimension value.
  */
 export async function updateExperimentAnalysisTimeSeries({
   context,
@@ -161,8 +161,13 @@ export async function updateExperimentAnalysisTimeSeries({
     );
   }
   const [dimensionId] = Array.from(dimensionIds);
-  // Only precomputed dimensions are supported for dimension time series for now.
-  if (dimensionId && !isPrecomputedDimension(dimensionId)) {
+  if (
+    dimensionId &&
+    !isDimensionPrecomputed(
+      dimensionId,
+      experimentSnapshot.settings.precomputedUnitDimensionIds ?? [],
+    )
+  ) {
     throw new Error(
       `Cannot update time series for unsupported dimension: ${dimensionId}`,
     );

@@ -113,6 +113,7 @@ export function buildRuleFromInput(
       coverage: input.coverage ?? 1,
       hashAttribute: input.hashAttribute,
       ...(input.seed !== undefined && { seed: input.seed }),
+      hashVersion: (input.hashVersion as 1 | 2 | undefined) ?? 2,
     };
     return rule;
   }
@@ -199,18 +200,32 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
         }
 
         if (needsHoldoutCheck && feature.holdout?.id) {
+          if (experiment.status !== "draft") {
+            throw new BadRequestError(
+              `Cannot add experiment rule: this feature uses a holdout, so the experiment must be in "draft" status (currently "${experiment.status}").`,
+            );
+          }
           const expHasLinkedChanges =
             (experiment.linkedFeatures?.length ?? 0) > 0 ||
             experiment.hasURLRedirects ||
             experiment.hasVisualChangesets;
-          if (
-            experiment.status !== "draft" ||
-            (experiment.holdoutId &&
-              experiment.holdoutId !== feature.holdout.id) ||
-            expHasLinkedChanges
-          ) {
+          if (expHasLinkedChanges) {
             throw new BadRequestError(
-              "Failed to create experiment rule. Experiment has linked changes, is not in draft status, or is not linked to the same holdout as the feature.",
+              `Cannot add experiment rule: this feature uses a holdout, but the experiment already has linked features, URL redirects, or visual changesets. Unlink them first.`,
+            );
+          }
+          if (
+            experiment.holdoutId &&
+            experiment.holdoutId !== feature.holdout.id
+          ) {
+            const featureHoldout = await req.context.models.holdout.getById(
+              feature.holdout.id,
+            );
+            const expHoldout = experiment.holdoutId
+              ? await req.context.models.holdout.getById(experiment.holdoutId)
+              : null;
+            throw new BadRequestError(
+              `Cannot add experiment rule: experiment belongs to holdout "${expHoldout?.name || experiment.holdoutId}" but this feature uses holdout "${featureHoldout?.name || feature.holdout.id}".`,
             );
           }
 
@@ -271,7 +286,6 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
       ];
       const safeRollout = await req.context.models.safeRollout.create({
         ...validatedFields,
-        environment,
         featureId: feature.id,
         status: "running",
         autoSnapshots: true,
@@ -320,6 +334,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
       const existing = revision.rampActions ?? [];
       const filtered = existing.filter(
         (a) =>
+          !("ruleId" in a) ||
           a.ruleId !== (resolvedRampAction as RevisionRampCreateAction).ruleId,
       );
       changes.rampActions = [...filtered, resolvedRampAction];
