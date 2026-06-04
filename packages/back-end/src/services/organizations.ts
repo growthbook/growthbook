@@ -1195,6 +1195,7 @@ export async function addMemberFromSSOConnection(
   if (!organization) return null;
 
   // If the org has explicitly disabled autoApproveMembers, add the user as a pending member
+  // This differs from the non-SSO path (`undefined` is auto-approved there) to preserve existing behavior
   if (organization.autoApproveMembers === false) {
     const alreadyPending = organization.pendingMembers?.some(
       (m) => m.id === req.userId,
