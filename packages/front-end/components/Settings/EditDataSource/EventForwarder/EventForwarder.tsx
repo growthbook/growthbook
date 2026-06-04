@@ -21,10 +21,10 @@ import {
 } from "shared/types/datasource";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
-import { Box, Card, Flex, IconButton } from "@radix-ui/themes";
-import { BsThreeDotsVertical } from "react-icons/bs";
+import { Box, Card, Flex } from "@radix-ui/themes";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { FaChevronRight } from "react-icons/fa";
+import { PiPause, PiPencilSimple, PiPlay } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import PremiumCallout from "@/ui/PremiumCallout";
@@ -38,7 +38,6 @@ import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Modal from "@/ui/Modal";
 import ModalForm, { useModalForm } from "@/ui/Modal/ModalForm";
@@ -478,6 +477,27 @@ function EventForwarderModal({
   );
 }
 
+function EventForwarderSetupIndicator() {
+  return (
+    <Box
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "var(--space-2)",
+        width: "fit-content",
+        padding: "2px 6px",
+        borderRadius: "var(--radius-2)",
+        backgroundColor: "var(--violet-a3)",
+        color: "var(--violet-11)",
+      }}
+    >
+      <LoadingSpinner style={{ width: "12px", height: "12px" }} />
+      <Text size="small">Setting up</Text>
+    </Box>
+  );
+}
+
 export default function EventForwarder({
   dataSource,
   canEdit = true,
@@ -486,7 +506,6 @@ export default function EventForwarder({
 }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const autoOpenedRef = useRef(false);
   const { apiCall } = useAuth();
   const { effectiveAccountPlan, subscription } = useUser();
@@ -559,7 +578,7 @@ export default function EventForwarder({
           </Heading>
           {eventForwarderConfig ? (
             <Flex align="center" gap="2">
-              {isProvisioning ? <LoadingSpinner /> : null}
+              {isProvisioning ? <EventForwarderSetupIndicator /> : null}
               <Badge
                 label={statusLabels[eventForwarderConfig.status]}
                 color={statusColors[eventForwarderConfig.status]}
@@ -571,11 +590,16 @@ export default function EventForwarder({
 
         {canEdit && eventForwarderConfig ? (
           <Flex align="center" gap="2">
-            <Button variant="outline" onClick={() => setShowEditModal(true)}>
-              Edit Event Forwarder
+            <Button
+              variant="outline"
+              icon={<PiPencilSimple />}
+              iconPosition="left"
+              onClick={() => setShowEditModal(true)}
+            >
+              Edit
             </Button>
             {/* TEMP: remove once self-serve delete ships */}
-            <Button
+            {/* <Button
               variant="outline"
               color="red"
               setError={setError}
@@ -594,44 +618,27 @@ export default function EventForwarder({
               }}
             >
               Delete Event Forwarder (temp)
-            </Button>
+            </Button> */}
             {canToggle ? (
-              <DropdownMenu
-                trigger={
-                  <IconButton
-                    variant="ghost"
-                    color="gray"
-                    radius="full"
-                    size="2"
-                    highContrast
-                  >
-                    <BsThreeDotsVertical size={16} />
-                  </IconButton>
-                }
-                menuPlacement="end"
-                open={menuOpen}
-                onOpenChange={setMenuOpen}
+              <Button
+                variant="outline"
+                color={isReady ? "red" : undefined}
+                icon={isReady ? <PiPause /> : <PiPlay />}
+                iconPosition="left"
+                onClick={async () => {
+                  try {
+                    await apiCall(
+                      `/datasource/${dataSource.id}/event-forwarder/${action}`,
+                      { method: "POST" },
+                    );
+                    await onRefresh();
+                  } catch (e) {
+                    setError(e instanceof Error ? e.message : "Action failed");
+                  }
+                }}
               >
-                <DropdownMenuItem
-                  color={isReady ? "red" : undefined}
-                  onClick={async () => {
-                    setMenuOpen(false);
-                    try {
-                      await apiCall(
-                        `/datasource/${dataSource.id}/event-forwarder/${action}`,
-                        { method: "POST" },
-                      );
-                      await onRefresh();
-                    } catch (e) {
-                      setError(
-                        e instanceof Error ? e.message : "Action failed",
-                      );
-                    }
-                  }}
-                >
-                  {isReady ? "Pause" : "Resume"}
-                </DropdownMenuItem>
-              </DropdownMenu>
+                {isReady ? "Pause" : "Resume"}
+              </Button>
             ) : null}
           </Flex>
         ) : null}
@@ -730,9 +737,12 @@ export default function EventForwarder({
             </Flex>
 
             {isProvisioning ? (
-              <Text color="text-low" size="small">
-                Provisioning event forwarder…
-              </Text>
+              <Callout status="info">
+                <Text color="text-mid" size="medium">
+                  This page will update automatically once provisioning
+                  completes.
+                </Text>
+              </Callout>
             ) : null}
 
             {showProvisioningError && primaryConnectorErrorMessage ? (
