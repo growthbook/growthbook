@@ -104,6 +104,7 @@ function bigQueryPercentileCapSelectClause(
 export const bigQueryDialect: SqlDialect = {
   ...baseDialect,
   formatDialect: "bigquery",
+  maxContextualBanditContexts: 5000,
   addTime: (
     col: string,
     unit: "hour" | "minute",

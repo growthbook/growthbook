@@ -125,7 +125,7 @@ function makeResult(
       {
         context: { country: "US" },
         sampleSizePerVariation: [50, 50],
-        variationMeans: [0.1, 0.2],
+        sampleMeans: [0.1, 0.2],
         updatedWeights: [0.3, 0.7],
         bestArmProbabilities: [0.3, 0.7],
         updateMessage: "ok",
@@ -133,7 +133,7 @@ function makeResult(
       {
         context: { country: "CA" },
         sampleSizePerVariation: [30, 70],
-        variationMeans: [0.05, 0.07],
+        sampleMeans: [0.05, 0.07],
         updatedWeights: [0.55, 0.45],
         bestArmProbabilities: [0.55, 0.45],
         updateMessage: "ok",

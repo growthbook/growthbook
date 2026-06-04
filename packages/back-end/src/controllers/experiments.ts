@@ -1987,9 +1987,20 @@ export async function postExperiment(
     }
   }
 
-  // CB-specific pre-save validation lived here pre-decoupling; CBs are
-  // now authored via POST /api/v1/contextual-bandits and never reach
-  // this experiment update path.
+  try {
+    await validateContextualBanditExperimentForSave(context, {
+      type: changes.type ?? experiment.type,
+      datasourceId: changes.datasource ?? experiment.datasource,
+      exposureQueryId: changes.exposureQueryId ?? experiment.exposureQueryId,
+      goalMetrics: changes.goalMetrics ?? experiment.goalMetrics,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e instanceof Error ? e.message : String(e),
+    });
+    return;
+  }
 
   const updated = await updateExperimentAndSync({
     context,

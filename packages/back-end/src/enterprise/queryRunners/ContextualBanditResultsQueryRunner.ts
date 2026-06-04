@@ -13,7 +13,6 @@ import {
 } from "shared/experiments";
 import { ExperimentMetricQueryResponseRows } from "shared/types/integrations";
 import { ExposureQuery } from "shared/types/datasource";
-import { MetricInterface } from "shared/types/metric";
 import type { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
 import {
   attributesToCondition,
@@ -23,6 +22,8 @@ import {
 } from "back-end/src/enterprise/services/contextualBandits";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
+import { hasUsableContextualBanditTargeting } from "back-end/src/integrations/sql/ctes/contextual-bandit-experiment-units-cte";
+import { logger } from "back-end/src/util/logger";
 import {
   ContextualBanditResult,
   runContextualStatsEngine,
@@ -79,6 +80,22 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
     const expSnapshotSettings = buildSnapshotMetricRequestForCb(
       this.snapshotSettings,
     );
+
+    // A contextual bandit should always have usable targeting attributes; if it
+    // doesn't (none configured, or none that are SQL-safe identifiers), we don't
+    // fail the run — the bandit degrades to a single global context and updates
+    // variation weights identically for every user. Surface a warning so the
+    // unexpected configuration is visible.
+    if (!hasUsableContextualBanditTargeting(expSnapshotSettings)) {
+      logger.warn(
+        `Contextual bandit ${this.snapshotSettings.experimentId} (snapshot ${this.model.id}) has no usable targeting attribute columns ` +
+          `(configured: [${(
+            this.snapshotSettings.contextualAttributes ?? []
+          ).join(", ")}]); falling back to a single global context and ` +
+          `updating variation weights identically for all users.`,
+      );
+    }
+
     const decisionMetricId = this.snapshotSettings.goalMetrics[0];
     if (!decisionMetricId) {
       throw new Error("Contextual bandit snapshot is missing a goal metric");
@@ -91,40 +108,32 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
         `Contextual bandit decision metric not found: ${decisionMetricId}`,
       );
     }
-    const factTableMap = await getFactTableMap(this.context);
-
-    const decisionMetricIsFact = isFactMetric(decisionMetric);
+    // Contextual bandits only support fact metrics as the decision metric.
+    if (!isFactMetric(decisionMetric)) {
+      throw new Error(
+        `Contextual bandit decision metric ${decisionMetricId} must be a fact metric`,
+      );
+    }
     if (
-      decisionMetricIsFact &&
-      (!this.integration.getExperimentFactMetricsQuery ||
-        !this.integration.runExperimentFactMetricsQuery)
+      !this.integration.getExperimentFactMetricsQuery ||
+      !this.integration.runExperimentFactMetricsQuery
     ) {
       throw new Error(
         `Datasource integration does not support fact metric queries required for contextual bandit decision metric ${decisionMetricId}`,
       );
     }
+    const factTableMap = await getFactTableMap(this.context);
 
-    const sql = isFactMetric(decisionMetric)
-      ? this.integration.getExperimentFactMetricsQuery!({
-          activationMetric: null,
-          dimensions: [],
-          metrics: [decisionMetric],
-          segment: null,
-          settings: expSnapshotSettings,
-          unitsSource: "exposureQuery",
-          unitsTableFullName: "",
-          factTableMap,
-        })
-      : this.integration.getSnapshotMetricQuery({
-          settings: expSnapshotSettings,
-          metric: decisionMetric as MetricInterface,
-          denominatorMetrics: [],
-          activationMetric: null,
-          dimensions: [],
-          segment: null,
-          factTableMap,
-          unitsSource: "exposureQuery",
-        });
+    const sql = this.integration.getExperimentFactMetricsQuery({
+      activationMetric: null,
+      dimensions: [],
+      metrics: [decisionMetric],
+      segment: null,
+      settings: expSnapshotSettings,
+      unitsSource: "exposureQuery",
+      unitsTableFullName: "",
+      factTableMap,
+    });
 
     return [
       await this.startQuery({
@@ -132,20 +141,12 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
         query: sql,
         dependencies: [],
         run: async (query, setExternalId, queryMetadata) => {
-          if (decisionMetricIsFact) {
-            const res = await this.integration.runExperimentFactMetricsQuery!(
-              query,
-              setExternalId,
-              queryMetadata,
-            );
-            return { rows: res.rows as ExperimentMetricQueryResponseRows };
-          }
-          const { rows } = await this.integration.runSnapshotMetricQuery(
+          const res = await this.integration.runExperimentFactMetricsQuery!(
             query,
             setExternalId,
             queryMetadata,
           );
-          return { rows };
+          return { rows: res.rows as ExperimentMetricQueryResponseRows };
         },
         queryType: "experimentResults",
       }),

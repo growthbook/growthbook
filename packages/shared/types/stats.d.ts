@@ -179,7 +179,10 @@ export type SingleVariationResult = {
 export type ContextualBanditResponseSnapshot = {
   context: Record<string, unknown>;
   sampleSizePerVariation?: number[] | null;
-  variationMeans?: number[] | null;
+  /** Per-variation sample (data-only) means; not posterior means. */
+  sampleMeans?: number[] | null;
+  /** Per-variation sample (data-only) variances; not posterior variances. */
+  sampleVariances?: number[] | null;
   updatedWeights?: number[] | null;
   bestArmProbabilities?: number[] | null;
   updateMessage?: string | null;
@@ -192,11 +195,20 @@ export type ContextualLeafMapEntry = {
   leafId: number;
 };
 
+/** Aggregated per-leaf sample (data-only) statistics. */
+export type ContextualLeafStatsEntry = {
+  leafId: number;
+  sampleSizePerVariation?: number[] | null;
+  sampleMeans?: number[] | null;
+  sampleVariances?: number[] | null;
+};
+
 /** Full contextual bandit output for a decision-metric run (mirrors gbstats `ContextualBanditResult`). */
 export type ContextualBanditSnapshot = {
   attributes: string[];
   responses: ContextualBanditResponseSnapshot[];
   leaf_map?: ContextualLeafMapEntry[];
+  leaf_stats?: ContextualLeafStatsEntry[];
 };
 
 export type MultipleExperimentMetricAnalysis = {

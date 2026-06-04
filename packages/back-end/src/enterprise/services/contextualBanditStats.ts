@@ -10,8 +10,12 @@ import {
 } from "shared/types/experiment-snapshot";
 import type {
   ContextualBanditSettingsForStatsEngine as PythonContextualBanditSettings,
+  ContextualBanditResponseSnapshot,
   ContextualBanditSnapshot,
+  ContextualLeafMapEntry,
 } from "shared/types/stats";
+// DEBUG CSV (gitignored): uncomment to dump weight-update output to CSVs.
+// import { writeContextualBanditDebugCsvs } from "back-end/src/enterprise/services/contextualBanditDebugCsv";
 import {
   computeContextualBanditWeights,
   ContextualBanditWeightsInput,
@@ -85,9 +89,12 @@ export async function runContextualStatsEngine(
   // `update_weights_using_python` to true to delegate to the Python stats
   // engine instead.
   if (!settings.update_weights_using_python) {
-    return computeContextualBanditWeights(
+    const result = computeContextualBanditWeights(
       buildContextualBanditWeightsInput(settings, normalizedRows, runParams),
     );
+    // DEBUG CSV (gitignored): uncomment to dump weight-update output to CSVs.
+    // writeContextualBanditDebugCsvs(result);
+    return result;
   }
   return runContextualStatsEngineWithPython(
     settings,
@@ -181,20 +188,12 @@ export function filterMetricQueryRowsForStatsEngine(
   });
 }
 
-function isFactMetricQueryRow(
-  row: ExperimentMetricQueryResponseRows[number],
-): boolean {
-  return `m0_id` in row;
-}
-
 export function prepareRowsForContextualStats(
   rows: ExperimentMetricQueryResponseRows,
 ): ExperimentMetricQueryResponseRows {
-  const withoutInternal = stripInternalRowFields(rows);
-  if (withoutInternal.length > 0 && isFactMetricQueryRow(withoutInternal[0])) {
-    return filterMetricQueryRowsForStatsEngine(withoutInternal, 0);
-  }
-  return withoutInternal;
+  // Contextual bandit decision metrics are always fact metrics, so the rows are
+  // always fact-metric-query rows (m0_* prefixed columns).
+  return filterMetricQueryRowsForStatsEngine(stripInternalRowFields(rows), 0);
 }
 
 function variationIndexFromRow(
@@ -336,9 +335,20 @@ async function runContextualStatsEngineWithPython(
     );
   }
 
+  // gbstats serializes per-leaf posterior responses as `responses` and the
+  // per-context sample (data-only) summaries as `responsesContext` (with
+  // `leafMap`). The TypeScript weight path emits per-context sample summaries,
+  // so map the Python path the same way for consistency: surface the
+  // per-context sample stats as `responses`.
+  const pyResult =
+    analysis.contextualBanditResult as ContextualBanditSnapshot & {
+      responsesContext?: ContextualBanditResponseSnapshot[];
+      leafMap?: ContextualLeafMapEntry[];
+    };
+
   return {
     attributes: settings.contextual_attributes,
-    responses: analysis.contextualBanditResult.responses,
-    leaf_map: analysis.contextualBanditResult.leaf_map,
+    responses: pyResult.responsesContext ?? pyResult.responses,
+    leaf_map: pyResult.leafMap ?? pyResult.leaf_map,
   };
 }

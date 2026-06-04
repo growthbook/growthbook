@@ -92,7 +92,12 @@ export function contextualBanditToExperimentShape(
     fallbackAttribute: cb.fallbackAttribute,
     hashVersion: cb.hashVersion,
     disableStickyBucketing: cb.disableStickyBucketing,
-    variations: cb.variations,
+    // The CB API variation shape omits `screenshots` (curated subset in
+    // `toApiContextualBandit`), but the experiment `Variation` type — and the
+    // shared components that consume it (e.g. VariationsTable, which reads
+    // `v.screenshots.length`) — require it. Default to an empty array so those
+    // components don't throw on a CB-backed experiment shape.
+    variations: cb.variations.map((v) => ({ ...v, screenshots: [] })),
     phases: cb.phases.map((p) => ({
       dateStarted: p.dateStarted,
       dateEnded: p.dateEnded ?? undefined,

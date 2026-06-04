@@ -35,7 +35,6 @@ import { getMetricMinDelay } from "back-end/src/integrations/sql/dates/metric-mi
 import { getMetricStart } from "back-end/src/integrations/sql/dates/metric-start";
 import { processActivationMetric } from "back-end/src/integrations/sql/processing/process-activation-metric";
 import { processDimensions } from "back-end/src/integrations/sql/processing/process-dimensions";
-import { appendContextualBanditTargetingDimensionCols } from "back-end/src/integrations/sql/ctes/contextual-bandit-experiment-units-cte";
 
 export function getSnapshotMetricQuery(
   dialect: SqlDialect,
@@ -253,8 +252,6 @@ export function getSnapshotMetricQuery(
       value: dialect.castToString("'All'"),
     });
   }
-
-  appendContextualBanditTargetingDimensionCols(dimensionCols, settings);
 
   const computeOnActivatedUsersOnly =
     activationMetric !== null &&

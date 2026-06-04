@@ -41,14 +41,14 @@ jest.mock("back-end/src/models/MetricModel", () => ({
   getMetricMap: jest.fn().mockResolvedValue(
     new Map([
       [
-        "met_g1",
-        // Minimal legacy metric stub — `isFactMetric` short-circuits on the
-        // absence of `metricType`, which is all `startQueries` checks.
+        "fact__g1",
+        // Minimal fact metric stub — `isFactMetric` keys off `metricType`,
+        // which is all `startQueries` checks.
         {
-          id: "met_g1",
+          id: "fact__g1",
           name: "Goal",
           datasource: "ds_1",
-          type: "count",
+          metricType: "mean",
         },
       ],
     ]),
@@ -82,7 +82,7 @@ function makeSnapshotSettings(
     exposureQueryId: "eq_1",
     contextualAttributes: ["country"],
 
-    goalMetrics: ["met_g1"],
+    goalMetrics: ["fact__g1"],
     secondaryMetrics: [],
     metricSettings: {},
 
@@ -281,7 +281,7 @@ describe("ContextualBanditResultsQueryRunner", () => {
           {
             context: { country: "US" },
             sampleSizePerVariation: [100, 100],
-            variationMeans: [0.05, 0.06],
+            sampleMeans: [0.05, 0.06],
             updatedWeights: [0.4, 0.6],
             bestArmProbabilities: [0.4, 0.6],
             updateMessage: "ok",
@@ -301,7 +301,7 @@ describe("ContextualBanditResultsQueryRunner", () => {
       expect(statsSettings.var_ids).toEqual(["v0", "v1"]);
       expect(statsSettings.contextual_attributes).toEqual(["country"]);
       expect(runParams?.snapshotId).toBe("cbs_1");
-      expect(runParams?.decisionMetricId).toBe("met_g1");
+      expect(runParams?.decisionMetricId).toBe("fact__g1");
       // Every row passed to the stats engine has a derived contextId.
       expect(
         taggedRows.every(
@@ -448,7 +448,7 @@ describe("ContextualBanditResultsQueryRunner", () => {
       expect(
         callArgs.settings.banditSettings.targetingAttributeColumns,
       ).toEqual(["country"]);
-      expect(callArgs.metric.id).toBe("met_g1");
+      expect(callArgs.metrics[0].id).toBe("fact__g1");
       expect(callArgs.unitsSource).toBe("exposureQuery");
       expect(queries).toHaveLength(1);
       expect(queries[0].name).toBe(CONTEXTUAL_BANDIT_ROWS_QUERY_NAME);

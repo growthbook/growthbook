@@ -23,6 +23,7 @@ import type {
   ContextualBanditResponseSnapshot,
   ContextualBanditSnapshot,
   ContextualLeafMapEntry,
+  ContextualLeafStatsEntry,
   MetricSettingsForStatsEngine,
 } from "shared/types/stats";
 import {
@@ -568,6 +569,22 @@ export function computeContextualBanditWeights(
     );
   }
 
+  // Aggregated per-leaf sample (data-only) stats, mirroring the per-context
+  // sampleMeans/sampleVariances but over each leaf's pooled arms.
+  const leaf_stats: ContextualLeafStatsEntry[] = [...leafArms.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([leafId, arms]) => {
+      const stats = arms.map((arm) =>
+        armMomentStat(arm, metricSettings, false),
+      );
+      return {
+        leafId,
+        sampleSizePerVariation: stats.map((s) => s.n),
+        sampleMeans: stats.map((s) => s.unadjustedMean),
+        sampleVariances: stats.map((s) => s.unadjustedVariance),
+      };
+    });
+
   const responses: ContextualBanditResponseSnapshot[] = [];
   const leaf_map: ContextualLeafMapEntry[] = [];
 
@@ -583,7 +600,8 @@ export function computeContextualBanditWeights(
     responses.push({
       context: ctx.condition,
       sampleSizePerVariation: contextStats.map((s) => s.n),
-      variationMeans: contextStats.map((s) => s.unadjustedMean),
+      sampleMeans: contextStats.map((s) => s.unadjustedMean),
+      sampleVariances: contextStats.map((s) => s.unadjustedVariance),
       updatedWeights: leaf ? leaf.updatedWeights : defaultWeights.slice(),
       bestArmProbabilities: leaf ? leaf.bestArmProbabilities : null,
       updateMessage: leaf ? leaf.updateMessage : "No update",
@@ -601,5 +619,6 @@ export function computeContextualBanditWeights(
     attributes,
     responses,
     leaf_map,
+    leaf_stats,
   };
 }

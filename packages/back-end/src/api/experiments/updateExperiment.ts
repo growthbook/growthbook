@@ -283,8 +283,13 @@ export const updateExperiment = createApiRequestHandler(
     );
   }
 
-  // CB-specific pre-save validation was removed in PR-8 — the
-  // experiment REST API no longer accepts CB-typed updates.
+  await validateContextualBanditExperimentForSave(req.context, {
+    type: req.body.type ?? experiment.type,
+    datasourceId: datasourceId || undefined,
+    exposureQueryId: req.body.assignmentQueryId ?? experiment.exposureQueryId,
+    datasource,
+    goalMetrics: req.body.metrics ?? experiment.goalMetrics,
+  });
 
   // Opt-in attribute registration check (org-level setting). Covers the
   // experiment-level hash/fallback attributes and every provided phase.
