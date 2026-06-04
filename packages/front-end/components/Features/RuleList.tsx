@@ -37,6 +37,7 @@ import {
   isRuleInactive,
 } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { Rule, SortableRule } from "./Rule";
 import { HoldoutRule } from "./HoldoutRule";
 
@@ -66,6 +67,7 @@ type CommonProps = {
   draftRevision?: FeatureRevisionInterface | null;
   // allEnvsView visibility filter; reorder still resolves against feature.rules.
   hiddenRuleIds?: Set<string>;
+  collapseRules?: boolean;
 };
 
 type RuleListProps = CommonProps &
@@ -103,11 +105,15 @@ export default function RuleList(props: RuleListProps) {
     draftRevision,
     allEnvsView,
     hiddenRuleIds,
+    collapseRules,
   } = props;
 
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [collapsedRuleIds, setCollapsedRuleIds] = useLocalStorage<
+    Record<string, boolean>
+  >("collapse-rules-rules", {});
 
   // allEnvsView: flat feature.rules narrowed by hiddenRuleIds.
   // single-env: project via getRules to honor env applicability + inheritance.
@@ -120,6 +126,27 @@ export default function RuleList(props: RuleListProps) {
   };
   const [items, setItems] = useState<FeatureRule[]>(projectItems);
 
+  function isRuleCollapsed(ruleId: string) {
+    return !!collapsedRuleIds[ruleId];
+  }
+
+  function setAllRulesCollapsed(collapsed: boolean) {
+    const next: Record<string, boolean> = {};
+    for (const rule of items) {
+      if (rule.id) {
+        next[rule.id] = collapsed;
+      }
+    }
+    setCollapsedRuleIds(next);
+  }
+
+  function toggleRuleCollapsed(ruleId: string) {
+    setCollapsedRuleIds((prev) => ({
+      ...prev,
+      [ruleId]: !prev[ruleId],
+    }));
+  }
+
   useEffect(() => {
     setItems(projectItems());
   }, [
@@ -128,6 +155,13 @@ export default function RuleList(props: RuleListProps) {
     allEnvsView ? null : props.environment,
     hiddenRuleIds,
   ]);
+
+  useEffect(() => {
+    setAllRulesCollapsed(!!collapseRules);
+    // `items` intentionally drives the sync so newly added rules inherit the
+    // current global state while existing per-rule toggles are reset when the
+    // global switch changes.
+  }, [collapseRules, items]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -335,6 +369,8 @@ export default function RuleList(props: RuleListProps) {
                 rampSchedule={rampSchedulesMap.get(rule.id ?? "")}
                 draftRevision={draftRevision}
                 isAllEnvsView={allEnvsView}
+                collapsed={isRuleCollapsed(rule.id)}
+                onToggleCollapsed={() => toggleRuleCollapsed(rule.id)}
                 liveEnabledDraftDisabled={liveEnabledDraftDisabled}
                 onMoveUp={
                   canEdit && prevId
@@ -388,6 +424,7 @@ export default function RuleList(props: RuleListProps) {
               rampSchedule={rampSchedulesMap.get(activeRule.id ?? "")}
               draftRevision={draftRevision}
               isAllEnvsView={allEnvsView}
+              collapsed={isRuleCollapsed(activeRule.id)}
             />
           ) : null}
         </DragOverlay>

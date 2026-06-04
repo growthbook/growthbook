@@ -84,6 +84,10 @@ export default function FeatureRules({
     "show-orphaned-rules",
     false,
   );
+  const [collapseRules, setCollapseRules] = useLocalStorage(
+    "collapse-rules",
+    false,
+  );
   const hasInactiveRules = (feature.rules ?? []).some((r) =>
     isRuleInactive(r, experimentsMap),
   );
@@ -409,6 +413,16 @@ export default function FeatureRules({
                     disabled={!hasInactiveRules}
                   />
                 </Flex>
+                <Flex align="center" gap="2" justify="end" py="2">
+                  <Text size="small" color="text-low">
+                    Collapse Rules
+                  </Text>
+                  <Switch
+                    size="1"
+                    value={collapseRules}
+                    onChange={(v) => setCollapseRules(v)}
+                  />
+                </Flex>
                 {env === null && hasOrphanedRules && (
                   <Flex align="center" gap="2" justify="end" py="2">
                     <Text size="small" color="text-low">
@@ -496,6 +510,7 @@ export default function FeatureRules({
                 rampSchedules={rampSchedules}
                 draftRevision={draftRevision}
                 hiddenRuleIds={showOrphaned ? undefined : orphanedRuleIds}
+                collapseRules={collapseRules}
               />
             ) : (
               <Box py="4" className="text-muted">
@@ -547,6 +562,7 @@ export default function FeatureRules({
                 revisionList={revisionList}
                 rampSchedules={rampSchedules}
                 draftRevision={draftRevision}
+                collapseRules={collapseRules}
               />
             ) : (
               <Box py="4" className="text-muted">
