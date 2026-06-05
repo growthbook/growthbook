@@ -786,7 +786,12 @@ export default function ExperimentHeader({
             >
               {experiment.name}
             </h1>
-            <Box ml="2" mt="1" display="inline-block">
+            <Box
+              ml="2"
+              mt="1"
+              display="inline-block"
+              style={{ userSelect: "none" }}
+            >
               <ExperimentStatusIndicator experimentData={experiment} />
             </Box>
           </Box>
