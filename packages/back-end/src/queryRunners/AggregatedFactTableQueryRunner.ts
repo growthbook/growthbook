@@ -117,6 +117,9 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
   // against the same bounds.
   private coverageScanStartDate: Date | null = null;
   private coverageRetentionFloor: Date | null = null;
+  // Table pointer published on completion (and used by the updateModel backstop
+  // to restore it after a restate's up-front invalidation).
+  private materializedTableFullName: string | null = null;
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(
@@ -132,9 +135,11 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
     };
   }
 
-  // Set before the first committing query and cleared once the watermark is
-  // durably advanced (or on an observed insert failure). If a run dies with it
-  // still set, the next run restates instead of double-appending.
+  // Incremental guard: the table stays valid, so we mark the append in flight
+  // and clear it once the watermark durably advances (or on an observed insert
+  // failure). If a run dies with it set, the next run restates instead of
+  // re-appending the same window. Restate uses invalidateMaterializedTable
+  // instead, since for a restate the table itself is being torn down.
   private async markInFlight(executionId: string): Promise<void> {
     const lockHeld =
       await this.context.models.aggregatedFactTables.updateByKeyIfCurrentExecution(
@@ -145,6 +150,34 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
     if (!lockHeld) {
       this.context.logger.warn(
         "Aggregated fact table execution lock lost before marking write in flight",
+      );
+    }
+  }
+
+  // Restate tears down and rebuilds the table, so its prior data is invalid for
+  // the duration. Clear the table pointer + coverage up front so concurrent
+  // reads fall back to legacy (resolveCovariateInsertPath: no-materialized-table)
+  // and, if this run dies before finishing, the next run restates (the driver
+  // keys "restate" off a missing tableFullName). The pointer is only restored
+  // once the rebuild fully completes (coverage onSuccess), so an insert that
+  // commits but never advances the watermark still leaves the table invalidated.
+  private async invalidateMaterializedTable(
+    executionId: string,
+  ): Promise<void> {
+    const lockHeld =
+      await this.context.models.aggregatedFactTables.updateByKeyIfCurrentExecution(
+        this.getKey(),
+        executionId,
+        {
+          tableFullName: null,
+          lastMaxTimestamp: null,
+          firstEventDate: null,
+          lastEventDate: null,
+        },
+      );
+    if (!lockHeld) {
+      this.context.logger.warn(
+        "Aggregated fact table execution lock lost before invalidating materialized table",
       );
     }
   }
@@ -192,6 +225,7 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
         pipelineSettings?.writeDatabase,
         true,
       );
+    this.materializedTableFullName = tableFullName;
 
     // The driver decides the mode; the runner just executes it.
     const queries: Queries = [];
@@ -200,8 +234,8 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
     let createQuery: QueryPointer | null = null;
 
     if (mode === "restate") {
-      // Build SQL before marking in flight so a build error leaves the marker
-      // unset; set it before the drop so a partial restate still re-restates.
+      // Build SQL before invalidating so a build error leaves the registry
+      // intact; invalidate before the drop so a partial restate still restates.
       const dropQueryString = integration.getDropAggregatedFactTableQuery({
         tableFullName,
       });
@@ -213,7 +247,7 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
         retentionWindowDays: lookbackWindowDays,
       });
 
-      await this.markInFlight(executionId);
+      await this.invalidateMaterializedTable(executionId);
 
       dropQuery = await this.startQuery({
         name: "drop_aggregated_fact_table",
@@ -264,8 +298,9 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
     this.coverageScanStartDate = coverageScanStartDate;
     this.coverageRetentionFloor = coverageRetentionFloor;
 
-    // In incremental mode the insert is the first committing op, so mark in
-    // flight now (restate already marked it before the drop).
+    // In incremental mode the insert is the first committing op against a still
+    // valid table, so mark it in flight now (restate already invalidated the
+    // table before the drop).
     const insertQueryString = integration.getInsertAggregatedFactTableDataQuery(
       {
         factTable,
@@ -292,27 +327,16 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
           setExternalId,
           queryMetadata,
         ),
-      onSuccess: async () => {
-        const lockHeld =
-          await this.context.models.aggregatedFactTables.updateByKeyIfCurrentExecution(
-            this.getKey(),
-            executionId,
-            {
-              tableFullName,
-              factTableSettingsHash,
-              metricState,
-            },
-          );
-        if (!lockHeld) {
-          this.context.logger.warn(
-            "Aggregated fact table execution lock lost during insert success",
-          );
-        }
-      },
       onFailure: () => {
-        // An observed INSERT failure means nothing committed (atomic on
-        // BigQuery/Snowflake/Redshift/Postgres), so clear the marker to let the
-        // next run retry the same window instead of restating.
+        // Incremental only: an observed INSERT failure means nothing committed
+        // (atomic on BigQuery/Snowflake/Redshift/Postgres), so clear the marker
+        // to let the next run retry the same window instead of restating.
+        //
+        // Restate has no marker to clear here: the table was already invalidated
+        // up front and is only restored on coverage success, so any restate
+        // failure leaves the registry pointing at no table and the next run
+        // restates (reads fall back via no-materialized-table meanwhile).
+        if (mode !== "incremental") return;
         this.context.models.aggregatedFactTables
           .updateByKeyIfCurrentExecution(this.getKey(), executionId, {
             inFlightExecutionId: null,
@@ -343,8 +367,10 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
           queryMetadata,
         ),
       onSuccess: async (rows) => {
-        // Coverage success durably advances the watermark; fold the pruned
-        // slice against prior coverage before persisting.
+        // Coverage success is the single durable completion point: it advances
+        // the watermark and (re)publishes the table pointer + schema state. For
+        // a restate this is where tableFullName is restored after the up-front
+        // invalidation, so a restate that fails earlier never looks complete.
         const folded = foldAggregatedFactTableCoverage({
           scanned: parseAggregatedFactTableCoverage(rows?.[0]),
           mode,
@@ -356,6 +382,9 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
             this.getKey(),
             executionId,
             {
+              tableFullName,
+              factTableSettingsHash,
+              metricState,
               lastMaxTimestamp: folded.lastMaxTimestamp,
               firstEventDate: folded.firstEventDate,
               lastEventDate: folded.lastEventDate,
@@ -437,16 +466,22 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
     // release the lock.
     if (isTerminal && executionId) {
       // Backstop for coverage onSuccess: on success `result` is already folded
-      // by runAnalysis, so persist it and clear the marker (idempotent). On
-      // failure there is no result; leave the marker so the next run restates.
-      const coverageUpdates = result
-        ? {
-            lastMaxTimestamp: result.lastMaxTimestamp,
-            firstEventDate: result.firstEventDate,
-            lastEventDate: result.lastEventDate,
-            inFlightExecutionId: null,
-          }
-        : {};
+      // by runAnalysis, so republish the table pointer + schema state and
+      // persist coverage (idempotent). On failure there is no result; leave the
+      // registry as-is so the next run restates (cleared table pointer for a
+      // restate, or the still-set in-flight marker for an incremental append).
+      const coverageUpdates =
+        result && this.params
+          ? {
+              tableFullName: this.materializedTableFullName,
+              factTableSettingsHash: this.params.factTableSettingsHash,
+              metricState: this.params.metricState,
+              lastMaxTimestamp: result.lastMaxTimestamp,
+              firstEventDate: result.firstEventDate,
+              lastEventDate: result.lastEventDate,
+              inFlightExecutionId: null,
+            }
+          : {};
 
       const lockHeld =
         await this.context.models.aggregatedFactTables.updateByKeyIfCurrentExecution(
