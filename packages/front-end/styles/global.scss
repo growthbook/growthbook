@@ -1469,48 +1469,12 @@ main.main {
     .chevron-right {
       transform: rotate(90deg);
     }
-  }
-}
-
-.code-holder {
-  margin: 0.5em 0;
-
-  &.collapsible pre {
-    transition: max-height 0.2s;
-    max-height: 60em;
-    overflow-y: scroll;
-  }
-
-  &.collapsed pre {
-    max-height: 10em;
-  }
-
-  .action-buttons {
-    .message {
-      padding: 2px 6px;
-      background: colors.$highlight-purple;
-      color: #fff;
-      position: relative;
-      margin-right: 10px;
-      display: inline-block;
-      border-radius: 3px;
-      margin-top: 2px;
-
-      .arrow {
-        position: absolute;
-        left: 100%;
-        top: 50%;
-        margin-top: -6px;
-        border: 6px solid transparent;
-        border-left: 6px solid colors.$highlight-purple;
-      }
+    .draft-selector-collapsible-trigger {
+      border-radius: var(--radius-4) var(--radius-4) 0 0;
     }
   }
-
-  pre {
-    margin: 0 !important;
-  }
 }
+
 .draft-selector-collapsible-trigger {
   background-color: var(--violet-a3);
   border-radius: var(--radius-4);

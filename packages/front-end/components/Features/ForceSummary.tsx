@@ -18,22 +18,16 @@ export default function ForceSummary({
       <Flex direction="row" gap="2">
         <Text weight="medium">SERVE</Text>
         <Box width="100%">
-          {feature.valueType === "string" && value === "" ? (
-            <Text color="text-low" fontStyle="italic" size="small">
-              Intentionally left empty
-            </Text>
-          ) : (
-            <ValueDisplay
-              value={value}
-              type={feature.valueType}
-              showFullscreenButton={true}
-              fullStyle={{
-                maxHeight: maxHeight ?? 150,
-                overflowY: "auto",
-                maxWidth: "100%",
-              }}
-            />
-          )}
+          <ValueDisplay
+            value={value}
+            type={feature.valueType}
+            showFullscreenButton={true}
+            fullStyle={{
+              maxHeight: maxHeight ?? 150,
+              overflowY: "auto",
+              maxWidth: "100%",
+            }}
+          />
         </Box>
       </Flex>
       <ValidateValue value={value} feature={feature} />
