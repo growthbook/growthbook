@@ -255,6 +255,7 @@ const HoldoutPage = (): ReactElement => {
           editPhase={editPhase}
           envs={envs}
           editTargeting={editTargeting}
+          // Holdouts have no dedicated traffic modal; reuse the targeting modal for traffic edits.
           editTraffic={editTargeting}
           editSchedule={editHoldoutSchedule}
         />

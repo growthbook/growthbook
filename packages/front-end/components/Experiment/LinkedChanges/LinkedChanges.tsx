@@ -6,7 +6,6 @@ import {
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { Box, Flex, Separator, type AvatarProps } from "@radix-ui/themes";
-import { PiPlusCircleFill } from "react-icons/pi";
 import LinkedFeatureFlag from "@/components/Experiment/LinkedChanges/LinkedFeatureFlag";
 import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTable";
 import Avatar from "@/ui/Avatar";
@@ -78,8 +77,7 @@ export default function LinkedChanges({
         </Heading>
         {!isPublic && onAddVariation ? (
           <Link onClick={onAddVariation}>
-            <PiPlusCircleFill size={15} />{" "}
-            <Text weight="semibold">Add Variation</Text>
+            <Text weight="semibold">Edit Variations</Text>
           </Link>
         ) : null}
       </Flex>
