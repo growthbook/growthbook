@@ -362,7 +362,23 @@ export abstract class QueryRunner<
       this.setStatus("finished", error, result);
     } else {
       this.setStatus("running");
-      // Re-arm refresh now that the full query DAG has been persisted.
+      // Schedule one more pass through refreshQueryStatuses/startReadyQueries
+      // now that the full `queries` array has been persisted to the model.
+      //
+      // This closes a race: queries with no dependencies are executed
+      // fire-and-forget inside startQueries() (see startQuery's readyToRun
+      // branch). If one of them is very fast (e.g. a DROP TABLE during a
+      // Full Refresh), it can finish — and its onQueryFinish 1-second timer
+      // can fire — while startQueries() is still generating SQL for the
+      // remaining queries and before updateModel() above has written them.
+      // That early timer reloads the model, sees no running/queued queries,
+      // and gives up. Once startQueries() finally returns, nothing re-arms
+      // the timer, so every other query in the DAG stays "queued" forever.
+      //
+      // Calling onQueryFinish() here guarantees at least one refresh happens
+      // after the DAG is visible in the persisted model. If the timer from
+      // the early-finishing query is still pending this is a no-op; if it
+      // already fired and found nothing, this re-arms it with the real DAG.
       this.onQueryFinish();
     }
 
