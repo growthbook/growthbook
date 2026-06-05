@@ -10,10 +10,6 @@ import {
   formatMalformedTargetingAttributeColumnMessages,
   getInvalidTargetingAttributeColumnsForExposureQueries,
   getMalformedTargetingAttributeColumnsForExposureQueries,
-  TARGETING_ATTRIBUTE_COLUMN_FORMAT_HELP,
-  TARGETING_ATTRIBUTE_COLUMN_HELP_AFTER_SETTINGS_LINK,
-  TARGETING_ATTRIBUTE_COLUMN_HELP_BEFORE_SETTINGS_LINK,
-  TARGETING_ATTRIBUTE_COLUMN_SETTINGS_LINK_LABEL,
 } from "shared/validators";
 import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
@@ -47,12 +43,10 @@ function targetingAttributeColumnsValidationError(columns: string[]): Error {
       {unique.map((col, i) => (
         <Fragment key={col}>
           <div style={{ marginTop: i > 0 ? "var(--space-3)" : 0 }}>
-            {col} is not a saved targeting attribute.{" "}
-            {TARGETING_ATTRIBUTE_COLUMN_HELP_BEFORE_SETTINGS_LINK}
-            <Link href="/attributes">
-              {TARGETING_ATTRIBUTE_COLUMN_SETTINGS_LINK_LABEL}
-            </Link>
-            {TARGETING_ATTRIBUTE_COLUMN_HELP_AFTER_SETTINGS_LINK}
+            {col} is not a saved targeting attribute. Column aliases in your
+            assignment query must match organization targeting attributes (
+            <Link href="/attributes">Settings → Attributes</Link>
+            ).
           </div>
         </Fragment>
       ))}
@@ -71,8 +65,9 @@ function malformedTargetingAttributeColumnsValidationError(
     <Box>
       {unique.map((col, i) => (
         <div key={col} style={{ marginTop: i > 0 ? "var(--space-3)" : 0 }}>
-          &quot;{col}&quot; is not a valid column name.{" "}
-          {TARGETING_ATTRIBUTE_COLUMN_FORMAT_HELP}
+          &quot;{col}&quot; is not a valid column name. Targeting attribute
+          column names must be valid SQL identifiers: only letters, numbers, and
+          underscores are allowed, and they cannot start with a number.
         </div>
       ))}
     </Box>

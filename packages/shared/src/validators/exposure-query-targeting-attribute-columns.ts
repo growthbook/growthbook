@@ -8,9 +8,6 @@ export function isSafeSqlIdentifier(name: string): boolean {
   return SAFE_SQL_IDENTIFIER.test(name);
 }
 
-export const TARGETING_ATTRIBUTE_COLUMN_FORMAT_HELP =
-  "Targeting attribute column names must be valid SQL identifiers: only letters, numbers, and underscores are allowed, and they cannot start with a number.";
-
 export function formatMalformedTargetingAttributeColumnMessages(
   columnNames: string[],
 ): string {
@@ -18,23 +15,10 @@ export function formatMalformedTargetingAttributeColumnMessages(
   return unique
     .map(
       (col) =>
-        `"${col}" is not a valid column name. ${TARGETING_ATTRIBUTE_COLUMN_FORMAT_HELP}`,
+        `"${col}" is not a valid column name. Targeting attribute column names must be valid SQL identifiers: only letters, numbers, and underscores are allowed, and they cannot start with a number.`,
     )
     .join("\n\n");
 }
-
-export const TARGETING_ATTRIBUTE_COLUMN_HELP_BEFORE_SETTINGS_LINK =
-  "Column aliases in your assignment query must match organization targeting attributes (";
-
-export const TARGETING_ATTRIBUTE_COLUMN_SETTINGS_LINK_LABEL =
-  "Settings → Attributes";
-
-export const TARGETING_ATTRIBUTE_COLUMN_HELP_AFTER_SETTINGS_LINK = ").";
-
-export const TARGETING_ATTRIBUTE_COLUMN_HELP_SENTENCE =
-  TARGETING_ATTRIBUTE_COLUMN_HELP_BEFORE_SETTINGS_LINK +
-  TARGETING_ATTRIBUTE_COLUMN_SETTINGS_LINK_LABEL +
-  TARGETING_ATTRIBUTE_COLUMN_HELP_AFTER_SETTINGS_LINK;
 
 export function formatInvalidTargetingAttributeColumnMessages(
   columnNames: string[],
@@ -43,7 +27,7 @@ export function formatInvalidTargetingAttributeColumnMessages(
   return unique
     .map(
       (col) =>
-        `${col} is not a saved targeting attribute. ${TARGETING_ATTRIBUTE_COLUMN_HELP_SENTENCE}`,
+        `${col} is not a saved targeting attribute. Column aliases in your assignment query must match organization targeting attributes (Settings → Attributes).`,
     )
     .join("\n\n");
 }

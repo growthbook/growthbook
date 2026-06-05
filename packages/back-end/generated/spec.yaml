@@ -43895,33 +43895,6 @@ components:
                     propertyNames:
                       type: string
                     additionalProperties: {}
-                  contexts:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        contextId:
-                          type: string
-                        condition:
-                          type: object
-                          propertyNames:
-                            type: string
-                          additionalProperties: {}
-                        weights:
-                          type: array
-                          items:
-                            type: number
-                      required:
-                        - contextId
-                        - condition
-                        - weights
-                      additionalProperties: false
-                  isContextualBandit:
-                    type: boolean
-                  attributesRequired:
-                    type: array
-                    items:
-                      type: string
                 required:
                   - description
                   - id
