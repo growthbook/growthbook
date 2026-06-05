@@ -24,13 +24,17 @@ export type CheckListItem = {
   key?: string;
   type: "auto" | "manual";
   required: boolean;
-  // Items that can't be bypassed via "Start Anyway" (merge conflicts,
-  // missing approvals, unrelated draft edits) — auto-publish would fail.
+  /**
+   * Items that can't be bypassed via "Start Anyway" (merge conflicts, missing
+   * approvals, unrelated draft edits) — auto-publish would fail.
+   */
   hardBlock?: boolean;
   warning?: string;
   hideDescription?: boolean;
-  // Custom subtext shown below the label, overriding the default auto/manual
-  // hint. Hidden when `hideDescription` is true or the item is complete.
+  /**
+   * Custom subtext shown below the label, overriding the default auto/manual
+   * hint. Hidden when `hideDescription` is true or the item is complete.
+   */
   description?: string | ReactElement;
 };
 

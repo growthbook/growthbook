@@ -11,7 +11,7 @@ import {
 } from "react-icons/pi";
 import { format } from "date-fns-tz";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
-import { PreLaunchChecklistDrawer } from "@/components/Experiment/PreLaunchChecklist";
+import { PreLaunchChecklistDrawer } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Markdown from "@/components/Markdown/Markdown";

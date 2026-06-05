@@ -4,7 +4,8 @@ import {
 } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FaAngleRight, FaAngleUp, FaAngleDown, FaCheck } from "react-icons/fa";
+import { FaAngleRight, FaCheck } from "react-icons/fa";
+import { PiCaretDown, PiCaretUp } from "react-icons/pi";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
 import Collapsible from "react-collapsible";
 import clsx from "clsx";
@@ -22,10 +23,12 @@ import InitialSDKConnectionForm from "@/components/Features/SDKConnections/Initi
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import Frame from "@/ui/Frame";
+import Badge from "@/ui/Badge";
+import EditScheduleModal from "@/components/Experiment/EditScheduleModal";
+import Heading from "@/ui/Heading";
 import styles from "./PreLaunchChecklist.module.scss";
 import { usePreLaunchChecklist } from "./PreLaunchChecklistProvider";
 import { CheckListItem, getChecklistItems } from "./PreLaunchChecklistItems";
-import EditScheduleModal from "./EditScheduleModal";
 
 function PreLaunchChecklistUI({
   experiment,
@@ -103,7 +106,7 @@ function PreLaunchChecklistUI({
   const contents = loading ? (
     <LoadingSpinner />
   ) : (
-    <div className="pt-2">
+    <div>
       {checklist.map((item, i) => {
         // Auto items can't be toggled by the user.
         const isReadonly = item.type === "auto";
@@ -415,25 +418,39 @@ export function PreLaunchChecklistDrawer() {
                 role="button"
               >
                 <Flex align="center">
-                  <strong>Pre-Launch Checklist</strong>
+                  <Heading as="h4" size="small">
+                    Pre-Launch Checklist
+                  </Heading>
                   {checklistItemsRemaining !== null && (
-                    <span
-                      className={`badge rounded-circle p-1 ${
-                        checklistItemsRemaining === 0
-                          ? "badge-success"
-                          : "badge-warning"
-                      } mx-2 my-0`}
-                      style={{ minWidth: 22 }}
-                    >
-                      {checklistItemsRemaining === 0 ? (
-                        <FaCheck size={10} />
-                      ) : (
-                        checklistItemsRemaining
-                      )}
-                    </span>
+                    <Badge
+                      color={checklistItemsRemaining === 0 ? "green" : "amber"}
+                      label={
+                        checklistItemsRemaining === 0 ? (
+                          <FaCheck size={10} />
+                        ) : (
+                          checklistItemsRemaining.toString()
+                        )
+                      }
+                      radius="full"
+                      size="sm"
+                      variant="solid"
+                      mx="2"
+                      style={{
+                        minWidth: 20,
+                        justifyContent: "center",
+                        minHeight: 20,
+                      }}
+                    />
                   )}
                 </Flex>
-                {open ? <FaAngleDown size={14} /> : <FaAngleUp size={14} />}
+                {open ? (
+                  <PiCaretDown
+                    size={15}
+                    style={{ color: "var(--violet-11)" }}
+                  />
+                ) : (
+                  <PiCaretUp size={15} style={{ color: "var(--violet-11)" }} />
+                )}
               </Box>
               <Box
                 className={styles.drawerBody}

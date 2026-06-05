@@ -31,7 +31,7 @@ import {
   LINKED_CHANGE_CONTAINER_PROPERTIES,
   type LinkedChange,
 } from "@/components/Experiment/LinkedChanges/constants";
-import { CheckListItem } from "@/components/Experiment/PreLaunchChecklistItems";
+import { CheckListItem } from "@/components/PreLaunchChecklist/PreLaunchChecklistItems";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -268,6 +268,7 @@ export default function StartExperimentModal({
       trackingEventModalSource={
         checklistIncomplete ? "incomplete-checklist" : "complete-checklist"
       }
+      hasDescription={!!subHeader}
     >
       <ModalForm
         onSubmit={async () => {

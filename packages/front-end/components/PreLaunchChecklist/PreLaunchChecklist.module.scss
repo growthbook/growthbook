@@ -14,6 +14,8 @@
 }
 
 .drawerInner {
+  --drawer-header-width: 300px;
+
   max-width: 1340px;
   margin: 0 auto;
   padding: 0 15px;
@@ -23,19 +25,22 @@
 }
 
 .drawerHeader {
-  width: 300px;
+  position: relative;
+  z-index: 1;
+  width: var(--drawer-header-width);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
+  padding: 12px 24px 12px 32px;
   cursor: pointer;
   user-select: none;
   background-color: var(--color-landmark, #0c1225);
   color: #fff;
-  border-radius: 8px 8px 0 0;
+  border-radius: 4px 4px 0 0;
   border: 1px solid var(--slate-a3);
   border-bottom: none;
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.25);
+  clip-path: inset(-20px -20px 0 -20px);
 
   &:hover {
     background-color: color-mix(
@@ -47,15 +52,27 @@
 }
 
 .drawerBody {
+  position: relative;
   width: 100%;
   max-height: 60vh;
   overflow-y: auto;
-  padding: 8px 14px 14px;
+  padding: 24px 32px;
   background-color: var(--color-landmark, #0c1225);
   color: #fff;
   border: 1px solid var(--slate-a3);
+  border-top: none;
   border-bottom: none;
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.25);
+  border-radius: 0 4px 0 0;
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: var(--drawer-header-width);
+    right: 0;
+    border-top: 1px solid var(--slate-a3);
+  }
 }
 
 // Below this breakpoint, global.scss drops `.main { padding-left: 0 }` so

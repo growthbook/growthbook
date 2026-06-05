@@ -43,7 +43,7 @@ import {
 import { useHoldouts, holdoutOccupiesRuleSlot } from "@/hooks/useHoldouts";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
-import { PreLaunchChecklistForDraft } from "@/components/Experiment/PreLaunchChecklist";
+import { PreLaunchChecklistForDraft } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 
 export interface Props {
