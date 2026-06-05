@@ -127,12 +127,7 @@ export const apiReportValidator = namedSchema(
     experimentMetadata: z
       .object({
         type: z
-          .enum([
-            "standard",
-            "multi-armed-bandit",
-            "contextual-bandit",
-            "holdout",
-          ])
+          .enum(["standard", "multi-armed-bandit", "holdout"])
           .describe("Experiment type")
           .optional(),
         variations: z

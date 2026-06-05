@@ -39513,7 +39513,6 @@ components:
               enum:
                 - standard
                 - multi-armed-bandit
-                - contextual-bandit
                 - holdout
             variations:
               description: >-
