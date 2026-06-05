@@ -26,6 +26,7 @@ import {
   defaultRampSectionState,
 } from "@/components/Features/RuleModal/RampScheduleSection";
 import HelperText from "@/ui/HelperText";
+import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import MonitoredIcon from "@/components/Features/RuleModal/MonitoredIcon";
 import RampScheduleBadge from "@/components/RampSchedule/RampScheduleBadge";
@@ -129,7 +130,9 @@ export default function StandardRuleFields({
     !!ruleRampSchedule &&
     ruleRampSchedule.status === "running" &&
     !isSimpleSchedule;
-  const releasePlanLocked = rampScheduleEditLocked;
+  const pendingScheduleRemoval =
+    !!ruleRampSchedule && isSimpleSchedule && rampSectionState.mode === "off";
+  const releasePlanLocked = rampScheduleEditLocked || pendingScheduleRemoval;
   const selectorScheduleType: ScheduleSelectorType =
     scheduleType === "ramp" && rampSectionState.steps.some((s) => s.monitored)
       ? "ramp-monitored"
@@ -268,12 +271,15 @@ export default function StandardRuleFields({
           <HelperText status="info" mb="2" icon={<PiLockSimple />}>
             <Box>
               <Text as="div">
-                Locked while {isSimpleSchedule ? "Schedule" : "Ramp-up"} is
-                running
+                {pendingScheduleRemoval
+                  ? "Locked while schedule removal is pending"
+                  : `Locked while ${isSimpleSchedule ? "Schedule" : "Ramp-up"} is running`}
               </Text>
-              <Text as="div" mt="1" size="small">
-                To change the release plan, pause or end the Ramp-up
-              </Text>
+              {!pendingScheduleRemoval && (
+                <Text as="div" mt="1" size="small">
+                  To change the release plan, pause or end the Ramp-up
+                </Text>
+              )}
             </Box>
           </HelperText>
         )}
@@ -362,10 +368,50 @@ export default function StandardRuleFields({
                 hideToggle={true}
               />
             ) : (
-              <ScheduleInputs
-                state={rampSectionState}
-                setState={setRampSectionState}
-              />
+              <>
+                {(() => {
+                  const isTerminal =
+                    !!ruleRampSchedule &&
+                    isSimpleSchedule &&
+                    ["completed", "rolled-back"].includes(
+                      ruleRampSchedule.status,
+                    );
+                  const isPendingRemoval = rampSectionState.mode === "off";
+                  return (
+                    <>
+                      <ScheduleInputs
+                        state={rampSectionState}
+                        setState={setRampSectionState}
+                        disabled={isTerminal || isPendingRemoval}
+                      />
+                      {isTerminal && !isPendingRemoval && (
+                        <Callout status="info" mt="3" size="sm">
+                          <Flex align="center" justify="between" gap="3">
+                            <Text>This schedule has finished.</Text>
+                            <Button
+                              size="xs"
+                              variant="outline"
+                              onClick={() =>
+                                setRampSectionState({
+                                  ...rampSectionState,
+                                  mode: "off",
+                                })
+                              }
+                            >
+                              Remove schedule
+                            </Button>
+                          </Flex>
+                        </Callout>
+                      )}
+                      {isPendingRemoval && (
+                        <Callout status="info" mt="3" size="sm">
+                          Schedule will be removed on save.
+                        </Callout>
+                      )}
+                    </>
+                  );
+                })()}
+              </>
             )}
             {isLiveRule &&
               form.watch("enabled") &&

@@ -9954,6 +9954,13 @@ paths:
                   type: array
                   items:
                     type: string
+                environments:
+                  description: >-
+                    Limit this Archetype to specific environments. Omit or leave
+                    empty to apply to all environments.
+                  type: array
+                  items:
+                    type: string
               required:
                 - name
                 - isPublic
@@ -10031,6 +10038,13 @@ paths:
                     type: string
                   additionalProperties: {}
                 projects:
+                  type: array
+                  items:
+                    type: string
+                environments:
+                  description: >-
+                    Limit this Archetype to specific environments. Omit or leave
+                    empty to apply to all environments.
                   type: array
                   items:
                     type: string
@@ -13925,6 +13939,11 @@ paths:
                   type: boolean
                 includeDraftExperiments:
                   type: boolean
+                includeDraftExperimentRefs:
+                  description: >-
+                    When true, experiment-ref rules linked to draft experiments
+                    are included in feature definitions. Off by default.
+                  type: boolean
                 includeExperimentNames:
                   type: boolean
                 includeRedirectExperiments:
@@ -14030,6 +14049,11 @@ paths:
                 includeVisualExperiments:
                   type: boolean
                 includeDraftExperiments:
+                  type: boolean
+                includeDraftExperimentRefs:
+                  description: >-
+                    When true, experiment-ref rules linked to draft experiments
+                    are included in feature definitions. Off by default.
                   type: boolean
                 includeExperimentNames:
                   type: boolean
@@ -19516,13 +19540,9 @@ paths:
         schedule as `completed`, skipping any remaining steps.
 
 
-        Use this when you are confident the rollout is successful and want to
-        lock
+        Pass `disableRule: true` to also disable the linked rule (equivalent to
 
-        in the final traffic allocation without waiting. For a full traffic
-        revert
-
-        instead, use `/actions/rollback`.
+        the cutoff-date-driven completion).
       tags:
         - ramp-schedules
       parameters:
@@ -19532,6 +19552,16 @@ paths:
           description: ''
           schema:
             type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                disableRule:
+                  type: boolean
+              additionalProperties: false
       responses:
         '200':
           content:
@@ -34101,6 +34131,13 @@ components:
           type: array
           items:
             type: string
+        environments:
+          description: >-
+            Limit this Archetype to specific environments. Omit or leave empty
+            to apply to all environments.
+          type: array
+          items:
+            type: string
       required:
         - id
         - dateCreated
@@ -35853,6 +35890,11 @@ components:
         includeVisualExperiments:
           type: boolean
         includeDraftExperiments:
+          type: boolean
+        includeDraftExperimentRefs:
+          description: >-
+            When true, experiment-ref rules linked to draft experiments are
+            included in feature definitions. Off by default.
           type: boolean
         includeExperimentNames:
           type: boolean

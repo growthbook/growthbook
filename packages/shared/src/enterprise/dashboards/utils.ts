@@ -131,8 +131,13 @@ export function snapshotSatisfiesBlock(
   }
   if (!blockSettings.dimensionId) return true;
   // If snapshot doesn't have a dimension, check whether the requested dimension is precomputed
-  return snapshot.settings.dimensions.some(
-    ({ id }) => blockSettings.dimensionId === id,
+  // Check both regular precomputed dimensions and precomputed unit dimensions
+  const precomputedDimIds = snapshot.settings.dimensions.map(({ id }) => id);
+  const precomputedUnitDimIds =
+    snapshot.settings.precomputedUnitDimensionIds ?? [];
+  return (
+    precomputedDimIds.includes(blockSettings.dimensionId) ||
+    precomputedUnitDimIds.includes(blockSettings.dimensionId)
   );
 }
 
