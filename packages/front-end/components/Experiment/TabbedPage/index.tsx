@@ -46,7 +46,7 @@ import { useExperimentDashboards } from "@/hooks/useDashboards";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import CompareExperimentEventsModal from "@/components/Experiment/CompareExperimentEventsModal";
-import { CheckListItem } from "@/components/Experiment/PreLaunchChecklist";
+import { PreLaunchChecklistProvider } from "@/components/Experiment/PreLaunchChecklistProvider";
 import ExperimentHeader from "./ExperimentHeader";
 import SetupTabOverview from "./SetupTabOverview";
 import Implementation from "./Implementation";
@@ -75,13 +75,7 @@ export interface Props {
   mutate: () => void;
   duplicate?: (() => void) | null;
   editTags?: (() => void) | null;
-  checklistItemsRemaining: number | null;
-  checklistHardBlockerCount: number;
-  incompleteChecklistItems: CheckListItem[];
   envs: string[];
-  setChecklistItemsRemaining: (value: number | null) => void;
-  setChecklistHardBlockerCount: (value: number) => void;
-  setIncompleteChecklistItems: (value: CheckListItem[]) => void;
   editVariations?: (() => void) | null;
   visualChangesets: VisualChangesetInterface[];
   urlRedirects: URLRedirectInterface[];
@@ -116,12 +110,6 @@ export default function TabbedPage({
   editPhases,
   editMetrics,
   editResult,
-  checklistItemsRemaining,
-  checklistHardBlockerCount,
-  incompleteChecklistItems,
-  setChecklistItemsRemaining,
-  setChecklistHardBlockerCount,
-  setIncompleteChecklistItems,
   editSchedule,
   visualChangesetEnvStates,
   urlRedirectEnvStates,
@@ -389,16 +377,6 @@ export default function TabbedPage({
   const { data: sdkConnectionsData } = useSDKConnections();
   const connections = sdkConnectionsData?.connections || [];
 
-  // const projectConnections = connections.filter(
-  //   (connection) =>
-  //     !connection.projects.length ||
-  //     connection.projects.includes(experiment.project || ""),
-  // );
-  // const matchingConnections = projectConnections.filter(
-  //   (connection) =>
-  //     !visualChangesets.length || connection.includeVisualExperiments,
-  // );
-
   const { data, mutate: mutateWatchers } = useApi<{
     userIds: string[];
   }>(`/experiment/${experiment.id}/watchers`);
@@ -450,7 +428,15 @@ export default function TabbedPage({
     experiment.status === "stopped" && tab !== "dashboards";
 
   return (
-    <>
+    <PreLaunchChecklistProvider
+      experiment={experiment}
+      linkedFeatures={linkedFeatures}
+      visualChangesets={visualChangesets}
+      connections={connections}
+      mutateExperiment={mutate}
+      editTargeting={editTargeting}
+      envs={envs}
+    >
       {compareModal && (
         <CompareExperimentEventsModal
           experiment={experiment}
@@ -541,9 +527,6 @@ export default function TabbedPage({
         newPhase={newPhase}
         editPhases={editPhases}
         healthNotificationCount={healthNotificationCount}
-        checklistItemsRemaining={checklistItemsRemaining}
-        checklistHardBlockerCount={checklistHardBlockerCount}
-        incompleteChecklistItems={incompleteChecklistItems}
         linkedFeatures={linkedFeatures}
         visualChangesets={visualChangesets}
         urlRedirects={urlRedirects}
@@ -617,16 +600,7 @@ export default function TabbedPage({
             holdoutExperiments={holdoutExperiments}
             mutate={mutate}
             disableEditing={viewingOldPhase}
-            checklistItemsRemaining={checklistItemsRemaining}
-            setChecklistItemsRemaining={setChecklistItemsRemaining}
-            setChecklistHardBlockerCount={setChecklistHardBlockerCount}
-            setIncompleteChecklistItems={setIncompleteChecklistItems}
-            envs={envs}
             editSchedule={editSchedule}
-            linkedFeatures={linkedFeatures}
-            visualChangesets={visualChangesets}
-            connections={connections}
-            editTargeting={editTargeting}
           />
           <Implementation
             experiment={experiment}
@@ -778,6 +752,6 @@ export default function TabbedPage({
           </div>
         </div>
       )}
-    </>
+    </PreLaunchChecklistProvider>
   );
 }

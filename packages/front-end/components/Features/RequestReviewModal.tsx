@@ -7,7 +7,6 @@ import {
   fillRevisionFromFeature,
   liveRevisionFromFeature,
   filterEnvironmentsByFeature,
-  getAffectedEnvsForExperiment,
   mergeResultHasChanges,
   getReviewSetting,
 } from "shared/util";
@@ -640,11 +639,6 @@ export default function RequestReviewModal({
                         experiment={experiment}
                         feature={feature}
                         mutateExperiment={mutate}
-                        envs={getAffectedEnvsForExperiment({
-                          experiment,
-                          orgEnvironments: allEnvironments,
-                          linkedFeatures: [],
-                        })}
                         onReady={(failed, loading) =>
                           handleChecklistReady(experiment.id, failed, loading)
                         }

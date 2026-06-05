@@ -31,7 +31,7 @@ import {
   LINKED_CHANGE_CONTAINER_PROPERTIES,
   type LinkedChange,
 } from "@/components/Experiment/LinkedChanges/constants";
-import { CheckListItem } from "@/components/Experiment/PreLaunchChecklist";
+import { CheckListItem } from "@/components/Experiment/PreLaunchChecklistItems";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;

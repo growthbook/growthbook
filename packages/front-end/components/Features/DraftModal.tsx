@@ -10,7 +10,6 @@ import {
   fillRevisionFromFeature,
   liveRevisionFromFeature,
   filterEnvironmentsByFeature,
-  getAffectedEnvsForExperiment,
   mergeResultHasChanges,
 } from "shared/util";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -574,11 +573,6 @@ export default function DraftModal({
                     experiment={experiment}
                     feature={feature}
                     mutateExperiment={mutate}
-                    envs={getAffectedEnvsForExperiment({
-                      experiment,
-                      orgEnvironments: allEnvironments,
-                      linkedFeatures: [],
-                    })}
                   />
                 </Box>
               );
