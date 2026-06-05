@@ -11,7 +11,7 @@ import Callout from "@/ui/Callout";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import { RadixColor } from "@/ui/HelperText";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import RadioGroup from "@/ui/RadioGroup";
 import Modal from "@/ui/Modal";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
@@ -305,18 +305,13 @@ function ManageRefreshModal({
                     <td>{formatTimestamp(r.runStarted ?? r.dateCreated)}</td>
                     <td>{r.mode}</td>
                     <td>
-                      <Badge
-                        color={runStatusColor[r.status]}
-                        label={runStatusLabel(r.status)}
-                        variant="soft"
-                      />
-                      {r.error && (
-                        <Tooltip body={r.error}>
-                          <span className="text-danger ml-2 small">
-                            (error)
-                          </span>
-                        </Tooltip>
-                      )}
+                      <Tooltip enabled={!!r.error} content={r.error}>
+                        <Badge
+                          color={runStatusColor[r.status]}
+                          label={runStatusLabel(r.status)}
+                          variant="soft"
+                        />
+                      </Tooltip>
                     </td>
                     <td>
                       {r.queryIds.length > 0 ? (
@@ -430,18 +425,21 @@ export default function AggregatedFactTablesCard({ factTable }: Props) {
                 <Text weight="medium">{row.idType}</Text>
               </td>
               <td>
-                <Badge
-                  color={materializationStatusDisplay[row.status].color}
-                  label={materializationStatusDisplay[row.status].label}
-                  variant="soft"
-                />
-                {row.status === "error" && row.lastError && (
-                  <Tooltip body={row.lastError}>
-                    <span className="text-danger ml-2 small">(details)</span>
-                  </Tooltip>
-                )}
+                <Tooltip
+                  enabled={row.status === "error" && !!row.lastError}
+                  content={row.lastError}
+                >
+                  <Badge
+                    color={materializationStatusDisplay[row.status].color}
+                    label={materializationStatusDisplay[row.status].label}
+                    variant="soft"
+                  />
+                </Tooltip>
                 {row.pendingRestate && row.pendingRestateReason && (
-                  <Tooltip body={pendingRestateCopy[row.pendingRestateReason]}>
+                  <Tooltip
+                    enabled
+                    content={pendingRestateCopy[row.pendingRestateReason]}
+                  >
                     <span className="ml-2">
                       <Badge
                         color="amber"
