@@ -24,6 +24,7 @@ import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 export interface Props {
   factTable: FactTableInterface;
@@ -120,10 +121,24 @@ function ManageRefreshModal({
   close: () => void;
 }) {
   const { apiCall } = useAuth();
-  const [mode, setMode] = useState<"incremental" | "restate">("incremental");
+  // A pending restate means the backend will force a full restate on the next
+  // run regardless of the requested mode, so disable incremental and select restate.
+  const forceRestate = status.pendingRestate;
+  const [mode, setMode] = useState<"incremental" | "restate">(
+    forceRestate ? "restate" : "incremental",
+  );
   const [viewQueriesRunId, setViewQueriesRunId] = useState<string | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
+
+  useEffect(() => {
+    if (forceRestate) setMode("restate");
+  }, [forceRestate]);
+
+  const incrementalDisabledReason =
+    forceRestate && status.pendingRestateReason
+      ? pendingRestateCopy[status.pendingRestateReason]
+      : undefined;
 
   const { data: runsData, mutate: mutateRuns } = useApi<{
     runs: AggregatedFactTableRunSummary[];
@@ -217,8 +232,7 @@ function ManageRefreshModal({
         <Modal.Body>
           <Text as="div" color="text-mid" mb="3">
             Manually queue a materialization run for the{" "}
-            <strong>{status.idType}</strong> aggregated table. Runs happen in
-            the background and may take a while to complete.
+            <strong>{status.idType}</strong> aggregated table.
           </Text>
 
           <dl className="row mb-3">
@@ -241,6 +255,8 @@ function ManageRefreshModal({
                 label: "Incremental refresh",
                 description:
                   "Append new events since the last run. Fast and cheap.",
+                disabled: forceRestate,
+                disabledReason: incrementalDisabledReason,
               },
               {
                 value: "restate",
@@ -345,9 +361,13 @@ function ManageRefreshModal({
   );
 }
 
+const MANAGE_REFRESH_PERMISSION_MESSAGE =
+  "You need permission to edit this data source's settings to manage refreshes.";
+
 export default function AggregatedFactTablesCard({ factTable }: Props) {
   const { hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
+  const { getDatasourceById } = useDefinitions();
 
   const [manageIdType, setManageIdType] = useState<string | null>(null);
 
@@ -365,7 +385,9 @@ export default function AggregatedFactTablesCard({ factTable }: Props) {
     return null;
   }
 
-  const canEdit = permissionsUtil.canUpdateFactTable(factTable, {});
+  const datasource = getDatasourceById(factTable.datasource);
+  const canManageRefresh =
+    !!datasource && permissionsUtil.canUpdateDataSourceSettings(datasource);
 
   const statusByIdType = new Map(
     (data?.aggregatedFactTables ?? []).map((s) => [s.idType, s]),
@@ -415,7 +437,7 @@ export default function AggregatedFactTablesCard({ factTable }: Props) {
             <th>Last found timestamp</th>
             <th>Last updated</th>
             <th>Next scheduled update</th>
-            {canEdit && <th style={{ width: 30 }} />}
+            <th style={{ width: 30 }} />
           </tr>
         </thead>
         <tbody>
@@ -459,32 +481,36 @@ export default function AggregatedFactTablesCard({ factTable }: Props) {
                   ? "—"
                   : formatTimestamp(nextScheduledUpdate)}
               </td>
-              {canEdit && (
-                <td>
-                  <DropdownMenu
-                    trigger={
-                      <IconButton
-                        variant="ghost"
-                        color="gray"
-                        radius="full"
-                        size="2"
-                        highContrast
-                      >
-                        <BsThreeDotsVertical size={16} />
-                      </IconButton>
-                    }
-                    menuPlacement="end"
-                  >
-                    <DropdownMenuGroup>
-                      <DropdownMenuItem
-                        onClick={() => setManageIdType(row.idType)}
-                      >
-                        Manage refresh
-                      </DropdownMenuItem>
-                    </DropdownMenuGroup>
-                  </DropdownMenu>
-                </td>
-              )}
+              <td>
+                <DropdownMenu
+                  trigger={
+                    <IconButton
+                      variant="ghost"
+                      color="gray"
+                      radius="full"
+                      size="2"
+                      highContrast
+                    >
+                      <BsThreeDotsVertical size={16} />
+                    </IconButton>
+                  }
+                  menuPlacement="end"
+                >
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem
+                      disabled={!canManageRefresh}
+                      tooltip={
+                        canManageRefresh
+                          ? undefined
+                          : MANAGE_REFRESH_PERMISSION_MESSAGE
+                      }
+                      onClick={() => setManageIdType(row.idType)}
+                    >
+                      Manage refresh
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                </DropdownMenu>
+              </td>
             </tr>
           ))}
         </tbody>

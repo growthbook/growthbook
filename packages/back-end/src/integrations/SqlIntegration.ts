@@ -795,7 +795,7 @@ export default abstract class SqlIntegration
 
   createTablePartitions(
     _columns: string[],
-    _opts?: { partitionByDate?: boolean },
+    _opts?: { partitionByDate?: boolean; partitionExpirationDays?: number },
   ) {
     return "";
   }

@@ -196,7 +196,7 @@ export default class Presto extends SqlIntegration {
 
   createTablePartitions(
     columns: string[],
-    _opts?: { partitionByDate?: boolean },
+    _opts?: { partitionByDate?: boolean; partitionExpirationDays?: number },
   ) {
     return prestoCreateTablePartitions(columns);
   }

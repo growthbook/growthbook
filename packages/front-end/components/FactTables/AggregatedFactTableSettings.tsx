@@ -135,7 +135,7 @@ export default function AggregatedFactTableSettings({
       <Field
         label="Restate lookback window (days)"
         labelClassName="font-weight-bold"
-        helpText="How far back to re-scan when the table is fully restated (e.g. on schema changes). Leave it longer than your typical regression window to allow for experiments with older start dates to still benefit from the aggregated tables."
+        helpText="How far back to re-scan when the table is fully restated (e.g. on schema changes). Leave it longer than your typical regression window to allow for experiments with older start dates to still benefit from the aggregated tables. Also the default retention window for the table is set to this value. If this value changes, however, the retention window on any existing tables will only change when the table is fully restated."
         type="number"
         min={1}
         step={1}

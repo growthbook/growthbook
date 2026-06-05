@@ -2,8 +2,8 @@ import { format } from "shared/sql";
 import type { AggregatedFactTableMaxTimestampQueryParams } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
 
-// Returns the event-time high-water mark and event_date range, used to advance
-// the registry watermark and coverage after a run.
+import { toDateLiteral } from "back-end/src/integrations/sql/primitives/to-date-literal";
+
 export function getAggregatedFactTableMaxTimestampQuery(
   dialect: SqlDialect,
   params: AggregatedFactTableMaxTimestampQueryParams,
@@ -12,9 +12,11 @@ export function getAggregatedFactTableMaxTimestampQuery(
     `
     SELECT
       MAX(max_timestamp) AS max_timestamp
+      -- Only returns a meaningful event_date on full-restate runs.
       , MIN(event_date) AS first_event_date
       , MAX(event_date) AS last_event_date
     FROM ${params.tableFullName}
+    WHERE event_date >= ${dialect.castToDate(toDateLiteral(params.scanStartDate))}
     `,
     dialect.formatDialect,
   );

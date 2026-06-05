@@ -9,6 +9,7 @@ import {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
+import { snapToUtcDayStart } from "shared/dates";
 import { AggregatedFactTableKey } from "back-end/src/models/AggregatedFactTableModel";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 
@@ -20,20 +21,15 @@ export type AggregatedFactTableQueryParams = {
   factTable: FactTableInterface;
   idType: string;
   metrics: FactMetricInterface[];
-  // `restate` drops/recreates and re-scans the retained window; `incremental`
-  // appends events since `lastMaxTimestamp`.
   mode: AggregatedFactTableRunMode;
-  // Lock token for this run; durable writes are gated on it.
+  // Lock token; durable writes are gated on it.
   executionId: string;
-  // Registry snapshot loaded by the worker; the runner reads prior
-  // watermark/tableFullName and writes final coverage back when the run ends.
+  // Registry snapshot loaded by the worker.
   aggregatedFactTable: AggregatedFactTableInterface;
-  // Schema state resolved by the driver (the runner does not recompute it); the
-  // insert onSuccess persists these onto the registry.
+  // Schema state resolved by the driver, persisted onto the registry on success.
   factTableSettingsHash: string;
   metricState: AggregatedFactTableMetricStateInterface[];
-  // Restate window in days (from the fact table's aggregatedFactTableSettings);
-  // bounds how far back a full restate re-scans.
+  // How far back a full restate re-scans.
   lookbackWindowDays: number;
 };
 
@@ -45,8 +41,8 @@ export type AggregatedFactTableResult = {
 
 const MAX_TIMESTAMP_QUERY_NAME = "aggregated_fact_table_max_timestamp";
 
-// Parse a coverage row into registry watermark fields. A null `max_timestamp`
-// means the table is empty, so all coverage fields are null.
+// Parse a coverage row. The query is pruned to the touched slice, so these are
+// reconciled with prior registry coverage by `foldAggregatedFactTableCoverage`.
 export function parseAggregatedFactTableCoverage(
   row: Record<string, unknown> | undefined,
 ): AggregatedFactTableResult {
@@ -63,12 +59,64 @@ export function parseAggregatedFactTableCoverage(
   };
 }
 
+function maxDate(a: Date | null, b: Date | null): Date | null {
+  if (!a) return b;
+  if (!b) return a;
+  return a.getTime() >= b.getTime() ? a : b;
+}
+
+// Reconcile the pruned-slice coverage with the prior registry coverage.
+// Restate re-scanned everything, so its values are exact. Incremental only
+// scanned the newest partitions: the timestamp maxes are exact, but
+// MIN(event_date) is not the global first, so pin `firstEventDate` to
+// max(prior, retentionFloor) — never older than partition expiration allows
+// (see resolveCovariateInsertPath for why that direction is the safe one).
+export function foldAggregatedFactTableCoverage({
+  scanned,
+  mode,
+  prior,
+  retentionFloor,
+}: {
+  scanned: AggregatedFactTableResult;
+  mode: AggregatedFactTableRunMode;
+  prior: AggregatedFactTableResult;
+  retentionFloor: Date | null;
+}): AggregatedFactTableResult {
+  if (mode === "restate") return scanned;
+
+  const lastMaxTimestamp = maxDate(
+    prior.lastMaxTimestamp,
+    scanned.lastMaxTimestamp,
+  );
+  const lastEventDate = maxDate(prior.lastEventDate, scanned.lastEventDate);
+  const firstEventDate =
+    lastEventDate === null
+      ? null
+      : maxDate(prior.firstEventDate, retentionFloor);
+
+  return { lastMaxTimestamp, firstEventDate, lastEventDate };
+}
+
+function priorCoverage(
+  registry: AggregatedFactTableInterface,
+): AggregatedFactTableResult {
+  return {
+    lastMaxTimestamp: registry.lastMaxTimestamp ?? null,
+    firstEventDate: registry.firstEventDate ?? null,
+    lastEventDate: registry.lastEventDate ?? null,
+  };
+}
+
 export class AggregatedFactTableQueryRunner extends QueryRunner<
   AggregatedFactTableRunInterface,
   AggregatedFactTableQueryParams,
   AggregatedFactTableResult
 > {
   private params: AggregatedFactTableQueryParams | null = null;
+  // Captured in startQueries so onSuccess and the updateModel backstop fold
+  // against the same bounds.
+  private coverageScanStartDate: Date | null = null;
+  private coverageRetentionFloor: Date | null = null;
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(
@@ -84,11 +132,9 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
     };
   }
 
-  // Mark the write in flight so any committed insert is guaranteed to have a
-  // corresponding marker. Set immediately before the first warehouse-committing
-  // query; cleared only once the watermark is durably advanced (coverage
-  // onSuccess / updateModel) or on an observed atomic insert failure. Otherwise
-  // the next run sees it set and restates instead of double-appending.
+  // Set before the first committing query and cleared once the watermark is
+  // durably advanced (or on an observed insert failure). If a run dies with it
+  // still set, the next run restates instead of double-appending.
   private async markInFlight(executionId: string): Promise<void> {
     const lockHeld =
       await this.context.models.aggregatedFactTables.updateByKeyIfCurrentExecution(
@@ -147,18 +193,15 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
         true,
       );
 
-    // The driver owns mode resolution (first-run, drift, incomplete-write, and
-    // explicit restate all decided there); the runner just executes it.
+    // The driver decides the mode; the runner just executes it.
     const queries: Queries = [];
 
     let dropQuery: QueryPointer | null = null;
     let createQuery: QueryPointer | null = null;
 
     if (mode === "restate") {
-      // Build the SQL before marking in flight so a build error here leaves the
-      // marker unset (nothing was submitted). The drop is the first destructive
-      // op, so the marker must be set before it: a partial restate (e.g. drop
-      // succeeds, create fails) must still force a restate on the next run.
+      // Build SQL before marking in flight so a build error leaves the marker
+      // unset; set it before the drop so a partial restate still re-restates.
       const dropQueryString = integration.getDropAggregatedFactTableQuery({
         tableFullName,
       });
@@ -167,6 +210,7 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
         idType,
         metrics,
         tableFullName,
+        retentionWindowDays: lookbackWindowDays,
       });
 
       await this.markInFlight(executionId);
@@ -202,8 +246,7 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
       queries.push(createQuery);
     }
 
-    // Window lower bound. Restate re-scans the retained window (inclusive);
-    // incremental slices strictly after the event-time watermark.
+    // Restate re-scans the retained window; incremental slices after the watermark.
     const restateWindowStart = new Date(
       Date.now() - lookbackWindowDays * 24 * 60 * 60 * 1000,
     );
@@ -214,9 +257,15 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
     const exclusiveStart =
       mode === "incremental" && !!aggregatedFactTable.lastMaxTimestamp;
 
-    // Build the insert SQL before marking in flight so a build error leaves the
-    // marker unset. In incremental mode the insert is the first committing op,
-    // so set the marker now; in restate mode it was already set before the drop.
+    // Scan coverage from the day the insert started writing (prunes to the
+    // touched partitions); the retention floor bounds incremental firstEventDate.
+    const coverageScanStartDate = snapToUtcDayStart(windowStartDate);
+    const coverageRetentionFloor = snapToUtcDayStart(restateWindowStart);
+    this.coverageScanStartDate = coverageScanStartDate;
+    this.coverageRetentionFloor = coverageRetentionFloor;
+
+    // In incremental mode the insert is the first committing op, so mark in
+    // flight now (restate already marked it before the drop).
     const insertQueryString = integration.getInsertAggregatedFactTableDataQuery(
       {
         factTable,
@@ -261,10 +310,9 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
         }
       },
       onFailure: () => {
-        // An observed failure of INSERT means nothing committed
-        // (true for BigQuery/Snowflake/Redshift/Postgres). So we clear the
-        // in-flight marker: the next run can safely retry the same incremental
-        // window instead of rebuilding.
+        // An observed INSERT failure means nothing committed (atomic on
+        // BigQuery/Snowflake/Redshift/Postgres), so clear the marker to let the
+        // next run retry the same window instead of restating.
         this.context.models.aggregatedFactTables
           .updateByKeyIfCurrentExecution(this.getKey(), executionId, {
             inFlightExecutionId: null,
@@ -285,6 +333,7 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
       displayTitle: `Find Aggregated Fact Table Coverage (${factTable.name} / ${idType})`,
       query: integration.getAggregatedFactTableMaxTimestampQuery({
         tableFullName,
+        scanStartDate: coverageScanStartDate,
       }),
       dependencies: [insertQuery.query],
       run: (query, setExternalId, queryMetadata) =>
@@ -294,20 +343,22 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
           queryMetadata,
         ),
       onSuccess: async (rows) => {
-        // The watermark is durably advanced the instant coverage succeeds.
-        // The coverage query reads the whole table authoritatively: every row
-        // carries a non-null `max_timestamp`, so over a non-empty table the
-        // watermark is non-null and monotonic, and a null means the table is
-        // genuinely empty. So the parsed values are written directly.
-        const parsed = parseAggregatedFactTableCoverage(rows?.[0]);
+        // Coverage success durably advances the watermark; fold the pruned
+        // slice against prior coverage before persisting.
+        const folded = foldAggregatedFactTableCoverage({
+          scanned: parseAggregatedFactTableCoverage(rows?.[0]),
+          mode,
+          prior: priorCoverage(aggregatedFactTable),
+          retentionFloor: coverageRetentionFloor,
+        });
         const lockHeld =
           await this.context.models.aggregatedFactTables.updateByKeyIfCurrentExecution(
             this.getKey(),
             executionId,
             {
-              lastMaxTimestamp: parsed.lastMaxTimestamp,
-              firstEventDate: parsed.firstEventDate,
-              lastEventDate: parsed.lastEventDate,
+              lastMaxTimestamp: folded.lastMaxTimestamp,
+              firstEventDate: folded.firstEventDate,
+              lastEventDate: folded.lastEventDate,
               lastError: null,
               inFlightExecutionId: null,
             },
@@ -328,8 +379,14 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
   async runAnalysis(queryMap: QueryMap): Promise<AggregatedFactTableResult> {
     const query = queryMap.get(MAX_TIMESTAMP_QUERY_NAME);
     const row = (query?.result as Record<string, unknown>[] | undefined)?.[0];
-    const result = parseAggregatedFactTableCoverage(row);
-    return result;
+    return foldAggregatedFactTableCoverage({
+      scanned: parseAggregatedFactTableCoverage(row),
+      mode: this.params?.mode ?? "restate",
+      prior: this.params
+        ? priorCoverage(this.params.aggregatedFactTable)
+        : { lastMaxTimestamp: null, firstEventDate: null, lastEventDate: null },
+      retentionFloor: this.coverageRetentionFloor,
+    });
   }
 
   async getLatestModel(): Promise<AggregatedFactTableRunInterface> {
@@ -364,7 +421,6 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
 
     const isTerminal = status !== "running" && status !== "queued";
 
-    // Per-run state lives on the run doc.
     const runUpdates: UpdateProps<AggregatedFactTableRunInterface> = {
       queries,
       ...(runStarted ? { runStarted } : {}),
@@ -377,17 +433,12 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
       runUpdates,
     );
 
-    // Registry is updated only when the run finishes: write final coverage/error,
-    // point lastRunId at this run, and release the lock.
+    // On terminal status, write final coverage/error, point lastRunId here, and
+    // release the lock.
     if (isTerminal && executionId) {
-      // Backstop for the coverage onSuccess path: when we have a coverage result
-      // (success), persist the watermark and clear the in-flight marker
-      // (idempotent if onSuccess already did). The coverage query reads the whole
-      // table authoritatively, so the result values are written directly. On a
-      // failed terminal status there is no result, so we leave the marker
-      // untouched - only the targeted insert onFailure clears it on failure, so a
-      // crash / coverage failure / ambiguous commit still forces the next run to
-      // restate.
+      // Backstop for coverage onSuccess: on success `result` is already folded
+      // by runAnalysis, so persist it and clear the marker (idempotent). On
+      // failure there is no result; leave the marker so the next run restates.
       const coverageUpdates = result
         ? {
             lastMaxTimestamp: result.lastMaxTimestamp,

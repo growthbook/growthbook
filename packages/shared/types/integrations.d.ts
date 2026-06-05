@@ -406,8 +406,7 @@ export interface InsertMetricSourceCovariateDataQueryParams {
   metrics: FactMetricInterface[];
   lastCovariateSuccessfulMaxTimestamp: Date | null;
   // When true, snap the raw scan to daily grain so this fallback covers the same
-  // days the pre-aggregated table would. Set by the runner when the exposure id
-  // type is in the fact table's aggregatedFactTableSettings.idTypes.
+  // days the pre-aggregated table would.
   alignLegacyScanToDailyGrain: boolean;
 }
 
@@ -430,23 +429,17 @@ export interface InsertMetricSourceCovariateFromAggregatedFactTableQueryParams {
 
 // ---- Shared daily aggregated fact tables (materialization only) ----
 //
-// These are daily per-id aggregates of a single fact table, one warehouse
-// table per (organization, datasource, factTable, idType). Unlike the
-// per-experiment metric-source caches above, they are not scoped to an
-// experiment or units table; rows are aggregated at the native `<idType>` +
-// `event_date` grain and appended insert-only.
+// Daily per-id aggregates of a single fact table, one warehouse table per
+// (organization, datasource, factTable, idType), appended insert-only at the
+// native `<idType>` + `event_date` grain.
 
 export interface CreateAggregatedFactTableQueryParams {
-  // The fact table being materialized.
   factTableId: string;
-  // Native id type (a member of the fact table's userIdTypes) this table is
-  // keyed on.
   idType: string;
-  // Fact metrics whose values are materialized (numerator side when this FT is
-  // the metric's numerator FT, denominator side when this FT is the ratio
-  // metric's denominator FT).
   metrics: FactMetricInterface[];
   tableFullName: string;
+  // Drop partitions older than this many days (BigQuery only).
+  retentionWindowDays?: number;
 }
 
 export interface InsertAggregatedFactTableDataQueryParams {
@@ -454,16 +447,15 @@ export interface InsertAggregatedFactTableDataQueryParams {
   idType: string;
   metrics: FactMetricInterface[];
   tableFullName: string;
-  // Lower bound on the event timestamp. For an incremental append this is the
-  // event-time watermark (lastMaxTimestamp) and `exclusiveStart` is true so we
-  // slice strictly newer events; for a full restate this is the start of the
-  // retained window and `exclusiveStart` is false.
+  // Lower bound on event timestamp: incremental uses the watermark with
+  // exclusiveStart=true; restate uses the window start with exclusiveStart=false.
   windowStartDate: Date;
   exclusiveStart: boolean;
 }
 
 export interface AggregatedFactTableMaxTimestampQueryParams {
   tableFullName: string;
+  scanStartDate: Date;
 }
 
 export interface DropAggregatedFactTableQueryParams {
@@ -476,17 +468,6 @@ export interface IncrementalRefreshStatisticsQueryParams {
   dimensionsForPrecomputation: ExperimentDimensionWithSpecifiedSlices[];
   dimensionsForAnalysis: Dimension[];
   factTableMap: FactTableMap;
-  // Cache tables for this query, one entry per fact table referenced by
-  // `metrics`. Single-fact-table queries pass exactly one entry; cross-fact-
-  // table ratio queries pass two. Each entry carries the cache table name
-  // (`tableFullName`) and, when the FT hosts a regression-adjusted metric,
-  // the matching covariate cache (`covariateTableFullName`). The SQL layer
-  // derives source ordering and `m{i}` aliases on the fly from the metrics'
-  // fact-table first-appearance order; the caller-supplied entry order is
-  // not significant, but every FT referenced by `metrics` (numerator and
-  // denominator) must have a matching entry. For cross-FT ratio CUPED, the
-  // numerator FT's covariate cache holds `_value` covariates and the
-  // denominator FT's holds `_denominator_value` covariates.
   metricSources: {
     factTableId: string;
     tableFullName: string;

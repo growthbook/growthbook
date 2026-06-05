@@ -13,7 +13,10 @@ import type { AggregatedFactTableMetricStateInterface } from "shared/validators"
 import { precedingUtcDayStart, snapToUtcDayStart } from "shared/dates";
 import { ApiReqContext } from "back-end/types/api";
 import { applyMetricOverrides } from "back-end/src/util/integration";
-import { getMetricSettingsHashForAggregatedFactTable } from "back-end/src/enterprise/services/data-pipeline";
+import {
+  getFactTableSettingsHashForAggregatedFactTable,
+  getMetricSettingsHashForAggregatedFactTable,
+} from "back-end/src/enterprise/services/data-pipeline";
 import { getColumnsForMetric } from "back-end/src/integrations/sql/fact-metrics/columns-for-metric";
 import { canReAggregateDailyPartialsForCovariate } from "back-end/src/integrations/sql/fact-metrics/aggregation-metadata";
 import { getMetricMinDelay } from "back-end/src/integrations/sql/dates/metric-min-delay";
@@ -28,6 +31,7 @@ export type CovariateInsertPathReason =
   | "no-fact-table"
   | "id-type-not-materialized"
   | "no-materialized-table"
+  | "pending-restate"
   | "window-not-covered"
   | "metrics-not-covered"
   | "error";
@@ -121,6 +125,25 @@ async function resolveCovariateInsertPathInner({
       tableFullName: registry?.tableFullName ?? null,
     });
     return { path: "legacy", reason: "no-materialized-table" };
+  }
+
+  // Same restate triggers the status UI surfaces (incomplete-write / fact-table
+  // drift). The next maintenance run will drop and rebuild this table, so until
+  // then its data may double-count (a partial prior write) or reflect an older
+  // fact-table definition. Per-metric coverage below can't see either, so gate
+  // here and fall back to the always-correct legacy scan.
+  if ((registry.inFlightExecutionId ?? null) !== null) {
+    log("legacy: prior write incomplete, restate pending");
+    return { path: "legacy", reason: "pending-restate" };
+  }
+  if (
+    getFactTableSettingsHashForAggregatedFactTable(factTable) !==
+    registry.factTableSettingsHash
+  ) {
+    log("legacy: fact table definition changed, restate pending", {
+      registryFactTableSettingsHash: registry.factTableSettingsHash,
+    });
+    return { path: "legacy", reason: "pending-restate" };
   }
 
   // Freshness = does the table cover the covariate window (plus a buffer so the

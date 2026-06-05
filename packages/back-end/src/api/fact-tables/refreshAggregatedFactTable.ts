@@ -38,8 +38,6 @@ export const refreshAggregatedFactTable = createApiRequestHandler(
     idTypes = [req.body.idType];
   }
 
-  // Kick off directly (not via the nightly agenda queue); each call returns
-  // once the run doc + queries exist and finishes in the background.
   for (const idType of idTypes) {
     await runAggregatedFactTableUpdate(req.context, factTable, idType, {
       forceRestate: !!req.body.fullRestate,

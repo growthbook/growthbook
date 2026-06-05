@@ -8,7 +8,10 @@ import {
 import { getAggregatedFactTableSchema } from "back-end/src/integrations/sql/fact-metrics/aggregated-fact-table-schema";
 import { encodeMetricIdForColumnName } from "back-end/src/integrations/sql/fact-metrics/encode-metric-id-for-column-name";
 import { getColumnsForMetric } from "back-end/src/integrations/sql/fact-metrics/columns-for-metric";
-import { parseAggregatedFactTableCoverage } from "back-end/src/queryRunners/AggregatedFactTableQueryRunner";
+import {
+  parseAggregatedFactTableCoverage,
+  foldAggregatedFactTableCoverage,
+} from "back-end/src/queryRunners/AggregatedFactTableQueryRunner";
 import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
 import { factMetricFactory } from "./factories/FactMetric.factory";
 import { factTableFactory } from "./factories/FactTable.factory";
@@ -364,6 +367,131 @@ describe("parseAggregatedFactTableCoverage", () => {
     expect(result.lastMaxTimestamp).toBeNull();
     expect(result.firstEventDate).toEqual(new Date("2024-01-01"));
     expect(result.lastEventDate).toBeNull();
+  });
+});
+
+describe("foldAggregatedFactTableCoverage", () => {
+  const date = (s: string) => new Date(s);
+
+  it("uses the scanned values verbatim on a restate (whole window re-scanned)", () => {
+    const scanned = {
+      lastMaxTimestamp: date("2024-02-01T00:00:00Z"),
+      firstEventDate: date("2024-01-02"),
+      lastEventDate: date("2024-02-01"),
+    };
+    const folded = foldAggregatedFactTableCoverage({
+      scanned,
+      mode: "restate",
+      // Prior values must be ignored on a restate.
+      prior: {
+        lastMaxTimestamp: date("2099-01-01T00:00:00Z"),
+        firstEventDate: date("2000-01-01"),
+        lastEventDate: date("2099-01-01"),
+      },
+      retentionFloor: date("2024-01-01"),
+    });
+    expect(folded).toEqual(scanned);
+  });
+
+  it("advances the watermark and last event date monotonically on incremental", () => {
+    const folded = foldAggregatedFactTableCoverage({
+      scanned: {
+        lastMaxTimestamp: date("2024-02-10T06:00:00Z"),
+        firstEventDate: date("2024-02-05"), // within-window min, not the global first
+        lastEventDate: date("2024-02-10"),
+      },
+      mode: "incremental",
+      prior: {
+        lastMaxTimestamp: date("2024-02-05T00:00:00Z"),
+        firstEventDate: date("2024-01-01"),
+        lastEventDate: date("2024-02-05"),
+      },
+      retentionFloor: date("2023-12-13"),
+    });
+    expect(folded.lastMaxTimestamp).toEqual(date("2024-02-10T06:00:00Z"));
+    expect(folded.lastEventDate).toEqual(date("2024-02-10"));
+  });
+
+  it("never lets the watermark/last event date regress when the slice is empty", () => {
+    const folded = foldAggregatedFactTableCoverage({
+      scanned: {
+        lastMaxTimestamp: null,
+        firstEventDate: null,
+        lastEventDate: null,
+      },
+      mode: "incremental",
+      prior: {
+        lastMaxTimestamp: date("2024-02-05T00:00:00Z"),
+        firstEventDate: date("2024-01-01"),
+        lastEventDate: date("2024-02-05"),
+      },
+      retentionFloor: date("2023-12-13"),
+    });
+    expect(folded.lastMaxTimestamp).toEqual(date("2024-02-05T00:00:00Z"));
+    expect(folded.lastEventDate).toEqual(date("2024-02-05"));
+  });
+
+  it("pins firstEventDate to the retention floor once the table is older than the window", () => {
+    // Prior firstEventDate is older than the retention floor (those partitions
+    // have since expired), so we must report the newer floor, never the stale
+    // earlier date.
+    const folded = foldAggregatedFactTableCoverage({
+      scanned: {
+        lastMaxTimestamp: date("2024-03-01T00:00:00Z"),
+        firstEventDate: date("2024-02-28"),
+        lastEventDate: date("2024-03-01"),
+      },
+      mode: "incremental",
+      prior: {
+        lastMaxTimestamp: date("2024-02-28T00:00:00Z"),
+        firstEventDate: date("2024-01-01"),
+        lastEventDate: date("2024-02-28"),
+      },
+      retentionFloor: date("2024-01-15"),
+    });
+    expect(folded.firstEventDate).toEqual(date("2024-01-15"));
+  });
+
+  it("keeps the real earliest while the table is younger than the window", () => {
+    // Table only has a few days of data; the retention floor is far in the past,
+    // so the real earliest (prior) is the correct, newer value.
+    const folded = foldAggregatedFactTableCoverage({
+      scanned: {
+        lastMaxTimestamp: date("2024-02-04T00:00:00Z"),
+        firstEventDate: date("2024-02-03"),
+        lastEventDate: date("2024-02-04"),
+      },
+      mode: "incremental",
+      prior: {
+        lastMaxTimestamp: date("2024-02-03T00:00:00Z"),
+        firstEventDate: date("2024-02-01"),
+        lastEventDate: date("2024-02-03"),
+      },
+      retentionFloor: date("2023-12-06"),
+    });
+    expect(folded.firstEventDate).toEqual(date("2024-02-01"));
+  });
+
+  it("reports no coverage when the incremental slice and prior are both empty", () => {
+    const folded = foldAggregatedFactTableCoverage({
+      scanned: {
+        lastMaxTimestamp: null,
+        firstEventDate: null,
+        lastEventDate: null,
+      },
+      mode: "incremental",
+      prior: {
+        lastMaxTimestamp: null,
+        firstEventDate: null,
+        lastEventDate: null,
+      },
+      retentionFloor: date("2023-12-06"),
+    });
+    expect(folded).toEqual({
+      lastMaxTimestamp: null,
+      firstEventDate: null,
+      lastEventDate: null,
+    });
   });
 });
 

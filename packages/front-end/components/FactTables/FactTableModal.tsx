@@ -333,7 +333,9 @@ export default function FactTableModal({
 
         {!!existing &&
           hasCommercialFeature("pipeline-mode") &&
-          datasourceHasIncrementalRefresh && (
+          datasourceHasIncrementalRefresh &&
+          !!selectedDataSource &&
+          permissionsUtil.canUpdateDataSourceSettings(selectedDataSource) && (
             <>
               <hr className="mt-4" />
               <Collapsible
@@ -350,7 +352,9 @@ export default function FactTableModal({
                   <AggregatedFactTableSettings
                     form={form}
                     userIdTypes={form.watch("userIdTypes")}
-                    canEdit={permissionsUtil.canUpdateFactTable(existing, {})}
+                    canEdit={permissionsUtil.canUpdateDataSourceSettings(
+                      selectedDataSource,
+                    )}
                   />
                 </div>
               </Collapsible>

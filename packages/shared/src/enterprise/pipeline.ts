@@ -133,7 +133,7 @@ export function getPipelineValidationDropTableQuery({
 
 export function bigQueryCreateTablePartitions(
   columns: string[],
-  opts?: { partitionByDate?: boolean },
+  opts?: { partitionByDate?: boolean; partitionExpirationDays?: number },
 ) {
   // BigQuery rejects TIMESTAMP_TRUNC on a DATE column, so partition DATE keys directly.
   // TODO(incremental-refresh): Is there a way to ensure the first argument is always a date/timestamp column?
@@ -141,16 +141,25 @@ export function bigQueryCreateTablePartitions(
     ? `PARTITION BY \`${columns[0]}\``
     : `PARTITION BY TIMESTAMP_TRUNC(\`${columns[0]}\`, HOUR)`;
 
+  // BigQuery auto-drops partitions once their date is older than this many days,
+  // enforcing the retention window without a separate maintenance job.
+  const options =
+    opts?.partitionExpirationDays && opts.partitionExpirationDays > 0
+      ? ` OPTIONS(partition_expiration_days = ${Math.floor(
+          opts.partitionExpirationDays,
+        )})`
+      : "";
+
   // NB: BigQuery only supports one column for partitioning, so use cluster for the rest.
   if (columns.length === 1) {
-    return partitionBy;
+    return `${partitionBy}${options}`;
   } else {
     const clusterBy = columns
       .slice(1)
       .map((column) => `\`${column}\``)
       .join(", ");
 
-    return `${partitionBy} CLUSTER BY ${clusterBy}`;
+    return `${partitionBy} CLUSTER BY ${clusterBy}${options}`;
   }
 }
 

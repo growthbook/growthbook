@@ -275,7 +275,7 @@ export default class BigQuery extends SqlIntegration {
 
   createTablePartitions(
     columns: string[],
-    opts?: { partitionByDate?: boolean },
+    opts?: { partitionByDate?: boolean; partitionExpirationDays?: number },
   ): string {
     return bigQueryCreateTablePartitions(columns, opts);
   }
