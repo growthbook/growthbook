@@ -172,16 +172,6 @@ export default function Implementation({
             setEditVariationIndex={setEditMetadataIndex}
           />
         ) : null}
-        {/* {!isHoldout && (
-          <AddLinkedChanges
-            experiment={experiment}
-            numLinkedChanges={numLinkedChanges}
-            hasLinkedFeatures={linkedFeatures.length > 0}
-            setFeatureModal={setFeatureModal}
-            setVisualEditorModal={setVisualEditorModal}
-            setUrlRedirectModal={setUrlRedirectModal}
-          />
-        )} */}
 
         {isHoldout && holdout ? (
           <HoldoutEnvironments
