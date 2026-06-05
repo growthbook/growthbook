@@ -594,18 +594,52 @@ export async function postCancelSubscriptionToLicenseServer(licenseId: string) {
   return license;
 }
 
-export async function notifyLicenseServerExperimentStarted(
-  licenseKey: string,
-  experimentId: string,
-  timestamp: string,
-) {
-  const url = `${LICENSE_SERVER_URL}events/experiment-started`;
+// currently - we only notify the license server of usage if the org has a licenseKey and isn't airgapped
+export function shouldNotifyLicenseServer(
+  licenseKey?: string,
+): licenseKey is string {
+  return !!licenseKey && !isAirGappedLicenseKey(licenseKey);
+}
+
+/**
+ * Notifies the license server of a billable product event, forwarded to Orb
+ * for usage-based billing.
+ *
+ * @param eventName         - Event name (must be on the license server's allowlist).
+ * @param uniqueId          - Natural identifier for the entity this event is about
+ *                            (e.g. an experiment ID). The license server namespaces
+ *                            it as `{org}:{eventName}:{uniqueId}` to form the Orb
+ *                            idempotency key — the same value is safe to reuse
+ *                            across different event types without collision.
+ * @param metadata          - Arbitrary key/value context forwarded to Orb as event
+ *                            properties. Separate from `uniqueId`: uniqueId drives
+ *                            deduplication, metadata is for filtering and attribution
+ *                            in billing analytics.
+ * @param timestampOverride - ISO 8601 event timestamp. Defaults to now. Pass this
+ *                            only when backdating historical events.
+ */
+export async function notifyLicenseServerEvent({
+  licenseKey,
+  eventName,
+  uniqueId,
+  metadata,
+  timestampOverride,
+}: {
+  licenseKey: string;
+  eventName: string;
+  uniqueId: string;
+  metadata: Record<string, unknown>;
+  timestampOverride?: string;
+}) {
+  const url = `${LICENSE_SERVER_URL}events/track`;
   await callLicenseServer({
     url,
     body: JSON.stringify({
       licenseKey,
-      experimentId,
-      timestamp,
+      eventName,
+      uniqueId,
+      metadata,
+      timestamp: timestampOverride ?? new Date().toISOString(),
     }),
   });
 }

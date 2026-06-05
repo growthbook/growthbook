@@ -54,8 +54,8 @@ import {
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
 import {
-  isAirGappedLicenseKey,
-  notifyLicenseServerExperimentStarted,
+  shouldNotifyLicenseServer,
+  notifyLicenseServerEvent,
 } from "back-end/src/enterprise/licenseUtil";
 import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
 import { IdeaDocument } from "./IdeasModel";
@@ -2084,14 +2084,14 @@ const onExperimentUpdate = async ({
   if (
     oldExperiment.status !== "running" &&
     newExperiment.status === "running" &&
-    licenseKey &&
-    !isAirGappedLicenseKey(licenseKey)
+    shouldNotifyLicenseServer(licenseKey)
   ) {
-    notifyLicenseServerExperimentStarted(
+    notifyLicenseServerEvent({
       licenseKey,
-      newExperiment.id,
-      new Date().toISOString(),
-    ).catch((e) => {
+      eventName: "experiment_started",
+      uniqueId: newExperiment.id,
+      metadata: { experiment_id: newExperiment.id },
+    }).catch((e) => {
       logger.error(e, "Failed to notify license server of experiment start");
     });
   }
