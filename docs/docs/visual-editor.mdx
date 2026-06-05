@@ -209,6 +209,28 @@ It's called a **temporary** rollout because you shouldn't rely on the SDK to del
 3. Visual Editor changes require the SDK to download config from GrowthBook on each page load. They're lightweight individually, but they accumulate.
 4. Reduce the chance of conflicts. If two visual editor experiments try to change the same element at the same time, the result may not be what you expect. Moving the winning variation to code eliminates the risk.
 
+## Change list
+
+The bottom of the side panel shows a collapsible **Changes** panel that lists every change in the current variation:
+
+- Each row shows the change kind (text, style, image, layout, etc.), the target selector, and a one-line summary.
+- Hover a row to highlight the affected element on the page.
+- Click a row to jump back to that element with the relevant property group expanded.
+- Each row has a **Revert** action to drop just that change while keeping the rest of the variation.
+
+Reverting an image change also clears any related `srcset` and `<picture>`-source removals the editor added when applying the swap, so the original image is fully restored.
+
+## Switching variations
+
+At the top of the sidebar is a variation switcher. Switch between control, variant 1, variant 2, etc. The Changes panel updates to show changes for the active variation.
+
+- The **control** is read-only — you can browse changes (there shouldn't be any) but not edit.
+- Use the **+** button next to the variation tabs to add a new variant to the experiment.
+
+## Finishing up
+
+Changes to your experiment are automatically saved to GrowthBook. When you're satisfied with the variants, click **Done** in the footer to return to GrowthBook. Once there you can manually edit the rules, and start/stop the experiment.
+
 ## Next steps
 
 - **[Install and connect](/app/visual/install-and-connect)** — set up the extension in two clicks.

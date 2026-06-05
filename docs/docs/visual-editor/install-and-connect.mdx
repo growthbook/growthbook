@@ -22,21 +22,32 @@ Firefox support coming soon.
 
 ## 2. Open the side panel
 
+<MaxWidthImage maxWidth={300}>
+  ![The GrowthBook Visual Editor Getting Started](/images/visual-editor/ve-connect-step1.png)
+</MaxWidthImage>
 Open the extension menu from the top right, and choose the GrowthBook Visual Editor Extension.
 
 The first time you open the side panel, you'll see a **Connect with GrowthBook** button.
 
-<MaxWidthImage maxWidth={300}>
-  ![The GrowthBook Visual Editor Getting Started](/images/visual-editor/ve-connect-step1.png)
-</MaxWidthImage>
-
 ## 3. Click "Connect with GrowthBook"
 
-Click the button. A new tab opens to GrowthBook. If you're already signed in, the page silently generates a Visual Editor access key tied to your account and hands it back to the extension via a secure browser-side message. The tab closes itself, the side panel updates to show you're connected, and you're done.
+<MaxWidthImage maxWidth={300}>
+  ![The GrowthBook Visual Editor Getting Started](/images/visual-editor/ve-connect-step2.png)
+</MaxWidthImage>
 
-If you're not already signed in, you'll see the GrowthBook login page first — sign in once, and the key generation happens automatically afterward.
+Click the `connect` button. A new tab opens to GrowthBook. If you're already signed in, the page silently generates a Visual Editor
+access key tied to your account and hands it back to the extension via a secure browser-side message. The tab closes itself,
+the side panel updates to show you're connected, and you're done.
+
+If you're not already signed in, you'll see the GrowthBook login page first. If you are only part of one organization,
+the key generation will happen automatically. If you part of multiple organizations, you'll see a dropdown to choose
+which one to connect to. After you choose, the key is generated and passed to the extension.
 
 That's it. No copying tokens, no pasting strings, no remembering where the personal-access-token page lives.
+
+<MaxWidthImage maxWidth={300}>
+  ![The GrowthBook Visual Editor Getting Started](/images/visual-editor/ve-connect-step3.png)
+</MaxWidthImage>
 
 ### Where the key is stored
 
@@ -47,38 +58,18 @@ The access key is stored in the extension's local storage on your machine. It's 
 The one-click flow works on GrowthBook Cloud and any self-hosted instance the extension has previously synced with. If you're on a fresh extension install pointing at a self-hosted instance, you may need to:
 
 1. Open the gear menu → **API host** and set your host (e.g., `https://api.growthbook.io` or `https://localhost:3100`).
-2. Click **Connect with GrowthBook**.
-
-If the one-click flow can't reach your self-hosted app for any reason, the gear menu also lets you paste an Personal Access Token manually as a fallback.
+2. Paste in your personal access token from your GrowthBook. You can generate a PAT from https://app.growthbook.io/account/personal-access-tokens or the equalivent page on your self-hosted instance.
+3. Click **Connect with GrowthBook**.
 
 ## 4. The gear menu
 
 Once connected, there's a gear icon in the side panel header. Open it for:
 
 - **Status** — shows whether the extension is connected and whether the editor is targeting the active tab's domain.
+- **Language** — change the side panel's language. Independent of your GrowthBook web UI language.
 - **Dark mode** — toggles the side panel's UI theme. Independent of your GrowthBook web UI theme.
-- **API host** — change which GrowthBook host you're talking to (e.g., switch from production to staging, or set a self-hosted host).
-- **Sign out** — clear the stored key. Use this when handing off the browser to someone else.
-
-## Reconnecting or switching accounts
-
-To switch GrowthBook accounts:
-
-1. Open the gear menu → **Sign out**.
-2. Click **Connect with GrowthBook** again (sign in as the new account if needed).
-
-If your access key gets revoked while the side panel is open, you'll start seeing 401 errors. Sign out and reconnect.
-
-## Troubleshooting
-
-A few common gotchas:
-
-- **"Connect with GrowthBook" did nothing** — make sure your popup blocker isn't blocking the new tab. Try clicking again.
-- **The new tab opens but doesn't close** — you may not be signed in to GrowthBook in that browser profile, or your session expired. Sign in, then the tab will complete the handshake automatically.
-- **Self-hosted: the tab fails to open** — set your **API host** in the gear menu first, then try again.
-- **Self-signed certs** — Chrome blocks extension requests to hosts with self-signed TLS certificates. Use a real cert (Let's Encrypt is free) or a trusted internal CA.
-
-See [Troubleshooting](/app/visual/troubleshooting) for more.
+- **Change Connection** — change which GrowthBook host you're talking to (e.g., switch from production to staging, or set a self-hosted host) or change the personal access token.
+- **Disconnect** — clear the stored key, and . Use this when handing off the browser to someone else.
 
 ## Next steps
 

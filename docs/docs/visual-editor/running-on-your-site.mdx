@@ -10,13 +10,13 @@ import CommercialFeature from '@site/src/components/CommercialFeature';
 
 <CommercialFeature feature="visual-editor" />
 
-The [Visual Editor](/app/visual) is where you design A/B tests. To actually render those tests on your live site for real users, you need to install one of GrowthBook's SDKs. This page walks through which SDK to pick, how to install it, and how to avoid the most common pitfall of client-side A/B testing — **flicker**, also known as **flash of original content (FOOC)**.
+The [Visual Editor](/app/visual) is where you design A/B tests with a WYSIWYG editor. To actually render those tests on your
+live site for real users, you need to install one of GrowthBook's SDKs. This page walks through which SDK to pick,
+how to install it, and how to avoid the most common pitfall of client-side A/B testing — **flicker**, also known as **flash of original content (FOOC)**.
 
-If you're just trying to preview a variation as you build it, that works without any production SDK installed — see [Preview and QA](/app/visual/preview-and-qa). This page is about delivering variations to real users.
+## Create an SDK Connection
 
-## Step 1: Create an SDK Connection
-
-In the GrowthBook UI:
+In the GrowthBook App:
 
 1. Go to **SDK Configuration → SDK Connections**.
 2. Click **Add SDK Connection**.
@@ -28,9 +28,9 @@ In the GrowthBook UI:
 ![Enable Include Visual Experiments on your SDK Connection](/images/sdk-connection-visual-editor.png)
 </MaxWidthImage>
 
-After saving, GrowthBook gives you a **Client Key**. Keep this handy — you'll paste it into the SDK in the next step.
+After saving, GrowthBook gives you code to add to your product.
 
-## Step 2: Pick an SDK
+## Choosing an SDK
 
 GrowthBook has four SDKs that can render visual experiments. Pick based on how your site is built and how much you care about flicker:
 
@@ -44,42 +44,6 @@ GrowthBook has four SDKs that can render visual experiments. Pick based on how y
 **Our strong recommendation:** if you have access to a CDN edge runtime, use the **[Edge SDK](/lib/edge/cloudflare)**. It eliminates flicker entirely and produces a far better experience for users. The Edge SDK is the only option that delivers visual variations as part of the initial HTML response — every other option has to apply changes in JavaScript after the page has begun rendering.
 
 If an Edge SDK isn't practical, the **[Script Tag SDK](/lib/script-tag)** in `<head>` is the next best thing.
-
-## Step 3: Install the SDK
-
-Detailed install instructions live in each SDK's dedicated docs page. Here's the short version for the most common option.
-
-### Script Tag (quickest)
-
-Paste this into the `<head>` of every page where visual experiments should run — as early as possible, ideally before any other scripts:
-
-```html
-<script async
-  data-api-host="https://cdn.growthbook.io"
-  data-client-key="YOUR_CLIENT_KEY"
-  src="https://cdn.jsdelivr.net/npm/@growthbook/growthbook/dist/bundles/auto.min.js">
-</script>
-```
-
-Replace `YOUR_CLIENT_KEY` with the Client Key from your SDK Connection. The Script Tag SDK auto-initializes, fetches your visual experiments, and applies them as the page loads.
-
-See the [Script Tag SDK docs](/lib/script-tag) for additional configuration (attributes, tracking callbacks, encryption, etc.).
-
-### Edge SDK (best performance)
-
-Edge SDKs run in your CDN's edge worker (Cloudflare Workers, Fastly Compute, Vercel Edge Functions, Akamai EdgeWorkers). They intercept the HTML response on its way to the browser, apply your visual experiments to the markup, and forward the modified HTML.
-
-The result: the browser **never sees the control** — it receives HTML that's already been mutated to the user's assigned variation. Zero flicker, zero perceptible delay.
-
-See the [Edge SDK docs](/lib/edge/cloudflare) for setup. The amount of work depends on your edge runtime, but it's typically a one-time setup of an hour or two.
-
-### JavaScript / React
-
-If you already use GrowthBook's [JavaScript](/lib/js) or [React](/lib/react) SDK for feature flags, you don't need to add a separate SDK — visual experiments are delivered through the same SDK Connection. Just make sure:
-
-1. **Include Visual Experiments** is enabled on the connection.
-2. You're on the latest SDK version.
-3. You've followed the "Visual Editor" instructions in the relevant SDK docs (some SDKs need a small additional config to apply visual changes).
 
 ## Avoiding flicker
 
@@ -124,13 +88,11 @@ If you can't use an Edge SDK and head-loading still isn't fast enough (typical o
 
 An anti-flicker script blanks the page (usually by setting `body { opacity: 0 }` or `display: none`) until the SDK has applied variations, then reveals the page. The user sees a brief blank screen instead of the control followed by the variation.
 
-This is the same approach **every** client-side A/B testing tool uses — Optimizely, VWO, Convert, AB Tasty, all of them. It's a tradeoff: you trade flicker (which looks bad) for a brief blank flash (which makes the page feel slower to appear).
+This is the same approach **every** client-side A/B testing tool uses. It's a tradeoff: you trade flicker (which looks bad) for a brief blank flash (which makes the page feel slower to appear).
 
-GrowthBook's anti-flicker is enabled through SDK config — see the [Script Tag SDK docs](/lib/script-tag#anti-flicker) for the exact snippet. A few important caveats:
+GrowthBook's works hard to keep the library size as small as possible and our performance as high as possible. As a result, our experiments load faster than our competition, with or without a the anti-flicker scripts. The anti-flicker is enabled through SDK config — see the [Script Tag SDK docs](/lib/script-tag#anti-flicker) for the exact snippet.
 
 - **Set a max-wait timeout.** If the SDK fails to load (network error, API outage), you don't want to leave the page blank forever. A typical timeout is 1–4 seconds.
-- **Measure the impact.** Anti-flicker slows perceived page load. On performance-sensitive pages, this can hurt the same metrics you're trying to test. Consider whether the flicker is actually worse than the blank flash for your audience.
-- **It's a workaround, not a fix.** If anti-flicker is materially hurting your page-load metrics, an Edge SDK is the long-term answer.
 
 ### Strategy 4: Consider whether visual testing is the right tool
 

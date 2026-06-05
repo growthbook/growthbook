@@ -104,14 +104,22 @@ Alignment and text decoration share a single row to keep the panel compact.
 For containers, cards, and any visually styled element:
 
 - **Background color** — color picker with a clear option
-- **Background image** — paste a URL or use one of the [image flows](/app/visual/images). Hidden on `<img>` elements (use Content → image replace instead).
 - **Border** — width, style (solid / dashed / dotted / none), and color. The color swatch is positioned so the native color picker doesn't render off-screen for elements near the right edge of the viewport.
 - **Box shadow** — None / Small / Medium / Large presets. The presets follow common design-system scales; for custom shadows, use Global CSS.
+- **Background image** — paste a URL or use one of the [image flows](/app/visual/images). Hidden on `<img>` elements (use Content → image replace instead).
+
+#### Background Images
+
+<MaxWidthImage maxWidth={400}>
+  ![The GrowthBook Visual Editor Background Images](/images/visual-editor/ve-background-image.png)
+</MaxWidthImage>
+
+The background image area allows you to set a background image on any element. This is similar to the `<img>` replacement, but has a few more options for fitting that background images have.
 
 ### Layout
 
 <MaxWidthImage maxWidth={400}>
-  ![The GrowthBook Visual Editor Background and Border](/images/visual-editor/ve-layout.png)
+  ![The GrowthBook Visual Editor Layout](/images/visual-editor/ve-layout.png)
 </MaxWidthImage>
 
 The Layout group includes controls for choosing the display mode and adjusting spacing with padding and margin editors.
@@ -170,28 +178,6 @@ waitFor(".my-element").then((el) => {
 ```
 
 Custom JS requires extra CSP changes on your site — see [Deploying to Production → CSP](/app/visual#content-security-policy-csp-changes) on the landing page.
-
-## Change list
-
-The bottom of the side panel shows a collapsible **Changes** panel that lists every change in the current variation:
-
-- Each row shows the change kind (text, style, image, layout, etc.), the target selector, and a one-line summary.
-- Hover a row to highlight the affected element on the page.
-- Click a row to jump back to that element with the relevant property group expanded.
-- Each row has a **Revert** action to drop just that change while keeping the rest of the variation.
-
-Reverting an image change also clears any related `srcset` and `<picture>`-source removals the editor added when applying the swap, so the original image is fully restored.
-
-## Switching variations
-
-At the top of the sidebar is a variation switcher. Switch between control, variant 1, variant 2, etc. The Changes panel updates to show changes for the active variation.
-
-- The **control** is read-only — you can browse changes (there shouldn't be any) but not edit.
-- Use the **+** button next to the variation tabs to add a new variant to the experiment.
-
-## Finishing up
-
-Changes to your experiment are automatically saved to GrowthBook. When you're satisfied with the variants, click **Done** in the footer to return to GrowthBook. Once there you can manually edit the rules, and start/stop the experiment.
 
 ## Next steps
 
