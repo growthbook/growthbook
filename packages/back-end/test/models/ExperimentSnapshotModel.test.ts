@@ -810,9 +810,11 @@ describe("ExperimentSnapshotModel", () => {
           event: "experiment_updated",
           snapshotStatus: "error",
           error: "Failed to run queries",
-          timingsMs: expect.objectContaining({
-            persistSnapshot: expect.any(Number),
-            propagateSnapshot: 0,
+          updateMetadata: expect.objectContaining({
+            timingsMs: expect.objectContaining({
+              persistSnapshot: expect.any(Number),
+              propagateSnapshot: 0,
+            }),
           }),
         }),
         "Experiment update completed",
@@ -871,9 +873,11 @@ describe("ExperimentSnapshotModel", () => {
           event: "experiment_updated",
           snapshotType: "exploratory",
           snapshotStatus: "success",
-          timingsMs: expect.objectContaining({
-            persistSnapshot: expect.any(Number),
-            propagateSnapshot: 0,
+          updateMetadata: expect.objectContaining({
+            timingsMs: expect.objectContaining({
+              persistSnapshot: expect.any(Number),
+              propagateSnapshot: 0,
+            }),
           }),
         }),
         "Experiment update completed",
