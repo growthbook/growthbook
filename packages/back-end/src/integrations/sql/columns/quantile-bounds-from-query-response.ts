@@ -68,6 +68,16 @@ export function getQuantileBoundsFromQueryResponse(
         quantileData[`${prefix}quantile_nstar`] = n;
       }
     });
+
+    // Sparse slices can have quantile columns present but no usable grid bounds.
+    // Chunked query storage unions column names across rows, so omitting these
+    // fields on some rows rehydrates as explicit nulls and breaks gbstats input
+    // validation. Default to zero like other parseFloat(... ) || 0 paths.
+    if (quantileData[`${prefix}quantile_nstar`] === undefined) {
+      quantileData[`${prefix}quantile_lower`] = 0;
+      quantileData[`${prefix}quantile_upper`] = 0;
+      quantileData[`${prefix}quantile_nstar`] = 0;
+    }
   }
   return quantileData;
 }
