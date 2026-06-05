@@ -23,21 +23,20 @@ import { getScopedSettings } from "shared/settings";
 import Collapsible from "react-collapsible";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { Box, Flex, Popover, Separator } from "@radix-ui/themes";
-import { useAuth } from "@/services/auth";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { getExposureQuery } from "@/services/datasources";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import useApi from "@/hooks/useApi";
 import {
   PRESET_DECISION_CRITERIA,
   PRESET_DECISION_CRITERIAS,
 } from "shared/enterprise";
 import { type DecisionCriteriaData } from "shared/types/experiment";
+import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { getExposureQuery } from "@/services/datasources";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import useApi from "@/hooks/useApi";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import { hasFileConfig } from "@/services/env";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Button from "@/ui/Button";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
@@ -333,6 +332,13 @@ const AnalysisForm: FC<{
     [datasource, hasPipelineModeFeature],
   );
 
+  const hasDecisionFramework =
+    !!organization?.settings?.decisionFrameworkEnabled &&
+    hasCommercialFeature("decision-framework");
+  const { data: dcData } = useApi<{ decisionCriteria: DecisionCriteriaData[] }>(
+    hasDecisionFramework ? "/decision-criteria" : "/noop",
+  );
+
   if (upgradeModal) {
     return (
       <UpgradeModal
@@ -350,13 +356,6 @@ const AnalysisForm: FC<{
   const hasEligiblePrecomputedUnitDimensions =
     precomputedUnitDimensionOptions.length > 0 &&
     datasourceHasWritableEphemeralPipelineEnabled;
-
-  const hasDecisionFramework =
-    !!organization?.settings?.decisionFrameworkEnabled &&
-    hasCommercialFeature("decision-framework");
-  const { data: dcData } = useApi<{ decisionCriteria: DecisionCriteriaData[] }>(
-    hasDecisionFramework ? "/decision-criteria" : "/noop",
-  );
   const allDecisionCriteria: DecisionCriteriaData[] = [
     ...PRESET_DECISION_CRITERIAS,
     ...(dcData?.decisionCriteria ?? []),
@@ -682,9 +681,7 @@ const AnalysisForm: FC<{
                       type="button"
                       style={{ color: "var(--color-text-high)" }}
                     >
-                      <Text mr="1">
-                        {form.watch("trackingKey") || "—"}
-                      </Text>
+                      <Text mr="1">{form.watch("trackingKey") || "—"}</Text>
                       <PiPencilSimpleLine />
                     </Link>
                   </Popover.Trigger>
@@ -694,9 +691,9 @@ const AnalysisForm: FC<{
                       {...form.register("trackingKey")}
                       helpText={
                         <>
-                          Unique identifier for this experiment. Matches
-                          against the <code>experiment_id</code> column in
-                          your data source.
+                          Unique identifier for this experiment. Matches against
+                          the <code>experiment_id</code> column in your data
+                          source.
                         </>
                       }
                       disabled={
@@ -710,35 +707,36 @@ const AnalysisForm: FC<{
             )}
           </Flex>
 
-          {datasource && (() => {
-            const dsChanged =
-              form.watch("datasource") !== (experiment.datasource || "");
-            const eqChanged =
-              form.watch("exposureQueryId") !==
-              (experiment.exposureQueryId || "");
-            const hasRun = experiment.status !== "draft";
+          {datasource &&
+            (() => {
+              const dsChanged =
+                form.watch("datasource") !== (experiment.datasource || "");
+              const eqChanged =
+                form.watch("exposureQueryId") !==
+                (experiment.exposureQueryId || "");
+              const hasRun = experiment.status !== "draft";
 
-            if (hasRun && (dsChanged || eqChanged)) {
+              if (hasRun && (dsChanged || eqChanged)) {
+                return (
+                  <Callout status="warning" mt="2" size="sm">
+                    You have changed the{" "}
+                    {dsChanged && eqChanged
+                      ? "data source and assignment table"
+                      : dsChanged
+                        ? "data source"
+                        : "assignment table"}{" "}
+                    on a {experiment.status} experiment. This will invalidate
+                    existing results and require a full re-analysis.
+                  </Callout>
+                );
+              }
               return (
-                <Callout status="warning" mt="2" size="sm">
-                  You have changed the{" "}
-                  {dsChanged && eqChanged
-                    ? "data source and assignment table"
-                    : dsChanged
-                      ? "data source"
-                      : "assignment table"}{" "}
-                  on a {experiment.status} experiment. This will invalidate
-                  existing results and require a full re-analysis.
-                </Callout>
+                <HelperText status="info" mt="2" size="sm">
+                  Changing the data source will remove incompatible metrics and
+                  segments.
+                </HelperText>
               );
-            }
-            return (
-              <HelperText status="info" mt="2" size="sm">
-                Changing the data source will remove incompatible metrics and
-                segments.
-              </HelperText>
-            );
-          })()}
+            })()}
         </div>
         {editVariationIds && (
           <div className="form-group">

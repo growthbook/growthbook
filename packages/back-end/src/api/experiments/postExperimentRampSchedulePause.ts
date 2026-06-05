@@ -22,7 +22,9 @@ export const postExperimentRampSchedulePause = createApiRequestHandler(
   );
   if (!schedule) throw new Error("Ramp schedule not found");
   if (schedule.status !== "running") {
-    throw new Error(`Ramp schedule is not running (status: ${schedule.status})`);
+    throw new Error(
+      `Ramp schedule is not running (status: ${schedule.status})`,
+    );
   }
 
   const updated = await pauseSchedule(req.context, schedule, "API pause");

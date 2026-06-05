@@ -43,7 +43,32 @@ export async function evaluateCurrentStep(
   now: Date,
 ): Promise<EvalDecision> {
   const step = schedule.steps[schedule.currentStepIndex];
-  if (!step) return { action: "advance" };
+  if (!step) {
+    // No current step. This happens in two cases:
+    //  1. 0-step simple schedules at currentStepIndex -1 (no steps to run)
+    //  2. Multi-step ramps where currentStepIndex is past the last step
+    //     (all steps done, waiting for cutoffDate to fire the disable)
+    //
+    // In both cases, if there's a future cutoffDate we hold until it arrives.
+    // Without this guard, returning "advance" causes advanceStep → completeRollout,
+    // which would end the schedule without honoring the configured end date.
+    //
+    // Multi-step ramps at currentStepIndex -1 with steps still to run are NOT
+    // caught here: nextStepIndex 0 < steps.length, so the guard doesn't fire.
+    const nextStepIndex = schedule.currentStepIndex + 1;
+    if (
+      nextStepIndex >= schedule.steps.length &&
+      schedule.cutoffDate &&
+      schedule.cutoffDate > now
+    ) {
+      return {
+        action: "hold",
+        reason: "Waiting for scheduled end date",
+        nextProcessAt: schedule.cutoffDate,
+      };
+    }
+    return { action: "advance" };
+  }
 
   // Experiment ramps use their own evaluation logic (reads analysisSummary
   // directly; no SafeRollout backing entity).

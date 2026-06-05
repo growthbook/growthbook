@@ -13,7 +13,6 @@ import {
   PiArrowSquareOutFill,
   PiCalendarBlank,
   PiCheck,
-  PiInfo,
   PiPlusBold,
   PiTrash,
   PiXBold,
@@ -21,6 +20,12 @@ import {
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { type ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { type RampScheduleInterface } from "shared/validators";
+import { DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS } from "shared/constants";
+import {
+  DecisionCriteriaData,
+  PRESET_DECISION_CRITERIA,
+  PRESET_DECISION_CRITERIAS,
+} from "shared/enterprise";
 import {
   generateSimpleSteps,
   reconstructUIStep,
@@ -49,12 +54,6 @@ import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import HelperText from "@/ui/HelperText";
 import Checkbox from "@/ui/Checkbox";
-import { DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS } from "shared/constants";
-import {
-  DecisionCriteriaData,
-  PRESET_DECISION_CRITERIA,
-  PRESET_DECISION_CRITERIAS,
-} from "shared/enterprise";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -83,9 +82,9 @@ type RampSignalAction = "warn" | "hold" | "rollback" | null;
 
 export interface ExperimentRampState {
   steps: UIStep[];
-  startDate: string;   // ISO or "" = immediately
-  endDate: string;     // ISO or "" = manual end (used for "dates" schedule type)
-  cutoffDate: string;  // ISO or "" = no hard cutoff (used for ramp type)
+  startDate: string; // ISO or "" = immediately
+  endDate: string; // ISO or "" = manual end (used for "dates" schedule type)
+  cutoffDate: string; // ISO or "" = no hard cutoff (used for ramp type)
   builderMode: "simple" | "advanced";
   simpleDurationDays: number;
   simpleDurationUnit: IntervalUnit;
@@ -133,8 +132,12 @@ function defaultState(
     const { value: dur, unit } = bestUnitFromSeconds(totalSec || 5 * 86400);
     return {
       steps,
-      startDate: schedule.startDate ? new Date(schedule.startDate).toISOString() : "",
-      cutoffDate: schedule.cutoffDate ? new Date(schedule.cutoffDate).toISOString() : "",
+      startDate: schedule.startDate
+        ? new Date(schedule.startDate).toISOString()
+        : "",
+      cutoffDate: schedule.cutoffDate
+        ? new Date(schedule.cutoffDate).toISOString()
+        : "",
       builderMode: isSimple ? "simple" : "advanced",
       simpleDurationDays: dur,
       simpleDurationUnit: unit,
@@ -148,7 +151,10 @@ function defaultState(
     };
   }
   return {
-    steps: generateSimpleSteps(5, "days").map((s) => ({ ...s, monitored: true })),
+    steps: generateSimpleSteps(5, "days").map((s) => ({
+      ...s,
+      monitored: true,
+    })),
     startDate: "",
     cutoffDate: "",
     builderMode: "simple",
@@ -181,7 +187,9 @@ function buildExperimentSteps(
     ],
     monitored: true,
     ...(s.holdConditions ? { holdConditions: s.holdConditions } : {}),
-    ...(s.approvalNotes?.trim() ? { approvalNotes: s.approvalNotes.trim() } : {}),
+    ...(s.approvalNotes?.trim()
+      ? { approvalNotes: s.approvalNotes.trim() }
+      : {}),
   }));
 }
 
@@ -215,15 +223,22 @@ function MinSampleInput({
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === "Enter") { e.preventDefault(); save(); }
+          if (e.key === "Enter") {
+            e.preventDefault();
+            save();
+          }
         }}
       />
       <Flex justify="end" gap="2">
         <AlertDialog.Cancel>
-          <Button variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>
+          <Button variant="ghost" size="sm" onClick={onCancel}>
+            Cancel
+          </Button>
         </AlertDialog.Cancel>
         <AlertDialog.Action>
-          <Button size="sm" onClick={save}>Done</Button>
+          <Button size="sm" onClick={save}>
+            Done
+          </Button>
         </AlertDialog.Action>
       </Flex>
     </>
@@ -311,7 +326,8 @@ export default function ExperimentRampScheduleModal({
     [state.startDate],
   );
   const patch = useCallback(
-    (partial: Partial<ExperimentRampState>) => _setState((s) => ({ ...s, ...partial })),
+    (partial: Partial<ExperimentRampState>) =>
+      _setState((s) => ({ ...s, ...partial })),
     [],
   );
 
@@ -452,7 +468,9 @@ export default function ExperimentRampScheduleModal({
   // ── Step grid ─────────────────────────────────────────────────────────────
 
   const [openMenuIndex, setOpenMenuIndex] = useState<number | null>(null);
-  const [minSamplePopoverIndex, setMinSamplePopoverIndex] = useState<number | null>(null);
+  const [minSamplePopoverIndex, setMinSamplePopoverIndex] = useState<
+    number | null
+  >(null);
 
   function updateStep(i: number, update: Partial<UIStep>) {
     const steps = [...state.steps];
@@ -472,13 +490,19 @@ export default function ExperimentRampScheduleModal({
           style={{ borderBottom: "1px solid var(--gray-a6)" }}
         >
           <Box style={{ width: COL.num }}>
-            <Text size="small" color="text-low">Step</Text>
+            <Text size="small" color="text-low">
+              Step
+            </Text>
           </Box>
           <Box style={{ width: COL.coverage }}>
-            <Text size="small" color="text-low">Rollout %</Text>
+            <Text size="small" color="text-low">
+              Rollout %
+            </Text>
           </Box>
           <Box>
-            <Text size="small" color="text-low">Action</Text>
+            <Text size="small" color="text-low">
+              Action
+            </Text>
           </Box>
           <Box flexGrow="1" />
         </Flex>
@@ -512,12 +536,16 @@ export default function ExperimentRampScheduleModal({
               <Flex align="center" gap="4">
                 {/* Step number */}
                 <Box style={{ width: COL.num, flexShrink: 0 }}>
-                  <Text size="small" color="text-low">{i + 1}</Text>
+                  <Text size="small" color="text-low">
+                    {i + 1}
+                  </Text>
                 </Box>
 
                 {/* Coverage */}
                 <Box style={{ width: COL.coverage, flexShrink: 0 }}>
-                  <div className={`position-relative ${styles.percentInputWrap}`}>
+                  <div
+                    className={`position-relative ${styles.percentInputWrap}`}
+                  >
                     <Field
                       style={{ width: COL.coverage, minHeight: 38 }}
                       type="number"
@@ -529,7 +557,10 @@ export default function ExperimentRampScheduleModal({
                         updateStep(i, {
                           patch: {
                             ...step.patch,
-                            coverage: Math.min(100, Math.max(0, parseInt(e.target.value) || 0)),
+                            coverage: Math.min(
+                              100,
+                              Math.max(0, parseInt(e.target.value) || 0),
+                            ),
                           },
                         })
                       }
@@ -542,7 +573,10 @@ export default function ExperimentRampScheduleModal({
                 <Flex
                   align="center"
                   gap="2"
-                  style={{ width: COL.trigger + COL.duration + 80, flexShrink: 0 }}
+                  style={{
+                    width: COL.trigger + COL.duration + 80,
+                    flexShrink: 0,
+                  }}
                 >
                   <Field
                     style={{ minHeight: 38 }}
@@ -552,11 +586,16 @@ export default function ExperimentRampScheduleModal({
                     onFocus={(e) => e.target.select()}
                     value={String(step.intervalValue)}
                     onChange={(e) =>
-                      updateStep(i, { intervalValue: parseFloat(e.target.value) || 0 })
+                      updateStep(i, {
+                        intervalValue: parseFloat(e.target.value) || 0,
+                      })
                     }
                     onBlur={(e) =>
                       updateStep(i, {
-                        intervalValue: Math.max(0.01, parseFloat(e.target.value) || 0.01),
+                        intervalValue: Math.max(
+                          0.01,
+                          parseFloat(e.target.value) || 0.01,
+                        ),
                       })
                     }
                     containerStyle={{ width: 75, flexShrink: 0 }}
@@ -569,7 +608,9 @@ export default function ExperimentRampScheduleModal({
                         { value: "hours", label: "hours" },
                         { value: "days", label: "days" },
                       ]}
-                      onChange={(v) => updateStep(i, { intervalUnit: v as IntervalUnit })}
+                      onChange={(v) =>
+                        updateStep(i, { intervalUnit: v as IntervalUnit })
+                      }
                       containerStyle={{ minHeight: 38 }}
                     />
                   </Box>
@@ -605,15 +646,15 @@ export default function ExperimentRampScheduleModal({
                         }}
                       >
                         <Flex align="center" gap="1">
-                          {(step.holdConditions?.minSampleSize ?? null) !== null && (
-                            <PiCheck size={16} />
-                          )}
+                          {(step.holdConditions?.minSampleSize ?? null) !==
+                            null && <PiCheck size={16} />}
                           Minimum sample size
                         </Flex>
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => {
-                          const turningOn = !step.holdConditions?.requiresApproval;
+                          const turningOn =
+                            !step.holdConditions?.requiresApproval;
                           setOpenMenuIndex(null);
                           updateStep(i, {
                             holdConditions: {
@@ -626,7 +667,9 @@ export default function ExperimentRampScheduleModal({
                         }}
                       >
                         <Flex align="center" gap="1">
-                          {step.holdConditions?.requiresApproval && <PiCheck size={16} />}
+                          {step.holdConditions?.requiresApproval && (
+                            <PiCheck size={16} />
+                          )}
                           Require approval
                         </Flex>
                       </DropdownMenuItem>
@@ -638,7 +681,12 @@ export default function ExperimentRampScheduleModal({
                           setOpenMenuIndex(null);
                           const last = state.steps[i];
                           const newStep: UIStep = {
-                            patch: { coverage: Math.min(100, (last?.patch?.coverage ?? 50) + 10) },
+                            patch: {
+                              coverage: Math.min(
+                                100,
+                                (last?.patch?.coverage ?? 50) + 10,
+                              ),
+                            },
                             triggerType: "interval",
                             intervalValue: last?.intervalValue ?? 7,
                             intervalUnit: last?.intervalUnit ?? "days",
@@ -661,7 +709,9 @@ export default function ExperimentRampScheduleModal({
                           color="red"
                           onClick={() => {
                             setOpenMenuIndex(null);
-                            patch({ steps: state.steps.filter((_, j) => j !== i) });
+                            patch({
+                              steps: state.steps.filter((_, j) => j !== i),
+                            });
                           }}
                         >
                           Remove step
@@ -681,10 +731,16 @@ export default function ExperimentRampScheduleModal({
                   mt="2"
                   style={{ paddingLeft: COL.num + 16 + COL.coverage + 16 }}
                 >
-                  <Text color="text-low" weight="medium">Then:</Text>
+                  <Text color="text-low" weight="medium">
+                    Then:
+                  </Text>
 
                   {step.holdConditions?.requiresApproval && (
-                    <Flex align="center" gap="4" style={{ paddingLeft: 16, minHeight: 32 }}>
+                    <Flex
+                      align="center"
+                      gap="4"
+                      style={{ paddingLeft: 16, minHeight: 32 }}
+                    >
                       <Flex align="center" gap="3" flexGrow="1">
                         <Box style={{ flexShrink: 0 }}>
                           <Text weight="medium">Hold for approval</Text>
@@ -694,9 +750,19 @@ export default function ExperimentRampScheduleModal({
                             size="1"
                             color="gray"
                             style={{ flexShrink: 0 }}
-                            onClick={() => updateStep(i, { notesOpen: true, approvalNotes: "" })}
+                            onClick={() =>
+                              updateStep(i, {
+                                notesOpen: true,
+                                approvalNotes: "",
+                              })
+                            }
                           >
-                            <PiPlusBold style={{ marginRight: 3, verticalAlign: "middle" }} />
+                            <PiPlusBold
+                              style={{
+                                marginRight: 3,
+                                verticalAlign: "middle",
+                              }}
+                            />
                             Add notes
                           </Link>
                         ) : (
@@ -705,7 +771,9 @@ export default function ExperimentRampScheduleModal({
                               label=""
                               placeholder="ex: Check error rates"
                               value={step.approvalNotes}
-                              onChange={(e) => updateStep(i, { approvalNotes: e.target.value })}
+                              onChange={(e) =>
+                                updateStep(i, { approvalNotes: e.target.value })
+                              }
                               style={{ height: 32 }}
                             />
                           </Box>
@@ -737,7 +805,11 @@ export default function ExperimentRampScheduleModal({
                   )}
 
                   {(step.holdConditions?.minSampleSize ?? null) !== null && (
-                    <Flex align="center" gap="3" style={{ paddingLeft: 16, minHeight: 32 }}>
+                    <Flex
+                      align="center"
+                      gap="3"
+                      style={{ paddingLeft: 16, minHeight: 32 }}
+                    >
                       <Box style={{ flexShrink: 0 }}>
                         <Text weight="medium">Hold for min. sample</Text>
                       </Box>
@@ -788,7 +860,12 @@ export default function ExperimentRampScheduleModal({
                 steps: [
                   ...state.steps,
                   {
-                    patch: { coverage: Math.min(100, (last?.patch?.coverage ?? 50) + 25) },
+                    patch: {
+                      coverage: Math.min(
+                        100,
+                        (last?.patch?.coverage ?? 50) + 25,
+                      ),
+                    },
                     triggerType: "interval",
                     intervalValue: last?.intervalValue ?? 7,
                     intervalUnit: last?.intervalUnit ?? "days",
@@ -807,41 +884,45 @@ export default function ExperimentRampScheduleModal({
         </Box>
 
         {/* Min sample dialog */}
-        {minSamplePopoverIndex !== null && state.steps[minSamplePopoverIndex] && (
-          <AlertDialog.Root open>
-            <AlertDialog.Content maxWidth="320px">
-              <Flex direction="column" gap="3">
-                <AlertDialog.Title>
-                  <Text weight="medium" size="medium">Minimum sample size</Text>
-                </AlertDialog.Title>
-                <AlertDialog.Description>
-                  <Text as="span" size="small" color="text-mid">
-                    Hold this step until total users reaches this threshold
-                  </Text>
-                </AlertDialog.Description>
-                {(() => {
-                  const idx = minSamplePopoverIndex;
-                  const currentVal = state.steps[idx]?.holdConditions?.minSampleSize;
-                  return (
-                    <MinSampleInput
-                      initialValue={currentVal}
-                      onSave={(val) => {
-                        updateStep(idx, {
-                          holdConditions: {
-                            ...state.steps[idx].holdConditions,
-                            minSampleSize: val,
-                          },
-                        });
-                        setMinSamplePopoverIndex(null);
-                      }}
-                      onCancel={() => setMinSamplePopoverIndex(null)}
-                    />
-                  );
-                })()}
-              </Flex>
-            </AlertDialog.Content>
-          </AlertDialog.Root>
-        )}
+        {minSamplePopoverIndex !== null &&
+          state.steps[minSamplePopoverIndex] && (
+            <AlertDialog.Root open>
+              <AlertDialog.Content maxWidth="320px">
+                <Flex direction="column" gap="3">
+                  <AlertDialog.Title>
+                    <Text weight="medium" size="medium">
+                      Minimum sample size
+                    </Text>
+                  </AlertDialog.Title>
+                  <AlertDialog.Description>
+                    <Text as="span" size="small" color="text-mid">
+                      Hold this step until total users reaches this threshold
+                    </Text>
+                  </AlertDialog.Description>
+                  {(() => {
+                    const idx = minSamplePopoverIndex;
+                    const currentVal =
+                      state.steps[idx]?.holdConditions?.minSampleSize;
+                    return (
+                      <MinSampleInput
+                        initialValue={currentVal}
+                        onSave={(val) => {
+                          updateStep(idx, {
+                            holdConditions: {
+                              ...state.steps[idx].holdConditions,
+                              minSampleSize: val,
+                            },
+                          });
+                          setMinSamplePopoverIndex(null);
+                        }}
+                        onCancel={() => setMinSamplePopoverIndex(null)}
+                      />
+                    );
+                  })()}
+                </Flex>
+              </AlertDialog.Content>
+            </AlertDialog.Root>
+          )}
       </Box>
     );
   }
@@ -853,39 +934,6 @@ export default function ExperimentRampScheduleModal({
       simpleDurationDays: d,
       simpleDurationUnit: u,
       steps: generateSimpleSteps(d, u).map((s) => ({ ...s, monitored: true })),
-    });
-  }
-
-  // ── Computed duration label ───────────────────────────────────────────────
-
-  const durationLabel = useMemo(() => {
-    if (state.startDate && state.cutoffDate) {
-      const diffMs =
-        new Date(state.cutoffDate).getTime() - new Date(state.startDate).getTime();
-      if (diffMs > 0) {
-        const days = Math.round(diffMs / 86400000);
-        return `${days} day${days !== 1 ? "s" : ""}`;
-      }
-    }
-    return durationSummary.isPure
-      ? durationSummary.label
-      : `~${durationSummary.label}`;
-  }, [state.startDate, state.cutoffDate, durationSummary]);
-
-  // When the end date changes in simple mode, regenerate steps to fill the span.
-  function handleEndDateChange(iso: string) {
-    if (!iso || !isSimpleMode) {
-      patch({ cutoffDate: iso });
-      return;
-    }
-    const start = state.startDate ? new Date(state.startDate) : new Date();
-    const diffSec = Math.max(3600, (new Date(iso).getTime() - start.getTime()) / 1000);
-    const { value, unit } = bestUnitFromSeconds(diffSec);
-    patch({
-      cutoffDate: iso,
-      simpleDurationDays: value,
-      simpleDurationUnit: unit,
-      steps: generateSimpleSteps(value, unit).map((s) => ({ ...s, monitored: true })),
     });
   }
 
@@ -941,9 +989,11 @@ export default function ExperimentRampScheduleModal({
       patch({
         rampBehavior: {
           srmAction: rb.srmAction ?? signalDefault("srmAction"),
-          noTrafficAction: rb.noTrafficAction ?? signalDefault("noTrafficAction"),
+          noTrafficAction:
+            rb.noTrafficAction ?? signalDefault("noTrafficAction"),
           multipleExposureAction:
-            rb.multipleExposureAction ?? signalDefault("multipleExposureAction"),
+            rb.multipleExposureAction ??
+            signalDefault("multipleExposureAction"),
         },
       });
     }
@@ -961,7 +1011,7 @@ export default function ExperimentRampScheduleModal({
         {SIGNAL_FIELDS.map((f) => {
           const effectiveValue: "warn" | "hold" | "rollback" =
             customizeRampBehavior
-              ? state.rampBehavior[f.key] ?? signalDefault(f.key)
+              ? (state.rampBehavior[f.key] ?? signalDefault(f.key))
               : signalDefault(f.key);
           return (
             <Flex key={f.key} align="center" gap="3">
@@ -1004,7 +1054,8 @@ export default function ExperimentRampScheduleModal({
         On end date
       </Text>
       <Text as="div" size="small" color="text-mid" mb="2">
-        How GrowthBook should refine the experiment when its scheduled end date is reached.
+        How GrowthBook should refine the experiment when its scheduled end date
+        is reached.
       </Text>
       <SelectField
         value={state.endStrategyType}
@@ -1013,7 +1064,8 @@ export default function ExperimentRampScheduleModal({
           { value: "soft", label: "Remind me to end the experiment" },
           {
             value: "soft-edf",
-            label: "Auto-rollout if Decision Criteria has a clear winner, otherwise prompt",
+            label:
+              "Auto-rollout if Decision Criteria has a clear winner, otherwise prompt",
           },
           {
             value: "hard-planned",
@@ -1021,7 +1073,9 @@ export default function ExperimentRampScheduleModal({
           },
         ]}
         onChange={(v) =>
-          patch({ endStrategyType: v as ExperimentRampState["endStrategyType"] })
+          patch({
+            endStrategyType: v as ExperimentRampState["endStrategyType"],
+          })
         }
         sort={false}
         helpText={
@@ -1128,7 +1182,9 @@ export default function ExperimentRampScheduleModal({
       {/* Start row */}
       <Flex align="center" gap="3" py="1" style={{ minHeight: 42 }}>
         <Box style={{ width: labelColWidth }}>
-          <Text as="label" weight="medium" mb="0">Start</Text>
+          <Text as="label" weight="medium" mb="0">
+            Start
+          </Text>
         </Box>
         <SelectField
           value={state.startDate ? "on-date" : "immediately"}
@@ -1160,7 +1216,9 @@ export default function ExperimentRampScheduleModal({
       {/* End row */}
       <Flex align="center" gap="3" py="1" style={{ minHeight: 42 }}>
         <Box style={{ width: labelColWidth }}>
-          <Text as="label" weight="medium" mb="0">End</Text>
+          <Text as="label" weight="medium" mb="0">
+            End
+          </Text>
         </Box>
         <SelectField
           value={endMode}
@@ -1196,7 +1254,9 @@ export default function ExperimentRampScheduleModal({
             setDate={(d) => patch({ endDate: d ? d.toISOString() : "" })}
             precision="datetime"
             scheduleStartDate={state.startDate || undefined}
-            disableBefore={state.startDate ? new Date(state.startDate) : new Date()}
+            disableBefore={
+              state.startDate ? new Date(state.startDate) : new Date()
+            }
           />
         )}
         {endMode === "after-days" && (
@@ -1213,10 +1273,7 @@ export default function ExperimentRampScheduleModal({
                 patch({ endDate: computeEndAfter(n, endAfterUnit) });
               }}
               onBlur={() => {
-                const n = Math.max(
-                  0.01,
-                  Math.round(endAfterValue * 100) / 100,
-                );
+                const n = Math.max(0.01, Math.round(endAfterValue * 100) / 100);
                 setEndAfterValue(n);
                 patch({ endDate: computeEndAfter(n, endAfterUnit) });
               }}
@@ -1244,9 +1301,7 @@ export default function ExperimentRampScheduleModal({
 
       {(() => {
         if (!state.endDate) return null;
-        const start = state.startDate
-          ? new Date(state.startDate)
-          : new Date();
+        const start = state.startDate ? new Date(state.startDate) : new Date();
         const end = new Date(state.endDate);
         const spanDays =
           (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
@@ -1387,11 +1442,7 @@ export default function ExperimentRampScheduleModal({
             })),
           ]}
           formatOptionLabel={({ value, label }) =>
-            value === "" ? (
-              <em className="text-muted">{label}</em>
-            ) : (
-              label
-            )
+            value === "" ? <em className="text-muted">{label}</em> : label
           }
           sort={false}
         />

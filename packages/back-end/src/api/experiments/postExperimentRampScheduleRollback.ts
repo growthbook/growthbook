@@ -1,7 +1,8 @@
+import { postExperimentRampScheduleRollbackValidator } from "shared/validators";
 import {
-  postExperimentRampScheduleRollbackValidator,
-} from "shared/validators";
-import { getExperimentById, updateExperiment } from "back-end/src/models/ExperimentModel";
+  getExperimentById,
+  updateExperiment,
+} from "back-end/src/models/ExperimentModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { applyExperimentRollback } from "back-end/src/services/experimentRampSchedule";
 
@@ -26,9 +27,7 @@ export const postExperimentRampScheduleRollback = createApiRequestHandler(
     throw new Error("Ramp schedule not found");
   }
   if (!["running", "paused"].includes(schedule.status)) {
-    throw new Error(
-      `Cannot rollback a ramp in status: ${schedule.status}`,
-    );
+    throw new Error(`Cannot rollback a ramp in status: ${schedule.status}`);
   }
 
   const updatedSchedule = await req.context.models.rampSchedules.updateById(

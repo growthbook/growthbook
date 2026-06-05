@@ -26,12 +26,18 @@ export const postExperimentRampScheduleAdvance = createApiRequestHandler(
   );
   if (!schedule) throw new Error("Ramp schedule not found");
   if (schedule.status !== "running") {
-    throw new Error(`Ramp schedule is not running (status: ${schedule.status})`);
+    throw new Error(
+      `Ramp schedule is not running (status: ${schedule.status})`,
+    );
   }
 
   const now = new Date();
   const decision = await evaluateCurrentStep(req.context, schedule, now);
-  const result = await applyRampEvaluationDecision(req.context, schedule, decision);
+  const result = await applyRampEvaluationDecision(
+    req.context,
+    schedule,
+    decision,
+  );
   if (!result.handled) {
     await advanceUntilBlocked(req.context, result.schedule, now);
   }

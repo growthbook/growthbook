@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
 import { PermissionError } from "shared/util";
+import type { RampScheduleInterface } from "shared/validators";
 import {
   apiRampScheduleInterface,
   DEFAULT_NO_TRAFFIC_GRACE_PERIOD_HOURS,
@@ -18,6 +19,7 @@ import { getSRMHealthData, getMultipleExposureHealthData } from "shared/health";
 import {
   advanceScheduleManually,
   approveAndPublishStep,
+  completeRampKeepCutoff,
   completeRollout,
   ensureSafeRolloutForMonitoredRamp,
   getEffectiveRampAutoUpdateState,
@@ -175,14 +177,14 @@ export const jumpRampSchedule = createApiRequestHandler({
 
 export const completeRampSchedule = createApiRequestHandler({
   paramsSchema: actionParamsSchema,
-  bodySchema: z.never(),
+  bodySchema: z.object({ disableRule: z.boolean().optional() }).optional(),
   responseSchema: rampScheduleResponse,
   method: "post" as const,
   path: "/ramp-schedules/:id/actions/complete",
   operationId: "completeRampSchedule",
   summary: "Complete a ramp schedule immediately",
   description:
-    "Immediately applies the schedule's end-state rule patches (the equivalent\nof what would happen after the last step advances normally) and marks the\nschedule as `completed`, skipping any remaining steps.\n\nUse this when you are confident the rollout is successful and want to lock\nin the final traffic allocation without waiting. For a full traffic revert\ninstead, use `/actions/rollback`.\n",
+    "Immediately applies the schedule's end-state rule patches (the equivalent\nof what would happen after the last step advances normally) and marks the\nschedule as `completed`, skipping any remaining steps.\n\nPass `disableRule: true` to also disable the linked rule (equivalent to\nthe cutoff-date-driven completion).\n",
   tags: ["ramp-schedules"],
 })(async (req) => {
   const schedule = await req.context.models.rampSchedules.getById(
@@ -195,7 +197,19 @@ export const completeRampSchedule = createApiRequestHandler({
     );
   }
 
-  const completed = await completeRollout(req.context, schedule);
+  const isSimple = schedule.steps.length === 0 && !!schedule.cutoffDate;
+  const disableNow = req.body?.disableRule === true || isSimple;
+  const hasFutureCutoff =
+    schedule.cutoffDate && schedule.cutoffDate > new Date();
+
+  let completed: RampScheduleInterface;
+  if (!disableNow && hasFutureCutoff) {
+    completed = await completeRampKeepCutoff(req.context, schedule);
+  } else {
+    completed = await completeRollout(req.context, schedule, {
+      disableActiveTargets: disableNow,
+    });
+  }
 
   return { rampSchedule: rampScheduleToApiInterface(completed) };
 });
@@ -571,13 +585,13 @@ const healthSummaryMetricSchema = z.object({
     .number()
     .optional()
     .describe(
-      "Expected relative lift of the treatment vs control (e.g. 0.05 = +5%).",
+      "Expected relative lift of the treatment arm vs the baseline arm (e.g. 0.05 = +5%). See `traffic.variationUnits` for what each arm represents.",
     ),
   absoluteLift: z
     .number()
     .optional()
     .describe(
-      "Absolute difference in conversion rate between treatment and control.",
+      "Absolute difference in conversion rate between the treatment and baseline arms.",
     ),
   ciHarmBound: z
     .number()
@@ -636,7 +650,7 @@ const healthSummarySchema = z.object({
       variationUnits: z
         .array(z.number())
         .describe(
-          "Per-variation user counts. Index 0 = control, index 1 = treatment.",
+          "Per-variation user counts. Index 0 = baseline arm (users continuing to see the existing behavior — either the configured control value on a v1 safe rollout, or users passed through to subsequent rules / feature default on a v2 monitored ramp). Index 1 = treatment arm (users exposed to the new rollout value).",
         ),
       srm: z
         .object({

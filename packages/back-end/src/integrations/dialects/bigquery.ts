@@ -147,6 +147,14 @@ export const bigQueryDialect: SqlDialect = {
     const countBelow = `(SELECT COUNT(*) FROM UNNEST(${cdfArray}) AS p WHERE p < ${thresholdCol})`;
     return `COALESCE(${countBelow} * ${nEventsCol} / ${numQuantiles}.0, 0)`;
   },
+  hasArrayQuantileGrid: () => true,
+  // BigQuery rejects NULL containing arrays in a query result, so collapse the
+  // whole grid to NULL when an array would contain NULLs.
+  // The quantile-grid elements are all-or-nothing, so we can test the first element.
+  quantileGridArrayLiteral: (elements: string[]) =>
+    elements.length > 0
+      ? `IF(${elements[0]} IS NULL, NULL, [${elements.join(", ")}])`
+      : `[${elements.join(", ")}]`,
   percentileApprox: (value: string, quantile: string | number) => {
     const multiplier = APPROX_QUANTILES_MULTIPLIER;
     const quantileVal = Number(quantile)

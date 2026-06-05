@@ -114,8 +114,8 @@ const DecisionFrameworkSettings = () => {
         </Flex>
         <Box mb="4">
           <Text size="2" style={{ color: "var(--color-text-mid)" }}>
-            Evaluates metric and guardrail signals to guide experiment
-            decisions — ship, rollback, or hold — with optional automation.
+            Evaluates metric and guardrail signals to guide experiment decisions
+            — ship, rollback, or hold — with optional automation.
           </Text>
         </Box>
         <Flex

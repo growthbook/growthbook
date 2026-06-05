@@ -151,7 +151,9 @@ describe("buildTemplatePayload", () => {
     const payload = buildTemplatePayload(state);
     const firstAction = payload.steps[0]?.actions[0];
     const firstPatch =
-      firstAction?.targetType === "feature-rule" ? firstAction.patch : undefined;
+      firstAction?.targetType === "feature-rule"
+        ? firstAction.patch
+        : undefined;
 
     expect(firstPatch?.allEnvironments).toBe(false);
     expect(firstPatch?.environments).toEqual(["dev", "staging"]);

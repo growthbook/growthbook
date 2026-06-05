@@ -34,7 +34,9 @@ export async function getRampSchedule(
   const context = getContextFromReq(req);
   const experiment = await getExperimentById(context, req.params.id);
   if (!experiment) {
-    return res.status(404).json({ status: 404, message: "Experiment not found" });
+    return res
+      .status(404)
+      .json({ status: 404, message: "Experiment not found" });
   }
   if (!experiment.rampScheduleId) {
     return res.status(200).json({ status: 200, rampSchedule: null });
@@ -73,7 +75,9 @@ export async function postRampSchedule(
   const context = getContextFromReq(req);
   const experiment = await getExperimentById(context, req.params.id);
   if (!experiment) {
-    return res.status(404).json({ status: 404, message: "Experiment not found" });
+    return res
+      .status(404)
+      .json({ status: 404, message: "Experiment not found" });
   }
   if (!context.permissions.canUpdateExperiment(experiment, {})) {
     context.permissions.throwPermissionError();
@@ -143,7 +147,9 @@ export async function putRampSchedule(
   const context = getContextFromReq(req);
   const experiment = await getExperimentById(context, req.params.id);
   if (!experiment) {
-    return res.status(404).json({ status: 404, message: "Experiment not found" });
+    return res
+      .status(404)
+      .json({ status: 404, message: "Experiment not found" });
   }
   if (!context.permissions.canUpdateExperiment(experiment, {})) {
     context.permissions.throwPermissionError();
@@ -159,11 +165,15 @@ export async function putRampSchedule(
     experiment.rampScheduleId,
   );
   if (!schedule) {
-    return res.status(404).json({ status: 404, message: "Ramp schedule not found" });
+    return res
+      .status(404)
+      .json({ status: 404, message: "Ramp schedule not found" });
   }
 
   const body = updateRampBody.parse(req.body);
-  type ScheduleUpdate = Parameters<typeof context.models.rampSchedules.updateById>[1];
+  type ScheduleUpdate = Parameters<
+    typeof context.models.rampSchedules.updateById
+  >[1];
   const changes: ScheduleUpdate = {};
   if (body.name !== undefined) changes.name = body.name;
   if (body.steps !== undefined) changes.steps = body.steps;
@@ -191,7 +201,9 @@ export async function deleteRampSchedule(
   const context = getContextFromReq(req);
   const experiment = await getExperimentById(context, req.params.id);
   if (!experiment) {
-    return res.status(404).json({ status: 404, message: "Experiment not found" });
+    return res
+      .status(404)
+      .json({ status: 404, message: "Experiment not found" });
   }
   if (!context.permissions.canUpdateExperiment(experiment, {})) {
     context.permissions.throwPermissionError();
@@ -235,7 +247,7 @@ export async function postAdvanceRamp(
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const { schedule, experiment } = await loadScheduleOrFail(context, req.params.id, res);
+  const { schedule } = await loadScheduleOrFail(context, req.params.id, res);
   if (!schedule) return;
 
   if (schedule.status !== "running") {
@@ -274,7 +286,11 @@ export async function postRollbackRamp(
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const { schedule, experiment } = await loadScheduleOrFail(context, req.params.id, res);
+  const { schedule, experiment } = await loadScheduleOrFail(
+    context,
+    req.params.id,
+    res,
+  );
   if (!schedule || !experiment) return;
 
   const body = rollbackBody.parse(req.body);
@@ -287,14 +303,17 @@ export async function postRollbackRamp(
   }
 
   // Mark rollback reason on schedule before applying so applyExperimentRollback can use it
-  const withReason = await context.models.rampSchedules.updateById(schedule.id, {
-    status: "rolled-back",
-    lastRollbackAt: new Date(),
-    lastRollbackReason: body.reason ?? "Manual rollback",
-    nextStepAt: null,
-    nextSnapshotAt: null,
-    nextProcessAt: null,
-  });
+  const withReason = await context.models.rampSchedules.updateById(
+    schedule.id,
+    {
+      status: "rolled-back",
+      lastRollbackAt: new Date(),
+      lastRollbackReason: body.reason ?? "Manual rollback",
+      nextStepAt: null,
+      nextSnapshotAt: null,
+      nextProcessAt: null,
+    },
+  );
 
   const updatedExperiment = await applyExperimentRollback(
     context,
@@ -313,7 +332,9 @@ export async function postRollbackRamp(
     });
   }
 
-  const updatedSchedule = await context.models.rampSchedules.getById(schedule.id);
+  const updatedSchedule = await context.models.rampSchedules.getById(
+    schedule.id,
+  );
   return res.status(200).json({ status: 200, rampSchedule: updatedSchedule });
 }
 
@@ -380,7 +401,11 @@ export async function postApproveRampStep(
   if (!schedule) return;
 
   const body = approveStepBody.parse(req.body);
-  const err = await approveAndPublishStep(context, schedule, body.context ?? "ui");
+  const err = await approveAndPublishStep(
+    context,
+    schedule,
+    body.context ?? "ui",
+  );
   if (err) {
     const detail = "detail" in err ? err.detail : err.code;
     return res.status(400).json({ status: 400, message: detail });

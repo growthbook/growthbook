@@ -15,7 +15,11 @@ interface Props {
   close: () => void;
 }
 
-export default function EditScheduleModal({ experiment, mutate, close }: Props) {
+export default function EditScheduleModal({
+  experiment,
+  mutate,
+  close,
+}: Props) {
   const { data } = useApi<{ rampSchedule: RampScheduleInterface | null }>(
     experiment.rampScheduleId
       ? `/experiment/${experiment.id}/ramp-schedule`

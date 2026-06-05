@@ -8,29 +8,30 @@
  */
 import {
   ExperimentEndStrategy,
+  ExperimentInterface,
   ExperimentPatch,
+  ExperimentPhase,
   RampScheduleInterface,
 } from "shared/validators";
-import { ExperimentInterface, ExperimentPhase } from "shared/validators";
 import {
   getMidRampDecisionStatus,
   getHealthSettings,
   getExperimentResultStatus,
   PRESET_DECISION_CRITERIA,
   PRESET_DECISION_CRITERIAS,
+  DecisionCriteriaData,
 } from "shared/enterprise";
-import { ReqContext } from "back-end/types/request";
-import { ApiReqContext } from "back-end/types/api";
-import { updateExperiment } from "back-end/src/models/ExperimentModel";
-import { findSnapshotById } from "back-end/src/models/ExperimentSnapshotModel";
-import { EvalDecision } from "back-end/src/services/rampScheduleEvaluator";
 import { getSRMHealthData, getMultipleExposureHealthData } from "shared/health";
 import {
   DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
   DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
 } from "shared/constants";
 import { expandMetricGroups } from "shared/experiments";
-import { DecisionCriteriaData } from "shared/enterprise";
+import { ReqContext } from "back-end/types/request";
+import { ApiReqContext } from "back-end/types/api";
+import { updateExperiment } from "back-end/src/models/ExperimentModel";
+import { findSnapshotById } from "back-end/src/models/ExperimentSnapshotModel";
+import { EvalDecision } from "back-end/src/services/rampScheduleEvaluator";
 
 // ---------------------------------------------------------------------------
 // Decision criteria helper
@@ -152,9 +153,8 @@ export async function applyExperimentRollback(
   const startAction = schedule.startActions?.find(
     (a) => a.targetType === "experiment",
   );
-  const preRampPatch = startAction?.targetType === "experiment"
-    ? startAction.patch
-    : null;
+  const preRampPatch =
+    startAction?.targetType === "experiment" ? startAction.patch : null;
 
   // End the current phase
   if (lastPhase) {
@@ -169,8 +169,7 @@ export async function applyExperimentRollback(
     name: "Reverted (ramp rollback)",
     reason: `Ramp rolled back: ${schedule.lastRollbackReason ?? "manual"}`,
     // Restore pre-ramp coverage and weights if captured
-    ...(preRampPatch?.coverage !== null &&
-    preRampPatch?.coverage !== undefined
+    ...(preRampPatch?.coverage !== null && preRampPatch?.coverage !== undefined
       ? { coverage: preRampPatch.coverage }
       : {}),
     ...(preRampPatch?.variationWeights
@@ -213,8 +212,6 @@ export async function applyExperimentEndStrategy(
   experiment: ExperimentInterface,
   strategy: ExperimentEndStrategy,
 ): Promise<ExperimentInterface> {
-  const now = new Date();
-
   switch (strategy.type) {
     case "soft":
       // No automatic action — surface as a CTA in the UI.
@@ -224,15 +221,6 @@ export async function applyExperimentEndStrategy(
       // Evaluate EDF and auto-act only if there is a clear decision.
       const decisionCriteria = await resolveDecisionCriteria(ctx, experiment);
       const healthSettings = getHealthSettings(ctx.org.settings);
-      const metricGroups = await ctx.models.metricGroups.getAll();
-      const goalMetrics = expandMetricGroups(
-        experiment.goalMetrics ?? [],
-        metricGroups,
-      );
-      const guardrailMetrics = expandMetricGroups(
-        experiment.guardrailMetrics ?? [],
-        metricGroups,
-      );
 
       const status = getExperimentResultStatus({
         experimentData: experiment,
@@ -407,7 +395,9 @@ export async function evaluateExperimentRampStep(
         return {
           action: "hold",
           reason: `No traffic yet — waiting for 24h grace period (~${remainingMin} min remaining)`,
-          nextProcessAt: new Date(monitoringStartDate.getTime() + gracePeriodMs),
+          nextProcessAt: new Date(
+            monitoringStartDate.getTime() + gracePeriodMs,
+          ),
         };
       }
     }

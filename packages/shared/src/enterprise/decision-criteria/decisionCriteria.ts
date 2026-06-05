@@ -49,7 +49,9 @@ export function evaluateDecisionRuleOnVariation({
   goalMetrics: string[];
   guardrailMetrics: string[];
   requireSuperStatSig: boolean;
-}): { action: DecisionCriteriaAction; triggeredMetricIds: string[] } | undefined {
+}):
+  | { action: DecisionCriteriaAction; triggeredMetricIds: string[] }
+  | undefined {
   const { conditions, action } = rule;
 
   // Track which metric IDs matched across all conditions for this rule

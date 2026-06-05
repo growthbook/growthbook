@@ -107,7 +107,6 @@ export const rampStepAction = z.discriminatedUnion("targetType", [
 ]);
 export type RampStepAction = z.infer<typeof rampStepAction>;
 
-
 // ---------------------------------------------------------------------------
 // Experiment end strategy
 // ---------------------------------------------------------------------------

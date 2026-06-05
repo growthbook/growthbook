@@ -534,7 +534,13 @@ export function buildRampSteps(
       interval: hasInterval
         ? Math.max(1, s.intervalValue) * UNIT_MULT[s.intervalUnit]
         : null,
-      actions: [{ targetType: "feature-rule" as const, targetId, patch } satisfies FeatureRuleStepAction],
+      actions: [
+        {
+          targetType: "feature-rule" as const,
+          targetId,
+          patch,
+        } satisfies FeatureRuleStepAction,
+      ],
       ...(approvalRequired && s.approvalNotes
         ? { approvalNotes: s.approvalNotes }
         : {}),
@@ -3509,15 +3515,10 @@ export default function RampScheduleSection({
         Disable on date
         <Tooltip
           body={
-            <>
-              <Text as="div" mb="2">
-                Automatically disables the rule on this date.
-              </Text>
-              <Text as="div">
-                If the ramp-up is incomplete, it is automatically completed on
-                this date.
-              </Text>
-            </>
+            <Text as="div">
+              Automatically disables the rule on this date, whether or not the
+              ramp-up has finished.
+            </Text>
           }
         >
           <PiInfo color="var(--color-text-low)" className="ml-1" />
@@ -3533,15 +3534,10 @@ export default function RampScheduleSection({
           </Text>
           <Tooltip
             body={
-              <>
-                <Text as="div" mb="2">
-                  Automatically disables the rule on this date.
-                </Text>
-                <Text as="div">
-                  If the ramp-up is incomplete, it is automatically completed on
-                  this date.
-                </Text>
-              </>
+              <Text as="div">
+                Automatically disables the rule on this date, whether or not the
+                ramp-up has finished.
+              </Text>
             }
           >
             <PiInfo color="var(--color-text-low)" />

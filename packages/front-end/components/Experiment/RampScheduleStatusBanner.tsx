@@ -6,15 +6,25 @@
  * action buttons for ramp operations.
  */
 import { useState } from "react";
-import { Box, Flex, Text } from "@radix-ui/themes";
-import { RampScheduleInterface } from "shared/validators";
+import { Box, Flex } from "@radix-ui/themes";
+import {
+  RampScheduleInterface,
+  isAwaitingApproval,
+  isReadyForApproval,
+} from "shared/validators";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { isAwaitingApproval, isReadyForApproval } from "shared/validators";
-import { FaCheckCircle, FaExclamationTriangle, FaPause, FaPlay, FaUndo } from "react-icons/fa";
+import {
+  FaCheckCircle,
+  FaExclamationTriangle,
+  FaPause,
+  FaPlay,
+  FaUndo,
+} from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
 import useApi from "@/hooks/useApi";
 
 interface Props {
@@ -43,7 +53,10 @@ const STATUS_LABELS: Record<RampScheduleInterface["status"], string> = {
   "rolled-back": "Rolled back",
 };
 
-export default function RampScheduleStatusBanner({ experiment, mutate }: Props) {
+export default function RampScheduleStatusBanner({
+  experiment,
+  mutate,
+}: Props) {
   const { apiCall } = useAuth();
   const [loading, setLoading] = useState(false);
 
@@ -62,11 +75,7 @@ export default function RampScheduleStatusBanner({ experiment, mutate }: Props) 
           mb="3"
         >
           <Flex align="center" gap="2">
-            {schedule.status === "completed" ? (
-              <FaCheckCircle />
-            ) : (
-              <FaUndo />
-            )}
+            {schedule.status === "completed" ? <FaCheckCircle /> : <FaUndo />}
             <Text>
               Ramp schedule {STATUS_LABELS[schedule.status].toLowerCase()}.
               {schedule.lastRollbackReason
@@ -88,10 +97,7 @@ export default function RampScheduleStatusBanner({ experiment, mutate }: Props) 
       ? schedule.steps[schedule.currentStepIndex]
       : null;
 
-  const doAction = async (
-    action: string,
-    body?: Record<string, unknown>,
-  ) => {
+  const doAction = async (action: string, body?: Record<string, unknown>) => {
     setLoading(true);
     try {
       await apiCall(`/experiment/${experiment.id}/ramp-schedule/${action}`, {
@@ -124,15 +130,12 @@ export default function RampScheduleStatusBanner({ experiment, mutate }: Props) 
             color={STATUS_COLORS[schedule.status]}
             label={STATUS_LABELS[schedule.status]}
           />
-          <Text size="2" color="gray">
+          <Text size="medium" color="gray">
             {stepLabel}
           </Text>
           {currentStep && (
-            <Text size="2" color="gray">
-              ·{" "}
-              {currentStep.monitored
-                ? "Monitored step"
-                : "Unmonitored step"}
+            <Text size="medium" color="gray">
+              · {currentStep.monitored ? "Monitored step" : "Unmonitored step"}
             </Text>
           )}
           {awaitingApproval && (
@@ -227,7 +230,7 @@ export default function RampScheduleStatusBanner({ experiment, mutate }: Props) 
 
       {/* Last rollback info */}
       {schedule.lastRollbackReason && schedule.status === "rolled-back" && (
-        <Text size="1" color="red" mt="2" as="div">
+        <Text size="small" color="red" mt="2" as="div">
           Rolled back: {schedule.lastRollbackReason}
         </Text>
       )}

@@ -327,6 +327,7 @@ export type SDKPayloadParams = Pick<
   | "sdkVersion"
   | "includeVisualExperiments"
   | "includeDraftExperiments"
+  | "includeDraftExperimentRefs"
   | "includeExperimentNames"
   | "includeRedirectExperiments"
   | "includeRuleIds"
@@ -372,6 +373,7 @@ export async function getPayloadParamsFromApiKey(
       encryptionKey: connection.encryptionKey,
       includeVisualExperiments: connection.includeVisualExperiments,
       includeDraftExperiments: connection.includeDraftExperiments,
+      includeDraftExperimentRefs: connection.includeDraftExperimentRefs,
       includeExperimentNames: connection.includeExperimentNames,
       includeRedirectExperiments: connection.includeRedirectExperiments,
       includeRuleIds: connection.includeRuleIds,
@@ -488,6 +490,7 @@ export async function getFeatureDefinitionsWithCache({
       encryptionKey: params.encryptionKey,
       includeVisualExperiments: params.includeVisualExperiments,
       includeDraftExperiments: params.includeDraftExperiments,
+      includeDraftExperimentRefs: params.includeDraftExperimentRefs,
       includeExperimentNames: params.includeExperimentNames,
       includeRedirectExperiments: params.includeRedirectExperiments,
       includeRuleIds: params.includeRuleIds,
