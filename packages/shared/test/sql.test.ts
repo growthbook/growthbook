@@ -588,4 +588,29 @@ describe("encodeSQLResults", () => {
     const decoded = decodeSQLResults(encoded);
     expect(decoded).toEqual(results);
   });
+
+  it("preserves columns that are missing from the first row", () => {
+    const results = [
+      { id: 1, name: "Alice" },
+      { id: 2, name: "Bob", grid: [1, 2, 3] },
+    ];
+
+    const encoded = encodeSQLResults(results);
+    expect(encoded).toEqual([
+      {
+        numRows: 2,
+        data: {
+          id: [1, 2],
+          name: ["Alice", "Bob"],
+          grid: [null, [1, 2, 3]],
+        },
+      },
+    ]);
+
+    const decoded = decodeSQLResults(encoded);
+    expect(decoded).toEqual([
+      { id: 1, name: "Alice", grid: null },
+      { id: 2, name: "Bob", grid: [1, 2, 3] },
+    ]);
+  });
 });

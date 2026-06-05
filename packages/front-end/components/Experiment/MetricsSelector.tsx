@@ -8,7 +8,7 @@ import {
   quantileMetricType,
 } from "shared/experiments";
 import { Flex } from "@radix-ui/themes";
-import { PiInfoFill } from "react-icons/pi";
+import { PiInfo } from "react-icons/pi";
 import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
@@ -18,7 +18,6 @@ import SelectField, {
 } from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricName from "@/components/Metrics/MetricName";
-import { GBInfo } from "@/components/Icons";
 import { useUser } from "@/services/UserContext";
 import MetricGroupInlineForm from "@/enterprise/components/MetricGroupInlineForm";
 import Link from "@/ui/Link";
@@ -496,7 +495,7 @@ const MetricsSelector: FC<{
                     gap="1"
                     style={{ color: "var(--violet-11)" }}
                   >
-                    <PiInfoFill size="13" />
+                    <PiInfo color="var(--color-text-low)" className="mr-1" />
                     <Text size="small">
                       Create a Metric Group so you can easily re-use this set of
                       metrics in other experiments.
@@ -514,7 +513,7 @@ const MetricsSelector: FC<{
               )}
             </Flex>
           ) : null}
-          <div className="d-flex align-items-center justify-content-start mt-2 mb-2">
+          <div className="d-flex align-items-center justify-content-end">
             <div>
               {!forceSingleMetric &&
                 filteredOptions.length > 0 &&
@@ -522,13 +521,16 @@ const MetricsSelector: FC<{
                   <div className="metric-from-tag text-muted form-inline">
                     <span
                       style={{
-                        color: "var(--violet-11)",
-                        fontWeight: 600,
+                        color: "var(--color-text-low)",
+                        fontWeight: 500,
                       }}
                     >
-                      Select metric by tag:{" "}
+                      Select metric by tag
                       <Tooltip body="Metrics can be tagged for grouping. Select any tag to add all metrics associated with that tag.">
-                        <GBInfo />
+                        <PiInfo
+                          color="var(--color-text-low)"
+                          className="ml-1"
+                        />
                       </Tooltip>
                     </span>
                     <SelectField
@@ -536,7 +538,7 @@ const MetricsSelector: FC<{
                       placeholder="choose"
                       className="ml-3"
                       containerClassName="select-dropdown-underline"
-                      style={{ minWidth: 200 }}
+                      style={{ minWidth: 140 }}
                       onChange={(v) => {
                         const newValue = new Set(selected);
                         const tag = v;

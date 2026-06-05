@@ -1,9 +1,11 @@
 import { useFormContext } from "react-hook-form";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { useState, useMemo } from "react";
-import { Separator, Box, Flex } from "@radix-ui/themes";
+import { useState } from "react";
+import { Box, Flex } from "@radix-ui/themes";
 import { RampScheduleInterface } from "shared/validators";
+import { PiLockSimple } from "react-icons/pi";
 import Heading from "@/ui/Heading";
 import Field from "@/components/Forms/Field";
 import FeatureValueField from "@/components/Features/FeatureValueField";
@@ -19,44 +21,35 @@ import RadioGroup from "@/ui/RadioGroup";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useUser } from "@/services/UserContext";
 import Text from "@/ui/Text";
-import RampScheduleSection, {
+import {
   type RampSectionState,
   defaultRampSectionState,
-  activeFieldsFromState,
-  type StepField,
 } from "@/components/Features/RuleModal/RampScheduleSection";
+import HelperText from "@/ui/HelperText";
+import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
-import RampScheduleDisplay from "@/components/RampSchedule/RampScheduleDisplay";
+import MonitoredIcon from "@/components/Features/RuleModal/MonitoredIcon";
+import RampScheduleBadge from "@/components/RampSchedule/RampScheduleBadge";
 import ScheduleInputs from "@/components/Features/RuleModal/ScheduleInputs";
 import RuleEnvironmentScopeField, {
   type EnvScopeProps,
 } from "@/components/Features/RuleModal/EnvironmentScopeField";
-
 export type ScheduleType = "none" | "schedule" | "ramp";
-
-function RampControlledField({ label }: { label: string }) {
-  return (
-    <Box>
-      <Text as="div" size="medium" weight="semibold" mb="2">
-        {label}
-      </Text>
-      <Text as="div" fontStyle="italic" color="text-mid">
-        Controlled by ramp-up schedule
-      </Text>
-    </Box>
-  );
-}
+type ScheduleSelectorType = ScheduleType | "ramp-monitored";
 
 /** Derive the schedule type from existing state on first render. */
 export function deriveScheduleType(
   rampSectionState: RampSectionState,
   scheduleToggleEnabled: boolean,
   hasLegacySchedule: boolean,
-  persisted: ScheduleType | undefined,
+  persisted: ScheduleSelectorType | undefined,
 ): ScheduleType {
-  if (persisted && persisted !== "none") return persisted;
+  if (persisted && persisted !== "none") {
+    return persisted === "ramp-monitored" ? "ramp" : persisted;
+  }
   if (rampSectionState.mode !== "off") {
-    return rampSectionState.steps.length > 0 ? "ramp" : "schedule";
+    if (rampSectionState.steps.length === 0) return "schedule";
+    return "ramp";
   }
   if (scheduleToggleEnabled || hasLegacySchedule) return "schedule";
   return "none";
@@ -78,9 +71,9 @@ export default function StandardRuleFields({
   setRampSectionState,
   scheduleType,
   setScheduleType,
-  pendingDetach,
   envScope,
   isLiveRule,
+  isNew,
   onRuleCyclicChange,
 }: {
   ruleType: "force" | "rollout";
@@ -98,14 +91,17 @@ export default function StandardRuleFields({
   setRampSectionState: (s: RampSectionState) => void;
   scheduleType: ScheduleType;
   setScheduleType: (t: ScheduleType) => void;
-  pendingDetach?: boolean;
   envScope: EnvScopeProps;
   isLiveRule?: boolean;
+  isNew?: boolean;
   onRuleCyclicChange?: (result: RuleCyclicResult) => void;
 }) {
   const form = useFormContext();
   const [advancedOptionsOpen, setadvancedOptionsOpen] = useState(
-    !!form.watch("seed"),
+    !!form.watch("seed") ||
+      (!isNew &&
+        form.watch("hashVersion") !== undefined &&
+        form.watch("hashVersion") !== 2),
   );
   const attributeSchema = useAttributeSchema(false, feature.project);
   const hasHashAttributes =
@@ -114,90 +110,122 @@ export default function StandardRuleFields({
   const canScheduleFeatureFlags = hasCommercialFeature("schedule-feature-flag");
   const canUseRampSchedules = hasCommercialFeature("ramp-schedules");
 
-  const rampIsEditable =
-    !ruleRampSchedule ||
-    !["running", "pending-approval"].includes(ruleRampSchedule.status);
+  const isSimpleSchedule =
+    !!ruleRampSchedule && ruleRampSchedule.steps.length === 0;
+  const showScheduleBadge =
+    !!ruleRampSchedule && ruleRampSchedule.status !== "pending";
 
-  // Ramp is configured but the activating revision hasn't been published yet (or no DB
-  // record at all). Targeting is locked out but hash/seed remain editable.
-  const preRampPublish =
-    scheduleType === "ramp" &&
-    (!ruleRampSchedule || ruleRampSchedule.status === "pending");
-
-  // Ramp-up (with steps) exists and is not yet in a terminal state. Locks
-  // targeting + coverage since the ramp steps own those fields. Standard
-  // schedules (no steps) never lock targeting.
-  const rampNotComplete =
-    !!ruleRampSchedule &&
-    ruleRampSchedule.steps.length > 0 &&
-    !["completed", "rolled-back", "pending"].includes(ruleRampSchedule.status);
+  const actualScheduleIsMonitored =
+    !!ruleRampSchedule && ruleRampSchedule.steps.some((s) => !!s.monitored);
 
   const hasLegacySchedule = (
     "scheduleRules" in defaultValues ? defaultValues.scheduleRules || [] : []
   ).some((r) => r.timestamp !== null);
 
   const [savedStates, setSavedStates] = useState<
-    Partial<Record<ScheduleType, RampSectionState>>
+    Partial<Record<ScheduleType, { ramp: RampSectionState; coverage: number }>>
   >({});
 
-  const rampActiveFields = useMemo(
-    () => activeFieldsFromState(rampSectionState),
-    [rampSectionState],
-  );
+  const rampScheduleEditLocked =
+    !!ruleRampSchedule &&
+    ruleRampSchedule.status === "running" &&
+    !isSimpleSchedule;
+  const pendingScheduleRemoval =
+    !!ruleRampSchedule && isSimpleSchedule && rampSectionState.mode === "off";
+  const releasePlanLocked = rampScheduleEditLocked || pendingScheduleRemoval;
+  const selectorScheduleType: ScheduleSelectorType =
+    scheduleType === "ramp" && rampSectionState.steps.some((s) => s.monitored)
+      ? "ramp-monitored"
+      : scheduleType;
 
-  const inRamp = scheduleType === "ramp";
+  const rampLocksTargeting =
+    !isSimpleSchedule && scheduleType === "ramp" && releasePlanLocked;
+  const inModalPendingRamp =
+    !ruleRampSchedule &&
+    scheduleType === "ramp" &&
+    rampSectionState.mode === "create" &&
+    rampSectionState.steps.length > 0;
+  const rampControlsCoverage =
+    !isSimpleSchedule &&
+    scheduleType === "ramp" &&
+    (rampScheduleEditLocked || inModalPendingRamp);
 
-  const isRampControlled = (field: StepField) =>
-    inRamp && rampActiveFields.has(field);
+  function applyScheduleType(type: ScheduleSelectorType) {
+    const currentCoverage = form.watch("coverage") ?? 1;
+    const canonicalType: ScheduleType =
+      type === "ramp-monitored" ? "ramp" : type;
+    setSavedStates((prev) => ({
+      ...prev,
+      [scheduleType]: { ramp: rampSectionState, coverage: currentCoverage },
+    }));
 
-  function applyScheduleType(type: ScheduleType) {
-    setSavedStates((prev) => ({ ...prev, [scheduleType]: rampSectionState }));
+    setScheduleType(canonicalType);
 
-    if (scheduleType === "ramp" && type !== "ramp") {
-      if (rampActiveFields.has("coverage")) {
-        form.setValue("coverage", 1);
-      }
-    }
-
-    setScheduleType(type);
+    const leavingRamp = scheduleType === "ramp";
 
     if (type === "none") {
       setScheduleToggleEnabled(false);
       setRampSectionState({ ...rampSectionState, mode: "off" });
+      const saved = savedStates[type];
+      form.setValue(
+        "coverage",
+        saved?.coverage ?? (leavingRamp ? 1 : currentCoverage),
+      );
       return;
     }
 
-    const saved = savedStates[type];
+    const saved = savedStates[canonicalType];
 
-    if (type === "ramp") {
+    if (type === "ramp" || type === "ramp-monitored") {
       setScheduleToggleEnabled(false);
-      if (saved && saved.steps.length > 0) {
-        setRampSectionState(saved);
-        if (activeFieldsFromState(saved).has("coverage")) {
-          form.setValue("coverage", 0);
+
+      if (saved && saved.ramp.steps.length > 0) {
+        const restoredState = { ...saved.ramp };
+        if (type === "ramp-monitored") {
+          restoredState.steps = restoredState.steps.map((s) => ({
+            ...s,
+            monitored: true,
+            patch: {
+              ...s.patch,
+              coverage: Math.min(s.patch.coverage ?? 0, 50),
+            },
+          }));
         }
+        setRampSectionState(restoredState);
       } else {
         const seed = !ruleRampSchedule
           ? defaultRampSectionState(undefined)
           : null;
+        const baseState = ruleRampSchedule
+          ? rampSectionState
+          : defaultRampSectionState(undefined);
         const newState: RampSectionState = {
-          ...(ruleRampSchedule
-            ? rampSectionState
-            : defaultRampSectionState(undefined)),
+          ...baseState,
           mode: ruleRampSchedule ? "edit" : "create",
           ...(seed ? { steps: seed.steps, name: seed.name } : {}),
         };
-        setRampSectionState(newState);
-        if (activeFieldsFromState(newState).has("coverage")) {
-          form.setValue("coverage", 0);
+
+        if (type === "ramp-monitored") {
+          newState.steps = newState.steps.map((s) => ({
+            ...s,
+            monitored: true,
+            patch: {
+              ...s.patch,
+              coverage: Math.min(s.patch.coverage ?? 0, 50),
+            },
+          }));
         }
+
+        setRampSectionState(newState);
       }
+      form.setValue("coverage", 0);
       return;
     }
 
     setScheduleToggleEnabled(false);
     if (saved) {
-      setRampSectionState(saved);
+      setRampSectionState(saved.ramp);
+      form.setValue("coverage", saved.coverage);
     } else {
       setRampSectionState({
         ...rampSectionState,
@@ -206,6 +234,7 @@ export default function StandardRuleFields({
         startDate: "",
         endScheduleAt: "",
       });
+      if (leavingRamp) form.setValue("coverage", 1);
     }
   }
 
@@ -215,6 +244,7 @@ export default function StandardRuleFields({
         label="Description"
         textarea
         minRows={1}
+        maxLength={MAX_DESCRIPTION_LENGTH}
         {...form.register("description")}
         placeholder="Short human-readable description of the rule"
       />
@@ -222,16 +252,7 @@ export default function StandardRuleFields({
       <RuleEnvironmentScopeField {...envScope} my="5" />
 
       <FeatureValueField
-        label={
-          <>
-            {`Value to ${ruleType === "rollout" ? "roll out" : "force"}`}
-            {isRampControlled("force") && (
-              <Text as="div" fontStyle="italic" color="text-mid" mt="1">
-                Controlled by ramp-up schedule
-              </Text>
-            )}
-          </>
-        }
+        label={`Value to ${ruleType === "rollout" ? "roll out" : "force"}`}
         id="value"
         value={form.watch("value")}
         setValue={(v) => form.setValue("value", v)}
@@ -240,16 +261,33 @@ export default function StandardRuleFields({
         renderJSONInline={true}
         useCodeInput={true}
         showFullscreenButton={true}
-        disabled={isRampControlled("force")}
       />
 
       <div className="mb-3">
-        <Heading as="h3" size="small" mb="4">
+        <Heading as="h3" size="small" mb="2">
           Release plan
         </Heading>
+        {releasePlanLocked && (
+          <HelperText status="info" mb="2" icon={<PiLockSimple />}>
+            <Box>
+              <Text as="div">
+                {pendingScheduleRemoval
+                  ? "Locked while schedule removal is pending"
+                  : `Locked while ${isSimpleSchedule ? "Schedule" : "Ramp-up"} is running`}
+              </Text>
+              {!pendingScheduleRemoval && (
+                <Text as="div" mt="1" size="small">
+                  To change the release plan, pause or end the Ramp-up
+                </Text>
+              )}
+            </Box>
+          </HelperText>
+        )}
         <RadioGroup
-          mb="3"
+          mt="4"
+          mb="2"
           gap="2"
+          disabled={releasePlanLocked}
           options={[
             {
               value: "none",
@@ -262,9 +300,13 @@ export default function StandardRuleFields({
                 <Flex align="center" gap="2">
                   Start and end date
                   <PaidFeatureBadge commercialFeature="schedule-feature-flag" />
+                  {showScheduleBadge && isSimpleSchedule && (
+                    <RampScheduleBadge rs={ruleRampSchedule!} simpleSchedule />
+                  )}
                 </Flex>
               ),
-              description: "Enable or disable the rule on specific dates",
+              description:
+                "Turn the rule on or off on specific dates, no gradual rollout",
               disabled: !canScheduleFeatureFlags,
             },
             {
@@ -273,28 +315,50 @@ export default function StandardRuleFields({
                 <Flex align="center" gap="2">
                   Ramp-up
                   <PaidFeatureBadge commercialFeature="ramp-schedules" />
+                  {showScheduleBadge &&
+                    !isSimpleSchedule &&
+                    !actualScheduleIsMonitored && (
+                      <RampScheduleBadge
+                        rs={ruleRampSchedule!}
+                        featureRuleContext
+                      />
+                    )}
                 </Flex>
               ),
               description:
-                "Increase traffic over multiple steps, with optional targeting conditions and approvals",
+                "Gradually increase traffic over time, with optional scheduling",
+              disabled: !canUseRampSchedules,
+            },
+            {
+              value: "ramp-monitored",
+              label: (
+                <Flex align="center" gap="2">
+                  <Flex align="center" gap="1">
+                    <MonitoredIcon size={16} />
+                    Monitored Ramp-up
+                  </Flex>
+                  <PaidFeatureBadge commercialFeature="safe-rollout" />
+                  {showScheduleBadge &&
+                    !isSimpleSchedule &&
+                    actualScheduleIsMonitored && (
+                      <RampScheduleBadge
+                        rs={ruleRampSchedule!}
+                        featureRuleContext
+                      />
+                    )}
+                </Flex>
+              ),
+              description:
+                "Ramp-up with guardrail monitoring and auto-rollback",
               disabled: !canUseRampSchedules,
             },
           ]}
-          value={scheduleType}
-          setValue={(v) => applyScheduleType(v as ScheduleType)}
+          value={selectorScheduleType}
+          setValue={(v) => applyScheduleType(v as ScheduleSelectorType)}
         />
-
-        {scheduleType !== "none" && <Separator size="4" my="6" />}
 
         {scheduleType === "schedule" && (
           <Box my="6">
-            {environments.length > 1 && (
-              <Callout status="warning" mb="4">
-                You are creating a rule in {environments.length} environment
-                {environments.length > 1 ? "s" : ""}. The schedule will apply to
-                all of them.
-              </Callout>
-            )}
             {hasLegacySchedule ? (
               <LegacyScheduleInputs
                 defaultValue={defaultValues.scheduleRules || []}
@@ -304,10 +368,50 @@ export default function StandardRuleFields({
                 hideToggle={true}
               />
             ) : (
-              <ScheduleInputs
-                state={rampSectionState}
-                setState={setRampSectionState}
-              />
+              <>
+                {(() => {
+                  const isTerminal =
+                    !!ruleRampSchedule &&
+                    isSimpleSchedule &&
+                    ["completed", "rolled-back"].includes(
+                      ruleRampSchedule.status,
+                    );
+                  const isPendingRemoval = rampSectionState.mode === "off";
+                  return (
+                    <>
+                      <ScheduleInputs
+                        state={rampSectionState}
+                        setState={setRampSectionState}
+                        disabled={isTerminal || isPendingRemoval}
+                      />
+                      {isTerminal && !isPendingRemoval && (
+                        <Callout status="info" mt="3" size="sm">
+                          <Flex align="center" justify="between" gap="3">
+                            <Text>This schedule has finished.</Text>
+                            <Button
+                              size="xs"
+                              variant="outline"
+                              onClick={() =>
+                                setRampSectionState({
+                                  ...rampSectionState,
+                                  mode: "off",
+                                })
+                              }
+                            >
+                              Remove schedule
+                            </Button>
+                          </Flex>
+                        </Callout>
+                      )}
+                      {isPendingRemoval && (
+                        <Callout status="info" mt="3" size="sm">
+                          Schedule will be removed on save.
+                        </Callout>
+                      )}
+                    </>
+                  );
+                })()}
+              </>
             )}
             {isLiveRule &&
               form.watch("enabled") &&
@@ -322,126 +426,80 @@ export default function StandardRuleFields({
           </Box>
         )}
 
-        {scheduleType === "ramp" && (
-          <>
-            <Heading as="h3" size="small" mb="4">
-              Ramp-up
-            </Heading>
-            {environments.length > 1 && (
-              <Callout status="warning" mb="4">
-                You are creating a rule in {environments.length} environment
-                {environments.length > 1 ? "s" : ""}. The ramp-up will apply to
-                all of them.
-              </Callout>
-            )}
-            {ruleRampSchedule && !rampIsEditable ? (
-              <RampScheduleDisplay rs={ruleRampSchedule} />
-            ) : (
-              <RampScheduleSection
-                ruleRampSchedule={ruleRampSchedule}
-                state={rampSectionState}
-                setState={setRampSectionState}
-                pendingDetach={pendingDetach}
-                embedded
-                hideNameField={true}
-                feature={feature}
-                environments={environments}
-              />
-            )}
-            {isLiveRule &&
-              form.watch("enabled") &&
-              rampSectionState.startDate &&
-              new Date(rampSectionState.startDate).getTime() > Date.now() && (
-                <Callout status="warning" mt="4">
-                  This rule is currently enabled and will remain live until the
-                  schedule starts. Disable the rule first if you don&apos;t want
-                  it serving traffic before then.
-                </Callout>
-              )}
-          </>
-        )}
+        {/* Ramp-up schedule editor is rendered on page 2 (see index.tsx) */}
       </div>
-      <Separator size="4" my="6" />
 
-      {!rampNotComplete && (
-        <>
-          <RolloutPercentInput
-            value={form.watch("coverage") ?? 1}
-            setValue={(coverage) => form.setValue("coverage", coverage)}
-            lockedByRamp={preRampPublish}
-            rampSchedule={ruleRampSchedule}
-            hashAttribute={form.watch("hashAttribute")}
-            setHashAttribute={(v: string) => form.setValue("hashAttribute", v)}
-            attributeSchema={attributeSchema}
-            hasHashAttributes={hasHashAttributes}
-            seed={form.watch("seed")}
-            setSeed={(v: string) => form.setValue("seed", v)}
-            featureId={feature.id}
-            advancedOpen={advancedOptionsOpen}
-            setAdvancedOpen={setadvancedOptionsOpen}
-          />
-          <Separator size="4" my="5" />
-        </>
-      )}
-
-      {preRampPublish || rampNotComplete ? (
-        <Box>
-          <Text as="div" size="medium" weight="semibold" mb="2">
-            Targeting is controlled by ramp-up
-          </Text>
-          <Callout status="info" my="4">
-            You can add targeting conditions to individual steps in your ramp-up
-            schedule by going to the step&apos;s menu and choosing &ldquo;Add
-            additional effects&rdquo;
-          </Callout>
-        </Box>
+      <Heading as="h3" size="small" mb="4" mt="6">
+        Targeting
+      </Heading>
+      {rampLocksTargeting ? (
+        <HelperText status="info" mb="2" icon={<PiLockSimple />}>
+          <Box>
+            <Text as="div">Controlled by ramp schedule</Text>
+            <Text as="div" mt="1" size="small">
+              Coverage and targeting are controlled by the live ramp schedule.
+              Pause or end the ramp-up to make immediate changes.
+            </Text>
+          </Box>
+        </HelperText>
       ) : (
-        <>
-          {isRampControlled("savedGroups") ? (
-            <RampControlledField label="Target by Saved Groups" />
-          ) : (
-            <SavedGroupTargetingField
-              value={form.watch("savedGroups") || []}
-              setValue={(savedGroups) =>
-                form.setValue("savedGroups", savedGroups)
+        <Flex direction="column" gap="5" mb="4">
+          {rampControlsCoverage ? null : (
+            <RolloutPercentInput
+              value={form.watch("coverage") ?? 1}
+              setValue={(coverage) => form.setValue("coverage", coverage)}
+              rampSchedule={ruleRampSchedule}
+              hashAttribute={form.watch("hashAttribute")}
+              setHashAttribute={(v: string) =>
+                form.setValue("hashAttribute", v)
               }
-              project={feature.project || ""}
-              label="Target by Saved Groups"
+              attributeSchema={attributeSchema}
+              hasHashAttributes={hasHashAttributes}
+              hashVersion={form.watch("hashVersion") as 1 | 2 | undefined}
+              setHashVersion={(v: 1 | 2) => form.setValue("hashVersion", v)}
+              project={feature.project}
+              seed={form.watch("seed")}
+              setSeed={(v: string) => form.setValue("seed", v)}
+              ruleId={form.watch("id") as string}
+              featureId={feature.id}
+              isLiveRule={isLiveRule}
+              isNew={isNew}
+              advancedOpen={advancedOptionsOpen}
+              setAdvancedOpen={setadvancedOptionsOpen}
             />
           )}
-          <Separator size="4" my="5" />
 
-          {isRampControlled("condition") ? (
-            <RampControlledField label="Target by Attributes" />
-          ) : (
-            <ConditionInput
-              defaultValue={form.watch("condition") || ""}
-              onChange={(value) => form.setValue("condition", value)}
-              key={conditionKey}
-              project={feature.project || ""}
-              label="Target by Attributes"
-            />
-          )}
-          <Separator size="4" my="5" />
+          <SavedGroupTargetingField
+            value={form.watch("savedGroups") || []}
+            setValue={(savedGroups) =>
+              form.setValue("savedGroups", savedGroups)
+            }
+            project={feature.project || ""}
+            label="Saved Groups"
+          />
 
-          {isRampControlled("prerequisites") ? (
-            <RampControlledField label="Target by Prerequisite Features" />
-          ) : (
-            <PrerequisiteInput
-              value={form.watch("prerequisites") || []}
-              setValue={(prerequisites) =>
-                form.setValue("prerequisites", prerequisites)
-              }
-              feature={feature}
-              environments={environments}
-              setPrerequisiteTargetingSdkIssues={
-                setPrerequisiteTargetingSdkIssues
-              }
-              label="Target by Prerequisite Features"
-              onRuleCyclicChange={onRuleCyclicChange}
-            />
-          )}
-        </>
+          <ConditionInput
+            defaultValue={form.watch("condition") || ""}
+            onChange={(value) => form.setValue("condition", value)}
+            key={conditionKey}
+            project={feature.project || ""}
+            label="Attributes"
+          />
+
+          <PrerequisiteInput
+            value={form.watch("prerequisites") || []}
+            setValue={(prerequisites) =>
+              form.setValue("prerequisites", prerequisites)
+            }
+            feature={feature}
+            environments={environments}
+            setPrerequisiteTargetingSdkIssues={
+              setPrerequisiteTargetingSdkIssues
+            }
+            label="Prerequisite Features"
+            onRuleCyclicChange={onRuleCyclicChange}
+          />
+        </Flex>
       )}
       {isCyclic && (
         <div className="alert alert-danger">

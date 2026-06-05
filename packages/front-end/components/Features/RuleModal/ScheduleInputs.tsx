@@ -13,6 +13,7 @@ import type { RampSectionState } from "@/components/Features/RuleModal/RampSched
 interface Props {
   state: RampSectionState;
   setState: (s: RampSectionState) => void;
+  disabled?: boolean;
 }
 
 /** Auto-generate a human-readable schedule name based on start/end dates. */
@@ -79,7 +80,7 @@ function formatOptionLabel(
   );
 }
 
-export default function ScheduleInputs({ state, setState }: Props) {
+export default function ScheduleInputs({ state, setState, disabled }: Props) {
   const endTriggerValue = state.endScheduleAt ? "specific-time" : "never";
 
   function patchState(patch: Partial<RampSectionState>) {
@@ -92,7 +93,7 @@ export default function ScheduleInputs({ state, setState }: Props) {
     } else {
       const d = new Date();
       d.setSeconds(0, 0);
-      patchState({ startDate: d.toISOString().slice(0, 16) });
+      patchState({ startDate: d.toISOString() });
     }
   }
 
@@ -103,7 +104,7 @@ export default function ScheduleInputs({ state, setState }: Props) {
       const d = new Date();
       d.setSeconds(0, 0);
       patchState({
-        endScheduleAt: d.toISOString().slice(0, 16),
+        endScheduleAt: d.toISOString(),
       });
     }
   }
@@ -115,9 +116,9 @@ export default function ScheduleInputs({ state, setState }: Props) {
       </Heading>
 
       {/* Start row */}
-      <Flex align="center" gap="3" py="2">
-        <Box style={{ width: 48 }}>
-          <Text size="small" weight="medium" color="text-low">
+      <Flex align="center" gap="3" py="2" style={{ minHeight: 54 }}>
+        <Box style={{ width: 70 }}>
+          <Text as="label" weight="medium" mb="0">
             Start
           </Text>
         </Box>
@@ -125,6 +126,7 @@ export default function ScheduleInputs({ state, setState }: Props) {
           value={state.startDate ? "specific-time" : "immediately"}
           options={START_OPTIONS}
           onChange={handleStartChange}
+          disabled={disabled}
           containerClassName="mb-0"
           containerStyle={{ minHeight: 38, width: 150 }}
           useMultilineLabels
@@ -137,14 +139,15 @@ export default function ScheduleInputs({ state, setState }: Props) {
             precision="datetime"
             containerClassName="mb-0"
             scheduleEndDate={state.endScheduleAt || undefined}
+            disabled={disabled}
           />
         )}
       </Flex>
 
       {/* End row */}
-      <Flex align="center" gap="3" py="2">
-        <Box style={{ width: 48 }}>
-          <Text size="small" weight="medium" color="text-low">
+      <Flex align="center" gap="3" py="2" style={{ minHeight: 54 }}>
+        <Box style={{ width: 70 }}>
+          <Text as="label" weight="medium" mb="0">
             End
           </Text>
         </Box>
@@ -152,6 +155,7 @@ export default function ScheduleInputs({ state, setState }: Props) {
           value={endTriggerValue}
           options={END_OPTIONS}
           onChange={handleEndChange}
+          disabled={disabled}
           containerClassName="mb-0"
           containerStyle={{ minHeight: 38, width: 150 }}
           useMultilineLabels
@@ -169,6 +173,7 @@ export default function ScheduleInputs({ state, setState }: Props) {
             disableBefore={
               state.startDate ? new Date(state.startDate) : new Date()
             }
+            disabled={disabled}
           />
         )}
       </Flex>

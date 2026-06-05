@@ -148,6 +148,7 @@ export interface DataSourceProperties {
   hasCountDistinctHLL?: boolean;
   hasQuantileSketch?: boolean;
   hasIncrementalRefresh?: boolean;
+  hasArrayQuantileGrid?: boolean;
   maxColumns: number;
 }
 
@@ -245,6 +246,18 @@ export type DataSourcePipelineSettings = {
    * even when mode is "incremental". They will fall back to standard queries.
    */
   excludedExperimentIds?: string[];
+  /**
+   * Experiments explicitly opted into incremental refresh while the data
+   * source's default `mode` is not `"incremental"` (typically `"ephemeral"`).
+   * Ignored when `mode === "incremental"` — use `includedExperimentIds` /
+   * `excludedExperimentIds` for per-experiment scoping in that mode.
+   *
+   * If incremental fails at run time, these experiments fall back to whatever
+   * `mode` says. The incremental write configuration (writeDataset, etc.)
+   * must still be valid; the UI enforces this by running the incremental
+   * validation probes whenever this list is non-empty.
+   */
+  incrementalOptInExperimentIds?: string[];
 };
 
 export type MaterializedColumnType = "" | "identifier" | "dimension";

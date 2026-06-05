@@ -5,6 +5,7 @@ import {
   paginationQueryFields,
   skipPaginationQueryField,
   apiPaginationFieldsValidator,
+  booleanQueryField,
 } from "./shared";
 import {
   inlineRampScheduleInput,
@@ -12,7 +13,7 @@ import {
   revisionVersionParam,
 } from "./feature-revisions";
 import { apiFeatureRevisionV2Validator } from "./features-v2";
-import { JSONSchemaDef, revisionStatusSchema } from "./features";
+import { JSONSchemaDef, revisionStatusFilterSchema } from "./features";
 import { ownerInputField } from "./owner-field";
 import { namedSchema } from "./openapi-helpers";
 
@@ -46,16 +47,6 @@ const newDraftMetadataFields = {
 // ---- Shared response schemas ----
 
 const revisionResponse = z.object({ revision: apiFeatureRevisionV2Validator });
-
-const booleanQueryField = z
-  .union([
-    z.literal("true"),
-    z.literal("false"),
-    z.literal("0"),
-    z.literal("1"),
-    z.boolean(),
-  ])
-  .optional();
 
 // Mirrors MergeConflict in shared/util/features.ts.
 const mergeConflictSchema = z
@@ -165,6 +156,12 @@ const targetingRuleCreateInputV2 = namedSchema(
           "Attribute to hash on for consistent assignment. Required when coverage < 1.",
         ),
       seed: z.string().optional(),
+      hashVersion: z
+        .union([z.literal(1), z.literal(2)])
+        .describe(
+          "Hash algorithm version for bucketing. Defaults to 2 (preferred) when not specified.",
+        )
+        .optional(),
     })
     .strict()
     .describe(
@@ -212,7 +209,7 @@ const safeRolloutCreateInputV2 = namedSchema(
         .object({
           datasourceId: z.string(),
           exposureQueryId: z.string(),
-          guardrailMetricIds: z.array(z.string()),
+          guardrailMetricIds: z.array(z.string()).min(1),
           maxDuration: z
             .object({
               amount: z.number().positive(),
@@ -261,6 +258,7 @@ const rulePatchSchemaV2 = z
     coverage: z.number().min(0).max(1).optional(),
     hashAttribute: z.string().optional(),
     seed: z.string().optional(),
+    hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
     experimentId: z.string().optional(),
     variations: z
       .array(z.object({ variationId: z.string(), value: z.string() }).strict())
@@ -298,7 +296,7 @@ export const getFeatureRevisionLatestV2Validator = {
   operationId: "getFeatureRevisionLatestV2",
   summary: "Get the most recent active draft revision",
   description:
-    "Returns the most recently updated draft revision for the feature. Returns 404 if there is no active draft.",
+    "Returns the most recently updated active draft revision for the feature. Returns 404 if no matching draft exists. Filter by status, author, or use `mine=true` to scope to the calling user's own drafts.",
   tags: ["feature-revisions-v2"],
   paramsSchema: idParams,
   bodySchema: z.never(),
@@ -307,6 +305,11 @@ export const getFeatureRevisionLatestV2Validator = {
       mine: booleanQueryField.describe(
         "If true, return only the most recent active draft authored by or contributed to by the calling user.",
       ),
+      status: revisionStatusFilterSchema,
+      author: z
+        .string()
+        .optional()
+        .describe("Filter to drafts created by this user (userId)."),
     })
     .strict(),
   responseSchema: revisionResponse,
@@ -485,11 +488,21 @@ export const putFeatureRevisionPrerequisitesV2Validator = {
   path: "/features/:id/revisions/:version/prerequisites",
   operationId: "putFeatureRevisionPrerequisitesV2",
   summary: "Set feature-level prerequisites in a draft revision",
+  description:
+    "Sets the feature-level prerequisites for this revision. Each prerequisite must be a boolean feature flag; the gate is always 'prerequisite flag is on'. The condition is applied automatically — only the flag ID is required.",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParams,
   bodySchema: z
     .object({
-      prerequisites: z.array(featurePrerequisite),
+      prerequisites: z
+        .array(
+          z
+            .object({ id: z.string().describe("ID of a boolean feature flag") })
+            .strict(),
+        )
+        .describe(
+          "List of prerequisite boolean flags. When any prerequisite flag is off for a user, this flag returns its defaultValue for that user.",
+        ),
       ...newDraftMetadataFields,
     })
     .strict(),
@@ -664,7 +677,7 @@ export const putFeatureRevisionRuleRampScheduleV2Validator = {
   operationId: "putFeatureRevisionRuleRampScheduleV2",
   summary: "Set ramp schedule for a rule",
   description:
-    'Creates or replaces the pending ramp schedule for a rule. The rule will show `pendingRamp: "create"` in subsequent GET responses. The ramp is created when the revision is published. If the rule already has a live ramp schedule, this endpoint returns an error — update the live schedule via `PUT /api/v1/ramp-schedules/{id}` instead.',
+    "Queues a revision-controlled ramp action for this rule. If the rule already has a live ramp schedule, this stores an `update` action applied on publish; otherwise it stores a `create` action. No live schedule config changes are applied immediately by this endpoint.",
   tags: ["feature-revisions-v2"],
   paramsSchema: ruleParams,
   bodySchema: standaloneRampScheduleInput.extend(newDraftMetadataFields),
@@ -707,10 +720,13 @@ export const listRevisionsV2Validator = {
       ...paginationQueryFields,
       ...skipPaginationQueryField,
       featureId: z.string().optional(),
-      status: revisionStatusSchema.optional(),
+      status: revisionStatusFilterSchema,
       author: z.string().optional(),
       mine: booleanQueryField.describe(
         "If true, return only revisions authored by or contributed to by the calling user.",
+      ),
+      archived: booleanQueryField.describe(
+        "Whether to include revisions for archived features. Defaults to `false` (non-archived features only). Pass `true` to include revisions for archived features alongside non-archived ones.",
       ),
     })
     .strict(),

@@ -9,13 +9,14 @@ import {
   getActiveFeatureUsageQuery,
   isEventForwarderManagedFeatureUsageQuery,
 } from "shared/util";
-import { Box, Flex, Heading } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Code from "@/components/SyntaxHighlighting/Code";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import Heading from "@/ui/Heading";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { FeatureEvaluationQueryModal } from "./FeatureEvaluationQueryModal";
 
@@ -114,44 +115,42 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
       <Flex align="center" gap="2" mb="3" justify="between">
         <Box>
           <Flex align="center" gap="3" mb="0">
-            <Heading as="h3" size="4" mb="0">
+            <Heading as="h3" size="medium">
               Feature Usage Query
             </Heading>
           </Flex>
         </Box>
 
-        {canEdit && (
-          <Flex gap="2">
-            {!featureUsageQuery && (
-              <Button onClick={() => setUiMode("add")}>
-                <FaPlus className="mr-1" /> Add
-              </Button>
-            )}
-            {featureUsageQuery && !isManagedQuery && (
-              <MoreMenu>
-                <button
-                  className="dropdown-item py-2"
-                  onClick={() => setUiMode("edit")}
-                >
-                  Edit Query
-                </button>
+        {!featureUsageQuery && (
+          <Box>
+            <Button onClick={() => setUiMode("add")} disabled={!canEdit}>
+              <FaPlus className="mr-1" /> Add
+            </Button>
+          </Box>
+        )}
+        {canEdit && featureUsageQuery && (
+          <MoreMenu>
+            <button
+              className="dropdown-item py-2"
+              onClick={() => setUiMode("edit")}
+            >
+              Edit Query
+            </button>
 
-                <hr className="dropdown-divider" />
-                <DeleteButton
-                  onClick={handleActionDeleteClicked()}
-                  className="dropdown-item text-danger py-2"
-                  iconClassName="mr-2"
-                  style={{ borderRadius: 0 }}
-                  useIcon={false}
-                  displayName={"Feature Usage Query"}
-                  deleteMessage={`Are you sure you want to delete this feature usage query?`}
-                  title="Delete"
-                  text="Delete"
-                  outline={false}
-                />
-              </MoreMenu>
-            )}
-          </Flex>
+            <hr className="dropdown-divider" />
+            <DeleteButton
+              onClick={handleActionDeleteClicked()}
+              className="dropdown-item text-danger py-2"
+              iconClassName="mr-2"
+              style={{ borderRadius: 0 }}
+              useIcon={false}
+              displayName={"Feature Usage Query"}
+              deleteMessage={`Are you sure you want to delete this feature usage query?`}
+              title="Delete"
+              text="Delete"
+              outline={false}
+            />
+          </MoreMenu>
         )}
       </Flex>
       <p>

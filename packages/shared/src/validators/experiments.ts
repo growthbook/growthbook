@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { statsEngines } from "shared/constants";
+import {
+  statsEngines,
+  MAX_PRECOMPUTED_UNIT_DIMENSIONS,
+  MAX_DESCRIPTION_LENGTH,
+} from "shared/constants";
 import {
   namespaceValue,
   featurePrerequisite,
@@ -8,7 +12,12 @@ import {
   apiPaginationFieldsValidator,
 } from "./shared";
 import { windowTypeValidator } from "./fact-table";
-import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
+import {
+  ownerEmailField,
+  ownerField,
+  ownerInputField,
+  optionalOwnerInputField,
+} from "./owner-field";
 
 import { namedSchema } from "./openapi-helpers";
 
@@ -21,6 +30,8 @@ export const customMetricSlice = z.object({
   ),
 });
 export type CustomMetricSlice = z.infer<typeof customMetricSlice>;
+
+const maxPrecomputedUnitDimensionsError = `A maximum of ${MAX_PRECOMPUTED_UNIT_DIMENSIONS} precomputed unit dimensions are allowed`;
 
 export const experimentResultsType = [
   "dnf",
@@ -112,7 +123,7 @@ export const screenshot = z
     path: z.string(),
     width: z.number().optional(),
     height: z.number().optional(),
-    description: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   })
   .strict();
 export type Screenshot = z.infer<typeof screenshot>;
@@ -121,7 +132,7 @@ export const variation = z
   .object({
     id: z.string(),
     name: z.string(),
-    description: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     key: z.string(),
     screenshots: z.array(screenshot),
   })
@@ -161,6 +172,7 @@ export const experimentNotification = [
   "auto-update",
   "multiple-exposures",
   "srm",
+  "no-data",
   "significance",
 ] as const;
 export type ExperimentNotification = (typeof experimentNotification)[number];
@@ -372,7 +384,7 @@ export const experimentInterface = z
     dateCreated: z.date(),
     dateUpdated: z.date(),
     tags: z.array(z.string()),
-    description: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     hypothesis: z.string().optional(),
     /** @deprecated related to HypGen */
     autoAssign: z.boolean(),
@@ -430,6 +442,10 @@ export const experimentInterface = z
     nextScheduledStatusUpdate: nextScheduledStatusUpdateValidator
       .optional()
       .nullable(),
+    precomputedUnitDimensionIds: z
+      .array(z.string())
+      .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
+      .optional(),
   })
   .strict()
   .merge(experimentAnalysisSettings);
@@ -654,7 +670,7 @@ const apiExperimentVariation = z.object({
   variationId: z.string(),
   key: z.string(),
   name: z.string(),
-  description: z.string(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH),
   screenshots: z.array(z.string()),
 });
 
@@ -750,7 +766,7 @@ const apiExperimentShape = z.object({
   type: z.enum(["standard", "multi-armed-bandit", "holdout"]),
   project: z.string(),
   hypothesis: z.string(),
-  description: z.string(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH),
   tags: z.array(z.string()),
   owner: ownerField,
   ownerEmail: ownerEmailField,
@@ -780,6 +796,10 @@ const apiExperimentShape = z.object({
   hasURLRedirects: z.boolean().optional(),
   customFields: z.record(z.string(), z.any()).optional(),
   customMetricSlices: apiCustomMetricSlices.optional(),
+  precomputedUnitDimensionIds: z
+    .array(z.string())
+    .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
+    .optional(),
   defaultDashboardId: z
     .string()
     .describe("ID of the default dashboard for this experiment.")
@@ -962,14 +982,14 @@ const apiVariationInput = z.object({
   id: z.string().optional(),
   key: z.string(),
   name: z.string(),
-  description: z.string().optional(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   screenshots: z
     .array(
       z.object({
         path: z.string(),
         width: z.number().optional(),
         height: z.number().optional(),
-        description: z.string().optional(),
+        description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
       }),
     )
     .optional(),
@@ -1050,6 +1070,7 @@ const postExperimentBody = z
     hypothesis: z.string().describe("Hypothesis of the experiment").optional(),
     description: z
       .string()
+      .max(MAX_DESCRIPTION_LENGTH)
       .describe("Description of the experiment")
       .optional(),
     tags: z.array(z.string()).optional(),
@@ -1068,7 +1089,7 @@ const postExperimentBody = z
       .string()
       .describe("WHERE clause to add to the default experiment query")
       .optional(),
-    owner: ownerInputField.optional(),
+    owner: optionalOwnerInputField,
     archived: z.boolean().optional(),
     status: z.enum(experimentStatus).optional(),
     autoRefresh: z.boolean().optional(),
@@ -1129,6 +1150,13 @@ const postExperimentBody = z
       .optional(),
     customFields: z.record(z.string(), z.string()).optional(),
     customMetricSlices: apiCustomMetricSlices.optional(),
+    precomputedUnitDimensionIds: z
+      .array(z.string())
+      .describe(
+        "A list of unit dimension ids that will be calculated every update and generate timeseries data. Requires the datasource to have pipeline mode enabled.",
+      )
+      .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
+      .optional(),
     statusUpdateSchedule: apiStatusUpdateSchedule.optional(),
   })
   .strict();
@@ -1159,6 +1187,7 @@ const updateExperimentBody = z
     hypothesis: z.string().describe("Hypothesis of the experiment").optional(),
     description: z
       .string()
+      .max(MAX_DESCRIPTION_LENGTH)
       .describe("Description of the experiment")
       .optional(),
     tags: z.array(z.string()).optional(),
@@ -1308,6 +1337,13 @@ const updateExperimentBody = z
         "Schedule a future start for a draft experiment. Set to `null` to remove the schedule. Provide `{ startAt }` to set or update it. Only `startAt` is currently supported.",
       )
       .nullable()
+      .optional(),
+    precomputedUnitDimensionIds: z
+      .array(z.string())
+      .describe(
+        "A list of unit dimension ids that will be calculated every update and generate timeseries data. Requires the datasource to have pipeline mode enabled.",
+      )
+      .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
       .optional(),
   })
   .strict();
@@ -1721,6 +1757,7 @@ export const postVariationImageUploadValidator = {
         .describe("MIME type of the screenshot"),
       description: z
         .string()
+        .max(MAX_DESCRIPTION_LENGTH)
         .describe("Optional description for the screenshot")
         .optional(),
     })
@@ -1731,7 +1768,10 @@ export const postVariationImageUploadValidator = {
     .object({
       screenshot: z.object({
         path: z.string().describe("URL or path to the uploaded screenshot"),
-        description: z.string().describe("Description of the screenshot"),
+        description: z
+          .string()
+          .max(MAX_DESCRIPTION_LENGTH)
+          .describe("Description of the screenshot"),
       }),
     })
     .strict(),
