@@ -521,6 +521,8 @@ export function computeNextProcessAt(schedule: {
     }
     case "ready":
       return schedule.startDate ?? null;
+    case "paused":
+      return cutoff;
     default:
       return null;
   }
@@ -818,6 +820,9 @@ export async function advanceStep(
   const step = schedule.steps[nextStepIndex];
 
   if (!step) {
+    if (schedule.cutoffDate && schedule.cutoffDate > new Date()) {
+      return applyEndActionsAndAwaitCutoff(ctx, schedule);
+    }
     return completeRollout(ctx, schedule);
   }
 
@@ -1056,7 +1061,10 @@ export async function pauseSchedule(
     status: "paused",
     pausedAt: now,
     nextSnapshotAt: null,
-    nextProcessAt: null,
+    nextProcessAt: computeNextProcessAt({
+      status: "paused",
+      cutoffDate: schedule.cutoffDate,
+    }),
     eventHistory: appendRampEvent(schedule, "paused", {
       stepIndex: schedule.currentStepIndex,
       status: "paused",
@@ -1121,11 +1129,26 @@ export async function resumeSchedule(
           now,
         );
       } else {
-        // Already at the last step (nextStepIndex >= steps.length) with no
-        // nextStepAt — set it to now so advanceUntilBlocked can drive
-        // advanceStep → completeRollout rather than returning immediately on
-        // the !nextStepAt guard and stranding the schedule in "running" forever.
-        resumeUpdates.nextStepAt = now;
+        // At the last step (nextStepIndex >= steps.length) with no nextStepAt.
+        // If the current step has an interval, honour it so the step actually
+        // runs its hold time before advancing to completion. Otherwise set
+        // nextStepAt = now so advanceUntilBlocked finishes the schedule.
+        if (currentStep?.interval) {
+          const currentStepIndex = schedule.currentStepIndex;
+          let sumBefore = 0;
+          for (let i = 0; i < currentStepIndex; i++) {
+            sumBefore += schedule.steps[i]?.interval ?? 0;
+          }
+          const freshPhaseStart = new Date(now.getTime() - sumBefore * 1000);
+          resumeUpdates.phaseStartedAt = freshPhaseStart;
+          resumeUpdates.nextStepAt = computeNextStepAt(
+            { ...schedule, phaseStartedAt: freshPhaseStart },
+            currentStepIndex,
+            now,
+          );
+        } else {
+          resumeUpdates.nextStepAt = now;
+        }
       }
     }
   }
@@ -1520,6 +1543,70 @@ export async function jumpAheadToStep(
   await syncLinkedSafeRolloutForRampState(ctx, updated, "stopped");
 
   return updated;
+}
+
+/**
+ * Applies end-state patches (final coverage, etc.) and transitions the
+ * schedule to "running" so the cutoff-date-driven disable still fires.
+ *
+ * Shared by `advanceStep` (automatic) and `completeRampKeepCutoff` (manual).
+ */
+async function applyEndActionsAndAwaitCutoff(
+  ctx: ReqContext | ApiReqContext,
+  schedule: RampScheduleInterface,
+): Promise<RampScheduleInterface> {
+  const now = new Date();
+  const effective = computeEffectivePatch(schedule, schedule.steps.length);
+
+  const actionsToApply: RampStepAction[] = [...effective.entries()].map(
+    ([targetId, patch]) => ({
+      targetType: "feature-rule" as const,
+      targetId,
+      patch,
+    }),
+  );
+  if (actionsToApply.length > 0) {
+    await executeStepActions(
+      ctx,
+      schedule,
+      schedule.steps.length,
+      actionsToApply,
+    );
+  }
+
+  const pastEndIndex = schedule.steps.length;
+  const updated = await ctx.models.rampSchedules.updateById(schedule.id, {
+    status: "running",
+    currentStepIndex: pastEndIndex,
+    currentStepEnteredAt: now,
+    nextStepAt: null,
+    nextSnapshotAt: null,
+    nextProcessAt: computeNextProcessAt({
+      status: "running",
+      cutoffDate: schedule.cutoffDate,
+    }),
+    eventHistory: appendRampEvent(schedule, "step-advanced", {
+      stepIndex: pastEndIndex,
+      previousStepIndex: schedule.currentStepIndex,
+      status: "running",
+      previousStatus: schedule.status,
+    }),
+  });
+
+  await syncLinkedSafeRolloutForRampState(ctx, updated);
+  return updated;
+}
+
+/**
+ * Applies end-state patches but keeps the schedule "running" so the
+ * cutoff-date-driven disable still fires on time. Use when the user
+ * wants to skip remaining steps but honour the cutoff.
+ */
+export async function completeRampKeepCutoff(
+  ctx: ReqContext | ApiReqContext,
+  schedule: RampScheduleInterface,
+): Promise<RampScheduleInterface> {
+  return applyEndActionsAndAwaitCutoff(ctx, schedule);
 }
 
 export async function completeRollout(
