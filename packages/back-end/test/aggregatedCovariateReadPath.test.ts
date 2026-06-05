@@ -4,7 +4,10 @@ import { AggregatedFactTableInterface } from "shared/validators";
 import { FactMetricInterface } from "shared/types/fact-table";
 import BigQuery from "back-end/src/integrations/BigQuery";
 import { ApiReqContext } from "back-end/types/api";
-import { getMetricSettingsHashForAggregatedFactTable } from "back-end/src/enterprise/services/data-pipeline";
+import {
+  getFactTableSettingsHashForAggregatedFactTable,
+  getMetricSettingsHashForAggregatedFactTable,
+} from "back-end/src/enterprise/services/data-pipeline";
 import { getColumnsForMetric } from "back-end/src/integrations/sql/fact-metrics/columns-for-metric";
 import { resolveCovariateInsertPath } from "back-end/src/integrations/sql/fact-metrics/resolve-covariate-insert-path";
 import { factTableFactory } from "./factories/FactTable.factory";
@@ -77,7 +80,9 @@ function buildRegistry(
     lastMaxTimestamp: new Date(),
     firstEventDate: new Date("2023-01-01"),
     lastEventDate: new Date(),
-    factTableSettingsHash: "ft-hash",
+    factTableSettingsHash:
+      getFactTableSettingsHashForAggregatedFactTable(factTable),
+    inFlightExecutionId: null,
     metricState: metrics.map((m) => ({
       metricId: m.id,
       settingsHash: getMetricSettingsHashForAggregatedFactTable({
