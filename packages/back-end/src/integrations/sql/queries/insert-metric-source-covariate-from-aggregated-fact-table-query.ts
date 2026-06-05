@@ -11,6 +11,7 @@ import type {
 } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
 
+import { snapToUtcDayStart } from "shared/dates";
 import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure-query";
 import { parseExperimentFactMetricsParams } from "back-end/src/integrations/sql/fact-metrics/parse-experiment-fact-metrics-params";
 import { getMetricSourceCovariateTableColumns } from "back-end/src/integrations/sql/fact-metrics/metric-source-covariate-table-schema";
@@ -19,7 +20,6 @@ import { encodeMetricIdForColumnName } from "back-end/src/integrations/sql/fact-
 import { capCoalesceValue } from "back-end/src/integrations/sql/primitives/cap-coalesce-value";
 import { toTimestampWithMs } from "back-end/src/integrations/sql/primitives/to-timestamp-with-ms";
 import { toDateLiteral } from "back-end/src/integrations/sql/primitives/to-date-literal";
-import { snapToUtcDayStart } from "back-end/src/integrations/sql/dates/covariate-day-bounds";
 
 // Pre-aggregated covariate insert: re-aggregates a fact table's daily partials
 // over each metric's covariate window instead of scanning raw events. Gated by

@@ -50,14 +50,12 @@ import {
 import { logger } from "back-end/src/util/logger";
 import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
 import {
+  AggregatedFactTableStatus,
+  buildAggregatedFactTableStatus,
   getAggregatedFactTableMetrics,
   runAggregatedFactTableUpdate,
-} from "back-end/src/jobs/updateAggregatedFactTables";
-import {
-  AggregatedFactTableRestateReason,
-  buildAggregatedFactTableSchemaState,
-  getAggregatedFactTableRestateReason,
-} from "back-end/src/enterprise/services/data-pipeline";
+} from "back-end/src/services/aggregatedFactTables";
+import { buildAggregatedFactTableSchemaState } from "back-end/src/enterprise/services/data-pipeline";
 import { AggregatedFactTableQueryRunner } from "back-end/src/queryRunners/AggregatedFactTableQueryRunner";
 
 export const getFactTables = async (
@@ -464,27 +462,6 @@ export const deleteFactTable = async (
   });
 };
 
-type AggregatedFactTableMaterializationStatus =
-  | "running"
-  | "error"
-  | "pending"
-  | "active";
-
-type AggregatedFactTableStatus = {
-  idType: string;
-  status: AggregatedFactTableMaterializationStatus;
-  tableFullName: string | null;
-  firstEventDate: Date | null;
-  lastEventDate: Date | null;
-  lastMaxTimestamp: Date | null;
-  lastError: string | null;
-  dateUpdated: Date | null;
-  // true when the table is materialized but the next scheduled run will be
-  // forced to rebuild it (schema changed, or a prior run didn't finish cleanly).
-  pendingRestate: boolean;
-  pendingRestateReason: AggregatedFactTableRestateReason;
-};
-
 export const getAggregatedFactTables = async (
   req: AuthRequest<null, { id: string }>,
   res: Response<{
@@ -512,44 +489,14 @@ export const getAggregatedFactTables = async (
   const { factTableSettingsHash, metricState } =
     buildAggregatedFactTableSchemaState({ factTable, metrics });
 
-  // One row per configured id type, even if it has never been materialized yet.
   const aggregatedFactTables: AggregatedFactTableStatus[] = idTypes.map(
-    (idType) => {
-      const doc = byIdType.get(idType);
-      const status: AggregatedFactTableMaterializationStatus = !doc
-        ? "pending"
-        : doc.currentExecutionId
-          ? "running"
-          : doc.lastError
-            ? "error"
-            : doc.tableFullName
-              ? "active"
-              : "pending";
-
-      // Only meaningful for a materialized table that isn't mid-run; pending /
-      // running rows already rebuild (first run) or are in progress.
-      const pendingRestateReason: AggregatedFactTableRestateReason =
-        doc && status !== "running"
-          ? getAggregatedFactTableRestateReason({
-              registry: doc,
-              factTableSettingsHash,
-              metricState,
-            })
-          : null;
-
-      return {
+    (idType) =>
+      buildAggregatedFactTableStatus({
         idType,
-        status,
-        tableFullName: doc?.tableFullName ?? null,
-        firstEventDate: doc?.firstEventDate ?? null,
-        lastEventDate: doc?.lastEventDate ?? null,
-        lastMaxTimestamp: doc?.lastMaxTimestamp ?? null,
-        lastError: doc?.lastError ?? null,
-        dateUpdated: doc?.dateUpdated ?? null,
-        pendingRestate: pendingRestateReason !== null,
-        pendingRestateReason,
-      };
-    },
+        doc: byIdType.get(idType),
+        factTableSettingsHash,
+        metricState,
+      }),
   );
 
   const nextScheduledUpdate = factTable.aggregatedFactTableSettings
@@ -574,8 +521,6 @@ type AggregatedFactTableRunSummary = {
   queryIds: string[];
 };
 
-// Mirrors QueryRunner.getOverallQueryStatus so the history UI shows the same
-// status the runner used.
 function deriveRunStatus(
   queries: { status: QueryStatus }[],
   error: string | null,
@@ -591,9 +536,8 @@ function deriveRunStatus(
   const running = queries.filter((q) => q.status === "running").length;
   const queued = queries.filter((q) => q.status === "queued").length;
 
-  if (failed >= total / 2) return "failed";
   if (queued + running > 0) return "running";
-  if (failed > 0) return "partially-succeeded";
+  if (failed > 0) return "failed";
   return "succeeded";
 }
 

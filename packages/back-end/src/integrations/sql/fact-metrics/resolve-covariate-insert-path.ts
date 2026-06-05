@@ -10,6 +10,7 @@ import type {
 } from "shared/types/fact-table";
 import type { AggregatedFactTableMetricStateInterface } from "shared/validators";
 
+import { precedingUtcDayStart, snapToUtcDayStart } from "shared/dates";
 import { ApiReqContext } from "back-end/types/api";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import { getMetricSettingsHashForAggregatedFactTable } from "back-end/src/enterprise/services/data-pipeline";
@@ -18,10 +19,6 @@ import { canReAggregateDailyPartialsForCovariate } from "back-end/src/integratio
 import { getMetricMinDelay } from "back-end/src/integrations/sql/dates/metric-min-delay";
 import { getRaMetricPhaseStartSettings } from "back-end/src/integrations/sql/dates/ra-metric-phase-start-settings";
 import { processActivationMetric } from "back-end/src/integrations/sql/processing/process-activation-metric";
-import {
-  precedingUtcDayStart,
-  snapToUtcDayStart,
-} from "back-end/src/integrations/sql/dates/covariate-day-bounds";
 import { getMetricRegressionAdjustmentData } from "./metric-data";
 
 export const AGGREGATED_FACT_TABLE_COVARIATE_FRESHNESS_MS = 1000 * 60 * 60 * 36; // 36 hours

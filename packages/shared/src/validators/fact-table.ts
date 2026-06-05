@@ -76,10 +76,6 @@ export const updateColumnPropsValidator = z
   })
   .strict();
 
-// Settings for the shared daily aggregated fact table pipeline. Only the whole
-// object is optional; when present every field is required. `updateTime` is the
-// daily run time ("HH:mm", 24-hour) interpreted in `timezone` (IANA name);
-// `lookbackWindow` is the restate window in days.
 export const aggregatedFactTableSettingsValidator = z
   .object({
     idTypes: z.array(z.string()),

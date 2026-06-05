@@ -146,3 +146,14 @@ export function abbreviateAgo(date: string | Date | null | undefined): string {
     .replace(/second(s)?/g, "sec$1")
     .replace(/minute(s)?/g, "min$1");
 }
+
+export function snapToUtcDayStart(date: Date): Date {
+  const snapped = new Date(date);
+  snapped.setUTCHours(0, 0, 0, 0);
+  return snapped;
+}
+
+export function precedingUtcDayStart(date: Date): Date {
+  const dayStart = snapToUtcDayStart(date);
+  return new Date(dayStart.getTime() - 24 * 60 * 60 * 1000);
+}

@@ -1,7 +1,7 @@
 import { refreshAggregatedFactTableValidator } from "shared/validators";
 import { getFactTable } from "back-end/src/models/FactTableModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { runAggregatedFactTableUpdate } from "back-end/src/jobs/updateAggregatedFactTables";
+import { runAggregatedFactTableUpdate } from "back-end/src/services/aggregatedFactTables";
 
 export const refreshAggregatedFactTable = createApiRequestHandler(
   refreshAggregatedFactTableValidator,

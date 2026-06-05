@@ -82,9 +82,7 @@ export interface FactTableInterface {
   archived?: boolean;
   timestampColumn?: string;
   autoSliceUpdatesEnabled?: boolean;
-  // Settings for the shared daily aggregated-fact-table pipeline (identifier
-  // types to materialize, daily update time + timezone, and restate lookback
-  // window). Null/undefined means the pipeline is disabled for this fact table.
+  // Null/undefined means the pipeline is disabled for this fact table.
   aggregatedFactTableSettings?: z.infer<
     typeof aggregatedFactTableSettingsValidator
   > | null;

@@ -11,6 +11,7 @@ import type {
 } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
 
+import { snapToUtcDayStart } from "shared/dates";
 import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure-query";
 import { getFactMetricCTE } from "back-end/src/integrations/sql/ctes/fact-metric-cte";
 import { getIdentitiesCTE } from "back-end/src/integrations/sql/ctes/identities-cte";
@@ -19,7 +20,6 @@ import { getMetricSourceCovariateTableColumns } from "back-end/src/integrations/
 import { encodeMetricIdForColumnName } from "back-end/src/integrations/sql/fact-metrics/encode-metric-id-for-column-name";
 import { capCoalesceValue } from "back-end/src/integrations/sql/primitives/cap-coalesce-value";
 import { toTimestampWithMs } from "back-end/src/integrations/sql/primitives/to-timestamp-with-ms";
-import { snapToUtcDayStart } from "back-end/src/integrations/sql/dates/covariate-day-bounds";
 
 // Legacy covariate insert: scans raw fact-table events over the covariate
 // window and aggregates them per unit. Used whenever the pre-aggregated table
