@@ -11840,7 +11840,7 @@ paths:
   /v1/contextual-bandits/{id}/current:
     get:
       operationId: getCbCurrent
-      summary: Get current Contextual Bandit phase weights and latest event
+      summary: Get current Contextual Bandit leaf weights and latest event
       tags:
         - contextual-bandits
       parameters:
@@ -11858,10 +11858,10 @@ paths:
               schema:
                 type: object
                 properties:
-                  phaseWeights:
+                  currentLeafWeights:
                     type: array
                     items:
-                      $ref: '#/components/schemas/phaseWeights'
+                      $ref: '#/components/schemas/currentLeafWeights'
                   latestEvent:
                     anyOf:
                       - type: object
@@ -11870,8 +11870,6 @@ paths:
                             type: string
                           contextualBandit:
                             type: string
-                          phase:
-                            type: number
                           snapshotId:
                             type: string
                           weightsWereUpdated:
@@ -11881,7 +11879,6 @@ paths:
                         required:
                           - id
                           - contextualBandit
-                          - phase
                           - snapshotId
                           - weightsWereUpdated
                           - dateCreated
@@ -12053,8 +12050,8 @@ paths:
       summary: Get latest Contextual Bandit results
       description: >-
         Returns the latest contextual-bandit stats engine output and the status
-        of the most recent snapshot run for the CB's current phase. Same payload
-        the GrowthBook UI uses to render the CB results table.
+        of the most recent snapshot run for the CB. Same payload the GrowthBook
+        UI uses to render the CB results table.
       tags:
         - contextual-bandits
       parameters:
@@ -26284,26 +26281,30 @@ paths:
                     - draft
                     - running
                     - stopped
-                variationWeights: {}
+                coverage:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+                condition:
+                  type: string
+                seed:
+                  type: string
+                variationWeights:
+                  type: array
+                  items:
+                    type: number
                 customMetricSlices: {}
                 winner: {}
                 results: {}
                 analysis: {}
                 releasedVariationId: {}
                 excludeFromPayload: {}
-                condition: {}
                 savedGroups: {}
                 prerequisites: {}
-                coverage: {}
                 namespace: {}
-                seed: {}
                 bucketVersion: {}
                 minBucketVersion: {}
-                phaseDateStarted: {}
-                reseed: {}
                 changeType: {}
-                newPhase: {}
-                reseedRecommended: {}
               additionalProperties: false
       responses:
         '200':
@@ -41509,49 +41510,32 @@ components:
           type: boolean
         regressionAdjustmentEnabled:
           type: boolean
-        phases:
+        coverage:
+          type: number
+          minimum: 0
+          maximum: 1
+        condition:
+          type: string
+        seed:
+          type: string
+        variationWeights:
+          type: array
+          items:
+            type: number
+        currentLeafWeights:
           type: array
           items:
             type: object
             properties:
-              dateStarted:
+              contextId:
                 type: string
-                format: date-time
-              dateEnded:
-                anyOf:
-                  - type: string
-                    format: date-time
-                  - type: 'null'
-              coverage:
-                type: number
-                minimum: 0
-                maximum: 1
-              condition:
-                type: string
-              seed:
-                type: string
-              variationWeights:
+              weights:
                 type: array
                 items:
                   type: number
-              currentLeafWeights:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    contextId:
-                      type: string
-                    weights:
-                      type: array
-                      items:
-                        type: number
-                  required:
-                    - contextId
-                    - weights
-                  additionalProperties: false
             required:
-              - dateStarted
-              - currentLeafWeights
+              - contextId
+              - weights
             additionalProperties: false
         contextualAttributes:
           type: array
@@ -41596,7 +41580,7 @@ components:
         - goalMetrics
         - secondaryMetrics
         - guardrailMetrics
-        - phases
+        - currentLeafWeights
         - contextualAttributes
         - maxContexts
         - treeModel
@@ -44349,7 +44333,7 @@ components:
         - id
         - name
       additionalProperties: false
-    phaseWeights:
+    currentLeafWeights:
       type: object
       properties:
         contextId:
@@ -44369,8 +44353,6 @@ components:
           type: string
         contextualBandit:
           type: string
-        phase:
-          type: number
         status:
           type: string
           enum:
@@ -44392,7 +44374,6 @@ components:
       required:
         - id
         - contextualBandit
-        - phase
         - status
         - dateCreated
       additionalProperties: false
@@ -44403,8 +44384,6 @@ components:
           type: string
         contextualBandit:
           type: string
-        phase:
-          type: number
         snapshotId:
           type: string
         weightsWereUpdated:
@@ -44414,7 +44393,6 @@ components:
       required:
         - id
         - contextualBandit
-        - phase
         - snapshotId
         - weightsWereUpdated
         - dateCreated

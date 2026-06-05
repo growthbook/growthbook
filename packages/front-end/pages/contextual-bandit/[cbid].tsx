@@ -53,17 +53,21 @@ function contextualBanditToExperimentShape(
     disableStickyBucketing: cb.disableStickyBucketing,
     // CB API omits `screenshots`; default to [] so experiment-shape consumers don't throw.
     variations: cb.variations.map((v) => ({ ...v, screenshots: [] })),
-    phases: cb.phases.map((p) => ({
-      dateStarted: p.dateStarted,
-      dateEnded: p.dateEnded ?? undefined,
-      name: "Main",
-      reason: "",
-      coverage: p.coverage ?? 1,
-      condition: p.condition ?? "",
-      variationWeights: p.variationWeights ?? cb.variations.map(() => 1),
-      variations: cb.variations.map((v) => ({ id: v.id })),
-      seed: p.seed,
-    })),
+    // CB doc no longer carries a `phases` array; synthesize a single-element phase from the
+    // lifted root fields so legacy experiment-form components on this page keep working.
+    phases: [
+      {
+        dateStarted: cb.dateStarted ?? cb.dateCreated,
+        dateEnded: cb.dateStopped ?? undefined,
+        name: "Main",
+        reason: "",
+        coverage: cb.coverage ?? 1,
+        condition: cb.condition ?? "",
+        variationWeights: cb.variationWeights ?? cb.variations.map(() => 1),
+        variations: cb.variations.map((v) => ({ id: v.id })),
+        seed: cb.seed,
+      },
+    ],
     datasource: cb.datasource,
     exposureQueryId: cb.exposureQueryId,
     segment: cb.segment,

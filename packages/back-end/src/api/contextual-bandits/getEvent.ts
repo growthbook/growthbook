@@ -6,11 +6,10 @@ export const getCbEvent = createApiRequestHandler(getCbEventValidator)(async (
   req,
 ) => {
   const { cb } = await loadCbForRead(req.context, req.params.id);
-  // No getById on events; pull the recent window for the current phase and filter.
+  // No getById on events; pull the recent window and filter.
   const events =
     await req.context.models.contextualBanditEvents.listForContextualBandit(
       cb.id,
-      cb.phases.length - 1,
       100,
     );
   const event = events.find((e) => e.id === req.params.eventId);
@@ -21,7 +20,6 @@ export const getCbEvent = createApiRequestHandler(getCbEventValidator)(async (
     event: {
       id: event.id,
       contextualBandit: event.contextualBandit,
-      phase: event.phase,
       snapshotId: event.snapshotId,
       weightsWereUpdated: event.weightsWereUpdated,
       dateCreated: event.dateCreated.toISOString(),

@@ -175,9 +175,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
     const cb = await this.loadCbDoc();
     const currentWeightsByContext: Record<string, number[]> =
       Object.fromEntries(
-        (cb.phases[this.snapshotSettings.phase]?.currentLeafWeights ?? []).map(
-          (lw) => [lw.contextId, lw.weights],
-        ),
+        (cb.currentLeafWeights ?? []).map((lw) => [lw.contextId, lw.weights]),
       );
 
     const variationsForStats = this.snapshotSettings.variations.map((v, i) => ({
@@ -187,7 +185,6 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
 
     const statsSettings = getContextualBanditSettingsForStatsEngine(
       cb,
-      this.snapshotSettings.phase,
       variationsForStats,
       currentWeightsByContext,
     );
@@ -213,12 +210,14 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       (sum, v) => sum + v.weight,
       0,
     );
-    const phaseStart = new Date(this.snapshotSettings.startDate).getTime();
-    const phaseEnd = this.snapshotSettings.endDate
+    // Analysis-window dates carry forward from the frozen snapshot settings; when the CB has not
+    // stopped yet, `endDate` is null and we fall back to "now" for length computation.
+    const windowStart = new Date(this.snapshotSettings.startDate).getTime();
+    const windowEnd = this.snapshotSettings.endDate
       ? new Date(this.snapshotSettings.endDate).getTime()
       : Date.now();
-    const phaseLengthDays = Math.max(
-      (phaseEnd - phaseStart) / (1000 * 60 * 60 * 24),
+    const windowLengthDays = Math.max(
+      (windowEnd - windowStart) / (1000 * 60 * 60 * 24),
       1 / 24,
     );
 
@@ -235,7 +234,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
         weight: v.weight,
       })),
       coverage,
-      phaseLengthDays,
+      phaseLengthDays: windowLengthDays,
     });
   }
 

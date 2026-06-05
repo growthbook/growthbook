@@ -31,7 +31,7 @@ const BaseClass = MakeModelClass({
   collectionName: "contextualbandits",
   idPrefix: "cb_",
   globallyUniquePrimaryKeys: true,
-  // Defaults so the REST create can omit fields the schema requires (tree config, holdout, phases, …).
+  // Defaults so the REST create can omit fields the schema requires (tree config, holdout, leaf weights, …).
   defaultValues: {
     holdoutPercent: 0,
     disableStickyBucketing: false,
@@ -41,6 +41,7 @@ const BaseClass = MakeModelClass({
     minUsersPerLeaf: 100,
     maxLeaves: 12,
     canonicalFormVersion: 1,
+    currentLeafWeights: [],
   },
   auditLog: {
     entity: "contextualBandit",
@@ -117,11 +118,7 @@ const BaseClass = MakeModelClass({
           if (!req.context.permissions.canRunContextualBandit(cb, envs)) {
             req.context.permissions.throwPermissionError();
           }
-          if (!cb.phases.length) {
-            throw new Error("Contextual Bandit has no phases");
-          }
-          const phase = cb.phases.length - 1;
-          return runContextualBanditSnapshot(req.context, cb, phase, {
+          return runContextualBanditSnapshot(req.context, cb, {
             triggeredBy: "manual",
           });
         },
@@ -171,15 +168,11 @@ export function toApiContextualBandit(
     attributionModel: doc.attributionModel,
     skipPartialData: doc.skipPartialData,
     regressionAdjustmentEnabled: doc.regressionAdjustmentEnabled,
-    phases: doc.phases.map((p) => ({
-      dateStarted: p.dateStarted.toISOString(),
-      dateEnded: p.dateEnded ? p.dateEnded.toISOString() : p.dateEnded,
-      coverage: p.coverage,
-      condition: p.condition,
-      seed: p.seed,
-      variationWeights: p.variationWeights,
-      currentLeafWeights: p.currentLeafWeights,
-    })),
+    coverage: doc.coverage,
+    condition: doc.condition,
+    seed: doc.seed,
+    variationWeights: doc.variationWeights,
+    currentLeafWeights: doc.currentLeafWeights ?? [],
     contextualAttributes: doc.contextualAttributes,
     decisionMetric: doc.decisionMetric,
     maxContexts: doc.maxContexts,
@@ -256,8 +249,9 @@ export class ContextualBanditModel extends BaseClass {
       status: "draft" as const,
       secondaryMetrics: body.secondaryMetrics ?? [],
       guardrailMetrics: body.guardrailMetrics ?? [],
-      // Seed an open phase so the CB has somewhere to record `currentLeafWeights` once it starts.
-      phases: [{ dateStarted: new Date(), currentLeafWeights: [] }],
+      // The CB starts with no leaf weights; the first successful snapshot writes them at root.
+      // `dateStarted` is intentionally left unset until the lifecycle `start` action runs.
+      currentLeafWeights: [],
       defaultMetricPriorSettings: orgPrior ?? {
         override: false,
         proper: false,
@@ -314,6 +308,7 @@ export class ContextualBanditModel extends BaseClass {
         stddev: 0.1,
       },
       contextualAttributes: doc.contextualAttributes ?? [],
+      currentLeafWeights: doc.currentLeafWeights ?? [],
     } as ContextualBanditInterface;
   }
 
@@ -339,20 +334,22 @@ export class ContextualBanditModel extends BaseClass {
     return this.context.permissions.canDeleteContextualBandit(doc);
   }
 
-  /** Atomically update `phases[i].currentLeafWeights` via positional `$set` so concurrent refreshes can't lose writes. */
-  public async patchPhaseWeights(
+  /**
+   * Atomically replace `currentLeafWeights` at the document root.
+   *
+   * The single-document `$set` is concurrency-safe under simultaneous refreshes (last-writer-wins
+   * on the field, same semantics as the legacy positional phases-array update).
+   *
+   * Callers MUST preserve the project-wide write ordering for snapshot success (CBE → CB-patch → CBS-success)
+   * so a crashed refresh can't leave inconsistent leaf weights vs. the snapshot status.
+   */
+  public async patchLeafWeights(
     cbId: string,
-    phaseIndex: number,
     leafWeights: LeafWeight[],
   ): Promise<ContextualBanditInterface> {
     const existing = await this.getById(cbId);
     if (!existing) {
       throw new Error(`ContextualBandit not found: ${cbId}`);
-    }
-    if (phaseIndex < 0 || phaseIndex >= existing.phases.length) {
-      throw new Error(
-        `Phase index ${phaseIndex} out of range (0..${existing.phases.length - 1})`,
-      );
     }
     // Re-assert canUpdate because the atomic write below bypasses BaseModel.updateById's gate.
     if (!this.canUpdate(existing)) {
@@ -365,19 +362,17 @@ export class ContextualBanditModel extends BaseClass {
       {
         organization: this.context.org.id,
         id: cbId,
-        // Guard against the phase being removed between the bounds check and this write.
-        [`phases.${phaseIndex}`]: { $exists: true },
       },
       {
         $set: {
-          [`phases.${phaseIndex}.currentLeafWeights`]: leafWeights,
+          currentLeafWeights: leafWeights,
           dateUpdated: now,
         },
       },
     );
     if (res.matchedCount === 0) {
       throw new Error(
-        `ContextualBandit ${cbId} phases[${phaseIndex}] could not be updated`,
+        `ContextualBandit ${cbId} currentLeafWeights could not be updated`,
       );
     }
 

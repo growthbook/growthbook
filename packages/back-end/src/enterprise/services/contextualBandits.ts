@@ -63,16 +63,11 @@ export async function getContextualBanditResultsForUi(
   context: ReqContext,
   cb: ContextualBanditInterface,
 ): Promise<ContextualBanditResultsForUi> {
-  const phase = Math.max(0, cb.phases.length - 1);
   const [latestCbs, latestCbe] = await Promise.all([
     context.models.contextualBanditSnapshots.getLatestForContextualBandit(
       cb.id,
-      phase,
     ),
-    context.models.contextualBanditEvents.getLatestForContextualBandit(
-      cb.id,
-      phase,
-    ),
+    context.models.contextualBanditEvents.getLatestForContextualBandit(cb.id),
   ]);
 
   const contextualBanditSnapshot: ContextualBanditSnapshot | null = latestCbe
@@ -94,7 +89,6 @@ export async function getContextualBanditResultsForUi(
 export async function runContextualBanditSnapshot(
   context: ApiReqContext,
   cb: ContextualBanditInterface,
-  phase: number,
   opts: { triggeredBy: "manual" | "scheduled"; triggeredByUser?: string },
 ): Promise<{ snapshotId: string; cbeId?: string }> {
   // Defense-in-depth: re-check licensing so background jobs / internal callers can't bypass.
@@ -119,14 +113,12 @@ export async function runContextualBanditSnapshot(
 
   const snapshotSettings = buildContextualBanditSnapshotSettings(
     cb,
-    phase,
     eaq,
     regressionAdjustmentEnabled,
   );
 
   const cbs = await context.models.contextualBanditSnapshots.create({
     contextualBandit: cb.id,
-    phase,
     status: "running",
     queries: [],
     runStarted: null,
@@ -218,7 +210,7 @@ export async function persistContextualBanditEvent(
     throw new Error(`No CB doc for ${cbs.contextualBandit}`);
   }
 
-  const currentLeafWeights = cb.phases[cbs.phase]?.currentLeafWeights ?? [];
+  const currentLeafWeights = cb.currentLeafWeights ?? [];
   const weightsWereUpdated = contextualBanditWeightsWereUpdated(
     result,
     cb.id,
@@ -228,7 +220,6 @@ export async function persistContextualBanditEvent(
 
   const cbe = await context.models.contextualBanditEvents.create({
     contextualBandit: cb.id,
-    phase: cbs.phase,
     snapshotId: cbs.id,
     attributes: result.attributes,
     responses: result.responses,
@@ -238,11 +229,7 @@ export async function persistContextualBanditEvent(
   });
 
   if (leafWeights.length > 0) {
-    await context.models.contextualBandits.patchPhaseWeights(
-      cb.id,
-      cbs.phase,
-      leafWeights,
-    );
+    await context.models.contextualBandits.patchLeafWeights(cb.id, leafWeights);
   }
 
   const payloadKeys = getPayloadKeysForContextualBandit(context, cb);
@@ -281,18 +268,15 @@ export function attributesToCondition(
 /** Builds the frozen snapshot settings stored on CBS so the run is reproducible if the parent CB mutates. */
 export function buildContextualBanditSnapshotSettings(
   cb: ContextualBanditInterface,
-  phase: number,
   exposureQuery: ExposureQuery,
   regressionAdjustmentEnabled: boolean,
 ): ContextualBanditSnapshotSettings {
-  const cbPhase = cb.phases[phase];
   const numVariations = cb.variations?.length || 1;
 
   return {
     experimentId: cb.id,
     trackingKey: cb.trackingKey || cb.id,
     contextualBanditId: cb.id,
-    phase,
 
     datasourceId: cb.datasourceId,
     exposureQueryId: cb.exposureQueryId,
@@ -308,7 +292,7 @@ export function buildContextualBanditSnapshotSettings(
     // Falls back to an even split when `variationWeights` hasn't been populated yet.
     variations: (cb.variations ?? []).map((v, i) => ({
       id: v.id,
-      weight: cbPhase?.variationWeights?.[i] ?? 1 / numVariations,
+      weight: cb.variationWeights?.[i] ?? 1 / numVariations,
     })),
 
     maxContexts: cb.maxContexts,
@@ -323,10 +307,11 @@ export function buildContextualBanditSnapshotSettings(
 
     regressionAdjustmentEnabled,
 
-    startDate: cbPhase?.dateStarted ?? new Date(),
-    endDate: cbPhase?.dateEnded ?? null,
+    startDate: cb.dateStarted ?? new Date(),
+    endDate: cb.dateStopped ?? null,
     reweight: true,
-    banditWeightsSeed: phase,
+    // Single-phase CB: seed is a fixed 0. A future stored `banditSeed` field can re-introduce variability if needed.
+    banditWeightsSeed: 0,
 
     // TODO(holdout-v1.5): thread `holdoutPercent` + seed so SQL can split train_id=0/1 and stats can compute holdout-vs-bandit lift.
   };
@@ -382,7 +367,6 @@ const UPDATE_WEIGHTS_USING_PYTHON = false;
 
 export function getContextualBanditSettingsForStatsEngine(
   cb: ContextualBanditInterface,
-  phase: number,
   variations: { id: string; name: string }[],
   currentWeightsByContext: Record<string, number[]>,
 ): ContextualBanditSettingsForStatsEngine {
@@ -390,7 +374,8 @@ export function getContextualBanditSettingsForStatsEngine(
     var_names: variations.map((v) => v.name),
     var_ids: variations.map((v) => v.id),
     reweight: true,
-    bandit_weights_seed: phase,
+    // Single-phase CB: seed is a fixed 0 (matches `buildContextualBanditSnapshotSettings.banditWeightsSeed`).
+    bandit_weights_seed: 0,
     contextual_attributes: cb.contextualAttributes,
     current_weights_by_context: currentWeightsByContext,
     max_leaves: cb.maxLeaves,

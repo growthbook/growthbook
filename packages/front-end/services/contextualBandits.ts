@@ -19,11 +19,10 @@ export type ComputedContextualBanditInterface = ApiContextualBanditInterface & {
 function cbDate(cb: ApiContextualBanditInterface): string {
   if (cb.archived) return cb.dateUpdated;
   if (cb.status === "running") {
-    return cb.phases?.[cb.phases.length - 1]?.dateStarted ?? cb.dateCreated;
+    return cb.dateStarted ?? cb.dateCreated;
   }
   if (cb.status === "stopped") {
-    const ended = cb.phases?.[cb.phases.length - 1]?.dateEnded;
-    return ended ?? cb.dateUpdated;
+    return cb.dateStopped ?? cb.dateUpdated;
   }
   return cb.dateCreated;
 }

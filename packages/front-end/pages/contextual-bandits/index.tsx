@@ -431,21 +431,23 @@ const ContextualBanditsPage = (): React.ReactElement => {
                                 archived: e.archived,
                                 results: undefined,
                                 analysisSummary: undefined,
-                                phases: e.phases.map((p) => ({
-                                  dateStarted: p.dateStarted,
-                                  dateEnded: p.dateEnded ?? undefined,
-                                  name: "Main",
-                                  reason: "",
-                                  coverage: p.coverage ?? 1,
-                                  condition: p.condition ?? "",
-                                  variationWeights:
-                                    p.variationWeights ??
-                                    e.variations.map(() => 1),
-                                  variations: e.variations.map((v) => ({
-                                    id: v.id,
-                                  })),
-                                  seed: p.seed,
-                                })),
+                                phases: [
+                                  {
+                                    dateStarted: e.dateStarted ?? e.dateCreated,
+                                    dateEnded: e.dateStopped ?? undefined,
+                                    name: "Main",
+                                    reason: "",
+                                    coverage: e.coverage ?? 1,
+                                    condition: e.condition ?? "",
+                                    variationWeights:
+                                      e.variationWeights ??
+                                      e.variations.map(() => 1),
+                                    variations: e.variations.map((v) => ({
+                                      id: v.id,
+                                    })),
+                                    seed: e.seed,
+                                  },
+                                ],
                                 dismissedWarnings: [],
                                 goalMetrics: e.goalMetrics,
                                 secondaryMetrics: e.secondaryMetrics,

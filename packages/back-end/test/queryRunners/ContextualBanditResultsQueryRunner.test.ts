@@ -69,7 +69,6 @@ function makeSnapshotSettings(
     experimentId: "exp_1",
     trackingKey: "exp_1",
     contextualBanditId: "cb_1",
-    phase: 0,
 
     datasourceId: "ds_1",
     exposureQueryId: "eq_1",
@@ -117,15 +116,8 @@ function makeCb(
     holdoutPercent: 0,
     stickyBucketing: false,
     canonicalFormVersion: 1,
-    phases: [
-      {
-        dateStarted: new Date("2025-01-02T00:00:00Z"),
-        dateEnded: null,
-        currentLeafWeights: [
-          { contextId: "ctx_catchall", weights: [0.5, 0.5] },
-        ],
-      },
-    ],
+    dateStarted: new Date("2025-01-02T00:00:00Z"),
+    currentLeafWeights: [{ contextId: "ctx_catchall", weights: [0.5, 0.5] }],
     ...overrides,
   } as ContextualBanditInterface;
 }
@@ -139,7 +131,6 @@ function makeCbsModel(
     dateCreated: new Date(),
     dateUpdated: new Date(),
     contextualBandit: "cb_1",
-    phase: 0,
     status: "running",
     runStarted: null,
     queries: [],
@@ -189,7 +180,7 @@ function makeContext(cb: ContextualBanditInterface): ReqContext {
     models: {
       contextualBandits: {
         getById: jest.fn().mockResolvedValue(cb),
-        patchPhaseWeights: jest.fn().mockResolvedValue(cb),
+        patchLeafWeights: jest.fn().mockResolvedValue(cb),
       },
       contextualBanditEvents: {
         getLatestForContextualBandit: jest.fn().mockResolvedValue(null),
@@ -332,7 +323,6 @@ describe("ContextualBanditResultsQueryRunner", () => {
         id: "cbe_42",
         organization: "org_1",
         contextualBandit: "cb_1",
-        phase: 0,
         snapshotId: "cbs_1",
         attributes: ["country"],
         responses: [],

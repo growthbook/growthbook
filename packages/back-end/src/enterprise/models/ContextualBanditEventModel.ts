@@ -15,7 +15,6 @@ const BaseClass = MakeModelClass({
       fields: {
         organization: 1,
         contextualBandit: 1,
-        phase: 1,
         dateCreated: -1,
       },
     },
@@ -23,6 +22,10 @@ const BaseClass = MakeModelClass({
       fields: { snapshotId: 1 },
     },
   ],
+  // The legacy `{ organization, contextualBandit, phase, dateCreated }` index is dropped now
+  // that `phase` is no longer part of the schema. Mongo will rebuild the new index on the
+  // first read after deploy via `BaseModel.updateIndexes()`.
+  indexesToRemove: ["organization_1_contextualBandit_1_phase_1_dateCreated_-1"],
 });
 
 export class ContextualBanditEventModel extends BaseClass {
@@ -42,10 +45,9 @@ export class ContextualBanditEventModel extends BaseClass {
 
   public async getLatestForContextualBandit(
     contextualBandit: string,
-    phase: number,
   ): Promise<ContextualBanditEventInterface | null> {
     const results = await this._find(
-      { contextualBandit, phase },
+      { contextualBandit },
       { sort: { dateCreated: -1 }, limit: 1 },
     );
     return results[0] ?? null;
@@ -53,25 +55,19 @@ export class ContextualBanditEventModel extends BaseClass {
 
   public async listForContextualBandit(
     contextualBandit: string,
-    phase: number,
     limit = 20,
   ): Promise<ContextualBanditEventInterface[]> {
     return this._find(
-      { contextualBandit, phase },
+      { contextualBandit },
       { sort: { dateCreated: -1 }, limit },
     );
   }
 
   public async getContextHistory(
     contextualBandit: string,
-    phase: number,
     contextId: string,
   ): Promise<ContextualBanditEventInterface[]> {
-    const events = await this.listForContextualBandit(
-      contextualBandit,
-      phase,
-      100,
-    );
+    const events = await this.listForContextualBandit(contextualBandit, 100);
     return events.filter((e) =>
       e.responses.some(
         // Seed must match `persistContextualBanditEvent`'s write seed (the CB id).

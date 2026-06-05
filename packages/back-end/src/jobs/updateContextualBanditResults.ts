@@ -55,17 +55,9 @@ const updateSingleContextualBandit = async (job: UpdateSingleCBJob) => {
   const cb = await context.models.contextualBandits.getById(cbId);
   if (!cb) return;
 
-  if (!cb.phases.length) {
-    logger.warn(
-      { contextualBanditId: cbId },
-      "CB has no phases; skipping scheduled refresh",
-    );
-    return;
-  }
-
   try {
     logger.info("Refreshing results for contextual bandit " + cbId);
-    await runContextualBanditSnapshot(context, cb, cb.phases.length - 1, {
+    await runContextualBanditSnapshot(context, cb, {
       triggeredBy: "scheduled",
     });
     logger.info("Successfully refreshed results for contextual bandit " + cbId);

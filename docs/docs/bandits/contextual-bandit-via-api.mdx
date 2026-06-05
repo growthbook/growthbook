@@ -19,6 +19,10 @@ Contextual Bandits are an Enterprise-only feature. Every endpoint below returns 
 The legacy `/v1/experiments/:id/contextual-bandit/*` endpoints (refresh, results, current, snapshots, events, phase) were removed in v1.5 along with the `experimentType: "contextual-bandit"` value. Migrate any integrations that still call the experiment-nested routes to the CB-native `/v1/contextual-bandits/*` surface documented below — the wire shapes are the same, only the path prefix and id space (`cb_…` instead of `exp_cb_…`) changed.
 :::
 
+:::warning Breaking change: `phases` and `phase` removed
+The `phases` array on the Contextual Bandit DTO and the `phase` field on snapshot/event/current responses have been removed. The fields previously nested under `phases[0]` (`coverage`, `condition`, `seed`, `variationWeights`, `currentLeafWeights`) are now top-level on the CB document. The `GET /v1/contextual-bandits/:id/current` response now exposes `currentLeafWeights` (replacing the prior `phaseWeights`). Update any client that reads `cb.phases[0].…` to read the matching root field directly.
+:::
+
 ## 1. Create the Contextual Bandit
 
 ```bash
@@ -41,7 +45,7 @@ curl -X POST 'https://api.growthbook.io/api/v1/contextual-bandits' \
   }'
 ```
 
-The response includes the new Contextual Bandit id (`cb_…`). The CB is provisioned in `status: "draft"` with one phase whose `currentLeafWeights` is empty until the first refresh.
+The response includes the new Contextual Bandit id (`cb_…`). The CB is provisioned in `status: "draft"` with an empty `currentLeafWeights` array at the document root; it stays empty until the first successful refresh.
 
 ## 2. Start the Contextual Bandit
 
@@ -113,11 +117,11 @@ Use the companion endpoints for finer-grained inspection:
 - `GET /v1/contextual-bandits/:id/snapshots/:snapshotId` — single snapshot status.
 - `GET /v1/contextual-bandits/:id/events` — list CBE outputs (one per successful snapshot).
 - `GET /v1/contextual-bandits/:id/events/:eventId` — single CBE.
-- `GET /v1/contextual-bandits/:id/current` — current phase weights + the latest CBE id.
+- `GET /v1/contextual-bandits/:id/current` — current root-level `currentLeafWeights` + the latest CBE id.
 
 ## 5. Stop the Contextual Bandit
 
-When you're done, stop the CB. A new phase can be started later if you want to compare against a different baseline:
+When you're done, stop the CB:
 
 ```bash
 curl -X POST 'https://api.growthbook.io/api/v1/contextual-bandits/cb_xxx/stop' \

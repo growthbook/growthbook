@@ -17,7 +17,6 @@ export const getCbSnapshot = createApiRequestHandler(getCbSnapshotValidator)(
       snapshot: {
         id: snapshot.id,
         contextualBandit: snapshot.contextualBandit,
-        phase: snapshot.phase,
         status: snapshot.status,
         weightsWereUpdated: snapshot.weightsWereUpdated,
         contextualBanditEventId: snapshot.contextualBanditEventId,

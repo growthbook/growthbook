@@ -11,7 +11,6 @@ export const contextualBanditSnapshotSettingsValidator = z
     experimentId: z.string(),
     trackingKey: z.string(),
     contextualBanditId: z.string(),
-    phase: z.number().int().nonnegative(),
 
     datasourceId: z.string(),
     exposureQueryId: z.string(),
@@ -50,7 +49,6 @@ export type ContextualBanditSnapshotSettings = z.infer<
 export const contextualBanditSnapshotValidator = baseSchema
   .extend({
     contextualBandit: z.string(),
-    phase: z.number(),
     status: z.enum(["pending", "running", "success", "error", "partial"]),
     error: z.string().optional(),
     /** Nullable (not optional) to satisfy `InterfaceWithQueries` on the abstract `QueryRunner`. */

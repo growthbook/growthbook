@@ -10,7 +10,6 @@ function buildSettings(
     experimentId: "exp_1",
     trackingKey: "exp_1",
     contextualBanditId: "cb_1",
-    phase: 0,
 
     datasourceId: "ds_1",
     exposureQueryId: "eq_1",

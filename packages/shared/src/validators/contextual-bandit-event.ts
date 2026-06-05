@@ -41,7 +41,6 @@ export type ContextualBanditResponseInterface = z.infer<
 export const contextualBanditEventValidator = baseSchema
   .extend({
     contextualBandit: z.string(),
-    phase: z.number(),
     snapshotId: z.string(),
     attributes: z.array(z.string()),
     responses: z.array(contextualBanditResponseValidator),

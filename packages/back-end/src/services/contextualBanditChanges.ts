@@ -84,21 +84,9 @@ export async function executeContextualBanditStart(
 
   const now = new Date();
 
-  // Defensive default-phase fallback for older docs that predate the CB-decoupling create flow.
-  const phases =
-    cb.phases.length > 0
-      ? cb.phases
-      : [
-          {
-            dateStarted: now,
-            currentLeafWeights: [],
-          },
-        ];
-
   const updated = await context.models.contextualBandits.update(cb, {
     status: "running",
     dateStarted: cb.dateStarted ?? now,
-    phases,
   });
 
   await context.auditLog({
@@ -138,17 +126,10 @@ export async function executeContextualBanditStop(
   }
 
   const now = new Date();
-  const phases = cb.phases.map((p, i, arr) => {
-    if (i === arr.length - 1 && !p.dateEnded) {
-      return { ...p, dateEnded: now };
-    }
-    return p;
-  });
 
   const updated = await context.models.contextualBandits.update(cb, {
     status: "stopped",
     dateStopped: cb.dateStopped ?? now,
-    phases,
   });
 
   await context.auditLog({

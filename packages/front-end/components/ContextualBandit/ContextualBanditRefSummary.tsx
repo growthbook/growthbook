@@ -58,8 +58,7 @@ export default function ContextualBanditRefSummary({
     );
   }
 
-  const currentPhase = cb.phases[cb.phases.length - 1];
-  const phaseWeights = currentPhase?.variationWeights ?? [];
+  const phaseWeights = cb.variationWeights ?? [];
 
   return (
     <Box>

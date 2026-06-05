@@ -17,19 +17,6 @@ export const leafWeightValidator = z.object({
 });
 export type LeafWeight = z.infer<typeof leafWeightValidator>;
 
-/** Mirrors the relevant subset of `experimentPhase`; CB-specific omissions are intentional. */
-export const cbPhaseValidator = z.object({
-  dateStarted: z.date(),
-  dateEnded: z.date().nullable().optional(),
-  coverage: z.number().min(0).max(1).optional(),
-  condition: z.string().optional(),
-  seed: z.string().optional(),
-  /** Used by the SDK rule emitter when a user has no context match. */
-  variationWeights: z.array(z.number()).optional(),
-  currentLeafWeights: z.array(leafWeightValidator),
-});
-export type CbPhase = z.infer<typeof cbPhaseValidator>;
-
 export const contextualBanditStatus = ["draft", "running", "stopped"] as const;
 export type ContextualBanditStatus = (typeof contextualBanditStatus)[number];
 
@@ -78,7 +65,18 @@ export const contextualBanditValidator = baseSchema
     skipPartialData: z.boolean().optional(),
     regressionAdjustmentEnabled: z.boolean().optional(),
 
-    phases: z.array(cbPhaseValidator),
+    /**
+     * Lifted from the legacy single-element `phases[0]` to the document root.
+     * Old docs are normalized by `ContextualBanditModel.migrate()`, which reads
+     * `phases[last]` into these fields and strips `phases` before validation.
+     */
+    coverage: z.number().min(0).max(1).optional(),
+    condition: z.string().optional(),
+    seed: z.string().optional(),
+    /** SDK fallback when no context match. */
+    variationWeights: z.array(z.number()).optional(),
+    /** Per-context bandit weights. */
+    currentLeafWeights: z.array(leafWeightValidator),
 
     /** Aliased as `targetingAttributeColumns` so SQL builders don't have to translate. */
     contextualAttributes: z.array(z.string()),
@@ -129,16 +127,6 @@ export type ContextualBanditInterface = z.infer<
 // REST API DTO is a curated subset of `ContextualBanditInterface` so internal-only
 // fields (linkedFeatures, pendingFeatureDrafts, snapshot scheduling) don't leak.
 
-const apiContextualBanditPhase = z.object({
-  dateStarted: z.iso.datetime(),
-  dateEnded: z.iso.datetime().nullable().optional(),
-  coverage: z.number().min(0).max(1).optional(),
-  condition: z.string().optional(),
-  seed: z.string().optional(),
-  variationWeights: z.array(z.number()).optional(),
-  currentLeafWeights: z.array(leafWeightValidator),
-});
-
 const apiContextualBanditVariation = z.object({
   id: z.string(),
   key: z.string(),
@@ -182,7 +170,12 @@ export const apiContextualBanditValidator = namedSchema(
     skipPartialData: z.boolean().optional(),
     regressionAdjustmentEnabled: z.boolean().optional(),
 
-    phases: z.array(apiContextualBanditPhase),
+    // Lifted from the legacy single-element `phases[0]` to the document root.
+    coverage: z.number().min(0).max(1).optional(),
+    condition: z.string().optional(),
+    seed: z.string().optional(),
+    variationWeights: z.array(z.number()).optional(),
+    currentLeafWeights: z.array(leafWeightValidator),
 
     contextualAttributes: z.array(z.string()),
     decisionMetric: z.string().optional(),
@@ -302,27 +295,25 @@ export const apiUpdateContextualBanditBody = z.object({
   archived: z.boolean().optional(),
   status: z.enum(contextualBanditStatus).optional(),
 
+  // Lifted to the document root from the legacy `phases[0]`. Now first-class typed fields.
+  coverage: z.number().min(0).max(1).optional(),
+  condition: z.string().optional(),
+  seed: z.string().optional(),
+  variationWeights: z.array(z.number()).optional(),
+
   // Passthrough fields from shared experiment-edit modals; silently discarded server-side.
-  variationWeights: z.unknown().optional(),
   customMetricSlices: z.unknown().optional(),
   winner: z.unknown().optional(),
   results: z.unknown().optional(),
   analysis: z.unknown().optional(),
   releasedVariationId: z.unknown().optional(),
   excludeFromPayload: z.unknown().optional(),
-  condition: z.unknown().optional(),
   savedGroups: z.unknown().optional(),
   prerequisites: z.unknown().optional(),
-  coverage: z.unknown().optional(),
   namespace: z.unknown().optional(),
-  seed: z.unknown().optional(),
   bucketVersion: z.unknown().optional(),
   minBucketVersion: z.unknown().optional(),
-  phaseDateStarted: z.unknown().optional(),
-  reseed: z.unknown().optional(),
   changeType: z.unknown().optional(),
-  newPhase: z.unknown().optional(),
-  reseedRecommended: z.unknown().optional(),
 });
 
 export type ApiUpdateContextualBanditBody = z.infer<
@@ -364,6 +355,11 @@ export const CONTEXTUAL_BANDIT_API_UPDATE_FIELDS = [
   "maxLeaves",
   "archived",
   "status",
+  // Lifted root fields (formerly nested under `phases[0]`).
+  "coverage",
+  "condition",
+  "seed",
+  "variationWeights",
 ] as const satisfies readonly (keyof ApiUpdateContextualBanditBody)[];
 
 export const apiContextualBanditStartValidator = {
@@ -418,7 +414,6 @@ const cbIdOnlyParam = z
 const cbSnapshotResponseShape = z.object({
   id: z.string(),
   contextualBandit: z.string(),
-  phase: z.number(),
   status: z.enum(["pending", "running", "success", "error", "partial"]),
   weightsWereUpdated: z.boolean().optional(),
   contextualBanditEventId: z.string().nullable().optional(),
@@ -429,7 +424,6 @@ const cbSnapshotResponseShape = z.object({
 const cbEventResponseShape = z.object({
   id: z.string(),
   contextualBandit: z.string(),
-  phase: z.number(),
   snapshotId: z.string(),
   weightsWereUpdated: z.boolean(),
   dateCreated: z.string(),
@@ -441,7 +435,7 @@ export const getCbCurrentValidator = {
   paramsSchema: cbIdOnlyParam,
   responseSchema: z
     .object({
-      phaseWeights: z
+      currentLeafWeights: z
         .array(
           z.object({ contextId: z.string(), weights: z.array(z.number()) }),
         )
@@ -449,7 +443,7 @@ export const getCbCurrentValidator = {
       latestEvent: cbEventResponseShape.nullable(),
     })
     .strict(),
-  summary: "Get current Contextual Bandit phase weights and latest event",
+  summary: "Get current Contextual Bandit leaf weights and latest event",
   operationId: "getCbCurrent",
   tags: ["contextual-bandits"],
   method: "get" as const,
@@ -547,7 +541,7 @@ export const getCbResultsValidator = {
     .strict(),
   summary: "Get latest Contextual Bandit results",
   description:
-    "Returns the latest contextual-bandit stats engine output and the status of the most recent snapshot run for the CB's current phase. Same payload the GrowthBook UI uses to render the CB results table.",
+    "Returns the latest contextual-bandit stats engine output and the status of the most recent snapshot run for the CB. Same payload the GrowthBook UI uses to render the CB results table.",
   operationId: "getCbResults",
   tags: ["contextual-bandits"],
   method: "get" as const,

@@ -831,15 +831,12 @@ export function getFeatureDefinition({
 
           if (cb.status === "draft") return null;
 
-          const phase = cb.phases[cb.phases.length - 1];
-          if (!phase) return null;
-
-          const phaseCondition = getParsedCondition(groupMap, phase.condition);
+          const phaseCondition = getParsedCondition(groupMap, cb.condition);
           if (phaseCondition) {
             rule.condition = phaseCondition;
           }
 
-          rule.coverage = phase.coverage;
+          rule.coverage = cb.coverage;
 
           if (cb.hashAttribute) {
             rule.hashAttribute = cb.hashAttribute;
@@ -850,8 +847,8 @@ export function getFeatureDefinition({
           if (cb.disableStickyBucketing) {
             rule.disableStickyBucketing = cb.disableStickyBucketing;
           }
-          if (phase.seed) {
-            rule.seed = phase.seed;
+          if (cb.seed) {
+            rule.seed = cb.seed;
           }
           rule.hashVersion = cb.hashVersion;
 
@@ -868,7 +865,7 @@ export function getFeatureDefinition({
               ? getJSONValue(feature.valueType, variation.value)
               : null;
           });
-          rule.weights = phase.variationWeights;
+          rule.weights = cb.variationWeights;
 
           const cbCapable =
             capabilities === undefined ||
@@ -883,7 +880,9 @@ export function getFeatureDefinition({
           rule.meta = includeExperimentNames
             ? cb.variations.map((v) => ({ key: v.key, name: v.name }))
             : cb.variations.map((v) => ({ key: v.key }));
-          rule.phase = cb.phases.length - 1 + "";
+          // Single-phase CB: emit a constant "0" for SDK back-compat. Sticky-bucketing keys may
+          // incorporate this string, so changing or dropping it could re-bucket existing users.
+          rule.phase = "0";
           if (includeExperimentNames) rule.name = cb.name;
 
           if (shouldExpandSavedGroups && savedGroupsMap && organization) {
