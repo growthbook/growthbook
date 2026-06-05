@@ -16,6 +16,10 @@ const elementContextSchema = z.object({
   textSnippet: z.string(),
   outerHTML: z.string(),
   attrs: z.record(z.string(), z.string()),
+  // Computed CSS subset captured at pick time. Lets the model see the
+  // CURRENT styling for prompts like "make it more rounded" or "match
+  // the header font". Optional for older extensions that don't send it.
+  computedStyles: z.record(z.string(), z.string()).optional(),
 });
 
 // Compact element catalog from visual-editor/src/content_script/pageDigest.ts —
@@ -230,6 +234,19 @@ DOM mutations vs global JS precedence — critical:
 
 Conversation continuity:
 - You may be given a "Previous conversation" block. Use it to resolve pronouns ("it", "them", "the same one") and references to earlier edits. Do not re-apply mutations already accepted in earlier turns unless explicitly asked.
+
+Picked-element computed styles:
+- Picked elements may carry a \`computedStyles\` map — a subset of the element's CURRENT CSS (font-family, font-size, color, background-color, padding, margin, border, border-radius, box-shadow, etc.) as the browser is rendering it right now.
+- Use these as your baseline for relative requests. "More rounded" / "increase the padding" / "darker" / "bigger" should produce a value that's clearly different from the current one, not a generic default. "Match the header style" / "match the buttons above" should mirror those properties exactly when a header or button is also in elementContext.
+- Computed values are RESOLVED (e.g. \`color: rgb(0, 0, 0)\`, \`border-radius: 8px\`, not the original keywords). You may emit any equivalent form in your style mutation.
+- The keys are CSS property names (kebab-case). When the user describes a relative change, prefer modifying a property that's already set over introducing a new one.
+- Do NOT echo every computed style back as a mutation — only emit properties you're actually changing.
+
+When you don't have the reference element's styles:
+- If the user asks you to match the style of an element that ISN'T in elementContext (e.g. "match the homepage hero", "make this look like the testimonial cards", "use the same font as the navigation"), you don't have its computed styles — the page-elements catalog only lists selectors and text, not styling.
+- Do NOT guess values for the reference element. Inventing a font-family or color you can't see produces a worse result than asking. Specifically: don't return a mutation that hard-codes a font / color / size you guessed.
+- Instead, return mutations: [] and use the \`explanation\` field to ask the user to click the reference element on the page (it'll show up as a new picked element with computedStyles, and you can match it on the next turn). Be specific about what they should click — e.g. "Click one of the testimonial cards so I can see its background color and border radius."
+- This only applies when the request HINGES on the reference element's actual styling. "Match the header" needs styles. "Move it next to the header" only needs the header's selector, which is in the catalog — proceed normally.
 
 Iterating on existing mutations:
 - The "Existing mutations" block shows what's already applied to this variation. When the user wants to MODIFY an existing change (e.g. "actually make it red instead of blue", "increase the size further"), emit a new mutation with the SAME selector + attribute + action as the existing one and the updated value. The back-end automatically deduplicates — your new mutation replaces or merges with the existing one, you don't end up with two contradicting mutations stacked together.
