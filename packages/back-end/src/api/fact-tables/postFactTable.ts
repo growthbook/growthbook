@@ -12,7 +12,7 @@ import {
   resolveOwnerToUserId,
   resolveOwnerEmail,
 } from "back-end/src/services/owner";
-import { validateAggregatedFactTableIdTypes } from "back-end/src/util/factTable";
+import { validateAggregatedFactTableSettings } from "back-end/src/util/factTable";
 
 export const postFactTable = createApiRequestHandler(postFactTableValidator)(
   async (req) => {
@@ -60,14 +60,14 @@ export const postFactTable = createApiRequestHandler(postFactTableValidator)(
       }
     }
 
-    if (req.body.aggregatedFactTableIdTypes?.length) {
+    if (req.body.aggregatedFactTableSettings) {
       if (!req.context.hasPremiumFeature("pipeline-mode")) {
         throw new Error(
           "Maintaining shared daily aggregated tables requires the data pipeline feature.",
         );
       }
-      validateAggregatedFactTableIdTypes(
-        req.body.aggregatedFactTableIdTypes,
+      validateAggregatedFactTableSettings(
+        req.body.aggregatedFactTableSettings,
         req.body.userIdTypes,
       );
     }

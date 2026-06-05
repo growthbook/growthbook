@@ -105,9 +105,9 @@ async function resolveCovariateInsertPathInner({
     return { path: "legacy", reason: "no-fact-table" };
   }
 
-  const idTypes = factTable.aggregatedFactTableIdTypes ?? [];
+  const idTypes = factTable.aggregatedFactTableSettings?.idTypes ?? [];
   if (!idTypes.includes(exposureUserIdType)) {
-    log("legacy: exposure id type not in aggregatedFactTableIdTypes", {
+    log("legacy: exposure id type not in aggregatedFactTableSettings.idTypes", {
       aggregatedFactTableIdTypes: idTypes,
     });
     return { path: "legacy", reason: "id-type-not-materialized" };

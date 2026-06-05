@@ -21,7 +21,7 @@ export const refreshAggregatedFactTable = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
-  const enabledIdTypes = factTable.aggregatedFactTableIdTypes ?? [];
+  const enabledIdTypes = factTable.aggregatedFactTableSettings?.idTypes ?? [];
   if (!enabledIdTypes.length) {
     throw new Error(
       "This fact table does not have any id types enabled for shared daily aggregated tables.",

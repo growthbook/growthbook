@@ -407,7 +407,7 @@ export interface InsertMetricSourceCovariateDataQueryParams {
   lastCovariateSuccessfulMaxTimestamp: Date | null;
   // When true, snap the raw scan to daily grain so this fallback covers the same
   // days the pre-aggregated table would. Set by the runner when the exposure id
-  // type is in the fact table's aggregatedFactTableIdTypes.
+  // type is in the fact table's aggregatedFactTableSettings.idTypes.
   alignLegacyScanToDailyGrain: boolean;
 }
 

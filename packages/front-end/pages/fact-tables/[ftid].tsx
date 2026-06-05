@@ -17,6 +17,7 @@ import FactTableModal from "@/components/FactTables/FactTableModal";
 import Code from "@/components/SyntaxHighlighting/Code";
 import ColumnList from "@/components/FactTables/ColumnList";
 import AggregatedFactTablesCard from "@/components/FactTables/AggregatedFactTablesCard";
+import AggregatedFactTableSettings from "@/components/FactTables/AggregatedFactTableSettings";
 import FactFilterList from "@/components/FactTables/FactFilterList";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import PageHead from "@/components/Layout/PageHead";
@@ -559,6 +560,11 @@ export default function FactTablePage() {
           </TabsContent>
         </Box>
       </Tabs>
+
+      <AggregatedFactTableSettings
+        factTable={factTable}
+        mutate={mutateDefinitions}
+      />
 
       <AggregatedFactTablesCard factTable={factTable} />
     </div>

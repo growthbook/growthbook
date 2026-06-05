@@ -76,7 +76,21 @@ const factTableSchema = new mongoose.Schema({
   ],
   archived: Boolean,
   autoSliceUpdatesEnabled: Boolean,
-  aggregatedFactTableIdTypes: [String],
+  aggregatedFactTableSettings: {
+    _id: false,
+    type: {
+      idTypes: [String],
+      updateTime: {
+        _id: false,
+        type: {
+          time: String,
+          timezone: String,
+        },
+      },
+      lookbackWindow: Number,
+    },
+    default: undefined,
+  },
   columnRefreshPending: Boolean,
 });
 
@@ -143,7 +157,7 @@ function createPropsToInterface(
     columns,
     columnsError: null,
     managedBy: props.managedBy || "",
-    aggregatedFactTableIdTypes: props.aggregatedFactTableIdTypes || [],
+    aggregatedFactTableSettings: props.aggregatedFactTableSettings ?? null,
     columnRefreshPending: props.columnRefreshPending || false,
   };
 }
@@ -248,7 +262,7 @@ export async function getAllFactTablesWithAggregatedTablesEnabled(): Promise<
   FactTableInterface[]
 > {
   const docs = await FactTableModel.find({
-    aggregatedFactTableIdTypes: { $exists: true, $ne: [] },
+    "aggregatedFactTableSettings.idTypes": { $exists: true, $ne: [] },
     archived: { $ne: true },
   });
   return docs.map((doc) => toInterface(doc));
@@ -716,6 +730,8 @@ export function toFactTableApiInterface(
       topValuesDate: col.topValuesDate?.toISOString(),
     })),
     managedBy: factTable.managedBy || "",
+    aggregatedFactTableSettings:
+      factTable.aggregatedFactTableSettings ?? undefined,
     dateCreated: factTable.dateCreated?.toISOString() || "",
     dateUpdated: factTable.dateUpdated?.toISOString() || "",
   };

@@ -305,7 +305,7 @@ export default function AggregatedFactTablesCard({ factTable }: Props) {
 
   const [manageIdType, setManageIdType] = useState<string | null>(null);
 
-  const idTypes = factTable.aggregatedFactTableIdTypes ?? [];
+  const idTypes = factTable.aggregatedFactTableSettings?.idTypes ?? [];
 
   const { data, mutate } = useApi<{
     aggregatedFactTables: AggregatedFactTableStatus[];

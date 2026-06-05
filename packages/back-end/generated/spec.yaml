@@ -16103,14 +16103,37 @@ paths:
                   type: array
                   items:
                     type: string
-                aggregatedFactTableIdTypes:
+                aggregatedFactTableSettings:
                   description: >-
-                    Identifier types (a subset of userIdTypes) to maintain
-                    shared daily aggregated tables for. Requires the data
+                    Settings for maintaining shared daily aggregated tables (a
+                    subset of userIdTypes plus the daily update time and restate
+                    lookback window) used to speed up CUPED. Requires the data
                     pipeline (pipeline-mode) feature.
-                  type: array
-                  items:
-                    type: string
+                  type: object
+                  properties:
+                    idTypes:
+                      type: array
+                      items:
+                        type: string
+                    updateTime:
+                      type: object
+                      properties:
+                        time:
+                          type: string
+                        timezone:
+                          type: string
+                      required:
+                        - time
+                        - timezone
+                      additionalProperties: false
+                    lookbackWindow:
+                      type: integer
+                      exclusiveMinimum: 0
+                  required:
+                    - idTypes
+                    - updateTime
+                    - lookbackWindow
+                  additionalProperties: false
                 sql:
                   description: The SQL query for this fact table
                   type: string
@@ -16218,14 +16241,37 @@ paths:
                   type: array
                   items:
                     type: string
-                aggregatedFactTableIdTypes:
+                aggregatedFactTableSettings:
                   description: >-
-                    Identifier types (a subset of userIdTypes) to maintain
-                    shared daily aggregated tables for. Requires the data
+                    Settings for maintaining shared daily aggregated tables (a
+                    subset of userIdTypes plus the daily update time and restate
+                    lookback window) used to speed up CUPED. Requires the data
                     pipeline (pipeline-mode) feature.
-                  type: array
-                  items:
-                    type: string
+                  type: object
+                  properties:
+                    idTypes:
+                      type: array
+                      items:
+                        type: string
+                    updateTime:
+                      type: object
+                      properties:
+                        time:
+                          type: string
+                        timezone:
+                          type: string
+                      required:
+                        - time
+                        - timezone
+                      additionalProperties: false
+                    lookbackWindow:
+                      type: integer
+                      exclusiveMinimum: 0
+                  required:
+                    - idTypes
+                    - updateTime
+                    - lookbackWindow
+                  additionalProperties: false
                 sql:
                   description: The SQL query for this fact table
                   type: string
@@ -16526,7 +16572,8 @@ paths:
                 idType:
                   description: >-
                     Limit the refresh to a single id type. If omitted, all of
-                    the fact table's aggregatedFactTableIdTypes are refreshed.
+                    the fact table's aggregatedFactTableSettings.idTypes are
+                    refreshed.
                   type: string
                 fullRestate:
                   description: >-
@@ -36603,14 +36650,37 @@ components:
           type: array
           items:
             type: string
-        aggregatedFactTableIdTypes:
+        aggregatedFactTableSettings:
           description: >-
-            Identifier types (a subset of userIdTypes) to maintain shared daily
-            aggregated tables for. Requires the data pipeline (pipeline-mode)
+            Settings for maintaining shared daily aggregated tables (a subset of
+            userIdTypes plus the daily update time and restate lookback window)
+            used to speed up CUPED. Requires the data pipeline (pipeline-mode)
             feature.
-          type: array
-          items:
-            type: string
+          type: object
+          properties:
+            idTypes:
+              type: array
+              items:
+                type: string
+            updateTime:
+              type: object
+              properties:
+                time:
+                  type: string
+                timezone:
+                  type: string
+              required:
+                - time
+                - timezone
+              additionalProperties: false
+            lookbackWindow:
+              type: integer
+              exclusiveMinimum: 0
+          required:
+            - idTypes
+            - updateTime
+            - lookbackWindow
+          additionalProperties: false
         sql:
           type: string
         eventName:

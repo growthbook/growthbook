@@ -884,7 +884,7 @@ const startExperimentIncrementalRefreshQueries = async (
             // Align to daily grain whenever the exposure id type is materialized,
             // so the fallback window always matches the pre-aggregated path.
             alignLegacyScanToDailyGrain: (
-              factTable?.aggregatedFactTableIdTypes ?? []
+              factTable?.aggregatedFactTableSettings?.idTypes ?? []
             ).includes(exposureQuery.userIdType),
           }),
           queryType: "experimentIncrementalRefreshInsertMetricsCovariateData",

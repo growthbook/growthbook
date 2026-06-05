@@ -44,13 +44,13 @@ import {
 } from "back-end/src/jobs/refreshFactTableColumns";
 import {
   deriveUserIdTypesFromColumns,
-  validateAggregatedFactTableIdTypes,
+  validateAggregatedFactTableSettings,
+  getNextUpdateOccurrence,
 } from "back-end/src/util/factTable";
 import { logger } from "back-end/src/util/logger";
 import { needsColumnRefresh } from "back-end/src/api/fact-tables/updateFactTable";
 import {
   getAggregatedFactTableMetrics,
-  getNextAggregatedFactTableUpdate,
   runAggregatedFactTableUpdate,
 } from "back-end/src/jobs/updateAggregatedFactTables";
 import {
@@ -273,14 +273,14 @@ export const postFactTable = async (
     data.columnRefreshPending = needsBackgroundRefresh;
   }
 
-  if (data.aggregatedFactTableIdTypes?.length) {
+  if (data.aggregatedFactTableSettings) {
     if (!context.hasPremiumFeature("pipeline-mode")) {
       throw new Error(
         "Maintaining shared daily aggregated tables requires the data pipeline feature.",
       );
     }
-    validateAggregatedFactTableIdTypes(
-      data.aggregatedFactTableIdTypes,
+    validateAggregatedFactTableSettings(
+      data.aggregatedFactTableSettings,
       data.userIdTypes,
     );
   }
@@ -353,7 +353,7 @@ export const putFactTable = async (
     );
   }
 
-  if (data.aggregatedFactTableIdTypes?.length) {
+  if (data.aggregatedFactTableSettings) {
     if (!context.hasPremiumFeature("pipeline-mode")) {
       throw new Error(
         "Maintaining shared daily aggregated tables requires the data pipeline feature.",
@@ -364,8 +364,8 @@ export const putFactTable = async (
       columnRefreshResults?.userIdTypes ??
       data.userIdTypes ??
       factTable.userIdTypes;
-    validateAggregatedFactTableIdTypes(
-      data.aggregatedFactTableIdTypes,
+    validateAggregatedFactTableSettings(
+      data.aggregatedFactTableSettings,
       effectiveUserIdTypes,
     );
   }
@@ -499,7 +499,7 @@ export const getAggregatedFactTables = async (
     throw new Error("Could not find fact table with that id");
   }
 
-  const idTypes = factTable.aggregatedFactTableIdTypes ?? [];
+  const idTypes = factTable.aggregatedFactTableSettings?.idTypes ?? [];
   const registryDocs =
     await context.models.aggregatedFactTables.getByFactTableId(factTable.id);
   const byIdType = new Map(registryDocs.map((doc) => [doc.idType, doc]));
@@ -551,7 +551,9 @@ export const getAggregatedFactTables = async (
     },
   );
 
-  const nextScheduledUpdate = await getNextAggregatedFactTableUpdate();
+  const nextScheduledUpdate = factTable.aggregatedFactTableSettings
+    ? getNextUpdateOccurrence(factTable.aggregatedFactTableSettings.updateTime)
+    : null;
 
   res.status(200).json({
     status: 200,
@@ -609,7 +611,9 @@ export const getAggregatedFactTableRuns = async (
   }
 
   const { idType } = req.params;
-  if (!(factTable.aggregatedFactTableIdTypes ?? []).includes(idType)) {
+  if (
+    !(factTable.aggregatedFactTableSettings?.idTypes ?? []).includes(idType)
+  ) {
     throw new Error(
       `id type '${idType}' is not enabled for shared daily aggregated tables on this fact table.`,
     );
@@ -659,7 +663,7 @@ export const refreshAggregatedFactTables = async (
     context.permissions.throwPermissionError();
   }
 
-  const enabledIdTypes = factTable.aggregatedFactTableIdTypes ?? [];
+  const enabledIdTypes = factTable.aggregatedFactTableSettings?.idTypes ?? [];
   if (!enabledIdTypes.length) {
     throw new Error(
       "This fact table does not have any id types enabled for shared daily aggregated tables.",

@@ -20,7 +20,11 @@ const factTable = factTableFactory.build({
   name: "Events",
   sql: "SELECT * FROM events",
   userIdTypes: [ID_TYPE],
-  aggregatedFactTableIdTypes: [ID_TYPE],
+  aggregatedFactTableSettings: {
+    idTypes: [ID_TYPE],
+    updateTime: { time: "02:00", timezone: "UTC" },
+    lookbackWindow: 60,
+  },
 });
 
 const raMetric: FactMetricInterface = factMetricFactory.build({
@@ -193,7 +197,11 @@ describe("resolveCovariateInsertPath", () => {
       factTable: factTableFactory.build({
         id: FT_ID,
         userIdTypes: [ID_TYPE, "anonymous_id"],
-        aggregatedFactTableIdTypes: [ID_TYPE],
+        aggregatedFactTableSettings: {
+          idTypes: [ID_TYPE],
+          updateTime: { time: "02:00", timezone: "UTC" },
+          lookbackWindow: 60,
+        },
       }),
       datasourceId: DATASOURCE_ID,
       exposureUserIdType: "anonymous_id",

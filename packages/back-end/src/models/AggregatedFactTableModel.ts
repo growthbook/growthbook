@@ -136,6 +136,66 @@ export class AggregatedFactTableModel extends BaseClass {
     }
   }
 
+  // Idempotency gate for the frequent scheduler poller. Atomically claims the
+  // given day's `fireTime` slot for this (org, factTable, idType) by setting
+  // `lastScheduledRunAt = fireTime`, but only if it hasn't already been claimed
+  // for this slot (or a later one). Returns true if this call won the claim and
+  // should enqueue a run; false if the slot was already claimed.
+  public async claimScheduledSlot(
+    key: AggregatedFactTableKey,
+    fireTime: Date,
+  ): Promise<boolean> {
+    try {
+      const result = await this._dangerousGetCollection().updateOne(
+        {
+          organization: this.context.org.id,
+          ...key,
+          $or: [
+            { lastScheduledRunAt: null },
+            { lastScheduledRunAt: { $exists: false } },
+            { lastScheduledRunAt: { $lt: fireTime } },
+          ],
+        },
+        {
+          $set: {
+            lastScheduledRunAt: fireTime,
+            dateUpdated: new Date(),
+          },
+          $setOnInsert: {
+            id: uniqid(ID_PREFIX),
+            organization: this.context.org.id,
+            ...key,
+            dateCreated: new Date(),
+            tableFullName: null,
+            lastMaxTimestamp: null,
+            firstEventDate: null,
+            lastEventDate: null,
+            factTableSettingsHash: null,
+            metricState: [],
+            currentExecutionId: null,
+            inFlightExecutionId: null,
+            lastRunId: null,
+          },
+        },
+        { upsert: true },
+      );
+      return (result.upsertedCount ?? 0) > 0 || (result.modifiedCount ?? 0) > 0;
+    } catch (error) {
+      // Concurrent upsert from another poller won the race.
+      if (
+        error &&
+        typeof error === "object" &&
+        (("code" in error && error.code === 11000) ||
+          ("message" in error &&
+            typeof error.message === "string" &&
+            error.message.includes("11000")))
+      ) {
+        return false;
+      }
+      throw error;
+    }
+  }
+
   public async releaseLock(key: AggregatedFactTableKey, executionId: string) {
     await this._dangerousGetCollection().updateOne(
       {

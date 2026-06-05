@@ -14,9 +14,6 @@ import { QueryRunner, QueryMap } from "./QueryRunner";
 
 export const AGGREGATED_FACT_TABLE_PREFIX = "gb_aggregated";
 
-// TODO LOOKBACK
-export const AGGREGATED_FACT_TABLE_MAX_RESTATE_DAYS = 900;
-
 export type AggregatedFactTableRunMode = "incremental" | "restate";
 
 export type AggregatedFactTableQueryParams = {
@@ -35,6 +32,9 @@ export type AggregatedFactTableQueryParams = {
   // insert onSuccess persists these onto the registry.
   factTableSettingsHash: string;
   metricState: AggregatedFactTableMetricStateInterface[];
+  // Restate window in days (from the fact table's aggregatedFactTableSettings);
+  // bounds how far back a full restate re-scans.
+  lookbackWindowDays: number;
 };
 
 export type AggregatedFactTableResult = {
@@ -126,6 +126,7 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
       aggregatedFactTable,
       factTableSettingsHash,
       metricState,
+      lookbackWindowDays,
     } = params;
     const integration = this.integration;
 
@@ -204,7 +205,7 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
     // Window lower bound. Restate re-scans the retained window (inclusive);
     // incremental slices strictly after the event-time watermark.
     const restateWindowStart = new Date(
-      Date.now() - AGGREGATED_FACT_TABLE_MAX_RESTATE_DAYS * 24 * 60 * 60 * 1000,
+      Date.now() - lookbackWindowDays * 24 * 60 * 60 * 1000,
     );
     const windowStartDate =
       mode === "restate"

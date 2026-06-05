@@ -23,6 +23,7 @@ import {
   buildAggregatedFactTableSchemaState,
   getAggregatedFactTableRestateReason,
 } from "back-end/src/enterprise/services/data-pipeline";
+import { getMostRecentUpdateOccurrence } from "back-end/src/util/factTable";
 
 const QUEUE_AGGREGATED_FACT_TABLE_UPDATES = "queueAggregatedFactTableUpdates";
 const UPDATE_SINGLE_AGGREGATED_FACT_TABLE = "updateSingleAggregatedFactTable";
@@ -35,19 +36,7 @@ type UpdateSingleAggregatedFactTableJob = Job<{
 }>;
 
 export default async function (agenda: Agenda) {
-  agenda.define(QUEUE_AGGREGATED_FACT_TABLE_UPDATES, async () => {
-    const factTables = await getAllFactTablesWithAggregatedTablesEnabled();
-
-    for (const factTable of factTables) {
-      for (const idType of factTable.aggregatedFactTableIdTypes ?? []) {
-        await queueAggregatedFactTableUpdate({
-          organization: factTable.organization,
-          factTableId: factTable.id,
-          idType,
-        });
-      }
-    }
-  });
+  agenda.define(QUEUE_AGGREGATED_FACT_TABLE_UPDATES, pollAggregatedFactTables);
 
   agenda.define(
     UPDATE_SINGLE_AGGREGATED_FACT_TABLE,
@@ -59,8 +48,94 @@ export default async function (agenda: Agenda) {
   async function startUpdateJob() {
     const updateJob = agenda.create(QUEUE_AGGREGATED_FACT_TABLE_UPDATES, {});
     updateJob.unique({});
-    updateJob.repeatEvery("24 hours");
+    // Frequent poller: each table fires once per day at its own updateTime. The
+    // claimScheduledSlot gate keeps the short interval from re-enqueueing a slot.
+    updateJob.repeatEvery("1 minutes");
     await updateJob.save();
+  }
+}
+
+type AgendaJobContext = Awaited<
+  ReturnType<typeof getContextForAgendaJobByOrgId>
+>;
+
+// Runs every minute. For each fact table with aggregated settings, computes the
+// most recent occurrence of its daily updateTime and atomically claims that
+// slot per id type; only newly-claimed slots are enqueued, so a given day's run
+// is enqueued exactly once even though the poller fires every minute.
+async function pollAggregatedFactTables() {
+  const factTables = await getAllFactTablesWithAggregatedTablesEnabled();
+  const now = new Date();
+  const contextCache = new Map<string, AgendaJobContext | null>();
+
+  const getContext = async (
+    organization: string,
+  ): Promise<AgendaJobContext | null> => {
+    if (contextCache.has(organization)) {
+      return contextCache.get(organization) ?? null;
+    }
+    let context: AgendaJobContext | null = null;
+    try {
+      context = await getContextForAgendaJobByOrgId(organization);
+      if (!context.hasPremiumFeature("pipeline-mode")) {
+        context = null;
+      }
+    } catch (e) {
+      logger.error(
+        e,
+        `Failed to load context for org ${organization} in aggregated fact table poller`,
+      );
+      context = null;
+    }
+    contextCache.set(organization, context);
+    return context;
+  };
+
+  for (const factTable of factTables) {
+    const settings = factTable.aggregatedFactTableSettings;
+    if (!settings?.idTypes?.length) continue;
+
+    let fireTime: Date;
+    try {
+      fireTime = getMostRecentUpdateOccurrence(settings.updateTime, now);
+    } catch (e) {
+      logger.error(
+        e,
+        `Invalid aggregatedFactTableSettings.updateTime for fact table ${factTable.id}`,
+      );
+      continue;
+    }
+
+    const context = await getContext(factTable.organization);
+    if (!context) continue;
+
+    for (const idType of settings.idTypes) {
+      const key = {
+        datasourceId: factTable.datasource,
+        factTableId: factTable.id,
+        idType,
+      };
+      let claimed = false;
+      try {
+        claimed = await context.models.aggregatedFactTables.claimScheduledSlot(
+          key,
+          fireTime,
+        );
+      } catch (e) {
+        logger.error(
+          e,
+          `Failed to claim aggregated fact table slot for ${factTable.id}/${idType}`,
+        );
+        continue;
+      }
+      if (!claimed) continue;
+
+      await queueAggregatedFactTableUpdate({
+        organization: factTable.organization,
+        factTableId: factTable.id,
+        idType,
+      });
+    }
   }
 }
 
@@ -90,16 +165,6 @@ export async function queueAggregatedFactTableUpdate({
   });
   job.schedule(new Date());
   await job.save();
-}
-
-// Next scheduled nightly poller run; global across the instance, not per fact table.
-export async function getNextAggregatedFactTableUpdate(): Promise<Date | null> {
-  const agenda = getAgendaInstance();
-  const job = await agenda._collection.findOne(
-    { name: QUEUE_AGGREGATED_FACT_TABLE_UPDATES },
-    { projection: { nextRunAt: 1 } },
-  );
-  return job?.nextRunAt ?? null;
 }
 
 // Fact metrics whose materialized columns live in this fact table
@@ -155,7 +220,7 @@ const updateSingleAggregatedFactTable = async (
   if (!factTable) return;
 
   // The setting may have been removed for this id type since the job was queued
-  if (!factTable.aggregatedFactTableIdTypes?.includes(idType)) {
+  if (!factTable.aggregatedFactTableSettings?.idTypes?.includes(idType)) {
     return;
   }
 
@@ -314,6 +379,8 @@ export async function runAggregatedFactTableUpdate(
       aggregatedFactTable: registry,
       factTableSettingsHash,
       metricState,
+      lookbackWindowDays:
+        factTable.aggregatedFactTableSettings?.lookbackWindow ?? 60,
     });
   } catch (e) {
     await handleFailure(e);

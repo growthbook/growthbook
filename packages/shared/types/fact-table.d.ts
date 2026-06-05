@@ -22,6 +22,7 @@ import {
   legacyWindowSettingsValidator,
   jsonColumnFieldsValidator,
   rowFilterValidator,
+  aggregatedFactTableSettingsValidator,
 } from "shared/validators";
 import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { TestQueryRow } from "shared/types/integrations";
@@ -81,10 +82,17 @@ export interface FactTableInterface {
   archived?: boolean;
   timestampColumn?: string;
   autoSliceUpdatesEnabled?: boolean;
-  // Identifier types (subset of userIdTypes) to maintain shared daily
-  // aggregated tables for. Consumed by the aggregated-fact-table pipeline.
-  aggregatedFactTableIdTypes?: string[];
+  // Settings for the shared daily aggregated-fact-table pipeline (identifier
+  // types to materialize, daily update time + timezone, and restate lookback
+  // window). Null/undefined means the pipeline is disabled for this fact table.
+  aggregatedFactTableSettings?: z.infer<
+    typeof aggregatedFactTableSettingsValidator
+  > | null;
 }
+
+export type AggregatedFactTableSettings = z.infer<
+  typeof aggregatedFactTableSettingsValidator
+>;
 
 export type ColumnRef = z.infer<typeof columnRefValidator>;
 

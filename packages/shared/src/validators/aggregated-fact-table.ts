@@ -48,6 +48,11 @@ const aggregatedFactTable = z
     // without advancing the watermark.
     inFlightExecutionId: z.string().nullable().optional(),
 
+    // The fireTime (per-table daily updateTime occurrence) most recently claimed
+    // by the poller. The idempotency gate so the frequent poller only enqueues a
+    // given day's slot once.
+    lastScheduledRunAt: z.date().nullable().optional(),
+
     lastRunId: z.string().nullable(),
   })
   .strict();

@@ -76,6 +76,23 @@ export const updateColumnPropsValidator = z
   })
   .strict();
 
+// Settings for the shared daily aggregated fact table pipeline. Only the whole
+// object is optional; when present every field is required. `updateTime` is the
+// daily run time ("HH:mm", 24-hour) interpreted in `timezone` (IANA name);
+// `lookbackWindow` is the restate window in days.
+export const aggregatedFactTableSettingsValidator = z
+  .object({
+    idTypes: z.array(z.string()),
+    updateTime: z
+      .object({
+        time: z.string(),
+        timezone: z.string(),
+      })
+      .strict(),
+    lookbackWindow: z.number().int().positive(),
+  })
+  .strict();
+
 export const createFactTablePropsValidator = z
   .object({
     name: z.string(),
@@ -94,7 +111,8 @@ export const createFactTablePropsValidator = z
     columns: z.array(createColumnPropsValidator).optional(),
     managedBy: z.enum(["", "api", "admin"]).optional(),
     autoSliceUpdatesEnabled: z.boolean().optional(),
-    aggregatedFactTableIdTypes: z.array(z.string()).optional(),
+    aggregatedFactTableSettings:
+      aggregatedFactTableSettingsValidator.optional(),
     columnRefreshPending: z.boolean().optional(),
   })
   .strict();
@@ -114,7 +132,9 @@ export const updateFactTablePropsValidator = z
     columnsError: z.string().nullable().optional(),
     archived: z.boolean().optional(),
     autoSliceUpdatesEnabled: z.boolean().optional(),
-    aggregatedFactTableIdTypes: z.array(z.string()).optional(),
+    aggregatedFactTableSettings: aggregatedFactTableSettingsValidator
+      .nullable()
+      .optional(),
     columnRefreshPending: z.boolean().optional(),
   })
   .strict();
@@ -410,10 +430,9 @@ export const apiFactTableValidator = namedSchema(
       tags: z.array(z.string()),
       datasource: z.string(),
       userIdTypes: z.array(z.string()),
-      aggregatedFactTableIdTypes: z
-        .array(z.string())
+      aggregatedFactTableSettings: aggregatedFactTableSettingsValidator
         .describe(
-          "Identifier types (a subset of userIdTypes) to maintain shared daily aggregated tables for. Requires the data pipeline (pipeline-mode) feature.",
+          "Settings for maintaining shared daily aggregated tables (a subset of userIdTypes plus the daily update time and restate lookback window) used to speed up CUPED. Requires the data pipeline (pipeline-mode) feature.",
         )
         .optional(),
       sql: z.string(),
@@ -487,10 +506,9 @@ const postFactTableBody = z
       .describe(
         'List of identifier columns in this table. For example, "id" or "anonymous_id"',
       ),
-    aggregatedFactTableIdTypes: z
-      .array(z.string())
+    aggregatedFactTableSettings: aggregatedFactTableSettingsValidator
       .describe(
-        "Identifier types (a subset of userIdTypes) to maintain shared daily aggregated tables for. Requires the data pipeline (pipeline-mode) feature.",
+        "Settings for maintaining shared daily aggregated tables (a subset of userIdTypes plus the daily update time and restate lookback window) used to speed up CUPED. Requires the data pipeline (pipeline-mode) feature.",
       )
       .optional(),
     sql: z.string().describe("The SQL query for this fact table"),
@@ -526,10 +544,9 @@ const updateFactTableBody = z
         'List of identifier columns in this table. For example, "id" or "anonymous_id"',
       )
       .optional(),
-    aggregatedFactTableIdTypes: z
-      .array(z.string())
+    aggregatedFactTableSettings: aggregatedFactTableSettingsValidator
       .describe(
-        "Identifier types (a subset of userIdTypes) to maintain shared daily aggregated tables for. Requires the data pipeline (pipeline-mode) feature.",
+        "Settings for maintaining shared daily aggregated tables (a subset of userIdTypes plus the daily update time and restate lookback window) used to speed up CUPED. Requires the data pipeline (pipeline-mode) feature.",
       )
       .optional(),
     sql: z.string().describe("The SQL query for this fact table").optional(),
@@ -829,7 +846,7 @@ export const refreshAggregatedFactTableBody = z
       .string()
       .optional()
       .describe(
-        "Limit the refresh to a single id type. If omitted, all of the fact table's aggregatedFactTableIdTypes are refreshed.",
+        "Limit the refresh to a single id type. If omitted, all of the fact table's aggregatedFactTableSettings.idTypes are refreshed.",
       ),
     fullRestate: z
       .boolean()
