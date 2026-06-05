@@ -20,6 +20,19 @@ import {
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { allConnectionsSupportBucketingV2 } from "./HashVersionSelector";
 
+// Which field group the current modal/flow actually lets the user edit. Used
+// to scope client-side validation so a modal can't block a save on a field it
+// never rendered (e.g. editing traffic shouldn't fail on a stale condition).
+// Mirrors the `ChangeType` union from `MakeChangesFlow` without importing it,
+// to keep this hook free of UI dependencies.
+export type TargetingEditScope =
+  | "targeting"
+  | "traffic"
+  | "weights"
+  | "namespace"
+  | "advanced"
+  | "phase";
+
 export interface UseExperimentTargetingFormResult {
   form: UseFormReturn<ExperimentTargetingData>;
   // Loosely typed because `useForm` accepts a `DeepPartial<ExperimentTargetingData>`
@@ -30,7 +43,10 @@ export interface UseExperimentTargetingFormResult {
   prerequisiteTargetingSdkIssues: boolean;
   setPrerequisiteTargetingSdkIssues: (v: boolean) => void;
   canSubmit: boolean;
-  onSubmit: (mutate: () => void) => () => Promise<void>;
+  onSubmit: (
+    mutate: () => void,
+    scope?: TargetingEditScope,
+  ) => () => Promise<void>;
 }
 
 // Shared form setup for the targeting + traffic edit modals. Both the
@@ -111,24 +127,46 @@ export function useExperimentTargetingForm(
     defaultValues,
   });
 
-  const onSubmit = (mutate: () => void) =>
+  const onSubmit = (
+    mutate: () => void,
+    scope: TargetingEditScope = "advanced",
+  ) =>
     form.handleSubmit(async (value) => {
-      validateSavedGroupTargeting(value.savedGroups);
+      // Targeting fields (saved groups, condition, prerequisites) are only
+      // editable from the targeting modal and the unscoped/advanced flow. Skip
+      // their non-change-aware validation otherwise so a traffic- or
+      // namespace-only save can't be blocked by a stale targeting value the
+      // user never saw.
+      const targetingEditable = scope === "targeting" || scope === "advanced";
 
-      validateAndFixCondition(value.condition, (condition) => {
-        form.setValue("condition", condition);
-        forceConditionRender();
-      });
+      if (targetingEditable) {
+        validateSavedGroupTargeting(value.savedGroups);
 
-      if (value.prerequisites) {
-        if (value.prerequisites.some((p) => !p.id)) {
-          throw new Error("Cannot have empty prerequisites");
+        validateAndFixCondition(value.condition, (condition) => {
+          form.setValue("condition", condition);
+          forceConditionRender();
+        });
+
+        if (value.prerequisites) {
+          if (value.prerequisites.some((p) => !p.id)) {
+            throw new Error("Cannot have empty prerequisites");
+          }
         }
       }
 
       if (prerequisiteTargetingSdkIssues) {
         throw new Error("Prerequisite targeting issues must be resolved");
       }
+
+      // Existing persisted attribute values. Passed as `existingParts` so the
+      // pre-flight only validates attributes the user actually changed —
+      // unchanged stale hash/fallback/condition values won't block unrelated
+      // saves even though we still POST the full payload.
+      const existingAttributeParts = {
+        hashAttribute: experiment.hashAttribute || "id",
+        fallbackAttribute: experiment.fallbackAttribute || "",
+        condition: lastPhase?.condition ?? "",
+      };
 
       // Opt-in client-side pre-flight — mirrors the back-end check in
       // postExperimentTargeting so typo'd attributes fail fast without a
@@ -146,6 +184,7 @@ export function useExperimentTargetingForm(
           requireRegisteredAttributes: orgSettings.requireRegisteredAttributes,
           project: experiment.project || undefined,
         },
+        existingAttributeParts,
       );
 
       // Collapse contiguous / overlapping namespace ranges on save so the

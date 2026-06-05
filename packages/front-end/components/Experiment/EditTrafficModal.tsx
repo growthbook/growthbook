@@ -86,7 +86,7 @@ export default function EditTrafficModal({
         close={close}
         header="Edit Traffic"
         ctaEnabled={canSubmit}
-        submit={onSubmit(mutate)}
+        submit={onSubmit(mutate, "traffic")}
         size="lg"
       >
         <div className="pt-2">
@@ -200,7 +200,7 @@ export default function EditTrafficModal({
       experiment={experiment}
       form={form}
       defaultValues={defaultValues}
-      onSubmit={onSubmit(mutate)}
+      onSubmit={(scope) => onSubmit(mutate, scope)()}
       close={close}
       canSubmit={canSubmit}
       conditionKey={conditionKey}

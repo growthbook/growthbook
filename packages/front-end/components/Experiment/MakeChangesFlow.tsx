@@ -17,6 +17,7 @@ import RadioGroup, { RadioOptions } from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import TargetingForm from "./TargetingForm";
+import { TargetingEditScope } from "./useExperimentTargetingForm";
 
 export type ChangeType =
   | "targeting"
@@ -41,7 +42,9 @@ export interface MakeChangesFlowProps {
   // and the namespace shape produced by `EditTargetingModal` doesn't always match
   // the strict `ExperimentTargetingData` shape (legacy vs. multi-range namespaces).
   defaultValues: Record<string, unknown>;
-  onSubmit: () => Promise<void>;
+  // Receives the selected change type as the validation scope so the shared
+  // submit handler only validates the fields this flow actually rendered.
+  onSubmit: (scope?: TargetingEditScope) => Promise<void>;
   close: () => void;
   canSubmit: boolean;
   conditionKey: number;
@@ -96,7 +99,7 @@ export default function MakeChangesFlow({
   }, [changeType, step, lastStepNumber, setReleasePlan]);
 
   const submit = async () => {
-    await onSubmit();
+    await onSubmit(changeType);
     track("edit-experiment-targeting", {
       type: changeType,
       action: releasePlan,

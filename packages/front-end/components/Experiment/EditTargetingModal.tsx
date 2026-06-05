@@ -38,7 +38,7 @@ export default function EditTargetingModal({
         close={close}
         header="Edit Targeting"
         ctaEnabled={canSubmit}
-        submit={onSubmit(mutate)}
+        submit={onSubmit(mutate, "targeting")}
         size="lg"
       >
         <div className="pt-2">
@@ -68,7 +68,7 @@ export default function EditTargetingModal({
       experiment={experiment}
       form={form}
       defaultValues={defaultValues}
-      onSubmit={onSubmit(mutate)}
+      onSubmit={(scope) => onSubmit(mutate, scope)()}
       close={close}
       canSubmit={canSubmit}
       conditionKey={conditionKey}
