@@ -219,6 +219,20 @@ export class FactMetricModel extends BaseClass {
       newDoc.numerator = FactMetricModel.migrateColumnRef(newDoc.numerator);
     }
 
+    // Fix Daily Participation metrics that have incorrect column values
+    // These metrics require $$distinctDates to correctly generate COUNT(DISTINCT DATE(...))
+    if (
+      newDoc.metricType === "dailyParticipation" &&
+      newDoc.numerator &&
+      newDoc.numerator.column !== "$$distinctDates"
+    ) {
+      newDoc.numerator = {
+        ...newDoc.numerator,
+        column: "$$distinctDates",
+        aggregation: undefined,
+      };
+    }
+
     // Clean up orphaned denominators that should not exist
     if (!denominatorRequiredByMetricType(newDoc.metricType)) {
       newDoc.denominator = null;
@@ -571,6 +585,7 @@ export class FactMetricModel extends BaseClass {
       cappingSettings: {
         ...cappingSettings,
         type: cappingSettings.type || "none",
+        ignoreZeros: cappingSettings.ignoreZeros ?? undefined,
       },
       windowSettings: {
         ...windowSettings,

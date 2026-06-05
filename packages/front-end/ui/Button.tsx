@@ -107,7 +107,9 @@ const Button = forwardRef<HTMLButtonElement, Props>(
 Button.displayName = "Button";
 export default Button;
 
-type WhiteButtonProps = Omit<Props, "color">;
+type WhiteButtonProps = Omit<Props, "color"> & {
+  fullWidth?: boolean;
+};
 export const WhiteButton = forwardRef<HTMLButtonElement, WhiteButtonProps>(
   function WhiteButton(
     {
@@ -122,6 +124,7 @@ export const WhiteButton = forwardRef<HTMLButtonElement, WhiteButtonProps>(
       type = "button",
       children,
       tabIndex,
+      fullWidth = true,
       ...otherProps
     }: WhiteButtonProps,
     ref: ForwardedRef<HTMLButtonElement>,
@@ -155,7 +158,7 @@ export const WhiteButton = forwardRef<HTMLButtonElement, WhiteButtonProps>(
         loading={loading}
         type={type}
         style={{
-          width: "100%",
+          width: fullWidth ? "100%" : undefined,
           backgroundColor: variant === "outline" ? "" : "var(--white-a12)",
           color:
             variant === "outline" ? "var(--white-a12)" : "var(--black-a12)",

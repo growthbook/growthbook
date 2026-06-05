@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { statsEngines } from "shared/constants";
+import {
+  statsEngines,
+  MAX_PRECOMPUTED_UNIT_DIMENSIONS,
+  MAX_DESCRIPTION_LENGTH,
+} from "shared/constants";
 import {
   namespaceValue,
   featurePrerequisite,
@@ -8,7 +12,12 @@ import {
   apiPaginationFieldsValidator,
 } from "./shared";
 import { windowTypeValidator } from "./fact-table";
-import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
+import {
+  ownerEmailField,
+  ownerField,
+  ownerInputField,
+  optionalOwnerInputField,
+} from "./owner-field";
 
 import { namedSchema } from "./openapi-helpers";
 
@@ -21,6 +30,8 @@ export const customMetricSlice = z.object({
   ),
 });
 export type CustomMetricSlice = z.infer<typeof customMetricSlice>;
+
+const maxPrecomputedUnitDimensionsError = `A maximum of ${MAX_PRECOMPUTED_UNIT_DIMENSIONS} precomputed unit dimensions are allowed`;
 
 export const experimentResultsType = [
   "dnf",
@@ -112,7 +123,7 @@ export const screenshot = z
     path: z.string(),
     width: z.number().optional(),
     height: z.number().optional(),
-    description: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   })
   .strict();
 export type Screenshot = z.infer<typeof screenshot>;
@@ -121,12 +132,26 @@ export const variation = z
   .object({
     id: z.string(),
     name: z.string(),
-    description: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     key: z.string(),
     screenshots: z.array(screenshot),
   })
   .strict();
 export type Variation = z.infer<typeof variation>;
+
+export const manualLaunchChecklistItemValidator = z
+  .object({
+    key: z.string(),
+    status: z.enum(["complete", "incomplete"]),
+  })
+  .strict();
+export type ManualLaunchChecklistItem = z.infer<
+  typeof manualLaunchChecklistItemValidator
+>;
+
+export const manualLaunchChecklistValidator = z.array(
+  manualLaunchChecklistItemValidator,
+);
 
 export const attributionModel = [
   "firstExposure",
@@ -147,6 +172,7 @@ export const experimentNotification = [
   "auto-update",
   "multiple-exposures",
   "srm",
+  "no-data",
   "significance",
 ] as const;
 export type ExperimentNotification = (typeof experimentNotification)[number];
@@ -322,6 +348,20 @@ export type ExperimentAnalysisSummary = z.infer<
   typeof experimentAnalysisSummary
 >;
 
+// TODO(schedule-status-updates): add stopAt
+export const statusUpdateScheduleValidator = z.object({
+  startAt: z.date(),
+});
+
+const nextScheduledStatusUpdateValidator = z.object({
+  type: z.enum(["start", "stop"]),
+  date: z.date(),
+  // Number of times the scheduled job has failed to apply this update.
+  // The job clears `nextScheduledStatusUpdate` once this hits the retry cap
+  // (see SCHEDULED_STATUS_UPDATE_MAX_ATTEMPTS in updateExperimentStatus.ts).
+  failedAttempts: z.number().int().nonnegative().optional(),
+});
+
 export const experimentInterface = z
   .object({
     id: z.string(),
@@ -344,7 +384,7 @@ export const experimentInterface = z
     dateCreated: z.date(),
     dateUpdated: z.date(),
     tags: z.array(z.string()),
-    description: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     hypothesis: z.string().optional(),
     /** @deprecated related to HypGen */
     autoAssign: z.boolean(),
@@ -362,6 +402,7 @@ export const experimentInterface = z
     lastSnapshotAttempt: z.date().optional(),
     nextSnapshotAttempt: z.date().optional(),
     autoSnapshots: z.boolean(),
+    disableAutoSnapshots: z.boolean().optional(),
     ideaSource: z.string().optional(),
     hasVisualChangesets: z.boolean().optional(),
     hasURLRedirects: z.boolean().optional(),
@@ -379,16 +420,7 @@ export const experimentInterface = z
           .strict(),
       )
       .optional(),
-    manualLaunchChecklist: z
-      .array(
-        z
-          .object({
-            key: z.string(),
-            status: z.enum(["complete", "incomplete"]),
-          })
-          .strict(),
-      )
-      .optional(),
+    manualLaunchChecklist: manualLaunchChecklistValidator.optional(),
     type: z.enum(experimentType).optional(),
     banditStage: z.enum(banditStageType).optional(),
     banditStageDateStarted: z.date().optional(),
@@ -406,6 +438,14 @@ export const experimentInterface = z
     holdoutId: z.string().optional(),
     defaultDashboardId: z.string().optional(),
     customMetricSlices: z.array(customMetricSlice).optional(),
+    statusUpdateSchedule: statusUpdateScheduleValidator.optional().nullable(),
+    nextScheduledStatusUpdate: nextScheduledStatusUpdateValidator
+      .optional()
+      .nullable(),
+    precomputedUnitDimensionIds: z
+      .array(z.string())
+      .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
+      .optional(),
   })
   .strict()
   .merge(experimentAnalysisSettings);
@@ -630,7 +670,7 @@ const apiExperimentVariation = z.object({
   variationId: z.string(),
   key: z.string(),
   name: z.string(),
-  description: z.string(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH),
   screenshots: z.array(z.string()),
 });
 
@@ -701,6 +741,21 @@ const apiCustomMetricSlices = z
     "Custom slices that apply to ALL applicable metrics in the experiment",
   );
 
+const apiStatusUpdateSchedule = z
+  .object({
+    startAt: z
+      .string()
+      .meta({ format: "date-time" })
+      .describe(
+        "ISO datetime when the experiment should start. Must be in the future. " +
+          "Setting or clearing this field invalidates any existing staged start " +
+          "(`nextScheduledStatusUpdate`); call POST /experiments/{id}/start to stage the new schedule.",
+      ),
+  })
+  .describe(
+    "Schedule a future start for a draft experiment. Only `startAt` is currently supported.",
+  );
+
 // Corresponds to schemas/Experiment.yaml
 const apiExperimentShape = z.object({
   id: z.string(),
@@ -708,10 +763,10 @@ const apiExperimentShape = z.object({
   dateCreated: z.string().meta({ format: "date-time" }),
   dateUpdated: z.string().meta({ format: "date-time" }),
   name: z.string(),
-  type: z.enum(["standard", "multi-armed-bandit"]),
+  type: z.enum(["standard", "multi-armed-bandit", "holdout"]),
   project: z.string(),
   hypothesis: z.string(),
-  description: z.string(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH),
   tags: z.array(z.string()),
   owner: ownerField,
   ownerEmail: ownerEmailField,
@@ -741,11 +796,27 @@ const apiExperimentShape = z.object({
   hasURLRedirects: z.boolean().optional(),
   customFields: z.record(z.string(), z.any()).optional(),
   customMetricSlices: apiCustomMetricSlices.optional(),
+  precomputedUnitDimensionIds: z
+    .array(z.string())
+    .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
+    .optional(),
   defaultDashboardId: z
     .string()
     .describe("ID of the default dashboard for this experiment.")
     .optional(),
   templateId: z.string().optional(),
+  statusUpdateSchedule: apiStatusUpdateSchedule.nullable().optional(),
+  nextScheduledStatusUpdate: z
+    .object({
+      // Only "start" is supported for experiments today. The internal
+      // statusUpdateScheduleValidator has a `TODO(schedule-status-updates):
+      // add stopAt`, and updateExperimentStatus.ts treats any other type as
+      // unsupported and clears the field
+      type: z.literal("start"),
+      date: z.string().meta({ format: "date-time" }),
+    })
+    .nullable()
+    .optional(),
 });
 export const apiExperimentValidator = namedSchema(
   "Experiment",
@@ -763,7 +834,13 @@ export const apiExperimentWithEnhancedStatus = namedSchema(
     z.object({
       enhancedStatus: z
         .object({
-          status: z.enum(["Running", "Stopped", "Draft", "Archived"]),
+          status: z.enum([
+            "Running",
+            "Stopped",
+            "Draft",
+            "Scheduled",
+            "Archived",
+          ]),
           detailedStatus: z.string().optional(),
         })
         .optional(),
@@ -809,9 +886,11 @@ export const apiExperimentResultsValidator = namedSchema(
           metrics: z.array(
             z.object({
               metricId: z.string(),
+              metricName: z.string().optional(),
               variations: z.array(
                 z.object({
                   variationId: z.string(),
+                  variationName: z.string().optional(),
                   users: z.coerce.number().optional(),
                   analyses: z.array(
                     z.object({
@@ -903,14 +982,14 @@ const apiVariationInput = z.object({
   id: z.string().optional(),
   key: z.string(),
   name: z.string(),
-  description: z.string().optional(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   screenshots: z
     .array(
       z.object({
         path: z.string(),
         width: z.number().optional(),
         height: z.number().optional(),
-        description: z.string().optional(),
+        description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
       }),
     )
     .optional(),
@@ -924,14 +1003,6 @@ const apiPhaseInput = z.object({
   reasonForStopping: z.string().optional(),
   seed: z.string().optional(),
   coverage: z.number().optional(),
-  trafficSplit: z
-    .array(
-      z.object({
-        variationId: z.string(),
-        weight: z.number(),
-      }),
-    )
-    .optional(),
   namespace: z
     .object({
       namespaceId: z.string(),
@@ -941,7 +1012,6 @@ const apiPhaseInput = z.object({
       ranges: z.array(z.tuple([z.number(), z.number()])).optional(),
     })
     .optional(),
-  targetingCondition: z.string().optional(),
   prerequisites: z
     .array(
       z.object({
@@ -1000,6 +1070,7 @@ const postExperimentBody = z
     hypothesis: z.string().describe("Hypothesis of the experiment").optional(),
     description: z
       .string()
+      .max(MAX_DESCRIPTION_LENGTH)
       .describe("Description of the experiment")
       .optional(),
     tags: z.array(z.string()).optional(),
@@ -1018,9 +1089,9 @@ const postExperimentBody = z
       .string()
       .describe("WHERE clause to add to the default experiment query")
       .optional(),
-    owner: ownerInputField.optional(),
+    owner: optionalOwnerInputField,
     archived: z.boolean().optional(),
-    status: z.enum(["draft", "running", "stopped"]).optional(),
+    status: z.enum(experimentStatus).optional(),
     autoRefresh: z.boolean().optional(),
     hashAttribute: z.string().optional(),
     fallbackAttribute: z.string().optional(),
@@ -1079,6 +1150,14 @@ const postExperimentBody = z
       .optional(),
     customFields: z.record(z.string(), z.string()).optional(),
     customMetricSlices: apiCustomMetricSlices.optional(),
+    precomputedUnitDimensionIds: z
+      .array(z.string())
+      .describe(
+        "A list of unit dimension ids that will be calculated every update and generate timeseries data. Requires the datasource to have pipeline mode enabled.",
+      )
+      .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
+      .optional(),
+    statusUpdateSchedule: apiStatusUpdateSchedule.optional(),
   })
   .strict();
 
@@ -1108,6 +1187,7 @@ const updateExperimentBody = z
     hypothesis: z.string().describe("Hypothesis of the experiment").optional(),
     description: z
       .string()
+      .max(MAX_DESCRIPTION_LENGTH)
       .describe("Description of the experiment")
       .optional(),
     tags: z.array(z.string()).optional(),
@@ -1128,7 +1208,7 @@ const updateExperimentBody = z
       .optional(),
     owner: ownerInputField.optional(),
     archived: z.boolean().optional(),
-    status: z.enum(["draft", "running", "stopped"]).optional(),
+    status: z.enum(experimentStatus).optional(),
     autoRefresh: z.boolean().optional(),
     hashAttribute: z.string().optional(),
     fallbackAttribute: z.string().optional(),
@@ -1185,16 +1265,6 @@ const updateExperimentBody = z
           reasonForStopping: z.string().optional(),
           seed: z.string().optional(),
           coverage: z.number().optional(),
-          trafficSplit: z
-            .array(
-              z.object({
-                variationId: z.string(),
-                weight: z.number(),
-              }),
-            )
-            .describe("Deprecated and unused. Use variationWeights instead.")
-            .optional()
-            .meta({ deprecated: true }),
           namespace: z
             .object({
               namespaceId: z.string(),
@@ -1202,7 +1272,6 @@ const updateExperimentBody = z
               enabled: z.boolean().optional(),
             })
             .optional(),
-          targetingCondition: z.string().optional(),
           prerequisites: z
             .array(
               z.object({
@@ -1263,6 +1332,19 @@ const updateExperimentBody = z
       .optional(),
     customFields: z.record(z.string(), z.string()).optional(),
     customMetricSlices: apiCustomMetricSlices.optional(),
+    statusUpdateSchedule: apiStatusUpdateSchedule
+      .describe(
+        "Schedule a future start for a draft experiment. Set to `null` to remove the schedule. Provide `{ startAt }` to set or update it. Only `startAt` is currently supported.",
+      )
+      .nullable()
+      .optional(),
+    precomputedUnitDimensionIds: z
+      .array(z.string())
+      .describe(
+        "A list of unit dimension ids that will be calculated every update and generate timeseries data. Requires the datasource to have pipeline mode enabled.",
+      )
+      .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
+      .optional(),
   })
   .strict();
 
@@ -1277,6 +1359,17 @@ const postExperimentStartBody = z
   })
   .strict()
   .optional();
+
+const postExperimentStartChecklistManualCompleteBody = z
+  .object({
+    keys: z
+      .array(z.string())
+      .min(1)
+      .describe(
+        "Manual pre-launch checklist item keys to mark as complete (auto-computed items cannot be updated via this endpoint).",
+      ),
+  })
+  .strict();
 
 const postExperimentStopBody = z
   .object({
@@ -1454,6 +1547,49 @@ export const getExperimentValidator = {
   exampleRequest: { params: { id: "abc123" } },
 };
 
+const checklistStatusValidator = z.enum(["complete", "incomplete"]);
+export type ChecklistStatus = z.infer<typeof checklistStatusValidator>;
+
+const startChecklistItemStatusValidator = z
+  .object({
+    key: z.string(),
+    required: z.boolean(),
+    status: checklistStatusValidator,
+    manual: z.boolean(),
+    reason: z.string(),
+  })
+  .strict();
+
+export type StartChecklistItemStatus = z.infer<
+  typeof startChecklistItemStatusValidator
+>;
+
+const experimentStartChecklistStatusValidator = z.enum(["ready", "notReady"]);
+
+export type ExperimentStartChecklistStatus = z.infer<
+  typeof experimentStartChecklistStatusValidator
+>;
+
+const experimentStartChecklistResponseValidator = z
+  .object({
+    checklistItems: z.array(startChecklistItemStatusValidator),
+    status: experimentStartChecklistStatusValidator,
+  })
+  .strict();
+
+export const getExperimentStartChecklistValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: experimentStartChecklistResponseValidator,
+  summary: "Get an experiment pre-launch checklist status",
+  operationId: "getExperimentStartChecklist",
+  tags: ["experiments"],
+  method: "get" as const,
+  path: "/experiments/:id/start-checklist",
+  exampleRequest: { params: { id: "exp_abc123" } },
+};
+
 export const updateExperimentValidator = {
   bodySchema: updateExperimentBody,
   querySchema: z.never(),
@@ -1477,15 +1613,41 @@ export const postExperimentStartValidator = {
   responseSchema: z
     .object({
       experiment: apiExperimentWithEnhancedStatus,
+      message: z
+        .string()
+        .describe(
+          "Present only when the request staged a future scheduled start instead of starting the experiment immediately.",
+        )
+        .optional(),
     })
     .strict(),
-  summary: "Start an experiment",
+  summary: "Start/Stage an experiment",
+  description:
+    "Starts an experiment or stages it for a future start if a `statusUpdateSchedule` is set on the experiment.",
   operationId: "postExperimentStart",
   tags: ["experiments"],
   method: "post" as const,
   path: "/experiments/:id/start",
   exampleRequest: {
     params: { id: "exp_abc123" },
+  },
+};
+
+export const postExperimentStartChecklistManualCompleteValidator = {
+  bodySchema: postExperimentStartChecklistManualCompleteBody,
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: experimentStartChecklistResponseValidator,
+  summary: "Mark manual pre-launch checklist items complete",
+  operationId: "postExperimentStartChecklistManualComplete",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/start-checklist/manual/complete",
+  exampleRequest: {
+    params: { id: "exp_abc123" },
+    body: {
+      keys: ["Stakeholder sign-off", "QA complete"],
+    },
   },
 };
 
@@ -1595,6 +1757,7 @@ export const postVariationImageUploadValidator = {
         .describe("MIME type of the screenshot"),
       description: z
         .string()
+        .max(MAX_DESCRIPTION_LENGTH)
         .describe("Optional description for the screenshot")
         .optional(),
     })
@@ -1605,7 +1768,10 @@ export const postVariationImageUploadValidator = {
     .object({
       screenshot: z.object({
         path: z.string().describe("URL or path to the uploaded screenshot"),
-        description: z.string().describe("Description of the screenshot"),
+        description: z
+          .string()
+          .max(MAX_DESCRIPTION_LENGTH)
+          .describe("Description of the screenshot"),
       }),
     })
     .strict(),
@@ -1655,6 +1821,7 @@ export const getExperimentResultsValidator = {
   paramsSchema: idParams,
   responseSchema: z
     .object({
+      experiment: apiExperimentValidator,
       result: apiExperimentResultsValidator,
     })
     .strict(),
@@ -1663,6 +1830,45 @@ export const getExperimentResultsValidator = {
   tags: ["experiments"],
   method: "get" as const,
   path: "/experiments/:id/results",
+};
+
+export const listExperimentResultsValidator = {
+  bodySchema: z.never(),
+  querySchema: z
+    .object({
+      ...paginationQueryFields,
+      projectId: z.string().describe("Filter by project id").optional(),
+      datasourceId: z.string().describe("Filter by Data Source").optional(),
+      trackingKey: z
+        .string()
+        .describe("Filter by experiment tracking key")
+        .optional(),
+      status: z.enum(experimentStatus).optional(),
+    })
+    .strict(),
+  paramsSchema: z.never(),
+  responseSchema: z.intersection(
+    z.object({
+      experimentResults: z.array(apiExperimentResultsValidator),
+    }),
+    apiPaginationFieldsValidator,
+  ),
+  summary: "Get latest results for many experiments",
+  description: [
+    "Returns the latest non-dimension snapshot for each experiment matching the filters. Use this to scan results across a portfolio in one call.",
+    "",
+    "Pagination semantics:",
+    "- `total` is the count of experiments matching the filters.",
+    "- `count` is the length of the returned `experimentResults` array.",
+    "- Experiments without a completed snapshot are omitted from `experimentResults`, so `count` may be less than the page slice and a page may legitimately return `count: 0` while `hasMore: true`.",
+    "- `hasMore` and `nextOffset` advance over experiments matching the filters, not over returned results.",
+    "",
+    "Use the per-experiment `GET /experiments/{id}/results` endpoint to inspect specific phases or dimensions.",
+  ].join("\n"),
+  operationId: "listExperimentResults",
+  tags: ["experiments"],
+  method: "get" as const,
+  path: "/experiments/results",
 };
 
 export const getExperimentSnapshotValidator = {

@@ -9,7 +9,10 @@ import {
   addOrUpdateSnapshotMultipleAnalysis,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import { getQueryMap } from "back-end/src/queryRunners/QueryRunner";
-import { createSnapshotAnalysesBatched } from "back-end/src/services/experiments";
+import {
+  createSnapshotAnalysesBatched,
+  createSnapshotAnalysis,
+} from "back-end/src/services/experiments";
 
 jest.mock("back-end/src/services/stats", () => ({
   analyzeExperimentResults: jest.fn(),
@@ -172,5 +175,93 @@ describe("createSnapshotAnalysesBatched", () => {
         error: "stats failed",
       }),
     ]);
+  });
+
+  it("rewrites parent unit-dimension queries to bare metric keys", async () => {
+    const parentQuery = { id: "qry_parent" };
+    const unitQuery = { id: "qry_unit_country" };
+    (getQueryMap as jest.Mock).mockResolvedValue(
+      new Map([
+        ["met_1", parentQuery],
+        ["unitdim:dim_country:met_1", unitQuery],
+      ]),
+    );
+    (analyzeExperimentResults as jest.Mock).mockResolvedValue({
+      results: [{ dimensions: [{ name: "US", variations: [] }] }],
+    });
+
+    const analysisSettingsList = [
+      makeAnalysisSettings({
+        differenceType: "relative",
+        dimensions: ["dim_country"],
+      }),
+    ];
+    const analyses = await createSnapshotAnalysesBatched(
+      { org: { id: "org_1" } } as never,
+      {
+        experiment: makeExperiment(),
+        snapshot: {
+          ...makeSnapshot(),
+          settings: {
+            ...makeSnapshot().settings,
+            precomputedUnitDimensionIds: ["dim_country"],
+          },
+        },
+        metricMap: new Map(),
+        analysisSettingsList,
+      },
+    );
+
+    const queryData = (analyzeExperimentResults as jest.Mock).mock.calls[0][0]
+      .queryData as Map<string, unknown>;
+    expect(Array.from(queryData.keys())).toEqual(["met_1"]);
+    expect(queryData.get("met_1")).toBe(unitQuery);
+    expect(analyses[0]).toEqual(
+      expect.objectContaining({
+        settings: analysisSettingsList[0],
+        status: "success",
+        results: [{ name: "US", variations: [] }],
+      }),
+    );
+  });
+});
+
+describe("createSnapshotAnalysis", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("rewrites parent unit-dimension queries to bare metric keys for lazy analyses", async () => {
+    const parentQuery = { id: "qry_parent" };
+    const unitQuery = { id: "qry_unit_country" };
+    (getQueryMap as jest.Mock).mockResolvedValue(
+      new Map([
+        ["met_1", parentQuery],
+        ["unitdim:dim_country:met_1", unitQuery],
+      ]),
+    );
+    (analyzeExperimentResults as jest.Mock).mockResolvedValue({
+      results: [{ dimensions: [] }],
+    });
+
+    await createSnapshotAnalysis({ org: { id: "org_1" } } as never, {
+      experiment: makeExperiment(),
+      snapshot: {
+        ...makeSnapshot(),
+        settings: {
+          ...makeSnapshot().settings,
+          precomputedUnitDimensionIds: ["dim_country"],
+        },
+      },
+      metricMap: new Map(),
+      analysisSettings: makeAnalysisSettings({
+        dimensions: ["dim_country"],
+      }),
+    });
+
+    const queryData = (analyzeExperimentResults as jest.Mock).mock.calls[0][0]
+      .queryData as Map<string, unknown>;
+    expect(Array.from(queryData.keys())).toEqual(["met_1"]);
+    expect(queryData.get("met_1")).toBe(unitQuery);
   });
 });

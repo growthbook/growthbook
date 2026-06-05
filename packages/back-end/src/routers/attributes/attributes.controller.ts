@@ -1,6 +1,6 @@
 import type { Response } from "express";
 import { SDKAttribute } from "shared/types/organization";
-import { recursiveWalk } from "shared/util";
+import { extractConditionAttributeKeys } from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
@@ -8,6 +8,7 @@ import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
+import { yieldEventLoop } from "back-end/src/util/yield";
 
 export const postAttribute = async (
   req: AuthRequest<SDKAttribute>,
@@ -250,13 +251,13 @@ export const getAttributeReferences = async (
     savedGroupRefs.set(key, new Map());
   }
 
-  for (const feature of allFeatures) {
-    // v2: rules live on feature.rules (flat). We don't need to project per-env
-    // here — attribute usage is feature-scoped for this panel.
+  for (let i = 0; i < allFeatures.length; i++) {
+    await yieldEventLoop(i);
+    const feature = allFeatures[i];
     for (const rule of feature.rules ?? []) {
       try {
         const parsed = JSON.parse(rule.condition ?? "{}");
-        recursiveWalk(parsed, ([nodeKey]) => {
+        for (const nodeKey of extractConditionAttributeKeys(parsed)) {
           if (keySet.has(nodeKey)) {
             featureRefs.get(nodeKey)!.set(feature.id, {
               id: feature.id,
@@ -264,7 +265,7 @@ export const getAttributeReferences = async (
               project: feature.project,
             });
           }
-        });
+        }
       } catch {
         // ignore unparseable conditions
       }
@@ -287,7 +288,9 @@ export const getAttributeReferences = async (
     const phase = experiment.phases?.slice(-1)?.[0];
     try {
       const parsed = JSON.parse(phase?.condition ?? "{}");
-      recursiveWalk(parsed, ([nodeKey]) => addExp(nodeKey));
+      for (const nodeKey of extractConditionAttributeKeys(parsed)) {
+        addExp(nodeKey);
+      }
     } catch {
       // ignore
     }
@@ -297,7 +300,7 @@ export const getAttributeReferences = async (
     if (group.type !== "condition") continue;
     try {
       const parsed = JSON.parse(group.condition ?? "{}");
-      recursiveWalk(parsed, ([nodeKey]) => {
+      for (const nodeKey of extractConditionAttributeKeys(parsed)) {
         if (keySet.has(nodeKey)) {
           savedGroupRefs.get(nodeKey)!.set(group.id, {
             id: group.id,
@@ -305,7 +308,7 @@ export const getAttributeReferences = async (
             projects: group.projects,
           });
         }
-      });
+      }
     } catch {
       // ignore
     }
