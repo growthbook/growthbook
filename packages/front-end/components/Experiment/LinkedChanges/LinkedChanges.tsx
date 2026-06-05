@@ -181,14 +181,16 @@ export default function LinkedChanges({
                 />
               </Flex>
             )}
-          <AddLinkedChanges
-            experiment={experiment}
-            numLinkedChanges={numLinkedChanges}
-            hasLinkedFeatures={linkedFeatures.length > 0}
-            setFeatureModal={setFeatureModal}
-            setVisualEditorModal={setVisualEditorModal}
-            setUrlRedirectModal={setUrlRedirectModal}
-          />
+          {setFeatureModal && setVisualEditorModal && setUrlRedirectModal && (
+            <AddLinkedChanges
+              experiment={experiment}
+              numLinkedChanges={numLinkedChanges}
+              hasLinkedFeatures={linkedFeatures.length > 0}
+              setFeatureModal={setFeatureModal}
+              setVisualEditorModal={setVisualEditorModal}
+              setUrlRedirectModal={setUrlRedirectModal}
+            />
+          )}
         </>
       )}
     </Frame>
