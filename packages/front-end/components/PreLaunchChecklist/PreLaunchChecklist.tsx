@@ -11,6 +11,7 @@ import Collapsible from "react-collapsible";
 import clsx from "clsx";
 import { Box, Flex, Theme } from "@radix-ui/themes";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import useGlobalMenu from "@/services/useGlobalMenu";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
@@ -376,6 +377,8 @@ export function PreLaunchChecklistDrawer() {
     }
   }, [checklistItemsRemaining, setOpen]);
 
+  useGlobalMenu(".prelaunch-checklist-drawer, .modal", () => setOpen(false));
+
   return (
     <>
       {analysisModal && setAnalysisModal ? (
@@ -408,7 +411,7 @@ export function PreLaunchChecklistDrawer() {
           mutate={mutateExperiment}
         />
       ) : null}
-      <Box className="dark-theme">
+      <Box className="dark-theme prelaunch-checklist-drawer">
         <Theme appearance="dark">
           <Box className={styles.drawer}>
             <Box className={styles.drawerInner}>
