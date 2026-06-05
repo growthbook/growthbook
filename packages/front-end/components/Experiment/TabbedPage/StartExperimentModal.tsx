@@ -23,7 +23,10 @@ import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import Avatar from "@/ui/Avatar";
-import { formatTrafficSplit } from "@/services/utils";
+import {
+  formatTrafficSplit,
+  getHoldoutTrafficBreakdown,
+} from "@/services/utils";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import {
@@ -153,6 +156,7 @@ export default function StartExperimentModal({
 }: Props) {
   const checklistIncomplete = checklistItemsRemaining > 0;
   const phase = experiment.phases?.[experiment.phases.length - 1];
+  const holdoutTraffic = getHoldoutTrafficBreakdown(phase);
   const isBandit = experiment.type === "multi-armed-bandit";
   const hasAttributeTargeting = !!(
     phase?.condition && phase.condition !== "{}"
@@ -419,24 +423,15 @@ export default function StartExperimentModal({
                     {isHoldout ? (
                       <Flex direction="column" gap="1">
                         <Text>
-                          {Math.floor(
-                            phase.coverage * phase.variationWeights[0] * 100,
-                          )}
-                          % in holdout
+                          {holdoutTraffic.inHoldoutPercent}% in holdout
                         </Text>
                         <Text>
-                          {Math.floor(
-                            phase.coverage * phase.variationWeights[0] * 100,
-                          )}
-                          % not in holdout (for measurement)
+                          {holdoutTraffic.forMeasurementPercent}% not in holdout
+                          (for measurement)
                         </Text>
                         <Text>
-                          {Math.floor(
-                            (1 -
-                              phase.coverage * phase.variationWeights[0] * 2) *
-                              100,
-                          )}
-                          % not in holdout (not for measurement)
+                          {holdoutTraffic.notForMeasurementPercent}% not in
+                          holdout (not for measurement)
                         </Text>
                       </Flex>
                     ) : (

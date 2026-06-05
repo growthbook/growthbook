@@ -15,6 +15,7 @@ import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import Link from "@/ui/Link";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import DecisionCriteriaSelectorModal from "@/components/DecisionCriteria/DecisionCriteriaSelectorModal";
+import DecisionCriteriaModal from "@/components/DecisionCriteria/DecisionCriteriaModal";
 import TargetMDEModal from "@/components/Experiment/TabbedPage/TargetMDEModal";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
@@ -111,7 +112,10 @@ export default function DecisionMakingSettings({
 
   return (
     <>
-      {decisionCriteriaModal && mutate ? (
+      {decisionCriteriaModal &&
+      mutate &&
+      canEditDecisionSettings &&
+      !isPublic ? (
         <DecisionCriteriaSelectorModal
           initialCriteria={decisionCriteria}
           experiment={experiment}
@@ -121,6 +125,13 @@ export default function DecisionMakingSettings({
           }}
           onClose={() => setDecisionCriteriaModal(false)}
           canEdit={canEditDecisionSettings}
+        />
+      ) : decisionCriteriaModal ? (
+        <DecisionCriteriaModal
+          decisionCriteria={decisionCriteria}
+          editable={false}
+          mutate={() => {}}
+          onClose={() => setDecisionCriteriaModal(false)}
         />
       ) : null}
       {targetMDEModal && mutate ? (

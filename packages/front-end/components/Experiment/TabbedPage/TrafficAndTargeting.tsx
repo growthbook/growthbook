@@ -3,7 +3,10 @@ import { calculateNamespaceCoverage } from "shared/util";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
-import { formatTrafficSplit } from "@/services/utils";
+import {
+  formatTrafficSplit,
+  getHoldoutTrafficBreakdown,
+} from "@/services/utils";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import { HashVersionTooltip } from "@/components/Experiment/HashVersionSelector";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -49,6 +52,7 @@ export default function TrafficAndTargeting({
 
   const isBandit = experiment.type === "multi-armed-bandit";
   const isHoldout = experiment.type === "holdout";
+  const holdoutTraffic = getHoldoutTrafficBreakdown(phase);
 
   const hasConfiguredTargeting =
     (phase.condition && phase.condition !== "{}") ||
@@ -92,27 +96,19 @@ export default function TrafficAndTargeting({
                   <>
                     <div>
                       <Text color="text-mid">
-                        {Math.floor(
-                          phase.coverage * phase.variationWeights[0] * 100,
-                        )}
-                        % in holdout
+                        {holdoutTraffic.inHoldoutPercent}% in holdout
                       </Text>
                     </div>
                     <div>
                       <Text color="text-mid">
-                        {Math.floor(
-                          phase.coverage * phase.variationWeights[0] * 100,
-                        )}
-                        % not in holdout (for measurement)
+                        {holdoutTraffic.forMeasurementPercent}% not in holdout
+                        (for measurement)
                       </Text>
                     </div>
                     <div>
                       <Text color="text-mid">
-                        {Math.floor(
-                          (1 - phase.coverage * phase.variationWeights[0] * 2) *
-                            100,
-                        )}
-                        % not in holdout (not for measurement)
+                        {holdoutTraffic.notForMeasurementPercent}% not in
+                        holdout (not for measurement)
                       </Text>
                     </div>
                   </>

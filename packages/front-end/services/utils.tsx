@@ -58,6 +58,29 @@ export function formatTrafficSplit(weights: number[], decimals = 0): string {
     .join(" / ");
 }
 
+// Single source of truth for the holdout traffic breakdown shown in the start
+// summary and the traffic/targeting card.
+export function getHoldoutTrafficBreakdown(phase: {
+  coverage: number;
+  variationWeights: number[];
+}): {
+  inHoldoutPercent: number;
+  forMeasurementPercent: number;
+  notForMeasurementPercent: number;
+} {
+  return {
+    inHoldoutPercent: Math.floor(
+      phase.coverage * phase.variationWeights[0] * 100,
+    ),
+    forMeasurementPercent: Math.floor(
+      phase.coverage * phase.variationWeights[0] * 100,
+    ),
+    notForMeasurementPercent: Math.floor(
+      (1 - phase.coverage * phase.variationWeights[0] * 2) * 100,
+    ),
+  };
+}
+
 // Get the number of decimals +1 needed to differentiate between
 // observed and expected weights
 export function getSRMNeededPrecisionP1(
