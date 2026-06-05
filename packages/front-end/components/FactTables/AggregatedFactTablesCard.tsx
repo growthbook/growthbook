@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { FactTableInterface } from "shared/types/fact-table";
 import { QueryStatus } from "shared/types/query";
 import { dateOnly, timestamp } from "shared/dates";
@@ -111,16 +111,19 @@ function runStatusLabel(status: QueryStatus): string {
 function ManageRefreshModal({
   factTable,
   status,
+  mutateStatus,
   close,
 }: {
   factTable: FactTableInterface;
   status: AggregatedFactTableStatus;
+  mutateStatus: () => Promise<unknown> | unknown;
   close: () => void;
 }) {
   const { apiCall } = useAuth();
   const [mode, setMode] = useState<"incremental" | "restate">("incremental");
   const [viewQueriesRunId, setViewQueriesRunId] = useState<string | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState(false);
 
   const { data: runsData, mutate: mutateRuns } = useApi<{
     runs: AggregatedFactTableRunSummary[];
@@ -132,6 +135,25 @@ function ManageRefreshModal({
 
   const runs = runsData?.runs ?? [];
   const viewQueriesRun = runs.find((r) => r.id === viewQueriesRunId) ?? null;
+  const running = runs.some((r) => r.status === "running");
+
+  // While a run is in flight, poll so the run history and the parent status row
+  // update live (and reflect completion/cancellation without a manual refresh).
+  useEffect(() => {
+    if (!running) return;
+    let timer = 0;
+    const loop = async () => {
+      await mutateRuns();
+      await mutateStatus();
+      if (timer === -1) return;
+      timer = window.setTimeout(loop, 2000);
+    };
+    timer = window.setTimeout(loop, 2000);
+    return () => {
+      window.clearTimeout(timer);
+      timer = -1;
+    };
+  }, [running, mutateRuns, mutateStatus]);
 
   const run = async () => {
     setRunError(null);
@@ -145,12 +167,30 @@ function ManageRefreshModal({
         },
       );
       await mutateRuns();
+      await mutateStatus();
     } catch (e) {
       setRunError(e instanceof Error ? e.message : String(e));
     }
   };
 
-  const running = runs[0]?.status === "running";
+  const cancel = async () => {
+    setRunError(null);
+    setCancelling(true);
+    try {
+      await apiCall(
+        `/fact-tables/${factTable.id}/aggregated-tables/${encodeURIComponent(
+          status.idType,
+        )}/cancel`,
+        { method: "POST" },
+      );
+      await mutateRuns();
+      await mutateStatus();
+    } catch (e) {
+      setRunError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   return (
     <>
@@ -172,7 +212,7 @@ function ManageRefreshModal({
         trackingEventModalType="aggregated-fact-table-refresh"
       >
         <Modal.Header>
-          <Modal.Title>{`Manage refresh — ${status.idType}`}</Modal.Title>
+          <Modal.Title>{`Aggregated Table Refresh — ${status.idType}`}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Text as="div" color="text-mid" mb="3">
@@ -217,16 +257,27 @@ function ManageRefreshModal({
             </Callout>
           )}
 
-          <Flex mt="3">
+          <Flex mt="3" gap="2">
             <Button
               color={mode === "restate" ? "red" : "violet"}
               loading={running}
+              disabled={running || cancelling}
               onClick={run}
             >
               {mode === "restate"
                 ? "Run full re-state"
                 : "Run incremental refresh"}
             </Button>
+            {running && (
+              <Button
+                color="red"
+                variant="outline"
+                loading={cancelling}
+                onClick={cancel}
+              >
+                Cancel run
+              </Button>
+            )}
           </Flex>
 
           <hr className="my-4" />
@@ -445,6 +496,7 @@ export default function AggregatedFactTablesCard({ factTable }: Props) {
         <ManageRefreshModal
           factTable={factTable}
           status={manageStatus}
+          mutateStatus={mutate}
           close={async () => {
             setManageIdType(null);
             await mutate();

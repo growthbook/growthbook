@@ -72,6 +72,14 @@ router.post(
   factTableController.refreshAggregatedFactTables,
 );
 
+router.post(
+  "/fact-tables/:id/aggregated-tables/:idType/cancel",
+  validateRequestMiddleware({
+    params: aggregatedRunsParams,
+  }),
+  factTableController.cancelAggregatedFactTableRun,
+);
+
 router.post("/fact-tables/:id/archive", factTableController.archiveFactTable);
 
 router.post(

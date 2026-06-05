@@ -58,6 +58,7 @@ import {
   buildAggregatedFactTableSchemaState,
   getAggregatedFactTableRestateReason,
 } from "back-end/src/enterprise/services/data-pipeline";
+import { AggregatedFactTableQueryRunner } from "back-end/src/queryRunners/AggregatedFactTableQueryRunner";
 
 export const getFactTables = async (
   req: AuthRequest,
@@ -693,6 +694,83 @@ export const refreshAggregatedFactTables = async (
     status: 200,
     queued: idTypes,
   });
+};
+
+export const cancelAggregatedFactTableRun = async (
+  req: AuthRequest<null, { id: string; idType: string }>,
+  res: Response<{ status: 200 }>,
+) => {
+  const context = getContextFromReq(req);
+
+  const factTable = await getFactTable(context, req.params.id);
+  if (!factTable) {
+    throw new Error("Could not find fact table with that id");
+  }
+
+  if (!context.permissions.canUpdateFactTable(factTable, {})) {
+    context.permissions.throwPermissionError();
+  }
+
+  const { idType } = req.params;
+  if (
+    !(factTable.aggregatedFactTableSettings?.idTypes ?? []).includes(idType)
+  ) {
+    throw new Error(
+      `id type '${idType}' is not enabled for shared daily aggregated tables on this fact table.`,
+    );
+  }
+
+  const runDocs =
+    await context.models.aggregatedFactTableRuns.getRecentByFactTableAndIdType(
+      factTable.id,
+      idType,
+    );
+
+  const run = runDocs.find(
+    (r) => deriveRunStatus(r.queries, r.error) === "running",
+  );
+  if (!run) {
+    res.status(200).json({ status: 200 });
+    return;
+  }
+
+  const datasource = await getDataSourceById(context, run.datasourceId);
+  if (!datasource) {
+    throw new Error("Could not find datasource for this run");
+  }
+
+  const integration = getSourceIntegrationObject(context, datasource, true);
+
+  const queryRunner = new AggregatedFactTableQueryRunner(
+    context,
+    run,
+    integration,
+    false,
+  );
+  await queryRunner.cancelQueries();
+
+  // cancelQueries blanks the error/queries (read as "queued"); restore them and
+  // record a terminal error so the run shows as failed with viewable queries.
+  await context.models.aggregatedFactTableRuns.updateRunFields(run.id, {
+    error: "Run cancelled by user",
+    finishedAt: new Date(),
+    queries: run.queries,
+  });
+
+  // cancelQueries can't release the registry lock without the run's executionId.
+  const key = {
+    datasourceId: run.datasourceId,
+    factTableId: run.factTableId,
+    idType: run.idType,
+  };
+  await context.models.aggregatedFactTables.updateByKeyIfCurrentExecution(
+    key,
+    run.executionId,
+    { lastError: "Run cancelled by user", lastRunId: run.id },
+  );
+  await context.models.aggregatedFactTables.releaseLock(key, run.executionId);
+
+  res.status(200).json({ status: 200 });
 };
 
 export const postColumnTopValues = async (
