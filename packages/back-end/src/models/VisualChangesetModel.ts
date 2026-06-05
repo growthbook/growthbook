@@ -166,13 +166,8 @@ export async function findVisualChangesetsByExperiment(
 
 export async function findVisualChangesets(
   organization: string,
-  // Optional cap on the number of changesets returned, ordered
-  // newest-first by creation order. The schema has no explicit
-  // timestamp field, so we sort on `_id` — MongoDB ObjectIds embed the
-  // creation timestamp in their leading bytes, making `_id` a reliable
-  // creation-order key. Used by the visual-editor bootstrap endpoint to
-  // bound what would otherwise be an org-wide fetch of every changeset.
-  // Omit (the existing callers do) to get the full unordered set.
+  // When set, returns the newest `limit` changesets (sorted by `_id`,
+  // which embeds the creation timestamp). Omit for the full unordered set.
   limit?: number,
 ): Promise<VisualChangesetInterface[]> {
   let query = VisualChangesetModel.find({ organization });

@@ -15,21 +15,13 @@ const MIMETYPES: Record<string, string> = {
 
 const SIGNED_EXPIRY_MINUTES = 15;
 
-// Cap on user-uploaded image size. Set conservatively for typical visual
-// experiment assets (logos, hero images, swap targets). At 5 MB we cover
-// retina-quality hero PNGs with comfortable headroom — only pathological
-// uploads get rejected, and the storage cost of an accidentally-huge
-// upload is bounded. Enforced server-side via the S3 presigned POST's
-// content-length-range condition (the only real security boundary; the
-// client-side check is UX only). Bump if real users complain.
+// Enforced server-side via the S3 presigned POST's content-length-range
+// condition; client-side check is UX only.
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 
 const bodySchema = z
   .object({
     contentType: z.enum(["image/png", "image/jpeg", "image/gif", "image/webp"]),
-    // Required so we can gate uploads on the same permission as updating
-    // the visual changeset itself — otherwise a read-only collaborator
-    // could write arbitrary content to the org S3 bucket.
     visualChangesetId: z.string(),
   })
   .strict();
@@ -44,25 +36,20 @@ const validation = {
   operationId: "postVisualEditorAIUploadSignedUrl",
 };
 
-// Returns a short-lived signed URL the extension can use to PUT/POST a file
-// body directly to S3 (or whatever UPLOAD_METHOD points at). The path is
-// scoped under the org and a visual-editor subfolder so cleanup is easy.
+// Returns a short-lived signed URL the extension uses to PUT/POST a file
+// body directly to S3.
 export const postUploadSignedUrl = createApiRequestHandler(validation)(async (
   req,
 ) => {
   const { contentType, visualChangesetId } = req.body;
   const org = req.organization;
   const context = req.context;
-  // Require PAT auth — uploads issue write credentials for the org's
-  // bucket; we want every upload attributable to a real user.
   requireUserAuth(context);
 
   if (org.settings?.blockFileUploads) {
     throw new Error("File uploads are disabled for this organization");
   }
 
-  // Same gate as updating the visual changeset directly. Loading the
-  // changeset first also scopes the call to one the caller's org owns.
   const changeset = await findVisualChangesetById(visualChangesetId, org.id);
   if (!changeset)
     return context.throwNotFoundError("Visual changeset not found");
@@ -89,15 +76,10 @@ export const postUploadSignedUrl = createApiRequestHandler(validation)(async (
     fileUrl,
     filePath,
     fields: fields ?? null,
-    // For S3, the Cache-Control header is already embedded in `fields` and
-    // gets attached automatically by the multipart form post. For GCS,
-    // the extension must send Cache-Control on its PUT — we surface the
-    // value here so the client knows what to attach (and so the backend
-    // remains the single source of truth for the cache directive).
+    // S3 embeds Cache-Control in `fields`; GCS clients must send it on the
+    // PUT themselves, so we surface the value here.
     cacheControl: cacheControl ?? null,
-    // Returned so the client can show an immediate "file too large"
-    // error before attempting the upload. The S3 policy enforces the
-    // same cap server-side either way.
+    // Lets the client show "file too large" before attempting the upload.
     maxBytes: maxBytes ?? null,
     expiresAt: new Date(
       Date.now() + SIGNED_EXPIRY_MINUTES * 60 * 1000,

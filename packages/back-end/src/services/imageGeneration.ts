@@ -12,19 +12,10 @@ import type { ApiReqContext } from "back-end/types/api";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 
-// Unified image-generation entrypoint. Replaces the Gemini-only HTTP code
-// that previously lived in postAIImageGen.ts. Dispatches between two
-// flavors:
-//
-//   1. Dedicated text-to-image endpoint (Imagen, DALL-E, GPT Image,
-//      Grok Image) → Vercel AI SDK's `generateImage(provider.image(id))`.
-//   2. Multimodal language model that emits image bytes (Gemini 2.5/3
-//      *-image-preview) → `generateText(provider(id))` with
-//      `responseModalities: ['IMAGE']`, then read `result.files`.
-//
-// Reference image support is currently gated on the multimodal-text path
-// because the SDK's `generateImage` doesn't expose a uniform image-input
-// parameter across providers — see AIImageModelMeta.supportsReferenceImage.
+// Unified image-generation entrypoint. Dispatches between dedicated
+// text-to-image endpoints and multimodal language models that emit
+// image bytes. Reference images are only supported on the multimodal
+// path — see AIImageModelMeta.supportsReferenceImage.
 
 export interface GeneratedImage {
   buffer: Buffer;
@@ -35,33 +26,25 @@ export interface GeneratedImage {
 }
 
 export interface ReferenceImagePart {
-  // Raw base64 (no `data:...;base64,` prefix). Decoded by the helper
-  // before being handed to the SDK.
+  // Raw base64, no `data:...;base64,` prefix.
   data: string;
   mimeType: string;
 }
 
 export interface GenerateImagesParams {
   context: ReqContext | ApiReqContext;
-  // SDK / canonical model id, as stored in the org's
-  // visualEditorImageModel setting. Legacy aliases (e.g. the bare
-  // `gemini-2.5-flash-image`) are normalized internally.
+  // SDK / canonical model id. Legacy aliases are normalized internally.
   model: string;
   prompt: string;
   count: number;
-  // Provider-agnostic ratio string like "1:1" or "16:9". The helper
-  // translates to whatever each SDK expects.
+  // Provider-agnostic ratio string like "1:1" or "16:9".
   aspectRatio?: string;
-  // Optional reference image — only honored for models whose
-  // AIImageModelMeta.supportsReferenceImage is true.
+  // Only honored when AIImageModelMeta.supportsReferenceImage is true.
   referenceImage?: ReferenceImagePart;
 }
 
-// Approximate output pixel dimensions returned alongside each image so
-// the side panel can size <img> tags before the actual bytes load. We
-// don't get reliable dims from every SDK response, so this is an upper
-// bound used purely for layout. Sharp re-encoding downstream may
-// downscale these without changing the layout meaningfully.
+// Approximate output dimensions used as a layout hint before bytes
+// load. Upper bound only — downstream sharp re-encoding may downscale.
 const ASPECT_TO_DIMS: Record<string, { width: number; height: number }> = {
   "1:1": { width: 1024, height: 1024 },
   "16:9": { width: 1280, height: 720 },
@@ -72,8 +55,8 @@ const ASPECT_TO_DIMS: Record<string, { width: number; height: number }> = {
 
 const SUPPORTED_ASPECTS = Object.keys(ASPECT_TO_DIMS);
 
-// Snap an arbitrary ratio string to the closest supported value. Logs
-// silently and defaults to 1:1 for unparseable input.
+// Snap an arbitrary ratio string to the closest supported value;
+// defaults to 1:1 for unparseable input.
 function snapAspectRatio(input: string | undefined): {
   value: string;
   width: number;
@@ -103,10 +86,8 @@ function snapAspectRatio(input: string | undefined): {
   return { value: "1:1", ...ASPECT_TO_DIMS["1:1"] };
 }
 
-// Build the right provider factory for a given model. Wraps
-// getAISettingsForOrg so the per-org API keys (configured in AI Settings)
-// flow through one place — the image path now uses the SAME key as text
-// for each provider, matching how getAIProviderClass works.
+// Build the right provider factory for a given model, using the
+// per-org API keys from getAISettingsForOrg.
 function getImageProvider(
   context: ReqContext | ApiReqContext,
   meta: AIImageModelMeta,
@@ -140,9 +121,8 @@ function getImageProvider(
   throw new Error(`Unsupported image provider: ${meta.provider}`);
 }
 
-// Best-effort mime type → file extension. Sharp downstream re-encodes to
-// webp regardless, so this is mainly a placeholder during the brief
-// window between bytes-in-hand and sharp invocation.
+// Best-effort mime type → file extension. Sharp re-encodes to webp
+// downstream, so this is a short-lived placeholder.
 function mimeToExt(mime: string): string {
   if (/png/i.test(mime)) return "png";
   if (/jpe?g/i.test(mime)) return "jpg";
@@ -151,9 +131,7 @@ function mimeToExt(mime: string): string {
   return "bin";
 }
 
-// ----------------------------------------------------------------------------
 // Image-endpoint path: Imagen / DALL-E / GPT Image / Grok Image
-// ----------------------------------------------------------------------------
 async function generateViaImageEndpoint(
   params: GenerateImagesParams,
   meta: AIImageModelMeta,
@@ -161,11 +139,8 @@ async function generateViaImageEndpoint(
 ): Promise<GeneratedImage[]> {
   const { context, model, prompt, count } = params;
   if (params.referenceImage) {
-    // Dedicated image endpoints don't accept image inputs through the
-    // SDK's generateImage call; OpenAI's edit/variation flows are a
-    // separate API surface that the SDK doesn't unify. Fail loudly so
-    // the side panel surfaces a clear error rather than silently
-    // ignoring the reference and producing an unrelated image.
+    // The SDK's generateImage doesn't accept image inputs. Fail loudly
+    // rather than silently ignoring the reference.
     throw new Error(
       `Model "${model}" does not support reference images. Choose a Gemini *-image-preview model for image-as-context, or generate from a text prompt only.`,
     );
@@ -199,9 +174,7 @@ async function generateViaImageEndpoint(
   });
 }
 
-// ----------------------------------------------------------------------------
 // Multimodal-text path: Gemini 2.5 / 3 *-image-preview
-// ----------------------------------------------------------------------------
 async function generateViaMultimodalText(
   params: GenerateImagesParams,
   meta: AIImageModelMeta,
@@ -210,16 +183,13 @@ async function generateViaMultimodalText(
   const { context, model, prompt, count, referenceImage } = params;
   const provider = getImageProvider(context, meta);
   const sdkModelId = resolveImageModelIdForSdk(model);
-  // The text-with-image-output Gemini models don't accept `n` — to get
-  // multiple variations we fire `count` parallel calls. settle-all so a
-  // single transient failure doesn't waste the others.
+  // These Gemini models don't accept `n` — fire `count` parallel calls
+  // and settle-all so one transient failure doesn't waste the others.
   const userContent: Array<
     | { type: "text"; text: string }
     | { type: "image"; image: Uint8Array; mediaType: string }
   > = [];
   if (referenceImage) {
-    // Decode base64 → Uint8Array. Multimodal models treat the image part
-    // as additional context for the prompt.
     userContent.push({
       type: "image",
       image: Buffer.from(referenceImage.data, "base64"),
@@ -236,17 +206,13 @@ async function generateViaMultimodalText(
       messages: [{ role: "user", content: userContent }],
       providerOptions: {
         google: {
-          // Tell Gemini to emit IMAGE parts. Without this it returns a
-          // text description of what it would draw, which is useless
-          // for our flow.
+          // Without this Gemini returns a text description instead of bytes.
           responseModalities: ["IMAGE"],
-          // For models that support it (e.g. gemini-3-pro-image-preview),
-          // a structured aspect hint. Older preview models ignore this.
+          // Honored by gemini-3-pro-image-preview; older models ignore it.
           imageConfig: { aspectRatio: aspect.value },
         },
       },
     });
-    // SDK's result.files holds the image parts.
     const files = result.files ?? [];
     return files
       .filter((f) => (f.mediaType || "").startsWith("image/"))
@@ -295,9 +261,6 @@ async function generateViaMultimodalText(
   return out;
 }
 
-// ----------------------------------------------------------------------------
-// Public entrypoint
-// ----------------------------------------------------------------------------
 export async function generateImages(
   params: GenerateImagesParams,
 ): Promise<GeneratedImage[]> {

@@ -58,20 +58,40 @@ const EMBEDDING_MODEL_LABELS = ensureValuesExactlyMatchUnion<EmbeddingModel>()([
 ]);
 
 // Curated list of image-generation models the Visual Editor supports.
-// Image gen is Gemini-only on the back end (see postAIImageGen), so we
-// present a closed dropdown rather than free text — letting users type
-// an arbitrary model name just produces 404s at generation time. The
-// Empty value means "use the GEMINI_IMAGE_MODEL env var / canonical
-// default". The rest is sourced from the shared AI_IMAGE_MODELS registry
-// so adding a new model is a one-line change there — no fork needed in
-// the front-end. Models are listed in the same order as the registry,
-// which groups by provider (Google → OpenAI → xAI). The selected id is
-// stored on the org settings and dispatched to the right Vercel AI SDK
-// provider at gen time by back-end/src/services/imageGeneration.ts.
-const VISUAL_EDITOR_IMAGE_MODEL_OPTIONS = [
-  { value: "", label: "Use default (Gemini 2.5 Flash Image)" },
-  ...AI_IMAGE_MODELS.map((m) => ({ value: m.id, label: m.label })),
-];
+// We present a closed dropdown rather than free text — letting users
+// type an arbitrary model name just produces 404s at generation time.
+// The empty value means "use the GEMINI_IMAGE_MODEL env var / canonical
+// default". The rest is sourced from the shared AI_IMAGE_MODELS
+// registry so adding a new model is a one-line change there — no fork
+// needed in the front-end. The selected id is stored on the org
+// settings and dispatched to the right Vercel AI SDK provider at gen
+// time by back-end/src/services/imageGeneration.ts.
+//
+// Models are grouped by whether they accept a reference image. This is
+// an important capability gap (the visual editor's "use current image
+// as context" flow only works on reference-capable models), so we
+// surface it as a top-level grouping in the dropdown rather than
+// burying it in helpText. Inside each group, registry order is
+// preserved (which groups by provider: Google → OpenAI → xAI).
+const VISUAL_EDITOR_IMAGE_MODEL_OPTIONS = (() => {
+  const referenceCapable = AI_IMAGE_MODELS.filter(
+    (m) => m.supportsReferenceImage,
+  ).map((m) => ({ value: m.id, label: m.label }));
+  const textOnly = AI_IMAGE_MODELS.filter((m) => !m.supportsReferenceImage).map(
+    (m) => ({ value: m.id, label: m.label }),
+  );
+  return [
+    { value: "", label: "Use default (Gemini 2.5 Flash Image)" },
+    {
+      label: "Supports reference image",
+      options: referenceCapable,
+    },
+    {
+      label: "Text prompt only",
+      options: textOnly,
+    },
+  ];
+})();
 
 const hasAPIforModel = (model: AIModel | string) => {
   let provider;
@@ -782,7 +802,7 @@ export default function AISettings({
                         </Text>
                         <SelectField
                           id="visualEditorImageModel"
-                          helpText="Gemini model used by the visual editor's AI image generator. Image generation is Gemini-only."
+                          helpText="Models that support reference images can use an existing image as visual context (the visual editor's “use current image” flow). Text-only models generate from the prompt alone."
                           value={form.watch("visualEditorImageModel") || ""}
                           onChange={(v) =>
                             form.setValue("visualEditorImageModel", v)

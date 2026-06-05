@@ -18,17 +18,13 @@ const elementContextSchema = z.object({
   attrs: z.record(z.string(), z.string()),
 });
 
-// Compact element catalog assembled by the extension's content script
-// (visual-editor/src/content_script/pageDigest.ts). Sent on every edit
-// request so the LLM can pick selectors from real elements on the page
-// instead of guessing semantic markers that may not exist.
+// Compact element catalog from visual-editor/src/content_script/pageDigest.ts —
+// gives the LLM real selectors to pick from rather than guessing.
 const domDigestSchema = z.object({
   url: z.string(),
   title: z.string(),
-  // Page-structure entries (html, body, header, main, footer, etc.).
-  // Always-valid targets for global styling requests like "make the
-  // background blue" — without these the model has no catalog entry to
-  // anchor those mutations to and was refusing them.
+  // Page-structure entries (html, body, header, main, etc.) — always-valid
+  // targets for global styling requests.
   structural: z
     .array(
       z.object({
@@ -88,9 +84,7 @@ const domDigestSchema = z.object({
     .default([]),
 });
 
-// Prior user/assistant turns from the chat log. We cap at 12 to bound the
-// prompt size (the extension already trims to the last ~6) and 4000 chars
-// per turn so a single rambling assistant turn can't eat the budget.
+// Capped at 12 turns + 4000 chars/turn to bound prompt size.
 const conversationTurnSchema = z.object({
   role: z.enum(["user", "assistant"]),
   text: z.string().max(4000),
@@ -104,12 +98,9 @@ const bodySchema = z
     visualChangesetId: z.string(),
     domDigest: domDigestSchema.optional(),
     conversationHistory: z.array(conversationTurnSchema).max(12).optional(),
-    // BCP-47 primary subtag from the side panel's i18n resolver. We
-    // accept a relaxed shape (2-8 chars, optional region suffix) so
-    // future locale additions don't need a back-end schema change.
-    // When present and not English, the system prompt asks the model
-    // to write its `explanation` field in that language. Mutations,
-    // CSS, and JS are language-neutral and unaffected.
+    // BCP-47 primary subtag (with optional region suffix). When non-English,
+    // the model writes its `explanation` in that language; mutations/CSS/JS
+    // stay language-neutral.
     locale: z
       .string()
       .min(2)
@@ -129,9 +120,8 @@ const validation = {
   operationId: "postVisualEditorAIEdit",
 };
 
-// NOTE: OpenAI's strict JSON-schema mode requires every property to appear in
-// `required`, so `.optional()` is rejected. We use `.nullable()` (key present,
-// value may be null) and convert nulls to undefined before returning.
+// OpenAI strict JSON mode rejects `.optional()` — every property must be
+// required. We use `.nullable()` and convert nulls to undefined before returning.
 const mutationSchema = z.object({
   selector: z.string().describe("CSS selector for the element to modify"),
   action: z.enum(["set", "append", "remove"]),
@@ -264,11 +254,8 @@ Bias toward action when grounded:
 - If the request is ambiguous (e.g. "make it pop"), pick the most likely concrete change against a catalog element and call out that choice in the explanation.
 - The ONLY cases where you may return an empty mutations array are: (a) the request is unrelated to visual changes (e.g. "how do A/B tests work?"), (b) the request is unsafe, or (c) no catalog element plausibly matches the requested target. In those cases explain in detail what would be needed to proceed.`;
 
-// Flatten the DOM digest into a compact textual catalog. We deliberately use
-// indented bullets (not JSON) because LLMs scan structured text faster and
-// it costs fewer tokens than the equivalent JSON.stringify output. Selectors
-// are wrapped in backticks so the model treats them as opaque strings rather
-// than markdown formatting.
+// Bulleted text rather than JSON — fewer tokens, easier for LLMs to scan.
+// Selectors wrapped in backticks so the model treats them as opaque strings.
 const formatDigest = (digest: z.infer<typeof domDigestSchema>): string => {
   const lines: string[] = [];
   const section = (label: string, items: string[]) => {
@@ -276,11 +263,8 @@ const formatDigest = (digest: z.infer<typeof domDigestSchema>): string => {
     lines.push(`\n${label}:`);
     for (const it of items) lines.push(`- ${it}`);
   };
-  // Structural section first — establishes the always-valid root
-  // selectors (body, html, main, etc.) so the model knows it can target
-  // them for global styling requests without needing a more specific
-  // catalog entry. Listed before headings so it reads as a first-class
-  // option, not a fallback.
+  // Structural section first so the model treats body/html/main as
+  // first-class targets for global styling requests, not fallbacks.
   section(
     "Page structure",
     digest.structural.map(
@@ -328,9 +312,8 @@ const formatDigest = (digest: z.infer<typeof domDigestSchema>): string => {
   return `\nPage elements (use selectors verbatim from this catalog):\nURL: ${digest.url}\nTitle: ${digest.title}${lines.join("\n")}\n`;
 };
 
-// Collect every selector the model could legitimately reference for the
-// self-correct validation pass. Used both to detect hallucinated selectors
-// and to remind the model what's actually on the page during a retry.
+// Every selector the model can legitimately reference, used by the
+// self-correct validation pass to detect hallucinations.
 const allDigestSelectors = (
   digest: z.infer<typeof domDigestSchema>,
 ): Set<string> => {
@@ -341,9 +324,7 @@ const allDigestSelectors = (
   for (const l of digest.links) out.add(l.selector);
   for (const i of digest.inputs) out.add(i.selector);
   for (const img of digest.images) out.add(img.selector);
-  // Universal globals that always resolve on any page. Trusted even
-  // when no digest is present so requests like "make the background
-  // blue" work without a content script having run.
+  // html/body always resolve, even without a content-script digest.
   out.add("html");
   out.add("body");
   return out;
@@ -424,8 +405,6 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
   } = req.body;
 
   const context = req.context;
-  // Require PAT auth so AI usage + edits are attributed to a real user.
-  // See requireUserAuth.
   requireUserAuth(context);
 
   const changeset = await findVisualChangesetById(
@@ -435,10 +414,6 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
   if (!changeset)
     return context.throwNotFoundError("Visual changeset not found");
 
-  // Permission gate: editing AI-proposed mutations against a changeset is
-  // equivalent to updating that changeset directly. Load the owning
-  // experiment so we can gate on canUpdateVisualChange, mirroring the
-  // existing putVisualChangeset endpoint.
   const experiment = await getExperimentById(context, changeset.experiment);
   if (!experiment) return context.throwNotFoundError("Experiment not found");
   if (!context.permissions.canUpdateVisualChange(experiment)) {
@@ -451,13 +426,6 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     );
   }
 
-  // Log the full user prompt for debugging + iteration on the AI flow.
-  // Includes the conversation length and the element-context count so
-  // we can correlate quality regressions with input shape changes. Full
-  // prompt text is captured intentionally — gated by log level + log
-  // retention rather than runtime toggle for now. If/when this surface
-  // graduates beyond dev/testing, swap for a structured event sink with
-  // PII handling instead of relying on logger.info.
   logger.info(
     {
       orgId: req.organization.id,
@@ -477,21 +445,18 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     (vc) => vc.variation === variationId,
   );
 
-  // Selectors the LLM is allowed to reference without triggering a retry.
-  // The picked-element selectors are trusted because the user clicked them
-  // moments ago — even if they're not in the digest catalog, they exist.
+  // Selectors the LLM may reference without triggering a retry.
+  // Picked elements are trusted even when not in the digest — the user
+  // just clicked them, so they exist.
   const trustedSelectors = new Set<string>();
   if (domDigest) {
     for (const s of allDigestSelectors(domDigest)) trustedSelectors.add(s);
   }
   for (const e of elementContext) trustedSelectors.add(e.selector);
 
-  // Resolve the model + brand-context for this surface. visualEditorAIModel
-  // falls back to the org's defaultAIModel; visualEditorAIContext is the
-  // free-text brand guidelines admins set in Settings → AI Settings →
-  // Visual Editor. When non-empty we append it to the instructions so
-  // the LLM treats it as part of the system prompt (tone, brand colors,
-  // copy style, etc.) rather than as user input that could be ignored.
+  // visualEditorAIContext is the free-text brand guidelines admins set in
+  // Settings → AI Settings. Appended to the system prompt (not the user
+  // message) so the LLM treats it as instructions, not ignorable input.
   const { visualEditorAIModel, visualEditorAIContext } = getAISettingsForOrg(
     context,
     true,
@@ -500,12 +465,6 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     ? `${instructions}\n\nAdditional brand guidelines / context provided by the organization (these MUST be respected unless they conflict with the JSON output schema):\n${visualEditorAIContext}`
     : instructions;
 
-  // Localized explanation. When the user has set a non-English locale in
-  // the side panel's language picker, ask the model to write its prose
-  // output (`explanation`) in that language. Mutations, CSS, and JS are
-  // language-neutral so they stay as-is. We only act when the locale is
-  // present AND non-English — null/missing means "no preference, model
-  // default (English)" which keeps existing behavior for old clients.
   if (locale && !locale.toLowerCase().startsWith("en")) {
     effectiveInstructions = `${effectiveInstructions}\n\nLanguage:\n- The user's interface is set to locale "${locale}". Write the \`explanation\` field in that language (the natural language the user reads on screen).\n- Keep the JSON keys, selectors, attribute names, mutation actions ("set"/"append"/"remove"), CSS, JS, and any code identifiers in English — only the explanation prose is localized.`;
   }
@@ -533,10 +492,8 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
 
   let result = await runModel();
 
-  // Helper: every selector a mutation REQUIRES to exist on the page. For
-  // a standard mutation that's just `selector`; for a "position" move we
-  // also need parentSelector and (when present) insertBeforeSelector — all
-  // three have to land somewhere real before we propose the move.
+  // Every selector a mutation requires on the page. Position moves
+  // additionally require parentSelector (and insertBeforeSelector when set).
   const requiredSelectors = (m: {
     selector: string;
     attribute: string;
@@ -551,12 +508,9 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     ];
   };
 
-  // Self-correct loop: if the digest is present, every proposed selector
-  // must either appear in the digest or in the picked-element context.
-  // When the model hallucinates a selector that's not in either, we feed
-  // it back ONCE with an explicit list of misses and the catalog already
-  // attached to the prompt. We don't loop indefinitely — one retry is the
-  // sweet spot between latency cost and accuracy gain.
+  // Self-correct: one retry when the model proposes a selector not in
+  // the digest or picked-element context. Single retry only — multiple
+  // retries hurt latency more than they help accuracy.
   if (domDigest && trustedSelectors.size > 0 && result.mutations.length > 0) {
     const misses = result.mutations
       .flatMap(requiredSelectors)
@@ -571,20 +525,16 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       try {
         result = await runModel(retryHint);
       } catch (e) {
-        // If the retry call itself fails (rate limit, network), keep the
-        // original response — the front-end's live-DOM selector validator
-        // will still surface any remaining misses to the user.
+        // Keep the original response on retry failure; the front-end's
+        // live-DOM selector validator will catch remaining misses.
         logger.warn({ err: e }, "[visual-editor-ai] self-correct retry failed");
       }
     }
   }
 
-  // Drop moves the LLM produced that violate our safety rules. We do this
-  // server-side (rather than relying on the model) because LLMs occasionally
-  // generate technically-valid-but-meaningless moves like
-  // { selector: "X", parentSelector: "X" } that would crash dom-mutator or
-  // produce a no-op. We log + skip; legitimate mutations in the same turn
-  // still flow through.
+  // Drop invalid moves server-side — LLMs occasionally emit no-op or
+  // self-cycle moves (e.g. selector == parentSelector) that would crash
+  // dom-mutator. Other mutations in the same turn flow through.
   const sanitizedMutations = result.mutations.filter((m) => {
     if (m.attribute !== "position") return true;
     if (!m.parentSelector) {
@@ -613,18 +563,14 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
 
   return {
     mutations: sanitizedMutations.map((m) => {
-      // Safety net: dom-mutator has no special "text" attribute — using it
-      // literally sets a text="…" attribute. Coerce to "html" so the AI's
-      // intent (change visible text) actually changes visible text.
+      // dom-mutator has no "text" attribute — coerce to "html" so visible
+      // text changes actually take effect.
       const attribute = m.attribute === "text" ? "html" : m.attribute;
       const isPosition = attribute === "position";
       return {
         selector: m.selector,
         action: m.action,
         attribute,
-        // Position moves carry no value (the destination is captured in
-        // parentSelector / insertBeforeSelector). For other actions, only
-        // include value when the LLM actually supplied one.
         ...(!isPosition && m.value !== null ? { value: m.value } : {}),
         ...(isPosition && m.parentSelector
           ? { parentSelector: m.parentSelector }

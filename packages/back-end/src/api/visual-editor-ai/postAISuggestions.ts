@@ -109,8 +109,6 @@ export const postAISuggestions = createApiRequestHandler(validation)(async (
 ) => {
   const { visualChangesetId, pageHints } = req.body;
   const context = req.context;
-  // Require PAT auth — AI calls count against per-org limits and we
-  // want them attributable to specific users.
   requireUserAuth(context);
 
   const changeset = await findVisualChangesetById(
@@ -127,10 +125,6 @@ export const postAISuggestions = createApiRequestHandler(validation)(async (
   if (!currentExperiment)
     return context.throwNotFoundError("Experiment not found");
 
-  // Suggestions are only useful to users who can actually act on them by
-  // editing the variation, so we require the same permission as updating
-  // the visual changeset itself. This also blocks read-only API keys from
-  // burning LLM credits.
   if (!context.permissions.canUpdateVisualChange(currentExperiment)) {
     context.permissions.throwPermissionError();
   }
@@ -141,10 +135,6 @@ export const postAISuggestions = createApiRequestHandler(validation)(async (
     );
   }
 
-  // Log the suggestion-generation inputs for debugging + iteration. No
-  // user-typed prompt here — suggestions are generated from past
-  // experiments + page hints — but the page hints can carry the page
-  // URL/title which are useful context for diagnosing bad suggestions.
   logger.info(
     {
       orgId: req.organization.id,
@@ -158,17 +148,9 @@ export const postAISuggestions = createApiRequestHandler(validation)(async (
     "[visual-editor-ai/suggestions] request",
   );
 
-  // Past experiments — same project (if any), capped at 20 most recent.
-  // We only include ones with at least a hypothesis or analysis since
-  // empty rows add no signal but cost tokens.
-  //
-  // The Mongo `limit` is set well above the 20-row JS cap so the
-  // hypothesis/description/analysis filter below still has headroom to
-  // skip empty stubs and find 20 useful rows. Without this bound, large
-  // organizations would pull every experiment in the project (or the
-  // whole org when project is unset) on every side-panel open — each
-  // doc can carry a large analysis blob, so it's a real memory + RTT
-  // hit. 200 keeps the pull bounded without starving the filter.
+  // Past experiments capped at 20 useful rows (with hypothesis/description/
+  // analysis). Mongo `limit: 200` gives the filter headroom to skip empty
+  // stubs while bounding the pull for orgs with large analysis blobs.
   let pastExperiments: PastExperimentSummary[] = [];
   try {
     const all = await getAllExperiments(context, {
@@ -188,8 +170,7 @@ export const postAISuggestions = createApiRequestHandler(validation)(async (
         analysis: e.analysis || undefined,
       }));
   } catch (err) {
-    // Non-fatal: if past-experiment query fails we fall through with no
-    // grounding context and the AI uses sensible defaults.
+    // Non-fatal: fall through with no grounding context.
     logger.warn(
       { err },
       "[visual-editor-ai/suggestions] past experiments query failed",

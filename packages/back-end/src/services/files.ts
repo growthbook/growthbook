@@ -28,13 +28,8 @@ import {
   VISUAL_EDITOR_ASSETS_GCS_DOMAIN,
 } from "back-end/src/util/secrets";
 
-// Upload destinations. The default ("private") is the existing private
-// bucket used for screenshots, attachments, etc. — files in this bucket
-// are read via short-lived signed URLs and shouldn't be CDN-cached.
-//
-// "visual-editor-assets" routes to the public, CDN-fronted bucket
-// configured via VISUAL_EDITOR_ASSETS_*. These files are content-addressed
-// (UUID-keyed) and immutable, so we tell browsers + CDNs to cache forever.
+// "private" is the existing bucket served via signed URLs.
+// "visual-editor-assets" is the public, CDN-fronted bucket.
 export type UploadDestination = "private" | "visual-editor-assets";
 
 interface DestinationConfig {
@@ -43,14 +38,9 @@ interface DestinationConfig {
   s3Domain: string;
   gcsBucket: string;
   gcsDomain: string;
-  // The Cache-Control value to write alongside the upload. `undefined`
-  // means we won't set any header — S3/GCS clients and downstream caches
-  // fall back to their normal defaults. We deliberately don't set
-  // `public, max-age=…, immutable` for the private destination because:
-  //   1. signed-URL responses shouldn't tell intermediate proxies they're
-  //      cacheable as public,
-  //   2. private uploads may be replaced/edited and shouldn't be marked
-  //      immutable.
+  // `undefined` means no Cache-Control header is set — private uploads
+  // intentionally skip it so signed-URL responses aren't marked public
+  // and replaceable files aren't pinned immutable.
   cacheControl: string | undefined;
 }
 
@@ -62,9 +52,7 @@ function getDestinationConfig(dest: UploadDestination): DestinationConfig {
       s3Domain: VISUAL_EDITOR_ASSETS_S3_DOMAIN,
       gcsBucket: VISUAL_EDITOR_ASSETS_GCS_BUCKET_NAME,
       gcsDomain: VISUAL_EDITOR_ASSETS_GCS_DOMAIN,
-      // Files are UUID-keyed and never overwritten, so we can cache
-      // forever. The one-year + `immutable` recipe is the standard for
-      // content-addressed assets behind a CDN.
+      // Files are UUID-keyed and never overwritten.
       cacheControl: "public, max-age=31536000, immutable",
     };
   }
@@ -78,9 +66,8 @@ function getDestinationConfig(dest: UploadDestination): DestinationConfig {
   };
 }
 
-// One S3 client per region. Most installs use a single region but the
-// visual-editor-assets bucket can live in a different one (e.g. closer to
-// the CDN POP).
+// One S3 client per region — the visual-editor-assets bucket can live
+// in a different region from the private bucket.
 const s3Clients = new Map<string, S3Client>();
 
 function getS3Client(region: string): S3Client {
@@ -129,9 +116,6 @@ export async function uploadFile(
         Key: filePath,
         Body: contents,
         ContentType: contentType,
-        // Only set when the destination opts in — private uploads use the
-        // S3 default (no header) so signed-URL responses behave correctly
-        // and replaceable files don't get pinned in browser caches.
         ...(cfg.cacheControl ? { CacheControl: cfg.cacheControl } : {}),
       }),
     );
@@ -254,26 +238,17 @@ export async function getSignedUploadUrl(
   contentType: string,
   expiresInMinutes: number = 15,
   destination: UploadDestination = "private",
-  // Hard upper bound on file size, in bytes. Enforced by the storage
-  // provider on the actual upload (S3 rejects with EntityTooLarge; GCS
-  // signs the size into the URL so anything larger fails the signature
-  // check). 0 / undefined means "no cap" — callers SHOULD pass a value
-  // for any user-facing upload path; defaulting to no cap keeps existing
-  // internal callers behavior-compatible.
+  // Server-enforced upper bound on upload size (S3 signs it into the
+  // policy; GCS does not — see GCS branch below). 0/undefined = no cap.
   maxBytes?: number,
 ): Promise<{
   signedUrl: string;
   fileUrl: string;
   fields?: Record<string, string>;
-  // The Cache-Control header the client MUST send with its PUT/POST so
-  // the bytes that land in storage carry the cache directive. Returned to
-  // the caller so the extension knows what to attach. `null` when no
-  // cache header is configured for this destination.
+  // The Cache-Control header the client must send with its PUT/POST.
+  // `null` when no cache header is configured for this destination.
   cacheControl: string | null;
-  // Echoes the size cap the URL was signed with (S3) or implies (GCS),
-  // so the calling API handler can hand it to the client for an early
-  // "file too large" check before attempting the upload. `null` means
-  // no cap was applied.
+  // Echoes the size cap so the client can do an early-error check.
   maxBytes: number | null;
 }> {
   // Watch out for poison null bytes
@@ -285,11 +260,8 @@ export async function getSignedUploadUrl(
 
   if (UPLOAD_METHOD === "s3") {
     const client = getS3Client(cfg.s3Region);
-    // Build the S3 policy. When this destination opts into a Cache-Control
-    // header, we add it both as a Field (so the browser's multipart form
-    // automatically sends it) AND a Condition (so S3's policy validation
-    // accepts it — without the Condition S3 rejects the upload with an
-    // "extra input fields" policy error).
+    // Cache-Control must appear as BOTH a Field and a Condition —
+    // without the Condition S3 rejects with "extra input fields".
     const conditions: Array<
       ["eq", string, string] | ["content-length-range", number, number]
     > = [
@@ -304,10 +276,8 @@ export async function getSignedUploadUrl(
       conditions.push(["eq", "$Cache-Control", cfg.cacheControl]);
       fields["Cache-Control"] = cfg.cacheControl;
     }
-    // The content-length-range condition gives S3 a server-enforced
-    // cap on the upload body size. The browser can lie about file size
-    // via the multipart form, so this is the actual security boundary
-    // — client-side checks are UX, this is enforcement.
+    // content-length-range is the actual server-side size enforcement;
+    // any client-side check is just UX.
     if (maxBytes && maxBytes > 0) {
       conditions.push(["content-length-range", 0, maxBytes]);
     }
@@ -335,10 +305,9 @@ export async function getSignedUploadUrl(
     const bucket = storage.bucket(cfg.gcsBucket);
     const file = bucket.file(filePath);
 
-    // GCS will reject uploads if the Content-Type header doesn't match
-    // exactly. When this destination has a Cache-Control header, sign it
-    // via extensionHeaders so the browser must send the matching header
-    // on its PUT — see ImageReplacePanel for the client side.
+    // GCS rejects uploads if Content-Type doesn't match exactly. When
+    // Cache-Control is configured the browser must send the matching
+    // header on its PUT, signed via extensionHeaders.
     const [signedUrl] = await file.getSignedUrl({
       version: "v4",
       action: "write",
@@ -356,13 +325,9 @@ export async function getSignedUploadUrl(
       signedUrl,
       fileUrl,
       cacheControl: cfg.cacheControl ?? null,
-      // GCS V4 signed URLs don't natively support a content-length-range
-      // condition the way S3 presigned POSTs do. The signed URL covers
-      // method + content-type + cache-control via extensionHeaders, but
-      // not a body size cap. We return maxBytes so the client can still
-      // do an early-error check; relying on the client alone for size
-      // enforcement here is a known gap for GCS that should be revisited
-      // (e.g., by inspecting size post-upload and deleting on overflow).
+      // FOOTGUN: GCS V4 signed URLs don't support content-length-range,
+      // so the size cap is client-side only here — a known enforcement
+      // gap to revisit (e.g., delete oversize uploads post-hoc).
       maxBytes: maxBytes ?? null,
     };
   } else {
@@ -372,21 +337,11 @@ export async function getSignedUploadUrl(
   }
 }
 
-// Move a file from one key to another within the same destination's
-// storage backend. Used by the AI-image-gen "promote" flow: thumbnails
-// are uploaded to a quarantine prefix (`gen/`) and only the picked
-// image gets promoted out to its permanent location. Files left behind
-// in the quarantine prefix are reaped by a lifecycle policy.
-//
-// S3/GCS don't have a real move primitive — both providers implement
-// move as copy + delete. We preserve content-type + cache-control from
-// the destination config (NOT from the source object) so promoted
-// files end up with the same headers as a direct upload to the same
-// destination. The S3 copy uses `MetadataDirective: REPLACE` to make
-// that override stick — otherwise CopyObject inherits the source's
-// metadata.
-//
-// Returns the public URL for the destination key.
+// Move a file (copy + delete) within the same destination. Used by the
+// AI-image-gen flow to promote a picked thumbnail out of the `gen/`
+// quarantine prefix. Cache-control comes from destination config, not
+// the source object — see S3 branch for the MetadataDirective dance
+// that's required to make that override stick.
 export async function promoteFile(
   srcKey: string,
   destKey: string,
@@ -401,34 +356,25 @@ export async function promoteFile(
 
   if (UPLOAD_METHOD === "s3") {
     const client = getS3Client(cfg.s3Region);
-    // MetadataDirective: REPLACE drops ALL of the source object's
-    // metadata — including its Content-Type. If we don't explicitly set
-    // ContentType on the copy, S3 defaults the destination to
-    // `binary/octet-stream`, which makes browsers offer the image as a
-    // download instead of rendering it. Worse, the destination is served
-    // with `immutable` cache headers, so a CDN would cache the wrong
-    // content type effectively forever. Read the source's content type
-    // first and echo it onto the copy so the promoted object matches a
-    // direct upload.
+    // FOOTGUN: MetadataDirective: REPLACE wipes Content-Type along with
+    // everything else. Without re-supplying it the destination defaults
+    // to `binary/octet-stream` (browsers download instead of render) and
+    // gets pinned that way by our immutable cache headers. HEAD the
+    // source first so we can echo its Content-Type onto the copy.
     const head = await client.send(
       new HeadObjectCommand({
         Bucket: cfg.s3Bucket,
         Key: srcKey,
       }),
     );
-    // S3 CopySource is `<bucket>/<key>` URL-encoded. The SDK handles
-    // basic encoding for us but we still need to URI-encode any
-    // characters that aren't ASCII-safe — the key path comes from
-    // user-org-scoped UUIDs so it's safe in practice, but we encode
-    // defensively in case the convention ever changes.
     await client.send(
       new CopyObjectCommand({
         Bucket: cfg.s3Bucket,
+        // S3 CopySource is `<bucket>/<key>`, URI-encoded except `/`.
         CopySource: `${cfg.s3Bucket}/${encodeURIComponent(srcKey).replace(/%2F/g, "/")}`,
         Key: destKey,
-        // REPLACE so the destination picks up the configured cache
-        // headers rather than inheriting from source — but that also
-        // wipes the source Content-Type, so we re-supply it below.
+        // REPLACE so the destination picks up our cache headers
+        // (see Content-Type re-supply note above).
         MetadataDirective: "REPLACE",
         ...(head.ContentType ? { ContentType: head.ContentType } : {}),
         ...(cfg.cacheControl ? { CacheControl: cfg.cacheControl } : {}),
@@ -446,9 +392,8 @@ export async function promoteFile(
     const bucket = storage.bucket(cfg.gcsBucket);
     const srcFile = bucket.file(srcKey);
     const destFile = bucket.file(destKey);
-    // GCS .copy() preserves metadata by default. Override cache-control
-    // post-copy so the destination matches a direct-upload to the same
-    // location.
+    // GCS .copy() preserves source metadata; override cache-control
+    // post-copy to match a direct upload to this destination.
     await srcFile.copy(destFile);
     if (cfg.cacheControl) {
       await destFile.setMetadata({ cacheControl: cfg.cacheControl });
@@ -456,11 +401,10 @@ export async function promoteFile(
     await srcFile.delete();
     return cfg.gcsDomain + (cfg.gcsDomain.endsWith("/") ? "" : "/") + destKey;
   } else {
-    // Local filesystem — used for dev. Just rename the file.
+    // Local filesystem (dev): just rename.
     const rootDirectory = getUploadsDir();
     const srcPath = path.join(rootDirectory, srcKey);
     const destPath = path.join(rootDirectory, destKey);
-    // Prevent directory traversal on either end.
     if (
       srcPath.indexOf(rootDirectory) !== 0 ||
       destPath.indexOf(rootDirectory) !== 0
@@ -475,29 +419,17 @@ export async function promoteFile(
   }
 }
 
-// Listed result row. We return the same shape regardless of backend
-// (S3 / GCS / local) so the API consumer doesn't have to switch on
-// upload method.
+// Backend-agnostic listed file shape (S3 / GCS / local).
 export interface ListedFile {
   key: string;
   url: string;
   size: number;
-  // ISO 8601 timestamp. Empty string when the backend doesn't expose
-  // a modification time (rare; local-fs always has one, S3 + GCS
-  // always have one).
+  // ISO 8601 timestamp; empty string if the backend can't supply one.
   uploadedAt: string;
 }
 
-// List files under a prefix within the configured destination's
-// storage backend. Used by the visual editor's "Library" tab to
-// enumerate previously uploaded + AI-generated images for re-use
-// across experiments. Caps at `limit` keys (default 1000 — single
-// ListObjectsV2 / getFiles page) since orgs aren't expected to
-// accumulate that many; pagination can be added later if needed.
-//
-// The returned `url` is the public CDN URL (or local /upload/ path
-// in dev), already absolute. Sort order is backend-defined — callers
-// that need newest-first should sort by uploadedAt themselves.
+// List files under a prefix. Caps at `limit` (default 1000 = a single
+// ListObjectsV2 / getFiles page). Sort order is backend-defined.
 export async function listFiles(
   prefix: string,
   destination: UploadDestination = "private",
@@ -539,11 +471,9 @@ export async function listFiles(
       uploadedAt: String(f.metadata.timeCreated ?? ""),
     }));
   } else {
-    // Local filesystem (dev). Enumerate the prefix directory under
-    // the uploads root, mtime as the timestamp.
+    // Local filesystem (dev).
     const rootDirectory = getUploadsDir();
     const dir = path.join(rootDirectory, prefix);
-    // Defense in depth against traversal — same rule as uploadFile.
     if (dir.indexOf(rootDirectory) !== 0) {
       throw new Error("Error: Prefix must not escape the uploads directory.");
     }
@@ -557,9 +487,6 @@ export async function listFiles(
     for (const ent of entries) {
       if (!ent.isFile()) continue;
       const full = path.join(dir, ent.name);
-      // Stat per file; on a hot tab this would be worth caching, but
-      // the local backend is dev-only and orgs there don't accumulate
-      // many files.
       const stat = await fs.promises.stat(full);
       out.push({
         key: `${prefix}${ent.name}`,

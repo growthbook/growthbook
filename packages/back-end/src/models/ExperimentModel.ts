@@ -455,11 +455,9 @@ export async function getAllExperiments(
     trackingKey?: string;
     status?: ExperimentStatus;
     sortBy?: SortFilter;
-    // Optional cap, applied at the Mongo cursor level. Use this when the
-    // caller only needs the top-N most recent (with a matching `sortBy`)
-    // rather than the full org-wide list — without it, organizations
-    // with thousands of experiments materialize the whole result set,
-    // including each experiment's potentially large analysis blob.
+    // Mongo-cursor-level cap; pair with `sortBy` to get top-N. Without
+    // it, large orgs materialize the full result set (each row carries
+    // a potentially large analysis blob).
     limit?: number;
   } = {},
 ): Promise<ExperimentInterface[]> {

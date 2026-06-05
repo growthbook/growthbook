@@ -265,27 +265,18 @@ export function getAISettingsForOrg(
   googleAPIKey: string;
   defaultAIModel: AIModel;
   embeddingModel: EmbeddingModel;
-  // Resolved per-surface overrides for the Visual Editor extension.
-  // visualEditorAIModel always falls back to defaultAIModel so callers
-  // can pass it as `overrideModel` without their own resolution logic.
-  // visualEditorImageModel falls back to the GEMINI_IMAGE_MODEL env var
-  // (or the canonical default) — null means "no preference, use the
-  // back-end default."
+  // Resolved Visual Editor overrides — both already fall back to a
+  // sensible default so callers don't need their own resolution logic.
   visualEditorAIModel: AIModel;
   visualEditorImageModel: string;
-  // Free-text brand guidelines appended to the system prompt for AI
-  // text edits and AI image gen. Empty string when unset.
+  // Free-text brand guidelines appended to the AI system prompt.
   visualEditorAIContext: string;
 } {
   const openAIKey = process.env.OPENAI_API_KEY || "";
   const anthropicKey = process.env.ANTHROPIC_API_KEY || "";
   const xaiKey = process.env.XAI_API_KEY || "";
   const mistralKey = process.env.MISTRAL_API_KEY || "";
-  // Accept GEMINI_API_KEY as a fallback so existing self-hosted
-  // deployments that wired up image gen against GEMINI_API_KEY keep
-  // working after the image pipeline moved onto the unified Vercel AI
-  // SDK provider abstraction (which uses one Google key for both text
-  // and image surfaces). New deployments should set GOOGLE_AI_API_KEY.
+  // GEMINI_API_KEY is the legacy name; GOOGLE_AI_API_KEY is preferred.
   const googleKey =
     process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY || "";
 
@@ -307,17 +298,9 @@ export function getAISettingsForOrg(
       context.org.settings?.openAIDefaultModel ||
       "gpt-5.4-mini";
 
-  // Visual editor models — resolve against the org override, falling back
-  // to the same defaults the rest of GrowthBook uses. On Cloud, an org
-  // can still override the text model (the per-surface override outranks
-  // the cloud-managed default — this is the intended behavior of having
-  // a per-surface knob). If we ever want Cloud to lock these too, we'd
-  // wrap the override in an `!IS_CLOUD` gate like defaultAIModel.
+  // Per-surface override outranks the cloud-managed default — intentional.
   const visualEditorAIModel: AIModel =
     context.org.settings?.visualEditorAIModel || defaultAIModel;
-  // GEMINI_IMAGE_MODEL already carries the canonical default
-  // ("gemini-2.5-flash-image") from secrets.ts, so no extra fallback
-  // is needed here.
   const visualEditorImageModel: string =
     context.org.settings?.visualEditorImageModel || GEMINI_IMAGE_MODEL;
 

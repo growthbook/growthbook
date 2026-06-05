@@ -269,10 +269,8 @@ app.use(async (req, res, next) => {
 // Visual Designer js file (does not require JWT or cors)
 app.get("/js/:key.js", getExperimentsScript);
 
-// increase max payload json size to 2mb (10mb for the api screenshot
-// upload + visual-editor AI image gen — the latter accepts a base64-
-// encoded reference image which can push body size into the 5–7 MB
-// range for a high-res input image).
+// 2mb default; 10mb for screenshot upload and visual-editor AI image
+// gen (the latter accepts a base64-encoded reference image).
 app.use((req, res, next) => {
   const isScreenshotUpload =
     req.method === "POST" &&

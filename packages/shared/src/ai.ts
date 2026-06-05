@@ -80,53 +80,31 @@ export function getProviderFromModel(model: AIModel): AIProvider {
   throw new Error(`Model ${model} is not supported.`);
 }
 
-// ============================================================================
-// Image generation models
-// ----------------------------------------------------------------------------
-// Two flavors live behind this registry:
-//
-//   • "image-endpoint" — providers with a dedicated text-to-image endpoint
-//     (OpenAI DALL-E / GPT Image, Google Imagen, xAI Grok Image). On the
-//     back-end these go through Vercel AI SDK's `generateImage(provider.image(id))`.
-//
-//   • "multimodal-text" — language models that emit image bytes alongside
-//     (or instead of) text in a normal `generateContent` call. Gemini 2.5
-//     Flash Image ("nano-banana") and Gemini 3 Pro Image are the canonical
-//     examples. On the back-end these go through `generateText(provider(id))`
-//     with `responseModalities: ['IMAGE']` and we read `result.files`. These
-//     are also the only models that currently accept reference images via
-//     the unified abstraction (image bytes as a multimodal input part).
-//
-// Adding a new image model = add an entry here. The back-end's image
-// generation service dispatches off `provider` + `kind`, and the front-end
-// AI Settings dropdown reads `label` directly.
-// ============================================================================
+// Image generation model registry. Add new models here — back-end
+// dispatches off `provider` + `kind`; front-end reads `label`.
+// `kind`:
+//   "image-endpoint"   = dedicated text-to-image endpoint (DALL-E, Imagen, Grok)
+//   "multimodal-text"  = LM that emits image bytes (Gemini *-image); the only
+//                        kind that currently accepts reference images.
 
 export type AIImageProvider = "openai" | "google" | "xai";
 
 export type AIImageModelKind = "image-endpoint" | "multimodal-text";
 
 export interface AIImageModelMeta {
-  // Canonical model id passed to the Vercel SDK. For Google, the *bare*
-  // names like `gemini-2.5-flash-image` are aliased to the preview names
-  // on the SDK side — see resolveImageModelIdForSdk.
+  // Canonical SDK model id. See resolveImageModelIdForSdk for aliases.
   id: string;
   provider: AIImageProvider;
   kind: AIImageModelKind;
-  // Human-readable label shown in the AI Settings dropdown.
+  // Human-readable label for the AI Settings dropdown.
   label: string;
-  // Whether the model accepts a reference image (the AI image-replace
-  // panel uses this to gate the "Use current image as context" toggle).
   supportsReferenceImage: boolean;
 }
 
 export const AI_IMAGE_MODELS: ReadonlyArray<AIImageModelMeta> = [
-  // Google multimodal-text (nano-banana lineage). The model was
-  // promoted out of preview in late 2025; the GA endpoint is
-  // `gemini-2.5-flash-image` and the old `-preview` path returns
-  // "model not found for API version v1beta" via generateContent.
-  // Orgs that stored the preview id are mapped forward via
-  // IMAGE_MODEL_ALIASES below.
+  // Google multimodal-text (nano-banana lineage). The old `-preview`
+  // path 404s at v1beta now; legacy ids are remapped via
+  // IMAGE_MODEL_ALIASES.
   {
     id: "gemini-2.5-flash-image",
     provider: "google",
@@ -195,15 +173,8 @@ export const AI_IMAGE_MODELS: ReadonlyArray<AIImageModelMeta> = [
   },
 ];
 
-// Legacy → SDK id aliases. Used to map model ids that orgs may have
-// previously stored in their settings onto the id the SDK / provider
-// currently accepts. Mapped at the dispatch boundary so old settings
-// keep working without a settings migration.
-//
-// Currently mapped:
-//   - `gemini-2.5-flash-image-preview` → `gemini-2.5-flash-image`
-//     (Google promoted nano-banana out of preview; the `-preview`
-//      suffix path now 404s at v1beta `generateContent`.)
+// Legacy → SDK id aliases. Mapped at dispatch so existing org settings
+// keep working without a migration.
 const IMAGE_MODEL_ALIASES: Record<string, string> = {
   "gemini-2.5-flash-image-preview": "gemini-2.5-flash-image",
 };

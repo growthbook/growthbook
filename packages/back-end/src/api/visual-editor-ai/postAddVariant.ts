@@ -35,16 +35,13 @@ const validation = {
   operationId: "postVisualEditorAddVariant",
 };
 
-// Appends a new variation to the experiment AND a matching visualChange to
-// the changeset, atomically (as much as we can with two model writes).
-// Returns both objects so the side panel can refresh in one round-trip.
+// Appends a variation to the experiment and a matching visualChange to
+// the changeset. Returns both so the side panel refreshes in one round-trip.
 export const postAddVariant = createApiRequestHandler(validation)(async (
   req,
 ) => {
   const { visualChangesetId, name } = req.body;
   const context = req.context;
-  // Require PAT auth — mutates the experiment's variations array; we
-  // want the change attributable to a real user.
   requireUserAuth(context);
 
   const changeset = await findVisualChangesetById(
@@ -57,9 +54,7 @@ export const postAddVariant = createApiRequestHandler(validation)(async (
   const experiment = await getExperimentById(context, changeset.experiment);
   if (!experiment) return context.throwNotFoundError("Experiment not found");
 
-  // This endpoint mutates BOTH the experiment (adding a variation) and the
-  // visual changeset (adding a matching visualChange entry). Gate on both
-  // permissions so neither write happens without the right access.
+  // Mutates the experiment AND the changeset — both gates required.
   if (!context.permissions.canUpdateExperiment(experiment, {})) {
     context.permissions.throwPermissionError();
   }
@@ -67,11 +62,8 @@ export const postAddVariant = createApiRequestHandler(validation)(async (
     context.permissions.throwPermissionError();
   }
 
-  // Build the new variation. Position is appended at the end so existing
-  // variation IDs and the visualChanges order are preserved.
-  // Internal experiment.variations entries are keyed by `id` (not the
-  // API-level `variationId`) — that's also what visualChange.variation
-  // references downstream and what getLatestPhaseVariations matches by.
+  // Internal `id` (not API-level `variationId`) — that's what
+  // visualChange.variation references and getLatestPhaseVariations matches.
   const nextIndex = experiment.variations.length;
   const newVariationId = uuidv4();
   const newVariationName = name?.trim() || `Variant ${nextIndex}`;
@@ -88,14 +80,9 @@ export const postAddVariant = createApiRequestHandler(validation)(async (
     },
   ];
 
-  // The GrowthBook UI enumerates variants via getLatestPhaseVariations,
-  // which filters the top-level array by `phase.variations[].id`. If we
-  // don't also add the new id to the latest phase, the new variant will
-  // be silently dropped from the experiment page. Equal-weight redistribute
-  // the traffic across all variations on the same phase.
-  // We reuse the zod-derived PhaseVariation type from shared/validators so
-  // the shape stays in sync with the canonical schema and we don't need
-  // an unsafe cast.
+  // getLatestPhaseVariations filters by `phase.variations[].id` — without
+  // also adding the new id here, the variant is silently dropped from the
+  // experiment page. Weights are equal-redistributed.
   const phases = (experiment.phases || []).map((p) => ({ ...p }));
   if (phases.length > 0) {
     const latest = phases[phases.length - 1];
@@ -112,7 +99,7 @@ export const postAddVariant = createApiRequestHandler(validation)(async (
     ) {
       const n = nextVariations.length;
       const equal = Number((1 / n).toFixed(4));
-      // Spread last bit of rounding into the first weight so they sum to 1.
+      // Absorb rounding into the first weight so they sum to 1.
       const weights = new Array(n).fill(equal);
       const sum = weights.reduce((a, b) => a + b, 0);
       weights[0] = Number((weights[0] + (1 - sum)).toFixed(4));
@@ -129,9 +116,7 @@ export const postAddVariant = createApiRequestHandler(validation)(async (
     },
   });
 
-  // Append a new visualChange referencing the new variation id. The merge
-  // logic in updateVisualChangeset() will mint a `vc.id` for us because we
-  // omit it on the new entry.
+  // Omitting `id` lets updateVisualChangeset's merge logic mint one.
   const nextVisualChanges = [
     ...changeset.visualChanges,
     {
@@ -150,10 +135,8 @@ export const postAddVariant = createApiRequestHandler(validation)(async (
     updates: { visualChanges: nextVisualChanges },
   });
 
-  // Re-read both for the freshest server state to return. The experiment
-  // gets converted to its API shape so the side panel sees variation IDs
-  // under `variationId` (not the internal `id` field) — matching the
-  // initial-load response shape.
+  // Re-read so the response matches the initial-load shape (variation
+  // IDs under `variationId` rather than the internal `id`).
   const refreshedChangeset = await findVisualChangesetById(
     visualChangesetId,
     req.organization.id,
@@ -163,14 +146,8 @@ export const postAddVariant = createApiRequestHandler(validation)(async (
     changeset.experiment,
   );
 
-  // toExperimentApiInterface excludes holdout-type experiments at its
-  // type signature. Visual changesets don't apply to holdouts in practice
-  // — if we somehow loaded one, fail loudly rather than silently dropping
-  // experiment state from the response. Other endpoints in this codebase
-  // use the same runtime-check-then-cast pattern (see
-  // packages/back-end/src/api/experiments/updateExperiment.ts:296) because
-  // type-only narrowing on the optional `type` field doesn't carry
-  // through.
+  // toExperimentApiInterface's type signature excludes holdouts; use the
+  // runtime-check-then-cast pattern (see api/experiments/updateExperiment.ts).
   if (!refreshedExperiment) {
     throw new Error("Experiment vanished between write and re-read");
   }
