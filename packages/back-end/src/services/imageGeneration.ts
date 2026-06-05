@@ -117,7 +117,9 @@ function getImageProvider(
   const { aiEnabled, googleAPIKey, openAIAPIKey, xaiAPIKey } =
     getAISettingsForOrg(context, true);
   if (!aiEnabled) {
-    throw new Error("AI is not enabled for this organization.");
+    throw new Error(
+      "AI is not enabled for this organization. Visit Settings → AI Settings to enable it.",
+    );
   }
   if (meta.provider === "google") {
     if (!googleAPIKey) {

@@ -55,7 +55,9 @@ export const getAIProviderClass = (
   } = getAISettingsForOrg(context, true);
 
   if (!aiEnabled) {
-    throw new Error("AI is not enabled for this organization.");
+    throw new Error(
+      "AI is not enabled for this organization. Visit Settings → AI Settings to enable it.",
+    );
   }
 
   const selectedProvider = getProviderFromModel(model);
