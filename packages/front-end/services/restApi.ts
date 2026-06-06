@@ -108,9 +108,6 @@ export function useRestApiCall() {
           // non-JSON error body
         }
 
-        // Soft warning from a server-side validation hook (HTTP 422). Let the
-        // user acknowledge it, then re-submit the same request ignoring
-        // warnings.
         if (response.status === 422 && Array.isArray(errData?.warnings)) {
           const proceed = await confirmIgnoreWarnings(errData.warnings);
           if (!proceed) {

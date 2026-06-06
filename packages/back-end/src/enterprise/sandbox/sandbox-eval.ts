@@ -5,7 +5,7 @@ import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { parseEnvInt } from "shared/util";
 import { cancellableFetch } from "back-end/src/util/http.util";
-import { WarningError } from "back-end/src/util/errors";
+import { SoftWarningError } from "back-end/src/util/errors";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { ReqContextClass } from "back-end/src/services/context";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
@@ -84,7 +84,6 @@ export interface SandboxEvalResult {
   error?: string;
   returnVal?: unknown;
   log?: string;
-  // Soft warnings the hook raised via `addWarning("...")`. Always present.
   warnings: string[];
 }
 
@@ -106,9 +105,7 @@ async function _runCustomHooks(
     return;
   }
 
-  // Read the ignore-warnings flag from the user's context BEFORE swapping to
-  // the admin context below (the admin context has no `req`, so it would always
-  // report `true`).
+  // Admin context has no `req` so must read from original context instead
   const ignoreWarnings = context.ignoreWarnings;
 
   // Get an admin version of the context
@@ -128,17 +125,14 @@ async function _runCustomHooks(
       functionArgs,
       originalFunctionArgs,
     );
-    // A hard error (thrown by the hook) blocks immediately and can never be
-    // ignored.
     if (error) {
       throw new Error(error);
     }
     allWarnings.push(...warnings);
   }
 
-  // Soft warnings block the action unless the request opted to ignore them.
   if (allWarnings.length && !ignoreWarnings) {
-    throw new WarningError(allWarnings.join("\n"), allWarnings);
+    throw new SoftWarningError(allWarnings.join("\n"), allWarnings);
   }
 }
 
@@ -172,7 +166,6 @@ async function _runCustomHook(
     return { error, warnings: [] };
   }
 
-  // Successful execution — collect any warnings the hook raised.
   let warnings = res.warnings;
 
   // Incremental: drop warnings that were already present before this change.

@@ -11,7 +11,7 @@ import {
 } from "shared/api-spec";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiErrorResponse, ApiRequestLocals } from "back-end/types/api";
-import { ConflictError, WarningError } from "./errors";
+import { ConflictError, SoftWarningError } from "./errors";
 import { IS_MULTI_ORG } from "./secrets";
 
 export type { ApiEndpointSpec, ExampleRequest, HttpVerb, RequestSchemas };
@@ -232,13 +232,10 @@ export function createApiRequestHandler<
           if (e instanceof ConflictError && e.conflicts) {
             body.conflicts = e.conflicts;
           }
-          // Surface soft warnings (HTTP 422) so clients can re-submit with
-          // `?ignoreWarnings=true` to proceed.
-          if (e instanceof WarningError) {
+          // Surface soft warnings so clients can re-submit with `?ignoreWarnings=true`
+          if (e instanceof SoftWarningError) {
             body.warnings = e.warnings;
-            // Only programmatic (API key) callers need the querystring hint.
-            // JWT callers are the front-end, which shows an interactive
-            // "Save anyway?" dialog instead.
+            // Front-end shows a "Save anyway" dialong and doesn't need a querystring hint
             const isJwtAuth = (req as unknown as ApiRequestLocals).isJwtAuth;
             if (!isJwtAuth) {
               body.message =

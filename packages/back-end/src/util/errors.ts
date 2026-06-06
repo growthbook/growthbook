@@ -82,15 +82,12 @@ export class ConflictError extends Error {
   }
 }
 
-// A soft, overridable warning surfaced to the client (HTTP 422). The client can
-// re-submit the same request with `?ignoreWarnings=true` to proceed anyway.
-// Generic on purpose so any feature can raise warnings, not just custom hooks.
-export class WarningError extends Error {
+export class SoftWarningError extends Error {
   status = 422;
   warnings: string[];
   constructor(message: string, warnings: string[]) {
     super(message);
-    this.name = "WarningError";
+    this.name = "SoftWarningError";
     this.warnings = warnings;
   }
 }

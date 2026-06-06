@@ -303,10 +303,8 @@ export class ReqContextClass {
     this.initModels();
   }
 
-  // Whether soft warnings should be ignored for this request (e.g. the user
-  // acknowledged them, or an API client passed `?ignoreWarnings=true`).
-  // Background jobs / non-request contexts have no `req`, so they always ignore
-  // warnings — there's no user to respond to the feedback.
+  // Whether soft warnings should be ignored for this request
+  // Background jobs have no req and always ignore - users have no way to respond to the feedback.
   public get ignoreWarnings(): boolean {
     if (!this.req) return true;
     const v = this.req.query?.ignoreWarnings;
