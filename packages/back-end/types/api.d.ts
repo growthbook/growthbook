@@ -45,6 +45,9 @@ export interface ApiErrorResponse {
   // a structured conflict list (e.g. feature revision publish/rebase) so
   // clients can auto-resolve programmatically.
   conflicts?: unknown[];
+  // Populated on 422 WarningError responses (e.g. a custom hook raised a soft
+  // warning). Re-submit with `?ignoreWarnings=true` to proceed anyway.
+  warnings?: string[];
 }
 
 /**

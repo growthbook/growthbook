@@ -5,6 +5,7 @@ import React, {
   ReactElement,
   ReactNode,
   useCallback,
+  useRef,
 } from "react";
 import { useRouter } from "next/router";
 import {
@@ -18,6 +19,7 @@ import {
 import { setUser as sentrySetUser } from "@sentry/nextjs";
 import { roleSupportsEnvLimit } from "shared/permissions";
 import Modal from "@/components/Modal";
+import ApiWarningModal from "@/components/ApiWarningModal";
 import { DocLink } from "@/components/DocLink";
 import Welcome from "@/components/Auth/Welcome";
 import { useSessionStorage } from "@/hooks/useSessionStorage";
@@ -34,6 +36,12 @@ export type ApiCallType<T> = (
   errorHandler?: ErrorHandler,
 ) => Promise<T>;
 
+// Append the `ignoreWarnings` flag so the server skips soft warnings on retry.
+// Handles URLs that already carry a querystring.
+export function appendIgnoreWarnings(url: string): string {
+  return url + (url.includes("?") ? "&" : "?") + "ignoreWarnings=true";
+}
+
 export interface AuthContextValue {
   isAuthenticated: boolean;
   loading: boolean;
@@ -44,6 +52,9 @@ export interface AuthContextValue {
     errorHandler?: ErrorHandler,
   ) => Promise<T>;
   fetchRaw: (url: string, options?: RequestInit) => Promise<Response>;
+  // Show the global "Save anyway?" dialog for soft warnings returned by the API.
+  // Resolves true if the user chooses to proceed, false if they cancel.
+  confirmIgnoreWarnings: (warnings: string[]) => Promise<boolean>;
   ssoConnectionId: string;
   orgId: string | null;
   setOrgId?: (orgId: string) => void;
@@ -68,6 +79,7 @@ export const AuthContext = React.createContext<AuthContextValue>({
     return x;
   },
   fetchRaw: async () => new Response(),
+  confirmIgnoreWarnings: async () => false,
   ssoConnectionId: "",
   orgId: null,
 });
@@ -222,6 +234,9 @@ export const AuthProvider: React.FC<{
   const [authComponent, setAuthComponent] = useState<ReactElement | null>(null);
   const [initError, setInitError] = useState("");
   const [sessionError, setSessionError] = useState(false);
+  // Soft warnings returned by the API, shown in a global "Save anyway?" dialog.
+  const [apiWarnings, setApiWarnings] = useState<string[] | null>(null);
+  const warningResolver = useRef<((proceed: boolean) => void) | null>(null);
   const [initialPlanSelection, setInitialPlanSelection] =
     useSessionStorage<InitialPlanOptions>(
       INITIAL_PLAN_SELECTION_SESSION_KEY,
@@ -428,6 +443,22 @@ export const AuthProvider: React.FC<{
     [orgId, token],
   );
 
+  // Open the global warning dialog and resolve once the user picks an option.
+  const confirmIgnoreWarnings = useCallback((warnings: string[]) => {
+    return new Promise<boolean>((resolve) => {
+      warningResolver.current = resolve;
+      setApiWarnings(warnings);
+    });
+  }, []);
+
+  // Resolve the pending warning dialog (idempotent) and close it.
+  const resolveWarnings = useCallback((proceed: boolean) => {
+    const resolve = warningResolver.current;
+    warningResolver.current = null;
+    setApiWarnings(null);
+    if (resolve) resolve(proceed);
+  }, []);
+
   const apiCall = useCallback(
     async (
       url: string | null,
@@ -473,6 +504,30 @@ export const AuthProvider: React.FC<{
           );
         }
 
+        // Soft warning from a server-side validation hook. Let the user
+        // acknowledge it, then re-submit the same request ignoring warnings.
+        if (
+          responseData.status === 422 &&
+          Array.isArray(responseData.warnings)
+        ) {
+          const proceed = await confirmIgnoreWarnings(responseData.warnings);
+          if (proceed) {
+            responseData = await _makeApiCall(
+              appendIgnoreWarnings(url),
+              token,
+              options,
+            );
+            if (responseData.status && responseData.status >= 400) {
+              if (errorHandler) {
+                errorHandler(responseData);
+              }
+              throw new Error(responseData.message || "There was an error");
+            }
+            return responseData;
+          }
+          throw new Error(responseData.message || "Action cancelled");
+        }
+
         if (errorHandler) {
           errorHandler(responseData);
         }
@@ -481,7 +536,7 @@ export const AuthProvider: React.FC<{
 
       return responseData;
     },
-    [token, _makeApiCall],
+    [token, _makeApiCall, confirmIgnoreWarnings],
   );
 
   const wrappedSetOrganizations = useCallback(
@@ -587,6 +642,7 @@ export const AuthProvider: React.FC<{
         },
         apiCall,
         fetchRaw,
+        confirmIgnoreWarnings,
         ssoConnectionId,
         orgId,
         setOrgId,
@@ -613,6 +669,13 @@ export const AuthProvider: React.FC<{
       <>
         {children}
         {authComponent}
+        {apiWarnings && (
+          <ApiWarningModal
+            warnings={apiWarnings}
+            onConfirm={() => resolveWarnings(true)}
+            onCancel={() => resolveWarnings(false)}
+          />
+        )}
       </>
     </AuthContext.Provider>
   );

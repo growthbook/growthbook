@@ -104,7 +104,7 @@ import { isEmailEnabled } from "./services/email";
 import { init } from "./init";
 import { aiRouter } from "./routers/ai/ai.router";
 import { getCustomLogProps, httpLogger, logger } from "./util/logger";
-import { shouldSkipErrorLog } from "./util/errors";
+import { shouldSkipErrorLog, WarningError } from "./util/errors";
 import { usersRouter } from "./routers/users/users.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
 import { uploadRouter } from "./routers/upload/upload.router";
@@ -1178,11 +1178,22 @@ const errorHandler: ErrorRequestHandler = (
     httpLogger.logger[level](getCustomLogProps(req), err.message);
   }
 
-  res.status(status).json({
+  const body: {
+    status: number;
+    message: string;
+    errorId?: string;
+    warnings?: string[];
+  } = {
     status: status,
     message: err.message || "An error occurred",
     errorId: SENTRY_DSN ? res.sentry : undefined,
-  });
+  };
+  // Mirror the REST API: surface soft warnings (HTTP 422) so the front-end can
+  // re-submit with `?ignoreWarnings=true` to proceed.
+  if (err instanceof WarningError) {
+    body.warnings = err.warnings;
+  }
+  res.status(status).json(body);
 };
 app.use(errorHandler);
 

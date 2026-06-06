@@ -5,6 +5,7 @@ import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { parseEnvInt } from "shared/util";
 import { cancellableFetch } from "back-end/src/util/http.util";
+import { WarningError } from "back-end/src/util/errors";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { ReqContextClass } from "back-end/src/services/context";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
@@ -83,6 +84,8 @@ export interface SandboxEvalResult {
   error?: string;
   returnVal?: unknown;
   log?: string;
+  // Soft warnings the hook raised via `addWarning("...")`. Always present.
+  warnings: string[];
 }
 
 // Private methods
@@ -103,6 +106,11 @@ async function _runCustomHooks(
     return;
   }
 
+  // Read the ignore-warnings flag from the user's context BEFORE swapping to
+  // the admin context below (the admin context has no `req`, so it would always
+  // report `true`).
+  const ignoreWarnings = context.ignoreWarnings;
+
   // Get an admin version of the context
   // We don't want the user's permissions to affect which hooks are executed
   const adminContext = getContextForAgendaJobByOrgObject(context.org);
@@ -111,18 +119,26 @@ async function _runCustomHooks(
     hookType,
     project,
   );
+
+  const allWarnings: string[] = [];
   for (const hook of hooks) {
-    const res = await _runCustomHook(
+    const { error, warnings } = await _runCustomHook(
       adminContext,
       hook,
       functionArgs,
       originalFunctionArgs,
     );
-    if (!res.ok) {
-      const message =
-        (res.error || "Custom hook error") + (res.log ? `\n${res.log}` : "");
-      throw new Error(message);
+    // A hard error (thrown by the hook) blocks immediately and can never be
+    // ignored.
+    if (error) {
+      throw new Error(error);
     }
+    allWarnings.push(...warnings);
+  }
+
+  // Soft warnings block the action unless the request opted to ignore them.
+  if (allWarnings.length && !ignoreWarnings) {
+    throw new WarningError(allWarnings.join("\n"), allWarnings);
   }
 }
 
@@ -131,28 +147,43 @@ async function _runCustomHook(
   hook: CustomHookInterface,
   functionArgs: Record<string, unknown>,
   originalFunctionArgs?: Record<string, unknown>,
-) {
+): Promise<{ error?: string; warnings: string[] }> {
   const res = await sandboxEval(hook.code, functionArgs);
 
   if (res.ok) {
     context.models.customHooks.logSuccess(hook);
   } else {
     context.models.customHooks.logFailure(hook);
+  }
 
-    // Try the original args if provided
+  // A thrown error is a hard block and always wins over any warnings.
+  if (!res.ok) {
+    // Incremental: if the same error was already present before this change,
+    // ignore the hook entirely.
     if (originalFunctionArgs && hook.incrementalChangesOnly) {
       const originalRes = await sandboxEval(hook.code, originalFunctionArgs);
       if (!originalRes.ok && originalRes.error === res.error) {
-        // If it was also failing before this change, then ignore this hook
-        return {
-          ...res,
-          ok: true,
-        };
+        return { warnings: [] };
       }
+    }
+
+    const error =
+      (res.error || "Custom hook error") + (res.log ? `\n${res.log}` : "");
+    return { error, warnings: [] };
+  }
+
+  // Successful execution — collect any warnings the hook raised.
+  let warnings = res.warnings;
+
+  // Incremental: drop warnings that were already present before this change.
+  if (warnings.length && originalFunctionArgs && hook.incrementalChangesOnly) {
+    const originalRes = await sandboxEval(hook.code, originalFunctionArgs);
+    if (originalRes.ok) {
+      warnings = warnings.filter((w) => !originalRes.warnings.includes(w));
     }
   }
 
-  return res;
+  return { warnings };
 }
 
 export async function sandboxEval(
@@ -176,6 +207,7 @@ export async function sandboxEval(
     return {
       ok: false,
       error: "Custom hooks are not supported in GrowthBook Cloud",
+      warnings: [],
     };
   }
 
@@ -184,6 +216,7 @@ export async function sandboxEval(
   });
 
   const logs: string[] = [];
+  const warnings: string[] = [];
 
   try {
     const isolateCtx: Context = await isolate.createContext();
@@ -224,8 +257,14 @@ export async function sandboxEval(
       logs.push(args.map(String).join(" "));
     });
 
+    // Host -> isolate bridge for raising soft warnings
+    const warnRef = new Reference((msg: unknown) => {
+      warnings.push(String(msg));
+    });
+
     await jail.set("hostFetch", fetchRef);
     await jail.set("hostLog", logRef);
+    await jail.set("hostWarn", warnRef);
 
     // Inject shims for console.log and fetch
     // We aren't aiming for a 100% complete implementation
@@ -259,6 +298,19 @@ export async function sandboxEval(
             text: async () => _body,
             json: async () => JSON.parse(_body),
           };
+        };
+        globalThis.addWarning = (msg) => {
+          let str;
+          if (typeof msg === "string") {
+            str = msg;
+          } else {
+            try {
+              str = JSON.stringify(msg);
+            } catch {
+              str = String(msg);
+            }
+          }
+          hostWarn.applyIgnored(undefined, [str]);
         };
       })();
     `;
@@ -298,13 +350,14 @@ export async function sandboxEval(
     );
 
     const returnVal = await Promise.race([resultPromise, wallTimeout]);
-    return { ok: true, returnVal, log: logs.join("\n") };
+    return { ok: true, returnVal, log: logs.join("\n"), warnings };
   } catch (err) {
     const message = err.message || err || "";
     return {
       ok: false,
       error: message ? `Custom hook: ${message}` : "Custom hook error",
       log: logs.join("\n"),
+      warnings,
     };
   } finally {
     try {

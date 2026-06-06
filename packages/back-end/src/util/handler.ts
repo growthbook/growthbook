@@ -11,7 +11,7 @@ import {
 } from "shared/api-spec";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiErrorResponse, ApiRequestLocals } from "back-end/types/api";
-import { ConflictError } from "./errors";
+import { ConflictError, WarningError } from "./errors";
 import { IS_MULTI_ORG } from "./secrets";
 
 export type { ApiEndpointSpec, ExampleRequest, HttpVerb, RequestSchemas };
@@ -231,6 +231,11 @@ export function createApiRequestHandler<
           // Surface the structured conflicts so clients can react to them.
           if (e instanceof ConflictError && e.conflicts) {
             body.conflicts = e.conflicts;
+          }
+          // Surface soft warnings (HTTP 422) so clients can re-submit with
+          // `?ignoreWarnings=true` to proceed.
+          if (e instanceof WarningError) {
+            body.warnings = e.warnings;
           }
           return res.status(e.status || 400).json(body);
         }
