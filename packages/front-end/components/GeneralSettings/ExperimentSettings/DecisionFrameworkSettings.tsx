@@ -10,6 +10,7 @@ import {
 import Checkbox from "@/ui/Checkbox";
 import Button from "@/ui/Button";
 import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBInfo } from "@/components/Icons";
 import { DocLink } from "@/components/DocLink";
@@ -44,10 +45,8 @@ const DecisionFrameworkSettings = () => {
   const [criteriaToDelete, setCriteriaToDelete] = useState<
     DecisionCriteriaData | undefined
   >(undefined);
-  // Check if a criteria is editable (user created vs. system)
-  const isEditable = (criteria: DecisionCriteriaData) => {
-    return !criteria.id.startsWith("gbdeccrit_");
-  };
+  const isEditable = (criteria: DecisionCriteriaData) =>
+    !criteria.id.startsWith("gbdeccrit_");
 
   return (
     <>
@@ -229,6 +228,87 @@ const DecisionFrameworkSettings = () => {
                   />
                 </Box>
               </Flex>
+
+              <Box mt="5" mb="3">
+                <Heading size="2" mb="3">
+                  Experiment Automation Defaults
+                </Heading>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "180px 280px",
+                    gap: "12px 16px",
+                    alignItems: "center",
+                  }}
+                >
+                  <Text as="div" weight="medium">
+                    Shipping
+                  </Text>
+                  <SelectField
+                    value={form.watch("defaultShippingCriteriaMode") ?? "off"}
+                    onChange={(v) =>
+                      form.setValue("defaultShippingCriteriaMode", v)
+                    }
+                    options={[
+                      {
+                        value: "off",
+                        label: "Manual",
+                      },
+                      {
+                        value: "auto",
+                        label: "Auto-ship clear winner",
+                      },
+                      {
+                        value: "auto-force",
+                        label: "Auto-ship on end date regardless",
+                      },
+                    ]}
+                    sort={false}
+                    isSearchable={false}
+                  />
+
+                  <Text as="div" weight="medium">
+                    Rollbacks
+                  </Text>
+                  <SelectField
+                    value={form.watch("defaultAutoRollbackMode") ?? "off"}
+                    onChange={(v) =>
+                      form.setValue("defaultAutoRollbackMode", v)
+                    }
+                    options={[
+                      { value: "off", label: "Manual" },
+                      { value: "all", label: "Automatic" },
+                      {
+                        value: "health-only",
+                        label: "Automatic for health signals only",
+                      },
+                    ]}
+                    sort={false}
+                    isSearchable={false}
+                  />
+
+                  <Text as="div" weight="medium">
+                    Ramp schedules
+                  </Text>
+                  <SelectField
+                    value={
+                      form.watch("defaultRampProgressionMode") ?? "standard"
+                    }
+                    onChange={(v) =>
+                      form.setValue("defaultRampProgressionMode", v)
+                    }
+                    options={[
+                      { value: "standard", label: "Standard progression" },
+                      {
+                        value: "hold-for-health",
+                        label: "Hold for health signals",
+                      },
+                    ]}
+                    sort={false}
+                    isSearchable={false}
+                  />
+                </div>
+              </Box>
             </>
           )}
       </Box>

@@ -1,6 +1,13 @@
-import { FC } from "react";
+import React, { FC } from "react";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
-import type { DecisionCriteriaRampHealthAction } from "shared/enterprise";
+import type {
+  DecisionCriteriaData,
+  DecisionCriteriaAction,
+  DecisionCriteriaCondition,
+  DcHealthSignalAction,
+  DcHealthSignals,
+} from "shared/enterprise";
+import { DEFAULT_DC_HEALTH_SIGNALS } from "shared/enterprise";
 import { FaPlusCircle } from "react-icons/fa";
 import {
   PiArrowDown,
@@ -8,6 +15,7 @@ import {
   PiCheck,
   PiEye,
   PiMinusCircle,
+  PiProhibit,
   PiTrash,
 } from "react-icons/pi";
 import { Select, SelectItem } from "@/ui/Select";
@@ -92,91 +100,168 @@ const ACTION_OPTIONS: {
   },
 ];
 
-const RAMP_HEALTH_ACTION_OPTIONS: {
-  value: DecisionCriteriaRampHealthAction;
+const HEALTH_ACTION_OPTIONS: {
+  value: DcHealthSignalAction;
   label: string;
+  color: "amber" | "red" | "gray";
+  icon: React.ReactNode;
 }[] = [
-  { value: "warn", label: "Warn" },
-  { value: "hold", label: "Hold step" },
-  { value: "rollback", label: "Rollback" },
+  {
+    value: "off",
+    label: "Off",
+    color: "gray",
+    icon: <PiProhibit color="gray" />,
+  },
+  {
+    value: "review",
+    label: "Review",
+    color: "amber",
+    icon: <PiEye color="amber" />,
+  },
+  {
+    value: "rollback",
+    label: "Rollback",
+    color: "red",
+    icon: <PiMinusCircle color="red" />,
+  },
 ];
 
-const RAMP_HEALTH_SIGNAL_FIELDS: {
-  key: "srmAction" | "noTrafficAction" | "multipleExposureAction";
+const HEALTH_SIGNAL_LABELS: {
+  key: keyof Pick<
+    DcHealthSignals,
+    "srmAction" | "multipleExposureAction" | "noTrafficAction"
+  >;
   label: string;
 }[] = [
-  { key: "srmAction", label: "SRM detected" },
-  { key: "noTrafficAction", label: "No traffic" },
-  { key: "multipleExposureAction", label: "Multiple exposures" },
+  { key: "srmAction", label: "Sample Ratio Mismatch (SRM)" },
+  { key: "multipleExposureAction", label: "Multiple Exposures" },
+  { key: "noTrafficAction", label: "No Traffic" },
 ];
 
-interface DecisionCriteriaModalContentProps {
-  decisionCriteriaFormProps: ReturnType<typeof useDecisionCriteriaForm>;
-  editable?: boolean;
+// ── Normalized shape consumed by the rendering logic ─────────────────────────
+
+interface RuleView {
+  key: string;
+  conditions: (DecisionCriteriaCondition & { key: string })[];
+  action: DecisionCriteriaAction;
 }
 
-const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
-  decisionCriteriaFormProps,
-  editable = true,
-}) => {
-  const {
-    addRule,
-    form,
-    removeRule,
-    addCondition,
-    removeCondition,
-    updateCondition,
-    updateRuleAction,
-  } = decisionCriteriaFormProps;
+interface CriteriaView {
+  name: string;
+  description: string;
+  rules: RuleView[];
+  defaultAction: DecisionCriteriaAction;
+  healthSignals: DcHealthSignals;
+}
 
-  // Handle add rule click with propagation prevention
+function viewFromData(dc: DecisionCriteriaData): CriteriaView {
+  return {
+    name: dc.name,
+    description: dc.description ?? "",
+    rules: dc.rules.map((r, ri) => ({
+      key: `r-${ri}`,
+      conditions: r.conditions.map((c, ci) => ({ ...c, key: `c-${ri}-${ci}` })),
+      action: r.action,
+    })),
+    defaultAction: dc.defaultAction,
+    healthSignals: dc.healthSignals ?? { ...DEFAULT_DC_HEALTH_SIGNALS },
+  };
+}
+
+function viewFromForm(
+  form: ReturnType<typeof useDecisionCriteriaForm>["form"],
+): CriteriaView {
+  return {
+    name: form.watch("name"),
+    description: form.watch("description") ?? "",
+    rules: form.watch("rules"),
+    defaultAction: form.watch("defaultAction"),
+    healthSignals:
+      form.watch("healthSignals") ?? { ...DEFAULT_DC_HEALTH_SIGNALS },
+  };
+}
+
+// ── Props ────────────────────────────────────────────────────────────────────
+
+type DecisionCriteriaModalContentProps =
+  | {
+      decisionCriteriaFormProps: ReturnType<typeof useDecisionCriteriaForm>;
+      editable?: boolean;
+      decisionCriteria?: never;
+    }
+  | {
+      decisionCriteria: DecisionCriteriaData;
+      editable?: false;
+      decisionCriteriaFormProps?: never;
+    };
+
+// ── Component ────────────────────────────────────────────────────────────────
+
+const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = (
+  props,
+) => {
+  const editable =
+    props.editable ?? (props.decisionCriteriaFormProps ? true : false);
+
+  const view: CriteriaView = props.decisionCriteriaFormProps
+    ? viewFromForm(props.decisionCriteriaFormProps.form)
+    : viewFromData(props.decisionCriteria);
+
+  const formActions = props.decisionCriteriaFormProps;
+
   const handleAddRuleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    addRule();
+    formActions?.addRule();
   };
 
   return (
     <Flex direction="column" gap="2">
-      <Flex direction="column" gap="1">
-        <Text as="div" weight="semibold">
-          Name
-        </Text>
-        <div className="form-group">
-          <input
-            type="text"
-            className="form-control"
-            placeholder="Decision Criteria Name"
-            value={form.watch("name")}
-            onChange={(e) => form.setValue("name", e.target.value)}
-            required
-            disabled={!editable}
-          />
-        </div>
-        <Text as="div" weight="semibold">
-          Description
-        </Text>
-        <div className="form-group">
-          <textarea
-            className="form-control"
-            placeholder="(optional)"
-            value={form.watch("description")}
-            onChange={(e) => form.setValue("description", e.target.value)}
-            rows={2}
-            disabled={!editable}
-          />
-        </div>
-      </Flex>
+      {editable && (
+        <Flex direction="column" gap="1">
+          <Text as="div" weight="semibold">
+            Name
+          </Text>
+          <div className="form-group">
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Decision Criteria Name"
+              value={view.name}
+              onChange={(e) =>
+                formActions?.form.setValue("name", e.target.value)
+              }
+              required
+              disabled={!editable}
+            />
+          </div>
+          <Text as="div" weight="semibold">
+            Description
+          </Text>
+          <div className="form-group">
+            <textarea
+              className="form-control"
+              placeholder="(optional)"
+              value={view.description}
+              onChange={(e) =>
+                formActions?.form.setValue("description", e.target.value)
+              }
+              rows={2}
+              disabled={!editable}
+            />
+          </div>
+        </Flex>
+      )}
 
       <Heading as="h4" size="x-small" mt="2">
-        Rules
+        Metric Rules
       </Heading>
       <Text as="div" size="small" color="text-mid">
         Rules are evaluated in order. If a rule matches, an action is
         recommended and no further rules are evaluated.
       </Text>
 
-      {form.watch("rules").map((rule, ruleIndex) => (
+      {view.rules.map((rule, ruleIndex) => (
         <Flex
           key={rule.key}
           className="appbox mb-1 mt-1"
@@ -193,7 +278,7 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
                 variant="ghost"
                 color="red"
                 size="1"
-                onClick={() => removeRule(rule.key)}
+                onClick={() => formActions?.removeRule(rule.key)}
               >
                 <PiTrash />
               </IconButton>
@@ -214,7 +299,12 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
                     size={"2"}
                     value={condition.match}
                     setValue={(value) =>
-                      updateCondition(rule.key, condition.key, "match", value)
+                      formActions?.updateCondition(
+                        rule.key,
+                        condition.key,
+                        "match",
+                        value,
+                      )
                     }
                     disabled={!editable}
                   >
@@ -232,14 +322,14 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
                     value={condition.metrics}
                     setValue={(value) => {
                       if (value === "guardrails") {
-                        updateCondition(
+                        formActions?.updateCondition(
                           rule.key,
                           condition.key,
                           "direction",
                           "statsigLoser",
                         );
                       }
-                      updateCondition(
+                      formActions?.updateCondition(
                         rule.key,
                         condition.key,
                         "metrics",
@@ -261,7 +351,7 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
                     size={"2"}
                     value={condition.direction}
                     setValue={(value) =>
-                      updateCondition(
+                      formActions?.updateCondition(
                         rule.key,
                         condition.key,
                         "direction",
@@ -292,7 +382,9 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
                       variant="ghost"
                       color="red"
                       size="1"
-                      onClick={() => removeCondition(rule.key, condition.key)}
+                      onClick={() =>
+                        formActions?.removeCondition(rule.key, condition.key)
+                      }
                     >
                       <PiTrash />
                     </IconButton>
@@ -313,7 +405,7 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  addCondition(rule.key);
+                  formActions?.addCondition(rule.key);
                 }}
               >
                 <Flex align="center" gap="1">
@@ -335,7 +427,7 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
                 size={"2"}
                 value={rule.action}
                 setValue={(value) =>
-                  updateRuleAction(
+                  formActions?.updateRuleAction(
                     rule.key,
                     value as "ship" | "rollback" | "review",
                   )
@@ -375,9 +467,9 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
           </Box>
           <Select
             size={"2"}
-            value={form.watch("defaultAction")}
+            value={view.defaultAction}
             setValue={(value) =>
-              form.setValue(
+              formActions?.form.setValue(
                 "defaultAction",
                 value as "ship" | "rollback" | "review",
               )
@@ -399,41 +491,83 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
       <Separator size="4" my="3" />
 
       <Heading as="h4" size="x-small">
-        Ramp Schedule Behavior
+        Health Rules
       </Heading>
-      <Text as="div" size="small" color="text-mid">
-        Applies only while an experiment with a ramp schedule is actively
-        stepping through ramp-up stages.
-      </Text>
 
-      <Flex direction="column" gap="2" mt="2">
-        {RAMP_HEALTH_SIGNAL_FIELDS.map((field) => (
-          <Flex key={field.key} align="center" gap="3">
-            <Box style={{ width: 160, flexShrink: 0 }}>
-              <Text as="div" weight="medium">
-                {field.label}
-              </Text>
-            </Box>
+      <div
+        className="appbox p-2 mb-0"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "auto auto auto 1fr",
+          gap: "8px 12px",
+          alignItems: "center",
+        }}
+      >
+        {HEALTH_SIGNAL_LABELS.map((signal) => (
+          <React.Fragment key={signal.key}>
+            <Text as="div" weight="medium" size="small">
+              {signal.label}
+            </Text>
+
+            {signal.key === "noTrafficAction" ? (
+              <Flex align="center" gap="1">
+                <Text as="span" size="small" color="text-mid">
+                  for
+                </Text>
+                <div className="input-group input-group-sm" style={{ width: 90 }}>
+                  <input
+                    type="number"
+                    value={view.healthSignals.noTrafficGracePeriodHours}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      const val = parseFloat(raw);
+                      if (!isNaN(val) && val > 0) {
+                        formActions?.form.setValue(
+                          "healthSignals.noTrafficGracePeriodHours",
+                          Math.round(val * 100) / 100,
+                        );
+                      }
+                    }}
+                    onFocus={(e) => e.target.select()}
+                    min={1}
+                    step={0.5}
+                    disabled={!editable}
+                    className="form-control form-control-sm"
+                    style={{ textAlign: "center" }}
+                  />
+                  <div className="input-group-append">
+                    <span className="input-group-text px-2">h</span>
+                  </div>
+                </div>
+              </Flex>
+            ) : (
+              <div />
+            )}
+
             <Select
               size="2"
-              value={form.watch(`rampBehavior.${field.key}`)}
+              value={view.healthSignals[signal.key]}
               setValue={(value) =>
-                form.setValue(
-                  `rampBehavior.${field.key}`,
-                  value as "warn" | "hold" | "rollback",
+                formActions?.form.setValue(
+                  `healthSignals.${signal.key}`,
+                  value as DcHealthSignalAction,
                 )
               }
               disabled={!editable}
             >
-              {RAMP_HEALTH_ACTION_OPTIONS.map((option) => (
+              {HEALTH_ACTION_OPTIONS.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
-                  {option.label}
+                  <Flex align="center" gap="1">
+                    {option.icon}
+                    <Text color={option.color}>{option.label}</Text>
+                  </Flex>
                 </SelectItem>
               ))}
             </Select>
-          </Flex>
+            <div />
+          </React.Fragment>
         ))}
-      </Flex>
+      </div>
     </Flex>
   );
 };

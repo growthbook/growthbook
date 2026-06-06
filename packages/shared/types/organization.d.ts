@@ -29,6 +29,10 @@ import {
   memberRoleWithProjects,
   pendingMember,
   projectMemberRole,
+  AutoRollbackMode,
+  HealthSignalBehavior,
+  RampProgressionMode,
+  ShippingCriteriaMode,
 } from "shared/validators";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
 import { TeamInterface } from "shared/types/team";
@@ -301,6 +305,10 @@ export interface OrganizationSettings {
   experimentMaxLengthDays?: number;
   decisionFrameworkEnabled?: boolean;
   defaultDecisionCriteriaId?: string;
+  defaultHealthSignalBehavior?: HealthSignalBehavior;
+  defaultAutoRollbackMode?: AutoRollbackMode;
+  defaultShippingCriteriaMode?: ShippingCriteriaMode;
+  defaultRampProgressionMode?: RampProgressionMode;
   disableLegacyMetricCreation?: boolean;
   blockFileUploads?: boolean;
   defaultFeatureRulesInAllEnvs?: boolean;

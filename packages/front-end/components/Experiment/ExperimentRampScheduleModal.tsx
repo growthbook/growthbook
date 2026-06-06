@@ -12,6 +12,7 @@ import {
   PiArrowCounterClockwise,
   PiArrowSquareOutFill,
   PiCalendarBlank,
+  PiCaretRightFill,
   PiCheck,
   PiPlusBold,
   PiTrash,
@@ -53,9 +54,8 @@ import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import HelperText from "@/ui/HelperText";
-import Checkbox from "@/ui/Checkbox";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
-
+import DecisionCriteriaModalContent from "@/components/DecisionCriteria/DecisionCriteriaModalContent";
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const UNIT_MULT: Record<IntervalUnit, number> = {
@@ -77,9 +77,6 @@ function bestUnitFromSeconds(s: number): {
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
-// Per-signal action override. `null` means "inherit from EDF default".
-type RampSignalAction = "warn" | "hold" | "rollback" | null;
-
 export interface ExperimentRampState {
   steps: UIStep[];
   startDate: string; // ISO or "" = immediately
@@ -89,17 +86,10 @@ export interface ExperimentRampState {
   simpleDurationDays: number;
   simpleDurationUnit: IntervalUnit;
 
-  // Per-experiment overrides for ramp-time health signals. Each `null` means
-  // "inherit from EDF" (which itself defaults to "warn" in built-in presets).
-  rampBehavior: {
-    srmAction: RampSignalAction;
-    noTrafficAction: RampSignalAction;
-    multipleExposureAction: RampSignalAction;
-  };
+  autoRollbackMode: string | null;
+  rampProgressionMode: string | null;
 
-  // "none" is a UI sentinel for "no automatic action". On save, "none" maps
-  // to a null endStrategy on the experiment.
-  endStrategyType: "none" | "soft" | "soft-edf" | "hard-planned";
+  shippingCriteriaMode: "off" | "auto" | "auto-force";
   plannedVariationId: string;
 }
 
@@ -107,16 +97,24 @@ function defaultState(
   schedule: RampScheduleInterface | null,
   experiment: ExperimentInterfaceStringDates,
 ): ExperimentRampState {
-  // End date / end strategy are sourced from the experiment — they apply
+  // Shipping criteria are sourced from the experiment — they apply
   // whether or not a ramp schedule exists.
+  const sc = experiment.shippingCriteria ?? null;
   const es = experiment.endStrategy ?? null;
   const endDate = experiment.endDate
     ? new Date(experiment.endDate).toISOString()
     : "";
-  const baseEndStrategy = {
+  const baseShipping = {
     endDate,
-    endStrategyType: es?.type ?? ("none" as const),
-    plannedVariationId: es?.plannedVariationId ?? "",
+    shippingCriteriaMode: sc?.mode ?? (es?.type === "soft-edf"
+      ? "auto" as const
+      : es?.type === "hard-planned"
+        ? "auto-force" as const
+        : "off" as const),
+    plannedVariationId:
+      sc?.plannedVariationId || es?.plannedVariationId || experiment.variations[0]?.id || "",
+    autoRollbackMode: experiment.autoRollbackMode ?? null,
+    rampProgressionMode: experiment.rampProgressionMode ?? null,
   };
   if (schedule) {
     const steps = schedule.steps.map(reconstructUIStep);
@@ -141,13 +139,7 @@ function defaultState(
       builderMode: isSimple ? "simple" : "advanced",
       simpleDurationDays: dur,
       simpleDurationUnit: unit,
-      rampBehavior: {
-        srmAction: schedule.rampBehavior?.srmAction ?? null,
-        noTrafficAction: schedule.rampBehavior?.noTrafficAction ?? null,
-        multipleExposureAction:
-          schedule.rampBehavior?.multipleExposureAction ?? null,
-      },
-      ...baseEndStrategy,
+      ...baseShipping,
     };
   }
   return {
@@ -160,12 +152,7 @@ function defaultState(
     builderMode: "simple",
     simpleDurationDays: 5,
     simpleDurationUnit: "days",
-    rampBehavior: {
-      srmAction: null,
-      noTrafficAction: null,
-      multipleExposureAction: null,
-    },
-    ...baseEndStrategy,
+    ...baseShipping,
   };
 }
 
@@ -290,18 +277,7 @@ export default function ExperimentRampScheduleModal({
   const [decisionCriteriaId, setDecisionCriteriaId] = useState(
     experiment.decisionFrameworkSettings?.decisionCriteriaId ?? "",
   );
-
-  // Customize ramp-up behavior: explicit toggle gating the per-signal override
-  // section. Defaults to "on" only if the existing schedule already has
-  // overrides — otherwise the user opts in to customize.
-  const initialCustomize = !!(
-    existingSchedule?.rampBehavior &&
-    (existingSchedule.rampBehavior.srmAction ||
-      existingSchedule.rampBehavior.noTrafficAction ||
-      existingSchedule.rampBehavior.multipleExposureAction)
-  );
-  const [customizeRampBehavior, setCustomizeRampBehavior] =
-    useState(initialCustomize);
+  const [showDcDetails, setShowDcDetails] = useState(false);
 
   // End date UI mode. "after-days" is purely a UI affordance — it still writes
   // a concrete ISO timestamp into state.endDate, computed from startDate + N.
@@ -362,21 +338,25 @@ export default function ExperimentRampScheduleModal({
         decisionCriteriaId: decisionCriteriaId || undefined,
       };
     }
-    // End strategy is only meaningful when there's a scheduled end date.
-    // Clear it (null) when the user has no end date or chose "no automatic
-    // action"; otherwise persist the configured strategy. The fire date is
-    // the experiment's `endDate` itself — not duplicated on the strategy.
-    if (!state.endDate || state.endStrategyType === "none") {
+    // Shipping criteria
+    if (state.shippingCriteriaMode === "off") {
+      experimentPatch.shippingCriteria = null;
       experimentPatch.endStrategy = null;
     } else {
-      experimentPatch.endStrategy = {
-        type: state.endStrategyType,
+      experimentPatch.shippingCriteria = {
+        mode: state.shippingCriteriaMode,
         plannedVariationId:
-          state.endStrategyType === "hard-planned"
+          state.shippingCriteriaMode === "auto-force"
             ? state.plannedVariationId
             : undefined,
       };
+      experimentPatch.endStrategy = null;
     }
+
+    // Automation toggles
+    experimentPatch.autoRollbackMode = state.autoRollbackMode;
+    experimentPatch.rampProgressionMode = state.rampProgressionMode;
+
     await apiCall(`/experiment/${experiment.id}`, {
       method: "POST",
       body: JSON.stringify(experimentPatch),
@@ -391,28 +371,10 @@ export default function ExperimentRampScheduleModal({
       }
     } else {
       const steps = buildExperimentSteps(state.steps, experiment.id);
-      // Only send overrides when the user has explicitly opted in to customize.
-      // Otherwise the schedule fully inherits from the EDF.
-      const rb = state.rampBehavior;
-      const rampBehavior = customizeRampBehavior
-        ? {
-            ...(rb.srmAction !== null ? { srmAction: rb.srmAction } : {}),
-            ...(rb.noTrafficAction !== null
-              ? { noTrafficAction: rb.noTrafficAction }
-              : {}),
-            ...(rb.multipleExposureAction !== null
-              ? { multipleExposureAction: rb.multipleExposureAction }
-              : {}),
-          }
-        : undefined;
       const body = {
         steps,
         startDate: state.startDate || null,
         cutoffDate: state.cutoffDate || null,
-        rampBehavior:
-          rampBehavior && Object.keys(rampBehavior).length > 0
-            ? rampBehavior
-            : undefined,
       };
       if (!existingSchedule) {
         await apiCall(`/experiment/${experiment.id}/ramp-schedule`, {
@@ -937,174 +899,79 @@ export default function ExperimentRampScheduleModal({
     });
   }
 
-  // ── Ramp behavior ─────────────────────────────────────────────────────────
-  // Per-signal action resolution follows a 3-tier precedence at evaluation
-  // time: schedule override → EDF default → "warn". This UI surfaces the
-  // resolved values from the experiment's Decision Criteria as readonly
-  // defaults; the "Override Decision Criteria" checkbox unlocks them for
-  // per-experiment editing.
+  // ── Health signals ───────────────────────────────────────────────────────
+  // Per-signal action resolution follows a 2-tier precedence at evaluation
+  // time: experiment override → org default → "warn". This UI surfaces the
+  // resolved values as readonly defaults; the "Override" checkbox unlocks them
+  // for per-experiment editing.
 
-  const SIGNAL_ACTION_OPTIONS = [
-    { value: "warn", label: "Warn only" },
-    { value: "hold", label: "Hold step" },
-    { value: "rollback", label: "Rollback ramp" },
-  ];
-
-  const SIGNAL_FIELDS: {
-    key: keyof ExperimentRampState["rampBehavior"];
-    label: string;
-  }[] = [
-    { key: "srmAction", label: "SRM" },
-    { key: "noTrafficAction", label: "No traffic" },
-    { key: "multipleExposureAction", label: "Multiple exposures" },
-  ];
-
-  // Resolved DC: the criteria currently chosen for this experiment, or the
-  // org default when no explicit selection has been made. Falls back to the
-  // built-in preset when the org default has been deleted.
   const effectiveDecisionCriteria =
     allDecisionCriteria.find((c) => c.id === decisionCriteriaId) ??
     orgDefaultCriteria;
-  const dcRampBehavior = effectiveDecisionCriteria.rampBehavior ?? {};
-  // Per-signal default (EDF rampBehavior with hardcoded "warn" fallback).
-  const signalDefault = (
-    key: keyof ExperimentRampState["rampBehavior"],
-  ): "warn" | "hold" | "rollback" => dcRampBehavior[key] ?? "warn";
 
-  function toggleCustomize(next: boolean) {
-    setCustomizeRampBehavior(next);
-    if (!next) {
-      // Clear all overrides when turning off so saved state matches reality.
-      patch({
-        rampBehavior: {
-          srmAction: null,
-          noTrafficAction: null,
-          multipleExposureAction: null,
-        },
-      });
-    } else {
-      // Seed any unset signals with the current EDF defaults so users start
-      // from the resolved state rather than a blank slate.
-      const rb = state.rampBehavior;
-      patch({
-        rampBehavior: {
-          srmAction: rb.srmAction ?? signalDefault("srmAction"),
-          noTrafficAction:
-            rb.noTrafficAction ?? signalDefault("noTrafficAction"),
-          multipleExposureAction:
-            rb.multipleExposureAction ??
-            signalDefault("multipleExposureAction"),
-        },
-      });
-    }
-  }
-
-  const rampBehaviorPanel = (
-    <Box mb="4">
-      <Checkbox
-        label="Use Decision Criteria for ramp behavior"
-        weight="medium"
-        value={!customizeRampBehavior}
-        setValue={(v) => toggleCustomize(!v)}
-      />
-      <Flex direction="column" gap="2" mt="3">
-        {SIGNAL_FIELDS.map((f) => {
-          const effectiveValue: "warn" | "hold" | "rollback" =
-            customizeRampBehavior
-              ? (state.rampBehavior[f.key] ?? signalDefault(f.key))
-              : signalDefault(f.key);
-          return (
-            <Flex key={f.key} align="center" gap="3">
-              <Box style={{ width: 160, flexShrink: 0 }}>
-                <Text as="div" weight="medium">
-                  {f.label}
-                </Text>
-              </Box>
-              <Box style={{ flexGrow: 1, maxWidth: 240 }}>
-                <SelectField
-                  disabled={!customizeRampBehavior}
-                  value={effectiveValue}
-                  onChange={(v) =>
-                    patch({
-                      rampBehavior: {
-                        ...state.rampBehavior,
-                        [f.key]: v as "warn" | "hold" | "rollback",
-                      },
-                    })
-                  }
-                  options={SIGNAL_ACTION_OPTIONS}
-                  sort={false}
-                />
-              </Box>
-            </Flex>
-          );
-        })}
-      </Flex>
-    </Box>
-  );
-
-  // ── End strategy ──────────────────────────────────────────────────────────
-  // Tied to the experiment's scheduled end date (not the ramp). Only rendered
-  // when state.endDate is set — for a manual end, none of these options apply.
-  // Persisted on the experiment so it covers both ramp and non-ramp experiments.
-
-  const endStrategyPanel = state.endDate ? (
+  // ── Shipping criteria ─────────────────────────────────────────────────────
+  const shippingCriteriaPanel = (
     <Box mb="4" mt="5">
-      <Text as="div" weight="medium" mb="1">
-        On end date
-      </Text>
-      <Text as="div" size="small" color="text-mid" mb="2">
-        How GrowthBook should refine the experiment when its scheduled end date
-        is reached.
+      <Text as="label" weight="medium" mb="1">
+        Shipping criteria
       </Text>
       <SelectField
-        value={state.endStrategyType}
+        value={state.shippingCriteriaMode}
         options={[
-          { value: "none", label: "No automatic action" },
-          { value: "soft", label: "Remind me to end the experiment" },
+          { value: "off", label: "Manual" },
           {
-            value: "soft-edf",
-            label:
-              "Auto-rollout if Decision Criteria has a clear winner, otherwise prompt",
+            value: "auto",
+            label: "Auto-ship clear winner",
           },
           {
-            value: "hard-planned",
-            label: "Force-ship a specific variation on the end date",
+            value: "auto-force",
+            label: "Auto-ship on end date regardless",
           },
         ]}
         onChange={(v) =>
           patch({
-            endStrategyType: v as ExperimentRampState["endStrategyType"],
+            shippingCriteriaMode:
+              v as ExperimentRampState["shippingCriteriaMode"],
           })
         }
-        sort={false}
-        helpText={
-          state.endStrategyType === "soft-edf"
-            ? "Uses the Decision Criteria configured above to determine the winner."
-            : undefined
+        isOptionDisabled={(o) =>
+          !hasDecisionFramework &&
+          "value" in o &&
+          (o.value === "auto" || o.value === "auto-force")
         }
+        sort={false}
       />
-      {state.endStrategyType === "hard-planned" && (
+      {state.shippingCriteriaMode === "auto-force" && (
         <Box mt="3">
           <Text as="label" weight="medium" mb="1">
-            Planned release variation
+            Fallback variation (if no clear winner)
           </Text>
           <SelectField
-            helpText="This variation will be force-shipped on the end date."
             value={state.plannedVariationId}
             onChange={(v) => patch({ plannedVariationId: v })}
-            options={[
-              { value: "", label: "Select variation…" },
-              ...experiment.variations.map((v, i) => ({
-                value: v.id,
-                label: `${i === 0 ? "Control" : `Variation ${i}`}: ${v.name}`,
-              })),
-            ]}
+            options={experiment.variations.map((v) => ({
+              value: v.id,
+              label: v.name,
+            }))}
+            formatOptionLabel={({ value, label }) => {
+              const idx = experiment.variations.findIndex(
+                (v) => v.id === value,
+              );
+              return (
+                <span
+                  className={`variation variation${idx} with-variation-label d-inline-flex align-items-center`}
+                >
+                  <span className="label">{idx}</span>
+                  {label}
+                </span>
+              );
+            }}
+            sort={false}
           />
         </Box>
       )}
     </Box>
-  ) : null;
+  );
 
   // ── Date rows (always visible) ─────────────────────────────────────────────
 
@@ -1338,13 +1205,73 @@ export default function ExperimentRampScheduleModal({
     </Box>
   );
 
-  // ── Ramp behavior sub-section (only when hasRamp) ─────────────────────────
-  // Nested under the Decision Criteria panel since the override semantics are
-  // anchored to the chosen Decision Criteria.
+  // ── Automation section ─────────────────────────────────────────────────────
+  // Per-experiment automation toggles. Health signal classification is
+  // configured in Decision Criteria; these toggles control execution.
 
-  const rampBehaviorSection = hasRamp ? (
-    <Box mt="5">{rampBehaviorPanel}</Box>
-  ) : null;
+  const automationSection = (
+    <Box mt="5">
+      <Text weight="semibold" as="div" mb="1">
+        Experiment Automation
+      </Text>
+      <Text as="div" size="small" color="text-mid" mb="2">
+        Control whether health and metric signals trigger automated actions.
+        Signal classification is configured in Decision Criteria.
+      </Text>
+      <SelectField
+        label="Rollbacks"
+        helpText="How to respond when metric or health signals recommend a rollback"
+        value={state.autoRollbackMode ?? ""}
+        onChange={(v) => {
+          patch({
+            autoRollbackMode: v === "" ? null : v,
+          });
+        }}
+        options={[
+          {
+            value: "",
+            label: `Default (${
+              {
+                all: "Automatic",
+                "health-only": "Health only",
+              }[
+                organization?.settings?.defaultAutoRollbackMode ?? ""
+              ] ?? "Manual"
+            })`,
+          },
+          { value: "off", label: "Manual" },
+          { value: "all", label: "Automatic" },
+          {
+            value: "health-only",
+            label: "Automatic for health signals only",
+          },
+        ]}
+      />
+      {hasRamp && (
+        <SelectField
+          label="Ramp schedules"
+          helpText="Whether health signals pause ramp progression"
+          value={state.rampProgressionMode ?? ""}
+          onChange={(v) => {
+            patch({
+              rampProgressionMode: v === "" ? null : v,
+            });
+          }}
+          options={[
+            {
+              value: "",
+              label: `Default (${organization?.settings?.defaultRampProgressionMode === "hold-for-health" ? "Hold" : "Standard"})`,
+            },
+            { value: "standard", label: "Standard progression" },
+            {
+              value: "hold-for-health",
+              label: "Hold for health signals",
+            },
+          ]}
+        />
+      )}
+    </Box>
+  );
 
   // ── Ramp-up steps section (only when hasRamp) ─────────────────────────────
   // Rendered outside the violet box: in simple mode this is just the
@@ -1417,35 +1344,62 @@ export default function ExperimentRampScheduleModal({
 
   const decisionCriteriaPanel = (
     <Box mt="5" mb="4" px="5" pt="3" pb="4" className="bg-highlight rounded">
-      <Flex align="center" gap="2" mb="2">
+      <Flex align="center" gap="2" mb="3">
         <Text weight="semibold" size="large">
-          Decision Criteria
+          Experiment Decision Framework
         </Text>
         <PaidFeatureBadge commercialFeature="decision-framework" />
       </Flex>
+      <Text weight="semibold" as="div" mb="1">
+        Decision Criteria
+      </Text>
       <Text as="div" size="small" color="text-mid" mb="2">
-        Evaluates metric and guardrail signals to guide experiment decisions —
-        ship, rollback, or hold.
+        Rules for deciding when to ship, rollback, or review.
       </Text>
       {hasDecisionFramework ? (
-        <SelectField
-          value={decisionCriteriaId}
-          onChange={(v) => setDecisionCriteriaId(v)}
-          options={[
-            {
-              label: `Default (${orgDefaultCriteria.name})`,
-              value: "",
-            },
-            ...allDecisionCriteria.map((c) => ({
-              value: c.id,
-              label: c.name,
-            })),
-          ]}
-          formatOptionLabel={({ value, label }) =>
-            value === "" ? <em className="text-muted">{label}</em> : label
-          }
-          sort={false}
-        />
+        <>
+          <SelectField
+            value={decisionCriteriaId}
+            onChange={(v) => {
+              setDecisionCriteriaId(v);
+              setShowDcDetails(false);
+            }}
+            options={[
+              {
+                label: `Default (${orgDefaultCriteria.name})`,
+                value: "",
+              },
+              ...allDecisionCriteria.map((c) => ({
+                value: c.id,
+                label: c.name,
+              })),
+            ]}
+            formatOptionLabel={({ value, label }) =>
+              value === "" ? <em className="text-muted">{label}</em> : label
+            }
+            sort={false}
+          />
+          <Box mt="1">
+            <Link onClick={() => setShowDcDetails(!showDcDetails)}>
+              <PiCaretRightFill
+                className="mr-1"
+                style={{
+                  transform: showDcDetails ? "rotate(90deg)" : undefined,
+                  transition: "transform 0.15s",
+                }}
+              />
+              Details
+            </Link>
+          </Box>
+          {showDcDetails && (
+            <Box mt="2">
+              <DecisionCriteriaModalContent
+                decisionCriteria={effectiveDecisionCriteria}
+                editable={false}
+              />
+            </Box>
+          )}
+        </>
       ) : (
         <Text as="div" size="small" color="text-low">
           Not enabled for this organization.{" "}
@@ -1459,7 +1413,7 @@ export default function ExperimentRampScheduleModal({
           </Link>
         </Text>
       )}
-      {rampBehaviorSection}
+      {automationSection}
     </Box>
   );
 
@@ -1476,7 +1430,7 @@ export default function ExperimentRampScheduleModal({
     >
       {dateRows}
       {!hasRamp && addRampLink}
-      {endStrategyPanel}
+      {shippingCriteriaPanel}
       {decisionCriteriaPanel}
       {rampStepsSection}
     </ModalStandard>

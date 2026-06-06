@@ -248,21 +248,6 @@ export const rampScheduleValidator = baseSchema
     // Applied on top of accumulated step patches when the ramp completes.
     endActions: z.array(rampStepAction).optional(),
 
-    // Experiment-ramp-only fields (ignored for feature ramps)
-    /**
-     * Per-experiment ramp behavior override. Each field, when set, overrides
-     * the corresponding action from the experiment's EDF `rampBehavior`. Unset
-     * fields inherit from the EDF (which itself defaults to "warn" in presets).
-     * Allowed actions match `decisionCriteriaRampHealthAction`:
-     * "warn" | "hold" | "rollback".
-     */
-    rampBehavior: z
-      .object({
-        srmAction: z.enum(["warn", "hold", "rollback"]).optional(),
-        noTrafficAction: z.enum(["warn", "hold", "rollback"]).optional(),
-        multipleExposureAction: z.enum(["warn", "hold", "rollback"]).optional(),
-      })
-      .optional(),
     // When set, the rule stays disabled until this activation date.
     startDate: z.date().nullish(),
     cutoffDate: z.date().nullish(),

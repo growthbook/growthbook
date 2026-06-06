@@ -7,10 +7,12 @@
  * machinery when it detects entityType === "experiment".
  */
 import {
+  AutoRollbackMode,
   ExperimentEndStrategy,
   ExperimentInterface,
   ExperimentPatch,
   ExperimentPhase,
+  RampProgressionMode,
   RampScheduleInterface,
 } from "shared/validators";
 import {
@@ -20,6 +22,8 @@ import {
   PRESET_DECISION_CRITERIA,
   PRESET_DECISION_CRITERIAS,
   DecisionCriteriaData,
+  DEFAULT_DC_HEALTH_SIGNALS,
+  DcHealthSignals,
 } from "shared/enterprise";
 import { getSRMHealthData, getMultipleExposureHealthData } from "shared/health";
 import {
@@ -37,7 +41,7 @@ import { EvalDecision } from "back-end/src/services/rampScheduleEvaluator";
 // Decision criteria helper
 // ---------------------------------------------------------------------------
 
-async function resolveDecisionCriteria(
+export async function resolveDecisionCriteria(
   ctx: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
 ): Promise<DecisionCriteriaData> {
@@ -45,13 +49,36 @@ async function resolveDecisionCriteria(
     experiment.decisionFrameworkSettings?.decisionCriteriaId ??
     ctx.org.settings?.defaultDecisionCriteriaId;
 
-  if (!id) return PRESET_DECISION_CRITERIA;
+  let dc: DecisionCriteriaData;
+  if (!id) {
+    dc = PRESET_DECISION_CRITERIA;
+  } else {
+    const preset = PRESET_DECISION_CRITERIAS.find((p) => p.id === id);
+    if (preset) {
+      dc = preset;
+    } else {
+      const stored = await ctx.models.decisionCriteria.getById(id);
+      dc = stored ?? PRESET_DECISION_CRITERIA;
+    }
+  }
 
-  const preset = PRESET_DECISION_CRITERIAS.find((dc) => dc.id === id);
-  if (preset) return preset;
+  // JIT migration: ensure healthSignals is always populated
+  if (!dc.healthSignals) {
+    dc = { ...dc, healthSignals: { ...DEFAULT_DC_HEALTH_SIGNALS } };
+  }
+  return dc;
+}
 
-  const stored = await ctx.models.decisionCriteria.getById(id);
-  return stored ?? PRESET_DECISION_CRITERIA;
+/**
+ * Resolves the health signal configuration from the experiment's DC.
+ * Convenience wrapper for callers that only need health signals.
+ */
+export async function resolveHealthSignals(
+  ctx: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+): Promise<DcHealthSignals> {
+  const dc = await resolveDecisionCriteria(ctx, experiment);
+  return dc.healthSignals ?? { ...DEFAULT_DC_HEALTH_SIGNALS };
 }
 
 // ---------------------------------------------------------------------------
@@ -203,6 +230,81 @@ export async function applyExperimentRollback(
 // End strategy
 // ---------------------------------------------------------------------------
 
+function resolveAutoRollbackMode(
+  experiment: ExperimentInterface,
+  org: { settings?: { defaultAutoRollbackMode?: AutoRollbackMode } },
+): AutoRollbackMode {
+  return (
+    experiment.autoRollbackMode ??
+    org.settings?.defaultAutoRollbackMode ??
+    "off"
+  );
+}
+
+function autoRollbackMetric(mode: AutoRollbackMode): boolean {
+  return mode === "all";
+}
+
+function autoRollbackHealth(mode: AutoRollbackMode): boolean {
+  return mode === "all" || mode === "health-only";
+}
+
+function resolveRampProgressionMode(
+  experiment: ExperimentInterface,
+  org: { settings?: { defaultRampProgressionMode?: RampProgressionMode } },
+): RampProgressionMode {
+  return (
+    experiment.rampProgressionMode ??
+    org.settings?.defaultRampProgressionMode ??
+    "standard"
+  );
+}
+
+/**
+ * Returns true if any health signal is currently failing AND
+ * rampProgressionMode is "hold-for-health". Used to block soft
+ * end-date auto-actions and ramp advancement.
+ */
+async function isHealthHolding(
+  ctx: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+): Promise<boolean> {
+  if (resolveRampProgressionMode(experiment, ctx.org) !== "hold-for-health")
+    return false;
+
+  const hs = await resolveHealthSignals(ctx, experiment);
+
+  const summary = experiment.analysisSummary;
+  const health = summary?.health;
+  if (!health) return false;
+
+  const healthSettings = getHealthSettings(ctx.org.settings);
+  const totalUsers = health.totalUsers ?? 0;
+
+  if (hs.srmAction !== "off") {
+    const srmData = getSRMHealthData({
+      srm: health.srm,
+      srmThreshold: healthSettings.srmThreshold,
+      totalUsersCount: totalUsers,
+      numOfVariations: experiment.variations.length,
+      minUsersPerVariation: DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
+    });
+    if (srmData === "unhealthy") return true;
+  }
+
+  if (hs.multipleExposureAction !== "off") {
+    const meData = getMultipleExposureHealthData({
+      multipleExposuresCount: health.multipleExposures ?? 0,
+      totalUsersCount: totalUsers,
+      minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
+      minPercentThreshold: healthSettings.multipleExposureMinPercent,
+    });
+    if (meData.status === "unhealthy") return true;
+  }
+
+  return false;
+}
+
 /**
  * Execute an experiment end strategy when the ramp completes or a hard date
  * is reached. Drives the experiment to a terminal state based on the strategy type.
@@ -218,6 +320,9 @@ export async function applyExperimentEndStrategy(
       return experiment;
 
     case "soft-edf": {
+      // If any health signal is failing with a "hold" action, defer auto-shipping.
+      if (await isHealthHolding(ctx, experiment)) return experiment;
+
       // Evaluate EDF and auto-act only if there is a clear decision.
       const decisionCriteria = await resolveDecisionCriteria(ctx, experiment);
       const healthSettings = getHealthSettings(ctx.org.settings);
@@ -246,24 +351,42 @@ export async function applyExperimentEndStrategy(
         });
       }
       if (status?.status === "rollback-now") {
-        return updateExperiment({
-          context: ctx,
-          experiment,
-          changes: {
-            status: "stopped",
-            results: "lost",
-          },
-        });
+        const mode = resolveAutoRollbackMode(experiment, ctx.org);
+        if (autoRollbackMetric(mode)) {
+          return updateExperiment({
+            context: ctx,
+            experiment,
+            changes: {
+              status: "stopped",
+              results: "lost",
+            },
+          });
+        }
+        return experiment;
       }
       // Inconclusive — surface for manual review.
       return experiment;
     }
 
     case "hard-planned": {
-      // Stop on the planned variation regardless of data.
+      // Auto-rollout with fallback: check EDF for a clear winner first,
+      // fall back to the planned variation if inconclusive or no data.
+      const dcHP = await resolveDecisionCriteria(ctx, experiment);
+      const hsHP = getHealthSettings(ctx.org.settings);
+      const statusHP = getExperimentResultStatus({
+        experimentData: experiment,
+        healthSettings: hsHP,
+        decisionCriteria: dcHP,
+      });
+
+      const shipVariationId =
+        statusHP?.status === "ship-now"
+          ? (statusHP.variations[0]?.variationId ?? strategy.plannedVariationId)
+          : strategy.plannedVariationId;
+
       const isControl =
-        strategy.plannedVariationId === "0" ||
-        strategy.plannedVariationId === experiment.variations[0]?.id;
+        shipVariationId === "0" ||
+        shipVariationId === experiment.variations[0]?.id;
       return updateExperiment({
         context: ctx,
         experiment,
@@ -272,10 +395,8 @@ export async function applyExperimentEndStrategy(
           results: isControl ? "dnf" : "won",
           winner: isControl
             ? 0
-            : experiment.variations.findIndex(
-                (v) => v.id === strategy.plannedVariationId,
-              ),
-          releasedVariationId: strategy.plannedVariationId ?? "",
+            : experiment.variations.findIndex((v) => v.id === shipVariationId),
+          releasedVariationId: shipVariationId ?? "",
         },
       });
     }
@@ -294,13 +415,13 @@ export async function applyExperimentEndStrategy(
  *  1. Interval elapsed
  *  2. Fresh post-interval snapshot available
  *  3. No-traffic grace period / no-data
- *  4. Health signals (SRM, multiple exposures) per resolved rampBehavior
+ *  4. Health signals (SRM, multiple exposures) per DC health rules
  *  5. EDF mid-ramp decision (super-stat-sig via getMidRampDecisionStatus)
  *  6. Minimum sample size
  *  7. Approval gate (final)
  *
- * Per-signal actions resolve with precedence:
- *  schedule.rampBehavior > EDF.rampBehavior > "warn"
+ * Health signal actions come from the experiment's Decision Criteria.
+ * Execution is gated by `autoRollbackMode` and `rampProgressionMode`.
  */
 export async function evaluateExperimentRampStep(
   ctx: ReqContext | ApiReqContext,
@@ -311,18 +432,7 @@ export async function evaluateExperimentRampStep(
   const step = schedule.steps[schedule.currentStepIndex];
   if (!step) return { action: "advance" };
 
-  // Resolve per-signal ramp health actions with a 3-tier precedence:
-  //   1. Per-experiment override on the schedule (`schedule.rampBehavior`)
-  //   2. EDF defaults (`dc.rampBehavior`)
-  //   3. "warn" (surface but don't auto-act)
-  const dc = await resolveDecisionCriteria(ctx, experiment);
-  const edfRb = dc.rampBehavior;
-  const schedRb = schedule.rampBehavior;
-  const srmAction = schedRb?.srmAction ?? edfRb?.srmAction ?? "warn";
-  const noTrafficAction =
-    schedRb?.noTrafficAction ?? edfRb?.noTrafficAction ?? "warn";
-  const multipleExposureAction =
-    schedRb?.multipleExposureAction ?? edfRb?.multipleExposureAction ?? "warn";
+  const hs = await resolveHealthSignals(ctx, experiment);
 
   // 1. Interval gate
   const stepEnteredAt = schedule.currentStepEnteredAt;
@@ -381,36 +491,41 @@ export async function evaluateExperimentRampStep(
 
   // 3–4. No-traffic gate (runs before other health checks: zero users makes
   //      downstream analyses unreliable)
-  if (!health.totalUsers) {
+  if (!health.totalUsers && hs.noTrafficAction !== "off") {
     const monitoringStartDate =
       schedule.monitoringStartDate ??
       schedule.currentStepEnteredAt ??
       schedule.startedAt;
     if (monitoringStartDate) {
-      // Fixed 24h grace period before treating no-traffic as a health signal
-      const gracePeriodMs = 24 * 60 * 60 * 1000;
+      const gracePeriodHours = hs.noTrafficGracePeriodHours;
+      const gracePeriodMs = gracePeriodHours * 60 * 60 * 1000;
       const elapsedMs = now.getTime() - monitoringStartDate.getTime();
       if (elapsedMs < gracePeriodMs) {
         const remainingMin = Math.ceil((gracePeriodMs - elapsedMs) / 60_000);
         return {
           action: "hold",
-          reason: `No traffic yet — waiting for 24h grace period (~${remainingMin} min remaining)`,
+          reason: `No traffic yet — waiting for ${gracePeriodHours}h grace period (~${remainingMin} min remaining)`,
           nextProcessAt: new Date(
             monitoringStartDate.getTime() + gracePeriodMs,
           ),
         };
       }
     }
-    if (noTrafficAction === "rollback") {
-      return {
-        action: "rollback",
-        reason: "No traffic detected — rolling back",
-      };
+    {
+      const mode = resolveAutoRollbackMode(experiment, ctx.org);
+      if (hs.noTrafficAction === "rollback" && autoRollbackHealth(mode)) {
+        return {
+          action: "rollback",
+          reason: "No traffic detected — rolling back",
+        };
+      }
     }
-    if (noTrafficAction === "hold") {
+    const holdForHealth =
+      resolveRampProgressionMode(experiment, ctx.org) === "hold-for-health";
+    if (holdForHealth) {
       return {
         action: "hold",
-        reason: "No traffic detected — holding step until traffic arrives",
+        reason: "No traffic detected — holding until traffic arrives",
       };
     }
   }
@@ -419,7 +534,12 @@ export async function evaluateExperimentRampStep(
   {
     const healthSettings = getHealthSettings(ctx.org.settings);
 
-    if (srmAction !== "warn") {
+    const rollbackMode = resolveAutoRollbackMode(experiment, ctx.org);
+    const healthRollback = autoRollbackHealth(rollbackMode);
+    const holdForHealth =
+      resolveRampProgressionMode(experiment, ctx.org) === "hold-for-health";
+
+    if (hs.srmAction !== "off") {
       const srmData = getSRMHealthData({
         srm: health.srm,
         srmThreshold: healthSettings.srmThreshold,
@@ -431,20 +551,22 @@ export async function evaluateExperimentRampStep(
       });
 
       if (srmData === "unhealthy") {
-        if (srmAction === "rollback") {
+        if (hs.srmAction === "rollback" && healthRollback) {
           return {
             action: "rollback",
             reason: `SRM check failed (p=${health.srm?.toFixed(4) ?? "?"})`,
           };
         }
-        return {
-          action: "hold",
-          reason: `SRM check failed — holding step (p=${health.srm?.toFixed(4) ?? "?"})`,
-        };
+        if (holdForHealth) {
+          return {
+            action: "hold",
+            reason: `SRM check failed — holding (p=${health.srm?.toFixed(4) ?? "?"})`,
+          };
+        }
       }
     }
 
-    if (multipleExposureAction !== "warn") {
+    if (hs.multipleExposureAction !== "off") {
       const meData = getMultipleExposureHealthData({
         multipleExposuresCount: health.multipleExposures ?? 0,
         totalUsersCount: totalUsers,
@@ -453,26 +575,24 @@ export async function evaluateExperimentRampStep(
       });
 
       if (meData.status === "unhealthy") {
-        if (multipleExposureAction === "rollback") {
+        if (hs.multipleExposureAction === "rollback" && healthRollback) {
           return {
             action: "rollback",
             reason: `Multiple exposures detected (${(meData.rawDecimal * 100).toFixed(1)}% of users)`,
           };
         }
-        return {
-          action: "hold",
-          reason: `Multiple exposures detected — holding step (${(meData.rawDecimal * 100).toFixed(1)}% of users)`,
-        };
+        if (holdForHealth) {
+          return {
+            action: "hold",
+            reason: `Multiple exposures detected — holding (${(meData.rawDecimal * 100).toFixed(1)}% of users)`,
+          };
+        }
       }
     }
-
-    // NOTE: covariate imbalance is intentionally not gated here. If/when we
-    // want to act on it, add `covariateImbalanceAction` to the EDF
-    // `rampBehavior` alongside the other per-signal actions.
   }
 
-  // 5. EDF mid-ramp gate — the EDF itself encodes the desired action via
-  //    rollback-now / review-now / ship-now. No interpretation layer here.
+  // 5. EDF mid-ramp gate — metric DC rules produce rollback-now / review-now
+  //    / ship-now. Gated by autoRollbackMode. review-now is notification-only.
   const resultsStatus = summary?.resultsStatus;
   if (resultsStatus) {
     const decisionCriteria = await resolveDecisionCriteria(ctx, experiment);
@@ -495,23 +615,23 @@ export async function evaluateExperimentRampStep(
 
     if (midRampStatus) {
       if (midRampStatus.status === "rollback-now") {
-        return {
-          action: "rollback",
-          reason: "EDF: rollback-now — auto-rolling back per decision criteria",
-        };
-      }
-
-      if (midRampStatus.status === "review-now") {
-        // review-now = hold and prompt the user; EDF rules encode urgency
+        if (autoRollbackMetric(resolveAutoRollbackMode(experiment, ctx.org))) {
+          return {
+            action: "rollback",
+            reason:
+              "EDF: rollback-now — auto-rolling back per decision criteria",
+          };
+        }
         return {
           action: "hold",
-          reason: "EDF: review-now — holding for user decision",
+          reason:
+            "EDF: rollback-now — holding for manual rollback (auto-rollback disabled)",
         };
       }
 
+      // review-now: notification only, ramp continues
+
       if (midRampStatus.status === "ship-now") {
-        // ship-now during a ramp: advance to the next step (or complete if last).
-        // The UI surfaces a ship CTA independently.
         return { action: "advance" };
       }
     }

@@ -1775,6 +1775,10 @@ export async function postExperiment(
     "precomputedUnitDimensionIds",
     "endDate",
     "endStrategy",
+    "shippingCriteria",
+    "healthSignalBehavior",
+    "autoRollbackMode",
+    "rampProgressionMode",
   ];
   let changes: Changeset = {};
 

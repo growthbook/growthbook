@@ -52,20 +52,11 @@ export async function getRampSchedule(
 // POST /experiments/:id/ramp-schedule  (attach / create)
 // ---------------------------------------------------------------------------
 
-const rampBehaviorOverride = z
-  .object({
-    srmAction: z.enum(["warn", "hold", "rollback"]).optional(),
-    noTrafficAction: z.enum(["warn", "hold", "rollback"]).optional(),
-    multipleExposureAction: z.enum(["warn", "hold", "rollback"]).optional(),
-  })
-  .optional();
-
 const attachRampBody = z.object({
   name: z.string().min(1),
   steps: z.array(rampStep),
   startDate: z.iso.datetime().nullish(),
   cutoffDate: z.iso.datetime().nullish(),
-  rampBehavior: rampBehaviorOverride,
 });
 
 export async function postRampSchedule(
@@ -112,7 +103,6 @@ export async function postRampSchedule(
     steps: body.steps,
     startDate: body.startDate ? new Date(body.startDate) : null,
     cutoffDate: body.cutoffDate ? new Date(body.cutoffDate) : null,
-    rampBehavior: body.rampBehavior,
     status: "ready" as const,
     currentStepIndex: -1,
     nextStepAt: null,
@@ -137,7 +127,6 @@ const updateRampBody = z.object({
   steps: z.array(rampStep).optional(),
   startDate: z.iso.datetime().nullish(),
   cutoffDate: z.iso.datetime().nullish(),
-  rampBehavior: rampBehaviorOverride,
 });
 
 export async function putRampSchedule(
@@ -181,7 +170,6 @@ export async function putRampSchedule(
     changes.startDate = body.startDate ? new Date(body.startDate) : null;
   if ("cutoffDate" in body)
     changes.cutoffDate = body.cutoffDate ? new Date(body.cutoffDate) : null;
-  if ("rampBehavior" in body) changes.rampBehavior = body.rampBehavior;
 
   const updated = await context.models.rampSchedules.updateById(
     schedule.id,

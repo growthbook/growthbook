@@ -14,40 +14,29 @@ export const decisionCriteriaRule = z.object({
   action: decisionCriteriaAction,
 });
 
-// Ramp-aware health action vocabulary. "hold" only makes sense while a ramp
-// is actively progressing; outside of a ramp context "hold" degrades to "warn".
-export const decisionCriteriaRampHealthAction = z.enum([
-  "warn",
-  "hold",
-  "rollback",
-]);
-
-// Ramp behavior block. Applies only while an experiment with a ramp schedule
-// is actively stepping through ramp-up stages.
-//
-// Presets default every action to "warn" (i.e. surface but don't auto-act).
-// Custom EDFs can choose stricter defaults; a specific experiment's ramp
-// schedule can also override these per-signal at attach time.
-export const decisionCriteriaRampBehavior = z
-  .object({
-    srmAction: decisionCriteriaRampHealthAction.optional(),
-    noTrafficAction: decisionCriteriaRampHealthAction.optional(),
-    noTrafficGracePeriodHours: z.number().positive().nullish(),
-    multipleExposureAction: decisionCriteriaRampHealthAction.optional(),
-  })
-  .strict();
-
 export type DecisionCriteriaAction = z.infer<typeof decisionCriteriaAction>;
 export type DecisionCriteriaCondition = z.infer<
   typeof decisionCriteriaCondition
 >;
 export type DecisionCriteriaRule = z.infer<typeof decisionCriteriaRule>;
-export type DecisionCriteriaRampHealthAction = z.infer<
-  typeof decisionCriteriaRampHealthAction
->;
-export type DecisionCriteriaRampBehavior = z.infer<
-  typeof decisionCriteriaRampBehavior
->;
+
+export const dcHealthSignalAction = z.enum(["off", "review", "rollback"]);
+export type DcHealthSignalAction = z.infer<typeof dcHealthSignalAction>;
+
+export const dcHealthSignals = z.object({
+  srmAction: dcHealthSignalAction,
+  multipleExposureAction: dcHealthSignalAction,
+  noTrafficAction: dcHealthSignalAction,
+  noTrafficGracePeriodHours: z.number().positive(),
+});
+export type DcHealthSignals = z.infer<typeof dcHealthSignals>;
+
+export const DEFAULT_DC_HEALTH_SIGNALS: DcHealthSignals = {
+  srmAction: "review",
+  multipleExposureAction: "review",
+  noTrafficAction: "review",
+  noTrafficGracePeriodHours: 24,
+};
 
 export const decisionCriteriaInterface = z
   .object({
@@ -63,9 +52,7 @@ export const decisionCriteriaInterface = z
 
     rules: z.array(decisionCriteriaRule),
     defaultAction: decisionCriteriaAction,
-
-    // Optional ramp-aware behavior. Ignored for experiments not running a ramp.
-    rampBehavior: decisionCriteriaRampBehavior.optional(),
+    healthSignals: dcHealthSignals.optional(),
   })
   .strict();
 

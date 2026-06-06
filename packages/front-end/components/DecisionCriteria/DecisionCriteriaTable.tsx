@@ -100,6 +100,7 @@ const DecisionCriteriaTable: FC<DecisionCriteriaTableProps> = ({
                       radius="full"
                       size="3"
                       highContrast
+                      style={{ margin: 0 }}
                     >
                       <BsThreeDotsVertical />
                     </IconButton>

@@ -1,4 +1,5 @@
 import { DecisionCriteriaData } from "shared/types/experiment";
+import { DEFAULT_DC_HEALTH_SIGNALS } from "../validators/decision-criteria";
 
 // Default decision criteria for new users
 export const PRESET_DECISION_CRITERIA: DecisionCriteriaData = {
@@ -49,11 +50,7 @@ export const PRESET_DECISION_CRITERIA: DecisionCriteriaData = {
     },
   ],
   defaultAction: "review",
-  rampBehavior: {
-    srmAction: "warn",
-    noTrafficAction: "warn",
-    multipleExposureAction: "warn",
-  },
+  healthSignals: { ...DEFAULT_DC_HEALTH_SIGNALS },
 };
 
 export const DO_NO_HARM_DECISION_CRITERIA: DecisionCriteriaData = {
@@ -79,11 +76,7 @@ export const DO_NO_HARM_DECISION_CRITERIA: DecisionCriteriaData = {
     },
   ],
   defaultAction: "rollback",
-  rampBehavior: {
-    srmAction: "warn",
-    noTrafficAction: "warn",
-    multipleExposureAction: "warn",
-  },
+  healthSignals: { ...DEFAULT_DC_HEALTH_SIGNALS },
 };
 
 export const PRESET_DECISION_CRITERIAS: DecisionCriteriaData[] = [

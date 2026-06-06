@@ -5,7 +5,8 @@ import {
   DecisionCriteriaCondition,
   DecisionCriteriaRule,
   DecisionCriteriaData,
-  DecisionCriteriaRampBehavior,
+  DcHealthSignals,
+  DEFAULT_DC_HEALTH_SIGNALS,
 } from "shared/enterprise";
 import { useAuth } from "@/services/auth";
 
@@ -26,12 +27,7 @@ interface DecisionCriteriaFormData
     "name" | "description" | "rules" | "defaultAction"
   > {
   rules: DecisionCriteriaRuleUI[];
-  rampBehavior: Required<
-    Pick<
-      DecisionCriteriaRampBehavior,
-      "srmAction" | "noTrafficAction" | "multipleExposureAction"
-    >
-  >;
+  healthSignals: DcHealthSignals;
 }
 
 interface UseDecisionCriteriaFormProps {
@@ -45,18 +41,13 @@ export const useDecisionCriteriaForm = ({
 }: UseDecisionCriteriaFormProps) => {
   const { apiCall } = useAuth();
 
-  // Initialize form with empty values first
   const form = useForm<DecisionCriteriaFormData>({
     defaultValues: {
       name: "",
       description: "",
       defaultAction: "review",
       rules: [],
-      rampBehavior: {
-        srmAction: "warn",
-        noTrafficAction: "warn",
-        multipleExposureAction: "warn",
-      },
+      healthSignals: { ...DEFAULT_DC_HEALTH_SIGNALS },
     },
   });
 
@@ -71,18 +62,11 @@ export const useDecisionCriteriaForm = ({
     direction: "statsigWinner",
   });
 
-  // Set initial form values after functions are defined
   useEffect(() => {
-    const rb = decisionCriteria?.rampBehavior;
     form.reset({
       name: decisionCriteria?.name || "",
       description: decisionCriteria?.description || "",
       defaultAction: decisionCriteria?.defaultAction || "review",
-      rampBehavior: {
-        srmAction: rb?.srmAction ?? "warn",
-        noTrafficAction: rb?.noTrafficAction ?? "warn",
-        multipleExposureAction: rb?.multipleExposureAction ?? "warn",
-      },
       rules: decisionCriteria?.rules?.length
         ? decisionCriteria.rules.map((rule) => ({
             ...rule,
@@ -99,6 +83,8 @@ export const useDecisionCriteriaForm = ({
               action: "ship",
             },
           ],
+      healthSignals:
+        decisionCriteria?.healthSignals ?? { ...DEFAULT_DC_HEALTH_SIGNALS },
     });
   }, [decisionCriteria]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -223,13 +209,12 @@ export const useDecisionCriteriaForm = ({
       );
     }
 
-    // Use the existing API endpoint structure but with our new naming
     const updatedCriteria = {
       name: formData.name,
       description: formData.description,
       rules: rulesToSave,
       defaultAction: formData.defaultAction,
-      rampBehavior: formData.rampBehavior,
+      healthSignals: formData.healthSignals,
     };
 
     // If we have an ID, we're updating an existing decision criteria

@@ -56,6 +56,7 @@ import {
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Text from "@/ui/Text";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
+import DecisionCriteriaModalContent from "@/components/DecisionCriteria/DecisionCriteriaModalContent";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -113,6 +114,7 @@ const AnalysisForm: FC<{
 
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
   const [upgradeModal, setUpgradeModal] = useState(false);
+  const [showDcDetails, setShowDcDetails] = useState(false);
 
   const pid = experiment?.project;
   const project = pid ? getProjectById(pid) : null;
@@ -232,6 +234,8 @@ const AnalysisForm: FC<{
       disableStickyBucketing: experiment.disableStickyBucketing ?? false,
       decisionCriteriaId:
         experiment.decisionFrameworkSettings?.decisionCriteriaId ?? "",
+      autoRollbackMode: experiment.autoRollbackMode ?? null,
+      rampProgressionMode: experiment.rampProgressionMode ?? null,
     },
   });
 
@@ -1083,40 +1087,76 @@ const AnalysisForm: FC<{
                   lazyRender={true}
                 >
                   <div className="rounded px-3 pt-3 pb-1 bg-highlight">
+                    <Flex align="center" gap="2" mb="3">
+                      <Text weight="semibold" size="large">
+                        Experiment Decision Framework
+                      </Text>
+                      <PaidFeatureBadge commercialFeature="decision-framework" />
+                    </Flex>
                     <div className="form-group mb-4">
-                      <Flex align="center" gap="2" mb="1">
-                        <Text weight="semibold">Decision Criteria</Text>
-                        <PaidFeatureBadge commercialFeature="decision-framework" />
-                      </Flex>
+                      <Text weight="semibold" as="div" mb="1">
+                        Decision Criteria
+                      </Text>
                       <Text as="div" size="small" color="text-mid" mb="2">
-                        Evaluates metric and guardrail signals to guide
-                        experiment decisions — ship, rollback, or hold.
+                        Rules for deciding when to ship, rollback, or review.
                       </Text>
                       {hasDecisionFramework ? (
-                        <SelectField
-                          value={form.watch("decisionCriteriaId")}
-                          onChange={(v) =>
-                            form.setValue("decisionCriteriaId", v)
-                          }
-                          options={[
-                            {
-                              label: `Default (${orgDefaultCriteria.name})`,
-                              value: "",
-                            },
-                            ...allDecisionCriteria.map((c) => ({
-                              value: c.id,
-                              label: c.name,
-                            })),
-                          ]}
-                          formatOptionLabel={({ value, label }) =>
-                            value === "" ? (
-                              <em className="text-muted">{label}</em>
-                            ) : (
-                              label
-                            )
-                          }
-                          sort={false}
-                        />
+                        <>
+                          <SelectField
+                            value={form.watch("decisionCriteriaId")}
+                            onChange={(v) => {
+                              form.setValue("decisionCriteriaId", v);
+                              setShowDcDetails(false);
+                            }}
+                            options={[
+                              {
+                                label: `Default (${orgDefaultCriteria.name})`,
+                                value: "",
+                              },
+                              ...allDecisionCriteria.map((c) => ({
+                                value: c.id,
+                                label: c.name,
+                              })),
+                            ]}
+                            formatOptionLabel={({ value, label }) =>
+                              value === "" ? (
+                                <em className="text-muted">{label}</em>
+                              ) : (
+                                label
+                              )
+                            }
+                            sort={false}
+                          />
+                          <Box mt="1">
+                            <Link
+                              onClick={() => setShowDcDetails(!showDcDetails)}
+                            >
+                              <PiCaretRightFill
+                                className="mr-1"
+                                style={{
+                                  transform: showDcDetails
+                                    ? "rotate(90deg)"
+                                    : undefined,
+                                  transition: "transform 0.15s",
+                                }}
+                              />
+                              Details
+                            </Link>
+                          </Box>
+                          {showDcDetails && (
+                            <Box mt="2">
+                              <DecisionCriteriaModalContent
+                                decisionCriteria={
+                                  allDecisionCriteria.find(
+                                    (c) =>
+                                      c.id === form.watch("decisionCriteriaId"),
+                                  ) ?? orgDefaultCriteria
+                                }
+                                editable={false}
+                              />
+                            </Box>
+                          )}
+                        </>
                       ) : (
                         <Text as="div" size="small" color="text-low">
                           Not enabled for this organization.{" "}
@@ -1129,6 +1169,82 @@ const AnalysisForm: FC<{
                             <PiArrowSquareOutFill className="ml-1" />
                           </Link>
                         </Text>
+                      )}
+                    </div>
+                    <div className="form-group mb-4">
+                      <Text weight="semibold" as="div" mb="1">
+                        Experiment Automation
+                      </Text>
+                      <Text as="div" size="small" color="text-mid" mb="2">
+                        Control whether health and metric signals trigger
+                        automated actions. Signal classification is configured
+                        in Decision Criteria.
+                      </Text>
+                      <SelectField
+                        label="Rollbacks"
+                        helpText="How to respond when metric or health signals recommend a rollback"
+                        value={
+                          (form.watch("autoRollbackMode" as never) as unknown as
+                            | string
+                            | null) ?? ""
+                        }
+                        onChange={(v) => {
+                          form.setValue(
+                            "autoRollbackMode" as never,
+                            (v === "" ? null : v) as never,
+                          );
+                        }}
+                        options={[
+                          {
+                            value: "",
+                            label: `Default (${
+                              {
+                                all: "Automatic",
+                                "health-only": "Health only",
+                              }[
+                                organization?.settings
+                                  ?.defaultAutoRollbackMode ?? ""
+                              ] ?? "Manual"
+                            })`,
+                          },
+                          { value: "off", label: "Manual" },
+                          { value: "all", label: "Automatic" },
+                          {
+                            value: "health-only",
+                            label: "Automatic for health signals only",
+                          },
+                        ]}
+                      />
+                      {!!experiment.rampScheduleId && (
+                        <SelectField
+                          label="Ramp schedules"
+                          helpText="Whether health signals pause ramp progression"
+                          value={
+                            (form.watch("rampProgressionMode" as never) as unknown as
+                              | string
+                              | null) ?? ""
+                          }
+                          onChange={(v) => {
+                            form.setValue(
+                              "rampProgressionMode" as never,
+                              (v === "" ? null : v) as never,
+                            );
+                          }}
+                          options={[
+                            {
+                              value: "",
+                              label: `Default (${organization?.settings?.defaultRampProgressionMode === "hold-for-health" ? "Hold" : "Standard"})`,
+                            },
+                            {
+                              value: "standard",
+                              label: "Standard progression",
+                            },
+                            {
+                              value: "hold-for-health",
+                              label: "Hold for health signals",
+                            },
+                          ]}
+                        />
                       )}
                     </div>
                     {hasEligiblePrecomputedUnitDimensions && (

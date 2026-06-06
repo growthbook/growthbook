@@ -20,7 +20,74 @@ import {
 } from "./owner-field";
 import { experimentEndStrategy } from "./ramp-schedule";
 
+// ── Shipping criteria ───────────────────────────────────────────────────────
+// Replaces the narrower "end strategy" concept with a broader set of options
+// for when and how the system can auto-ship an experiment.
+
+export const shippingCriteriaModeArray = [
+  "off",
+  "auto",
+  "auto-force",
+] as const;
+
+export const shippingCriteriaMode = z.enum(shippingCriteriaModeArray);
+export type ShippingCriteriaMode = z.infer<typeof shippingCriteriaMode>;
+
+export const shippingCriteria = z
+  .object({
+    mode: shippingCriteriaMode,
+    plannedVariationId: z.string().optional(),
+    minimumRuntimeDays: z.number().positive().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.mode === "auto-force" && !data.plannedVariationId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'Shipping criteria mode "auto-force" requires a plannedVariationId.',
+        path: ["plannedVariationId"],
+      });
+    }
+  });
+export type ShippingCriteria = z.infer<typeof shippingCriteria>;
+
 import { namedSchema } from "./openapi-helpers";
+
+// ── Ramp progression mode ───────────────────────────────────────────────────
+// Controls how ramp schedules respond to health signals.
+//   "standard"         — ramp advances on schedule; health signals notify only
+//   "hold-for-health"  — ramp pauses when health signals fire (review or
+//                         rollback, unless the rollback was already executed)
+
+export const rampProgressionMode = z.enum(["standard", "hold-for-health"]);
+export type RampProgressionMode = z.infer<typeof rampProgressionMode>;
+
+// ── Auto-rollback mode ─────────────────────────────────────────────────────
+// Controls whether rollback signals are executed automatically.
+//   "off"          — manual: prompt to rollback
+//   "all"          — auto-rollback for all signals (metric + health)
+//   "health-only"  — auto-rollback for health signals only; prompt for metric
+
+export const autoRollbackMode = z.enum(["off", "all", "health-only"]);
+export type AutoRollbackMode = z.infer<typeof autoRollbackMode>;
+
+// ── Health signal behavior ──────────────────────────────────────────────────
+// Per-experiment (or org-default) configuration for how to react to data
+// integrity signals. "hold" pauses ramp steps for ramp experiments and
+// degrades to "warn" for non-ramp experiments.
+
+export const healthSignalAction = z.enum(["warn", "hold", "rollback"]);
+export type HealthSignalAction = z.infer<typeof healthSignalAction>;
+
+export const healthSignalBehavior = z
+  .object({
+    srmAction: healthSignalAction.optional(),
+    noTrafficAction: healthSignalAction.optional(),
+    noTrafficGracePeriodHours: z.number().positive().nullish(),
+    multipleExposureAction: healthSignalAction.optional(),
+  })
+  .strict();
+export type HealthSignalBehavior = z.infer<typeof healthSignalBehavior>;
 
 export const customMetricSlice = z.object({
   slices: z.array(
@@ -458,11 +525,40 @@ export const experimentInterface = z
      */
     endDate: z.date().nullish(),
     /**
-     * Refinement applied when the experiment's scheduled `endDate` is reached.
-     * Independent of any ramp schedule — applies to both ramp and non-ramp
-     * experiments. Absent (or null) means "no automatic action".
+     * @deprecated Use `shippingCriteria` instead. Kept for backward
+     * compatibility during migration.
      */
     endStrategy: experimentEndStrategy.nullish(),
+
+    /**
+     * Shipping criteria — when and how the system can auto-ship an experiment.
+     * Replaces the narrower `endStrategy`. Null means inherit from org default
+     * (`org.settings.defaultShippingCriteriaMode`), which itself defaults to "off".
+     */
+    shippingCriteria: shippingCriteria.nullish(),
+
+    /**
+     * Per-experiment health signal overrides. Absent fields inherit from
+     * `org.settings.defaultHealthSignalBehavior`, then fall back to "warn".
+     */
+    healthSignalBehavior: healthSignalBehavior.nullish(),
+
+    /**
+     * Controls whether rollback signals auto-stop the experiment.
+     *   "off"         — manual: prompt to rollback
+     *   "all"         — auto-rollback for all signals (metric + health)
+     *   "health-only" — auto-rollback for health signals only
+     * Null inherits from org default (defaults to "off").
+     */
+    autoRollbackMode: autoRollbackMode.nullish(),
+
+    /**
+     * Controls how ramp schedules respond to health signals.
+     *   "standard"        — ramp advances on schedule; health signals notify
+     *   "hold-for-health" — ramp pauses on health signals
+     * Null inherits from org default (defaults to "standard").
+     */
+    rampProgressionMode: rampProgressionMode.nullish(),
   })
   .strict()
   .merge(experimentAnalysisSettings);

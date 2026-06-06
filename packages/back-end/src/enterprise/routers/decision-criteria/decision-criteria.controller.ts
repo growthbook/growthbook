@@ -70,14 +70,13 @@ export const postDecisionCriteria = async (
   const context = getContextFromReq(req);
   const data = req.body;
 
-  // Create the decision criteria
   const decisionCriteria = await context.models.decisionCriteria.create({
     project: data.project,
     name: data.name,
     description: data.description,
     rules: data.rules,
     defaultAction: data.defaultAction,
-    rampBehavior: data.rampBehavior,
+    healthSignals: data.healthSignals,
     owner: context.userId,
   });
 
@@ -126,8 +125,6 @@ export const putDecisionCriteria = async (
 ) => {
   const context = getContextFromReq(req);
 
-  // Strip undefined values so they don't get persisted as explicit clears.
-  // Callers should send `null` (where allowed) to deliberately unset a field.
   const updates: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(req.body ?? {})) {
     if (v !== undefined) updates[k] = v;

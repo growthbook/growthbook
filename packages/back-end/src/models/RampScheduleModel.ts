@@ -301,6 +301,7 @@ export class RampScheduleModel extends BaseClass {
     // experiments.
     if (legacyDoc && typeof legacyDoc === "object") {
       delete (legacyDoc as Record<string, unknown>).endStrategy;
+      delete (legacyDoc as Record<string, unknown>).rampBehavior;
     }
     const doc = legacyDoc as RampScheduleInterface;
     const endCondMigrated = migrateRampScheduleEndCondition(doc);
