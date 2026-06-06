@@ -33,6 +33,14 @@ type PopoverProps = (ControlledPopoverProps | UncontrolledPopoverProps) & {
   anchorOnly?: boolean;
   contentStyle?: React.CSSProperties;
   contentClassName?: string;
+  /** Called when focus moves outside — call e.preventDefault() to keep the popover open. */
+  onFocusOutside?: React.ComponentProps<
+    typeof RadixPopover.Content
+  >["onFocusOutside"];
+  /** Called on outside interactions — call e.preventDefault() to keep the popover open. */
+  onInteractOutside?: React.ComponentProps<
+    typeof RadixPopover.Content
+  >["onInteractOutside"];
 } & MarginProps;
 
 export function Popover({
@@ -47,6 +55,8 @@ export function Popover({
   anchorOnly = false,
   contentStyle,
   contentClassName,
+  onFocusOutside,
+  onInteractOutside,
   ...props
 }: PopoverProps) {
   const appliedContentStyle = {
@@ -95,8 +105,9 @@ export function Popover({
                 disableDismiss ? (e) => e.preventDefault() : undefined
               }
               onInteractOutside={
-                disableDismiss ? (e) => e.preventDefault() : undefined
+                disableDismiss ? (e) => e.preventDefault() : onInteractOutside
               }
+              onFocusOutside={onFocusOutside}
             >
               {showCloseButton && (
                 <RadixPopover.Close

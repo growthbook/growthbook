@@ -54,6 +54,14 @@ export class SessionReplayModel {
     clientKey?: string;
     state?: "recording" | "finalized" | "deleted";
     url?: string;
+    country?: string;
+    device?: string;
+    minDurationSecs?: number;
+    maxDurationSecs?: number;
+    minEventCount?: number;
+    maxEventCount?: number;
+    featureKey?: string;
+    experimentKey?: string;
     limit?: number;
     offset?: number;
   }): Promise<SessionReplayInterface[]> {
@@ -122,8 +130,9 @@ export class SessionReplayModel {
       utmTerm: row.utm_term ?? "",
       utmContent: row.utm_content ?? "",
       attributes: row.attributes ?? {},
-      experiments: row.experiments ?? {},
-      flags: row.flags ?? {},
+      featureEvals: row.feature_evals ?? { items: [] },
+      experimentEvals: row.experiment_evals ?? { items: [] },
+      sessionEvents: row.session_events ?? { items: [] },
       userAgent: row.user_agent,
       state: row.state,
     };

@@ -20,43 +20,43 @@ import Text from "@/ui/Text";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
-import Field from "@/components/Forms/Field";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import RrwebPlayer, {
   RrwebPlayerHandle,
 } from "@/components/SessionReplay/player";
+import FilterQueryPopover, {
+  type FilterCondition,
+} from "@/components/SessionReplay/FilterQueryPopover";
 import Custom404 from "@/pages/404";
 
+type FeatureEvalItem = {
+  featureKey: string;
+  timestamp: number;
+  result: { value: unknown; experimentKey?: string };
+};
+
+type ExperimentEvalItem = {
+  key: string;
+  timestamp: number;
+  name?: string;
+  result: { value: unknown; variationId: number; featureId: string | null };
+};
+
+type SessionEventItem = {
+  eventName: string;
+  timestamp: number;
+  properties?: Record<string, unknown>;
+};
+
 type SessionReplayRow = {
-  id: string;
-  organization: string;
   sessionId: string;
-  clientKey: string;
   userId: string;
-  storagePrefix: string;
   startedAt: string;
-  endedAt: string;
-  lastEventAt: string;
   durationMs: number;
   eventCount: number;
-  urlFirst: string;
-  urlsVisited: string[];
-  deviceId?: string;
-  pageTitle?: string;
-  viewportWidth?: number;
-  viewportHeight?: number;
-  utmSource?: string;
-  utmMedium?: string;
-  utmCampaign?: string;
-  utmTerm?: string;
-  utmContent?: string;
-  attributes: Record<string, string>;
-  experiments: Record<string, string>;
-  flags: Record<string, string>;
-  userAgent: string;
   state: "recording" | "finalized" | "deleted";
-  dateCreated: string;
-  dateUpdated: string;
+  featureKeys: string[];
+  experimentKeys: string[];
 };
 
 type SessionMetadata = {
@@ -66,6 +66,9 @@ type SessionMetadata = {
   durationMs: number;
   eventCount: number;
   urlFirst: string;
+  featureEvals?: { items: FeatureEvalItem[] };
+  experimentEvals?: { items: ExperimentEvalItem[] };
+  sessionEvents?: { items: SessionEventItem[] };
 };
 
 type SessionResponse = {
@@ -75,7 +78,7 @@ type SessionResponse = {
 
 type EvaluationEntry = {
   timestamp: number;
-  kind: "flag" | "exp";
+  kind: "flag" | "exp" | "event";
   label: string;
   formattedMessage: string;
 };
@@ -174,15 +177,11 @@ export default function SessionReplayPage() {
   const { apiCall } = useAuth();
 
   // ---- list / filter state -------------------------------------------------
-  const [userIdFilter, setUserIdFilter] = useState("");
-  const [clientKeyFilter, setClientKeyFilter] = useState("");
-  const [stateFilter, setStateFilter] = useState("");
-  const [urlFilter, setUrlFilter] = useState("");
 
   // ---- UI panel state ------------------------------------------------------
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [evalOpen, setEvalOpen] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
+  const [filterPopoverOpen, setFilterPopoverOpen] = useState(false);
 
   const page = useMemo(() => {
     const raw = router.query.page;
@@ -193,20 +192,6 @@ export default function SessionReplayPage() {
   const selectedSessionId =
     typeof router.query.sessionId === "string" ? router.query.sessionId : "";
 
-  useEffect(() => {
-    if (!router.isReady) return;
-    setUserIdFilter(
-      typeof router.query.userId === "string" ? router.query.userId : "",
-    );
-    setClientKeyFilter(
-      typeof router.query.clientKey === "string" ? router.query.clientKey : "",
-    );
-    setStateFilter(
-      typeof router.query.state === "string" ? router.query.state : "",
-    );
-    setUrlFilter(typeof router.query.url === "string" ? router.query.url : "");
-  }, [router.isReady, router.query]);
-
   // Close evaluations panel when no session is selected
   useEffect(() => {
     if (!selectedSessionId) {
@@ -214,29 +199,48 @@ export default function SessionReplayPage() {
     }
   }, [selectedSessionId]);
 
+  // Helper: read all active filter params from the current router query
+  const getFilterParams = () => {
+    const q = router.query;
+    const str = (k: string) =>
+      typeof q[k] === "string" ? (q[k] as string) : "";
+    return {
+      userId: str("userId"),
+      clientKey: str("clientKey"),
+      state: str("state"),
+      url: str("url"),
+      country: str("country"),
+      device: str("device"),
+      durationMinSecs: str("durationMinSecs"),
+      durationMaxSecs: str("durationMaxSecs"),
+      eventCountMin: str("eventCountMin"),
+      eventCountMax: str("eventCountMax"),
+      featureKey: str("featureKey"),
+      experimentKey: str("experimentKey"),
+    };
+  };
+
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
     params.set("page", String(page));
-    if (typeof router.query.userId === "string" && router.query.userId) {
-      params.set("userId", router.query.userId);
-    }
-    if (typeof router.query.clientKey === "string" && router.query.clientKey) {
-      params.set("clientKey", router.query.clientKey);
-    }
-    if (typeof router.query.state === "string" && router.query.state) {
-      params.set("state", router.query.state);
-    }
-    if (typeof router.query.url === "string" && router.query.url) {
-      params.set("url", router.query.url);
-    }
+    const q = router.query;
+    const setIfPresent = (k: string) => {
+      if (typeof q[k] === "string" && q[k]) params.set(k, q[k] as string);
+    };
+    setIfPresent("userId");
+    setIfPresent("clientKey");
+    setIfPresent("state");
+    setIfPresent("url");
+    setIfPresent("country");
+    setIfPresent("device");
+    setIfPresent("durationMinSecs");
+    setIfPresent("durationMaxSecs");
+    setIfPresent("eventCountMin");
+    setIfPresent("eventCountMax");
+    setIfPresent("featureKey");
+    setIfPresent("experimentKey");
     return params.toString();
-  }, [
-    page,
-    router.query.clientKey,
-    router.query.state,
-    router.query.url,
-    router.query.userId,
-  ]);
+  }, [page, router.query]);
 
   const { data: sessionsData, error: sessionsError } = useApi<{
     sessions: SessionReplayRow[];
@@ -275,117 +279,187 @@ export default function SessionReplayPage() {
     clientKey?: string;
     state?: string;
     url?: string;
+    country?: string;
+    device?: string;
+    durationMinSecs?: string;
+    durationMaxSecs?: string;
+    eventCountMin?: string;
+    eventCountMax?: string;
+    featureKey?: string;
+    experimentKey?: string;
     page: number;
     sessionId?: string;
   }) => {
-    const query: Record<string, string> = {
-      page: String(next.page),
+    const query: Record<string, string> = { page: String(next.page) };
+    const setIfPresent = (k: keyof typeof next) => {
+      const v = next[k];
+      if (v && typeof v === "string") query[k] = v;
     };
-    if (next.userId) query.userId = next.userId;
-    if (next.clientKey) query.clientKey = next.clientKey;
-    if (next.state) query.state = next.state;
-    if (next.url) query.url = next.url;
-    if (next.sessionId) query.sessionId = next.sessionId;
-    void router.push(
-      {
-        pathname: "/session-replay",
-        query,
-      },
-      undefined,
-      { shallow: true },
-    );
-  };
-
-  const applyFilters = () => {
-    updateRouteQuery({
-      userId: userIdFilter.trim(),
-      clientKey: clientKeyFilter.trim(),
-      state: stateFilter,
-      url: urlFilter.trim(),
-      page: 1,
-      sessionId: selectedSessionId,
+    setIfPresent("userId");
+    setIfPresent("clientKey");
+    setIfPresent("state");
+    setIfPresent("url");
+    setIfPresent("country");
+    setIfPresent("device");
+    setIfPresent("durationMinSecs");
+    setIfPresent("durationMaxSecs");
+    setIfPresent("eventCountMin");
+    setIfPresent("eventCountMax");
+    setIfPresent("featureKey");
+    setIfPresent("experimentKey");
+    setIfPresent("sessionId");
+    void router.push({ pathname: "/session-replay", query }, undefined, {
+      shallow: true,
     });
   };
 
+  const handleAddFilter = (condition: FilterCondition) => {
+    const next = { ...getFilterParams() };
+    const { property, operator, value } = condition;
+
+    if (property === "userId") next.userId = value;
+    else if (property === "clientKey") next.clientKey = value;
+    else if (property === "state") next.state = value;
+    else if (property === "url") next.url = value;
+    else if (property === "country") next.country = value;
+    else if (property === "device") next.device = value;
+    else if (property === "durationMs") {
+      const secs = String(Math.max(0, Number(value)));
+      if (operator === "equals") {
+        next.durationMinSecs = secs;
+        next.durationMaxSecs = secs;
+      } else if (operator === "gte") {
+        next.durationMinSecs = secs;
+        next.durationMaxSecs = "";
+      } else {
+        next.durationMaxSecs = secs;
+        next.durationMinSecs = "";
+      }
+    } else if (property === "eventCount") {
+      const count = String(Math.max(0, Number(value)));
+      if (operator === "equals") {
+        next.eventCountMin = count;
+        next.eventCountMax = count;
+      } else if (operator === "gte") {
+        next.eventCountMin = count;
+        next.eventCountMax = "";
+      } else {
+        next.eventCountMax = count;
+        next.eventCountMin = "";
+      }
+    } else if (property.startsWith("featureKey:")) {
+      next.featureKey = property.slice("featureKey:".length);
+    } else if (property.startsWith("experimentKey:")) {
+      next.experimentKey = property.slice("experimentKey:".length);
+    }
+
+    updateRouteQuery({ ...next, page: 1, sessionId: selectedSessionId });
+  };
+
   const clearFilters = () => {
-    setUserIdFilter("");
-    setClientKeyFilter("");
-    setStateFilter("");
-    setUrlFilter("");
-    updateRouteQuery({ page: 1, sessionId: selectedSessionId });
+    // Preserve the tab's state filter; only clear the query-builder conditions
+    const { state } = getFilterParams();
+    updateRouteQuery({ state, page: 1, sessionId: selectedSessionId });
   };
 
   const goToPage = (nextPage: number) => {
     updateRouteQuery({
-      userId:
-        typeof router.query.userId === "string" ? router.query.userId : "",
-      clientKey:
-        typeof router.query.clientKey === "string"
-          ? router.query.clientKey
-          : "",
-      state: typeof router.query.state === "string" ? router.query.state : "",
-      url: typeof router.query.url === "string" ? router.query.url : "",
+      ...getFilterParams(),
       page: nextPage,
       sessionId: selectedSessionId,
     });
   };
 
   const selectSession = (sessionId: string) => {
-    updateRouteQuery({
-      userId:
-        typeof router.query.userId === "string" ? router.query.userId : "",
-      clientKey:
-        typeof router.query.clientKey === "string"
-          ? router.query.clientKey
-          : "",
-      state: typeof router.query.state === "string" ? router.query.state : "",
-      url: typeof router.query.url === "string" ? router.query.url : "",
-      page,
-      sessionId,
-    });
+    updateRouteQuery({ ...getFilterParams(), page, sessionId });
   };
 
   // ---- active filter chips -------------------------------------------------
   const activeFilters = useMemo(() => {
+    const q = router.query;
     const chips: { key: string; label: string }[] = [];
-    if (typeof router.query.userId === "string" && router.query.userId) {
-      chips.push({ key: "userId", label: `user: ${router.query.userId}` });
-    }
-    if (typeof router.query.clientKey === "string" && router.query.clientKey) {
+    const str = (k: string) =>
+      typeof q[k] === "string" ? (q[k] as string) : "";
+
+    if (str("userId"))
+      chips.push({ key: "userId", label: `User ID: ${str("userId")}` });
+    if (str("clientKey"))
       chips.push({
         key: "clientKey",
-        label: `client: ${router.query.clientKey}`,
+        label: `Client key: ${str("clientKey")}`,
       });
+    if (str("url"))
+      chips.push({ key: "url", label: `URL contains ${str("url")}` });
+    if (str("country"))
+      chips.push({ key: "country", label: `Country: ${str("country")}` });
+    if (str("device"))
+      chips.push({ key: "device", label: `Device: ${str("device")}` });
+    if (
+      str("durationMinSecs") &&
+      str("durationMinSecs") === str("durationMaxSecs")
+    ) {
+      chips.push({
+        key: "durationEq",
+        label: `Duration = ${str("durationMinSecs")}s`,
+      });
+    } else {
+      if (str("durationMinSecs"))
+        chips.push({
+          key: "durationMin",
+          label: `Duration ≥ ${str("durationMinSecs")}s`,
+        });
+      if (str("durationMaxSecs"))
+        chips.push({
+          key: "durationMax",
+          label: `Duration ≤ ${str("durationMaxSecs")}s`,
+        });
     }
-    if (typeof router.query.url === "string" && router.query.url) {
-      chips.push({ key: "url", label: `url: ${router.query.url}` });
+    if (str("eventCountMin") && str("eventCountMin") === str("eventCountMax")) {
+      chips.push({
+        key: "eventCountEq",
+        label: `Events = ${str("eventCountMin")}`,
+      });
+    } else {
+      if (str("eventCountMin"))
+        chips.push({
+          key: "eventCountMin",
+          label: `Events ≥ ${str("eventCountMin")}`,
+        });
+      if (str("eventCountMax"))
+        chips.push({
+          key: "eventCountMax",
+          label: `Events ≤ ${str("eventCountMax")}`,
+        });
     }
+    if (str("featureKey"))
+      chips.push({ key: "featureKey", label: `Flag: ${str("featureKey")}` });
+    if (str("experimentKey"))
+      chips.push({
+        key: "experimentKey",
+        label: `Experiment: ${str("experimentKey")}`,
+      });
     return chips;
-  }, [router.query.userId, router.query.clientKey, router.query.url]);
+  }, [router.query]);
 
   const removeFilter = (key: string) => {
-    const next = {
-      userId:
-        typeof router.query.userId === "string" ? router.query.userId : "",
-      clientKey:
-        typeof router.query.clientKey === "string"
-          ? router.query.clientKey
-          : "",
-      state: typeof router.query.state === "string" ? router.query.state : "",
-      url: typeof router.query.url === "string" ? router.query.url : "",
-    };
-    if (key === "userId") {
-      next.userId = "";
-      setUserIdFilter("");
-    }
-    if (key === "clientKey") {
-      next.clientKey = "";
-      setClientKeyFilter("");
-    }
-    if (key === "url") {
-      next.url = "";
-      setUrlFilter("");
-    }
+    const next = { ...getFilterParams() };
+    if (key === "userId") next.userId = "";
+    else if (key === "clientKey") next.clientKey = "";
+    else if (key === "url") next.url = "";
+    else if (key === "country") next.country = "";
+    else if (key === "device") next.device = "";
+    else if (key === "durationMin") next.durationMinSecs = "";
+    else if (key === "durationMax") next.durationMaxSecs = "";
+    else if (key === "durationEq") {
+      next.durationMinSecs = "";
+      next.durationMaxSecs = "";
+    } else if (key === "eventCountMin") next.eventCountMin = "";
+    else if (key === "eventCountMax") next.eventCountMax = "";
+    else if (key === "eventCountEq") {
+      next.eventCountMin = "";
+      next.eventCountMax = "";
+    } else if (key === "featureKey") next.featureKey = "";
+    else if (key === "experimentKey") next.experimentKey = "";
     updateRouteQuery({ ...next, page: 1, sessionId: selectedSessionId });
   };
 
@@ -401,16 +475,9 @@ export default function SessionReplayPage() {
   const handleShowTabChange = (tab: string) => {
     const newState =
       tab === "recorded" ? "finalized" : tab === "live" ? "recording" : "";
-    setStateFilter(newState);
     updateRouteQuery({
-      userId:
-        typeof router.query.userId === "string" ? router.query.userId : "",
-      clientKey:
-        typeof router.query.clientKey === "string"
-          ? router.query.clientKey
-          : "",
+      ...getFilterParams(),
       state: newState,
-      url: typeof router.query.url === "string" ? router.query.url : "",
       page: 1,
       sessionId: selectedSessionId,
     });
@@ -423,7 +490,9 @@ export default function SessionReplayPage() {
   const [metadata, setMetadata] = useState<SessionMetadata | null>(null);
   const [firstEvent, setFirstEvent] = useState<null | eventWithTime>(null);
   const [evaluations, setEvaluations] = useState<EvaluationEntry[]>([]);
-  const [evalTab, setEvalTab] = useState<"all" | "flags" | "exp">("all");
+  const [evalTab, setEvalTab] = useState<"all" | "flags" | "exp" | "events">(
+    "all",
+  );
 
   const playerHandle = useRef<RrwebPlayerHandle>(null);
 
@@ -511,22 +580,64 @@ export default function SessionReplayPage() {
     setPlayerError(null);
     setFirstEvent(events[0]);
 
-    const evals: EvaluationEntry[] = events
-      .filter((e) => e.type === 5)
-      .map((e) => {
-        const formatted = formatCustomEvent(
-          e.data as { tag: string; payload: Record<string, unknown> },
-        );
-        if (!formatted) return null;
-        return {
-          timestamp: e.timestamp,
-          ...formatted,
-        } as EvaluationEntry;
-      })
-      .filter((x): x is EvaluationEntry => x !== null);
+    // Prefer structured featureEvals/experimentEvals from session metadata
+    // (populated by newer SDK versions). Fall back to parsing legacy rrweb
+    // custom events (type 5) for older sessions that don't have them.
+    const featureItems = metadata?.featureEvals?.items ?? [];
+    const experimentItems = metadata?.experimentEvals?.items ?? [];
+    const sessionEventItems = metadata?.sessionEvents?.items ?? [];
+    const hasStructuredEvals =
+      featureItems.length > 0 ||
+      experimentItems.length > 0 ||
+      sessionEventItems.length > 0;
 
-    setEvaluations(evals);
-  }, [events]);
+    if (hasStructuredEvals) {
+      const flagEvals: EvaluationEntry[] = featureItems.map((item) => ({
+        timestamp: Number(item.timestamp),
+        kind: "flag" as const,
+        label: item.featureKey,
+        formattedMessage: `${item.featureKey} → ${JSON.stringify(item.result?.value)}`,
+      }));
+      const expEvals: EvaluationEntry[] = experimentItems.map((item) => ({
+        timestamp: Number(item.timestamp),
+        kind: "exp" as const,
+        label: item.key,
+        formattedMessage: `${item.key} → variation ${item.result?.variationId}`,
+      }));
+      const eventEvals: EvaluationEntry[] = sessionEventItems.map((item) => {
+        const props = item.properties
+          ? ` — ${JSON.stringify(item.properties)}`
+          : "";
+        return {
+          timestamp: Number(item.timestamp),
+          kind: "event" as const,
+          label: item.eventName,
+          formattedMessage: `${item.eventName}${props}`,
+        };
+      });
+      setEvaluations(
+        [...flagEvals, ...expEvals, ...eventEvals].sort(
+          (a, b) => a.timestamp - b.timestamp,
+        ),
+      );
+    } else {
+      // Legacy fallback: parse rrweb custom events (type 5)
+      const evals: EvaluationEntry[] = events
+        .filter((e) => e.type === 5)
+        .map((e) => {
+          const formatted = formatCustomEvent(
+            e.data as { tag: string; payload: Record<string, unknown> },
+          );
+          if (!formatted) return null;
+          return {
+            timestamp: e.timestamp,
+            ...formatted,
+          } as EvaluationEntry;
+        })
+        .filter((x): x is EvaluationEntry => x !== null);
+      setEvaluations(evals);
+    }
+  }, [events, metadata]);
 
   const jumpToEvent = (timestamp: number) => {
     const offset = firstEvent?.timestamp || 0;
@@ -537,6 +648,8 @@ export default function SessionReplayPage() {
     if (evalTab === "all") return evaluations;
     if (evalTab === "flags")
       return evaluations.filter((e) => e.kind === "flag");
+    if (evalTab === "events")
+      return evaluations.filter((e) => e.kind === "event");
     return evaluations.filter((e) => e.kind === "exp");
   }, [evaluations, evalTab]);
 
@@ -546,6 +659,10 @@ export default function SessionReplayPage() {
   );
   const expCount = useMemo(
     () => evaluations.filter((e) => e.kind === "exp").length,
+    [evaluations],
+  );
+  const eventCount = useMemo(
+    () => evaluations.filter((e) => e.kind === "event").length,
     [evaluations],
   );
 
@@ -644,84 +761,53 @@ export default function SessionReplayPage() {
             </Tabs>
           </Flex>
 
-          {/* Add filter toggle */}
-          <Box mt="2">
-            <Button
-              variant="ghost"
-              size="xs"
-              icon={<PiPlus />}
-              onClick={() => setShowFilters(!showFilters)}
-            >
-              {showFilters ? "Hide filters" : "Add filter"}
-            </Button>
-          </Box>
+          {/* Add filter + Clear all */}
+          <Flex align="center" gap="2" mt="2">
+            <FilterQueryPopover
+              open={filterPopoverOpen}
+              onOpenChange={setFilterPopoverOpen}
+              onAdd={handleAddFilter}
+              sessions={sessions}
+              trigger={
+                <Button variant="ghost" size="xs" icon={<PiPlus />}>
+                  Add filter
+                </Button>
+              }
+            />
+            {activeFilters.length > 0 && (
+              <Button variant="outline" size="xs" onClick={clearFilters}>
+                Clear all
+              </Button>
+            )}
+          </Flex>
 
-          {/* Expandable filters */}
-          {showFilters && (
-            <Box mt="2">
-              <Field
-                label="User ID"
-                placeholder="exact user id"
-                value={userIdFilter}
-                onChange={(e) => setUserIdFilter(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") applyFilters();
-                }}
-                containerStyle={{ marginBottom: 8 }}
-              />
-              <Field
-                label="URL contains"
-                placeholder="substring of first URL"
-                value={urlFilter}
-                onChange={(e) => setUrlFilter(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") applyFilters();
-                }}
-                containerStyle={{ marginBottom: 8 }}
-              />
-              <Field
-                label="Client key"
-                placeholder="exact client key"
-                value={clientKeyFilter}
-                onChange={(e) => setClientKeyFilter(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") applyFilters();
-                }}
-                containerStyle={{ marginBottom: 8 }}
-              />
-              <Flex gap="2">
-                <Button size="xs" onClick={applyFilters}>
-                  Apply
-                </Button>
-                <Button size="xs" variant="ghost" onClick={clearFilters}>
-                  Clear
-                </Button>
-              </Flex>
-              {activeFilters.length > 0 && (
-                <Flex gap="1" wrap="wrap" mt="2">
-                  {activeFilters.map((chip) => (
-                    <Box
-                      key={chip.key}
-                      onClick={() => removeFilter(chip.key)}
-                      style={{
-                        cursor: "pointer",
-                        padding: "2px 8px",
-                        borderRadius: 999,
-                        background: "var(--accent-3)",
-                        color: "var(--accent-11)",
-                        fontSize: 12,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 4,
-                      }}
-                      title="Click to remove filter"
-                    >
-                      {chip.label} <span style={{ opacity: 0.7 }}>×</span>
-                    </Box>
-                  ))}
-                </Flex>
-              )}
-            </Box>
+          {/* Active filter chips */}
+          {activeFilters.length > 0 && (
+            <Flex gap="2" wrap="wrap" mt="2">
+              {activeFilters.map((chip) => (
+                <Box
+                  key={chip.key}
+                  onClick={() => removeFilter(chip.key)}
+                  style={{
+                    cursor: "pointer",
+                    padding: "0 6px",
+                    height: 20,
+                    borderRadius: 3,
+                    background: "var(--slate-a3)",
+                    color: "var(--slate-12)",
+                    fontSize: 12,
+                    fontWeight: 500,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                  }}
+                  title="Click to remove filter"
+                >
+                  {chip.label}
+                  <PiX style={{ flexShrink: 0, opacity: 0.6, fontSize: 11 }} />
+                </Box>
+              ))}
+            </Flex>
           )}
 
           {/* Session list */}
@@ -1052,13 +1138,13 @@ export default function SessionReplayPage() {
               <Tabs
                 value={evalTab}
                 onValueChange={(v) =>
-                  setEvalTab((v as "all" | "flags" | "exp") || "all")
+                  setEvalTab((v as "all" | "flags" | "exp" | "events") || "all")
                 }
               >
-                <TabsList size="2">
+                <TabsList size="1">
                   <TabsTrigger value="all">
                     <Text
-                      size="medium"
+                      size="small"
                       weight="medium"
                       color={evalTab === "all" ? "text-high" : "text-low"}
                     >
@@ -1067,7 +1153,7 @@ export default function SessionReplayPage() {
                   </TabsTrigger>
                   <TabsTrigger value="flags">
                     <Text
-                      size="medium"
+                      size="small"
                       weight="medium"
                       color={evalTab === "flags" ? "text-high" : "text-low"}
                     >
@@ -1076,11 +1162,20 @@ export default function SessionReplayPage() {
                   </TabsTrigger>
                   <TabsTrigger value="exp">
                     <Text
-                      size="medium"
+                      size="small"
                       weight="medium"
                       color={evalTab === "exp" ? "text-high" : "text-low"}
                     >
                       Experiments ({expCount})
+                    </Text>
+                  </TabsTrigger>
+                  <TabsTrigger value="events">
+                    <Text
+                      size="small"
+                      weight="medium"
+                      color={evalTab === "events" ? "text-high" : "text-low"}
+                    >
+                      Events ({eventCount})
                     </Text>
                   </TabsTrigger>
                 </TabsList>
@@ -1094,7 +1189,7 @@ export default function SessionReplayPage() {
                 visibleEvaluations.length === 0 && (
                   <Box style={{ padding: "12px 16px" }}>
                     <Text size="small" color="text-low" weight="regular">
-                      No evaluations recorded for this session.
+                      No evaluations or events recorded for this session.
                     </Text>
                   </Box>
                 )}
@@ -1108,13 +1203,13 @@ export default function SessionReplayPage() {
               {visibleEvaluations.map((evt, index) => (
                 <Flex
                   key={index}
-                  align="center"
+                  align="start"
                   justify="between"
                   gap="2"
                   onClick={() => jumpToEvent(evt.timestamp)}
                   style={{
-                    padding: "0 16px",
-                    height: 49,
+                    padding: "8px 16px",
+                    minHeight: 49,
                     borderBottom: "1px solid var(--slate-a3)",
                     cursor: "pointer",
                     flexShrink: 0,
@@ -1122,24 +1217,38 @@ export default function SessionReplayPage() {
                 >
                   <Box style={{ flex: 1, minWidth: 0 }}>
                     {/* 14px semibold text-high — body/medium/semibold */}
-                    <Text
-                      size="medium"
-                      weight="semibold"
-                      color="text-high"
-                      truncate={true}
-                    >
+                    <Text size="medium" weight="semibold" color="text-high">
                       {evt.formattedMessage}
                     </Text>
                     {/* 12px regular text-low — body/small/regular */}
-                    <Text size="small" weight="regular" color="text-low">
-                      {new Date(evt.timestamp).toLocaleString()}
-                    </Text>
+                    <Box mt="2">
+                      <Text
+                        as="div"
+                        size="small"
+                        weight="regular"
+                        color="text-low"
+                      >
+                        {new Date(evt.timestamp).toLocaleString()}
+                      </Text>
+                    </Box>
                   </Box>
                   <Badge
-                    label={evt.kind === "flag" ? "Flag" : "Exp"}
+                    label={
+                      evt.kind === "flag"
+                        ? "Flag"
+                        : evt.kind === "exp"
+                          ? "Exp"
+                          : "Event"
+                    }
                     size="xs"
                     variant="soft"
-                    color={evt.kind === "flag" ? "indigo" : "violet"}
+                    color={
+                      evt.kind === "flag"
+                        ? "indigo"
+                        : evt.kind === "exp"
+                          ? "violet"
+                          : "teal"
+                    }
                     radius="full"
                     style={{ flexShrink: 0 }}
                   />

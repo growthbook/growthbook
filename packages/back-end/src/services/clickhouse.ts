@@ -175,8 +175,28 @@ export type SessionReplayRow = {
   utm_term: string;
   utm_content: string;
   attributes: Record<string, string>;
-  experiments: Record<string, string>;
-  flags: Record<string, string>;
+  feature_evals: {
+    items: Array<{
+      featureKey: string;
+      timestamp: number;
+      result: { value: unknown; experimentKey?: string };
+    }>;
+  };
+  experiment_evals: {
+    items: Array<{
+      key: string;
+      timestamp: number;
+      name?: string;
+      result: { value: unknown; variationId: number; featureId: string | null };
+    }>;
+  };
+  session_events: {
+    items: Array<{
+      eventName: string;
+      timestamp: number;
+      properties?: Record<string, unknown>;
+    }>;
+  };
   country: string;
   user_agent: string;
   device: string;
@@ -192,6 +212,18 @@ export async function listSessionReplays(
     clientKey?: string;
     state?: "recording" | "finalized" | "deleted";
     url?: string;
+    country?: string;
+    device?: string;
+    /** Inclusive lower bound in seconds */
+    minDurationSecs?: number;
+    /** Inclusive upper bound in seconds */
+    maxDurationSecs?: number;
+    minEventCount?: number;
+    maxEventCount?: number;
+    /** Filter to sessions where this feature flag was evaluated */
+    featureKey?: string;
+    /** Filter to sessions where this experiment was exposed */
+    experimentKey?: string;
     limit?: number;
     offset?: number;
   },
@@ -219,6 +251,44 @@ export async function listSessionReplays(
   if (options?.url) {
     conditions.push(
       `positionCaseInsensitive(url_first, ${toClickhouseStringLiteral(options.url)}) > 0`,
+    );
+  }
+  if (options?.country) {
+    conditions.push(`country = '${escapeClickhouseString(options.country)}'`);
+  }
+  if (options?.device) {
+    conditions.push(`device = '${escapeClickhouseString(options.device)}'`);
+  }
+  if (options?.minDurationSecs !== undefined) {
+    conditions.push(
+      `duration_ms >= ${Math.round(options.minDurationSecs * 1000)}`,
+    );
+  }
+  if (options?.maxDurationSecs !== undefined) {
+    conditions.push(
+      `duration_ms <= ${Math.round(options.maxDurationSecs * 1000)}`,
+    );
+  }
+  if (options?.minEventCount !== undefined) {
+    conditions.push(`event_count >= ${Math.round(options.minEventCount)}`);
+  }
+  if (options?.maxEventCount !== undefined) {
+    conditions.push(`event_count <= ${Math.round(options.maxEventCount)}`);
+  }
+  if (options?.featureKey) {
+    // Sessions where a specific feature flag was evaluated.
+    // toString() normalises the column regardless of whether it is stored as a
+    // plain String or a ClickHouse JSON/Object type.
+    const escaped = escapeClickhouseString(options.featureKey);
+    conditions.push(
+      `arrayExists(x -> JSONExtractString(x, 'featureKey') = '${escaped}', JSONExtractArrayRaw(toString(feature_evals), 'items'))`,
+    );
+  }
+  if (options?.experimentKey) {
+    // Sessions where a specific experiment was exposed.
+    const escaped = escapeClickhouseString(options.experimentKey);
+    conditions.push(
+      `arrayExists(x -> JSONExtractString(x, 'key') = '${escaped}', JSONExtractArrayRaw(toString(experiment_evals), 'items'))`,
     );
   }
 

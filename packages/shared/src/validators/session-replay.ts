@@ -19,6 +19,52 @@ export type SessionReplayRrwebEvent = z.infer<
   typeof sessionReplayRrwebEventSchema
 >;
 
+// ---------------------------------------------------------------------------
+// Structured evaluation / event item schemas (mirrored from the ingestor)
+// ---------------------------------------------------------------------------
+
+export const featureEvalItemSchema = z.object({
+  featureKey: z.string(),
+  timestamp: z.number(),
+  result: z.object({
+    value: z.unknown().nullable(),
+    experimentKey: z.string().optional(),
+  }),
+});
+
+export const experimentEvalItemSchema = z.object({
+  key: z.string(),
+  timestamp: z.number(),
+  name: z.string().optional(),
+  result: z.object({
+    value: z.unknown(),
+    variationId: z.number().int(),
+    featureId: z.string().nullable(),
+  }),
+});
+
+export const sessionEventItemSchema = z.object({
+  eventName: z.string(),
+  timestamp: z.number(),
+  properties: z.record(z.string(), z.unknown()).optional(),
+});
+
+export type FeatureEvalItem = z.infer<typeof featureEvalItemSchema>;
+export type ExperimentEvalItem = z.infer<typeof experimentEvalItemSchema>;
+export type SessionEventItem = z.infer<typeof sessionEventItemSchema>;
+
+const featureEvalsColumnSchema = z.object({
+  items: z.array(featureEvalItemSchema),
+});
+
+const experimentEvalsColumnSchema = z.object({
+  items: z.array(experimentEvalItemSchema),
+});
+
+const sessionEventsColumnSchema = z.object({
+  items: z.array(sessionEventItemSchema),
+});
+
 export const sessionReplayValidator = baseSchema.safeExtend({
   sessionId: z.string(),
   clientKey: z.string(),
@@ -41,8 +87,9 @@ export const sessionReplayValidator = baseSchema.safeExtend({
   utmTerm: z.string(),
   utmContent: z.string(),
   attributes: z.record(z.string(), z.string()),
-  experiments: z.record(z.string(), z.string()),
-  flags: z.record(z.string(), z.string()),
+  featureEvals: featureEvalsColumnSchema,
+  experimentEvals: experimentEvalsColumnSchema,
+  sessionEvents: sessionEventsColumnSchema,
   userAgent: z.string(),
   state: z.enum(["recording", "finalized", "deleted"]),
 });
