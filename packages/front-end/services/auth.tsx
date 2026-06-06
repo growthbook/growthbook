@@ -235,8 +235,11 @@ export const AuthProvider: React.FC<{
   const [initError, setInitError] = useState("");
   const [sessionError, setSessionError] = useState(false);
   // Soft warnings returned by the API, shown in a global "Save anyway?" dialog.
-  const [apiWarnings, setApiWarnings] = useState<string[] | null>(null);
-  const warningResolver = useRef<((proceed: boolean) => void) | null>(null);
+  // Batch together multiple concurrent warnings (e.g. from Promise.all)
+  const pendingWarnings = useRef<
+    { warnings: string[]; resolve: (proceed: boolean) => void }[]
+  >([]);
+  const [currentWarnings, setCurrentWarnings] = useState<string[] | null>(null);
   const [initialPlanSelection, setInitialPlanSelection] =
     useSessionStorage<InitialPlanOptions>(
       INITIAL_PLAN_SELECTION_SESSION_KEY,
@@ -443,20 +446,23 @@ export const AuthProvider: React.FC<{
     [orgId, token],
   );
 
-  // Open the global warning dialog and resolve once the user picks an option.
+  // Register a warning request and (re)render the combined dialog. All pending
+  // requests share one dialog; resolving it applies the same choice to each.
   const confirmIgnoreWarnings = useCallback((warnings: string[]) => {
     return new Promise<boolean>((resolve) => {
-      warningResolver.current = resolve;
-      setApiWarnings(warnings);
+      pendingWarnings.current.push({ warnings, resolve });
+      setCurrentWarnings([
+        ...new Set(pendingWarnings.current.flatMap((w) => w.warnings)),
+      ]);
     });
   }, []);
 
-  // Resolve the pending warning dialog (idempotent) and close it.
+  // Resolve every pending warning with the same choice and close the dialog.
   const resolveWarnings = useCallback((proceed: boolean) => {
-    const resolve = warningResolver.current;
-    warningResolver.current = null;
-    setApiWarnings(null);
-    if (resolve) resolve(proceed);
+    const pending = pendingWarnings.current;
+    pendingWarnings.current = [];
+    setCurrentWarnings(null);
+    pending.forEach((w) => w.resolve(proceed));
   }, []);
 
   const apiCall = useCallback(
@@ -669,9 +675,9 @@ export const AuthProvider: React.FC<{
       <>
         {children}
         {authComponent}
-        {apiWarnings && (
+        {currentWarnings && (
           <ApiWarningModal
-            warnings={apiWarnings}
+            warnings={currentWarnings}
             onConfirm={() => resolveWarnings(true)}
             onCancel={() => resolveWarnings(false)}
           />
