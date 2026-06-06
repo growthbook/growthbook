@@ -5,12 +5,17 @@ import {
 } from "shared/types/datasource";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
 import type { ReqContext } from "back-end/types/request";
-import { updateMaterializedColumns } from "back-end/src/services/clickhouse";
+import {
+  listSessionReplays,
+  updateMaterializedColumns,
+} from "back-end/src/services/clickhouse";
 import { updateMaterializedColumnsInClickhouse } from "back-end/src/services/licenseServerManagedClickhouse";
 import {
   getFactTablesForDatasource,
   updateFactTableColumns,
 } from "back-end/src/models/FactTableModel";
+import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
+import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 
 jest.mock("back-end/src/services/licenseServerManagedClickhouse", () => ({
   updateMaterializedColumnsInClickhouse: jest.fn().mockResolvedValue(undefined),
@@ -21,11 +26,21 @@ jest.mock("back-end/src/models/FactTableModel", () => ({
   updateFactTableColumns: jest.fn(),
 }));
 
+jest.mock("back-end/src/models/DataSourceModel", () => ({
+  getGrowthbookDatasource: jest.fn(),
+}));
+
+jest.mock("back-end/src/services/datasource", () => ({
+  getSourceIntegrationObject: jest.fn(),
+}));
+
 const mockGetFactTablesForDatasource = jest.mocked(getFactTablesForDatasource);
 const mockUpdateFactTableColumns = jest.mocked(updateFactTableColumns);
 const mockUpdateMaterializedColumnsLicense = jest.mocked(
   updateMaterializedColumnsInClickhouse,
 );
+const mockGetGrowthbookDatasource = jest.mocked(getGrowthbookDatasource);
+const mockGetSourceIntegrationObject = jest.mocked(getSourceIntegrationObject);
 
 function makeFactTableColumn(
   column: string,
@@ -168,5 +183,82 @@ describe("updateMaterializedColumns", () => {
     expect(changes.columns.find((c) => c.column === "userId")?.deleted).toBe(
       true,
     );
+  });
+});
+
+describe("listSessionReplays", () => {
+  const context = {
+    org: { id: "org_test" },
+  } as unknown as ReqContext;
+
+  const datasource = {
+    id: "managed_warehouse",
+    organization: "org_test",
+    type: "growthbook_clickhouse",
+    settings: {},
+  } as unknown as GrowthbookClickhouseDataSource;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetGrowthbookDatasource.mockResolvedValue(datasource);
+  });
+
+  it("adds supported session replay filters to the ClickHouse query", async () => {
+    const runQuery = jest.fn().mockResolvedValue({ rows: [] });
+    mockGetSourceIntegrationObject.mockReturnValue({
+      runQuery,
+    } as never);
+
+    await listSessionReplays(context, {
+      userId: "user'1",
+      clientKey: "ck_1",
+      state: "finalized",
+      url: "https://example.com/path",
+      country: "US",
+      device: "desktop",
+      minDurationSecs: 1.25,
+      maxDurationSecs: 10,
+      minEventCount: 5,
+      maxEventCount: 25,
+      featureKey: "flag'one",
+      experimentKey: "exp_one",
+      limit: 50,
+      offset: 100,
+    });
+
+    expect(runQuery).toHaveBeenCalledTimes(1);
+    const query = runQuery.mock.calls[0][0] as string;
+    expect(query).toContain("deleted_at IS NULL");
+    expect(query).toContain("user_id = 'user\\'1'");
+    expect(query).toContain("client_key = 'ck_1'");
+    expect(query).toContain("state = 'finalized'");
+    expect(query).toContain(
+      "positionCaseInsensitive(url_first, 'https://example.com/path') > 0",
+    );
+    expect(query).toContain("country = 'US'");
+    expect(query).toContain("device = 'desktop'");
+    expect(query).toContain("duration_ms >= 1250");
+    expect(query).toContain("duration_ms <= 10000");
+    expect(query).toContain("event_count >= 5");
+    expect(query).toContain("event_count <= 25");
+    expect(query).toContain(
+      "JSONExtractString(x, 'featureKey') = 'flag\\'one'",
+    );
+    expect(query).toContain("JSONExtractArrayRaw(toString(feature_evals)");
+    expect(query).toContain("JSONExtractString(x, 'key') = 'exp_one'");
+    expect(query).toContain("JSONExtractArrayRaw(toString(experiment_evals)");
+    expect(query).toContain("LIMIT 50");
+    expect(query).toContain("OFFSET 100");
+  });
+
+  it("returns an empty list when there is no datasource", async () => {
+    mockGetGrowthbookDatasource.mockResolvedValue(null);
+    const runQuery = jest.fn().mockResolvedValue({ rows: [] });
+    mockGetSourceIntegrationObject.mockReturnValue({
+      runQuery,
+    } as never);
+
+    await expect(listSessionReplays(context)).resolves.toEqual([]);
+    expect(runQuery).not.toHaveBeenCalled();
   });
 });
