@@ -236,6 +236,15 @@ export function createApiRequestHandler<
           // `?ignoreWarnings=true` to proceed.
           if (e instanceof WarningError) {
             body.warnings = e.warnings;
+            // Only programmatic (API key) callers need the querystring hint.
+            // JWT callers are the front-end, which shows an interactive
+            // "Save anyway?" dialog instead.
+            const isJwtAuth = (req as unknown as ApiRequestLocals).isJwtAuth;
+            if (!isJwtAuth) {
+              body.message =
+                e.message +
+                "\n\nEither address the warnings or append '?ignoreWarnings=true' to the URL to proceed.";
+            }
           }
           return res.status(e.status || 400).json(body);
         }

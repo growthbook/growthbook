@@ -17,13 +17,14 @@ export default function ApiWarningModal({
   return (
     <ModalStandard
       open={true}
-      header="Warnings"
+      header="Warning"
       cta="Save anyway"
       trackingEventModalType="api-warning"
       submit={async () => {
         onConfirm();
       }}
       close={onCancel}
+      ctaColor="red"
     >
       <Flex direction="column" gap="3">
         {warnings.map((warning, i) => (
