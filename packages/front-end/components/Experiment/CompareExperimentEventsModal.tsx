@@ -211,7 +211,6 @@ const EXPERIMENT_SECTION_KEYS: Record<
   endDate: "metadata",
   endStrategy: "metadata",
   shippingCriteria: "metadata",
-  healthSignalBehavior: "metadata",
   autoRollbackMode: "metadata",
   rampProgressionMode: "metadata",
   winner: "metadata",

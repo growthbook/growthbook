@@ -106,13 +106,18 @@ function defaultState(
     : "";
   const baseShipping = {
     endDate,
-    shippingCriteriaMode: sc?.mode ?? (es?.type === "soft-edf"
-      ? "auto" as const
-      : es?.type === "hard-planned"
-        ? "auto-force" as const
-        : "off" as const),
+    shippingCriteriaMode:
+      sc?.mode ??
+      (es?.type === "soft-edf"
+        ? ("auto" as const)
+        : es?.type === "hard-planned"
+          ? ("auto-force" as const)
+          : ("off" as const)),
     plannedVariationId:
-      sc?.plannedVariationId || es?.plannedVariationId || experiment.variations[0]?.id || "",
+      sc?.plannedVariationId ||
+      es?.plannedVariationId ||
+      experiment.variations[0]?.id ||
+      "",
     autoRollbackMode: experiment.autoRollbackMode ?? null,
     rampProgressionMode: experiment.rampProgressionMode ?? null,
   };
@@ -921,7 +926,7 @@ export default function ExperimentRampScheduleModal({
           { value: "off", label: "Manual" },
           {
             value: "auto",
-            label: "Auto-ship clear winner",
+            label: "Auto-ship on end date if clear winner",
           },
           {
             value: "auto-force",
@@ -1234,9 +1239,8 @@ export default function ExperimentRampScheduleModal({
               {
                 all: "Automatic",
                 "health-only": "Health only",
-              }[
-                organization?.settings?.defaultAutoRollbackMode ?? ""
-              ] ?? "Manual"
+              }[organization?.settings?.defaultAutoRollbackMode ?? ""] ??
+              "Manual"
             })`,
           },
           { value: "off", label: "Manual" },
@@ -1260,12 +1264,15 @@ export default function ExperimentRampScheduleModal({
           options={[
             {
               value: "",
-              label: `Default (${organization?.settings?.defaultRampProgressionMode === "hold-for-health" ? "Hold" : "Standard"})`,
+              label: `Default (${organization?.settings?.defaultRampProgressionMode === "ignore" ? "Ignore" : "Hold"})`,
             },
-            { value: "standard", label: "Standard progression" },
             {
               value: "hold-for-health",
               label: "Hold for health signals",
+            },
+            {
+              value: "ignore",
+              label: "Ignore signals",
             },
           ]}
         />

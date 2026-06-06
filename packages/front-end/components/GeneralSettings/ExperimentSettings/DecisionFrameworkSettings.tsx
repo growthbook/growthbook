@@ -231,7 +231,7 @@ const DecisionFrameworkSettings = () => {
 
               <Box mt="5" mb="3">
                 <Heading size="2" mb="3">
-                  Experiment Automation Defaults
+                  Automation Defaults
                 </Heading>
                 <div
                   style={{
@@ -256,7 +256,7 @@ const DecisionFrameworkSettings = () => {
                       },
                       {
                         value: "auto",
-                        label: "Auto-ship clear winner",
+                        label: "Auto-ship on end date if clear winner",
                       },
                       {
                         value: "auto-force",
@@ -292,17 +292,18 @@ const DecisionFrameworkSettings = () => {
                   </Text>
                   <SelectField
                     value={
-                      form.watch("defaultRampProgressionMode") ?? "standard"
+                      form.watch("defaultRampProgressionMode") ??
+                      "hold-for-health"
                     }
                     onChange={(v) =>
                       form.setValue("defaultRampProgressionMode", v)
                     }
                     options={[
-                      { value: "standard", label: "Standard progression" },
                       {
                         value: "hold-for-health",
                         label: "Hold for health signals",
                       },
+                      { value: "ignore", label: "Ignore signals" },
                     ]}
                     sort={false}
                     isSearchable={false}

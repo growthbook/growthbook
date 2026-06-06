@@ -200,7 +200,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       defaultShippingCriteriaMode:
         settings.defaultShippingCriteriaMode ?? "off",
       defaultRampProgressionMode:
-        settings.defaultRampProgressionMode ?? "standard",
+        settings.defaultRampProgressionMode ?? "hold-for-health",
       blockFileUploads: settings.blockFileUploads ?? false,
       requireProjectForFeatures:
         settings.requireProjectForFeatures ??

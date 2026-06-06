@@ -256,20 +256,20 @@ function resolveRampProgressionMode(
   return (
     experiment.rampProgressionMode ??
     org.settings?.defaultRampProgressionMode ??
-    "standard"
+    "hold-for-health"
   );
 }
 
 /**
  * Returns true if any health signal is currently failing AND
- * rampProgressionMode is "hold-for-health". Used to block soft
+ * rampProgressionMode is not "ignore". Used to block soft
  * end-date auto-actions and ramp advancement.
  */
 async function isHealthHolding(
   ctx: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
 ): Promise<boolean> {
-  if (resolveRampProgressionMode(experiment, ctx.org) !== "hold-for-health")
+  if (resolveRampProgressionMode(experiment, ctx.org) === "ignore")
     return false;
 
   const hs = await resolveHealthSignals(ctx, experiment);
@@ -521,7 +521,7 @@ export async function evaluateExperimentRampStep(
       }
     }
     const holdForHealth =
-      resolveRampProgressionMode(experiment, ctx.org) === "hold-for-health";
+      resolveRampProgressionMode(experiment, ctx.org) !== "ignore";
     if (holdForHealth) {
       return {
         action: "hold",
@@ -537,7 +537,7 @@ export async function evaluateExperimentRampStep(
     const rollbackMode = resolveAutoRollbackMode(experiment, ctx.org);
     const healthRollback = autoRollbackHealth(rollbackMode);
     const holdForHealth =
-      resolveRampProgressionMode(experiment, ctx.org) === "hold-for-health";
+      resolveRampProgressionMode(experiment, ctx.org) !== "ignore";
 
     if (hs.srmAction !== "off") {
       const srmData = getSRMHealthData({

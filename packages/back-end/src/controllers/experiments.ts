@@ -1776,7 +1776,6 @@ export async function postExperiment(
     "endDate",
     "endStrategy",
     "shippingCriteria",
-    "healthSignalBehavior",
     "autoRollbackMode",
     "rampProgressionMode",
   ];

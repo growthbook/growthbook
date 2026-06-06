@@ -30,7 +30,6 @@ import {
   pendingMember,
   projectMemberRole,
   AutoRollbackMode,
-  HealthSignalBehavior,
   RampProgressionMode,
   ShippingCriteriaMode,
 } from "shared/validators";
@@ -305,7 +304,6 @@ export interface OrganizationSettings {
   experimentMaxLengthDays?: number;
   decisionFrameworkEnabled?: boolean;
   defaultDecisionCriteriaId?: string;
-  defaultHealthSignalBehavior?: HealthSignalBehavior;
   defaultAutoRollbackMode?: AutoRollbackMode;
   defaultShippingCriteriaMode?: ShippingCriteriaMode;
   defaultRampProgressionMode?: RampProgressionMode;

@@ -1184,9 +1184,9 @@ const AnalysisForm: FC<{
                         label="Rollbacks"
                         helpText="How to respond when metric or health signals recommend a rollback"
                         value={
-                          (form.watch("autoRollbackMode" as never) as unknown as
-                            | string
-                            | null) ?? ""
+                          (form.watch(
+                            "autoRollbackMode" as never,
+                          ) as unknown as string | null) ?? ""
                         }
                         onChange={(v) => {
                           form.setValue(
@@ -1220,9 +1220,9 @@ const AnalysisForm: FC<{
                           label="Ramp schedules"
                           helpText="Whether health signals pause ramp progression"
                           value={
-                            (form.watch("rampProgressionMode" as never) as unknown as
-                              | string
-                              | null) ?? ""
+                            (form.watch(
+                              "rampProgressionMode" as never,
+                            ) as unknown as string | null) ?? ""
                           }
                           onChange={(v) => {
                             form.setValue(
@@ -1233,15 +1233,15 @@ const AnalysisForm: FC<{
                           options={[
                             {
                               value: "",
-                              label: `Default (${organization?.settings?.defaultRampProgressionMode === "hold-for-health" ? "Hold" : "Standard"})`,
-                            },
-                            {
-                              value: "standard",
-                              label: "Standard progression",
+                              label: `Default (${organization?.settings?.defaultRampProgressionMode === "ignore" ? "Ignore" : "Hold"})`,
                             },
                             {
                               value: "hold-for-health",
                               label: "Hold for health signals",
+                            },
+                            {
+                              value: "ignore",
+                              label: "Ignore signals",
                             },
                           ]}
                         />

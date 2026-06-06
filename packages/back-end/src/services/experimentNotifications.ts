@@ -824,12 +824,14 @@ function resolveShippingMode(
  * Evaluates shipping criteria for running experiments. Called on every
  * snapshot update (same cadence as health actions).
  *
+ * All auto-ship modes require an end date. Without one, no automated
+ * shipping occurs (equivalent to "off").
+ *
  * Modes:
  *  - "off": manual — show recommended decision, no automation
- *  - "auto": ship clear winner. If end date set, wait until end date
- *            before checking. Continue running past date if no winner.
- *  - "auto-force": like "auto", but force-ship at end date regardless
- *                  of criteria. If no end date, behaves like "auto".
+ *  - "auto": wait for end date, then ship if DC says clear winner.
+ *            Continue running past end date if no clear winner yet.
+ *  - "auto-force": wait for end date, then ship regardless of criteria.
  */
 async function evaluateShippingCriteria(
   context: Context,
@@ -840,27 +842,24 @@ async function evaluateShippingCriteria(
   const mode = resolveShippingMode(experiment, context.org);
   if (mode === "off") return;
 
+  // Auto-ship requires an end date
+  if (!experiment.endDate) return;
+
+  const now = new Date();
+  if (new Date(experiment.endDate) > now) return;
+
   const minDays = experiment.shippingCriteria?.minimumRuntimeDays;
-
-  // If an end date is set, wait until it passes before taking action
-  const hasEndDate = !!experiment.endDate;
-  if (hasEndDate) {
-    const now = new Date();
-    if (new Date(experiment.endDate!) > now) return;
-
-    if (minDays) {
-      const phases = experiment.phases;
-      const lastPhaseStart = phases?.[phases.length - 1]?.dateStarted;
-      if (lastPhaseStart) {
-        const runtimeMs = now.getTime() - new Date(lastPhaseStart).getTime();
-        const runtimeDays = runtimeMs / (1000 * 60 * 60 * 24);
-        if (runtimeDays < minDays) return;
-      }
+  if (minDays) {
+    const phases = experiment.phases;
+    const lastPhaseStart = phases?.[phases.length - 1]?.dateStarted;
+    if (lastPhaseStart) {
+      const runtimeMs = now.getTime() - new Date(lastPhaseStart).getTime();
+      const runtimeDays = runtimeMs / (1000 * 60 * 60 * 24);
+      if (runtimeDays < minDays) return;
     }
   }
 
   if (mode === "auto") {
-    // Ship if DC says "ship-now", otherwise continue running
     await applyExperimentEndStrategy(context, experiment, {
       type: "soft-edf",
       plannedVariationId: experiment.shippingCriteria?.plannedVariationId,
@@ -870,25 +869,15 @@ async function evaluateShippingCriteria(
   }
 
   if (mode === "auto-force") {
-    if (hasEndDate) {
-      // End date passed: force-ship regardless of criteria
-      const plannedVariationId =
-        experiment.shippingCriteria?.plannedVariationId ??
-        experiment.variations[0]?.id;
-      if (!plannedVariationId) return;
-      await applyExperimentEndStrategy(context, experiment, {
-        type: "hard-planned",
-        plannedVariationId,
-        minimumRuntimeDays: minDays,
-      });
-    } else {
-      // No end date: same as "auto" — ship when criteria met
-      await applyExperimentEndStrategy(context, experiment, {
-        type: "soft-edf",
-        plannedVariationId: experiment.shippingCriteria?.plannedVariationId,
-        minimumRuntimeDays: minDays,
-      });
-    }
+    const plannedVariationId =
+      experiment.shippingCriteria?.plannedVariationId ??
+      experiment.variations[0]?.id;
+    if (!plannedVariationId) return;
+    await applyExperimentEndStrategy(context, experiment, {
+      type: "hard-planned",
+      plannedVariationId,
+      minimumRuntimeDays: minDays,
+    });
     return;
   }
 }
