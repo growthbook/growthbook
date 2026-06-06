@@ -10,8 +10,9 @@ import {
   ExperimentSnapshotSettings,
   MetricForSnapshot,
 } from "shared/types/experiment-snapshot";
-import { OrganizationInterface } from "shared/types/organization";
 import { ExperimentInterface } from "shared/types/experiment";
+import { ExposureQuery } from "shared/types/datasource";
+import { SegmentInterface } from "shared/types/segment";
 import {
   FactMetricInterface,
   FactTableInterface,
@@ -20,11 +21,13 @@ import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { getFiltersForHash } from "back-end/src/services/experimentTimeSeries";
+import { ReqContext } from "back-end/types/request";
+import { ApiReqContext } from "back-end/types/api";
 
 // If the given settings / experiment is not compatible with incremental refresh, throw an error.
 // Otherwise, return void.
 export async function validateIncrementalPipeline({
-  org,
+  context,
   integration,
   snapshotSettings,
   metricMap,
@@ -33,7 +36,7 @@ export async function validateIncrementalPipeline({
   incrementalRefreshModel,
   analysisType,
 }: {
-  org: OrganizationInterface;
+  context: ReqContext | ApiReqContext;
   integration: SourceIntegrationInterface;
   snapshotSettings: ExperimentSnapshotSettings;
   metricMap: Map<string, ExperimentMetricInterface>;
@@ -54,7 +57,7 @@ export async function validateIncrementalPipeline({
 
   // Check if organization has the incremental refresh feature
   const hasIncrementalRefreshFeature = orgHasPremiumFeature(
-    org,
+    context.org,
     "incremental-refresh",
   );
   if (!hasIncrementalRefreshFeature) {
@@ -110,15 +113,27 @@ export async function validateIncrementalPipeline({
   // If not forcing a full refresh and we have a previous run, ensure the
   // current configuration matches what the incremental pipeline was built with.
   if (analysisType === "main-update" && incrementalRefreshModel) {
-    const currentSettingsHash =
-      getExperimentSettingsHashForIncrementalRefresh(snapshotSettings);
-    if (
-      incrementalRefreshModel.experimentSettingsHash &&
-      currentSettingsHash !== incrementalRefreshModel.experimentSettingsHash
-    ) {
-      throw new Error(
-        "The experiment configuration is outdated. Please run a Full Refresh.",
-      );
+    if (incrementalRefreshModel.experimentSettingsHash) {
+      const exposureQuery =
+        (settings.queries?.exposure || []).find(
+          (q) => q.id === snapshotSettings.exposureQueryId,
+        ) ?? null;
+      const segment = snapshotSettings.segment
+        ? await context.models.segments.getById(snapshotSettings.segment)
+        : null;
+      if (
+        !experimentSettingsHashMatchesForIncrementalRefresh({
+          storedHash: incrementalRefreshModel.experimentSettingsHash,
+          snapshotSettings,
+          exposureQuery,
+          segment,
+          factTableMap,
+        })
+      ) {
+        throw new Error(
+          "The experiment configuration is outdated. Please run a Full Refresh.",
+        );
+      }
     }
 
     // Validate metric settings hashes for existing metric sources
@@ -155,7 +170,135 @@ export async function validateIncrementalPipeline({
 
 const hashObject = (obj: object) => md5(JSON.stringify(obj));
 
-export function getExperimentSettingsHashForIncrementalRefresh(
+// Version prefix for the experiment settings hash. Bump whenever the set of
+// hashed inputs changes so that hashes stored by older builds can still be
+// compared with the matching legacy function below — a raw input change would
+// otherwise read as "configuration outdated" for every existing pipeline and
+// silently drop them all out of incremental refresh on deploy.
+const EXPERIMENT_SETTINGS_HASH_VERSION_PREFIX = "v2:";
+
+// Fields of `ExperimentSnapshotSettings` whose values change the incremental
+// units table SQL or the data it accumulates. Any change to one of these MUST
+// invalidate the units table and force a full refresh.
+const HASHED_SNAPSHOT_SETTINGS_FIELDS_FOR_INCREMENTAL_REFRESH = [
+  "activationMetric",
+  "attributionModel",
+  "queryFilter",
+  "segment",
+  "skipPartialData",
+  "datasourceId",
+  "exposureQueryId",
+  "startDate",
+  "regressionAdjustmentEnabled",
+  "experimentId",
+  "lookbackOverride",
+  // Compiled into the exposure query and segment SQL as template variables
+  "phase",
+  "customFields",
+] as const satisfies readonly (keyof ExperimentSnapshotSettings)[];
+
+// Fields of `ExperimentSnapshotSettings` that are intentionally NOT part of
+// the incremental-refresh hash:
+// - endDate moves forward on every incremental update by design
+// - dimensions / precomputedUnitDimensionIds / variations / statistical
+//   settings only affect analysis-time queries, which are recomputed from the
+//   units and metric source tables on every run (unit dimension columns are
+//   additionally gated by `unitsDimensions` on the incremental refresh model)
+// - metricSettings and the metric id lists are covered per-metric by
+//   `getMetricSettingsHashForIncrementalRefresh`
+type IgnoredSnapshotSettingsFieldForIncrementalRefresh =
+  | "endDate"
+  | "dimensions"
+  | "precomputedUnitDimensionIds"
+  | "metricSettings"
+  | "goalMetrics"
+  | "secondaryMetrics"
+  | "guardrailMetrics"
+  | "defaultMetricPriorSettings"
+  | "variations"
+  | "coverage"
+  | "banditSettings"
+  | "manual";
+
+// Compile-time exhaustiveness guard, mirroring the one for metric computed
+// settings below. When a field is added to `ExperimentSnapshotSettings`, this
+// fails to compile until the new field is classified as hashed or ignored.
+type UnhandledSnapshotSettingsFieldForIncrementalRefresh = Exclude<
+  keyof ExperimentSnapshotSettings,
+  | (typeof HASHED_SNAPSHOT_SETTINGS_FIELDS_FOR_INCREMENTAL_REFRESH)[number]
+  | IgnoredSnapshotSettingsFieldForIncrementalRefresh
+>;
+export type SnapshotSettingsForIncrementalRefreshExhaustivenessCheck =
+  AssertNever<UnhandledSnapshotSettingsFieldForIncrementalRefresh>;
+
+// The units table SQL also depends on definitions that snapshotSettings only
+// references by id. The ids don't change when the underlying SQL is edited,
+// so the definitions themselves must be hashed — otherwise rows produced by
+// the new definition get appended to a table built with the old one and the
+// mixed data is analyzed as if it were consistent.
+function getSegmentSettingsForHash(
+  segment: SegmentInterface | null,
+  factTableMap: FactTableMap,
+) {
+  if (!segment) return null;
+  const factTable = segment.factTableId
+    ? factTableMap.get(segment.factTableId)
+    : undefined;
+  return {
+    type: segment.type,
+    sql: segment.sql ?? null,
+    userIdType: segment.userIdType ?? null,
+    factTableId: segment.factTableId ?? null,
+    factTableSql: factTable?.sql ?? null,
+    // Resolved filter SQL, not just filter ids
+    filters:
+      factTable && segment.filters?.length
+        ? factTable.filters
+            .filter((f) => segment.filters?.includes(f.id))
+            .map((f) => ({ id: f.id, value: f.value }))
+        : null,
+  };
+}
+
+export function getExperimentSettingsHashForIncrementalRefresh({
+  snapshotSettings,
+  exposureQuery,
+  segment,
+  factTableMap,
+}: {
+  snapshotSettings: ExperimentSnapshotSettings;
+  exposureQuery: ExposureQuery | null;
+  segment: SegmentInterface | null;
+  factTableMap: FactTableMap;
+}): string {
+  // Normalize undefined to null so optional fields hash deterministically
+  const snapshotSettingsFields = Object.fromEntries(
+    HASHED_SNAPSHOT_SETTINGS_FIELDS_FOR_INCREMENTAL_REFRESH.map((field) => [
+      field,
+      snapshotSettings[field] ?? null,
+    ]),
+  );
+
+  return (
+    EXPERIMENT_SETTINGS_HASH_VERSION_PREFIX +
+    hashObject({
+      ...snapshotSettingsFields,
+      exposureQuery: exposureQuery
+        ? {
+            query: exposureQuery.query,
+            userIdType: exposureQuery.userIdType,
+          }
+        : null,
+      segmentDefinition: getSegmentSettingsForHash(segment, factTableMap),
+    })
+  );
+}
+
+// The hash exactly as computed before the version prefix was introduced.
+// Stored hashes without a version prefix were written by this function; keep
+// it so those pipelines keep validating (and keep running incrementally)
+// until the runner rewrites the stored hash on their next successful update.
+function getLegacyExperimentSettingsHashForIncrementalRefresh(
   snapshotSettings: ExperimentSnapshotSettings,
 ): string {
   return hashObject({
@@ -171,6 +314,39 @@ export function getExperimentSettingsHashForIncrementalRefresh(
     regressionAdjustmentEnabled: snapshotSettings.regressionAdjustmentEnabled,
     experimentId: snapshotSettings.experimentId,
   });
+}
+
+export function experimentSettingsHashMatchesForIncrementalRefresh({
+  storedHash,
+  snapshotSettings,
+  exposureQuery,
+  segment,
+  factTableMap,
+}: {
+  storedHash: string;
+  snapshotSettings: ExperimentSnapshotSettings;
+  exposureQuery: ExposureQuery | null;
+  segment: SegmentInterface | null;
+  factTableMap: FactTableMap;
+}): boolean {
+  if (!storedHash.startsWith(EXPERIMENT_SETTINGS_HASH_VERSION_PREFIX)) {
+    // Hash written by an older build. The inputs added since then weren't
+    // captured at units-table build time, so they can't be validated
+    // retroactively; they're covered from the next successful update onward.
+    return (
+      storedHash ===
+      getLegacyExperimentSettingsHashForIncrementalRefresh(snapshotSettings)
+    );
+  }
+  return (
+    storedHash ===
+    getExperimentSettingsHashForIncrementalRefresh({
+      snapshotSettings,
+      exposureQuery,
+      segment,
+      factTableMap,
+    })
+  );
 }
 
 type ComputedSettingsForSnapshot = NonNullable<

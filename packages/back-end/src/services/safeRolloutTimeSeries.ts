@@ -199,7 +199,10 @@ function getSafeRolloutMetricSettingsHash(
       denominatorFactTable: {
         sql: denominatorFactTable?.sql,
         eventName: denominatorFactTable?.eventName,
-        // TODO: include denominator filters?
+        filters: getFiltersForHash(
+          denominatorFactTable,
+          factMetric.denominator,
+        ),
       },
     });
   }

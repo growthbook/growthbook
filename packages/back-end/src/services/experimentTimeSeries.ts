@@ -421,7 +421,10 @@ function getMetricSettingsHash(
       denominatorFactTable: {
         sql: denominatorFactTable?.sql,
         eventName: denominatorFactTable?.eventName,
-        // TODO: also include denominator filters?
+        filters: getFiltersForHash(
+          denominatorFactTable,
+          factMetric.denominator,
+        ),
       },
     });
   }

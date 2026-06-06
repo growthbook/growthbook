@@ -520,9 +520,12 @@ const startExperimentIncrementalRefreshQueries = async (
               unitsTableFullName: unitsTableFullName,
               unitsMaxTimestamp: maxTimestamp,
               experimentSettingsHash:
-                getExperimentSettingsHashForIncrementalRefresh(
+                getExperimentSettingsHashForIncrementalRefresh({
                   snapshotSettings,
-                ),
+                  exposureQuery,
+                  segment: segmentObj,
+                  factTableMap: params.factTableMap,
+                }),
               unitsDimensions: eligibleDimensions.map((d) => d.id),
             },
           );
@@ -1150,7 +1153,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
 
     // Throws if any settings/experiment is not supported
     await validateIncrementalPipeline({
-      org: this.context.org,
+      context: this.context,
       integration: this.integration,
       snapshotSettings: params.snapshotSettings,
       metricMap: params.metricMap,
