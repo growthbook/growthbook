@@ -211,9 +211,7 @@ export function validateJSONFeatureValue(
   // eslint-disable-next-line
   value: any,
   feature: Pick<FeatureInterface, "jsonSchema">,
-  // For non-json flags, the stored value is a raw scalar (not a JSON document),
-  // so we coerce it to the right type before running the schema instead of
-  // JSON-parsing. Defaults to the json behavior to preserve existing callers.
+  // Non-json flags hold a raw scalar; coerce instead of JSON-parsing (default keeps json behavior).
   valueType?: FeatureValueType,
 ) {
   const { jsonSchema, validationEnabled } = getValidation(feature);
@@ -338,9 +336,7 @@ export function validateFeatureValue(
   return value;
 }
 
-// Ensure a feature's validation schema is compatible with its value type.
-// Prevents broken states like attaching a `type: object` schema to a number
-// flag. Only enforced when the schema is enabled.
+// Ensure a feature's enabled validation schema is compatible with its value type.
 export function assertSchemaMatchesValueType(
   jsonSchema: Pick<
     JSONSchemaDef,

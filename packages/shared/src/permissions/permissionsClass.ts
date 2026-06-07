@@ -1376,12 +1376,7 @@ export class Permissions {
     return this.checkProjectFilterPermission(customHook, "manageCustomHooks");
   };
 
-  // Manage a Custom Hook scoped to a single feature. Currently a thin alias for
-  // the feature-edit permission (manageFeatures) — anyone who can edit a feature
-  // can manage hooks scoped to it. Kept as its own method so we can layer extra
-  // logic on later, and so future resource types get sibling methods (e.g.
-  // canManageExperimentCustomHooks). Global/project-scoped hooks still require
-  // manageCustomHooks (see canCreate/Update/DeleteCustomHook).
+  // Alias for the feature-edit permission; its own method so we can add logic/resource types later.
   public canManageFeatureCustomHooks = (
     feature: Pick<FeatureInterface, "project">,
   ): boolean => {

@@ -75,8 +75,7 @@ export default function CustomHooksPage() {
   }
 
   const allHooks = data.customHooks || [];
-  // Global/project hooks are managed here. Feature-scoped hooks are managed
-  // from each feature's Validation tab and shown read-only below.
+  // Global/project hooks managed here; feature-scoped ones on the feature's Validation tab.
   const hooks = allHooks.filter((h) => !h.entityType);
   const featureHooks = allHooks.filter((h) => h.entityType === "feature");
 

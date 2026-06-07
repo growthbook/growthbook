@@ -66,8 +66,7 @@ function EditSchemaField({
     { value: "float", label: "Float (Decimal)" },
     { value: "boolean", label: "Boolean (True/False)" },
   ];
-  // For string/number flags, restrict the field type to match the flag so the
-  // schema stays compatible with the feature's value type.
+  // Restrict field type to match string/number flags.
   const typeOptions =
     valueType === "string"
       ? allTypeOptions.filter((o) => o.value === "string")
@@ -235,8 +234,7 @@ function EditSimpleSchema({
 }) {
   const [expandedFields, setExpandedFields] = useState(new Set<number>());
 
-  // String/number flags can only have a single primitive value, so lock the
-  // schema to "primitive" and hide the structure selector.
+  // String/number flags lock to a single primitive; hide the structure selector.
   const lockedPrimitive = valueType === "string" || valueType === "number";
 
   return (
@@ -566,8 +564,7 @@ export default function EditSchemaModal({
           }
         }
 
-        // Reject schemas that don't make sense for the feature's value type
-        // (e.g. an object schema on a number flag).
+        // Reject schemas that don't make sense for the feature's value type.
         assertSchemaMatchesValueType(value, feature.valueType);
 
         const body: Record<string, unknown> = {

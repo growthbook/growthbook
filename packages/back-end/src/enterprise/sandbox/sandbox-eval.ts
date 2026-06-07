@@ -7,12 +7,8 @@ import { ReqContextClass } from "back-end/src/services/context";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import { runInSandbox } from "./sandbox-pool";
 
-// Orchestration for custom hooks. The sandboxed JavaScript itself runs in a
-// pool of disposable child processes (sandbox-pool.ts / sandbox-worker.ts), so
-// a crashing or runaway hook can only take down a worker, never the API server.
-// The pure isolate runner lives in sandbox-core.ts.
+// Custom hook orchestration; sandboxed JS runs in the child-process pool (sandbox-pool.ts).
 
-// Export wrapped calls for each hook type
 export async function runValidateFeatureHooks({
   context,
   feature,
@@ -123,8 +119,7 @@ async function _runCustomHook(
 
   // A thrown error is a hard block and always wins over any warnings.
   if (!res.ok) {
-    // Incremental: if the same error was already present before this change,
-    // ignore the hook entirely.
+    // Incremental: ignore the hook if this same error already existed before the change.
     if (originalFunctionArgs && hook.incrementalChangesOnly) {
       const originalRes = await runInSandbox(hook.code, originalFunctionArgs);
       if (!originalRes.ok && originalRes.error === res.error) {

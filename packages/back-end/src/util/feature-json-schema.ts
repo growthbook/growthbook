@@ -61,8 +61,7 @@ export function parseApiJsonSchema(
       `Invalid JSON schema: ${e instanceof Error ? e.message : String(e)}`,
     );
   }
-  // Reject schemas that don't make sense for the feature's value type
-  // (e.g. an object schema on a number flag). Throws on mismatch.
+  // Reject schemas that don't make sense for the feature's value type.
   if (valueType) {
     assertSchemaMatchesValueType(jsonSchemaWrapper, valueType);
   }

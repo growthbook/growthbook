@@ -2,8 +2,7 @@ import { z } from "zod";
 
 export const hooks = ["validateFeature", "validateFeatureRevision"] as const;
 
-// The resource types a custom hook can be scoped to via entityType/entityId.
-// Add new resource types here as more hook types are introduced.
+// Resource types a hook can be scoped to via entityType/entityId.
 export const customHookEntityTypes = ["feature"] as const;
 
 export const customHookValidator = z
@@ -17,9 +16,7 @@ export const customHookValidator = z
     name: z.string(),
     hook: z.enum(hooks),
     code: z.string(),
-    // Optional scoping to a single resource (e.g. one feature). When both are
-    // set the hook only runs for that resource; when absent it's global or
-    // project-scoped via `projects`.
+    // Optional scope to a single resource; absent = global/project-scoped via projects.
     entityType: z.enum(customHookEntityTypes).optional(),
     entityId: z.string().optional(),
     lastSuccess: z.date().optional(),
@@ -34,8 +31,7 @@ export type CustomHookType = (typeof hooks)[number];
 
 export type CustomHookEntityType = (typeof customHookEntityTypes)[number];
 
-// Single source of truth for which resource type each hook operates on.
-// Used to validate that a hook's entityType matches its hook type.
+// Which resource type each hook operates on (validated against entityType).
 export const hookEntityType: Record<CustomHookType, CustomHookEntityType> = {
   validateFeature: "feature",
   validateFeatureRevision: "feature",

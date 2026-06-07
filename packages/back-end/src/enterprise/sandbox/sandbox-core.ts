@@ -4,10 +4,7 @@ import { parseEnvInt } from "shared/util";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 
-// This module is the *pure* isolate runner. It is imported both by the main
-// process and by the forked sandbox worker, so it must stay light — do NOT
-// import the request context, models, mongoose, etc. here (that would balloon
-// every worker's boot footprint). Orchestration lives in sandbox-eval.ts.
+// Pure isolate runner — kept light (no context/models) so forked workers boot cheaply.
 
 // Default memory limit in MB
 const MEMORY_MB = parseEnvInt(process.env.CUSTOM_HOOK_MEMORY_MB, 32, {
@@ -35,9 +32,7 @@ const MAX_FETCH_RESP_SIZE = parseEnvInt(
   500 * 1024,
   { min: 1, name: "CUSTOM_HOOK_MAX_FETCH_RESP_SIZE" },
 );
-// Max total size of captured console.log output, in characters (default 64KB).
-// The isolate memory limit only bounds memory *inside* the isolate; data copied
-// out to the host (logs/warnings) is unbounded without this cap.
+// Cap captured console.log output; host arrays aren't bounded by the isolate limit.
 const MAX_LOG_CHARS = parseEnvInt(
   process.env.CUSTOM_HOOK_MAX_LOG_CHARS,
   64 * 1024,
@@ -80,8 +75,7 @@ export async function sandboxEval(
     maxFetchRespSize,
   }: SandboxEvalOptions = {},
 ): Promise<SandboxEvalResult> {
-  // Sanity check. This should be handled by the caller already
-  // isolated-vm is not 100% safe in a multi-tenant environment, but should be fine when self-hosting
+  // Caller already gates cloud; isolated-vm is acceptable for self-hosting, not multi-tenant.
   if (IS_CLOUD) {
     return {
       ok: false,
@@ -96,13 +90,11 @@ export async function sandboxEval(
 
   const logs: string[] = [];
   const warnings: string[] = [];
-  // Track how much we've captured so we can bound host-side memory (the isolate
-  // memory limit does not cover data copied out to these arrays).
+  // Bound host-side memory; the isolate limit doesn't cover data copied out.
   let logChars = 0;
   let warningChars = 0;
 
-  // Dispose state, so we can terminate a runaway isolate from the wall-clock
-  // timer (async code that yields with `await` escapes the per-run CPU timeout).
+  // Lets the wall timer terminate a runaway isolate (async escapes the CPU timeout).
   let disposed = false;
   let wallTimer: ReturnType<typeof setTimeout> | undefined;
   const safeDispose = () => {
@@ -149,10 +141,7 @@ export async function sandboxEval(
       },
     );
 
-    // Host -> isolate bridge for logging.
-    // Bounds total captured output so a tight log loop can't exhaust host
-    // memory. Enforced here (not just in the shim) because user code can reach
-    // this Reference directly.
+    // Bounds total log output; enforced here since user code can call this Reference directly.
     const logRef = new Reference((...args: unknown[]) => {
       const remaining = MAX_LOG_CHARS - logChars;
       if (remaining <= 0) return;
@@ -164,8 +153,7 @@ export async function sandboxEval(
       logChars += line.length;
     });
 
-    // Host -> isolate bridge for raising soft warnings.
-    // Bounds both the count and the total size of warnings.
+    // Bounds warning count and total size.
     const warnRef = new Reference((msg: unknown) => {
       if (warnings.length >= MAX_WARNINGS) return;
       const remaining = MAX_WARNING_CHARS - warningChars;
@@ -182,9 +170,7 @@ export async function sandboxEval(
     await jail.set("hostLog", logRef);
     await jail.set("hostWarn", warnRef);
 
-    // Inject shims for console.log and fetch
-    // We aren't aiming for a 100% complete implementation
-    // We just need something good enough so copy/pasted code works
+    // Minimal console/fetch/addWarning shims — good enough for copy/pasted code.
     const shimCode = `
       (function() {
         const stringifyLogArgs = (args) => args.map(arg => {
@@ -251,23 +237,18 @@ export async function sandboxEval(
 
     const dataCopy = new ExternalCopy(functionArgs).copyInto();
 
-    // The `timeout` below only bounds a single *synchronous* run. Async code
-    // that yields with `await` resumes unbudgeted, so the wall-clock timer is
-    // the authoritative bound — and it must dispose the isolate to actually
-    // stop a runaway loop (rejecting the promise alone does not).
+    // CPU timeout only bounds sync runs; the wall timer disposes the isolate for async runaways.
     const resultPromise = funcRef.apply(undefined, [dataCopy], {
       arguments: { copy: true },
       result: { copy: true, promise: true },
       timeout: cpuTimeoutMS ?? CPU_TIMEOUT_MS,
     });
-    // If the wall timer fires first and disposes the isolate, this promise
-    // rejects after the race already settled; swallow the late rejection.
+    // Swallow the late rejection if the wall timer disposed the isolate first.
     resultPromise.catch(() => {});
 
     const wallTimeout = new Promise<never>((_, reject) => {
       wallTimer = setTimeout(() => {
-        // Terminate any runaway execution (incl. async loops that evade the
-        // CPU timeout) instead of letting it run until `finally`.
+        // Terminate runaways (incl. async) now instead of waiting for finally.
         safeDispose();
         reject(new Error("Execution timed out"));
       }, wallTimeoutMS ?? WALL_TIMEOUT_MS);

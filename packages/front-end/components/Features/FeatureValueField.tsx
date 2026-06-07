@@ -230,10 +230,7 @@ export default function FeatureValueField({
     );
   }
 
-  // Schema-aware input for string/number flags using a "primitive" simple
-  // schema (e.g. enum dropdown, min/max constraints). These flag values are
-  // stored as raw scalars (not JSON), so we use the primitive editor directly
-  // and bypass SimpleSchemaEditor's JSON encoding.
+  // Schema-aware input for string/number flags; values are raw scalars, so bypass JSON encoding.
   if (
     validationEnabled &&
     hasJsonValidator &&
@@ -527,12 +524,7 @@ function parseNumberInput(
     : { valid: false };
 }
 
-// Number input for a numeric schema field. Keeps the in-progress text the user
-// is typing in local state instead of deriving the displayed value from the
-// parsed number on every keystroke. Deriving it would reformat intermediate
-// values — e.g. typing "1.0" becomes parseFloat("1.0") -> 1 -> "1", clobbering
-// the input (via the controlled value) before the user can finish typing
-// "1.05".
+// Keeps in-progress text in local state so typing e.g. "1.05" isn't reformatted mid-keystroke.
 function NumberSchemaField<T = unknown>({
   field,
   value,

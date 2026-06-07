@@ -89,10 +89,7 @@ describe("sandboxEval", () => {
     expect(result).toEqual({ ok: true, returnVal: 1, log: "", warnings: [] });
   });
 
-  // Resource-exhaustion guards. Data copied out of the isolate (logs/warnings)
-  // is NOT bounded by the isolate memory limit, so without these caps a tight
-  // log/warning loop could exhaust host memory and crash the Node process.
-  // Defaults: MAX_LOG_CHARS = 64KB, MAX_WARNINGS = 100, MAX_WARNING_CHARS = 64KB.
+  // Caps on host-side log/warning output (the isolate limit doesn't cover copied-out data).
   describe("resource limits", () => {
     it("bounds total console.log output regardless of loop count", async () => {
       // Each iteration logs a 100KB string; without a cap this retains 100s of MB
@@ -116,10 +113,7 @@ describe("sandboxEval", () => {
     });
 
     it("terminates a long-running async log loop with bounded output", async () => {
-      // Microtask yields (`await null`) stay within the CPU budget; macrotask
-      // yields (e.g. `await fetch`) escape it and are stopped by the wall timer
-      // disposing the isolate. Either way the loop must terminate and the
-      // captured output must stay bounded (no unbounded host-memory growth).
+      // Either way the loop must terminate and captured output stay bounded.
       const result = await sandboxEval(
         `const s = "x".repeat(100000); while (true) { console.log(s); await null; }`,
         {},

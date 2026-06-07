@@ -4,11 +4,7 @@ import { parseEnvInt } from "shared/util";
 import { logger } from "back-end/src/util/logger";
 import type { SandboxEvalOptions, SandboxEvalResult } from "./sandbox-core";
 
-// Runs custom hook code in a pool of disposable child processes. Process-level
-// isolation means a hard crash (OOM abort, native fault) or a hung run takes
-// down only a worker, not the API server — the pool detects the exit, fails
-// just that job, and respawns. Workers also run with a hard memory cap so an
-// OOM is contained rather than competing with the main heap.
+// Pool of disposable child processes — a worker crash/OOM/hang takes down only that worker.
 
 const POOL_SIZE = parseEnvInt(process.env.CUSTOM_HOOK_POOL_SIZE, 2, {
   min: 1,
@@ -36,17 +32,13 @@ const WALL_TIMEOUT_MS = parseEnvInt(
   5000,
   { min: 1, name: "CUSTOM_HOOK_WALL_TIMEOUT_MS" },
 );
-// Extra time beyond the in-isolate wall timeout before we SIGKILL a worker that
-// hasn't responded (covers native hangs the in-process dispose can't stop).
+// Grace beyond the wall timeout before we SIGKILL an unresponsive worker.
 const KILL_GRACE_MS = parseEnvInt(process.env.CUSTOM_HOOK_KILL_GRACE_MS, 2000, {
   min: 1,
   name: "CUSTOM_HOOK_KILL_GRACE_MS",
 });
 
-// Resolve the worker as a sibling of this module, matching its own extension:
-// `.ts` when run directly via ts-node/tsx, `.js` once compiled. fork() inherits
-// the parent's execArgv (see spawnWorker) so any TS loader carries over to the
-// child. CUSTOM_HOOK_WORKER_PATH overrides for non-standard setups.
+// Worker sibling module, matching this file's extension (.ts dev / .js compiled).
 const WORKER_PATH =
   process.env.CUSTOM_HOOK_WORKER_PATH ||
   path.join(
@@ -75,14 +67,11 @@ const queue: Job[] = [];
 let jobCounter = 0;
 let started = false;
 let shuttingDown = false;
-// Bumped each time the pool is (re)started. Workers capture the generation they
-// were spawned in so handleExit can tell a live worker from one belonging to a
-// pool that's already been torn down (see __shutdownSandboxPool).
+// Bumped on (re)start so handleExit can ignore workers from a torn-down pool.
 let generation = 0;
 
 function spawnWorker(): Worker {
-  // Preserve the parent's runtime flags (source maps, snapshot settings) but
-  // override the heap cap so the worker is hard-bounded.
+  // Keep the parent's runtime flags but override the heap cap.
   const execArgv = [
     ...process.execArgv.filter((a) => !a.startsWith("--max-old-space-size")),
     `--max-old-space-size=${WORKER_HEAP_MB}`,
@@ -91,8 +80,7 @@ function spawnWorker(): Worker {
   const proc = fork(WORKER_PATH, [], {
     execArgv,
     serialization: "advanced",
-    // Discard stdin/stdout; keep stderr so a crash (e.g. "FATAL ERROR: heap out
-    // of memory") surfaces in the server logs. IPC channel for jobs/results.
+    // Discard stdin/stdout; keep stderr so crashes surface in logs. ipc for jobs/results.
     stdio: ["ignore", "ignore", "inherit", "ipc"],
   });
 
@@ -128,8 +116,7 @@ function handleExit(
 
   const cur = worker.current;
   if (cur) {
-    // A job was in flight: the worker crashed, OOM'd, or was killed for hanging.
-    // Contained here — fail only this job; the server keeps running.
+    // Worker died mid-job (crash/OOM/kill) — fail just this job; the server keeps running.
     clearTimeout(cur.killTimer);
     worker.current = undefined;
     logger.warn(
@@ -144,9 +131,7 @@ function handleExit(
     });
   }
 
-  // Ignore exits from a torn-down generation: an async SIGKILL exit can arrive
-  // after the pool was shut down and restarted. The in-flight job, if any, was
-  // already failed above; we just must not grow or re-dispatch the new pool.
+  // Ignore exits from a torn-down generation (the job, if any, was failed above).
   if (worker.generation !== generation) return;
 
   // Keep the pool warm and drain any backlog.
@@ -156,13 +141,10 @@ function handleExit(
   }
 }
 
-// Gracefully retire a worker (e.g. after MAX_JOBS_PER_WORKER); the exit handler
-// removes it and respawns a replacement.
+// Gracefully retire a worker; the exit handler removes and respawns it.
 function recycle(worker: Worker) {
   if (worker.current) return; // only when idle
-  // Remove from the pool immediately so dispatch() cannot select this worker
-  // after SIGTERM is sent but before the process has actually exited
-  // (proc.connected stays true until the IPC channel closes asynchronously).
+  // Remove now so dispatch() can't pick it between SIGTERM and the async exit.
   workers = workers.filter((w) => w !== worker);
   try {
     worker.proc.kill();
@@ -249,11 +231,7 @@ function shutdown() {
   workers = [];
 }
 
-/**
- * Run custom hook code in a sandboxed child process. Drop-in for the in-process
- * sandboxEval: never rejects — resolves with `{ ok: false, error }` on failure,
- * crash, timeout, or load-shedding.
- */
+// Drop-in for sandboxEval; never rejects (resolves { ok: false } on failure/crash/timeout).
 export function runInSandbox(
   code: string,
   args: Record<string, unknown>,

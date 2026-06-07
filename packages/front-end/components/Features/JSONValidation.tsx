@@ -46,8 +46,7 @@ export default function JSONValidation({
 
   const [edit, setEdit] = useState(false);
 
-  // Boolean flags can't have a validation schema. JSON, string, and number
-  // flags all can.
+  // Boolean flags can't have a validation schema; json/string/number can.
   if (feature.valueType === "boolean") return null;
 
   return (

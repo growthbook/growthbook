@@ -109,11 +109,9 @@ export default function CustomHookModal({
   close: () => void;
   current?: CustomHookInterface;
   onSave?: () => void;
-  // When set, the hook is scoped to this specific feature (entityType/entityId)
-  // and the Projects field is hidden.
+  // When set, scopes the hook to this feature and hides the Projects field.
   feature?: FeatureInterface;
-  // When set alongside `feature`, prefill the `revision` test argument with this
-  // revision so hook testing reflects the object being validated.
+  // Prefills the revision test argument so testing reflects the real object.
   revision?: FeatureRevisionInterface;
 }) {
   const form = useForm<CreateProps<CustomHookInterface>>({
@@ -133,8 +131,7 @@ export default function CustomHookModal({
   const hookType = form.watch("hook");
   const hookTypeData = hookTypes[hookType];
 
-  // For a feature-scoped hook, prefill test arguments with the real feature
-  // and revision so testing reflects the actual objects being validated.
+  // Prefill test args with the real feature/revision so testing reflects actual objects.
   const initialTestValues = (h: CustomHookType): Record<string, string> =>
     Object.fromEntries(
       Object.entries(hookTypes[h].availableArguments).map(([k, v]) => [

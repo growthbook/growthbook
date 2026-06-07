@@ -48,8 +48,7 @@ export const createCustomHook = async (
   }
 
   const data = { ...req.body };
-  // Feature-scoped hooks derive their scope from the referenced feature, so
-  // `projects` is unused — keep it empty regardless of what the client sent.
+  // Feature-scoped hooks derive scope from the feature; keep projects empty.
   if (data.entityType && data.entityId) {
     data.projects = [];
   }

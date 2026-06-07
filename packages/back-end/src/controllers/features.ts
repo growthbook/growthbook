@@ -3022,8 +3022,7 @@ export async function postFeatureSchema(
     context.permissions.throwPermissionError();
   }
 
-  // Reject schemas that don't make sense for the feature's value type
-  // (e.g. an object schema on a number flag).
+  // Reject schemas that don't make sense for the feature's value type.
   assertSchemaMatchesValueType(schemaDef, feature.valueType);
 
   const jsonSchema: JSONSchemaDef = {

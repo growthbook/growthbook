@@ -19,14 +19,12 @@ const BaseClass = MakeModelClass({
     deleteEvent: "customHook.delete",
   },
   globallyUniquePrimaryKeys: false,
-  // Scope is locked at creation. Retargeting a hook is not allowed — duplicate
-  // instead. This also keeps the permission checks below unambiguous.
+  // Scope is locked at creation — retarget by duplicating instead.
   readonlyFields: ["entityType", "entityId"],
 });
 
 export class CustomHookModel extends BaseClass {
-  // For a feature-scoped hook, resolve the referenced feature synchronously
-  // (BaseModel populates foreign refs before the permission hooks run).
+  // Resolve the referenced feature synchronously (foreign refs are populated first).
   private featureRef(doc: CustomHookInterface): FeatureInterface | null {
     if (doc.entityType !== "feature" || !doc.entityId) return null;
     return this.getForeignRefs(doc, false).feature ?? null;
@@ -91,8 +89,7 @@ export class CustomHookModel extends BaseClass {
   ) {
     const hooks = await this._find({ hook, enabled: true });
 
-    // Feature-scoped hooks (entityType/entityId set) only run for their target
-    // feature. Otherwise filter by project (empty projects array = all).
+    // Feature-scoped hooks match by entityId; others match by project (empty = all).
     return hooks.filter((h) =>
       h.entityType === "feature" && h.entityId
         ? h.entityId === featureId
