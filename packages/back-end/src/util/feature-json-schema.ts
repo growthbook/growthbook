@@ -1,5 +1,10 @@
-import { FeatureInterface, JSONSchemaDef } from "shared/types/feature";
+import {
+  FeatureInterface,
+  FeatureValueType,
+  JSONSchemaDef,
+} from "shared/types/feature";
 import { OrganizationInterface } from "shared/types/organization";
+import { assertSchemaMatchesValueType } from "shared/util";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { logger } from "back-end/src/util/logger";
 
@@ -43,6 +48,7 @@ export function getInitialFeatureJsonSchema(
 export function parseApiJsonSchema(
   org: OrganizationInterface,
   jsonSchema: string | undefined,
+  valueType?: FeatureValueType,
 ): JSONSchemaDef {
   const jsonSchemaWrapper = getDefaultJsonSchema(new Date());
   if (!jsonSchema) return jsonSchemaWrapper;
@@ -50,9 +56,14 @@ export function parseApiJsonSchema(
   try {
     jsonSchemaWrapper.schema = JSON.stringify(JSON.parse(jsonSchema));
     jsonSchemaWrapper.enabled = true;
-    return jsonSchemaWrapper;
   } catch (e) {
     logger.error(e, "Failed to parse feature json schema");
     return jsonSchemaWrapper;
   }
+  // Reject schemas that don't make sense for the feature's value type
+  // (e.g. an object schema on a number flag). Throws on mismatch.
+  if (valueType) {
+    assertSchemaMatchesValueType(jsonSchemaWrapper, valueType);
+  }
+  return jsonSchemaWrapper;
 }

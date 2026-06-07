@@ -956,3 +956,50 @@ describe("Role permissions", () => {
     expect(p.canDeleteOfficialResources(projectsResource)).toBe(true);
   });
 });
+
+describe("canManageFeatureCustomHooks", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [],
+    settings: {
+      environments: [{ id: "production", description: "" }],
+    },
+  };
+
+  function getPermissions(role: string) {
+    return new Permissions({
+      global: {
+        permissions: roleToPermissionMap(role, testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    });
+  }
+
+  const featureResource = { project: "" };
+
+  it("lets admins manage feature hooks regardless of the org setting", () => {
+    const p = getPermissions("admin");
+    expect(p.canManageFeatureCustomHooks(featureResource, false)).toBe(true);
+    expect(p.canManageFeatureCustomHooks(featureResource, true)).toBe(true);
+  });
+
+  it("lets feature editors manage only when the org opts in", () => {
+    // engineer has manageFeatures but not manageCustomHooks
+    const p = getPermissions("engineer");
+    expect(p.canManageFeatureCustomHooks(featureResource, false)).toBe(false);
+    expect(p.canManageFeatureCustomHooks(featureResource, true)).toBe(true);
+  });
+
+  it("never lets users without feature edit access manage hooks", () => {
+    const p = getPermissions("readonly");
+    expect(p.canManageFeatureCustomHooks(featureResource, false)).toBe(false);
+    expect(p.canManageFeatureCustomHooks(featureResource, true)).toBe(false);
+  });
+});

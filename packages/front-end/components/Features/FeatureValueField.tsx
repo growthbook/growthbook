@@ -230,6 +230,45 @@ export default function FeatureValueField({
     );
   }
 
+  // Schema-aware input for string/number flags using a "primitive" simple
+  // schema (e.g. enum dropdown, min/max constraints). These flag values are
+  // stored as raw scalars (not JSON), so we use the primitive editor directly
+  // and bypass SimpleSchemaEditor's JSON encoding.
+  if (
+    validationEnabled &&
+    hasJsonValidator &&
+    (valueType === "string" || valueType === "number") &&
+    simpleSchema?.type === "primitive"
+  ) {
+    const field = simpleSchema.fields[0];
+    const typeMatches =
+      !!field &&
+      (valueType === "string"
+        ? field.type === "string"
+        : field.type === "integer" || field.type === "float");
+    if (field && typeMatches) {
+      return (
+        <>
+          <SimpleSchemaPrimitiveEditor
+            field={field}
+            value={
+              valueType === "number"
+                ? value === ""
+                  ? undefined
+                  : parseFloat(value)
+                : value
+            }
+            setValue={(v) => setValue(v == null ? "" : String(v))}
+            label={label}
+            showDescription={true}
+            disabled={disabled}
+          />
+          {helpText && <small className="text-muted">{helpText}</small>}
+        </>
+      );
+    }
+  }
+
   const copyButton = (
     <Tooltip body={copySuccess ? "Copied" : "Copy to clipboard"}>
       <IconButton

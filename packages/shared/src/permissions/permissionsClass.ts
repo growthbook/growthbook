@@ -1376,6 +1376,25 @@ export class Permissions {
     return this.checkProjectFilterPermission(customHook, "manageCustomHooks");
   };
 
+  // Manage a Custom Hook scoped to a single feature. Admins (manageCustomHooks)
+  // can always manage hooks. When the org opts in via allowPerFeatureHooks,
+  // anyone who can edit the feature (manageFeatures) can manage hooks for it.
+  // Add sibling methods (e.g. canManageExperimentCustomHooks) as more resource
+  // types gain hooks.
+  public canManageFeatureCustomHooks = (
+    feature: Pick<FeatureInterface, "project">,
+    allowPerFeatureHooks: boolean,
+  ): boolean => {
+    const projects = feature.project ? [feature.project] : [];
+    if (this.checkProjectFilterPermission({ projects }, "manageCustomHooks")) {
+      return true;
+    }
+    return (
+      allowPerFeatureHooks &&
+      this.checkProjectFilterPermission({ projects }, "manageFeatures")
+    );
+  };
+
   public throwPermissionError(message?: string): void {
     throw new PermissionError(
       message ?? "You do not have permission to perform this action",

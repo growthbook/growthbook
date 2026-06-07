@@ -8,6 +8,7 @@ import Field from "@/components/Forms/Field";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import SelectField from "@/components/Forms/SelectField";
 import { useEnvironments, FEATURE_RULES_ALL_ENVS } from "@/services/features";
+import { isCloud } from "@/services/env";
 import Checkbox from "@/ui/Checkbox";
 import Button from "@/ui/Button";
 import { GBInfo } from "@/components/Icons";
@@ -178,6 +179,23 @@ export default function FeatureSettings() {
               }
             />
           </Box>
+
+          {/* Custom Hooks are self-hosted only */}
+          {!isCloud() && hasCommercialFeature("custom-hooks") && (
+            <Box mb="6" width="100%">
+              <Checkbox
+                id="toggle-allowPerFeatureCustomHooks"
+                label="Allow feature editors to manage Custom Hooks for their own features"
+                description="If enabled, users who can edit a feature can create, edit, and delete Custom Hooks scoped to that feature. Global and project-scoped hooks still require the Custom Hooks admin permission."
+                value={!!form.watch("allowPerFeatureCustomHooks")}
+                setValue={(value) =>
+                  form.setValue("allowPerFeatureCustomHooks", value, {
+                    shouldDirty: true,
+                  })
+                }
+              />
+            </Box>
+          )}
 
           <Box mb="5">
             <SelectField

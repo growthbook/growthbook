@@ -26,6 +26,7 @@ import {
   fillRevisionFromFeature,
   getReviewSetting,
   namespacesToMap,
+  assertSchemaMatchesValueType,
 } from "shared/util";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
@@ -3020,6 +3021,10 @@ export async function postFeatureSchema(
   ) {
     context.permissions.throwPermissionError();
   }
+
+  // Reject schemas that don't make sense for the feature's value type
+  // (e.g. an object schema on a number flag).
+  assertSchemaMatchesValueType(schemaDef, feature.valueType);
 
   const jsonSchema: JSONSchemaDef = {
     ...schemaDef,

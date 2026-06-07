@@ -17,6 +17,7 @@ import Modal from "@/components/Modal";
 import FeatureStatusBadge from "@/components/Features/FeatureStatusBadge";
 import { getEnabledEnvironments, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
+import { isCloud } from "@/services/env";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SortedTags from "@/components/Tags/SortedTags";
@@ -518,6 +519,11 @@ export default function FeaturesHeader({
                   <TabsTrigger value="test">Simulate</TabsTrigger>
                   <TabsTrigger value="stats">Code Refs</TabsTrigger>
                   <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
+                  {/* Custom Hooks are self-hosted only, and boolean flags can't
+                  have a JSON schema, so there's nothing to validate on Cloud */}
+                  {!(isCloud() && feature.valueType === "boolean") && (
+                    <TabsTrigger value="validation">Validation</TabsTrigger>
+                  )}
                   {/* Slot: revisionAndSettingsGroup portal mounts here when scrolled */}
                   <Box style={{ marginLeft: "auto", alignSelf: "center" }}>
                     <div ref={tabsSlotRef} />

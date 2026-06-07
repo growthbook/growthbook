@@ -1,6 +1,7 @@
 import { useForm } from "react-hook-form";
 import {
   FeatureInterface,
+  FeatureValueType,
   JSONSchemaDef,
   SchemaField,
   SimpleSchema,
@@ -13,6 +14,7 @@ import {
   inferSimpleSchemaFromValue,
   simpleToJSONSchema,
   getReviewSetting,
+  assertSchemaMatchesValueType,
 } from "shared/util";
 import { FaAngleDown, FaAngleRight, FaRegTrashAlt } from "react-icons/fa";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
@@ -50,12 +52,28 @@ function EditSchemaField({
   value,
   inObject,
   onChange,
+  valueType,
 }: {
   i: number;
   value: SchemaField;
   inObject: boolean;
   onChange: (value: SchemaField) => void;
+  valueType?: FeatureValueType;
 }) {
+  const allTypeOptions = [
+    { value: "string", label: "Text String" },
+    { value: "integer", label: "Integer" },
+    { value: "float", label: "Float (Decimal)" },
+    { value: "boolean", label: "Boolean (True/False)" },
+  ];
+  // For string/number flags, restrict the field type to match the flag so the
+  // schema stays compatible with the feature's value type.
+  const typeOptions =
+    valueType === "string"
+      ? allTypeOptions.filter((o) => o.value === "string")
+      : valueType === "number"
+        ? allTypeOptions.filter((o) => ["integer", "float"].includes(o.value))
+        : allTypeOptions;
   return (
     <div>
       <div className="row">
@@ -78,24 +96,7 @@ function EditSchemaField({
               onChange({ ...value, type: type as SchemaField["type"] })
             }
             sort={false}
-            options={[
-              {
-                value: "string",
-                label: "Text String",
-              },
-              {
-                value: "integer",
-                label: "Integer",
-              },
-              {
-                value: "float",
-                label: "Float (Decimal)",
-              },
-              {
-                value: "boolean",
-                label: "Boolean (True/False)",
-              },
-            ]}
+            options={typeOptions}
             required
           />
         </div>
@@ -226,53 +227,64 @@ function EditSchemaField({
 function EditSimpleSchema({
   schema,
   setSchema,
+  valueType,
 }: {
   schema: SimpleSchema;
   setSchema: (schema: SimpleSchema) => void;
+  valueType?: FeatureValueType;
 }) {
   const [expandedFields, setExpandedFields] = useState(new Set<number>());
 
+  // String/number flags can only have a single primitive value, so lock the
+  // schema to "primitive" and hide the structure selector.
+  const lockedPrimitive = valueType === "string" || valueType === "number";
+
   return (
     <div>
-      <SelectField
-        label="Type"
-        labelClassName="font-weight-bold text-dark"
-        value={schema.type}
-        sort={false}
-        onChange={(type) =>
-          setSchema({
-            ...schema,
-            type: type as SimpleSchema["type"],
-          })
-        }
-        options={[
-          {
-            value: "object",
-            label: "Object",
-          },
-          {
-            value: "object[]",
-            label: "Array of Objects",
-          },
-          {
-            value: "primitive",
-            label: "Primitive Value (string, number, boolean)",
-          },
-          {
-            value: "primitive[]",
-            label: "Array of Primitive Values",
-          },
-        ]}
-        required
-      />
-      {schema.type === "primitive[]" || schema.type === "primitive" ? (
+      {!lockedPrimitive && (
+        <SelectField
+          label="Type"
+          labelClassName="font-weight-bold text-dark"
+          value={schema.type}
+          sort={false}
+          onChange={(type) =>
+            setSchema({
+              ...schema,
+              type: type as SimpleSchema["type"],
+            })
+          }
+          options={[
+            {
+              value: "object",
+              label: "Object",
+            },
+            {
+              value: "object[]",
+              label: "Array of Objects",
+            },
+            {
+              value: "primitive",
+              label: "Primitive Value (string, number, boolean)",
+            },
+            {
+              value: "primitive[]",
+              label: "Array of Primitive Values",
+            },
+          ]}
+          required
+        />
+      )}
+      {lockedPrimitive ||
+      schema.type === "primitive[]" ||
+      schema.type === "primitive" ? (
         <div className="form-group">
           <label className="font-weight-bold text-dark">
-            {schema.type === "primitive" ? "Primitive Value" : "Array Items"}
+            {schema.type === "primitive[]" ? "Array Items" : "Primitive Value"}
           </label>
           <div className="appbox p-3 bg-light">
             <EditSchemaField
               i={0}
+              valueType={valueType}
               value={
                 schema.fields[0] || {
                   key: "",
@@ -443,9 +455,28 @@ export default function EditSchemaModal({
   defaultEnable,
   onEnable,
 }: Props) {
-  const defaultSimpleSchema = feature.jsonSchema?.simple?.fields?.length
+  const valueType = feature.valueType;
+  const defaultSimpleSchema: SimpleSchema = feature.jsonSchema?.simple?.fields
+    ?.length
     ? feature.jsonSchema.simple
-    : inferSimpleSchemaFromValue(feature.defaultValue);
+    : valueType === "string" || valueType === "number"
+      ? {
+          // String/number flags hold a single primitive value
+          type: "primitive",
+          fields: [
+            {
+              key: "",
+              type: valueType === "string" ? "string" : "float",
+              required: true,
+              default: "",
+              description: "",
+              enum: [],
+              min: 0,
+              max: valueType === "string" ? 256 : 100,
+            },
+          ],
+        }
+      : inferSimpleSchemaFromValue(feature.defaultValue);
 
   const defaultJSONSchema = feature.jsonSchema?.schema || "{}";
 
@@ -534,6 +565,10 @@ export default function EditSchemaModal({
             );
           }
         }
+
+        // Reject schemas that don't make sense for the feature's value type
+        // (e.g. an object schema on a number flag).
+        assertSchemaMatchesValueType(value, feature.valueType);
 
         const body: Record<string, unknown> = {
           ...value,
@@ -626,6 +661,7 @@ export default function EditSchemaModal({
             <EditSimpleSchema
               schema={form.watch("simple")}
               setSchema={(v) => form.setValue("simple", v)}
+              valueType={valueType}
             />
           ) : (
             <CodeTextArea

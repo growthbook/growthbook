@@ -52,6 +52,7 @@ export async function runValidateFeatureHooks({
     "validateFeature",
     { feature },
     feature.project,
+    feature.id,
     original ? { feature: original } : undefined,
   );
 }
@@ -72,6 +73,7 @@ export async function runValidateFeatureRevisionHooks({
     "validateFeatureRevision",
     { feature, revision },
     feature.project,
+    feature.id,
     {
       feature,
       revision: original,
@@ -93,6 +95,7 @@ async function _runCustomHooks(
   hookType: CustomHookType,
   functionArgs: Record<string, unknown>,
   project: string = "",
+  featureId: string = "",
   originalFunctionArgs?: Record<string, unknown>,
 ) {
   // Skip on cloud
@@ -115,6 +118,7 @@ async function _runCustomHooks(
   const hooks = await adminContext.models.customHooks.getByHook(
     hookType,
     project,
+    featureId,
   );
 
   const allWarnings: string[] = [];

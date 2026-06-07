@@ -15,12 +15,19 @@ import { useUser } from "@/services/UserContext";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
 import EditFeatureInfoModal from "@/components/Features/EditFeatureInfoModal";
 import FeatureDiagnostics from "@/components/Features/FeatureDiagnostics";
+import FeatureValidationTab from "@/components/Features/FeatureValidationTab";
 import { useFeaturePageData } from "@/hooks/useFeaturePageData";
 import { useFeatureDependents } from "@/hooks/useFeatureDependents";
 import Callout from "@/ui/Callout";
 import { FeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 
-const featureTabs = ["overview", "stats", "test", "diagnostics"] as const;
+const featureTabs = [
+  "overview",
+  "stats",
+  "test",
+  "diagnostics",
+  "validation",
+] as const;
 export type FeatureTab = (typeof featureTabs)[number];
 
 export default function FeaturePage() {
@@ -196,6 +203,15 @@ export default function FeaturePage() {
             feature={feature}
             results={diagnosticsResults}
             setResults={setDiagnosticsResults}
+          />
+        )}
+
+        {tab === "validation" && (
+          <FeatureValidationTab
+            feature={feature}
+            mutate={refreshData}
+            setVersion={setVersion}
+            revisionList={data.revisionList}
           />
         )}
 

@@ -19,6 +19,8 @@ import {
   SchemaField,
   SimpleSchema,
   ScheduleRule,
+  JSONSchemaDef,
+  FeatureValueType,
 } from "shared/types/feature";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -209,6 +211,10 @@ export function validateJSONFeatureValue(
   // eslint-disable-next-line
   value: any,
   feature: Pick<FeatureInterface, "jsonSchema">,
+  // For non-json flags, the stored value is a raw scalar (not a JSON document),
+  // so we coerce it to the right type before running the schema instead of
+  // JSON-parsing. Defaults to the json behavior to preserve existing callers.
+  valueType?: FeatureValueType,
 ) {
   const { jsonSchema, validationEnabled } = getValidation(feature);
   if (!validationEnabled) {
@@ -218,7 +224,12 @@ export function validateJSONFeatureValue(
     const ajv = getJSONValidator();
     const validate = ajv.compile(jsonSchema);
     let parsedValue;
-    if (typeof value === "string") {
+    if (valueType === "string") {
+      // String flags store the raw string value; validate it directly.
+      parsedValue = value;
+    } else if (valueType === "number") {
+      parsedValue = typeof value === "string" ? parseFloat(value) : value;
+    } else if (typeof value === "string") {
       try {
         parsedValue = JSON.parse(value);
       } catch (e) {
@@ -280,6 +291,25 @@ export function validateFeatureValue(
     if (!value.match(/^-?[0-9]+(\.[0-9]+)?$/)) {
       throw new Error(prefix + "Must be a valid number");
     }
+    // Apply JSON schema validation if set and enabled (e.g. min/max)
+    const { valid, errors } = validateJSONFeatureValue(
+      value,
+      feature,
+      "number",
+    );
+    if (!valid) {
+      throw new Error(prefix + errors.join(", "));
+    }
+  } else if (type === "string") {
+    // Apply JSON schema validation if set and enabled (e.g. maxLength/enum)
+    const { valid, errors } = validateJSONFeatureValue(
+      value,
+      feature,
+      "string",
+    );
+    if (!valid) {
+      throw new Error(prefix + errors.join(", "));
+    }
   } else if (type === "json") {
     let parsedValue;
     let validJSON = true;
@@ -306,6 +336,56 @@ export function validateFeatureValue(
   }
 
   return value;
+}
+
+// Ensure a feature's validation schema is compatible with its value type.
+// Prevents broken states like attaching a `type: object` schema to a number
+// flag. Only enforced when the schema is enabled.
+export function assertSchemaMatchesValueType(
+  jsonSchema: Pick<
+    JSONSchemaDef,
+    "schemaType" | "schema" | "simple" | "enabled"
+  >,
+  valueType: FeatureValueType,
+): void {
+  if (!jsonSchema.enabled) return;
+
+  // JSON flags accept any schema
+  if (valueType === "json") return;
+
+  if (valueType === "boolean") {
+    throw new Error("Boolean features cannot have a validation schema.");
+  }
+
+  // Determine the schema's top-level JSON type
+  let topType: unknown;
+  try {
+    const schemaString =
+      jsonSchema.schemaType === "simple"
+        ? simpleToJSONSchema(jsonSchema.simple)
+        : jsonSchema.schema;
+    topType = JSON.parse(schemaString)?.type;
+  } catch (e) {
+    throw new Error(
+      `Invalid validation schema: ${
+        e instanceof Error ? e.message : String(e)
+      }`,
+    );
+  }
+
+  if (valueType === "number") {
+    if (topType !== "number" && topType !== "integer") {
+      throw new Error(
+        'A number feature\'s validation schema must have a top-level type of "number" or "integer".',
+      );
+    }
+  } else if (valueType === "string") {
+    if (topType !== "string") {
+      throw new Error(
+        'A string feature\'s validation schema must have a top-level type of "string".',
+      );
+    }
+  }
 }
 
 // Helper function to validate ISO timestamp format

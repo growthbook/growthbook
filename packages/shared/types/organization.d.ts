@@ -278,6 +278,10 @@ export interface OrganizationSettings {
   featureRegexValidator?: string; // Regex to validate feature flag name (e.g. ^.+-\d{8}-.+$)
   requireProjectForFeatures?: boolean;
   requireProjectForSdkConnections?: boolean;
+  // When true, users with edit permission for a feature can manage Custom Hooks
+  // scoped to that feature without the org-wide manageCustomHooks (admin)
+  // permission. Global/project-scoped hooks still require admin.
+  allowPerFeatureCustomHooks?: boolean;
   // When true, saving a feature rule or experiment rejects hashAttribute,
   // fallbackAttribute, or condition keys that don't appear (unarchived) in
   // attributeSchema. Prevents typo'd attributes silently never matching at
