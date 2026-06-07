@@ -62,13 +62,25 @@ export class CustomHookModel extends BaseClass {
       : this.context.permissions.canDeleteCustomHook(doc);
   }
 
-  // Ensure a hook's entityType matches the resource its hook type operates on
-  // (e.g. a validateFeature hook can only be scoped to a feature).
+  // Ensure scoped hooks are well-formed and point at a real resource.
   protected async customValidation(doc: CustomHookInterface) {
-    if (doc.entityType && doc.entityType !== hookEntityType[doc.hook]) {
+    const entityType = doc.entityType ?? null;
+    const entityId = doc.entityId ?? null;
+
+    if ((entityType === null) !== (entityId === null)) {
+      throw new Error(
+        "Custom hooks must specify both entityType and entityId, or neither",
+      );
+    }
+
+    if (entityType !== null && entityType !== hookEntityType[doc.hook]) {
       throw new Error(
         `A ${doc.hook} hook cannot be scoped to a ${doc.entityType}`,
       );
+    }
+
+    if (entityType === "feature" && this.featureRef(doc) === null) {
+      throw new Error(`Could not find feature for custom hook: ${entityId}`);
     }
   }
 
