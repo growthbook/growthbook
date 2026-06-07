@@ -1,17 +1,10 @@
+// eslint-disable-next-line no-restricted-imports
+import "../../init/aliases";
 import {
   sandboxEval,
   SandboxEvalOptions,
   SandboxEvalResult,
 } from "./sandbox-core";
-
-// Forked child process that runs custom hook code in an isolated-vm sandbox,
-// one job at a time, communicating with the parent over IPC. Running in a
-// separate OS process means a hard crash (OOM abort, native fault) or a hung
-// run kills only this worker — the parent (SandboxPool) detects the exit and
-// fails just that job, keeping the API server alive.
-//
-// This file imports only sandbox-core (which is intentionally light), so each
-// worker boots without the full back-end module graph.
 
 interface WorkerJob {
   id: number;

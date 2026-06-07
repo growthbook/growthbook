@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { CustomHookInterface } from "shared/validators";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiCode } from "react-icons/pi";
+import { Box, Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import Button from "@/ui/Button";
 import useApi from "@/hooks/useApi";
@@ -10,7 +9,6 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import EmptyState from "@/components/EmptyState";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { isCloud } from "@/services/env";
 import CustomHookModal from "@/components/Features/CustomHookModal";
@@ -23,6 +21,7 @@ import Table, {
   TableCell,
 } from "@/ui/Table";
 import Badge from "@/ui/Badge";
+import Link from "@/ui/Link";
 
 function CustomHookCodeModal({
   hook,
@@ -141,7 +140,7 @@ export default function CustomHooksPage() {
                     <TableColumnHeader>Name</TableColumnHeader>
                     <TableColumnHeader>Type</TableColumnHeader>
                     <TableColumnHeader>Projects</TableColumnHeader>
-                    <TableColumnHeader style={{ width: 80 }} />
+                    <TableColumnHeader style={{ width: 50 }} />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -162,60 +161,56 @@ export default function CustomHooksPage() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <Flex align="center" justify="end" gap="2">
-                          <Tooltip
-                            body="View code"
-                            usePortal
-                            className="d-inline-flex align-items-center"
+                        <MoreMenu useRadix iconButtonSize="1">
+                          <a
+                            href="#"
+                            className="dropdown-item"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setViewCodeHook(hook);
+                            }}
                           >
-                            <IconButton
-                              variant="ghost"
-                              color="gray"
-                              size="1"
-                              onClick={() => setViewCodeHook(hook)}
-                              aria-label="View hook code"
-                            >
-                              <PiCode />
-                            </IconButton>
-                          </Tooltip>
-                          <MoreMenu useRadix iconButtonSize="1">
-                            <a
-                              href="#"
-                              className="dropdown-item"
-                              onClick={() => setModalData(hook)}
-                            >
-                              Edit
-                            </a>
-                            <a
-                              href="#"
-                              className="dropdown-item"
-                              onClick={async (e) => {
-                                e.preventDefault();
-                                await apiCall(`/custom-hooks/${hook.id}`, {
-                                  method: "PUT",
-                                  body: JSON.stringify({
-                                    enabled: !hook.enabled,
-                                  }),
-                                });
-                                await mutate();
-                              }}
-                            >
-                              {hook.enabled ? "Disable" : "Enable"}
-                            </a>
-                            <DeleteButton
-                              useIcon={false}
-                              text="Delete"
-                              displayName="custom hook"
-                              onClick={async () => {
-                                await apiCall(`/custom-hooks/${hook.id}`, {
-                                  method: "DELETE",
-                                });
-                                await mutate();
-                              }}
-                              className="dropdown-item text-danger"
-                            />
-                          </MoreMenu>
-                        </Flex>
+                            Preview Code
+                          </a>
+                          <a
+                            href="#"
+                            className="dropdown-item"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setModalData(hook);
+                            }}
+                          >
+                            Edit
+                          </a>
+                          <a
+                            href="#"
+                            className="dropdown-item"
+                            onClick={async (e) => {
+                              e.preventDefault();
+                              await apiCall(`/custom-hooks/${hook.id}`, {
+                                method: "PUT",
+                                body: JSON.stringify({
+                                  enabled: !hook.enabled,
+                                }),
+                              });
+                              await mutate();
+                            }}
+                          >
+                            {hook.enabled ? "Disable" : "Enable"}
+                          </a>
+                          <DeleteButton
+                            useIcon={false}
+                            text="Delete"
+                            displayName="custom hook"
+                            onClick={async () => {
+                              await apiCall(`/custom-hooks/${hook.id}`, {
+                                method: "DELETE",
+                              });
+                              await mutate();
+                            }}
+                            className="dropdown-item text-danger"
+                          />
+                        </MoreMenu>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -237,7 +232,7 @@ export default function CustomHooksPage() {
                     <TableColumnHeader>Name</TableColumnHeader>
                     <TableColumnHeader>Type</TableColumnHeader>
                     <TableColumnHeader>Feature</TableColumnHeader>
-                    <TableColumnHeader style={{ width: 40 }} />
+                    <TableColumnHeader style={{ width: 50 }} />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -251,28 +246,23 @@ export default function CustomHooksPage() {
                       </TableCell>
                       <TableCell>{hook.hook}</TableCell>
                       <TableCell>
-                        <a href={`/features/${hook.entityId}#validation`}>
+                        <Link href={`/features/${hook.entityId}#validation`}>
                           {hook.entityId}
-                        </a>
+                        </Link>
                       </TableCell>
                       <TableCell>
-                        <Flex align="center" justify="end">
-                          <Tooltip
-                            body="View code"
-                            usePortal
-                            className="d-inline-flex align-items-center"
+                        <MoreMenu useRadix iconButtonSize="1">
+                          <a
+                            href="#"
+                            className="dropdown-item"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setViewCodeHook(hook);
+                            }}
                           >
-                            <IconButton
-                              variant="ghost"
-                              color="gray"
-                              size="1"
-                              onClick={() => setViewCodeHook(hook)}
-                              aria-label="View hook code"
-                            >
-                              <PiCode />
-                            </IconButton>
-                          </Tooltip>
-                        </Flex>
+                            Preview Code
+                          </a>
+                        </MoreMenu>
                       </TableCell>
                     </TableRow>
                   ))}

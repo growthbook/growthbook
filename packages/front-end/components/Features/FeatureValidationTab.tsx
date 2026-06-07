@@ -5,8 +5,8 @@ import {
   MinimalFeatureRevisionInterface,
 } from "shared/types/feature-revision";
 import { useMemo, useState } from "react";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiCode } from "react-icons/pi";
+import { Box, Flex } from "@radix-ui/themes";
+import { PiArrowSquareOut } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -15,7 +15,6 @@ import { isCloud } from "@/services/env";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Button from "@/ui/Button";
-import Callout from "@/ui/Callout";
 import Table, {
   TableHeader,
   TableBody,
@@ -31,7 +30,9 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import JSONValidation from "@/components/Features/JSONValidation";
 import CustomHookModal from "@/components/Features/CustomHookModal";
 import Badge from "@/ui/Badge";
-import Link from "@/ui/Link";
+import PremiumCallout from "@/ui/PremiumCallout";
+import Text from "@/ui/Text";
+import LinkButton from "@/ui/LinkButton";
 
 export default function FeatureValidationTab({
   feature,
@@ -121,11 +122,7 @@ function CustomHooksSection({
 }) {
   const { hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
-  const { apiCall } = useAuth();
   const [modalData, setModalData] = useState<null | true | CustomHookInterface>(
-    null,
-  );
-  const [viewCodeHook, setViewCodeHook] = useState<CustomHookInterface | null>(
     null,
   );
 
@@ -168,27 +165,9 @@ function CustomHooksSection({
           onSave={() => mutate()}
         />
       )}
-      {viewCodeHook && (
-        <CustomHookCodeModal
-          hook={viewCodeHook}
-          close={() => setViewCodeHook(null)}
-        />
-      )}
-      <Flex align="center" gap="1" mb="1">
-        <Heading as="h3" size="medium" mb="0">
-          Custom Hooks
-        </Heading>
-        <div className="ml-auto">
-          <Tooltip body={disableReason} shouldDisplay={!!disableReason}>
-            <Button
-              onClick={() => setModalData(true)}
-              disabled={!hasAccessToCustomHooks || !canManage}
-            >
-              Add Custom Hook
-            </Button>
-          </Tooltip>
-        </div>
-      </Flex>
+      <Heading as="h3" size="medium" mb="1">
+        Custom Hooks
+      </Heading>
       <Box mb="3">
         <em className="text-muted">
           Run sandboxed JavaScript validation before this feature is saved.
@@ -196,108 +175,188 @@ function CustomHooksSection({
       </Box>
 
       {!hasAccessToCustomHooks ? (
-        <Callout status="info">
+        <PremiumCallout
+          commercialFeature="custom-hooks"
+          id="custom-hooks-validation-tab"
+        >
           Custom Hooks require an Enterprise plan.
-        </Callout>
-      ) : applicableHooks.length === 0 ? (
-        <p className="text-muted">No custom hooks apply to this feature yet.</p>
+        </PremiumCallout>
       ) : (
-        <Table variant="list" stickyHeader roundedCorners>
-          <TableHeader>
-            <TableRow>
-              <TableColumnHeader>Name</TableColumnHeader>
-              <TableColumnHeader>Type</TableColumnHeader>
-              <TableColumnHeader>Scope</TableColumnHeader>
-              <TableColumnHeader>Incremental</TableColumnHeader>
-              <TableColumnHeader style={{ width: canManage ? 80 : 40 }} />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {applicableHooks.map((hook) => {
-              const featureScoped = isFeatureScopedHook(hook, feature);
-              return (
-                <TableRow key={hook.id}>
-                  <TableCell>
-                    {hook.name}
-                    {!hook.enabled ? (
-                      <Badge color="gray" label="Disabled" />
-                    ) : null}
-                  </TableCell>
-                  <TableCell>{hook.hook}</TableCell>
-                  <TableCell>{getHookScopeLabel(hook, feature)}</TableCell>
-                  <TableCell>
-                    {hook.incrementalChangesOnly ? "Yes" : "No"}
-                  </TableCell>
-                  <TableCell>
-                    <Flex align="center" justify="end" gap="1">
-                      <Tooltip body="View code" usePortal>
-                        <IconButton
-                          variant="ghost"
-                          color="gray"
-                          size="1"
-                          onClick={() => setViewCodeHook(hook)}
-                          aria-label="View hook code"
-                        >
-                          <PiCode />
-                        </IconButton>
-                      </Tooltip>
-                      {canManage && featureScoped && (
-                        <MoreMenu>
-                          <a
-                            href="#"
-                            className="dropdown-item"
-                            onClick={() => setModalData(hook)}
-                          >
-                            Edit
-                          </a>
-                          <a
-                            href="#"
-                            className="dropdown-item"
-                            onClick={async (e) => {
-                              e.preventDefault();
-                              await apiCall(`/custom-hooks/${hook.id}`, {
-                                method: "PUT",
-                                body: JSON.stringify({
-                                  enabled: !hook.enabled,
-                                }),
-                              });
-                              await mutate();
-                            }}
-                          >
-                            {hook.enabled ? "Disable" : "Enable"}
-                          </a>
-                          <DeleteButton
-                            useIcon={false}
-                            text="Delete"
-                            displayName="custom hook"
-                            onClick={async () => {
-                              await apiCall(`/custom-hooks/${hook.id}`, {
-                                method: "DELETE",
-                              });
-                              await mutate();
-                            }}
-                            className="dropdown-item text-danger"
-                          />
-                        </MoreMenu>
-                      )}
-                    </Flex>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      )}
-      {hasAccessToCustomHooks && (
-        <Box mt="3">
-          <Callout status="info">
-            Admins can manage global and project-scoped hooks in{" "}
-            <Link href="/settings/custom-hooks">
-              Settings &gt; Custom Hooks
-            </Link>
-          </Callout>
-        </Box>
+        <>
+          <Flex align="center" gap="1" mb="1">
+            <Heading as="h4" size="small" mb="0">
+              Feature-specific Hooks
+            </Heading>
+            <div className="ml-auto">
+              <Tooltip body={disableReason} shouldDisplay={!!disableReason}>
+                <Button
+                  onClick={() => setModalData(true)}
+                  disabled={!hasAccessToCustomHooks || !canManage}
+                >
+                  Add Feature Hook
+                </Button>
+              </Tooltip>
+            </div>
+          </Flex>
+          <CustomHooksTable
+            hooks={applicableHooks.filter((hook) => !!hook.entityId)}
+            feature={feature}
+            canManage={canManage}
+            setModalData={setModalData}
+            mutate={mutate}
+          />
+
+          <Flex align="center" gap="1" mb="1" mt="5" pt="5">
+            <Heading as="h4" size="small" mb="0">
+              Global/Project Hooks
+            </Heading>
+            <div className="ml-auto">
+              <LinkButton
+                href="/settings/custom-hooks"
+                variant="soft"
+                disabled={!hasAccessToCustomHooks || !canManage}
+              >
+                Manage in Settings <PiArrowSquareOut />
+              </LinkButton>
+            </div>
+          </Flex>
+
+          <CustomHooksTable
+            hooks={applicableHooks.filter((hook) => !hook.entityId)}
+            feature={feature}
+            canManage={canManage}
+            setModalData={setModalData}
+            mutate={mutate}
+          />
+        </>
       )}
     </Box>
+  );
+}
+
+function CustomHooksTable({
+  hooks,
+  feature,
+  canManage,
+  mutate,
+  setModalData,
+}: {
+  hooks: CustomHookInterface[];
+  feature: FeatureInterface;
+  canManage: boolean;
+  setModalData: (hook: CustomHookInterface) => void;
+  mutate: () => void;
+}) {
+  const { apiCall } = useAuth();
+  const [viewCodeHook, setViewCodeHook] = useState<CustomHookInterface | null>(
+    null,
+  );
+
+  if (!hooks.length) {
+    return (
+      <Text color="text-low">
+        <em>No custom hooks yet.</em>
+      </Text>
+    );
+  }
+
+  return (
+    <>
+      {viewCodeHook && (
+        <CustomHookCodeModal
+          hook={viewCodeHook}
+          close={() => setViewCodeHook(null)}
+        />
+      )}
+      <Table variant="list" stickyHeader roundedCorners>
+        <TableHeader>
+          <TableRow>
+            <TableColumnHeader>Name</TableColumnHeader>
+            <TableColumnHeader>Type</TableColumnHeader>
+            <TableColumnHeader>Scope</TableColumnHeader>
+            <TableColumnHeader>Incremental</TableColumnHeader>
+            <TableColumnHeader style={{ width: 50 }} />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {hooks.map((hook) => {
+            const featureScoped = isFeatureScopedHook(hook, feature);
+            return (
+              <TableRow key={hook.id}>
+                <TableCell>
+                  {hook.name}
+                  {!hook.enabled ? (
+                    <Badge color="gray" label="Disabled" />
+                  ) : null}
+                </TableCell>
+                <TableCell>{hook.hook}</TableCell>
+                <TableCell>{getHookScopeLabel(hook, feature)}</TableCell>
+                <TableCell>
+                  {hook.incrementalChangesOnly ? "Yes" : "No"}
+                </TableCell>
+                <TableCell>
+                  <MoreMenu>
+                    <a
+                      href="#"
+                      className="dropdown-item"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setViewCodeHook(hook);
+                      }}
+                    >
+                      Preview Code
+                    </a>
+                    {canManage && featureScoped && (
+                      <a
+                        href="#"
+                        className="dropdown-item"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setModalData(hook);
+                        }}
+                      >
+                        Edit
+                      </a>
+                    )}
+                    {canManage && featureScoped && (
+                      <a
+                        href="#"
+                        className="dropdown-item"
+                        onClick={async (e) => {
+                          e.preventDefault();
+                          await apiCall(`/custom-hooks/${hook.id}`, {
+                            method: "PUT",
+                            body: JSON.stringify({
+                              enabled: !hook.enabled,
+                            }),
+                          });
+                          await mutate();
+                        }}
+                      >
+                        {hook.enabled ? "Disable" : "Enable"}
+                      </a>
+                    )}
+                    {canManage && featureScoped && (
+                      <DeleteButton
+                        useIcon={false}
+                        text="Delete"
+                        displayName="custom hook"
+                        onClick={async () => {
+                          await apiCall(`/custom-hooks/${hook.id}`, {
+                            method: "DELETE",
+                          });
+                          await mutate();
+                        }}
+                        className="dropdown-item text-danger"
+                      />
+                    )}
+                  </MoreMenu>
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </>
   );
 }
