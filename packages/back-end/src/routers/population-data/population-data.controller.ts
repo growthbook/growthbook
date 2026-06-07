@@ -1,5 +1,4 @@
 import { z } from "zod";
-import md5 from "md5";
 import type { Response } from "express";
 import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
@@ -13,6 +12,7 @@ import {
   getIntegrationFromDatasourceId,
   getSourceIntegrationObject,
 } from "back-end/src/services/datasource";
+import { hashObject } from "back-end/src/util/hash.util";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { PopulationDataQueryRunner } from "back-end/src/queryRunners/PopulationDataQueryRunner";
@@ -27,8 +27,6 @@ import { PrivateApiErrorResponse } from "back-end/types/api";
 type CreatePopulationDataProps = z.infer<
   typeof createPopulationDataPropsValidator
 >;
-
-const hashObject = (obj: object) => md5(JSON.stringify(obj));
 
 // Cache-validation hashes for population data. These are version stamps
 // (id + dateUpdated of every definition the queries read), not field-by-field
@@ -65,10 +63,15 @@ function getPopulationSourceSettingsHash({
 
 function getPopulationMetricSettingsHash(
   metric: ExperimentMetricInterface,
+  metricMap: Map<string, ExperimentMetricInterface>,
   factTableMap: FactTableMap,
 ): string {
   // Fact table edits (sql, filters) don't bump the metric's own dateUpdated
   const factTableStamps: { id: string; dateUpdated: Date | null }[] = [];
+  // A classic ratio metric's denominator is another metric, resolved by id at
+  // query time — editing it doesn't bump this metric's dateUpdated either
+  let denominatorMetricStamp: { id: string; dateUpdated: Date | null } | null =
+    null;
   if (isFactMetric(metric)) {
     [metric.numerator.factTableId, metric.denominator?.factTableId].forEach(
       (factTableId) => {
@@ -79,11 +82,17 @@ function getPopulationMetricSettingsHash(
         });
       },
     );
+  } else if (metric.denominator) {
+    denominatorMetricStamp = {
+      id: metric.denominator,
+      dateUpdated: metricMap.get(metric.denominator)?.dateUpdated ?? null,
+    };
   }
   return hashObject({
     id: metric.id,
     dateUpdated: metric.dateUpdated ?? null,
     factTables: factTableStamps,
+    denominatorMetric: denominatorMetricStamp,
   });
 }
 
@@ -121,19 +130,17 @@ export const postPopulationData = async (
   }
 
   // see if one exists from the last 7 days
-  const populationData =
-    await context.models.populationData.getRecentUsingSettings(
+  const [populationData, metricMap, factTableMap, segment] = await Promise.all([
+    context.models.populationData.getRecentUsingSettings(
       data.sourceId,
       data.userIdType,
-    );
-
-  const metricMap = await getMetricMap(context);
-  const factTableMap = await getFactTableMap(context);
-
-  const segment =
+    ),
+    getMetricMap(context),
+    getFactTableMap(context),
     data.sourceType === "segment"
-      ? await context.models.segments.getById(data.sourceId)
-      : null;
+      ? context.models.segments.getById(data.sourceId)
+      : null,
+  ]);
   const sourceFactTable =
     data.sourceType === "factTable"
       ? (factTableMap.get(data.sourceId) ?? null)
@@ -154,6 +161,7 @@ export const postPopulationData = async (
     if (metric) {
       metricSettingsHashes[metricId] = getPopulationMetricSettingsHash(
         metric,
+        metricMap,
         factTableMap,
       );
     }
@@ -196,7 +204,7 @@ export const postPopulationData = async (
     populationData.sourceSettingsHash === sourceSettingsHash
   ) {
     // Only reuse a cached metric if it was computed from the current metric
-    // definition; re-query metrics whose definition changed since.
+    // definition; a metric is stale if its definition changed since.
     const cachedValidMetricIds = new Set(
       populationData.metrics
         .filter((m) => {
@@ -208,16 +216,16 @@ export const postPopulationData = async (
         })
         .map((m) => m.metricId),
     );
-    // only ask for new or stale metrics
-    snapshotSettings.goalMetrics = data.metricIds.filter(
-      (m) => !cachedValidMetricIds.has(m),
-    );
-    if (snapshotSettings.goalMetrics.length === 0) {
+    if (data.metricIds.every((m) => cachedValidMetricIds.has(m))) {
       return res.status(200).json({
         status: 200,
         populationData,
       });
     }
+    // Otherwise re-query ALL requested metrics, not just the new/stale ones:
+    // the document created below becomes the most recent cache entry and the
+    // front-end reads a single document, so a partial document would leave
+    // the omitted (still-valid) metrics looking like they have no data.
     // TODO: incrementally do an update
   }
 

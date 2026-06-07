@@ -1,4 +1,3 @@
-import md5 from "md5";
 import { isFactMetricId, expandMetricGroups } from "shared/experiments";
 import { SAFE_ROLLOUT_VARIATIONS } from "shared/constants";
 import {
@@ -17,6 +16,7 @@ import {
   FactTableInterface,
 } from "shared/types/fact-table";
 import { ReqContext } from "back-end/types/request";
+import { hashObject } from "back-end/src/util/hash.util";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { logger } from "back-end/src/util/logger";
 import { getFiltersForHash } from "back-end/src/services/experimentTimeSeries";
@@ -138,8 +138,6 @@ function convertMetricToMetricValue(
     chanceToWin: metric.chanceToWin ?? undefined,
   };
 }
-
-const hashObject = (obj: object) => md5(JSON.stringify(obj));
 
 function getSafeRolloutSettingsHash(
   snapshotSettings: SafeRolloutSnapshotSettings,

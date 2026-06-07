@@ -1,4 +1,3 @@
-import md5 from "md5";
 import {
   getAllExpandedMetricIdsFromExperiment,
   isFactMetricId,
@@ -31,6 +30,7 @@ import {
   ColumnRef,
 } from "shared/types/fact-table";
 import { ReqContext } from "back-end/types/request";
+import { hashObject } from "back-end/src/util/hash.util";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getTimeSeriesAnalyses } from "back-end/src/services/experimentDimensionTimeSeries";
@@ -331,8 +331,6 @@ function convertMetricToMetricValue(
     chanceToWin: metric.chanceToWin ?? undefined,
   };
 }
-
-const hashObject = (obj: object) => md5(JSON.stringify(obj));
 
 function getExperimentSettingsHash(
   snapshotSettings: ExperimentSnapshotSettings,

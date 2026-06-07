@@ -1,4 +1,3 @@
-import md5 from "md5";
 import {
   ExperimentMetricInterface,
   isFactMetric,
@@ -17,6 +16,7 @@ import {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
+import { hashObject } from "back-end/src/util/hash.util";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
@@ -168,8 +168,6 @@ export async function validateIncrementalPipeline({
   }
 }
 
-const hashObject = (obj: object) => md5(JSON.stringify(obj));
-
 // Version prefix for the experiment settings hash. Bump whenever the set of
 // hashed inputs changes so that hashes stored by older builds can still be
 // compared with the matching legacy function below — a raw input change would
@@ -236,6 +234,48 @@ export type SnapshotSettingsForIncrementalRefreshExhaustivenessCheck =
 // so the definitions themselves must be hashed — otherwise rows produced by
 // the new definition get appended to a table built with the old one and the
 // mixed data is analyzed as if it were consistent.
+//
+// The same classification discipline applies to these definition objects:
+// when a field is added to ExposureQuery or SegmentInterface, the guards
+// below fail to compile until it's classified as hashed or ignored.
+type HashedExposureQueryField = "query" | "userIdType";
+type IgnoredExposureQueryField =
+  | "id" // hashed via snapshotSettings.exposureQueryId
+  | "name"
+  | "description" // cosmetic
+  | "hasNameCol" // display-only
+  | "dimensions"
+  | "dimensionSlicesId"
+  | "dimensionMetadata" // gated by unitsDimensions / recomputed at analysis time
+  | "error"; // transient status
+export type ExposureQueryForIncrementalRefreshExhaustivenessCheck = AssertNever<
+  Exclude<
+    keyof ExposureQuery,
+    HashedExposureQueryField | IgnoredExposureQueryField
+  >
+>;
+
+type HashedSegmentField =
+  | "type"
+  | "sql"
+  | "userIdType"
+  | "factTableId"
+  | "filters"; // resolved to filter SQL below
+type IgnoredSegmentField =
+  | "id" // hashed via snapshotSettings.segment
+  | "organization"
+  | "owner"
+  | "datasource" // hashed via snapshotSettings.datasourceId
+  | "dateCreated"
+  | "dateUpdated"
+  | "name"
+  | "description" // cosmetic
+  | "managedBy"
+  | "projects"; // access control, not SQL
+export type SegmentForIncrementalRefreshExhaustivenessCheck = AssertNever<
+  Exclude<keyof SegmentInterface, HashedSegmentField | IgnoredSegmentField>
+>;
+
 function getSegmentSettingsForHash(
   segment: SegmentInterface | null,
   factTableMap: FactTableMap,
@@ -389,6 +429,11 @@ type UnhandledComputedSettingsFieldForIncrementalRefresh = Exclude<
 export type ComputedSettingsForIncrementalRefreshExhaustivenessCheck =
   AssertNever<UnhandledComputedSettingsFieldForIncrementalRefresh>;
 
+// NOTE: like the experiment settings hash above, this hash is stored (on
+// each metric source) and compared across deploys. If the set of hashed
+// inputs here ever changes, apply the same version-prefix + legacy-comparison
+// treatment used for the experiment settings hash — a raw input change would
+// invalidate every stored metric source on deploy.
 export function getMetricSettingsHashForIncrementalRefresh({
   factMetric,
   factTableMap,
