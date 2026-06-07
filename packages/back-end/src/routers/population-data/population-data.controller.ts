@@ -1,24 +1,100 @@
 import { z } from "zod";
 import type { Response } from "express";
+import { ExperimentMetricInterface, isFactMetric } from "shared/experiments";
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { PopulationDataInterface } from "shared/types/population-data";
 import type { PopulationDataQuerySettings } from "shared/types/query";
+import { DataSourceInterface } from "shared/types/datasource";
+import { SegmentInterface } from "shared/types/segment";
+import { FactTableInterface } from "shared/types/fact-table";
 import { createPopulationDataPropsValidator } from "shared/validators";
 import {
   getIntegrationFromDatasourceId,
   getSourceIntegrationObject,
 } from "back-end/src/services/datasource";
+import { hashObject } from "back-end/src/util/hash.util";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { PopulationDataQueryRunner } from "back-end/src/queryRunners/PopulationDataQueryRunner";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
-import { getFactTableMap } from "back-end/src/models/FactTableModel";
+import {
+  getFactTableMap,
+  FactTableMap,
+} from "back-end/src/models/FactTableModel";
 import { PrivateApiErrorResponse } from "back-end/types/api";
 
 type CreatePopulationDataProps = z.infer<
   typeof createPopulationDataPropsValidator
 >;
+
+// Cache-validation hashes for population data. These are version stamps
+// (id + dateUpdated of every definition the queries read), not field-by-field
+// hashes: any edit to a definition invalidates the cached data, including
+// edits the queries don't depend on. Over-invalidation just costs a re-query;
+// silently reusing data computed from an older definition skews the power
+// estimates without any signal to the user.
+function getPopulationSourceSettingsHash({
+  datasource,
+  sourceType,
+  sourceId,
+  userIdType,
+  segment,
+  factTable,
+}: {
+  datasource: DataSourceInterface;
+  sourceType: CreatePopulationDataProps["sourceType"];
+  sourceId: string;
+  userIdType: string;
+  segment: SegmentInterface | null;
+  factTable: FactTableInterface | null;
+}): string {
+  return hashObject({
+    datasourceId: datasource.id,
+    // Covers exposure/identity-join settings used to join id types
+    datasourceDateUpdated: datasource.dateUpdated ?? null,
+    sourceType,
+    sourceId,
+    userIdType,
+    segmentDateUpdated: segment?.dateUpdated ?? null,
+    factTableDateUpdated: factTable?.dateUpdated ?? null,
+  });
+}
+
+function getPopulationMetricSettingsHash(
+  metric: ExperimentMetricInterface,
+  metricMap: Map<string, ExperimentMetricInterface>,
+  factTableMap: FactTableMap,
+): string {
+  // Fact table edits (sql, filters) don't bump the metric's own dateUpdated
+  const factTableStamps: { id: string; dateUpdated: Date | null }[] = [];
+  // A classic ratio metric's denominator is another metric, resolved by id at
+  // query time — editing it doesn't bump this metric's dateUpdated either
+  let denominatorMetricStamp: { id: string; dateUpdated: Date | null } | null =
+    null;
+  if (isFactMetric(metric)) {
+    [metric.numerator.factTableId, metric.denominator?.factTableId].forEach(
+      (factTableId) => {
+        if (!factTableId) return;
+        factTableStamps.push({
+          id: factTableId,
+          dateUpdated: factTableMap.get(factTableId)?.dateUpdated ?? null,
+        });
+      },
+    );
+  } else if (metric.denominator) {
+    denominatorMetricStamp = {
+      id: metric.denominator,
+      dateUpdated: metricMap.get(metric.denominator)?.dateUpdated ?? null,
+    };
+  }
+  return hashObject({
+    id: metric.id,
+    dateUpdated: metric.dateUpdated ?? null,
+    factTables: factTableStamps,
+    denominatorMetric: denominatorMetricStamp,
+  });
+}
 
 export const postPopulationData = async (
   req: AuthRequest<CreatePopulationDataProps>,
@@ -54,11 +130,42 @@ export const postPopulationData = async (
   }
 
   // see if one exists from the last 7 days
-  const populationData =
-    await context.models.populationData.getRecentUsingSettings(
+  const [populationData, metricMap, factTableMap, segment] = await Promise.all([
+    context.models.populationData.getRecentUsingSettings(
       data.sourceId,
       data.userIdType,
-    );
+    ),
+    getMetricMap(context),
+    getFactTableMap(context),
+    data.sourceType === "segment"
+      ? context.models.segments.getById(data.sourceId)
+      : null,
+  ]);
+  const sourceFactTable =
+    data.sourceType === "factTable"
+      ? (factTableMap.get(data.sourceId) ?? null)
+      : null;
+
+  const sourceSettingsHash = getPopulationSourceSettingsHash({
+    datasource: integration.datasource,
+    sourceType: data.sourceType,
+    sourceId: data.sourceId,
+    userIdType: data.userIdType,
+    segment,
+    factTable: sourceFactTable,
+  });
+
+  const metricSettingsHashes: Record<string, string> = {};
+  data.metricIds.forEach((metricId) => {
+    const metric = metricMap.get(metricId);
+    if (metric) {
+      metricSettingsHashes[metricId] = getPopulationMetricSettingsHash(
+        metric,
+        metricMap,
+        factTableMap,
+      );
+    }
+  });
 
   const snapshotSettings: ExperimentSnapshotSettings = {
     dimensions: [],
@@ -86,24 +193,39 @@ export const postPopulationData = async (
     variations: [],
   };
 
-  // TODO hash metric and datasource to validate cache and let force refresh override
   // TODO incrementally update metrics
   if (
     !data.force &&
     populationData &&
-    populationData.datasourceId === data.datasourceId
+    populationData.datasourceId === data.datasourceId &&
+    // The population (units) side must have been computed from the same
+    // datasource/segment/fact table definitions. Documents written before
+    // hashes existed have no sourceSettingsHash and are treated as stale.
+    populationData.sourceSettingsHash === sourceSettingsHash
   ) {
-    const populationMetrics = populationData.metrics.map((m) => m.metricId);
-    // only ask for new metrics
-    snapshotSettings.goalMetrics = data.metricIds.filter(
-      (m) => !populationMetrics.includes(m),
+    // Only reuse a cached metric if it was computed from the current metric
+    // definition; a metric is stale if its definition changed since.
+    const cachedValidMetricIds = new Set(
+      populationData.metrics
+        .filter((m) => {
+          const storedHash = populationData.metricSettingsHashes?.[m.metricId];
+          return (
+            storedHash !== undefined &&
+            storedHash === metricSettingsHashes[m.metricId]
+          );
+        })
+        .map((m) => m.metricId),
     );
-    if (snapshotSettings.goalMetrics.length === 0) {
+    if (data.metricIds.every((m) => cachedValidMetricIds.has(m))) {
       return res.status(200).json({
         status: 200,
         populationData,
       });
     }
+    // Otherwise re-query ALL requested metrics, not just the new/stale ones:
+    // the document created below becomes the most recent cache entry and the
+    // front-end reads a single document, so a partial document would leave
+    // the omitted (still-valid) metrics looking like they have no data.
     // TODO: incrementally do an update
   }
 
@@ -123,6 +245,14 @@ export const postPopulationData = async (
     runStarted: null,
     status: "running",
 
+    sourceSettingsHash,
+    // Only the metrics this document will actually contain data for
+    metricSettingsHashes: Object.fromEntries(
+      snapshotSettings.goalMetrics
+        .filter((metricId) => metricSettingsHashes[metricId] !== undefined)
+        .map((metricId) => [metricId, metricSettingsHashes[metricId]]),
+    ),
+
     units: [],
     metrics: [],
   });
@@ -132,9 +262,6 @@ export const postPopulationData = async (
     integration,
     true,
   );
-
-  const metricMap = await getMetricMap(context);
-  const factTableMap = await getFactTableMap(context);
 
   await queryRunner
     .startAnalysis({

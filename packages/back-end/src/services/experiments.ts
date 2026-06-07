@@ -1327,7 +1327,7 @@ function resolveFullRefresh(
 }
 
 async function planSnapshotQueryRunner({
-  organization,
+  context,
   datasource,
   integration,
   snapshotSettings,
@@ -1338,7 +1338,7 @@ async function planSnapshotQueryRunner({
   snapshotType,
   fullRefresh,
 }: {
-  organization: OrganizationInterface;
+  context: ReqContext | ApiReqContext;
   datasource: DataSourceInterface;
   integration: SourceIntegrationInterface;
   snapshotSettings: ExperimentSnapshotSettings;
@@ -1366,7 +1366,7 @@ async function planSnapshotQueryRunner({
 
   try {
     await validateIncrementalPipeline({
-      org: organization,
+      context,
       integration,
       snapshotSettings,
       metricMap,
@@ -1526,7 +1526,7 @@ export async function planSnapshot({
   const integration = getSourceIntegrationObject(context, datasource, true);
 
   const runnerPlan = await planSnapshotQueryRunner({
-    organization,
+    context,
     datasource,
     integration,
     snapshotSettings: data.settings,

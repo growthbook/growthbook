@@ -65,6 +65,11 @@ export const populationDataInterfaceValidator = z
     sourceId: z.string(),
     userIdType: z.string(),
 
+    // Cache-validation hashes. Older documents don't have them and are
+    // treated as stale by the cache lookup.
+    sourceSettingsHash: z.string().optional(),
+    metricSettingsHashes: z.record(z.string(), z.string()).optional(),
+
     // data
     units: z.array(
       z.object({

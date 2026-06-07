@@ -384,7 +384,7 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
     }
 
     await validateIncrementalPipeline({
-      org: this.context.org,
+      context: this.context,
       integration: this.integration,
       snapshotSettings: params.snapshotSettings,
       metricMap: params.metricMap,
