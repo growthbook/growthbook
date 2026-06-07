@@ -1,8 +1,12 @@
 import { FeatureInterface } from "shared/types/feature";
 import { CustomHookInterface } from "shared/validators";
-import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import { useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import {
+  FeatureRevisionInterface,
+  MinimalFeatureRevisionInterface,
+} from "shared/types/feature-revision";
+import { useMemo, useState } from "react";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { PiCode } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -12,18 +16,32 @@ import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import Code from "@/components/SyntaxHighlighting/Code";
 import JSONValidation from "@/components/Features/JSONValidation";
 import CustomHookModal from "@/components/Features/CustomHookModal";
+import Badge from "@/ui/Badge";
+import Link from "@/ui/Link";
 
 export default function FeatureValidationTab({
   feature,
+  revision,
   mutate,
   setVersion,
   revisionList,
 }: {
   feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
   mutate: () => void;
   setVersion?: (version: number) => void;
   revisionList?: MinimalFeatureRevisionInterface[];
@@ -45,44 +63,99 @@ export default function FeatureValidationTab({
       {/* Custom Hooks are self-hosted only */}
       {!isCloud() && (
         <Frame mb="4" px="6" py="4">
-          <CustomHooksSection feature={feature} />
+          <CustomHooksSection feature={feature} revision={revision} />
         </Frame>
       )}
     </div>
   );
 }
 
-function CustomHooksSection({ feature }: { feature: FeatureInterface }) {
-  const { hasCommercialFeature, settings } = useUser();
+function getHookScopeLabel(
+  hook: CustomHookInterface,
+  feature: FeatureInterface,
+): string {
+  if (hook.entityType === "feature" && hook.entityId === feature.id) {
+    return "Feature";
+  }
+  if (hook.projects.length) {
+    return "Project";
+  }
+  return "Global";
+}
+
+function isFeatureScopedHook(
+  hook: CustomHookInterface,
+  feature: FeatureInterface,
+): boolean {
+  return hook.entityType === "feature" && hook.entityId === feature.id;
+}
+
+function CustomHookCodeModal({
+  hook,
+  close,
+}: {
+  hook: CustomHookInterface;
+  close: () => void;
+}) {
+  return (
+    <ModalStandard
+      open
+      header={hook.name}
+      subheader={hook.hook}
+      close={close}
+      closeCta="Close"
+      size="lg"
+      trackingEventModalType=""
+    >
+      <Code language="javascript" code={hook.code} />
+    </ModalStandard>
+  );
+}
+
+function CustomHooksSection({
+  feature,
+  revision,
+}: {
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+}) {
+  const { hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const { apiCall } = useAuth();
   const [modalData, setModalData] = useState<null | true | CustomHookInterface>(
     null,
   );
+  const [viewCodeHook, setViewCodeHook] = useState<CustomHookInterface | null>(
+    null,
+  );
 
-  const hasCustomHooks = hasCommercialFeature("custom-hooks");
+  const hasAccessToCustomHooks = hasCommercialFeature("custom-hooks");
 
   const { data, mutate } = useApi<{ customHooks: CustomHookInterface[] }>(
     "/custom-hooks",
-    { shouldRun: () => hasCustomHooks },
+    { shouldRun: () => hasAccessToCustomHooks },
   );
 
-  const canManage = permissionsUtil.canManageFeatureCustomHooks(
-    feature,
-    !!settings.allowPerFeatureCustomHooks,
+  const canManage = permissionsUtil.canManageFeatureCustomHooks(feature);
+
+  const applicableHooks = useMemo(
+    () =>
+      (data?.customHooks || []).filter(
+        (h) =>
+          (h.entityType === "feature" && h.entityId === feature.id) ||
+          (!h.entityType &&
+            (!h.projects.length || h.projects.includes(feature.project || ""))),
+      ),
+    [data, feature.id, feature.project],
   );
 
-  const allHooks = data?.customHooks || [];
-  // Global/project hooks that also apply to this feature (read-only here)
-  const inheritedHooks = allHooks.filter(
-    (h) =>
-      !h.entityType &&
-      (!h.projects.length || h.projects.includes(feature.project || "")),
-  );
-  // Hooks scoped specifically to this feature
-  const featureHooks = allHooks.filter(
-    (h) => h.entityType === "feature" && h.entityId === feature.id,
-  );
+  let disableReason = "";
+  if (!hasAccessToCustomHooks) {
+    disableReason = "Custom Hooks require an Enterprise plan.";
+  } else if (!canManage) {
+    disableReason =
+      "You don't have permission to manage custom hooks for this feature.";
+  }
 
   return (
     <Box>
@@ -90,19 +163,31 @@ function CustomHooksSection({ feature }: { feature: FeatureInterface }) {
         <CustomHookModal
           current={modalData === true ? undefined : modalData}
           feature={feature}
+          revision={revision}
           close={() => setModalData(null)}
           onSave={() => mutate()}
+        />
+      )}
+      {viewCodeHook && (
+        <CustomHookCodeModal
+          hook={viewCodeHook}
+          close={() => setViewCodeHook(null)}
         />
       )}
       <Flex align="center" gap="1" mb="1">
         <Heading as="h3" size="medium" mb="0">
           Custom Hooks
         </Heading>
-        {hasCustomHooks && canManage && (
-          <div className="ml-auto">
-            <Button onClick={() => setModalData(true)}>Add Custom Hook</Button>
-          </div>
-        )}
+        <div className="ml-auto">
+          <Tooltip body={disableReason} shouldDisplay={!!disableReason}>
+            <Button
+              onClick={() => setModalData(true)}
+              disabled={!hasAccessToCustomHooks || !canManage}
+            >
+              Add Custom Hook
+            </Button>
+          </Tooltip>
+        </div>
       </Flex>
       <Box mb="3">
         <em className="text-muted">
@@ -110,35 +195,53 @@ function CustomHooksSection({ feature }: { feature: FeatureInterface }) {
         </em>
       </Box>
 
-      {!hasCustomHooks ? (
+      {!hasAccessToCustomHooks ? (
         <Callout status="info">
           Custom Hooks require an Enterprise plan.
         </Callout>
+      ) : applicableHooks.length === 0 ? (
+        <p className="text-muted">No custom hooks apply to this feature yet.</p>
       ) : (
-        <>
-          <Heading as="h4" size="small" mb="1">
-            Scoped to this feature
-          </Heading>
-          {featureHooks.length === 0 ? (
-            <p className="text-muted">No hooks scoped to this feature yet.</p>
-          ) : (
-            <table className="gbtable table appbox">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Type</th>
-                  <th>Enabled</th>
-                  {canManage && <th style={{ width: 50 }}></th>}
-                </tr>
-              </thead>
-              <tbody>
-                {featureHooks.map((hook) => (
-                  <tr key={hook.id}>
-                    <td data-title="Name">{hook.name}</td>
-                    <td data-title="Type">{hook.hook}</td>
-                    <td data-title="Enabled">{hook.enabled ? "Yes" : "No"}</td>
-                    {canManage && (
-                      <td>
+        <Table variant="list" stickyHeader roundedCorners>
+          <TableHeader>
+            <TableRow>
+              <TableColumnHeader>Name</TableColumnHeader>
+              <TableColumnHeader>Type</TableColumnHeader>
+              <TableColumnHeader>Scope</TableColumnHeader>
+              <TableColumnHeader>Incremental</TableColumnHeader>
+              <TableColumnHeader style={{ width: canManage ? 80 : 40 }} />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {applicableHooks.map((hook) => {
+              const featureScoped = isFeatureScopedHook(hook, feature);
+              return (
+                <TableRow key={hook.id}>
+                  <TableCell>
+                    {hook.name}
+                    {!hook.enabled ? (
+                      <Badge color="gray" label="Disabled" />
+                    ) : null}
+                  </TableCell>
+                  <TableCell>{hook.hook}</TableCell>
+                  <TableCell>{getHookScopeLabel(hook, feature)}</TableCell>
+                  <TableCell>
+                    {hook.incrementalChangesOnly ? "Yes" : "No"}
+                  </TableCell>
+                  <TableCell>
+                    <Flex align="center" justify="end" gap="1">
+                      <Tooltip body="View code" usePortal>
+                        <IconButton
+                          variant="ghost"
+                          color="gray"
+                          size="1"
+                          onClick={() => setViewCodeHook(hook)}
+                          aria-label="View hook code"
+                        >
+                          <PiCode />
+                        </IconButton>
+                      </Tooltip>
+                      {canManage && featureScoped && (
                         <MoreMenu>
                           <a
                             href="#"
@@ -146,6 +249,22 @@ function CustomHooksSection({ feature }: { feature: FeatureInterface }) {
                             onClick={() => setModalData(hook)}
                           >
                             Edit
+                          </a>
+                          <a
+                            href="#"
+                            className="dropdown-item"
+                            onClick={async (e) => {
+                              e.preventDefault();
+                              await apiCall(`/custom-hooks/${hook.id}`, {
+                                method: "PUT",
+                                body: JSON.stringify({
+                                  enabled: !hook.enabled,
+                                }),
+                              });
+                              await mutate();
+                            }}
+                          >
+                            {hook.enabled ? "Disable" : "Enable"}
                           </a>
                           <DeleteButton
                             useIcon={false}
@@ -160,52 +279,24 @@ function CustomHooksSection({ feature }: { feature: FeatureInterface }) {
                             className="dropdown-item text-danger"
                           />
                         </MoreMenu>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-
-          {inheritedHooks.length > 0 && (
-            <Box mt="4">
-              <Heading as="h4" size="small" mb="1">
-                Inherited (global &amp; project)
-              </Heading>
-              <p className="text-muted">
-                These hooks apply to this feature but are managed in Settings →
-                Custom Hooks.
-              </p>
-              <table className="gbtable table appbox">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Type</th>
-                    <th>Scope</th>
-                    <th>Enabled</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {inheritedHooks.map((hook) => (
-                    <tr key={hook.id}>
-                      <td data-title="Name">{hook.name}</td>
-                      <td data-title="Type">{hook.hook}</td>
-                      <td data-title="Scope">
-                        {hook.projects.length
-                          ? "Specific projects"
-                          : "All projects"}
-                      </td>
-                      <td data-title="Enabled">
-                        {hook.enabled ? "Yes" : "No"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </Box>
-          )}
-        </>
+                      )}
+                    </Flex>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      )}
+      {hasAccessToCustomHooks && (
+        <Box mt="3">
+          <Callout status="info">
+            Admins can manage global and project-scoped hooks in{" "}
+            <Link href="/settings/custom-hooks">
+              Settings &gt; Custom Hooks
+            </Link>
+          </Callout>
+        </Box>
       )}
     </Box>
   );

@@ -17,6 +17,7 @@ import Checkbox from "@/ui/Checkbox";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
+import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 
 const dummyFeature: FeatureInterface = {
   id: "new-feature",
@@ -103,6 +104,7 @@ export default function CustomHookModal({
   current,
   onSave,
   feature,
+  revision,
 }: {
   close: () => void;
   current?: CustomHookInterface;
@@ -110,6 +112,9 @@ export default function CustomHookModal({
   // When set, the hook is scoped to this specific feature (entityType/entityId)
   // and the Projects field is hidden.
   feature?: FeatureInterface;
+  // When set alongside `feature`, prefill the `revision` test argument with this
+  // revision so hook testing reflects the object being validated.
+  revision?: FeatureRevisionInterface;
 }) {
   const form = useForm<CreateProps<CustomHookInterface>>({
     defaultValues: {
@@ -117,8 +122,7 @@ export default function CustomHookModal({
       hook: current?.hook || "validateFeature",
       code: current?.code || "",
       projects: current?.projects || [],
-      enabled: current?.enabled ?? true,
-      incrementalChangesOnly: current?.incrementalChangesOnly || false,
+      incrementalChangesOnly: current?.incrementalChangesOnly ?? true,
     },
   });
 
@@ -129,13 +133,17 @@ export default function CustomHookModal({
   const hookType = form.watch("hook");
   const hookTypeData = hookTypes[hookType];
 
-  // For a feature-scoped hook, prefill the `feature` argument with the real
-  // feature so testing reflects the actual object being validated.
+  // For a feature-scoped hook, prefill test arguments with the real feature
+  // and revision so testing reflects the actual objects being validated.
   const initialTestValues = (h: CustomHookType): Record<string, string> =>
     Object.fromEntries(
       Object.entries(hookTypes[h].availableArguments).map(([k, v]) => [
         k,
-        feature && k === "feature" ? stringify(feature) : v.testValue,
+        feature && k === "feature"
+          ? stringify(feature)
+          : revision && k === "revision"
+            ? stringify(revision)
+            : v.testValue,
       ]),
     );
 
@@ -196,14 +204,17 @@ export default function CustomHookModal({
       size="max"
       trackingEventModalType="custom-hooks"
       submit={form.handleSubmit(async (value) => {
-        const body = feature
-          ? {
-              ...value,
-              projects: [],
-              entityType: "feature" as const,
-              entityId: feature.id,
-            }
-          : value;
+        const body = {
+          ...value,
+          enabled: current?.enabled ?? true,
+          ...(feature
+            ? {
+                projects: [],
+                entityType: "feature" as const,
+                entityId: feature.id,
+              }
+            : {}),
+        };
         if (current?.id) {
           await apiCall(`/custom-hooks/${current.id}`, {
             method: "PUT",
@@ -246,13 +257,6 @@ export default function CustomHookModal({
               helpText="Only run this hook for selected projects"
             />
           )}
-          <Checkbox
-            label="Enable this hook"
-            value={form.watch("enabled")}
-            setValue={(value) => form.setValue("enabled", value)}
-            description="Uncheck to disable this hook without deleting it"
-          />
-
           <Separator size="4" mb="4" my="2" />
 
           <strong>Available Variables</strong>
@@ -260,17 +264,26 @@ export default function CustomHookModal({
             {Object.entries(hookTypeData?.availableArguments).map(
               ([arg, { description }]) => (
                 <li key={arg}>
-                  <code>{arg}</code>: {description}
+                  <strong>{arg}</strong>: {description}
                 </li>
               ),
             )}
           </ul>
 
-          <Text as="p" size="small" color="text-low" mb="2">
-            Call <code>throw new Error(...)</code> to block the action, or{" "}
-            <code>addWarning(...)</code> for a soft warning the user can
-            acknowledge and override.
-          </Text>
+          <Callout status="info" mb="4" contentsAs="div">
+            <Flex align="center" wrap={"wrap"} gapX={"2"}>
+              <Text as="span">Call</Text>
+              <InlineCode
+                language="javascript"
+                code="throw new Error('...')"
+              />{" "}
+              <Text>to block the action, or</Text>
+              <InlineCode language="javascript" code="addWarning('...')" />{" "}
+              <Text>
+                for a soft warning the user can acknowledge and override.
+              </Text>
+            </Flex>
+          </Callout>
 
           <CodeTextArea
             language="javascript"
@@ -284,7 +297,7 @@ export default function CustomHookModal({
 
           <Checkbox
             label="Incremental Changes Only"
-            value={form.watch("incrementalChangesOnly") || false}
+            value={form.watch("incrementalChangesOnly") ?? true}
             setValue={(value) => form.setValue("incrementalChangesOnly", value)}
             description="Ignore this hook if the same error was already present before attempting to save."
           />

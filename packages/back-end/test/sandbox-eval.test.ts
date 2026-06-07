@@ -1,4 +1,4 @@
-import { sandboxEval } from "../src/enterprise/sandbox/sandbox-eval";
+import { sandboxEval } from "../src/enterprise/sandbox/sandbox-core";
 
 describe("sandboxEval", () => {
   it("should evaluate a function in a sandboxed environment", async () => {
@@ -87,5 +87,47 @@ describe("sandboxEval", () => {
   it("should return no warnings when addWarning is not called", async () => {
     const result = await sandboxEval("return 1", {});
     expect(result).toEqual({ ok: true, returnVal: 1, log: "", warnings: [] });
+  });
+
+  // Resource-exhaustion guards. Data copied out of the isolate (logs/warnings)
+  // is NOT bounded by the isolate memory limit, so without these caps a tight
+  // log/warning loop could exhaust host memory and crash the Node process.
+  // Defaults: MAX_LOG_CHARS = 64KB, MAX_WARNINGS = 100, MAX_WARNING_CHARS = 64KB.
+  describe("resource limits", () => {
+    it("bounds total console.log output regardless of loop count", async () => {
+      // Each iteration logs a 100KB string; without a cap this retains 100s of MB
+      const result = await sandboxEval(
+        `const s = "x".repeat(100000); for (let i = 0; i < 100000; i++) { console.log(s); } return 1;`,
+        {},
+      );
+      // ~64KB cap plus a short truncation marker
+      expect(result.log.length).toBeLessThanOrEqual(64 * 1024 + 64);
+    });
+
+    it("bounds the count and total size of warnings", async () => {
+      const result = await sandboxEval(
+        `const s = "x".repeat(5000); for (let i = 0; i < 100000; i++) { addWarning(s); } return 1;`,
+        {},
+      );
+      expect(result.warnings.length).toBeLessThanOrEqual(100);
+      expect(result.warnings.join("").length).toBeLessThanOrEqual(
+        64 * 1024 + 200,
+      );
+    });
+
+    it("terminates a long-running async log loop with bounded output", async () => {
+      // Microtask yields (`await null`) stay within the CPU budget; macrotask
+      // yields (e.g. `await fetch`) escape it and are stopped by the wall timer
+      // disposing the isolate. Either way the loop must terminate and the
+      // captured output must stay bounded (no unbounded host-memory growth).
+      const result = await sandboxEval(
+        `const s = "x".repeat(100000); while (true) { console.log(s); await null; }`,
+        {},
+        { cpuTimeoutMS: 100, wallTimeoutMS: 300 },
+      );
+      expect(result.ok).toBe(false);
+      expect(result.error).toEqual(expect.stringContaining("timed out"));
+      expect(result.log.length).toBeLessThanOrEqual(64 * 1024 + 64);
+    });
   });
 });

@@ -984,22 +984,22 @@ describe("canManageFeatureCustomHooks", () => {
 
   const featureResource = { project: "" };
 
-  it("lets admins manage feature hooks regardless of the org setting", () => {
-    const p = getPermissions("admin");
-    expect(p.canManageFeatureCustomHooks(featureResource, false)).toBe(true);
-    expect(p.canManageFeatureCustomHooks(featureResource, true)).toBe(true);
+  it("lets admins manage feature hooks (they have manageFeatures)", () => {
+    expect(
+      getPermissions("admin").canManageFeatureCustomHooks(featureResource),
+    ).toBe(true);
   });
 
-  it("lets feature editors manage only when the org opts in", () => {
-    // engineer has manageFeatures but not manageCustomHooks
-    const p = getPermissions("engineer");
-    expect(p.canManageFeatureCustomHooks(featureResource, false)).toBe(false);
-    expect(p.canManageFeatureCustomHooks(featureResource, true)).toBe(true);
+  it("lets feature editors manage feature hooks", () => {
+    // engineer has manageFeatures
+    expect(
+      getPermissions("engineer").canManageFeatureCustomHooks(featureResource),
+    ).toBe(true);
   });
 
-  it("never lets users without feature edit access manage hooks", () => {
-    const p = getPermissions("readonly");
-    expect(p.canManageFeatureCustomHooks(featureResource, false)).toBe(false);
-    expect(p.canManageFeatureCustomHooks(featureResource, true)).toBe(false);
+  it("does not let users without feature edit access manage hooks", () => {
+    expect(
+      getPermissions("readonly").canManageFeatureCustomHooks(featureResource),
+    ).toBe(false);
   });
 });

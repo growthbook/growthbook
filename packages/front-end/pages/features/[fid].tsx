@@ -209,6 +209,7 @@ export default function FeaturePage() {
         {tab === "validation" && (
           <FeatureValidationTab
             feature={feature}
+            revision={revision}
             mutate={refreshData}
             setVersion={setVersion}
             revisionList={data.revisionList}

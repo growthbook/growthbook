@@ -25,10 +25,6 @@ const BaseClass = MakeModelClass({
 });
 
 export class CustomHookModel extends BaseClass {
-  private allowPerFeatureHooks(): boolean {
-    return !!this.context.org.settings?.allowPerFeatureCustomHooks;
-  }
-
   // For a feature-scoped hook, resolve the referenced feature synchronously
   // (BaseModel populates foreign refs before the permission hooks run).
   private featureRef(doc: CustomHookInterface): FeatureInterface | null {
@@ -39,10 +35,7 @@ export class CustomHookModel extends BaseClass {
   protected canCreate(doc: CustomHookInterface): boolean {
     const feature = this.featureRef(doc);
     return feature
-      ? this.context.permissions.canManageFeatureCustomHooks(
-          feature,
-          this.allowPerFeatureHooks(),
-        )
+      ? this.context.permissions.canManageFeatureCustomHooks(feature)
       : this.context.permissions.canCreateCustomHook(doc);
   }
   protected canRead(doc: CustomHookInterface): boolean {
@@ -59,19 +52,13 @@ export class CustomHookModel extends BaseClass {
     // entityType/entityId are readonly, so the scope can't change on update.
     const feature = this.featureRef(newDoc);
     return feature
-      ? this.context.permissions.canManageFeatureCustomHooks(
-          feature,
-          this.allowPerFeatureHooks(),
-        )
+      ? this.context.permissions.canManageFeatureCustomHooks(feature)
       : this.context.permissions.canUpdateCustomHook(existing, newDoc);
   }
   protected canDelete(doc: CustomHookInterface): boolean {
     const feature = this.featureRef(doc);
     return feature
-      ? this.context.permissions.canManageFeatureCustomHooks(
-          feature,
-          this.allowPerFeatureHooks(),
-        )
+      ? this.context.permissions.canManageFeatureCustomHooks(feature)
       : this.context.permissions.canDeleteCustomHook(doc);
   }
 

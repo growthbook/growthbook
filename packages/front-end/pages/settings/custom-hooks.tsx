@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { CustomHookInterface } from "shared/validators";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { PiCode } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import Button from "@/ui/Button";
 import useApi from "@/hooks/useApi";
@@ -9,11 +10,47 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import EmptyState from "@/components/EmptyState";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import Code from "@/components/SyntaxHighlighting/Code";
 import { isCloud } from "@/services/env";
 import CustomHookModal from "@/components/Features/CustomHookModal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import Table, {
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableColumnHeader,
+  TableCell,
+} from "@/ui/Table";
+import Badge from "@/ui/Badge";
+
+function CustomHookCodeModal({
+  hook,
+  close,
+}: {
+  hook: CustomHookInterface;
+  close: () => void;
+}) {
+  return (
+    <ModalStandard
+      open
+      header={hook.name}
+      subheader={hook.hook}
+      close={close}
+      closeCta="Close"
+      size="lg"
+      trackingEventModalType=""
+    >
+      <Code language="javascript" code={hook.code} />
+    </ModalStandard>
+  );
+}
 
 export default function CustomHooksPage() {
   const [modalData, setModalData] = useState<null | true | CustomHookInterface>(
+    null,
+  );
+  const [viewCodeHook, setViewCodeHook] = useState<CustomHookInterface | null>(
     null,
   );
 
@@ -53,6 +90,12 @@ export default function CustomHooksPage() {
           onSave={() => mutate()}
         />
       )}
+      {viewCodeHook && (
+        <CustomHookCodeModal
+          hook={viewCodeHook}
+          close={() => setViewCodeHook(null)}
+        />
+      )}
 
       {allHooks.length === 0 ? (
         <EmptyState
@@ -68,63 +111,116 @@ export default function CustomHooksPage() {
       ) : (
         <>
           <div>
-            <Flex justify="between" align="center" mb="3">
-              <h1 className="mb-0">Custom Hooks</h1>
+            <Box mb="5">
+              <h1>Custom Hooks</h1>
+              <p>
+                Custom hooks allow you to extend the functionality of GrowthBook
+                by writing custom javascript snippets that execute on certain
+                events.
+              </p>
+            </Box>
+            <Flex justify="between" align="center" mb="1">
+              <h2 className="mb-0">Global/Project Hooks</h2>
               <Button onClick={() => setModalData(true)}>
                 Add Custom Hook
               </Button>
             </Flex>
+
+            <p className="text-muted">
+              These hooks run for all resources in your organization.
+            </p>
+
             {hooks.length === 0 ? (
               <Callout status="info">
                 No global or project-scoped hooks yet.
               </Callout>
             ) : (
-              <table className="gbtable table appbox">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Type</th>
-                    <th>Projects</th>
-                    <th>Enabled</th>
-                    <th style={{ width: 50 }}></th>
-                  </tr>
-                </thead>
-                <tbody>
+              <Table variant="list" stickyHeader roundedCorners>
+                <TableHeader>
+                  <TableRow>
+                    <TableColumnHeader>Name</TableColumnHeader>
+                    <TableColumnHeader>Type</TableColumnHeader>
+                    <TableColumnHeader>Projects</TableColumnHeader>
+                    <TableColumnHeader style={{ width: 80 }} />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {hooks.map((hook) => (
-                    <tr key={hook.id}>
-                      <td data-title="Name">{hook.name}</td>
-                      <td data-title="Type">{hook.hook}</td>
-                      <td data-title="Projects">{hook.projects.join(", ")}</td>
-                      <td data-title="Enabled">
-                        {hook.enabled ? "Yes" : "No"}
-                      </td>
-                      <td>
-                        <MoreMenu>
-                          <a
-                            href="#"
-                            className="dropdown-item"
-                            onClick={() => setModalData(hook)}
+                    <TableRow key={hook.id}>
+                      <TableCell>
+                        {hook.name}
+                        {!hook.enabled ? (
+                          <Badge color="gray" label="Disabled" />
+                        ) : null}
+                      </TableCell>
+                      <TableCell>{hook.hook}</TableCell>
+                      <TableCell>
+                        {hook.projects.length ? (
+                          hook.projects.join(", ")
+                        ) : (
+                          <em>All projects</em>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Flex align="center" justify="end" gap="2">
+                          <Tooltip
+                            body="View code"
+                            usePortal
+                            className="d-inline-flex align-items-center"
                           >
-                            Edit
-                          </a>
-                          <DeleteButton
-                            useIcon={false}
-                            text="Delete"
-                            displayName="custom hook"
-                            onClick={async () => {
-                              await apiCall(`/custom-hooks/${hook.id}`, {
-                                method: "DELETE",
-                              });
-                              await mutate();
-                            }}
-                            className="dropdown-item text-danger"
-                          />
-                        </MoreMenu>
-                      </td>
-                    </tr>
+                            <IconButton
+                              variant="ghost"
+                              color="gray"
+                              size="1"
+                              onClick={() => setViewCodeHook(hook)}
+                              aria-label="View hook code"
+                            >
+                              <PiCode />
+                            </IconButton>
+                          </Tooltip>
+                          <MoreMenu useRadix iconButtonSize="1">
+                            <a
+                              href="#"
+                              className="dropdown-item"
+                              onClick={() => setModalData(hook)}
+                            >
+                              Edit
+                            </a>
+                            <a
+                              href="#"
+                              className="dropdown-item"
+                              onClick={async (e) => {
+                                e.preventDefault();
+                                await apiCall(`/custom-hooks/${hook.id}`, {
+                                  method: "PUT",
+                                  body: JSON.stringify({
+                                    enabled: !hook.enabled,
+                                  }),
+                                });
+                                await mutate();
+                              }}
+                            >
+                              {hook.enabled ? "Disable" : "Enable"}
+                            </a>
+                            <DeleteButton
+                              useIcon={false}
+                              text="Delete"
+                              displayName="custom hook"
+                              onClick={async () => {
+                                await apiCall(`/custom-hooks/${hook.id}`, {
+                                  method: "DELETE",
+                                });
+                                await mutate();
+                              }}
+                              className="dropdown-item text-danger"
+                            />
+                          </MoreMenu>
+                        </Flex>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             )}
           </div>
 
@@ -135,32 +231,53 @@ export default function CustomHooksPage() {
                 These hooks are scoped to a single feature and managed from that
                 feature&apos;s Validation tab.
               </p>
-              <table className="gbtable table appbox">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Type</th>
-                    <th>Feature</th>
-                    <th>Enabled</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <Table variant="list" stickyHeader roundedCorners>
+                <TableHeader>
+                  <TableRow>
+                    <TableColumnHeader>Name</TableColumnHeader>
+                    <TableColumnHeader>Type</TableColumnHeader>
+                    <TableColumnHeader>Feature</TableColumnHeader>
+                    <TableColumnHeader style={{ width: 40 }} />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {featureHooks.map((hook) => (
-                    <tr key={hook.id}>
-                      <td data-title="Name">{hook.name}</td>
-                      <td data-title="Type">{hook.hook}</td>
-                      <td data-title="Feature">
+                    <TableRow key={hook.id}>
+                      <TableCell>
+                        {hook.name}
+                        {!hook.enabled ? (
+                          <Badge color="gray" label="Disabled" />
+                        ) : null}
+                      </TableCell>
+                      <TableCell>{hook.hook}</TableCell>
+                      <TableCell>
                         <a href={`/features/${hook.entityId}#validation`}>
                           {hook.entityId}
                         </a>
-                      </td>
-                      <td data-title="Enabled">
-                        {hook.enabled ? "Yes" : "No"}
-                      </td>
-                    </tr>
+                      </TableCell>
+                      <TableCell>
+                        <Flex align="center" justify="end">
+                          <Tooltip
+                            body="View code"
+                            usePortal
+                            className="d-inline-flex align-items-center"
+                          >
+                            <IconButton
+                              variant="ghost"
+                              color="gray"
+                              size="1"
+                              onClick={() => setViewCodeHook(hook)}
+                              aria-label="View hook code"
+                            >
+                              <PiCode />
+                            </IconButton>
+                          </Tooltip>
+                        </Flex>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           )}
         </>

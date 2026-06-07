@@ -4,7 +4,7 @@ import { CustomHookEntityType, CustomHookInterface } from "shared/validators";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { IS_CLOUD } from "back-end/src/util/secrets";
-import { sandboxEval } from "back-end/src/enterprise/sandbox/sandbox-eval";
+import { runInSandbox } from "back-end/src/enterprise/sandbox/sandbox-pool";
 import { getFeature } from "back-end/src/models/FeatureModel";
 
 export const getCustomHooks = async (
@@ -138,20 +138,14 @@ export const testCustomHook = async (
   if (entityType === "feature" && entityId) {
     // Feature-scoped test: authorize against the target feature
     const feature = await getFeature(context, entityId);
-    if (
-      !feature ||
-      !context.permissions.canManageFeatureCustomHooks(
-        feature,
-        !!context.org.settings?.allowPerFeatureCustomHooks,
-      )
-    ) {
+    if (!feature || !context.permissions.canManageFeatureCustomHooks(feature)) {
       context.permissions.throwPermissionError();
     }
   } else if (!context.permissions.canCreateCustomHook({ projects: [] })) {
     context.permissions.throwPermissionError();
   }
 
-  const result = await sandboxEval(
+  const result = await runInSandbox(
     req.body.functionBody,
     req.body.functionArgs,
   );
