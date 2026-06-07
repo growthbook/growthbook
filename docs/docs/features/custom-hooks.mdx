@@ -13,13 +13,17 @@ Custom Hooks are JavaScript snippets that run on the server during validation. U
 
 ## Using Custom Hooks
 
-To manage Custom Hooks, navigate to **Settings → Custom Hooks** in the GrowthBook UI.
-
 :::note Custom Hooks are only available on self-hosted GrowthBook Enterprise.
 
 :::
 
-Custom Hooks can be global or scoped to specific projects, and you can create multiple hooks of the same type for flexible, granular validation rules.
+You can create multiple hooks of the same type for flexible, granular validation rules. Each hook has a **scope** that controls which features it runs for:
+
+- **Global** — runs for every feature.
+- **Project** — runs only for features in the selected projects.
+- **Feature** — runs only for a single feature.
+
+Global and project-scoped hooks are managed under **Settings → Custom Hooks**. Feature-scoped hooks are created and managed from a feature's **Validation** tab by anyone who can edit that feature; that tab also lists any global and project hooks that apply to the feature.
 
 ### Limits
 

@@ -43,9 +43,16 @@ const KILL_GRACE_MS = parseEnvInt(process.env.CUSTOM_HOOK_KILL_GRACE_MS, 2000, {
   name: "CUSTOM_HOOK_KILL_GRACE_MS",
 });
 
+// Resolve the worker as a sibling of this module, matching its own extension:
+// `.ts` when run directly via ts-node/tsx, `.js` once compiled. fork() inherits
+// the parent's execArgv (see spawnWorker) so any TS loader carries over to the
+// child. CUSTOM_HOOK_WORKER_PATH overrides for non-standard setups.
 const WORKER_PATH =
   process.env.CUSTOM_HOOK_WORKER_PATH ||
-  path.join(__dirname, "sandbox-worker.js");
+  path.join(
+    __dirname,
+    `sandbox-worker${__filename.endsWith(".ts") ? ".ts" : ".js"}`,
+  );
 
 interface Job {
   id: number;
@@ -143,6 +150,10 @@ function handleExit(
 // removes it and respawns a replacement.
 function recycle(worker: Worker) {
   if (worker.current) return; // only when idle
+  // Remove from the pool immediately so dispatch() cannot select this worker
+  // after SIGTERM is sent but before the process has actually exited
+  // (proc.connected stays true until the IPC channel closes asynchronously).
+  workers = workers.filter((w) => w !== worker);
   try {
     worker.proc.kill();
   } catch {
