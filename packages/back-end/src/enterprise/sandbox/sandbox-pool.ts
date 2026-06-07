@@ -66,6 +66,7 @@ interface Worker {
   proc: ChildProcess;
   busy: boolean;
   jobsHandled: number;
+  generation: number;
   current?: { job: Job; killTimer: ReturnType<typeof setTimeout> };
 }
 
@@ -74,6 +75,10 @@ const queue: Job[] = [];
 let jobCounter = 0;
 let started = false;
 let shuttingDown = false;
+// Bumped each time the pool is (re)started. Workers capture the generation they
+// were spawned in so handleExit can tell a live worker from one belonging to a
+// pool that's already been torn down (see __shutdownSandboxPool).
+let generation = 0;
 
 function spawnWorker(): Worker {
   // Preserve the parent's runtime flags (source maps, snapshot settings) but
@@ -91,7 +96,7 @@ function spawnWorker(): Worker {
     stdio: ["ignore", "ignore", "inherit", "ipc"],
   });
 
-  const worker: Worker = { proc, busy: false, jobsHandled: 0 };
+  const worker: Worker = { proc, busy: false, jobsHandled: 0, generation };
 
   proc.on("message", (msg: { id: number; result: SandboxEvalResult }) => {
     const cur = worker.current;
@@ -138,6 +143,11 @@ function handleExit(
       warnings: [],
     });
   }
+
+  // Ignore exits from a torn-down generation: an async SIGKILL exit can arrive
+  // after the pool was shut down and restarted. The in-flight job, if any, was
+  // already failed above; we just must not grow or re-dispatch the new pool.
+  if (worker.generation !== generation) return;
 
   // Keep the pool warm and drain any backlog.
   if (!shuttingDown && started) {
@@ -222,6 +232,7 @@ function dispatch() {
 function ensureStarted() {
   if (started) return;
   started = true;
+  generation++;
   for (let i = 0; i < POOL_SIZE; i++) workers.push(spawnWorker());
   process.once("exit", shutdown);
 }

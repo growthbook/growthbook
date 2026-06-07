@@ -6,7 +6,7 @@ import {
 import { OrganizationInterface } from "shared/types/organization";
 import { assertSchemaMatchesValueType } from "shared/util";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { logger } from "back-end/src/util/logger";
+import { BadRequestError } from "back-end/src/util/errors";
 
 function getDefaultJsonSchema(date: Date): JSONSchemaDef {
   return {
@@ -57,8 +57,9 @@ export function parseApiJsonSchema(
     jsonSchemaWrapper.schema = JSON.stringify(JSON.parse(jsonSchema));
     jsonSchemaWrapper.enabled = true;
   } catch (e) {
-    logger.error(e, "Failed to parse feature json schema");
-    return jsonSchemaWrapper;
+    throw new BadRequestError(
+      `Invalid JSON schema: ${e instanceof Error ? e.message : String(e)}`,
+    );
   }
   // Reject schemas that don't make sense for the feature's value type
   // (e.g. an object schema on a number flag). Throws on mismatch.
