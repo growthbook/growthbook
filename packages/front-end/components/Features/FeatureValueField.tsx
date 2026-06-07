@@ -4,7 +4,7 @@ import {
   SchemaField,
   SimpleSchema,
 } from "shared/types/feature";
-import { ReactElement, ReactNode, useId, useState } from "react";
+import { ReactElement, ReactNode, useEffect, useId, useState } from "react";
 import { getValidation } from "shared/util";
 import { FaMagic, FaRegTrashAlt } from "react-icons/fa";
 import stringify from "json-stringify-pretty-compact";
@@ -500,29 +500,97 @@ function SimpleSchemaPrimitiveEditor<T = unknown>({
     case "integer":
     case "float":
       return (
-        <Field
-          containerClassName={containerClassName}
-          labelClassName={labelClassName}
+        <NumberSchemaField
+          field={field}
+          value={value}
+          setValue={setValue}
           label={label}
-          value={(value ?? "") + ""}
-          onChange={(e) => {
-            setValue(
-              (e.target.value === ""
-                ? undefined
-                : parseFloat(e.target.value)) as T,
-            );
-          }}
-          type="number"
-          step={field.type === "integer" ? "1" : "any"}
-          min={field.min}
-          max={field.max}
-          required={field.required}
-          style={{ minWidth: 80 }}
-          disabled={(!field.required && !isset) || disabled}
+          labelClassName={labelClassName}
+          containerClassName={containerClassName}
           helpText={helpText}
+          disabled={(!field.required && !isset) || disabled}
         />
       );
   }
+}
+
+function parseNumberInput(
+  value: string,
+): { valid: true; value: number | undefined } | { valid: false } {
+  if (value === "") {
+    return { valid: true, value: undefined };
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed)
+    ? { valid: true, value: parsed }
+    : { valid: false };
+}
+
+// Number input for a numeric schema field. Keeps the in-progress text the user
+// is typing in local state instead of deriving the displayed value from the
+// parsed number on every keystroke. Deriving it would reformat intermediate
+// values — e.g. typing "1.0" becomes parseFloat("1.0") -> 1 -> "1", clobbering
+// the input (via the controlled value) before the user can finish typing
+// "1.05".
+function NumberSchemaField<T = unknown>({
+  field,
+  value,
+  setValue,
+  label,
+  labelClassName,
+  containerClassName,
+  helpText,
+  disabled = false,
+}: {
+  field: SchemaField;
+  value: T;
+  setValue: (value: T) => void;
+  label?: ReactNode;
+  labelClassName?: string;
+  containerClassName?: string;
+  helpText?: ReactNode;
+  disabled?: boolean;
+}): ReactElement {
+  const numericValue =
+    (value ?? null) === null ? undefined : (value as unknown as number);
+
+  const [text, setText] = useState(
+    numericValue === undefined ? "" : String(numericValue),
+  );
+
+  useEffect(() => {
+    setText((currentText) => {
+      const parsed = parseNumberInput(currentText);
+      if (parsed.valid && parsed.value === numericValue) return currentText;
+      return numericValue === undefined ? "" : String(numericValue);
+    });
+  }, [numericValue]);
+
+  return (
+    <Field
+      containerClassName={containerClassName}
+      labelClassName={labelClassName}
+      label={label}
+      value={text}
+      onChange={(e) => {
+        const raw = e.target.value;
+        const parsed = parseNumberInput(raw);
+        setText(raw);
+        if (parsed.valid) {
+          setValue(parsed.value as T);
+        }
+      }}
+      type="number"
+      step={field.type === "integer" ? "1" : "any"}
+      min={field.min}
+      max={field.max}
+      required={field.required}
+      style={{ minWidth: 80 }}
+      disabled={disabled}
+      helpText={helpText}
+    />
+  );
 }
 
 function SimpleSchemaEditor({
