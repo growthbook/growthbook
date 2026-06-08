@@ -63,6 +63,7 @@ import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { AiPromptModel } from "back-end/src/enterprise/models/AIPromptModel";
 import { VectorsModel } from "back-end/src/enterprise/models/VectorsModel";
 import { AgreementModel } from "back-end/src/models/AgreementModel";
+import { SessionReplayModel } from "back-end/src/models/SessionReplayModel";
 import { SqlResultChunkModel } from "back-end/src/models/SqlResultChunkModel";
 import { ExperimentSnapshotAnalysisChunkModel } from "back-end/src/models/ExperimentSnapshotAnalysisChunkModel";
 import { CustomHookModel } from "back-end/src/models/CustomHookModel";
@@ -125,7 +126,8 @@ export type ModelName =
   | "apiKeys"
   | "rampSchedules"
   | "rampScheduleTemplates"
-  | "aiConversations";
+  | "aiConversations"
+  | "sessionReplays";
 
 export const modelClasses = {
   agreements: AgreementModel,
@@ -167,8 +169,17 @@ export const modelClasses = {
   rampSchedules: RampScheduleModel,
   rampScheduleTemplates: RampScheduleTemplateModel,
   aiConversations: AIConversationModel,
+  sessionReplays: SessionReplayModel,
 };
-export type ModelClass = (typeof modelClasses)[ModelName];
+// ModelClass narrows to only BaseModel-derived model constructors (those
+// expose a static `getModelConfig`). Non-BaseModel context models — e.g.
+// SessionReplayModel, which is backed by ClickHouse + S3 rather than
+// Mongo — are still registered on the request context but excluded from
+// API_MODELS iteration in api.router.ts.
+export type ModelClass = Extract<
+  (typeof modelClasses)[ModelName],
+  { getModelConfig: () => unknown }
+>;
 type ModelInstances = {
   [K in ModelName]: InstanceType<(typeof modelClasses)[K]>;
 };
@@ -218,6 +229,7 @@ export class ReqContextClass {
       rampSchedules: new RampScheduleModel(this),
       rampScheduleTemplates: new RampScheduleTemplateModel(this),
       aiConversations: new AIConversationModel(this),
+      sessionReplays: new SessionReplayModel(this),
     };
   }
 

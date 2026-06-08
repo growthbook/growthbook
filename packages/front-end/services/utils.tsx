@@ -5,8 +5,8 @@ import { getEqualWeights } from "shared/experiments";
 import {
   BrowserCookieStickyBucketService,
   Context,
-  GrowthBook,
 } from "@growthbook/growthbook-react";
+import { GrowthBook } from "@growthbook/growthbook";
 import Cookies from "js-cookie";
 import { v4 as uuidv4 } from "uuid";
 import { AccountPlan } from "shared/enterprise";
