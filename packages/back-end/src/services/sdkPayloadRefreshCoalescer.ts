@@ -15,7 +15,7 @@ export type SdkPayloadRefreshQueueRequest = {
 
 type PendingRefreshDocument = {
   organization: string;
-  requests: SdkPayloadRefreshQueueRequest[];
+  merged: SdkPayloadRefreshQueueRequest;
   firstQueuedAt: Date;
   dateUpdated: Date;
 };
@@ -23,8 +23,6 @@ type PendingRefreshDocument = {
 const COLLECTION = "sdkpayloadrefreshpending";
 // Drop orphaned pending docs if Agenda never drains them.
 const PENDING_TTL_SECONDS = 60 * 60;
-// Cap burst accumulation if a drain job is stuck.
-const MAX_PENDING_REQUESTS = 256;
 
 function getPendingCollection() {
   const db = mongoose.connection.db;
@@ -91,22 +89,26 @@ export function mergeSdkPayloadRefreshRequests(
   };
 }
 
+function hasPendingRefreshWork(merged: SdkPayloadRefreshQueueRequest): boolean {
+  return (
+    merged.payloadKeys.length > 0 || (merged.sdkConnections?.length ?? 0) > 0
+  );
+}
+
 export async function appendPendingSdkPayloadRefreshRequest(
   organization: string,
   request: SdkPayloadRefreshQueueRequest,
 ): Promise<void> {
   const now = new Date();
   const collection = getPendingCollection();
+  const existing = await collection.findOne({ organization });
+  const prior = existing?.merged ? [existing.merged] : [];
+  const merged = mergeSdkPayloadRefreshRequests([...prior, request]);
+
   await collection.updateOne(
     { organization },
     {
-      $push: {
-        requests: {
-          $each: [request],
-          $slice: -MAX_PENDING_REQUESTS,
-        },
-      },
-      $set: { dateUpdated: now },
+      $set: { merged, dateUpdated: now },
       $setOnInsert: { organization, firstQueuedAt: now },
     },
     { upsert: true },
@@ -130,10 +132,10 @@ export async function drainPendingSdkPayloadRefreshRequests(
 ): Promise<SdkPayloadRefreshQueueRequest | null> {
   const collection = getPendingCollection();
   const { value: doc } = await collection.findOneAndDelete({ organization });
-  if (!doc?.requests?.length) {
+  if (!doc?.merged || !hasPendingRefreshWork(doc.merged)) {
     return null;
   }
-  return mergeSdkPayloadRefreshRequests(doc.requests);
+  return doc.merged;
 }
 
 export function isSdkPayloadRefreshCoalescingEnabled(): boolean {
