@@ -101,32 +101,6 @@ export async function queueDelayedFactTableColumnsRefreshForDatasource(
   );
 }
 
-export async function queueDelayedFactTableColumnsRefreshForEventForwarderDatasources(
-  context: ReqContext,
-  delayMs = EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS,
-): Promise<void> {
-  const configs = await context.models.eventForwarderConfigs.getAll();
-  const datasourceIds = new Set(configs.map((config) => config.datasourceId));
-  const runAt = new Date(Date.now() + delayMs);
-
-  for (const datasourceId of datasourceIds) {
-    const datasource = await getDataSourceById(context, datasourceId);
-    if (!datasource) {
-      continue;
-    }
-
-    const factTable = await getEventForwarderEventsFactTableForDatasource(
-      context,
-      datasource,
-    );
-    if (!factTable) {
-      continue;
-    }
-
-    await queueFactTableColumnsRefreshAt(factTable, runAt);
-  }
-}
-
 function buildEventForwarderEventsFactTableSqlForDatasource(
   context: ReqContext,
   eventForwarderConfig: EventForwarderConfigInterface,
@@ -427,9 +401,6 @@ export async function deleteEventForwarderEventsFactTableForDatasource(
   context: ReqContext,
   datasource: DataSourceInterface,
 ): Promise<void> {
-  // Only invoked from deleteDatasource — not from event forwarder teardown.
-  // TODO(event-forwarder): if we ever delete managed exposure/featureUsage
-  // queries on forwarder disconnect, keep fact table cleanup aligned with that policy.
   const sinkType = getEventForwarderSinkTypeForDatasource(datasource);
   if (sinkType !== "bigquery" && sinkType !== "snowflake") {
     return;
