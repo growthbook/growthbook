@@ -72,6 +72,26 @@ describe("buildEventForwarderAttributeValueSql", () => {
       }),
     ).toBe("SAFE_CAST(JSON_VALUE(`attributes`, '$.\"age\"') AS FLOAT64)");
   });
+
+  it("resolves enriched attribute keys for exposure hash lookups", () => {
+    expect(
+      buildEventForwarderAttributeValueSql({
+        sinkType: "bigquery",
+        userIdType: "utmSource",
+        attributeDatatype: "string",
+      }),
+    ).toBe("JSON_VALUE(`attributes`, '$.\"utm_source\"')");
+
+    expect(
+      buildEventForwarderAttributeValueSql({
+        sinkType: "snowflake",
+        userIdType: "browser",
+        attributeDatatype: "string",
+      }),
+    ).toBe(
+      'COALESCE(ATTRIBUTES:"ua_browser"::STRING, ATTRIBUTES:"browser"::STRING)',
+    );
+  });
 });
 
 describe("buildEventForwarderExposureQuerySql", () => {
