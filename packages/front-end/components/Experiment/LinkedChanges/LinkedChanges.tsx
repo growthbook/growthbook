@@ -67,8 +67,6 @@ export default function LinkedChanges({
     { id: "redirects", count: urlRedirects.length },
   ];
 
-  // if (numLinkedChanges === 0) return null;
-
   return (
     <Frame>
       <Flex justify="between" align="center" mb="4" mx="1" gap="3">
