@@ -5,6 +5,7 @@ import type {
   SDKAttributeType,
 } from "shared/types/organization";
 import { attributeMatchesDatasourceProjects } from "./datasource";
+import { resolveEventForwarderAttributeLookupKeys } from "./event-forwarder-attribute-keys";
 
 /** BigQuery daily partition column for BigQueryStorageSink (timestamp-millis). */
 export const EVENT_FORWARDER_AVRO_PARTITION_FIELD = "received_at" as const;
@@ -157,6 +158,30 @@ function shouldCastValueDatatypeToString(
   return valueDatatype === "string";
 }
 
+function buildSnowflakeFlatMapAttributeValueSqlForKey({
+  fieldName,
+  valueDatatype,
+  castToString,
+}: {
+  fieldName: string;
+  valueDatatype: EventForwarderAttributeValueDatatype;
+  castToString: boolean;
+}): string {
+  const attributesCol = EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD.toUpperCase();
+  const quotedField = quoteSnowflakeVariantFieldName(fieldName);
+  if (castToString) {
+    return `${attributesCol}:${quotedField}::STRING`;
+  }
+  return buildSnowflakeFlatMapAttributeValueSql(fieldName, valueDatatype);
+}
+
+function coalesceSqlExpressions(expressions: string[]): string {
+  if (expressions.length === 1) {
+    return expressions[0];
+  }
+  return `COALESCE(${expressions.join(", ")})`;
+}
+
 export function buildEventForwarderNestedAttributeValueSql({
   sinkType,
   attributeName,
@@ -173,14 +198,15 @@ export function buildEventForwarderNestedAttributeValueSql({
   /** Coerce attribute values to string (exposure hash ids). Typed columns skip double-cast. */
   castToString?: boolean;
 }): string {
-  const fieldName = sanitizeEventForwarderAvroFieldName(attributeName);
+  const lookupKeys = resolveEventForwarderAttributeLookupKeys(attributeName);
   const resolvedValueDatatype =
     valueDatatype ?? sdkAttributeTypeToValueDatatype(attributeDatatype);
 
   if (sinkType === "bigquery") {
-    const valueSql = buildBigQueryFlatMapAttributeValueSql(
-      fieldName,
-      resolvedValueDatatype,
+    const valueSql = coalesceSqlExpressions(
+      lookupKeys.map((fieldName) =>
+        buildBigQueryFlatMapAttributeValueSql(fieldName, resolvedValueDatatype),
+      ),
     );
     if (
       castToString &&
@@ -191,14 +217,14 @@ export function buildEventForwarderNestedAttributeValueSql({
     return valueSql;
   }
 
-  const attributesCol = EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD.toUpperCase();
-  const quotedField = quoteSnowflakeVariantFieldName(fieldName);
-  if (castToString) {
-    return `${attributesCol}:${quotedField}::STRING`;
-  }
-  return buildSnowflakeFlatMapAttributeValueSql(
-    fieldName,
-    resolvedValueDatatype,
+  return coalesceSqlExpressions(
+    lookupKeys.map((fieldName) =>
+      buildSnowflakeFlatMapAttributeValueSqlForKey({
+        fieldName,
+        valueDatatype: resolvedValueDatatype,
+        castToString,
+      }),
+    ),
   );
 }
 
