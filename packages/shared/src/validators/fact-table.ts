@@ -76,6 +76,19 @@ export const updateColumnPropsValidator = z
   })
   .strict();
 
+export const aggregatedFactTableSettingsValidator = z
+  .object({
+    idTypes: z.array(z.string()),
+    updateTime: z
+      .object({
+        time: z.string(),
+        timezone: z.string(),
+      })
+      .strict(),
+    lookbackWindow: z.number().int().positive(),
+  })
+  .strict();
+
 export const createFactTablePropsValidator = z
   .object({
     name: z.string(),
@@ -94,6 +107,8 @@ export const createFactTablePropsValidator = z
     columns: z.array(createColumnPropsValidator).optional(),
     managedBy: z.enum(["", "api", "admin"]).optional(),
     autoSliceUpdatesEnabled: z.boolean().optional(),
+    aggregatedFactTableSettings:
+      aggregatedFactTableSettingsValidator.optional(),
     columnRefreshPending: z.boolean().optional(),
   })
   .strict();
@@ -113,6 +128,9 @@ export const updateFactTablePropsValidator = z
     columnsError: z.string().nullable().optional(),
     archived: z.boolean().optional(),
     autoSliceUpdatesEnabled: z.boolean().optional(),
+    aggregatedFactTableSettings: aggregatedFactTableSettingsValidator
+      .nullable()
+      .optional(),
     columnRefreshPending: z.boolean().optional(),
   })
   .strict();
@@ -408,6 +426,11 @@ export const apiFactTableValidator = namedSchema(
       tags: z.array(z.string()),
       datasource: z.string(),
       userIdTypes: z.array(z.string()),
+      aggregatedFactTableSettings: aggregatedFactTableSettingsValidator
+        .describe(
+          "Settings for maintaining shared daily aggregated tables (a subset of userIdTypes plus the daily update time and restate lookback window) used to speed up CUPED. Requires the data pipeline (pipeline-mode) feature.",
+        )
+        .optional(),
       sql: z.string(),
       eventName: z
         .string()
@@ -458,6 +481,68 @@ export const apiFactTableFilterValidator = namedSchema(
 
 export type ApiFactTableFilter = z.infer<typeof apiFactTableFilterValidator>;
 
+// Materialization status of one shared daily aggregated table (one per id type).
+export const apiAggregatedFactTableValidator = namedSchema(
+  "AggregatedFactTable",
+  z
+    .object({
+      idType: z
+        .string()
+        .describe("The id type this aggregated table is keyed by"),
+      status: z
+        .enum(["running", "error", "pending", "active"])
+        .describe(
+          "Materialization status: `pending` (not yet built), `running` (a refresh is in progress), `active` (materialized and queryable), or `error` (the last run failed).",
+        ),
+      tableFullName: z
+        .string()
+        .nullable()
+        .describe(
+          "Fully-qualified warehouse table name, or null if it has not been created yet",
+        ),
+      firstEventDate: z
+        .string()
+        .meta({ format: "date-time" })
+        .nullable()
+        .describe("Earliest event date covered by the materialized data"),
+      lastEventDate: z
+        .string()
+        .meta({ format: "date-time" })
+        .nullable()
+        .describe("Latest event date covered by the materialized data"),
+      lastMaxTimestamp: z
+        .string()
+        .meta({ format: "date-time" })
+        .nullable()
+        .describe(
+          "Event-time high-water mark; the next incremental refresh appends events after this timestamp",
+        ),
+      lastError: z
+        .string()
+        .nullable()
+        .describe("Error message from the last failed run, if any"),
+      dateUpdated: z
+        .string()
+        .meta({ format: "date-time" })
+        .nullable()
+        .describe("When the aggregation metadata was last updated"),
+      pendingRestate: z
+        .boolean()
+        .describe(
+          "Whether the next run will be forced to drop and rebuild the table instead of appending incrementally",
+        ),
+      pendingRestateReason: z
+        .enum(["incomplete-write", "schema-drift"])
+        .nullable()
+        .describe("Why a restate is pending, if `pendingRestate` is true"),
+    })
+    .strict(),
+);
+
+export type ApiAggregatedFactTable = z.infer<
+  typeof apiAggregatedFactTableValidator
+>;
+
 // Corresponds to payload-schemas/PostFactTablePayload.yaml
 const postFactTableBody = z
   .object({
@@ -479,6 +564,11 @@ const postFactTableBody = z
       .describe(
         'List of identifier columns in this table. For example, "id" or "anonymous_id"',
       ),
+    aggregatedFactTableSettings: aggregatedFactTableSettingsValidator
+      .describe(
+        "Settings for maintaining shared daily aggregated tables (a subset of userIdTypes plus the daily update time and restate lookback window) used to speed up CUPED. Requires the data pipeline (pipeline-mode) feature.",
+      )
+      .optional(),
     sql: z.string().describe("The SQL query for this fact table"),
     eventName: z
       .string()
@@ -510,6 +600,11 @@ const updateFactTableBody = z
       .array(z.string())
       .describe(
         'List of identifier columns in this table. For example, "id" or "anonymous_id"',
+      )
+      .optional(),
+    aggregatedFactTableSettings: aggregatedFactTableSettingsValidator
+      .describe(
+        "Settings for maintaining shared daily aggregated tables (a subset of userIdTypes plus the daily update time and restate lookback window) used to speed up CUPED. Requires the data pipeline (pipeline-mode) feature.",
       )
       .optional(),
     sql: z.string().describe("The SQL query for this fact table").optional(),
@@ -801,4 +896,69 @@ export const deleteFactTableFilterValidator = {
   method: "delete" as const,
   path: "/fact-tables/:factTableId/filters/:id",
   exampleRequest: { params: { factTableId: "abc123", id: "abc123" } },
+};
+
+export const getAggregatedFactTablesValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({
+      aggregatedFactTables: z.array(apiAggregatedFactTableValidator),
+      nextScheduledUpdate: z
+        .string()
+        .meta({ format: "date-time" })
+        .nullable()
+        .describe(
+          "When the next scheduled nightly refresh will run, or null if no schedule is configured",
+        ),
+    })
+    .strict(),
+  summary:
+    "Get the materialization status of a fact table's shared daily aggregated tables",
+  operationId: "getAggregatedFactTables",
+  tags: ["fact-tables"],
+  method: "get" as const,
+  path: "/fact-tables/:id/aggregated-tables",
+  exampleRequest: { params: { id: "abc123" } },
+};
+
+export const refreshAggregatedFactTableBody = z
+  .object({
+    idType: z
+      .string()
+      .optional()
+      .describe(
+        "Limit the refresh to a single id type. If omitted, all of the fact table's aggregatedFactTableSettings.idTypes are refreshed.",
+      ),
+    fullRestate: z
+      .boolean()
+      .optional()
+      .describe(
+        "Drop and recreate the table, re-scanning the retained window. This is significantly more expensive than the default incremental append (it scans ~2-3 months of history).",
+      ),
+  })
+  .strict();
+
+export const refreshAggregatedFactTableValidator = {
+  bodySchema: refreshAggregatedFactTableBody,
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({
+      queued: z
+        .array(z.string())
+        .describe("The id types for which a materialization run was queued"),
+    })
+    .strict(),
+  summary:
+    "Force a refresh or full restate of a fact table's shared daily aggregated tables",
+  operationId: "refreshAggregatedFactTable",
+  tags: ["fact-tables"],
+  method: "post" as const,
+  path: "/fact-tables/:id/aggregated-tables/refresh",
+  exampleRequest: {
+    params: { id: "abc123" },
+    body: { fullRestate: false },
+  },
 };
