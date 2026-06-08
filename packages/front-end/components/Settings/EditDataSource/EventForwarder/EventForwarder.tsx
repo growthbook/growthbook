@@ -260,8 +260,8 @@ function EventForwarderConfigField({
         {optional ? `${label} (optional)` : label}
       </Text>
       {trimmed ? (
-        <Text as="div">
-          <code style={{ wordBreak: "break-all" }}>{trimmed}</code>
+        <Text as="div" size="small" weight="regular" color="text-high">
+          {trimmed}
         </Text>
       ) : (
         <Text color="text-low" size="small">
@@ -602,7 +602,6 @@ export default function EventForwarder({
             >
               Edit
             </Button>
-            {/* TEMP: remove once self-serve delete ships */}
             {/* <Button
               variant="outline"
               color="red"

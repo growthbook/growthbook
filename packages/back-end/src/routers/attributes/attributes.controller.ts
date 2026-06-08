@@ -11,6 +11,8 @@ import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
+import { hasAnyEventForwarderConfig } from "back-end/src/services/eventForwarderConfig";
+import { syncEventForwarderAfterAttributeSchemaChange } from "back-end/src/services/eventForwarderAttributeSync";
 import { yieldEventLoop } from "back-end/src/util/yield";
 import { hasAnyEventForwarderConfig } from "back-end/src/services/eventForwarderConfig";
 import { syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema } from "back-end/src/services/eventForwarderUserIdTypes";
@@ -51,18 +53,11 @@ export const postAttribute = async (
     },
   });
 
-  if (await hasAnyEventForwarderConfig(context)) {
-    if (newAttribute.hashAttribute) {
-      await syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema(
-        context,
-        updatedAttributeSchema,
-      );
-    }
-    await syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange(
-      context,
-      updatedAttributeSchema,
-    );
-  }
+  await syncEventForwarderAfterAttributeSchemaChange(context, {
+    attributeSchema: updatedAttributeSchema,
+    after: newAttribute,
+    changeType: "create",
+  });
 
   await req.audit({
     event: "attribute.create",
@@ -150,29 +145,14 @@ export const putAttribute = async (
     },
   });
 
-  if (
-    hasEventForwarder &&
-    attributeFields.hashAttribute === true &&
-    !existing.hashAttribute
-  ) {
-    await syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema(
-      context,
-      attributeSchema,
-    );
-  }
-
-  if (
-    hasEventForwarder &&
-    attributeUpdateAffectsEventForwarderFactTableColumns(
-      existing,
-      attributeSchema[index],
-    )
-  ) {
-    await syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange(
-      context,
-      attributeSchema,
-    );
-  }
+  const updatedAttribute = attributeSchema[index];
+  await syncEventForwarderAfterAttributeSchemaChange(context, {
+    attributeSchema,
+    before: existing,
+    after: updatedAttribute,
+    previousName,
+    changeType: "update",
+  });
 
   await req.audit({
     event: "attribute.update",
@@ -215,6 +195,7 @@ export const deleteAttribute = async (
     context.permissions.throwPermissionError();
   }
 
+  const deletedAttribute = attributeSchema[index];
   const updatedArr = attributeSchema.filter((a) => a.property !== id);
 
   await updateOrganization(org.id, {
@@ -222,6 +203,12 @@ export const deleteAttribute = async (
       ...org.settings,
       attributeSchema: updatedArr,
     },
+  });
+
+  await syncEventForwarderAfterAttributeSchemaChange(context, {
+    attributeSchema: updatedArr,
+    before: deletedAttribute,
+    changeType: "delete",
   });
 
   await req.audit({
