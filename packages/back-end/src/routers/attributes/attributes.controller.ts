@@ -1,9 +1,6 @@
 import type { Response } from "express";
 import { SDKAttribute } from "shared/types/organization";
-import {
-  attributeUpdateAffectsEventForwarderFactTableColumns,
-  extractConditionAttributeKeys,
-} from "shared/util";
+import { extractConditionAttributeKeys } from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
@@ -11,9 +8,8 @@ import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
-import { syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema } from "back-end/src/services/eventForwarderUserIdTypes";
 import { hasAnyEventForwarderConfig } from "back-end/src/services/eventForwarderConfig";
-import { syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange } from "back-end/src/services/eventForwarderFactTable";
+import { syncEventForwarderAfterAttributeSchemaChange } from "back-end/src/services/eventForwarderAttributeSync";
 import { yieldEventLoop } from "back-end/src/util/yield";
 export const postAttribute = async (
   req: AuthRequest<SDKAttribute>,
@@ -51,18 +47,11 @@ export const postAttribute = async (
     },
   });
 
-  if (await hasAnyEventForwarderConfig(context)) {
-    if (newAttribute.hashAttribute) {
-      await syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema(
-        context,
-        updatedAttributeSchema,
-      );
-    }
-    await syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange(
-      context,
-      updatedAttributeSchema,
-    );
-  }
+  await syncEventForwarderAfterAttributeSchemaChange(context, {
+    attributeSchema: updatedAttributeSchema,
+    after: newAttribute,
+    changeType: "create",
+  });
 
   await req.audit({
     event: "attribute.create",
@@ -101,18 +90,6 @@ export const putAttribute = async (
   }
 
   const existing = attributeSchema[index];
-
-  const hasEventForwarder = await hasAnyEventForwarderConfig(context);
-  if (
-    hasEventForwarder &&
-    (attributeFields.property !== existing.property ||
-      (attributeFields.datatype !== undefined &&
-        attributeFields.datatype !== existing.datatype))
-  ) {
-    context.throwBadRequestError(
-      "Attribute name and data type can't be changed while an Event Forwarder is configured.",
-    );
-  }
 
   // Only pass `projects` when the client actually sent it — passing
   // `{ projects: undefined }` would be interpreted as a request to scope the
@@ -156,29 +133,14 @@ export const putAttribute = async (
     },
   });
 
-  if (
-    hasEventForwarder &&
-    attributeFields.hashAttribute === true &&
-    !existing.hashAttribute
-  ) {
-    await syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema(
-      context,
-      attributeSchema,
-    );
-  }
-
-  if (
-    hasEventForwarder &&
-    attributeUpdateAffectsEventForwarderFactTableColumns(
-      existing,
-      attributeSchema[index],
-    )
-  ) {
-    await syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange(
-      context,
-      attributeSchema,
-    );
-  }
+  const updatedAttribute = attributeSchema[index];
+  await syncEventForwarderAfterAttributeSchemaChange(context, {
+    attributeSchema,
+    before: existing,
+    after: updatedAttribute,
+    previousName,
+    changeType: "update",
+  });
 
   await req.audit({
     event: "attribute.update",
@@ -221,6 +183,7 @@ export const deleteAttribute = async (
     context.permissions.throwPermissionError();
   }
 
+  const deletedAttribute = attributeSchema[index];
   const updatedArr = attributeSchema.filter((a) => a.property !== id);
 
   await updateOrganization(org.id, {
@@ -228,6 +191,12 @@ export const deleteAttribute = async (
       ...org.settings,
       attributeSchema: updatedArr,
     },
+  });
+
+  await syncEventForwarderAfterAttributeSchemaChange(context, {
+    attributeSchema: updatedArr,
+    before: deletedAttribute,
+    changeType: "delete",
   });
 
   await req.audit({

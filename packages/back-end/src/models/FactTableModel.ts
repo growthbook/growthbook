@@ -331,6 +331,7 @@ const ALLOWED_COLUMN_UPDATE_FIELDS = [
 const ALLOWED_EVENT_FORWARDER_METADATA_UPDATE_FIELDS = [
   "columns",
   "sql",
+  "columnRefreshPending",
 ] as const;
 
 // This is called from a background cronjob to re-sync all of the columns
