@@ -1,9 +1,10 @@
 import Agenda, { Job } from "agenda";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import {
+  ackPendingSdkPayloadRefreshRequests,
   appendPendingSdkPayloadRefreshRequest,
-  drainPendingSdkPayloadRefreshRequests,
   getPendingSdkPayloadRefreshAgeMs,
+  getPendingSdkPayloadRefreshRequests,
   SdkPayloadRefreshQueueRequest,
 } from "back-end/src/services/sdkPayloadRefreshCoalescer";
 import { getAgendaInstance } from "back-end/src/services/queueing";
@@ -65,8 +66,8 @@ async function runCoalescedSdkPayloadRefresh(
   const organization = job.attrs.data?.organization;
   if (!organization) return;
 
-  const merged = await drainPendingSdkPayloadRefreshRequests(organization);
-  if (!merged) return;
+  const pending = await getPendingSdkPayloadRefreshRequests(organization);
+  if (!pending) return;
 
   // Lazy import avoids a circular dependency with services/features.ts
   const { refreshSDKPayloadCache } = await import(
@@ -77,18 +78,24 @@ async function runCoalescedSdkPayloadRefresh(
   try {
     await refreshSDKPayloadCache({
       context,
-      payloadKeys: merged.payloadKeys,
-      sdkConnections: merged.sdkConnections ?? [],
-      skipRefreshForProject: merged.skipRefreshForProject,
-      treatEmptyProjectAsGlobal: merged.treatEmptyProjectAsGlobal ?? false,
-      auditContext: merged.auditContext,
-      stackTrace: merged.stackTrace,
+      payloadKeys: pending.merged.payloadKeys,
+      sdkConnections: pending.merged.sdkConnections ?? [],
+      skipRefreshForProject: pending.merged.skipRefreshForProject,
+      treatEmptyProjectAsGlobal:
+        pending.merged.treatEmptyProjectAsGlobal ?? false,
+      auditContext: pending.merged.auditContext,
+      stackTrace: pending.merged.stackTrace,
     });
+    await ackPendingSdkPayloadRefreshRequests(
+      organization,
+      pending.requestCount,
+    );
   } catch (e) {
     logger.error(
       e,
       `Error running coalesced SDK payload refresh for org ${organization}`,
     );
+    await scheduleCoalescedSdkPayloadRefreshJob(organization);
     throw e;
   }
 }

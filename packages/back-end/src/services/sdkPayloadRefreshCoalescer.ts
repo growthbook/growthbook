@@ -124,11 +124,14 @@ export async function getPendingSdkPayloadRefreshAgeMs(
   return Date.now() - doc.firstQueuedAt.getTime();
 }
 
-export async function drainPendingSdkPayloadRefreshRequests(
+export async function getPendingSdkPayloadRefreshRequests(
   organization: string,
-): Promise<SdkPayloadRefreshQueueRequest | null> {
+): Promise<{
+  merged: SdkPayloadRefreshQueueRequest;
+  requestCount: number;
+} | null> {
   const collection = getPendingCollection();
-  const { value: doc } = await collection.findOneAndDelete({ organization });
+  const doc = await collection.findOne({ organization });
   if (!doc?.requests?.length) {
     return null;
   }
@@ -136,7 +139,52 @@ export async function drainPendingSdkPayloadRefreshRequests(
   if (!hasPendingRefreshWork(merged)) {
     return null;
   }
-  return merged;
+  return { merged, requestCount: doc.requests.length };
+}
+
+export async function ackPendingSdkPayloadRefreshRequests(
+  organization: string,
+  processedRequestCount: number,
+): Promise<void> {
+  const collection = getPendingCollection();
+  const now = new Date();
+  const { value: doc } = await collection.findOneAndUpdate(
+    { organization },
+    [
+      {
+        $set: {
+          requests: {
+            $cond: {
+              if: {
+                $lte: [
+                  { $size: { $ifNull: ["$requests", []] } },
+                  processedRequestCount,
+                ],
+              },
+              then: [],
+              else: {
+                $slice: [
+                  "$requests",
+                  processedRequestCount,
+                  {
+                    $subtract: [
+                      { $size: { $ifNull: ["$requests", []] } },
+                      processedRequestCount,
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+          dateUpdated: now,
+        },
+      },
+    ],
+    { returnDocument: "after" },
+  );
+  if (!doc?.requests?.length) {
+    await collection.deleteOne({ organization });
+  }
 }
 
 export function isSdkPayloadRefreshCoalescingEnabled(): boolean {
