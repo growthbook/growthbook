@@ -7,6 +7,7 @@ import {
   generateEventForwarderExposureQueries,
   isEventForwarderManagedExposureQuery,
   mergeEventForwarderExposureQueries,
+  refreshEventForwarderManagedExposureQuery,
 } from "../../src/util/event-forwarder-exposure-queries";
 import { EVENT_FORWARDER_AVRO_PARTITION_FIELD } from "../../src/util/event-forwarder-fact-table";
 
@@ -60,6 +61,16 @@ describe("buildEventForwarderAttributeValueSql", () => {
         userIdType: "user-id",
       }),
     ).toBe('ATTRIBUTES:"user_id"::STRING');
+  });
+
+  it("uses typed casts when attributeDatatype is provided", () => {
+    expect(
+      buildEventForwarderAttributeValueSql({
+        sinkType: "bigquery",
+        userIdType: "age",
+        attributeDatatype: "number",
+      }),
+    ).toBe("SAFE_CAST(JSON_VALUE(`attributes`, '$.\"age\"') AS FLOAT64)");
   });
 });
 
@@ -173,5 +184,35 @@ describe("mergeEventForwarderExposureQueries", () => {
     });
 
     expect(merged).toHaveLength(1);
+  });
+});
+
+describe("refreshEventForwarderManagedExposureQuery", () => {
+  it("renames managed exposure query and regenerates typed SQL", () => {
+    const existing = generateEventForwarderExposureQueries(["user_id"], {
+      sinkType: "bigquery",
+      projectId: "proj",
+      dataset: "ds",
+    });
+
+    const refreshed = refreshEventForwarderManagedExposureQuery(
+      existing,
+      "user_id",
+      {
+        property: "account_id",
+        datatype: "number",
+        hashAttribute: true,
+      },
+      {
+        sinkType: "bigquery",
+        projectId: "proj",
+        dataset: "ds",
+      },
+    );
+
+    expect(refreshed[0].id).toBe("account_id");
+    expect(refreshed[0].userIdType).toBe("account_id");
+    expect(refreshed[0].query).toContain("account_id");
+    expect(refreshed[0].query).toContain("AS FLOAT64");
   });
 });

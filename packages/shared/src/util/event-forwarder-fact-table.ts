@@ -230,6 +230,18 @@ function getEventForwarderEventsFactTableAttributes(
   return attributes;
 }
 
+function findEventForwarderEventsFactTableAttribute(
+  attributes: SDKAttribute[],
+  property: string,
+): SDKAttribute | undefined {
+  const fieldName = sanitizeEventForwarderAvroFieldName(property).toLowerCase();
+  return attributes.find(
+    (attribute) =>
+      sanitizeEventForwarderAvroFieldName(attribute.property).toLowerCase() ===
+      fieldName,
+  );
+}
+
 function buildEventForwarderEventsFactTableSelect({
   sinkType,
   attributeSchema,
@@ -260,11 +272,17 @@ function buildEventForwarderEventsFactTableSelect({
       continue;
     }
     projectedFieldKeys.add(key);
+    const matchingAttribute = findEventForwarderEventsFactTableAttribute(
+      attributes,
+      userIdType,
+    );
     const valueSql = buildEventForwarderNestedAttributeValueSql({
       sinkType,
-      attributeName: userIdType,
-      valueDatatype: "string",
-      castToString: true,
+      attributeName: matchingAttribute?.property ?? userIdType,
+      valueDatatype: matchingAttribute
+        ? getEventForwarderFactTableColumnDatatype(matchingAttribute)
+        : "string",
+      castToString: !matchingAttribute,
     });
     attributeColumns.push(`  ${valueSql} AS ${fieldName}`);
   }
@@ -341,10 +359,6 @@ export function buildEventForwarderEventsFactTableSql(
 function getEventForwarderFactTableColumnDatatype(
   attribute: SDKAttribute,
 ): EventForwarderAttributeValueDatatype {
-  if (attribute.hashAttribute) {
-    return "string";
-  }
-
   switch (attribute.datatype) {
     case "boolean":
       return "boolean";

@@ -450,7 +450,7 @@ describe("attributes API", () => {
     });
   });
 
-  it("refuses to update attribute data type when an event forwarder exists (not only ready)", async () => {
+  it("can update attribute data type when an event forwarder exists", async () => {
     setReqContext({
       models: {
         projects: {
@@ -474,6 +474,9 @@ describe("attributes API", () => {
       },
       permissions: {
         canUpdateAttribute: () => true,
+        throwPermissionError: () => {
+          throw new Error("permission error");
+        },
       },
     });
 
@@ -484,13 +487,25 @@ describe("attributes API", () => {
       })
       .set("Authorization", "Bearer foo");
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(200);
     expect(response.body).toEqual({
-      message:
-        "Attribute data type can't be changed while an Event Forwarder is configured.",
+      attribute: {
+        property: "attr1",
+        datatype: "string",
+        projects: ["bla"],
+      },
     });
-    expect(updateOrganization).not.toHaveBeenCalledWith();
-    expect(auditMock).not.toHaveBeenCalledWith();
+    expect(updateOrganization).toHaveBeenCalledWith("org1", {
+      settings: {
+        attributeSchema: [
+          {
+            property: "attr1",
+            datatype: "string",
+            projects: ["bla"],
+          },
+        ],
+      },
+    });
   });
 
   it("can create attributes", async () => {
