@@ -1,5 +1,6 @@
 import uniqid from "uniqid";
 import { getAutoSliceMetrics, isRatioMetric } from "shared/experiments";
+import { DataSourceInterface } from "shared/types/datasource";
 import {
   FactMetricInterface,
   FactTableInterface,
@@ -21,6 +22,81 @@ import {
   buildAggregatedFactTableSchemaState,
   getAggregatedFactTableRestateReason,
 } from "back-end/src/enterprise/services/data-pipeline";
+
+type AggregatedFactTableRestateLogReason =
+  | "forced"
+  | "no-existing-table"
+  | "incomplete-write"
+  | "schema-drift"
+  | null;
+
+function resolveAggregatedFactTableRestateLogReason({
+  mode,
+  forceRestate,
+  hasExistingTable,
+  restateReason,
+}: {
+  mode: AggregatedFactTableRunMode;
+  forceRestate: boolean;
+  hasExistingTable: boolean;
+  restateReason: AggregatedFactTableRestateReason;
+}): AggregatedFactTableRestateLogReason {
+  if (mode === "incremental") return null;
+  if (forceRestate) return "forced";
+  if (!hasExistingTable) return "no-existing-table";
+  return restateReason ?? "schema-drift";
+}
+
+function createAggregatedFactTableUpdateExecutionLogger(meta: {
+  organization: string;
+  datasource: Pick<DataSourceInterface, "id" | "type">;
+  aggregatedFactTableId: string;
+  factTableId: string;
+  idType: string;
+  runId: string;
+  executionId: string;
+  mode: AggregatedFactTableRunMode;
+  restateReason: AggregatedFactTableRestateLogReason;
+}) {
+  const startedAtMs = Date.now();
+  let logged = false;
+
+  return {
+    logUpdateCompleted(
+      context: ReqContext,
+      {
+        status,
+        error,
+      }: {
+        status: "success" | "error";
+        error?: string;
+      },
+    ): void {
+      if (logged) return;
+      logged = true;
+      context.logger.info(
+        {
+          event: "aggregated_fact_table_updated",
+          organization: meta.organization,
+          datasourceId: meta.datasource.id,
+          datasourceType: meta.datasource.type,
+          aggregatedFactTableId: meta.aggregatedFactTableId,
+          factTableId: meta.factTableId,
+          idType: meta.idType,
+          runId: meta.runId,
+          executionId: meta.executionId,
+          mode: meta.mode,
+          restate: meta.mode === "restate",
+          restateReason: meta.restateReason,
+          status,
+          error: error || null,
+          durationMs: Date.now() - startedAtMs,
+        },
+        "Aggregated fact table update completed",
+      );
+    },
+  };
+}
 
 export type AggregatedFactTableMaterializationStatus =
   | "running"
@@ -193,12 +269,6 @@ export async function runAggregatedFactTableUpdate(
     forceRestate || !registry.tableFullName || restateReason !== null
       ? "restate"
       : "incremental";
-  if (restateReason) {
-    logger.info(
-      { factTableId: factTable.id, idType, restateReason },
-      "[aggregated-fact-table] forcing restate",
-    );
-  }
 
   const run = await context.models.aggregatedFactTableRuns.create({
     aggregatedFactTableId: registry.id,
@@ -214,12 +284,33 @@ export async function runAggregatedFactTableUpdate(
     result: null,
   });
 
+  const executionLogger = createAggregatedFactTableUpdateExecutionLogger({
+    organization: context.org.id,
+    datasource: { id: datasource.id, type: datasource.type },
+    aggregatedFactTableId: registry.id,
+    factTableId: factTable.id,
+    idType,
+    runId: run.id,
+    executionId,
+    mode,
+    restateReason: resolveAggregatedFactTableRestateLogReason({
+      mode,
+      forceRestate,
+      hasExistingTable: !!registry.tableFullName,
+      restateReason,
+    }),
+  });
+
   const handleFailure = async (e: unknown) => {
     const message = e instanceof Error ? e.message : String(e);
     logger.error(
       e,
       `Failed to update aggregated fact table for ${factTable.id}/${idType}`,
     );
+    executionLogger.logUpdateCompleted(context, {
+      status: "error",
+      error: message,
+    });
     try {
       await context.models.aggregatedFactTableRuns.updateRunFields(run.id, {
         error: message,
@@ -267,6 +358,7 @@ export async function runAggregatedFactTableUpdate(
   const waitForCompletion = async () => {
     try {
       await runner.waitForResults();
+      executionLogger.logUpdateCompleted(context, { status: "success" });
       logger.debug(
         `Updated aggregated fact table ${factTable.id}/${idType} (${mode})`,
       );

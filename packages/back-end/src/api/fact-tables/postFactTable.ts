@@ -66,6 +66,9 @@ export const postFactTable = createApiRequestHandler(postFactTableValidator)(
           "Maintaining shared daily aggregated tables requires the data pipeline feature.",
         );
       }
+      if (!req.context.permissions.canUpdateDataSourceSettings(datasource)) {
+        req.context.permissions.throwPermissionError();
+      }
       validateAggregatedFactTableSettings(
         req.body.aggregatedFactTableSettings,
         req.body.userIdTypes,
