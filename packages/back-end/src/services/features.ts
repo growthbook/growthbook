@@ -2637,9 +2637,6 @@ export const buildFeatureRulesFromApiEnvSettings = (
   });
 };
 
-// Compares prerequisite lists by reference identity, not deep equality.
-// Callers must push the same FeaturePrerequisite instances from the source
-// array; remapping to new objects would falsely report a change.
 function prerequisiteListsDiffer(
   next: FeaturePrerequisite[],
   original: FeaturePrerequisite[] | undefined,
@@ -2647,7 +2644,11 @@ function prerequisiteListsDiffer(
   const orig = original ?? [];
   if (next.length !== orig.length) return true;
   for (let i = 0; i < next.length; i++) {
-    if (next[i] !== orig[i]) return true;
+    if (
+      next[i]?.id !== orig[i]?.id ||
+      next[i]?.condition !== orig[i]?.condition
+    )
+      return true;
   }
   return false;
 }
