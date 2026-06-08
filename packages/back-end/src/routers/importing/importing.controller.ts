@@ -65,9 +65,11 @@ export const proxyStatsigRequest = async (
   // Validate HTTP method
   const validatedMethod = validateHttpMethod(method);
 
-  try {
-    const url = resolveProxyUrl(endpoint, "https://statsigapi.net/console/v1/");
+  // Resolve the URL before the try block so an invalid/origin-violating URL
+  // surfaces as a 4xx (via the global error handler) rather than a 500.
+  const url = resolveProxyUrl(endpoint, "https://statsigapi.net/console/v1/");
 
+  try {
     const response = await fetch(url, {
       method: validatedMethod,
       headers: {
@@ -118,9 +120,11 @@ export const proxyLaunchDarklyRequest = async (
     });
   }
 
-  try {
-    const fullUrl = resolveProxyUrl(url, "https://app.launchdarkly.com");
+  // Resolve the URL before the try block so an invalid/origin-violating URL
+  // surfaces as a 4xx (via the global error handler) rather than a 500.
+  const fullUrl = resolveProxyUrl(url, "https://app.launchdarkly.com");
 
+  try {
     const response = await fetch(fullUrl, {
       headers: {
         Authorization: apiToken,
