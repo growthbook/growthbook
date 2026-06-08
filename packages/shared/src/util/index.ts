@@ -42,7 +42,6 @@ export * from "./errors";
 export * from "./namespaces";
 export * from "./custom-fields";
 export * from "./datasource";
-export * from "./event-forwarder-attribute-keys";
 export * from "./event-forwarder-fact-table";
 export * from "./event-forwarder-exposure-queries";
 export * from "./event-forwarder-feature-usage-queries";
