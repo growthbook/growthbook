@@ -7,6 +7,7 @@ import {
   getFeatureKeysForRepoBranch,
   upsertFeatureCodeRefs,
 } from "back-end/src/models/FeatureCodeRefs";
+import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 
 export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
   async (req) => {
@@ -30,7 +31,31 @@ export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
       featuresToRemove = existingFeatures.filter(
         (feature) => !requestedFeatures.has(feature),
       );
+    }
 
+    // Require write access to every feature being upserted or cleared before
+    // touching the collection. Code ref flag keys equal feature ids; keys with
+    // no matching feature require global manageFeatures.
+    const affectedFeatureIds = [
+      ...new Set([...requestedFeatures, ...featuresToRemove]),
+    ];
+    const featuresMap = new Map(
+      (await getFeaturesByIds(req.context, affectedFeatureIds)).map((f) => [
+        f.id,
+        f,
+      ]),
+    );
+    const cannotWriteAll = affectedFeatureIds.some((featureId) => {
+      const feature = featuresMap.get(featureId);
+      return feature
+        ? !req.context.permissions.canUpdateFeature(feature, feature)
+        : !req.context.permissions.canCreateFeature({});
+    });
+    if (cannotWriteAll) {
+      req.context.permissions.throwPermissionError();
+    }
+
+    if (deleteMissing) {
       // Remove references for features not in the request by setting empty refs
       await promiseAllChunks(
         featuresToRemove.map(
