@@ -2,12 +2,12 @@ import {
   ExperimentAnalysisSummaryResultsStatus,
   ExperimentAnalysisSummaryVariationStatus,
   DecisionCriteriaRule,
+  DecisionCriteriaData,
 } from "shared/types/experiment";
 import {
   getDecisionFrameworkStatus,
   evaluateDecisionRuleOnVariation,
   getVariationDecisions,
-  getEarlyStoppingVariationDecisions,
 } from "../src/enterprise/decision-criteria/decisionCriteria";
 import { PRESET_DECISION_CRITERIA } from "../src/enterprise/decision-criteria/constants";
 
@@ -46,10 +46,13 @@ describe("default decision tree is correct", () => {
     ],
     settings: { sequentialTesting: false },
   };
+
   it("returns the correct underpowered decisions", () => {
+    // pre-power, no sequential testing => decisionReady is false
     const daysNeeded = undefined;
 
-    // winning stat sig not enough to trigger any rec
+    // winning regular stat sig is not enough to ship pre-power (statsigWinner
+    // is suppressed and the preset ship rule has no superStatsigWinner condition)
     const noDecision = getDecisionFrameworkStatus({
       resultsStatus: setMetricsOnResultsStatus({
         resultsStatus,
@@ -62,8 +65,9 @@ describe("default decision tree is correct", () => {
     });
     expect(noDecision).toEqual(undefined);
 
-    // losing stat sig not enough to trigger any rec
-    const noNegDecision = getDecisionFrameworkStatus({
+    // losing regular stat sig DOES trigger a rollback pre-power: harm is
+    // detected early via statsigLoser (which is never suppressed)
+    const negRegularDecision = getDecisionFrameworkStatus({
       resultsStatus: setMetricsOnResultsStatus({
         resultsStatus,
         goalMetrics: { "1": { status: "lost", superStatSigStatus: "neutral" } },
@@ -73,10 +77,23 @@ describe("default decision tree is correct", () => {
       guardrailMetrics: [],
       daysNeeded,
     });
-    expect(noNegDecision).toEqual(undefined);
+    expect(negRegularDecision).toEqual({
+      status: "rollback-now",
+      variations: [
+        {
+          variationId: "1",
+          decidingRule: PRESET_DECISION_CRITERIA.rules[2],
+          triggeredMetricIds: ["1"],
+        },
+      ],
+      sequentialUsed: false,
+      powerReached: false,
+      tooltip: "The test variation(s) should be rolled back.",
+    });
 
-    // super stat sig triggers rec
-    const shipDecision = getDecisionFrameworkStatus({
+    // super stat sig winner alone does NOT ship with the preset, because the
+    // preset ship rule uses regular statsigWinner (no early-ship opt-in)
+    const noEarlyShipDecision = getDecisionFrameworkStatus({
       resultsStatus: setMetricsOnResultsStatus({
         resultsStatus,
         goalMetrics: { "1": { status: "won", superStatSigStatus: "won" } },
@@ -86,18 +103,10 @@ describe("default decision tree is correct", () => {
       guardrailMetrics: [],
       daysNeeded,
     });
-    expect(shipDecision).toEqual({
-      status: "ship-now",
-      variations: [
-        { variationId: "1", decidingRule: PRESET_DECISION_CRITERIA.rules[0] },
-      ],
-      sequentialUsed: false,
-      powerReached: false,
-      tooltip: "A test variation is ready to ship.",
-    });
+    expect(noEarlyShipDecision).toEqual(undefined);
 
-    // super stat sig triggers rec with guardrail failure
-    const discussDecision = getDecisionFrameworkStatus({
+    // a failing guardrail triggers rollback pre-power
+    const guardrailFailureDecision = getDecisionFrameworkStatus({
       resultsStatus: setMetricsOnResultsStatus({
         resultsStatus,
         goalMetrics: { "1": { status: "won", superStatSigStatus: "won" } },
@@ -110,17 +119,21 @@ describe("default decision tree is correct", () => {
       guardrailMetrics: ["01"],
       daysNeeded: undefined,
     });
-    expect(discussDecision).toEqual({
+    expect(guardrailFailureDecision).toEqual({
       status: "rollback-now",
       variations: [
-        { variationId: "1", decidingRule: PRESET_DECISION_CRITERIA.rules[1] },
+        {
+          variationId: "1",
+          decidingRule: PRESET_DECISION_CRITERIA.rules[1],
+          triggeredMetricIds: ["01"],
+        },
       ],
       sequentialUsed: false,
       powerReached: false,
       tooltip: "The test variation(s) should be rolled back.",
     });
 
-    // super stat sig triggers rec with guardrail failure
+    // a safe guardrail with no goal metrics does not ship pre-power
     const guardrailSafeDecision = getDecisionFrameworkStatus({
       resultsStatus: setMetricsOnResultsStatus({
         resultsStatus,
@@ -134,17 +147,9 @@ describe("default decision tree is correct", () => {
       guardrailMetrics: ["01"],
       daysNeeded: undefined,
     });
-    expect(guardrailSafeDecision).toEqual({
-      status: "ship-now",
-      variations: [
-        { variationId: "1", decidingRule: PRESET_DECISION_CRITERIA.rules[0] },
-      ],
-      sequentialUsed: false,
-      powerReached: false,
-      tooltip: "A test variation is ready to ship.",
-    });
+    expect(guardrailSafeDecision).toEqual(undefined);
 
-    // losing super stat sig triggers rec
+    // losing super stat sig also triggers a rollback pre-power
     const negDecision = getDecisionFrameworkStatus({
       resultsStatus: setMetricsOnResultsStatus({
         resultsStatus,
@@ -158,14 +163,18 @@ describe("default decision tree is correct", () => {
     expect(negDecision).toEqual({
       status: "rollback-now",
       variations: [
-        { variationId: "1", decidingRule: PRESET_DECISION_CRITERIA.rules[2] },
+        {
+          variationId: "1",
+          decidingRule: PRESET_DECISION_CRITERIA.rules[2],
+          triggeredMetricIds: ["1"],
+        },
       ],
       sequentialUsed: false,
       powerReached: false,
       tooltip: "The test variation(s) should be rolled back.",
     });
 
-    // losing super stat sig on one variation not enough
+    // losing on one variation but not the other is not enough for rollback-now
     const somewhatNegDecision = getDecisionFrameworkStatus({
       resultsStatus: setMetricsOnResultsStatus({
         resultsStatus,
@@ -203,14 +212,18 @@ describe("default decision tree is correct", () => {
     expect(decision).toEqual({
       status: "ship-now",
       variations: [
-        { variationId: "1", decidingRule: PRESET_DECISION_CRITERIA.rules[0] },
+        {
+          variationId: "1",
+          decidingRule: PRESET_DECISION_CRITERIA.rules[0],
+          triggeredMetricIds: ["1"],
+        },
       ],
       sequentialUsed: false,
       powerReached: true,
       tooltip: "A test variation is ready to ship.",
     });
 
-    // neutral triggers no decision
+    // neutral triggers no decision other than the default review
     const noDecision = getDecisionFrameworkStatus({
       resultsStatus: setMetricsOnResultsStatus({
         resultsStatus,
@@ -231,7 +244,7 @@ describe("default decision tree is correct", () => {
       tooltip: "A test variation is ready to be reviewed.",
     });
 
-    // Guardrail failure is now default to rollback
+    // Guardrail failure defaults to rollback
     const guardrailDecision = getDecisionFrameworkStatus({
       resultsStatus: setMetricsOnResultsStatus({
         resultsStatus,
@@ -245,7 +258,11 @@ describe("default decision tree is correct", () => {
     expect(guardrailDecision).toEqual({
       status: "rollback-now",
       variations: [
-        { variationId: "1", decidingRule: PRESET_DECISION_CRITERIA.rules[1] },
+        {
+          variationId: "1",
+          decidingRule: PRESET_DECISION_CRITERIA.rules[1],
+          triggeredMetricIds: ["01"],
+        },
       ],
       sequentialUsed: false,
       powerReached: true,
@@ -266,7 +283,11 @@ describe("default decision tree is correct", () => {
     expect(negDecision).toEqual({
       status: "rollback-now",
       variations: [
-        { variationId: "1", decidingRule: PRESET_DECISION_CRITERIA.rules[2] },
+        {
+          variationId: "1",
+          decidingRule: PRESET_DECISION_CRITERIA.rules[2],
+          triggeredMetricIds: ["1"],
+        },
       ],
       sequentialUsed: false,
       powerReached: true,
@@ -294,8 +315,16 @@ describe("default decision tree is correct", () => {
     expect(negDecisionTwoVar).toEqual({
       status: "rollback-now",
       variations: [
-        { variationId: "1", decidingRule: PRESET_DECISION_CRITERIA.rules[2] },
-        { variationId: "2", decidingRule: PRESET_DECISION_CRITERIA.rules[2] },
+        {
+          variationId: "1",
+          decidingRule: PRESET_DECISION_CRITERIA.rules[2],
+          triggeredMetricIds: ["1"],
+        },
+        {
+          variationId: "2",
+          decidingRule: PRESET_DECISION_CRITERIA.rules[2],
+          triggeredMetricIds: ["1"],
+        },
       ],
       sequentialUsed: false,
       powerReached: true,
@@ -327,6 +356,69 @@ describe("default decision tree is correct", () => {
       powerReached: true,
       tooltip: "A test variation is ready to be reviewed.",
     });
+  });
+
+  it("ships early only with an explicit superStatsigWinner direction", () => {
+    const earlyShipCriteria: DecisionCriteriaData = {
+      id: "test-early-ship",
+      name: "Early Ship",
+      rules: [
+        {
+          conditions: [
+            {
+              match: "all",
+              metrics: "goals",
+              direction: "superStatsigWinner",
+            },
+            {
+              match: "none",
+              metrics: "guardrails",
+              direction: "statsigLoser",
+            },
+          ],
+          action: "ship",
+        },
+      ],
+      defaultAction: "review",
+    };
+
+    // pre-power, super stat sig winner => ships early
+    const earlyShip = getDecisionFrameworkStatus({
+      resultsStatus: setMetricsOnResultsStatus({
+        resultsStatus,
+        goalMetrics: { "1": { status: "won", superStatSigStatus: "won" } },
+      }),
+      decisionCriteria: earlyShipCriteria,
+      goalMetrics: ["1"],
+      guardrailMetrics: [],
+      daysNeeded: undefined,
+    });
+    expect(earlyShip).toEqual({
+      status: "ship-now",
+      variations: [
+        {
+          variationId: "1",
+          decidingRule: earlyShipCriteria.rules[0],
+          triggeredMetricIds: ["1"],
+        },
+      ],
+      sequentialUsed: false,
+      powerReached: false,
+      tooltip: "A test variation is ready to ship.",
+    });
+
+    // pre-power, regular winner but not super => does not ship early
+    const noEarlyShip = getDecisionFrameworkStatus({
+      resultsStatus: setMetricsOnResultsStatus({
+        resultsStatus,
+        goalMetrics: { "1": { status: "won", superStatSigStatus: "neutral" } },
+      }),
+      decisionCriteria: earlyShipCriteria,
+      goalMetrics: ["1"],
+      guardrailMetrics: [],
+      daysNeeded: undefined,
+    });
+    expect(noEarlyShip).toEqual(undefined);
   });
 });
 
@@ -361,9 +453,9 @@ describe("evaluateDecisionRuleOnVariation", () => {
       },
       goalMetrics: ["metric1", "metric2"],
       guardrailMetrics: [],
-      requireSuperStatSig: false,
+      decisionReady: true,
     });
-    expect(allWinning).toEqual("ship");
+    expect(allWinning?.action).toEqual("ship");
 
     // One metric losing - should not match
     const oneLosing = evaluateDecisionRuleOnVariation({
@@ -377,7 +469,7 @@ describe("evaluateDecisionRuleOnVariation", () => {
       },
       goalMetrics: ["metric1", "metric2"],
       guardrailMetrics: [],
-      requireSuperStatSig: false,
+      decisionReady: true,
     });
     expect(oneLosing).toBeUndefined();
   });
@@ -406,9 +498,9 @@ describe("evaluateDecisionRuleOnVariation", () => {
       },
       goalMetrics: ["metric1", "metric2"],
       guardrailMetrics: [],
-      requireSuperStatSig: false,
+      decisionReady: true,
     });
-    expect(oneWinning).toEqual("ship");
+    expect(oneWinning?.action).toEqual("ship");
 
     // No metrics winning - should not match
     const noneWinning = evaluateDecisionRuleOnVariation({
@@ -422,7 +514,7 @@ describe("evaluateDecisionRuleOnVariation", () => {
       },
       goalMetrics: ["metric1", "metric2"],
       guardrailMetrics: [],
-      requireSuperStatSig: false,
+      decisionReady: true,
     });
     expect(noneWinning).toBeUndefined();
   });
@@ -451,9 +543,9 @@ describe("evaluateDecisionRuleOnVariation", () => {
       },
       goalMetrics: ["metric1", "metric2"],
       guardrailMetrics: [],
-      requireSuperStatSig: false,
+      decisionReady: true,
     });
-    expect(noneLosing).toEqual("ship");
+    expect(noneLosing?.action).toEqual("ship");
 
     // One metric losing - should not match
     const oneLosing = evaluateDecisionRuleOnVariation({
@@ -467,7 +559,7 @@ describe("evaluateDecisionRuleOnVariation", () => {
       },
       goalMetrics: ["metric1", "metric2"],
       guardrailMetrics: [],
-      requireSuperStatSig: false,
+      decisionReady: true,
     });
     expect(oneLosing).toBeUndefined();
   });
@@ -485,7 +577,7 @@ describe("evaluateDecisionRuleOnVariation", () => {
     };
 
     // All guardrails losing - should match
-    const allWinning = evaluateDecisionRuleOnVariation({
+    const allLosing = evaluateDecisionRuleOnVariation({
       rule,
       variationStatus: {
         ...baseVariationStatus,
@@ -496,9 +588,9 @@ describe("evaluateDecisionRuleOnVariation", () => {
       },
       goalMetrics: [],
       guardrailMetrics: ["guardrail1", "guardrail2"],
-      requireSuperStatSig: false,
+      decisionReady: true,
     });
-    expect(allWinning).toEqual("rollback");
+    expect(allLosing?.action).toEqual("rollback");
 
     // One guardrail losing - should not match
     const oneLosing = evaluateDecisionRuleOnVariation({
@@ -512,13 +604,13 @@ describe("evaluateDecisionRuleOnVariation", () => {
       },
       goalMetrics: [],
       guardrailMetrics: ["guardrail1", "guardrail2"],
-      requireSuperStatSig: false,
+      decisionReady: true,
     });
     expect(oneLosing).toBeUndefined();
   });
 
-  it("respects requireSuperStatSig flag", () => {
-    const rule: DecisionCriteriaRule = {
+  it("suppresses regular statsigWinner before decision-ready, but not superStatsigWinner", () => {
+    const regularRule: DecisionCriteriaRule = {
       conditions: [
         {
           metrics: "goals" as const,
@@ -529,24 +621,24 @@ describe("evaluateDecisionRuleOnVariation", () => {
       action: "ship" as const,
     };
 
-    // With requireSuperStatSig=true, should check superStatSigStatus
-    const superStatSigRequired = evaluateDecisionRuleOnVariation({
-      rule,
+    // Before decision-ready, a regular statsigWinner is suppressed (no match)
+    const suppressed = evaluateDecisionRuleOnVariation({
+      rule: regularRule,
       variationStatus: {
         ...baseVariationStatus,
         goalMetrics: {
-          metric1: { status: "won", superStatSigStatus: "neutral" },
+          metric1: { status: "won", superStatSigStatus: "won" },
         },
       },
       goalMetrics: ["metric1"],
       guardrailMetrics: [],
-      requireSuperStatSig: true,
+      decisionReady: false,
     });
-    expect(superStatSigRequired).toBeUndefined();
+    expect(suppressed).toBeUndefined();
 
-    // With requireSuperStatSig=false, should check regular status
-    const superStatSigNotRequired = evaluateDecisionRuleOnVariation({
-      rule,
+    // Once decision-ready, the regular statsigWinner matches
+    const notSuppressed = evaluateDecisionRuleOnVariation({
+      rule: regularRule,
       variationStatus: {
         ...baseVariationStatus,
         goalMetrics: {
@@ -555,9 +647,76 @@ describe("evaluateDecisionRuleOnVariation", () => {
       },
       goalMetrics: ["metric1"],
       guardrailMetrics: [],
-      requireSuperStatSig: false,
+      decisionReady: true,
     });
-    expect(superStatSigNotRequired).toEqual("ship");
+    expect(notSuppressed?.action).toEqual("ship");
+
+    // superStatsigWinner checks superStatSigStatus and is never suppressed
+    const superRule: DecisionCriteriaRule = {
+      conditions: [
+        {
+          metrics: "goals" as const,
+          match: "all" as const,
+          direction: "superStatsigWinner" as const,
+        },
+      ],
+      action: "ship" as const,
+    };
+    const superMatch = evaluateDecisionRuleOnVariation({
+      rule: superRule,
+      variationStatus: {
+        ...baseVariationStatus,
+        goalMetrics: {
+          metric1: { status: "won", superStatSigStatus: "won" },
+        },
+      },
+      goalMetrics: ["metric1"],
+      guardrailMetrics: [],
+      decisionReady: false,
+    });
+    expect(superMatch?.action).toEqual("ship");
+
+    // superStatsigWinner does not match if only regular status is "won"
+    const superNoMatch = evaluateDecisionRuleOnVariation({
+      rule: superRule,
+      variationStatus: {
+        ...baseVariationStatus,
+        goalMetrics: {
+          metric1: { status: "won", superStatSigStatus: "neutral" },
+        },
+      },
+      goalMetrics: ["metric1"],
+      guardrailMetrics: [],
+      decisionReady: false,
+    });
+    expect(superNoMatch).toBeUndefined();
+  });
+
+  it("does not suppress regular statsigLoser before decision-ready", () => {
+    const rule: DecisionCriteriaRule = {
+      conditions: [
+        {
+          metrics: "goals" as const,
+          match: "any" as const,
+          direction: "statsigLoser" as const,
+        },
+      ],
+      action: "rollback" as const,
+    };
+
+    const harmDetected = evaluateDecisionRuleOnVariation({
+      rule,
+      variationStatus: {
+        ...baseVariationStatus,
+        goalMetrics: {
+          metric1: { status: "lost", superStatSigStatus: "neutral" },
+        },
+      },
+      goalMetrics: ["metric1"],
+      guardrailMetrics: [],
+      decisionReady: false,
+    });
+    expect(harmDetected?.action).toEqual("rollback");
   });
 
   it("handles multiple conditions", () => {
@@ -591,9 +750,9 @@ describe("evaluateDecisionRuleOnVariation", () => {
       },
       goalMetrics: ["metric1"],
       guardrailMetrics: ["guardrail1"],
-      requireSuperStatSig: false,
+      decisionReady: true,
     });
-    expect(allConditionsMet).toEqual("ship");
+    expect(allConditionsMet?.action).toEqual("ship");
 
     // One condition not met - should not match
     const oneConditionNotMet = evaluateDecisionRuleOnVariation({
@@ -609,7 +768,7 @@ describe("evaluateDecisionRuleOnVariation", () => {
       },
       goalMetrics: ["metric1"],
       guardrailMetrics: ["guardrail1"],
-      requireSuperStatSig: false,
+      decisionReady: true,
     });
     expect(oneConditionNotMet).toBeUndefined();
   });
@@ -632,7 +791,7 @@ describe("getVariationDecisions", () => {
     settings: { sequentialTesting: false },
   };
 
-  it("applies rules to each variation and returns default (no) action if no rules match and power is reached (not reached) ", () => {
+  it("returns default action when power reached and null when not", () => {
     const decisionCriteria = {
       id: "test-criteria-1",
       name: "Test Criteria 1",
@@ -656,6 +815,7 @@ describe("getVariationDecisions", () => {
       decisionCriteria,
       goalMetrics: ["metric1"],
       powerReached: true,
+      decisionReady: true,
       guardrailMetrics: [],
     });
 
@@ -670,12 +830,13 @@ describe("getVariationDecisions", () => {
       },
     ]);
 
-    // without power, return null
+    // without power / not decision-ready, return null (no default fallback)
     const resultsWithoutPower = getVariationDecisions({
       resultsStatus: baseResultsStatus,
       decisionCriteria,
       goalMetrics: ["metric1"],
       powerReached: false,
+      decisionReady: false,
       guardrailMetrics: [],
     });
 
@@ -686,44 +847,6 @@ describe("getVariationDecisions", () => {
       },
       {
         decisionCriteriaAction: null,
-        variation: { variationId: "2", decidingRule: null },
-      },
-    ]);
-  });
-  it("applies rules to each variation and returns default action if no rules match and power is reached", () => {
-    const decisionCriteria = {
-      id: "test-criteria-1",
-      name: "Test Criteria 1",
-      rules: [
-        {
-          conditions: [
-            {
-              metrics: "goals" as const,
-              match: "all" as const,
-              direction: "statsigWinner" as const,
-            },
-          ],
-          action: "ship" as const,
-        },
-      ],
-      defaultAction: "review" as const,
-    };
-
-    const results = getVariationDecisions({
-      resultsStatus: baseResultsStatus,
-      decisionCriteria,
-      goalMetrics: ["metric1"],
-      powerReached: true,
-      guardrailMetrics: [],
-    });
-
-    expect(results).toEqual([
-      {
-        decisionCriteriaAction: "review",
-        variation: { variationId: "1", decidingRule: null },
-      },
-      {
-        decisionCriteriaAction: "review",
         variation: { variationId: "2", decidingRule: null },
       },
     ]);
@@ -782,16 +905,25 @@ describe("getVariationDecisions", () => {
       goalMetrics: ["metric1"],
       guardrailMetrics: [],
       powerReached: true,
+      decisionReady: true,
     });
 
     expect(results).toEqual([
       {
         decisionCriteriaAction: "ship",
-        variation: { variationId: "1", decidingRule: shipRule },
+        variation: {
+          variationId: "1",
+          decidingRule: shipRule,
+          triggeredMetricIds: ["metric1"],
+        },
       },
       {
         decisionCriteriaAction: "rollback",
-        variation: { variationId: "2", decidingRule: rollbackRule },
+        variation: {
+          variationId: "2",
+          decidingRule: rollbackRule,
+          triggeredMetricIds: ["metric1"],
+        },
       },
     ]);
   });
@@ -851,17 +983,26 @@ describe("getVariationDecisions", () => {
       goalMetrics: ["metric1", "metric2"],
       guardrailMetrics: [],
       powerReached: true,
+      decisionReady: true,
     });
 
     // Both variations match the first rule (any metric winning)
     expect(results).toEqual([
       {
         decisionCriteriaAction: "ship",
-        variation: { variationId: "1", decidingRule: shipRule },
+        variation: {
+          variationId: "1",
+          decidingRule: shipRule,
+          triggeredMetricIds: ["metric1"],
+        },
       },
       {
         decisionCriteriaAction: "ship",
-        variation: { variationId: "2", decidingRule: shipRule },
+        variation: {
+          variationId: "2",
+          decidingRule: shipRule,
+          triggeredMetricIds: ["metric1", "metric2"],
+        },
       },
     ]);
   });
@@ -912,12 +1053,17 @@ describe("getVariationDecisions", () => {
       goalMetrics: [],
       guardrailMetrics: ["guardrail1", "guardrail2"],
       powerReached: true,
+      decisionReady: true,
     });
 
     expect(results).toEqual([
       {
         decisionCriteriaAction: "rollback",
-        variation: { variationId: "1", decidingRule: rollbackRule },
+        variation: {
+          variationId: "1",
+          decidingRule: rollbackRule,
+          triggeredMetricIds: ["guardrail1", "guardrail2"],
+        },
       },
       {
         decisionCriteriaAction: "review",
@@ -926,8 +1072,8 @@ describe("getVariationDecisions", () => {
     ]);
   });
 
-  it("respects requireSuperStatSig flag", () => {
-    const shipRule: DecisionCriteriaRule = {
+  it("only ships pre-power with an explicit superStatsigWinner rule", () => {
+    const regularShipRule: DecisionCriteriaRule = {
       conditions: [
         {
           metrics: "goals" as const,
@@ -937,54 +1083,109 @@ describe("getVariationDecisions", () => {
       ],
       action: "ship" as const,
     };
-    const decisionCriteria = {
-      id: "test-criteria-5",
-      name: "Test Criteria 5",
-      rules: [shipRule],
-      defaultAction: "review" as const,
+    const superShipRule: DecisionCriteriaRule = {
+      conditions: [
+        {
+          metrics: "goals" as const,
+          match: "all" as const,
+          direction: "superStatsigWinner" as const,
+        },
+      ],
+      action: "ship" as const,
     };
 
-    const results = getEarlyStoppingVariationDecisions({
+    const variations = [
+      {
+        variationId: "1",
+        goalMetrics: {
+          metric1: {
+            status: "won" as const,
+            superStatSigStatus: "won" as const,
+          },
+        },
+        guardrailMetrics: {},
+      },
+      {
+        variationId: "2",
+        goalMetrics: {
+          metric1: {
+            status: "won" as const,
+            superStatSigStatus: "won" as const,
+          },
+        },
+        guardrailMetrics: {},
+      },
+    ];
+
+    // regular statsigWinner ship rule is blocked pre-power
+    const regularResults = getVariationDecisions({
       resultsStatus: {
         ...baseResultsStatus,
-        variations: [
-          {
-            variationId: "1",
-            goalMetrics: {
-              metric1: { status: "won", superStatSigStatus: "neutral" },
-            },
-            guardrailMetrics: {},
-          },
-          {
-            variationId: "2",
-            goalMetrics: {
-              metric1: { status: "won", superStatSigStatus: "won" },
-            },
-            guardrailMetrics: {},
-          },
-        ],
+        variations,
         settings: { sequentialTesting: false },
       },
-      decisionCriteria,
+      decisionCriteria: {
+        id: "test-criteria-5a",
+        name: "Regular Ship",
+        rules: [regularShipRule],
+        defaultAction: "review" as const,
+      },
       goalMetrics: ["metric1"],
       guardrailMetrics: [],
+      powerReached: false,
+      decisionReady: false,
     });
-
-    expect(results).toEqual([
-      // Should not go to fallback, should instead return null
+    expect(regularResults).toEqual([
       {
         decisionCriteriaAction: null,
         variation: { variationId: "1", decidingRule: null },
       },
       {
+        decisionCriteriaAction: null,
+        variation: { variationId: "2", decidingRule: null },
+      },
+    ]);
+
+    // superStatsigWinner ship rule fires pre-power
+    const superResults = getVariationDecisions({
+      resultsStatus: {
+        ...baseResultsStatus,
+        variations,
+        settings: { sequentialTesting: false },
+      },
+      decisionCriteria: {
+        id: "test-criteria-5b",
+        name: "Super Ship",
+        rules: [superShipRule],
+        defaultAction: "review" as const,
+      },
+      goalMetrics: ["metric1"],
+      guardrailMetrics: [],
+      powerReached: false,
+      decisionReady: false,
+    });
+    expect(superResults).toEqual([
+      {
         decisionCriteriaAction: "ship",
-        variation: { variationId: "2", decidingRule: shipRule },
+        variation: {
+          variationId: "1",
+          decidingRule: superShipRule,
+          triggeredMetricIds: ["metric1"],
+        },
+      },
+      {
+        decisionCriteriaAction: "ship",
+        variation: {
+          variationId: "2",
+          decidingRule: superShipRule,
+          triggeredMetricIds: ["metric1"],
+        },
       },
     ]);
   });
 });
 
-describe("getDecisionFrameworkStatus Handles Super Stat Sig Correctly", () => {
+describe("getDecisionFrameworkStatus handles early shipping correctly", () => {
   const base2ArmedResultsStatus: ExperimentAnalysisSummaryResultsStatus = {
     variations: [
       {
@@ -1011,27 +1212,13 @@ describe("getDecisionFrameworkStatus Handles Super Stat Sig Correctly", () => {
     ],
     settings: { sequentialTesting: false },
   };
-  const earlyStoppingOverrideDecisionRule: DecisionCriteriaRule = {
-    conditions: [
-      {
-        metrics: "goals" as const,
-        match: "all" as const,
-        direction: "statsigWinner" as const,
-      },
-      {
-        metrics: "guardrails" as const,
-        match: "none" as const,
-        direction: "statsigLoser" as const,
-      },
-    ],
-    action: "ship" as const,
-  };
+
   const shipRule: DecisionCriteriaRule = {
     conditions: [
       {
         metrics: "goals" as const,
         match: "all" as const,
-        direction: "statsigWinner" as const,
+        direction: "superStatsigWinner" as const,
       },
     ],
     action: "ship" as const,
@@ -1066,21 +1253,22 @@ describe("getDecisionFrameworkStatus Handles Super Stat Sig Correctly", () => {
             guardrailMetrics: {},
           },
         ],
-        // not decision ready
         settings: { sequentialTesting: false },
       },
       decisionCriteria,
       goalMetrics: ["metric1"],
       guardrailMetrics: [],
-      // not decision ready
       daysNeeded: 100,
     });
 
-    // early stopping, so the rule is from the default strict criteria flow
     expect(decision).toEqual({
       status: "ship-now",
       variations: [
-        { variationId: "1", decidingRule: earlyStoppingOverrideDecisionRule },
+        {
+          variationId: "1",
+          decidingRule: shipRule,
+          triggeredMetricIds: ["metric1"],
+        },
       ],
       sequentialUsed: false,
       powerReached: false,
@@ -1108,13 +1296,11 @@ describe("getDecisionFrameworkStatus Handles Super Stat Sig Correctly", () => {
             guardrailMetrics: {},
           },
         ],
-        // not decision ready
         settings: { sequentialTesting: false },
       },
       decisionCriteria,
       goalMetrics: ["metric1"],
       guardrailMetrics: [],
-      // not decision ready
       daysNeeded: 100,
     });
 
@@ -1141,20 +1327,22 @@ describe("getDecisionFrameworkStatus Handles Super Stat Sig Correctly", () => {
             guardrailMetrics: {},
           },
         ],
-        // not decision ready
         settings: { sequentialTesting: false },
       },
       decisionCriteria,
       goalMetrics: ["metric1"],
       guardrailMetrics: [],
-      // not decision ready
       daysNeeded: 100,
     });
 
     expect(decision).toEqual({
       status: "ship-now",
       variations: [
-        { variationId: "1", decidingRule: earlyStoppingOverrideDecisionRule },
+        {
+          variationId: "1",
+          decidingRule: shipRule,
+          triggeredMetricIds: ["metric1"],
+        },
       ],
       sequentialUsed: false,
       powerReached: false,
@@ -1162,7 +1350,7 @@ describe("getDecisionFrameworkStatus Handles Super Stat Sig Correctly", () => {
     });
   });
 
-  it("in 3 variation case it falls back to no result rather than fallback action in stat sig case if results are not clear", () => {
+  it("falls back to no result rather than the fallback action pre-power when results are not clear", () => {
     const decision = getDecisionFrameworkStatus({
       resultsStatus: {
         ...base2ArmedResultsStatus,
@@ -1175,13 +1363,11 @@ describe("getDecisionFrameworkStatus Handles Super Stat Sig Correctly", () => {
             guardrailMetrics: {},
           },
         ],
-        // not decision ready
         settings: { sequentialTesting: false },
       },
       decisionCriteria,
       goalMetrics: ["metric1"],
       guardrailMetrics: [],
-      // not decision ready
       daysNeeded: 100,
     });
 

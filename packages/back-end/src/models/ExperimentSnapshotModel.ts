@@ -23,6 +23,7 @@ import {
 import { logger } from "back-end/src/util/logger";
 import { migrateSnapshot } from "back-end/src/util/migrations";
 import { notifyExperimentChange } from "back-end/src/services/experimentNotifications";
+import { triggerImmediateRampScheduleAdvance } from "back-end/src/jobs/updateRampSchedules";
 import { updateExperimentAnalysisSummary } from "back-end/src/services/experiments";
 import { updateExperimentTimeSeries } from "back-end/src/services/experimentTimeSeries";
 import { runEagerExperimentAndUnitDimensionsAnalyses } from "back-end/src/services/experimentDimensionAnalyses";
@@ -550,6 +551,26 @@ export async function updateSnapshot({
         snapshot: experimentSnapshot,
         previousAnalysisSummary: currentExperimentModel.analysisSummary,
       });
+
+      // For ramp experiments, immediately queue a step evaluation so health
+      // signals and rollback decisions fire as soon as the snapshot lands,
+      // rather than waiting for the next 1-minute polling tick. The job is
+      // de-duplicated by Agenda (.unique()), so this is safe to call
+      // concurrently.
+      if (
+        updatedExperimentModel.rampScheduleId &&
+        experimentSnapshot.status === "success"
+      ) {
+        triggerImmediateRampScheduleAdvance(
+          updatedExperimentModel.rampScheduleId,
+          context.org.id,
+        ).catch((e) =>
+          logger.error(
+            e,
+            `Failed to trigger immediate ramp schedule advance for experiment ${updatedExperimentModel.id}`,
+          ),
+        );
+      }
 
       try {
         await updateExperimentTimeSeries({

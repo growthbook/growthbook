@@ -6,7 +6,12 @@ export const decisionCriteriaAction = z.enum(["ship", "rollback", "review"]);
 export const decisionCriteriaCondition = z.object({
   match: z.enum(["all", "any", "none"]),
   metrics: z.enum(["goals", "guardrails"]),
-  direction: z.enum(["statsigWinner", "statsigLoser"]),
+  direction: z.enum([
+    "statsigWinner",
+    "statsigLoser",
+    "superStatsigWinner",
+    "superStatsigLoser",
+  ]),
 });
 
 export const decisionCriteriaRule = z.object({

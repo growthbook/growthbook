@@ -18,68 +18,95 @@ import {
   PiProhibit,
   PiTrash,
 } from "react-icons/pi";
-import { Select, SelectItem } from "@/ui/Select";
+import { TbArrowsDown, TbArrowsUp } from "react-icons/tb";
+import SelectField, { SingleValue } from "@/components/Forms/SelectField";
 import { useDecisionCriteriaForm } from "@/hooks/useDecisionCriteriaForm";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
-// Match options
-const MATCH_OPTIONS = [
+// ── Option definitions ────────────────────────────────────────────────────────
+
+const MATCH_OPTIONS: SingleValue[] = [
   { value: "all", label: "All" },
   { value: "any", label: "Any" },
   { value: "none", label: "No" },
 ];
 
-// Metrics options
-const METRICS_OPTIONS = [
+const METRICS_OPTIONS: SingleValue[] = [
   { value: "goals", label: "Goals" },
   { value: "guardrails", label: "Guardrails" },
 ];
 
-// Direction options for goals
-const GOAL_DIRECTION_OPTIONS: {
-  value: "statsigWinner" | "statsigLoser";
+type DirectionValue =
+  | "statsigWinner"
+  | "statsigLoser"
+  | "superStatsigWinner"
+  | "superStatsigLoser";
+
+interface DirectionOption {
+  value: DirectionValue;
   label: string;
   color: "green" | "red";
   icon: React.ReactNode;
-}[] = [
+  tooltip: string;
+}
+
+const GOAL_DIRECTION_OPTIONS: DirectionOption[] = [
+  {
+    value: "superStatsigWinner",
+    label: "Super Stat Sig Good",
+    color: "green",
+    icon: <TbArrowsUp color="green" />,
+    tooltip:
+      "Beneficial at the strict threshold (p<0.001). Always evaluated, even before target MDE power is reached. Use this to opt into early shipping.",
+  },
   {
     value: "statsigWinner",
     label: "Stat Sig Good",
     color: "green",
     icon: <PiArrowUp color="green" />,
+    tooltip:
+      "Statistically significant positive. Only fires after target MDE power is reached, or when sequential testing is enabled.",
   },
   {
     value: "statsigLoser",
     label: "Stat Sig Bad",
     color: "red",
     icon: <PiArrowDown color="red" />,
+    tooltip:
+      "Statistically significant negative. Always evaluated — enables early harm detection before MDE power is reached.",
+  },
+  {
+    value: "superStatsigLoser",
+    label: "Super Stat Sig Bad",
+    color: "red",
+    icon: <TbArrowsDown color="red" />,
+    tooltip:
+      "Harmful at the strict threshold (p<0.001). Always evaluated, even before target MDE power is reached.",
   },
 ];
 
-// Direction options for guardrails
-const GUARDRAIL_DIRECTION_OPTIONS: {
-  value: "statsigLoser";
-  label: string;
-  color: "red";
-  icon: React.ReactNode;
-}[] = [
+const GUARDRAIL_DIRECTION_OPTIONS: DirectionOption[] = [
   {
     value: "statsigLoser",
     label: "Stat Sig Bad",
     color: "red",
     icon: <PiArrowDown color="red" />,
+    tooltip:
+      "Statistically significant negative. Always evaluated — enables early harm detection before MDE power is reached.",
   },
 ];
 
-// Action options
-const ACTION_OPTIONS: {
-  value: "ship" | "rollback" | "review";
+interface ActionOption {
+  value: DecisionCriteriaAction;
   label: string;
   color: "green" | "red" | "amber";
   icon: React.ReactNode;
-}[] = [
+}
+
+const ACTION_OPTIONS: ActionOption[] = [
   {
     value: "ship",
     label: "Ship",
@@ -100,12 +127,14 @@ const ACTION_OPTIONS: {
   },
 ];
 
-const HEALTH_ACTION_OPTIONS: {
+interface HealthActionOption {
   value: DcHealthSignalAction;
   label: string;
   color: "amber" | "red" | "gray";
   icon: React.ReactNode;
-}[] = [
+}
+
+const HEALTH_ACTION_OPTIONS: HealthActionOption[] = [
   {
     value: "off",
     label: "Off",
@@ -137,6 +166,29 @@ const HEALTH_SIGNAL_LABELS: {
   { key: "multipleExposureAction", label: "Multiple Exposures" },
   { key: "noTrafficAction", label: "No Traffic" },
 ];
+
+// ── Shared formatOptionLabel helpers ─────────────────────────────────────────
+
+function formatIconOption(
+  icon: React.ReactNode,
+  color: string,
+  label: string,
+): React.ReactNode {
+  return (
+    <Flex align="center" gap="1">
+      {icon}
+      <Text color={color as Parameters<typeof Text>[0]["color"]}>{label}</Text>
+    </Flex>
+  );
+}
+
+function makeActionOptions(): SingleValue[] {
+  return ACTION_OPTIONS.map((o) => ({ value: o.value, label: o.label }));
+}
+
+function makeHealthActionOptions(): SingleValue[] {
+  return HEALTH_ACTION_OPTIONS.map((o) => ({ value: o.value, label: o.label }));
+}
 
 // ── Normalized shape consumed by the rendering logic ─────────────────────────
 
@@ -176,8 +228,9 @@ function viewFromForm(
     description: form.watch("description") ?? "",
     rules: form.watch("rules"),
     defaultAction: form.watch("defaultAction"),
-    healthSignals:
-      form.watch("healthSignals") ?? { ...DEFAULT_DC_HEALTH_SIGNALS },
+    healthSignals: form.watch("healthSignals") ?? {
+      ...DEFAULT_DC_HEALTH_SIGNALS,
+    },
   };
 }
 
@@ -285,118 +338,129 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = (
             )}
           </Flex>
 
-          {rule.conditions.map((condition, conditionIndex) => (
-            <Flex key={condition.key} direction="column">
-              <Flex align="center" gap="4" width="100%">
-                <Box width="40px">
-                  <Text as="div" color="text-mid">
-                    {conditionIndex === 0 ? "If" : "and"}
-                  </Text>
-                </Box>
+          {rule.conditions.map((condition, conditionIndex) => {
+            const dirOptions =
+              condition.metrics === "goals"
+                ? GOAL_DIRECTION_OPTIONS
+                : GUARDRAIL_DIRECTION_OPTIONS;
 
-                <Box style={{ flex: 1 }}>
-                  <Select
-                    size={"2"}
-                    value={condition.match}
-                    setValue={(value) =>
-                      formActions?.updateCondition(
-                        rule.key,
-                        condition.key,
-                        "match",
-                        value,
-                      )
-                    }
-                    disabled={!editable}
-                  >
-                    {MATCH_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </Select>
-                </Box>
+            return (
+              <Flex key={condition.key} direction="column">
+                <Flex align="center" gap="4" width="100%">
+                  <Box width="40px">
+                    <Text as="div" color="text-mid">
+                      {conditionIndex === 0 ? "If" : "and"}
+                    </Text>
+                  </Box>
 
-                <Box style={{ flex: 1 }}>
-                  <Select
-                    size={"2"}
-                    value={condition.metrics}
-                    setValue={(value) => {
-                      if (value === "guardrails") {
+                  {/* Match */}
+                  <Box style={{ flex: 1 }}>
+                    <SelectField
+                      value={condition.match}
+                      onChange={(value) =>
+                        formActions?.updateCondition(
+                          rule.key,
+                          condition.key,
+                          "match",
+                          value,
+                        )
+                      }
+                      disabled={!editable}
+                      sort={false}
+                      isSearchable={false}
+                      options={MATCH_OPTIONS}
+                    />
+                  </Box>
+
+                  {/* Metrics */}
+                  <Box style={{ flex: 1 }}>
+                    <SelectField
+                      value={condition.metrics}
+                      onChange={(value) => {
+                        if (value === "guardrails") {
+                          formActions?.updateCondition(
+                            rule.key,
+                            condition.key,
+                            "direction",
+                            "statsigLoser",
+                          );
+                        }
+                        formActions?.updateCondition(
+                          rule.key,
+                          condition.key,
+                          "metrics",
+                          value,
+                        );
+                      }}
+                      disabled={!editable}
+                      sort={false}
+                      isSearchable={false}
+                      options={METRICS_OPTIONS}
+                    />
+                  </Box>
+
+                  {/* Direction */}
+                  <Box style={{ flex: 1 }}>
+                    <SelectField
+                      value={condition.direction}
+                      onChange={(value) =>
                         formActions?.updateCondition(
                           rule.key,
                           condition.key,
                           "direction",
-                          "statsigLoser",
+                          value,
+                        )
+                      }
+                      disabled={!editable}
+                      sort={false}
+                      isSearchable={false}
+                      options={dirOptions.map((o) => ({
+                        value: o.value,
+                        label: o.label,
+                        tooltip: o.tooltip,
+                      }))}
+                      formatOptionLabel={(option) => {
+                        const dir = dirOptions.find(
+                          (o) => o.value === option.value,
                         );
-                      }
-                      formActions?.updateCondition(
-                        rule.key,
-                        condition.key,
-                        "metrics",
-                        value,
-                      );
-                    }}
-                    disabled={!editable}
-                  >
-                    {METRICS_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </Select>
-                </Box>
+                        return (
+                          <Tooltip
+                            body={option.tooltip ?? ""}
+                            tipPosition="right"
+                            usePortal
+                          >
+                            <Flex align="center" gap="1">
+                              {dir?.icon}
+                              <Text color={dir?.color}>{option.label}</Text>
+                            </Flex>
+                          </Tooltip>
+                        );
+                      }}
+                    />
+                  </Box>
 
-                <Box style={{ flex: 1 }}>
-                  <Select
-                    size={"2"}
-                    value={condition.direction}
-                    setValue={(value) =>
-                      formActions?.updateCondition(
-                        rule.key,
-                        condition.key,
-                        "direction",
-                        value,
-                      )
-                    }
-                    disabled={!editable || condition.metrics === "guardrails"}
-                  >
-                    {(condition.metrics === "goals"
-                      ? GOAL_DIRECTION_OPTIONS
-                      : GUARDRAIL_DIRECTION_OPTIONS
-                    ).map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        <Flex align="center" gap="1">
-                          {option.icon}
-                          <Text key={option.value} color={option.color}>
-                            {option.label}
-                          </Text>
-                        </Flex>
-                      </SelectItem>
-                    ))}
-                  </Select>
-                </Box>
+                  <Box width="40px" style={{ textAlign: "right" }}>
+                    {conditionIndex > 0 && editable && (
+                      <IconButton
+                        variant="ghost"
+                        color="red"
+                        size="1"
+                        onClick={() =>
+                          formActions?.removeCondition(rule.key, condition.key)
+                        }
+                      >
+                        <PiTrash />
+                      </IconButton>
+                    )}
+                  </Box>
+                </Flex>
 
-                <Box width="40px" style={{ textAlign: "right" }}>
-                  {conditionIndex > 0 && editable && (
-                    <IconButton
-                      variant="ghost"
-                      color="red"
-                      size="1"
-                      onClick={() =>
-                        formActions?.removeCondition(rule.key, condition.key)
-                      }
-                    >
-                      <PiTrash />
-                    </IconButton>
-                  )}
-                </Box>
+                {conditionIndex < rule.conditions.length - 1 && (
+                  <Separator size="4" mt="2" />
+                )}
               </Flex>
-
-              {conditionIndex < rule.conditions.length - 1 && (
-                <Separator size="4" mt="2" />
-              )}
-            </Flex>
-          ))}
+            );
+          })}
 
           <Flex justify="start" mt="1" mb="1">
             {editable && (
@@ -422,31 +486,35 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = (
                 Then
               </Text>
             </Box>
-            <Flex width="100%" align="center" style={{ gridColumn: "span 11" }}>
-              <Select
-                size={"2"}
+            <Box style={{ flex: 1 }}>
+              <SelectField
                 value={rule.action}
-                setValue={(value) =>
+                onChange={(value) =>
                   formActions?.updateRuleAction(
                     rule.key,
-                    value as "ship" | "rollback" | "review",
+                    value as DecisionCriteriaAction,
                   )
                 }
                 disabled={!editable}
-              >
-                {ACTION_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    <Flex align="center" gap="1">
-                      {option.icon}
-                      <Text color={option.color}>{option.label}</Text>
-                    </Flex>
-                  </SelectItem>
-                ))}
-              </Select>
-            </Flex>
+                sort={false}
+                isSearchable={false}
+                options={makeActionOptions()}
+                formatOptionLabel={(option) => {
+                  const opt = ACTION_OPTIONS.find(
+                    (o) => o.value === option.value,
+                  );
+                  return formatIconOption(
+                    opt?.icon,
+                    opt?.color ?? "",
+                    option.label,
+                  );
+                }}
+              />
+            </Box>
           </Flex>
         </Flex>
       ))}
+
       <Flex justify="start" mt="1" mb="1">
         {editable && (
           <Link color="violet" onClick={handleAddRuleClick}>
@@ -465,26 +533,31 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = (
               Otherwise
             </Text>
           </Box>
-          <Select
-            size={"2"}
-            value={view.defaultAction}
-            setValue={(value) =>
-              formActions?.form.setValue(
-                "defaultAction",
-                value as "ship" | "rollback" | "review",
-              )
-            }
-            disabled={!editable}
-          >
-            {ACTION_OPTIONS.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                <Flex align="center" gap="1">
-                  {option.icon}
-                  <Text color={option.color}>{option.label}</Text>
-                </Flex>
-              </SelectItem>
-            ))}
-          </Select>
+          <Box style={{ flex: 1 }}>
+            <SelectField
+              value={view.defaultAction}
+              onChange={(value) =>
+                formActions?.form.setValue(
+                  "defaultAction",
+                  value as DecisionCriteriaAction,
+                )
+              }
+              disabled={!editable}
+              sort={false}
+              isSearchable={false}
+              options={makeActionOptions()}
+              formatOptionLabel={(option) => {
+                const opt = ACTION_OPTIONS.find(
+                  (o) => o.value === option.value,
+                );
+                return formatIconOption(
+                  opt?.icon,
+                  opt?.color ?? "",
+                  option.label,
+                );
+              }}
+            />
+          </Box>
         </Flex>
       </Flex>
 
@@ -514,7 +587,10 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = (
                 <Text as="span" size="small" color="text-mid">
                   for
                 </Text>
-                <div className="input-group input-group-sm" style={{ width: 90 }}>
+                <div
+                  className="input-group input-group-sm"
+                  style={{ width: 90 }}
+                >
                   <input
                     type="number"
                     value={view.healthSignals.noTrafficGracePeriodHours}
@@ -544,26 +620,29 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = (
               <div />
             )}
 
-            <Select
-              size="2"
+            <SelectField
               value={view.healthSignals[signal.key]}
-              setValue={(value) =>
+              onChange={(value) =>
                 formActions?.form.setValue(
                   `healthSignals.${signal.key}`,
                   value as DcHealthSignalAction,
                 )
               }
               disabled={!editable}
-            >
-              {HEALTH_ACTION_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  <Flex align="center" gap="1">
-                    {option.icon}
-                    <Text color={option.color}>{option.label}</Text>
-                  </Flex>
-                </SelectItem>
-              ))}
-            </Select>
+              sort={false}
+              isSearchable={false}
+              options={makeHealthActionOptions()}
+              formatOptionLabel={(option) => {
+                const opt = HEALTH_ACTION_OPTIONS.find(
+                  (o) => o.value === option.value,
+                );
+                return formatIconOption(
+                  opt?.icon,
+                  opt?.color ?? "",
+                  option.label,
+                );
+              }}
+            />
             <div />
           </React.Fragment>
         ))}

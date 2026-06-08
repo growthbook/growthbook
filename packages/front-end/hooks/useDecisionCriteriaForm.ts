@@ -83,8 +83,9 @@ export const useDecisionCriteriaForm = ({
               action: "ship",
             },
           ],
-      healthSignals:
-        decisionCriteria?.healthSignals ?? { ...DEFAULT_DC_HEALTH_SIGNALS },
+      healthSignals: decisionCriteria?.healthSignals ?? {
+        ...DEFAULT_DC_HEALTH_SIGNALS,
+      },
     });
   }, [decisionCriteria]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -195,17 +196,18 @@ export const useDecisionCriteriaForm = ({
       }),
     );
 
-    // validate no guardrail has statsig winner
-    const guardrailWithStatsigWinner = rulesToSave.some((rule) =>
+    // Guardrails only have a regular harmful (statsigLoser) status. They have
+    // no "good" direction and no super stat sig variant, so reject anything else.
+    const guardrailWithInvalidDirection = rulesToSave.some((rule) =>
       rule.conditions.some(
         (condition) =>
           condition.metrics === "guardrails" &&
-          condition.direction === "statsigWinner",
+          condition.direction !== "statsigLoser",
       ),
     );
-    if (guardrailWithStatsigWinner) {
+    if (guardrailWithInvalidDirection) {
       throw new Error(
-        "Guardrails cannot be checked for Stat Sig Good results.",
+        "Guardrails can only be checked for Stat Sig Bad results.",
       );
     }
 

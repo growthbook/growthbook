@@ -12,7 +12,6 @@ import {
   PiArrowCounterClockwise,
   PiArrowSquareOutFill,
   PiCalendarBlank,
-  PiCaretRightFill,
   PiCheck,
   PiPlusBold,
   PiTrash,
@@ -28,9 +27,7 @@ import {
   PRESET_DECISION_CRITERIAS,
 } from "shared/enterprise";
 import {
-  generateSimpleSteps,
   reconstructUIStep,
-  stepsMatchSimplePattern,
   type UIStep,
   type IntervalUnit,
 } from "@/components/Features/RuleModal/RampScheduleSection";
@@ -55,7 +52,7 @@ import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import HelperText from "@/ui/HelperText";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
-import DecisionCriteriaModalContent from "@/components/DecisionCriteria/DecisionCriteriaModalContent";
+import DecisionCriteriaModal from "@/components/DecisionCriteria/DecisionCriteriaModal";
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const UNIT_MULT: Record<IntervalUnit, number> = {
@@ -75,10 +72,56 @@ function bestUnitFromSeconds(s: number): {
   return { value: r(s / 3600), unit: "hours" };
 }
 
+// Experiment ramps go to 100% (full experiment exposure), unlike feature
+// safe-rollout ramps which cap at 50% per monitored step.
+// The 100% "complete" step is always the implicit end action; regular ramp
+// steps only go up to 50% so each one is a meaningful hold point.
+const EXPERIMENT_SIMPLE_COVERAGES = [1, 5, 10, 25, 50];
+// First N-1 steps each receive this fraction of total duration; last step
+// gets the remainder (so the experiment runs longest at full exposure).
+const EXP_RAMP_FRACTION = 0.1;
+
+function generateExperimentSimpleSteps(
+  duration: number,
+  unit: IntervalUnit,
+): UIStep[] {
+  const totalSeconds = duration * UNIT_MULT[unit];
+  const count = EXPERIMENT_SIMPLE_COVERAGES.length;
+  const rampCount = count - 1;
+  const rampSeconds = Math.max(
+    60,
+    Math.round(totalSeconds * EXP_RAMP_FRACTION),
+  );
+  const holdSeconds = Math.max(60, totalSeconds - rampCount * rampSeconds);
+  return EXPERIMENT_SIMPLE_COVERAGES.map((cov, i) => {
+    const secs = i < rampCount ? rampSeconds : holdSeconds;
+    const { value, unit: stepUnit } = bestUnitFromSeconds(secs);
+    return {
+      patch: { coverage: cov },
+      triggerType: "interval" as const,
+      intervalValue: value,
+      intervalUnit: stepUnit,
+      approvalNotes: "",
+      notesOpen: false,
+      additionalEffectsOpen: false,
+      monitored: true,
+    };
+  });
+}
+
+function stepsMatchExperimentSimplePattern(steps: UIStep[]): boolean {
+  if (steps.length !== EXPERIMENT_SIMPLE_COVERAGES.length) return false;
+  if (steps.some((s) => s.triggerType !== "interval")) return false;
+  return steps.every(
+    (s, i) => (s.patch.coverage ?? 0) === EXPERIMENT_SIMPLE_COVERAGES[i],
+  );
+}
+
 // ─── State ────────────────────────────────────────────────────────────────────
 
 export interface ExperimentRampState {
   steps: UIStep[];
+  endCoverage: number; // coverage % (0-100) applied when all ramp steps finish
   startDate: string; // ISO or "" = immediately
   endDate: string; // ISO or "" = manual end (used for "dates" schedule type)
   cutoffDate: string; // ISO or "" = no hard cutoff (used for ramp type)
@@ -86,16 +129,23 @@ export interface ExperimentRampState {
   simpleDurationDays: number;
   simpleDurationUnit: IntervalUnit;
 
-  autoRollbackMode: string | null;
-  rampProgressionMode: string | null;
+  autoRollbackMode: string;
+  rampProgressionMode: string;
 
   shippingCriteriaMode: "off" | "auto" | "auto-force";
   plannedVariationId: string;
 }
 
+type OrgAutomationDefaults = {
+  defaultAutoRollbackMode?: string;
+  defaultRampProgressionMode?: string;
+  defaultShippingCriteriaMode?: string;
+};
+
 function defaultState(
   schedule: RampScheduleInterface | null,
   experiment: ExperimentInterfaceStringDates,
+  orgDefaults: OrgAutomationDefaults = {},
 ): ExperimentRampState {
   // Shipping criteria are sourced from the experiment — they apply
   // whether or not a ramp schedule exists.
@@ -112,18 +162,36 @@ function defaultState(
         ? ("auto" as const)
         : es?.type === "hard-planned"
           ? ("auto-force" as const)
-          : ("off" as const)),
+          : ((orgDefaults.defaultShippingCriteriaMode ?? "off") as
+              | "off"
+              | "auto"
+              | "auto-force")),
     plannedVariationId:
       sc?.plannedVariationId ||
       es?.plannedVariationId ||
       experiment.variations[0]?.id ||
       "",
-    autoRollbackMode: experiment.autoRollbackMode ?? null,
-    rampProgressionMode: experiment.rampProgressionMode ?? null,
+    autoRollbackMode:
+      experiment.autoRollbackMode ??
+      orgDefaults.defaultAutoRollbackMode ??
+      "off",
+    rampProgressionMode:
+      experiment.rampProgressionMode ??
+      orgDefaults.defaultRampProgressionMode ??
+      "hold-for-health",
   };
+  // Read end coverage from the schedule's endActions (0–1 stored, 0–100 in UI).
+  function resolveEndCoverage(s: RampScheduleInterface): number {
+    const action = s.endActions?.find((a) => a.targetType === "experiment");
+    if (action?.targetType === "experiment" && action.patch.coverage != null) {
+      return Math.round(action.patch.coverage * 100);
+    }
+    return 100;
+  }
+
   if (schedule) {
     const steps = schedule.steps.map(reconstructUIStep);
-    const isSimple = stepsMatchSimplePattern(steps, { coverage: 100 });
+    const isSimple = stepsMatchExperimentSimplePattern(steps);
     const totalSec = steps.reduce(
       (sum, s) =>
         sum +
@@ -135,6 +203,7 @@ function defaultState(
     const { value: dur, unit } = bestUnitFromSeconds(totalSec || 5 * 86400);
     return {
       steps,
+      endCoverage: resolveEndCoverage(schedule),
       startDate: schedule.startDate
         ? new Date(schedule.startDate).toISOString()
         : "",
@@ -148,10 +217,8 @@ function defaultState(
     };
   }
   return {
-    steps: generateSimpleSteps(5, "days").map((s) => ({
-      ...s,
-      monitored: true,
-    })),
+    steps: generateExperimentSimpleSteps(5, "days"),
+    endCoverage: 100,
     startDate: "",
     cutoffDate: "",
     builderMode: "simple",
@@ -274,15 +341,23 @@ export default function ExperimentRampScheduleModal({
 
   const [hasRamp, setHasRamp] = useState(!!existingSchedule);
   const [state, _setState] = useState<ExperimentRampState>(() =>
-    defaultState(existingSchedule, experiment),
+    defaultState(existingSchedule, experiment, {
+      defaultAutoRollbackMode: organization?.settings?.defaultAutoRollbackMode,
+      defaultRampProgressionMode:
+        organization?.settings?.defaultRampProgressionMode,
+      defaultShippingCriteriaMode:
+        organization?.settings?.defaultShippingCriteriaMode,
+    }),
   );
 
   // EDF: managed independently of ramp state since it applies whether or not
   // a ramp is configured. Saved to the experiment, not the schedule.
   const [decisionCriteriaId, setDecisionCriteriaId] = useState(
-    experiment.decisionFrameworkSettings?.decisionCriteriaId ?? "",
+    experiment.decisionFrameworkSettings?.decisionCriteriaId ||
+      (organization?.settings?.defaultDecisionCriteriaId ??
+        PRESET_DECISION_CRITERIA.id),
   );
-  const [showDcDetails, setShowDcDetails] = useState(false);
+  const [showDcDetailsModal, setShowDcDetailsModal] = useState(false);
 
   // End date UI mode. "after-days" is purely a UI affordance — it still writes
   // a concrete ISO timestamp into state.endDate, computed from startDate + N.
@@ -343,22 +418,18 @@ export default function ExperimentRampScheduleModal({
         decisionCriteriaId: decisionCriteriaId || undefined,
       };
     }
-    // Shipping criteria
-    if (state.shippingCriteriaMode === "off") {
-      experimentPatch.shippingCriteria = null;
-      experimentPatch.endStrategy = null;
-    } else {
-      experimentPatch.shippingCriteria = {
-        mode: state.shippingCriteriaMode,
-        plannedVariationId:
-          state.shippingCriteriaMode === "auto-force"
-            ? state.plannedVariationId
-            : undefined,
-      };
-      experimentPatch.endStrategy = null;
-    }
+    // Shipping criteria — always save the concrete mode chosen
+    experimentPatch.shippingCriteria = {
+      mode: state.shippingCriteriaMode,
+      plannedVariationId:
+        state.shippingCriteriaMode === "auto-force"
+          ? state.plannedVariationId
+          : undefined,
+    };
+    experimentPatch.endStrategy = null;
 
-    // Automation toggles
+    // Automation toggles — always save concrete values so the experiment
+    // is not affected if org defaults change later
     experimentPatch.autoRollbackMode = state.autoRollbackMode;
     experimentPatch.rampProgressionMode = state.rampProgressionMode;
 
@@ -376,8 +447,18 @@ export default function ExperimentRampScheduleModal({
       }
     } else {
       const steps = buildExperimentSteps(state.steps, experiment.id);
+      // The end step fires immediately when all regular ramp steps complete
+      // (no interval gate), applying the final coverage to the experiment.
+      const endActions = [
+        {
+          targetType: "experiment" as const,
+          targetId: experiment.id,
+          patch: { coverage: (state.endCoverage ?? 100) / 100 },
+        },
+      ];
       const body = {
         steps,
+        endActions,
         startDate: state.startDate || null,
         cutoffDate: state.cutoffDate || null,
       };
@@ -456,18 +537,20 @@ export default function ExperimentRampScheduleModal({
           pl="2"
           style={{ borderBottom: "1px solid var(--gray-a6)" }}
         >
-          <Box style={{ width: COL.num }}>
-            <Text size="small" color="text-low">
+          <Box style={{ width: COL.num, flexShrink: 0 }}>
+            <Text size="small" weight="medium" color="text-low">
               Step
             </Text>
           </Box>
-          <Box style={{ width: COL.coverage }}>
-            <Text size="small" color="text-low">
-              Rollout %
-            </Text>
+          <Box style={{ width: COL.coverage, flexShrink: 0 }}>
+            <Tooltip body="% of eligible users assigned to a variant in this experiment (both control and treatment combined)">
+              <Text size="small" weight="medium" color="text-low">
+                Coverage
+              </Text>
+            </Tooltip>
           </Box>
-          <Box>
-            <Text size="small" color="text-low">
+          <Box style={{ width: COL.trigger, flexShrink: 0 }}>
+            <Text size="small" weight="medium" color="text-low">
               Action
             </Text>
           </Box>
@@ -502,7 +585,7 @@ export default function ExperimentRampScheduleModal({
               {/* Main row */}
               <Flex align="center" gap="4">
                 {/* Step number */}
-                <Box style={{ width: COL.num, flexShrink: 0 }}>
+                <Box style={{ width: COL.num, flexShrink: 0 }} pl="3">
                   <Text size="small" color="text-low">
                     {i + 1}
                   </Text>
@@ -536,51 +619,154 @@ export default function ExperimentRampScheduleModal({
                   </div>
                 </Box>
 
-                {/* Hold for — always interval */}
+                {/* Trigger type + interval or approval notes */}
                 <Flex
                   align="center"
                   gap="2"
-                  style={{
-                    width: COL.trigger + COL.duration + 80,
-                    flexShrink: 0,
-                  }}
+                  style={
+                    step.triggerType === "approval"
+                      ? { flex: 1, minWidth: COL.trigger }
+                      : {
+                          width: COL.trigger + COL.duration + 80,
+                          flexShrink: 0,
+                        }
+                  }
                 >
-                  <Field
-                    style={{ minHeight: 38 }}
-                    type="number"
-                    min="0"
-                    step="any"
-                    onFocus={(e) => e.target.select()}
-                    value={String(step.intervalValue)}
-                    onChange={(e) =>
-                      updateStep(i, {
-                        intervalValue: parseFloat(e.target.value) || 0,
-                      })
-                    }
-                    onBlur={(e) =>
-                      updateStep(i, {
-                        intervalValue: Math.max(
-                          0.01,
-                          parseFloat(e.target.value) || 0.01,
-                        ),
-                      })
-                    }
-                    containerStyle={{ width: 75, flexShrink: 0 }}
-                  />
-                  <Box style={{ width: 95, flexShrink: 0 }}>
+                  <Box style={{ width: COL.trigger, flexShrink: 0 }}>
                     <SelectField
-                      value={step.intervalUnit}
+                      value={step.triggerType}
                       options={[
-                        { value: "minutes", label: "minutes" },
-                        { value: "hours", label: "hours" },
-                        { value: "days", label: "days" },
+                        { value: "interval", label: "Hold for" },
+                        { value: "approval", label: "Hold for approval" },
                       ]}
-                      onChange={(v) =>
-                        updateStep(i, { intervalUnit: v as IntervalUnit })
-                      }
+                      onChange={(v) => {
+                        const next = v as "interval" | "approval";
+                        if (next === "approval") {
+                          updateStep(i, {
+                            triggerType: next,
+                            holdConditions: {
+                              ...step.holdConditions,
+                              requiresApproval: undefined,
+                            },
+                            notesOpen: !!step.approvalNotes?.trim(),
+                          });
+                        } else {
+                          updateStep(i, {
+                            triggerType: next,
+                            intervalValue: step.intervalValue || 7,
+                            intervalUnit: step.intervalUnit || "days",
+                            holdConditions: {
+                              ...step.holdConditions,
+                              requiresApproval: true,
+                            },
+                          });
+                        }
+                      }}
                       containerStyle={{ minHeight: 38 }}
                     />
                   </Box>
+
+                  {step.triggerType === "interval" && (
+                    <>
+                      <Field
+                        style={{ minHeight: 38 }}
+                        type="number"
+                        min="0"
+                        step="any"
+                        onFocus={(e) => e.target.select()}
+                        value={String(step.intervalValue)}
+                        onChange={(e) =>
+                          updateStep(i, {
+                            intervalValue: parseFloat(e.target.value) || 0,
+                          })
+                        }
+                        onBlur={(e) =>
+                          updateStep(i, {
+                            intervalValue: Math.max(
+                              0.01,
+                              parseFloat(e.target.value) || 0.01,
+                            ),
+                          })
+                        }
+                        containerStyle={{ width: 75, flexShrink: 0 }}
+                      />
+                      <Box style={{ width: 95, flexShrink: 0 }}>
+                        <SelectField
+                          value={step.intervalUnit}
+                          options={[
+                            { value: "minutes", label: "minutes" },
+                            { value: "hours", label: "hours" },
+                            { value: "days", label: "days" },
+                          ]}
+                          onChange={(v) =>
+                            updateStep(i, { intervalUnit: v as IntervalUnit })
+                          }
+                          containerStyle={{ minHeight: 38 }}
+                        />
+                      </Box>
+                      {!step.holdConditions?.requiresApproval && (
+                        <Link
+                          size="1"
+                          color="gray"
+                          style={{ flexShrink: 0, whiteSpace: "nowrap" }}
+                          onClick={() =>
+                            updateStep(i, {
+                              holdConditions: {
+                                ...step.holdConditions,
+                                requiresApproval: true,
+                              },
+                              notesOpen: false,
+                            })
+                          }
+                        >
+                          <PiPlusBold
+                            style={{ marginRight: 3, verticalAlign: "middle" }}
+                          />
+                          Approval
+                        </Link>
+                      )}
+                    </>
+                  )}
+
+                  {step.triggerType === "approval" && (
+                    <Flex
+                      align="center"
+                      gap="2"
+                      style={{ flex: 1, minWidth: 0 }}
+                    >
+                      {!step.notesOpen ? (
+                        <Link
+                          size="1"
+                          ml="1"
+                          color="gray"
+                          style={{ flexShrink: 0 }}
+                          onClick={() =>
+                            updateStep(i, {
+                              notesOpen: true,
+                              approvalNotes: "",
+                            })
+                          }
+                        >
+                          <PiPlusBold
+                            style={{ marginRight: 3, verticalAlign: "middle" }}
+                          />
+                          Add approval notes
+                        </Link>
+                      ) : (
+                        <Box style={{ flex: 1, minWidth: 192 }}>
+                          <Field
+                            label=""
+                            placeholder="ex: Check error rates"
+                            value={step.approvalNotes}
+                            onChange={(e) =>
+                              updateStep(i, { approvalNotes: e.target.value })
+                            }
+                            style={{ minHeight: 38 }}
+                          />
+                        </Box>
+                      )}
+                    </Flex>
+                  )}
                 </Flex>
 
                 <Box flexGrow="1" />
@@ -618,28 +804,50 @@ export default function ExperimentRampScheduleModal({
                           Minimum sample size
                         </Flex>
                       </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          const turningOn =
-                            !step.holdConditions?.requiresApproval;
-                          setOpenMenuIndex(null);
-                          updateStep(i, {
-                            holdConditions: {
-                              ...step.holdConditions,
-                              requiresApproval: turningOn,
-                            },
-                            notesOpen: false,
-                            approvalNotes: turningOn ? step.approvalNotes : "",
-                          });
-                        }}
-                      >
-                        <Flex align="center" gap="1">
-                          {step.holdConditions?.requiresApproval && (
-                            <PiCheck size={16} />
-                          )}
-                          Require approval
-                        </Flex>
-                      </DropdownMenuItem>
+                      {step.triggerType === "interval" && (
+                        <DropdownMenuItem
+                          onClick={() => {
+                            const turningOn =
+                              !step.holdConditions?.requiresApproval;
+                            setOpenMenuIndex(null);
+                            updateStep(i, {
+                              holdConditions: {
+                                ...step.holdConditions,
+                                requiresApproval: turningOn,
+                              },
+                              notesOpen: false,
+                              approvalNotes: turningOn
+                                ? step.approvalNotes
+                                : "",
+                            });
+                          }}
+                        >
+                          <Flex align="center" gap="1">
+                            {step.holdConditions?.requiresApproval && (
+                              <PiCheck size={16} />
+                            )}
+                            Require approval
+                          </Flex>
+                        </DropdownMenuItem>
+                      )}
+                      {step.triggerType === "approval" && (
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setOpenMenuIndex(null);
+                            updateStep(i, {
+                              triggerType: "interval",
+                              intervalValue: step.intervalValue || 7,
+                              intervalUnit: step.intervalUnit || "days",
+                              holdConditions: {
+                                ...step.holdConditions,
+                                requiresApproval: true,
+                              },
+                            });
+                          }}
+                        >
+                          Add hold duration
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuGroup>
                     <DropdownMenuSeparator />
                     <DropdownMenuGroup>
@@ -689,8 +897,9 @@ export default function ExperimentRampScheduleModal({
                 </Flex>
               </Flex>
 
-              {/* "Then:" hold condition sub-rows */}
-              {(step.holdConditions?.requiresApproval ||
+              {/* "Then:"/"Also:" hold condition sub-rows */}
+              {((step.triggerType === "interval" &&
+                step.holdConditions?.requiresApproval) ||
                 (step.holdConditions?.minSampleSize ?? null) !== null) && (
                 <Flex
                   direction="column"
@@ -699,77 +908,80 @@ export default function ExperimentRampScheduleModal({
                   style={{ paddingLeft: COL.num + 16 + COL.coverage + 16 }}
                 >
                   <Text color="text-low" weight="medium">
-                    Then:
+                    {step.triggerType === "approval" ? "Also:" : "Then:"}
                   </Text>
 
-                  {step.holdConditions?.requiresApproval && (
-                    <Flex
-                      align="center"
-                      gap="4"
-                      style={{ paddingLeft: 16, minHeight: 32 }}
-                    >
-                      <Flex align="center" gap="3" flexGrow="1">
-                        <Box style={{ flexShrink: 0 }}>
-                          <Text weight="medium">Hold for approval</Text>
-                        </Box>
-                        {!step.notesOpen ? (
-                          <Link
-                            size="1"
-                            color="gray"
-                            style={{ flexShrink: 0 }}
+                  {step.triggerType === "interval" &&
+                    step.holdConditions?.requiresApproval && (
+                      <Flex
+                        align="center"
+                        gap="4"
+                        style={{ paddingLeft: 16, minHeight: 32 }}
+                      >
+                        <Flex align="center" gap="3" flexGrow="1">
+                          <Box style={{ flexShrink: 0 }}>
+                            <Text weight="medium">Hold for approval</Text>
+                          </Box>
+                          {!step.notesOpen ? (
+                            <Link
+                              size="1"
+                              color="gray"
+                              style={{ flexShrink: 0 }}
+                              onClick={() =>
+                                updateStep(i, {
+                                  notesOpen: true,
+                                  approvalNotes: "",
+                                })
+                              }
+                            >
+                              <PiPlusBold
+                                style={{
+                                  marginRight: 3,
+                                  verticalAlign: "middle",
+                                }}
+                              />
+                              Add notes
+                            </Link>
+                          ) : (
+                            <Box style={{ flex: 1, minWidth: 120 }}>
+                              <Field
+                                label=""
+                                placeholder="ex: Check error rates"
+                                value={step.approvalNotes}
+                                onChange={(e) =>
+                                  updateStep(i, {
+                                    approvalNotes: e.target.value,
+                                  })
+                                }
+                                style={{ height: 32 }}
+                              />
+                            </Box>
+                          )}
+                        </Flex>
+                        <Tooltip body="Remove condition" tipMinWidth="50px">
+                          <IconButton
+                            type="button"
+                            variant="ghost"
+                            color="red"
+                            size="2"
+                            radius="full"
+                            style={{ marginRight: 11, marginTop: -2 }}
                             onClick={() =>
                               updateStep(i, {
-                                notesOpen: true,
+                                holdConditions: {
+                                  ...step.holdConditions,
+                                  requiresApproval: false,
+                                },
+                                notesOpen: false,
                                 approvalNotes: "",
                               })
                             }
                           >
-                            <PiPlusBold
-                              style={{
-                                marginRight: 3,
-                                verticalAlign: "middle",
-                              }}
-                            />
-                            Add notes
-                          </Link>
-                        ) : (
-                          <Box style={{ flex: 1, minWidth: 120 }}>
-                            <Field
-                              label=""
-                              placeholder="ex: Check error rates"
-                              value={step.approvalNotes}
-                              onChange={(e) =>
-                                updateStep(i, { approvalNotes: e.target.value })
-                              }
-                              style={{ height: 32 }}
-                            />
-                          </Box>
-                        )}
+                            <PiTrash />
+                          </IconButton>
+                        </Tooltip>
                       </Flex>
-                      <Tooltip body="Remove condition" tipMinWidth="50px">
-                        <IconButton
-                          type="button"
-                          variant="ghost"
-                          color="red"
-                          size="2"
-                          radius="full"
-                          style={{ marginRight: 11, marginTop: -2 }}
-                          onClick={() =>
-                            updateStep(i, {
-                              holdConditions: {
-                                ...step.holdConditions,
-                                requiresApproval: false,
-                              },
-                              notesOpen: false,
-                              approvalNotes: "",
-                            })
-                          }
-                        >
-                          <PiTrash />
-                        </IconButton>
-                      </Tooltip>
-                    </Flex>
-                  )}
+                    )}
 
                   {(step.holdConditions?.minSampleSize ?? null) !== null && (
                     <Flex
@@ -828,10 +1040,7 @@ export default function ExperimentRampScheduleModal({
                   ...state.steps,
                   {
                     patch: {
-                      coverage: Math.min(
-                        100,
-                        (last?.patch?.coverage ?? 50) + 25,
-                      ),
+                      coverage: Math.min(99, (last?.patch?.coverage ?? 0) + 10),
                     },
                     triggerType: "interval",
                     intervalValue: last?.intervalValue ?? 7,
@@ -848,6 +1057,58 @@ export default function ExperimentRampScheduleModal({
             <PiPlusBold style={{ marginRight: 3, verticalAlign: "middle" }} />
             Add step
           </Link>
+        </Box>
+
+        {/* End step — fires immediately once all regular steps finish */}
+        <Box
+          my="4"
+          style={{
+            position: "relative",
+            border: "1px solid var(--gray-a5)",
+            borderRadius: "var(--radius-2)",
+            paddingBlock: "var(--space-2)",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: 4,
+              borderRadius: "var(--radius-2) 0 0 var(--radius-2)",
+              backgroundColor: "var(--gray-a5)",
+            }}
+          />
+          <Flex align="center" gap="4" pl="2">
+            <Box style={{ width: COL.num, flexShrink: 0, textAlign: "center" }}>
+              <Text size="small" weight="medium" color="text-low">
+                end
+              </Text>
+            </Box>
+            <Box style={{ width: COL.coverage, flexShrink: 0 }}>
+              <div className={`position-relative ${styles.percentInputWrap}`}>
+                <Field
+                  style={{ width: COL.coverage, minHeight: 38 }}
+                  type="number"
+                  min="0"
+                  max="100"
+                  onFocus={(e) => e.target.select()}
+                  value={String(state.endCoverage ?? 100)}
+                  onChange={(e) =>
+                    patch({
+                      endCoverage: Math.min(
+                        100,
+                        Math.max(0, parseInt(e.target.value) || 0),
+                      ),
+                    })
+                  }
+                />
+                <span>%</span>
+              </div>
+            </Box>
+            <Box flexGrow="1" />
+          </Flex>
         </Box>
 
         {/* Min sample dialog */}
@@ -900,7 +1161,7 @@ export default function ExperimentRampScheduleModal({
     patch({
       simpleDurationDays: d,
       simpleDurationUnit: u,
-      steps: generateSimpleSteps(d, u).map((s) => ({ ...s, monitored: true })),
+      steps: generateExperimentSimpleSteps(d, u),
     });
   }
 
@@ -913,70 +1174,6 @@ export default function ExperimentRampScheduleModal({
   const effectiveDecisionCriteria =
     allDecisionCriteria.find((c) => c.id === decisionCriteriaId) ??
     orgDefaultCriteria;
-
-  // ── Shipping criteria ─────────────────────────────────────────────────────
-  const shippingCriteriaPanel = (
-    <Box mb="4" mt="5">
-      <Text as="label" weight="medium" mb="1">
-        Shipping criteria
-      </Text>
-      <SelectField
-        value={state.shippingCriteriaMode}
-        options={[
-          { value: "off", label: "Manual" },
-          {
-            value: "auto",
-            label: "Auto-ship on end date if clear winner",
-          },
-          {
-            value: "auto-force",
-            label: "Auto-ship on end date regardless",
-          },
-        ]}
-        onChange={(v) =>
-          patch({
-            shippingCriteriaMode:
-              v as ExperimentRampState["shippingCriteriaMode"],
-          })
-        }
-        isOptionDisabled={(o) =>
-          !hasDecisionFramework &&
-          "value" in o &&
-          (o.value === "auto" || o.value === "auto-force")
-        }
-        sort={false}
-      />
-      {state.shippingCriteriaMode === "auto-force" && (
-        <Box mt="3">
-          <Text as="label" weight="medium" mb="1">
-            Fallback variation (if no clear winner)
-          </Text>
-          <SelectField
-            value={state.plannedVariationId}
-            onChange={(v) => patch({ plannedVariationId: v })}
-            options={experiment.variations.map((v) => ({
-              value: v.id,
-              label: v.name,
-            }))}
-            formatOptionLabel={({ value, label }) => {
-              const idx = experiment.variations.findIndex(
-                (v) => v.id === value,
-              );
-              return (
-                <span
-                  className={`variation variation${idx} with-variation-label d-inline-flex align-items-center`}
-                >
-                  <span className="label">{idx}</span>
-                  {label}
-                </span>
-              );
-            }}
-            sort={false}
-          />
-        </Box>
-      )}
-    </Box>
-  );
 
   // ── Date rows (always visible) ─────────────────────────────────────────────
 
@@ -1016,6 +1213,7 @@ export default function ExperimentRampScheduleModal({
           <SelectField
             value={state.simpleDurationUnit ?? "days"}
             options={[
+              { value: "minutes", label: "minutes" },
               { value: "hours", label: "hours" },
               { value: "days", label: "days" },
             ]}
@@ -1214,68 +1412,174 @@ export default function ExperimentRampScheduleModal({
   // Per-experiment automation toggles. Health signal classification is
   // configured in Decision Criteria; these toggles control execution.
 
+  const orgDefaultShipping =
+    organization?.settings?.defaultShippingCriteriaMode ?? "off";
+  const orgDefaultRollback =
+    organization?.settings?.defaultAutoRollbackMode ?? "off";
+  const orgDefaultRampProgression =
+    organization?.settings?.defaultRampProgressionMode ?? "hold-for-health";
+
   const automationSection = (
     <Box mt="5">
-      <Text weight="semibold" as="div" mb="1">
-        Experiment Automation
+      <Text weight="semibold" as="div" mb="3">
+        Automation
       </Text>
-      <Text as="div" size="small" color="text-mid" mb="2">
-        Control whether health and metric signals trigger automated actions.
-        Signal classification is configured in Decision Criteria.
-      </Text>
-      <SelectField
-        label="Rollbacks"
-        helpText="How to respond when metric or health signals recommend a rollback"
-        value={state.autoRollbackMode ?? ""}
-        onChange={(v) => {
-          patch({
-            autoRollbackMode: v === "" ? null : v,
-          });
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "180px 1fr",
+          gap: "8px 16px",
+          alignItems: "center",
         }}
-        options={[
-          {
-            value: "",
-            label: `Default (${
-              {
-                all: "Automatic",
-                "health-only": "Health only",
-              }[organization?.settings?.defaultAutoRollbackMode ?? ""] ??
-              "Manual"
-            })`,
-          },
-          { value: "off", label: "Manual" },
-          { value: "all", label: "Automatic" },
-          {
-            value: "health-only",
-            label: "Automatic for health signals only",
-          },
-        ]}
-      />
-      {hasRamp && (
+      >
+        <Text as="div" weight="medium">
+          Shipping
+        </Text>
         <SelectField
-          label="Ramp schedules"
-          helpText="Whether health signals pause ramp progression"
-          value={state.rampProgressionMode ?? ""}
-          onChange={(v) => {
-            patch({
-              rampProgressionMode: v === "" ? null : v,
-            });
-          }}
+          value={state.shippingCriteriaMode}
           options={[
+            { value: "off", label: "Manual" },
             {
-              value: "",
-              label: `Default (${organization?.settings?.defaultRampProgressionMode === "ignore" ? "Ignore" : "Hold"})`,
+              value: "auto",
+              label: "Auto-ship on end date if clear winner",
             },
             {
-              value: "hold-for-health",
-              label: "Hold for health signals",
-            },
-            {
-              value: "ignore",
-              label: "Ignore signals",
+              value: "auto-force",
+              label: "Auto-ship on end date regardless",
             },
           ]}
+          onChange={(v) =>
+            patch({
+              shippingCriteriaMode:
+                v as ExperimentRampState["shippingCriteriaMode"],
+            })
+          }
+          isOptionDisabled={(o) =>
+            !hasDecisionFramework &&
+            "value" in o &&
+            (o.value === "auto" || o.value === "auto-force")
+          }
+          formatOptionLabel={({ value, label }) => (
+            <span
+              style={{ display: "flex", alignItems: "center", width: "100%" }}
+            >
+              {label}
+              {value === orgDefaultShipping && (
+                <span
+                  className="text-muted uppercase-title"
+                  style={{ marginLeft: "auto" }}
+                >
+                  default
+                </span>
+              )}
+            </span>
+          )}
+          sort={false}
+          isSearchable={false}
         />
+        <Text as="div" weight="medium">
+          Rollbacks
+        </Text>
+        <SelectField
+          value={state.autoRollbackMode}
+          onChange={(v) => patch({ autoRollbackMode: v })}
+          options={[
+            { value: "off", label: "Manual" },
+            { value: "all", label: "Automatic" },
+            {
+              value: "health-only",
+              label: "Automatic for health signals only",
+            },
+          ]}
+          formatOptionLabel={({ value, label }) => (
+            <span
+              style={{ display: "flex", alignItems: "center", width: "100%" }}
+            >
+              {label}
+              {value === orgDefaultRollback && (
+                <span
+                  className="text-muted uppercase-title"
+                  style={{ marginLeft: "auto" }}
+                >
+                  default
+                </span>
+              )}
+            </span>
+          )}
+          sort={false}
+          isSearchable={false}
+        />
+        {hasRamp && (
+          <>
+            <Text as="div" weight="medium">
+              Ramp schedules
+            </Text>
+            <SelectField
+              value={state.rampProgressionMode}
+              onChange={(v) => patch({ rampProgressionMode: v })}
+              options={[
+                {
+                  value: "hold-for-health",
+                  label: "Hold for health signals",
+                },
+                {
+                  value: "ignore",
+                  label: "Ignore signals",
+                },
+              ]}
+              formatOptionLabel={({ value, label }) => (
+                <span
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    width: "100%",
+                  }}
+                >
+                  {label}
+                  {value === orgDefaultRampProgression && (
+                    <span
+                      className="text-muted uppercase-title"
+                      style={{ marginLeft: "auto" }}
+                    >
+                      default
+                    </span>
+                  )}
+                </span>
+              )}
+              sort={false}
+              isSearchable={false}
+            />
+          </>
+        )}
+      </div>
+      {state.shippingCriteriaMode === "auto-force" && (
+        <Box mt="3">
+          <Text as="label" weight="medium" mb="1">
+            Fallback variation (if no clear winner)
+          </Text>
+          <SelectField
+            value={state.plannedVariationId}
+            onChange={(v) => patch({ plannedVariationId: v })}
+            options={experiment.variations.map((v) => ({
+              value: v.id,
+              label: v.name,
+            }))}
+            formatOptionLabel={({ value, label }) => {
+              const idx = experiment.variations.findIndex(
+                (v) => v.id === value,
+              );
+              return (
+                <span
+                  className={`variation variation${idx} with-variation-label d-inline-flex align-items-center`}
+                >
+                  <span className="label">{idx}</span>
+                  {label}
+                </span>
+              );
+            }}
+            sort={false}
+          />
+        </Box>
       )}
     </Box>
   );
@@ -1289,11 +1593,11 @@ export default function ExperimentRampScheduleModal({
       <Box mb="4" mt="5">
         {(() => {
           const progression = [
-            "0%",
             ...state.steps
               .map((s) => s.patch.coverage)
               .filter((c): c is number => c !== undefined)
               .map((c) => `${c}%`),
+            `${state.endCoverage ?? 100}%`,
           ].join(" → ");
           return (
             <Flex align="center" justify="between" mb="2">
@@ -1316,18 +1620,15 @@ export default function ExperimentRampScheduleModal({
       </Box>
     ) : (
       <>
-        <Text as="div" weight="semibold" mb="2" mt="5">
-          Ramp-up Steps
-        </Text>
-        <Box mb="4">
+        <Box mb="4" mt="5">
           <Box mb="3">
             <Button
               variant="ghost"
               onClick={() => {
-                const steps = generateSimpleSteps(
+                const steps = generateExperimentSimpleSteps(
                   state.simpleDurationDays,
                   state.simpleDurationUnit,
-                ).map((s) => ({ ...s, monitored: true }));
+                );
                 patch({ builderMode: "simple", steps });
               }}
               icon={<PiArrowCounterClockwise />}
@@ -1335,9 +1636,7 @@ export default function ExperimentRampScheduleModal({
               Simple View
             </Button>
           </Box>
-          <Box className="appbox px-3 pt-3 pb-2 bg-light">
-            {renderStepGrid()}
-          </Box>
+          {renderStepGrid()}
         </Box>
       </>
     )
@@ -1365,47 +1664,56 @@ export default function ExperimentRampScheduleModal({
       </Text>
       {hasDecisionFramework ? (
         <>
-          <SelectField
-            value={decisionCriteriaId}
-            onChange={(v) => {
-              setDecisionCriteriaId(v);
-              setShowDcDetails(false);
-            }}
-            options={[
-              {
-                label: `Default (${orgDefaultCriteria.name})`,
-                value: "",
-              },
-              ...allDecisionCriteria.map((c) => ({
-                value: c.id,
-                label: c.name,
-              })),
-            ]}
-            formatOptionLabel={({ value, label }) =>
-              value === "" ? <em className="text-muted">{label}</em> : label
-            }
-            sort={false}
-          />
-          <Box mt="1">
-            <Link onClick={() => setShowDcDetails(!showDcDetails)}>
-              <PiCaretRightFill
-                className="mr-1"
-                style={{
-                  transform: showDcDetails ? "rotate(90deg)" : undefined,
-                  transition: "transform 0.15s",
+          {showDcDetailsModal && (
+            <DecisionCriteriaModal
+              decisionCriteria={effectiveDecisionCriteria}
+              editable={false}
+              onClose={() => setShowDcDetailsModal(false)}
+              mutate={() => {}}
+            />
+          )}
+          <Flex gap="2" align="end">
+            <Box style={{ flex: 1 }}>
+              <SelectField
+                value={decisionCriteriaId}
+                onChange={(v) => {
+                  setDecisionCriteriaId(v);
                 }}
-              />
-              Details
-            </Link>
-          </Box>
-          {showDcDetails && (
-            <Box mt="2">
-              <DecisionCriteriaModalContent
-                decisionCriteria={effectiveDecisionCriteria}
-                editable={false}
+                options={allDecisionCriteria.map((c) => ({
+                  value: c.id,
+                  label: c.name,
+                }))}
+                formatOptionLabel={({ value, label }) => (
+                  <span
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      width: "100%",
+                    }}
+                  >
+                    {label}
+                    {value === orgDefaultCriteriaId && (
+                      <span
+                        className="text-muted uppercase-title"
+                        style={{ marginLeft: "auto" }}
+                      >
+                        default
+                      </span>
+                    )}
+                  </span>
+                )}
+                sort={false}
               />
             </Box>
-          )}
+            <Button
+              variant="outline"
+              color="gray"
+              onClick={() => setShowDcDetailsModal(true)}
+              mb="1"
+            >
+              View
+            </Button>
+          </Flex>
         </>
       ) : (
         <Text as="div" size="small" color="text-low">
@@ -1432,12 +1740,12 @@ export default function ExperimentRampScheduleModal({
       open={true}
       close={close}
       size="lg"
+      maxWidth="900px"
       header="Schedule Settings"
       submit={submit}
     >
       {dateRows}
       {!hasRamp && addRampLink}
-      {shippingCriteriaPanel}
       {decisionCriteriaPanel}
       {rampStepsSection}
     </ModalStandard>

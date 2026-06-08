@@ -79,13 +79,22 @@ export default function ExperimentDecisionExplanation({
     const direction = (() => {
       switch (condition.direction) {
         case "statsigWinner":
+        case "superStatsigWinner":
           return "beneficial";
         case "statsigLoser":
+        case "superStatsigLoser":
           return "harmful";
       }
     })();
 
-    return `${quantity} ${metricType} ${connection} statistically significant and ${direction}`;
+    const isSuper =
+      condition.direction === "superStatsigWinner" ||
+      condition.direction === "superStatsigLoser";
+    const significance = isSuper
+      ? "statistically significant at the super stat sig threshold"
+      : "statistically significant";
+
+    return `${quantity} ${metricType} ${connection} ${significance} and ${direction}`;
   };
 
   // get the variations that have identical deciding rules

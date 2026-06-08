@@ -1713,12 +1713,25 @@ export async function completeRollout(
     },
   );
 
-  if (actionsToApply.length > 0) {
+  // Experiment-entity ramps store their completion patch in endActions with
+  // targetType === "experiment". computeEffectivePatch only accumulates
+  // feature-rule patches, so we collect experiment endActions separately and
+  // fire them through the same executeStepActions path.
+  const experimentEndActions: RampStepAction[] = (
+    schedule.endActions ?? []
+  ).filter((a) => a.targetType === "experiment");
+
+  const allActionsToApply: RampStepAction[] = [
+    ...actionsToApply,
+    ...experimentEndActions,
+  ];
+
+  if (allActionsToApply.length > 0) {
     await executeStepActions(
       ctx,
       schedule,
       schedule.steps.length,
-      actionsToApply,
+      allActionsToApply,
     );
   }
 

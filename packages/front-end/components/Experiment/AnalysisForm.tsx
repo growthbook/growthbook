@@ -54,9 +54,10 @@ import {
   getIsExperimentIncludedInIncrementalRefresh,
 } from "@/services/experiments";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
-import DecisionCriteriaModalContent from "@/components/DecisionCriteria/DecisionCriteriaModalContent";
+import DecisionCriteriaModal from "@/components/DecisionCriteria/DecisionCriteriaModal";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -114,7 +115,7 @@ const AnalysisForm: FC<{
 
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
   const [upgradeModal, setUpgradeModal] = useState(false);
-  const [showDcDetails, setShowDcDetails] = useState(false);
+  const [showDcDetailsModal, setShowDcDetailsModal] = useState(false);
 
   const pid = experiment?.project;
   const project = pid ? getProjectById(pid) : null;
@@ -233,9 +234,21 @@ const AnalysisForm: FC<{
         "hours") as "hours" | "days",
       disableStickyBucketing: experiment.disableStickyBucketing ?? false,
       decisionCriteriaId:
-        experiment.decisionFrameworkSettings?.decisionCriteriaId ?? "",
-      autoRollbackMode: experiment.autoRollbackMode ?? null,
-      rampProgressionMode: experiment.rampProgressionMode ?? null,
+        experiment.decisionFrameworkSettings?.decisionCriteriaId ||
+        (organization?.settings?.defaultDecisionCriteriaId ??
+          PRESET_DECISION_CRITERIA.id),
+      autoRollbackMode:
+        experiment.autoRollbackMode ??
+        organization?.settings?.defaultAutoRollbackMode ??
+        "off",
+      rampProgressionMode:
+        experiment.rampProgressionMode ??
+        organization?.settings?.defaultRampProgressionMode ??
+        "hold-for-health",
+      shippingCriteriaMode:
+        experiment.shippingCriteria?.mode ??
+        organization?.settings?.defaultShippingCriteriaMode ??
+        "off",
     },
   });
 
@@ -473,6 +486,7 @@ const AnalysisForm: FC<{
           dateEnded,
           skipPartialData,
           decisionCriteriaId,
+          shippingCriteriaMode,
           ...values
         } = value;
 
@@ -502,6 +516,13 @@ const AnalysisForm: FC<{
           body.decisionFrameworkSettings = {
             ...experiment.decisionFrameworkSettings,
             decisionCriteriaId: decisionCriteriaId || undefined,
+          };
+        }
+
+        if (shippingCriteriaMode !== undefined) {
+          body.shippingCriteria = {
+            mode: shippingCriteriaMode,
+            plannedVariationId: experiment.shippingCriteria?.plannedVariationId,
           };
         }
 
@@ -1102,60 +1123,61 @@ const AnalysisForm: FC<{
                       </Text>
                       {hasDecisionFramework ? (
                         <>
-                          <SelectField
-                            value={form.watch("decisionCriteriaId")}
-                            onChange={(v) => {
-                              form.setValue("decisionCriteriaId", v);
-                              setShowDcDetails(false);
-                            }}
-                            options={[
-                              {
-                                label: `Default (${orgDefaultCriteria.name})`,
-                                value: "",
-                              },
-                              ...allDecisionCriteria.map((c) => ({
-                                value: c.id,
-                                label: c.name,
-                              })),
-                            ]}
-                            formatOptionLabel={({ value, label }) =>
-                              value === "" ? (
-                                <em className="text-muted">{label}</em>
-                              ) : (
-                                label
-                              )
-                            }
-                            sort={false}
-                          />
-                          <Box mt="1">
-                            <Link
-                              onClick={() => setShowDcDetails(!showDcDetails)}
-                            >
-                              <PiCaretRightFill
-                                className="mr-1"
-                                style={{
-                                  transform: showDcDetails
-                                    ? "rotate(90deg)"
-                                    : undefined,
-                                  transition: "transform 0.15s",
+                          {showDcDetailsModal && (
+                            <DecisionCriteriaModal
+                              decisionCriteria={
+                                allDecisionCriteria.find(
+                                  (c) =>
+                                    c.id === form.watch("decisionCriteriaId"),
+                                ) ?? orgDefaultCriteria
+                              }
+                              editable={false}
+                              onClose={() => setShowDcDetailsModal(false)}
+                              mutate={() => {}}
+                            />
+                          )}
+                          <Flex gap="2" align="end">
+                            <Box style={{ flex: 1 }}>
+                              <SelectField
+                                value={form.watch("decisionCriteriaId")}
+                                onChange={(v) => {
+                                  form.setValue("decisionCriteriaId", v);
                                 }}
-                              />
-                              Details
-                            </Link>
-                          </Box>
-                          {showDcDetails && (
-                            <Box mt="2">
-                              <DecisionCriteriaModalContent
-                                decisionCriteria={
-                                  allDecisionCriteria.find(
-                                    (c) =>
-                                      c.id === form.watch("decisionCriteriaId"),
-                                  ) ?? orgDefaultCriteria
-                                }
-                                editable={false}
+                                options={allDecisionCriteria.map((c) => ({
+                                  value: c.id,
+                                  label: c.name,
+                                }))}
+                                formatOptionLabel={({ value, label }) => (
+                                  <span
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      width: "100%",
+                                    }}
+                                  >
+                                    {label}
+                                    {value === orgDefaultCriteriaId && (
+                                      <span
+                                        className="text-muted uppercase-title"
+                                        style={{ marginLeft: "auto" }}
+                                      >
+                                        default
+                                      </span>
+                                    )}
+                                  </span>
+                                )}
+                                sort={false}
                               />
                             </Box>
-                          )}
+                            <Button
+                              variant="outline"
+                              color="gray"
+                              onClick={() => setShowDcDetailsModal(true)}
+                              mb="1"
+                            >
+                              View
+                            </Button>
+                          </Flex>
                         </>
                       ) : (
                         <Text as="div" size="small" color="text-low">
@@ -1172,80 +1194,174 @@ const AnalysisForm: FC<{
                       )}
                     </div>
                     <div className="form-group mb-4">
-                      <Text weight="semibold" as="div" mb="1">
-                        Experiment Automation
+                      <Text weight="semibold" as="div" mb="3">
+                        Automation
                       </Text>
-                      <Text as="div" size="small" color="text-mid" mb="2">
-                        Control whether health and metric signals trigger
-                        automated actions. Signal classification is configured
-                        in Decision Criteria.
-                      </Text>
-                      <SelectField
-                        label="Rollbacks"
-                        helpText="How to respond when metric or health signals recommend a rollback"
-                        value={
-                          (form.watch(
-                            "autoRollbackMode" as never,
-                          ) as unknown as string | null) ?? ""
-                        }
-                        onChange={(v) => {
-                          form.setValue(
-                            "autoRollbackMode" as never,
-                            (v === "" ? null : v) as never,
-                          );
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "180px 1fr",
+                          gap: "8px 16px",
+                          alignItems: "center",
                         }}
-                        options={[
-                          {
-                            value: "",
-                            label: `Default (${
-                              {
-                                all: "Automatic",
-                                "health-only": "Health only",
-                              }[
-                                organization?.settings
-                                  ?.defaultAutoRollbackMode ?? ""
-                              ] ?? "Manual"
-                            })`,
-                          },
-                          { value: "off", label: "Manual" },
-                          { value: "all", label: "Automatic" },
-                          {
-                            value: "health-only",
-                            label: "Automatic for health signals only",
-                          },
-                        ]}
-                      />
-                      {!!experiment.rampScheduleId && (
+                      >
+                        <Text as="div" weight="medium">
+                          Shipping
+                        </Text>
                         <SelectField
-                          label="Ramp schedules"
-                          helpText="Whether health signals pause ramp progression"
                           value={
                             (form.watch(
-                              "rampProgressionMode" as never,
-                            ) as unknown as string | null) ?? ""
+                              "shippingCriteriaMode" as never,
+                            ) as unknown as string) ?? "off"
                           }
                           onChange={(v) => {
                             form.setValue(
-                              "rampProgressionMode" as never,
-                              (v === "" ? null : v) as never,
+                              "shippingCriteriaMode" as never,
+                              v as never,
                             );
                           }}
                           options={[
+                            { value: "off", label: "Manual" },
                             {
-                              value: "",
-                              label: `Default (${organization?.settings?.defaultRampProgressionMode === "ignore" ? "Ignore" : "Hold"})`,
+                              value: "auto",
+                              label: "Auto-ship on end date if clear winner",
                             },
                             {
-                              value: "hold-for-health",
-                              label: "Hold for health signals",
-                            },
-                            {
-                              value: "ignore",
-                              label: "Ignore signals",
+                              value: "auto-force",
+                              label: "Auto-ship on end date regardless",
                             },
                           ]}
+                          isOptionDisabled={(o) =>
+                            !hasDecisionFramework &&
+                            "value" in o &&
+                            (o.value === "auto" || o.value === "auto-force")
+                          }
+                          formatOptionLabel={({ value, label }) => (
+                            <span
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                width: "100%",
+                              }}
+                            >
+                              {label}
+                              {value ===
+                                (organization?.settings
+                                  ?.defaultShippingCriteriaMode ?? "off") && (
+                                <span
+                                  className="text-muted uppercase-title"
+                                  style={{ marginLeft: "auto" }}
+                                >
+                                  default
+                                </span>
+                              )}
+                            </span>
+                          )}
+                          sort={false}
+                          isSearchable={false}
                         />
-                      )}
+                        <Text as="div" weight="medium">
+                          Rollbacks
+                        </Text>
+                        <SelectField
+                          value={
+                            (form.watch(
+                              "autoRollbackMode" as never,
+                            ) as unknown as string) ?? "off"
+                          }
+                          onChange={(v) => {
+                            form.setValue(
+                              "autoRollbackMode" as never,
+                              v as never,
+                            );
+                          }}
+                          options={[
+                            { value: "off", label: "Manual" },
+                            { value: "all", label: "Automatic" },
+                            {
+                              value: "health-only",
+                              label: "Automatic for health signals only",
+                            },
+                          ]}
+                          formatOptionLabel={({ value, label }) => (
+                            <span
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                width: "100%",
+                              }}
+                            >
+                              {label}
+                              {value ===
+                                (organization?.settings
+                                  ?.defaultAutoRollbackMode ?? "off") && (
+                                <span
+                                  className="text-muted uppercase-title"
+                                  style={{ marginLeft: "auto" }}
+                                >
+                                  default
+                                </span>
+                              )}
+                            </span>
+                          )}
+                          sort={false}
+                          isSearchable={false}
+                        />
+                        {!!experiment.rampScheduleId && (
+                          <>
+                            <Text as="div" weight="medium">
+                              Ramp schedules
+                            </Text>
+                            <SelectField
+                              value={
+                                (form.watch(
+                                  "rampProgressionMode" as never,
+                                ) as unknown as string) ?? "hold-for-health"
+                              }
+                              onChange={(v) => {
+                                form.setValue(
+                                  "rampProgressionMode" as never,
+                                  v as never,
+                                );
+                              }}
+                              options={[
+                                {
+                                  value: "hold-for-health",
+                                  label: "Hold for health signals",
+                                },
+                                {
+                                  value: "ignore",
+                                  label: "Ignore signals",
+                                },
+                              ]}
+                              formatOptionLabel={({ value, label }) => (
+                                <span
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    width: "100%",
+                                  }}
+                                >
+                                  {label}
+                                  {value ===
+                                    (organization?.settings
+                                      ?.defaultRampProgressionMode ??
+                                      "hold-for-health") && (
+                                    <span
+                                      className="text-muted uppercase-title"
+                                      style={{ marginLeft: "auto" }}
+                                    >
+                                      default
+                                    </span>
+                                  )}
+                                </span>
+                              )}
+                              sort={false}
+                              isSearchable={false}
+                            />
+                          </>
+                        )}
+                      </div>
                     </div>
                     {hasEligiblePrecomputedUnitDimensions && (
                       <div className="form-group mb-2">

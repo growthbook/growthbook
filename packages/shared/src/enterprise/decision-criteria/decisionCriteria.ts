@@ -35,6 +35,34 @@ import {
   PRESET_DECISION_CRITERIAS,
 } from "./constants";
 
+// Resolve how a single condition's direction should be evaluated.
+// - `desiredStatus`: the metric status that satisfies the direction
+// - `fieldToCheck`: regular stat sig (`status`) vs super stat sig
+//   (`superStatSigStatus`), encoded directly by the direction
+// - `suppressed`: regular `statsigWinner` is unreliable before the experiment
+//   is decision-ready (target power reached or sequential testing enabled), so
+//   it is treated as "not matching" until then. This implements the asymmetry:
+//   detect harm early (regular `statsigLoser` always evaluates), but do not
+//   declare victory early on regular stat sig.
+function resolveDirectionEval(
+  direction: DecisionCriteriaRule["conditions"][number]["direction"],
+  decisionReady: boolean,
+): {
+  desiredStatus: "won" | "lost";
+  fieldToCheck: "status" | "superStatSigStatus";
+  suppressed: boolean;
+} {
+  const isWinner =
+    direction === "statsigWinner" || direction === "superStatsigWinner";
+  const isSuper =
+    direction === "superStatsigWinner" || direction === "superStatsigLoser";
+  return {
+    desiredStatus: isWinner ? "won" : "lost",
+    fieldToCheck: isSuper ? "superStatSigStatus" : "status",
+    suppressed: direction === "statsigWinner" && !decisionReady,
+  };
+}
+
 // Evaluate a single rule on a variation result
 // Returns the action and the metric IDs that triggered it, or undefined
 export function evaluateDecisionRuleOnVariation({
@@ -42,13 +70,15 @@ export function evaluateDecisionRuleOnVariation({
   variationStatus,
   goalMetrics,
   guardrailMetrics,
-  requireSuperStatSig,
+  decisionReady,
 }: {
   rule: DecisionCriteriaRule;
   variationStatus: ExperimentAnalysisSummaryVariationStatus;
   goalMetrics: string[];
   guardrailMetrics: string[];
-  requireSuperStatSig: boolean;
+  // Whether regular stat sig results can be acted on (target power reached or
+  // sequential testing enabled). Controls suppression of regular `statsigWinner`.
+  decisionReady: boolean;
 }):
   | { action: DecisionCriteriaAction; triggeredMetricIds: string[] }
   | undefined {
@@ -58,57 +88,47 @@ export function evaluateDecisionRuleOnVariation({
   const allTriggeredMetricIds: string[] = [];
 
   const allConditionsMet = conditions.every((condition) => {
-    const desiredStatus =
-      condition.direction === "statsigWinner"
-        ? "won"
-        : condition.direction === "statsigLoser"
-          ? "lost"
-          : "neutral";
+    const { desiredStatus, fieldToCheck, suppressed } = resolveDirectionEval(
+      condition.direction,
+      decisionReady,
+    );
     if (condition.metrics === "goals") {
       const metrics = goalMetrics;
       const metricResults = variationStatus.goalMetrics;
 
-      const fieldToCheck = requireSuperStatSig
-        ? "superStatSigStatus"
-        : "status";
+      const metricMatches = (m: string) =>
+        !suppressed && metricResults?.[m]?.[fieldToCheck] === desiredStatus;
 
       if (condition.match === "all") {
-        const matched = metrics.every(
-          (m) => metricResults?.[m]?.[fieldToCheck] === desiredStatus,
-        );
+        const matched = metrics.every(metricMatches);
         if (matched) allTriggeredMetricIds.push(...metrics);
         return matched;
       } else if (condition.match === "any") {
-        const matching = metrics.filter(
-          (m) => metricResults?.[m]?.[fieldToCheck] === desiredStatus,
-        );
+        const matching = metrics.filter(metricMatches);
         if (matching.length > 0) allTriggeredMetricIds.push(...matching);
         return matching.length > 0;
       } else if (condition.match === "none") {
-        return metrics.every(
-          (m) => metricResults?.[m]?.[fieldToCheck] !== desiredStatus,
-        );
+        return metrics.every((m) => !metricMatches(m));
       }
     } else if (condition.metrics === "guardrails") {
       const metrics = guardrailMetrics;
       const metricResults = variationStatus.guardrailMetrics;
 
+      // Guardrail results only carry a regular `status` (no super stat sig
+      // variant), so guardrail conditions always evaluate against `status`.
+      const metricMatches = (m: string) =>
+        !suppressed && metricResults?.[m]?.status === desiredStatus;
+
       if (condition.match === "all") {
-        const matched = metrics.every(
-          (m) => metricResults?.[m]?.status === desiredStatus,
-        );
+        const matched = metrics.every(metricMatches);
         if (matched) allTriggeredMetricIds.push(...metrics);
         return matched;
       } else if (condition.match === "any") {
-        const matching = metrics.filter(
-          (m) => metricResults?.[m]?.status === desiredStatus,
-        );
+        const matching = metrics.filter(metricMatches);
         if (matching.length > 0) allTriggeredMetricIds.push(...matching);
         return matching.length > 0;
       } else if (condition.match === "none") {
-        return metrics.every(
-          (m) => metricResults?.[m]?.status !== desiredStatus,
-        );
+        return metrics.every((m) => !metricMatches(m));
       }
     }
   });
@@ -120,17 +140,32 @@ export function evaluateDecisionRuleOnVariation({
   return undefined;
 }
 
+// Whether a ship rule is allowed to fire before the experiment is
+// decision-ready. Early shipping must be explicitly opted into with a
+// `superStatsigWinner` condition so that we never "declare victory early"
+// based purely on regular stat sig or on the absence of harm.
+function shipRuleAllowedPrePower(rule: DecisionCriteriaRule): boolean {
+  return rule.conditions.some((c) => c.direction === "superStatsigWinner");
+}
+
 // Get the decision for each variation based on the decision criteria
 export function getVariationDecisions({
   resultsStatus,
   decisionCriteria,
   powerReached,
+  decisionReady,
   goalMetrics,
   guardrailMetrics,
 }: {
   resultsStatus: ExperimentAnalysisSummaryResultsStatus;
   decisionCriteria: DecisionCriteriaData;
+  // Whether the experiment has reached target power. Controls whether the
+  // `defaultAction` fallback is applied when no rule matches.
   powerReached: boolean;
+  // Whether regular stat sig results can be acted on (target power reached or
+  // sequential testing enabled). Controls suppression of regular `statsigWinner`
+  // and the pre-power ship guard.
+  decisionReady: boolean;
   goalMetrics: string[];
   guardrailMetrics: string[];
 }): {
@@ -147,12 +182,21 @@ export function getVariationDecisions({
   resultsStatus.variations.forEach((variation) => {
     let decisionReached = false;
     for (const rule of rules) {
+      // Pre-power ship guard: only ship early when an explicit
+      // `superStatsigWinner` condition provides positive evidence.
+      if (
+        !decisionReady &&
+        rule.action === "ship" &&
+        !shipRuleAllowedPrePower(rule)
+      ) {
+        continue;
+      }
       const result = evaluateDecisionRuleOnVariation({
         rule,
         variationStatus: variation,
         goalMetrics,
         guardrailMetrics,
-        requireSuperStatSig: false,
+        decisionReady,
       });
       if (result) {
         results.push({
@@ -178,7 +222,9 @@ export function getVariationDecisions({
           decisionCriteriaAction: decisionCriteria.defaultAction,
         });
       } else {
-        // if no decision was reached and power was not reached (sequential testing), return null
+        // if no decision was reached and power was not reached, return null.
+        // We only prematurely stop when an explicitly stated rule matches with
+        // a clear level of evidence; the fallback action is not applied.
         results.push({
           variation: {
             variationId: variation.variationId,
@@ -187,71 +233,6 @@ export function getVariationDecisions({
           decisionCriteriaAction: null,
         });
       }
-    }
-  });
-
-  return results;
-}
-
-// Early stopping decision criteria requires "super stat sig" status
-// and does not use the fallback action, instead preferring to render
-// no result
-export function getEarlyStoppingVariationDecisions({
-  resultsStatus,
-  decisionCriteria,
-  goalMetrics,
-  guardrailMetrics,
-}: {
-  resultsStatus: ExperimentAnalysisSummaryResultsStatus;
-  decisionCriteria: DecisionCriteriaData;
-  goalMetrics: string[];
-  guardrailMetrics: string[];
-}): {
-  variation: DecisionFrameworkVariation;
-  decisionCriteriaAction: DecisionCriteriaAction | null;
-}[] {
-  const results: {
-    variation: DecisionFrameworkVariation;
-    decisionCriteriaAction: DecisionCriteriaAction | null;
-  }[] = [];
-
-  const { rules } = decisionCriteria;
-
-  resultsStatus.variations.forEach((variation) => {
-    let decisionReached = false;
-    for (const rule of rules) {
-      const result = evaluateDecisionRuleOnVariation({
-        rule,
-        variationStatus: variation,
-        goalMetrics,
-        guardrailMetrics,
-        requireSuperStatSig: true,
-      });
-      if (result) {
-        results.push({
-          variation: {
-            variationId: variation.variationId,
-            decidingRule: rule,
-            triggeredMetricIds: result.triggeredMetricIds,
-          },
-          decisionCriteriaAction: result.action,
-        });
-        decisionReached = true;
-        break;
-      }
-    }
-    // If no decision was reached, return null, ignoring the fallback
-    // action since we only want to prematurely stop if the experiment has
-    // met one of the explicitly stated criteria with a clear level of
-    // evidence
-    if (!decisionReached) {
-      results.push({
-        variation: {
-          variationId: variation.variationId,
-          decidingRule: null,
-        },
-        decisionCriteriaAction: null,
-      });
     }
   });
 
@@ -291,39 +272,44 @@ export function getDecisionFrameworkStatus({
   const powerReached = daysNeeded === 0;
   const sequentialTesting = resultsStatus?.settings?.sequentialTesting;
 
-  // Rendering a decision with regular stat sig metrics is only valid
-  // if you have reached your needed power or if you used sequential testing
-  const decisionReady = powerReached || sequentialTesting;
+  // Regular stat sig results are only valid to act on once the experiment is
+  // decision-ready: target power is reached or sequential testing is enabled.
+  const decisionReady = powerReached || !!sequentialTesting;
 
   const rollbackTooltip = `The test variation(s) should be rolled back.`;
   const shipTooltip = `A test variation is ready to ship.`;
   const reviewTooltip = `A test variation is ready to be reviewed.`;
 
+  // Always evaluate the user's own decision criteria. Direction-level gating
+  // (regular `statsigWinner` suppressed pre-power, super stat sig always
+  // evaluated) and the pre-power ship guard are handled inside
+  // getVariationDecisions, so there is no separate early-stopping path.
+  const variationDecisions = getVariationDecisions({
+    resultsStatus,
+    decisionCriteria,
+    goalMetrics,
+    guardrailMetrics,
+    powerReached,
+    decisionReady,
+  });
+
+  const allRollbackNow =
+    variationDecisions.length > 0 &&
+    variationDecisions.every((d) => d.decisionCriteriaAction === "rollback");
+  if (allRollbackNow) {
+    return {
+      status: "rollback-now",
+      variations: variationDecisions.map(({ variation }) => variation),
+      sequentialUsed: sequentialTesting,
+      powerReached: powerReached,
+      tooltip: rollbackTooltip,
+    };
+  }
+
+  const shipVariations = variationDecisions.filter(
+    (d) => d.decisionCriteriaAction === "ship",
+  );
   if (decisionReady) {
-    const variationDecisions = getVariationDecisions({
-      resultsStatus,
-      decisionCriteria,
-      goalMetrics,
-      guardrailMetrics,
-      powerReached,
-    });
-
-    const allRollbackNow =
-      variationDecisions.length > 0 &&
-      variationDecisions.every((d) => d.decisionCriteriaAction === "rollback");
-    if (allRollbackNow) {
-      return {
-        status: "rollback-now",
-        variations: variationDecisions.map(({ variation }) => variation),
-        sequentialUsed: sequentialTesting,
-        powerReached: powerReached,
-        tooltip: rollbackTooltip,
-      };
-    }
-
-    const shipVariations = variationDecisions.filter(
-      (d) => d.decisionCriteriaAction === "ship",
-    );
     if (shipVariations.length > 0) {
       return {
         status: "ship-now",
@@ -333,71 +319,18 @@ export function getDecisionFrameworkStatus({
         tooltip: shipTooltip,
       };
     }
-
-    // only return ready for review if power is reached, not for premature
-    // sequential results
-    if (powerReached) {
-      const reviewVariations = variationDecisions.filter(
-        (d) => d.decisionCriteriaAction === "review",
-      );
-      if (reviewVariations.length > 0) {
-        return {
-          status: "ready-for-review",
-          variations: reviewVariations.map(({ variation }) => variation),
-          sequentialUsed: sequentialTesting,
-          powerReached: powerReached,
-          tooltip: reviewTooltip,
-        };
-      }
-    }
   } else {
-    // only return ship or rollback for super stat sig metrics
-    // using the strict decision criteria
-    const earlyStoppingCriteria = PRESET_DECISION_CRITERIA;
-
-    const superStatSigVariationDecisions = getEarlyStoppingVariationDecisions({
-      resultsStatus,
-      decisionCriteria: earlyStoppingCriteria,
-      goalMetrics,
-      guardrailMetrics,
-    });
-
-    const allRollbackNow =
-      superStatSigVariationDecisions.length > 0 &&
-      superStatSigVariationDecisions.every(
-        (d) => d.decisionCriteriaAction === "rollback",
-      );
-    if (allRollbackNow) {
-      return {
-        status: "rollback-now",
-        variations: superStatSigVariationDecisions.map(
-          ({ variation }) => variation,
-        ),
-        sequentialUsed: sequentialTesting,
-        powerReached: powerReached,
-        tooltip: rollbackTooltip,
-      };
-    }
-
-    // Early stopping should only say ship if one variation is a clear winner
-    // and all other variations are clearly not winners
-    // So only early stop if you have met shipping criteria with stat sig
-    // status and all other variations are rollback
-
-    // For two-armed variations, this means if the one variation is ready to ship
-    // early, then we recommend shipping, so this only slows down early shipping
-    // if you have many arms, where it requires more logic to determine if you have
-    // a clear winner
-    const shipVariations = superStatSigVariationDecisions.filter(
-      (d) => d.decisionCriteriaAction === "ship",
-    );
+    // Pre-power early shipping should only say ship if one variation is a clear
+    // winner and all other variations are clearly rollbacks. For two-armed
+    // experiments this ships as soon as the single test variation qualifies;
+    // it only slows down early shipping with many arms, where determining a
+    // clear winner requires the others to be rollbacks.
     const onlyOneShip = shipVariations.length === 1;
-    const numberOfRollbackVariations = superStatSigVariationDecisions.filter(
+    const numberOfRollbackVariations = variationDecisions.filter(
       (d) => d.decisionCriteriaAction === "rollback",
     ).length;
-
     const restRollback =
-      numberOfRollbackVariations === superStatSigVariationDecisions.length - 1;
+      numberOfRollbackVariations === variationDecisions.length - 1;
 
     if (onlyOneShip && restRollback) {
       return {
@@ -409,15 +342,35 @@ export function getDecisionFrameworkStatus({
       };
     }
   }
+
+  // only return ready for review if power is reached, not for premature
+  // sequential or super-stat-sig results
+  if (powerReached) {
+    const reviewVariations = variationDecisions.filter(
+      (d) => d.decisionCriteriaAction === "review",
+    );
+    if (reviewVariations.length > 0) {
+      return {
+        status: "ready-for-review",
+        variations: reviewVariations.map(({ variation }) => variation),
+        sequentialUsed: sequentialTesting,
+        powerReached: powerReached,
+        tooltip: reviewTooltip,
+      };
+    }
+  }
 }
 
 /**
  * Mid-ramp EDF evaluation. Uses the experiment's own decision criteria with
- * requireSuperStatSig=true (super-stat-sig threshold). Returns review-now,
+ * the directions encoding their own thresholds. Returns review-now,
  * rollback-now, or ship-now if any variation triggers a rule; otherwise undefined.
  *
  * This is called at every ramp step evaluation and is NOT gated on power
- * or sequential testing having been reached.
+ * or sequential testing having been reached, so it runs as `decisionReady`
+ * is false: regular `statsigLoser` detects harm early, regular `statsigWinner`
+ * is suppressed, and shipping early requires an explicit `superStatsigWinner`
+ * condition.
  */
 export function getMidRampDecisionStatus({
   resultsStatus,
@@ -430,11 +383,13 @@ export function getMidRampDecisionStatus({
   goalMetrics: string[];
   guardrailMetrics: string[];
 }): ExperimentResultStatusData | undefined {
-  const variationDecisions = getEarlyStoppingVariationDecisions({
+  const variationDecisions = getVariationDecisions({
     resultsStatus,
     decisionCriteria,
     goalMetrics,
     guardrailMetrics,
+    powerReached: false,
+    decisionReady: false,
   });
 
   const allRollbackNow =
