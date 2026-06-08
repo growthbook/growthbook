@@ -3,6 +3,7 @@ import type { FactTableInterface } from "shared/types/fact-table";
 import {
   ensureEventForwarderEventsFactTable,
   deleteEventForwarderEventsFactTableForDatasource,
+  mergeEventForwarderFactTableColumnFromDesired,
   queueEventForwarderEventsFactTablesColumnsRefresh,
   syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange,
 } from "back-end/src/services/eventForwarderFactTable";
@@ -356,6 +357,7 @@ describe("syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange", 
             },
           }),
         ],
+        columnRefreshPending: true,
         sql: expect.stringContaining(
           "SAFE_CAST(JSON_VALUE(`attributes`, '$.\"age\"') AS FLOAT64) AS age",
         ),
@@ -366,6 +368,201 @@ describe("syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange", 
       ft,
       expect.any(Date),
     );
+  });
+
+  it("marks column refresh pending when metadata is already current", async () => {
+    const ctx = context();
+    ctx.models.eventForwarderConfigs.getAll.mockResolvedValue([
+      {
+        datasourceId: "ds_1",
+        sinkType: "bigquery",
+      },
+    ]);
+
+    const ds = datasource({
+      settings: {
+        userIdTypes: [{ userIdType: "user_id", description: "" }],
+      },
+      projects: ["proj_1"],
+    });
+    const sql = `SELECT
+  timestamp,
+  event_name,
+  -- Attributes
+  JSON_VALUE(\`attributes\`, '$."user_id"') AS user_id
+FROM \`my-project\`.\`analytics_123\`.\`gb_events\`
+WHERE received_at BETWEEN '{{startDate}}' AND '{{endDate}}'`;
+    const ft = eventsFactTable({
+      sql,
+      columnRefreshPending: false,
+      columns: [
+        {
+          column: "attributes",
+          name: "attributes",
+          description: "",
+          numberFormat: "",
+          datatype: "json",
+          jsonFields: {
+            user_id: { datatype: "string" },
+          },
+          dateCreated: new Date(),
+          dateUpdated: new Date(),
+          deleted: false,
+        },
+      ],
+    });
+
+    mockedGetDataSourceById.mockResolvedValue(ds);
+    mockedGetFactTable.mockResolvedValue(ft);
+    mockedGetSourceIntegrationObject.mockReturnValue({
+      params: {
+        defaultProject: "my-project",
+      },
+    } as never);
+    mockedDecrypt.mockReturnValue({
+      dataset: "analytics_123",
+      tableName: "gb_events",
+      serviceAccountKey: "{}",
+    });
+
+    await syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange(
+      ctx as never,
+      [{ property: "user_id", datatype: "string", hashAttribute: true }],
+    );
+
+    expect(mockedUpdateEventForwarderFactTableMetadata).toHaveBeenCalledWith(
+      ft,
+      {
+        columnRefreshPending: true,
+      },
+      ctx,
+    );
+    expect(mockedQueueFactTableColumnsRefreshAt).toHaveBeenCalledWith(
+      ft,
+      expect.any(Date),
+    );
+  });
+
+  it("clears deleted flag when rebuilding managed attributes column metadata", async () => {
+    const ctx = context();
+    ctx.models.eventForwarderConfigs.getAll.mockResolvedValue([
+      {
+        datasourceId: "ds_1",
+        sinkType: "bigquery",
+      },
+    ]);
+
+    const ds = datasource({
+      settings: {
+        userIdTypes: [{ userIdType: "user_id", description: "" }],
+      },
+      projects: [],
+    });
+    const ft = eventsFactTable({
+      columns: [
+        {
+          column: "attributes",
+          name: "attributes",
+          description: "",
+          numberFormat: "",
+          datatype: "json",
+          jsonFields: {
+            user_id: { datatype: "string" },
+          },
+          dateCreated: new Date(),
+          dateUpdated: new Date(),
+          deleted: true,
+          topValues: [],
+          autoSlices: [],
+          lockedAutoSlices: [],
+        },
+      ],
+    });
+
+    mockedGetDataSourceById.mockResolvedValue(ds);
+    mockedGetFactTable.mockResolvedValue(ft);
+    mockedGetSourceIntegrationObject.mockReturnValue({
+      params: {
+        defaultProject: "my-project",
+      },
+    } as never);
+    mockedDecrypt.mockReturnValue({
+      dataset: "analytics_123",
+      tableName: "gb_events",
+      serviceAccountKey: "{}",
+    });
+
+    await syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange(
+      ctx as never,
+      [{ property: "user_id", datatype: "string", hashAttribute: true }],
+    );
+
+    expect(mockedUpdateEventForwarderFactTableMetadata).toHaveBeenCalledWith(
+      ft,
+      expect.objectContaining({
+        columns: [
+          expect.objectContaining({
+            column: "attributes",
+            deleted: false,
+          }),
+        ],
+      }),
+      ctx,
+    );
+  });
+});
+
+describe("mergeEventForwarderFactTableColumnFromDesired", () => {
+  it("builds explicit column metadata without spreading stale fields", () => {
+    const now = new Date("2026-06-08T00:00:00.000Z");
+    const existing = {
+      column: "attributes",
+      name: "attributes",
+      description: "",
+      numberFormat: "",
+      datatype: "json" as const,
+      jsonFields: { user_id: { datatype: "string" as const } },
+      dateCreated: new Date("2026-06-07T00:00:00.000Z"),
+      dateUpdated: new Date("2026-06-07T00:00:00.000Z"),
+      deleted: true,
+      topValues: ["a"],
+      autoSlices: ["a"],
+      lockedAutoSlices: [],
+    };
+
+    const merged = mergeEventForwarderFactTableColumnFromDesired(
+      {
+        column: "attributes",
+        name: "attributes",
+        description: "",
+        numberFormat: "",
+        datatype: "json",
+        jsonFields: {
+          user_id: { datatype: "string" },
+          age: { datatype: "number" },
+        },
+      },
+      existing,
+      now,
+    );
+
+    expect(merged).toEqual({
+      column: "attributes",
+      name: "attributes",
+      description: "",
+      numberFormat: "",
+      datatype: "json",
+      jsonFields: {
+        user_id: { datatype: "string" },
+        age: { datatype: "number" },
+      },
+      dateCreated: existing.dateCreated,
+      dateUpdated: now,
+      deleted: false,
+      topValues: ["a"],
+      autoSlices: ["a"],
+      lockedAutoSlices: [],
+    });
   });
 });
 

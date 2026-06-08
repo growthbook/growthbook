@@ -144,7 +144,7 @@ WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{end
     expect(sql).toContain("-- Attributes");
   });
 
-  it("casts hash attributes as strings even when SDK datatype is number", () => {
+  it("uses typed casts for hash attributes that are in the attribute schema", () => {
     const sql = buildEventForwarderEventsFactTableSql({
       sinkType: "snowflake",
       database: "MY_DB",
@@ -155,8 +155,30 @@ WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{end
       ],
     });
 
-    expect(sql).toContain('ATTRIBUTES:"employee_id"::STRING AS employee_id');
-    expect(sql).not.toContain('TRY_TO_DOUBLE(ATTRIBUTES:"employee_id")');
+    expect(sql).toContain(
+      'TRY_TO_DOUBLE(ATTRIBUTES:"employee_id") AS employee_id',
+    );
+    expect(sql).not.toContain('ATTRIBUTES:"employee_id"::STRING');
+  });
+
+  it("uses typed casts for userIdTypes backed by hash attributes", () => {
+    const sql = buildEventForwarderEventsFactTableSql({
+      sinkType: "bigquery",
+      projectId: "my-project",
+      dataset: "analytics_123",
+      tableName: "gb_events",
+      userIdTypes: ["employee_id"],
+      attributeSchema: [
+        { property: "employee_id", datatype: "number", hashAttribute: true },
+      ],
+    });
+
+    expect(sql).toContain(
+      `SAFE_CAST(JSON_VALUE(\`attributes\`, '$."employee_id"') AS FLOAT64) AS employee_id`,
+    );
+    expect(sql).not.toContain(
+      `CAST(JSON_VALUE(\`attributes\`, '$."employee_id"') AS STRING)`,
+    );
   });
 
   it("builds Snowflake table reference", () => {
@@ -271,7 +293,7 @@ describe("buildEventForwarderEventsFactTableColumns", () => {
     expect(columns[0].jsonFields).toEqual({
       user_id: { datatype: "string" },
       age: { datatype: "number" },
-      employee_id: { datatype: "string" },
+      employee_id: { datatype: "number" },
       is_employee: { datatype: "boolean" },
       tags: { datatype: "json" },
     });

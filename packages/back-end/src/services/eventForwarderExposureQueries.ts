@@ -22,7 +22,7 @@ import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 
-function buildExposureQueryParams(
+export function buildExposureQueryParams(
   eventForwarderConfig: EventForwarderConfigInterface,
   connectionParams?: BigQueryConnectionParams | SnowflakeConnectionParams,
 ): GenerateEventForwarderExposureQueriesParams | null {
@@ -134,6 +134,7 @@ export async function ensureEventForwarderExposureQueries(
     existing,
     syncedUserIdTypes,
     sqlParams,
+    resolvedAttributeSchema,
   );
 
   if (merged.length === existing.length) {

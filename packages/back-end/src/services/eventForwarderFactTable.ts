@@ -5,7 +5,10 @@ import {
   BigQueryEventForwarderStoredConfig,
   SnowflakeEventForwarderStoredConfig,
 } from "shared/types/event-forwarder";
-import type { ColumnInterface } from "shared/types/fact-table";
+import type {
+  ColumnInterface,
+  CreateColumnProps,
+} from "shared/types/fact-table";
 import { EventForwarderConfigInterface } from "shared/validators";
 import {
   buildEventForwarderEventsFactTableColumns,
@@ -234,33 +237,35 @@ export async function syncEventForwarderEventsFactTableMetadataAfterAttributeSch
       datatype: column.datatype,
       jsonFields: column.jsonFields,
     }));
-
-    if (
+    const hasMetadataChanges =
       JSON.stringify(comparableExistingColumns) !==
         JSON.stringify(comparableDesiredColumns) ||
-      (desiredSql !== null && factTable.sql !== desiredSql)
-    ) {
+      (desiredSql !== null && factTable.sql !== desiredSql);
+    const shouldMarkColumnRefreshPending =
+      factTable.columnRefreshPending !== true;
+
+    if (hasMetadataChanges || shouldMarkColumnRefreshPending) {
       const now = new Date();
       const columns: ColumnInterface[] = desiredColumns.map((column) => {
         const existing = factTable.columns?.find(
           (existingColumn) => existingColumn.column === column.column,
         );
-        return {
-          ...existing,
-          ...column,
-          dateCreated: existing?.dateCreated ?? now,
-          dateUpdated: now,
-          name: column.name ?? existing?.name ?? "",
-          description: column.description ?? existing?.description ?? "",
-          numberFormat: column.numberFormat ?? existing?.numberFormat ?? "",
-          deleted: existing?.deleted ?? false,
-        };
+        return mergeEventForwarderFactTableColumnFromDesired(
+          column,
+          existing,
+          now,
+        );
       });
       await updateEventForwarderFactTableMetadata(
         factTable,
         {
-          columns,
-          ...(desiredSql !== null && { sql: desiredSql }),
+          ...(hasMetadataChanges && {
+            columns,
+            ...(desiredSql !== null && { sql: desiredSql }),
+          }),
+          ...(shouldMarkColumnRefreshPending && {
+            columnRefreshPending: true,
+          }),
         },
         context,
       );
@@ -268,6 +273,36 @@ export async function syncEventForwarderEventsFactTableMetadataAfterAttributeSch
 
     await queueFactTableColumnsRefreshAt(factTable, runAt);
   }
+}
+
+export function mergeEventForwarderFactTableColumnFromDesired(
+  desired: CreateColumnProps,
+  existing: ColumnInterface | undefined,
+  now: Date,
+): ColumnInterface {
+  return {
+    column: desired.column,
+    name: desired.name ?? existing?.name ?? "",
+    description: desired.description ?? existing?.description ?? "",
+    numberFormat: desired.numberFormat ?? existing?.numberFormat ?? "",
+    datatype: desired.datatype,
+    jsonFields: desired.jsonFields,
+    dateCreated: existing?.dateCreated ?? now,
+    dateUpdated: now,
+    deleted: false,
+    topValues: existing?.topValues ?? [],
+    autoSlices: existing?.autoSlices ?? [],
+    lockedAutoSlices: existing?.lockedAutoSlices ?? [],
+    ...(existing?.alwaysInlineFilter !== undefined && {
+      alwaysInlineFilter: existing.alwaysInlineFilter,
+    }),
+    ...(existing?.isAutoSliceColumn !== undefined && {
+      isAutoSliceColumn: existing.isAutoSliceColumn,
+    }),
+    ...(existing?.topValuesDate !== undefined && {
+      topValuesDate: existing.topValuesDate,
+    }),
+  };
 }
 
 export async function ensureEventForwarderEventsFactTable(
