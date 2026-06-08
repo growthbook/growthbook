@@ -24,17 +24,17 @@ export function isValidDataPoint(
     return false;
   }
 
-  // Check variations from index 1 onwards (skip control)
-  for (let i = 1; i < dataPoint.variations.length; i++) {
-    const variation = dataPoint.variations[i];
-    if (
-      variation.absolute?.ci &&
-      variation.absolute.ci[0] === 0 &&
-      variation.absolute.ci[1] === 0
-    ) {
-      return false;
-    }
-  }
+  // Only drop the point when EVERY treatment variation (index 1+) is degenerate
+  // (absolute CI of [0, 0]). A point with a real estimate for at least one
+  // variation is still useful and should be kept.
+  const allTreatmentsDegenerate = dataPoint.variations
+    .slice(1)
+    .every(
+      (variation) =>
+        variation.absolute?.ci &&
+        variation.absolute.ci[0] === 0 &&
+        variation.absolute.ci[1] === 0,
+    );
 
-  return true;
+  return !allTreatmentsDegenerate;
 }

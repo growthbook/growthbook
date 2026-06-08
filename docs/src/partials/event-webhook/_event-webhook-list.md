@@ -34,6 +34,20 @@
 | **[experiment.decision.ship](#experimentdecisionship)** | Triggered when an experiment is ready to ship a variation. |
 | **[experiment.decision.rollback](#experimentdecisionrollback)** | Triggered when an experiment should be rolled back to the control. |
 | **[experiment.decision.review](#experimentdecisionreview)** | Triggered when an experiment has reached the desired power point, but the results may be ambiguous. |
+| **[savedGroup.created](#savedGroupcreated)** | Triggered when a saved group is created |
+| **[savedGroup.updated](#savedGroupupdated)** | Triggered when a saved group is updated |
+| **[savedGroup.deleted](#savedGroupdeleted)** | Triggered when a saved group is deleted |
+| **[savedGroup.revision.created](#savedGrouprevisioncreated)** | Triggered when a new draft revision is created for a saved group |
+| **[savedGroup.revision.updated](#savedGrouprevisionupdated)** | Triggered when a draft revision's proposed changes are modified (values, condition, archive, or metadata). The `change` field indicates the kind of mutation. |
+| **[savedGroup.revision.reviewRequested](#savedGrouprevisionreviewRequested)** | Triggered when a draft revision is submitted for review |
+| **[savedGroup.revision.approved](#savedGrouprevisionapproved)** | Triggered when a draft revision is approved by a reviewer |
+| **[savedGroup.revision.changesRequested](#savedGrouprevisionchangesRequested)** | Triggered when a reviewer requests changes on a draft revision |
+| **[savedGroup.revision.commented](#savedGrouprevisioncommented)** | Triggered when a comment is added to a draft revision |
+| **[savedGroup.revision.discarded](#savedGrouprevisiondiscarded)** | Triggered when a draft revision is discarded |
+| **[savedGroup.revision.rebased](#savedGrouprevisionrebased)** | Triggered when a draft revision is rebased onto the latest live state |
+| **[savedGroup.revision.published](#savedGrouprevisionpublished)** | Triggered when a draft revision is published. Overlaps with `savedGroup.updated` but provides revision-specific context. |
+| **[savedGroup.revision.reverted](#savedGrouprevisionreverted)** | Triggered when a saved group is reverted to a previous published revision |
+| **[savedGroup.revision.reopened](#savedGrouprevisionreopened)** | Triggered when a discarded revision is reopened |
 | **[user.login](#userlogin)** | Triggered when a user logs in |
   
 ### feature.created
@@ -1482,7 +1496,7 @@ Triggered when an experiment is created
             dateCreated: string;
             dateUpdated: string;
             name: string;
-            type: "standard" | "multi-armed-bandit";
+            type: "standard" | "multi-armed-bandit" | "holdout";
             project: string;
             hypothesis: string;
             description: string;
@@ -1681,9 +1695,18 @@ Triggered when an experiment is created
                     levels: string[];
                 }[];
             }[] | undefined;
+            precomputedUnitDimensionIds?: string[] | undefined;
             /** ID of the default dashboard for this experiment. */
             defaultDashboardId?: string | undefined;
             templateId?: string | undefined;
+            statusUpdateSchedule?: ({
+                /** ISO datetime when the experiment should start. Must be in the future. Setting or clearing this field invalidates any existing staged start (`nextScheduledStatusUpdate`); call POST /experiments/{id}/start to stage the new schedule. */
+                startAt: string;
+            } | null) | undefined;
+            nextScheduledStatusUpdate?: ({
+                type: "start";
+                date: string;
+            } | null) | undefined;
         };
     };
     user: {
@@ -1730,7 +1753,7 @@ Triggered when an experiment is updated
             dateCreated: string;
             dateUpdated: string;
             name: string;
-            type: "standard" | "multi-armed-bandit";
+            type: "standard" | "multi-armed-bandit" | "holdout";
             project: string;
             hypothesis: string;
             description: string;
@@ -1929,9 +1952,18 @@ Triggered when an experiment is updated
                     levels: string[];
                 }[];
             }[] | undefined;
+            precomputedUnitDimensionIds?: string[] | undefined;
             /** ID of the default dashboard for this experiment. */
             defaultDashboardId?: string | undefined;
             templateId?: string | undefined;
+            statusUpdateSchedule?: ({
+                /** ISO datetime when the experiment should start. Must be in the future. Setting or clearing this field invalidates any existing staged start (`nextScheduledStatusUpdate`); call POST /experiments/{id}/start to stage the new schedule. */
+                startAt: string;
+            } | null) | undefined;
+            nextScheduledStatusUpdate?: ({
+                type: "start";
+                date: string;
+            } | null) | undefined;
         };
         previous_attributes: {
             id?: string | undefined;
@@ -1939,7 +1971,7 @@ Triggered when an experiment is updated
             dateCreated?: string | undefined;
             dateUpdated?: string | undefined;
             name?: string | undefined;
-            type?: ("standard" | "multi-armed-bandit") | undefined;
+            type?: ("standard" | "multi-armed-bandit" | "holdout") | undefined;
             project?: string | undefined;
             hypothesis?: string | undefined;
             description?: string | undefined;
@@ -2138,9 +2170,18 @@ Triggered when an experiment is updated
                     levels: string[];
                 }[];
             }[] | undefined;
+            precomputedUnitDimensionIds?: string[] | undefined;
             /** ID of the default dashboard for this experiment. */
             defaultDashboardId?: string | undefined;
             templateId?: string | undefined;
+            statusUpdateSchedule?: ({
+                /** ISO datetime when the experiment should start. Must be in the future. Setting or clearing this field invalidates any existing staged start (`nextScheduledStatusUpdate`); call POST /experiments/{id}/start to stage the new schedule. */
+                startAt: string;
+            } | null) | undefined;
+            nextScheduledStatusUpdate?: ({
+                type: "start";
+                date: string;
+            } | null) | undefined;
         };
         changes?: {
             added: Record<string, unknown>;
@@ -2192,7 +2233,7 @@ Triggered when an experiment is deleted
             dateCreated: string;
             dateUpdated: string;
             name: string;
-            type: "standard" | "multi-armed-bandit";
+            type: "standard" | "multi-armed-bandit" | "holdout";
             project: string;
             hypothesis: string;
             description: string;
@@ -2391,9 +2432,18 @@ Triggered when an experiment is deleted
                     levels: string[];
                 }[];
             }[] | undefined;
+            precomputedUnitDimensionIds?: string[] | undefined;
             /** ID of the default dashboard for this experiment. */
             defaultDashboardId?: string | undefined;
             templateId?: string | undefined;
+            statusUpdateSchedule?: ({
+                /** ISO datetime when the experiment should start. Must be in the future. Setting or clearing this field invalidates any existing staged start (`nextScheduledStatusUpdate`); call POST /experiments/{id}/start to stage the new schedule. */
+                startAt: string;
+            } | null) | undefined;
+            nextScheduledStatusUpdate?: ({
+                type: "start";
+                date: string;
+            } | null) | undefined;
         };
     };
     user: {
@@ -2450,6 +2500,19 @@ Triggered when a warning condition is detected on an experiment
             experimentName: string;
             experimentId: string;
             threshold: number;
+        } | {
+            type: "no-data";
+            experimentName: string;
+            experimentId: string;
+        } | {
+            type: "scheduled-status-update-failed";
+            experimentName: string;
+            experimentId: string;
+            scheduledStatusUpdateType: "start" | "stop";
+            attempts: number;
+            maxAttempts: number;
+            willRetry: boolean;
+            reason: string;
         };
     };
     user: {
@@ -2632,6 +2695,1471 @@ Triggered when an experiment has reached the desired power point, but the result
             experimentName: string;
             experimentId: string;
             decisionDescription?: string | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### savedGroup.created
+
+Triggered when a saved group is created
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "savedGroup.created";
+    object: "savedGroup";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            type: "condition" | "list";
+            dateCreated: string;
+            dateUpdated: string;
+            name: string;
+            /** The userId of the owner (or raw owner name/email for legacy records) */
+            owner?: string | undefined;
+            ownerEmail?: string | undefined;
+            /** When type = 'condition', this is the JSON-encoded condition for the group */
+            condition?: string | undefined;
+            /** When type = 'list', this is the attribute key the group is based on */
+            attributeKey?: string | undefined;
+            /** When type = 'list', this is the list of values for the attribute key */
+            values?: string[] | undefined;
+            description?: string | undefined;
+            projects?: string[] | undefined;
+            archived?: boolean | undefined;
+            useEmptyListGroup?: boolean | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### savedGroup.updated
+
+Triggered when a saved group is updated
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "savedGroup.updated";
+    object: "savedGroup";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            type: "condition" | "list";
+            dateCreated: string;
+            dateUpdated: string;
+            name: string;
+            /** The userId of the owner (or raw owner name/email for legacy records) */
+            owner?: string | undefined;
+            ownerEmail?: string | undefined;
+            /** When type = 'condition', this is the JSON-encoded condition for the group */
+            condition?: string | undefined;
+            /** When type = 'list', this is the attribute key the group is based on */
+            attributeKey?: string | undefined;
+            /** When type = 'list', this is the list of values for the attribute key */
+            values?: string[] | undefined;
+            description?: string | undefined;
+            projects?: string[] | undefined;
+            archived?: boolean | undefined;
+            useEmptyListGroup?: boolean | undefined;
+        };
+        previous_attributes: {
+            id?: string | undefined;
+            type?: ("condition" | "list") | undefined;
+            dateCreated?: string | undefined;
+            dateUpdated?: string | undefined;
+            name?: string | undefined;
+            /** The userId of the owner (or raw owner name/email for legacy records) */
+            owner?: string | undefined;
+            ownerEmail?: string | undefined;
+            /** When type = 'condition', this is the JSON-encoded condition for the group */
+            condition?: string | undefined;
+            /** When type = 'list', this is the attribute key the group is based on */
+            attributeKey?: string | undefined;
+            /** When type = 'list', this is the list of values for the attribute key */
+            values?: string[] | undefined;
+            description?: string | undefined;
+            projects?: string[] | undefined;
+            archived?: boolean | undefined;
+            useEmptyListGroup?: boolean | undefined;
+        };
+        changes?: {
+            added: Record<string, unknown>;
+            removed: Record<string, unknown>;
+            modified: Record<string, unknown>;
+        } | undefined;
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### savedGroup.deleted
+
+Triggered when a saved group is deleted
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "savedGroup.deleted";
+    object: "savedGroup";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            type: "condition" | "list";
+            dateCreated: string;
+            dateUpdated: string;
+            name: string;
+            /** The userId of the owner (or raw owner name/email for legacy records) */
+            owner?: string | undefined;
+            ownerEmail?: string | undefined;
+            /** When type = 'condition', this is the JSON-encoded condition for the group */
+            condition?: string | undefined;
+            /** When type = 'list', this is the attribute key the group is based on */
+            attributeKey?: string | undefined;
+            /** When type = 'list', this is the list of values for the attribute key */
+            values?: string[] | undefined;
+            description?: string | undefined;
+            projects?: string[] | undefined;
+            archived?: boolean | undefined;
+            useEmptyListGroup?: boolean | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### savedGroup.revision.created
+
+Triggered when a new draft revision is created for a saved group
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "savedGroup.revision.created";
+    object: "savedGroup";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### savedGroup.revision.updated
+
+Triggered when a draft revision's proposed changes are modified (values, condition, archive, or metadata). The `change` field indicates the kind of mutation.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "savedGroup.revision.updated";
+    object: "savedGroup";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+            change: "metadata" | "condition" | "values" | "archive";
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### savedGroup.revision.reviewRequested
+
+Triggered when a draft revision is submitted for review
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "savedGroup.revision.reviewRequested";
+    object: "savedGroup";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### savedGroup.revision.approved
+
+Triggered when a draft revision is approved by a reviewer
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "savedGroup.revision.approved";
+    object: "savedGroup";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+            reviewer: {
+                id?: string | undefined;
+                name?: string | undefined;
+                email?: string | undefined;
+            };
+            reviewComment: string | null;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### savedGroup.revision.changesRequested
+
+Triggered when a reviewer requests changes on a draft revision
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "savedGroup.revision.changesRequested";
+    object: "savedGroup";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+            reviewer: {
+                id?: string | undefined;
+                name?: string | undefined;
+                email?: string | undefined;
+            };
+            reviewComment: string | null;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### savedGroup.revision.commented
+
+Triggered when a comment is added to a draft revision
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "savedGroup.revision.commented";
+    object: "savedGroup";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+            reviewer: {
+                id?: string | undefined;
+                name?: string | undefined;
+                email?: string | undefined;
+            };
+            reviewComment: string;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### savedGroup.revision.discarded
+
+Triggered when a draft revision is discarded
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "savedGroup.revision.discarded";
+    object: "savedGroup";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### savedGroup.revision.rebased
+
+Triggered when a draft revision is rebased onto the latest live state
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "savedGroup.revision.rebased";
+    object: "savedGroup";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### savedGroup.revision.published
+
+Triggered when a draft revision is published. Overlaps with `savedGroup.updated` but provides revision-specific context.
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "savedGroup.revision.published";
+    object: "savedGroup";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### savedGroup.revision.reverted
+
+Triggered when a saved group is reverted to a previous published revision
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "savedGroup.revision.reverted";
+    object: "savedGroup";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
+            revertedToVersion?: number | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### savedGroup.revision.reopened
+
+Triggered when a discarded revision is reopened
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "savedGroup.revision.reopened";
+    object: "savedGroup";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            id: string;
+            version?: number | undefined;
+            title?: string | undefined;
+            status: "draft" | "pending-review" | "approved" | "changes-requested" | "merged" | "discarded";
+            authorId: string;
+            authorEmail?: string | undefined;
+            contributors?: string[] | undefined;
+            revertedFrom?: string | undefined;
+            reviews: {
+                id: string;
+                userId: string;
+                decision: "approve" | "request-changes" | "comment";
+                comment?: string | undefined;
+                dateCreated: string;
+            }[];
+            activityLog: {
+                id: string;
+                userId: string;
+                action: string;
+                dateCreated: string;
+            }[];
+            resolution?: {
+                action: "merged" | "discarded";
+                userId: string;
+                dateCreated: string;
+            } | undefined;
+            dateCreated: string;
+            dateUpdated: string;
+            baseSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedSavedGroup: {
+                id: string;
+                type: "condition" | "list";
+                dateCreated: string;
+                dateUpdated: string;
+                name: string;
+                /** The userId of the owner (or raw owner name/email for legacy records) */
+                owner?: string | undefined;
+                ownerEmail?: string | undefined;
+                /** When type = 'condition', this is the JSON-encoded condition for the group */
+                condition?: string | undefined;
+                /** When type = 'list', this is the attribute key the group is based on */
+                attributeKey?: string | undefined;
+                /** When type = 'list', this is the list of values for the attribute key */
+                values?: string[] | undefined;
+                description?: string | undefined;
+                projects?: string[] | undefined;
+                archived?: boolean | undefined;
+                useEmptyListGroup?: boolean | undefined;
+            };
+            proposedChanges: {
+                op: string;
+                path: string;
+            }[];
         };
     };
     user: {

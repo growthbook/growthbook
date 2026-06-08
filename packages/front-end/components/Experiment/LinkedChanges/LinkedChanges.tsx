@@ -99,11 +99,12 @@ export default function LinkedChanges({
             <LinkedFeatureFlag
               info={info}
               experiment={experiment}
+              mutate={mutate}
               key={info.feature.id}
+              numLinkedChanges={numLinkedChanges}
               onReAdd={
                 setFeatureModal ? () => setFeatureModal(true) : undefined
               }
-              mutate={mutate}
             />
           ))}
           <VisualChangesetTable
@@ -124,6 +125,7 @@ export default function LinkedChanges({
             />
           ))}
           {experiment.status === "draft" &&
+            !experiment.nextScheduledStatusUpdate &&
             !experiment.archived &&
             setFeatureModal &&
             setVisualEditorModal &&

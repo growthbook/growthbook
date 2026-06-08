@@ -48,6 +48,9 @@ export default class Snowflake extends SqlIntegration {
   supportsLimitZeroColumnValidation(): boolean {
     return true;
   }
+  hasQuantileSketch(): boolean {
+    return true;
+  }
   getInformationSchemaWhereClause(): string {
     return "table_schema NOT IN ('INFORMATION_SCHEMA')";
   }

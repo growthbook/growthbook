@@ -6,6 +6,7 @@ import {
 } from "shared/validators";
 import type { PopulationDataInterface } from "shared/types/population-data";
 import { QueryLanguage } from "./datasource";
+import { SnapshotTriggeredBy, SnapshotType } from "./experiment-snapshot";
 
 export type SqlResultChunkInterface = z.infer<typeof sqlResultChunkValidator>;
 
@@ -70,8 +71,15 @@ export type QueryType =
   | "experimentIncrementalRefreshDropMetricsCovariateTable"
   | "experimentIncrementalRefreshCreateMetricsCovariateTable"
   | "experimentIncrementalRefreshInsertMetricsCovariateData"
+  | "experimentIncrementalRefreshInsertMetricsCovariateDataFromAggregated"
   | "experimentIncrementalRefreshStatistics"
   | "experimentIncrementalRefreshHealth"
+
+  // Queries that maintain shared daily aggregated fact tables (materialization)
+  | "aggregatedFactTableDrop"
+  | "aggregatedFactTableCreate"
+  | "aggregatedFactTableInsertData"
+  | "aggregatedFactTableMaxTimestamp"
 
   // ---
   // Standalone analysis queries
@@ -103,9 +111,12 @@ export type QueryType =
   | "experimentResults";
 
 export type ExperimentQueryMetadata = {
+  experimentId?: string;
   experimentProject?: string;
   experimentOwner?: string;
   experimentTags?: string[];
+  snapshotTriggeredBy?: SnapshotTriggeredBy;
+  snapshotType?: SnapshotType;
 };
 
 export type AdditionalQueryMetadata = ExperimentQueryMetadata;
@@ -143,6 +154,9 @@ export interface QueryInterface {
   cachedQueryUsed?: string;
   statistics?: QueryStatistics;
   externalId?: string;
+  // Integration-specific side-data for managing the external job (e.g.
+  // BigQuery job location). Passed back to cancelQuery.
+  externalIdMetadata?: Record<string, string>;
   hasChunkedResults?: boolean;
 }
 export type PopulationDataQuerySettings = Pick<

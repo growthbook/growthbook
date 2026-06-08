@@ -26,6 +26,7 @@ import {
 } from "react-icons/pi";
 import { datetime, getValidDate } from "shared/dates";
 import { DRAFT_REVISION_STATUSES } from "shared/util";
+import type { HoldoutInterface } from "shared/validators";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -63,9 +64,10 @@ import {
 import {
   logBadgeColor,
   CreatedRampScheduleBody,
-  createdRampScheduleTitle,
-  PendingPublishBadge,
+  RampActionLabel,
+  formatSimpleWindow,
 } from "@/components/Features/FeatureDiffRenders";
+import { useHoldouts, holdoutOccupiesRuleSlot } from "@/hooks/useHoldouts";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
@@ -107,6 +109,7 @@ function revisionToDiffInput(
     rules: Array.isArray(r.rules) ? r.rules : [],
     environmentsEnabled: r.environmentsEnabled ?? fallback?.environmentsEnabled,
     prerequisites: r.prerequisites ?? fallback?.prerequisites,
+    archived: r.archived ?? fallback?.archived,
     holdout: r.holdout !== undefined ? r.holdout : (fallback?.holdout ?? null),
     metadata: normalizeRevisionMetadata(r.metadata) ?? fallback?.metadata,
     rampActions: r.rampActions ?? undefined,
@@ -505,6 +508,7 @@ function rampDiffsForRevision(
   newerRevision: FeatureRevisionInterface | null,
   featureId: string,
   rampSchedules: RampScheduleInterface[],
+  holdoutsMap: Map<string, HoldoutInterface>,
 ): FeatureRevisionDiff[] {
   if (!newerRevision) return [];
   const diffs: FeatureRevisionDiff[] = [];
@@ -522,19 +526,25 @@ function rampDiffsForRevision(
     }
 
     // "ready" / "pending" are pre-start lifecycle states; everything else
-    // (running, paused, pending-approval, completed, rolled-back) means the
-    // ramp has already begun, so use past tense.
+    // (running, paused, completed, rolled-back) means the ramp has already
+    // begun, so use past tense.
     const alreadyStarted = ramp.status !== "pending" && ramp.status !== "ready";
-    const startDescription = ramp.startDate
-      ? alreadyStarted
-        ? "Started at a scheduled date/time."
-        : "Starts at a scheduled date/time."
-      : alreadyStarted
-        ? "Started automatically on publish."
-        : "Starts automatically on publish.";
+    const isSimple = ramp.steps.length === 0;
+    const kindLabel = isSimple ? "Schedule" : "Ramp Schedule";
+    const endAt = ramp.cutoffDate ?? undefined;
+    const simpleWindow = formatSimpleWindow(ramp.startDate, endAt);
+    const startsClause = alreadyStarted
+      ? "started on publish"
+      : "starts on publish";
+    const detail = isSimple
+      ? (simpleWindow ?? startsClause)
+      : `${ramp.steps.length} step${ramp.steps.length !== 1 ? "s" : ""}${
+          ramp.startDate ? "" : ` · ${startsClause}`
+        }`;
 
     diffs.push({
-      title: `Ramp Schedule – ${ramp.name}`,
+      title: `${kindLabel} – ${ramp.name}`,
+      titleSuffix: <RampActionLabel action="activate" />,
       a: "",
       b: JSON.stringify(
         {
@@ -542,38 +552,55 @@ function rampDiffsForRevision(
           targets: ramp.targets,
           startDate: ramp.startDate,
           steps: ramp.steps,
-          endCondition: ramp.endCondition,
+          cutoffDate: ramp.cutoffDate,
         },
         null,
         2,
       ),
-      customRender: (
-        <p className="mb-0">
-          {alreadyStarted ? "Activated" : "Activates"} ramp schedule{" "}
-          <strong>{ramp.name}</strong> — {ramp.steps.length} step
-          {ramp.steps.length !== 1 ? "s" : ""}. {startDescription}
-        </p>
-      ),
-      badges: [{ label: `Start ramp: ${ramp.name}`, action: "start ramp" }],
+      customRender: detail ? (
+        <p className="mb-0 text-muted">{detail}.</p>
+      ) : null,
+      badges: [
+        {
+          label: `Start ${isSimple ? "schedule" : "ramp"}: ${ramp.name}`,
+          action: isSimple ? "start schedule" : "start ramp",
+        },
+      ],
     });
   }
 
-  // 1-based rule indices for `Rule #N` refs. Holdout occupies #1 (Rule.tsx).
+  // 1-based rule indices for `Rule #N` refs. Holdout occupies #1 (Rule.tsx)
+  // only when it's enabled in some env — a feature may carry a disabled
+  // holdout reference, in which case the rules list shows no holdout row.
   const newerRules = Array.isArray(newerRevision.rules)
     ? newerRevision.rules
     : [];
-  const ruleNumberOffset = newerRevision.holdout ? 2 : 1;
-  const ruleIndexById = new Map(
+  const ruleNumberOffset = holdoutOccupiesRuleSlot(
+    newerRevision.holdout,
+    holdoutsMap,
+  )
+    ? 2
+    : 1;
+  const ruleIndexById = new Map<string, number>(
     newerRules.map((r, i) => [r.id, i + ruleNumberOffset]),
   );
+  // Fall back to the raw ID for any rule we can't number (e.g. a detach
+  // action whose rule was deleted from the draft).
+  const ruleRef = (ruleId: string): string => {
+    const idx = ruleIndexById.get(ruleId);
+    return idx ? `Rule #${idx}` : `Rule ${ruleId}`;
+  };
 
-  // Pending ramp actions: display "create" and "detach" actions queued in the draft
+  // Pending ramp actions: display create/update/detach actions queued in the draft
   if (newerRevision.rampActions) {
     for (const action of newerRevision.rampActions) {
       if (action.mode === "create") {
         const targetIdx = ruleIndexById.get(action.ruleId);
+        const isSimple = action.steps.length === 0;
+        const kindLabel = isSimple ? "Schedule" : "Ramp Schedule";
+        const displayName = action.name ?? "schedule";
         diffs.push({
-          title: createdRampScheduleTitle(action),
+          title: `${kindLabel} – ${displayName}`,
           a: "",
           b: JSON.stringify(
             {
@@ -582,7 +609,7 @@ function rampDiffsForRevision(
               ruleId: action.ruleId,
               startDate: action.startDate,
               steps: action.steps,
-              endCondition: action.endCondition,
+              cutoffDate: action.cutoffDate,
             },
             null,
             2,
@@ -593,19 +620,61 @@ function rampDiffsForRevision(
               targetRuleIndices={targetIdx ? [targetIdx] : []}
             />
           ),
-          titleSuffix: <PendingPublishBadge />,
+          titleSuffix: <RampActionLabel action="create" />,
           badges: [
             {
               label: action.name
-                ? `Create ramp: ${action.name}`
-                : "Create ramp schedule",
-              action: "create ramp",
+                ? `Create ${isSimple ? "schedule" : "ramp"}: ${action.name}`
+                : `Create ${isSimple ? "schedule" : "ramp schedule"}`,
+              action: isSimple ? "create schedule" : "create ramp",
+            },
+          ],
+        });
+      } else if (action.mode === "update") {
+        const isSimpleUpdate = action.steps.length === 0;
+        const kindLabelUpdate = isSimpleUpdate ? "Schedule" : "Ramp Schedule";
+        const displayName = action.name ?? "schedule";
+        diffs.push({
+          title: `${kindLabelUpdate} – ${displayName}`,
+          titleSuffix: <RampActionLabel action="update" />,
+          a: "",
+          b: JSON.stringify(
+            {
+              rampScheduleId: action.rampScheduleId,
+              name: action.name,
+              ruleId: action.ruleId,
+              startDate: action.startDate,
+              steps: action.steps,
+              cutoffDate: action.cutoffDate,
+            },
+            null,
+            2,
+          ),
+          customRender: (
+            <p className="mb-0 text-muted">
+              {ruleRef(action.ruleId)} · updates schedule configuration.
+            </p>
+          ),
+          badges: [
+            {
+              label: isSimpleUpdate
+                ? "Update schedule"
+                : "Update ramp schedule",
+              action: "update ramp",
             },
           ],
         });
       } else if (action.mode === "detach") {
+        const targetSchedule = rampSchedules.find(
+          (r) => r.id === action.rampScheduleId,
+        );
+        const isSimple = !!targetSchedule && targetSchedule.steps.length === 0;
+        const kindLabel = isSimple ? "Schedule" : "Ramp Schedule";
+        const kindNoun = isSimple ? "schedule" : "ramp schedule";
+        const scheduleName = targetSchedule?.name;
         diffs.push({
-          title: `Remove from Ramp Schedule (pending)`,
+          title: scheduleName ? `${kindLabel} – ${scheduleName}` : kindLabel,
+          titleSuffix: <RampActionLabel action="remove" />,
           a: "",
           b: JSON.stringify(
             {
@@ -617,17 +686,17 @@ function rampDiffsForRevision(
             2,
           ),
           customRender: (
-            <p className="mb-0">
-              This rule will be removed from its ramp schedule
+            <p className="mb-0 text-muted">
+              {ruleRef(action.ruleId)} will be removed from this {kindNoun}
               {action.deleteScheduleWhenEmpty &&
-                " and the schedule will be deleted if empty"}
+                "; the schedule is deleted if no targets remain"}
               .
             </p>
           ),
           badges: [
             {
-              label: "Remove from ramp schedule",
-              action: "remove ramp",
+              label: `Remove from ${kindNoun}`,
+              action: isSimple ? "remove schedule" : "remove ramp",
             },
           ],
         });
@@ -1035,6 +1104,7 @@ export default function CompareRevisionsModal({
 }: Props) {
   const { apiCall } = useAuth();
   const liveVersion = feature.version;
+  const { holdoutsMap } = useHoldouts();
 
   const [showDiscarded, setShowDiscarded] = useLocalStorage(
     `${STORAGE_KEY_PREFIX}:showDiscarded`,
@@ -1578,23 +1648,33 @@ export default function CompareRevisionsModal({
   const stepDiffsWithRamps = useMemo(
     () => [
       ...stepDiffs,
-      ...rampDiffsForRevision(stepRevB, feature.id, rampSchedules),
+      ...rampDiffsForRevision(stepRevB, feature.id, rampSchedules, holdoutsMap),
     ],
-    [stepDiffs, stepRevB, feature.id, rampSchedules],
+    [stepDiffs, stepRevB, feature.id, rampSchedules, holdoutsMap],
   );
   const mergedDiffsWithRamps = useMemo(
     () => [
       ...mergedDiffs,
-      ...rampDiffsForRevision(singleRevLast, feature.id, rampSchedules),
+      ...rampDiffsForRevision(
+        singleRevLast,
+        feature.id,
+        rampSchedules,
+        holdoutsMap,
+      ),
     ],
-    [mergedDiffs, singleRevLast, feature.id, rampSchedules],
+    [mergedDiffs, singleRevLast, feature.id, rampSchedules, holdoutsMap],
   );
   const previewDiffsWithRamps = useMemo(
     () => [
       ...previewDiffs,
-      ...rampDiffsForRevision(previewDraftRev, feature.id, rampSchedules),
+      ...rampDiffsForRevision(
+        previewDraftRev,
+        feature.id,
+        rampSchedules,
+        holdoutsMap,
+      ),
     ],
-    [previewDiffs, previewDraftRev, feature.id, rampSchedules],
+    [previewDiffs, previewDraftRev, feature.id, rampSchedules, holdoutsMap],
   );
 
   return (

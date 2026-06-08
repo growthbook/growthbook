@@ -549,6 +549,18 @@ export const getMetricExperimentResults = async (
       dateStarted: p.dateStarted.toISOString(),
       dateEnded: p.dateEnded?.toISOString(),
     })),
+    nextScheduledStatusUpdate: e.nextScheduledStatusUpdate
+      ? {
+          ...e.nextScheduledStatusUpdate,
+          date: e.nextScheduledStatusUpdate.date.toISOString(),
+        }
+      : e.nextScheduledStatusUpdate,
+    statusUpdateSchedule: e.statusUpdateSchedule
+      ? {
+          ...e.statusUpdateSchedule,
+          startAt: e.statusUpdateSchedule.startAt?.toISOString(),
+        }
+      : e.statusUpdateSchedule,
     snapshot: snapshots.find((s) => s.experiment === e.id),
   }));
 
@@ -654,6 +666,18 @@ export const getMetricNorthstarData = async (
       dateStarted: p.dateStarted.toISOString(),
       dateEnded: p.dateEnded?.toISOString(),
     })),
+    nextScheduledStatusUpdate: e.nextScheduledStatusUpdate
+      ? {
+          ...e.nextScheduledStatusUpdate,
+          date: e.nextScheduledStatusUpdate.date.toISOString(),
+        }
+      : e.nextScheduledStatusUpdate,
+    statusUpdateSchedule: e.statusUpdateSchedule
+      ? {
+          ...e.statusUpdateSchedule,
+          startAt: e.statusUpdateSchedule.startAt?.toISOString(),
+        }
+      : e.statusUpdateSchedule,
   }));
 
   res.status(200).json({

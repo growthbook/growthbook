@@ -4,7 +4,7 @@ import { postFeatureValidator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
-  resolveOwnerToUserId,
+  resolveOwnerForCreate,
   resolveOwnerEmail,
 } from "back-end/src/services/owner";
 import { createFeature, getFeature } from "back-end/src/models/FeatureModel";
@@ -103,7 +103,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   const feature: FeatureInterface = {
     defaultValue: req.body.defaultValue ?? "",
     valueType: req.body.valueType,
-    owner: (await resolveOwnerToUserId(req.body.owner, req.context)) ?? "",
+    owner: await resolveOwnerForCreate(req.body.owner, req.context),
     description: req.body.description || "",
     project: req.body.project || "",
     dateCreated: new Date(),
@@ -132,6 +132,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   // v2: rules live on feature.rules (flat array), sourced from the API's
   // per-env payload stamped with single-env scope.
   feature.rules = buildFeatureRulesFromApiEnvSettings(
+    req.context,
     feature,
     orgEnvs,
     req.body.environments ?? {},

@@ -44,7 +44,7 @@ export const databricksDialect: SqlDialect = {
         return "TIMESTAMP";
       case "hll":
         return "BINARY";
-      case "kll":
+      case "quantileSketch":
         return "BINARY";
       default: {
         const _: never = dataType;

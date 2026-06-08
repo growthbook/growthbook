@@ -1,14 +1,15 @@
-import { FC, useCallback, useMemo } from "react";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Box, Flex, IconButton, TextField } from "@radix-ui/themes";
 import { PiX } from "react-icons/pi";
 import Text from "@/ui/Text";
-import { useEnvironments } from "@/services/features";
+import { useEnvironments, useAttributeSchema } from "@/services/features";
 import Tag from "@/components/Tags/Tag";
 import Button from "@/ui/Button";
 import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import {
   BaseSearchFiltersProps,
@@ -19,6 +20,44 @@ import {
   useSearchFiltersBase,
 } from "@/components/Search/SearchFilters";
 import { useUser } from "@/services/UserContext";
+import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { Select, SelectItem } from "@/ui/Select";
+import type { SyntaxFilter } from "@/services/search";
+
+function setCompoundHasToken(
+  searchStr: string,
+  prefix: string,
+  newValue: string | undefined,
+  setSearchValue: (v: string) => void,
+) {
+  const tokens = searchStr.split(/\s+/).filter(Boolean);
+  const filtered = tokens.filter((t) => {
+    if (!t.startsWith("has:")) return true;
+    return !t.slice(4).startsWith(prefix);
+  });
+
+  if (newValue !== undefined) {
+    filtered.push(`has:${prefix}${encodeURIComponent(newValue)}`);
+  }
+
+  setSearchValue(filtered.join(" "));
+}
+
+function getCompoundHasValue(
+  syntaxFilters: SyntaxFilter[],
+  prefix: string,
+): string | undefined {
+  for (const filter of syntaxFilters) {
+    if (filter.field !== "has") continue;
+    for (const val of filter.values) {
+      if (val.startsWith(prefix)) {
+        return decodeURIComponent(val.slice(prefix.length));
+      }
+    }
+  }
+  return undefined;
+}
 
 // Remove a single env value from a field token in the raw search string.
 // e.g. removeEnvValue("on:prod,staging off:dev", "on", "staging") → "on:prod off:dev"
@@ -68,9 +107,194 @@ function toggleEnvValue(
   return updated.join(" ");
 }
 
+const ContainsTextRow: FC<{
+  label: string;
+  hasPrefix: string;
+  placeholder: string;
+  syntaxFilters: SyntaxFilter[];
+  searchValue: string;
+  setSearchValue: (v: string) => void;
+}> = ({
+  label,
+  hasPrefix,
+  placeholder,
+  syntaxFilters,
+  searchValue,
+  setSearchValue,
+}) => {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const rowRef = useRef<HTMLDivElement>(null);
+  const currentValue = getCompoundHasValue(syntaxFilters, hasPrefix);
+  const active = currentValue !== undefined;
+  const [localValue, setLocalValue] = useState(currentValue ?? "");
+
+  useEffect(() => {
+    if (active) {
+      setLocalValue(currentValue ?? "");
+    }
+  }, [active, currentValue]);
+
+  useEffect(() => {
+    if (active) {
+      requestAnimationFrame(() => inputRef.current?.focus());
+    }
+  }, [active]);
+
+  const commit = useCallback(
+    (val: string) => {
+      setCompoundHasToken(searchValue, hasPrefix, val, setSearchValue);
+    },
+    [searchValue, hasPrefix, setSearchValue],
+  );
+
+  if (active) {
+    return (
+      <Flex
+        ref={rowRef}
+        align="center"
+        justify="between"
+        gap="4"
+        className="rt-reset rt-BaseMenuItem rt-DropdownMenuItem"
+        onMouseEnter={() =>
+          rowRef.current?.setAttribute("data-highlighted", "")
+        }
+        onMouseLeave={() => rowRef.current?.removeAttribute("data-highlighted")}
+      >
+        <Box
+          style={{ cursor: "pointer" }}
+          onClick={() =>
+            setCompoundHasToken(
+              searchValue,
+              hasPrefix,
+              undefined,
+              setSearchValue,
+            )
+          }
+        >
+          <FilterItem item={label} exists={true} />
+        </Box>
+        <TextField.Root
+          ref={inputRef}
+          size="1"
+          variant="surface"
+          placeholder={placeholder}
+          value={localValue}
+          onChange={(e) => {
+            setLocalValue(e.target.value);
+          }}
+          onBlur={() => commit(localValue)}
+          onKeyDown={(e) => {
+            e.stopPropagation();
+            if (e.key === "Enter") commit(localValue);
+          }}
+          style={{ minWidth: 0 }}
+        />
+      </Flex>
+    );
+  }
+
+  return (
+    <DropdownMenuItem
+      onClick={(e) => {
+        e.preventDefault();
+        setCompoundHasToken(searchValue, hasPrefix, "", setSearchValue);
+      }}
+    >
+      <FilterItem item={label} exists={false} />
+    </DropdownMenuItem>
+  );
+};
+
+const ContainsSelectRow: FC<{
+  label: string;
+  hasPrefix: string;
+  placeholder: string;
+  options: { value: string; label: string }[];
+  syntaxFilters: SyntaxFilter[];
+  searchValue: string;
+  setSearchValue: (v: string) => void;
+}> = ({
+  label,
+  hasPrefix,
+  placeholder,
+  options,
+  syntaxFilters,
+  searchValue,
+  setSearchValue,
+}) => {
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const currentValue = getCompoundHasValue(syntaxFilters, hasPrefix);
+  const active = currentValue !== undefined;
+
+  useEffect(() => {
+    if (active) {
+      requestAnimationFrame(() => {
+        const trigger = wrapperRef.current?.querySelector("button");
+        trigger?.focus();
+      });
+    }
+  }, [active]);
+
+  return (
+    <DropdownMenuItem
+      onClick={(e) => {
+        e.preventDefault();
+        if (active) {
+          setCompoundHasToken(
+            searchValue,
+            hasPrefix,
+            undefined,
+            setSearchValue,
+          );
+        } else {
+          setCompoundHasToken(searchValue, hasPrefix, "", setSearchValue);
+        }
+      }}
+    >
+      {active ? (
+        <Flex
+          align="center"
+          justify="between"
+          gap="4"
+          style={{ width: "100%" }}
+        >
+          <FilterItem item={label} exists={true} />
+          <Box onClick={(e) => e.stopPropagation()}>
+            <Select
+              size="1"
+              variant="surface"
+              placeholder={placeholder}
+              value={currentValue ?? ""}
+              setValue={(v) =>
+                setCompoundHasToken(searchValue, hasPrefix, v, setSearchValue)
+              }
+              ref={wrapperRef}
+              style={{ minWidth: 100, maxWidth: 160 }}
+              triggerClassName="overflow-hidden text-ellipsis"
+            >
+              {options.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </Select>
+          </Box>
+        </Flex>
+      ) : (
+        <FilterItem item={label} exists={false} />
+      )}
+    </DropdownMenuItem>
+  );
+};
+
 const FeatureSearchFilters: FC<
   BaseSearchFiltersProps & {
-    features: { tags?: string[]; owner?: string; valueType: string }[];
+    features: {
+      tags?: string[];
+      owner?: string;
+      valueType: string;
+      linkedExperiments?: string[];
+    }[];
     hasArchived: boolean;
   }
 > = ({
@@ -94,6 +318,56 @@ const FeatureSearchFilters: FC<
   });
   const environments = useEnvironments();
   const { getOwnerDisplay } = useUser();
+  const { savedGroups } = useDefinitions();
+  const attributeSchema = useAttributeSchema(false, project || undefined);
+
+  const [expLookup, setExpLookup] = useState<
+    Record<string, { name: string; type: string }>
+  >({});
+  const expLookupFetched = useRef(false);
+  const { apiCall } = useAuth();
+
+  const anyExpFilterActive =
+    getCompoundHasValue(syntaxFilters, "experiment:") !== undefined ||
+    getCompoundHasValue(syntaxFilters, "bandit:") !== undefined;
+  useEffect(() => {
+    if (!anyExpFilterActive || expLookupFetched.current) return;
+    expLookupFetched.current = true;
+    apiCall<{
+      experiments: { id: string; name: string; type: string }[];
+    }>("/experiments?project=&includeArchived=&type=")
+      .then((res) => {
+        const map: Record<string, { name: string; type: string }> = {};
+        (res.experiments ?? []).forEach((e) => {
+          map[e.id] = { name: e.name, type: e.type };
+        });
+        setExpLookup(map);
+      })
+      .catch(() => {
+        expLookupFetched.current = false;
+      });
+  }, [anyExpFilterActive, apiCall]);
+
+  const hasExpDefinitions = Object.keys(expLookup).length > 0;
+  const { experimentOptions, banditOptions } = useMemo(() => {
+    if (!hasExpDefinitions) return { experimentOptions: [], banditOptions: [] };
+    const ids = new Set<string>();
+    features.forEach((f) => f.linkedExperiments?.forEach((id) => ids.add(id)));
+    const experiments: { value: string; label: string }[] = [];
+    const bandits: { value: string; label: string }[] = [];
+    for (const id of ids) {
+      const info = expLookup[id];
+      const label = info?.name || id;
+      if (info?.type === "multi-armed-bandit") {
+        bandits.push({ value: id, label });
+      } else {
+        experiments.push({ value: id, label });
+      }
+    }
+    experiments.sort((a, b) => a.label.localeCompare(b.label));
+    bandits.sort((a, b) => a.label.localeCompare(b.label));
+    return { experimentOptions: experiments, banditOptions: bandits };
+  }, [features, expLookup, hasExpDefinitions]);
 
   const availableTags = useMemo(() => {
     const tags: string[] = [];
@@ -110,7 +384,9 @@ const FeatureSearchFilters: FC<
     features.forEach((f) => {
       if (f.owner) set.add(getOwnerDisplay(f.owner));
     });
-    return Array.from(set);
+    return Array.from(set).sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: "base" }),
+    );
   }, [features, getOwnerDisplay]);
 
   const availableFeatureTypes = useMemo(() => {
@@ -276,6 +552,165 @@ const FeatureSearchFilters: FC<
         })}
       </DropdownMenu>
 
+      {/* Contains: rule content searches */}
+      <DropdownMenu
+        trigger={FilterHeading({
+          heading: "contains",
+          open: dropdownFilterOpen === "contains",
+        })}
+        open={dropdownFilterOpen === "contains"}
+        menuPlacement="end"
+        variant="soft"
+        onOpenChange={(o) => setDropdownFilterOpen(o ? "contains" : "")}
+      >
+        <DropdownMenuLabel>Has...</DropdownMenuLabel>
+        <DropdownMenuItem
+          onClick={() => {
+            updateQuery({
+              field: "has",
+              values: ["prerequisites"],
+              operator: "",
+              negated: false,
+            });
+          }}
+        >
+          <FilterItem
+            item="Prerequisites"
+            exists={doesFilterExist("has", "prerequisites", "")}
+          />
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => {
+            updateQuery({
+              field: "has",
+              values: ["dependents"],
+              operator: "",
+              negated: false,
+            });
+          }}
+        >
+          <FilterItem
+            item="Dependents"
+            exists={doesFilterExist("has", "dependents", "")}
+          />
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => {
+            updateQuery({
+              field: "has",
+              values: ["savedgroup"],
+              operator: "",
+              negated: false,
+            });
+          }}
+        >
+          <FilterItem
+            item="Saved groups"
+            exists={doesFilterExist("has", "savedgroup", "")}
+          />
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => {
+            updateQuery({
+              field: "has",
+              values: ["experiments"],
+              operator: "",
+              negated: false,
+            });
+          }}
+        >
+          <FilterItem
+            item="Experiments & bandits"
+            exists={doesFilterExist("has", "experiments", "")}
+          />
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => {
+            updateQuery({
+              field: "has",
+              values: ["temp-rollout"],
+              operator: "",
+              negated: false,
+            });
+          }}
+        >
+          <FilterItem
+            item="Temp experiment rollouts"
+            exists={doesFilterExist("has", "temp-rollout", "")}
+          />
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => {
+            updateQuery({
+              field: "has",
+              values: ["ramp-schedule"],
+              operator: "",
+              negated: false,
+            });
+          }}
+        >
+          <FilterItem
+            item="Active ramp-ups &amp; schedules"
+            exists={doesFilterExist("has", "ramp-schedule", "")}
+          />
+        </DropdownMenuItem>
+
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel>Contains specific...</DropdownMenuLabel>
+
+        <ContainsTextRow
+          label="Value"
+          hasPrefix="value:"
+          placeholder="Search values..."
+          syntaxFilters={syntaxFilters}
+          searchValue={searchInputProps.value}
+          setSearchValue={setSearchValue}
+        />
+        <ContainsSelectRow
+          label="Attribute"
+          hasPrefix="attribute:"
+          placeholder="Select..."
+          options={attributeSchema.map((a) => ({
+            value: a.property,
+            label: a.property,
+          }))}
+          syntaxFilters={syntaxFilters}
+          searchValue={searchInputProps.value}
+          setSearchValue={setSearchValue}
+        />
+        <ContainsSelectRow
+          label="Saved Group"
+          hasPrefix="saved-group:"
+          placeholder="Select..."
+          options={savedGroups.map((sg) => ({
+            value: sg.id,
+            label: sg.groupName,
+          }))}
+          syntaxFilters={syntaxFilters}
+          searchValue={searchInputProps.value}
+          setSearchValue={setSearchValue}
+        />
+        <ContainsSelectRow
+          label="Experiment"
+          hasPrefix="experiment:"
+          placeholder="Select..."
+          options={experimentOptions}
+          syntaxFilters={syntaxFilters}
+          searchValue={searchInputProps.value}
+          setSearchValue={setSearchValue}
+        />
+        <ContainsSelectRow
+          label="Bandit"
+          hasPrefix="bandit:"
+          placeholder="Select..."
+          options={banditOptions}
+          syntaxFilters={syntaxFilters}
+          searchValue={searchInputProps.value}
+          setSearchValue={setSearchValue}
+        />
+      </DropdownMenu>
+
+      {/* More: status/staleness filters */}
       <DropdownMenu
         trigger={FilterHeading({
           heading: "more",
