@@ -2,7 +2,7 @@ import { DataSourceInterface } from "shared/types/datasource";
 import { EventForwarderConfigInterface } from "shared/validators";
 import { usingFileConfig } from "back-end/src/init/config";
 import { getEventForwarderSinkTypeForDatasource } from "back-end/src/services/eventForwarderConfig";
-import { teardownBigQueryEventForwarderInfrastructureRemote } from "back-end/src/services/eventForwarderProvisioning";
+import { teardownEventForwarderInfrastructureRemote } from "back-end/src/services/eventForwarderProvisioning";
 import { logger } from "back-end/src/util/logger";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
@@ -54,7 +54,7 @@ async function deleteEventForwarderAndTeardown({
         "Event forwarder sync: invoking Confluent teardown via license server",
       );
       try {
-        await teardownBigQueryEventForwarderInfrastructureRemote({
+        await teardownEventForwarderInfrastructureRemote({
           organizationId: snapshot.organizationId,
           datasourceId: snapshot.datasourceId,
           sinkType: snapshot.sinkType,

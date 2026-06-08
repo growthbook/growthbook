@@ -12,7 +12,6 @@ jest.mock("back-end/src/enterprise/licenseUtil", () => ({
 jest.mock("back-end/src/services/eventForwarderFactTable", () => ({
   ensureEventForwarderEventsFactTable: jest.fn(),
   queueDelayedFactTableColumnsRefreshForDatasource: jest.fn(),
-  queueDelayedFactTableColumnsRefreshForEventForwarderDatasources: jest.fn(),
 }));
 
 const resumeRemoteMock =
