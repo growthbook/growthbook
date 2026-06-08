@@ -17,10 +17,6 @@ import Button from "@/ui/Button";
 import Metadata from "@/ui/Metadata";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
-import Tooltip from "@/ui/Tooltip";
-
-const EVENT_FORWARDER_HASH_IDENTIFIER_DELETE_MESSAGE =
-  "Identifier types linked to hash attributes cannot be deleted while an Event Forwarder is configured for this data source.";
 
 type DataSourceInlineEditIdentifierTypesProps =
   DataSourceQueryEditingModalBaseProps;
@@ -177,28 +173,19 @@ export const DataSourceInlineEditIdentifierTypes: FC<
               {/* region Identity Type actions */}
               {canEdit && (
                 <Flex gap="3">
-                  <Tooltip
-                    enabled={deleteDisabled}
-                    content={EVENT_FORWARDER_HASH_IDENTIFIER_DELETE_MESSAGE}
-                  >
-                    <span
-                      style={
-                        deleteDisabled ? { cursor: "not-allowed" } : undefined
-                      }
-                    >
-                      <DeleteButton
-                        onClick={handleActionDeleteClicked(idx)}
-                        useRadix={true}
-                        useIcon={false}
-                        displayName={userIdTypes[idx]?.userIdType}
-                        deleteMessage={`Are you sure you want to delete identifier type ${userIdTypes[idx]?.userIdType}?`}
-                        title="Delete"
-                        text="Delete"
-                        outline={false}
-                        disabled={deleteDisabled}
-                      />
-                    </span>
-                  </Tooltip>
+                  {!deleteDisabled && (
+                    <DeleteButton
+                      onClick={handleActionDeleteClicked(idx)}
+                      useRadix={true}
+                      useIcon={false}
+                      displayName={userIdTypes[idx]?.userIdType}
+                      deleteMessage={`Are you sure you want to delete identifier type ${userIdTypes[idx]?.userIdType}?`}
+                      title="Delete"
+                      text="Delete"
+                      outline={false}
+                      disabled={deleteDisabled}
+                    />
+                  )}
                   <Button
                     variant="ghost"
                     onClick={handleActionEditClicked(idx)}
