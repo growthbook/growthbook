@@ -3,6 +3,7 @@ import {
   ExperimentMetricInterface,
   getAutoSliceMetrics,
   isFactMetric,
+  isSliceMetric,
   quantileMetricType,
 } from "shared/experiments";
 import { isExperimentIncrementalEnabled } from "shared/enterprise";
@@ -353,10 +354,14 @@ export function buildAggregatedFactTableSchemaState({
         factTableId: factTable.id,
       }),
       columns: getColumnsForMetric(metric, factTable.id),
-      slices: getAutoSliceMetrics({ metric, factTable }).map((sliceMetric) => ({
-        metricId: sliceMetric.id,
-        columns: getColumnsForMetric(sliceMetric, factTable.id),
-      })),
+      // Slice metrics are already flattened into `metrics`; only base metrics
+      // own the slice list (calling getAutoSliceMetrics on a slice clones again).
+      slices: isSliceMetric(metric)
+        ? []
+        : getAutoSliceMetrics({ metric, factTable }).map((sliceMetric) => ({
+            metricId: sliceMetric.id,
+            columns: getColumnsForMetric(sliceMetric, factTable.id),
+          })),
       builtAt: new Date(),
     }),
   );

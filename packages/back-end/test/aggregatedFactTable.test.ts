@@ -1,3 +1,4 @@
+import { getAutoSliceMetrics, isSliceMetric } from "shared/experiments";
 import {
   buildAggregatedFactTableSchemaState,
   detectAggregatedFactTableSchemaDrift,
@@ -492,6 +493,59 @@ describe("foldAggregatedFactTableCoverage", () => {
       firstEventDate: null,
       lastEventDate: null,
     });
+  });
+});
+
+describe("buildAggregatedFactTableSchemaState", () => {
+  it("stores slices only on base metrics, not on flattened slice-metric entries", () => {
+    const factTable = factTableFactory.build({
+      id: FT_ID,
+      sql: "SELECT * FROM events",
+      eventName: "purchase",
+      columns: [
+        {
+          column: "country",
+          name: "Country",
+          description: "",
+          datatype: "string",
+          numberFormat: "",
+          deleted: false,
+          dateCreated: new Date(),
+          dateUpdated: new Date(),
+          isAutoSliceColumn: true,
+          autoSlices: ["US", "UK"],
+        },
+      ],
+    });
+    const baseMetric = factMetricFactory.build({
+      id: "m1",
+      metricType: "mean",
+      numerator: { factTableId: FT_ID, column: "value", aggregation: "sum" },
+      metricAutoSlices: ["country"],
+    });
+    const flattenedMetrics = [
+      baseMetric,
+      ...getAutoSliceMetrics({ metric: baseMetric, factTable }),
+    ];
+
+    const { metricState } = buildAggregatedFactTableSchemaState({
+      factTable,
+      metrics: flattenedMetrics,
+    });
+
+    const baseState = metricState.find((m) => m.metricId === baseMetric.id);
+    expect(baseState?.slices?.length).toBeGreaterThan(0);
+    expect(
+      baseState?.slices?.every((slice) =>
+        flattenedMetrics.some((metric) => metric.id === slice.metricId),
+      ),
+    ).toBe(true);
+
+    for (const metric of flattenedMetrics) {
+      if (!isSliceMetric(metric)) continue;
+      const entry = metricState.find((m) => m.metricId === metric.id);
+      expect(entry?.slices).toEqual([]);
+    }
   });
 });
 
