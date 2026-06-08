@@ -103,16 +103,6 @@ export const putAttribute = async (
   const existing = attributeSchema[index];
 
   const hasEventForwarder = await hasAnyEventForwarderConfig(context);
-  if (
-    hasEventForwarder &&
-    (attributeFields.property !== existing.property ||
-      (attributeFields.datatype !== undefined &&
-        attributeFields.datatype !== existing.datatype))
-  ) {
-    context.throwBadRequestError(
-      "Attribute name and data type can't be changed while an Event Forwarder is configured.",
-    );
-  }
 
   // Only pass `projects` when the client actually sent it — passing
   // `{ projects: undefined }` would be interpreted as a request to scope the
