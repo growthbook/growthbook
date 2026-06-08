@@ -28,6 +28,45 @@ export function sanitizeEventForwarderAvroFieldName(property: string): string {
 }
 
 /**
+ * Maps SDK attribute property names to keys used in the forwarder `attributes`
+ * map after ingestor promotion/enrichment. Enriched/promoted keys are listed
+ * first; SDK keys are fallbacks for COALESCE in warehouse SQL.
+ *
+ * Keep aligned with growthbook-ingestor `buildForwarderAttributeEntries` and
+ * sdk-js `growthbook-tracking` / `auto-attributes` plugins.
+ */
+const EVENT_FORWARDER_ATTRIBUTE_LOOKUP_KEYS: Record<string, string[]> = {
+  utmsource: ["utm_source"],
+  utmmedium: ["utm_medium"],
+  utmcampaign: ["utm_campaign"],
+  utmterm: ["utm_term"],
+  utmcontent: ["utm_content"],
+  pagetitle: ["page_title"],
+  browser: ["ua_browser", "browser"],
+  devicetype: ["ua_device_type", "deviceType"],
+  path: ["url_path", "path"],
+  host: ["url_host", "host"],
+  // url_query is JSON-encoded; query is the raw querystring from the SDK.
+  query: ["url_query", "query"],
+};
+
+/**
+ * Returns ordered keys to read inside the `attributes` map for a given SDK
+ * attribute property. Enriched/promoted keys come first; SDK keys are
+ * fallbacks when multiple keys are returned.
+ */
+export function resolveEventForwarderAttributeLookupKeys(
+  property: string,
+): string[] {
+  const mapped = EVENT_FORWARDER_ATTRIBUTE_LOOKUP_KEYS[property.toLowerCase()];
+  if (mapped) {
+    return mapped;
+  }
+
+  return [sanitizeEventForwarderAvroFieldName(property)];
+}
+
+/**
  * EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY — delay after connector ready or
  * attribute metadata changes before refreshing fact table columns. Increase
  * here if warehouse tables need longer to materialize (currently 1 min).
@@ -157,6 +196,30 @@ function shouldCastValueDatatypeToString(
   return valueDatatype === "string";
 }
 
+function buildSnowflakeFlatMapAttributeValueSqlForKey({
+  fieldName,
+  valueDatatype,
+  castToString,
+}: {
+  fieldName: string;
+  valueDatatype: EventForwarderAttributeValueDatatype;
+  castToString: boolean;
+}): string {
+  const attributesCol = EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD.toUpperCase();
+  const quotedField = quoteSnowflakeVariantFieldName(fieldName);
+  if (castToString) {
+    return `${attributesCol}:${quotedField}::STRING`;
+  }
+  return buildSnowflakeFlatMapAttributeValueSql(fieldName, valueDatatype);
+}
+
+function coalesceSqlExpressions(expressions: string[]): string {
+  if (expressions.length === 1) {
+    return expressions[0];
+  }
+  return `COALESCE(${expressions.join(", ")})`;
+}
+
 export function buildEventForwarderNestedAttributeValueSql({
   sinkType,
   attributeName,
@@ -173,14 +236,15 @@ export function buildEventForwarderNestedAttributeValueSql({
   /** Coerce attribute values to string (exposure hash ids). Typed columns skip double-cast. */
   castToString?: boolean;
 }): string {
-  const fieldName = sanitizeEventForwarderAvroFieldName(attributeName);
+  const lookupKeys = resolveEventForwarderAttributeLookupKeys(attributeName);
   const resolvedValueDatatype =
     valueDatatype ?? sdkAttributeTypeToValueDatatype(attributeDatatype);
 
   if (sinkType === "bigquery") {
-    const valueSql = buildBigQueryFlatMapAttributeValueSql(
-      fieldName,
-      resolvedValueDatatype,
+    const valueSql = coalesceSqlExpressions(
+      lookupKeys.map((fieldName) =>
+        buildBigQueryFlatMapAttributeValueSql(fieldName, resolvedValueDatatype),
+      ),
     );
     if (
       castToString &&
@@ -191,14 +255,14 @@ export function buildEventForwarderNestedAttributeValueSql({
     return valueSql;
   }
 
-  const attributesCol = EVENT_FORWARDER_AVRO_ATTRIBUTES_FIELD.toUpperCase();
-  const quotedField = quoteSnowflakeVariantFieldName(fieldName);
-  if (castToString) {
-    return `${attributesCol}:${quotedField}::STRING`;
-  }
-  return buildSnowflakeFlatMapAttributeValueSql(
-    fieldName,
-    resolvedValueDatatype,
+  return coalesceSqlExpressions(
+    lookupKeys.map((fieldName) =>
+      buildSnowflakeFlatMapAttributeValueSqlForKey({
+        fieldName,
+        valueDatatype: resolvedValueDatatype,
+        castToString,
+      }),
+    ),
   );
 }
 

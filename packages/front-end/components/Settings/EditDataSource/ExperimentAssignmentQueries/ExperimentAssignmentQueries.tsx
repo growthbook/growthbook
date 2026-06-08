@@ -18,7 +18,6 @@ import { UpdateDimensionMetadataModal } from "@/components/Settings/EditDataSour
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import { CustomDimensionMetadata } from "@/components/Settings/EditDataSource/DimensionMetadata/DimensionSlicesRunner";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
@@ -256,16 +255,11 @@ export const ExperimentAssignmentQueries: FC<
                         Edit Dimensions
                       </button>
                     ) : null}
-                    <hr className="dropdown-divider" />
-                    {isManaged ? (
-                      <Tooltip
-                        body="This query was created automatically when Event Forwarder was connected. It cannot be deleted; it is removed when the linked identifier type is no longer used."
-                        usePortal
-                      >
+                    {!isManaged && (
+                      <>
+                        <hr className="dropdown-divider" />
                         <span className="d-block">{deleteButton}</span>
-                      </Tooltip>
-                    ) : (
-                      deleteButton
+                      </>
                     )}
                   </MoreMenu>
                 )}
