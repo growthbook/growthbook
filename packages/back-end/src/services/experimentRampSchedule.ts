@@ -103,8 +103,31 @@ export async function applyExperimentCoverageChange(
   const phases = [...experiment.phases];
   const lastIdx = phases.length - 1;
 
+  const targetingOverrides: Partial<ExperimentPhase> = {};
+  if (patch.condition !== null && patch.condition !== undefined) {
+    targetingOverrides.condition = patch.condition;
+  }
+  if (patch.savedGroups !== null && patch.savedGroups !== undefined) {
+    targetingOverrides.savedGroups = patch.savedGroups;
+  }
+  if (patch.prerequisites !== null && patch.prerequisites !== undefined) {
+    targetingOverrides.prerequisites = patch.prerequisites;
+  }
+
+  const experimentLevelChanges: Partial<ExperimentInterface> = {};
+
+  if (patch.reseed) {
+    targetingOverrides.seed = generatePhaseSeed();
+  }
+  if (patch.bumpBucketVersion) {
+    const next = (experiment.bucketVersion ?? 0) + 1;
+    experimentLevelChanges.bucketVersion = next;
+    if (patch.blockPriorBucketed) {
+      experimentLevelChanges.minBucketVersion = next;
+    }
+  }
+
   if (patch.newPhase) {
-    // Full phase change: end the current phase and start a new one.
     const now = new Date();
     const lastPhase = phases[lastIdx];
     if (lastPhase) {
@@ -122,16 +145,17 @@ export async function applyExperimentCoverageChange(
       ...(patch.variationWeights
         ? { variationWeights: patch.variationWeights }
         : {}),
+      ...targetingOverrides,
     };
     phases.push(newPhase);
     return updateExperiment({
       context: ctx,
       experiment,
-      changes: { phases },
+      changes: { phases, ...experimentLevelChanges },
     });
   }
 
-  // Simple in-place update: patch coverage/weights in last phase.
+  // Simple in-place update: patch coverage/weights/targeting in last phase.
   const last = phases[lastIdx];
   if (!last) {
     throw new Error(
@@ -146,14 +170,19 @@ export async function applyExperimentCoverageChange(
     ...(patch.variationWeights
       ? { variationWeights: patch.variationWeights }
       : {}),
+    ...targetingOverrides,
   };
   phases[lastIdx] = updated;
 
   return updateExperiment({
     context: ctx,
     experiment,
-    changes: { phases },
+    changes: { phases, ...experimentLevelChanges },
   });
+}
+
+function generatePhaseSeed(): string {
+  return Math.random().toString(36).substring(2, 10);
 }
 
 // ---------------------------------------------------------------------------
@@ -201,6 +230,17 @@ export async function applyExperimentRollback(
       : {}),
     ...(preRampPatch?.variationWeights
       ? { variationWeights: preRampPatch.variationWeights }
+      : {}),
+    // Restore pre-ramp targeting if captured
+    ...(preRampPatch?.condition !== null &&
+    preRampPatch?.condition !== undefined
+      ? { condition: preRampPatch.condition }
+      : {}),
+    ...(preRampPatch?.savedGroups
+      ? { savedGroups: preRampPatch.savedGroups }
+      : {}),
+    ...(preRampPatch?.prerequisites
+      ? { prerequisites: preRampPatch.prerequisites }
       : {}),
     // Fresh seed for rerandomization — intentionally NOT restoring the
     // original seed, which would rebucket some users back into the bad arm.
@@ -666,8 +706,11 @@ export async function evaluateExperimentRampStep(
 // ---------------------------------------------------------------------------
 
 /**
- * Build the startActions snapshot for an experiment ramp. Captures the pre-ramp
- * phase state (coverage, variationWeights) so the rollback can restore them.
+ * Build the startActions snapshot for an experiment ramp. The pre-ramp state
+ * uses coverage=0 because the experiment isn't exposed to any traffic until
+ * step 1 runs — mirroring the feature ramp model where startActions represent
+ * the initial zero-traffic state. Targeting and weights are captured from the
+ * last phase so rollback restores the correct configuration.
  */
 export function buildExperimentStartActions(
   experiment: ExperimentInterface,
@@ -680,8 +723,11 @@ export function buildExperimentStartActions(
       targetType: "experiment" as const,
       targetId: experiment.id,
       patch: {
-        coverage: lastPhase.coverage ?? 1,
+        coverage: 0,
         variationWeights: lastPhase.variationWeights,
+        condition: lastPhase.condition || "{}",
+        savedGroups: lastPhase.savedGroups ?? [],
+        prerequisites: lastPhase.prerequisites ?? [],
       },
     },
   ];

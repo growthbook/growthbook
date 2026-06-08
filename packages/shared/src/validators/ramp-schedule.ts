@@ -84,12 +84,21 @@ export type FeatureRuleStepAction = z.infer<typeof featureRuleStepAction>;
 export const experimentPatch = z.object({
   coverage: z.number().min(0).max(1).nullish(),
   variationWeights: z.array(z.number().min(0).max(1)).nullish(),
+  condition: z.string().nullish(),
+  savedGroups: z.array(savedGroupTargeting).nullish(),
+  prerequisites: z.array(featurePrerequisite).nullish(),
   /**
    * Whether this step starts a new experiment phase.
    * true  = full phase change (rerandomization, new seed, analysis window reset)
    * false = simple in-place coverage / targeting update within the current phase
    */
   newPhase: z.boolean().optional(),
+  /** Generate a new random seed when starting a new phase. */
+  reseed: z.boolean().optional(),
+  /** Increment experiment.bucketVersion so sticky-bucketed users get re-assigned. */
+  bumpBucketVersion: z.boolean().optional(),
+  /** Set experiment.minBucketVersion = new bucketVersion to block prior-bucketed users entirely. */
+  blockPriorBucketed: z.boolean().optional(),
 });
 export type ExperimentPatch = z.infer<typeof experimentPatch>;
 

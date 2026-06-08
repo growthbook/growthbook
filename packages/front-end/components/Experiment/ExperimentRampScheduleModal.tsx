@@ -6,7 +6,7 @@
  * Always visible  — Start / End dates, Decision Criteria
  * Progressive opt-in — Ramp-up schedule (steps, health signal, end strategy)
  */
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertDialog, Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   PiArrowCounterClockwise,
@@ -18,7 +18,10 @@ import {
   PiXBold,
 } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { type ExperimentInterfaceStringDates } from "shared/types/experiment";
+import {
+  type ExperimentInterfaceStringDates,
+  type ExperimentPhaseStringDates,
+} from "shared/types/experiment";
 import { type RampScheduleInterface } from "shared/validators";
 import { DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS } from "shared/constants";
 import {
@@ -29,16 +32,23 @@ import {
 import {
   reconstructUIStep,
   type UIStep,
+  type UIStepPatch,
   type IntervalUnit,
 } from "@/components/Features/RuleModal/RampScheduleSection";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
+import { Popover } from "@/ui/Popover";
+import Callout from "@/ui/Callout";
 import SelectField from "@/components/Forms/SelectField";
 import Field from "@/components/Forms/Field";
 import DatePicker from "@/components/DatePicker";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import ConditionInput from "@/components/Features/ConditionInput";
+import SavedGroupTargetingField from "@/components/Features/SavedGroupTargetingField";
+import PrerequisiteInput from "@/components/Features/PrerequisiteInput";
+import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import styles from "@/components/Features/RuleModal/RampScheduleSection.module.scss";
 import {
   DropdownMenu,
@@ -53,6 +63,23 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import HelperText from "@/ui/HelperText";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import DecisionCriteriaModal from "@/components/DecisionCriteria/DecisionCriteriaModal";
+import {
+  assessStepTargetingRisk,
+  riskReasonsToMessages,
+  remediationToDescription,
+  releasePlanToRemediation,
+  remediationToReleasePlan,
+  stepRiskToRecommendedRolloutData,
+  type TargetingSnapshot,
+  type StepRiskResult,
+  type StepRemediation,
+} from "@/services/experimentRampRisk";
+import {
+  ImpactTooltips,
+  getReleasePlanOptions,
+  TargetingChangeImpactPanel,
+} from "@/components/Experiment/ReleaseChangesForm";
+import type { ReleasePlan } from "@/components/Experiment/EditTargetingModal";
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const UNIT_MULT: Record<IntervalUnit, number> = {
@@ -119,6 +146,12 @@ function stepsMatchExperimentSimplePattern(steps: UIStep[]): boolean {
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
+/** Per-step remediation choices confirmed by the user in the risk popover. */
+interface StepRemediationState {
+  confirmed: boolean;
+  remediation: StepRemediation;
+}
+
 export interface ExperimentRampState {
   steps: UIStep[];
   endCoverage: number; // coverage % (0-100) applied when all ramp steps finish
@@ -134,6 +167,9 @@ export interface ExperimentRampState {
 
   shippingCriteriaMode: "off" | "auto" | "auto-force";
   plannedVariationId: string;
+
+  /** Per-step remediation state, keyed by step index. */
+  remediations: Record<number, StepRemediationState>;
 }
 
 type OrgAutomationDefaults = {
@@ -213,6 +249,7 @@ function defaultState(
       builderMode: isSimple ? "simple" : "advanced",
       simpleDurationDays: dur,
       simpleDurationUnit: unit,
+      remediations: {},
       ...baseShipping,
     };
   }
@@ -224,6 +261,7 @@ function defaultState(
     builderMode: "simple",
     simpleDurationDays: 5,
     simpleDurationUnit: "days",
+    remediations: {},
     ...baseShipping,
   };
 }
@@ -231,25 +269,219 @@ function defaultState(
 function buildExperimentSteps(
   steps: UIStep[],
   experimentId: string,
+  remediations: Record<number, StepRemediationState>,
 ): RampScheduleInterface["steps"] {
-  return steps.map((s) => ({
-    interval:
-      s.triggerType === "interval"
-        ? Math.max(1, s.intervalValue) * UNIT_MULT[s.intervalUnit]
-        : null,
-    actions: [
-      {
-        targetType: "experiment" as const,
-        targetId: experimentId,
-        patch: { coverage: (s.patch.coverage ?? 100) / 100 },
-      },
-    ],
-    monitored: true,
-    ...(s.holdConditions ? { holdConditions: s.holdConditions } : {}),
-    ...(s.approvalNotes?.trim()
-      ? { approvalNotes: s.approvalNotes.trim() }
-      : {}),
-  }));
+  return steps.map((s, i) => {
+    const p = s.patch;
+    const rem = remediations[i];
+
+    const patch: Record<string, unknown> = {
+      coverage: (p.coverage ?? 100) / 100,
+    };
+
+    if ("condition" in p && p.condition !== undefined) {
+      patch.condition = p.condition;
+    }
+    if ("savedGroups" in p && p.savedGroups !== undefined) {
+      patch.savedGroups = p.savedGroups;
+    }
+    if ("prerequisites" in p && p.prerequisites !== undefined) {
+      patch.prerequisites = p.prerequisites;
+    }
+    if ("variationWeights" in p && p.variationWeights !== undefined) {
+      patch.variationWeights = (p as UIStepPatch & { variationWeights?: number[] }).variationWeights;
+    }
+
+    // Intentional phase controls (set via the ⋯ menu, independent of risk)
+    const ext = p as Record<string, unknown>;
+    if (ext.newPhase) patch.newPhase = true;
+    if (ext.reseed) patch.reseed = true;
+
+    // Remediation-driven flags (from the risk popover) layer on top
+    if (rem?.confirmed && rem.remediation) {
+      const r = rem.remediation;
+      if (r.newPhase) patch.newPhase = true;
+      if (r.reseed) patch.reseed = true;
+      if (r.bumpBucketVersion) patch.bumpBucketVersion = true;
+      if (r.blockPriorBucketed) patch.blockPriorBucketed = true;
+    }
+
+    return {
+      interval:
+        s.triggerType === "interval"
+          ? Math.max(1, s.intervalValue) * UNIT_MULT[s.intervalUnit]
+          : null,
+      actions: [
+        {
+          targetType: "experiment" as const,
+          targetId: experimentId,
+          patch: patch as RampScheduleInterface["steps"][number]["actions"][number] extends { patch: infer P } ? P : never,
+        },
+      ],
+      monitored: true,
+      ...(s.holdConditions ? { holdConditions: s.holdConditions } : {}),
+      ...(s.approvalNotes?.trim()
+        ? { approvalNotes: s.approvalNotes.trim() }
+        : {}),
+    };
+  });
+}
+
+// ─── Remediation dialog (inner form) ─────────────────────────────────────────
+// Reuses the Make Changes release plan selector + ImpactTooltips instead of
+// reinventing the UI.
+
+function RemediationDialog({
+  experiment,
+  risk,
+  stickyBucketing,
+  onConfirm,
+  onCancel,
+  initialRemediation,
+}: {
+  experiment: ExperimentInterfaceStringDates;
+  risk: StepRiskResult;
+  stickyBucketing: boolean;
+  onConfirm: (remediation: StepRemediation) => void;
+  onCancel: () => void;
+  initialRemediation?: StepRemediation;
+}) {
+  const recommendedRolloutData = useMemo(
+    () => stepRiskToRecommendedRolloutData(risk, stickyBucketing),
+    [risk, stickyBucketing],
+  );
+
+  const initialPlan =
+    (initialRemediation
+      ? remediationToReleasePlan(initialRemediation)
+      : undefined) ??
+    recommendedRolloutData.actualReleasePlan;
+
+  const [releasePlan, setReleasePlan] = useState<ReleasePlan | undefined>(
+    initialPlan,
+  );
+
+  const remediation = useMemo(
+    () =>
+      releasePlan
+        ? releasePlanToRemediation(releasePlan)
+        : risk.recommendedRemediation ?? {
+            newPhase: false,
+            reseed: false,
+            bumpBucketVersion: false,
+            blockPriorBucketed: false,
+          },
+    [releasePlan, risk.recommendedRemediation],
+  );
+
+  const newPhase = remediation.newPhase;
+
+  return (
+    <AlertDialog.Root open>
+      <AlertDialog.Content maxWidth="520px">
+        <div className="mt-4 mb-2">
+          <SelectField
+            label="Release plan"
+            value={releasePlan || ""}
+            options={getReleasePlanOptions({
+              experiment,
+              changeType: "advanced",
+              recommendedRolloutData,
+            })}
+            onChange={(v) => {
+              const requiresStickyBucketing =
+                v === "same-phase-sticky" || v === "new-phase-block-sticky";
+              if (requiresStickyBucketing && !stickyBucketing) return;
+              setReleasePlan(v as ReleasePlan);
+            }}
+            sort={false}
+            isSearchable={false}
+            formatOptionLabel={({ value, label }) => {
+              const requiresStickyBucketing =
+                value === "same-phase-sticky" ||
+                value === "new-phase-block-sticky";
+              const recommended =
+                value === recommendedRolloutData.recommendedReleasePlan;
+              const disabled = requiresStickyBucketing && !stickyBucketing;
+              return (
+                <div
+                  className={disabled ? "cursor-disabled" : undefined}
+                >
+                  <span style={{ opacity: disabled ? 0.5 : 1 }}>
+                    {label}{" "}
+                  </span>
+                  {requiresStickyBucketing && (
+                    <Tooltip
+                      body={`${
+                        stickyBucketing ? "Uses" : "Requires"
+                      } Sticky Bucketing`}
+                      className="mr-2"
+                    >
+                      <span className="text-info small ml-2">
+                        (Sticky Bucketing)
+                      </span>
+                    </Tooltip>
+                  )}
+                  {recommended && (
+                    <span
+                      className="text-muted uppercase-title float-right position-relative"
+                      style={{ top: 3 }}
+                    >
+                      recommended
+                    </span>
+                  )}
+                </div>
+              );
+            }}
+            className="select-unfixed"
+          />
+
+          <div className="mt-4 mb-3">
+            <label className="mb-1">Impact</label>
+            <div className="font-weight-semibold">
+              {newPhase
+                ? remediation.reseed
+                  ? "New phase, new randomization seed."
+                  : "New phase, same randomization seed."
+                : "Same phase, same randomization seed."}{" "}
+              {stickyBucketing
+                ? remediation.bumpBucketVersion
+                  ? remediation.blockPriorBucketed
+                    ? "Sticky Bucketed users will be excluded from the experiment."
+                    : "Sticky Bucketed users will be reassigned."
+                  : "Sticky Bucketed users will keep their assigned bucket."
+                : "No sticky bucketing."}
+            </div>
+          </div>
+
+          <ImpactTooltips
+            recommendedRolloutData={recommendedRolloutData}
+            releasePlan={releasePlan}
+            usingStickyBucketing={stickyBucketing}
+            newPhase={newPhase}
+            isBandit={experiment.type === "multi-armed-bandit"}
+          />
+        </div>
+        <Flex gap="2" justify="end" mt="3">
+          <AlertDialog.Cancel>
+            <Button
+              size="sm"
+              variant="ghost"
+              color="gray"
+              onClick={onCancel}
+            >
+              Cancel
+            </Button>
+          </AlertDialog.Cancel>
+          <AlertDialog.Action>
+            <Button size="sm" onClick={() => onConfirm(remediation)}>
+              Confirm
+            </Button>
+          </AlertDialog.Action>
+        </Flex>
+      </AlertDialog.Content>
+    </AlertDialog.Root>
+  );
 }
 
 // ─── Min sample dialog (inner form) ──────────────────────────────────────────
@@ -446,9 +678,26 @@ export default function ExperimentRampScheduleModal({
         }).catch(() => {});
       }
     } else {
-      const steps = buildExperimentSteps(state.steps, experiment.id);
+      const steps = buildExperimentSteps(state.steps, experiment.id, state.remediations);
       // The end step fires immediately when all regular ramp steps complete
       // (no interval gate), applying the final coverage to the experiment.
+      // Capture the pre-ramp experiment state: coverage=0 (no traffic until
+      // step 1) plus targeting from the last phase. On rollback, the engine
+      // restores from startActions — mirroring the feature ramp pattern.
+      const lastPhase = experiment.phases[experiment.phases.length - 1];
+      const startActions = [
+        {
+          targetType: "experiment" as const,
+          targetId: experiment.id,
+          patch: {
+            coverage: 0,
+            variationWeights: lastPhase?.variationWeights ?? [],
+            condition: lastPhase?.condition || "{}",
+            savedGroups: lastPhase?.savedGroups ?? [],
+            prerequisites: lastPhase?.prerequisites ?? [],
+          },
+        },
+      ];
       const endActions = [
         {
           targetType: "experiment" as const,
@@ -458,6 +707,7 @@ export default function ExperimentRampScheduleModal({
       ];
       const body = {
         steps,
+        startActions,
         endActions,
         startDate: state.startDate || null,
         cutoffDate: state.cutoffDate || null,
@@ -480,23 +730,15 @@ export default function ExperimentRampScheduleModal({
 
   const isSimpleMode = state.builderMode === "simple";
 
-  // Mirrors the feature-side `durationSummary` shape so the rendered label
-  // formats consistently across feature and experiment ramp UIs.
-  // `isPure === true` means the total is a literal sum of intervals (no
-  // approvals, no monitored steps); the renderer skips the `~` prefix in that
-  // case. Experiment steps are monitored by default, so the label normally
-  // includes the "+ monitored steps" suffix.
   const durationSummary = useMemo(() => {
     let totalSec = 0;
     let approvals = 0;
-    let hasMonitored = false;
     for (const s of state.steps) {
       if (s.triggerType === "interval") {
         totalSec += Math.max(1, s.intervalValue) * UNIT_MULT[s.intervalUnit];
       } else {
         approvals++;
       }
-      if (s.monitored) hasMonitored = true;
     }
     const parts: string[] = [];
     if (totalSec > 0) {
@@ -506,10 +748,7 @@ export default function ExperimentRampScheduleModal({
     if (approvals > 0) {
       parts.push(`${approvals} approval step${approvals > 1 ? "s" : ""}`);
     }
-    if (hasMonitored) {
-      parts.push("monitored steps");
-    }
-    const isPure = approvals === 0 && !hasMonitored;
+    const isPure = approvals === 0;
     return { isPure, label: parts.join(" + ") || "0" };
   }, [state.steps]);
 
@@ -525,6 +764,151 @@ export default function ExperimentRampScheduleModal({
     steps[i] = { ...steps[i], ...update };
     patch({ steps });
   }
+
+  function updateStepPatch(
+    i: number,
+    field: keyof UIStepPatch | "variationWeights",
+    value: unknown,
+  ) {
+    const steps = [...state.steps];
+    steps[i] = {
+      ...steps[i],
+      patch: { ...steps[i].patch, [field]: value },
+      additionalEffectsOpen: true,
+    };
+    patch({ steps });
+  }
+
+  function removeStepPatchField(
+    i: number,
+    field: keyof UIStepPatch | "variationWeights",
+  ) {
+    const nextPatch = { ...state.steps[i].patch };
+    delete (nextPatch as Record<string, unknown>)[field];
+    const hasEffects = (["condition", "savedGroups", "prerequisites"] as const).some(
+      (f) => f in nextPatch,
+    ) || "variationWeights" in nextPatch;
+    const steps = [...state.steps];
+    steps[i] = {
+      ...steps[i],
+      patch: nextPatch,
+      additionalEffectsOpen: hasEffects,
+    };
+    patch({ steps });
+  }
+
+  const stickyBucketing = !!orgSettings?.useStickyBucketing;
+
+  const baselineTargeting: TargetingSnapshot = useMemo(() => {
+    const lastPhase: ExperimentPhaseStringDates | undefined =
+      experiment.phases[experiment.phases.length - 1];
+    return {
+      condition: lastPhase?.condition || "{}",
+      savedGroups: lastPhase?.savedGroups || [],
+      prerequisites: lastPhase?.prerequisites || [],
+      // Pre-ramp coverage is 0 — the experiment isn't exposed to anyone
+      // until the first ramp step runs. This matches the feature ramp model
+      // where startActions capture the initial (zero-traffic) state.
+      coverage: 0,
+      variationWeights: lastPhase?.variationWeights || [],
+    };
+  }, [experiment.phases]);
+
+  const stepRiskResults: StepRiskResult[] = useMemo(() => {
+    const results: StepRiskResult[] = [];
+    let prior = baselineTargeting;
+    for (const step of state.steps) {
+      const p = step.patch;
+      const next: TargetingSnapshot = {
+        condition:
+          "condition" in p && p.condition !== undefined
+            ? p.condition ?? "{}"
+            : prior.condition,
+        savedGroups:
+          "savedGroups" in p && p.savedGroups !== undefined
+            ? p.savedGroups ?? []
+            : prior.savedGroups,
+        prerequisites:
+          "prerequisites" in p && p.prerequisites !== undefined
+            ? p.prerequisites ?? []
+            : prior.prerequisites,
+        coverage: (p.coverage ?? 100) / 100,
+        variationWeights:
+          "variationWeights" in p &&
+          (p as UIStepPatch & { variationWeights?: number[] }).variationWeights !== undefined
+            ? (p as UIStepPatch & { variationWeights?: number[] }).variationWeights!
+            : prior.variationWeights,
+      };
+      results.push(assessStepTargetingRisk(prior, next, stickyBucketing));
+      prior = next;
+    }
+    return results;
+  }, [state.steps, baselineTargeting, stickyBucketing]);
+
+  const hasUnresolvedRisk = useMemo(() => {
+    return stepRiskResults.some(
+      (r, i) => !r.safe && !state.remediations[i]?.confirmed,
+    );
+  }, [stepRiskResults, state.remediations]);
+
+  // Auto-flush stale remediations when step content changes materially.
+  // We track a JSON fingerprint of each step's risk-relevant fields; when
+  // the fingerprint changes for a step that had a confirmed remediation,
+  // we clear it so the user must re-confirm.
+  const stepFingerprints = useMemo(
+    () =>
+      state.steps.map((s) =>
+        JSON.stringify({
+          coverage: s.patch.coverage,
+          condition: "condition" in s.patch ? s.patch.condition : undefined,
+          savedGroups:
+            "savedGroups" in s.patch ? s.patch.savedGroups : undefined,
+          prerequisites:
+            "prerequisites" in s.patch ? s.patch.prerequisites : undefined,
+          variationWeights:
+            "variationWeights" in s.patch
+              ? (s.patch as UIStepPatch & { variationWeights?: number[] })
+                  .variationWeights
+              : undefined,
+        }),
+      ),
+    [state.steps],
+  );
+  const prevFingerprints = useRef(stepFingerprints);
+  useEffect(() => {
+    const prev = prevFingerprints.current;
+    prevFingerprints.current = stepFingerprints;
+    if (prev === stepFingerprints) return;
+    const stale: number[] = [];
+    for (let i = 0; i < stepFingerprints.length; i++) {
+      if (
+        state.remediations[i]?.confirmed &&
+        prev[i] !== stepFingerprints[i]
+      ) {
+        stale.push(i);
+      }
+    }
+    if (stale.length > 0) {
+      const next = { ...state.remediations };
+      for (const idx of stale) delete next[idx];
+      patch({ remediations: next });
+    }
+  }, [stepFingerprints, state.remediations, patch]);
+
+  const [remediationPopoverIndex, setRemediationPopoverIndex] = useState<
+    number | null
+  >(null);
+  const [riskDetailIndex, setRiskDetailIndex] = useState<number | null>(null);
+
+  const experimentTargetingFields: {
+    field: "condition" | "savedGroups" | "prerequisites" | "variationWeights";
+    label: string;
+  }[] = [
+    { field: "condition", label: "Attribute targeting" },
+    { field: "savedGroups", label: "Saved group targeting" },
+    { field: "prerequisites", label: "Prerequisite targeting" },
+    { field: "variationWeights", label: "Variation weights" },
+  ];
 
   function renderStepGrid() {
     return (
@@ -558,18 +942,22 @@ export default function ExperimentRampScheduleModal({
         </Flex>
 
         {/* Step cards */}
-        {state.steps.map((step, i) => (
+        {state.steps.map((step, i) => {
+          const isRisky =
+            !stepRiskResults[i]?.safe && !state.remediations[i]?.confirmed;
+          return (
           <Box
             key={i}
             my="4"
             style={{
               position: "relative",
-              border: "1px solid var(--gray-a5)",
+              border: isRisky
+                ? "1px solid var(--amber-a8)"
+                : "1px solid var(--gray-a5)",
               borderRadius: "var(--radius-2)",
               paddingBlock: "var(--space-2)",
             }}
           >
-            {/* Blue left bar — all experiment steps are monitored */}
             <div
               style={{
                 position: "absolute",
@@ -578,7 +966,9 @@ export default function ExperimentRampScheduleModal({
                 bottom: 0,
                 width: 4,
                 borderRadius: "var(--radius-2) 0 0 var(--radius-2)",
-                backgroundColor: "var(--blue-9)",
+                backgroundColor: isRisky
+                  ? "var(--amber-9)"
+                  : "var(--gray-a5)",
               }}
             />
             <Flex direction="column" pl="2">
@@ -850,6 +1240,73 @@ export default function ExperimentRampScheduleModal({
                       )}
                     </DropdownMenuGroup>
                     <DropdownMenuSeparator />
+                    {(() => {
+                      const available = experimentTargetingFields.filter(
+                        (f) => !(f.field in step.patch),
+                      );
+                      if (!available.length) return null;
+                      return (
+                        <>
+                          <DropdownMenuGroup label="Targeting and traffic changes">
+                            {available.map((item) => (
+                              <DropdownMenuItem
+                                key={item.field}
+                                onClick={() => {
+                                  setOpenMenuIndex(null);
+                                  const defaultVal =
+                                    item.field === "condition"
+                                      ? "{}"
+                                      : item.field === "variationWeights"
+                                        ? baselineTargeting.variationWeights
+                                        : [];
+                                  updateStepPatch(i, item.field, defaultVal);
+                                }}
+                              >
+                                {item.label}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuGroup>
+                          <DropdownMenuSeparator />
+                        </>
+                      );
+                    })()}
+                    {(() => {
+                      const ext = step.patch as Record<string, unknown>;
+                      const hasNewPhase = !!ext.newPhase;
+                      const hasReseed = !!ext.reseed;
+                      return (
+                        <DropdownMenuGroup label="Phase controls">
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setOpenMenuIndex(null);
+                              updateStepPatch(i, "newPhase" as keyof UIStepPatch, !hasNewPhase || undefined);
+                              if (hasNewPhase) {
+                                updateStepPatch(i, "reseed" as keyof UIStepPatch, undefined);
+                              }
+                            }}
+                          >
+                            <Flex align="center" gap="1">
+                              {hasNewPhase && <PiCheck size={16} />}
+                              Start new phase
+                            </Flex>
+                          </DropdownMenuItem>
+                          {hasNewPhase && (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setOpenMenuIndex(null);
+                                updateStepPatch(i, "reseed" as keyof UIStepPatch, !hasReseed || undefined);
+                              }}
+                            >
+                              <Flex align="center" gap="1">
+                                {hasReseed && <PiCheck size={16} />}
+                                Re-randomize traffic
+                              </Flex>
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuGroup>
+                      );
+                    })()}
+                    <DropdownMenuSeparator />
                     <DropdownMenuGroup>
                       <DropdownMenuItem
                         onClick={() => {
@@ -1025,9 +1482,379 @@ export default function ExperimentRampScheduleModal({
                   )}
                 </Flex>
               )}
+
+              {/* Targeting / variation weight / phase sub-rows */}
+              {(step.additionalEffectsOpen ||
+                !!(step.patch as Record<string, unknown>).newPhase) && (
+                <Box mt="2" pr="2" style={{ paddingLeft: COL.num + 16 }}>
+                  <Flex direction="column" gap="2">
+                    {"condition" in step.patch && (
+                      <Box
+                        px="2"
+                        py="2"
+                        style={{
+                          border: "1px solid var(--gray-a5)",
+                          borderRadius: "var(--radius-2)",
+                        }}
+                      >
+                        <Box mb="3">
+                          <ConditionInput
+                            key={`${i}-condition`}
+                            defaultValue={step.patch.condition ?? "{}"}
+                            onChange={(v) =>
+                              updateStepPatch(i, "condition", v)
+                            }
+                            project={experiment.project ?? ""}
+                            slimMode
+                            emptyText=""
+                            addRemoveMode
+                            addRemoveValue={
+                              step.patch.condition === null ? "remove" : "set"
+                            }
+                            onAddRemoveValueChange={(mode) =>
+                              updateStepPatch(
+                                i,
+                                "condition",
+                                mode === "remove" ? null : "{}",
+                              )
+                            }
+                            onRemoveEffect={() =>
+                              removeStepPatchField(i, "condition")
+                            }
+                            setModeLabel="Set attribute targeting"
+                            removeModeLabel="Remove attribute targeting"
+                            labelActions={
+                              <Tooltip
+                                body="Remove effect"
+                                tipMinWidth="50px"
+                              >
+                                <IconButton
+                                  variant="ghost"
+                                  color="red"
+                                  size="2"
+                                  radius="full"
+                                  onClick={() =>
+                                    removeStepPatchField(i, "condition")
+                                  }
+                                >
+                                  <PiTrash />
+                                </IconButton>
+                              </Tooltip>
+                            }
+                          />
+                        </Box>
+                      </Box>
+                    )}
+                    {"savedGroups" in step.patch && (
+                      <Box
+                        px="2"
+                        py="2"
+                        style={{
+                          border: "1px solid var(--gray-a5)",
+                          borderRadius: "var(--radius-2)",
+                        }}
+                      >
+                        <Box mb="3">
+                          <SavedGroupTargetingField
+                            value={step.patch.savedGroups ?? []}
+                            setValue={(v) =>
+                              updateStepPatch(i, "savedGroups", v)
+                            }
+                            project={experiment.project ?? ""}
+                            slimMode
+                            addRemoveMode
+                            addRemoveValue={
+                              step.patch.savedGroups === null
+                                ? "remove"
+                                : "set"
+                            }
+                            onAddRemoveValueChange={(mode) =>
+                              updateStepPatch(
+                                i,
+                                "savedGroups",
+                                mode === "remove" ? null : [],
+                              )
+                            }
+                            onRemoveEffect={() =>
+                              removeStepPatchField(i, "savedGroups")
+                            }
+                            setModeLabel="Set saved group targeting"
+                            removeModeLabel="Remove saved group targeting"
+                            labelActions={
+                              <Tooltip
+                                body="Remove effect"
+                                tipMinWidth="50px"
+                              >
+                                <IconButton
+                                  variant="ghost"
+                                  color="red"
+                                  size="2"
+                                  radius="full"
+                                  onClick={() =>
+                                    removeStepPatchField(i, "savedGroups")
+                                  }
+                                >
+                                  <PiTrash />
+                                </IconButton>
+                              </Tooltip>
+                            }
+                          />
+                        </Box>
+                      </Box>
+                    )}
+                    {"prerequisites" in step.patch && (
+                      <Box
+                        px="2"
+                        py="2"
+                        style={{
+                          border: "1px solid var(--gray-a5)",
+                          borderRadius: "var(--radius-2)",
+                        }}
+                      >
+                        <Box mb="3">
+                          <PrerequisiteInput
+                            value={step.patch.prerequisites ?? []}
+                            setValue={(v) =>
+                              updateStepPatch(i, "prerequisites", v)
+                            }
+                            project={experiment.project ?? ""}
+                            environments={[]}
+                            setPrerequisiteTargetingSdkIssues={() => {}}
+                            slimMode
+                            addRemoveMode
+                            addRemoveValue={
+                              step.patch.prerequisites === null
+                                ? "remove"
+                                : "set"
+                            }
+                            onAddRemoveValueChange={(mode) =>
+                              updateStepPatch(
+                                i,
+                                "prerequisites",
+                                mode === "remove" ? null : [],
+                              )
+                            }
+                            onRemoveEffect={() =>
+                              removeStepPatchField(i, "prerequisites")
+                            }
+                            setModeLabel="Set prerequisite targeting"
+                            removeModeLabel="Remove prerequisite targeting"
+                            labelActions={
+                              <Tooltip
+                                body="Remove effect"
+                                tipMinWidth="50px"
+                              >
+                                <IconButton
+                                  variant="ghost"
+                                  color="red"
+                                  size="2"
+                                  radius="full"
+                                  onClick={() =>
+                                    removeStepPatchField(i, "prerequisites")
+                                  }
+                                >
+                                  <PiTrash />
+                                </IconButton>
+                              </Tooltip>
+                            }
+                          />
+                        </Box>
+                      </Box>
+                    )}
+                    {"variationWeights" in step.patch && (
+                      <Box
+                        px="2"
+                        py="2"
+                        style={{
+                          border: "1px solid var(--gray-a5)",
+                          borderRadius: "var(--radius-2)",
+                          position: "relative",
+                        }}
+                      >
+                        <Box
+                          style={{
+                            position: "absolute",
+                            top: 8,
+                            right: 8,
+                          }}
+                        >
+                          <Tooltip body="Remove effect" tipMinWidth="50px">
+                            <IconButton
+                              variant="ghost"
+                              color="red"
+                              size="2"
+                              radius="full"
+                              onClick={() =>
+                                removeStepPatchField(i, "variationWeights")
+                              }
+                            >
+                              <PiTrash />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                        <FeatureVariationsInput
+                          valueType="string"
+                          hideCoverage
+                          showPreview={false}
+                          label="Variation Weights"
+                          startEditingSplits
+                          className="mb-0"
+                          setWeight={(vi, weight) => {
+                            const weights = [
+                              ...((step.patch as UIStepPatch & { variationWeights?: number[] })
+                                .variationWeights ??
+                                baselineTargeting.variationWeights),
+                            ];
+                            weights[vi] = weight;
+                            updateStepPatch(i, "variationWeights", weights);
+                          }}
+                          variations={experiment.variations.map((v, vi) => ({
+                            value: v.key || String(vi),
+                            name: v.name,
+                            weight:
+                              (step.patch as UIStepPatch & { variationWeights?: number[] })
+                                .variationWeights?.[vi] ??
+                              baselineTargeting.variationWeights[vi] ??
+                              0,
+                            id: v.id,
+                          }))}
+                        />
+                      </Box>
+                    )}
+
+                    {/* Phase control indicator */}
+                    {!!(step.patch as Record<string, unknown>).newPhase && (
+                      <Box
+                        px="2"
+                        py="2"
+                        style={{
+                          border: "1px solid var(--gray-a5)",
+                          borderRadius: "var(--radius-2)",
+                        }}
+                      >
+                        <Flex align="center" justify="between">
+                          <Flex align="center" gap="1">
+                            <Text size="small" weight="medium">
+                              Start new phase —
+                            </Text>
+                            <Popover
+                              trigger={
+                                <Link size="1">
+                                  {!!(step.patch as Record<string, unknown>).reseed
+                                    ? "re-randomize traffic"
+                                    : "same randomization seed"}
+                                </Link>
+                              }
+                              content={
+                                <Flex direction="column" gap="2" style={{ width: 240, padding: 4 }}>
+                                  <Text weight="medium" size="small">
+                                    Randomization
+                                  </Text>
+                                  <SelectField
+                                    className="select-unfixed"
+                                    value={
+                                      !!(step.patch as Record<string, unknown>).reseed
+                                        ? "reseed"
+                                        : "keep"
+                                    }
+                                    options={[
+                                      { value: "reseed", label: "Re-randomize traffic" },
+                                      { value: "keep", label: "Same randomization seed" },
+                                    ]}
+                                    sort={false}
+                                    isSearchable={false}
+                                    onChange={(v) =>
+                                      updateStepPatch(
+                                        i,
+                                        "reseed" as keyof UIStepPatch,
+                                        v === "reseed" || undefined,
+                                      )
+                                    }
+                                  />
+                                </Flex>
+                              }
+                            />
+                          </Flex>
+                          <Tooltip body="Remove effect" tipMinWidth="50px">
+                            <IconButton
+                              variant="ghost"
+                              color="red"
+                              size="2"
+                              radius="full"
+                              onClick={() => {
+                                const nextPatch = { ...step.patch };
+                                delete (nextPatch as Record<string, unknown>).newPhase;
+                                delete (nextPatch as Record<string, unknown>).reseed;
+                                const steps = [...state.steps];
+                                steps[i] = { ...steps[i], patch: nextPatch };
+                                patch({ steps });
+                              }}
+                            >
+                              <PiTrash />
+                            </IconButton>
+                          </Tooltip>
+                        </Flex>
+                      </Box>
+                    )}
+                  </Flex>
+                </Box>
+              )}
+
+              {/* Risk warning + remediation */}
+              {!stepRiskResults[i]?.safe && (
+                <Box mt="2" pr="2" style={{ paddingLeft: COL.num + 16 }}>
+                  <Callout
+                    status={state.remediations[i]?.confirmed ? "success" : "warning"}
+                    size="sm"
+                  >
+                    <Flex direction="column" gap="1" width="100%">
+                      <Flex align="center" justify="between">
+                        <Text size="small" weight="semibold">
+                          {state.remediations[i]?.confirmed
+                            ? "Changes resolved"
+                            : "The changes in this step may bias experiment results"}
+                        </Text>
+                        <Link
+                          size="1"
+                          style={{ flexShrink: 0 }}
+                          onClick={() => setRiskDetailIndex(i)}
+                        >
+                          Learn more
+                        </Link>
+                      </Flex>
+                      {state.remediations[i]?.confirmed ? (
+                        <Flex align="center" gap="2" mt="1">
+                          <Text size="small" color="text-mid">
+                            {remediationToDescription(
+                              state.remediations[i].remediation,
+                            )}
+                          </Text>
+                          <Link
+                            size="1"
+                            onClick={() => setRemediationPopoverIndex(i)}
+                          >
+                            Change
+                          </Link>
+                        </Flex>
+                      ) : (
+                        <Box mt="1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setRemediationPopoverIndex(i)}
+                          >
+                            Choose release plan
+                          </Button>
+                        </Box>
+                      )}
+                    </Flex>
+                  </Callout>
+                </Box>
+              )}
             </Flex>
           </Box>
-        ))}
+          );
+        })}
 
         {/* Add step */}
         <Box py="1">
@@ -1151,6 +1978,60 @@ export default function ExperimentRampScheduleModal({
               </AlertDialog.Content>
             </AlertDialog.Root>
           )}
+
+        {/* Risk detail modal — reuses the Make Changes impact panel */}
+        {riskDetailIndex !== null && stepRiskResults[riskDetailIndex] && (
+          <AlertDialog.Root open>
+            <AlertDialog.Content maxWidth="520px">
+              <Flex direction="column" gap="3">
+                <AlertDialog.Title>
+                  <Text weight="medium" size="medium">
+                    Targeting change impact — Step{" "}
+                    {riskDetailIndex + 1}
+                  </Text>
+                </AlertDialog.Title>
+                <TargetingChangeImpactPanel
+                  reasons={stepRiskResults[riskDetailIndex].reasons}
+                  stickyBucketing={stickyBucketing}
+                />
+                <Flex justify="end">
+                  <AlertDialog.Action>
+                    <Button
+                      size="sm"
+                      onClick={() => setRiskDetailIndex(null)}
+                    >
+                      Close
+                    </Button>
+                  </AlertDialog.Action>
+                </Flex>
+              </Flex>
+            </AlertDialog.Content>
+          </AlertDialog.Root>
+        )}
+
+        {/* Remediation dialog */}
+        {remediationPopoverIndex !== null &&
+          stepRiskResults[remediationPopoverIndex] && (
+            <RemediationDialog
+              experiment={experiment}
+              risk={stepRiskResults[remediationPopoverIndex]}
+              stickyBucketing={stickyBucketing}
+              initialRemediation={
+                state.remediations[remediationPopoverIndex]?.remediation
+              }
+              onConfirm={(rem) => {
+                const idx = remediationPopoverIndex;
+                setRemediationPopoverIndex(null);
+                patch({
+                  remediations: {
+                    ...state.remediations,
+                    [idx]: { confirmed: true, remediation: rem },
+                  },
+                });
+              }}
+              onCancel={() => setRemediationPopoverIndex(null)}
+            />
+          )}
       </Box>
     );
   }
@@ -1243,6 +2124,33 @@ export default function ExperimentRampScheduleModal({
         >
           <PiXBold />
         </IconButton>
+      </Tooltip>
+    </Flex>
+  );
+
+  // ── Add ramp-up link (only shown when no ramp) ────────────────────────────
+
+  const addRampLink = (
+    <Flex align="center" gap="3" py="1" style={{ minHeight: 42 }}>
+      <Box style={{ width: labelColWidth }}>
+        <Text as="label" weight="medium" mb="0">
+          Ramp up
+        </Text>
+      </Box>
+      <Tooltip
+        body="Requires the ramp schedules commercial feature"
+        shouldDisplay={!hasRampSchedulesFeature}
+      >
+        <Button
+          onClick={() => {
+            if (hasRampSchedulesFeature) setHasRamp(true);
+          }}
+          color={hasRampSchedulesFeature ? undefined : "gray"}
+          disabled={!hasRampSchedulesFeature}
+        >
+          <PiPlusBold style={{ marginRight: 4, verticalAlign: "middle" }} />
+          Add ramp-up schedule
+        </Button>
       </Tooltip>
     </Flex>
   );
@@ -1367,7 +2275,7 @@ export default function ExperimentRampScheduleModal({
         )}
       </Flex>
 
-      {hasRamp && rampUpRow}
+      {hasRamp ? rampUpRow : addRampLink}
 
       {(() => {
         if (!state.endDate) return null;
@@ -1386,26 +2294,6 @@ export default function ExperimentRampScheduleModal({
         );
       })()}
     </Flex>
-  );
-
-  // ── Add ramp-up link (only shown when no ramp) ────────────────────────────
-
-  const addRampLink = (
-    <Box mb="4">
-      {hasRampSchedulesFeature ? (
-        <Link onClick={() => setHasRamp(true)}>
-          <PiPlusBold style={{ marginRight: 4, verticalAlign: "middle" }} />
-          Add ramp-up schedule
-        </Link>
-      ) : (
-        <Tooltip body="Requires the ramp schedules commercial feature">
-          <Link color="gray">
-            <PiPlusBold style={{ marginRight: 4, verticalAlign: "middle" }} />
-            Add ramp-up schedule
-          </Link>
-        </Tooltip>
-      )}
-    </Box>
   );
 
   // ── Automation section ─────────────────────────────────────────────────────
@@ -1743,9 +2631,9 @@ export default function ExperimentRampScheduleModal({
       maxWidth="900px"
       header="Schedule Settings"
       submit={submit}
+      ctaEnabled={!hasUnresolvedRisk}
     >
       {dateRows}
-      {!hasRamp && addRampLink}
       {decisionCriteriaPanel}
       {rampStepsSection}
     </ModalStandard>

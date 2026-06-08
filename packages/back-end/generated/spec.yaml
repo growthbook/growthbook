@@ -20341,7 +20341,53 @@ paths:
                                         minimum: 0
                                         maximum: 1
                                     - type: 'null'
+                                condition:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                savedGroups:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
+                                    - type: 'null'
+                                prerequisites:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          id:
+                                            type: string
+                                          condition:
+                                            type: string
+                                        required:
+                                          - id
+                                          - condition
+                                        additionalProperties: false
+                                    - type: 'null'
                                 newPhase:
+                                  type: boolean
+                                reseed:
+                                  type: boolean
+                                bumpBucketVersion:
+                                  type: boolean
+                                blockPriorBucketed:
                                   type: boolean
                               additionalProperties: false
                           required:
@@ -20480,7 +20526,53 @@ paths:
                                         minimum: 0
                                         maximum: 1
                                     - type: 'null'
+                                condition:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                savedGroups:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
+                                    - type: 'null'
+                                prerequisites:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          id:
+                                            type: string
+                                          condition:
+                                            type: string
+                                        required:
+                                          - id
+                                          - condition
+                                        additionalProperties: false
+                                    - type: 'null'
                                 newPhase:
+                                  type: boolean
+                                reseed:
+                                  type: boolean
+                                bumpBucketVersion:
+                                  type: boolean
+                                blockPriorBucketed:
                                   type: boolean
                               additionalProperties: false
                           required:
@@ -20947,7 +21039,53 @@ paths:
                                         minimum: 0
                                         maximum: 1
                                     - type: 'null'
+                                condition:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                savedGroups:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
+                                    - type: 'null'
+                                prerequisites:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          id:
+                                            type: string
+                                          condition:
+                                            type: string
+                                        required:
+                                          - id
+                                          - condition
+                                        additionalProperties: false
+                                    - type: 'null'
                                 newPhase:
+                                  type: boolean
+                                reseed:
+                                  type: boolean
+                                bumpBucketVersion:
+                                  type: boolean
+                                blockPriorBucketed:
                                   type: boolean
                               additionalProperties: false
                           required:
@@ -21086,7 +21224,53 @@ paths:
                                         minimum: 0
                                         maximum: 1
                                     - type: 'null'
+                                condition:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                savedGroups:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
+                                    - type: 'null'
+                                prerequisites:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          id:
+                                            type: string
+                                          condition:
+                                            type: string
+                                        required:
+                                          - id
+                                          - condition
+                                        additionalProperties: false
+                                    - type: 'null'
                                 newPhase:
+                                  type: boolean
+                                reseed:
+                                  type: boolean
+                                bumpBucketVersion:
+                                  type: boolean
+                                blockPriorBucketed:
                                   type: boolean
                               additionalProperties: false
                           required:
@@ -21615,7 +21799,53 @@ paths:
                                         minimum: 0
                                         maximum: 1
                                     - type: 'null'
+                                condition:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                savedGroups:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
+                                    - type: 'null'
+                                prerequisites:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          id:
+                                            type: string
+                                          condition:
+                                            type: string
+                                        required:
+                                          - id
+                                          - condition
+                                        additionalProperties: false
+                                    - type: 'null'
                                 newPhase:
+                                  type: boolean
+                                reseed:
+                                  type: boolean
+                                bumpBucketVersion:
+                                  type: boolean
+                                blockPriorBucketed:
                                   type: boolean
                               additionalProperties: false
                           required:
@@ -21754,7 +21984,53 @@ paths:
                                         minimum: 0
                                         maximum: 1
                                     - type: 'null'
+                                condition:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                savedGroups:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
+                                    - type: 'null'
+                                prerequisites:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          id:
+                                            type: string
+                                          condition:
+                                            type: string
+                                        required:
+                                          - id
+                                          - condition
+                                        additionalProperties: false
+                                    - type: 'null'
                                 newPhase:
+                                  type: boolean
+                                reseed:
+                                  type: boolean
+                                bumpBucketVersion:
+                                  type: boolean
+                                blockPriorBucketed:
                                   type: boolean
                               additionalProperties: false
                           required:
@@ -22224,7 +22500,53 @@ paths:
                                         minimum: 0
                                         maximum: 1
                                     - type: 'null'
+                                condition:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                savedGroups:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
+                                    - type: 'null'
+                                prerequisites:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          id:
+                                            type: string
+                                          condition:
+                                            type: string
+                                        required:
+                                          - id
+                                          - condition
+                                        additionalProperties: false
+                                    - type: 'null'
                                 newPhase:
+                                  type: boolean
+                                reseed:
+                                  type: boolean
+                                bumpBucketVersion:
+                                  type: boolean
+                                blockPriorBucketed:
                                   type: boolean
                               additionalProperties: false
                           required:
@@ -22363,7 +22685,53 @@ paths:
                                         minimum: 0
                                         maximum: 1
                                     - type: 'null'
+                                condition:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                savedGroups:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
+                                    - type: 'null'
+                                prerequisites:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          id:
+                                            type: string
+                                          condition:
+                                            type: string
+                                        required:
+                                          - id
+                                          - condition
+                                        additionalProperties: false
+                                    - type: 'null'
                                 newPhase:
+                                  type: boolean
+                                reseed:
+                                  type: boolean
+                                bumpBucketVersion:
+                                  type: boolean
+                                blockPriorBucketed:
                                   type: boolean
                               additionalProperties: false
                           required:
@@ -39014,7 +39382,53 @@ components:
                               minimum: 0
                               maximum: 1
                           - type: 'null'
+                      condition:
+                        anyOf:
+                          - type: string
+                          - type: 'null'
+                      savedGroups:
+                        anyOf:
+                          - type: array
+                            items:
+                              type: object
+                              properties:
+                                match:
+                                  type: string
+                                  enum:
+                                    - all
+                                    - none
+                                    - any
+                                ids:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - match
+                                - ids
+                              additionalProperties: false
+                          - type: 'null'
+                      prerequisites:
+                        anyOf:
+                          - type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  type: string
+                                condition:
+                                  type: string
+                              required:
+                                - id
+                                - condition
+                              additionalProperties: false
+                          - type: 'null'
                       newPhase:
+                        type: boolean
+                      reseed:
+                        type: boolean
+                      bumpBucketVersion:
+                        type: boolean
+                      blockPriorBucketed:
                         type: boolean
                     additionalProperties: false
                 required:
@@ -39182,7 +39596,53 @@ components:
                                     minimum: 0
                                     maximum: 1
                                 - type: 'null'
+                            condition:
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            savedGroups:
+                              anyOf:
+                                - type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      match:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - none
+                                          - any
+                                      ids:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - match
+                                      - ids
+                                    additionalProperties: false
+                                - type: 'null'
+                            prerequisites:
+                              anyOf:
+                                - type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      id:
+                                        type: string
+                                      condition:
+                                        type: string
+                                    required:
+                                      - id
+                                      - condition
+                                    additionalProperties: false
+                                - type: 'null'
                             newPhase:
+                              type: boolean
+                            reseed:
+                              type: boolean
+                            bumpBucketVersion:
+                              type: boolean
+                            blockPriorBucketed:
                               type: boolean
                           additionalProperties: false
                       required:
@@ -39318,7 +39778,53 @@ components:
                               minimum: 0
                               maximum: 1
                           - type: 'null'
+                      condition:
+                        anyOf:
+                          - type: string
+                          - type: 'null'
+                      savedGroups:
+                        anyOf:
+                          - type: array
+                            items:
+                              type: object
+                              properties:
+                                match:
+                                  type: string
+                                  enum:
+                                    - all
+                                    - none
+                                    - any
+                                ids:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - match
+                                - ids
+                              additionalProperties: false
+                          - type: 'null'
+                      prerequisites:
+                        anyOf:
+                          - type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  type: string
+                                condition:
+                                  type: string
+                              required:
+                                - id
+                                - condition
+                              additionalProperties: false
+                          - type: 'null'
                       newPhase:
+                        type: boolean
+                      reseed:
+                        type: boolean
+                      bumpBucketVersion:
+                        type: boolean
+                      blockPriorBucketed:
                         type: boolean
                     additionalProperties: false
                 required:
@@ -44790,7 +45296,53 @@ components:
                               minimum: 0
                               maximum: 1
                           - type: 'null'
+                      condition:
+                        anyOf:
+                          - type: string
+                          - type: 'null'
+                      savedGroups:
+                        anyOf:
+                          - type: array
+                            items:
+                              type: object
+                              properties:
+                                match:
+                                  type: string
+                                  enum:
+                                    - all
+                                    - none
+                                    - any
+                                ids:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - match
+                                - ids
+                              additionalProperties: false
+                          - type: 'null'
+                      prerequisites:
+                        anyOf:
+                          - type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  type: string
+                                condition:
+                                  type: string
+                              required:
+                                - id
+                                - condition
+                              additionalProperties: false
+                          - type: 'null'
                       newPhase:
+                        type: boolean
+                      reseed:
+                        type: boolean
+                      bumpBucketVersion:
+                        type: boolean
+                      blockPriorBucketed:
                         type: boolean
                     additionalProperties: false
                 required:
