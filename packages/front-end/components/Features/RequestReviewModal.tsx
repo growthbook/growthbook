@@ -87,7 +87,7 @@ export default function RequestReviewModal({
 
   const { apiCall } = useAuth();
   const user = getCurrentUser();
-  const { organization, users } = useUser();
+  const { organization, users, hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const canAdminPublish = permissionsUtil.canBypassApprovalChecks(feature);
   const featureLockedByRamp =
@@ -446,6 +446,49 @@ export default function RequestReviewModal({
   if (!revision || !mergeResult) return null;
   const allDiffsWithChanges = [...resultDiffsWithChanges, ...rampDiffs];
   const hasChanges = mergeResultHasChanges(mergeResult) || rampDiffs.length > 0;
+  const autopublishOnApproval =
+    !!reviewSetting?.autopublishOnApproval &&
+    hasCommercialFeature("require-approvals");
+  const canApproveAndPublish =
+    autopublishOnApproval &&
+    canReview &&
+    !isBlockedContributor &&
+    !featureLockedByRamp &&
+    permissionsUtil.canPublishFeature(feature, envIds) &&
+    mergeResult.success &&
+    hasChanges;
+
+  const handleApproveAndPublish = async (commentText: string) => {
+    try {
+      await apiCall(
+        `/feature/${feature.id}/${revision.version}/submit-review`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            comment: commentText,
+            review: "Approved",
+          }),
+        },
+      );
+      // Publish reuses the existing endpoint, which re-checks that the revision
+      // is approved, conflicts are resolved, and the user can publish.
+      await apiCall(`/feature/${feature.id}/${revision.version}/publish`, {
+        method: "POST",
+        body: JSON.stringify({
+          mergeResultSerialized: JSON.stringify(mergeResult),
+          comment: commentText,
+          adminOverride: false,
+          publishExperimentIds: Array.from(selectedExperiments),
+        }),
+      });
+      await mutate();
+      onPublish && onPublish();
+      close();
+    } catch (e) {
+      await mutate();
+      throw e;
+    }
+  };
   let ctaCopy: string | JSX.Element = "Request Review";
   if (approved && !hasNextStep) {
     ctaCopy = featureLockedByRamp ? (
@@ -842,6 +885,20 @@ export default function RequestReviewModal({
         cta={"Submit"}
         size="lg"
         includeCloseCta={false}
+        secondaryCTA={
+          canApproveAndPublish &&
+          submitReviewform.watch("reviewStatus") === "Approved" ? (
+            <Button
+              onClick={async () => {
+                await handleApproveAndPublish(
+                  submitReviewform.getValues("comment"),
+                );
+              }}
+            >
+              Approve &amp; Publish
+            </Button>
+          ) : undefined
+        }
         submit={submitReviewform.handleSubmit(async (data) => {
           try {
             await apiCall(
