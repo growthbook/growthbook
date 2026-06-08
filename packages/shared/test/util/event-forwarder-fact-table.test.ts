@@ -7,6 +7,7 @@ import {
   getEventForwarderEventsFactTableId,
   getEventForwarderEventsFactTableName,
   isEventForwarderEventsFactTable,
+  resolveEventForwarderAttributeLookupKeys,
 } from "../../src/util/event-forwarder-fact-table";
 
 describe("event-forwarder-fact-table identity", () => {
@@ -208,8 +209,56 @@ WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{end
   EVENT_NAME AS event_name,
   -- Attributes
   ATTRIBUTES:"user_id"::STRING AS user_id,
-  ATTRIBUTES:"browser"::STRING AS browser
+  COALESCE(ATTRIBUTES:"ua_browser"::STRING, ATTRIBUTES:"browser"::STRING) AS browser
 FROM MY_DB.PUBLIC.GB_EVENTS`);
+  });
+
+  it("maps default auto-attributes to enriched warehouse keys in BigQuery SQL", () => {
+    const defaultAutoAttributes = [
+      { property: "id", datatype: "string" as const, hashAttribute: true },
+      { property: "url", datatype: "string" as const },
+      { property: "path", datatype: "string" as const },
+      { property: "host", datatype: "string" as const },
+      { property: "query", datatype: "string" as const },
+      {
+        property: "deviceType",
+        datatype: "enum" as const,
+        enum: "desktop,mobile",
+      },
+      {
+        property: "browser",
+        datatype: "enum" as const,
+        enum: "chrome,edge,firefox,safari,unknown",
+      },
+      { property: "utmSource", datatype: "string" as const },
+      { property: "utmMedium", datatype: "string" as const },
+      { property: "utmCampaign", datatype: "string" as const },
+      { property: "utmTerm", datatype: "string" as const },
+      { property: "utmContent", datatype: "string" as const },
+    ];
+
+    const sql = buildEventForwarderEventsFactTableSql({
+      sinkType: "bigquery",
+      projectId: "my-project",
+      dataset: "analytics_123",
+      tableName: "gb_events",
+      attributeSchema: defaultAutoAttributes,
+    });
+
+    expect(sql).toContain(
+      `JSON_VALUE(\`attributes\`, '$."utm_source"') AS utmSource`,
+    );
+    expect(sql).toContain(
+      `COALESCE(JSON_VALUE(\`attributes\`, '$."ua_browser"'), JSON_VALUE(\`attributes\`, '$."browser"')) AS browser`,
+    );
+    expect(sql).toContain(
+      `COALESCE(JSON_VALUE(\`attributes\`, '$."url_path"'), JSON_VALUE(\`attributes\`, '$."path"')) AS path`,
+    );
+    expect(sql).toContain(
+      `COALESCE(JSON_VALUE(\`attributes\`, '$."ua_device_type"'), JSON_VALUE(\`attributes\`, '$."deviceType"')) AS deviceType`,
+    );
+    expect(sql).toContain(`JSON_VALUE(\`attributes\`, '$."id"') AS id`);
+    expect(sql).toContain(`JSON_VALUE(\`attributes\`, '$."url"') AS url`);
   });
 
   it("casts typed Snowflake attributes from flat string map values", () => {
@@ -297,5 +346,50 @@ describe("buildEventForwarderEventsFactTableColumns", () => {
       is_employee: { datatype: "boolean" },
       tags: { datatype: "json" },
     });
+  });
+});
+
+describe("resolveEventForwarderAttributeLookupKeys", () => {
+  it("maps promoted UTM attributes to snake_case warehouse keys", () => {
+    expect(resolveEventForwarderAttributeLookupKeys("utmSource")).toEqual([
+      "utm_source",
+    ]);
+    expect(resolveEventForwarderAttributeLookupKeys("utmMedium")).toEqual([
+      "utm_medium",
+    ]);
+  });
+
+  it("prefers enriched keys with SDK fallbacks for browser and URL fields", () => {
+    expect(resolveEventForwarderAttributeLookupKeys("browser")).toEqual([
+      "ua_browser",
+      "browser",
+    ]);
+    expect(resolveEventForwarderAttributeLookupKeys("path")).toEqual([
+      "url_path",
+      "path",
+    ]);
+    expect(resolveEventForwarderAttributeLookupKeys("query")).toEqual([
+      "url_query",
+      "query",
+    ]);
+  });
+
+  it("is case-insensitive for known mappings", () => {
+    expect(resolveEventForwarderAttributeLookupKeys("UTMSource")).toEqual([
+      "utm_source",
+    ]);
+    expect(resolveEventForwarderAttributeLookupKeys("Browser")).toEqual([
+      "ua_browser",
+      "browser",
+    ]);
+  });
+
+  it("sanitizes custom attribute properties", () => {
+    expect(resolveEventForwarderAttributeLookupKeys("logged-in")).toEqual([
+      "logged_in",
+    ]);
+    expect(resolveEventForwarderAttributeLookupKeys("company")).toEqual([
+      "company",
+    ]);
   });
 });

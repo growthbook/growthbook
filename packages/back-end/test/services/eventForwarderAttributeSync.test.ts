@@ -73,6 +73,23 @@ describe("syncEventForwarderAfterAttributeSchemaChange", () => {
     );
   });
 
+  it("syncs fact table metadata on regular attribute create without userIdTypes sync", async () => {
+    const attributeSchema = [{ property: "age", datatype: "number" as const }];
+
+    await syncEventForwarderAfterAttributeSchemaChange(context() as never, {
+      attributeSchema,
+      after: attributeSchema[0],
+      changeType: "create",
+    });
+
+    expect(mockedSyncAllUserIdTypes).not.toHaveBeenCalled();
+    expect(mockedSyncHashMetadata).not.toHaveBeenCalled();
+    expect(mockedSyncFactTable).toHaveBeenCalledWith(
+      expect.anything(),
+      attributeSchema,
+    );
+  });
+
   it("syncs hash metadata when an existing hash attribute is renamed", async () => {
     const before = {
       property: "user_id",
