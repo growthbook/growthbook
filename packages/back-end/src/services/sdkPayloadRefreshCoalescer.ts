@@ -129,7 +129,7 @@ export async function drainPendingSdkPayloadRefreshRequests(
   organization: string,
 ): Promise<SdkPayloadRefreshQueueRequest | null> {
   const collection = getPendingCollection();
-  const doc = await collection.findOneAndDelete({ organization });
+  const { value: doc } = await collection.findOneAndDelete({ organization });
   if (!doc?.requests?.length) {
     return null;
   }
