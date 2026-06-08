@@ -272,9 +272,9 @@ function CustomHooksTable({
         <TableHeader>
           <TableRow>
             <TableColumnHeader>Name</TableColumnHeader>
-            <TableColumnHeader>Type</TableColumnHeader>
-            <TableColumnHeader>Scope</TableColumnHeader>
-            <TableColumnHeader>Incremental</TableColumnHeader>
+            <TableColumnHeader width="200px">Type</TableColumnHeader>
+            <TableColumnHeader width="150px">Scope</TableColumnHeader>
+            <TableColumnHeader width="100px">Incremental</TableColumnHeader>
             <TableColumnHeader style={{ width: 50 }} />
           </TableRow>
         </TableHeader>
