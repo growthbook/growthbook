@@ -18,6 +18,7 @@ import { ExperimentInterface } from "shared/types/experiment";
 import { DataSourceInterface } from "shared/types/datasource";
 import { FeatureInterface } from "shared/types/feature";
 import { UserInterface } from "shared/types/user";
+import { stringToBoolean } from "shared/util";
 import {
   BadRequestError,
   UnauthorizedError,
@@ -308,8 +309,8 @@ export class ReqContextClass {
   public get ignoreWarnings(): boolean {
     if (!this.req) return true;
     const v = this.req.query?.ignoreWarnings;
-    if (Array.isArray(v)) return v.some((x) => x === "true" || x === "1");
-    return v === "true" || v === "1";
+    if (typeof v !== "string") return false;
+    return stringToBoolean(v);
   }
 
   public throwBadRequestError(message: string): never {
