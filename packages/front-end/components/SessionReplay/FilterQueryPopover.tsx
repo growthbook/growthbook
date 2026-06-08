@@ -1,4 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Flex } from "@radix-ui/themes";
 import { PiCaretRight } from "react-icons/pi";
 import { Popover } from "@/ui/Popover";
@@ -139,19 +145,40 @@ export default function FilterQueryPopover({
   const [value, setValue] = useState("");
   const valueInputRef = useRef<HTMLInputElement>(null);
 
-  const uniqueFeatureKeys = useMemo(
-    () =>
-      Array.from(new Set(sessions.flatMap((s) => s.featureKeys ?? []))).sort(),
-    [sessions],
+  // Snapshot the session-derived options at safe points only (when the popover
+  // opens, or after handleAdd resets the form). This prevents allProperties from
+  // getting a new reference while a Select dropdown is open, which would corrupt
+  // Radix's DismissableLayer context and cause the dropdown to close mid-use.
+  const [uniqueFeatureKeys, setUniqueFeatureKeys] = useState<string[]>(() =>
+    Array.from(new Set(sessions.flatMap((s) => s.featureKeys ?? []))).sort(),
   );
-
-  const uniqueExperimentKeys = useMemo(
+  const [uniqueExperimentKeys, setUniqueExperimentKeys] = useState<string[]>(
     () =>
       Array.from(
         new Set(sessions.flatMap((s) => s.experimentKeys ?? [])),
       ).sort(),
-    [sessions],
   );
+
+  const snapshotSessions = useCallback((src: SessionForFilter[]) => {
+    setUniqueFeatureKeys(
+      Array.from(new Set(src.flatMap((s) => s.featureKeys ?? []))).sort(),
+    );
+    setUniqueExperimentKeys(
+      Array.from(new Set(src.flatMap((s) => s.experimentKeys ?? []))).sort(),
+    );
+  }, []);
+
+  // Sync snapshot when the popover opens (sessions may have changed while closed).
+  const prevOpenRef = useRef(open);
+  if (open && !prevOpenRef.current) {
+    // Popover just transitioned to open — capture the latest sessions now.
+    // Calling setState during render is React's idiomatic "derived state" pattern:
+    // React re-renders synchronously with the new values before painting.
+    prevOpenRef.current = open;
+    snapshotSessions(sessions);
+  } else {
+    prevOpenRef.current = open;
+  }
 
   const flagProperties: PropertyDef[] = useMemo(
     () =>
@@ -235,6 +262,11 @@ export default function FilterQueryPopover({
     setProperty("");
     setOperator("");
     setValue("");
+    // Refresh the options snapshot now that the form is reset and no dropdown
+    // is open. The parent will soon refetch sessions with the new filter applied;
+    // using the current (pre-refetch) sessions here is intentional — it ensures
+    // the next dropdown renders stable children from the start.
+    snapshotSessions(sessions);
   };
 
   const content = (
