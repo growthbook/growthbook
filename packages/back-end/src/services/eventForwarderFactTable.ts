@@ -237,12 +237,14 @@ export async function syncEventForwarderEventsFactTableMetadataAfterAttributeSch
       datatype: column.datatype,
       jsonFields: column.jsonFields,
     }));
-
-    if (
+    const hasMetadataChanges =
       JSON.stringify(comparableExistingColumns) !==
         JSON.stringify(comparableDesiredColumns) ||
-      (desiredSql !== null && factTable.sql !== desiredSql)
-    ) {
+      (desiredSql !== null && factTable.sql !== desiredSql);
+    const shouldMarkColumnRefreshPending =
+      factTable.columnRefreshPending !== true;
+
+    if (hasMetadataChanges || shouldMarkColumnRefreshPending) {
       const now = new Date();
       const columns: ColumnInterface[] = desiredColumns.map((column) => {
         const existing = factTable.columns?.find(
@@ -257,8 +259,13 @@ export async function syncEventForwarderEventsFactTableMetadataAfterAttributeSch
       await updateEventForwarderFactTableMetadata(
         factTable,
         {
-          columns,
-          ...(desiredSql !== null && { sql: desiredSql }),
+          ...(hasMetadataChanges && {
+            columns,
+            ...(desiredSql !== null && { sql: desiredSql }),
+          }),
+          ...(shouldMarkColumnRefreshPending && {
+            columnRefreshPending: true,
+          }),
         },
         context,
       );

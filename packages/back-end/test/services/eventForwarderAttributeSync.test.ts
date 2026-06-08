@@ -125,6 +125,53 @@ describe("syncEventForwarderAfterAttributeSchemaChange", () => {
     expect(mockedSyncFactTable).toHaveBeenCalled();
   });
 
+  it("syncs fact table metadata when a regular attribute is renamed", async () => {
+    const before = {
+      property: "age",
+      datatype: "number" as const,
+    };
+    const after = {
+      property: "years_old",
+      datatype: "number" as const,
+    };
+
+    await syncEventForwarderAfterAttributeSchemaChange(context() as never, {
+      attributeSchema: [after],
+      before,
+      after,
+      previousName: "age",
+      changeType: "update",
+    });
+
+    expect(mockedSyncHashMetadata).not.toHaveBeenCalled();
+    expect(mockedSyncFactTable).toHaveBeenCalledWith(expect.anything(), [
+      after,
+    ]);
+  });
+
+  it("syncs fact table metadata when a regular attribute datatype changes", async () => {
+    const before = {
+      property: "age",
+      datatype: "string" as const,
+    };
+    const after = {
+      property: "age",
+      datatype: "number" as const,
+    };
+
+    await syncEventForwarderAfterAttributeSchemaChange(context() as never, {
+      attributeSchema: [after],
+      before,
+      after,
+      changeType: "update",
+    });
+
+    expect(mockedSyncHashMetadata).not.toHaveBeenCalled();
+    expect(mockedSyncFactTable).toHaveBeenCalledWith(expect.anything(), [
+      after,
+    ]);
+  });
+
   it("syncs fact table metadata on delete without userIdType sync", async () => {
     const before = {
       property: "age",
