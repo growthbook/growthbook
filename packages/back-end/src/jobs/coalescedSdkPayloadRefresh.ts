@@ -29,6 +29,7 @@ export default function addCoalescedSdkPayloadRefreshJob(agenda: Agenda) {
 
 async function scheduleCoalescedSdkPayloadRefreshJob(
   organization: string,
+  minDelayMs = 0,
 ): Promise<void> {
   const agenda = getAgendaInstance();
   const job = agenda.create(COALESCED_SDK_PAYLOAD_REFRESH_JOB, {
@@ -47,6 +48,7 @@ async function scheduleCoalescedSdkPayloadRefreshJob(
       );
     }
   }
+  delayMs = Math.max(minDelayMs, delayMs);
 
   job.schedule(new Date(Date.now() + delayMs));
   await job.save();
@@ -95,7 +97,10 @@ async function runCoalescedSdkPayloadRefresh(
       e,
       `Error running coalesced SDK payload refresh for org ${organization}`,
     );
-    await scheduleCoalescedSdkPayloadRefreshJob(organization);
+    await scheduleCoalescedSdkPayloadRefreshJob(
+      organization,
+      SDK_PAYLOAD_REFRESH_DEBOUNCE_MS,
+    );
     throw e;
   }
 }

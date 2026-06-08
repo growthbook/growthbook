@@ -183,7 +183,7 @@ export async function ackPendingSdkPayloadRefreshRequests(
     { returnDocument: "after" },
   );
   if (!doc?.requests?.length) {
-    await collection.deleteOne({ organization });
+    await collection.deleteOne({ organization, requests: { $size: 0 } });
   }
 }
 
