@@ -76,6 +76,32 @@ describe("sdkPayloadRefreshCoalescer", () => {
     expect(merged.skipRefreshForProject).toBeUndefined();
   });
 
+  it("clears skipRefreshForProject when a later request omits it", () => {
+    const merged = mergeSdkPayloadRefreshRequests([
+      {
+        payloadKeys: [{ environment: "production", project: "p1" }],
+        skipRefreshForProject: "A",
+      },
+      {
+        payloadKeys: [{ environment: "production", project: "p2" }],
+      },
+    ]);
+    expect(merged.skipRefreshForProject).toBeUndefined();
+  });
+
+  it("clears skipRefreshForProject when an earlier request omits it", () => {
+    const merged = mergeSdkPayloadRefreshRequests([
+      {
+        payloadKeys: [{ environment: "production", project: "p1" }],
+      },
+      {
+        payloadKeys: [{ environment: "production", project: "p2" }],
+        skipRefreshForProject: "A",
+      },
+    ]);
+    expect(merged.skipRefreshForProject).toBeUndefined();
+  });
+
   it("payloadKeyId is stable for deduplication", () => {
     const key = { environment: "production", project: "p1" };
     expect(payloadKeyId(key)).toBe(payloadKeyId({ ...key }));

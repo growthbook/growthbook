@@ -63,11 +63,11 @@ export function mergeSdkPayloadRefreshRequests(
     if (request.treatEmptyProjectAsGlobal) {
       treatEmptyProjectAsGlobal = true;
     }
-    if (
-      !skipRefreshForProjectConflicted &&
-      request.skipRefreshForProject !== undefined
-    ) {
-      if (
+    if (!skipRefreshForProjectConflicted) {
+      if (request.skipRefreshForProject === undefined) {
+        skipRefreshForProjectConflicted = true;
+        skipRefreshForProject = undefined;
+      } else if (
         skipRefreshForProject !== undefined &&
         skipRefreshForProject !== request.skipRefreshForProject
       ) {
