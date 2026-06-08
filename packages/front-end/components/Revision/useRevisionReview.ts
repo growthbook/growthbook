@@ -21,7 +21,7 @@ interface UseRevisionReviewArgs {
   isRevisionAuthor: boolean;
   isBlockedContributor: boolean;
   setCurrentRevision: (revision: Revision | null) => void;
-  mutate?: () => void;
+  mutate?: () => void | Promise<void>;
   closeModal?: () => void;
 }
 
@@ -149,6 +149,71 @@ export function useRevisionReview({
     ],
   );
 
+  const approveAndPublish = useCallback(
+    async (
+      commentText: string,
+      onPublish: (revisionId: string) => Promise<void>,
+    ) => {
+      if (isRevisionAuthor) {
+        setReviewError(reviewMessages.approveOwnChanges);
+        return;
+      }
+      if (isBlockedContributor) {
+        setReviewError(reviewMessages.blockedContributorApprove);
+        return;
+      }
+
+      setIsSubmitting(true);
+      setReviewError(null);
+      try {
+        const response = await apiCall<{ revision: Revision }>(
+          `/revision/${revision.id}/review`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              decision: "approve",
+              comment: commentText,
+            }),
+          },
+        );
+
+        if (response.revision) {
+          setCurrentRevision(response.revision);
+        }
+
+        await onPublish(revision.id);
+
+        mutate?.();
+
+        setReviewComment("");
+        setReviewDecision("comment");
+        setReviewDropdownOpen(false);
+        closeModal?.();
+      } catch (error) {
+        // If the approval call succeeded but publish failed, refresh so the
+        // cache reflects the now-approved revision. A retry then takes the
+        // normal "publish an approved revision" path instead of re-approving.
+        await mutate?.();
+        setReviewError(
+          error instanceof Error
+            ? error.message
+            : "Failed to approve & publish",
+        );
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [
+      apiCall,
+      revision.id,
+      setCurrentRevision,
+      mutate,
+      closeModal,
+      isRevisionAuthor,
+      isBlockedContributor,
+    ],
+  );
+
   return {
     isSubmitting,
     setIsSubmitting,
@@ -162,5 +227,6 @@ export function useRevisionReview({
     setReviewDropdownOpen,
     submitForReview,
     submitReview,
+    approveAndPublish,
   };
 }

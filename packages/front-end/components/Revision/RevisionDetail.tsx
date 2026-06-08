@@ -189,6 +189,7 @@ function RevisionDetail<T>({
     setReviewDropdownOpen,
     submitForReview: handleSubmitForReview,
     submitReview: handleSubmitReview,
+    approveAndPublish: handleApproveAndPublish,
   } = useRevisionReview({
     revision,
     isRevisionAuthor,
@@ -197,6 +198,10 @@ function RevisionDetail<T>({
     mutate,
     closeModal,
   });
+
+  const autopublishOnApproval =
+    !!organization?.settings?.approvalFlows?.savedGroups?.[0]
+      ?.autopublishOnApproval && hasCommercialFeature("require-approvals");
 
   // Prepare diff data
   const baseSnapshot =
@@ -237,6 +242,16 @@ function RevisionDetail<T>({
             permissionsUtil.canBypassApprovalChecks({ project: project || "" }),
           )
         : permissionsUtil.canBypassApprovalChecks({ project: "" })));
+
+  const canApproveAndPublish =
+    autopublishOnApproval &&
+    requiresApproval &&
+    isOpen &&
+    !isRevisionAuthor &&
+    !isBlockedContributor &&
+    canUserReview &&
+    (!mergeResult || mergeResult.success) &&
+    diffs.length > 0;
 
   const canMerge = (): boolean => {
     if (!isOpen) return false;
@@ -654,7 +669,7 @@ function RevisionDetail<T>({
                       {reviewError}
                     </Text>
                   )}
-                  <Flex justify="end" mt="3">
+                  <Flex justify="end" mt="3" gap="2">
                     <Button
                       variant="solid"
                       color="violet"
@@ -668,6 +683,18 @@ function RevisionDetail<T>({
                     >
                       {isSubmitting ? "Submitting..." : "Confirm"}
                     </Button>
+                    {reviewDecision === "approve" && canApproveAndPublish && (
+                      <Button
+                        variant="solid"
+                        color="violet"
+                        onClick={() => {
+                          handleApproveAndPublish(reviewComment, onPublish);
+                        }}
+                        disabled={isSubmitting || !reviewComment.trim()}
+                      >
+                        {isSubmitting ? "Submitting..." : "Approve & Publish"}
+                      </Button>
+                    )}
                   </Flex>
                 </Popover.Content>
               </Popover.Root>
