@@ -1922,15 +1922,6 @@ export function getReviewSetting(
   }
 }
 
-/**
- * Resolve whether the "Approve & Publish" combined action is enabled for a
- * feature, based on the matching per-project `requireReviews` rule
- * (`autopublishOnApproval`).
- *
- * Legacy boolean `requireReviews` shapes (`true`/`false`/`undefined`) have no
- * per-rule flag, so they always return false. The commercial gate
- * (`require-approvals`) is enforced separately by the caller.
- */
 export function getFeatureAutopublishOnApproval(
   requireReviews: boolean | RequireReview[] | undefined,
   feature: FeatureInterface,
