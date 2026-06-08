@@ -10,6 +10,7 @@ import {
   getAffectedEnvsForExperiment,
   mergeResultHasChanges,
   getReviewSetting,
+  getFeatureAutopublishOnApproval,
 } from "shared/util";
 import { useForm } from "react-hook-form";
 import {
@@ -447,7 +448,7 @@ export default function RequestReviewModal({
   const allDiffsWithChanges = [...resultDiffsWithChanges, ...rampDiffs];
   const hasChanges = mergeResultHasChanges(mergeResult) || rampDiffs.length > 0;
   const autopublishOnApproval =
-    !!reviewSetting?.autopublishOnApproval &&
+    getFeatureAutopublishOnApproval(requireReviews, feature) &&
     hasCommercialFeature("require-approvals");
   const canApproveAndPublish =
     autopublishOnApproval &&
@@ -470,8 +471,6 @@ export default function RequestReviewModal({
           }),
         },
       );
-      // Publish reuses the existing endpoint, which re-checks that the revision
-      // is approved, conflicts are resolved, and the user can publish.
       await apiCall(`/feature/${feature.id}/${revision.version}/publish`, {
         method: "POST",
         body: JSON.stringify({

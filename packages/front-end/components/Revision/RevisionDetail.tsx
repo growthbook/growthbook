@@ -8,6 +8,7 @@ import {
   MergeResult,
   applyTopLevelPatchOps,
   isUserBlockedFromApproving,
+  isAutopublishOnApprovalEnabled,
 } from "shared/enterprise";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import Text from "@/ui/Text";
@@ -200,8 +201,10 @@ function RevisionDetail<T>({
   });
 
   const autopublishOnApproval =
-    !!organization?.settings?.approvalFlows?.savedGroups?.[0]
-      ?.autopublishOnApproval && hasCommercialFeature("require-approvals");
+    isAutopublishOnApprovalEnabled(
+      organization?.settings?.approvalFlows,
+      revision.target.type,
+    ) && hasCommercialFeature("require-approvals");
 
   // Prepare diff data
   const baseSnapshot =
