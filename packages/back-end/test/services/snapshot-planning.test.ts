@@ -1,16 +1,30 @@
-import { ExperimentMetricInterface } from "shared/experiments";
+import {
+  ExperimentMetricInterface,
+  getMetricSnapshotSettings,
+} from "shared/experiments";
 import { ExperimentInterface } from "shared/types/experiment";
 import { DataSourceInterface } from "shared/types/datasource";
-import { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
+import {
+  ExperimentSnapshotAnalysisSettings,
+  MetricForSnapshot,
+} from "shared/types/experiment-snapshot";
+import { MetricSnapshotSettings } from "shared/types/report";
 import { ApiReqContext } from "back-end/types/api";
-import { validateIncrementalPipeline } from "back-end/src/enterprise/services/data-pipeline";
-import { planSnapshot } from "back-end/src/services/experiments";
+import { assertIncrementalRefreshPrerequisites } from "back-end/src/enterprise/services/data-pipeline";
+import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import {
+  getSnapshotSettings,
+  planSnapshot,
+} from "back-end/src/services/experiments";
+import { planMetricFanOut } from "back-end/src/services/experimentQueries/planMetricFanOut";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { createExperimentSnapshotModel } from "back-end/src/models/ExperimentSnapshotModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
+import { factMetricFactory } from "../factories/FactMetric.factory";
+import { factTableFactory } from "../factories/FactTable.factory";
 
 jest.mock("back-end/src/models/ExperimentModel", () => ({
   updateExperiment: jest.fn(),
@@ -33,9 +47,23 @@ jest.mock("back-end/src/enterprise/services/dashboards", () => ({
   updateExperimentDashboards: jest.fn(),
 }));
 
-jest.mock("back-end/src/enterprise/services/data-pipeline", () => ({
-  validateIncrementalPipeline: jest.fn(),
+jest.mock("back-end/src/enterprise", () => ({
+  orgHasPremiumFeature: jest.fn(),
 }));
+
+jest.mock("back-end/src/enterprise/services/data-pipeline", () => ({
+  assertIncrementalRefreshPrerequisites: jest.fn(),
+}));
+
+const {
+  getExperimentSettingsHashForIncrementalRefresh,
+  getFactTablesNeedingRebuild,
+  getMetricSettingsHashForIncrementalRefresh,
+} = jest.requireActual<
+  typeof import("back-end/src/enterprise/services/data-pipeline")
+>(
+  "back-end/src/enterprise/services/data-pipeline",
+) as typeof import("back-end/src/enterprise/services/data-pipeline");
 
 const updateExperimentMock = updateExperiment as jest.MockedFunction<
   typeof updateExperiment
@@ -55,10 +83,36 @@ const updateExperimentDashboardsMock =
   updateExperimentDashboards as jest.MockedFunction<
     typeof updateExperimentDashboards
   >;
-const validateIncrementalPipelineMock =
-  validateIncrementalPipeline as jest.MockedFunction<
-    typeof validateIncrementalPipeline
+const assertIncrementalRefreshPrerequisitesMock =
+  assertIncrementalRefreshPrerequisites as jest.MockedFunction<
+    typeof assertIncrementalRefreshPrerequisites
   >;
+const orgHasPremiumFeatureMock = orgHasPremiumFeature as jest.MockedFunction<
+  typeof orgHasPremiumFeature
+>;
+
+function makeIncrementalDatasource(): DataSourceInterface {
+  return makeDatasource({
+    settings: {
+      queries: {},
+      pipelineSettings: {
+        allowWriting: true,
+        mode: "incremental",
+      },
+    },
+  });
+}
+
+function wireIncrementalIntegration(datasource: DataSourceInterface): void {
+  getDataSourceByIdMock.mockResolvedValue(datasource);
+  getSourceIntegrationObjectMock.mockReturnValue({
+    datasource,
+    getSourceProperties: () => ({
+      hasIncrementalRefresh: true,
+      hasQuantileSketch: true,
+    }),
+  } as never);
+}
 
 function makeContext(): ApiReqContext {
   return {
@@ -173,7 +227,7 @@ describe("snapshot planning", () => {
         },
       }),
     );
-    validateIncrementalPipelineMock.mockRejectedValue(
+    assertIncrementalRefreshPrerequisitesMock.mockRejectedValue(
       new Error("metric not compatible"),
     );
 
@@ -198,7 +252,7 @@ describe("snapshot planning", () => {
       factTableMap: new Map() as FactTableMap,
     });
 
-    expect(validateIncrementalPipelineMock).toHaveBeenCalled();
+    expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalled();
     expect(plan.runnerKind).toBe("results");
     expect(plan.incrementalFallbackReason).toBe("metric not compatible");
   });
@@ -215,7 +269,9 @@ describe("snapshot planning", () => {
         },
       }),
     );
-    validateIncrementalPipelineMock.mockResolvedValue(undefined as never);
+    assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
+      undefined as never,
+    );
 
     const context = makeContext();
     // First run: no prior incremental state, so the warehouse units table
@@ -245,9 +301,165 @@ describe("snapshot planning", () => {
     expect(plan.fullRefreshReason).toBe(
       "No prior incremental refresh state for this experiment.",
     );
-    expect(validateIncrementalPipelineMock).toHaveBeenCalledWith(
+    expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalledWith(
       expect.objectContaining({ analysisType: "main-fullRefresh" }),
     );
+  });
+
+  it("keeps the incremental runner when only metric settings drift", async () => {
+    orgHasPremiumFeatureMock.mockReturnValue(true);
+    assertIncrementalRefreshPrerequisitesMock.mockImplementation(
+      jest.requireActual<
+        typeof import("back-end/src/enterprise/services/data-pipeline")
+      >("back-end/src/enterprise/services/data-pipeline")
+        .assertIncrementalRefreshPrerequisites,
+    );
+
+    const datasource = makeIncrementalDatasource();
+    wireIncrementalIntegration(datasource);
+
+    const factTable = factTableFactory.build({ id: "ft_a" });
+    const factTableMap = new Map([[factTable.id, factTable]]) as FactTableMap;
+    const metric = factMetricFactory.build({
+      id: "m1",
+      numerator: { factTableId: "ft_a", column: "amount" },
+      windowSettings: {
+        type: "conversion",
+        windowValue: 14,
+        windowUnit: "days",
+        delayValue: 0,
+        delayUnit: "hours",
+      },
+    });
+    const metricMap = new Map<string, ExperimentMetricInterface>([
+      [metric.id, metric],
+    ]);
+    const { metricSnapshotSettings } = getMetricSnapshotSettings({
+      metric,
+      denominatorMetrics: [],
+      experimentRegressionAdjustmentEnabled: false,
+    });
+    const settingsForSnapshotMetrics: MetricSnapshotSettings[] = [
+      metricSnapshotSettings,
+    ];
+    const experiment = makeExperiment({
+      goalMetrics: ["m1"],
+      metricOverrides: [],
+    });
+
+    const persistedMetricSources = [
+      {
+        groupId: "grp_a",
+        factTableId: "ft_a",
+        tableFullName: "db.schema.cache_a",
+        maxTimestamp: null,
+        metrics: [{ id: "m1", settingsHash: "placeholder" }],
+      },
+    ];
+    const incrementalRefreshModel = {
+      unitsTableFullName: "db.schema.units_exp_123",
+      metricSources: persistedMetricSources,
+    };
+
+    const snapshotSettings = getSnapshotSettings({
+      experiment,
+      phaseIndex: 0,
+      snapshotType: "standard",
+      dimension: null,
+      regressionAdjustmentEnabled: false,
+      orgPriorSettings: undefined,
+      orgDisabledPrecomputedDimensions: true,
+      settingsForSnapshotMetrics,
+      metricMap,
+      factTableMap,
+      metricGroups: [],
+      incrementalRefreshModel,
+      datasource,
+    });
+
+    const metricForSnapshot = snapshotSettings.metricSettings.find(
+      (m) => m.id === "m1",
+    )!;
+    const currentMetricHash = getMetricSettingsHashForIncrementalRefresh({
+      factMetric: metric,
+      factTableMap,
+      metricSettings: metricForSnapshot,
+    });
+    const staleMetricHash = getMetricSettingsHashForIncrementalRefresh({
+      factMetric: metric,
+      factTableMap,
+      metricSettings: {
+        ...metricForSnapshot,
+        computedSettings: {
+          ...metricForSnapshot.computedSettings!,
+          windowSettings: {
+            ...metricForSnapshot.computedSettings!.windowSettings,
+            windowValue: 7,
+          },
+        },
+      } as MetricForSnapshot,
+    });
+    expect(staleMetricHash).not.toEqual(currentMetricHash);
+
+    const experimentSettingsHash =
+      getExperimentSettingsHashForIncrementalRefresh(snapshotSettings);
+
+    const context = makeContext();
+    context.models.incrementalRefresh = {
+      getByExperimentId: jest.fn().mockResolvedValue({
+        ...incrementalRefreshModel,
+        experimentSettingsHash,
+        metricSources: [
+          {
+            ...persistedMetricSources[0],
+            metrics: [{ id: "m1", settingsHash: staleMetricHash }],
+          },
+        ],
+      }),
+    } as never;
+
+    const plan = await planSnapshot({
+      experiment,
+      context,
+      type: "standard",
+      triggeredBy: "manual-dashboard",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings(),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics,
+      metricMap,
+      factTableMap,
+    });
+
+    expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalledWith(
+      expect.objectContaining({ analysisType: "main-update" }),
+    );
+    expect(plan.runnerKind).toBe("incremental");
+    expect(plan.fullRefresh).toBe(false);
+    expect(plan.incrementalFallbackReason).toBeNull();
+
+    const plannedMetric = plan.snapshot.settings.metricSettings.find(
+      (m) => m.id === "m1",
+    )!;
+    const plannedCurrentHash = getMetricSettingsHashForIncrementalRefresh({
+      factMetric: metric,
+      factTableMap,
+      metricSettings: plannedMetric,
+    });
+    expect(plannedCurrentHash).toEqual(currentMetricHash);
+    expect(
+      getFactTablesNeedingRebuild({
+        existingMetricSources: [
+          {
+            ...persistedMetricSources[0],
+            metrics: [{ id: "m1", settingsHash: staleMetricHash }],
+          },
+        ],
+        desiredFanOut: planMetricFanOut([metric]),
+        currentMetricSettingsHashes: new Map([["m1", plannedCurrentHash]]),
+      }),
+    ).toEqual(new Set(["ft_a"]));
   });
 
   it("falls back to the results runner when incremental state is outdated", async () => {
@@ -264,7 +476,7 @@ describe("snapshot planning", () => {
     );
     const staleConfigMessage =
       "The experiment configuration is outdated. Please run a Full Refresh.";
-    validateIncrementalPipelineMock.mockRejectedValue(
+    assertIncrementalRefreshPrerequisitesMock.mockRejectedValue(
       new Error(staleConfigMessage),
     );
 
@@ -290,10 +502,10 @@ describe("snapshot planning", () => {
       factTableMap: new Map() as FactTableMap,
     });
 
-    expect(validateIncrementalPipelineMock).toHaveBeenCalledWith(
+    expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalledWith(
       expect.objectContaining({ analysisType: "main-update" }),
     );
-    expect(validateIncrementalPipelineMock).toHaveBeenCalledTimes(1);
+    expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalledTimes(1);
     expect(plan.runnerKind).toBe("results");
     expect(plan.incrementalFallbackReason).toBe(staleConfigMessage);
     expect(plan.fullRefresh).toBe(false);

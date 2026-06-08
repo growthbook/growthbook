@@ -1,6 +1,15 @@
 import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimentUpdateExecutionLogger";
 
 describe("ExperimentUpdateExecutionLogger", () => {
+  beforeEach(() => {
+    jest.useFakeTimers("modern");
+    jest.setSystemTime(0);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   const plan = {
     runnerKind: "incremental" as const,
     useCache: false,
@@ -21,7 +30,7 @@ describe("ExperimentUpdateExecutionLogger", () => {
   it("accumulates phase timings via withTiming and boundary marks", async () => {
     const logger = new ExperimentUpdateExecutionLogger(plan, meta);
     await logger.withTiming("generateSql", async () => {
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      jest.advanceTimersByTime(10);
     });
     logger.startPhase("runQueries");
     logger.endPhase("runQueries");
@@ -38,19 +47,19 @@ describe("ExperimentUpdateExecutionLogger", () => {
       propagateSnapshot: expect.any(Number),
       total: expect.any(Number),
     });
-    expect(logger.getTimings().generateSql).toBeGreaterThanOrEqual(10);
+    expect(logger.getTimings().generateSql).toBe(10);
   });
 
   it("records phase timings via startPhase and endPhase", async () => {
     const logger = new ExperimentUpdateExecutionLogger(plan, meta);
     logger.startPhase("generateSql");
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    jest.advanceTimersByTime(10);
     logger.endPhase("generateSql");
     logger.startPhase("runQueries");
     logger.endPhase("runQueries");
 
-    expect(logger.getTimings().generateSql).toBeGreaterThanOrEqual(10);
-    expect(logger.getTimings().runQueries).toBeGreaterThanOrEqual(0);
+    expect(logger.getTimings().generateSql).toBe(10);
+    expect(logger.getTimings().runQueries).toBe(0);
   });
 
   it("starts a phase only once until ended", () => {
@@ -80,20 +89,20 @@ describe("ExperimentUpdateExecutionLogger", () => {
   it("freezes total when propagateSnapshot ends", async () => {
     const logger = new ExperimentUpdateExecutionLogger(plan, meta);
     await logger.withTiming("generateSql", async () => {
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      jest.advanceTimersByTime(10);
     });
     logger.endPhase("propagateSnapshot");
 
     const timingsAfterFreeze = logger.getTimings();
-    expect(timingsAfterFreeze.total).toBeGreaterThanOrEqual(10);
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(timingsAfterFreeze.total).toBe(10);
+    jest.advanceTimersByTime(10);
     expect(logger.getTimings().total).toBe(timingsAfterFreeze.total);
   });
 
   it("freezes total when logUpdateCompleted runs without propagateSnapshot", async () => {
     const logger = new ExperimentUpdateExecutionLogger(plan, meta);
     await logger.withTiming("persistSnapshot", async () => {
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      jest.advanceTimersByTime(10);
     });
 
     const info = jest.fn();
@@ -102,9 +111,10 @@ describe("ExperimentUpdateExecutionLogger", () => {
       error: "query failed",
     });
 
-    expect(logger.getTimings().total).toBeGreaterThanOrEqual(10);
-    await new Promise((resolve) => setTimeout(resolve, 10));
-    expect(logger.getTimings().total).toBeGreaterThanOrEqual(10);
+    const totalAfterLog = logger.getTimings().total;
+    expect(totalAfterLog).toBe(10);
+    jest.advanceTimersByTime(10);
+    expect(logger.getTimings().total).toBe(totalAfterLog);
   });
 
   it("logs only once on terminal snapshot status", () => {
@@ -164,9 +174,65 @@ describe("ExperimentUpdateExecutionLogger", () => {
         plannedFullRefresh: false,
         fullRefreshReason: null,
         incrementalRefreshMode: "incremental",
+        covariateSources: null,
         timingsMs: expect.any(Object),
       }),
       "Experiment update completed",
     );
+  });
+
+  it("emits null covariateSources when none are recorded", () => {
+    const logger = new ExperimentUpdateExecutionLogger(plan, meta);
+    const info = jest.fn();
+
+    logger.logUpdateCompleted({ logger: { info } } as never, {
+      snapshotStatus: "success",
+    });
+
+    expect(info.mock.calls[0][0]).toMatchObject({
+      covariateSources: null,
+    });
+  });
+
+  it("accumulates per-group covariate sources and emits them", () => {
+    const logger = new ExperimentUpdateExecutionLogger(plan, meta);
+    logger.recordCovariateSource({
+      groupId: "grp_1",
+      factTableId: "ft_1",
+      path: "aggregated",
+      aggregatedTableFullName: "proj.ds.agg_ft_1",
+      reason: "aggregated",
+    });
+    logger.recordCovariateSource({
+      groupId: "grp_2",
+      factTableId: "ft_2",
+      path: "legacy",
+      aggregatedTableFullName: null,
+      reason: "window-not-covered",
+    });
+    const info = jest.fn();
+
+    logger.logUpdateCompleted({ logger: { info } } as never, {
+      snapshotStatus: "success",
+    });
+
+    expect(info.mock.calls[0][0]).toMatchObject({
+      covariateSources: [
+        {
+          groupId: "grp_1",
+          factTableId: "ft_1",
+          path: "aggregated",
+          aggregatedTableFullName: "proj.ds.agg_ft_1",
+          reason: "aggregated",
+        },
+        {
+          groupId: "grp_2",
+          factTableId: "ft_2",
+          path: "legacy",
+          aggregatedTableFullName: null,
+          reason: "window-not-covered",
+        },
+      ],
+    });
   });
 });
