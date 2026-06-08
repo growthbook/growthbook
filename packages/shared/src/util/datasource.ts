@@ -10,7 +10,7 @@ const EVENT_FORWARDER_FACT_TABLE_COLUMN_FIELDS = [
 ] as const satisfies readonly (keyof SDKAttribute)[];
 
 // Datasource types that can power an Event Forwarder. When adding a new sink,
-// follow .cursor/skills/add-event-forwarder-sink/SKILL.md and add the
+// follow the add-event-forwarder-sink Cursor skill and add the
 // datasource type here as well as in `getEventForwarderSinkTypeForDatasource`
 // in back-end/src/services/eventForwarderConfig.ts.
 export const EVENT_FORWARDER_SUPPORTED_DATASOURCE_TYPES: readonly DataSourceType[] =

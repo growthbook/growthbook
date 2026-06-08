@@ -89,6 +89,7 @@ function context() {
     models: {
       eventForwarderConfigs: {
         getAll: jest.fn(),
+        update: jest.fn(),
       },
     },
   };
@@ -134,7 +135,7 @@ describe("ensureEventForwarderEventsFactTable", () => {
     const createdFactTable = eventsFactTable();
     mockedCreateFactTable.mockResolvedValue(createdFactTable as never);
 
-    await ensureEventForwarderEventsFactTable(
+    const factTableId = await ensureEventForwarderEventsFactTable(
       context() as never,
       {
         id: "efc_1",
@@ -183,6 +184,7 @@ describe("ensureEventForwarderEventsFactTable", () => {
     expect(mockedQueueFactTableColumnsRefresh).toHaveBeenCalledWith(
       createdFactTable,
     );
+    expect(factTableId).toBe("ds_1_events");
   });
 
   it("skips when fact table already exists for datasource", async () => {
@@ -192,7 +194,7 @@ describe("ensureEventForwarderEventsFactTable", () => {
       datasource: "ds_1",
     } as never);
 
-    await ensureEventForwarderEventsFactTable(
+    const factTableId = await ensureEventForwarderEventsFactTable(
       context() as never,
       {
         id: "efc_1",
@@ -209,6 +211,7 @@ describe("ensureEventForwarderEventsFactTable", () => {
 
     expect(mockedCreateFactTable).not.toHaveBeenCalled();
     expect(mockedQueueFactTableColumnsRefresh).not.toHaveBeenCalled();
+    expect(factTableId).toBe("ds_1_events");
   });
 });
 
@@ -367,6 +370,17 @@ describe("syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange", 
     expect(mockedQueueFactTableColumnsRefreshAt).toHaveBeenCalledWith(
       ft,
       expect.any(Date),
+    );
+    expect(ctx.models.eventForwarderConfigs.update).toHaveBeenCalledWith(
+      expect.objectContaining({ datasourceId: "ds_1" }),
+      {
+        managedResources: {
+          identifierTypes: [],
+          exposureQueryIds: [],
+          featureUsageQueryIds: [],
+          factTableId: "ds_1_events",
+        },
+      },
     );
   });
 

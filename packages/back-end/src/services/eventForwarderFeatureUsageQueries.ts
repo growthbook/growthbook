@@ -8,7 +8,7 @@ import { EventForwarderConfigInterface } from "shared/validators";
 import {
   GenerateEventForwarderFeatureUsageQueryParams,
   buildEventForwarderFeatureUsageQuery,
-  eventForwarderManagedFeatureUsageQueryExists,
+  isEventForwarderManagedFeatureUsageQuery,
 } from "shared/util";
 import uniqid from "uniqid";
 import {
@@ -70,18 +70,21 @@ export async function ensureEventForwarderFeatureUsageQuery(
   context: ReqContext,
   eventForwarderConfig: EventForwarderConfigInterface,
   datasourceParams?: BigQueryConnectionParams | SnowflakeConnectionParams,
-): Promise<void> {
+): Promise<string[]> {
   const raw = await getRawDataSourceById(
     context,
     eventForwarderConfig.datasourceId,
   );
   if (!raw) {
-    return;
+    return [];
   }
 
   const existing = raw.settings?.queries?.featureUsage ?? [];
-  if (eventForwarderManagedFeatureUsageQueryExists(existing)) {
-    return;
+  const existingManaged = existing.filter(
+    isEventForwarderManagedFeatureUsageQuery,
+  );
+  if (existingManaged.length > 0) {
+    return existingManaged.map((query) => query.id);
   }
 
   const datasource = await getDataSourceById(
@@ -110,7 +113,7 @@ export async function ensureEventForwarderFeatureUsageQuery(
       },
       "Skipping event forwarder feature usage query: missing sink connection params",
     );
-    return;
+    return [];
   }
 
   if (!datasource) {
@@ -122,7 +125,7 @@ export async function ensureEventForwarderFeatureUsageQuery(
       },
       "Skipping event forwarder feature usage query: datasource unavailable for update",
     );
-    return;
+    return [];
   }
 
   const managedQuery = {
@@ -144,4 +147,5 @@ export async function ensureEventForwarderFeatureUsageQuery(
     },
     { skipEventForwarderManagedValidation: true },
   );
+  return [managedQuery.id];
 }

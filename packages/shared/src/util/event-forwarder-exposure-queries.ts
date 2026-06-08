@@ -223,3 +223,33 @@ export function refreshEventForwarderManagedExposureQuery(
 
   return found ? updated : existing;
 }
+
+export function reconcileEventForwarderManagedExposureQueries({
+  existing,
+  userIdTypes,
+  params,
+  attributeSchema,
+  managedExposureQueryIds = [],
+}: {
+  existing: ExposureQuery[];
+  userIdTypes: string[];
+  params: GenerateEventForwarderExposureQueriesParams;
+  attributeSchema?: SDKAttributeSchema;
+  managedExposureQueryIds?: string[];
+}): ExposureQuery[] {
+  const managedIds = new Set(managedExposureQueryIds);
+  const desiredManaged = generateEventForwarderExposureQueries(
+    userIdTypes,
+    params,
+    attributeSchema,
+  );
+
+  return [
+    ...existing.filter(
+      (query) =>
+        !isEventForwarderManagedExposureQuery(query) &&
+        !managedIds.has(query.id),
+    ),
+    ...desiredManaged,
+  ];
+}

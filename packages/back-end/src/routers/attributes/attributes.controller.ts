@@ -8,7 +8,6 @@ import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
 import { getAllFeatures } from "back-end/src/models/FeatureModel";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
-import { hasAnyEventForwarderConfig } from "back-end/src/services/eventForwarderConfig";
 import { syncEventForwarderAfterAttributeSchemaChange } from "back-end/src/services/eventForwarderAttributeSync";
 import { yieldEventLoop } from "back-end/src/util/yield";
 export const postAttribute = async (
@@ -49,8 +48,6 @@ export const postAttribute = async (
 
   await syncEventForwarderAfterAttributeSchemaChange(context, {
     attributeSchema: updatedAttributeSchema,
-    after: newAttribute,
-    changeType: "create",
   });
 
   await req.audit({
@@ -133,13 +130,8 @@ export const putAttribute = async (
     },
   });
 
-  const updatedAttribute = attributeSchema[index];
   await syncEventForwarderAfterAttributeSchemaChange(context, {
     attributeSchema,
-    before: existing,
-    after: updatedAttribute,
-    previousName,
-    changeType: "update",
   });
 
   await req.audit({
@@ -183,7 +175,6 @@ export const deleteAttribute = async (
     context.permissions.throwPermissionError();
   }
 
-  const deletedAttribute = attributeSchema[index];
   const updatedArr = attributeSchema.filter((a) => a.property !== id);
 
   await updateOrganization(org.id, {
@@ -195,8 +186,6 @@ export const deleteAttribute = async (
 
   await syncEventForwarderAfterAttributeSchemaChange(context, {
     attributeSchema: updatedArr,
-    before: deletedAttribute,
-    changeType: "delete",
   });
 
   await req.audit({
@@ -215,13 +204,8 @@ export const deleteAttribute = async (
     ),
   });
 
-  const eventForwarderWarning = (await hasAnyEventForwarderConfig(context))
-    ? "This attribute has been removed from GrowthBook, but its field will be preserved in your event forwarder's data warehouse table to avoid breaking existing data."
-    : undefined;
-
   return res.status(200).json({
     status: 200,
-    ...(eventForwarderWarning ? { eventForwarderWarning } : {}),
   });
 };
 

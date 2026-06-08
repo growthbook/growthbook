@@ -1,7 +1,6 @@
 /**
  * Event forwarder sink types backed by Confluent Cloud managed connectors.
  * Reference implementations: bigquery, snowflake.
- * To add a sink: .cursor/skills/add-event-forwarder-sink/SKILL.md
  */
 export type EventForwarderSinkType = "bigquery" | "snowflake";
 
@@ -65,9 +64,17 @@ export type EventForwarderConfigDraft =
       config: SnowflakeEventForwarderConfigDraft;
     };
 
+export interface EventForwarderManagedResources {
+  identifierTypes: string[];
+  exposureQueryIds: string[];
+  featureUsageQueryIds: string[];
+  factTableId?: string;
+}
+
 export type EventForwarderConfigWithMetadata = EventForwarderConfigDraft & {
   status: EventForwarderStatus;
   connectorName?: string;
   connectorId?: string;
   lastProvisioningError?: string;
+  managedResources?: EventForwarderManagedResources;
 };
