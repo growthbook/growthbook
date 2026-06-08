@@ -189,46 +189,6 @@ export async function uploadFile(
   return fileURL;
 }
 
-export async function listFilesByPrefix(prefix: string): Promise<string[]> {
-  if (UPLOAD_METHOD !== "s3") {
-    // Local: list files in the uploads directory under the prefix
-    const dir = path.join(getUploadsDir(), prefix);
-    try {
-      const entries = await fs.promises.readdir(dir);
-      return entries.map((e) => `${prefix}/${e}`);
-    } catch {
-      return [];
-    }
-  }
-  return s3ListByPrefix(getS3Client(), S3_BUCKET, prefix);
-}
-
-export async function getFileBuffer(filePath: string): Promise<Buffer> {
-  if (filePath.indexOf("\0") !== -1) {
-    throw new Error("Error: Filename must not contain null bytes");
-  }
-
-  if (UPLOAD_METHOD === "s3") {
-    return s3GetObjectBuffer(getS3Client(), S3_BUCKET, filePath);
-  } else if (UPLOAD_METHOD === "google-cloud") {
-    const storage = new Storage();
-    const [contents] = await storage
-      .bucket(GCS_BUCKET_NAME)
-      .file(filePath)
-      .download();
-    return contents;
-  } else {
-    const rootDirectory = getUploadsDir();
-    const fullPath = path.join(rootDirectory, filePath);
-    if (fullPath.indexOf(rootDirectory) !== 0) {
-      throw new Error(
-        "Error: Path must not escape out of the 'uploads' directory.",
-      );
-    }
-    return fs.promises.readFile(fullPath);
-  }
-}
-
 export function getImageData(filePath: string) {
   // Watch out for poison null bytes
   if (filePath.indexOf("\0") !== -1) {
