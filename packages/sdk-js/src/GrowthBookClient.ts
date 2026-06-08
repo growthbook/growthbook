@@ -429,12 +429,8 @@ export class UserScopedGrowthBook<
     return this._gb.evalFeature(id, this._userContext);
   }
 
-  public setCaptureLogs(captureLogs: boolean) {
-    this._userContext.captureLogs = captureLogs;
-  }
-
   public logEvent(eventName: string, properties?: EventProperties) {
-    if (this._userContext.enableDevMode || this._userContext.captureLogs) {
+    if (this._userContext.enableDevMode) {
       this.logs.push({
         eventName,
         properties,

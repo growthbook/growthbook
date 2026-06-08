@@ -251,7 +251,6 @@ export type Options = {
   /** @deprecated */
   subscribeToChanges?: boolean;
   enableDevMode?: boolean;
-  captureLogs?: boolean;
   disableCache?: boolean;
   /** @deprecated */
   disableDevTools?: boolean;
@@ -349,7 +348,6 @@ export type UserContext = {
   enabled?: boolean;
   qaMode?: boolean;
   enableDevMode?: boolean;
-  captureLogs?: boolean;
   attributes?: Attributes;
   url?: string;
   blockedChangeIds?: string[];
