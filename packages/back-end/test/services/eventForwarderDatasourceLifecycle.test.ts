@@ -15,8 +15,8 @@ const mockedUsingFileConfig = configInit.usingFileConfig as jest.MockedFunction<
   typeof configInit.usingFileConfig
 >;
 const mockedTeardownRemote =
-  provisioning.teardownBigQueryEventForwarderInfrastructureRemote as jest.MockedFunction<
-    typeof provisioning.teardownBigQueryEventForwarderInfrastructureRemote
+  provisioning.teardownEventForwarderInfrastructureRemote as jest.MockedFunction<
+    typeof provisioning.teardownEventForwarderInfrastructureRemote
   >;
 
 function bqDatasource(id: string): DataSourceInterface {

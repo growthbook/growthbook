@@ -67,8 +67,6 @@ export function getEventForwarderSinkTypeForDatasource(
       return "bigquery";
     case "snowflake":
       return "snowflake";
-    // To add a new DW sink: map datasource.type here, then follow
-    // .cursor/skills/add-event-forwarder-sink/SKILL.md
     default:
       return null;
   }
@@ -300,17 +298,11 @@ function buildNormalizedSinkPayload(
   }
 }
 
-export function buildNormalizedEventForwarderSinkPayloadForTest(
+function validateNormalizedSinkPayload(
   draft: EventForwarderConfigDraft,
   datasourceParams: EventForwarderDatasourceParams,
-  existingModel: EventForwarderConfigInterface | null,
-): SinkConfig {
-  const normalizedPayload = buildNormalizedSinkPayload(
-    draft,
-    datasourceParams,
-    existingModel,
-  );
-
+  normalizedPayload: SinkConfig,
+): void {
   if (draft.sinkType === "bigquery") {
     const bigQueryParams = datasourceParams as
       | BigQueryConnectionParams
@@ -349,6 +341,20 @@ export function buildNormalizedEventForwarderSinkPayloadForTest(
       );
     }
   }
+}
+
+export function buildNormalizedEventForwarderSinkPayloadForTest(
+  draft: EventForwarderConfigDraft,
+  datasourceParams: EventForwarderDatasourceParams,
+  existingModel: EventForwarderConfigInterface | null,
+): SinkConfig {
+  const normalizedPayload = buildNormalizedSinkPayload(
+    draft,
+    datasourceParams,
+    existingModel,
+  );
+
+  validateNormalizedSinkPayload(draft, datasourceParams, normalizedPayload);
 
   return normalizedPayload;
 }
@@ -528,45 +534,7 @@ export async function syncEventForwarderConfigFromDatasource({
     datasourceParams,
     existing,
   );
-
-  if (draft.sinkType === "bigquery") {
-    const bigQueryParams = datasourceParams as
-      | BigQueryConnectionParams
-      | undefined;
-    const bqProject =
-      bigQueryParams?.defaultProject?.trim() ||
-      bigQueryParams?.projectId?.trim() ||
-      "";
-    const bq = normalizedPayload as BigQueryEventForwarderStoredConfig;
-    if (
-      !bqProject ||
-      !bq.dataset?.trim() ||
-      !bq.tableName?.trim() ||
-      !bq.serviceAccountKey
-    ) {
-      throw new Error(
-        "BigQuery event forwarder requires connector project (BigQuery Project ID), destination table (dataset.table), and service account credentials",
-      );
-    }
-  }
-
-  if (draft.sinkType === "snowflake") {
-    const snowflake = normalizedPayload as SnowflakeEventForwarderStoredConfig;
-    if (
-      !snowflake.account ||
-      !snowflake.username ||
-      !snowflake.database ||
-      !snowflake.schema ||
-      !snowflake.tableName ||
-      !snowflake.accessUrl ||
-      !snowflake.privateKey ||
-      !snowflake.role?.trim()
-    ) {
-      throw new Error(
-        "Snowflake event forwarder requires account, username, destination table (DATABASE.SCHEMA.TABLE), Snowflake URL, private key credentials, and Snowflake role (required for Snowpipe Streaming schematization)",
-      );
-    }
-  }
+  validateNormalizedSinkPayload(draft, datasourceParams, normalizedPayload);
 
   const projects = [...(datasource.projects ?? [])].sort();
 
