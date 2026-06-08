@@ -133,7 +133,7 @@ export async function assertIncrementalRefreshPrerequisites({
     const currentSettingsHash =
       getExperimentSettingsHashForIncrementalRefresh(snapshotSettings);
     const storedSettingsHash = incrementalRefreshModel.experimentSettingsHash;
-    if (storedSettingsHash && currentSettingsHash !== storedSettingsHash) {
+    if (!storedSettingsHash || currentSettingsHash !== storedSettingsHash) {
       throw new Error(
         "The experiment configuration is outdated. Please run a Full Refresh.",
       );
@@ -316,11 +316,10 @@ export function getFactTablesNeedingRebuild({
         factTablesToRebuild.add(source.factTableId);
         return;
       }
-      // Settings drift: the metric still maps here but its configuration
-      // changed since the cache was built. Recompute the cache from scratch so
-      // the persisted values reflect the new settings.
+      // Settings drift (or missing current hash): recompute the cache from
+      // scratch so the persisted values reflect the new settings.
       const currentHash = currentMetricSettingsHashes.get(m.id);
-      if (currentHash !== m.settingsHash) {
+      if (currentHash === undefined || currentHash !== m.settingsHash) {
         factTablesToRebuild.add(source.factTableId);
       }
     });

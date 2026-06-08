@@ -117,8 +117,7 @@ describe("assertIncrementalRefreshPrerequisites experimentSettingsHash", () => {
     ).resolves.toBeUndefined();
   });
 
-  // TODO(incremental-refresh): Should we harden this? We treat null and hash matching the same way
-  it("allows main-update when experimentSettingsHash is null", async () => {
+  it("throws on main-update when experimentSettingsHash is null", async () => {
     await expect(
       assertIncrementalRefreshPrerequisites({
         org,
@@ -131,7 +130,9 @@ describe("assertIncrementalRefreshPrerequisites experimentSettingsHash", () => {
         }),
         analysisType: "main-update",
       }),
-    ).resolves.toBeUndefined();
+    ).rejects.toThrow(
+      "The experiment configuration is outdated. Please run a Full Refresh.",
+    );
   });
 
   it("throws on main-update when the stored hash differs", async () => {
@@ -224,6 +225,19 @@ describe("getFactTablesNeedingRebuild", () => {
       currentMetricSettingsHashes: new Map([["m_same_ft", "h1"]]),
     });
     expect(rebuild.size).toBe(0);
+  });
+
+  it("flags rebuild when a desired metric is missing from currentMetricSettingsHashes", () => {
+    const rebuild = getFactTablesNeedingRebuild({
+      existingMetricSources: [
+        makeMetricSource("grp_a", "ft_a", [
+          { id: "m_same_ft", settingsHash: "h1" },
+        ]),
+      ],
+      desiredFanOut: planMetricFanOut([sameFtMetric]),
+      currentMetricSettingsHashes: new Map(),
+    });
+    expect([...rebuild]).toEqual(["ft_a"]);
   });
 
   it("flags the fact table of a metric whose settings hash changed", () => {
