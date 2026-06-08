@@ -19,7 +19,7 @@ import {
   ReportInterface,
 } from "shared/types/report";
 import { HoldoutInterfaceStringDates } from "shared/validators";
-import { format } from "date-fns";
+import { format } from "date-fns-tz";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useAuth } from "@/services/auth";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
@@ -224,7 +224,7 @@ export default function ExperimentHeader({
   const { holdouts } = useHoldouts(experiment.project);
 
   const hasUpdatePermissions = !holdout
-    ? permissionsUtil.canViewExperimentModal(experiment.project)
+    ? permissionsUtil.canUpdateExperiment(experiment, {})
     : permissionsUtil.canUpdateHoldout(holdout, { projects: holdout.projects });
   const canDeleteExperiment = !holdout
     ? permissionsUtil.canDeleteExperiment(experiment)
@@ -774,7 +774,12 @@ export default function ExperimentHeader({
             >
               {experiment.name}
             </h1>
-            <Box ml="2" mt="1" display="inline-block">
+            <Box
+              ml="2"
+              mt="1"
+              display="inline-block"
+              style={{ userSelect: "none" }}
+            >
               <ExperimentStatusIndicator experimentData={experiment} />
             </Box>
           </Box>
@@ -795,12 +800,12 @@ export default function ExperimentHeader({
                   "MMM d, yyyy 'at' h:mm a",
                 )}
               </Button>
-            ) : canRunExperiment ? (
+            ) : (
               <div>
                 {experiment.status === "running" ? (
                   <ExperimentActionButtons
-                    editResult={editResult}
-                    editTargeting={editTargeting}
+                    editResult={canRunExperiment ? editResult : undefined}
+                    editTargeting={canRunExperiment ? editTargeting : undefined}
                     isBandit={isBandit}
                     runningExperimentStatus={runningExperimentStatus}
                     holdout={holdout}
@@ -808,12 +813,16 @@ export default function ExperimentHeader({
                 ) : experiment.status === "draft" && nextScheduledStartDate ? (
                   <Button
                     variant="ghost"
+                    disabled={!canRunExperiment}
                     onClick={() => {
                       if (editSchedule) setShowScheduleModal(true);
                     }}
                   >
                     Starts{" "}
-                    {format(nextScheduledStartDate, "MMM d, yyyy 'at' h:mm a")}{" "}
+                    {format(
+                      nextScheduledStartDate,
+                      "MMM d, yyyy 'at' h:mm a (z)",
+                    )}{" "}
                     {editSchedule && <PiPencilSimpleFill className="ml-1" />}
                   </Button>
                 ) : experiment.status === "draft" ? (
@@ -833,11 +842,12 @@ export default function ExperimentHeader({
                         setShowStartExperiment(true);
                       }}
                       disabled={
-                        isBandit &&
-                        !experimentHasLiveLinkedChanges(
-                          experiment,
-                          linkedFeatures,
-                        )
+                        !canRunExperiment ||
+                        (isBandit &&
+                          !experimentHasLiveLinkedChanges(
+                            experiment,
+                            linkedFeatures,
+                          ))
                       }
                       icon={
                         hasExperimentSchedule ? undefined : <MdRocketLaunch />
@@ -861,7 +871,7 @@ export default function ExperimentHeader({
                   </>
                 ) : null}
               </div>
-            ) : null}
+            )}
             <DropdownMenu
               trigger={
                 <IconButton

@@ -89,7 +89,7 @@ export default function EditFeatureDescriptionModal({
         mutate();
         const resolvedVersion =
           res?.draftVersion ?? (mode === "existing" ? selectedDraft : null);
-        if (resolvedVersion != null && setVersion) setVersion(resolvedVersion);
+        if (resolvedVersion !== null && setVersion) setVersion(resolvedVersion);
       })}
       cta={mode === "publish" ? "Save" : "Save to draft"}
       ctaEnabled={form.formState.isDirty}

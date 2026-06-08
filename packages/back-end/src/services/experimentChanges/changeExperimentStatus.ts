@@ -38,6 +38,7 @@ import {
   InvalidStatusError,
   PendingDraftPublishFailedError,
 } from "back-end/src/util/errors";
+import { assertFeatureNotLockedByRamp } from "back-end/src/services/rampSchedule";
 
 export type StartChecklistItemStatus = {
   key: string;
@@ -228,6 +229,27 @@ export async function getExperimentStartChecklistStatus(
     reason: "Add an SDK connection before starting.",
   });
 
+  const latestVariations = getLatestPhaseVariations(experiment);
+  linkedFeatures
+    .filter((f) => f.state !== "discarded" && f.state !== "archived")
+    .forEach((f) => {
+      const configuredVariationIds = new Set(
+        f.values.map((v) => v.variationId),
+      );
+      const hasMissingValues = latestVariations.some(
+        (v) => !configuredVariationIds.has(v.id),
+      );
+      if (hasMissingValues) {
+        items.push({
+          key: `missingVariationValues:${f.feature.id}`,
+          required: true,
+          status: "incomplete",
+          manual: false,
+          reason: `Fill in missing variation values for linked feature ${f.feature.id} before starting.`,
+        });
+      }
+    });
+
   if (orgHasPremiumFeature(context.org, "custom-launch-checklist")) {
     const checklist =
       (experiment.project &&
@@ -407,16 +429,28 @@ export async function startExperiment({
   context,
   experimentId,
   skipChecklist = false,
+  bypassLockdown = false,
 }: {
   context: ReqContext;
   experimentId: string;
   skipChecklist?: boolean;
+  /**
+   * When true, skip ramp-schedule lockdown enforcement on linked features and
+   * forward the bypass through to pending feature-draft publishing. Caller
+   * must verify admin-bypass permissions before passing true.
+   */
+  bypassLockdown?: boolean;
 }) {
-  const experiment = await loadAndValidateExperimentForStatusChange(
+  const loadedExperiment = await loadAndValidateExperimentForStatusChange(
     context,
     experimentId,
   );
+  const { checklistItems, status } = await getExperimentStartChecklist({
+    context,
+    experiment: loadedExperiment,
+  });
 
+  const experiment = loadedExperiment;
   if (experiment.status !== "draft") {
     throw new InvalidStatusError(
       "Experiment must be in draft status",
@@ -425,18 +459,20 @@ export async function startExperiment({
     );
   }
 
-  const checklistItems = await getExperimentStartChecklistStatus(
-    context,
-    experiment,
-  );
-  const incompleteRequiredItems = checklistItems.filter(
-    (item) => item.required && item.status === "incomplete",
-  );
-  if (incompleteRequiredItems.length > 0 && !skipChecklist) {
+  if (status === "notReady" && !skipChecklist) {
+    const incompleteRequiredItems = checklistItems.filter(
+      (item) => item.required && item.status === "incomplete",
+    );
     throw new ChecklistIncompleteError(
       "Experiment cannot be started: required checklist items are incomplete",
       incompleteRequiredItems,
     );
+  }
+
+  if (!bypassLockdown) {
+    for (const fid of experiment.linkedFeatures ?? []) {
+      await assertFeatureNotLockedByRamp(context, fid);
+    }
   }
 
   const { updated } = await executeExperimentStart(context, experiment);

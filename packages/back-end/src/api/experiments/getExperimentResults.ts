@@ -1,6 +1,6 @@
 import { getExperimentResultsValidator } from "shared/validators";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
-import { getLatestSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
+import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import {
   getMetricMapForExperiment,
   toExperimentApiInterface,
@@ -18,12 +18,11 @@ export const getExperimentResults = createApiRequestHandler(
 
   const phase = parseInt(req.query.phase ?? experiment.phases.length - 1 + "");
 
-  const snapshot = await getLatestSnapshot({
+  const snapshot = await getLatestSuccessfulSnapshot({
     context: req.context,
     experiment: experiment.id,
     phase,
     dimension: req.query.dimension,
-    withResults: true,
   });
 
   if (!snapshot) {
