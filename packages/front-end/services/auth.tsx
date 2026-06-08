@@ -355,6 +355,19 @@ export const AuthProvider: React.FC<{
         responseData = await response.blob();
       } else {
         responseData = await response.json();
+        // Internal endpoints include a `status` field in their JSON error
+        // bodies, but the external REST API (/api/v1/*) returns just
+        // `{ message }`. Backfill the HTTP status on error responses so that
+        // `apiCall` can detect the failure instead of treating the error body
+        // as a successful result.
+        if (
+          !response.ok &&
+          responseData &&
+          typeof responseData === "object" &&
+          typeof responseData.status !== "number"
+        ) {
+          responseData.status = response.status;
+        }
       }
 
       return responseData;

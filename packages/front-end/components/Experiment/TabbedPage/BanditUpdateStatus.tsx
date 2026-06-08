@@ -16,11 +16,14 @@ export default function BanditUpdateStatus({
   mutate,
   isPublic,
   ssrSnapshot,
+  refreshEndpoint,
 }: {
   experiment: ExperimentInterfaceStringDates;
   mutate?: () => void;
   isPublic?: boolean;
   ssrSnapshot?: ExperimentSnapshotInterface;
+  /** Override for the bandit refresh call (e.g. Contextual Bandits). */
+  refreshEndpoint?: string;
 }) {
   const { latestSummary: _latest } = useSnapshot();
   const latest = _latest ?? ssrSnapshot;
@@ -241,6 +244,7 @@ export default function BanditUpdateStatus({
                 experiment={experiment}
                 setError={setError}
                 setGeneratedSnapshot={setGeneratedSnapshot}
+                refreshEndpoint={refreshEndpoint}
               />
             </>
           )}

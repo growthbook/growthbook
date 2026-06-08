@@ -419,6 +419,9 @@ export default function ContextualBanditResultsTable({
         phase={phase}
         dimension={dimension}
         setAnalysisSettings={setAnalysisSettings}
+        // `experiment.id` is a `cb_` id, so the legacy `/experiment/:id/snapshot`
+        // route 404s. Route the refresh through the CB-native endpoint instead.
+        refreshEndpoint={`/api/v1/contextual-bandits/${experiment.id}/refresh`}
       />
     ) : null;
 

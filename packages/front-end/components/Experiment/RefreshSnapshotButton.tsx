@@ -21,6 +21,13 @@ const RefreshSnapshotButton: FC<{
   useRadixButton?: boolean;
   radixVariant?: "outline" | "solid" | "soft";
   setError: (e: string | undefined) => void;
+  /**
+   * Override for the snapshot refresh call. Contextual Bandits use their own
+   * endpoint (`POST /api/v1/contextual-bandits/:id/refresh`, empty body) and
+   * live outside the experiments collection, so the legacy
+   * `/experiment/:id/snapshot` call 404s ("Experiment not found") for them.
+   */
+  refreshEndpoint?: string;
 }> = ({
   mutate,
   experiment,
@@ -29,6 +36,7 @@ const RefreshSnapshotButton: FC<{
   useRadixButton = false,
   radixVariant = "outline",
   setError,
+  refreshEndpoint,
 }) => {
   const [loading, setLoading] = useState(false);
   const [longResult, setLongResult] = useState(false);
@@ -38,6 +46,13 @@ const RefreshSnapshotButton: FC<{
   const { apiCall } = useAuth();
 
   const refreshSnapshot = async () => {
+    // CB refresh endpoint takes an empty body and returns no snapshot object,
+    // so there's nothing to track here — just trigger and let `mutate()` (called
+    // by the click handler) pick up the new snapshot.
+    if (refreshEndpoint) {
+      await apiCall(refreshEndpoint, { method: "POST" });
+      return;
+    }
     // Precomputed dimensions are computed as part of a standard snapshot,
     // so we don't need to pass them to the backend for a new snapshot query
     const snapshotDimension = isDimensionPrecomputed(

@@ -162,7 +162,10 @@ const ContextualBanditExperimentPage = (): ReactElement => {
 
   // Phase-shape modals still call legacy experiment routes; phase shape diverges.
   const cbUpdateEndpoint = `/api/v1/contextual-bandits/${cb.id}`;
+  const cbStartEndpoint = `/api/v1/contextual-bandits/${cb.id}/start`;
   const cbStopEndpoint = `/api/v1/contextual-bandits/${cb.id}/stop`;
+  const cbRefreshEndpoint = `/api/v1/contextual-bandits/${cb.id}/refresh`;
+  const cbResultsEndpoint = `/api/v1/contextual-bandits/${cb.id}/results`;
 
   const canEditExperiment =
     permissionsUtil.canViewExperimentModal(experiment.project) &&
@@ -360,7 +363,10 @@ const ContextualBanditExperimentPage = (): ReactElement => {
         ]}
       />
 
-      <SnapshotProvider experiment={experiment}>
+      <SnapshotProvider
+        experiment={experiment}
+        resultsEndpoint={cbResultsEndpoint}
+      >
         <TabbedPage
           experiment={experiment}
           linkedFeatures={linkedFeatures}
@@ -381,6 +387,8 @@ const ContextualBanditExperimentPage = (): ReactElement => {
           checklistHardBlockerCount={checklistHardBlockerCount}
           setChecklistItemsRemaining={setChecklistItemsRemaining}
           setChecklistHardBlockerCount={setChecklistHardBlockerCount}
+          startEndpoint={cbStartEndpoint}
+          refreshEndpoint={cbRefreshEndpoint}
         />
       </SnapshotProvider>
     </>

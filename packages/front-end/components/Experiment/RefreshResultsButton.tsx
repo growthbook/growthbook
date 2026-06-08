@@ -59,6 +59,13 @@ export interface RefreshResultsButtonProps<
   ) => void;
   // SafeRollout-specific props
   safeRollout?: SafeRolloutInterface;
+  /**
+   * Override for the snapshot refresh call (e.g. Contextual Bandits, which POST
+   * to `/api/v1/contextual-bandits/:id/refresh` with an empty body and live
+   * outside the experiments collection). When set, the legacy
+   * `/experiment/:id/snapshot` call is bypassed and no snapshot tracking runs.
+   */
+  refreshEndpoint?: string;
 }
 
 export default function RefreshResultsButton<
@@ -81,6 +88,7 @@ export default function RefreshResultsButton<
   phase,
   dimension,
   safeRollout,
+  refreshEndpoint,
 }: RefreshResultsButtonProps<T>) {
   const { apiCall } = useAuth();
   const { getDatasourceById } = useDefinitions();
@@ -155,7 +163,10 @@ export default function RefreshResultsButton<
                 : undefined;
 
             try {
-              if (entityType === "safe-rollout") {
+              if (refreshEndpoint) {
+                // CB refresh endpoint: empty body, returns no snapshot object.
+                await apiCall(refreshEndpoint, { method: "POST" });
+              } else if (entityType === "safe-rollout") {
                 await apiCall<{ snapshot: SafeRolloutSnapshotInterface }>(
                   snapshotEndpoint,
                   { method: "POST" },
@@ -200,6 +211,7 @@ export default function RefreshResultsButton<
           setError={(error) => setRefreshError(error ?? "")}
           useRadixButton={true}
           radixVariant="outline"
+          refreshEndpoint={refreshEndpoint}
         />
       ) : shouldRenderSafeRolloutButton ? (
         <SafeRolloutRefreshSnapshotButton

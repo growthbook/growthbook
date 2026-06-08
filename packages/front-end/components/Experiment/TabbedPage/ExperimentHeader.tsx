@@ -94,6 +94,13 @@ export interface Props {
   holdout?: HoldoutInterfaceStringDates;
   showDashboardView: boolean;
   editSchedule?: (() => void) | null;
+  /**
+   * Override for the "start" lifecycle call. Contextual Bandits have their own
+   * endpoint (`POST /api/v1/contextual-bandits/:id/start`, empty body) and are
+   * not in the experiments collection, so the legacy `/experiment/:id/status`
+   * call 404s ("Experiment not found") for them.
+   */
+  startEndpoint?: string;
 }
 
 const datasourcesWithoutHealthData = new Set(["mixpanel", "google_analytics"]);
@@ -155,6 +162,7 @@ export default function ExperimentHeader({
   holdout,
   showDashboardView,
   editSchedule,
+  startEndpoint,
 }: Props) {
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
@@ -317,6 +325,12 @@ export default function ExperimentHeader({
           status: "running",
           holdoutRunningStatus: "running",
         }),
+      });
+    } else if (startEndpoint) {
+      // CB lifecycle endpoint takes an empty body and lives outside the
+      // experiments collection.
+      await apiCall(startEndpoint, {
+        method: "POST",
       });
     } else {
       await apiCall(`/experiment/${experiment.id}/status`, {

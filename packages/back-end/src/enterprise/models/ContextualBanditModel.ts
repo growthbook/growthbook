@@ -49,6 +49,11 @@ const BaseClass = MakeModelClass({
     updateEvent: "contextualBandit.update",
     deleteEvent: "contextualBandit.delete",
   },
+  // The legacy `{ organization, experiment }` unique index is dropped now that
+  // CBs are decoupled from experiments. With `experiment` gone from the schema
+  // every doc indexed `experiment: null`, so the unique constraint allowed only
+  // a single CB per org (any second create threw an E11000 dup-key error).
+  indexesToRemove: ["organization_1_experiment_1"],
   apiConfig: {
     modelKey: "contextualBandits",
     openApiSpec: contextualBanditApiSpec,
