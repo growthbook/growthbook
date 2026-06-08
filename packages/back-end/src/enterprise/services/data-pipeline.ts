@@ -1,11 +1,17 @@
 import md5 from "md5";
 import {
   ExperimentMetricInterface,
+  getAutoSliceMetrics,
   isFactMetric,
+  isSliceMetric,
   quantileMetricType,
 } from "shared/experiments";
 import { isExperimentIncrementalEnabled } from "shared/enterprise";
-import { IncrementalRefreshInterface } from "shared/validators";
+import {
+  AggregatedFactTableInterface,
+  AggregatedFactTableMetricStateInterface,
+  IncrementalRefreshInterface,
+} from "shared/validators";
 import {
   ExperimentSnapshotSettings,
   MetricForSnapshot,
@@ -20,6 +26,7 @@ import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { getFiltersForHash } from "back-end/src/services/experimentTimeSeries";
+import { getColumnsForMetric } from "back-end/src/integrations/sql/fact-metrics/columns-for-metric";
 
 // If the given settings / experiment is not compatible with incremental refresh, throw an error.
 // Otherwise, return void.
@@ -262,4 +269,195 @@ export function getMetricSettingsHashForIncrementalRefresh({
       filters: getFiltersForHash(denominatorFactTable, factMetric.denominator),
     },
   });
+}
+
+// Hash of only the schema-breaking parts of a fact metric (fields that change
+// the materialized table's column set or stored data types). Tolerable changes
+// (capping, conversion windows, thresholds, etc.) affect read-time
+// interpretation only and are excluded; an included field changing triggers a
+// nightly full-table restate. `factTableId` decides which metric side(s) this
+// table stores.
+export function getMetricSettingsHashForAggregatedFactTable({
+  factMetric,
+  factTableId,
+}: {
+  factMetric: FactMetricInterface;
+  factTableId: string;
+}): string {
+  const includeNumerator = factMetric.numerator.factTableId === factTableId;
+  const includeDenominator =
+    !!factMetric.denominator &&
+    factMetric.denominator.factTableId === factTableId;
+
+  // Only the column-ref parts that change stored data type / column name. The
+  // aggregate-filter threshold is omitted (it changes values, not schema).
+  const schemaBreakingColumnRef = (
+    ref: FactMetricInterface["numerator"] | null | undefined,
+  ) =>
+    ref
+      ? {
+          factTableId: ref.factTableId,
+          column: ref.column,
+          aggregation: ref.aggregation,
+        }
+      : null;
+
+  return hashObject({
+    metricType: factMetric.metricType,
+    numerator: includeNumerator
+      ? schemaBreakingColumnRef(factMetric.numerator)
+      : null,
+    denominator: includeDenominator
+      ? schemaBreakingColumnRef(factMetric.denominator)
+      : null,
+    // Event vs unit quantiles change whether `_value` is a sketch and whether a
+    // paired `_n_events` column exists.
+    quantileType: factMetric.quantileSettings?.type ?? null,
+  });
+}
+
+// Hash of the fact-table definition, stored on the registry to detect FT drift.
+export function getFactTableSettingsHashForAggregatedFactTable(
+  factTable: FactTableInterface,
+): string {
+  return hashObject({
+    sql: factTable.sql,
+    eventName: factTable.eventName,
+    filters: (factTable.filters ?? [])
+      .map((f) => ({ id: f.id, value: f.value }))
+      .sort((a, b) => a.id.localeCompare(b.id)),
+  });
+}
+
+// Builds the schema state the nightly job persists on the registry: the
+// fact-table definition hash plus per-metric state (settings hash + the
+// columns each metric/slice materializes). `metrics` must already be the
+// flattened set (base metrics + auto-slice variants) the run will materialize.
+export function buildAggregatedFactTableSchemaState({
+  factTable,
+  metrics,
+}: {
+  factTable: FactTableInterface;
+  metrics: FactMetricInterface[];
+}): {
+  factTableSettingsHash: string;
+  metricState: AggregatedFactTableMetricStateInterface[];
+} {
+  const factTableSettingsHash =
+    getFactTableSettingsHashForAggregatedFactTable(factTable);
+
+  const metricState: AggregatedFactTableMetricStateInterface[] = metrics.map(
+    (metric) => ({
+      metricId: metric.id,
+      settingsHash: getMetricSettingsHashForAggregatedFactTable({
+        factMetric: metric,
+        factTableId: factTable.id,
+      }),
+      columns: getColumnsForMetric(metric, factTable.id),
+      // Slice metrics are already flattened into `metrics`; only base metrics
+      // own the slice list (calling getAutoSliceMetrics on a slice clones again).
+      slices: isSliceMetric(metric)
+        ? []
+        : getAutoSliceMetrics({ metric, factTable }).map((sliceMetric) => ({
+            metricId: sliceMetric.id,
+            columns: getColumnsForMetric(sliceMetric, factTable.id),
+          })),
+      builtAt: new Date(),
+    }),
+  );
+
+  return { factTableSettingsHash, metricState };
+}
+
+// True when the materialized table is missing a column the current metric set
+// needs, or has a column whose type no longer matches. Only additions and
+// type changes drift: a removed/disabled metric or slice just leaves a harmless
+// orphan column the append insert and read path ignore, so it is tolerated to
+// avoid a needless restate. Re-adding such a metric still drifts, because the
+// reduced metric set was persisted to the registry on the tolerating run, so
+// the metric reads as a new addition. Comparisons are order-independent.
+export function detectAggregatedFactTableSchemaDrift({
+  registry,
+  factTableSettingsHash,
+  metricState,
+}: {
+  registry: Pick<
+    AggregatedFactTableInterface,
+    "tableFullName" | "factTableSettingsHash" | "metricState"
+  >;
+  factTableSettingsHash: string;
+  metricState: AggregatedFactTableMetricStateInterface[];
+}): { drift: boolean; reason?: string } {
+  // Defensive: a materialized table with no recorded metric state can't be
+  // safely appended to.
+  if (registry.tableFullName && !registry.metricState.length) {
+    return { drift: true, reason: "missing metric state" };
+  }
+
+  if (factTableSettingsHash !== registry.factTableSettingsHash) {
+    return { drift: true, reason: "fact table definition changed" };
+  }
+
+  const prevById = new Map(registry.metricState.map((m) => [m.metricId, m]));
+
+  // Only inspect the current metric set: a metric in `prev` but not in `next`
+  // is a tolerated removal (orphan column). An added metric or a changed
+  // settings/slice column is what requires a rebuild.
+  for (const [metricId, next] of metricState.map(
+    (m) => [m.metricId, m] as const,
+  )) {
+    const prev = prevById.get(metricId);
+    if (!prev) {
+      return { drift: true, reason: `metric ${metricId} added` };
+    }
+    if (prev.settingsHash !== next.settingsHash) {
+      return { drift: true, reason: `metric ${metricId} settings changed` };
+    }
+    const prevSlices = new Set((prev.slices ?? []).map((s) => s.metricId));
+    const nextSlices = new Set((next.slices ?? []).map((s) => s.metricId));
+    if ([...nextSlices].some((s) => !prevSlices.has(s))) {
+      return { drift: true, reason: `metric ${metricId} slices added` };
+    }
+  }
+
+  return { drift: false };
+}
+
+export type AggregatedFactTableRestateReason =
+  // A prior run appended but never durably advanced the watermark, so the
+  // table may contain rows the watermark doesn't account for.
+  "incomplete-write" | "schema-drift" | null;
+
+// The single predicate the driver and the status UI both use to decide whether
+// an already-materialized table needs to be rebuilt rather than incrementally
+// appended to. First-run (no table yet) is handled by the caller.
+export function getAggregatedFactTableRestateReason({
+  registry,
+  factTableSettingsHash,
+  metricState,
+}: {
+  registry: Pick<
+    AggregatedFactTableInterface,
+    | "tableFullName"
+    | "factTableSettingsHash"
+    | "metricState"
+    | "inFlightExecutionId"
+  >;
+  factTableSettingsHash: string;
+  metricState: AggregatedFactTableMetricStateInterface[];
+}): AggregatedFactTableRestateReason {
+  if (!registry.tableFullName) return null;
+  if ((registry.inFlightExecutionId ?? null) !== null) {
+    return "incomplete-write";
+  }
+  if (
+    detectAggregatedFactTableSchemaDrift({
+      registry,
+      factTableSettingsHash,
+      metricState,
+    }).drift
+  ) {
+    return "schema-drift";
+  }
+  return null;
 }
