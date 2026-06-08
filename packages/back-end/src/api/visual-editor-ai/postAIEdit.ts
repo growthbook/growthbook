@@ -9,6 +9,8 @@ import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
 import { requireUserAuth } from "./requireUserAuth";
+import { buildVisualEditorTools, VISUAL_EDITOR_MAX_STEPS } from "./aiTools";
+import { aiEditJobStore } from "./aiTools/clientJob";
 
 const elementContextSchema = z.object({
   selector: z.string(),
@@ -111,6 +113,16 @@ const bodySchema = z
       .max(10)
       .regex(/^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})?$/)
       .optional(),
+    // Opt-in protocol flag. When true, the response is wrapped as
+    //   { kind: "final", payload: { mutations, css, js, explanation } }
+    // or
+    //   { kind: "tool-call", jobId, callId, tool, args }
+    // and DOM-side tools (getComputedStyles, findElements, getInnerHTML)
+    // are included in the toolset — the client is expected to service
+    // their results via POST /visual-editor/ai/edit/resume.
+    // When omitted/false, the response is the original unwrapped shape
+    // and only server-side tools (generateImage, etc.) are available.
+    streamingMode: z.boolean().optional(),
   })
   .strict();
 
@@ -151,6 +163,12 @@ const mutationSchema = z.object({
     .nullable()
     .describe(
       "Position moves only: CSS selector of the sibling inside parentSelector to insert this element BEFORE. Null to append at the end of the parent. Must be present in the page-elements catalog when provided.",
+    ),
+  options: z
+    .array(z.string())
+    .nullable()
+    .describe(
+      'Alternative candidate values for `value`, shown to the user as a pick-one chooser in the UI. Populate ONLY when the user explicitly asks for multiple options/alternatives to choose from (e.g. "give me some alternative titles", "a few hero image options"). Include 2-5 entries. `value` must be your top recommendation AND must also be the first entry of this array. For text, each entry is an alternative string (plain text or HTML, matching the attribute). For images, each entry is a separate generated image URL — call generateImage once per option, never a collage. Null when not offering a choice.',
     ),
 });
 
@@ -231,6 +249,26 @@ DOM mutations vs global JS precedence — critical:
 - Example A — "change the headline to Welcome": DOM mutation on the headline. No JS.
 - Example B — "show a countdown timer in the headline that updates every second": JS only — the timer needs to keep writing. Do NOT also emit a mutation setting the headline text, or the mutation will fight the timer.
 - Example C — "when the button is clicked, swap its label": JS only — the label change is event-driven. Do NOT emit a class/text mutation on the button.
+
+Tools you may call before producing the final JSON output:
+- \`generateImage\` — generate a single AI image and get a hosted URL. Call when the user asks to replace, set, or insert any image (or any background-image). The URL you get back can be placed directly into a mutation's \`value\` — as a \`src\` for <img>, inside a \`background-image: url(...)\` style, or as part of HTML markup for a new <img>. Pick the aspectRatio that matches where the image will appear (16:9 hero, 1:1 avatar, etc.). Call once per image; for multi-image requests (e.g. "build a carousel of 3 slides"), call multiple times. You are budgeted up to 3 image generations per turn.
+- \`searchImageLibrary\` — list recent images the user has previously uploaded or generated. Useful when the user says "use one of my existing images" or references a prior visual. The results don't include visual content, only URLs and dates — prefer \`generateImage\` when the user describes a specific look.
+- \`getDesignTokens\` — fetch the organization's brand guidelines. Call when the user asks for changes that should be "on brand", "match our style", or "use our colors". Skip for purely tactical edits.
+- \`searchPastExperiments\` — search the user's previous A/B tests by name, hypothesis, or description. Call when the user references prior work ("similar to the pricing test", "what's worked here before", "try what we did on signup"). Returns experiment names + hypotheses + ids — never raw conversion numbers or revenue. Use the results to inform DIRECTION ("similar prior tests have leaned warmer/bolder/shorter"), not as a source of quoted numeric claims.
+- \`getExperimentVariations\` — given an experimentId from searchPastExperiments, fetch the variations' actual mutations + CSS + JS. Call this when the user explicitly wants to mirror or adapt the changes from a prior experiment. Long mutation values are truncated — treat them as patterns, not as verbatim source.
+
+Tool-use guidance:
+- Don't call tools just because they're available. If the user request can be fulfilled with information already in the prompt, return mutations directly without any tool calls.
+- After all needed tool results are in hand, emit the final JSON output that matches the schema — never trail an explanation after a tool result without producing the JSON.
+- When you place a generated image URL into a mutation, make sure the surrounding markup makes sense: <img> needs src + alt; CSS \`background-image: url(...)\` needs background-size and background-position too; an inserted <img> in an HTML mutation should be wrapped in an appropriate container.
+- Past-experiment data is sensitive. When you call \`searchPastExperiments\` or \`getExperimentVariations\`, the chat that contains your explanation persists with the changeset and may later be read by users with different permissions. Never quote specific experiment names, IDs, hypotheses, or numeric outcomes in the \`explanation\` field. Use only directional language ("Similar past tests in this account have favored a warmer color", "Previous attempts have leaned toward shorter copy"). The mutations + CSS + JS you emit are fine — those don't surface raw experiment metadata.
+
+Offering alternatives for the user to choose from:
+- When the user asks for MULTIPLE options or alternatives ("give me some alternative titles", "a few fun headline options", "show me a few hero images to pick from"), do NOT pick one silently. Return ONE mutation for the target element with the \`options\` array populated (2-5 candidates) and \`value\` set to your top recommendation (which must also be options[0]). The user picks one in the UI; the chosen value becomes the applied change.
+- Text alternatives: each entry in \`options\` is an alternative string (plain text or HTML, matching the attribute — usually "html"). Make them genuinely distinct, not trivial rewordings.
+- Image alternatives: call \`generateImage\` once PER option (each a single standalone image — never one collage of variants), then put the returned URLs into \`options\` with \`value\` = the first URL. Respect the per-turn image budget; 2-3 options is plenty.
+- Only one element per "alternatives" request. If the user asks for alternatives on several elements at once, return one options-bearing mutation per element.
+- For ordinary single changes (no "alternatives"/"options" language), leave \`options\` null and just set \`value\`.
 
 Conversation continuity:
 - You may be given a "Previous conversation" block. Use it to resolve pronouns ("it", "them", "the same one") and references to earlier edits. Do not re-apply mutations already accepted in earlier turns unless explicitly asked.
@@ -486,7 +524,11 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     effectiveInstructions = `${effectiveInstructions}\n\nLanguage:\n- The user's interface is set to locale "${locale}". Write the \`explanation\` field in that language (the natural language the user reads on screen).\n- Keep the JSON keys, selectors, attribute names, mutation actions ("set"/"append"/"remove"), CSS, JS, and any code identifiers in English — only the explanation prose is localized.`;
   }
 
-  const runModel = async (retryHint?: string) =>
+  // Single-shot retry without tools — fired by finalize() if the LLM
+  // proposed selectors not in the catalog. Tools aren't useful here:
+  // the retry hint already names the missing selectors and tells the
+  // model to pick from the catalog.
+  const runRetry = async (retryHint: string) =>
     parsePrompt({
       context,
       instructions: effectiveInstructions,
@@ -505,9 +547,8 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       isDefaultPrompt: true,
       zodObjectSchema: outputSchema,
       overrideModel: visualEditorAIModel,
+      cacheSystemPrompt: true,
     });
-
-  let result = await runModel();
 
   // Every selector a mutation requires on the page. Position moves
   // additionally require parentSelector (and insertBeforeSelector when set).
@@ -525,80 +566,194 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     ];
   };
 
-  // Self-correct: one retry when the model proposes a selector not in
-  // the digest or picked-element context. Single retry only — multiple
-  // retries hurt latency more than they help accuracy.
-  if (domDigest && trustedSelectors.size > 0 && result.mutations.length > 0) {
-    const misses = result.mutations
-      .flatMap(requiredSelectors)
-      .filter((s) => !trustedSelectors.has(s));
-    if (misses.length > 0) {
-      const uniqueMisses = Array.from(new Set(misses));
-      const retryHint = `RETRY: Your previous attempt used selectors that are NOT on the page: ${uniqueMisses
-        .map((s) => `\`${s}\``)
-        .join(
-          ", ",
-        )}. Pick selectors verbatim from the "Page elements" catalog above. For position moves, the parent and insert-before targets count too — they must also be in the catalog. If no catalog entry plausibly matches a target, return mutations = [] and explain why.`;
-      try {
-        result = await runModel(retryHint);
-      } catch (e) {
-        // Keep the original response on retry failure; the front-end's
-        // live-DOM selector validator will catch remaining misses.
-        logger.warn({ err: e }, "[visual-editor-ai] self-correct retry failed");
+  // Validate selectors, retry once on miss, sanitize, and return the
+  // final response shape. Used in both modes — non-streaming inlines
+  // it; streaming attaches it to the job so /edit/resume can run the
+  // same logic after the LLM's final output arrives.
+  const finalizeOutput = async (
+    raw: z.infer<typeof outputSchema>,
+  ): Promise<{
+    mutations: unknown[];
+    css?: string;
+    js?: string;
+    explanation: string;
+  }> => {
+    let result = raw;
+    if (domDigest && trustedSelectors.size > 0 && result.mutations.length > 0) {
+      const misses = result.mutations
+        .flatMap(requiredSelectors)
+        .filter((s) => !trustedSelectors.has(s));
+      if (misses.length > 0) {
+        const uniqueMisses = Array.from(new Set(misses));
+        const retryHint = `RETRY: Your previous attempt used selectors that are NOT on the page: ${uniqueMisses
+          .map((s) => `\`${s}\``)
+          .join(
+            ", ",
+          )}. Pick selectors verbatim from the "Page elements" catalog above. For position moves, the parent and insert-before targets count too — they must also be in the catalog. If no catalog entry plausibly matches a target, return mutations = [] and explain why.`;
+        try {
+          result = await runRetry(retryHint);
+        } catch (e) {
+          logger.warn(
+            { err: e },
+            "[visual-editor-ai] self-correct retry failed",
+          );
+        }
       }
     }
+
+    const sanitizedMutations = result.mutations.filter((m) => {
+      if (m.attribute !== "position") return true;
+      if (!m.parentSelector) {
+        logger.warn(
+          { selector: m.selector },
+          "[visual-editor-ai] dropping position mutation: missing parentSelector",
+        );
+        return false;
+      }
+      if (m.parentSelector === m.selector) {
+        logger.warn(
+          { selector: m.selector },
+          "[visual-editor-ai] dropping self-targeting position mutation",
+        );
+        return false;
+      }
+      if (m.insertBeforeSelector && m.insertBeforeSelector === m.selector) {
+        logger.warn(
+          { selector: m.selector },
+          "[visual-editor-ai] dropping position mutation: insertBefore == selector",
+        );
+        return false;
+      }
+      return true;
+    });
+
+    return {
+      mutations: sanitizedMutations.map((m) => {
+        const attribute = m.attribute === "text" ? "html" : m.attribute;
+        const isPosition = attribute === "position";
+        // Surface `options` only when it's a genuine multi-choice set
+        // (≥2 distinct entries). A single-entry or null options array is
+        // just a normal mutation — don't burden the client with a
+        // chooser of one. Dedupe defensively (the model occasionally
+        // repeats its top pick).
+        const opts =
+          !isPosition && m.options
+            ? Array.from(new Set(m.options.filter((o) => o && o.length > 0)))
+            : [];
+        return {
+          selector: m.selector,
+          action: m.action,
+          attribute,
+          ...(!isPosition && m.value !== null ? { value: m.value } : {}),
+          ...(opts.length >= 2 ? { options: opts } : {}),
+          ...(isPosition && m.parentSelector
+            ? { parentSelector: m.parentSelector }
+            : {}),
+          ...(isPosition && m.insertBeforeSelector
+            ? { insertBeforeSelector: m.insertBeforeSelector }
+            : {}),
+        };
+      }),
+      ...(result.css ? { css: result.css } : {}),
+      ...(result.js ? { js: result.js } : {}),
+      explanation: result.explanation,
+    };
+  };
+
+  // ---- Run the LLM (with tools) via the job-based race. Streaming
+  // mode includes DOM-side tools and yields tool-call responses to the
+  // client; non-streaming mode runs without DOM tools so the race only
+  // ever resolves to "final".
+  const streamingMode = !!req.body.streamingMode;
+  const job = aiEditJobStore.create();
+  const tools = buildVisualEditorTools({
+    context,
+    job: streamingMode ? job : undefined,
+  });
+  // Cast through unknown — the job store is invariant in TFinal for
+  // type-erasure reasons but each job is used with one schema only.
+  (
+    job as unknown as {
+      finalize: (raw: z.infer<typeof outputSchema>) => Promise<unknown>;
+    }
+  ).finalize = finalizeOutput;
+
+  const generation = parsePrompt({
+    context,
+    instructions: effectiveInstructions,
+    prompt: buildPrompt({
+      prompt,
+      elementContext,
+      existingMutations: currentChange?.domMutations ?? [],
+      existingCss: currentChange?.css,
+      existingJs: currentChange?.js,
+      domDigest,
+      conversationHistory,
+    }),
+    temperature: 0.2,
+    type: "visual-editor-ai-edit",
+    isDefaultPrompt: true,
+    zodObjectSchema: outputSchema,
+    overrideModel: visualEditorAIModel,
+    tools,
+    maxSteps: VISUAL_EDITOR_MAX_STEPS,
+    cacheSystemPrompt: true,
+    onStepFinish: ({ toolCalls }) => {
+      if (toolCalls && toolCalls.length > 0) {
+        logger.debug(
+          {
+            orgId: context.org.id,
+            tools: toolCalls.map((c) => c.toolName),
+          },
+          "[visual-editor-ai/edit] tool calls",
+        );
+      }
+    },
+  });
+  (
+    job as unknown as {
+      setGenerationPromise: (p: Promise<unknown>) => void;
+    }
+  ).setGenerationPromise(generation);
+
+  const outcome = await (
+    job as unknown as {
+      race: () => Promise<
+        | { kind: "toolCall"; callId: string; tool: string; args: unknown }
+        | { kind: "final"; payload: z.infer<typeof outputSchema> }
+        | { kind: "error"; error: string }
+      >;
+    }
+  ).race();
+
+  if (outcome.kind === "error") {
+    aiEditJobStore.delete(job.id);
+    throw new Error(outcome.error);
+  }
+  if (outcome.kind === "toolCall") {
+    // Only streamingMode includes DOM-side tools, so this branch is
+    // unreachable when streaming is off — defensive throw makes that
+    // explicit. Server-side tools execute synchronously inside
+    // generateText and never reach the race.
+    if (!streamingMode) {
+      aiEditJobStore.delete(job.id);
+      throw new Error(
+        "Internal: unexpected client-side tool call without streamingMode.",
+      );
+    }
+    return {
+      kind: "tool-call" as const,
+      jobId: job.id,
+      callId: outcome.callId,
+      tool: outcome.tool,
+      args: outcome.args,
+    };
   }
 
-  // Drop invalid moves server-side — LLMs occasionally emit no-op or
-  // self-cycle moves (e.g. selector == parentSelector) that would crash
-  // dom-mutator. Other mutations in the same turn flow through.
-  const sanitizedMutations = result.mutations.filter((m) => {
-    if (m.attribute !== "position") return true;
-    if (!m.parentSelector) {
-      logger.warn(
-        { selector: m.selector },
-        "[visual-editor-ai] dropping position mutation: missing parentSelector",
-      );
-      return false;
-    }
-    if (m.parentSelector === m.selector) {
-      logger.warn(
-        { selector: m.selector },
-        "[visual-editor-ai] dropping self-targeting position mutation",
-      );
-      return false;
-    }
-    if (m.insertBeforeSelector && m.insertBeforeSelector === m.selector) {
-      logger.warn(
-        { selector: m.selector },
-        "[visual-editor-ai] dropping position mutation: insertBefore == selector",
-      );
-      return false;
-    }
-    return true;
-  });
-
-  return {
-    mutations: sanitizedMutations.map((m) => {
-      // dom-mutator has no "text" attribute — coerce to "html" so visible
-      // text changes actually take effect.
-      const attribute = m.attribute === "text" ? "html" : m.attribute;
-      const isPosition = attribute === "position";
-      return {
-        selector: m.selector,
-        action: m.action,
-        attribute,
-        ...(!isPosition && m.value !== null ? { value: m.value } : {}),
-        ...(isPosition && m.parentSelector
-          ? { parentSelector: m.parentSelector }
-          : {}),
-        ...(isPosition && m.insertBeforeSelector
-          ? { insertBeforeSelector: m.insertBeforeSelector }
-          : {}),
-      };
-    }),
-    ...(result.css ? { css: result.css } : {}),
-    ...(result.js ? { js: result.js } : {}),
-    explanation: result.explanation,
-  };
+  // outcome.kind === "final"
+  const finalized = await finalizeOutput(outcome.payload);
+  aiEditJobStore.delete(job.id);
+  return streamingMode
+    ? { kind: "final" as const, payload: finalized }
+    : finalized;
 });

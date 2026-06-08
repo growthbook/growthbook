@@ -1,5 +1,6 @@
 import { OpenApiRoute } from "back-end/src/util/handler";
 import { postAIEdit } from "./postAIEdit";
+import { postAIEditResume } from "./postAIEditResume";
 import { postAISuggestions } from "./postAISuggestions";
 import { postAIImageGen } from "./postAIImageGen";
 import { postPromoteImage } from "./postPromoteImage";
@@ -13,6 +14,7 @@ import { getLibraryImages } from "./getLibraryImages";
 
 export const visualEditorAiRoutes: OpenApiRoute[] = [
   postAIEdit,
+  postAIEditResume,
   postAISuggestions,
   postAIImageGen,
   postPromoteImage,

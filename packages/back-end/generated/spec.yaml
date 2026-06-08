@@ -17601,6 +17601,12 @@ paths:
                           type: string
                         additionalProperties:
                           type: string
+                      computedStyles:
+                        type: object
+                        propertyNames:
+                          type: string
+                        additionalProperties:
+                          type: string
                     required:
                       - selector
                       - tagName
@@ -17757,6 +17763,8 @@ paths:
                   minLength: 2
                   maxLength: 10
                   pattern: ^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})?$
+                streamingMode:
+                  type: boolean
               required:
                 - prompt
                 - elementContext
@@ -17773,6 +17781,41 @@ paths:
           source: >-
             curl -X POST
             'https://api.growthbook.io/api/v1/visual-editor/ai/edit' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/ai/edit/resume:
+    post:
+      operationId: postVisualEditorAIEditResume
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                jobId:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                callId:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                result: {}
+              required:
+                - jobId
+                - callId
+                - result
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/ai/edit/resume' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/visual-editor/ai/suggestions:
     post:
