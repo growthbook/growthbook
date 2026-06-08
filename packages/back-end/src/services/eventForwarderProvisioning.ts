@@ -37,7 +37,7 @@ function assertEventForwarderWriteAccessResult(
 }
 
 /**
- * Provisions Confluent resources for a BigQuery event forwarder via the central license server.
+ * Provisions Confluent resources for an event forwarder via the central license server.
  * Updates the Mongo document on success or error; throws after persisting error state.
  */
 export async function provisionEventForwarderThroughLicenseServer(
@@ -452,9 +452,9 @@ export async function resumeEventForwarderThroughLicenseServer(
 }
 
 /**
- * Tears down BigQuery Confluent resources via the license server (after Mongo cleanup).
+ * Tears down Confluent resources via the license server (after Mongo cleanup).
  */
-export async function teardownBigQueryEventForwarderInfrastructureRemote(snapshot: {
+export async function teardownEventForwarderInfrastructureRemote(snapshot: {
   organizationId: string;
   datasourceId: string;
   sinkType?: "bigquery" | "snowflake";

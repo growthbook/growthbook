@@ -75,7 +75,7 @@ export function buildSnowflakeEventForwarderTableReference(
   return `${database.trim()}.${schema.trim()}.${tableName.trim()}`;
 }
 
-function quoteBigQueryIdentifier(identifier: string): string {
+export function quoteBigQueryIdentifier(identifier: string): string {
   return `\`${identifier}\``;
 }
 
@@ -359,18 +359,7 @@ export function buildEventForwarderEventsFactTableSql(
 function getEventForwarderFactTableColumnDatatype(
   attribute: SDKAttribute,
 ): EventForwarderAttributeValueDatatype {
-  switch (attribute.datatype) {
-    case "boolean":
-      return "boolean";
-    case "number":
-      return "number";
-    case "string[]":
-    case "number[]":
-    case "secureString[]":
-      return "json";
-    default:
-      return "string";
-  }
+  return sdkAttributeTypeToValueDatatype(attribute.datatype);
 }
 
 export function buildEventForwarderEventsFactTableColumns(
