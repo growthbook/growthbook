@@ -21,6 +21,10 @@ type PendingRefreshDocument = {
 };
 
 const COLLECTION = "sdkpayloadrefreshpending";
+// Drop orphaned pending docs if Agenda never drains them.
+const PENDING_TTL_SECONDS = 60 * 60;
+// Cap burst accumulation if a drain job is stuck.
+const MAX_PENDING_REQUESTS = 256;
 
 function getPendingCollection() {
   const db = mongoose.connection.db;
@@ -41,6 +45,7 @@ export function mergeSdkPayloadRefreshRequests(
   const connectionMap = new Map<string, SDKConnectionInterface>();
   let treatEmptyProjectAsGlobal = false;
   let skipRefreshForProject: string | undefined;
+  let skipRefreshForProjectConflicted = false;
   let auditContext: SdkPayloadRefreshQueueRequest["auditContext"];
   let stackTrace: string | undefined;
 
@@ -54,11 +59,15 @@ export function mergeSdkPayloadRefreshRequests(
     if (request.treatEmptyProjectAsGlobal) {
       treatEmptyProjectAsGlobal = true;
     }
-    if (request.skipRefreshForProject !== undefined) {
+    if (
+      !skipRefreshForProjectConflicted &&
+      request.skipRefreshForProject !== undefined
+    ) {
       if (
         skipRefreshForProject !== undefined &&
         skipRefreshForProject !== request.skipRefreshForProject
       ) {
+        skipRefreshForProjectConflicted = true;
         skipRefreshForProject = undefined;
       } else {
         skipRefreshForProject = request.skipRefreshForProject;
@@ -91,7 +100,12 @@ export async function appendPendingSdkPayloadRefreshRequest(
   await collection.updateOne(
     { organization },
     {
-      $push: { requests: request },
+      $push: {
+        requests: {
+          $each: [request],
+          $slice: -MAX_PENDING_REQUESTS,
+        },
+      },
       $set: { dateUpdated: now },
       $setOnInsert: { organization, firstQueuedAt: now },
     },
@@ -130,7 +144,11 @@ export async function ensureSdkPayloadRefreshPendingIndex(): Promise<void> {
   try {
     const collection = getPendingCollection();
     await collection.createIndex({ organization: 1 }, { unique: true });
+    await collection.createIndex(
+      { dateUpdated: 1 },
+      { expireAfterSeconds: PENDING_TTL_SECONDS },
+    );
   } catch (e) {
-    logger.warn(e, "Failed to create sdkpayloadrefreshpending index");
+    logger.warn(e, "Failed to create sdkpayloadrefreshpending indexes");
   }
 }

@@ -194,14 +194,14 @@ export const CRON_ENABLED = !stringToBoolean(process.env.CRON_DISABLED);
 // Debounce coalesced SDK payload cache refreshes per org (0 = disabled).
 export const SDK_PAYLOAD_REFRESH_DEBOUNCE_MS = parseEnvInt(
   process.env.SDK_PAYLOAD_REFRESH_DEBOUNCE_MS,
-  5000,
+  1000,
   { min: 0, name: "SDK_PAYLOAD_REFRESH_DEBOUNCE_MS" },
 );
 
 // Force a refresh at least this often during continuous writes (0 = trailing debounce only).
 export const SDK_PAYLOAD_REFRESH_MAX_WAIT_MS = parseEnvInt(
   process.env.SDK_PAYLOAD_REFRESH_MAX_WAIT_MS,
-  30000,
+  5000,
   { min: 0, name: "SDK_PAYLOAD_REFRESH_MAX_WAIT_MS" },
 );
 
