@@ -2747,9 +2747,8 @@ export const reduceFeaturesWithPrerequisites = (
     }
 
     const rulesChanged =
-      existingRules.length > 0 &&
-      (newFeatureRules.length !== existingRules.length ||
-        newFeatureRules.some((r, i) => r !== existingRules[i]));
+      newFeatureRules.length !== existingRules.length ||
+      newFeatureRules.some((r, i) => r !== existingRules[i]);
 
     if (!prerequisitesChanged && !rulesChanged) {
       newFeatures.push(feature);
