@@ -76,8 +76,8 @@ async function runCoalescedSdkPayloadRefresh(
     "back-end/src/services/features"
   );
 
-  const context = await getContextForAgendaJobByOrgId(organization);
   try {
+    const context = await getContextForAgendaJobByOrgId(organization);
     await refreshSDKPayloadCache({
       context,
       payloadKeys: pending.merged.payloadKeys,

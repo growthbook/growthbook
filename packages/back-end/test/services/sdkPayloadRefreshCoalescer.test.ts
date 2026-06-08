@@ -79,5 +79,8 @@ describe("sdkPayloadRefreshCoalescer", () => {
   it("payloadKeyId is stable for deduplication", () => {
     const key = { environment: "production", project: "p1" };
     expect(payloadKeyId(key)).toBe(payloadKeyId({ ...key }));
+    expect(payloadKeyId({ environment: "production", project: "p1" })).toBe(
+      payloadKeyId({ project: "p1", environment: "production" }),
+    );
   });
 });

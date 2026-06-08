@@ -33,7 +33,13 @@ function getPendingCollection() {
 }
 
 export function payloadKeyId(key: SDKPayloadKey): string {
-  return JSON.stringify(key);
+  return JSON.stringify(
+    Object.fromEntries(
+      (Object.keys(key) as (keyof SDKPayloadKey)[])
+        .sort()
+        .map((k) => [k, key[k]]),
+    ),
+  );
 }
 
 export function mergeSdkPayloadRefreshRequests(
