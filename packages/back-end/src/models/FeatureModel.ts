@@ -620,7 +620,7 @@ export async function getFeatureProjectsByIds(
   if (!ids.length) return new Map();
   const features = await FeatureModel.find(
     { organization: context.org.id, id: { $in: ids } },
-    { projection: { id: 1, project: 1, _id: 0 } },
+    { id: 1, project: 1, _id: 0 },
   );
   return new Map(features.map((f) => [f.id, f.project || undefined]));
 }
