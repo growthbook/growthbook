@@ -67,6 +67,16 @@ export const updateFactTable = createApiRequestHandler(
         "Maintaining shared daily aggregated tables requires the data pipeline feature.",
       );
     }
+    const datasource = await getDataSourceById(
+      req.context,
+      factTable.datasource,
+    );
+    if (!datasource) {
+      throw new Error("Could not find datasource for this fact table");
+    }
+    if (!req.context.permissions.canUpdateDataSourceSettings(datasource)) {
+      req.context.permissions.throwPermissionError();
+    }
     validateAggregatedFactTableSettings(
       req.body.aggregatedFactTableSettings,
       req.body.userIdTypes ?? factTable.userIdTypes,
