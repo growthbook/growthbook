@@ -499,6 +499,15 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
   const currentChange = changeset.visualChanges.find(
     (vc) => vc.variation === variationId,
   );
+  // Fail fast on a variationId that isn't part of this changeset.
+  // Otherwise currentChange is undefined and the LLM sees empty
+  // existing mutations/CSS/JS — a "replace" response would then wipe
+  // the variation's real content because the model believes it's blank.
+  if (!currentChange) {
+    return context.throwBadRequestError(
+      "variationId does not belong to the given changeset",
+    );
+  }
 
   // Selectors the LLM may reference without triggering a retry.
   // Picked elements are trusted even when not in the digest — the user
