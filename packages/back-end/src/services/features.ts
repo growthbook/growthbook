@@ -109,6 +109,9 @@ import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 import { bucketRulesByEnv } from "back-end/src/util/toLegacy";
 import { ReqContext } from "back-end/types/request";
 import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
+import { enqueueCoalescedSdkPayloadRefresh } from "back-end/src/jobs/coalescedSdkPayloadRefresh";
+import { isSdkPayloadRefreshCoalescingEnabled } from "back-end/src/services/sdkPayloadRefreshCoalescer";
+import { CRON_ENABLED } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { promiseAllChunks } from "back-end/src/util/promise";
@@ -611,8 +614,9 @@ export function isSDKConnectionAffectedByPayloadKey(
   return connection.projects.includes(payloadKey.project);
 }
 
-// This is a synchronous wrapper around refreshSDKPayloadCache
-// We shouldn't need to await the refresh in most cases
+// This is a synchronous wrapper around refreshSDKPayloadCache.
+// When coalescing is enabled, requests are merged per org in Mongo and a single
+// Agenda job runs after a debounce window (works across app servers).
 export function queueSDKPayloadRefresh(data: {
   context: ReqContext | ApiReqContext;
   payloadKeys: SDKPayloadKey[];
@@ -624,8 +628,28 @@ export function queueSDKPayloadRefresh(data: {
   // Capture stack trace at the entry point to include the original caller
   const rawStack = new Error().stack || "";
   const stackTrace = rawStack.replace(/^Error.*?\n/, "");
-  refreshSDKPayloadCache({ ...data, stackTrace }).catch((e) => {
-    logger.error(e, "Error refreshing SDK Payload Cache");
+
+  const runRefresh = () => {
+    refreshSDKPayloadCache({ ...data, stackTrace }).catch((e) => {
+      logger.error(e, "Error refreshing SDK Payload Cache");
+    });
+  };
+
+  if (!isSdkPayloadRefreshCoalescingEnabled() || !CRON_ENABLED) {
+    runRefresh();
+    return;
+  }
+
+  enqueueCoalescedSdkPayloadRefresh(data.context.org.id, {
+    payloadKeys: data.payloadKeys,
+    sdkConnections: data.sdkConnections,
+    skipRefreshForProject: data.skipRefreshForProject,
+    treatEmptyProjectAsGlobal: data.treatEmptyProjectAsGlobal,
+    auditContext: data.auditContext,
+    stackTrace,
+  }).catch((e) => {
+    logger.error(e, "Error enqueueing coalesced SDK Payload refresh");
+    runRefresh();
   });
 }
 
