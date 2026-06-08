@@ -15,6 +15,7 @@ import {
   resolveOwnerToUserId,
   resolveOwnerEmail,
 } from "back-end/src/services/owner";
+import { validateAggregatedFactTableSettings } from "back-end/src/util/factTable";
 
 // Type override to handle auto-generated OpenAPI types vs internal types
 type UpdateFactTableRequest = Omit<UpdateFactTableProps, "columns"> & {
@@ -58,6 +59,18 @@ export const updateFactTable = createApiRequestHandler(
         throw new Error(`Invalid userIdType: ${userIdType}`);
       }
     }
+  }
+
+  if (req.body.aggregatedFactTableSettings) {
+    if (!req.context.hasPremiumFeature("pipeline-mode")) {
+      throw new Error(
+        "Maintaining shared daily aggregated tables requires the data pipeline feature.",
+      );
+    }
+    validateAggregatedFactTableSettings(
+      req.body.aggregatedFactTableSettings,
+      req.body.userIdTypes ?? factTable.userIdTypes,
+    );
   }
 
   const data: UpdateFactTableProps = { ...req.body } as UpdateFactTableRequest;

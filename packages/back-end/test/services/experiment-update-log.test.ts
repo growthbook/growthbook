@@ -164,9 +164,65 @@ describe("ExperimentUpdateExecutionLogger", () => {
         plannedFullRefresh: false,
         fullRefreshReason: null,
         incrementalRefreshMode: "incremental",
+        covariateSources: null,
         timingsMs: expect.any(Object),
       }),
       "Experiment update completed",
     );
+  });
+
+  it("emits null covariateSources when none are recorded", () => {
+    const logger = new ExperimentUpdateExecutionLogger(plan, meta);
+    const info = jest.fn();
+
+    logger.logUpdateCompleted({ logger: { info } } as never, {
+      snapshotStatus: "success",
+    });
+
+    expect(info.mock.calls[0][0]).toMatchObject({
+      covariateSources: null,
+    });
+  });
+
+  it("accumulates per-group covariate sources and emits them", () => {
+    const logger = new ExperimentUpdateExecutionLogger(plan, meta);
+    logger.recordCovariateSource({
+      groupId: "grp_1",
+      factTableId: "ft_1",
+      path: "aggregated",
+      aggregatedTableFullName: "proj.ds.agg_ft_1",
+      reason: "aggregated",
+    });
+    logger.recordCovariateSource({
+      groupId: "grp_2",
+      factTableId: "ft_2",
+      path: "legacy",
+      aggregatedTableFullName: null,
+      reason: "window-not-covered",
+    });
+    const info = jest.fn();
+
+    logger.logUpdateCompleted({ logger: { info } } as never, {
+      snapshotStatus: "success",
+    });
+
+    expect(info.mock.calls[0][0]).toMatchObject({
+      covariateSources: [
+        {
+          groupId: "grp_1",
+          factTableId: "ft_1",
+          path: "aggregated",
+          aggregatedTableFullName: "proj.ds.agg_ft_1",
+          reason: "aggregated",
+        },
+        {
+          groupId: "grp_2",
+          factTableId: "ft_2",
+          path: "legacy",
+          aggregatedTableFullName: null,
+          reason: "window-not-covered",
+        },
+      ],
+    });
   });
 });
