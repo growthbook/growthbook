@@ -7,7 +7,7 @@ import {
   getFeatureKeysForRepoBranch,
   upsertFeatureCodeRefs,
 } from "back-end/src/models/FeatureCodeRefs";
-import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
+import { getFeatureProjectsByIds } from "back-end/src/models/FeatureModel";
 
 export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
   async (req) => {
@@ -34,22 +34,27 @@ export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
     }
 
     // Require write access to every feature being upserted or cleared before
-    // touching the collection. Code ref flag keys equal feature ids; keys with
-    // no matching feature require global manageFeatures.
+    // touching the collection. Code ref flag keys equal feature ids. Resolve the
+    // project of each existing feature (regardless of the caller's read access)
+    // so a feature in a project the caller can't reach is still checked against
+    // that project — not silently treated as a non-existent key. Keys with no
+    // matching feature in the org fall back to a global manageFeatures check.
     const affectedFeatureIds = [
       ...new Set([...requestedFeatures, ...featuresToRemove]),
     ];
-    const featuresMap = new Map(
-      (await getFeaturesByIds(req.context, affectedFeatureIds)).map((f) => [
-        f.id,
-        f,
-      ]),
+    const featureProjects = await getFeatureProjectsByIds(
+      req.context,
+      affectedFeatureIds,
     );
     const cannotWriteAll = affectedFeatureIds.some((featureId) => {
-      const feature = featuresMap.get(featureId);
-      return feature
-        ? !req.context.permissions.canUpdateFeature(feature, feature)
-        : !req.context.permissions.canCreateFeature({});
+      if (featureProjects.has(featureId)) {
+        const project = featureProjects.get(featureId);
+        return !req.context.permissions.canUpdateFeature(
+          { project },
+          { project },
+        );
+      }
+      return !req.context.permissions.canCreateFeature({});
     });
     if (cannotWriteAll) {
       req.context.permissions.throwPermissionError();
