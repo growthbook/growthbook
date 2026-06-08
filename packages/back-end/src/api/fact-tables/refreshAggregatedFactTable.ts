@@ -1,5 +1,6 @@
 import { refreshAggregatedFactTableValidator } from "shared/validators";
 import { getFactTable } from "back-end/src/models/FactTableModel";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { runAggregatedFactTableUpdate } from "back-end/src/services/aggregatedFactTables";
 
@@ -17,7 +18,12 @@ export const refreshAggregatedFactTable = createApiRequestHandler(
     );
   }
 
-  if (!req.context.permissions.canUpdateFactTable(factTable, {})) {
+  const datasource = await getDataSourceById(req.context, factTable.datasource);
+  if (!datasource) {
+    throw new Error("Could not find datasource for this fact table");
+  }
+
+  if (!req.context.permissions.canUpdateDataSourceSettings(datasource)) {
     req.context.permissions.throwPermissionError();
   }
 

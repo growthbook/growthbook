@@ -278,6 +278,9 @@ export const postFactTable = async (
         "Maintaining shared daily aggregated tables requires the data pipeline feature.",
       );
     }
+    if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
+      context.permissions.throwPermissionError();
+    }
     validateAggregatedFactTableSettings(
       data.aggregatedFactTableSettings,
       data.userIdTypes,
@@ -357,6 +360,9 @@ export const putFactTable = async (
       throw new Error(
         "Maintaining shared daily aggregated tables requires the data pipeline feature.",
       );
+    }
+    if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
+      context.permissions.throwPermissionError();
     }
     // Validate against the effective userIdTypes after any column refresh.
     const effectiveUserIdTypes =
@@ -604,7 +610,12 @@ export const refreshAggregatedFactTables = async (
     );
   }
 
-  if (!context.permissions.canUpdateFactTable(factTable, {})) {
+  const datasource = await getDataSourceById(context, factTable.datasource);
+  if (!datasource) {
+    throw new Error("Could not find datasource for this fact table");
+  }
+
+  if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
     context.permissions.throwPermissionError();
   }
 
@@ -650,8 +661,15 @@ export const cancelAggregatedFactTableRun = async (
   if (!factTable) {
     throw new Error("Could not find fact table with that id");
   }
+  const factTableDatasource = await getDataSourceById(
+    context,
+    factTable.datasource,
+  );
+  if (!factTableDatasource) {
+    throw new Error("Could not find datasource for this fact table");
+  }
 
-  if (!context.permissions.canUpdateFactTable(factTable, {})) {
+  if (!context.permissions.canUpdateDataSourceSettings(factTableDatasource)) {
     context.permissions.throwPermissionError();
   }
 
