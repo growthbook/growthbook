@@ -15,6 +15,23 @@ function validateHttpMethod(method: string): AllowedHttpMethod {
   return method as AllowedHttpMethod;
 }
 
+// Resolve a user-supplied path/segment against a fixed base URL and ensure it
+// stays on the expected host. Using the URL constructor neutralizes authority
+// injection (e.g. a leading "@" or "//") that string concatenation would allow,
+// preventing SSRF to arbitrary hosts.
+function resolveProxyUrl(pathOrSegment: string, baseUrl: string): string {
+  let resolved: URL;
+  try {
+    resolved = new URL(pathOrSegment, baseUrl);
+  } catch {
+    throw new UnrecoverableApiError("Invalid request URL.");
+  }
+  if (resolved.origin !== new URL(baseUrl).origin) {
+    throw new UnrecoverableApiError("Invalid request URL.");
+  }
+  return resolved.toString();
+}
+
 export const proxyStatsigRequest = async (
   req: AuthRequest<{
     endpoint: string;
@@ -49,7 +66,7 @@ export const proxyStatsigRequest = async (
   const validatedMethod = validateHttpMethod(method);
 
   try {
-    const url = `https://statsigapi.net/console/v1/${endpoint}`;
+    const url = resolveProxyUrl(endpoint, "https://statsigapi.net/console/v1/");
 
     const response = await fetch(url, {
       method: validatedMethod,
@@ -102,7 +119,7 @@ export const proxyLaunchDarklyRequest = async (
   }
 
   try {
-    const fullUrl = `https://app.launchdarkly.com${url}`;
+    const fullUrl = resolveProxyUrl(url, "https://app.launchdarkly.com");
 
     const response = await fetch(fullUrl, {
       headers: {
