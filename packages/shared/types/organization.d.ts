@@ -71,6 +71,7 @@ export type RequireReview = {
   featureRequireMetadataReview?: boolean;
   // When true, co-authors (contributors[]) are also blocked from approving, not just the original author.
   blockSelfApproval?: boolean;
+  autopublishOnApproval?: boolean;
 };
 
 export type OwnerJobTitle = keyof typeof OWNER_JOB_TITLES;
@@ -206,6 +207,7 @@ export type ApprovalFlowConfiguration = {
   // is blocked from approving the revision. A separate, non-contributor
   // reviewer is required.
   blockSelfApproval?: boolean;
+  autopublishOnApproval?: boolean;
   // TODO: Should we add support for these additional settings?
   canBypassReview?: boolean;
   resetReviewOnChange?: boolean;

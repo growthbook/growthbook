@@ -37768,6 +37768,8 @@ components:
                 type: boolean
               featureRequireMetadataReview:
                 type: boolean
+              autopublishOnApproval:
+                type: boolean
             additionalProperties: false
         restApiBypassesReviews:
           type: boolean
