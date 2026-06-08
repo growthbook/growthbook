@@ -22,20 +22,25 @@ import {
   FactMetricInterface,
   FactTableInterface,
 } from "shared/types/fact-table";
-import { FactTableMap } from "back-end/src/models/FactTableModel";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { getFiltersForHash } from "back-end/src/services/experimentTimeSeries";
 import { getColumnsForMetric } from "back-end/src/integrations/sql/fact-metrics/columns-for-metric";
+import type { MetricFanOut } from "back-end/src/services/experimentQueries/planMetricFanOut";
 
-// If the given settings / experiment is not compatible with incremental refresh, throw an error.
-// Otherwise, return void.
-export async function validateIncrementalPipeline({
+/**
+ * Preconditions for running the incremental refresh query runner on a snapshot.
+ * Throws when incremental refresh is unsupported for this configuration, or when
+ * an incremental update would reuse a units table built under different
+ * experiment-level settings.
+ *
+ * Does not validate metric-source cache drift. See getFactTablesNeedingRebuild.
+ */
+export async function assertIncrementalRefreshPrerequisites({
   org,
   integration,
   snapshotSettings,
   metricMap,
-  factTableMap,
   experiment,
   incrementalRefreshModel,
   analysisType,
@@ -44,7 +49,6 @@ export async function validateIncrementalPipeline({
   integration: SourceIntegrationInterface;
   snapshotSettings: ExperimentSnapshotSettings;
   metricMap: Map<string, ExperimentMetricInterface>;
-  factTableMap: FactTableMap;
   experiment: ExperimentInterface;
   incrementalRefreshModel: IncrementalRefreshInterface | null;
   analysisType: "main-update" | "main-fullRefresh" | "exploratory";
@@ -115,47 +119,24 @@ export async function validateIncrementalPipeline({
   });
 
   // If not forcing a full refresh and we have a previous run, ensure the
-  // current configuration matches what the incremental pipeline was built with.
+  // experiment-level configuration matches what the incremental pipeline was
+  // built with. Experiment-level changes (attribution model, exposure query,
+  // segment, query filter, start date, regression-adjustment toggle) reshape
+  // the units table and everything downstream, so they require a full refresh.
+  //
+  // Per-metric settings changes are intentionally NOT validated here. A changed
+  // metric is recoverable without a full refresh: the incremental runner
+  // detects the metric-source hash drift (see getFactTablesNeedingRebuild) and
+  // rebuilds only that metric's fact-table cache, leaving the units table and
+  // every unaffected metric cache on the incremental path.
   if (analysisType === "main-update" && incrementalRefreshModel) {
     const currentSettingsHash =
       getExperimentSettingsHashForIncrementalRefresh(snapshotSettings);
-    if (
-      incrementalRefreshModel.experimentSettingsHash &&
-      currentSettingsHash !== incrementalRefreshModel.experimentSettingsHash
-    ) {
+    const storedSettingsHash = incrementalRefreshModel.experimentSettingsHash;
+    if (!storedSettingsHash || currentSettingsHash !== storedSettingsHash) {
       throw new Error(
         "The experiment configuration is outdated. Please run a Full Refresh.",
       );
-    }
-
-    // Validate metric settings hashes for existing metric sources
-    if (incrementalRefreshModel.metricSources?.length) {
-      const existingMetricHashMap = new Map<string, string>();
-      incrementalRefreshModel.metricSources.forEach((source) => {
-        source.metrics.forEach((metric) => {
-          existingMetricHashMap.set(metric.id, metric.settingsHash);
-        });
-      });
-
-      selectedMetrics.filter(isFactMetric).forEach((m) => {
-        const storedHash = existingMetricHashMap.get(m.id);
-        if (!storedHash) return;
-
-        const currentHash = getMetricSettingsHashForIncrementalRefresh({
-          factMetric: m,
-          factTableMap: factTableMap,
-          metricSettings: snapshotSettings.metricSettings.find(
-            (ms) => ms.id === m.id,
-          ),
-        });
-
-        if (currentHash !== storedHash) {
-          const metricName = m.name ?? m.id;
-          throw new Error(
-            `The metric "${metricName}" configuration is outdated. Please run a Full Refresh.`,
-          );
-        }
-      });
     }
   }
 }
@@ -186,7 +167,8 @@ type ComputedSettingsForSnapshot = NonNullable<
 
 // Fields of `MetricForSnapshot.computedSettings` whose values change the
 // queries we run or the data they return for incremental refresh. Any change
-// to one of these MUST invalidate the metric source and force a full refresh.
+// to one of these triggers a per-fact-table cache rebuild via
+// getFactTablesNeedingRebuild (not a full experiment refresh).
 const HASHED_COMPUTED_SETTINGS_FIELDS_FOR_INCREMENTAL_REFRESH = [
   "regressionAdjustmentEnabled",
   "regressionAdjustmentDays",
@@ -269,6 +251,81 @@ export function getMetricSettingsHashForIncrementalRefresh({
       filters: getFiltersForHash(denominatorFactTable, factMetric.denominator),
     },
   });
+}
+
+/**
+ * Compares the persisted incremental-refresh cache state against the desired
+ * metric fan-out and the current per-metric settings hashes, returning the set
+ * of fact tables whose cache tables must be rebuilt from scratch (CREATE +
+ * full INSERT) instead of incrementally appended.
+ *
+ * A fact table needs a rebuild when any of these drift from the persisted cache:
+ *   - A metric now maps to it that the cache doesn't hold yet (added metric).
+ *   - The cache holds a (factTableId, metricId) tuple that's no longer desired
+ *     (removed metric, or a cross-FT ratio side that moved to the other FT).
+ *   - A metric still maps to it but its `settingsHash` changed — the cache's
+ *     schema/values are out of shape with the metric's new configuration
+ *     (conversion window, column refs, fact-table SQL/filters, CUPED days, …).
+ *
+ * The settings-hash case is what lets a changed metric recover incrementally:
+ * only that metric's fact-table cache is rebuilt, while the units table and
+ * every unaffected metric cache stay on the incremental path. Cross-FT ratio
+ * metrics carry the same `settingsHash` in both of their fact tables' caches,
+ * so a settings change flags both sides. Experiment-level setting changes are
+ * out of scope — they force a full refresh upstream in
+ * `assertIncrementalRefreshPrerequisites`.
+ */
+export function getFactTablesNeedingRebuild({
+  existingMetricSources,
+  desiredFanOut,
+  currentMetricSettingsHashes,
+}: {
+  existingMetricSources: IncrementalRefreshInterface["metricSources"];
+  desiredFanOut: MetricFanOut;
+  currentMetricSettingsHashes: Map<string, string>;
+}): Set<string> {
+  const factTablesToRebuild = new Set<string>();
+  if (!existingMetricSources.length) return factTablesToRebuild;
+
+  // (factTableId, metricId) tuples the persisted caches currently hold.
+  const storedTuples = new Set<string>();
+  existingMetricSources.forEach((source) => {
+    source.metrics.forEach((m) => {
+      storedTuples.add(`${source.factTableId}|${m.id}`);
+    });
+  });
+
+  // Added tuples: a metric now maps to an FT whose cache doesn't hold it yet.
+  // Growing the cache changes its schema, so rebuild it.
+  const desiredTuples = new Set<string>();
+  desiredFanOut.perFt.forEach(({ factTableId, metrics }) => {
+    metrics.forEach((metric) => {
+      const tuple = `${factTableId}|${metric.id}`;
+      desiredTuples.add(tuple);
+      if (!storedTuples.has(tuple)) {
+        factTablesToRebuild.add(factTableId);
+      }
+    });
+  });
+
+  existingMetricSources.forEach((source) => {
+    source.metrics.forEach((m) => {
+      // Orphaned tuple: the cache holds a metric (or a cross-FT ratio side)
+      // that's no longer desired. Rebuild so the schema sheds the dead column.
+      if (!desiredTuples.has(`${source.factTableId}|${m.id}`)) {
+        factTablesToRebuild.add(source.factTableId);
+        return;
+      }
+      // Settings drift (or missing current hash): recompute the cache from
+      // scratch so the persisted values reflect the new settings.
+      const currentHash = currentMetricSettingsHashes.get(m.id);
+      if (currentHash === undefined || currentHash !== m.settingsHash) {
+        factTablesToRebuild.add(source.factTableId);
+      }
+    });
+  });
+
+  return factTablesToRebuild;
 }
 
 // Hash of only the schema-breaking parts of a fact metric (fields that change

@@ -47,7 +47,8 @@ import {
 import {
   getExperimentSettingsHashForIncrementalRefresh,
   getMetricSettingsHashForIncrementalRefresh,
-  validateIncrementalPipeline,
+  getFactTablesNeedingRebuild,
+  assertIncrementalRefreshPrerequisites,
 } from "back-end/src/enterprise/services/data-pipeline";
 import { getExposureQueryEligibleDimensions } from "back-end/src/services/dimensions";
 import { chunkMetrics } from "back-end/src/services/experimentQueries/experimentQueries";
@@ -323,17 +324,6 @@ const startExperimentIncrementalRefreshQueries = async (
       return run(query, setExternalId, queryMetadata);
     };
 
-  // Fact tables whose (factTableId, metricId) membership has drifted from
-  // what the persisted cache reflects — either a new metric appearing in
-  // the FT, or a previously-stored metric that no longer appears (e.g. a
-  // cross-FT ratio's denominator was moved back into the numerator FT).
-  // We need to rebuild those caches end-to-end so the schema matches the
-  // new desired layout instead of trying to incrementally update an
-  // out-of-shape table. Orientation flips on the same metric (numerator
-  // FT ↔ denominator FT) are caught earlier by the settingsHash check in
-  // dataPipeline.ts.
-  const factTablesWithNewMetrics = new Set<string>();
-
   const factMetrics: FactMetricInterface[] = [];
   for (const m of selectedMetrics) {
     if (!isFactMetric(m)) {
@@ -346,36 +336,36 @@ const startExperimentIncrementalRefreshQueries = async (
 
   const desiredFanOut = planMetricFanOut(factMetrics);
 
-  if (incrementalRefreshModel && incrementalRefreshModel.metricSources.length) {
-    // Bidirectional (factTableId, metricId) diff between stored caches and
-    // the desired fan-out:
-    //   - new tuples → the cache for that FT needs to grow → mark for rebuild.
-    //   - orphaned stored tuples → cache holds a metric (or a half of a
-    //     cross-FT ratio) that no longer applies → mark its FT for rebuild.
-    const storedTuples = new Set<string>();
-    incrementalRefreshModel.metricSources.forEach((source) => {
-      source.metrics.forEach((m) => {
-        storedTuples.add(`${source.factTableId}|${m.id}`);
-      });
-    });
-    const desiredTuples = new Set<string>();
-    desiredFanOut.perFt.forEach(({ factTableId, metrics: ftMetrics }) => {
-      ftMetrics.forEach((metric) => {
-        const tuple = `${factTableId}|${metric.id}`;
-        desiredTuples.add(tuple);
-        if (!storedTuples.has(tuple)) {
-          factTablesWithNewMetrics.add(factTableId);
-        }
-      });
-    });
-    incrementalRefreshModel.metricSources.forEach((source) => {
-      source.metrics.forEach((m) => {
-        if (!desiredTuples.has(`${source.factTableId}|${m.id}`)) {
-          factTablesWithNewMetrics.add(source.factTableId);
-        }
-      });
-    });
-  }
+  // Current per-metric settings hash for every selected fact metric, keyed by
+  // metric id. Compared against the hash persisted in each metric source to
+  // detect metrics whose configuration changed since their cache was built.
+  const currentMetricSettingsHashes = new Map<string, string>();
+  factMetrics.forEach((m) => {
+    currentMetricSettingsHashes.set(
+      m.id,
+      getMetricSettingsHashForIncrementalRefresh({
+        factMetric: m,
+        factTableMap: params.factTableMap,
+        metricSettings: snapshotSettings.metricSettings.find(
+          (ms) => ms.id === m.id,
+        ),
+      }),
+    );
+  });
+
+  // Fact tables whose persisted cache no longer matches the desired metric
+  // layout — a metric was added to or removed from the FT, a cross-FT ratio
+  // side moved, or a metric's settings changed. Each of these reshapes the
+  // cache, so we rebuild it end-to-end (CREATE + full INSERT) instead of
+  // incrementally appending to an out-of-shape table. The per-FT loop below
+  // sees no `existingSource` for these tables and rebuilds from scratch.
+  // Experiment-level setting changes are handled upstream by
+  // assertIncrementalRefreshPrerequisites (they force a full refresh).
+  const factTablesToRebuild = getFactTablesNeedingRebuild({
+    existingMetricSources: incrementalRefreshModel?.metricSources ?? [],
+    desiredFanOut,
+    currentMetricSettingsHashes,
+  });
 
   // Begin Queries
   const lastMaxTimestamp = incrementalRefreshModel?.unitsMaxTimestamp;
@@ -549,16 +539,17 @@ const startExperimentIncrementalRefreshQueries = async (
   let existingCovariateSources =
     incrementalRefreshModel?.metricCovariateSources ?? [];
 
-  // Drop existing source records for FTs flagged by the (factTableId,
-  // metricId) diff above. The per-FT loop below will see no
-  // `existingSource` and rebuild the cache from scratch (CREATE + full
-  // INSERT) instead of incrementally appending — the cache's schema may
-  // be out of shape with the desired metric set. The matching covariate
-  // sources are dropped at the same time so CUPED state stays consistent.
-  if (factTablesWithNewMetrics.size > 0) {
+  // Drop existing source records for FTs flagged for rebuild above (added /
+  // removed metric, moved cross-FT side, or changed metric settings). The
+  // per-FT loop below will see no `existingSource` and rebuild the cache from
+  // scratch (CREATE + full INSERT) instead of incrementally appending — the
+  // cache's schema/values may be out of shape with the desired metric set. The
+  // matching covariate sources are dropped at the same time so CUPED state
+  // stays consistent.
+  if (factTablesToRebuild.size > 0) {
     const sourcesGroupIdsToDelete = new Set<string>();
     existingSources.forEach((source) => {
-      if (factTablesWithNewMetrics.has(source.factTableId)) {
+      if (factTablesToRebuild.has(source.factTableId)) {
         sourcesGroupIdsToDelete.add(source.groupId);
       }
     });
@@ -1205,12 +1196,11 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
     }
 
     // Throws if any settings/experiment is not supported
-    await validateIncrementalPipeline({
+    await assertIncrementalRefreshPrerequisites({
       org: this.context.org,
       integration: this.integration,
       snapshotSettings: params.snapshotSettings,
       metricMap: params.metricMap,
-      factTableMap: params.factTableMap,
       experiment,
       incrementalRefreshModel,
       analysisType: params.fullRefresh ? "main-fullRefresh" : "main-update",

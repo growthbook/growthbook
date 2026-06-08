@@ -189,7 +189,7 @@ import {
   getExposureQueryEligibleDimensions,
 } from "back-end/src/services/dimensions";
 import { ConcurrentIncrementalRefreshError } from "back-end/src/util/errors";
-import { validateIncrementalPipeline } from "back-end/src/enterprise/services/data-pipeline";
+import { assertIncrementalRefreshPrerequisites } from "back-end/src/enterprise/services/data-pipeline";
 import {
   ExperimentUpdateLogPlan,
   ExperimentUpdateExecutionLogger,
@@ -1332,7 +1332,6 @@ async function planSnapshotQueryRunner({
   integration,
   snapshotSettings,
   metricMap,
-  factTableMap,
   experiment,
   incrementalRefreshModel,
   snapshotType,
@@ -1343,7 +1342,6 @@ async function planSnapshotQueryRunner({
   integration: SourceIntegrationInterface;
   snapshotSettings: ExperimentSnapshotSettings;
   metricMap: Map<string, ExperimentMetricInterface>;
-  factTableMap: FactTableMap;
   experiment: ExperimentInterface;
   incrementalRefreshModel: IncrementalRefreshInterface | null;
   snapshotType: SnapshotType;
@@ -1365,12 +1363,11 @@ async function planSnapshotQueryRunner({
   }
 
   try {
-    await validateIncrementalPipeline({
+    await assertIncrementalRefreshPrerequisites({
       org: organization,
       integration,
       snapshotSettings,
       metricMap,
-      factTableMap,
       experiment,
       incrementalRefreshModel,
       analysisType: fullRefresh
@@ -1531,7 +1528,6 @@ export async function planSnapshot({
     integration,
     snapshotSettings: data.settings,
     metricMap,
-    factTableMap,
     experiment,
     incrementalRefreshModel,
     snapshotType: type,
