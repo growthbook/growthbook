@@ -202,7 +202,7 @@ export async function ensureSdkPayloadRefreshPendingIndex(): Promise<void> {
     const collection = getPendingCollection();
     await collection.createIndex({ organization: 1 }, { unique: true });
     await collection.createIndex(
-      { dateUpdated: 1 },
+      { firstQueuedAt: 1 },
       { expireAfterSeconds: PENDING_TTL_SECONDS },
     );
   } catch (e) {
