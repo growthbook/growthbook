@@ -15,7 +15,7 @@ export type SdkPayloadRefreshQueueRequest = {
 
 type PendingRefreshDocument = {
   organization: string;
-  merged: SdkPayloadRefreshQueueRequest;
+  requests: SdkPayloadRefreshQueueRequest[];
   firstQueuedAt: Date;
   dateUpdated: Date;
 };
@@ -101,14 +101,11 @@ export async function appendPendingSdkPayloadRefreshRequest(
 ): Promise<void> {
   const now = new Date();
   const collection = getPendingCollection();
-  const existing = await collection.findOne({ organization });
-  const prior = existing?.merged ? [existing.merged] : [];
-  const merged = mergeSdkPayloadRefreshRequests([...prior, request]);
-
   await collection.updateOne(
     { organization },
     {
-      $set: { merged, dateUpdated: now },
+      $push: { requests: request },
+      $set: { dateUpdated: now },
       $setOnInsert: { organization, firstQueuedAt: now },
     },
     { upsert: true },
@@ -132,10 +129,14 @@ export async function drainPendingSdkPayloadRefreshRequests(
 ): Promise<SdkPayloadRefreshQueueRequest | null> {
   const collection = getPendingCollection();
   const { value: doc } = await collection.findOneAndDelete({ organization });
-  if (!doc?.merged || !hasPendingRefreshWork(doc.merged)) {
+  if (!doc?.requests?.length) {
     return null;
   }
-  return doc.merged;
+  const merged = mergeSdkPayloadRefreshRequests(doc.requests);
+  if (!hasPendingRefreshWork(merged)) {
+    return null;
+  }
+  return merged;
 }
 
 export function isSdkPayloadRefreshCoalescingEnabled(): boolean {
