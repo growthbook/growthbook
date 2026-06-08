@@ -9,14 +9,11 @@ import {
   buildEventForwarderNestedAttributeValueSql,
   buildSnowflakeEventForwarderTableReference,
   EVENT_FORWARDER_AVRO_PARTITION_FIELD,
+  quoteBigQueryIdentifier,
 } from "./event-forwarder-fact-table";
 import { normalizeSnowflakeTableNameForEventForwarder } from "./snowflake-table-name";
 
 export const EVENT_FORWARDER_EXPERIMENT_VIEWED_TABLE = "experiment_viewed";
-
-function quoteBigQueryIdentifier(identifier: string): string {
-  return `\`${identifier}\``;
-}
 
 export type BuildEventForwarderExperimentViewedTableRefParams =
   | {

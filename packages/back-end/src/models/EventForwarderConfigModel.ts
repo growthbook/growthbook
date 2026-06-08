@@ -71,7 +71,7 @@ export class EventForwarderConfigModel extends BaseClass {
   }
 
   /**
-   * Deletes after last BigQuery datasource removal. Mirrors BaseModel delete persistence/audit
+   * Deletes after datasource removal. Mirrors BaseModel delete persistence/audit
    * without `canDelete` — caller must already authorize (e.g. datasource delete).
    */
   public async deleteForDatasourceCascade(
