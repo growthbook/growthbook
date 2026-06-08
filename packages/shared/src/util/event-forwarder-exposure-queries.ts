@@ -1,4 +1,9 @@
 import type { ExposureQuery } from "shared/types/datasource";
+import type {
+  SDKAttribute,
+  SDKAttributeSchema,
+  SDKAttributeType,
+} from "shared/types/organization";
 import {
   buildBigQueryEventForwarderTableReference,
   buildEventForwarderNestedAttributeValueSql,
@@ -45,13 +50,35 @@ export function buildEventForwarderExperimentViewedTableReference(
   );
 }
 
+function findHashAttributeForUserIdType(
+  userIdType: string,
+  attributeSchema?: SDKAttributeSchema,
+): SDKAttribute | undefined {
+  const normalized = userIdType.toLowerCase();
+  return attributeSchema?.find(
+    (attribute) =>
+      attribute.hashAttribute &&
+      attribute.property.toLowerCase() === normalized,
+  );
+}
+
 export function buildEventForwarderAttributeValueSql({
   sinkType,
   userIdType,
+  attributeDatatype,
 }: {
   sinkType: "bigquery" | "snowflake";
   userIdType: string;
+  attributeDatatype?: SDKAttributeType;
 }): string {
+  if (attributeDatatype !== undefined) {
+    return buildEventForwarderNestedAttributeValueSql({
+      sinkType,
+      attributeName: userIdType,
+      attributeDatatype,
+    });
+  }
+
   return buildEventForwarderNestedAttributeValueSql({
     sinkType,
     attributeName: userIdType,
@@ -63,14 +90,17 @@ export function buildEventForwarderExposureQuerySql({
   sinkType,
   tableRef,
   userIdType,
+  attributeDatatype,
 }: {
   sinkType: "bigquery" | "snowflake";
   tableRef: string;
   userIdType: string;
+  attributeDatatype?: SDKAttributeType;
 }): string {
   const attributeValueSql = buildEventForwarderAttributeValueSql({
     sinkType,
     userIdType,
+    attributeDatatype,
   });
 
   if (sinkType === "bigquery") {
@@ -98,22 +128,31 @@ export type GenerateEventForwarderExposureQueriesParams =
 export function generateEventForwarderExposureQueries(
   userIdTypes: string[],
   params: GenerateEventForwarderExposureQueriesParams,
+  attributeSchema?: SDKAttributeSchema,
 ): ExposureQuery[] {
   const tableRef = buildEventForwarderExperimentViewedTableReference(params);
 
-  return userIdTypes.map((userIdType) => ({
-    id: userIdType,
-    userIdType,
-    name: userIdType,
-    description: "",
-    dimensions: [],
-    managedBy: "api" as const,
-    query: buildEventForwarderExposureQuerySql({
-      sinkType: params.sinkType,
-      tableRef,
+  return userIdTypes.map((userIdType) => {
+    const attribute = findHashAttributeForUserIdType(
       userIdType,
-    }),
-  }));
+      attributeSchema,
+    );
+
+    return {
+      id: userIdType,
+      userIdType,
+      name: userIdType,
+      description: "",
+      dimensions: [],
+      managedBy: "api" as const,
+      query: buildEventForwarderExposureQuerySql({
+        sinkType: params.sinkType,
+        tableRef,
+        userIdType,
+        attributeDatatype: attribute?.datatype,
+      }),
+    };
+  });
 }
 
 export function isEventForwarderManagedExposureQuery(
@@ -134,6 +173,7 @@ export function mergeEventForwarderExposureQueries(
   existing: ExposureQuery[],
   userIdTypes: string[],
   params: GenerateEventForwarderExposureQueriesParams,
+  attributeSchema?: SDKAttributeSchema,
 ): ExposureQuery[] {
   const missing = userIdTypes.filter(
     (userIdType) => !exposureQueryExistsForUserIdType(existing, userIdType),
@@ -145,6 +185,44 @@ export function mergeEventForwarderExposureQueries(
 
   return [
     ...existing,
-    ...generateEventForwarderExposureQueries(missing, params),
+    ...generateEventForwarderExposureQueries(missing, params, attributeSchema),
   ];
+}
+
+export function refreshEventForwarderManagedExposureQuery(
+  existing: ExposureQuery[],
+  matchUserIdType: string,
+  attribute: SDKAttribute,
+  params: GenerateEventForwarderExposureQueriesParams,
+): ExposureQuery[] {
+  const normalized = matchUserIdType.toLowerCase();
+  const tableRef = buildEventForwarderExperimentViewedTableReference(params);
+  let found = false;
+
+  const updated = existing.map((query) => {
+    if (
+      !isEventForwarderManagedExposureQuery(query) ||
+      query.userIdType.toLowerCase() !== normalized
+    ) {
+      return query;
+    }
+
+    found = true;
+    const userIdType = attribute.property;
+
+    return {
+      ...query,
+      id: userIdType,
+      userIdType,
+      name: userIdType,
+      query: buildEventForwarderExposureQuerySql({
+        sinkType: params.sinkType,
+        tableRef,
+        userIdType,
+        attributeDatatype: attribute.datatype,
+      }),
+    };
+  });
+
+  return found ? updated : existing;
 }

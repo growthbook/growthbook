@@ -1,13 +1,10 @@
 import { putAttributeValidator } from "shared/validators";
-import { attributeUpdateAffectsEventForwarderFactTableColumns } from "shared/util";
 import { OrganizationInterface } from "shared/types/organization";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { addTagsDiff } from "back-end/src/models/TagModel";
-import { hasAnyEventForwarderConfig } from "back-end/src/services/eventForwarderConfig";
-import { syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema } from "back-end/src/services/eventForwarderUserIdTypes";
-import { syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange } from "back-end/src/services/eventForwarderFactTable";
+import { syncEventForwarderAfterAttributeSchemaChange } from "back-end/src/services/eventForwarderAttributeSync";
 import { validatePayload } from "./validations";
 
 export const putAttribute = createApiRequestHandler(putAttributeValidator)(
@@ -28,7 +25,6 @@ export const putAttribute = createApiRequestHandler(putAttributeValidator)(
       ...(await validatePayload(req.context, rawUpdatedAttribute)),
     };
 
-    const hasEventForwarder = await hasAnyEventForwarderConfig(req.context);
     if (
       !req.context.permissions.canUpdateAttribute(attribute, updatedAttribute)
     )
@@ -51,25 +47,12 @@ export const putAttribute = createApiRequestHandler(putAttributeValidator)(
     await updateOrganization(org.id, updates);
 
     const updatedAttributeSchema = updates.settings?.attributeSchema ?? [];
-    if (hasEventForwarder) {
-      if (req.body.hashAttribute === true && !attribute.hashAttribute) {
-        await syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema(
-          req.context,
-          updatedAttributeSchema,
-        );
-      }
-      if (
-        attributeUpdateAffectsEventForwarderFactTableColumns(
-          attribute,
-          updatedAttribute,
-        )
-      ) {
-        await syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange(
-          req.context,
-          updatedAttributeSchema,
-        );
-      }
-    }
+    await syncEventForwarderAfterAttributeSchemaChange(req.context, {
+      attributeSchema: updatedAttributeSchema,
+      before: attribute,
+      after: updatedAttribute,
+      changeType: "update",
+    });
 
     await req.audit({
       event: "attribute.update",

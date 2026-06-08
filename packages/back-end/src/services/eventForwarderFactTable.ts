@@ -5,7 +5,10 @@ import {
   BigQueryEventForwarderStoredConfig,
   SnowflakeEventForwarderStoredConfig,
 } from "shared/types/event-forwarder";
-import type { ColumnInterface } from "shared/types/fact-table";
+import type {
+  ColumnInterface,
+  CreateColumnProps,
+} from "shared/types/fact-table";
 import { EventForwarderConfigInterface } from "shared/validators";
 import {
   buildEventForwarderEventsFactTableColumns,
@@ -245,16 +248,11 @@ export async function syncEventForwarderEventsFactTableMetadataAfterAttributeSch
         const existing = factTable.columns?.find(
           (existingColumn) => existingColumn.column === column.column,
         );
-        return {
-          ...existing,
-          ...column,
-          dateCreated: existing?.dateCreated ?? now,
-          dateUpdated: now,
-          name: column.name ?? existing?.name ?? "",
-          description: column.description ?? existing?.description ?? "",
-          numberFormat: column.numberFormat ?? existing?.numberFormat ?? "",
-          deleted: existing?.deleted ?? false,
-        };
+        return mergeEventForwarderFactTableColumnFromDesired(
+          column,
+          existing,
+          now,
+        );
       });
       await updateEventForwarderFactTableMetadata(
         factTable,
@@ -268,6 +266,36 @@ export async function syncEventForwarderEventsFactTableMetadataAfterAttributeSch
 
     await queueFactTableColumnsRefreshAt(factTable, runAt);
   }
+}
+
+export function mergeEventForwarderFactTableColumnFromDesired(
+  desired: CreateColumnProps,
+  existing: ColumnInterface | undefined,
+  now: Date,
+): ColumnInterface {
+  return {
+    column: desired.column,
+    name: desired.name ?? existing?.name ?? "",
+    description: desired.description ?? existing?.description ?? "",
+    numberFormat: desired.numberFormat ?? existing?.numberFormat ?? "",
+    datatype: desired.datatype,
+    jsonFields: desired.jsonFields,
+    dateCreated: existing?.dateCreated ?? now,
+    dateUpdated: now,
+    deleted: false,
+    topValues: existing?.topValues ?? [],
+    autoSlices: existing?.autoSlices ?? [],
+    lockedAutoSlices: existing?.lockedAutoSlices ?? [],
+    ...(existing?.alwaysInlineFilter !== undefined && {
+      alwaysInlineFilter: existing.alwaysInlineFilter,
+    }),
+    ...(existing?.isAutoSliceColumn !== undefined && {
+      isAutoSliceColumn: existing.isAutoSliceColumn,
+    }),
+    ...(existing?.topValuesDate !== undefined && {
+      topValuesDate: existing.topValuesDate,
+    }),
+  };
 }
 
 export async function ensureEventForwarderEventsFactTable(

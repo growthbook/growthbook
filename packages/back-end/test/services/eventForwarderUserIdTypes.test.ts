@@ -2,12 +2,15 @@ import type { DataSourceInterface } from "shared/types/datasource";
 import {
   initializeDatasourceUserIdTypesFromOrgAttributeSchema,
   syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema,
+  syncHashAttributeMetadataForEventForwarder,
 } from "back-end/src/services/eventForwarderUserIdTypes";
 import * as DataSourceModel from "back-end/src/models/DataSourceModel";
 import * as EventForwarderExposureQueries from "back-end/src/services/eventForwarderExposureQueries";
+import * as DataSourceService from "back-end/src/services/datasource";
 
 jest.mock("back-end/src/models/DataSourceModel");
 jest.mock("back-end/src/services/eventForwarderExposureQueries");
+jest.mock("back-end/src/services/datasource");
 
 const mockedEnsureExposure =
   EventForwarderExposureQueries.ensureEventForwarderExposureQueries as jest.MockedFunction<
@@ -24,6 +27,14 @@ const mockedGetById = DataSourceModel.getDataSourceById as jest.MockedFunction<
 const mockedUpdate = DataSourceModel.updateDataSource as jest.MockedFunction<
   typeof DataSourceModel.updateDataSource
 >;
+const mockedGetSourceIntegrationObject =
+  DataSourceService.getSourceIntegrationObject as jest.MockedFunction<
+    typeof DataSourceService.getSourceIntegrationObject
+  >;
+const mockedBuildExposureQueryParams =
+  EventForwarderExposureQueries.buildExposureQueryParams as jest.MockedFunction<
+    typeof EventForwarderExposureQueries.buildExposureQueryParams
+  >;
 
 function ds(
   id: string,
@@ -314,6 +325,193 @@ describe("syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema", () => 
       undefined,
       attributeSchema,
       { queueWarehouseSync: false },
+    );
+  });
+});
+
+describe("syncHashAttributeMetadataForEventForwarder", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockedGetSourceIntegrationObject.mockReturnValue({
+      params: { defaultProject: "my-project" },
+    } as never);
+    mockedBuildExposureQueryParams.mockReturnValue({
+      sinkType: "bigquery",
+      projectId: "my-project",
+      dataset: "analytics_123",
+    });
+  });
+
+  it("renames identifier type and regenerates managed exposure query SQL", async () => {
+    const raw = ds("ds_1", {
+      userIdTypes: [
+        {
+          userIdType: "user_id",
+          description: "Primary id",
+          attributes: ["user_id"],
+        },
+      ],
+      queries: {
+        exposure: [
+          {
+            id: "user_id",
+            userIdType: "user_id",
+            name: "user_id",
+            description: "",
+            dimensions: [],
+            managedBy: "api",
+            query:
+              "SELECT CAST(JSON_VALUE(`attributes`, '$.\"user_id\"') AS STRING) AS `user_id`",
+          },
+        ],
+      },
+    });
+
+    mockedGetRaw.mockResolvedValue(raw);
+    mockedGetById.mockResolvedValue(raw);
+
+    const before = {
+      property: "user_id",
+      datatype: "string" as const,
+      hashAttribute: true,
+    };
+    const after = {
+      property: "account_id",
+      datatype: "string" as const,
+      hashAttribute: true,
+    };
+
+    await syncHashAttributeMetadataForEventForwarder(
+      {
+        org: { id: "org1" },
+        models: {
+          eventForwarderConfigs: {
+            getAll: jest
+              .fn()
+              .mockResolvedValue([
+                { datasourceId: "ds_1", sinkType: "bigquery" },
+              ]),
+          },
+        },
+      } as never,
+      {
+        before,
+        after,
+        previousName: "user_id",
+        attributeSchema: [after],
+      },
+    );
+
+    expect(mockedUpdate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ id: "ds_1" }),
+      {
+        settings: {
+          userIdTypes: [
+            {
+              userIdType: "account_id",
+              description: "Primary id",
+              attributes: ["account_id"],
+            },
+          ],
+          queries: {
+            exposure: [
+              expect.objectContaining({
+                id: "account_id",
+                userIdType: "account_id",
+                name: "account_id",
+                query: expect.stringContaining("account_id"),
+              }),
+            ],
+          },
+        },
+      },
+      { skipEventForwarderManagedValidation: true },
+    );
+  });
+
+  it("regenerates exposure query SQL when hash attribute datatype changes", async () => {
+    const raw = ds("ds_1", {
+      userIdTypes: [
+        {
+          userIdType: "user_id",
+          description: "",
+          attributes: ["user_id"],
+        },
+      ],
+      queries: {
+        exposure: [
+          {
+            id: "user_id",
+            userIdType: "user_id",
+            name: "user_id",
+            description: "",
+            dimensions: [],
+            managedBy: "api",
+            query:
+              "SELECT CAST(JSON_VALUE(`attributes`, '$.\"user_id\"') AS STRING) AS `user_id`",
+          },
+        ],
+      },
+    });
+
+    mockedGetRaw.mockResolvedValue(raw);
+    mockedGetById.mockResolvedValue(raw);
+
+    const before = {
+      property: "user_id",
+      datatype: "string" as const,
+      hashAttribute: true,
+    };
+    const after = {
+      property: "user_id",
+      datatype: "number" as const,
+      hashAttribute: true,
+    };
+
+    await syncHashAttributeMetadataForEventForwarder(
+      {
+        org: { id: "org1" },
+        models: {
+          eventForwarderConfigs: {
+            getAll: jest
+              .fn()
+              .mockResolvedValue([
+                { datasourceId: "ds_1", sinkType: "bigquery" },
+              ]),
+          },
+        },
+      } as never,
+      {
+        before,
+        after,
+        attributeSchema: [after],
+      },
+    );
+
+    expect(mockedUpdate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ id: "ds_1" }),
+      {
+        settings: expect.objectContaining({
+          userIdTypes: [
+            {
+              userIdType: "user_id",
+              description: "",
+              attributes: ["user_id"],
+            },
+          ],
+          queries: {
+            exposure: [
+              expect.objectContaining({
+                id: "user_id",
+                query: expect.stringContaining("AS FLOAT64"),
+              }),
+            ],
+          },
+        }),
+      },
+      { skipEventForwarderManagedValidation: true },
     );
   });
 });
