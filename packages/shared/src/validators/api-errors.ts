@@ -1,9 +1,14 @@
 import { z } from "zod";
 
+// Deliberately a standalone definition rather than a reference to
+// startChecklistItemStatusValidator: keeping the error contract decoupled from
+// the checklist endpoints' response shape prevents unintentional drift in the
+// API surface. Keep the fields aligned with StartChecklistItemStatus.
 const checklistItemSchema = z.object({
   key: z.string(),
   required: z.boolean(),
   status: z.enum(["complete", "incomplete"]),
+  manual: z.boolean(),
   reason: z.string(),
 });
 

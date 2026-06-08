@@ -42313,12 +42313,15 @@ components:
                 enum:
                   - complete
                   - incomplete
+              manual:
+                type: boolean
               reason:
                 type: string
             required:
               - key
               - required
               - status
+              - manual
               - reason
             additionalProperties: false
       required:

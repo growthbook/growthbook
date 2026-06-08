@@ -502,8 +502,10 @@ export async function approveScheduledExperimentStart({
   );
 
   if (experiment.status !== "draft") {
-    throw new Error(
-      "invalid_status: Experiment must be in draft status to approve a scheduled start",
+    throw new InvalidStatusError(
+      "Experiment must be in draft status to approve a scheduled start",
+      experiment.status,
+      ["draft"],
     );
   }
 
@@ -525,8 +527,9 @@ export async function approveScheduledExperimentStart({
       (item) => item.required && item.status === "incomplete",
     );
     if (incompleteRequired.length > 0) {
-      throw new Error(
-        `checklist_incomplete: ${incompleteRequired.map((i) => i.key).join(", ")}`,
+      throw new ChecklistIncompleteError(
+        "Experiment cannot be started: required checklist items are incomplete",
+        incompleteRequired,
       );
     }
   }
