@@ -68,15 +68,15 @@ async function runCoalescedSdkPayloadRefresh(
   const organization = job.attrs.data?.organization;
   if (!organization) return;
 
-  const pending = await getPendingSdkPayloadRefreshRequests(organization);
-  if (!pending) return;
-
   // Lazy import avoids a circular dependency with services/features.ts
   const { refreshSDKPayloadCache } = await import(
     "back-end/src/services/features"
   );
 
   try {
+    const pending = await getPendingSdkPayloadRefreshRequests(organization);
+    if (!pending) return;
+
     const context = await getContextForAgendaJobByOrgId(organization);
     await refreshSDKPayloadCache({
       context,
