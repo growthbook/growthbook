@@ -22,6 +22,7 @@ import {
   AIPromptType,
   getProviderFromModel,
   getProviderFromEmbeddingModel,
+  isReasoningModel,
 } from "shared/ai";
 import { z, ZodObject, ZodRawShape } from "zod";
 import { OrganizationInterface } from "shared/types/organization";
@@ -201,10 +202,18 @@ export const simpleCompletion = async ({
 
   const messages = constructMessages(prompt, instructions);
 
+  // Reasoning models reject `temperature`; omit it rather than let the
+  // provider warn and drop it.
+  const effectiveTemperature = isReasoningModel(model)
+    ? undefined
+    : temperature;
+
   const generateOptions = {
     model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
     messages,
-    ...(temperature != null ? { temperature } : {}),
+    ...(effectiveTemperature != null
+      ? { temperature: effectiveTemperature }
+      : {}),
   };
 
   let numTokensUsed: number | undefined;
@@ -244,7 +253,7 @@ export const simpleCompletion = async ({
       model,
       numPromptTokensUsed: inputTokensUsed,
       numCompletionTokensUsed: outputTokensUsed,
-      temperature,
+      temperature: effectiveTemperature,
       usedDefaultPrompt: isDefaultPrompt,
     });
   }
@@ -283,11 +292,19 @@ export const streamingChatCompletion = async ({
     throw new Error("AI provider not enabled or key not set");
   }
 
+  // Reasoning models reject `temperature`; omit it rather than let the
+  // provider warn and drop it.
+  const effectiveTemperature = isReasoningModel(model)
+    ? undefined
+    : temperature;
+
   const result = streamText({
     model: aiProvider(model) as Parameters<typeof streamText>[0]["model"],
     system,
     messages,
-    ...(temperature != null ? { temperature } : {}),
+    ...(effectiveTemperature != null
+      ? { temperature: effectiveTemperature }
+      : {}),
     ...(tools ? { tools, stopWhen: stepCountIs(maxSteps) } : {}),
     ...(abortSignal ? { abortSignal } : {}),
     onFinish: async ({ usage }) => {
@@ -303,7 +320,7 @@ export const streamingChatCompletion = async ({
           model,
           numPromptTokensUsed: usage?.inputTokens,
           numCompletionTokensUsed: usage?.outputTokens,
-          temperature,
+          temperature: effectiveTemperature,
           usedDefaultPrompt: isDefaultPrompt,
         });
       }
@@ -389,13 +406,21 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     }
   }
 
+  // Reasoning models reject `temperature`; omit it rather than let the
+  // provider warn and drop it.
+  const effectiveTemperature = isReasoningModel(model)
+    ? undefined
+    : temperature;
+
   const response = await generateText({
     model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
     messages: messages,
     output: Output.object({
       schema: zodObjectSchema,
     }),
-    ...(temperature != null ? { temperature } : {}),
+    ...(effectiveTemperature != null
+      ? { temperature: effectiveTemperature }
+      : {}),
     ...(tools ? { tools, stopWhen: stepCountIs(maxSteps) } : {}),
     ...(onStepFinish ? { onStepFinish } : {}),
   });
@@ -408,7 +433,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
       model: model,
       numPromptTokensUsed: response.usage?.inputTokens,
       numCompletionTokensUsed: response.usage?.outputTokens,
-      temperature,
+      temperature: effectiveTemperature,
       usedDefaultPrompt: isDefaultPrompt,
     });
 

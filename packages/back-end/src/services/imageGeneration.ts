@@ -5,6 +5,9 @@ import { createXai } from "@ai-sdk/xai";
 import {
   getImageModelMeta,
   resolveImageModelIdForSdk,
+  snapAspectRatio,
+  aspectRatioToDims,
+  buildImageAspectInstruction,
   type AIImageModelMeta,
 } from "shared/ai";
 import type { ReqContext } from "back-end/types/request";
@@ -43,47 +46,15 @@ export interface GenerateImagesParams {
   referenceImage?: ReferenceImagePart;
 }
 
-// Approximate output dimensions used as a layout hint before bytes
-// load. Upper bound only — downstream sharp re-encoding may downscale.
-const ASPECT_TO_DIMS: Record<string, { width: number; height: number }> = {
-  "1:1": { width: 1024, height: 1024 },
-  "16:9": { width: 1280, height: 720 },
-  "9:16": { width: 720, height: 1280 },
-  "4:3": { width: 1024, height: 768 },
-  "3:4": { width: 768, height: 1024 },
-};
-
-const SUPPORTED_ASPECTS = Object.keys(ASPECT_TO_DIMS);
-
-// Snap an arbitrary ratio string to the closest supported value;
-// defaults to 1:1 for unparseable input.
-function snapAspectRatio(input: string | undefined): {
-  value: string;
-  width: number;
-  height: number;
-} {
-  if (input && /^\d+(\.\d+)?:\d+(\.\d+)?$/.test(input)) {
-    const [w, h] = input.split(":").map(Number);
-    if (w > 0 && h > 0) {
-      const want = w / h;
-      let best = SUPPORTED_ASPECTS[0];
-      let bestDelta = Math.abs(
-        Math.log(
-          want / (ASPECT_TO_DIMS[best].width / ASPECT_TO_DIMS[best].height),
-        ),
-      );
-      for (const ar of SUPPORTED_ASPECTS) {
-        const ratio = ASPECT_TO_DIMS[ar].width / ASPECT_TO_DIMS[ar].height;
-        const delta = Math.abs(Math.log(want / ratio));
-        if (delta < bestDelta) {
-          best = ar;
-          bestDelta = delta;
-        }
-      }
-      return { value: best, ...ASPECT_TO_DIMS[best] };
-    }
-  }
-  return { value: "1:1", ...ASPECT_TO_DIMS["1:1"] };
+// Resolve the generation aspect ratio for a model: snap the requested ratio
+// to the closest shape the model supports, then attach approximate output
+// dimensions (a pre-decode layout hint; real dims come from the bytes).
+function resolveAspect(
+  input: string | undefined,
+  meta: AIImageModelMeta,
+): { value: string; width: number; height: number } {
+  const value = snapAspectRatio(input, meta.supportedAspectRatios);
+  return { value, ...aspectRatioToDims(value) };
 }
 
 // Build the right provider factory for a given model, using the
@@ -208,8 +179,12 @@ async function generateViaMultimodalText(
         google: {
           // Without this Gemini returns a text description instead of bytes.
           responseModalities: ["IMAGE"],
-          // Honored by gemini-3-pro-image-preview; older models ignore it.
-          imageConfig: { aspectRatio: aspect.value },
+          // Only sent to models that honor it (gemini-3-pro-image-preview).
+          // gemini-2.5-flash-image ignores it, so we steer shape via the
+          // prompt's framing instruction instead.
+          ...(meta.honorsAspectRatio
+            ? { imageConfig: { aspectRatio: aspect.value } }
+            : {}),
         },
       },
     });
@@ -275,9 +250,23 @@ export async function generateImages(
       `Model "${meta.id}" does not support reference images. Choose a Gemini *-image-preview model for image-as-context.`,
     );
   }
-  const aspect = snapAspectRatio(params.aspectRatio);
+  const aspect = resolveAspect(params.aspectRatio, meta);
+
+  // Append a framing/safe-area instruction so the result drops into the
+  // original image's slot without the subject being center-cropped. No-op
+  // when no slot ratio was requested, or when the model emits the right
+  // shape anyway.
+  const framing = buildImageAspectInstruction({
+    requestedRatio: params.aspectRatio,
+    snappedRatio: aspect.value,
+    honorsAspectRatio: meta.honorsAspectRatio,
+  });
+  const effectiveParams = framing
+    ? { ...params, prompt: `${params.prompt}${framing}` }
+    : params;
+
   if (meta.kind === "image-endpoint") {
-    return generateViaImageEndpoint(params, meta, aspect);
+    return generateViaImageEndpoint(effectiveParams, meta, aspect);
   }
-  return generateViaMultimodalText(params, meta, aspect);
+  return generateViaMultimodalText(effectiveParams, meta, aspect);
 }
