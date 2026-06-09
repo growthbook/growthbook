@@ -1,14 +1,33 @@
-import { useState, FC } from "react";
+import { useState, FC, useCallback, useEffect } from "react";
 import {
   OrganizationInterface,
   OrganizationMessage,
 } from "shared/types/organization";
+import {
+  EventForwarderSinkType,
+  EventForwarderStatus,
+} from "shared/types/event-forwarder";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
+import { Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { isCloud } from "@/services/env";
 import Checkbox from "@/ui/Checkbox";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 type MessageWithId = OrganizationMessage & { id: string };
+
+type EventForwarderRow = {
+  datasourceId: string;
+  name: string;
+  sinkType: EventForwarderSinkType;
+  status: EventForwarderStatus;
+};
+
+const SINK_TYPE_LABELS: Record<EventForwarderSinkType, string> = {
+  bigquery: "BigQuery",
+  snowflake: "Snowflake",
+};
 
 const EditOrganization: FC<{
   onEdit: () => void;
@@ -40,8 +59,46 @@ const EditOrganization: FC<{
       id: crypto.randomUUID(),
     })),
   );
+  const [eventForwarders, setEventForwarders] = useState<EventForwarderRow[]>(
+    [],
+  );
+  const [eventForwardersLoading, setEventForwardersLoading] = useState(true);
+  const [eventForwardersError, setEventForwardersError] = useState("");
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
   const { apiCall } = useAuth();
+
+  const refreshEventForwarders = useCallback(async () => {
+    setEventForwardersLoading(true);
+    setEventForwardersError("");
+    try {
+      const res = await apiCall<{
+        datasources: DataSourceInterfaceWithParams[];
+      }>("/organization/definitions", {
+        headers: { "X-Organization": id },
+      });
+      setEventForwarders(
+        res.datasources
+          .filter((ds) => ds.eventForwarderConfig != null)
+          .map((ds) => ({
+            datasourceId: ds.id,
+            name: ds.name,
+            sinkType: ds.eventForwarderConfig!.sinkType,
+            status: ds.eventForwarderConfig!.status,
+          })),
+      );
+    } catch (e) {
+      setEventForwardersError(
+        e instanceof Error ? e.message : "Failed to load event forwarders",
+      );
+    } finally {
+      setEventForwardersLoading(false);
+    }
+  }, [apiCall, id]);
+
+  useEffect(() => {
+    refreshEventForwarders();
+  }, [refreshEventForwarders]);
 
   const handleSubmit = async () => {
     await apiCall<{
@@ -85,6 +142,51 @@ const EditOrganization: FC<{
 
   const removeMessage = (id: string) => {
     setMessages(messages.filter((m) => m.id !== id));
+  };
+
+  const handleDeleteEventForwarder = async (datasourceId: string) => {
+    if (
+      !window.confirm(
+        "Delete this Event Forwarder configuration? This cannot be undone from the UI.",
+      )
+    ) {
+      return;
+    }
+    setActionLoadingId(datasourceId);
+    setEventForwardersError("");
+    try {
+      await apiCall(`/datasource/${datasourceId}/event-forwarder`, {
+        method: "DELETE",
+        headers: { "X-Organization": id },
+      });
+      await refreshEventForwarders();
+    } catch (e) {
+      setEventForwardersError(
+        e instanceof Error ? e.message : "Failed to delete event forwarder",
+      );
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handlePauseResumeEventForwarder = async (row: EventForwarderRow) => {
+    const action = row.status === "ready" ? "pause" : "resume";
+    setActionLoadingId(row.datasourceId);
+    setEventForwardersError("");
+    try {
+      await apiCall(
+        `/datasource/${row.datasourceId}/event-forwarder/${action}`,
+        {
+          method: "POST",
+          headers: { "X-Organization": id },
+        },
+      );
+      await refreshEventForwarders();
+    } catch (e) {
+      setEventForwardersError(e instanceof Error ? e.message : "Action failed");
+    } finally {
+      setActionLoadingId(null);
+    }
   };
 
   return (
@@ -333,6 +435,80 @@ const EditOrganization: FC<{
                 </div>
               ))}
             </div>
+            {!eventForwardersLoading && eventForwarders.length > 0 ? (
+              <div className="mt-3">
+                <label className="mb-1 font-weight-bold">
+                  Event Forwarders
+                </label>
+                {eventForwardersError ? (
+                  <div className="text-danger small mb-2">
+                    {eventForwardersError}
+                  </div>
+                ) : null}
+                {eventForwarders.map((row) => {
+                  const canToggle =
+                    row.status === "ready" || row.status === "paused";
+                  const isLoading = actionLoadingId === row.datasourceId;
+                  return (
+                    <div
+                      key={row.datasourceId}
+                      className="d-flex gap-2 mb-2 align-items-center"
+                    >
+                      <span
+                        className="flex-grow-1 text-truncate"
+                        title={row.name}
+                      >
+                        {row.name}
+                      </span>
+                      <span
+                        className="text-muted small"
+                        style={{ width: 80, flexShrink: 0 }}
+                      >
+                        {SINK_TYPE_LABELS[row.sinkType]}
+                      </span>
+                      <Flex align="center" gap="6">
+                        {canToggle ? (
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-secondary"
+                            style={{ flexShrink: 0, width: 72 }}
+                            disabled={isLoading}
+                            onClick={() => handlePauseResumeEventForwarder(row)}
+                          >
+                            {isLoading ? (
+                              <LoadingSpinner
+                                style={{ width: "12px", height: "12px" }}
+                              />
+                            ) : row.status === "ready" ? (
+                              "Pause"
+                            ) : (
+                              "Resume"
+                            )}
+                          </button>
+                        ) : null}
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-danger"
+                          style={{ flexShrink: 0 }}
+                          disabled={isLoading}
+                          onClick={() =>
+                            handleDeleteEventForwarder(row.datasourceId)
+                          }
+                        >
+                          Delete
+                        </button>
+                      </Flex>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
+            {eventForwardersLoading ? (
+              <div className="mt-3 d-flex align-items-center gap-2 text-muted small">
+                <LoadingSpinner style={{ width: "14px", height: "14px" }} />
+                Loading event forwarders...
+              </div>
+            ) : null}
           </>
         ) : null}
       </div>

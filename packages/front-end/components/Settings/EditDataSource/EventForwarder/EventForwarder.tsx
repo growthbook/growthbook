@@ -602,26 +602,6 @@ export default function EventForwarder({
             >
               Edit
             </Button>
-            {/* <Button
-              variant="outline"
-              color="red"
-              setError={setError}
-              onClick={async () => {
-                if (
-                  !window.confirm(
-                    "Delete this Event Forwarder configuration? This cannot be undone from the UI.",
-                  )
-                ) {
-                  return;
-                }
-                await apiCall(`/datasource/${dataSource.id}/event-forwarder`, {
-                  method: "DELETE",
-                });
-                await onRefresh();
-              }}
-            >
-              Delete Event Forwarder (temp)
-            </Button> */}
             {canToggle ? (
               <Button
                 variant="outline"
