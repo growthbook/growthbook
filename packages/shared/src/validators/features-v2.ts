@@ -143,6 +143,23 @@ export type ApiFeatureRevisionV2 = z.infer<
 
 // ---- FeatureV2 (schemas/FeatureV2.yaml) ----
 
+// Slim summary of the current published revision returned inline on Feature
+// responses. Named explicitly so SDK code generators don't auto-name it
+// `FeatureRevision` (which would collide with FeatureRevisionV2 after
+// V2-suffix stripping).
+export const apiFeatureRevisionSummaryValidator = namedSchema(
+  "FeatureRevisionSummary",
+  z
+    .object({
+      version: z.coerce.number().int(),
+      comment: z.string(),
+      date: z.string().meta({ format: "date-time" }),
+      createdBy: z.string(),
+      publishedBy: z.string(),
+    })
+    .strict(),
+);
+
 export const apiFeatureV2Validator = namedSchema(
   "FeatureV2",
   z
@@ -171,13 +188,7 @@ export const apiFeatureV2Validator = namedSchema(
         .array(z.string())
         .describe("Feature IDs. Each feature must evaluate to `true`")
         .optional(),
-      revision: z.object({
-        version: z.coerce.number().int(),
-        comment: z.string(),
-        date: z.string().meta({ format: "date-time" }),
-        createdBy: z.string(),
-        publishedBy: z.string(),
-      }),
+      revision: apiFeatureRevisionSummaryValidator,
       customFields: z.record(z.string(), z.any()).optional(),
       holdout: apiFeatureHoldout,
     })
