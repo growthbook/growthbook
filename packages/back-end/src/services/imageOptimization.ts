@@ -1,20 +1,55 @@
-// `sharp` is a native module. Eager import crashes 11 test suites on
-// CI (Node 24) where the native binary fails to initialize. Defer the
-// import so unrelated tests don't load it.
+import { logger } from "back-end/src/util/logger";
+
+// We use `wasm-vips` (libvips compiled to WebAssembly) instead of the
+// native `sharp` module: same engine and output quality, but it ships its
+// `.wasm` inside the npm package — there's no platform binary to install,
+// so it loads on any runtime/arch and isn't affected by
+// `pnpm install --no-optional` (which strips sharp's optional platform
+// binaries and broke image gen in production).
 //
-// The `.default ?? m` fallback below handles both CJS (`module.exports =
-// sharp`) and esModuleInterop typings of the dynamic-import result.
-import type sharpType from "sharp";
-type SharpFactory = typeof sharpType;
-let sharpFactoryPromise: Promise<SharpFactory> | null = null;
-const loadSharp = (): Promise<SharpFactory> => {
-  if (!sharpFactoryPromise) {
-    sharpFactoryPromise = import("sharp").then((m) => {
-      const ns = m as unknown as { default?: SharpFactory };
-      return ns.default ?? (m as unknown as SharpFactory);
+// NB: wasm-vips ships type defs that use the legacy `declare module X {}`
+// syntax, which our compiler (tsgo) rejects with TS1540 even under
+// skipLibCheck. So we deliberately do NOT import its types — we load it
+// through a non-literal specifier (TS then treats the dynamic import as
+// `any` and never parses the offending `.d.ts`) and type the small slice
+// we use locally.
+
+interface VipsImage {
+  readonly width: number;
+  readonly height: number;
+  writeToBuffer(format: string, options?: Record<string, unknown>): Uint8Array;
+  delete(): void;
+}
+interface VipsModule {
+  Image: {
+    thumbnailBuffer(
+      buffer: Uint8Array,
+      width: number,
+      options?: Record<string, unknown>,
+    ): VipsImage;
+  };
+}
+type VipsFactory = (config?: Record<string, unknown>) => Promise<VipsModule>;
+
+// `as string` widens the literal so TS doesn't resolve (and choke on)
+// wasm-vips's type definitions for this dynamic import.
+const VIPS_SPECIFIER = "wasm-vips" as string;
+
+// Init is async and relatively heavy (instantiates the WebAssembly
+// module), so memoize a single instance for the process.
+let vipsPromise: Promise<VipsModule> | null = null;
+const loadVips = (): Promise<VipsModule> => {
+  if (!vipsPromise) {
+    vipsPromise = import(VIPS_SPECIFIER).then((m: unknown) => {
+      const mod = m as { default?: VipsFactory };
+      const factory: VipsFactory = mod.default ?? (m as VipsFactory);
+      // `dynamicLibraries: []` skips the optional HEIF/JXL/SVG dynamic
+      // `.wasm` modules — we only deal with PNG/JPEG/WebP, which live in
+      // the core `vips.wasm`. Avoids loading files we don't need.
+      return factory({ dynamicLibraries: [] });
     });
   }
-  return sharpFactoryPromise;
+  return vipsPromise;
 };
 
 // Downscale AI-generated images to a sane longest-edge cap and
@@ -24,39 +59,79 @@ const loadSharp = (): Promise<SharpFactory> => {
 const MAX_LONGEST_EDGE_PX = 1280;
 const WEBP_QUALITY = 82;
 
-export interface OptimizedImage {
+// Source image as produced by the generation provider. Carries enough
+// metadata to upload the original unchanged if optimization is skipped.
+export interface RawImage {
   buffer: Buffer;
-  contentType: "image/webp";
-  ext: "webp";
+  contentType: string;
+  ext: string;
   width: number;
   height: number;
 }
 
-export async function optimizeAIImage(input: Buffer): Promise<OptimizedImage> {
-  const sharp = await loadSharp();
-  // `.rotate()` bakes EXIF orientation into pixels before metadata strip.
-  const pipeline = sharp(input)
-    .rotate()
-    .resize({
-      width: MAX_LONGEST_EDGE_PX,
-      height: MAX_LONGEST_EDGE_PX,
-      fit: "inside",
-      withoutEnlargement: true,
-    })
-    .webp({
-      quality: WEBP_QUALITY,
-      // Pin to sharp's current default so future upgrades don't shift
-      // our output size silently.
-      effort: 4,
-    });
+export interface OptimizedImage {
+  buffer: Buffer;
+  contentType: string;
+  ext: string;
+  width: number;
+  height: number;
+  // false when optimization was skipped (vips failed to load / process)
+  // and we're returning the original image untouched.
+  optimized: boolean;
+}
 
-  const { data, info } = await pipeline.toBuffer({ resolveWithObject: true });
+// Best-effort optimization. If vips can't load or process the image for
+// any reason, fall back to uploading the original — larger, but
+// functional — rather than failing image generation outright.
+export async function optimizeAIImage(
+  source: RawImage,
+): Promise<OptimizedImage> {
+  try {
+    const vips = await loadVips();
 
-  return {
-    buffer: data,
-    contentType: "image/webp",
-    ext: "webp",
-    width: info.width,
-    height: info.height,
-  };
+    // `thumbnailBuffer` is libvips' shrink-on-load resize: it fits the
+    // image within the box, preserving aspect ratio, and auto-rotates by
+    // EXIF orientation. `size: "down"` prevents upscaling images smaller
+    // than the cap (equivalent to sharp's `withoutEnlargement: true`).
+    const image = vips.Image.thumbnailBuffer(
+      source.buffer,
+      MAX_LONGEST_EDGE_PX,
+      {
+        height: MAX_LONGEST_EDGE_PX,
+        size: "down",
+      },
+    );
+    try {
+      const data = image.writeToBuffer(".webp", {
+        Q: WEBP_QUALITY,
+        effort: 4,
+        // Drop EXIF/ICC/etc. metadata from the output.
+        strip: true,
+      });
+      return {
+        buffer: Buffer.from(data),
+        contentType: "image/webp",
+        ext: "webp",
+        width: image.width,
+        height: image.height,
+        optimized: true,
+      };
+    } finally {
+      // Free the WASM-side image to avoid leaking emscripten heap memory.
+      image.delete();
+    }
+  } catch (err) {
+    logger.warn(
+      { err },
+      "[image-optimization] vips unavailable; uploading original image unoptimized",
+    );
+    return {
+      buffer: source.buffer,
+      contentType: source.contentType,
+      ext: source.ext,
+      width: source.width,
+      height: source.height,
+      optimized: false,
+    };
+  }
 }
