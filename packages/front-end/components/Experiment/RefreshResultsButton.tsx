@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Queries } from "shared/types/query";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { isDimensionPrecomputed } from "shared/experiments";
@@ -18,6 +18,8 @@ import { trackSnapshot } from "@/services/track";
 import RunQueriesButton from "@/components/Queries/RunQueriesButton";
 import ExperimentRefreshSnapshotButton from "@/components/Experiment/RefreshSnapshotButton";
 import SafeRolloutRefreshSnapshotButton from "@/components/SafeRollout/RefreshSnapshotButton";
+import ConfirmDialog from "@/ui/ConfirmDialog";
+import { useIncrementalRefresh } from "@/hooks/useIncrementalRefresh";
 
 export type EntityType = "experiment" | "holdout" | "safe-rollout";
 
@@ -76,6 +78,14 @@ export default function RefreshResultsButton<
   const { getDatasourceById } = useDefinitions();
   const { hasCommercialFeature } = useUser();
 
+  const { nextUpdatePlan, mutate: mutateIncrementalRefresh } =
+    useIncrementalRefresh(
+      entityType === "experiment" || entityType === "holdout" ? entityId : "",
+    );
+
+  const [settingsOutdatedModalOpen, setSettingsOutdatedModalOpen] =
+    useState(false);
+
   const hasQueries = latest?.queries && latest.queries.length > 0;
 
   // Determine which button to render
@@ -104,8 +114,111 @@ export default function RefreshResultsButton<
       ? `/safe-rollout/${entityId}/snapshot`
       : `/experiment/${entityId}/snapshot`;
 
+  const isSettingsOutdated =
+    nextUpdatePlan?.runner === "inline" &&
+    nextUpdatePlan.fallback?.code === "settings-outdated";
+
+  const runNormalUpdate = async () => {
+    const snapshotDimension = isDimensionPrecomputed(
+      dimension,
+      getHonoredPrecomputedUnitDimensionIds(
+        experiment?.precomputedUnitDimensionIds,
+        experiment?.datasource
+          ? getDatasourceById(experiment.datasource)
+          : undefined,
+        hasCommercialFeature("pipeline-mode"),
+      ),
+    )
+      ? ""
+      : (dimension ?? "");
+    const body =
+      entityType === "experiment" || entityType === "holdout"
+        ? JSON.stringify({
+            phase: phase ?? 0,
+            dimension: snapshotDimension,
+          })
+        : undefined;
+
+    try {
+      if (entityType === "safe-rollout") {
+        await apiCall<{ snapshot: SafeRolloutSnapshotInterface }>(
+          snapshotEndpoint,
+          { method: "POST" },
+        );
+      } else {
+        const res = await apiCall<{
+          snapshot: ExperimentSnapshotInterface;
+        }>(snapshotEndpoint, {
+          method: "POST",
+          ...(body && { body }),
+        });
+        if (experimentSnapshotTrackingProps) {
+          trackSnapshot(
+            "create",
+            experimentSnapshotTrackingProps.trackingSource,
+            experimentSnapshotTrackingProps.datasourceType,
+            res.snapshot,
+          );
+        }
+      }
+      onSuccess?.();
+      setRefreshError("");
+    } catch (e) {
+      setRefreshError(e.message);
+    } finally {
+      mutate();
+      mutateAdditional?.();
+    }
+  };
+
+  const runForceRefresh = async () => {
+    try {
+      await apiCall<{ snapshot: ExperimentSnapshotInterface }>(
+        `${snapshotEndpoint}?force=true`,
+        {
+          method: "POST",
+          body: JSON.stringify({ phase: phase ?? 0, dimension: "" }),
+        },
+      );
+      onSuccess?.();
+      setRefreshError("");
+    } catch (e) {
+      setRefreshError(e.message);
+    } finally {
+      mutate();
+      mutateAdditional?.();
+      mutateIncrementalRefresh();
+    }
+  };
+
   return (
     <>
+      {settingsOutdatedModalOpen ? (
+        <ConfirmDialog
+          title="Rebuild incremental pipeline?"
+          content={
+            <div>
+              The experiment settings have changed since the incremental
+              pipeline was built. Updates will run as full queries and pipeline
+              tables will stop advancing until you run a Full Refresh.
+              <br />
+              <br />
+              Running a Full Refresh rebuilds the pipeline tables with the
+              current settings and resumes incremental updates going forward.
+            </div>
+          }
+          yesText="Run Full Refresh"
+          noText="Update anyway"
+          onConfirm={async () => {
+            setSettingsOutdatedModalOpen(false);
+            await runForceRefresh();
+          }}
+          onCancel={async () => {
+            setSettingsOutdatedModalOpen(false);
+            await runNormalUpdate();
+          }}
+        />
+      ) : null}
       {shouldUseRunQueriesButton ? (
         <RunQueriesButton
           cta="Update"
@@ -122,60 +235,11 @@ export default function RefreshResultsButton<
           useRadixButton={true}
           radixVariant="outline"
           onSubmit={async () => {
-            // Precomputed dimensions are computed as part of a standard snapshot,
-            // so we don't need to pass them to the backend for a new snapshot query
-            const snapshotDimension = isDimensionPrecomputed(
-              dimension,
-              getHonoredPrecomputedUnitDimensionIds(
-                experiment?.precomputedUnitDimensionIds,
-                experiment?.datasource
-                  ? getDatasourceById(experiment.datasource)
-                  : undefined,
-                hasCommercialFeature("pipeline-mode"),
-              ),
-            )
-              ? ""
-              : (dimension ?? "");
-            const body =
-              entityType === "experiment" || entityType === "holdout"
-                ? JSON.stringify({
-                    phase: phase ?? 0,
-                    dimension: snapshotDimension,
-                  })
-                : undefined;
-
-            try {
-              if (entityType === "safe-rollout") {
-                await apiCall<{ snapshot: SafeRolloutSnapshotInterface }>(
-                  snapshotEndpoint,
-                  { method: "POST" },
-                );
-              } else {
-                const res = await apiCall<{
-                  snapshot: ExperimentSnapshotInterface;
-                }>(snapshotEndpoint, {
-                  method: "POST",
-                  ...(body && { body }),
-                });
-                if (experimentSnapshotTrackingProps) {
-                  trackSnapshot(
-                    "create",
-                    experimentSnapshotTrackingProps.trackingSource,
-                    experimentSnapshotTrackingProps.datasourceType,
-                    res.snapshot,
-                  );
-                }
-              }
-              onSuccess?.();
-              setRefreshError("");
-            } catch (e) {
-              setRefreshError(e.message);
-            } finally {
-              // Always refresh, regardless of success or failure
-              // to give the UI a chance to catch up
-              mutate();
-              mutateAdditional?.();
+            if (isSettingsOutdated && !dimension) {
+              setSettingsOutdatedModalOpen(true);
+              return;
             }
+            await runNormalUpdate();
           }}
         />
       ) : shouldRenderExperimentButton ? (

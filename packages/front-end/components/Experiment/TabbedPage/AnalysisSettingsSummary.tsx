@@ -50,6 +50,8 @@ import { filterMetricsByTags } from "@/hooks/useExperimentTableRows";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import Link from "@/ui/Link";
 import MigrateResultsToDashboardModal from "@/components/Experiment/ResultsFilter/MigrateResultsToDashboardModal";
+import IncrementalRefreshFallbackCallout from "@/components/Experiment/IncrementalRefreshFallbackCallout";
+import { useIncrementalRefresh } from "@/hooks/useIncrementalRefresh";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -169,6 +171,8 @@ export default function AnalysisSettingsSummary({
   const hasValidStatsEngine =
     !analysis?.settings ||
     (analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE) === statsEngine;
+
+  const { nextUpdatePlan } = useIncrementalRefresh(experiment.id);
 
   const [refreshError, setRefreshError] = useState("");
   const [queriesModalOpen, setQueriesModalOpen] = useState(false);
@@ -685,6 +689,13 @@ export default function AnalysisSettingsSummary({
                 />
               ) : null}
             </Flex>
+
+            {experiment.type !== "holdout" ? (
+              <IncrementalRefreshFallbackCallout
+                nextUpdatePlan={nextUpdatePlan}
+                dimension={dimension}
+              />
+            ) : null}
 
             {ds &&
             permissionsUtil.canRunExperimentQueries(ds) &&
