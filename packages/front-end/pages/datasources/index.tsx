@@ -156,12 +156,9 @@ const DataSourcesPage: FC = () => {
         <NewDataSourceForm
           initial={newModalData || undefined}
           source="datasource-list"
-          onSuccess={async (id, opts) => {
+          onSuccess={async (id) => {
             await mutateDefinitions({});
-            const query = opts?.openEventForwarderSetup
-              ? "?setupEventForwarder=1"
-              : "";
-            await router.push(`/datasources/${id}${query}`);
+            await router.push(`/datasources/${id}`);
           }}
           onCancel={() => {
             setNewModalData(null);
