@@ -113,7 +113,8 @@ const hookTypes: Record<
         testValue: stringify(dummyRevision),
       },
       approvers: {
-        description: "Users who submitted an Approved review for this revision",
+        description:
+          "Users whose most recent review decision on this revision is an approval",
         testValue: stringify([
           {
             type: "dashboard",

@@ -2233,7 +2233,25 @@ export async function publishRevision({
       featureId: revision.featureId,
       version: revision.version,
     });
-  const approvers = revisionLogs
+  // Only count a user as an approver if their most recent review decision is
+  // an approval — an approval followed by "Requested Changes" is withdrawn.
+  const latestReviewByUser = new Map<string, (typeof revisionLogs)[number]>();
+  for (const log of revisionLogs) {
+    if (log.action !== "Approved" && log.action !== "Requested Changes") {
+      continue;
+    }
+    const u = log.user;
+    const key = !u
+      ? "null"
+      : u.type === "api_key"
+        ? `api_key:${u.apiKey}`
+        : `${u.type}:${u.id ?? ""}`;
+    const prev = latestReviewByUser.get(key);
+    if (!prev || log.dateCreated >= prev.dateCreated) {
+      latestReviewByUser.set(key, log);
+    }
+  }
+  const approvers = [...latestReviewByUser.values()]
     .filter((l) => l.action === "Approved")
     .map((l) => l.user);
   await runValidateFeaturePublishHooks({
