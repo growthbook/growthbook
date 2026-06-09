@@ -143,6 +143,12 @@ export async function getPendingSdkPayloadRefreshRequests(
   }
   const merged = mergeSdkPayloadRefreshRequests(doc.requests);
   if (!hasPendingRefreshWork(merged)) {
+    // Merged result has no payload keys and no connections — nothing to refresh.
+    // The document will be cleaned up by the TTL index.
+    logger.warn(
+      { organization, requestCount: doc.requests.length },
+      "sdkPayloadRefreshCoalescer: merged request has no work; document will expire via TTL",
+    );
     return null;
   }
   return { merged, requestCount: doc.requests.length };
@@ -154,40 +160,55 @@ export async function ackPendingSdkPayloadRefreshRequests(
 ): Promise<void> {
   const collection = getPendingCollection();
   const now = new Date();
-  const { value: doc } = await collection.findOneAndUpdate(
-    { organization },
-    [
-      {
-        $set: {
-          requests: {
-            $cond: {
-              if: {
-                $lte: [
-                  { $size: { $ifNull: ["$requests", []] } },
-                  processedRequestCount,
-                ],
-              },
-              then: [],
-              else: {
-                $slice: [
-                  "$requests",
-                  processedRequestCount,
-                  {
-                    $subtract: [
-                      { $size: { $ifNull: ["$requests", []] } },
-                      processedRequestCount,
-                    ],
-                  },
-                ],
+  let doc: PendingRefreshDocument | null = null;
+  try {
+    const result = await collection.findOneAndUpdate(
+      { organization },
+      [
+        {
+          $set: {
+            requests: {
+              $cond: {
+                if: {
+                  $lte: [
+                    { $size: { $ifNull: ["$requests", []] } },
+                    processedRequestCount,
+                  ],
+                },
+                then: [],
+                else: {
+                  $slice: [
+                    "$requests",
+                    processedRequestCount,
+                    {
+                      $subtract: [
+                        { $size: { $ifNull: ["$requests", []] } },
+                        processedRequestCount,
+                      ],
+                    },
+                  ],
+                },
               },
             },
+            dateUpdated: now,
           },
-          dateUpdated: now,
         },
-      },
-    ],
-    { returnDocument: "after" },
-  );
+      ],
+      { returnDocument: "after" },
+    );
+    doc = result.value;
+  } catch (e) {
+    // The aggregation pipeline ($cond/$slice/$subtract) requires MongoDB 4.2+.
+    // On older versions this will throw; log a clear message so operators know
+    // what to fix rather than seeing a silent retry loop.
+    logger.error(
+      e,
+      "ackPendingSdkPayloadRefreshRequests: aggregation pipeline failed. " +
+        "SDK_PAYLOAD_REFRESH_DEBOUNCE_MS requires MongoDB 4.2 or newer. " +
+        "Set SDK_PAYLOAD_REFRESH_DEBOUNCE_MS=0 to disable coalescing on older MongoDB versions.",
+    );
+    throw e;
+  }
   if (!doc?.requests?.length) {
     await collection.deleteOne({ organization, requests: { $size: 0 } });
   }
