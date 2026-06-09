@@ -489,6 +489,46 @@ export const postFeatureRevisionUndoReviewV2Validator = {
   version: "v2" as const,
 };
 
+const revisionLogParams = revisionParamsStrict.extend({ logId: z.string() });
+
+const okResponse = z.object({ status: z.literal(200) }).strict();
+
+export const putFeatureRevisionLogCommentV2Validator = {
+  method: "put" as const,
+  path: "/features/:id/revisions/:version/log/:logId",
+  operationId: "putFeatureRevisionLogCommentV2",
+  summary: "Edit the text of an owned revision Comment entry",
+  description:
+    "Author of a `Comment` log entry can edit its text. Verdict entries (Approved, Requested Changes, Review Requested) and other audit-trail events are immutable.",
+  tags: ["feature-revisions-v2"],
+  paramsSchema: revisionLogParams,
+  bodySchema: z
+    .object({
+      comment: z
+        .string()
+        .describe("New comment text. Replaces existing comment text."),
+    })
+    .strict(),
+  querySchema: z.never(),
+  responseSchema: okResponse,
+  version: "v2" as const,
+};
+
+export const deleteFeatureRevisionLogEntryV2Validator = {
+  method: "delete" as const,
+  path: "/features/:id/revisions/:version/log/:logId",
+  operationId: "deleteFeatureRevisionLogEntryV2",
+  summary: "Delete an owned revision Comment entry",
+  description:
+    "Author of a `Comment` log entry can delete it. Verdict entries (Approved, Requested Changes, Review Requested) and other audit-trail events are immutable. To retract a verdict use `/undo-review`; to retract a review request use `/recall-review`.",
+  tags: ["feature-revisions-v2"],
+  paramsSchema: revisionLogParams,
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  responseSchema: okResponse,
+  version: "v2" as const,
+};
+
 export const postFeatureRevisionToggleV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/toggle",

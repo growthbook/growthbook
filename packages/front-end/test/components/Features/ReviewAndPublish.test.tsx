@@ -28,6 +28,10 @@ vi.mock("shared/util", async (importActual) => {
 
 vi.mock("@/hooks/useOrgSettings", () => ({
   default: () => ({}),
+  useAISettings: () => ({
+    aiEnabled: false,
+    aiAgentEnabled: false,
+  }),
 }));
 
 vi.mock("@/services/features", () => ({
@@ -80,6 +84,22 @@ vi.mock("@/hooks/useFeatureRevisionDiff", () => ({
 
 vi.mock("@/hooks/useApi", () => ({
   default: () => ({ data: undefined, error: undefined, mutate: vi.fn() }),
+}));
+
+vi.mock("@/ui/DropdownMenu", () => ({
+  DropdownMenu: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="dropdown-menu">{children}</div>
+  ),
+  DropdownMenuGroup: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
+  DropdownMenuItem: ({
+    children,
+    onClick,
+  }: {
+    children: React.ReactNode;
+    onClick?: () => void;
+  }) => <button onClick={onClick}>{children}</button>,
 }));
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -187,7 +207,6 @@ describe("ReviewAndPublish", () => {
         mutate={vi.fn()}
       />,
     );
-    expect(screen.getByText(/Read-only view of the/i)).toBeInTheDocument();
     // No review/approval/publish actions in read-only mode.
     expect(
       screen.queryByRole("button", { name: /^Publish$/ }),

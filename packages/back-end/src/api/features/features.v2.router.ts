@@ -21,6 +21,8 @@ import { postFeatureRevisionRequestReviewV2 } from "./postFeatureRevisionRequest
 import { postFeatureRevisionSubmitReviewV2 } from "./postFeatureRevisionSubmitReviewV2";
 import { postFeatureRevisionRecallReviewV2 } from "./postFeatureRevisionRecallReviewV2";
 import { postFeatureRevisionUndoReviewV2 } from "./postFeatureRevisionUndoReviewV2";
+import { putFeatureRevisionLogCommentV2 } from "./putFeatureRevisionLogCommentV2";
+import { deleteFeatureRevisionLogEntryV2 } from "./deleteFeatureRevisionLogEntryV2";
 import { postFeatureRevisionRuleAddV2 } from "./postFeatureRevisionRuleAddV2";
 import { postFeatureRevisionRulesReorderV2 } from "./postFeatureRevisionRulesReorderV2";
 import { putFeatureRevisionRuleV2 } from "./putFeatureRevisionRuleV2";
@@ -79,6 +81,8 @@ export const featureV2Routes: OpenApiRoute[] = [
   postFeatureRevisionSubmitReviewV2,
   postFeatureRevisionRecallReviewV2,
   postFeatureRevisionUndoReviewV2,
+  putFeatureRevisionLogCommentV2,
+  deleteFeatureRevisionLogEntryV2,
   getFeatureRevisionMergeStatusV2,
   postFeatureRevisionRebaseV2,
   postFeatureRevisionPublishV2,

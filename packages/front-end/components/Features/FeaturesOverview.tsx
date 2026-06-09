@@ -910,25 +910,29 @@ export default function FeaturesOverview({
           {revision.comment ? (
             <Flex align="start" gap="1">
               <Box>
-                {!commentExpanded && revision.comment.length > 80
-                  ? revision.comment.slice(0, 80) + "…"
-                  : revision.comment}
-                {revision.comment.length > 80 && !commentExpanded && (
-                  <Link
-                    onClick={() => setCommentExpanded((v) => !v)}
-                    ml="1"
-                    style={{ whiteSpace: "nowrap" }}
-                  >
-                    show more
-                  </Link>
-                )}
-                {revision.comment.length > 80 && commentExpanded && (
-                  <Box mt="1">
+                <Box
+                  style={
+                    !commentExpanded
+                      ? {
+                          display: "-webkit-box",
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: "vertical",
+                          overflow: "hidden",
+                        }
+                      : undefined
+                  }
+                >
+                  <Markdown className="speech-bubble">
+                    {revision.comment}
+                  </Markdown>
+                </Box>
+                {revision.comment.length > 80 && (
+                  <Box mt={commentExpanded ? "1" : "0"}>
                     <Link
                       onClick={() => setCommentExpanded((v) => !v)}
                       style={{ whiteSpace: "nowrap" }}
                     >
-                      show less
+                      {commentExpanded ? "show less" : "show more"}
                     </Link>
                   </Box>
                 )}

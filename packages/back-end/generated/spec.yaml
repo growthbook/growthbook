@@ -9713,6 +9713,105 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/undo-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v2/features/{id}/revisions/{version}/log/{logId}:
+    put:
+      operationId: putFeatureRevisionLogCommentV2
+      summary: Edit the text of an owned revision Comment entry
+      description: >-
+        Author of a `Comment` log entry can edit its text. Verdict entries
+        (Approved, Requested Changes, Review Requested) and other audit-trail
+        events are immutable.
+      tags:
+        - feature-revisions-v2
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+        - $ref: '#/components/parameters/logId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                comment:
+                  description: New comment text. Replaces existing comment text.
+                  type: string
+              required:
+                - comment
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: number
+                    const: 200
+                required:
+                  - status
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT
+            'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/log/{logId}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteFeatureRevisionLogEntryV2
+      summary: Delete an owned revision Comment entry
+      description: >-
+        Author of a `Comment` log entry can delete it. Verdict entries
+        (Approved, Requested Changes, Review Requested) and other audit-trail
+        events are immutable. To retract a verdict use `/undo-review`; to
+        retract a review request use `/recall-review`.
+      tags:
+        - feature-revisions-v2
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+        - $ref: '#/components/parameters/logId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: number
+                    const: 200
+                required:
+                  - status
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE
+            'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/log/{logId}'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v2/features/{id}/revisions/{version}/merge-status:
     get:
       operationId: getFeatureRevisionMergeStatusV2
@@ -30895,6 +30994,13 @@ components:
           - type: string
             const: '1'
           - type: boolean
+    logId:
+      name: logId
+      in: path
+      required: true
+      description: ''
+      schema:
+        type: string
     datasourceId:
       name: datasourceId
       in: query

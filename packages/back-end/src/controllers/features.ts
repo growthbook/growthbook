@@ -1245,6 +1245,44 @@ export async function postFeatureUndoReview(
   res.status(200).json({ status: 200 });
 }
 
+// Edit the comment text in an owned revision log entry. The model enforces
+// that only the author of a plain `Comment` entry can mutate it; verdicts,
+// review requests, and other audit-trail entries are immutable. The helper
+// restricts the change to the `value.comment` field.
+export async function putFeatureRevisionLogComment(
+  req: AuthRequest<
+    { comment: string },
+    { id: string; version: string; logId: string }
+  >,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id, logId } = req.params;
+  const { comment } = req.body;
+  const feature = await getFeature(context, id);
+  if (!feature) throw new Error("Could not find feature");
+  await context.models.featureRevisionLogs.updateCommentText(logId, comment);
+  res.status(200).json({ status: 200 });
+}
+
+// Delete an owned revision log entry. The model enforces that only the
+// author of a plain `Comment` entry can delete; verdicts and other
+// audit-trail entries are immutable.
+export async function deleteFeatureRevisionLogEntry(
+  req: AuthRequest<
+    Record<string, never>,
+    { id: string; version: string; logId: string }
+  >,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id, logId } = req.params;
+  const feature = await getFeature(context, id);
+  if (!feature) throw new Error("Could not find feature");
+  await context.models.featureRevisionLogs.deleteOwnedEntry(logId);
+  res.status(200).json({ status: 200 });
+}
+
 // Detect drift between the live revision (source of truth) and the persisted
 // `feature.rules` / `feature.defaultValue`. If found, repair in place by
 // re-writing through `updateFeature` — which scrubs legacy
@@ -4644,6 +4682,7 @@ export async function getRevisionLog(
 
   // revisionLogs use dateCreated as the timestamp, so we need to convert it to a RevisionLog as that is what the front end expects
   const revisionLogsFormatted: RevisionLog[] = revisionLogs.map((log) => ({
+    id: log.id,
     timestamp: log.dateCreated,
     user: log.user,
     action: log.action,

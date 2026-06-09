@@ -1418,12 +1418,6 @@ main.main {
   background-color: var(--white-a1);
 }
 
-// Standard header row used inside .appbox cards (Notes, review actions, etc.)
-.appbox-header {
-  min-height: 36px;
-  border-bottom: 1px solid var(--gray-a4);
-}
-
 .appbox--align-top {
   td {
     vertical-align: top;

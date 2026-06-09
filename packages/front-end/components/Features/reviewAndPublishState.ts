@@ -6,14 +6,13 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 // and submit-review sub-modes. Keeping it pure makes the full lifecycle/CTA
 // matrix unit-testable without rendering the heavy modal tree.
 
-export type RnPMode = "fix-conflicts" | "submit-review" | "main";
+export type RnPMode = "fix-conflicts" | "main";
 
 // What the primary CTA does when clicked.
 export type RnPSubmitAction =
   | "next-experiments" // advance to the pre-launch checklist step
   | "request-review" // POST /request
   | "publish" // POST /publish
-  | "show-submit-review" // open the approve/request-changes sub-view
   | "none"; // no submit handler (view-only)
 
 export interface RnPStateInput {
@@ -36,8 +35,6 @@ export interface RnPStateInput {
   onlyScheduledSelected: boolean;
   // Currently on the pre-launch checklist step.
   experimentsStep: boolean;
-  // The approve/request-changes sub-view is showing.
-  showSubmitReview: boolean;
   featureLockedByRamp: boolean;
   // A selected experiment's required checklist is incomplete/loading.
   checklistBlocked: boolean;
@@ -82,7 +79,6 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
     hasSelectedExperiments,
     onlyScheduledSelected,
     experimentsStep,
-    showSubmitReview,
     featureLockedByRamp,
     checklistBlocked,
     governanceCanPublish,
@@ -108,19 +104,6 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
       ctaEnabled: false, // enabled once all conflicts are resolved (handled in-view)
       ctaLocked: false,
       submitAction: "none",
-      hasSubmit: true,
-      canRecallReview,
-      canUndoReview,
-    };
-  }
-
-  if (showSubmitReview) {
-    return {
-      mode: "submit-review",
-      ctaLabel: "Submit",
-      ctaEnabled: true,
-      ctaLocked: false,
-      submitAction: "none", // submit handled by the sub-view's own form
       hasSubmit: true,
       canRecallReview,
       canUndoReview,
@@ -162,7 +145,7 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
   if (approved && !hasNextStep) {
     ctaLabel = publishLabel(featureLockedByRamp, onlyScheduledSelected);
     ctaLocked = featureLockedByRamp;
-  } else if (canReview || hasNextStep) {
+  } else if (hasNextStep) {
     ctaLabel = "Next";
   }
 
@@ -173,15 +156,13 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
     submitAction = "request-review";
   } else if (approved) {
     submitAction = "publish";
-  } else if (canReview) {
-    submitAction = "show-submit-review";
   } else {
     submitAction = "none";
   }
 
-  // A pending-review draft is read-only for non-reviewers (no submit handler);
-  // reviewers and the approved/draft author keep an actionable CTA.
-  const hasSubmit = !isPendingReview || canReview || approved;
+  // A pending-review draft is read-only for non-reviewers; approved drafts and
+  // request-review actions have step CTAs. Reviewers use the ReviewCommentPopover.
+  const hasSubmit = !isPendingReview || approved;
 
   const ctaEnabled =
     !(experimentsStep && checklistBlocked && !adminPublish) &&

@@ -7,6 +7,7 @@ import {
 import {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
+  RevisionLog,
 } from "shared/types/feature-revision";
 import {
   autoMerge,
@@ -22,7 +23,6 @@ import {
   getLiveChangesSinceBase,
   MergeStrategy,
 } from "shared/util";
-import { useForm } from "react-hook-form";
 import {
   EventUserLoggedIn,
   EventUserApiKey,
@@ -49,6 +49,7 @@ import Page from "@/components/Modal/Page";
 import Field from "@/components/Forms/Field";
 import LinkButton from "@/components/Button";
 import Revisionlog, { MutateLog } from "@/components/Features/RevisionLog";
+import useApi from "@/hooks/useApi";
 import RevisionLabel from "@/components/Features/RevisionLabel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -69,7 +70,6 @@ import {
   revisionStatusLabel,
 } from "@/components/Features/RevisionStatusBadge";
 import Callout from "@/ui/Callout";
-import RadioGroup from "@/ui/RadioGroup";
 import Checkbox from "@/ui/Checkbox";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import { PreLaunchChecklistForDraft } from "@/components/Experiment/PreLaunchChecklist";
@@ -81,6 +81,9 @@ import {
   DiffContent,
 } from "@/components/Features/RevisionDiffUtils";
 import DivergenceNotice from "@/components/Features/DivergenceNotice";
+import HelperText from "@/ui/HelperText";
+import ReviewCommentPopover from "@/components/Features/ReviewCommentPopover";
+import CommentComposer from "@/components/Comments/CommentComposer";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -110,7 +113,6 @@ export interface Props {
   rampSchedules?: RampScheduleInterface[];
 }
 
-type ReviewSubmittedType = "Comment" | "Approved" | "Requested Changes";
 
 // The feature-page "Review and Publish" tab. Consolidates the former DraftModal
 // (direct publish), RequestReviewModal (review lifecycle), and
@@ -153,6 +155,44 @@ export default function ReviewAndPublish({
     (r) => r.version === revision?.baseVersion,
   );
   const liveRevision = revisions.find((r) => r.version === feature.version);
+
+  // ── Reviewers (per-user latest verdict) ──
+  // Pull the revision log (SWR-deduped against <Revisionlog>'s own fetch) and
+  // aggregate the most recent Approved/Requested Changes entry per user. A
+  // plain Comment is not a verdict so we don't surface it as a review status.
+  // Must be called before any early returns to keep hook order stable.
+  const { data: logData } = useApi<{ log: RevisionLog[] }>(
+    revision
+      ? `/feature/${feature.id}/${revision.version}/log`
+      : `/feature/${feature.id}/0/log`,
+    { shouldRun: () => !!revision },
+  );
+  const reviewers = useMemo<
+    { id: string; status: "approved" | "changes-requested" }[]
+  >(() => {
+    const log = logData?.log;
+    if (!log) return [];
+    const sorted = [...log].sort((a, b) =>
+      (b.timestamp as unknown as string).localeCompare(
+        a.timestamp as unknown as string,
+      ),
+    );
+    const byUser = new Map<string, "approved" | "changes-requested">();
+    for (const entry of sorted) {
+      const verdict: "approved" | "changes-requested" | null =
+        entry.action === "Approved"
+          ? "approved"
+          : entry.action === "Requested Changes"
+            ? "changes-requested"
+            : null;
+      if (!verdict) continue;
+      const uid =
+        entry.user && "id" in entry.user ? entry.user.id : undefined;
+      if (!uid) continue;
+      if (!byUser.has(uid)) byUser.set(uid, verdict);
+    }
+    return Array.from(byUser, ([id, status]) => ({ id, status }));
+  }, [logData]);
 
   // --- Read-only review (selected version is not an active draft) ----------
   const [revertOpen, setRevertOpen] = useState(false);
@@ -220,7 +260,6 @@ export default function ReviewAndPublish({
   const [adminPublish, setAdminPublish] = useState(false);
   const [rebasing, setRebasing] = useState(false);
   const [experimentsStep, setExperimentsStep] = useState(false);
-  const [showSubmitReview, setShowSubmitReview] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [secondaryLoading, setSecondaryLoading] = useState<
@@ -229,7 +268,6 @@ export default function ReviewAndPublish({
   const [secondaryError, setSecondaryError] = useState<string | null>(null);
   const [actionsDropdownOpen, setActionsDropdownOpen] = useState(false);
   const revisionLogRef = useRef<MutateLog>(null);
-  const commentInputRef = useRef<HTMLInputElement>(null);
 
   const mergeResult = useMemo(() => {
     if (!revision || !baseRevision || !liveRevision) return null;
@@ -354,11 +392,6 @@ export default function ReviewAndPublish({
         : [],
     [feature, revision, rampSchedules, holdoutsMap],
   );
-
-  const submitReviewform = useForm<{
-    reviewStatus: ReviewSubmittedType;
-    comment: string;
-  }>({ defaultValues: { reviewStatus: "Comment" } });
 
   const onUpdateFromLive = async () => {
     if (!revision || !mergeResult?.success) return;
@@ -603,7 +636,6 @@ export default function ReviewAndPublish({
     hasSelectedExperiments: selectedExperiments.size > 0,
     onlyScheduledSelected,
     experimentsStep,
-    showSubmitReview,
     featureLockedByRamp,
     checklistBlocked,
     governanceCanPublish: governance ? governance.canPublish : true,
@@ -642,9 +674,6 @@ export default function ReviewAndPublish({
           });
           await mutate();
           onPublish && onPublish();
-          return;
-        case "show-submit-review":
-          setShowSubmitReview(true);
           return;
         default:
           return;
@@ -855,82 +884,6 @@ export default function ReviewAndPublish({
       </PagedModal>
     ) : null;
 
-  const submitReviewModal = showSubmitReview ? (
-    <Modal
-      trackingEventModalType=""
-      open={true}
-      close={() => setShowSubmitReview(false)}
-      header={"Submit Review"}
-      useRadixButton={true}
-      cta={"Submit"}
-      size="lg"
-      includeCloseCta={false}
-      submit={submitReviewform.handleSubmit(async (data) => {
-        try {
-          await apiCall(
-            `/feature/${feature.id}/${revision.version}/submit-review`,
-            {
-              method: "POST",
-              body: JSON.stringify({
-                comment: data.comment,
-                review: data.reviewStatus,
-              }),
-            },
-          );
-        } catch (e) {
-          mutate();
-          throw e;
-        }
-        await mutate();
-      })}
-      backCTA={
-        <LinkButton
-          color="link"
-          onClick={async () => setShowSubmitReview(false)}
-        >
-          <FaArrowLeft /> Back
-        </LinkButton>
-      }
-    >
-      <div>
-        <h4>Leave a Comment</h4>
-        <Field
-          placeholder="Leave a comment"
-          textarea
-          className="mb-3 mt-3"
-          {...submitReviewform.register("comment")}
-        />
-      </div>
-      <RadioGroup
-        value={submitReviewform.watch("reviewStatus")}
-        setValue={(val: ReviewSubmittedType) => {
-          submitReviewform.setValue("reviewStatus", val);
-        }}
-        options={[
-          {
-            value: "Comment",
-            label: "Comment",
-            description: "Submit general feedback without explicit approval.",
-          },
-          {
-            value: "Requested Changes",
-            label: "Request Changes",
-            description:
-              "Submit feedback that must be addressed before publishing.",
-          },
-          {
-            value: "Approved",
-            label: "Approve",
-            description: isBlockedContributor
-              ? "You contributed to this draft and cannot approve it."
-              : "Submit feedback and approve for publishing.",
-            disabled: isBlockedContributor,
-          },
-        ]}
-      />
-    </Modal>
-  ) : null;
-
   const canDoPrimary =
     state.submitAction === "publish" ? hasPublishPermission : true;
 
@@ -1079,7 +1032,30 @@ export default function ReviewAndPublish({
         onNotesSaved={mutate}
       />
 
-      <Box mt="6" pt="5" style={{ borderTop: "1px solid var(--gray-a5)" }}>
+      <Box
+        mt="6"
+        mb="4"
+        pt="5"
+        style={{ borderTop: "1px solid var(--gray-a5)" }}
+      >
+        {isActiveDraft && (
+          <Box mb="4">
+            <CommentComposer
+              placeholder="Leave a comment…"
+              onSubmit={async (comment) => {
+                await apiCall(
+                  `/feature/${feature.id}/${revision.version}/comment`,
+                  {
+                    method: "POST",
+                    body: JSON.stringify({ comment }),
+                  },
+                );
+                await revisionLogRef.current?.mutateLog();
+              }}
+            />
+          </Box>
+        )}
+
         {requireReviews &&
         (isPendingReview || revision.status === "approved") ? (
           <Tabs defaultValue="review">
@@ -1126,8 +1102,11 @@ export default function ReviewAndPublish({
       <Flex
         align="center"
         px="4"
-        className="appbox-header"
-        style={{ background: `var(--${statusColor}-a3)` }}
+        style={{
+          background: `var(--${statusColor}-a3)`,
+          borderBottom: "1px solid var(--gray-a4)",
+          minHeight: 40,
+        }}
       >
         <Flex
           align="center"
@@ -1215,7 +1194,7 @@ export default function ReviewAndPublish({
 
         {requireReviews && contributorIds.length > 0 && (
           <Box mb="3">
-            <Text size="small" weight="medium" color="text-mid" as="div" mb="1">
+            <Text size="medium" weight="medium" color="text-high" as="div" mb="2">
               Contributors
             </Text>
             <Flex direction="column" gap="1">
@@ -1239,32 +1218,46 @@ export default function ReviewAndPublish({
           </Box>
         )}
 
-        {featureLockedByRamp && (
-          <Callout status="warning" icon={<PiLockSimple size={15} />} mb="3">
-            Publishing is locked by an active ramp-up schedule.
-            {canAdminPublish
-              ? " Use the admin bypass below to publish anyway."
-              : ""}
-          </Callout>
-        )}
-        {canAdminPublish && (featureLockedByRamp || requireReviews) && (
+        {requireReviews && reviewers.length > 0 && (
           <Box mb="3">
-            <Checkbox
-              label={
-                requireReviews
-                  ? "Bypass approval and lockdown restrictions to publish (Admins only)"
-                  : "Bypass lockdown to publish (admin only)"
-              }
-              value={adminPublish}
-              setValue={(val) => {
-                setAdminPublish(!!val);
-                if (!val) {
-                  checklistStateRef.current.clear();
-                  setChecklistBlocked(false);
-                  setExperimentsStep(false);
-                }
-              }}
-            />
+            <Text
+              size="medium"
+              weight="medium"
+              color="text-high"
+              as="div"
+              mb="2"
+            >
+              Reviewers
+            </Text>
+            <Flex direction="column" gap="1">
+              {reviewers.map(({ id, status }) => {
+                const u = users.get(id);
+                return (
+                  <Flex
+                    key={id}
+                    align="center"
+                    justify="between"
+                    gap="2"
+                  >
+                    <EventUser
+                      user={{
+                        type: "dashboard",
+                        id,
+                        name: u?.name || "",
+                        email: u?.email || "",
+                      }}
+                      display="avatar-name-email"
+                      size="sm"
+                    />
+                    <Badge
+                      color={revisionStatusColor(status)}
+                      label={revisionStatusLabel(status)}
+                      radius="full"
+                    />
+                  </Flex>
+                );
+              })}
+            </Flex>
           </Box>
         )}
 
@@ -1272,57 +1265,24 @@ export default function ReviewAndPublish({
           (approved || !requireReviews) &&
           renderExperimentSelection()}
 
-        {!requireReviews ? (
-          hasPublishPermission ? (
-            <Field
-              label="Notes (optional)"
-              textarea
-              placeholder="Summary of changes..."
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-            />
-          ) : (
-            <Callout status="info">
-              You do not have permission to publish this draft.
-            </Callout>
-          )
-        ) : (
-          (!canReview || approved) && (
-            <Box id="comment-section">
-              <Field
-                label="Add a Comment (optional)"
-                textarea
-                placeholder="Summary of changes..."
-                value={comment}
-                ref={commentInputRef}
-                onChange={(e) => setComment(e.target.value)}
-              />
-              {((!canReview && revision.status !== "draft") || approved) && (
-                <LinkButton
-                  onClick={async () => {
-                    try {
-                      await apiCall(
-                        `/feature/${feature.id}/${revision.version}/comment`,
-                        {
-                          method: "POST",
-                          body: JSON.stringify({ comment }),
-                        },
-                      );
-                    } catch (e) {
-                      await mutate();
-                      throw e;
-                    }
-                    setComment("");
-                    await revisionLogRef?.current?.mutateLog();
-                    await mutate();
-                    commentInputRef?.current?.scrollIntoView();
-                  }}
-                >
-                  Comment
-                </LinkButton>
-              )}
-            </Box>
-          )
+        {/* Submit review — reviewer action, opens the comment/decision popover */}
+        {canReview && isPendingReview && !approved && (
+          <ReviewCommentPopover
+            featureId={feature.id}
+            version={revision.version}
+            isBlockedContributor={!!isBlockedContributor}
+            onSuccess={async () => {
+              await mutate();
+              await revisionLogRef?.current?.mutateLog();
+            }}
+            trigger={
+              <Button variant="soft" style={{ width: "100%" }}>
+                Submit review
+              </Button>
+            }
+            side="top"
+            align="end"
+          />
         )}
 
         {submitError && (
@@ -1331,31 +1291,134 @@ export default function ReviewAndPublish({
           </Callout>
         )}
 
-        {state.mode === "main" && state.hasSubmit && (
-          <Flex direction="column" gap="2" mt="4">
-            <Button
-              onClick={doSubmit}
-              loading={submitting}
-              disabled={!(state.ctaEnabled && canDoPrimary)}
-              icon={state.ctaLocked ? <PiLockSimple /> : undefined}
-              style={{ width: "100%" }}
-            >
-              {state.ctaLabel}
-            </Button>
-            {experimentsStep && (
-              <LinkButton
-                color="link"
-                onClick={() => {
-                  checklistStateRef.current.clear();
-                  setChecklistBlocked(false);
-                  setExperimentsStep(false);
-                }}
+        {/* ─── GitHub-style publish footer ─── */}
+        {(() => {
+          // Step actions that come before publish (Request Review, Submit Review, Next).
+          const isStepAction =
+            state.mode === "main" &&
+            state.hasSubmit &&
+            state.submitAction !== "publish" &&
+            state.submitAction !== "none";
+
+          // What's blocking publish right now (raw, ignoring adminPublish so the
+          // reason is still visible while the checkbox is unchecked).
+          // `buttonLabel` — when set, the button shows this instead of "Publish"
+          //   and no HelperText is rendered below (the label is self-explanatory).
+          // `reason` — shown as HelperText below the button for technical blocks
+          //   where the label alone isn't enough context (e.g. merge conflicts).
+          type BlockInfo = {
+            reason?: string;
+            buttonLabel?: string;
+            overridable: boolean;
+          } | null;
+          const blockInfo: BlockInfo = (() => {
+            if (!mergeResult.success)
+              return { reason: "Resolve merge conflicts before publishing.", overridable: false };
+            if (!hasChanges)
+              return { buttonLabel: "Nothing to publish", overridable: false };
+            if (!hasPublishPermission)
+              return { buttonLabel: "No publish permission", overridable: false };
+            if (requireReviews && !adminPublish) {
+              if (revision.status === "draft")
+                return { buttonLabel: "Review required to publish", overridable: true };
+              if (revision.status === "pending-review")
+                return { buttonLabel: "Awaiting approval to publish", overridable: true };
+              if (revision.status === "changes-requested")
+                return { buttonLabel: "Changes requested — cannot publish", overridable: true };
+            }
+            if (!adminPublish && !governance?.canPublish)
+              return { buttonLabel: "Rebase required to publish", overridable: true };
+            if (!adminPublish && featureLockedByRamp)
+              return { buttonLabel: "Locked by active ramp schedule", overridable: true };
+            return null;
+          })();
+
+          const publishEnabled =
+            state.submitAction === "publish" &&
+            state.ctaEnabled &&
+            canDoPrimary;
+
+          return (
+            <>
+              {/* Step CTA: Request Review / Submit Review / Next */}
+              {isStepAction && (
+                <Box mt="4">
+                  <Button
+                    variant="soft"
+                    onClick={doSubmit}
+                    loading={submitting}
+                    disabled={!state.ctaEnabled}
+                    style={{ width: "100%" }}
+                  >
+                    {state.ctaLabel}
+                  </Button>
+                </Box>
+              )}
+
+              {/* Publish section */}
+              <Box
+                mt="4"
+                pt="4"
+                style={{ borderTop: "1px solid var(--gray-a5)" }}
               >
-                <FaArrowLeft /> Back
-              </LinkButton>
-            )}
-          </Flex>
-        )}
+                {canAdminPublish &&
+                  (blockInfo?.overridable || adminPublish) && (
+                    <Box mb="3">
+                      <Checkbox
+                        label="Bypass checks and publish now (Admins only)"
+                        weight="regular"
+                        value={adminPublish}
+                        setValue={(val) => {
+                          setAdminPublish(!!val);
+                          if (!val) {
+                            checklistStateRef.current.clear();
+                            setChecklistBlocked(false);
+                            setExperimentsStep(false);
+                          }
+                        }}
+                      />
+                    </Box>
+                  )}
+
+                <Button
+                  onClick={publishEnabled ? doSubmit : undefined}
+                  loading={submitting && state.submitAction === "publish"}
+                  disabled={!publishEnabled}
+                  icon={state.ctaLocked ? <PiLockSimple /> : undefined}
+                  style={{ width: "100%" }}
+                >
+                  {blockInfo?.buttonLabel ??
+                    (onlyScheduledSelected ? "Schedule to Start" : "Publish")}
+                </Button>
+
+                {blockInfo?.reason && (
+                  <HelperText
+                    status={blockInfo.overridable ? "warning" : "error"}
+                    size="md"
+                    mt="2"
+                  >
+                    {blockInfo.reason}
+                  </HelperText>
+                )}
+
+                {experimentsStep && (
+                  <Box mt="2">
+                    <LinkButton
+                      color="link"
+                      onClick={() => {
+                        checklistStateRef.current.clear();
+                        setChecklistBlocked(false);
+                        setExperimentsStep(false);
+                      }}
+                    >
+                      <FaArrowLeft /> Back
+                    </LinkButton>
+                  </Box>
+                )}
+              </Box>
+            </>
+          );
+        })()}
 
         {secondaryError && (
           <Callout status="error" mt="3">
@@ -1369,7 +1432,6 @@ export default function ReviewAndPublish({
   return pageWrapper(
     <>
       {conflictModal}
-      {submitReviewModal}
       {mergeHeader}
       <Flex gap="5" align="start">
         <Box style={{ flex: 1, minWidth: 0 }}>{changesColumn}</Box>

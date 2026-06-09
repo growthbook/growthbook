@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import Collapsible from "react-collapsible";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
@@ -38,6 +38,9 @@ import HelperText from "@/ui/HelperText";
 import EventUser from "@/components/Avatar/EventUser";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Field from "@/components/Forms/Field";
+import Markdown from "@/components/Markdown/Markdown";
+import CommentComposer from "@/components/Comments/CommentComposer";
+import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
@@ -1060,8 +1063,6 @@ function RevisionCommentItem({
   }, [data]);
 
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
-  const [saveError, setSaveError] = useState<string | null>(null);
   // Optimistic value so the saved note shows immediately (revisionComment from
   // the parent stays stale until it re-fetches).
   const [localComment, setLocalComment] = useState<string | null>(null);
@@ -1070,17 +1071,37 @@ function RevisionCommentItem({
 
   // Read-only surfaces with no comment render nothing (no empty box).
   const canEditNotes = isDraft && canEdit;
-  if (!comment && !canEditNotes) return null;
 
-  const startEditing = () => {
-    setDraft(comment);
-    setSaveError(null);
-    setEditing(true);
-  };
+  // ── Size-aware overflow controls for the read-only Notes body ──
+  // Show a "Show more"/"Show less" toggle only when the rendered Markdown
+  // exceeds NOTES_MAX_COLLAPSED_HEIGHT. ResizeObserver re-checks when the
+  // content height changes (e.g. images load, viewport changes).
+  const NOTES_MAX_COLLAPSED_HEIGHT = 200;
+  const [notesExpanded, setNotesExpanded] = useState(false);
+  const [notesOverflow, setNotesOverflow] = useState(false);
+  const notesContentRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = notesContentRef.current;
+    if (!el) return;
+    const check = () => {
+      setNotesOverflow(el.scrollHeight > NOTES_MAX_COLLAPSED_HEIGHT + 1);
+    };
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [comment, editing]);
+
+  if (!comment && !canEditNotes) return null;
 
   return (
     <Box mb="5" className="appbox">
-      <Flex align="center" gap="2" px="4" className="appbox-header">
+      <Flex
+        align="center"
+        gap="2"
+        px="4"
+        style={{ borderBottom: "1px solid var(--gray-a4)", minHeight: 40 }}
+      >
         <Flex align="center" gap="2">
           <Heading as="h5" size="small" color="text-mid" mb="0">
             Notes
@@ -1092,7 +1113,7 @@ function RevisionCommentItem({
               size="2"
               radius="full"
               mx="1"
-              onClick={startEditing}
+              onClick={() => setEditing(true)}
               aria-label="Edit notes"
             >
               <PiPencilSimpleFill />
@@ -1130,40 +1151,62 @@ function RevisionCommentItem({
       {/* Body */}
       <Box p="4">
         {editing ? (
-          <>
-            <Field
-              textarea
-              minRows={3}
-              value={draft}
-              placeholder="Add notes describing this revision..."
-              onChange={(e) => setDraft(e.target.value)}
-            />
-            <Flex gap="2" mt="2" align="center">
-              <Button
-                setError={setSaveError}
-                onClick={async () => {
-                  await apiCall(`/feature/${featureId}/${version}/comment`, {
-                    method: "PUT",
-                    body: JSON.stringify({ comment: draft }),
-                  });
-                  setLocalComment(draft);
-                  setEditing(false);
-                  await mutate();
-                  onSaved?.();
-                }}
-              >
-                Save
-              </Button>
-              <Button variant="soft" onClick={() => setEditing(false)}>
-                Cancel
-              </Button>
-              {saveError && <HelperText status="error">{saveError}</HelperText>}
-            </Flex>
-          </>
+          <CommentComposer
+            cta="Save"
+            placeholder="Add notes describing this revision..."
+            initialValue={comment}
+            autofocus
+            onCancel={() => setEditing(false)}
+            onSubmit={async (next) => {
+              await apiCall(`/feature/${featureId}/${version}/comment`, {
+                method: "PUT",
+                body: JSON.stringify({ comment: next }),
+              });
+              setLocalComment(next);
+              setEditing(false);
+              await mutate();
+              onSaved?.();
+            }}
+          />
         ) : comment ? (
-          <Text size="medium" as="div" whiteSpace="pre-wrap">
-            {comment}
-          </Text>
+          <>
+            <Box
+              style={
+                !notesExpanded && notesOverflow
+                  ? {
+                      position: "relative",
+                      maxHeight: NOTES_MAX_COLLAPSED_HEIGHT,
+                      overflow: "hidden",
+                    }
+                  : { position: "relative" }
+              }
+            >
+              <Box ref={notesContentRef}>
+                <Markdown className="speech-bubble">{comment}</Markdown>
+              </Box>
+              {!notesExpanded && notesOverflow && (
+                <Box
+                  style={{
+                    position: "absolute",
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    height: 64,
+                    background:
+                      "linear-gradient(transparent, var(--color-panel-solid))",
+                    pointerEvents: "none",
+                  }}
+                />
+              )}
+            </Box>
+            {notesOverflow && (
+              <Box mt="2">
+                <Link onClick={() => setNotesExpanded((v) => !v)}>
+                  {notesExpanded ? "Show less" : "Show more"}
+                </Link>
+              </Box>
+            )}
+          </>
         ) : (
           <Text size="medium" as="div" color="text-low" fontStyle="italic">
             No notes yet.

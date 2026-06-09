@@ -16,7 +16,6 @@ function base(overrides: Partial<RnPStateInput> = {}): RnPStateInput {
     hasSelectedExperiments: false,
     onlyScheduledSelected: false,
     experimentsStep: false,
-    showSubmitReview: false,
     featureLockedByRamp: false,
     checklistBlocked: false,
     governanceCanPublish: true,
@@ -30,21 +29,6 @@ describe("getReviewAndPublishState", () => {
       const s = getReviewAndPublishState(base({ mergeSuccess: false }));
       expect(s.mode).toBe("fix-conflicts");
       expect(s.ctaLabel).toBe("Update Draft");
-    });
-  });
-
-  describe("submit-review sub-view", () => {
-    it("shows the Submit CTA", () => {
-      const s = getReviewAndPublishState(
-        base({
-          requireReviews: true,
-          status: "pending-review",
-          showSubmitReview: true,
-        }),
-      );
-      expect(s.mode).toBe("submit-review");
-      expect(s.ctaLabel).toBe("Submit");
-      expect(s.ctaEnabled).toBe(true);
     });
   });
 
@@ -132,7 +116,7 @@ describe("getReviewAndPublishState", () => {
       expect(s.submitAction).toBe("none");
     });
 
-    it("lets a reviewer advance to the submit-review sub-view", () => {
+    it("reviewer in pending-review has no step CTA (uses popover instead)", () => {
       const s = getReviewAndPublishState(
         base({
           requireReviews: true,
@@ -140,9 +124,9 @@ describe("getReviewAndPublishState", () => {
           canReview: true,
         }),
       );
-      expect(s.ctaLabel).toBe("Next");
-      expect(s.submitAction).toBe("show-submit-review");
-      expect(s.hasSubmit).toBe(true);
+      // Review submission now handled by ReviewCommentPopover, not the state machine CTA.
+      expect(s.submitAction).toBe("none");
+      expect(s.hasSubmit).toBe(false);
     });
 
     it("publishes an approved draft", () => {

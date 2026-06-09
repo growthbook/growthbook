@@ -886,6 +886,14 @@ app.post(
   featuresController.postFeatureUndoReview,
 );
 app.get("/feature/:id/:version/log", featuresController.getRevisionLog);
+app.put(
+  "/feature/:id/:version/log/:logId",
+  featuresController.putFeatureRevisionLogComment,
+);
+app.delete(
+  "/feature/:id/:version/log/:logId",
+  featuresController.deleteFeatureRevisionLogEntry,
+);
 app.post("/feature/:id/archive", featuresController.postFeatureArchive);
 app.post("/feature/:id/toggle", featuresController.postFeatureToggle);
 app.post("/feature/:id/draft", featuresController.postFeatureCreateDraft);

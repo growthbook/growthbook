@@ -258,6 +258,10 @@ export const JSONSchemaDef = z
 
 const revisionLog = z
   .object({
+    // Optional — legacy log entries stored inline on the revision document
+    // don't have their own ID. New entries from FeatureRevisionLogModel always
+    // include the id, which is required for owner edit/delete operations.
+    id: z.string().optional(),
     user: eventUser,
     timestamp: z.date(),
     action: z.string(),
