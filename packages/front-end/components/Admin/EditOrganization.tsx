@@ -454,19 +454,18 @@ const EditOrganization: FC<{
                       key={row.datasourceId}
                       className="d-flex gap-2 mb-2 align-items-center"
                     >
-                      <span
-                        className="flex-grow-1 text-truncate"
-                        title={row.name}
-                      >
-                        {row.name}
-                      </span>
-                      <span
-                        className="text-muted small"
-                        style={{ width: 80, flexShrink: 0 }}
-                      >
-                        {SINK_TYPE_LABELS[row.sinkType]}
-                      </span>
-                      <Flex align="center" gap="6">
+                      <Flex align="center" gap="2" flexGrow="1">
+                        <span className="text-truncate" title={row.name}>
+                          {row.name}
+                        </span>
+                        <span
+                          className="text-muted small"
+                          style={{ width: 80, flexShrink: 0 }}
+                        >
+                          {SINK_TYPE_LABELS[row.sinkType]}
+                        </span>
+                      </Flex>
+                      <Flex align="center" gap="2">
                         {canToggle ? (
                           <button
                             type="button"
