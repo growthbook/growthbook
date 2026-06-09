@@ -99,7 +99,7 @@ export function generateImageTool(toolCtx: GenerateImageToolContext) {
         }
 
         const img = generated[0];
-        const optimized = await optimizeAIImage(img.buffer);
+        const optimized = await optimizeAIImage(img);
         const filePath = `gen/${org.id}/visual-editor/img_${uuidv4()}.${optimized.ext}`;
         const url = await uploadFile(
           filePath,
