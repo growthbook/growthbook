@@ -2155,17 +2155,26 @@ export async function computeNextUpdateRunnerInfo({
     return null;
   }
 
-  const plan = await planExperimentSnapshot({
-    context,
-    experiment,
-    datasource,
-    dimension: undefined,
-    phase: experiment.phases.length - 1,
-    useCache: true,
-    type: "standard",
-  });
-
-  return planToRunnerInfo(plan);
+  // This rides on a read endpoint; a planning failure (e.g. integration
+  // misconfiguration) must not break the response it is attached to.
+  try {
+    const plan = await planExperimentSnapshot({
+      context,
+      experiment,
+      datasource,
+      dimension: undefined,
+      phase: experiment.phases.length - 1,
+      useCache: true,
+      type: "standard",
+    });
+    return planToRunnerInfo(plan);
+  } catch (e) {
+    logger.warn(
+      e,
+      `Failed to compute next-update runner info for experiment ${experiment.id}`,
+    );
+    return null;
+  }
 }
 
 export type SnapshotAnalysisParams = {

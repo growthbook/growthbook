@@ -18,7 +18,8 @@ import { trackSnapshot } from "@/services/track";
 import RunQueriesButton from "@/components/Queries/RunQueriesButton";
 import ExperimentRefreshSnapshotButton from "@/components/Experiment/RefreshSnapshotButton";
 import SafeRolloutRefreshSnapshotButton from "@/components/SafeRollout/RefreshSnapshotButton";
-import ConfirmDialog from "@/ui/ConfirmDialog";
+import Button from "@/ui/Button";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { useIncrementalRefresh } from "@/hooks/useIncrementalRefresh";
 
 export type EntityType = "experiment" | "holdout" | "safe-rollout";
@@ -193,32 +194,35 @@ export default function RefreshResultsButton<
 
   return (
     <>
-      {settingsOutdatedModalOpen ? (
-        <ConfirmDialog
-          title="Rebuild incremental pipeline?"
-          content={
-            <div>
-              The experiment settings have changed since the incremental
-              pipeline was built. Updates will run as full queries and pipeline
-              tables will stop advancing until you run a Full Refresh.
-              <br />
-              <br />
-              Running a Full Refresh rebuilds the pipeline tables with the
-              current settings and resumes incremental updates going forward.
-            </div>
-          }
-          yesText="Run Full Refresh"
-          noText="Update anyway"
-          onConfirm={async () => {
-            setSettingsOutdatedModalOpen(false);
-            await runForceRefresh();
-          }}
-          onCancel={async () => {
-            setSettingsOutdatedModalOpen(false);
-            await runNormalUpdate();
-          }}
-        />
-      ) : null}
+      <ModalStandard
+        trackingEventModalType="incremental-refresh-settings-outdated"
+        open={settingsOutdatedModalOpen}
+        header="Rebuild incremental pipeline?"
+        close={() => setSettingsOutdatedModalOpen(false)}
+        cta="Run Full Refresh"
+        submit={runForceRefresh}
+        secondaryAction={
+          <Button
+            variant="outline"
+            onClick={async () => {
+              setSettingsOutdatedModalOpen(false);
+              await runNormalUpdate();
+            }}
+          >
+            Update anyway
+          </Button>
+        }
+      >
+        <p>
+          The experiment settings have changed since the incremental pipeline
+          was built. Updates will run as full queries and pipeline tables will
+          stop advancing until you run a Full Refresh.
+        </p>
+        <p className="mb-0">
+          Running a Full Refresh rebuilds the pipeline tables with the current
+          settings and resumes incremental updates going forward.
+        </p>
+      </ModalStandard>
       {shouldUseRunQueriesButton ? (
         <RunQueriesButton
           cta="Update"
