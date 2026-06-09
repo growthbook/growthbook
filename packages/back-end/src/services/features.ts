@@ -43,7 +43,6 @@ import {
   SavedGroupsValues,
   SavedGroupInterface,
 } from "shared/types/saved-group";
-import { clone } from "lodash";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { ArchetypeAttributeValues } from "shared/types/archetype";
 import {
@@ -2334,7 +2333,7 @@ export function applySavedGroupHashing(
   attributes: SDKAttributeSchema,
   salt: string,
 ): SavedGroupInterface[] {
-  const clonedGroups = clone(savedGroups);
+  const clonedGroups = cloneDeep(savedGroups);
   clonedGroups.forEach((group) => {
     const attribute = attributes.find(
       (attr) => attr.property === group.attributeKey,
