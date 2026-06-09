@@ -176,14 +176,20 @@ export function humanizeMutation(m: DomMutationLike): Humanized {
     // resolve it against the current page's scheme.
     const isPreviewable =
       /^(https?:)?\/\//i.test(rawValue) || /^data:image\//i.test(rawValue);
+    // Avoid "the image image" when the element itself is an <img> (noun
+    // resolves to "image"), and drop the vague "element" fallback so we
+    // don't read "the element image". A descriptive noun (e.g. "hero")
+    // still reads naturally as "the hero image".
+    const subject =
+      noun === "image" || noun === "element" ? "image" : `${noun} image`;
     return {
       type: "image",
       verb: m.action === "remove" ? "Removed" : "Swapped",
       title: "image source",
       human:
         m.action === "remove"
-          ? `Removed the ${noun} image`
-          : `Replaced the ${noun} image`,
+          ? `Removed the ${subject}`
+          : `Replaced the ${subject}`,
       // No after chip — the new image is shown as a thumbnail in the
       // code disclosure, and the filename is in the raw `src:` line.
       selectorLabel: m.selector,
