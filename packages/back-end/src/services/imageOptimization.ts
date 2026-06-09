@@ -40,14 +40,22 @@ const VIPS_SPECIFIER = "wasm-vips" as string;
 let vipsPromise: Promise<VipsModule> | null = null;
 const loadVips = (): Promise<VipsModule> => {
   if (!vipsPromise) {
-    vipsPromise = import(VIPS_SPECIFIER).then((m: unknown) => {
-      const mod = m as { default?: VipsFactory };
-      const factory: VipsFactory = mod.default ?? (m as VipsFactory);
-      // `dynamicLibraries: []` skips the optional HEIF/JXL/SVG dynamic
-      // `.wasm` modules — we only deal with PNG/JPEG/WebP, which live in
-      // the core `vips.wasm`. Avoids loading files we don't need.
-      return factory({ dynamicLibraries: [] });
-    });
+    vipsPromise = import(VIPS_SPECIFIER)
+      .then((m: unknown) => {
+        const mod = m as { default?: VipsFactory };
+        const factory: VipsFactory = mod.default ?? (m as VipsFactory);
+        // `dynamicLibraries: []` skips the optional HEIF/JXL/SVG dynamic
+        // `.wasm` modules — we only deal with PNG/JPEG/WebP, which live in
+        // the core `vips.wasm`. Avoids loading files we don't need.
+        return factory({ dynamicLibraries: [] });
+      })
+      .catch((e) => {
+        // Don't cache the rejection — a transient init failure would
+        // otherwise permanently disable optimization for the process
+        // lifetime. Reset so the next request retries the load.
+        vipsPromise = null;
+        throw e;
+      });
   }
   return vipsPromise;
 };
