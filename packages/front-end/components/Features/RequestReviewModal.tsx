@@ -84,6 +84,9 @@ export default function RequestReviewModal({
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const [showSubmitReview, setShowSumbmitReview] = useState(false);
   const [adminPublish, setAdminPublish] = useState(false);
+  const [approvePublishError, setApprovePublishError] = useState<string | null>(
+    null,
+  );
   const revisionLogRef = useRef<MutateLog>(null);
   const commentInputRef = useRef<HTMLInputElement>(null);
 
@@ -461,6 +464,7 @@ export default function RequestReviewModal({
     hasChanges;
 
   const handleApproveAndPublish = async (commentText: string) => {
+    setApprovePublishError(null);
     try {
       await apiCall(
         `/feature/${feature.id}/${revision.version}/submit-review`,
@@ -485,8 +489,15 @@ export default function RequestReviewModal({
       onPublish && onPublish();
       close();
     } catch (e) {
+      // If the approval call succeeded but publish failed, refresh so the
+      // cache reflects the now-approved revision. The modal then shows the
+      // standard Publish CTA, and a retry just publishes the already-approved
+      // revision instead of re-approving. Surface the error rather than
+      // rethrowing, which would be swallowed by the bare secondaryCTA onClick.
       await mutate();
-      throw e;
+      setApprovePublishError(
+        e instanceof Error ? e.message : "Failed to approve & publish",
+      );
     }
   };
   let ctaCopy: string | JSX.Element = "Request Review";
@@ -928,6 +939,11 @@ export default function RequestReviewModal({
         }
       >
         <div style={{ padding: "0 30px" }}>
+          {approvePublishError && (
+            <Callout status="error" mb="3">
+              {approvePublishError}
+            </Callout>
+          )}
           <div>
             <h4>Leave a Comment</h4>
             <Field
