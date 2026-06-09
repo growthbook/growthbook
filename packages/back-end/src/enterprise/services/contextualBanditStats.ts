@@ -13,12 +13,13 @@ import type {
   ContextualBanditSnapshot,
   ContextualLeafMapEntry,
 } from "shared/types/stats";
-// DEBUG CSV (gitignored): uncomment to dump weight-update output to CSVs.
-// import { writeContextualBanditDebugCsvs } from "back-end/src/enterprise/services/contextualBanditDebugCsv";
 import {
   computeContextualBanditWeights,
   ContextualBanditWeightsInput,
 } from "stats-ts";
+// DEBUG CSV (gitignored): uncomment to dump weight-update output to CSVs.
+import { writeContextualBanditDebugCsvs } from "back-end/src/enterprise/services/contextualBanditDebugCsv";
+
 import { logger } from "back-end/src/util/logger";
 import {
   getAnalysisSettingsForStatsEngine,
@@ -83,11 +84,14 @@ export async function runContextualStatsEngine(
     );
   }
   if (!settings.update_weights_using_python) {
-    const result = computeContextualBanditWeights(
-      buildContextualBanditWeightsInput(settings, normalizedRows, runParams),
+    const input = buildContextualBanditWeightsInput(
+      settings,
+      normalizedRows,
+      runParams,
     );
+    const result = computeContextualBanditWeights(input);
     // DEBUG CSV (gitignored): uncomment to dump weight-update output to CSVs.
-    // writeContextualBanditDebugCsvs(result);
+    writeContextualBanditDebugCsvs(result, rows, input.metricSettings);
     return result;
   }
   return runContextualStatsEngineWithPython(
