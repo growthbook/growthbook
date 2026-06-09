@@ -1,6 +1,45 @@
 import { z } from "zod";
 import { baseSchema } from "./base-model";
 
+export const incrementalFallbackCodeValidator = z.enum([
+  "settings-outdated",
+  "non-fact-metrics",
+  "no-metrics-selected",
+  "event-quantile-metric",
+  "activation-metric",
+  "skip-partial-data",
+  "experiment-type",
+  "no-materialized-units-table",
+  "datasource-unsupported",
+  "missing-premium-feature",
+  "not-enabled",
+  "unknown",
+]);
+export type IncrementalFallbackCode = z.infer<
+  typeof incrementalFallbackCodeValidator
+>;
+
+export const incrementalFallbackValidator = z
+  .object({ code: incrementalFallbackCodeValidator, message: z.string() })
+  .strict();
+export type IncrementalFallback = z.infer<typeof incrementalFallbackValidator>;
+
+export const snapshotRunnerInfoValidator = z.discriminatedUnion("runner", [
+  z
+    .object({
+      runner: z.enum(["incremental", "incremental-exploratory"]),
+      fallback: z.null(),
+    })
+    .strict(),
+  z
+    .object({
+      runner: z.literal("inline"),
+      fallback: incrementalFallbackValidator.nullable(),
+    })
+    .strict(),
+]);
+export type SnapshotRunnerInfo = z.infer<typeof snapshotRunnerInfoValidator>;
+
 // Identity for each metric a cache materializes. Which side(s) of the metric
 // this cache actually holds (numerator, denominator, or both) is derivable
 // from the metric's column refs and the source's `factTableId`, so we don't
