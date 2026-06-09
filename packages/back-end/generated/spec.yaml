@@ -23385,6 +23385,14 @@ paths:
                   enum:
                     - append
                     - set
+                    - before
+                    - after
+                parentSelector:
+                  type: string
+                insertBeforeSelector:
+                  anyOf:
+                    - type: string
+                    - type: 'null'
                 source:
                   anyOf:
                     - type: object
