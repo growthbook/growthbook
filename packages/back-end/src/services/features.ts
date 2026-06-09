@@ -875,31 +875,44 @@ export async function getFeatureDefinitionsResponse({
   savedGroups?: SavedGroupsValues;
   encryptedSavedGroups?: string;
 }> {
-  features = cloneDeep(features);
-  let processedExperiments: AutoExperiment[] =
-    experiments !== undefined ? cloneDeep(experiments) : [];
-  usedSavedGroups = cloneDeep(usedSavedGroups);
+  const needsSavedGroupInlining =
+    (!capabilities.includes("savedGroupReferences") ||
+      !savedGroupReferencesEnabled) &&
+    (usedSavedGroups?.length ?? 0) > 0 &&
+    !!organization;
 
-  if (experiments !== undefined && !includeDraftExperiments) {
-    processedExperiments = processedExperiments.filter(
-      (e) => e.status !== "draft",
-    );
+  const hasSecureAttributes = attributes?.some((a) =>
+    ["secureString", "secureString[]"].includes(a.datatype),
+  );
+  const needsHashing =
+    !!attributes && !!hasSecureAttributes && secureAttributeSalt !== undefined;
+
+  // Fresh payloads from buildSDKPayloadForConnection are not reused; avoid
+  // cloning unless a downstream pass mutates rule conditions in place.
+  let processedFeatures = features;
+  if (needsSavedGroupInlining || needsHashing) {
+    processedFeatures = cloneDeep(features);
+  }
+
+  let processedExperiments: AutoExperiment[] | undefined;
+  if (experiments !== undefined) {
+    processedExperiments = includeDraftExperiments
+      ? experiments
+      : experiments.filter((e) => e.status !== "draft");
+    if (needsHashing) {
+      processedExperiments = cloneDeep(processedExperiments);
+    }
   }
 
   // Inline saved groups: expand $inGroup to $in when not using savedGroupReferences.
   // When called from buildSDKPayloadForConnection, getFeatureDefinition already expanded; this pass is a no-op.
-  if (
-    (!capabilities.includes("savedGroupReferences") ||
-      !savedGroupReferencesEnabled) &&
-    usedSavedGroups?.length > 0 &&
-    organization
-  ) {
+  if (needsSavedGroupInlining) {
     const savedGroupsMap = Object.fromEntries(
       usedSavedGroups.map((sg) => [sg.id, sg]),
     );
-    for (const k in features) {
-      if (features[k]?.rules) {
-        for (const rule of features[k].rules ?? []) {
+    for (const k in processedFeatures) {
+      if (processedFeatures[k]?.rules) {
+        for (const rule of processedFeatures[k].rules ?? []) {
           if (rule.condition) {
             recursiveWalk(
               rule.condition,
@@ -917,13 +930,14 @@ export async function getFeatureDefinitionsResponse({
     }
   }
 
-  const hasSecureAttributes = attributes?.some((a) =>
-    ["secureString", "secureString[]"].includes(a.datatype),
-  );
-  if (attributes && hasSecureAttributes && secureAttributeSalt !== undefined) {
-    features = applyFeatureHashing(features, attributes, secureAttributeSalt);
+  if (needsHashing) {
+    processedFeatures = applyFeatureHashing(
+      processedFeatures,
+      attributes,
+      secureAttributeSalt,
+    );
 
-    if (experiments !== undefined) {
+    if (processedExperiments !== undefined) {
       processedExperiments = applyExperimentHashing(
         processedExperiments,
         attributes,
@@ -950,7 +964,7 @@ export async function getFeatureDefinitionsResponse({
 
   if (!encryptPayload || !encryptionKey) {
     return {
-      features,
+      features: processedFeatures,
       ...(experiments !== undefined && { experiments: processedExperiments }),
       dateUpdated,
       savedGroups: savedGroupsForPayload,
@@ -958,11 +972,11 @@ export async function getFeatureDefinitionsResponse({
   }
 
   const encryptedFeatures = await encrypt(
-    JSON.stringify(features),
+    JSON.stringify(processedFeatures),
     encryptionKey,
   );
   const encryptedExperiments =
-    experiments !== undefined
+    processedExperiments !== undefined
       ? await encrypt(JSON.stringify(processedExperiments), encryptionKey)
       : undefined;
 
