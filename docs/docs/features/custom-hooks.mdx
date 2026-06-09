@@ -36,9 +36,21 @@ The following default limits are in place to prevent abuse and ensure performanc
 
 If a Custom Hook throws an error during execution, the error message will be used as the validation error shown in the UI. This allows you to provide clear feedback to users about why their changes were rejected.
 
-When creating a Custom Hook, use the built-in test interface to tweak inputs and run the hook. The test output shows all errors, console messages, and the return value (if any).
+When creating a Custom Hook, use the built-in test interface to tweak inputs and run the hook. The test output shows all errors, warnings, console messages, and the return value (if any).
 
 Use `console.log` statements liberally while developing hooks to inspect variables and understand the flow of execution.
+
+### Warnings
+
+Instead of `throw`, a hook can call `addWarning("message")` to raise a **soft warning**. A warning doesn't hard-block: in the UI the user can review it and click **Save anyway**, and REST API clients can re-submit the request with `?ignoreWarnings=true`. A `throw` always blocks and cannot be bypassed.
+
+```js
+if (feature.tags.length === 0) {
+  addWarning("Consider adding at least one tag");
+}
+```
+
+Because execution continues after `addWarning`, you can raise warnings and still `throw` later in the same hook.
 
 ### Incremental Changes
 

@@ -104,7 +104,7 @@ import { isEmailEnabled } from "./services/email";
 import { init } from "./init";
 import { aiRouter } from "./routers/ai/ai.router";
 import { getCustomLogProps, httpLogger, logger } from "./util/logger";
-import { shouldSkipErrorLog } from "./util/errors";
+import { shouldSkipErrorLog, SoftWarningError } from "./util/errors";
 import { usersRouter } from "./routers/users/users.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
 import { uploadRouter } from "./routers/upload/upload.router";
@@ -1178,11 +1178,21 @@ const errorHandler: ErrorRequestHandler = (
     httpLogger.logger[level](getCustomLogProps(req), err.message);
   }
 
-  res.status(status).json({
+  const body: {
+    status: number;
+    message: string;
+    errorId?: string;
+    warnings?: string[];
+  } = {
     status: status,
     message: err.message || "An error occurred",
     errorId: SENTRY_DSN ? res.sentry : undefined,
-  });
+  };
+  // Picked up by front-end (when combined with 422 status code) to show a "Save anyway" dialog
+  if (err instanceof SoftWarningError) {
+    body.warnings = err.warnings;
+  }
+  res.status(status).json(body);
 };
 app.use(errorHandler);
 
