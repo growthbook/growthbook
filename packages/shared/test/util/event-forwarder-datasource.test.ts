@@ -1,74 +1,54 @@
 import {
   attributeMatchesDatasourceProjects,
-  attributeUpdateAffectsEventForwarderFactTableColumns,
   buildUserIdTypesFromAttributeSchema,
+  getEventForwarderDatasourceParams,
+  getEventForwarderSinkTypeForDatasource,
   getUserIdTypesToAdd,
   isEventForwarderAllowedUserIdTypesChange,
   isHashAttributeUserIdType,
   mergeUserIdTypes,
-} from "../../src/util/datasource";
+  supportsEventForwarder,
+} from "../../src/util/event-forwarder-datasource";
 
-describe("attributeUpdateAffectsEventForwarderFactTableColumns", () => {
-  const base = { property: "id", datatype: "string" as const };
-
-  it("returns false for description-only changes", () => {
-    expect(
-      attributeUpdateAffectsEventForwarderFactTableColumns(base, {
-        ...base,
-        description: "updated",
-      }),
-    ).toBe(false);
+describe("getEventForwarderSinkTypeForDatasource", () => {
+  it("returns sink type for supported datasources", () => {
+    expect(getEventForwarderSinkTypeForDatasource({ type: "bigquery" })).toBe(
+      "bigquery",
+    );
+    expect(getEventForwarderSinkTypeForDatasource({ type: "snowflake" })).toBe(
+      "snowflake",
+    );
   });
 
-  it("returns false for tag-only changes", () => {
-    expect(
-      attributeUpdateAffectsEventForwarderFactTableColumns(base, {
-        ...base,
-        tags: ["tag-a"],
-      }),
-    ).toBe(false);
+  it("returns null for unsupported datasources", () => {
+    expect(getEventForwarderSinkTypeForDatasource({ type: "postgres" })).toBe(
+      null,
+    );
+  });
+});
+
+describe("supportsEventForwarder", () => {
+  it("returns true for supported datasource types", () => {
+    expect(supportsEventForwarder({ type: "bigquery" })).toBe(true);
+    expect(supportsEventForwarder({ type: "snowflake" })).toBe(true);
   });
 
-  it("returns true when hashAttribute changes", () => {
-    expect(
-      attributeUpdateAffectsEventForwarderFactTableColumns(base, {
-        ...base,
-        hashAttribute: true,
-      }),
-    ).toBe(true);
+  it("returns false for unsupported or missing datasources", () => {
+    expect(supportsEventForwarder({ type: "postgres" })).toBe(false);
+    expect(supportsEventForwarder(null)).toBe(false);
+    expect(supportsEventForwarder(undefined)).toBe(false);
   });
+});
 
-  it("returns true when datatype changes", () => {
-    expect(
-      attributeUpdateAffectsEventForwarderFactTableColumns(base, {
-        ...base,
-        datatype: "number",
-      }),
-    ).toBe(true);
-  });
-
-  it("returns true when property changes", () => {
-    expect(
-      attributeUpdateAffectsEventForwarderFactTableColumns(base, {
-        ...base,
-        property: "user_id",
-      }),
-    ).toBe(true);
-  });
-
-  it("returns true when archive or project visibility changes", () => {
-    expect(
-      attributeUpdateAffectsEventForwarderFactTableColumns(base, {
-        ...base,
-        archived: true,
-      }),
-    ).toBe(true);
-    expect(
-      attributeUpdateAffectsEventForwarderFactTableColumns(base, {
-        ...base,
-        projects: ["proj_1"],
-      }),
-    ).toBe(true);
+describe("getEventForwarderDatasourceParams", () => {
+  it("narrows params by datasource type", () => {
+    const bqParams = { projectId: "proj" };
+    expect(getEventForwarderDatasourceParams("bigquery", bqParams)).toBe(
+      bqParams,
+    );
+    expect(getEventForwarderDatasourceParams("postgres", bqParams)).toBe(
+      undefined,
+    );
   });
 });
 
