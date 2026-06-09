@@ -1,9 +1,6 @@
 import type { Response } from "express";
 import { SDKAttribute } from "shared/types/organization";
-import {
-  extractConditionAttributeKeys,
-  attributeUpdateAffectsEventForwarderFactTableColumns,
-} from "shared/util";
+import { extractConditionAttributeKeys } from "shared/util";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
@@ -14,9 +11,6 @@ import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { hasAnyEventForwarderConfig } from "back-end/src/services/eventForwarderConfig";
 import { syncEventForwarderAfterAttributeSchemaChange } from "back-end/src/services/eventForwarderAttributeSync";
 import { yieldEventLoop } from "back-end/src/util/yield";
-import { hasAnyEventForwarderConfig } from "back-end/src/services/eventForwarderConfig";
-import { syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema } from "back-end/src/services/eventForwarderUserIdTypes";
-import { syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange } from "back-end/src/services/eventForwarderFactTable";
 export const postAttribute = async (
   req: AuthRequest<SDKAttribute>,
   res: Response<{ status: number }>,

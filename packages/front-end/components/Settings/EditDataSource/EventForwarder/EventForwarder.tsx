@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   DEFAULT_EVENT_FORWARDER_BIGQUERY_TABLE_NAME,
   DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME,
@@ -52,7 +52,6 @@ type Props = {
   dataSource: DataSourceInterfaceWithParams;
   canEdit?: boolean;
   onRefresh: () => Promise<void>;
-  autoOpenSetup?: boolean;
 };
 
 type EventForwarderDatasourceDraft = {
@@ -502,12 +501,10 @@ export default function EventForwarder({
   dataSource,
   canEdit = true,
   onRefresh,
-  autoOpenSetup = false,
 }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [pauseResumeLoading, setPauseResumeLoading] = useState(false);
-  const autoOpenedRef = useRef(false);
   const { apiCall } = useAuth();
   const { effectiveAccountPlan, subscription, hasCommercialFeature } =
     useUser();
@@ -522,26 +519,6 @@ export default function EventForwarder({
   );
   const isStripePro = isPaidPlan && subscription?.billingPlatform === "stripe";
   const hasEventForwarderFeature = hasCommercialFeature("events-forwarder");
-
-  useEffect(() => {
-    if (autoOpenedRef.current) return;
-    if (
-      autoOpenSetup &&
-      canEdit &&
-      !eventForwarderConfig &&
-      eventsForwarderFlag === "ENABLED" &&
-      hasEventForwarderFeature
-    ) {
-      autoOpenedRef.current = true;
-      setShowEditModal(true);
-    }
-  }, [
-    autoOpenSetup,
-    canEdit,
-    eventForwarderConfig,
-    eventsForwarderFlag,
-    hasEventForwarderFeature,
-  ]);
 
   const handleRefresh = useCallback(async () => {
     await onRefresh();
