@@ -1,5 +1,5 @@
 import { useRouter } from "next/router";
-import React, { FC, useCallback, useEffect, useState } from "react";
+import { FC, useCallback, useState } from "react";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
   isManagedWarehouseAwaitingProvisioning,
@@ -77,19 +77,6 @@ const DataSourcePage: FC = () => {
   } = useDefinitions();
   const { did } = router.query as { did: string };
   const d = getDatasourceById(did);
-
-  const autoOpenEventForwarderSetup = router.query.setupEventForwarder === "1";
-
-  useEffect(() => {
-    if (autoOpenEventForwarderSetup) {
-      router.replace({ pathname: router.pathname, query: { did } }, undefined, {
-        shallow: true,
-      });
-    }
-    // Only strip the query param once on initial mount; downstream auto-open
-    // logic in <EventForwarder> reads the prop value captured here.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const combinedMetrics = useCombinedMetrics({});
   const metrics = combinedMetrics.filter((m) => m.datasource === did);
@@ -464,7 +451,6 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                         onRefresh={async () => {
                           await mutateDefinitions({});
                         }}
-                        autoOpenSetup={autoOpenEventForwarderSetup}
                       />
                     </Frame>
                   )}
