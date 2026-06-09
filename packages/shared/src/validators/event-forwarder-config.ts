@@ -9,6 +9,14 @@ const eventForwarderStatusValidator = z.enum([
   "error",
   "schema_update_error",
 ]);
+const eventForwarderManagedResourcesValidator = z
+  .object({
+    identifierTypes: z.array(z.string()),
+    exposureQueryIds: z.array(z.string()),
+    featureUsageQueryIds: z.array(z.string()),
+    factTableId: z.string().optional(),
+  })
+  .strict();
 
 export const eventForwarderConfigValidator = baseSchema
   .extend({
@@ -27,6 +35,8 @@ export const eventForwarderConfigValidator = baseSchema
     lastProvisioningError: z.string().optional(),
     /** Set after the first delayed warehouse sync is queued on initial connector ready. */
     initialWarehouseSyncQueued: z.boolean().optional(),
+    /** IDs for GrowthBook resources created and managed by this Event Forwarder. */
+    managedResources: eventForwarderManagedResourcesValidator.optional(),
   })
   .strict();
 

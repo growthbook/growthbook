@@ -490,6 +490,7 @@ export async function getEventForwarderConfigWithMetadataForDatasource(
     connectorName: existing.connectorName,
     connectorId: existing.connectorId,
     lastProvisioningError: existing.lastProvisioningError,
+    managedResources: existing.managedResources,
   };
 }
 
