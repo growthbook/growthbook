@@ -652,9 +652,10 @@ export default function EventForwarder({
       </Flex>
 
       <p>
-        Event Forwarder streams SDK event data from GrowthBook directly into
-        this datasource so you can query and analyze it alongside the rest of
-        your warehouse data. More information available on our docs.&nbsp;
+        GrowthBook&apos;s Event Forwarder streams SDK event data from GrowthBook
+        directly into this data source so you can query and analyze it alongside
+        the rest of your warehouse data. More information available on our
+        docs.&nbsp;
         <DocLink docSection="eventForwarder">Event Forwarder Docs</DocLink>
       </p>
 
