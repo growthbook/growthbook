@@ -1,6 +1,7 @@
 import { EventForwarderConfigInterface } from "shared/validators";
 import { AES } from "crypto-js";
 import {
+  getEventForwarderForDatasource,
   isEventForwarderDraftUnchanged,
   stripEventForwarderConfigMetadata,
   toEventForwarderConfigDraft,
@@ -101,5 +102,24 @@ describe("isEventForwarderDraftUnchanged", () => {
       sinkType: "bigquery",
       config: { tableName: "analytics.gb_events" },
     });
+  });
+});
+
+describe("event forwarder datasource lookup helpers", () => {
+  it("loads one event forwarder by datasource id through the model helper", async () => {
+    const existing = bqExisting();
+    const getByDatasourceId = jest.fn().mockResolvedValue(existing);
+    const context = {
+      models: {
+        eventForwarderConfigs: {
+          getByDatasourceId,
+        },
+      },
+    };
+
+    await expect(
+      getEventForwarderForDatasource(context as never, "ds_1"),
+    ).resolves.toEqual(existing);
+    expect(getByDatasourceId).toHaveBeenCalledWith("ds_1");
   });
 });

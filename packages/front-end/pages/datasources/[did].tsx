@@ -24,6 +24,7 @@ import { DataSourceJupyterNotebookQuery } from "@/components/Settings/EditDataSo
 import DataSourceForm from "@/components/Settings/DataSourceForm";
 import Code from "@/components/SyntaxHighlighting/Code";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import useApi from "@/hooks/useApi";
 import DataSourcePipeline from "@/components/Settings/EditDataSource/DataSourcePipeline/DataSourcePipeline";
 import { useUser } from "@/services/UserContext";
 import PageHead from "@/components/Layout/PageHead";
@@ -76,7 +77,15 @@ const DataSourcePage: FC = () => {
     factTables: allFactTables,
   } = useDefinitions();
   const { did } = router.query as { did: string };
-  const d = getDatasourceById(did);
+  const definitionDataSource = getDatasourceById(did);
+  const {
+    data: currentDataSource,
+    error: currentDataSourceError,
+    mutate: mutateCurrentDataSource,
+  } = useApi<DataSourceInterfaceWithParams>(`/datasource/${did}`, {
+    shouldRun: () => !!did,
+  });
+  const d = currentDataSource || definitionDataSource;
 
   const combinedMetrics = useCombinedMetrics({});
   const metrics = combinedMetrics.filter((m) => m.datasource === did);
@@ -128,15 +137,17 @@ const DataSourcePage: FC = () => {
           settings: dataSource.settings,
         }),
       });
-      await mutateDefinitions({});
+      await Promise.all([mutateDefinitions({}), mutateCurrentDataSource()]);
     },
-    [mutateDefinitions, apiCall],
+    [mutateDefinitions, mutateCurrentDataSource, apiCall],
   );
 
-  if (error) {
+  if (error || currentDataSourceError) {
     return (
       <div className="container pagecontents">
-        <div className="alert alert-danger">{error}</div>
+        <div className="alert alert-danger">
+          {error || currentDataSourceError?.message}
+        </div>
       </div>
     );
   }
@@ -449,7 +460,10 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                         dataSource={d}
                         canEdit={canUpdateDataSourceSettings}
                         onRefresh={async () => {
-                          await mutateDefinitions({});
+                          await Promise.all([
+                            mutateDefinitions({}),
+                            mutateCurrentDataSource(),
+                          ]);
                         }}
                       />
                     </Frame>
@@ -538,7 +552,10 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           data={d}
           source={"datasource-detail"}
           onSuccess={async () => {
-            await mutateDefinitions({});
+            await Promise.all([
+              mutateDefinitions({}),
+              mutateCurrentDataSource(),
+            ]);
           }}
           onCancel={() => {
             setEditConn(false);

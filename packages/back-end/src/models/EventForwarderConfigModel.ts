@@ -56,6 +56,13 @@ export class EventForwarderConfigModel extends BaseClass {
     return this.context.permissions.canDeleteEventForwarderConfig(doc);
   }
 
+  public async getByDatasourceId(
+    datasourceId: string,
+  ): Promise<EventForwarderConfigInterface | null> {
+    const rows = await this._find({ datasourceId }, { limit: 1 });
+    return rows[0] ?? null;
+  }
+
   public async updateManagedResourcesFactTableId(
     existing: EventForwarderConfigInterface,
     factTableId: string,
