@@ -71,6 +71,32 @@ export class FeatureRevisionLogModel extends BaseClass {
     return await this._find({ featureId, version });
   }
 
+  /**
+   * System bookkeeping for publish-time re-versioning of a draft revision:
+   * when the revision document moves to the head of the version history its
+   * log entries must follow so the draft's history stays attached. This is
+   * not a user-facing update (canUpdate is intentionally false), so it writes
+   * through the raw collection.
+   */
+  public async reassignVersion({
+    featureId,
+    fromVersion,
+    toVersion,
+  }: {
+    featureId: string;
+    fromVersion: number;
+    toVersion: number;
+  }) {
+    await this._dangerousGetCollection().updateMany(
+      {
+        organization: this.context.org.id,
+        featureId,
+        version: fromVersion,
+      },
+      { $set: { version: toVersion } },
+    );
+  }
+
   public async deleteAllByFeature(feature: FeatureInterface) {
     // We should keep the log unless the feature itself is deleted.
     if (!this.context.permissions.canDeleteFeature(feature)) {

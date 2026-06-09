@@ -1,9 +1,11 @@
 import { FeatureRule } from "shared/validators";
+import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
 import { naiveFlattenV1Rules, suffixRuleId } from "shared/util";
 import {
   buildFeatureRevisionInterface,
+  buildRevisionContentSnapshot,
   normalizeRulesInputToV2,
 } from "back-end/src/models/FeatureRevisionModel";
 import { ReqContext } from "back-end/types/request";
@@ -647,5 +649,172 @@ describe("normalizeRulesInputToV2", () => {
       expect(persisted).toHaveLength(2);
       expect(new Set(persisted.map((r) => r.id)).size).toBe(2);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// buildRevisionContentSnapshot builds the complete content snapshot stored on
+// a revision from the parent feature, optionally overlaying explicit changes.
+// It runs at revision creation AND at publish time (without changes), where it
+// persists the post-merge live state back onto the published revision — the
+// invariant that keeps the live revision in agreement with the feature.
+// ---------------------------------------------------------------------------
+
+describe("buildRevisionContentSnapshot", () => {
+  const orgEnvs = ORG_ENVS;
+  const environments = ORG_ENVS.map((e) => e.id);
+
+  function makeFeature(overrides: Record<string, unknown> = {}) {
+    return {
+      id: FEATURE_ID,
+      organization: "org_test",
+      version: 3,
+      defaultValue: "live-default",
+      valueType: "string",
+      description: "live description",
+      owner: "live owner",
+      project: "prj_1",
+      tags: ["t1"],
+      neverStale: false,
+      rules: [
+        {
+          id: "r_live",
+          type: "rollout",
+          description: "",
+          value: "true",
+          coverage: 0.5,
+          hashAttribute: "id",
+          enabled: true,
+          allEnvironments: true,
+        },
+      ],
+      environmentSettings: {
+        dev: { enabled: true },
+        production: { enabled: false },
+      },
+      prerequisites: [{ id: "feat_parent", condition: "{}" }],
+      archived: false,
+      ...overrides,
+    } as unknown as FeatureInterface;
+  }
+
+  it("mirrors the live feature when no changes are supplied (publish-time write-back)", () => {
+    const snapshot = buildRevisionContentSnapshot({
+      feature: makeFeature(),
+      orgEnvs,
+      environments,
+    });
+
+    expect(snapshot.defaultValue).toBe("live-default");
+    expect(snapshot.rules).toHaveLength(1);
+    expect(snapshot.rules[0]).toMatchObject({ id: "r_live", coverage: 0.5 });
+    expect(snapshot.environmentsEnabled).toEqual({
+      dev: true,
+      production: false,
+    });
+    expect(snapshot.prerequisites).toEqual([
+      { id: "feat_parent", condition: "{}" },
+    ]);
+    expect(snapshot.archived).toBe(false);
+    expect(snapshot.metadata).toMatchObject({
+      description: "live description",
+      owner: "live owner",
+      project: "prj_1",
+      tags: ["t1"],
+      valueType: "string",
+    });
+    expect(snapshot.holdout).toBeNull();
+  });
+
+  it("defaults environmentsEnabled to false for envs missing from the feature", () => {
+    const snapshot = buildRevisionContentSnapshot({
+      feature: makeFeature({ environmentSettings: { dev: { enabled: true } } }),
+      orgEnvs,
+      environments,
+    });
+    expect(snapshot.environmentsEnabled).toEqual({
+      dev: true,
+      production: false,
+    });
+  });
+
+  it("overlays explicit changes on top of the feature snapshot", () => {
+    const snapshot = buildRevisionContentSnapshot({
+      feature: makeFeature(),
+      orgEnvs,
+      environments,
+      changes: {
+        defaultValue: "draft-default",
+        rules: [
+          {
+            id: "r_draft",
+            type: "force",
+            description: "",
+            value: "false",
+            enabled: true,
+            allEnvironments: true,
+          },
+        ] as unknown as FeatureRule[],
+        environmentsEnabled: { production: true },
+        metadata: { description: "draft description" },
+      },
+    });
+
+    expect(snapshot.defaultValue).toBe("draft-default");
+    expect(snapshot.rules.map((r) => r.id)).toEqual(["r_draft"]);
+    // Per-env overlay: untouched envs still come from the feature.
+    expect(snapshot.environmentsEnabled).toEqual({
+      dev: true,
+      production: true,
+    });
+    // Partial metadata changes merge over the full feature snapshot.
+    expect(snapshot.metadata).toMatchObject({
+      description: "draft description",
+      owner: "live owner",
+      project: "prj_1",
+    });
+  });
+
+  it("treats an explicit null holdout as removal while absent carries forward", () => {
+    const holdout = { id: "hld_1", value: "v" };
+    const withHoldout = makeFeature({ holdout });
+
+    expect(
+      buildRevisionContentSnapshot({
+        feature: withHoldout,
+        orgEnvs,
+        environments,
+      }).holdout,
+    ).toEqual(holdout);
+
+    expect(
+      buildRevisionContentSnapshot({
+        feature: withHoldout,
+        orgEnvs,
+        environments,
+        changes: { holdout: null },
+      }).holdout,
+    ).toBeNull();
+  });
+
+  it("filters implausible rule slots when snapshotting from the feature", () => {
+    const snapshot = buildRevisionContentSnapshot({
+      feature: makeFeature({
+        rules: [
+          null,
+          {
+            id: "r_ok",
+            type: "force",
+            description: "",
+            value: "true",
+            enabled: true,
+            allEnvironments: true,
+          },
+        ],
+      }),
+      orgEnvs,
+      environments,
+    });
+    expect(snapshot.rules.map((r) => r.id)).toEqual(["r_ok"]);
   });
 });

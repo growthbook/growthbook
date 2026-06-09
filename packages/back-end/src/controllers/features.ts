@@ -1557,12 +1557,14 @@ export async function postFeaturePublish(
     }),
   });
 
+  // Use `revision.version`, not the request param — publishing a draft built
+  // on a stale base re-versions it to the head of the history.
   const publishedRevision = await getRevision({
     context,
     organization: org.id,
     featureId: feature.id,
     feature,
-    version: parseInt(version),
+    version: revision.version,
   });
   await dispatchFeatureRevisionEvent(
     context,
