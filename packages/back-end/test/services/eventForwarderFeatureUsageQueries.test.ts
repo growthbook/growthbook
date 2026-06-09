@@ -78,7 +78,7 @@ describe("ensureEventForwarderFeatureUsageQuery", () => {
       serviceAccountKey: "{}",
     });
 
-    await ensureEventForwarderFeatureUsageQuery(
+    const ids = await ensureEventForwarderFeatureUsageQuery(
       context() as never,
       efConfig("bigquery"),
       { defaultProject: "my-project" } as never,
@@ -107,6 +107,7 @@ describe("ensureEventForwarderFeatureUsageQuery", () => {
     expect(featureUsage[0].query).toContain("feature_usage");
     expect(featureUsage[0].query).toContain("feature_key AS feature_key");
     expect(featureUsage[0].query).toContain("received_at BETWEEN");
+    expect(ids).toEqual([featureUsage[0].id]);
   });
 
   it("appends a managed query when a manual query already exists", async () => {
@@ -123,7 +124,7 @@ describe("ensureEventForwarderFeatureUsageQuery", () => {
       serviceAccountKey: "{}",
     });
 
-    await ensureEventForwarderFeatureUsageQuery(
+    const ids = await ensureEventForwarderFeatureUsageQuery(
       context() as never,
       efConfig("bigquery"),
       { defaultProject: "my-project" } as never,
@@ -134,6 +135,7 @@ describe("ensureEventForwarderFeatureUsageQuery", () => {
     expect(featureUsage).toHaveLength(2);
     expect(featureUsage[0].id).toBe("manual");
     expect(featureUsage[1].managedBy).toBe("api");
+    expect(ids).toEqual([featureUsage[1].id]);
   });
 
   it("skips when a managed query already exists", async () => {
@@ -144,12 +146,13 @@ describe("ensureEventForwarderFeatureUsageQuery", () => {
     });
     mockedGetRaw.mockResolvedValue(raw);
 
-    await ensureEventForwarderFeatureUsageQuery(
+    const ids = await ensureEventForwarderFeatureUsageQuery(
       context() as never,
       efConfig("bigquery"),
     );
 
     expect(mockedUpdate).not.toHaveBeenCalled();
+    expect(ids).toEqual(["managed"]);
   });
 
   it("creates Snowflake feature usage query without WHERE clause", async () => {

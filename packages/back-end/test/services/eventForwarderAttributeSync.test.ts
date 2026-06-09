@@ -15,13 +15,9 @@ const mockedSyncFactTable =
   EventForwarderFactTable.syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange as jest.MockedFunction<
     typeof EventForwarderFactTable.syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange
   >;
-const mockedSyncAllUserIdTypes =
-  EventForwarderUserIdTypes.syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema as jest.MockedFunction<
-    typeof EventForwarderUserIdTypes.syncAllEventForwarderDatasourceUserIdTypesFromAttributeSchema
-  >;
-const mockedSyncHashMetadata =
-  EventForwarderUserIdTypes.syncHashAttributeMetadataForEventForwarder as jest.MockedFunction<
-    typeof EventForwarderUserIdTypes.syncHashAttributeMetadataForEventForwarder
+const mockedReconcileDatasourceMetadata =
+  EventForwarderUserIdTypes.reconcileAllEventForwarderDatasourceUserIdTypesAndExposureQueries as jest.MockedFunction<
+    typeof EventForwarderUserIdTypes.reconcileAllEventForwarderDatasourceUserIdTypesAndExposureQueries
   >;
 
 function context() {
@@ -35,8 +31,7 @@ describe("syncEventForwarderAfterAttributeSchemaChange", () => {
     jest.clearAllMocks();
     mockedHasAnyEventForwarderConfig.mockResolvedValue(true);
     mockedSyncFactTable.mockResolvedValue(undefined);
-    mockedSyncAllUserIdTypes.mockResolvedValue(undefined);
-    mockedSyncHashMetadata.mockResolvedValue(undefined);
+    mockedReconcileDatasourceMetadata.mockResolvedValue(undefined);
   });
 
   it("no-ops when event forwarder is not configured", async () => {
@@ -44,26 +39,23 @@ describe("syncEventForwarderAfterAttributeSchemaChange", () => {
 
     await syncEventForwarderAfterAttributeSchemaChange(context() as never, {
       attributeSchema: [],
-      changeType: "create",
-      after: { property: "id", datatype: "string", hashAttribute: true },
     });
 
-    expect(mockedSyncAllUserIdTypes).not.toHaveBeenCalled();
+    expect(mockedReconcileDatasourceMetadata).not.toHaveBeenCalled();
     expect(mockedSyncFactTable).not.toHaveBeenCalled();
   });
 
-  it("syncs userIdTypes and fact table metadata on hash attribute create", async () => {
+  it("reconciles datasource metadata and fact table metadata from the current attribute schema", async () => {
     const attributeSchema = [
       { property: "user_id", datatype: "string" as const, hashAttribute: true },
+      { property: "age", datatype: "number" as const },
     ];
 
     await syncEventForwarderAfterAttributeSchemaChange(context() as never, {
       attributeSchema,
-      after: attributeSchema[0],
-      changeType: "create",
     });
 
-    expect(mockedSyncAllUserIdTypes).toHaveBeenCalledWith(
+    expect(mockedReconcileDatasourceMetadata).toHaveBeenCalledWith(
       expect.anything(),
       attributeSchema,
     );
@@ -73,137 +65,34 @@ describe("syncEventForwarderAfterAttributeSchemaChange", () => {
     );
   });
 
-  it("syncs fact table metadata on regular attribute create without userIdTypes sync", async () => {
+  it("still reconciles when only regular attributes changed", async () => {
     const attributeSchema = [{ property: "age", datatype: "number" as const }];
 
     await syncEventForwarderAfterAttributeSchemaChange(context() as never, {
       attributeSchema,
-      after: attributeSchema[0],
-      changeType: "create",
     });
 
-    expect(mockedSyncAllUserIdTypes).not.toHaveBeenCalled();
-    expect(mockedSyncHashMetadata).not.toHaveBeenCalled();
+    expect(mockedReconcileDatasourceMetadata).toHaveBeenCalledWith(
+      expect.anything(),
+      attributeSchema,
+    );
     expect(mockedSyncFactTable).toHaveBeenCalledWith(
       expect.anything(),
       attributeSchema,
     );
   });
 
-  it("syncs hash metadata when an existing hash attribute is renamed", async () => {
-    const before = {
-      property: "user_id",
-      datatype: "string" as const,
-      hashAttribute: true,
-    };
-    const after = {
-      property: "account_id",
-      datatype: "string" as const,
-      hashAttribute: true,
-    };
+  it("does not fail attribute flow when datasource reconciliation throws", async () => {
+    mockedReconcileDatasourceMetadata.mockRejectedValue(
+      new Error("Datasource unavailable"),
+    );
 
-    await syncEventForwarderAfterAttributeSchemaChange(context() as never, {
-      attributeSchema: [after],
-      before,
-      after,
-      previousName: "user_id",
-      changeType: "update",
-    });
-
-    expect(mockedSyncHashMetadata).toHaveBeenCalledWith(expect.anything(), {
-      before,
-      after,
-      previousName: "user_id",
-      attributeSchema: [after],
-    });
+    await expect(
+      syncEventForwarderAfterAttributeSchemaChange(context() as never, {
+        attributeSchema: [{ property: "age", datatype: "number" }],
+      }),
+    ).resolves.toBeUndefined();
     expect(mockedSyncFactTable).toHaveBeenCalled();
-  });
-
-  it("syncs hash metadata when hash attribute datatype changes", async () => {
-    const before = {
-      property: "user_id",
-      datatype: "string" as const,
-      hashAttribute: true,
-    };
-    const after = {
-      property: "user_id",
-      datatype: "number" as const,
-      hashAttribute: true,
-    };
-
-    await syncEventForwarderAfterAttributeSchemaChange(context() as never, {
-      attributeSchema: [after],
-      before,
-      after,
-      changeType: "update",
-    });
-
-    expect(mockedSyncHashMetadata).toHaveBeenCalled();
-    expect(mockedSyncFactTable).toHaveBeenCalled();
-  });
-
-  it("syncs fact table metadata when a regular attribute is renamed", async () => {
-    const before = {
-      property: "age",
-      datatype: "number" as const,
-    };
-    const after = {
-      property: "years_old",
-      datatype: "number" as const,
-    };
-
-    await syncEventForwarderAfterAttributeSchemaChange(context() as never, {
-      attributeSchema: [after],
-      before,
-      after,
-      previousName: "age",
-      changeType: "update",
-    });
-
-    expect(mockedSyncHashMetadata).not.toHaveBeenCalled();
-    expect(mockedSyncFactTable).toHaveBeenCalledWith(expect.anything(), [
-      after,
-    ]);
-  });
-
-  it("syncs fact table metadata when a regular attribute datatype changes", async () => {
-    const before = {
-      property: "age",
-      datatype: "string" as const,
-    };
-    const after = {
-      property: "age",
-      datatype: "number" as const,
-    };
-
-    await syncEventForwarderAfterAttributeSchemaChange(context() as never, {
-      attributeSchema: [after],
-      before,
-      after,
-      changeType: "update",
-    });
-
-    expect(mockedSyncHashMetadata).not.toHaveBeenCalled();
-    expect(mockedSyncFactTable).toHaveBeenCalledWith(expect.anything(), [
-      after,
-    ]);
-  });
-
-  it("syncs fact table metadata on delete without userIdType sync", async () => {
-    const before = {
-      property: "age",
-      datatype: "number" as const,
-    };
-
-    await syncEventForwarderAfterAttributeSchemaChange(context() as never, {
-      attributeSchema: [],
-      before,
-      changeType: "delete",
-    });
-
-    expect(mockedSyncAllUserIdTypes).not.toHaveBeenCalled();
-    expect(mockedSyncHashMetadata).not.toHaveBeenCalled();
-    expect(mockedSyncFactTable).toHaveBeenCalledWith(expect.anything(), []);
   });
 
   it("does not fail attribute flow when fact table sync throws", async () => {
@@ -212,27 +101,7 @@ describe("syncEventForwarderAfterAttributeSchemaChange", () => {
     await expect(
       syncEventForwarderAfterAttributeSchemaChange(context() as never, {
         attributeSchema: [{ property: "age", datatype: "number" }],
-        after: { property: "age", datatype: "number" },
-        changeType: "create",
       }),
     ).resolves.toBeUndefined();
-  });
-
-  it("skips fact table sync when only description changes", async () => {
-    const before = { property: "age", datatype: "number" as const };
-    const after = {
-      property: "age",
-      datatype: "number" as const,
-      description: "updated",
-    };
-
-    await syncEventForwarderAfterAttributeSchemaChange(context() as never, {
-      attributeSchema: [after],
-      before,
-      after,
-      changeType: "update",
-    });
-
-    expect(mockedSyncFactTable).not.toHaveBeenCalled();
   });
 });

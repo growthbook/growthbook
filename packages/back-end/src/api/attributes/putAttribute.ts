@@ -49,9 +49,6 @@ export const putAttribute = createApiRequestHandler(putAttributeValidator)(
     const updatedAttributeSchema = updates.settings?.attributeSchema ?? [];
     await syncEventForwarderAfterAttributeSchemaChange(req.context, {
       attributeSchema: updatedAttributeSchema,
-      before: attribute,
-      after: updatedAttribute,
-      changeType: "update",
     });
 
     await req.audit({
