@@ -181,17 +181,10 @@ export async function syncEventForwarderEventsFactTableMetadataAfterAttributeSch
     }
 
     if (eventForwarderConfig.managedResources?.factTableId !== factTable.id) {
-      await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
-        managedResources: {
-          identifierTypes:
-            eventForwarderConfig.managedResources?.identifierTypes ?? [],
-          exposureQueryIds:
-            eventForwarderConfig.managedResources?.exposureQueryIds ?? [],
-          featureUsageQueryIds:
-            eventForwarderConfig.managedResources?.featureUsageQueryIds ?? [],
-          factTableId: factTable.id,
-        },
-      });
+      await context.models.eventForwarderConfigs.updateManagedResourcesFactTableId(
+        eventForwarderConfig,
+        factTable.id,
+      );
     }
 
     const userIdTypes =

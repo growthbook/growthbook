@@ -90,6 +90,7 @@ function context() {
       eventForwarderConfigs: {
         getAll: jest.fn(),
         update: jest.fn(),
+        updateManagedResourcesFactTableId: jest.fn(),
       },
     },
   };
@@ -371,16 +372,11 @@ describe("syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange", 
       ft,
       expect.any(Date),
     );
-    expect(ctx.models.eventForwarderConfigs.update).toHaveBeenCalledWith(
+    expect(
+      ctx.models.eventForwarderConfigs.updateManagedResourcesFactTableId,
+    ).toHaveBeenCalledWith(
       expect.objectContaining({ datasourceId: "ds_1" }),
-      {
-        managedResources: {
-          identifierTypes: [],
-          exposureQueryIds: [],
-          featureUsageQueryIds: [],
-          factTableId: "ds_1_events",
-        },
-      },
+      "ds_1_events",
     );
   });
 

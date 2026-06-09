@@ -196,13 +196,10 @@ export async function provisionEventForwarderThroughLicenseServer(
           currentEventForwarderConfig,
         );
       if (managedResources) {
-        currentEventForwarderConfig =
-          await context.models.eventForwarderConfigs.update(
-            currentEventForwarderConfig,
-            {
-              managedResources,
-            },
-          );
+        currentEventForwarderConfig = {
+          ...currentEventForwarderConfig,
+          managedResources,
+        };
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
