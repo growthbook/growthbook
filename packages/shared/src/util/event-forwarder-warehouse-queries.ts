@@ -1,9 +1,10 @@
-import type { ExposureQuery } from "shared/types/datasource";
+import type { ExposureQuery, FeatureUsageQuery } from "shared/types/datasource";
 import type {
   SDKAttribute,
   SDKAttributeSchema,
   SDKAttributeType,
 } from "shared/types/organization";
+import { normalizeSnowflakeTableNameForEventForwarder } from "./event-forwarder-destination";
 import {
   buildBigQueryEventForwarderTableReference,
   buildEventForwarderNestedAttributeValueSql,
@@ -11,9 +12,9 @@ import {
   EVENT_FORWARDER_AVRO_PARTITION_FIELD,
   quoteBigQueryIdentifier,
 } from "./event-forwarder-fact-table";
-import { normalizeSnowflakeTableNameForEventForwarder } from "./snowflake-table-name";
 
 export const EVENT_FORWARDER_EXPERIMENT_VIEWED_TABLE = "experiment_viewed";
+export const EVENT_FORWARDER_FEATURE_USAGE_TABLE = "feature_usage";
 
 export type BuildEventForwarderExperimentViewedTableRefParams =
   | {
@@ -26,6 +27,9 @@ export type BuildEventForwarderExperimentViewedTableRefParams =
       database: string;
       schema: string;
     };
+
+export type BuildEventForwarderFeatureUsageTableRefParams =
+  BuildEventForwarderExperimentViewedTableRefParams;
 
 export function buildEventForwarderExperimentViewedTableReference(
   params: BuildEventForwarderExperimentViewedTableRefParams,
@@ -43,6 +47,26 @@ export function buildEventForwarderExperimentViewedTableReference(
     params.schema,
     normalizeSnowflakeTableNameForEventForwarder(
       EVENT_FORWARDER_EXPERIMENT_VIEWED_TABLE,
+    ),
+  );
+}
+
+export function buildEventForwarderFeatureUsageTableReference(
+  params: BuildEventForwarderFeatureUsageTableRefParams,
+): string {
+  if (params.sinkType === "bigquery") {
+    return buildBigQueryEventForwarderTableReference(
+      params.projectId,
+      params.dataset,
+      EVENT_FORWARDER_FEATURE_USAGE_TABLE,
+    );
+  }
+
+  return buildSnowflakeEventForwarderTableReference(
+    params.database,
+    params.schema,
+    normalizeSnowflakeTableNameForEventForwarder(
+      EVENT_FORWARDER_FEATURE_USAGE_TABLE,
     ),
   );
 }
@@ -252,4 +276,64 @@ export function reconcileEventForwarderManagedExposureQueries({
     ),
     ...desiredManaged,
   ];
+}
+
+export function buildEventForwarderFeatureUsageQuerySql({
+  sinkType,
+  tableRef,
+}: {
+  sinkType: "bigquery" | "snowflake";
+  tableRef: string;
+}): string {
+  if (sinkType === "bigquery") {
+    return `SELECT
+  timestamp AS timestamp,
+  feature_key AS feature_key
+FROM ${tableRef}
+WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{endDate}}'`;
+  }
+
+  return `SELECT
+  TIMESTAMP AS timestamp,
+  FEATURE_KEY AS feature_key
+FROM ${tableRef}`;
+}
+
+export type GenerateEventForwarderFeatureUsageQueryParams =
+  BuildEventForwarderFeatureUsageTableRefParams;
+
+export function buildEventForwarderFeatureUsageQuery(
+  params: GenerateEventForwarderFeatureUsageQueryParams,
+): Pick<FeatureUsageQuery, "query" | "managedBy"> {
+  const tableRef = buildEventForwarderFeatureUsageTableReference(params);
+
+  return {
+    managedBy: "api",
+    query: buildEventForwarderFeatureUsageQuerySql({
+      sinkType: params.sinkType,
+      tableRef,
+    }),
+  };
+}
+
+export function isEventForwarderManagedFeatureUsageQuery(
+  query: FeatureUsageQuery,
+): boolean {
+  return query.managedBy === "api";
+}
+
+export function getActiveFeatureUsageQuery(
+  queries: FeatureUsageQuery[] | undefined,
+): FeatureUsageQuery | undefined {
+  if (!queries?.length) {
+    return undefined;
+  }
+
+  return queries.find(isEventForwarderManagedFeatureUsageQuery) ?? queries[0];
+}
+
+export function eventForwarderManagedFeatureUsageQueryExists(
+  queries: FeatureUsageQuery[],
+): boolean {
+  return queries.some(isEventForwarderManagedFeatureUsageQuery);
 }
