@@ -30,7 +30,8 @@ import {
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FaArrowLeft } from "react-icons/fa";
 import { PiLockSimple, PiGitMergeBold } from "react-icons/pi";
-import { Box, Flex } from "@radix-ui/themes";
+import { BsThreeDotsVertical } from "react-icons/bs";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { format } from "date-fns";
 import EventUser from "@/components/Avatar/EventUser";
 import { getCurrentUser, useUser } from "@/services/UserContext";
@@ -64,6 +65,7 @@ import Heading from "@/ui/Heading";
 import Badge from "@/ui/Badge";
 import {
   revisionStatusColor,
+  revisionStatusIcon,
   revisionStatusLabel,
 } from "@/components/Features/RevisionStatusBadge";
 import Callout from "@/ui/Callout";
@@ -79,6 +81,11 @@ import {
   DiffContent,
 } from "@/components/Features/RevisionDiffUtils";
 import DivergenceNotice from "@/components/Features/DivergenceNotice";
+import {
+  DropdownMenu,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+} from "@/ui/DropdownMenu";
 import RevertModal from "@/components/Features/RevertModal";
 import { getReviewAndPublishState } from "@/components/Features/reviewAndPublishState";
 
@@ -216,6 +223,11 @@ export default function ReviewAndPublish({
   const [showSubmitReview, setShowSubmitReview] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [secondaryLoading, setSecondaryLoading] = useState<
+    "recall" | "undo" | null
+  >(null);
+  const [secondaryError, setSecondaryError] = useState<string | null>(null);
+  const [actionsDropdownOpen, setActionsDropdownOpen] = useState(false);
   const revisionLogRef = useRef<MutateLog>(null);
   const commentInputRef = useRef<HTMLInputElement>(null);
 
@@ -586,6 +598,7 @@ export default function ReviewAndPublish({
     mergeSuccess: mergeResult.success,
     hasChanges,
     canReview,
+    canManageDraft: permissionsUtil.canManageFeatureDrafts(feature),
     adminPublish,
     hasSelectedExperiments: selectedExperiments.size > 0,
     onlyScheduledSelected,
@@ -615,7 +628,6 @@ export default function ReviewAndPublish({
             }),
           });
           await mutate();
-          onClose && onClose();
           return;
         case "publish":
           setSubmitting(true);
@@ -630,7 +642,6 @@ export default function ReviewAndPublish({
           });
           await mutate();
           onPublish && onPublish();
-          onClose && onClose();
           return;
         case "show-submit-review":
           setShowSubmitReview(true);
@@ -646,18 +657,34 @@ export default function ReviewAndPublish({
     }
   };
 
-  const showRevisionStatus = () => {
-    switch (revision.status) {
-      case "approved":
-        return <Callout status="success">Approved</Callout>;
-      case "pending-review":
-        return <Callout status="warning">Pending Review</Callout>;
-      case "changes-requested":
-        return <Callout status="error">Changes Requested</Callout>;
-      case "draft":
-        return <Callout status="warning">Publishing requires approval</Callout>;
-      default:
-        return null;
+  const doRecallReview = async () => {
+    setSecondaryError(null);
+    setSecondaryLoading("recall");
+    try {
+      await apiCall(
+        `/feature/${feature.id}/${revision.version}/recall-review`,
+        { method: "POST" },
+      );
+      await mutate();
+    } catch (e) {
+      setSecondaryError(e.message || "Something went wrong");
+    } finally {
+      setSecondaryLoading(null);
+    }
+  };
+
+  const doUndoReview = async () => {
+    setSecondaryError(null);
+    setSecondaryLoading("undo");
+    try {
+      await apiCall(`/feature/${feature.id}/${revision.version}/undo-review`, {
+        method: "POST",
+      });
+      await mutate();
+    } catch (e) {
+      setSecondaryError(e.message || "Something went wrong");
+    } finally {
+      setSecondaryLoading(null);
     }
   };
 
@@ -1089,172 +1116,253 @@ export default function ReviewAndPublish({
   );
 
   // ── Right column: reviewer / approval-flow actions and state ──
+  const statusColor = revisionStatusColor(revision.status);
   const actionsColumn = (
-    <Box className="appbox" p="4" style={{ position: "sticky", top: 90 }}>
-      {governance && (
-        <DivergenceNotice
-          governance={governance}
-          liveVersion={feature.version}
-          baseVersion={revision.baseVersion}
-          onUpdateFromLive={onUpdateFromLive}
-          updating={rebasing}
-          canRebase={permissionsUtil.canManageFeatureDrafts(feature)}
-        />
-      )}
+    <Box
+      className="appbox"
+      style={{ position: "sticky", top: 90, overflow: "hidden" }}
+    >
+      {/* Status header – colored tint matching the revision badge */}
+      <Flex
+        align="center"
+        px="4"
+        className="appbox-header"
+        style={{ background: `var(--${statusColor}-a3)` }}
+      >
+        <Flex
+          align="center"
+          gap="2"
+          style={{ color: `var(--${statusColor}-11)` }}
+        >
+          <Box style={{ fontSize: 14, lineHeight: 1, display: "flex" }}>
+            {revisionStatusIcon(revision.status)}
+          </Box>
+          <Heading as="h4" size="small">
+            <span style={{ color: `var(--${statusColor}-11)` }}>
+              {revisionStatusLabel(revision.status)}
+            </span>
+          </Heading>
+        </Flex>
 
-      {linkedRamps.map((ramp) => (
-        <Callout key={ramp.id} status="info" mb="3">
-          Publishing this draft will activate ramp schedule{" "}
-          <strong>{ramp.name}</strong>. The ramp will begin once this revision
-          is live.
-        </Callout>
-      ))}
-
-      {requireReviews && <Box mb="3">{showRevisionStatus()}</Box>}
-
-      {requireReviews && contributorIds.length > 0 && (
-        <Box mb="3">
-          <Text size="small" weight="medium" color="text-mid" as="div" mb="1">
-            Contributors
-          </Text>
-          <Flex direction="column" gap="1">
-            {contributorIds.map((id) => {
-              const u = users.get(id);
-              return (
-                <EventUser
-                  key={id}
-                  user={{
-                    type: "dashboard",
-                    id,
-                    name: u?.name || "",
-                    email: u?.email || "",
-                  }}
-                  display="avatar-name-email"
-                  size="sm"
-                />
-              );
-            })}
-          </Flex>
-        </Box>
-      )}
-
-      {featureLockedByRamp && (
-        <Callout status="warning" icon={<PiLockSimple size={15} />} mb="3">
-          Publishing is locked by an active ramp-up schedule.
-          {canAdminPublish
-            ? " Use the admin bypass below to publish anyway."
-            : ""}
-        </Callout>
-      )}
-      {canAdminPublish && (featureLockedByRamp || requireReviews) && (
-        <Box mb="3">
-          <Checkbox
-            label={
-              requireReviews
-                ? "Bypass approval and lockdown restrictions to publish (Admins only)"
-                : "Bypass lockdown to publish (admin only)"
-            }
-            value={adminPublish}
-            setValue={(val) => {
-              setAdminPublish(!!val);
-              if (!val) {
-                checklistStateRef.current.clear();
-                setChecklistBlocked(false);
-                setExperimentsStep(false);
+        {(state.canRecallReview || state.canUndoReview) && (
+          <Box ml="auto" style={{ marginRight: -6 }}>
+            <DropdownMenu
+              trigger={
+                <IconButton
+                  variant="ghost"
+                  color="gray"
+                  radius="full"
+                  size="2"
+                  highContrast
+                  style={{ margin: 0 }}
+                >
+                  <BsThreeDotsVertical size={16} />
+                </IconButton>
               }
-            }}
-          />
-        </Box>
-      )}
+              open={actionsDropdownOpen}
+              onOpenChange={setActionsDropdownOpen}
+              menuPlacement="end"
+              variant="soft"
+            >
+              <DropdownMenuGroup>
+                {state.canRecallReview && (
+                  <DropdownMenuItem
+                    disabled={secondaryLoading !== null}
+                    onClick={() => {
+                      setActionsDropdownOpen(false);
+                      doRecallReview();
+                    }}
+                  >
+                    Retract review request
+                  </DropdownMenuItem>
+                )}
+                {state.canUndoReview && (
+                  <DropdownMenuItem
+                    disabled={secondaryLoading !== null}
+                    onClick={() => {
+                      setActionsDropdownOpen(false);
+                      doUndoReview();
+                    }}
+                  >
+                    Retract review
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuGroup>
+            </DropdownMenu>
+          </Box>
+        )}
+      </Flex>
 
-      {!experimentsStep &&
-        (approved || !requireReviews) &&
-        renderExperimentSelection()}
-
-      {!requireReviews ? (
-        hasPublishPermission ? (
-          <Field
-            label="Notes (optional)"
-            textarea
-            placeholder="Summary of changes..."
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
+      <Box p="4">
+        {governance && (
+          <DivergenceNotice
+            governance={governance}
+            liveVersion={feature.version}
+            baseVersion={revision.baseVersion}
+            onUpdateFromLive={onUpdateFromLive}
+            updating={rebasing}
+            canRebase={permissionsUtil.canManageFeatureDrafts(feature)}
           />
-        ) : (
-          <Callout status="info">
-            You do not have permission to publish this draft.
+        )}
+
+        {linkedRamps.map((ramp) => (
+          <Callout key={ramp.id} status="info" mb="3">
+            Publishing this draft will activate ramp schedule{" "}
+            <strong>{ramp.name}</strong>. The ramp will begin once this revision
+            is live.
           </Callout>
-        )
-      ) : (
-        (!canReview || approved) && (
-          <Box id="comment-section">
+        ))}
+
+        {requireReviews && contributorIds.length > 0 && (
+          <Box mb="3">
+            <Text size="small" weight="medium" color="text-mid" as="div" mb="1">
+              Contributors
+            </Text>
+            <Flex direction="column" gap="1">
+              {contributorIds.map((id) => {
+                const u = users.get(id);
+                return (
+                  <EventUser
+                    key={id}
+                    user={{
+                      type: "dashboard",
+                      id,
+                      name: u?.name || "",
+                      email: u?.email || "",
+                    }}
+                    display="avatar-name-email"
+                    size="sm"
+                  />
+                );
+              })}
+            </Flex>
+          </Box>
+        )}
+
+        {featureLockedByRamp && (
+          <Callout status="warning" icon={<PiLockSimple size={15} />} mb="3">
+            Publishing is locked by an active ramp-up schedule.
+            {canAdminPublish
+              ? " Use the admin bypass below to publish anyway."
+              : ""}
+          </Callout>
+        )}
+        {canAdminPublish && (featureLockedByRamp || requireReviews) && (
+          <Box mb="3">
+            <Checkbox
+              label={
+                requireReviews
+                  ? "Bypass approval and lockdown restrictions to publish (Admins only)"
+                  : "Bypass lockdown to publish (admin only)"
+              }
+              value={adminPublish}
+              setValue={(val) => {
+                setAdminPublish(!!val);
+                if (!val) {
+                  checklistStateRef.current.clear();
+                  setChecklistBlocked(false);
+                  setExperimentsStep(false);
+                }
+              }}
+            />
+          </Box>
+        )}
+
+        {!experimentsStep &&
+          (approved || !requireReviews) &&
+          renderExperimentSelection()}
+
+        {!requireReviews ? (
+          hasPublishPermission ? (
             <Field
-              label="Add a Comment (optional)"
+              label="Notes (optional)"
               textarea
               placeholder="Summary of changes..."
               value={comment}
-              ref={commentInputRef}
               onChange={(e) => setComment(e.target.value)}
             />
-            {((!canReview && revision.status !== "draft") || approved) && (
-              <LinkButton
-                onClick={async () => {
-                  try {
-                    await apiCall(
-                      `/feature/${feature.id}/${revision.version}/comment`,
-                      {
-                        method: "POST",
-                        body: JSON.stringify({ comment }),
-                      },
-                    );
-                  } catch (e) {
+          ) : (
+            <Callout status="info">
+              You do not have permission to publish this draft.
+            </Callout>
+          )
+        ) : (
+          (!canReview || approved) && (
+            <Box id="comment-section">
+              <Field
+                label="Add a Comment (optional)"
+                textarea
+                placeholder="Summary of changes..."
+                value={comment}
+                ref={commentInputRef}
+                onChange={(e) => setComment(e.target.value)}
+              />
+              {((!canReview && revision.status !== "draft") || approved) && (
+                <LinkButton
+                  onClick={async () => {
+                    try {
+                      await apiCall(
+                        `/feature/${feature.id}/${revision.version}/comment`,
+                        {
+                          method: "POST",
+                          body: JSON.stringify({ comment }),
+                        },
+                      );
+                    } catch (e) {
+                      await mutate();
+                      throw e;
+                    }
+                    setComment("");
+                    await revisionLogRef?.current?.mutateLog();
                     await mutate();
-                    throw e;
-                  }
-                  setComment("");
-                  await revisionLogRef?.current?.mutateLog();
-                  await mutate();
-                  commentInputRef?.current?.scrollIntoView();
+                    commentInputRef?.current?.scrollIntoView();
+                  }}
+                >
+                  Comment
+                </LinkButton>
+              )}
+            </Box>
+          )
+        )}
+
+        {submitError && (
+          <Callout status="error" mt="3">
+            {submitError}
+          </Callout>
+        )}
+
+        {state.mode === "main" && state.hasSubmit && (
+          <Flex direction="column" gap="2" mt="4">
+            <Button
+              onClick={doSubmit}
+              loading={submitting}
+              disabled={!(state.ctaEnabled && canDoPrimary)}
+              icon={state.ctaLocked ? <PiLockSimple /> : undefined}
+              style={{ width: "100%" }}
+            >
+              {state.ctaLabel}
+            </Button>
+            {experimentsStep && (
+              <LinkButton
+                color="link"
+                onClick={() => {
+                  checklistStateRef.current.clear();
+                  setChecklistBlocked(false);
+                  setExperimentsStep(false);
                 }}
               >
-                Comment
+                <FaArrowLeft /> Back
               </LinkButton>
             )}
-          </Box>
-        )
-      )}
+          </Flex>
+        )}
 
-      {submitError && (
-        <Callout status="error" mt="3">
-          {submitError}
-        </Callout>
-      )}
-
-      {state.mode === "main" && state.hasSubmit && (
-        <Flex direction="column" gap="2" mt="4">
-          <Button
-            onClick={doSubmit}
-            loading={submitting}
-            disabled={!(state.ctaEnabled && canDoPrimary)}
-            icon={state.ctaLocked ? <PiLockSimple /> : undefined}
-            style={{ width: "100%" }}
-          >
-            {state.ctaLabel}
-          </Button>
-          {experimentsStep && (
-            <LinkButton
-              color="link"
-              onClick={() => {
-                checklistStateRef.current.clear();
-                setChecklistBlocked(false);
-                setExperimentsStep(false);
-              }}
-            >
-              <FaArrowLeft /> Back
-            </LinkButton>
-          )}
-        </Flex>
-      )}
+        {secondaryError && (
+          <Callout status="error" mt="3">
+            {secondaryError}
+          </Callout>
+        )}
+      </Box>
     </Box>
   );
 

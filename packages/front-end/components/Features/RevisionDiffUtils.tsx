@@ -1080,13 +1080,7 @@ function RevisionCommentItem({
 
   return (
     <Box mb="5" className="appbox">
-      <Flex
-        align="center"
-        gap="2"
-        px="4"
-        py="2"
-        style={{ borderBottom: "1px solid var(--gray-a4)" }}
-      >
+      <Flex align="center" gap="2" px="4" className="appbox-header">
         <Flex align="center" gap="2">
           <Heading as="h5" size="small" color="text-mid" mb="0">
             Notes

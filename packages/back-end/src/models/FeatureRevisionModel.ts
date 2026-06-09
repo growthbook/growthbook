@@ -1227,6 +1227,87 @@ export async function submitReviewAndComments(
     });
 }
 
+// Author retracts a review request: reverts pending-review / changes-requested
+// / approved back to draft. Review log entries are preserved; only the status
+// transitions.
+export async function recallReview(
+  context: ReqContext | ApiReqContext,
+  revision: FeatureRevisionInterface,
+  user: EventUser,
+) {
+  const allowed = ["pending-review", "changes-requested", "approved"] as const;
+  if (!(allowed as readonly string[]).includes(revision.status)) {
+    throw new Error(
+      `Can only recall a review on a pending-review, changes-requested, or approved draft (status is "${revision.status}")`,
+    );
+  }
+
+  await FeatureRevisionModel.updateOne(
+    {
+      organization: revision.organization,
+      featureId: revision.featureId,
+      version: revision.version,
+    },
+    {
+      $set: { status: "draft", dateUpdated: new Date() },
+      $unset: { approvedBaseVersion: 1 },
+    },
+  );
+
+  context.models.featureRevisionLogs
+    .create({
+      featureId: revision.featureId,
+      version: revision.version,
+      action: "Recall Review",
+      subject: "",
+      user,
+      value: JSON.stringify({}),
+    })
+    .catch((e) => {
+      logger.error(e, "Error creating revisionlog for recallReview");
+    });
+}
+
+// Reviewer retracts their own verdict: reverts approved / changes-requested
+// back to pending-review. Review comments remain in the log.
+export async function undoReview(
+  context: ReqContext | ApiReqContext,
+  revision: FeatureRevisionInterface,
+  user: EventUser,
+) {
+  const allowed = ["approved", "changes-requested"] as const;
+  if (!(allowed as readonly string[]).includes(revision.status)) {
+    throw new Error(
+      `Can only undo a review on an approved or changes-requested draft (status is "${revision.status}")`,
+    );
+  }
+
+  await FeatureRevisionModel.updateOne(
+    {
+      organization: revision.organization,
+      featureId: revision.featureId,
+      version: revision.version,
+    },
+    {
+      $set: { status: "pending-review", dateUpdated: new Date() },
+      $unset: { approvedBaseVersion: 1 },
+    },
+  );
+
+  context.models.featureRevisionLogs
+    .create({
+      featureId: revision.featureId,
+      version: revision.version,
+      action: "Undo Review",
+      subject: "",
+      user,
+      value: JSON.stringify({}),
+    })
+    .catch((e) => {
+      logger.error(e, "Error creating revisionlog for undoReview");
+    });
+}
+
 export async function discardRevision(
   context: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,

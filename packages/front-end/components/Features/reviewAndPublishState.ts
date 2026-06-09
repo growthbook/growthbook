@@ -26,6 +26,8 @@ export interface RnPStateInput {
   hasChanges: boolean;
   // Viewer may submit a review (pending, not the author, has permission).
   canReview: boolean;
+  // The current user is the draft author (or co-author) and can manage drafts.
+  canManageDraft: boolean;
   // Admin opted to bypass approval/lockdown/governance.
   adminPublish: boolean;
   // At least one experiment is selected to start on publish.
@@ -52,6 +54,11 @@ export interface RnPState {
   submitAction: RnPSubmitAction;
   // Whether the main modal wires up a submit handler at all.
   hasSubmit: boolean;
+  // Secondary actions shown as links/ghost buttons alongside the primary CTA.
+  // Author retracts the review request → back to draft.
+  canRecallReview: boolean;
+  // Reviewer retracts their own verdict → back to pending-review.
+  canUndoReview: boolean;
 }
 
 function publishLabel(
@@ -70,6 +77,7 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
     mergeSuccess,
     hasChanges,
     canReview,
+    canManageDraft,
     adminPublish,
     hasSelectedExperiments,
     onlyScheduledSelected,
@@ -80,6 +88,18 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
     governanceCanPublish,
   } = input;
 
+  // recall-review: author can pull back from pending-review / changes-requested / approved
+  const recallableStatuses = [
+    "pending-review",
+    "changes-requested",
+    "approved",
+  ];
+  const canRecallReview = canManageDraft && recallableStatuses.includes(status);
+
+  // undo-review: reviewer can retract their own approved/changes-requested verdict
+  const undoableStatuses = ["approved", "changes-requested"];
+  const canUndoReview = canReview && undoableStatuses.includes(status);
+
   // Hard conflicts always route to the conflict-resolution flow first.
   if (!mergeSuccess) {
     return {
@@ -89,6 +109,8 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
       ctaLocked: false,
       submitAction: "none",
       hasSubmit: true,
+      canRecallReview,
+      canUndoReview,
     };
   }
 
@@ -100,6 +122,8 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
       ctaLocked: false,
       submitAction: "none", // submit handled by the sub-view's own form
       hasSubmit: true,
+      canRecallReview,
+      canUndoReview,
     };
   }
 
@@ -125,6 +149,8 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
       ctaLocked: !hasNextStep && featureLockedByRamp,
       submitAction: hasNextStep ? "next-experiments" : "publish",
       hasSubmit: true,
+      canRecallReview,
+      canUndoReview,
     };
   }
 
@@ -169,5 +195,7 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
     ctaLocked,
     submitAction,
     hasSubmit,
+    canRecallReview,
+    canUndoReview,
   };
 }

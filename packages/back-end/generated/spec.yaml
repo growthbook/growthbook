@@ -9623,6 +9623,96 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/submit-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v2/features/{id}/revisions/{version}/recall-review:
+    post:
+      operationId: postFeatureRevisionRecallReviewV2
+      summary: Recall a review request (revert to draft)
+      description: >-
+        Author retracts the review request, returning the revision from
+        `pending-review`, `changes-requested`, or `approved` back to `draft`.
+        Existing review log entries are preserved.
+      tags:
+        - feature-revisions-v2
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevisionV2'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/recall-review'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v2/features/{id}/revisions/{version}/undo-review:
+    post:
+      operationId: postFeatureRevisionUndoReviewV2
+      summary: Undo a reviewer's own review verdict
+      description: >-
+        Reviewer retracts their own verdict, returning the revision from
+        `approved` or `changes-requested` back to `pending-review`. Existing
+        review comments are preserved.
+      tags:
+        - feature-revisions-v2
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevisionV2'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/undo-review'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v2/features/{id}/revisions/{version}/merge-status:
     get:
       operationId: getFeatureRevisionMergeStatusV2

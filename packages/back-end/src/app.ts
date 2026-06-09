@@ -877,6 +877,14 @@ app.post(
   "/feature/:id/:version/submit-review",
   featuresController.postFeatureReviewOrComment,
 );
+app.post(
+  "/feature/:id/:version/recall-review",
+  featuresController.postFeatureRecallReview,
+);
+app.post(
+  "/feature/:id/:version/undo-review",
+  featuresController.postFeatureUndoReview,
+);
 app.get("/feature/:id/:version/log", featuresController.getRevisionLog);
 app.post("/feature/:id/archive", featuresController.postFeatureArchive);
 app.post("/feature/:id/toggle", featuresController.postFeatureToggle);

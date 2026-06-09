@@ -139,6 +139,8 @@ import {
   createInitialRevision,
   createRevision,
   discardRevision,
+  recallReview,
+  undoReview,
   getActiveDraft,
   getActiveDraftStates,
   DraftStatusCounts,
@@ -1191,6 +1193,56 @@ export async function postFeatureReviewOrComment(
   res.status(200).json({
     status: 200,
   });
+}
+
+// Author retracts a review request: draft reverts from pending-review /
+// changes-requested / approved back to draft. Review log entries are kept.
+export async function postFeatureRecallReview(
+  req: AuthRequest<Record<string, never>, { id: string; version: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id, version } = req.params;
+  const feature = await getFeature(context, id);
+  if (!feature) throw new Error("Could not find feature");
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
+    context.permissions.throwPermissionError();
+  }
+  const revision = await getRevision({
+    context,
+    organization: context.org.id,
+    featureId: feature.id,
+    feature,
+    version: parseInt(version),
+  });
+  if (!revision) throw new Error("Could not find feature revision");
+  await recallReview(context, revision, res.locals.eventAudit);
+  res.status(200).json({ status: 200 });
+}
+
+// Reviewer retracts their own verdict: approved / changes-requested reverts to
+// pending-review. Review comments remain in the log.
+export async function postFeatureUndoReview(
+  req: AuthRequest<Record<string, never>, { id: string; version: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id, version } = req.params;
+  const feature = await getFeature(context, id);
+  if (!feature) throw new Error("Could not find feature");
+  if (!context.permissions.canReviewFeatureDrafts(feature)) {
+    context.permissions.throwPermissionError();
+  }
+  const revision = await getRevision({
+    context,
+    organization: context.org.id,
+    featureId: feature.id,
+    feature,
+    version: parseInt(version),
+  });
+  if (!revision) throw new Error("Could not find feature revision");
+  await undoReview(context, revision, res.locals.eventAudit);
+  res.status(200).json({ status: 200 });
 }
 
 // Detect drift between the live revision (source of truth) and the persisted

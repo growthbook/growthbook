@@ -459,6 +459,36 @@ export const postFeatureRevisionSubmitReviewV2Validator = {
   version: "v2" as const,
 };
 
+export const postFeatureRevisionRecallReviewV2Validator = {
+  method: "post" as const,
+  path: "/features/:id/revisions/:version/recall-review",
+  operationId: "postFeatureRevisionRecallReviewV2",
+  summary: "Recall a review request (revert to draft)",
+  description:
+    "Author retracts the review request, returning the revision from `pending-review`, `changes-requested`, or `approved` back to `draft`. Existing review log entries are preserved.",
+  tags: ["feature-revisions-v2"],
+  paramsSchema: revisionParamsStrict,
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  responseSchema: revisionResponse,
+  version: "v2" as const,
+};
+
+export const postFeatureRevisionUndoReviewV2Validator = {
+  method: "post" as const,
+  path: "/features/:id/revisions/:version/undo-review",
+  operationId: "postFeatureRevisionUndoReviewV2",
+  summary: "Undo a reviewer's own review verdict",
+  description:
+    "Reviewer retracts their own verdict, returning the revision from `approved` or `changes-requested` back to `pending-review`. Existing review comments are preserved.",
+  tags: ["feature-revisions-v2"],
+  paramsSchema: revisionParamsStrict,
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  responseSchema: revisionResponse,
+  version: "v2" as const,
+};
+
 export const postFeatureRevisionToggleV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/toggle",

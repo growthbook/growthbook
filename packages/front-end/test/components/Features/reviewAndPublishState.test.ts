@@ -11,6 +11,7 @@ function base(overrides: Partial<RnPStateInput> = {}): RnPStateInput {
     mergeSuccess: true,
     hasChanges: true,
     canReview: false,
+    canManageDraft: false,
     adminPublish: false,
     hasSelectedExperiments: false,
     onlyScheduledSelected: false,

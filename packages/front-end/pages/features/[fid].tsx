@@ -196,7 +196,6 @@ export default function FeaturePage() {
             experiments={experiments}
             rampSchedules={rampSchedules}
             mutate={refreshData}
-            onClose={() => setTabAndScroll("overview")}
             onPublish={() => setVersion(baseFeature.version)}
           />
         )}

@@ -1,4 +1,11 @@
 import React from "react";
+import {
+  PiCheckCircleFill,
+  PiClockFill,
+  PiChatCircleTextFill,
+  PiPencilSimpleFill,
+  PiXCircleFill,
+} from "react-icons/pi";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { ActiveDraftStatus } from "shared/validators";
 import Badge from "@/ui/Badge";
@@ -37,6 +44,25 @@ export function revisionStatusColor(
     case "published":
     default:
       return "gray";
+  }
+}
+
+export function revisionStatusIcon(
+  status: MinimalFeatureRevisionInterface["status"] | "live",
+): React.ReactNode {
+  switch (status) {
+    case "approved":
+    case "live":
+      return <PiCheckCircleFill />;
+    case "pending-review":
+      return <PiClockFill />;
+    case "changes-requested":
+      return <PiChatCircleTextFill />;
+    case "discarded":
+      return <PiXCircleFill />;
+    case "draft":
+    default:
+      return <PiPencilSimpleFill />;
   }
 }
 
