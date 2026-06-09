@@ -87,6 +87,8 @@ export default function RequestReviewModal({
   const [approvePublishError, setApprovePublishError] = useState<string | null>(
     null,
   );
+  const [isApprovingAndPublishing, setIsApprovingAndPublishing] =
+    useState(false);
   const revisionLogRef = useRef<MutateLog>(null);
   const commentInputRef = useRef<HTMLInputElement>(null);
 
@@ -464,6 +466,8 @@ export default function RequestReviewModal({
     hasChanges;
 
   const handleApproveAndPublish = async (commentText: string) => {
+    if (isApprovingAndPublishing) return;
+    setIsApprovingAndPublishing(true);
     setApprovePublishError(null);
     try {
       await apiCall(
@@ -489,15 +493,12 @@ export default function RequestReviewModal({
       onPublish && onPublish();
       close();
     } catch (e) {
-      // If the approval call succeeded but publish failed, refresh so the
-      // cache reflects the now-approved revision. The modal then shows the
-      // standard Publish CTA, and a retry just publishes the already-approved
-      // revision instead of re-approving. Surface the error rather than
-      // rethrowing, which would be swallowed by the bare secondaryCTA onClick.
       await mutate();
       setApprovePublishError(
         e instanceof Error ? e.message : "Failed to approve & publish",
       );
+    } finally {
+      setIsApprovingAndPublishing(false);
     }
   };
   let ctaCopy: string | JSX.Element = "Request Review";
@@ -901,6 +902,8 @@ export default function RequestReviewModal({
           submitReviewform.watch("reviewStatus") === "Approved" ? (
             <RadixButton
               variant="outline"
+              loading={isApprovingAndPublishing}
+              disabled={isApprovingAndPublishing}
               onClick={async () => {
                 await handleApproveAndPublish(
                   submitReviewform.getValues("comment"),
