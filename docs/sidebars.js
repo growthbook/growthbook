@@ -389,9 +389,21 @@ export default {
               id: "bandits/results",
               label: "Understanding Results",
             },
+          ],
+        },
+        {
+          type: "category",
+          label: "Contextual Bandits",
+          collapsed: true,
+          items: [
             {
               type: "doc",
-              id: "bandits/contextual-bandit-via-api",
+              id: "contextual-bandits/config",
+              label: "Setting up a Contextual Bandit",
+            },
+            {
+              type: "doc",
+              id: "contextual-bandits/contextual-bandit-via-api",
               label: "Driving a Contextual Bandit via API",
             },
           ],
