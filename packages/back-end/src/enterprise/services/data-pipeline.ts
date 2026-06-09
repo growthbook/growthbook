@@ -10,6 +10,8 @@ import { isExperimentIncrementalEnabled } from "shared/enterprise";
 import {
   AggregatedFactTableInterface,
   AggregatedFactTableMetricStateInterface,
+  IncrementalFallback,
+  IncrementalFallbackCode,
   IncrementalRefreshInterface,
 } from "shared/validators";
 import {
@@ -28,23 +30,20 @@ import { getFiltersForHash } from "back-end/src/services/experimentTimeSeries";
 import { getColumnsForMetric } from "back-end/src/integrations/sql/fact-metrics/columns-for-metric";
 import type { MetricFanOut } from "back-end/src/services/experimentQueries/planMetricFanOut";
 
-/**
- * Preconditions for running the incremental refresh query runner on a snapshot.
- * Throws when incremental refresh is unsupported for this configuration, or when
- * an incremental update would reuse a units table built under different
- * experiment-level settings.
- *
- * Does not validate metric-source cache drift. See getFactTablesNeedingRebuild.
- */
-export async function assertIncrementalRefreshPrerequisites({
-  org,
-  integration,
-  snapshotSettings,
-  metricMap,
-  experiment,
-  incrementalRefreshModel,
-  analysisType,
-}: {
+export class IncrementalRefreshFallbackError extends Error {
+  readonly code: IncrementalFallbackCode;
+  constructor(code: IncrementalFallbackCode, message: string) {
+    super(message);
+    this.name = "IncrementalRefreshFallbackError";
+    this.code = code;
+  }
+}
+
+export type EligibilityResult =
+  | { eligible: true }
+  | { eligible: false; fallback: IncrementalFallback };
+
+type IncrementalRefreshPrerequisiteArgs = {
   org: OrganizationInterface;
   integration: SourceIntegrationInterface;
   snapshotSettings: ExperimentSnapshotSettings;
@@ -52,41 +51,84 @@ export async function assertIncrementalRefreshPrerequisites({
   experiment: ExperimentInterface;
   incrementalRefreshModel: IncrementalRefreshInterface | null;
   analysisType: "main-update" | "main-fullRefresh" | "exploratory";
-}): Promise<void> {
+};
+
+/**
+ * Pure eligibility check — no side effects, no throws.
+ * Maps each precondition to a typed fallback code.
+ * The planner calls this directly. assertIncrementalRefreshPrerequisites wraps
+ * it for the two incremental query runners.
+ *
+ * Does not validate metric-source cache drift. See getFactTablesNeedingRebuild.
+ */
+export async function checkIncrementalRefreshEligibility({
+  org,
+  integration,
+  snapshotSettings,
+  metricMap,
+  experiment,
+  incrementalRefreshModel,
+  analysisType,
+}: IncrementalRefreshPrerequisiteArgs): Promise<EligibilityResult> {
   if (snapshotSettings.skipPartialData) {
-    throw new Error(
-      "'Exclude In-Progress Conversions' is not supported for incremental refresh queries while in beta. Please select 'Include' in the Analysis Settings for Metric Conversion Windows.",
-    );
+    return {
+      eligible: false,
+      fallback: {
+        code: "skip-partial-data",
+        message:
+          "'Exclude In-Progress Conversions' is not supported for incremental refresh queries while in beta. Please select 'Include' in the Analysis Settings for Metric Conversion Windows.",
+      },
+    };
   }
 
   if (!integration.getSourceProperties().hasIncrementalRefresh) {
-    throw new Error("Integration does not support incremental refresh queries");
+    return {
+      eligible: false,
+      fallback: {
+        code: "datasource-unsupported",
+        message: "Integration does not support incremental refresh queries",
+      },
+    };
   }
 
-  // Check if organization has the incremental refresh feature
   const hasIncrementalRefreshFeature = orgHasPremiumFeature(
     org,
     "incremental-refresh",
   );
   if (!hasIncrementalRefreshFeature) {
-    throw new Error(
-      "Organization does not have access to incremental refresh feature",
-    );
+    return {
+      eligible: false,
+      fallback: {
+        code: "missing-premium-feature",
+        message:
+          "Organization does not have access to incremental refresh feature",
+      },
+    };
   }
 
   const settings = integration.datasource.settings;
   if (
     !isExperimentIncrementalEnabled(settings.pipelineSettings, experiment.id)
   ) {
-    throw new Error(
-      "This experiment is not enabled for incremental refresh on this data source.",
-    );
+    return {
+      eligible: false,
+      fallback: {
+        code: "not-enabled",
+        message:
+          "This experiment is not enabled for incremental refresh on this data source.",
+      },
+    };
   }
 
   if (experiment.activationMetric) {
-    throw new Error(
-      "Activation metrics are not supported for incremental refresh while in beta.",
-    );
+    return {
+      eligible: false,
+      fallback: {
+        code: "activation-metric",
+        message:
+          "Activation metrics are not supported for incremental refresh while in beta.",
+      },
+    };
   }
 
   // Get selected metrics
@@ -95,15 +137,25 @@ export async function assertIncrementalRefreshPrerequisites({
     .filter((m) => m !== undefined);
 
   if (!selectedMetrics.length) {
-    throw new Error("Experiment must have at least 1 metric selected.");
+    return {
+      eligible: false,
+      fallback: {
+        code: "no-metrics-selected",
+        message: "Experiment must have at least 1 metric selected.",
+      },
+    };
   }
   if (selectedMetrics.some((m) => !isFactMetric(m))) {
-    throw new Error(
-      "Only fact metrics are supported with incremental refresh.",
-    );
+    return {
+      eligible: false,
+      fallback: {
+        code: "non-fact-metrics",
+        message: "Only fact metrics are supported with incremental refresh.",
+      },
+    };
   }
 
-  selectedMetrics.filter(isFactMetric).forEach((metric) => {
+  for (const metric of selectedMetrics.filter(isFactMetric)) {
     // Unit quantiles store a float and re-aggregate via SUM, so they work on
     // any incremental-capable warehouse. Only event quantiles need a quantile
     // sketch (the quantile must be computed over raw event values, which
@@ -112,11 +164,16 @@ export async function assertIncrementalRefreshPrerequisites({
       quantileMetricType(metric) === "event" &&
       !integration.getSourceProperties().hasQuantileSketch
     ) {
-      throw new Error(
-        "Event quantile metrics are not supported with incremental refresh on this data source.",
-      );
+      return {
+        eligible: false,
+        fallback: {
+          code: "event-quantile-metric",
+          message:
+            "Event quantile metrics are not supported with incremental refresh on this data source.",
+        },
+      };
     }
-  });
+  }
 
   // If not forcing a full refresh and we have a previous run, ensure the
   // experiment-level configuration matches what the incremental pipeline was
@@ -134,10 +191,34 @@ export async function assertIncrementalRefreshPrerequisites({
       getExperimentSettingsHashForIncrementalRefresh(snapshotSettings);
     const storedSettingsHash = incrementalRefreshModel.experimentSettingsHash;
     if (!storedSettingsHash || currentSettingsHash !== storedSettingsHash) {
-      throw new Error(
-        "The experiment configuration is outdated. Please run a Full Refresh.",
-      );
+      return {
+        eligible: false,
+        fallback: {
+          code: "settings-outdated",
+          message:
+            "The experiment configuration is outdated. Please run a Full Refresh.",
+        },
+      };
     }
+  }
+
+  return { eligible: true };
+}
+
+/**
+ * Preconditions for running the incremental refresh query runner on a snapshot.
+ * Thin wrapper over checkIncrementalRefreshEligibility that throws on failure.
+ * The two incremental query runners keep calling this unchanged.
+ */
+export async function assertIncrementalRefreshPrerequisites(
+  args: IncrementalRefreshPrerequisiteArgs,
+): Promise<void> {
+  const result = await checkIncrementalRefreshEligibility(args);
+  if (!result.eligible) {
+    throw new IncrementalRefreshFallbackError(
+      result.fallback.code,
+      result.fallback.message,
+    );
   }
 }
 

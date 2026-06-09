@@ -11604,8 +11604,59 @@ paths:
                 properties:
                   snapshot:
                     $ref: '#/components/schemas/snapshot'
+                  runnerInfo:
+                    anyOf:
+                      - type: object
+                        properties:
+                          runner:
+                            type: string
+                            enum:
+                              - incremental
+                              - incremental-exploratory
+                          fallback:
+                            type: 'null'
+                        required:
+                          - runner
+                          - fallback
+                        additionalProperties: false
+                      - type: object
+                        properties:
+                          runner:
+                            type: string
+                            const: inline
+                          fallback:
+                            anyOf:
+                              - type: object
+                                properties:
+                                  code:
+                                    type: string
+                                    enum:
+                                      - settings-outdated
+                                      - non-fact-metrics
+                                      - no-metrics-selected
+                                      - event-quantile-metric
+                                      - activation-metric
+                                      - skip-partial-data
+                                      - experiment-type
+                                      - no-materialized-units-table
+                                      - datasource-unsupported
+                                      - missing-premium-feature
+                                      - not-enabled
+                                      - unknown
+                                  message:
+                                    type: string
+                                required:
+                                  - code
+                                  - message
+                                additionalProperties: false
+                              - type: 'null'
+                        required:
+                          - runner
+                          - fallback
+                        additionalProperties: false
                 required:
                   - snapshot
+                  - runnerInfo
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL

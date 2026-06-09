@@ -20,6 +20,7 @@ import {
 } from "./owner-field";
 
 import { namedSchema } from "./openapi-helpers";
+import { snapshotRunnerInfoValidator } from "./incremental-refresh";
 
 export const customMetricSlice = z.object({
   slices: z.array(
@@ -1735,6 +1736,7 @@ export const postExperimentSnapshotValidator = {
   responseSchema: z
     .object({
       snapshot: apiExperimentSnapshotShape,
+      runnerInfo: snapshotRunnerInfoValidator,
     })
     .strict(),
   summary: "Create Experiment Snapshot",

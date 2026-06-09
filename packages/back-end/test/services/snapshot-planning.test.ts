@@ -10,7 +10,7 @@ import {
 } from "shared/types/experiment-snapshot";
 import { MetricSnapshotSettings } from "shared/types/report";
 import { ApiReqContext } from "back-end/types/api";
-import { assertIncrementalRefreshPrerequisites } from "back-end/src/enterprise/services/data-pipeline";
+import { checkIncrementalRefreshEligibility } from "back-end/src/enterprise/services/data-pipeline";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import {
   getSnapshotSettings,
@@ -52,7 +52,7 @@ jest.mock("back-end/src/enterprise", () => ({
 }));
 
 jest.mock("back-end/src/enterprise/services/data-pipeline", () => ({
-  assertIncrementalRefreshPrerequisites: jest.fn(),
+  checkIncrementalRefreshEligibility: jest.fn(),
 }));
 
 const {
@@ -83,9 +83,9 @@ const updateExperimentDashboardsMock =
   updateExperimentDashboards as jest.MockedFunction<
     typeof updateExperimentDashboards
   >;
-const assertIncrementalRefreshPrerequisitesMock =
-  assertIncrementalRefreshPrerequisites as jest.MockedFunction<
-    typeof assertIncrementalRefreshPrerequisites
+const checkIncrementalRefreshEligibilityMock =
+  checkIncrementalRefreshEligibility as jest.MockedFunction<
+    typeof checkIncrementalRefreshEligibility
   >;
 const orgHasPremiumFeatureMock = orgHasPremiumFeature as jest.MockedFunction<
   typeof orgHasPremiumFeature
@@ -186,6 +186,10 @@ describe("snapshot planning", () => {
     jest.clearAllMocks();
     getDataSourceByIdMock.mockResolvedValue(makeDatasource());
     getSourceIntegrationObjectMock.mockReturnValue({} as never);
+    // Default: eligible
+    checkIncrementalRefreshEligibilityMock.mockResolvedValue({
+      eligible: true,
+    });
   });
 
   it("plans a draft snapshot without persisting or mutating experiment state", async () => {
@@ -215,7 +219,7 @@ describe("snapshot planning", () => {
     expect(updateExperimentDashboardsMock).not.toHaveBeenCalled();
   });
 
-  it("surfaces pipeline validation errors as incremental fallback reasons", async () => {
+  it("surfaces pipeline validation errors as incremental fallback", async () => {
     getDataSourceByIdMock.mockResolvedValue(
       makeDatasource({
         settings: {
@@ -227,9 +231,10 @@ describe("snapshot planning", () => {
         },
       }),
     );
-    assertIncrementalRefreshPrerequisitesMock.mockRejectedValue(
-      new Error("metric not compatible"),
-    );
+    checkIncrementalRefreshEligibilityMock.mockResolvedValue({
+      eligible: false,
+      fallback: { code: "non-fact-metrics", message: "metric not compatible" },
+    });
 
     const context = makeContext();
     context.models.incrementalRefresh = {
@@ -252,9 +257,12 @@ describe("snapshot planning", () => {
       factTableMap: new Map() as FactTableMap,
     });
 
-    expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalled();
+    expect(checkIncrementalRefreshEligibilityMock).toHaveBeenCalled();
     expect(plan.runnerKind).toBe("results");
-    expect(plan.incrementalFallbackReason).toBe("metric not compatible");
+    expect(plan.incrementalFallback).toEqual({
+      code: "non-fact-metrics",
+      message: "metric not compatible",
+    });
   });
 
   it("preserves the computed full refresh when using the incremental runner on a first run", async () => {
@@ -269,9 +277,9 @@ describe("snapshot planning", () => {
         },
       }),
     );
-    assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
-      undefined as never,
-    );
+    checkIncrementalRefreshEligibilityMock.mockResolvedValue({
+      eligible: true,
+    });
 
     const context = makeContext();
     // First run: no prior incremental state, so the warehouse units table
@@ -301,18 +309,18 @@ describe("snapshot planning", () => {
     expect(plan.fullRefreshReason).toBe(
       "No prior incremental refresh state for this experiment.",
     );
-    expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalledWith(
+    expect(checkIncrementalRefreshEligibilityMock).toHaveBeenCalledWith(
       expect.objectContaining({ analysisType: "main-fullRefresh" }),
     );
   });
 
   it("keeps the incremental runner when only metric settings drift", async () => {
     orgHasPremiumFeatureMock.mockReturnValue(true);
-    assertIncrementalRefreshPrerequisitesMock.mockImplementation(
+    checkIncrementalRefreshEligibilityMock.mockImplementation(
       jest.requireActual<
         typeof import("back-end/src/enterprise/services/data-pipeline")
       >("back-end/src/enterprise/services/data-pipeline")
-        .assertIncrementalRefreshPrerequisites,
+        .checkIncrementalRefreshEligibility,
     );
 
     const datasource = makeIncrementalDatasource();
@@ -432,12 +440,12 @@ describe("snapshot planning", () => {
       factTableMap,
     });
 
-    expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalledWith(
+    expect(checkIncrementalRefreshEligibilityMock).toHaveBeenCalledWith(
       expect.objectContaining({ analysisType: "main-update" }),
     );
     expect(plan.runnerKind).toBe("incremental");
     expect(plan.fullRefresh).toBe(false);
-    expect(plan.incrementalFallbackReason).toBeNull();
+    expect(plan.incrementalFallback).toBeNull();
 
     const plannedMetric = plan.snapshot.settings.metricSettings.find(
       (m) => m.id === "m1",
@@ -476,9 +484,10 @@ describe("snapshot planning", () => {
     );
     const staleConfigMessage =
       "The experiment configuration is outdated. Please run a Full Refresh.";
-    assertIncrementalRefreshPrerequisitesMock.mockRejectedValue(
-      new Error(staleConfigMessage),
-    );
+    checkIncrementalRefreshEligibilityMock.mockResolvedValue({
+      eligible: false,
+      fallback: { code: "settings-outdated", message: staleConfigMessage },
+    });
 
     const context = makeContext();
     context.models.incrementalRefresh = {
@@ -502,12 +511,15 @@ describe("snapshot planning", () => {
       factTableMap: new Map() as FactTableMap,
     });
 
-    expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalledWith(
+    expect(checkIncrementalRefreshEligibilityMock).toHaveBeenCalledWith(
       expect.objectContaining({ analysisType: "main-update" }),
     );
-    expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalledTimes(1);
+    expect(checkIncrementalRefreshEligibilityMock).toHaveBeenCalledTimes(1);
     expect(plan.runnerKind).toBe("results");
-    expect(plan.incrementalFallbackReason).toBe(staleConfigMessage);
+    expect(plan.incrementalFallback).toEqual({
+      code: "settings-outdated",
+      message: staleConfigMessage,
+    });
     expect(plan.fullRefresh).toBe(false);
     expect(plan.fullRefreshReason).toBeNull();
   });

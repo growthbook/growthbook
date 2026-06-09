@@ -16,7 +16,7 @@ describe("ExperimentUpdateExecutionLogger", () => {
     fullRefresh: true,
     fullRefreshReason:
       "No prior incremental refresh state for this experiment.",
-    incrementalFallbackReason: null,
+    incrementalFallback: null,
   };
 
   const meta = {
@@ -141,7 +141,10 @@ describe("ExperimentUpdateExecutionLogger", () => {
     const logger = new ExperimentUpdateExecutionLogger(
       {
         runnerKind: "results",
-        incrementalFallbackReason: "metric not compatible",
+        incrementalFallback: {
+          code: "non-fact-metrics",
+          message: "metric not compatible",
+        },
         useCache: true,
         fullRefresh: false,
         fullRefreshReason: null,
@@ -170,7 +173,8 @@ describe("ExperimentUpdateExecutionLogger", () => {
         snapshotStatus: "error",
         error: "Failed to run queries",
         runnerKind: "results",
-        incrementalFallbackReason: "metric not compatible",
+        incrementalFallbackCode: "non-fact-metrics",
+        incrementalFallbackMessage: "metric not compatible",
         plannedFullRefresh: false,
         fullRefreshReason: null,
         incrementalRefreshMode: "incremental",

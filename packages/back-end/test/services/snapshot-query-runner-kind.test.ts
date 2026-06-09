@@ -80,8 +80,11 @@ describe("resolveSnapshotRunner", () => {
       }),
     ).toEqual({
       runnerKind: "results",
-      incrementalFallbackReason:
-        "No materialized units table yet for this dimension-less exploratory snapshot.",
+      incrementalFallback: {
+        code: "no-materialized-units-table",
+        message:
+          "No materialized units table yet for this dimension-less exploratory snapshot.",
+      },
     });
   });
 
@@ -97,7 +100,7 @@ describe("resolveSnapshotRunner", () => {
     ).toBe("incremental");
   });
 
-  it("returns 'results' with no fallback reason when datasource pipeline mode is not incremental", () => {
+  it("returns 'results' with no fallback when datasource pipeline mode is not incremental", () => {
     const datasource = makeDatasource({ mode: "parallel" as never });
     expect(
       resolveSnapshotRunner({
@@ -109,11 +112,11 @@ describe("resolveSnapshotRunner", () => {
       }),
     ).toEqual({
       runnerKind: "results",
-      incrementalFallbackReason: null,
+      incrementalFallback: null,
     });
   });
 
-  it("returns 'results' with no fallback reason when experiment is excluded from incremental refresh", () => {
+  it("returns 'results' with no fallback when experiment is excluded from incremental refresh", () => {
     const datasource = makeDatasource({
       excludedExperimentIds: ["exp_123"],
     });
@@ -127,11 +130,11 @@ describe("resolveSnapshotRunner", () => {
       }),
     ).toEqual({
       runnerKind: "results",
-      incrementalFallbackReason: null,
+      incrementalFallback: null,
     });
   });
 
-  it("returns 'results' with no fallback reason when includedExperimentIds is set but does not include the experiment", () => {
+  it("returns 'results' with no fallback when includedExperimentIds is set but does not include the experiment", () => {
     const datasource = makeDatasource({
       includedExperimentIds: ["exp_other"],
     });
@@ -145,7 +148,7 @@ describe("resolveSnapshotRunner", () => {
       }),
     ).toEqual({
       runnerKind: "results",
-      incrementalFallbackReason: null,
+      incrementalFallback: null,
     });
   });
 
@@ -175,8 +178,11 @@ describe("resolveSnapshotRunner", () => {
       }),
     ).toEqual({
       runnerKind: "results",
-      incrementalFallbackReason:
-        'Experiment type "multi-armed-bandit" is not supported for incremental refresh.',
+      incrementalFallback: {
+        code: "experiment-type",
+        message:
+          'Experiment type "multi-armed-bandit" is not supported for incremental refresh.',
+      },
     });
   });
 
@@ -208,7 +214,7 @@ describe("resolveSnapshotRunner", () => {
     ).toBe("incremental");
   });
 
-  it("returns 'results' with no fallback reason for an experiment that is not in the opt-in list when default mode is ephemeral", () => {
+  it("returns 'results' with no fallback for an experiment that is not in the opt-in list when default mode is ephemeral", () => {
     const datasource = makeDatasource({
       mode: "ephemeral",
       incrementalOptInExperimentIds: ["exp_other"],
@@ -223,7 +229,7 @@ describe("resolveSnapshotRunner", () => {
       }),
     ).toEqual({
       runnerKind: "results",
-      incrementalFallbackReason: null,
+      incrementalFallback: null,
     });
   });
 
@@ -244,7 +250,7 @@ describe("resolveSnapshotRunner", () => {
     ).toBe("results");
   });
 
-  it("returns 'results' with no fallback reason when allowWriting is false even with opt-in", () => {
+  it("returns 'results' with no fallback when allowWriting is false even with opt-in", () => {
     const datasource = makeDatasource({
       allowWriting: false,
       mode: "ephemeral",
@@ -260,7 +266,7 @@ describe("resolveSnapshotRunner", () => {
       }),
     ).toEqual({
       runnerKind: "results",
-      incrementalFallbackReason: null,
+      incrementalFallback: null,
     });
   });
 });

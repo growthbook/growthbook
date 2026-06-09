@@ -3,6 +3,7 @@ import {
   SnapshotTriggeredBy,
   SnapshotType,
 } from "shared/types/experiment-snapshot";
+import { IncrementalFallback } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import type { CovariateInsertPathReason } from "back-end/src/integrations/sql/fact-metrics/resolve-covariate-insert-path";
@@ -18,7 +19,7 @@ type ExperimentUpdateLogMeta = {
 
 export type ExperimentUpdateLogPlan = {
   runnerKind: SnapshotQueryRunnerKind;
-  incrementalFallbackReason: string | null;
+  incrementalFallback: IncrementalFallback | null;
   useCache: boolean | null;
   fullRefresh: boolean | null;
   fullRefreshReason: string | null;
@@ -154,7 +155,9 @@ export class ExperimentUpdateExecutionLogger {
         datasourceId: this.meta.datasource.id,
         datasourceType: this.meta.datasource.type,
         runnerKind: this.plan.runnerKind,
-        incrementalFallbackReason: this.plan.incrementalFallbackReason,
+        incrementalFallbackCode: this.plan.incrementalFallback?.code ?? null,
+        incrementalFallbackMessage:
+          this.plan.incrementalFallback?.message ?? null,
         plannedFullRefresh: this.plan.fullRefresh,
         fullRefreshReason: this.plan.fullRefreshReason,
         incrementalRefreshMode: this.execution.incrementalRefreshMode,

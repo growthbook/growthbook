@@ -50,6 +50,7 @@ import {
   applyVariationWeightsToLatestPhase,
   createSnapshotAnalyses,
   createSnapshotAnalysis,
+  computeNextUpdateRunnerInfo,
   determineNextBanditSchedule,
   getLinkedChangeEnvironmentStates,
   getLinkedFeatureInfo,
@@ -817,9 +818,15 @@ export async function getExperimentIncrementalRefresh(
   const incrementalRefresh =
     await context.models.incrementalRefresh.getByExperimentId(id);
 
+  const nextUpdatePlan = await computeNextUpdateRunnerInfo({
+    context,
+    experiment,
+  });
+
   return res.status(200).json({
     status: 200,
     incrementalRefresh: incrementalRefresh || null,
+    nextUpdatePlan: nextUpdatePlan ?? null,
   });
 }
 
@@ -3174,7 +3181,7 @@ export async function postSnapshot(
   const useCache = !req.query["force"];
 
   try {
-    const { snapshot } = await createExperimentSnapshot({
+    const { snapshot, runnerInfo } = await createExperimentSnapshot({
       context,
       experiment,
       datasource,
@@ -3201,6 +3208,7 @@ export async function postSnapshot(
     res.status(200).json({
       status: 200,
       snapshot,
+      runnerInfo,
     });
   } catch (e) {
     req.log.error(e, "Failed to create experiment snapshot");

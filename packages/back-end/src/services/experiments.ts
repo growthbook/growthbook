@@ -78,6 +78,8 @@ import {
   updateExperimentValidator,
   SafeRolloutSnapshotAnalysis,
   IncrementalRefreshInterface,
+  IncrementalFallback,
+  SnapshotRunnerInfo,
   LookbackOverrideValueUnit,
   ApiExperiment,
   ApiExperimentMetric,
@@ -189,7 +191,7 @@ import {
   getExposureQueryEligibleDimensions,
 } from "back-end/src/services/dimensions";
 import { ConcurrentIncrementalRefreshError } from "back-end/src/util/errors";
-import { assertIncrementalRefreshPrerequisites } from "back-end/src/enterprise/services/data-pipeline";
+import { checkIncrementalRefreshEligibility } from "back-end/src/enterprise/services/data-pipeline";
 import {
   ExperimentUpdateLogPlan,
   ExperimentUpdateExecutionLogger,
@@ -1251,16 +1253,19 @@ export function resolveSnapshotRunner({
   hasMaterializedUnitsTable: boolean;
 }): {
   runnerKind: SnapshotQueryRunnerKind;
-  incrementalFallbackReason: string | null;
+  incrementalFallback: IncrementalFallback | null;
 } {
   if (!isIncrementalRefreshEnabledForSnapshot({ datasource, experiment })) {
-    return { runnerKind: "results", incrementalFallbackReason: null };
+    return { runnerKind: "results", incrementalFallback: null };
   }
 
   if (experiment.type !== undefined && experiment.type !== "standard") {
     return {
       runnerKind: "results",
-      incrementalFallbackReason: `Experiment type "${experiment.type}" is not supported for incremental refresh.`,
+      incrementalFallback: {
+        code: "experiment-type",
+        message: `Experiment type "${experiment.type}" is not supported for incremental refresh.`,
+      },
     };
   }
 
@@ -1272,11 +1277,14 @@ export function resolveSnapshotRunner({
     if (!hasMaterializedUnitsTable) {
       return {
         runnerKind: "results",
-        incrementalFallbackReason:
-          "No materialized units table yet for this dimension-less exploratory snapshot.",
+        incrementalFallback: {
+          code: "no-materialized-units-table",
+          message:
+            "No materialized units table yet for this dimension-less exploratory snapshot.",
+        },
       };
     }
-    return { runnerKind: "incremental", incrementalFallbackReason: null };
+    return { runnerKind: "incremental", incrementalFallback: null };
   }
 
   return {
@@ -1284,7 +1292,7 @@ export function resolveSnapshotRunner({
       snapshotType === "exploratory"
         ? "incremental-exploratory"
         : "incremental",
-    incrementalFallbackReason: null,
+    incrementalFallback: null,
   };
 }
 
@@ -1348,7 +1356,7 @@ async function planSnapshotQueryRunner({
   fullRefresh: boolean;
 }): Promise<{
   runnerKind: SnapshotQueryRunnerKind;
-  incrementalFallbackReason: string | null;
+  incrementalFallback: IncrementalFallback | null;
 }> {
   const decision = resolveSnapshotRunner({
     datasource,
@@ -1362,8 +1370,9 @@ async function planSnapshotQueryRunner({
     return decision;
   }
 
+  let eligibility;
   try {
-    await assertIncrementalRefreshPrerequisites({
+    eligibility = await checkIncrementalRefreshEligibility({
       org: organization,
       integration,
       snapshotSettings,
@@ -1376,18 +1385,28 @@ async function planSnapshotQueryRunner({
           ? "main-update"
           : "exploratory",
     });
-    return decision;
-  } catch (error) {
-    const validationError = "message" in error ? error.message : String(error);
+  } catch (e) {
+    const message = String(e);
     logger.info(
-      `Experiment ${experiment.id} does not support incremental refresh: ${validationError}`,
+      `Experiment ${experiment.id} incremental eligibility check threw unexpectedly: ${message}`,
     );
-
     return {
       runnerKind: "results",
-      incrementalFallbackReason: validationError,
+      incrementalFallback: { code: "unknown", message },
     };
   }
+
+  if (!eligibility.eligible) {
+    logger.info(
+      `Experiment ${experiment.id} does not support incremental refresh: ${eligibility.fallback.message}`,
+    );
+    return {
+      runnerKind: "results",
+      incrementalFallback: eligibility.fallback,
+    };
+  }
+
+  return { runnerKind: decision.runnerKind, incrementalFallback: null };
 }
 
 export type PlannedExperimentSnapshot = {
@@ -1396,7 +1415,7 @@ export type PlannedExperimentSnapshot = {
   useCache: boolean;
   fullRefresh: boolean;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];
-  incrementalFallbackReason: string | null;
+  incrementalFallback: IncrementalFallback | null;
   fullRefreshReason: string | null;
 };
 
@@ -1537,7 +1556,7 @@ export async function planSnapshot({
   return {
     snapshot: data,
     runnerKind: runnerPlan.runnerKind,
-    incrementalFallbackReason: runnerPlan.incrementalFallbackReason,
+    incrementalFallback: runnerPlan.incrementalFallback,
     useCache,
     fullRefresh,
     fullRefreshReason,
@@ -1628,7 +1647,7 @@ export async function createSnapshotFromPlan({
 
     const experimentUpdateLog: ExperimentUpdateLogPlan = {
       runnerKind: plan.runnerKind,
-      incrementalFallbackReason: plan.incrementalFallbackReason,
+      incrementalFallback: plan.incrementalFallback,
       useCache: plan.useCache,
       fullRefresh: plan.fullRefresh,
       fullRefreshReason: plan.fullRefreshReason,
@@ -1922,6 +1941,7 @@ export async function createExperimentSnapshot({
 }): Promise<{
   snapshot: ExperimentSnapshotInterface;
   queryRunner: ExperimentSnapshotQueryRunner;
+  runnerInfo: SnapshotRunnerInfo;
 }> {
   const plan = await planExperimentSnapshot({
     context,
@@ -1953,6 +1973,7 @@ export async function createExperimentSnapshotFromPlan({
 }): Promise<{
   snapshot: ExperimentSnapshotInterface;
   queryRunner: ExperimentSnapshotQueryRunner;
+  runnerInfo: SnapshotRunnerInfo;
 }> {
   const metricMap = await getMetricMap(context);
   const factTableMap = await getFactTableMap(context);
@@ -1972,7 +1993,11 @@ export async function createExperimentSnapshotFromPlan({
     metricMap,
     factTableMap,
   });
-  return { snapshot: queryRunner.model, queryRunner };
+  return {
+    snapshot: queryRunner.model,
+    queryRunner,
+    runnerInfo: planToRunnerInfo(plan),
+  };
 }
 
 export async function planExperimentSnapshot({
@@ -2087,6 +2112,60 @@ export async function planExperimentSnapshot({
     triggeredBy: triggeredBy ?? "manual",
   });
   return plan;
+}
+
+/**
+ * Maps a PlannedExperimentSnapshot's runner fields into the SnapshotRunnerInfo
+ * shape included in snapshot-creation responses. The internal "results" runner
+ * kind becomes "inline" in the public vocabulary. Pure; no I/O.
+ */
+export function planToRunnerInfo(
+  plan: PlannedExperimentSnapshot,
+): SnapshotRunnerInfo {
+  if (
+    plan.runnerKind === "incremental" ||
+    plan.runnerKind === "incremental-exploratory"
+  ) {
+    return { runner: plan.runnerKind, fallback: null };
+  }
+  return { runner: "inline", fallback: plan.incrementalFallback };
+}
+
+/**
+ * Computes what the next standard (no-dimension, latest-phase, useCache=true)
+ * update would do for the given experiment. Returns null when the experiment
+ * has no datasource or no phases.
+ *
+ * Reuses the real planExperimentSnapshot so there is exactly one eligibility
+ * code path — no divergence possible.
+ */
+export async function computeNextUpdateRunnerInfo({
+  context,
+  experiment,
+}: {
+  context: ReqContext;
+  experiment: ExperimentInterface;
+}): Promise<SnapshotRunnerInfo | null> {
+  if (!experiment.datasource || !experiment.phases.length) {
+    return null;
+  }
+
+  const datasource = await getDataSourceById(context, experiment.datasource);
+  if (!datasource) {
+    return null;
+  }
+
+  const plan = await planExperimentSnapshot({
+    context,
+    experiment,
+    datasource,
+    dimension: undefined,
+    phase: experiment.phases.length - 1,
+    useCache: true,
+    type: "standard",
+  });
+
+  return planToRunnerInfo(plan);
 }
 
 export type SnapshotAnalysisParams = {

@@ -63,7 +63,7 @@ export const postExperimentSnapshot = createApiRequestHandler(
     useCache: true,
   };
 
-  const snapshot = await createExperimentSnapshot({
+  const result = await createExperimentSnapshot({
     context,
     experiment,
     datasource,
@@ -84,9 +84,10 @@ export const postExperimentSnapshot = createApiRequestHandler(
   });
   return {
     snapshot: {
-      id: snapshot.snapshot.id,
-      experiment: snapshot.snapshot.experiment,
-      status: snapshot.snapshot.status,
+      id: result.snapshot.id,
+      experiment: result.snapshot.experiment,
+      status: result.snapshot.status,
     },
+    runnerInfo: result.runnerInfo,
   };
 });
