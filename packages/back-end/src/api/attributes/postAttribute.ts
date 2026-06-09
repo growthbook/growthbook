@@ -50,8 +50,6 @@ export const postAttribute = createApiRequestHandler(postAttributeValidator)(
 
     await syncEventForwarderAfterAttributeSchemaChange(req.context, {
       attributeSchema: updatedAttributeSchema,
-      after: attribute,
-      changeType: "create",
     });
 
     await req.audit({
