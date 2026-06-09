@@ -104,9 +104,12 @@ export const putAttribute = async (
   }
 
   if (
-    !context.permissions.canUpdateAttribute(existing, {
-      projects: attributeFields.projects,
-    })
+    !context.permissions.canUpdateAttribute(
+      existing,
+      "projects" in attributeFields
+        ? { projects: attributeFields.projects }
+        : {},
+    )
   ) {
     context.permissions.throwPermissionError();
   }
