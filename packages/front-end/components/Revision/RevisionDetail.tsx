@@ -673,6 +673,18 @@ function RevisionDetail<T>({
                     </Text>
                   )}
                   <Flex justify="end" mt="3" gap="2">
+                    {reviewDecision === "approve" && canApproveAndPublish && (
+                      <Button
+                        variant="outline"
+                        color="violet"
+                        onClick={() => {
+                          handleApproveAndPublish(reviewComment, onPublish);
+                        }}
+                        disabled={isSubmitting || !reviewComment.trim()}
+                      >
+                        {isSubmitting ? "Submitting..." : "Approve & Publish"}
+                      </Button>
+                    )}
                     <Button
                       variant="solid"
                       color="violet"
@@ -686,18 +698,6 @@ function RevisionDetail<T>({
                     >
                       {isSubmitting ? "Submitting..." : "Confirm"}
                     </Button>
-                    {reviewDecision === "approve" && canApproveAndPublish && (
-                      <Button
-                        variant="solid"
-                        color="violet"
-                        onClick={() => {
-                          handleApproveAndPublish(reviewComment, onPublish);
-                        }}
-                        disabled={isSubmitting || !reviewComment.trim()}
-                      >
-                        {isSubmitting ? "Submitting..." : "Approve & Publish"}
-                      </Button>
-                    )}
                   </Flex>
                 </Popover.Content>
               </Popover.Root>

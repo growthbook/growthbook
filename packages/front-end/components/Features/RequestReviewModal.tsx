@@ -33,6 +33,7 @@ import { getFutureScheduledStartDate } from "@/services/experiments";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import Button from "@/components/Button";
+import RadixButton from "@/ui/Button";
 import { ExpandableDiff } from "@/components/Features/DraftModal";
 import Revisionlog, { MutateLog } from "@/components/Features/RevisionLog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
@@ -887,7 +888,8 @@ export default function RequestReviewModal({
         secondaryCTA={
           canApproveAndPublish &&
           submitReviewform.watch("reviewStatus") === "Approved" ? (
-            <Button
+            <RadixButton
+              variant="outline"
               onClick={async () => {
                 await handleApproveAndPublish(
                   submitReviewform.getValues("comment"),
@@ -895,7 +897,7 @@ export default function RequestReviewModal({
               }}
             >
               Approve &amp; Publish
-            </Button>
+            </RadixButton>
           ) : undefined
         }
         submit={submitReviewform.handleSubmit(async (data) => {
