@@ -278,7 +278,15 @@ app.use((req, res, next) => {
     );
   const isVisualEditorImageGen =
     req.method === "POST" && req.path === "/api/v1/visual-editor/ai/image-gen";
-  const needsLargeBody = isScreenshotUpload || isVisualEditorImageGen;
+  // Figma → Variant's mockup-image path carries a base64-encoded design
+  // image (the Figma-link path fetches server-side, so it's small).
+  const isVisualEditorFigmaToVariant =
+    req.method === "POST" &&
+    req.path === "/api/v1/visual-editor/ai/figma-to-variant";
+  const needsLargeBody =
+    isScreenshotUpload ||
+    isVisualEditorImageGen ||
+    isVisualEditorFigmaToVariant;
   bodyParser.json({ limit: needsLargeBody ? "10mb" : "2mb" })(req, res, next);
 });
 
