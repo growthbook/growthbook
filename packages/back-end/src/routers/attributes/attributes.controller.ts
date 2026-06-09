@@ -75,7 +75,6 @@ export const putAttribute = async (
   const { org } = context;
 
   const attributeSchema = org.settings?.attributeSchema || [];
-  const hasEventForwarder = await hasAnyEventForwarderConfig(context);
 
   // If the name is being changed, we need to access the attribute via its previous name
   const index = attributeSchema.findIndex(
@@ -104,7 +103,11 @@ export const putAttribute = async (
     );
   }
 
-  if (!context.permissions.canUpdateAttribute(existing, { projects })) {
+  if (
+    !context.permissions.canUpdateAttribute(existing, {
+      projects: attributeFields.projects,
+    })
+  ) {
     context.permissions.throwPermissionError();
   }
 
