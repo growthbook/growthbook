@@ -5,7 +5,7 @@ import {
 } from "shared/types/experiment";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { isDefined, experimentHasLiveLinkedChanges } from "shared/util";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useRouter } from "next/router";
@@ -123,6 +123,8 @@ export default function TabbedPage({
     `tabbedPageTab__${experiment.id}`,
     "overview",
   );
+  const tabRef = useRef(tab);
+  tabRef.current = tab;
   const [tabPath, setTabPath] = useState(
     window.location.hash.replace(/^#/, "").split("/").slice(1).join("/"),
   );
@@ -203,27 +205,39 @@ export default function TabbedPage({
         setTab(tabName);
         setTabPath(tabPath);
       } else if (!hash) {
-        // No hash → show the default "overview" tab WITHOUT rewriting the
-        // URL. This branch used to do router.replace("#" + tab), which
-        // caused two problems:
-        //   1. Landing on /experiment/<id> from the list surprised the
-        //      user by appending "#overview".
-        //   2. It runs inside the hashchange listener, so pressing Back to
-        //      strip the hash fired a hashchange that immediately re-added
-        //      it — trapping the Back button so it never reached the
-        //      experiments list (eventually skipping past it to whatever
-        //      came before).
-        // Reflecting the default tab in state (not the URL) keeps the view
-        // correct, preserves deep links (#results, etc.), and lets Back
-        // exit the page cleanly.
-        setTab("overview");
-        setTabPath("");
+        if (experiment.status === "draft") {
+          // Draft experiments: show the default "overview" tab WITHOUT
+          // rewriting the URL. The previous behavior (re-adding the current
+          // tab to the URL) caused two problems on drafts:
+          //   1. Landing on /experiment/<id> from the list surprised the
+          //      user by appending "#overview".
+          //   2. It runs inside the hashchange listener, so pressing Back to
+          //      strip the hash fired a hashchange that immediately re-added
+          //      it — trapping the Back button so it never reached the
+          //      experiments list (eventually skipping past it to whatever
+          //      came before).
+          // Reflecting the default tab in state (not the URL) keeps the view
+          // correct, preserves deep links (#results, etc.), and lets Back
+          // exit the page cleanly.
+          setTab("overview");
+          setTabPath("");
+        } else {
+          // Non-draft experiments: re-add the remembered tab from state to the
+          // URL so navigating back to the experiment restores the last tab.
+          const newUrl =
+            window.location.href.replace(/#.*/, "") + "#" + tabRef.current;
+          router.replace(newUrl, undefined, { shallow: true }).catch((e) => {
+            if (!e.cancelled) {
+              throw e;
+            }
+          });
+        }
       }
     };
     handler();
     window.addEventListener("hashchange", handler, false);
     return () => window.removeEventListener("hashchange", handler, false);
-  }, [setTab, router]);
+  }, [setTab, router, experiment.status]);
 
   const { dashboards } = useExperimentDashboards(experiment.id);
 
