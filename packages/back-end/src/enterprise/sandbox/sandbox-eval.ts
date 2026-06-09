@@ -1,6 +1,10 @@
 import { Isolate, Context, Reference, ExternalCopy } from "isolated-vm";
 import { RequestInit } from "node-fetch";
-import { CustomHookInterface, CustomHookType } from "shared/validators";
+import {
+  CustomHookInterface,
+  CustomHookType,
+  EventUser,
+} from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { parseEnvInt } from "shared/util";
@@ -76,6 +80,27 @@ export async function runValidateFeatureRevisionHooks({
       feature,
       revision: original,
     },
+  );
+}
+
+export async function runValidateFeaturePublishHooks({
+  context,
+  feature,
+  revision,
+  approvers,
+}: {
+  context: ReqContextClass;
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+  approvers: EventUser[];
+}): Promise<void> {
+  // No originalFunctionArgs: publishing is not an incremental edit, so
+  // `incrementalChangesOnly` does not apply to this hook type.
+  return _runCustomHooks(
+    context,
+    "validateFeaturePublish",
+    { feature, revision, approvers },
+    feature.project,
   );
 }
 

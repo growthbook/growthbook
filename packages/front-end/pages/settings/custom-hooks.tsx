@@ -101,6 +101,32 @@ const hookTypes: Record<
     },
     example: `\n// Block the save (hard error):\nif (!revision.rules.production || revision.rules.production.length === 0) {\n  throw new Error("At least one production rule is required");\n}\n\n// Or raise a soft warning the user can acknowledge:\nif (!revision.comment) {\n  addWarning("Consider adding a comment describing this change");\n}`,
   },
+  validateFeaturePublish: {
+    label: "Validate Feature Publish",
+    availableArguments: {
+      feature: {
+        description: "The feature object being published",
+        testValue: stringify(dummyFeature),
+      },
+      revision: {
+        description: "The feature revision being published",
+        testValue: stringify(dummyRevision),
+      },
+      approvers: {
+        description: "Users who submitted an Approved review for this revision",
+        testValue: stringify([
+          {
+            type: "dashboard",
+            id: "user_123",
+            name: "User",
+            email: "user@example.com",
+          },
+          { type: "api_key", apiKey: "key_abc123" },
+        ]),
+      },
+    },
+    example: `\n// Block the publish (hard error):\nif (approvers.length === 0) {\n  throw new Error("Publishing requires at least one approval");\n}\n\n// Or raise a soft warning the user can acknowledge:\nif (!approvers.some((a) => a?.type === "dashboard")) {\n  addWarning("Consider getting a human approval before publishing");\n}`,
+  },
 };
 
 function CustomHooksModal({

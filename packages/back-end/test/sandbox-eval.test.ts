@@ -88,4 +88,76 @@ describe("sandboxEval", () => {
     const result = await sandboxEval("return 1", {});
     expect(result).toEqual({ ok: true, returnVal: 1, log: "", warnings: [] });
   });
+
+  describe("validateFeaturePublish args", () => {
+    const requireApproversBody = `
+      if (!approvers.length) {
+        throw new Error("Publishing requires at least one approval");
+      }
+      if (!approvers.some((a) => a?.type === "dashboard")) {
+        throw new Error("Publishing requires at least one human approval");
+      }
+    `;
+
+    const feature = { id: "my-feature", project: "" };
+    const revision = {
+      featureId: "my-feature",
+      version: 2,
+      status: "approved",
+    };
+
+    it("should block when there are no approvers", async () => {
+      const result = await sandboxEval(requireApproversBody, {
+        feature,
+        revision,
+        approvers: [],
+      });
+      expect(result).toEqual({
+        ok: false,
+        error: expect.stringContaining(
+          "Publishing requires at least one approval",
+        ),
+        log: "",
+        warnings: [],
+      });
+    });
+
+    it("should block when only an api_key approver is present", async () => {
+      const result = await sandboxEval(requireApproversBody, {
+        feature,
+        revision,
+        approvers: [{ type: "api_key", apiKey: "key_abc123" }],
+      });
+      expect(result).toEqual({
+        ok: false,
+        error: expect.stringContaining(
+          "Publishing requires at least one human approval",
+        ),
+        log: "",
+        warnings: [],
+      });
+    });
+
+    it("should pass when a dashboard approver is present", async () => {
+      const result = await sandboxEval(requireApproversBody, {
+        feature,
+        revision,
+        approvers: [
+          { type: "api_key", apiKey: "key_abc123" },
+          {
+            type: "dashboard",
+            id: "user_123",
+            email: "user@example.com",
+            name: "User",
+          },
+        ],
+      });
+      expect(result).toEqual({
+        ok: true,
+        returnVal: undefined,
+        log: "",
+        warnings: [],
+      });
+    });
+  });
 });

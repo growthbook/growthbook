@@ -187,3 +187,26 @@ if (
     }
 }
 ```
+
+### validateFeaturePublish
+
+Called when a draft revision is about to be published, before any changes are written. Receives the `feature`, the `revision`, and `approvers` — an array of users who submitted an Approved review on this revision. Each approver is an event user object, e.g. `{type: "dashboard", id: "...", email: "...", name: "..."}` for a logged-in user or `{type: "api_key", apiKey: "key_..."}` for an API request. Throwing blocks the publish.
+
+Example: Require approval from a specific service account plus at least one human before publishing.
+
+```js
+if (
+  !approvers.some(
+    (a) => a?.type === "api_key" && a.apiKey === "key_abc123"
+  )
+) {
+  throw new Error(
+    "Publishing requires approval from the release-bot service account."
+  );
+}
+if (!approvers.some((a) => a?.type === "dashboard")) {
+  throw new Error(
+    "Publishing requires at least one human approval."
+  );
+}
+```

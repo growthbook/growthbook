@@ -97,7 +97,10 @@ import {
   deleteVercelExperimentationItemFromFeature,
 } from "back-end/src/services/vercel-native-integration.service";
 import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
-import { runValidateFeatureHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
+import {
+  runValidateFeatureHooks,
+  runValidateFeaturePublishHooks,
+} from "back-end/src/enterprise/sandbox/sandbox-eval";
 import {
   createEvent,
   hasPreviousObject,
@@ -2222,6 +2225,23 @@ export async function publishRevision({
   if (!bypassLockdown) {
     await assertFeatureNotLockedByRamp(context, feature.id);
   }
+
+  // Run publish validation hooks before any writes (feature doc, ramp
+  // schedules, SDK refresh) so a throwing hook blocks the publish cleanly.
+  const revisionLogs =
+    await context.models.featureRevisionLogs.getAllByFeatureIdAndVersion({
+      featureId: revision.featureId,
+      version: revision.version,
+    });
+  const approvers = revisionLogs
+    .filter((l) => l.action === "Approved")
+    .map((l) => l.user);
+  await runValidateFeaturePublishHooks({
+    context,
+    feature,
+    revision,
+    approvers,
+  });
 
   // Create ramp schedules BEFORE writing the feature so that a schedule
   // creation failure gates the publish (atomicity: no published feature without
