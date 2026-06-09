@@ -9,6 +9,7 @@ import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiLinkBold } from "react-icons/pi";
 import { datetime } from "shared/dates";
+import { useFeatureValue } from "@growthbook/growthbook-react";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
@@ -123,6 +124,10 @@ const DataSourcePage: FC = () => {
     false;
 
   const pipelineEnabled = hasCommercialFeature("pipeline-mode");
+  const eventsForwarderFlag = useFeatureValue(
+    "events-forwarder-multi-step",
+    "OFF",
+  );
 
   /**
    * Update the data source provided.
@@ -450,18 +455,19 @@ mixpanel.init('YOUR PROJECT TOKEN', {
               )
             ) : (
               <>
-                {datasourceSupportsEventForwarder && (
-                  <Frame>
-                    <EventForwarder
-                      dataSource={d}
-                      canEdit={canUpdateDataSourceSettings}
-                      onRefresh={async () => {
-                        await mutateDefinitions({});
-                      }}
-                      autoOpenSetup={autoOpenEventForwarderSetup}
-                    />
-                  </Frame>
-                )}
+                {datasourceSupportsEventForwarder &&
+                  eventsForwarderFlag !== "OFF" && (
+                    <Frame>
+                      <EventForwarder
+                        dataSource={d}
+                        canEdit={canUpdateDataSourceSettings}
+                        onRefresh={async () => {
+                          await mutateDefinitions({});
+                        }}
+                        autoOpenSetup={autoOpenEventForwarderSetup}
+                      />
+                    </Frame>
+                  )}
 
                 {d.dateUpdated === d.dateCreated &&
                   d?.settings?.schemaFormat !== "custom" && (
