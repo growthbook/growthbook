@@ -1,5 +1,6 @@
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { FactTableInterface } from "shared/types/fact-table";
+import * as SharedUtil from "shared/util";
 import {
   ensureEventForwarderEventsFactTable,
   deleteEventForwarderEventsFactTableForDatasource,
@@ -16,6 +17,10 @@ import * as RefreshFactTableColumns from "back-end/src/jobs/refreshFactTableColu
 jest.mock("back-end/src/models/DataSourceModel");
 jest.mock("back-end/src/models/FactTableModel");
 jest.mock("back-end/src/services/eventForwarderConfig");
+jest.mock("shared/util", () => ({
+  ...jest.requireActual<typeof SharedUtil>("shared/util"),
+  getEventForwarderSinkTypeForDatasource: jest.fn(),
+}));
 jest.mock("back-end/src/services/datasource");
 jest.mock("back-end/src/jobs/refreshFactTableColumns");
 
@@ -47,8 +52,8 @@ const mockedGetSourceIntegrationObject =
     typeof DataSourceService.getSourceIntegrationObject
   >;
 const mockedGetSinkType =
-  EventForwarderConfig.getEventForwarderSinkTypeForDatasource as jest.MockedFunction<
-    typeof EventForwarderConfig.getEventForwarderSinkTypeForDatasource
+  SharedUtil.getEventForwarderSinkTypeForDatasource as jest.MockedFunction<
+    typeof SharedUtil.getEventForwarderSinkTypeForDatasource
   >;
 const mockedQueueFactTableColumnsRefresh =
   RefreshFactTableColumns.queueFactTableColumnsRefresh as jest.MockedFunction<

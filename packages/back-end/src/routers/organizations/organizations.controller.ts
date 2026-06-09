@@ -3,8 +3,9 @@ import { cloneDeep } from "lodash";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import {
   experimentHasLinkedChanges,
-  getRulesForEnvironment,
+  getEventForwarderSinkTypeForDatasource,
   getNamespaceRanges,
+  getRulesForEnvironment,
   parseIntWithDefaultCapped,
 } from "shared/util";
 import {
@@ -59,10 +60,7 @@ import {
   getNonSensitiveParams,
   getSourceIntegrationObject,
 } from "back-end/src/services/datasource";
-import {
-  getEventForwarderSinkTypeForDatasource,
-  toEventForwarderConfigDraft,
-} from "back-end/src/services/eventForwarderConfig";
+import { toEventForwarderConfigDraft } from "back-end/src/services/eventForwarderConfig";
 import { updatePassword } from "back-end/src/services/users";
 import { getAllTags } from "back-end/src/models/TagModel";
 import {

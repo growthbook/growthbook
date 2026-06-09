@@ -2,7 +2,15 @@ import {
   getPipelineValidationCreateTableQuery,
   getPipelineValidationDropTableQuery,
 } from "shared/enterprise";
-import { EventForwarderAccessTestResponse } from "shared/validators";
+import {
+  BigQueryEventForwarderStoredConfig,
+  EventForwarderConfigDraft,
+  SnowflakeEventForwarderStoredConfig,
+} from "shared/types/event-forwarder";
+import {
+  EventForwarderAccessTestResponse,
+  EventForwarderConfigInterface,
+} from "shared/validators";
 import {
   DataSourceInterface,
   DataSourceParams,
@@ -11,15 +19,16 @@ import {
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import {
-  BigQueryEventForwarderStoredConfig,
-  SnowflakeEventForwarderStoredConfig,
-} from "shared/types/event-forwarder";
+  EventForwarderDatasourceParams,
+  getEventForwarderDatasourceParams,
+} from "shared/util";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { ReqContext } from "back-end/types/request";
 import {
   encryptParams,
   getSourceIntegrationObject,
 } from "back-end/src/services/datasource";
+import { buildNormalizedEventForwarderSinkPayloadForTest } from "back-end/src/services/eventForwarderConfig";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { logger } from "back-end/src/util/logger";
 
@@ -272,4 +281,93 @@ export async function testEventForwarderWriteAccess(
     integration,
     fullTestTablePath,
   });
+}
+
+export function buildEventForwarderAccessTestDatasource({
+  context,
+  type,
+  params,
+  projects,
+}: {
+  context: ReqContext;
+  type: "bigquery" | "snowflake";
+  params: DataSourceParams;
+  projects?: string[];
+}): DataSourceInterface {
+  return {
+    id: "event-forwarder-access-test",
+    name: "Event Forwarder Access Test",
+    description: "",
+    organization: context.org.id,
+    dateCreated: null,
+    dateUpdated: null,
+    params: encryptParams(params),
+    projects,
+    settings: {},
+    type,
+  } as DataSourceInterface;
+}
+
+async function testEventForwarderWriteAccessForSink(
+  context: ReqContext,
+  args: {
+    sinkType: EventForwarderConfigDraft["sinkType"];
+    datasource: DataSourceInterface;
+    datasourceParams: EventForwarderDatasourceParams;
+    normalized:
+      | BigQueryEventForwarderStoredConfig
+      | SnowflakeEventForwarderStoredConfig;
+  },
+): Promise<EventForwarderAccessTestResponse> {
+  switch (args.sinkType) {
+    case "bigquery":
+      return testEventForwarderWriteAccess(context, {
+        sinkType: "bigquery",
+        datasource: args.datasource,
+        params: args.datasourceParams as BigQueryConnectionParams,
+        config: args.normalized as BigQueryEventForwarderStoredConfig,
+      });
+    case "snowflake":
+      return testEventForwarderWriteAccess(context, {
+        sinkType: "snowflake",
+        datasource: args.datasource,
+        params: args.datasourceParams as SnowflakeConnectionParams,
+        config: args.normalized as SnowflakeEventForwarderStoredConfig,
+      });
+    default:
+      throw new Error(
+        `Unsupported event forwarder sink type for access test: ${String(args.sinkType)}`,
+      );
+  }
+}
+
+export async function runEventForwarderAccessTest(
+  context: ReqContext,
+  args: {
+    datasource: DataSourceInterface;
+    params: DataSourceParams;
+    draft: EventForwarderConfigDraft;
+    existingModel: EventForwarderConfigInterface | null;
+  },
+): Promise<EventForwarderAccessTestResponse> {
+  try {
+    const datasourceParams = getEventForwarderDatasourceParams(
+      args.datasource.type,
+      args.params,
+    );
+    const normalized = buildNormalizedEventForwarderSinkPayloadForTest(
+      args.draft,
+      datasourceParams,
+      args.existingModel,
+    );
+
+    return await testEventForwarderWriteAccessForSink(context, {
+      sinkType: args.draft.sinkType,
+      datasource: args.datasource,
+      datasourceParams,
+      normalized,
+    });
+  } catch (error) {
+    return getEventForwarderWriteAccessFailedResponse(getErrorMessage(error));
+  }
 }

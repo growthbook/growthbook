@@ -4,7 +4,7 @@ import type {
   SDKAttributeSchema,
   SDKAttributeType,
 } from "shared/types/organization";
-import { attributeMatchesDatasourceProjects } from "./datasource";
+import { attributeMatchesDatasourceProjects } from "./event-forwarder-datasource";
 
 /** BigQuery daily partition column for BigQueryStorageSink (timestamp-millis). */
 export const EVENT_FORWARDER_AVRO_PARTITION_FIELD = "received_at" as const;

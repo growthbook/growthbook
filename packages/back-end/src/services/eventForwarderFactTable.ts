@@ -16,6 +16,7 @@ import {
   EVENT_FORWARDER_WAREHOUSE_SYNC_DELAY_MS,
   getEventForwarderEventsFactTableId,
   getEventForwarderEventsFactTableName,
+  getEventForwarderSinkTypeForDatasource,
 } from "shared/util";
 import type { DataSourceInterface } from "shared/types/datasource";
 import {
@@ -25,10 +26,7 @@ import {
   updateEventForwarderFactTableMetadata,
 } from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import {
-  decryptEventForwarderConfigModel,
-  getEventForwarderSinkTypeForDatasource,
-} from "back-end/src/services/eventForwarderConfig";
+import { decryptEventForwarderConfigModel } from "back-end/src/services/eventForwarderConfig";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import {
   queueFactTableColumnsRefresh,

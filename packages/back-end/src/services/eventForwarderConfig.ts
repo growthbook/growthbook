@@ -8,7 +8,6 @@ import {
   BigQueryEventForwarderStoredConfig,
   EventForwarderConfigDraft,
   EventForwarderConfigWithMetadata,
-  EventForwarderSinkType,
   SnowflakeEventForwarderConfigDraft,
   SnowflakeEventForwarderStoredConfig,
 } from "shared/types/event-forwarder";
@@ -16,8 +15,10 @@ import { EventForwarderConfigInterface } from "shared/validators";
 import {
   DEFAULT_EVENT_FORWARDER_BIGQUERY_TABLE_NAME,
   DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME,
+  EventForwarderDatasourceParams,
   formatBigQueryEventForwarderDestination,
   formatSnowflakeEventForwarderDestination,
+  getEventForwarderSinkTypeForDatasource,
   normalizeBigQueryTableNameForEventForwarder,
   normalizeSnowflakeEventForwarderAccessUrl,
   normalizeSnowflakeTableNameForEventForwarder,
@@ -30,11 +31,6 @@ import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
 type SinkConfig =
   | BigQueryEventForwarderStoredConfig
   | SnowflakeEventForwarderStoredConfig;
-
-type EventForwarderDatasourceParams =
-  | BigQueryConnectionParams
-  | SnowflakeConnectionParams
-  | undefined;
 
 function sanitizeKafkaName(value: string): string {
   return value
@@ -59,19 +55,6 @@ function decryptSinkConfig<T extends SinkConfig>(encrypted: string): T {
   return JSON.parse(AES.decrypt(encrypted, ENCRYPTION_KEY).toString(enc.Utf8));
 }
 
-export function getEventForwarderSinkTypeForDatasource(
-  datasource: Pick<DataSourceInterface, "type">,
-): EventForwarderSinkType | null {
-  switch (datasource.type) {
-    case "bigquery":
-      return "bigquery";
-    case "snowflake":
-      return "snowflake";
-    default:
-      return null;
-  }
-}
-
 export async function getEventForwarderConfigForDatasource(
   context: ReqContext,
   datasourceId: string,
@@ -87,14 +70,7 @@ export async function hasAnyEventForwarderConfig(
   return configs.length > 0;
 }
 
-/**
- * Builds the same JSON shape as a GCP-downloaded service account key (see
- * `keyfile` in Confluent’s BigQuery Storage Sink docs). This is not Confluent’s
- * optional “OAuth 2.0” **connector** auth mode (that UI-only flow uses
- * `oauth.client.id` / refresh tokens). Service account keys always include
- * `auth_uri` / `token_uri`; Google’s client libraries use them for the service
- * account JWT flow, not for interactive OAuth.
- */
+// GCP service account key JSON for Confluent BigQuery Storage Sink (not OAuth connector mode).
 function buildBigQueryServiceAccountKey(
   params: BigQueryConnectionParams,
 ): string | null {
