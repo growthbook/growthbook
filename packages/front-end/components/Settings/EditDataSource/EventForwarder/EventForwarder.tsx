@@ -22,7 +22,7 @@ import {
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { Box, Card, Flex } from "@radix-ui/themes";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
+import { useFeatureValue } from "@growthbook/growthbook-react";
 import { FaChevronRight } from "react-icons/fa";
 import { PiPause, PiPencilSimple, PiPlay } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
@@ -509,14 +509,19 @@ export default function EventForwarder({
   const [pauseResumeLoading, setPauseResumeLoading] = useState(false);
   const autoOpenedRef = useRef(false);
   const { apiCall } = useAuth();
-  const { effectiveAccountPlan, subscription } = useUser();
+  const { effectiveAccountPlan, subscription, hasCommercialFeature } =
+    useUser();
   const eventForwarderConfig = dataSource.eventForwarderConfig;
-  const eventsForwarderFeatureEnabled = useFeatureIsOn("events-forwarder");
+  const eventsForwarderFlag = useFeatureValue(
+    "events-forwarder-multi-step",
+    "OFF",
+  );
 
   const isPaidPlan = ["pro", "pro_sso", "enterprise"].includes(
     effectiveAccountPlan || "",
   );
   const isStripePro = isPaidPlan && subscription?.billingPlatform === "stripe";
+  const hasEventForwarderFeature = hasCommercialFeature("events-forwarder");
 
   useEffect(() => {
     if (autoOpenedRef.current) return;
@@ -524,7 +529,8 @@ export default function EventForwarder({
       autoOpenSetup &&
       canEdit &&
       !eventForwarderConfig &&
-      eventsForwarderFeatureEnabled
+      eventsForwarderFlag === "ENABLED" &&
+      hasEventForwarderFeature
     ) {
       autoOpenedRef.current = true;
       setShowEditModal(true);
@@ -533,7 +539,8 @@ export default function EventForwarder({
     autoOpenSetup,
     canEdit,
     eventForwarderConfig,
-    eventsForwarderFeatureEnabled,
+    eventsForwarderFlag,
+    hasEventForwarderFeature,
   ]);
 
   const handleRefresh = useCallback(async () => {
@@ -660,27 +667,20 @@ export default function EventForwarder({
       </p>
 
       {!eventForwarderConfig ? (
-        !isPaidPlan ? (
-          <PremiumCallout
-            commercialFeature="events-forwarder"
-            id="event-forwarder-plan-gate"
-          >
-            Event Forwarder requires a Pro plan.
-          </PremiumCallout>
-        ) : isStripePro ? (
+        eventsForwarderFlag === "VISIBLE" ? (
           <Callout status="info">
-            Your current plan does not support Event Forwarder. To enable it,
-            contact your account manager or reach out to{" "}
+            Event Forwarder is available as an early access feature. Contact
+            your account manager or reach out to{" "}
             <a
               href="mailto:sales@growthbook.io"
               target="_blank"
               rel="noreferrer"
             >
               sales@growthbook.io
-            </a>
-            .
+            </a>{" "}
+            to learn more and get started.
           </Callout>
-        ) : eventsForwarderFeatureEnabled ? (
+        ) : hasEventForwarderFeature ? (
           <Callout status="info">
             Event Forwarder is not configured for this datasource.
             {canEdit ? (
@@ -691,9 +691,9 @@ export default function EventForwarder({
               </Box>
             ) : null}
           </Callout>
-        ) : (
+        ) : isStripePro ? (
           <Callout status="info">
-            To enable Event Forwarder for your organization, contact your
+            Event Forwarder is not available for your current plan. Contact your
             account manager or reach out to{" "}
             <a
               href="mailto:sales@growthbook.io"
@@ -701,9 +701,16 @@ export default function EventForwarder({
               rel="noreferrer"
             >
               sales@growthbook.io
-            </a>
-            .
+            </a>{" "}
+            to upgrade.
           </Callout>
+        ) : (
+          <PremiumCallout
+            commercialFeature="events-forwarder"
+            id="event-forwarder-plan-gate"
+          >
+            Event Forwarder requires a Pro or Enterprise plan.
+          </PremiumCallout>
         )
       ) : isPaused ? (
         <Callout status="info" mb="3">
