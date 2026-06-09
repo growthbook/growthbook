@@ -1194,12 +1194,21 @@ export async function postFeatureReviewOrComment(
 //
 // Idempotent and converges in one round-trip. Mutates `feature` so callers in
 // the same request see the repaired state without re-reading.
+//
+// `reportOnly` (read paths): never mutate — log the drift and return. A GET
+// must not rewrite the feature (and rebuild SDK payloads) based on the live
+// revision; when the revision is the stale side, doing so silently reverts
+// live changes. Write paths (publish, revert) repair for real, and every
+// repair writes an audit entry so it's visible after the fact.
 async function repairFeatureDriftIfNeeded(
   context: ReqContext,
   feature: FeatureInterface,
   live: FeatureRevisionInterface | undefined,
   environmentIds: string[],
-  { throwOnFailure = false }: { throwOnFailure?: boolean } = {},
+  {
+    throwOnFailure = false,
+    reportOnly = false,
+  }: { throwOnFailure?: boolean; reportOnly?: boolean } = {},
 ): Promise<void> {
   if (!live) return;
 
@@ -1222,16 +1231,39 @@ async function repairFeatureDriftIfNeeded(
       orgId: context.org.id,
       defaultValueDrift,
       driftedEnvs,
+      reportOnly,
     },
-    "Repairing feature drift against live revision",
+    reportOnly
+      ? "Feature drift against live revision detected (report-only, not repairing)"
+      : "Repairing feature drift against live revision",
   );
 
+  if (reportOnly) return;
+
   try {
+    const before = { ...feature };
     const repaired = await updateFeature(context, feature, {
       ...(defaultValueDrift ? { defaultValue: live.defaultValue } : {}),
       rules: liveRulesFlat,
     });
     Object.assign(feature, repaired);
+
+    // Surface the repair in the audit log — it changes live feature content
+    // outside any explicit user action, so it must not be silent.
+    try {
+      await context.auditLog({
+        event: "feature.update",
+        entity: { object: "feature", id: feature.id },
+        reason:
+          "Automatic drift repair: feature content disagreed with its live revision",
+        details: auditDetailsUpdate(before, repaired),
+      });
+    } catch (auditErr) {
+      logger.error(
+        { err: auditErr, featureId: feature.id, orgId: context.org.id },
+        "Failed to write audit log for feature drift repair",
+      );
+    }
   } catch (e) {
     logger.error(
       { err: e, featureId: feature.id, orgId: context.org.id },
@@ -1240,8 +1272,7 @@ async function repairFeatureDriftIfNeeded(
     // Write callers (publish, revert) MUST abort if the repair fails —
     // otherwise the subsequent diff runs against the stale `feature.rules`
     // and the operation silently no-ops or produces an incorrect merge
-    // (the exact failure this helper exists to prevent). Read callers
-    // (e.g. getFeatureById) tolerate the stale response.
+    // (the exact failure this helper exists to prevent).
     if (throwOnFailure) {
       throw new Error(
         "Could not reconcile feature with its live revision. Please retry.",
@@ -4739,8 +4770,12 @@ export async function getFeatureById(
     }
   }
 
+  // Read path: report drift but never mutate the feature from a GET. Repair
+  // happens on the next write-path call (publish/revert).
   const live = fullRevisions.find((r) => r.version === feature.version);
-  await repairFeatureDriftIfNeeded(context, feature, live, environments);
+  await repairFeatureDriftIfNeeded(context, feature, live, environments, {
+    reportOnly: true,
+  });
 
   // find code references
   const codeRefs = await getAllCodeRefsForFeature({

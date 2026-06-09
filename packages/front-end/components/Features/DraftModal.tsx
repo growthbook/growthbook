@@ -1,6 +1,6 @@
 import { FeatureInterface } from "shared/types/feature";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { FaAngleDown, FaAngleRight, FaArrowLeft } from "react-icons/fa";
 import { PiLockSimple } from "react-icons/pi";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -131,6 +131,14 @@ export default function DraftModal({
   const permissionsUtil = usePermissionsUtil();
 
   const { apiCall } = useAuth();
+
+  // Revalidate on open so the merge preview is computed against the current
+  // live state — another revision may have been published since the page
+  // loaded. The server re-checks the serialized merge result at publish time,
+  // but refreshing here means the user reviews the right diff up front.
+  useEffect(() => {
+    mutate();
+  }, []);
 
   const revision = revisions.find((r) => r.version === version);
   const baseRevision = revisions.find(
@@ -519,6 +527,17 @@ export default function DraftModal({
           publishing this draft.
         </Callout>
       )}
+
+      {!mergeResult.conflicts.length &&
+        revision.baseVersion !== feature.version && (
+          <Callout status="warning" mb="3">
+            This draft was created from revision{" "}
+            <strong>#{revision.baseVersion}</strong>, but revision{" "}
+            <strong>#{feature.version}</strong> has been published since then.
+            Those newer changes are merged into the preview below and will be
+            preserved when you publish.
+          </Callout>
+        )}
 
       {linkedRamps.map(({ ramp }) => (
         <Callout key={ramp.id} status="info" mb="3">
