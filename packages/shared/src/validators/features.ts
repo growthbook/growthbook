@@ -951,6 +951,24 @@ export const apiRevisionMetadata = z
     "Metadata fields captured in this revision (only present when metadata gating is enabled)",
   );
 
+// ---- EventUser ----
+// API-safe projection of the internal EventUser union (see event-user.ts).
+// Deliberately excludes the api_key actor's `apiKey` field.
+export const apiEventUserValidator = namedSchema(
+  "EventUser",
+  z
+    .object({
+      type: z.enum(["dashboard", "api_key", "system"]),
+      id: z.string().optional(),
+      name: z.string().optional(),
+      email: z.string().optional(),
+    })
+    .strict()
+    .describe("The user (or automated actor) responsible for an action"),
+);
+
+export type ApiEventUser = z.infer<typeof apiEventUserValidator>;
+
 // ---- FeatureRevision (schemas/FeatureRevision.yaml) ----
 export const apiFeatureRevisionValidator = namedSchema(
   "FeatureRevision",
@@ -964,6 +982,8 @@ export const apiFeatureRevisionValidator = namedSchema(
       status: z.string(),
       createdBy: z.string().optional(),
       publishedBy: z.string().optional(),
+      createdByUser: apiEventUserValidator.optional(),
+      publishedByUser: apiEventUserValidator.optional(),
       defaultValue: z
         .string()
         .describe("The default value at the time this revision was created")
@@ -1035,6 +1055,8 @@ export const apiFeatureValidator = namedSchema(
         date: z.string().meta({ format: "date-time" }),
         createdBy: z.string(),
         publishedBy: z.string(),
+        createdByUser: apiEventUserValidator.optional(),
+        publishedByUser: apiEventUserValidator.optional(),
       }),
       customFields: z.record(z.string(), z.any()).optional(),
       holdout: apiFeatureHoldout,

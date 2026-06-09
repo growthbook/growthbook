@@ -308,6 +308,9 @@ tags:
   - name: Environment_model
     x-displayName: Environment
     description: <SchemaDefinition schemaRef="#/components/schemas/Environment" />
+  - name: EventUser_model
+    x-displayName: Event User
+    description: <SchemaDefinition schemaRef="#/components/schemas/EventUser" />
   - name: Experiment_model
     x-displayName: Experiment
     description: <SchemaDefinition schemaRef="#/components/schemas/Experiment" />
@@ -31703,6 +31706,10 @@ components:
               type: string
             publishedBy:
               type: string
+            createdByUser:
+              $ref: '#/components/schemas/EventUser'
+            publishedByUser:
+              $ref: '#/components/schemas/EventUser'
           required:
             - version
             - comment
@@ -32385,6 +32392,25 @@ components:
             - controlValue
             - variationValue
           additionalProperties: false
+    EventUser:
+      description: The user (or automated actor) responsible for an action
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - dashboard
+            - api_key
+            - system
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+      required:
+        - type
+      additionalProperties: false
     PaginationFields:
       type: object
       properties:
@@ -32441,6 +32467,10 @@ components:
           type: string
         publishedBy:
           type: string
+        createdByUser:
+          $ref: '#/components/schemas/EventUser'
+        publishedByUser:
+          $ref: '#/components/schemas/EventUser'
         defaultValue:
           description: The default value at the time this revision was created
           type: string
@@ -33497,6 +33527,10 @@ components:
               type: string
             publishedBy:
               type: string
+            createdByUser:
+              $ref: '#/components/schemas/EventUser'
+            publishedByUser:
+              $ref: '#/components/schemas/EventUser'
           required:
             - version
             - comment
@@ -33616,6 +33650,10 @@ components:
           type: string
         publishedBy:
           type: string
+        createdByUser:
+          $ref: '#/components/schemas/EventUser'
+        publishedByUser:
+          $ref: '#/components/schemas/EventUser'
         defaultValue:
           description: The default value at the time this revision was created
           type: string
@@ -44540,6 +44578,7 @@ x-tagGroups:
       - DataSource_model
       - Dimension_model
       - Environment_model
+      - EventUser_model
       - Experiment_model
       - Experiment Rule_model
       - ExperimentAnalysisSettings_model

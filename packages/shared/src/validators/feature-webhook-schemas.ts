@@ -11,6 +11,17 @@ const revisionPrerequisite = z.object({
   condition: z.string(),
 });
 
+// Mirrors apiEventUserValidator (features.ts); duplicated so this file stays
+// a leaf. Never includes the api_key actor's `apiKey` field.
+const webhookEventUser = z
+  .object({
+    type: z.enum(["dashboard", "api_key", "system"]),
+    id: z.string().optional(),
+    name: z.string().optional(),
+    email: z.string().optional(),
+  })
+  .strict();
+
 export const featureRevisionWebhookPayload = z
   .object({
     featureId: z.string().describe("The feature this revision belongs to"),
@@ -21,6 +32,8 @@ export const featureRevisionWebhookPayload = z
     status: z.string(),
     createdBy: z.string().optional(),
     publishedBy: z.string().optional(),
+    createdByUser: webhookEventUser.optional(),
+    publishedByUser: webhookEventUser.optional(),
     defaultValue: z
       .string()
       .describe("The default value at the time this revision was created")
@@ -65,6 +78,8 @@ export const featureWebhookPayload = z
       date: z.string(),
       createdBy: z.string(),
       publishedBy: z.string(),
+      createdByUser: webhookEventUser.optional(),
+      publishedByUser: webhookEventUser.optional(),
     }),
     customFields: z.record(z.string(), z.object({}).passthrough()).optional(),
     holdout: z

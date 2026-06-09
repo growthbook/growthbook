@@ -8,6 +8,7 @@ import {
 } from "./shared";
 import { ownerInputField, optionalOwnerInputField } from "./owner-field";
 import {
+  apiEventUserValidator,
   apiFeatureRuleValidator,
   apiRevisionPrerequisiteV2,
   apiRevisionMetadata,
@@ -89,6 +90,8 @@ export const apiFeatureRevisionV2Validator = namedSchema(
       status: z.string(),
       createdBy: z.string().optional(),
       publishedBy: z.string().optional(),
+      createdByUser: apiEventUserValidator.optional(),
+      publishedByUser: apiEventUserValidator.optional(),
       defaultValue: z
         .string()
         .describe("The default value at the time this revision was created")
@@ -177,6 +180,8 @@ export const apiFeatureV2Validator = namedSchema(
         date: z.string().meta({ format: "date-time" }),
         createdBy: z.string(),
         publishedBy: z.string(),
+        createdByUser: apiEventUserValidator.optional(),
+        publishedByUser: apiEventUserValidator.optional(),
       }),
       customFields: z.record(z.string(), z.any()).optional(),
       holdout: apiFeatureHoldout,

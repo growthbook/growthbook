@@ -55,6 +55,7 @@ import { ProjectInterface } from "shared/types/project";
 import {
   HoldoutInterface,
   SdkConnectionCacheAuditContext,
+  ApiEventUser,
   apiFeatureRevisionValidator,
   ApiFeatureWithRevisions,
   ApiFeatureEnvironment,
@@ -1726,6 +1727,37 @@ function eventUserToString(
   return user.name || undefined;
 }
 
+// API-safe projection of the internal EventUser union. Deliberately never
+// exposes the api_key actor's `apiKey` field — only stable identifying fields.
+export function eventUserToApiEventUser(
+  user: FeatureRevisionInterface["createdBy"] | undefined,
+): ApiEventUser | undefined {
+  if (!user) return undefined;
+  switch (user.type) {
+    case "dashboard":
+      return {
+        type: "dashboard",
+        id: user.id,
+        name: user.name,
+        email: user.email,
+      };
+    case "api_key":
+      return {
+        type: "api_key",
+        ...(user.id ? { id: user.id } : {}),
+        ...(user.name ? { name: user.name } : {}),
+        ...(user.email ? { email: user.email } : {}),
+      };
+    case "system":
+      return {
+        type: "system",
+        ...(user.id ? { id: user.id } : {}),
+      };
+  }
+  // Fail closed for legacy stored documents with an unrecognized type.
+  return undefined;
+}
+
 export function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
   const base = {
     description: rule.description,
@@ -1832,6 +1864,8 @@ export function revisionToApiInterface(
     status: rev.status,
     createdBy: eventUserToString(rev.createdBy),
     publishedBy: eventUserToString(rev.publishedBy),
+    createdByUser: eventUserToApiEventUser(rev.createdBy),
+    publishedByUser: eventUserToApiEventUser(rev.publishedBy),
     defaultValue: rev.defaultValue,
     rules,
     ...(rev.environmentsEnabled !== undefined && {
@@ -1904,6 +1938,8 @@ export function revisionToApiInterfaceV2(
     status: rev.status,
     createdBy: eventUserToString(rev.createdBy),
     publishedBy: eventUserToString(rev.publishedBy),
+    createdByUser: eventUserToApiEventUser(rev.createdBy),
+    publishedByUser: eventUserToApiEventUser(rev.publishedBy),
     defaultValue: rev.defaultValue,
     rules,
     ...(rev.environmentsEnabled !== undefined && {
@@ -2026,6 +2062,8 @@ export function getApiFeatureObjV2({
       date: revision?.dateCreated.toISOString() || "",
       createdBy: createdBy || "",
       publishedBy: publishedBy || "",
+      createdByUser: eventUserToApiEventUser(revision?.createdBy),
+      publishedByUser: eventUserToApiEventUser(revision?.publishedBy),
       version: feature.version,
     },
     revisions: revisionDefs,
@@ -2186,6 +2224,8 @@ export function getApiFeatureObj({
       status: rev?.status,
       createdBy,
       publishedBy,
+      createdByUser: eventUserToApiEventUser(rev?.createdBy),
+      publishedByUser: eventUserToApiEventUser(rev?.publishedBy),
       rules: environmentRules,
       definitions: environmentDefinitions,
       defaultValue: rev.defaultValue,
@@ -2227,6 +2267,8 @@ export function getApiFeatureObj({
       date: revision?.dateCreated.toISOString() || "",
       createdBy: createdBy || "",
       publishedBy: publishedBy || "",
+      createdByUser: eventUserToApiEventUser(revision?.createdBy),
+      publishedByUser: eventUserToApiEventUser(revision?.publishedBy),
       version: feature.version,
     },
     revisions: revisionDefs,

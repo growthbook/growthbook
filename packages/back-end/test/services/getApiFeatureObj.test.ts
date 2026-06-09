@@ -3,7 +3,11 @@ import { OrganizationInterface } from "shared/types/organization";
 import { ExperimentInterface } from "shared/types/experiment";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { GroupMap } from "shared/types/saved-group";
-import { getApiFeatureObj } from "back-end/src/services/features";
+import {
+  getApiFeatureObj,
+  getApiFeatureObjV2,
+} from "back-end/src/services/features";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { migrateRawFeatureToV2 } from "back-end/src/models/FeatureModel";
 import { ReqContext } from "back-end/types/request";
 
@@ -1016,5 +1020,100 @@ describe("getApiFeatureObj: per-env rule shape parity (vs origin/main)", () => {
       { variationId: "v1", value: "treatment" },
     ]);
     expect(apiRule.experimentId).toBe("exp_1");
+  });
+});
+
+describe("getApiFeatureObj: revision author summary", () => {
+  const organization = { id: "org_test" } as unknown as OrganizationInterface;
+  const ctx = { org: organization } as unknown as ReqContext;
+
+  const dashboardUser = {
+    type: "dashboard",
+    id: "u1",
+    name: "Jane Doe",
+    email: "jane@example.com",
+  } as const;
+  const apiKeyUser = {
+    type: "api_key",
+    apiKey: "key_abc123",
+    id: "u2",
+    name: "CI Bot",
+  } as const;
+
+  const makeRevision = (
+    createdBy: FeatureRevisionInterface["createdBy"],
+    publishedBy: FeatureRevisionInterface["publishedBy"],
+  ) =>
+    ({
+      organization: "org_test",
+      featureId: "feat_test",
+      version: 1,
+      baseVersion: 0,
+      dateCreated: new Date("2024-01-02"),
+      dateUpdated: new Date("2024-01-02"),
+      datePublished: null,
+      createdBy,
+      publishedBy,
+      status: "published",
+      comment: "",
+      defaultValue: "false",
+      rules: [],
+    }) as unknown as FeatureRevisionInterface;
+
+  const baseArgs = () => ({
+    feature: migrateRawFeatureToV2(failingV0Feature(), ctx),
+    organization,
+    groupMap: new Map() as GroupMap,
+    experimentMap: new Map<string, ExperimentInterface>(),
+    safeRolloutMap: new Map<string, SafeRolloutInterface>(),
+  });
+
+  it("emits structured authors alongside display-name strings (v1 + v2)", () => {
+    const revision = makeRevision(dashboardUser, apiKeyUser);
+    const args = { ...baseArgs(), revision, revisions: [revision] };
+
+    const api = getApiFeatureObj(args);
+    expect(api.revision.createdBy).toBe("Jane Doe");
+    expect(api.revision.createdByUser).toEqual({
+      type: "dashboard",
+      id: "u1",
+      name: "Jane Doe",
+      email: "jane@example.com",
+    });
+    expect(api.revision.publishedBy).toBe("API");
+    expect(api.revision.publishedByUser).toEqual({
+      type: "api_key",
+      id: "u2",
+      name: "CI Bot",
+    });
+    expect(api.revision.publishedByUser).not.toHaveProperty("apiKey");
+    expect(api.revisions?.[0]?.createdByUser).toEqual(
+      api.revision.createdByUser,
+    );
+    expect(api.revisions?.[0]?.publishedByUser).toEqual(
+      api.revision.publishedByUser,
+    );
+
+    const apiV2 = getApiFeatureObjV2(args);
+    expect(apiV2.revision.createdByUser).toEqual(api.revision.createdByUser);
+    expect(apiV2.revision.publishedByUser).toEqual(
+      api.revision.publishedByUser,
+    );
+    expect(apiV2.revisions?.[0]?.createdByUser).toEqual(
+      api.revision.createdByUser,
+    );
+  });
+
+  it("omits structured authors when the revision or its users are null", () => {
+    const api = getApiFeatureObj({ ...baseArgs(), revision: null });
+    expect(api.revision.createdByUser).toBeUndefined();
+    expect(api.revision.publishedByUser).toBeUndefined();
+
+    const apiNullUsers = getApiFeatureObj({
+      ...baseArgs(),
+      revision: makeRevision(null, null),
+    });
+    expect(apiNullUsers.revision.createdByUser).toBeUndefined();
+    expect(apiNullUsers.revision.publishedByUser).toBeUndefined();
   });
 });
