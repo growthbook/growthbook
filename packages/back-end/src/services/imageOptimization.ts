@@ -9,10 +9,19 @@ type SharpFactory = typeof sharpType;
 let sharpFactoryPromise: Promise<SharpFactory> | null = null;
 const loadSharp = (): Promise<SharpFactory> => {
   if (!sharpFactoryPromise) {
-    sharpFactoryPromise = import("sharp").then((m) => {
-      const ns = m as unknown as { default?: SharpFactory };
-      return ns.default ?? (m as unknown as SharpFactory);
-    });
+    sharpFactoryPromise = import("sharp")
+      .then((m) => {
+        const ns = m as unknown as { default?: SharpFactory };
+        return ns.default ?? (m as unknown as SharpFactory);
+      })
+      .catch((e) => {
+        // Don't cache the rejection. Otherwise a transient load failure
+        // would disable optimization for the whole process lifetime. Reset
+        // so the next call retries — once sharp loads, optimization resumes
+        // automatically with no restart needed.
+        sharpFactoryPromise = null;
+        throw e;
+      });
   }
   return sharpFactoryPromise;
 };
