@@ -180,6 +180,13 @@ export async function syncEventForwarderEventsFactTableMetadataAfterAttributeSch
       continue;
     }
 
+    if (eventForwarderConfig.managedResources?.factTableId !== factTable.id) {
+      await context.models.eventForwarderConfigs.updateManagedResourcesFactTableId(
+        eventForwarderConfig,
+        factTable.id,
+      );
+    }
+
     const userIdTypes =
       datasource.settings?.userIdTypes?.map((u) => u.userIdType) ?? [];
     const desiredColumns = buildEventForwarderEventsFactTableColumns(
@@ -283,13 +290,13 @@ export async function ensureEventForwarderEventsFactTable(
   context: ReqContext,
   eventForwarderConfig: EventForwarderConfigInterface,
   datasourceParams?: BigQueryConnectionParams | SnowflakeConnectionParams,
-): Promise<void> {
+): Promise<string | undefined> {
   const datasource = await getDataSourceById(
     context,
     eventForwarderConfig.datasourceId,
   );
   if (!datasource) {
-    return;
+    return undefined;
   }
 
   const existing = await getEventForwarderEventsFactTableForDatasource(
@@ -297,7 +304,7 @@ export async function ensureEventForwarderEventsFactTable(
     datasource,
   );
   if (existing) {
-    return;
+    return existing.id;
   }
 
   const userIdTypes =
@@ -310,7 +317,7 @@ export async function ensureEventForwarderEventsFactTable(
       },
       "Skipping event forwarder Events fact table: no userIdTypes on datasource",
     );
-    return;
+    return undefined;
   }
 
   let sql: string;
@@ -331,7 +338,7 @@ export async function ensureEventForwarderEventsFactTable(
           },
           "Skipping event forwarder Events fact table: missing BigQuery project id",
         );
-        return;
+        return undefined;
       }
 
       const decrypted =
@@ -396,6 +403,7 @@ export async function ensureEventForwarderEventsFactTable(
   });
 
   await queueFactTableColumnsRefresh(factTable);
+  return factTable.id;
 }
 
 export async function deleteEventForwarderEventsFactTableForDatasource(

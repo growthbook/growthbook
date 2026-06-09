@@ -932,7 +932,10 @@ export async function deleteEventForwarderForDataSource(
     });
   }
 
-  if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
+  if (
+    !context.superAdmin &&
+    !context.permissions.canUpdateDataSourceSettings(datasource)
+  ) {
     context.permissions.throwPermissionError();
   }
 
@@ -947,6 +950,7 @@ export async function deleteEventForwarderForDataSource(
     });
   }
   if (
+    !context.superAdmin &&
     !context.permissions.canDeleteEventForwarderConfig(eventForwarderConfig)
   ) {
     context.permissions.throwPermissionError();

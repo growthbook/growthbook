@@ -7,6 +7,7 @@ import {
   generateEventForwarderExposureQueries,
   isEventForwarderManagedExposureQuery,
   mergeEventForwarderExposureQueries,
+  reconcileEventForwarderManagedExposureQueries,
   refreshEventForwarderManagedExposureQuery,
 } from "../../src/util/event-forwarder-exposure-queries";
 import { EVENT_FORWARDER_AVRO_PARTITION_FIELD } from "../../src/util/event-forwarder-fact-table";
@@ -234,5 +235,97 @@ describe("refreshEventForwarderManagedExposureQuery", () => {
     expect(refreshed[0].userIdType).toBe("account_id");
     expect(refreshed[0].query).toContain("account_id");
     expect(refreshed[0].query).toContain("AS FLOAT64");
+  });
+});
+
+describe("reconcileEventForwarderManagedExposureQueries", () => {
+  it("rebuilds managed queries from desired hash attributes", () => {
+    const existing = [
+      ...generateEventForwarderExposureQueries(["user_id", "legacy_id"], {
+        sinkType: "bigquery",
+        projectId: "proj",
+        dataset: "ds",
+      }),
+      {
+        id: "custom_query",
+        userIdType: "custom_id",
+        name: "Custom",
+        dimensions: [],
+        query: "SELECT custom_id FROM custom_table",
+      },
+    ];
+
+    const reconciled = reconcileEventForwarderManagedExposureQueries({
+      existing,
+      userIdTypes: ["account_id", "device_id"],
+      params: {
+        sinkType: "bigquery",
+        projectId: "proj",
+        dataset: "ds",
+      },
+      attributeSchema: [
+        {
+          property: "account_id",
+          datatype: "number",
+          hashAttribute: true,
+        },
+        {
+          property: "device_id",
+          datatype: "string",
+          hashAttribute: true,
+        },
+      ],
+    });
+
+    expect(reconciled).toHaveLength(3);
+    expect(reconciled[0].id).toBe("custom_query");
+    expect(reconciled.map((query) => query.userIdType)).toEqual([
+      "custom_id",
+      "account_id",
+      "device_id",
+    ]);
+    expect(reconciled[1].managedBy).toBe("api");
+    expect(reconciled[1].query).toContain("AS FLOAT64");
+    expect(reconciled.some((query) => query.userIdType === "legacy_id")).toBe(
+      false,
+    );
+  });
+
+  it("removes stored managed query ids even if managedBy is missing", () => {
+    const reconciled = reconcileEventForwarderManagedExposureQueries({
+      existing: [
+        {
+          id: "stored_managed",
+          userIdType: "legacy_id",
+          name: "legacy_id",
+          dimensions: [],
+          query: "SELECT legacy_id",
+        },
+        {
+          id: "custom_query",
+          userIdType: "custom_id",
+          name: "Custom",
+          dimensions: [],
+          query: "SELECT custom_id",
+        },
+      ],
+      userIdTypes: [],
+      params: {
+        sinkType: "snowflake",
+        database: "DB",
+        schema: "PUBLIC",
+      },
+      managedExposureQueryIds: ["stored_managed"],
+    });
+
+    expect(reconciled).toEqual([
+      {
+        id: "custom_query",
+        userIdType: "custom_id",
+        name: "Custom",
+        dimensions: [],
+        query: "SELECT custom_id",
+      },
+    ]);
   });
 });
