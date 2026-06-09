@@ -11,6 +11,8 @@ import {
   getValidation,
   validateJSONFeatureValue,
   autoMerge,
+  getLiveChangesSinceBase,
+  evaluatePublishGovernance,
   RevisionFields,
   MergeConflict,
   validateCondition,
@@ -448,6 +450,99 @@ describe("autoMerge", () => {
       }
     });
 
+    // Regression: a draft that DELETES a rule must not have that deletion
+    // silently dropped just because live happened to edit a *different* rule.
+    // Previously the live-walk pushed the live copy of any rule missing from
+    // the revision, so the draft's intent to remove `B` was lost and `B`
+    // reappeared in the published feature with no conflict warning.
+    it("draft deletes a rule, live modifies a different rule — deletion honored", () => {
+      const Cmod = { ...C, value: "c-updated" };
+      const base: RevisionFields = {
+        defaultValue: "true",
+        rules: [A, B, C],
+        version: 1,
+      };
+      // live left B untouched but rolled out C
+      const live: RevisionFields = {
+        defaultValue: "true",
+        rules: [A, B, Cmod],
+        version: 2,
+      };
+      // draft removed B, left C alone
+      const revision: RevisionFields = {
+        defaultValue: "true",
+        rules: [A, C],
+        version: 1,
+      };
+
+      const result = autoMerge(live, base, revision, ["dev"], {});
+      expect(result.success).toBe(true);
+      if (result.success) {
+        // B is gone (draft deletion respected) and live's C rollout is kept.
+        expect(result.result.rules).toEqual([A, Cmod]);
+      }
+    });
+
+    // Mirror of the existing "live deletes / draft modifies" conflict: when the
+    // draft deletes a rule that live concurrently MODIFIED, that is a genuine
+    // delete-vs-modify conflict and must not auto-merge.
+    it("draft deletes a rule that live also modified — conflict", () => {
+      const Bmod = { ...B, value: "b-live-updated" };
+      const base: RevisionFields = {
+        defaultValue: "true",
+        rules: [A, B],
+        version: 1,
+      };
+      const live: RevisionFields = {
+        defaultValue: "true",
+        rules: [A, Bmod],
+        version: 2,
+      };
+      const revision: RevisionFields = {
+        defaultValue: "true",
+        rules: [A],
+        version: 1,
+      };
+
+      const result = autoMerge(live, base, revision, ["dev"], {});
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.conflicts).toEqual(
+          expect.arrayContaining([expect.objectContaining({ key: "rules" })]),
+        );
+      }
+    });
+
+    // Honoring deletions must not over-correct: a rule that is brand new in
+    // live (never in base, absent from the draft) is NOT a draft deletion and
+    // must be preserved, otherwise publishing would silently drop a concurrent
+    // live addition.
+    it("draft deletes a rule while live adds a new rule — both respected", () => {
+      const E = devRule("e", "e");
+      const base: RevisionFields = {
+        defaultValue: "true",
+        rules: [A, B],
+        version: 1,
+      };
+      const live: RevisionFields = {
+        defaultValue: "true",
+        rules: [A, B, E],
+        version: 2,
+      };
+      const revision: RevisionFields = {
+        defaultValue: "true",
+        rules: [A],
+        version: 1,
+      };
+
+      const result = autoMerge(live, base, revision, ["dev"], {});
+      expect(result.success).toBe(true);
+      if (result.success) {
+        // B removed (draft deletion), E kept (live addition).
+        expect(result.result.rules).toEqual([A, E]);
+      }
+    });
+
     // Regression for PR #5800: legacy v1 docs (Mongoose `Mixed`) can land
     // with sparse `null`/`undefined` rule slots. Before `naiveFlattenV1Rules`
     // filtered them out, autoMerge → tryRuleLevelMerge would crash on
@@ -480,6 +575,257 @@ describe("autoMerge", () => {
         expect(result.result.rules[1].value).toBe("b-updated");
       }
     });
+  });
+});
+
+describe("getLiveChangesSinceBase", () => {
+  const envs = ["dev", "prod"];
+  const rule = (id: string, value = "force"): FeatureRule => ({
+    type: "force",
+    description: "",
+    id,
+    value,
+    allEnvironments: true,
+  });
+
+  const makeBase = (): RevisionFields => ({
+    version: 1,
+    defaultValue: "base",
+    rules: [rule("a", "a")],
+    environmentsEnabled: { dev: true, prod: false },
+    prerequisites: [],
+    archived: false,
+    holdout: null,
+    metadata: { description: "d0", owner: "o0", project: "", tags: [] },
+  });
+
+  it("returns no changes when live equals base", () => {
+    expect(getLiveChangesSinceBase(makeBase(), makeBase(), envs)).toEqual([]);
+  });
+
+  it("detects a defaultValue change", () => {
+    const live = { ...makeBase(), defaultValue: "live" };
+    expect(getLiveChangesSinceBase(live, makeBase(), envs)).toEqual([
+      { key: "defaultValue", name: "Default Value" },
+    ]);
+  });
+
+  it("detects a rules change", () => {
+    const live = { ...makeBase(), rules: [rule("a", "a"), rule("b", "b")] };
+    expect(getLiveChangesSinceBase(live, makeBase(), envs)).toEqual([
+      { key: "rules", name: "Rules" },
+    ]);
+  });
+
+  it("ignores rule array identity (same content, different reference)", () => {
+    const base = makeBase();
+    const live = { ...makeBase(), rules: [rule("a", "a")] };
+    expect(getLiveChangesSinceBase(live, base, envs)).toEqual([]);
+  });
+
+  it("detects a per-environment enabled change with the env in the key", () => {
+    const live = {
+      ...makeBase(),
+      environmentsEnabled: { dev: true, prod: true },
+    };
+    expect(getLiveChangesSinceBase(live, makeBase(), envs)).toEqual([
+      { key: "environmentsEnabled.prod", name: "Env Enabled - prod" },
+    ]);
+  });
+
+  it("only considers environments passed in", () => {
+    const live = {
+      ...makeBase(),
+      environmentsEnabled: { dev: true, prod: true, staging: true },
+    };
+    // staging is not in the provided env list, so it's ignored
+    const base = {
+      ...makeBase(),
+      environmentsEnabled: { dev: true, prod: false, staging: false },
+    };
+    expect(getLiveChangesSinceBase(live, base, envs)).toEqual([
+      { key: "environmentsEnabled.prod", name: "Env Enabled - prod" },
+    ]);
+  });
+
+  it("detects a prerequisites change", () => {
+    const live = {
+      ...makeBase(),
+      prerequisites: [{ id: "parent", condition: "{}" }],
+    };
+    expect(getLiveChangesSinceBase(live, makeBase(), envs)).toEqual([
+      { key: "prerequisites", name: "Prerequisites" },
+    ]);
+  });
+
+  it("detects an archived change", () => {
+    const live = { ...makeBase(), archived: true };
+    expect(getLiveChangesSinceBase(live, makeBase(), envs)).toEqual([
+      { key: "archived", name: "Archived" },
+    ]);
+  });
+
+  it("detects a holdout change (added)", () => {
+    const live = { ...makeBase(), holdout: { id: "ho_1", value: "0" } };
+    expect(getLiveChangesSinceBase(live, makeBase(), envs)).toEqual([
+      { key: "holdout", name: "Holdout" },
+    ]);
+  });
+
+  it("detects per-field metadata changes", () => {
+    const live = {
+      ...makeBase(),
+      metadata: { description: "d1", owner: "o0", project: "", tags: [] },
+    };
+    expect(getLiveChangesSinceBase(live, makeBase(), envs)).toEqual([
+      { key: "metadata.description", name: "Metadata - description" },
+    ]);
+  });
+
+  it("treats normalized-equal metadata as unchanged", () => {
+    const base = {
+      ...makeBase(),
+      metadata: { description: "", owner: "", project: "", tags: [] },
+    };
+    const live = {
+      ...makeBase(),
+      // null/undefined normalize to the same empty values as base
+      metadata: {
+        description: undefined,
+        owner: null,
+        project: undefined,
+        tags: undefined,
+      } as unknown as RevisionFields["metadata"],
+    };
+    expect(getLiveChangesSinceBase(live, base, envs)).toEqual([]);
+  });
+
+  it("reports every changed field when several change at once", () => {
+    const live: RevisionFields = {
+      ...makeBase(),
+      defaultValue: "live",
+      rules: [rule("a", "a"), rule("b", "b")],
+      environmentsEnabled: { dev: false, prod: false },
+      archived: true,
+    };
+    const result = getLiveChangesSinceBase(live, makeBase(), envs);
+    expect(result.map((c) => c.key).sort()).toEqual(
+      ["archived", "defaultValue", "environmentsEnabled.dev", "rules"].sort(),
+    );
+  });
+});
+
+describe("evaluatePublishGovernance", () => {
+  const baseInput = {
+    revisionStatus: "draft" as const,
+    baseVersion: 5,
+    liveVersion: 5,
+    mergeSuccess: true,
+    liveChanges: [],
+  };
+
+  it("current draft (base === live, no conflicts): publish allowed, no rebase", () => {
+    const r = evaluatePublishGovernance(baseInput);
+    expect(r.divergence).toBe("current");
+    expect(r.diverged).toBe(false);
+    expect(r.staleApproval).toBe(false);
+    expect(r.recommendRebase).toBe(false);
+    expect(r.rebaseRequired).toBe(false);
+    expect(r.canPublish).toBe(true);
+    expect(r.blockReason).toBe(null);
+  });
+
+  it("diverged but auto-mergeable, setting OFF: encourage rebase, still publishable", () => {
+    const r = evaluatePublishGovernance({
+      ...baseInput,
+      liveVersion: 8,
+      liveChanges: [{ key: "rules", name: "Rules" }],
+    });
+    expect(r.divergence).toBe("diverged");
+    expect(r.diverged).toBe(true);
+    expect(r.recommendRebase).toBe(true);
+    expect(r.rebaseRequired).toBe(false);
+    expect(r.canPublish).toBe(true);
+    expect(r.liveChanges).toHaveLength(1);
+  });
+
+  it("diverged but auto-mergeable, setting ON: rebase required, publish blocked", () => {
+    const r = evaluatePublishGovernance({
+      ...baseInput,
+      liveVersion: 8,
+      requireRebaseBeforePublish: true,
+    });
+    expect(r.divergence).toBe("diverged");
+    expect(r.rebaseRequired).toBe(true);
+    expect(r.canPublish).toBe(false);
+    expect(r.blockReason).toMatch(/older version/i);
+  });
+
+  it("hard conflict: always blocks publish and requires resolution", () => {
+    const r = evaluatePublishGovernance({
+      ...baseInput,
+      liveVersion: 8,
+      mergeSuccess: false,
+    });
+    expect(r.divergence).toBe("conflict");
+    expect(r.recommendRebase).toBe(true);
+    expect(r.rebaseRequired).toBe(true);
+    expect(r.canPublish).toBe(false);
+    expect(r.blockReason).toMatch(/resolve conflicts/i);
+  });
+
+  it("approved + live advanced past approval point: stale approval surfaced", () => {
+    const r = evaluatePublishGovernance({
+      ...baseInput,
+      revisionStatus: "approved",
+      baseVersion: 5,
+      liveVersion: 7,
+      approvedBaseVersion: 5,
+    });
+    expect(r.staleApproval).toBe(true);
+    expect(r.recommendRebase).toBe(true);
+    // setting off → still publishable, just warned
+    expect(r.rebaseRequired).toBe(false);
+    expect(r.canPublish).toBe(true);
+  });
+
+  it("approved + live unchanged since approval: not stale", () => {
+    const r = evaluatePublishGovernance({
+      ...baseInput,
+      revisionStatus: "approved",
+      baseVersion: 7,
+      liveVersion: 7,
+      approvedBaseVersion: 7,
+    });
+    expect(r.staleApproval).toBe(false);
+    expect(r.divergence).toBe("current");
+    expect(r.canPublish).toBe(true);
+  });
+
+  it("approved legacy (no approvedBaseVersion) but diverged: treated as stale", () => {
+    const r = evaluatePublishGovernance({
+      ...baseInput,
+      revisionStatus: "approved",
+      baseVersion: 5,
+      liveVersion: 9,
+      approvedBaseVersion: null,
+    });
+    expect(r.staleApproval).toBe(true);
+  });
+
+  it("approved + stale + setting ON: blocked with re-approval guidance", () => {
+    const r = evaluatePublishGovernance({
+      ...baseInput,
+      revisionStatus: "approved",
+      baseVersion: 5,
+      liveVersion: 7,
+      approvedBaseVersion: 5,
+      requireRebaseBeforePublish: true,
+    });
+    expect(r.staleApproval).toBe(true);
+    expect(r.rebaseRequired).toBe(true);
+    expect(r.canPublish).toBe(false);
+    expect(r.blockReason).toMatch(/approved/i);
   });
 });
 

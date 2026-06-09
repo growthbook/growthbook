@@ -231,6 +231,7 @@ export async function createOrganization({
       ],
       disablePrecomputedDimensions: false,
       restApiBypassesReviews: false,
+      requireRebaseBeforePublish: false,
       requireReviews: [
         {
           requireReviewOn: false,

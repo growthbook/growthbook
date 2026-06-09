@@ -58,7 +58,6 @@ import EditProjectForm from "@/components/Experiment/EditProjectForm";
 import {
   getFeatureDefaultValue,
   useEnvironments,
-  getAffectedRevisionEnvs,
   getPrerequisites,
   getRules,
 } from "@/services/features";
@@ -66,7 +65,6 @@ import { useFeatureDefaultValues } from "@/hooks/useFeatureDefaultValues";
 import { useFeatureDependents } from "@/hooks/useFeatureDependents";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
-import DraftModal from "@/components/Features/DraftModal";
 import DiscussionThread from "@/components/DiscussionThread";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -78,7 +76,6 @@ import {
   useFeatureUsage,
 } from "@/components/Features/FeatureUsageGraph";
 import EditRevisionCommentModal from "@/components/Features/EditRevisionCommentModal";
-import FeatureFixConflictsModal from "@/components/Features/FeatureFixConflictsModal";
 import CompareRevisionsModal from "@/components/Features/CompareRevisionsModal";
 import RevisionStatusBadge from "@/components/Features/RevisionStatusBadge";
 import RevisionLabel, {
@@ -104,13 +101,13 @@ import Heading from "@/ui/Heading";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
 import JSONValidation from "@/components/Features/JSONValidation";
+import { FeatureTab } from "@/pages/features/[fid]";
 import {
   PrerequisiteStateResult,
   usePrerequisiteStates,
 } from "@/hooks/usePrerequisiteStates";
 import PrerequisiteAlerts from "./PrerequisiteAlerts";
 import PrerequisiteModal from "./PrerequisiteModal";
-import RequestReviewModal from "./RequestReviewModal";
 import FeatureRules from "./FeatureRules";
 
 export const featureStatusColors = {
@@ -213,6 +210,7 @@ export default function FeaturesOverview({
   safeRollouts,
   holdout,
   rampSchedules,
+  setTab,
 }: {
   baseFeature: FeatureInterface;
   feature: FeatureInterface;
@@ -228,12 +226,10 @@ export default function FeaturesOverview({
   setEditProjectModal: (b: boolean) => void;
   version: number | null;
   setVersion: (v: number) => void;
+  setTab: (tab: FeatureTab) => void;
 }) {
   const settings = useOrgSettings();
   const [edit, setEdit] = useState(false);
-  const [draftModal, setDraftModal] = useState(false);
-  const [reviewModal, setReviewModal] = useState(false);
-  const [conflictModal, setConflictModal] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [confirmNewDraft, setConfirmNewDraft] = useState(false);
   // Always reflects the current live version — used in async callbacks to avoid
@@ -597,19 +593,6 @@ export default function FeaturesOverview({
 
   const projectId = feature.project;
 
-  const hasDraftPublishPermission =
-    (approved &&
-      permissionsUtil.canPublishFeature(
-        feature,
-        getAffectedRevisionEnvs(feature, revision, environments),
-      )) ||
-    (isDraft &&
-      !requireReviews &&
-      permissionsUtil.canPublishFeature(
-        feature,
-        getAffectedRevisionEnvs(feature, revision, environments),
-      ));
-
   const drafts = revisions.filter(
     (r) =>
       r.status === "draft" ||
@@ -819,52 +802,34 @@ export default function FeaturesOverview({
           </Button>
         </Box>
         {mergeResult?.success ? (
-          requireReviews ? (
-            <Box>
-              <Tooltip
-                body={
-                  !revisionHasChanges
-                    ? "Draft is identical to the live version. Make changes first before requesting review"
-                    : ""
+          <Box>
+            <Tooltip
+              body={
+                !revisionHasChanges
+                  ? "Draft is identical to the live version. Make changes first before publishing"
+                  : ""
+              }
+            >
+              <Button
+                disabled={!revisionHasChanges}
+                icon={
+                  !requireReviews && featureLockedByRamp ? (
+                    <PiLockSimple />
+                  ) : undefined
                 }
+                onClick={() => setTab("review")}
+                style={nowrap}
               >
-                <Button
-                  disabled={!revisionHasChanges}
-                  onClick={() => setReviewModal(true)}
-                  style={nowrap}
-                >
-                  {renderDraftBannerCopy()}
-                </Button>
-              </Tooltip>
-            </Box>
-          ) : (
-            <Box>
-              <Tooltip
-                body={
-                  !revisionHasChanges
-                    ? "Draft is identical to the live version. Make changes first before publishing"
-                    : !hasDraftPublishPermission
-                      ? "You do not have permission to publish this draft."
-                      : ""
-                }
-              >
-                <Button
-                  disabled={!revisionHasChanges || !hasDraftPublishPermission}
-                  icon={featureLockedByRamp ? <PiLockSimple /> : undefined}
-                  onClick={() => setDraftModal(true)}
-                  style={nowrap}
-                >
-                  Review &amp; Publish
-                </Button>
-              </Tooltip>
-            </Box>
-          )
+                {requireReviews ? renderDraftBannerCopy() : "Review & Publish"}
+              </Button>
+            </Tooltip>
+          </Box>
         ) : mergeResult ? (
           <Box>
             <Tooltip body="There have been new conflicting changes published since this draft was created that must be resolved before you can publish">
               <Button
                 variant="ghost"
-                onClick={() => setConflictModal(true)}
+                onClick={() => setTab("review")}
                 style={nowrap}
               >
                 Fix conflicts
@@ -2000,48 +1965,6 @@ export default function FeaturesOverview({
             allRevisions={revisions}
             mutate={mutate}
             setVersion={setVersion}
-          />
-        )}
-        {reviewModal && revision && (
-          <RequestReviewModal
-            feature={baseFeature}
-            revisions={revisions}
-            version={revision.version}
-            close={() => setReviewModal(false)}
-            mutate={mutate}
-            onPublish={() => {
-              setVersion(revision.version);
-              setTimeout(() => setVersion(liveVersionRef.current), 300);
-            }}
-            experimentsMap={experimentsMap}
-            rampSchedules={rampSchedules}
-          />
-        )}
-        {draftModal && revision && (
-          <DraftModal
-            feature={baseFeature}
-            revisions={revisions}
-            version={revision.version}
-            close={() => setDraftModal(false)}
-            mutate={mutate}
-            onPublish={() => {
-              setVersion(revision.version);
-              // Ramp steps fire synchronously on the backend and may publish
-              // additional revisions. After React processes the mutate response,
-              // snap to whatever is actually live now.
-              setTimeout(() => setVersion(liveVersionRef.current), 300);
-            }}
-            experimentsMap={experimentsMap}
-            rampSchedules={rampSchedules}
-          />
-        )}
-        {conflictModal && revision && (
-          <FeatureFixConflictsModal
-            feature={baseFeature}
-            revisions={revisions}
-            version={revision.version}
-            close={() => setConflictModal(false)}
-            mutate={mutate}
           />
         )}
         {confirmDiscard && (

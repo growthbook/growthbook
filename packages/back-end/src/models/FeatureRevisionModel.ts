@@ -74,6 +74,9 @@ const featureRevisionSchema = new mongoose.Schema({
   createdBy: {},
   version: Number,
   baseVersion: Number,
+  // Live feature version captured when this revision was approved; used to
+  // detect approvals that have gone stale due to subsequent publishes.
+  approvedBaseVersion: Number,
   dateCreated: Date,
   dateUpdated: Date,
   datePublished: Date,
@@ -1171,6 +1174,9 @@ export async function submitReviewAndComments(
   user: EventUser,
   reviewSubmittedType: ReviewSubmittedType,
   comment?: string,
+  // Current live feature version, captured on approval so we can later detect
+  // when an approval has gone stale (live advanced past the approved point).
+  liveVersion?: number,
 ) {
   const action = reviewSubmittedType;
   let status = "pending-review";
@@ -1197,6 +1203,11 @@ export async function submitReviewAndComments(
         status,
         datePublished: null,
         dateUpdated: new Date(),
+        // Record the version this approval was made against. Only meaningful
+        // for approvals; harmless to set otherwise.
+        ...(status === "approved" && liveVersion !== undefined
+          ? { approvedBaseVersion: liveVersion }
+          : {}),
       },
     },
   );

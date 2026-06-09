@@ -5500,6 +5500,12 @@ paths:
               properties:
                 comment:
                   type: string
+                mergeNow:
+                  description: >-
+                    Required to publish when the org enforces same-base merges
+                    and the revision is behind the live version. Set to true to
+                    merge the stale draft anyway instead of rebasing first.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -9789,6 +9795,12 @@ paths:
               properties:
                 comment:
                   type: string
+                mergeNow:
+                  description: >-
+                    Required to publish when the org enforces same-base merges
+                    and the revision is behind the live version. Set to true to
+                    merge the stale draft anyway instead of rebasing first.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -15766,7 +15778,14 @@ paths:
           application/json:
             schema:
               type: object
-              properties: {}
+              properties:
+                mergeNow:
+                  description: >-
+                    Required to publish when the org enforces same-base merges
+                    and the saved group changed since this revision was created.
+                    Set to true to merge the stale revision anyway instead of
+                    rebasing first.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -37770,6 +37789,8 @@ components:
                 type: boolean
             additionalProperties: false
         restApiBypassesReviews:
+          type: boolean
+        requireRebaseBeforePublish:
           type: boolean
         featureKeyExample:
           type: string

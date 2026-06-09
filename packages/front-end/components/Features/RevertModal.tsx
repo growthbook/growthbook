@@ -22,7 +22,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
-import { ExpandableDiff } from "./DraftModal";
+import { ExpandableDiff } from "./RevisionDiffUtils";
 
 export interface Props {
   feature: FeatureInterface;

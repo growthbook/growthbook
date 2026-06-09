@@ -33,7 +33,6 @@ import {
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
@@ -62,21 +61,20 @@ import {
   featureToFeatureRevisionDiffInput,
 } from "@/hooks/useFeatureRevisionDiff";
 import {
-  logBadgeColor,
   CreatedRampScheduleBody,
   RampActionLabel,
   formatSimpleWindow,
 } from "@/components/Features/FeatureDiffRenders";
 import { useHoldouts, holdoutOccupiesRuleSlot } from "@/hooks/useHoldouts";
-import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
+import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 import {
-  COMPACT_DIFF_STYLES,
-  dedupeDiffBadges,
-} from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
-import { ExpandableDiff } from "./DraftModal";
-import CoAuthors, { NON_CONTENT_ACTIONS } from "./CoAuthors";
+  ExpandableDiff,
+  RevisionCompareLabel,
+  DiffContent,
+} from "./RevisionDiffUtils";
+import { NON_CONTENT_ACTIONS } from "./CoAuthors";
 import styles from "./CompareRevisionsModal.module.scss";
 
 const STORAGE_KEY_PREFIX = "feature:compare-revisions";
@@ -114,390 +112,6 @@ function revisionToDiffInput(
     metadata: normalizeRevisionMetadata(r.metadata) ?? fallback?.metadata,
     rampActions: r.rampActions ?? undefined,
   };
-}
-
-function RevisionCompareLabel({
-  versionA,
-  versionB,
-  revA,
-  revB,
-  liveVersion,
-  revAFailed = false,
-  revBFailed = false,
-  logsA,
-  logsB,
-  mb,
-  mt,
-}: {
-  versionA: number;
-  versionB: number;
-  revA: FeatureRevisionInterface | null;
-  revB: FeatureRevisionInterface | null;
-  liveVersion: number;
-  revAFailed?: boolean;
-  revBFailed?: boolean;
-  logsA?: RevisionLog[];
-  logsB?: RevisionLog[];
-  mb?: "1" | "2" | "3" | "4";
-  mt?: "1" | "2" | "3" | "4";
-}) {
-  return (
-    <Flex align="start" gap="4" wrap="nowrap" mb={mb} mt={mt}>
-      <Flex direction="column">
-        <Flex align="center" gap="4">
-          <Flex align="center" gap="1">
-            {revAFailed && (
-              <Tooltip body="Could not load revision">
-                <PiWarningBold
-                  style={{ color: "var(--red-9)", flexShrink: 0 }}
-                />
-              </Tooltip>
-            )}
-            <Text weight="semibold" size="large">
-              <OverflowText
-                maxWidth={250}
-                title={revisionLabelText(versionA, revA?.title)}
-              >
-                <RevisionLabel
-                  version={versionA}
-                  title={revA?.title}
-                  minWidth={0}
-                  numberSize="inherit"
-                />
-              </OverflowText>
-            </Text>
-          </Flex>
-          <RevisionStatusBadge revision={revA} liveVersion={liveVersion} />
-        </Flex>
-        {revA &&
-          revA.baseVersion !== 0 &&
-          (() => {
-            return DRAFT_REVISION_STATUSES.includes(revA.status) &&
-              revA.baseVersion !== liveVersion ? (
-              <HelperText status="info" size="sm">
-                based on: Revision {revA.baseVersion}
-              </HelperText>
-            ) : (
-              <Text as="div" size="small" color="text-low">
-                based on: Revision {revA.baseVersion}
-              </Text>
-            );
-          })()}
-        {revA && (
-          <Box mt="2">
-            <EventUser
-              user={revA.createdBy}
-              display="avatar-name-email"
-              size="sm"
-            />
-            <CoAuthors rev={revA} logs={logsA} />
-          </Box>
-        )}
-        {revA && (
-          <Text as="div" mt="2">
-            {datetime(
-              (revA.status === "published" ? revA.datePublished : null) ??
-                revA.dateUpdated,
-            )}
-          </Text>
-        )}
-      </Flex>
-      <PiArrowsLeftRightBold
-        size={16}
-        style={{ flexShrink: 0, marginTop: "var(--space-4)" }}
-      />
-      <Flex direction="column">
-        <Flex align="center" gap="4">
-          <Flex align="center" gap="1">
-            {revBFailed && (
-              <Tooltip body="Could not load revision">
-                <PiWarningBold
-                  style={{ color: "var(--red-9)", flexShrink: 0 }}
-                />
-              </Tooltip>
-            )}
-            <Text weight="semibold" size="large">
-              <OverflowText
-                maxWidth={250}
-                title={revisionLabelText(versionB, revB?.title)}
-              >
-                <RevisionLabel
-                  version={versionB}
-                  title={revB?.title}
-                  minWidth={0}
-                  numberSize="inherit"
-                />
-              </OverflowText>
-            </Text>
-          </Flex>
-          <RevisionStatusBadge revision={revB} liveVersion={liveVersion} />
-        </Flex>
-        {revB &&
-          revB.baseVersion !== 0 &&
-          (() => {
-            return DRAFT_REVISION_STATUSES.includes(revB.status) &&
-              revB.baseVersion !== liveVersion ? (
-              <HelperText status="info" size="sm">
-                based on: Revision {revB.baseVersion}
-              </HelperText>
-            ) : (
-              <Text as="div" size="small" color="text-low">
-                based on: Revision {revB.baseVersion}
-              </Text>
-            );
-          })()}
-        {revB && (
-          <Box mt="2">
-            <EventUser
-              user={revB.createdBy}
-              display="avatar-name-email"
-              size="sm"
-            />
-            <CoAuthors rev={revB} logs={logsB} />
-          </Box>
-        )}
-        {revB && (
-          <Text as="div" mt="2">
-            {datetime(
-              (revB.status === "published" ? revB.datePublished : null) ??
-                revB.dateUpdated,
-            )}
-          </Text>
-        )}
-      </Flex>
-    </Flex>
-  );
-}
-
-function badgesFromDiffs(diffs: FeatureRevisionDiff[]): DiffBadge[] {
-  const all = diffs.flatMap((d) => d.badges ?? []);
-
-  // For env-toggle badges, keep only the last occurrence to show the net result
-  const envTogglePrefix = "toggle environment ";
-  const envFinal = new Map<string, DiffBadge>();
-  const nonEnvBadges: DiffBadge[] = [];
-  for (const b of all) {
-    if (b.action.startsWith(envTogglePrefix)) {
-      const envId = b.action.slice(envTogglePrefix.length);
-      envFinal.set(envId, b); // overwrite → last write wins
-    } else {
-      nonEnvBadges.push(b);
-    }
-  }
-
-  return dedupeDiffBadges([...nonEnvBadges, ...envFinal.values()]);
-}
-
-function RevisionCommentItem({
-  featureId,
-  version,
-  revisionComment,
-  title,
-}: {
-  featureId: string;
-  version: number;
-  revisionComment?: string | null;
-  title?: string | null;
-}) {
-  const { data } = useApi<{ log: RevisionLog[] }>(
-    `/feature/${featureId}/${version}/log`,
-  );
-
-  const logEntry = useMemo(() => {
-    if (!data?.log) return null;
-    const sorted = [...data.log].sort(
-      (a, b) =>
-        getValidDate(b.timestamp).getTime() -
-        getValidDate(a.timestamp).getTime(),
-    );
-    for (const entry of sorted) {
-      if (entry.action === "edit comment") {
-        try {
-          const c = JSON.parse(entry.value)?.comment;
-          if (c)
-            return {
-              comment: c as string,
-              user: entry.user,
-              timestamp: entry.timestamp,
-            };
-        } catch {
-          // ignore
-        }
-      }
-    }
-    return null;
-  }, [data]);
-
-  const comment = revisionComment || logEntry?.comment;
-  if (!comment) return null;
-
-  return (
-    <Box>
-      <Flex align="center" gap="2" mb="1" wrap="wrap">
-        <Text size="medium" weight="medium" color="text-mid">
-          <OverflowText
-            maxWidth={200}
-            title={revisionLabelText(version, title)}
-          >
-            <RevisionLabel version={version} title={title} />
-          </OverflowText>{" "}
-          notes
-        </Text>
-        {logEntry?.user && (
-          <EventUser
-            user={logEntry.user}
-            display="avatar-name-email"
-            size="sm"
-          />
-        )}
-        {logEntry?.timestamp && (
-          <Text size="small" color="text-low">
-            {datetime(logEntry.timestamp)}
-          </Text>
-        )}
-      </Flex>
-      <Box pl="2" style={{ borderLeft: "2px solid var(--gray-a4)" }} mb="2">
-        <Text as="p" color="text-mid" mb="0">
-          {comment}
-        </Text>
-      </Box>
-    </Box>
-  );
-}
-
-function RevisionCommentSection({
-  featureId,
-  versions,
-}: {
-  featureId: string;
-  versions: Array<{
-    version: number;
-    revisionComment?: string | null;
-    title?: string | null;
-  }>;
-}) {
-  if (versions.length === 0) return null;
-  return (
-    <Flex direction="column" gap="3" mb="3" mt="4">
-      {versions.map(({ version, revisionComment, title }) => (
-        <RevisionCommentItem
-          key={version}
-          featureId={featureId}
-          version={version}
-          revisionComment={revisionComment}
-          title={title}
-        />
-      ))}
-    </Flex>
-  );
-}
-
-function DiffContent({
-  diffs,
-  commentVersions,
-  feature,
-  outOfOrderWarning,
-}: {
-  diffs: FeatureRevisionDiff[];
-  commentVersions: Array<{
-    version: number;
-    revisionComment?: string | null;
-    title?: string | null;
-  }>;
-  feature: FeatureInterface;
-  outOfOrderWarning: boolean;
-}) {
-  const diffsWithChanges = diffs.filter((d) => d.a !== d.b);
-  const withRender = diffsWithChanges.filter((d) => d.customRender);
-  const diffFallbackBadges = badgesFromDiffs(diffsWithChanges);
-  const hasSummary = diffFallbackBadges.length > 0 || withRender.length > 0;
-
-  const formatSectionTitle = (title: string) => {
-    if (title === "Default Value") return "Default value";
-    if (title.startsWith("Rules - ")) {
-      const env = title.slice("Rules - ".length);
-      return `${env.charAt(0).toUpperCase() + env.slice(1)} rules`;
-    }
-    return title;
-  };
-
-  return (
-    <>
-      <RevisionCommentSection
-        featureId={feature.id}
-        versions={commentVersions}
-      />
-
-      {hasSummary && (
-        <Box>
-          <Heading as="h5" size="small" color="text-mid" mt="4">
-            Summary of changes
-          </Heading>
-
-          {diffFallbackBadges.length > 0 && (
-            <Flex wrap="wrap" gap="2" mt="2" mb="2">
-              {diffFallbackBadges.map(({ label, action }) => (
-                <Badge
-                  key={label}
-                  color={logBadgeColor(action)}
-                  variant="soft"
-                  label={label}
-                />
-              ))}
-            </Flex>
-          )}
-
-          {withRender.length > 0 && (
-            <Flex direction="column" gap="0">
-              {withRender.map((d) => (
-                <Box key={d.title} p="3" my="3" className="rounded bg-light">
-                  <Flex align="center" gap="2" mb="2" wrap="wrap">
-                    <Heading as="h6" size="small" color="text-mid" mb="0">
-                      {formatSectionTitle(d.title)}
-                    </Heading>
-                    {d.titleSuffix}
-                  </Flex>
-                  {d.customRender}
-                </Box>
-              ))}
-            </Flex>
-          )}
-        </Box>
-      )}
-
-      {outOfOrderWarning && (
-        <Callout status="info" size="sm" mb="4">
-          A draft in this comparison is based on an older version than what is
-          currently live. When you publish, it will be merged with the live
-          version, so the result may differ from the diff shown here.
-        </Callout>
-      )}
-
-      {diffsWithChanges.length === 0 ? (
-        <Text color="text-low">No changes between these revisions.</Text>
-      ) : (
-        <>
-          {hasSummary && (
-            <Heading as="h5" size="small" color="text-mid" mt="4" mb="3">
-              Change details
-            </Heading>
-          )}
-          <Flex direction="column" gap="4">
-            {diffsWithChanges.map((d) => (
-              <ExpandableDiff
-                key={d.title}
-                title={d.title}
-                a={d.a}
-                b={d.b}
-                defaultOpen
-                styles={COMPACT_DIFF_STYLES}
-              />
-            ))}
-          </Flex>
-        </>
-      )}
-    </>
-  );
 }
 
 // Build FeatureRevisionDiff items for any ramp schedules linked to a given revision.
@@ -704,7 +318,9 @@ function rampDiffsForRevision(
     }
   }
 
-  return diffs;
+  // Ramp schedules / actions are separate top-level entities — flag them so the
+  // "Raw JSON" view renders one diff each alongside the whole-revision blob.
+  return diffs.map((d) => ({ ...d, supplemental: true }));
 }
 
 // Actions that are review/approval lifecycle events, not content changes.
@@ -1591,13 +1207,15 @@ export default function CompareRevisionsModal({
     [liveBase],
   );
 
+  const stepBeforeInput: FeatureRevisionDiffInput = stepRevA
+    ? revisionToDiffInput(stepRevA, liveBaseInput)
+    : { defaultValue: "", rules: [] };
+  const stepAfterInput: FeatureRevisionDiffInput = stepRevB
+    ? revisionToDiffInput(stepRevB, liveBaseInput)
+    : { defaultValue: "", rules: [] };
   const stepDiffs = useFeatureRevisionDiff({
-    current: stepRevA
-      ? revisionToDiffInput(stepRevA, liveBaseInput)
-      : { defaultValue: "", rules: [] },
-    draft: stepRevB
-      ? revisionToDiffInput(stepRevB, liveBaseInput)
-      : { defaultValue: "", rules: [] },
+    current: stepBeforeInput,
+    draft: stepAfterInput,
   });
 
   const singleRevFirst =
@@ -1606,34 +1224,38 @@ export default function CompareRevisionsModal({
     selectedSorted.length >= 2
       ? getFullRevision(selectedSorted[selectedSorted.length - 1])
       : null;
+  const mergedBeforeInput: FeatureRevisionDiffInput = singleRevFirst
+    ? revisionToDiffInput(singleRevFirst, liveBaseInput)
+    : { defaultValue: "", rules: [] };
+  const mergedAfterInput: FeatureRevisionDiffInput = singleRevLast
+    ? revisionToDiffInput(singleRevLast, liveBaseInput)
+    : { defaultValue: "", rules: [] };
   const mergedDiffs = useFeatureRevisionDiff({
-    current: singleRevFirst
-      ? revisionToDiffInput(singleRevFirst, liveBaseInput)
-      : { defaultValue: "", rules: [] },
-    draft: singleRevLast
-      ? revisionToDiffInput(singleRevLast, liveBaseInput)
-      : { defaultValue: "", rules: [] },
+    current: mergedBeforeInput,
+    draft: mergedAfterInput,
   });
 
   const previewLiveRev =
     previewDraftVersion !== null ? getFullRevision(liveVersion) : null;
   const previewDraftRev =
     previewDraftVersion !== null ? getFullRevision(previewDraftVersion) : null;
+  const previewBeforeInput: FeatureRevisionDiffInput =
+    previewDraftVersion !== null
+      ? liveBaseInput
+      : { defaultValue: "", rules: [] };
+  const previewAfterInput: FeatureRevisionDiffInput = previewDraftRev
+    ? {
+        // Merge environmentsEnabled on top of the live base so every env is explicit
+        ...revisionToDiffInput(previewDraftRev),
+        environmentsEnabled: {
+          ...liveBaseInput.environmentsEnabled,
+          ...(previewDraftRev.environmentsEnabled ?? {}),
+        },
+      }
+    : { defaultValue: "", rules: [] };
   const previewDiffs = useFeatureRevisionDiff({
-    current:
-      previewDraftVersion !== null
-        ? liveBaseInput
-        : { defaultValue: "", rules: [] },
-    draft: previewDraftRev
-      ? {
-          // Merge environmentsEnabled on top of the live base so every env is explicit
-          ...revisionToDiffInput(previewDraftRev),
-          environmentsEnabled: {
-            ...liveBaseInput.environmentsEnabled,
-            ...(previewDraftRev.environmentsEnabled ?? {}),
-          },
-        }
-      : { defaultValue: "", rules: [] },
+    current: previewBeforeInput,
+    draft: previewAfterInput,
   });
   const previewDisplayLoading =
     previewDraftVersion !== null &&
@@ -2322,6 +1944,7 @@ export default function CompareRevisionsModal({
                   ]}
                   feature={feature}
                   outOfOrderWarning={false}
+                  raw={{ before: previewBeforeInput, after: previewAfterInput }}
                 />
               )}
             </>
@@ -2465,6 +2088,11 @@ export default function CompareRevisionsModal({
                         isOutOfOrderDraft(singleRevLast)
                       : isOutOfOrderDraft(stepRevA) ||
                         isOutOfOrderDraft(stepRevB)
+                  }
+                  raw={
+                    diffViewMode === "single"
+                      ? { before: mergedBeforeInput, after: mergedAfterInput }
+                      : { before: stepBeforeInput, after: stepAfterInput }
                   }
                 />
               )}

@@ -355,7 +355,17 @@ export const postFeatureRevisionPublishV2Validator = {
     "Immediately publishes a draft revision, making it the live version of the feature. Any pending ramp actions (`pendingRamp` on rules) are executed atomically — ramp schedules are created or detached as queued.",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParamsStrict,
-  bodySchema: z.object({ comment: z.string().optional() }).strict(),
+  bodySchema: z
+    .object({
+      comment: z.string().optional(),
+      mergeNow: z
+        .boolean()
+        .optional()
+        .describe(
+          "Required to publish when the org enforces same-base merges and the revision is behind the live version. Set to true to merge the stale draft anyway instead of rebasing first.",
+        ),
+    })
+    .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
   version: "v2" as const,

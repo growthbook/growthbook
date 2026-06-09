@@ -165,6 +165,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         },
       ],
       restApiBypassesReviews: settings.restApiBypassesReviews ?? false,
+      requireRebaseBeforePublish: settings.requireRebaseBeforePublish ?? false,
       defaultDataSource: settings.defaultDataSource || "",
       testQueryDays: DEFAULT_TEST_QUERY_DAYS,
       disablePrecomputedDimensions:

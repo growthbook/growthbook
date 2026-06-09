@@ -13,6 +13,7 @@ import {
   MergeResultChanges,
   MergeStrategy,
   checkIfRevisionNeedsReview,
+  evaluatePublishGovernance,
   resetReviewOnChange,
   getAffectedEnvsForExperiment,
   getDependentExperiments,
@@ -1157,6 +1158,9 @@ export async function postFeatureReviewOrComment(
     res.locals.eventAudit,
     review,
     comment,
+    // Capture the live version the approval is made against so a later publish
+    // can detect when the approval has gone stale.
+    feature.version,
   );
 
   const updatedRevision = await getRevision({
@@ -1393,6 +1397,24 @@ export async function postFeaturePublish(
 
   if (!mergeResult.success) {
     throw new Error("Please resolve conflicts before publishing");
+  }
+
+  // Governance: when the org requires same-base merges, block publishing a
+  // draft that is behind live (or whose approval has gone stale) until it is
+  // rebased. Admins with the bypass permission may override.
+  if (!adminOverride) {
+    const governance = evaluatePublishGovernance({
+      revisionStatus: revision.status,
+      baseVersion: revision.baseVersion,
+      liveVersion: feature.version,
+      mergeSuccess: mergeResult.success,
+      liveChanges: [],
+      approvedBaseVersion: revision.approvedBaseVersion ?? null,
+      requireRebaseBeforePublish: !!org.settings?.requireRebaseBeforePublish,
+    });
+    if (governance.rebaseRequired && governance.blockReason) {
+      throw new Error(governance.blockReason);
+    }
   }
 
   const envsToCheck = await getMergeResultPublishEnvs({

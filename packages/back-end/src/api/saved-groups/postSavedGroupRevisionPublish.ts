@@ -98,6 +98,29 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
   }
 
   const updatableFields = adapter.getUpdatableFields();
+
+  // Governance friction (parity with features): when the org enforces same-base
+  // merges, a revision created against a snapshot that no longer matches the
+  // live saved group must be rebased first. Even without a hard conflict, the
+  // proposed changes were authored against stale state. Caller must rebase or
+  // explicitly opt in with `mergeNow: true`. Bypass-approval callers are exempt.
+  if (
+    req.organization.settings?.requireRebaseBeforePublish &&
+    !req.body.mergeNow
+  ) {
+    const snapshot = revision.target.snapshot as Record<string, unknown>;
+    const liveEntity = savedGroup as unknown as Record<string, unknown>;
+    const diverged = [...updatableFields].some(
+      (key) => !isEqual(snapshot[key], liveEntity[key]),
+    );
+    if (diverged && !canBypass) {
+      throw new ConflictError(
+        "This revision was created against an older version of the saved group. " +
+          'Rebase the revision first, or retry this request with "mergeNow": true to merge the stale revision anyway.',
+        [],
+      );
+    }
+  }
   const hasChanges = Object.keys(desiredState).some((key) => {
     if (!updatableFields.has(key)) return false;
     return !isEqual(

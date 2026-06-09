@@ -491,6 +491,10 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
     featureId: z.string(),
     organization: z.string(),
     baseVersion: z.number(),
+    // The live feature version at the moment this revision was approved.
+    // Used to detect "stale" approvals — i.e. changes published after approval.
+    // Absent on drafts that were never approved and on legacy approvals.
+    approvedBaseVersion: z.number().optional(),
     dateCreated: z.date(),
     publishedBy: z.union([z.null(), eventUser]),
     comment: z.string(),

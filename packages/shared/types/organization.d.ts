@@ -257,6 +257,10 @@ export interface OrganizationSettings {
   /** @deprecated */
   killswitchConfirmation?: boolean;
   requireReviews?: boolean | RequireReview[];
+  // When enabled, a feature draft whose base version is behind the current
+  // live version (or whose approval has gone stale) must be rebased
+  // ("Update from live") before it can be published.
+  requireRebaseBeforePublish?: boolean;
   restApiBypassesReviews?: boolean;
   defaultDataSource?: string;
   testQueryDays?: number;

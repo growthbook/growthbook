@@ -515,6 +515,7 @@ export default function FeaturesHeader({
               <Tabs value={tab} onValueChange={setTab}>
                 <TabsList size="3" style={{ width: "100%" }}>
                   <TabsTrigger value="overview">Overview</TabsTrigger>
+                  <TabsTrigger value="review">Review and Publish</TabsTrigger>
                   <TabsTrigger value="test">Simulate</TabsTrigger>
                   <TabsTrigger value="stats">Code Refs</TabsTrigger>
                   <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>

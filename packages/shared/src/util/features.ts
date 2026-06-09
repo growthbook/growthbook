@@ -919,6 +919,183 @@ export function mergeResultHasChanges(mergeResult: AutoMergeResult): boolean {
   return false;
 }
 
+// A single field that the live feature changed relative to a draft's base
+// version — i.e. a change "published since this draft was created". The `key`
+// mirrors the conflict keys used by `autoMerge` (e.g. "rules",
+// "environmentsEnabled.prod", "metadata.description") and `name` is a
+// human-readable label suitable for UI/notifications.
+export interface LiveChange {
+  key: string;
+  name: string;
+}
+
+// Compute the set of fields that differ between the current live revision and
+// the revision a draft was branched from (its base). This powers the
+// "published in live since this draft's base" panel and the divergence
+// warning/count surfaced before publish, as well as REST API friction
+// payloads. It is purely descriptive — it never resolves or merges anything.
+export function getLiveChangesSinceBase(
+  live: RevisionFields,
+  base: RevisionFields,
+  environments: string[],
+): LiveChange[] {
+  const changes: LiveChange[] = [];
+
+  if (live.defaultValue !== base.defaultValue) {
+    changes.push({ key: "defaultValue", name: "Default Value" });
+  }
+
+  if (
+    !isEqual(naiveFlattenV1Rules(live.rules), naiveFlattenV1Rules(base.rules))
+  ) {
+    changes.push({ key: "rules", name: "Rules" });
+  }
+
+  for (const env of environments) {
+    const liveVal = live.environmentsEnabled?.[env];
+    const baseVal = base.environmentsEnabled?.[env];
+    if (!isEqual(liveVal, baseVal)) {
+      changes.push({
+        key: `environmentsEnabled.${env}`,
+        name: `Env Enabled - ${env}`,
+      });
+    }
+  }
+
+  if (!isEqual(live.prerequisites ?? [], base.prerequisites ?? [])) {
+    changes.push({ key: "prerequisites", name: "Prerequisites" });
+  }
+
+  if ((live.archived ?? false) !== (base.archived ?? false)) {
+    changes.push({ key: "archived", name: "Archived" });
+  }
+
+  if (!isEqual(live.holdout ?? null, base.holdout ?? null)) {
+    changes.push({ key: "holdout", name: "Holdout" });
+  }
+
+  const metadataKeys = new Set<keyof RevisionMetadata>([
+    ...((Object.keys(live.metadata ?? {}) as (keyof RevisionMetadata)[]) || []),
+    ...((Object.keys(base.metadata ?? {}) as (keyof RevisionMetadata)[]) || []),
+  ]);
+  for (const k of metadataKeys) {
+    if (
+      !isEqual(
+        normalizeMetadataValue(k, live.metadata?.[k]),
+        normalizeMetadataValue(k, base.metadata?.[k]),
+      )
+    ) {
+      changes.push({ key: `metadata.${k}`, name: `Metadata - ${k}` });
+    }
+  }
+
+  return changes;
+}
+
+// Classifies how a draft relates to the current live version:
+//   "current"  — built on the live version; nothing changed underneath it
+//   "diverged" — live advanced since the draft's base, but changes auto-merge
+//   "conflict" — live advanced with changes that conflict and need resolution
+export type DivergenceClass = "current" | "diverged" | "conflict";
+
+export interface PublishGovernanceInput {
+  // Status of the draft revision being acted on.
+  revisionStatus: FeatureRevisionInterface["status"];
+  // The version the draft was branched from.
+  baseVersion: number;
+  // The current live version of the feature.
+  liveVersion: number;
+  // Whether autoMerge produced a result with no unresolved conflicts.
+  mergeSuccess: boolean;
+  // The set of fields live changed since the draft's base (descriptive only).
+  liveChanges: LiveChange[];
+  // The live version captured at the moment the draft was approved. Null for
+  // legacy approvals created before this was tracked.
+  approvedBaseVersion?: number | null;
+  // Org setting: when true, a stale draft must be rebased before publishing.
+  requireRebaseBeforePublish?: boolean;
+}
+
+export interface PublishGovernanceResult {
+  diverged: boolean;
+  divergence: DivergenceClass;
+  liveChanges: LiveChange[];
+  // An approved draft whose approval no longer reflects the current live state
+  // because changes were published after approval.
+  staleApproval: boolean;
+  // Rebasing is advisable (divergence or a stale approval). UI should surface
+  // an "Update from live" affordance.
+  recommendRebase: boolean;
+  // Rebasing/conflict-resolution is mandatory before publishing (hard conflict,
+  // or org policy requires same-base merges, or a stale approval under policy).
+  rebaseRequired: boolean;
+  // Whether publishing is allowed in the current state.
+  canPublish: boolean;
+  // Human-readable reason publishing is blocked (null when allowed).
+  blockReason: string | null;
+}
+
+// Central governance decision for publishing/reviewing a draft revision. Pure
+// and side-effect free so it can be unit tested and shared between the publish
+// UI (callouts + CTA gating) and back-end enforcement. It does NOT perform the
+// merge itself — callers pass in the merge outcome and the live-vs-base delta.
+export function evaluatePublishGovernance({
+  revisionStatus,
+  baseVersion,
+  liveVersion,
+  mergeSuccess,
+  liveChanges,
+  approvedBaseVersion = null,
+  requireRebaseBeforePublish = false,
+}: PublishGovernanceInput): PublishGovernanceResult {
+  const diverged = liveVersion !== baseVersion;
+  const divergence: DivergenceClass = !mergeSuccess
+    ? "conflict"
+    : diverged
+      ? "diverged"
+      : "current";
+
+  // An approval is stale when live moved past the point it was approved
+  // against. When we have a tracked approval point, compare against it
+  // precisely; otherwise (legacy approvals) fall back to raw divergence.
+  const staleApproval =
+    revisionStatus === "approved" &&
+    ((approvedBaseVersion ?? null) !== null
+      ? liveVersion !== approvedBaseVersion
+      : diverged);
+
+  const recommendRebase = divergence !== "current" || staleApproval;
+
+  const rebaseRequired =
+    divergence === "conflict" ||
+    (requireRebaseBeforePublish &&
+      (divergence === "diverged" || staleApproval));
+
+  let canPublish = true;
+  let blockReason: string | null = null;
+  if (divergence === "conflict") {
+    canPublish = false;
+    blockReason =
+      "Resolve conflicts with the live version before publishing this draft.";
+  } else if (rebaseRequired) {
+    canPublish = false;
+    blockReason = staleApproval
+      ? "Changes were published after this draft was approved. Update from live and get re-approval before publishing."
+      : "This draft is based on an older version. Update from live before publishing.";
+  }
+
+  return {
+    diverged,
+    divergence,
+    liveChanges,
+    staleApproval,
+    recommendRebase,
+    rebaseRequired,
+    canPublish,
+    blockReason,
+  };
+}
+
 // True if publishing the draft would change anything outside the target
 // experiment's experiment-ref rule(s). Compares effective post-publish state
 // (live overlaid with draft-set fields) vs live, sidestepping autoMerge's
@@ -1070,9 +1247,23 @@ function tryRuleLevelMerge(
   for (const liveRule of live) {
     handledIds.add(liveRule.id);
     const revRule = revById.get(liveRule.id);
-    const revChanged =
-      revRule !== undefined && !isEqual(revRule, baseById.get(liveRule.id));
-    merged.push(revChanged ? revRule! : liveRule);
+    if (revRule === undefined) {
+      // The revision no longer contains this rule.
+      if (baseById.has(liveRule.id)) {
+        // The rule existed in base and the revision removed it. A
+        // delete-vs-modify situation (live also changed it) would have
+        // already escalated to a conflict in the loop above, so reaching
+        // here means live left the rule untouched — honor the draft's
+        // deletion instead of silently resurrecting it.
+        continue;
+      }
+      // The rule is brand new in live (never in base, absent from the draft).
+      // That is a concurrent live addition, not a draft deletion — keep it.
+      merged.push(liveRule);
+      continue;
+    }
+    const revChanged = !isEqual(revRule, baseById.get(liveRule.id));
+    merged.push(revChanged ? revRule : liveRule);
   }
 
   // Append rules added or modified by the revision that are not present in live.

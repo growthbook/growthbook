@@ -493,11 +493,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/DraftModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/ExperimentSummary.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -579,12 +574,12 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/RequestReviewModal.tsx": {
+  "packages/front-end/components/Features/RevertModal.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
   },
-  "packages/front-end/components/Features/RevertModal.tsx": {
+  "packages/front-end/components/Features/ReviewAndPublish.tsx": {
     "no-restricted-imports": {
       "count": 1
     }

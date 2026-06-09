@@ -199,6 +199,12 @@ export const postFeatureRevisionPublishValidator = {
   bodySchema: z
     .object({
       comment: z.string().optional(),
+      mergeNow: z
+        .boolean()
+        .optional()
+        .describe(
+          "Required to publish when the org enforces same-base merges and the revision is behind the live version. Set to true to merge the stale draft anyway instead of rebasing first.",
+        ),
     })
     .strict(),
   querySchema: z.never(),

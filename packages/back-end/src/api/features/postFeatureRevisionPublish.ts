@@ -3,9 +3,11 @@ import {
   autoMerge,
   checkIfRevisionNeedsReview,
   draftDiffersFromLive,
+  evaluatePublishGovernance,
   fillRevisionFromFeature,
   filterEnvironmentsByFeature,
   getEnvsFromRampSchedule,
+  getLiveChangesSinceBase,
   liveRevisionFromFeature,
 } from "shared/util";
 import type { ApiRequestLocals } from "back-end/types/api";
@@ -31,7 +33,7 @@ import { canUseRestApiBypassSetting } from "./reviewBypass";
 export async function publishFeatureRevision(
   req: Pick<ApiRequestLocals, "context" | "organization" | "audit"> & {
     params: { id: string; version: number };
-    body: { comment?: string };
+    body: { comment?: string; mergeNow?: boolean };
   },
   canUseRestApiBypass: boolean,
 ) {
@@ -97,6 +99,38 @@ export async function publishFeatureRevision(
       "Merge conflicts exist — rebase before publishing",
       mergeResult.conflicts,
     );
+  }
+
+  // Governance friction: when the org enforces same-base merges, a draft that
+  // is behind live (or whose approval has gone stale) cannot be auto-merged on
+  // publish. The caller must either rebase first or explicitly opt in with
+  // `mergeNow: true`. Admins with the bypass permission are exempt.
+  if (
+    req.organization.settings?.requireRebaseBeforePublish &&
+    !req.body.mergeNow
+  ) {
+    const governance = evaluatePublishGovernance({
+      revisionStatus: revision.status,
+      baseVersion: revision.baseVersion,
+      liveVersion: feature.version,
+      mergeSuccess: mergeResult.success,
+      liveChanges: getLiveChangesSinceBase(
+        liveRevisionFromFeature(live, feature),
+        fillRevisionFromFeature(base, feature),
+        environmentIds,
+      ),
+      approvedBaseVersion: revision.approvedBaseVersion ?? null,
+      requireRebaseBeforePublish: true,
+    });
+    if (
+      governance.rebaseRequired &&
+      !req.context.permissions.canBypassApprovalChecks(feature)
+    ) {
+      throw new ConflictError(
+        `${governance.blockReason} Rebase the revision (POST .../rebase) first, or retry this request with "mergeNow": true to merge the stale draft anyway.`,
+        [],
+      );
+    }
   }
 
   const filledLive = {

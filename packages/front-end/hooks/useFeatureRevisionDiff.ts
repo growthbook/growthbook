@@ -110,6 +110,11 @@ export type FeatureRevisionDiff = {
   // (e.g. a "[pending publish]" badge for ramp-schedule diffs).
   titleSuffix?: ReactNode;
   badges?: DiffBadge[];
+  // Marks a diff that represents a separate top-level entity (e.g. a ramp
+  // schedule / ramp action) rather than a field of the feature revision itself.
+  // In the "Raw JSON" view these render as their own per-entity diffs alongside
+  // the single whole-revision blob.
+  supplemental?: boolean;
 };
 
 // Mirrors backend `applyEnvironmentInheritance`: fill missing env entries by

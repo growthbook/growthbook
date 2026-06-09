@@ -275,6 +275,20 @@ export default function ApprovalFlowSettings() {
                                 form.setValue("restApiBypassesReviews", v)
                               }
                             />
+                            <Box mt="2">
+                              <Checkbox
+                                id="toggle-requireRebaseBeforePublish"
+                                label="Require drafts to be up to date before publishing"
+                                description="When enabled, a draft based on an older version (or whose approval is stale because changes were published since) must be updated from the live version before it can be published."
+                                value={
+                                  form.watch("requireRebaseBeforePublish") ===
+                                  true
+                                }
+                                setValue={(v) =>
+                                  form.setValue("requireRebaseBeforePublish", v)
+                                }
+                              />
+                            </Box>
                           </Box>
                         )}
                       </Flex>

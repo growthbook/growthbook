@@ -10,6 +10,7 @@ import FeaturesStats from "@/components/Features/FeaturesStats";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { FeatureUsageProvider } from "@/components/Features/FeatureUsageGraph";
 import FeatureTest from "@/components/Features/FeatureTest";
+import ReviewAndPublish from "@/components/Features/ReviewAndPublish";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
@@ -20,7 +21,13 @@ import { useFeatureDependents } from "@/hooks/useFeatureDependents";
 import Callout from "@/ui/Callout";
 import { FeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 
-const featureTabs = ["overview", "stats", "test", "diagnostics"] as const;
+const featureTabs = [
+  "overview",
+  "review",
+  "stats",
+  "test",
+  "diagnostics",
+] as const;
 export type FeatureTab = (typeof featureTabs)[number];
 
 export default function FeaturePage() {
@@ -175,6 +182,22 @@ export default function FeaturePage() {
             setEditProjectModal={setEditProjectModal}
             version={version}
             setVersion={setVersion}
+            setTab={setTabAndScroll}
+          />
+        )}
+
+        {tab === "review" && (
+          <ReviewAndPublish
+            feature={baseFeature}
+            revisions={data.revisions}
+            revisionList={data.revisionList || []}
+            version={version ?? baseFeature.version}
+            setVersion={setVersion}
+            experiments={experiments}
+            rampSchedules={rampSchedules}
+            mutate={refreshData}
+            onClose={() => setTabAndScroll("overview")}
+            onPublish={() => setVersion(baseFeature.version)}
           />
         )}
 

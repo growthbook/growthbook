@@ -336,7 +336,16 @@ export const postSavedGroupRevisionPublishValidator = {
     "Publishes a draft revision, making it the live state of the saved group. Blocked if the org requires approvals and the revision is not approved (callers with the bypass-approval permission may still publish).",
   tags: ["saved-group-revisions"],
   paramsSchema: revisionParamsStrict,
-  bodySchema: z.object({}).strict(),
+  bodySchema: z
+    .object({
+      mergeNow: z
+        .boolean()
+        .optional()
+        .describe(
+          "Required to publish when the org enforces same-base merges and the saved group changed since this revision was created. Set to true to merge the stale revision anyway instead of rebasing first.",
+        ),
+    })
+    .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
