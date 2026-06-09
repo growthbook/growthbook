@@ -93,6 +93,9 @@ info:
 
     - **404** - Not Found - Unknown API route or requested resource
 
+    - **422** - Soft Warning - The request failed, but can be re-submitted with
+    `?ignoreWarnings=true` to proceed anyway.
+
     - **429** - Too Many Requests - You exceeded the rate limit of 60 requests
     per minute. Try again later.
 
@@ -22719,6 +22722,641 @@ paths:
         - lang: cURL
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/transform-copy' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/ai/edit:
+    post:
+      operationId: postVisualEditorAIEdit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                prompt:
+                  type: string
+                  minLength: 1
+                  maxLength: 2000
+                elementContext:
+                  default: []
+                  maxItems: 20
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      selector:
+                        type: string
+                      tagName:
+                        type: string
+                      textSnippet:
+                        type: string
+                      outerHTML:
+                        type: string
+                      attrs:
+                        type: object
+                        propertyNames:
+                          type: string
+                        additionalProperties:
+                          type: string
+                      computedStyles:
+                        type: object
+                        propertyNames:
+                          type: string
+                        additionalProperties:
+                          type: string
+                    required:
+                      - selector
+                      - tagName
+                      - textSnippet
+                      - outerHTML
+                      - attrs
+                    additionalProperties: false
+                variationId:
+                  type: string
+                visualChangesetId:
+                  type: string
+                domDigest:
+                  type: object
+                  properties:
+                    url:
+                      type: string
+                    title:
+                      type: string
+                    structural:
+                      default: []
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          selector:
+                            type: string
+                          tag:
+                            type: string
+                          note:
+                            type: string
+                        required:
+                          - selector
+                          - tag
+                        additionalProperties: false
+                    headings:
+                      default: []
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          selector:
+                            type: string
+                          tag:
+                            type: string
+                          text:
+                            type: string
+                        required:
+                          - selector
+                          - tag
+                          - text
+                        additionalProperties: false
+                    buttons:
+                      default: []
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          selector:
+                            type: string
+                          tag:
+                            type: string
+                          text:
+                            type: string
+                          href:
+                            type: string
+                        required:
+                          - selector
+                          - tag
+                          - text
+                        additionalProperties: false
+                    links:
+                      default: []
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          selector:
+                            type: string
+                          text:
+                            type: string
+                          href:
+                            type: string
+                        required:
+                          - selector
+                          - text
+                          - href
+                        additionalProperties: false
+                    inputs:
+                      default: []
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          selector:
+                            type: string
+                          type:
+                            type: string
+                          name:
+                            type: string
+                          placeholder:
+                            type: string
+                          label:
+                            type: string
+                        required:
+                          - selector
+                          - type
+                        additionalProperties: false
+                    images:
+                      default: []
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          selector:
+                            type: string
+                          alt:
+                            type: string
+                          src:
+                            type: string
+                        required:
+                          - selector
+                          - src
+                        additionalProperties: false
+                  required:
+                    - url
+                    - title
+                    - structural
+                    - headings
+                    - buttons
+                    - links
+                    - inputs
+                    - images
+                  additionalProperties: false
+                conversationHistory:
+                  maxItems: 12
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      role:
+                        type: string
+                        enum:
+                          - user
+                          - assistant
+                      text:
+                        type: string
+                        maxLength: 4000
+                    required:
+                      - role
+                      - text
+                    additionalProperties: false
+                locale:
+                  type: string
+                  minLength: 2
+                  maxLength: 10
+                  pattern: ^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})?$
+                streamingMode:
+                  type: boolean
+              required:
+                - prompt
+                - elementContext
+                - variationId
+                - visualChangesetId
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/ai/edit' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/ai/edit/resume:
+    post:
+      operationId: postVisualEditorAIEditResume
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                jobId:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                callId:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                result: {}
+              required:
+                - jobId
+                - callId
+                - result
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/ai/edit/resume' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/ai/suggestions:
+    post:
+      operationId: postVisualEditorAISuggestions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                visualChangesetId:
+                  type: string
+                pageHints:
+                  type: object
+                  properties:
+                    url:
+                      type: string
+                    title:
+                      type: string
+                    description:
+                      type: string
+                    headings:
+                      maxItems: 20
+                      type: array
+                      items:
+                        type: string
+                  additionalProperties: false
+              required:
+                - visualChangesetId
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/ai/suggestions' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/ai/image-gen:
+    post:
+      operationId: postVisualEditorAIImageGen
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                prompt:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+                aspectRatio:
+                  type: string
+                count:
+                  type: integer
+                  minimum: 1
+                  maximum: 4
+                visualChangesetId:
+                  type: string
+                referenceImage:
+                  type: object
+                  properties:
+                    data:
+                      type: string
+                      minLength: 1
+                      maxLength: 8388608
+                    mimeType:
+                      type: string
+                      enum:
+                        - image/png
+                        - image/jpeg
+                        - image/gif
+                        - image/webp
+                  required:
+                    - data
+                    - mimeType
+                  additionalProperties: false
+              required:
+                - prompt
+                - visualChangesetId
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/ai/image-gen' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/ai/promote-image:
+    post:
+      operationId: postVisualEditorAIPromoteImage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                visualChangesetId:
+                  type: string
+                filePath:
+                  type: string
+              required:
+                - visualChangesetId
+                - filePath
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/ai/promote-image' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/ai/upload-signed-url:
+    post:
+      operationId: postVisualEditorAIUploadSignedUrl
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                contentType:
+                  type: string
+                  enum:
+                    - image/png
+                    - image/jpeg
+                    - image/gif
+                    - image/webp
+                visualChangesetId:
+                  type: string
+              required:
+                - contentType
+                - visualChangesetId
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/ai/upload-signed-url'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/add-variant:
+    post:
+      operationId: postVisualEditorAddVariant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                visualChangesetId:
+                  type: string
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+              required:
+                - visualChangesetId
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/add-variant' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/create-experiment:
+    post:
+      operationId: postVisualEditorCreateExperiment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                pageUrl:
+                  type: string
+                  format: uri
+                urlPatterns:
+                  minItems: 1
+                  maxItems: 100
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      include:
+                        default: true
+                        type: boolean
+                      type:
+                        default: simple
+                        type: string
+                        enum:
+                          - simple
+                          - regex
+                      pattern:
+                        type: string
+                        minLength: 1
+                        maxLength: 2000
+                    required:
+                      - include
+                      - type
+                      - pattern
+                    additionalProperties: false
+                project:
+                  type: string
+                hashAttribute:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                hypothesis:
+                  type: string
+                  maxLength: 2000
+                description:
+                  type: string
+                  maxLength: 2000
+              required:
+                - name
+                - pageUrl
+                - urlPatterns
+                - hashAttribute
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/create-experiment' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/create-changeset:
+    post:
+      operationId: postVisualEditorCreateChangeset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                visualChangesetId:
+                  type: string
+                pageUrl:
+                  type: string
+                  format: uri
+                urlPatterns:
+                  minItems: 1
+                  maxItems: 100
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      include:
+                        default: true
+                        type: boolean
+                      type:
+                        default: simple
+                        type: string
+                        enum:
+                          - simple
+                          - regex
+                      pattern:
+                        type: string
+                        minLength: 1
+                        maxLength: 2000
+                    required:
+                      - include
+                      - type
+                      - pattern
+                    additionalProperties: false
+              required:
+                - visualChangesetId
+                - pageUrl
+                - urlPatterns
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/create-changeset' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/rename-experiment:
+    post:
+      operationId: postVisualEditorRenameExperiment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                visualChangesetId:
+                  type: string
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+              required:
+                - visualChangesetId
+                - name
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/rename-experiment' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/bootstrap:
+    get:
+      operationId: getVisualEditorBootstrap
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/visual-editor/bootstrap' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/library/images:
+    get:
+      operationId: getVisualEditorLibraryImages
+      parameters:
+        - name: limit
+          in: query
+          description: ''
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/visual-editor/library/images' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/dashboards/{id}:
     get:

@@ -250,6 +250,14 @@ export interface OrganizationSettings {
   embeddingModel?: EmbeddingModel;
   /** @deprecated */
   openAIDefaultModel?: AIModel;
+  // Per-surface overrides for the Visual Editor. Image model is a free
+  // string (not AIModel) because Gemini image-model ids live in their
+  // own namespace and rev independently of the text-model union.
+  visualEditorAIModel?: AIModel;
+  visualEditorImageModel?: string;
+  // Free-text brand guidelines appended to the Visual Editor AI system
+  // prompt (e.g. tone, brand colors, button casing).
+  visualEditorAIContext?: string;
   implementationTypes?: ImplementationType[];
   attributionModel?: AttributionModel;
   sequentialTestingEnabled?: boolean;

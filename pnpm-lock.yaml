@@ -450,6 +450,9 @@ importers:
       uuid:
         specifier: ^14.0.0
         version: 14.0.0
+      wasm-vips:
+        specifier: ^0.0.17
+        version: 0.0.17
       zod:
         specifier: ^4.1.12
         version: 4.1.12
@@ -13050,6 +13053,10 @@ packages:
 
   warning@4.0.3:
     resolution: {integrity: sha512-rpJyN222KWIvHJ/F53XSZv0Zl/accqHR8et1kpaMTD/fLCRxtV8iX8czMzY7sVZupTI3zcUTg8eycS2kNF9l6w==}
+
+  wasm-vips@0.0.17:
+    resolution: {integrity: sha512-nhkqUNJDUymImoXGrVfImC4wzIFTb9KfBpAngb7dcEQNPP1gVTx4+WL3VVVDSXQpMsyeacsQDOx0+DM33Rpurg==}
+    engines: {node: '>=16.4.0'}
 
   wcwidth@1.0.1:
     resolution: {integrity: sha512-XHPEwS0q6TaxcvG85+8EYkbiCux2XtWG2mkc47Ng2A77BQu9+DqIOJldST4HgPkuea7dvKSj5VgX3P1d4rW8Tg==}
@@ -28535,6 +28542,8 @@ snapshots:
   warning@4.0.3:
     dependencies:
       loose-envify: 1.4.0
+
+  wasm-vips@0.0.17: {}
 
   wcwidth@1.0.1:
     dependencies:
