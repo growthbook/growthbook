@@ -23215,11 +23215,18 @@ paths:
                 description:
                   type: string
                   maxLength: 2000
+                type:
+                  default: standard
+                  type: string
+                  enum:
+                    - standard
+                    - multi-armed-bandit
               required:
                 - name
                 - pageUrl
                 - urlPatterns
                 - hashAttribute
+                - type
               additionalProperties: false
       responses:
         '200':
