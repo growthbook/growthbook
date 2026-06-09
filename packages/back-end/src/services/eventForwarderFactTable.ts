@@ -382,7 +382,8 @@ export async function ensureEventForwarderEventsFactTable(
   const factTable = await createFactTable(context, {
     id: getEventForwarderEventsFactTableId(datasource.id),
     name: getEventForwarderEventsFactTableName(datasource.name),
-    description: "",
+    description:
+      "This fact table was auto-generated when the event forwarder was enabled and is read-only. As you make changes to attributes, we'll automatically update the Fact Table's SQL to reflect the changes. If you&apos;d like to customize this Fact Table, you can duplicate it and edit the copy.",
     owner: "",
     tags: [],
     projects: datasource.projects ?? [],
