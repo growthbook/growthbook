@@ -186,7 +186,6 @@ describe("snapshot planning", () => {
     jest.clearAllMocks();
     getDataSourceByIdMock.mockResolvedValue(makeDatasource());
     getSourceIntegrationObjectMock.mockReturnValue({} as never);
-    // Default: eligible
     checkIncrementalRefreshEligibilityMock.mockResolvedValue({
       eligible: true,
     });

@@ -218,7 +218,6 @@ describe("checkIncrementalRefreshEligibility", () => {
       id: "m1",
       type: "mean",
     } as unknown as ExperimentMetricInterface;
-    // Verify our test assumption
     expect(isFactMetric(legacyMetric)).toBe(false);
 
     const result = await checkIncrementalRefreshEligibility({
