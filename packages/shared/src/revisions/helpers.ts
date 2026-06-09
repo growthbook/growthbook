@@ -76,31 +76,58 @@ export const isSavedGroupRevisionMetadataOnly = (
 };
 
 /**
- * Top-level SDK-connection fields that count as "metadata" for the
- * `requireMetadataReview` gate. Almost every SDK-connection field affects the
- * generated payload, so only the display name is treated as metadata.
- * Archiving is intentionally excluded — it's a significant state change that
- * always goes through review when approval is enabled.
- */
-export const SDK_CONNECTION_METADATA_FIELDS: ReadonlySet<string> = new Set([
-  "name",
-]);
-
-/**
- * Returns true when every proposed change in the revision touches an
- * SDK-connection metadata field (per `SDK_CONNECTION_METADATA_FIELDS`). An
- * empty proposed-changes list returns false — there's nothing to publish, so
- * the "metadata-only shortcut" doesn't apply.
+ * Returns true when the only change in the revision is the SDK-connection
+ * display name (the sole "metadata" field). Almost every other field affects
+ * the generated payload, so only the name is exempt. Archiving and webhook
+ * changes are intentionally excluded — they always require review when
+ * approval is enabled.
+ *
+ * With the nested snapshot structure, connection settings are stored as a
+ * coarse `replace /sdkConnection` patch containing the entire new settings
+ * object. To determine which fields actually changed we compare against the
+ * `baselineSnapshot.sdkConnection` supplied by the caller (both the adapter
+ * and the frontend have the revision's snapshot available). Without a
+ * baseline we conservatively return `false` (require review).
  */
 export const isSdkConnectionRevisionMetadataOnly = (
   proposedChanges: JsonPatchOperation[] | unknown,
+  baselineSnapshot?: Record<string, unknown>,
 ): boolean => {
   const ops = normalizeProposedChanges(proposedChanges);
   if (ops.length === 0) return false;
-  return ops.every((op) => {
-    const field = op.path.split("/")[1];
-    return !!field && SDK_CONNECTION_METADATA_FIELDS.has(field);
-  });
+
+  // Any webhook op means something more than metadata changed.
+  if (ops.some((op) => op.path === "/sdkWebhooks")) return false;
+
+  // Expect exactly one `replace /sdkConnection` op.
+  const connOp = ops.find(
+    (op) => op.path === "/sdkConnection" && op.op === "replace",
+  );
+  if (!connOp || ops.length > 1) return false;
+
+  // Need the baseline settings object to know which fields changed.
+  const baseline = baselineSnapshot?.["sdkConnection"] as
+    | Record<string, unknown>
+    | undefined;
+  if (!baseline) return false;
+
+  const proposed = ("value" in connOp ? connOp.value : undefined) as
+    | Record<string, unknown>
+    | undefined;
+  if (!proposed || typeof proposed !== "object" || Array.isArray(proposed)) {
+    return false;
+  }
+
+  // Metadata-only if every field is identical to the baseline except `name`
+  // and system-managed fields (`dateUpdated`, `dateCreated`).
+  const skipKeys = new Set(["name", "dateUpdated", "dateCreated"]);
+  const allKeys = new Set([...Object.keys(proposed), ...Object.keys(baseline)]);
+  for (const key of allKeys) {
+    if (skipKeys.has(key)) continue;
+    if (!isEqual(proposed[key], baseline[key])) return false;
+  }
+  // Require the name to have actually changed (otherwise zero real changes).
+  return !isEqual(proposed["name"], baseline["name"]);
 };
 
 // ---------------------------------------------------------------------------
@@ -314,9 +341,15 @@ export function normalizeProposedChanges(
 }
 
 /**
- * Apply the top-level `replace` / `add` / `remove` operations from a JSON Patch
- * array to an object and return the resulting merged object.  Nested paths
- * (e.g. `/values/0`) are treated as a no-op since we only track top-level fields.
+ * Apply `replace` / `add` / `remove` operations from a JSON Patch array to an
+ * object and return the resulting merged object.
+ *
+ * Handles paths up to two levels deep:
+ *  - `/fieldName`          — top-level field (existing behaviour, all entity types)
+ *  - `/parentField/child`  — nested field (SDK-connection snapshot: `/sdkConnection/name`)
+ *
+ * Paths three or more levels deep are treated as a no-op since no current entity
+ * type generates them.
  *
  * This is intentionally a lightweight, dependency-free alternative to
  * `fast-json-patch` so it can be used in both front-end and back-end shared code.
@@ -329,15 +362,33 @@ export function applyTopLevelPatchOps<T extends Record<string, unknown>>(
   if (ops.length === 0) return snapshot;
   const result: Record<string, unknown> = { ...snapshot };
   for (const op of ops) {
-    // Only handle simple top-level paths like "/fieldName"
     const parts = op.path.split("/");
-    if (parts.length !== 2 || !parts[1]) continue;
-    const field = parts[1];
-    if (op.op === "replace" || op.op === "add") {
-      result[field] = op.value;
-    } else if (op.op === "remove") {
-      delete result[field];
+    if (parts.length < 2 || !parts[1]) continue;
+    const topField = parts[1];
+
+    if (parts.length === 2) {
+      // Top-level path: "/fieldName"
+      if (op.op === "replace" || op.op === "add") {
+        result[topField] = op.value;
+      } else if (op.op === "remove") {
+        delete result[topField];
+      }
+    } else if (parts.length === 3 && parts[2]) {
+      // Two-level path: "/parentField/childField"
+      const childField = parts[2];
+      const parent = result[topField];
+      const updated: Record<string, unknown> =
+        parent && typeof parent === "object" && !Array.isArray(parent)
+          ? { ...(parent as Record<string, unknown>) }
+          : {};
+      if (op.op === "replace" || op.op === "add") {
+        updated[childField] = op.value;
+      } else if (op.op === "remove") {
+        delete updated[childField];
+      }
+      result[topField] = updated;
     }
+    // Deeper paths intentionally ignored — no current entity type uses them.
   }
   return result as T;
 }

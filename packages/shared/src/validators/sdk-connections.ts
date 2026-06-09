@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
-
 import { namedSchema } from "./openapi-helpers";
+import { payloadFormatValidator, webhookMethods } from "./webhooks";
 
 // Corresponds to schemas/SdkConnection.yaml
 export const apiSdkConnectionValidator = namedSchema(
@@ -51,14 +51,14 @@ export type ApiSdkConnection = z.infer<typeof apiSdkConnectionValidator>;
 // Revision/approval-flow schemas
 // ---------------------------------------------------------------------------
 
-// The shape stored as a revision snapshot for an SDK connection. It is a
-// flattened, secret-free projection of SDKConnectionInterface:
+// The connection-settings portion of a revision snapshot. It is a flattened,
+// secret-free projection of SDKConnectionInterface:
 //   - `proxy` is flattened to `proxyEnabled` / `proxyHost` so it lines up with
 //     the EditSDKConnectionParams the merge step ultimately writes.
 //   - secret/system fields (`encryptionKey`, `key`, the proxy signing key,
 //     `connected`, `managedBy`) are intentionally omitted.
 // Strict so the adapter's snapshot whitelist can't silently drift from this.
-export const sdkConnectionSnapshotValidator = z
+export const sdkConnectionSettingsSnapshotValidator = z
   .object({
     id: z.string(),
     organization: z.string(),
@@ -89,16 +89,47 @@ export const sdkConnectionSnapshotValidator = z
   })
   .strict();
 
+export type SDKConnectionSettingsRevisionSnapshot = z.infer<
+  typeof sdkConnectionSettingsSnapshotValidator
+>;
+
+// Webhook fields tracked in a revision snapshot. Runtime/secret fields
+// (signingKey, lastSuccess, error, consecutiveFailures, managedBy, sdks,
+// useSdkMode) are intentionally omitted.
+export const sdkWebhookSnapshotValidator = z.object({
+  id: z.string(),
+  name: z.string(),
+  endpoint: z.string(),
+  httpMethod: z.enum(webhookMethods),
+  headers: z.string().optional(),
+  payloadFormat: payloadFormatValidator.optional(),
+  payloadKey: z.string().optional(),
+  disabled: z.boolean().optional(),
+});
+
+export type SDKWebhookRevisionSnapshot = z.infer<
+  typeof sdkWebhookSnapshotValidator
+>;
+
+// Composite snapshot combining connection settings and associated webhooks.
+// When a revision is published, `sdkConnection` changes apply to the
+// sdkconnections collection and `sdkWebhooks` changes apply to the webhooks
+// collection.
+export const sdkConnectionSnapshotValidator = z.object({
+  sdkConnection: sdkConnectionSettingsSnapshotValidator,
+  sdkWebhooks: z.array(sdkWebhookSnapshotValidator),
+});
+
 export type SDKConnectionRevisionSnapshot = z.infer<
   typeof sdkConnectionSnapshotValidator
 >;
 
 // Single source of truth for the SDK-connection fields a revision is allowed to
 // mutate when applying changes to the live connection. Derived from the
-// snapshot schema so it cannot drift. The keys line up with
+// settings snapshot schema so it cannot drift. The keys line up with
 // EditSDKConnectionParams.
 export const sdkConnectionUpdatableFieldsSchema =
-  sdkConnectionSnapshotValidator.pick({
+  sdkConnectionSettingsSnapshotValidator.pick({
     name: true,
     eventTracker: true,
     languages: true,

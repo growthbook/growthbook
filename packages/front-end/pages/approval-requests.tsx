@@ -169,8 +169,9 @@ function revisionToRow(revision: Revision): ApprovalRow {
     url = buildSavedGroupRevisionUrl(revision.target.id, revision);
   } else {
     // sdk-connection (and any future entity types added to the union)
-    entityName = revision.target.snapshot?.name || revision.target.id;
-    projects = revision.target.snapshot?.projects ?? [];
+    entityName =
+      revision.target.snapshot?.sdkConnection?.name || revision.target.id;
+    projects = revision.target.snapshot?.sdkConnection?.projects ?? [];
     url = buildSDKConnectionRevisionUrl(revision.target.id, revision);
   }
 

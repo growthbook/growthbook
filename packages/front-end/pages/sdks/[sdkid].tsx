@@ -1,5 +1,8 @@
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
-import { SDKConnectionRevisionSnapshot } from "shared/validators";
+import {
+  SDKConnectionRevisionSnapshot,
+  SDKConnectionSettingsRevisionSnapshot,
+} from "shared/validators";
 import { useRouter } from "next/router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
@@ -52,18 +55,69 @@ import {
 } from "@/ui/DropdownMenu";
 import { capitalizeFirstLetter } from "@/services/utils";
 
-// The revision snapshot is a flattened, secret-free view of the connection
-// (proxy.enabled -> proxyEnabled, proxy.host -> proxyHost). The diff config and
-// proposed-change paths reference those flattened keys, so RevisionDetail's
-// `currentState` must be flattened to match. Mirrors the backend `toSnapshot`.
+// Build the revision snapshot for a live connection (no webhooks — the live
+// snapshot is used only as the baseline for diff rendering; webhooks are
+// fetched separately and not needed here).
 function flattenConnection(
   connection: SDKConnectionInterface,
 ): SDKConnectionRevisionSnapshot {
-  return {
-    ...connection,
+  const settings: SDKConnectionSettingsRevisionSnapshot = {
+    id: connection.id,
+    organization: connection.organization,
+    name: connection.name,
+    ...(connection.eventTracker !== undefined && {
+      eventTracker: connection.eventTracker,
+    }),
+    languages: connection.languages,
+    ...(connection.sdkVersion !== undefined && {
+      sdkVersion: connection.sdkVersion,
+    }),
+    environment: connection.environment,
+    projects: connection.projects ?? [],
+    encryptPayload: connection.encryptPayload,
+    ...(connection.hashSecureAttributes !== undefined && {
+      hashSecureAttributes: connection.hashSecureAttributes,
+    }),
+    ...(connection.includeVisualExperiments !== undefined && {
+      includeVisualExperiments: connection.includeVisualExperiments,
+    }),
+    ...(connection.includeDraftExperiments !== undefined && {
+      includeDraftExperiments: connection.includeDraftExperiments,
+    }),
+    ...(connection.includeExperimentNames !== undefined && {
+      includeExperimentNames: connection.includeExperimentNames,
+    }),
+    ...(connection.includeRedirectExperiments !== undefined && {
+      includeRedirectExperiments: connection.includeRedirectExperiments,
+    }),
+    ...(connection.includeRuleIds !== undefined && {
+      includeRuleIds: connection.includeRuleIds,
+    }),
+    ...(connection.includeProjectIdInMetadata !== undefined && {
+      includeProjectIdInMetadata: connection.includeProjectIdInMetadata,
+    }),
+    ...(connection.includeCustomFieldsInMetadata !== undefined && {
+      includeCustomFieldsInMetadata: connection.includeCustomFieldsInMetadata,
+    }),
+    ...(connection.allowedCustomFieldsInMetadata !== undefined && {
+      allowedCustomFieldsInMetadata: connection.allowedCustomFieldsInMetadata,
+    }),
+    ...(connection.includeTagsInMetadata !== undefined && {
+      includeTagsInMetadata: connection.includeTagsInMetadata,
+    }),
+    ...(connection.remoteEvalEnabled !== undefined && {
+      remoteEvalEnabled: connection.remoteEvalEnabled,
+    }),
+    ...(connection.savedGroupReferencesEnabled !== undefined && {
+      savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
+    }),
     proxyEnabled: connection.proxy?.enabled,
     proxyHost: connection.proxy?.host,
+    ...(connection.archived !== undefined && { archived: connection.archived }),
+    dateCreated: new Date(connection.dateCreated),
+    dateUpdated: new Date(connection.dateUpdated),
   };
+  return { sdkConnection: settings, sdkWebhooks: [] };
 }
 
 // Overlay a flattened snapshot-shaped object onto a live connection. Flattened
@@ -92,17 +146,21 @@ function overlayFlattenedOnConnection(
 }
 
 // Build the edit form's initialValue from the live connection overlaid with a
-// draft's proposed (flattened) changes.
+// draft's proposed (flattened) changes. Patches target /sdkConnection as a
+// coarse-replacement op, so we extract the sdkConnection portion.
 function buildEditInitialValue(
   connection: SDKConnectionInterface,
   revision: Revision | null,
 ): Partial<SDKConnectionInterface> {
   if (!revision) return connection;
-  const proposed = patchOpsToPartial(revision.target.proposedChanges) as Record<
-    string,
-    unknown
-  >;
-  return overlayFlattenedOnConnection(connection, proposed);
+  const proposedPartial = patchOpsToPartial(
+    revision.target.proposedChanges,
+  ) as Partial<SDKConnectionRevisionSnapshot>;
+  const settings = proposedPartial.sdkConnection ?? {};
+  return overlayFlattenedOnConnection(
+    connection,
+    settings as Record<string, unknown>,
+  );
 }
 
 // Build the connection shape that represents the revision's effective state
@@ -117,8 +175,11 @@ function buildDisplayedConnection(
   const effective = applyTopLevelPatchOps(
     revision.target.snapshot as Record<string, unknown>,
     revision.target.proposedChanges,
-  ) as Record<string, unknown>;
-  return overlayFlattenedOnConnection(connection, effective);
+  ) as SDKConnectionRevisionSnapshot;
+  return overlayFlattenedOnConnection(
+    connection,
+    (effective.sdkConnection ?? {}) as Record<string, unknown>,
+  );
 }
 
 export default function SDKConnectionPage() {
@@ -462,7 +523,7 @@ export default function SDKConnectionPage() {
           {displayedArchived && <Badge label="Archived" color="gray" />}
         </Flex>
         <Flex align="center" gap="4" pr="2">
-          {showRevisionUI && activeTab === "overview" && (
+          {showRevisionUI && (
             <RevisionDropdown
               entityId={connection.id}
               allRevisions={allRevisions}
@@ -557,85 +618,85 @@ export default function SDKConnectionPage() {
         </Flex>
       </Flex>
 
+      {showRevisionUI && (
+        <RevisionStatusPanel
+          entityNoun="SDK connection"
+          allRevisions={allRevisions}
+          selectedRevision={selectedRevision}
+          displayRevision={displayRevision}
+          revisionNumber={revisionNumber}
+          metadataReviewRequired={metadataReviewRequired}
+          currentUserId={user?.id}
+          fallbackAuthorId=""
+          fallbackCreatedDate={connection.dateCreated}
+          selectFlow={selectFlow}
+          onSaveTitle={saveRevisionTitle}
+          titleRowExtra={
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={<PiGitDiff />}
+              onClick={() => setShowCompareModal(true)}
+              style={{ position: "relative", top: -5 }}
+            >
+              Compare revisions
+            </Button>
+          }
+          actions={
+            <>
+              {isLive && canUpdate && (
+                <Button
+                  onClick={() => setConfirmNewDraft(true)}
+                  size="sm"
+                  variant="soft"
+                >
+                  New Draft
+                </Button>
+              )}
+              {isDiscarded && displayRevision && (
+                <Button
+                  onClick={() => handleReopen(displayRevision.id)}
+                  size="sm"
+                >
+                  Reopen
+                </Button>
+              )}
+              {isDraft &&
+                displayRevision &&
+                displayRevision.authorId === user?.id && (
+                  <Button
+                    onClick={async () => {
+                      await handleDiscard(displayRevision.id);
+                    }}
+                    color="red"
+                    variant="ghost"
+                    size="sm"
+                  >
+                    Discard
+                  </Button>
+                )}
+              {isDraft && (
+                <Button onClick={() => setShowChangesModal(true)} size="sm">
+                  {selectedRevisionRequiresApproval
+                    ? selectedRevision?.status === "draft"
+                      ? "Request Approval to Publish"
+                      : selectedRevision?.status === "pending-review"
+                        ? "View Approval Request"
+                        : "View Changes"
+                    : "Review & Publish"}
+                </Button>
+              )}
+            </>
+          }
+        />
+      )}
+
       <Tabs value={activeTab} onValueChange={setActiveTab} mt="4">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="webhooks">Webhooks</TabsTrigger>
         </TabsList>
         <TabsContent value="overview">
-          {showRevisionUI && (
-            <RevisionStatusPanel
-              entityNoun="SDK connection"
-              allRevisions={allRevisions}
-              selectedRevision={selectedRevision}
-              displayRevision={displayRevision}
-              revisionNumber={revisionNumber}
-              metadataReviewRequired={metadataReviewRequired}
-              currentUserId={user?.id}
-              fallbackAuthorId=""
-              fallbackCreatedDate={connection.dateCreated}
-              selectFlow={selectFlow}
-              onSaveTitle={saveRevisionTitle}
-              titleRowExtra={
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  icon={<PiGitDiff />}
-                  onClick={() => setShowCompareModal(true)}
-                  style={{ position: "relative", top: -5 }}
-                >
-                  Compare revisions
-                </Button>
-              }
-              actions={
-                <>
-                  {isLive && canUpdate && (
-                    <Button
-                      onClick={() => setConfirmNewDraft(true)}
-                      size="sm"
-                      variant="soft"
-                    >
-                      New Draft
-                    </Button>
-                  )}
-                  {isDiscarded && displayRevision && (
-                    <Button
-                      onClick={() => handleReopen(displayRevision.id)}
-                      size="sm"
-                    >
-                      Reopen
-                    </Button>
-                  )}
-                  {isDraft &&
-                    displayRevision &&
-                    displayRevision.authorId === user?.id && (
-                      <Button
-                        onClick={async () => {
-                          await handleDiscard(displayRevision.id);
-                        }}
-                        color="red"
-                        variant="ghost"
-                        size="sm"
-                      >
-                        Discard
-                      </Button>
-                    )}
-                  {isDraft && (
-                    <Button onClick={() => setShowChangesModal(true)} size="sm">
-                      {selectedRevisionRequiresApproval
-                        ? selectedRevision?.status === "draft"
-                          ? "Request Approval to Publish"
-                          : selectedRevision?.status === "pending-review"
-                            ? "View Approval Request"
-                            : "View Changes"
-                        : "Review & Publish"}
-                    </Button>
-                  )}
-                </>
-              }
-            />
-          )}
-
           <div className="mt-4">
             <ConnectionDiagram
               connection={displayedConn}
@@ -756,7 +817,12 @@ export default function SDKConnectionPage() {
         </TabsContent>
         <TabsContent value="webhooks">
           <div className="mt-4">
-            <SdkWebhooks connection={connection} />
+            <SdkWebhooks
+              connection={connection}
+              approvalRequired={approvalRequired}
+              onRevisionCreated={onRevisionCreated}
+              selectedRevision={selectedRevision}
+            />
           </div>
         </TabsContent>
       </Tabs>

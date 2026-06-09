@@ -1,8 +1,17 @@
 import React, { ReactElement, useState } from "react";
-import { WebhookInterface } from "shared/types/webhook";
+import {
+  WebhookInterface,
+  CreateSdkWebhookProps,
+  UpdateSdkWebhookProps,
+} from "shared/types/webhook";
 import { FaCheck, FaExclamationTriangle, FaInfoCircle } from "react-icons/fa";
 import { ago } from "shared/dates";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
+import { Revision } from "shared/enterprise";
+import {
+  sdkWebhookSnapshotValidator,
+  SDKWebhookRevisionSnapshot,
+} from "shared/validators";
 import useApi from "@/hooks/useApi";
 import EditSDKWebhooksModal, {
   CreateSDKWebhookModal,
@@ -42,10 +51,20 @@ const payloadFormatLabels: Record<string, string | ReactElement> = {
   none: "none",
 };
 
+function toSnapshot(wh: WebhookInterface): SDKWebhookRevisionSnapshot {
+  return sdkWebhookSnapshotValidator.parse(wh);
+}
+
 export default function SdkWebhooks({
   connection,
+  approvalRequired,
+  onRevisionCreated,
+  selectedRevision,
 }: {
   connection: SDKConnectionInterface;
+  approvalRequired?: boolean;
+  onRevisionCreated?: (revision: Revision) => void;
+  selectedRevision?: Revision | null;
 }) {
   const { data, mutate } = useApi<{ webhooks?: WebhookInterface[] }>(
     `/sdk-connections/${connection.id}/webhooks`,
@@ -66,6 +85,96 @@ export default function SdkWebhooks({
   const disableWebhookCreate =
     !canCreateWebhooks ||
     (hasWebhooks && !hasCommercialFeature("multiple-sdk-webhooks"));
+
+  // Build the PUT URL to route a webhook change through the revision system.
+  // If there's an existing open draft, append to it; otherwise create a new one.
+  function buildRevisionUrl() {
+    if (selectedRevision?.id) {
+      return `/sdk-connections/${connection.id}?revisionId=${selectedRevision.id}`;
+    }
+    return `/sdk-connections/${connection.id}?forceCreateRevision=1`;
+  }
+
+  // Submit a sdkWebhooks array change through the revision system.
+  async function submitWebhookRevision(
+    newSnapshots: SDKWebhookRevisionSnapshot[],
+  ) {
+    const res = await apiCall<{
+      status: number;
+      requiresApproval?: boolean;
+      revision?: Revision;
+    }>(buildRevisionUrl(), {
+      method: "PUT",
+      body: JSON.stringify({ sdkWebhooks: newSnapshots }),
+    });
+    if (res?.revision) {
+      onRevisionCreated?.(res.revision);
+    }
+    await mutate();
+  }
+
+  // Override for CreateSDKWebhookModal when approvals are enabled.
+  const handleCreateViaRevision = async (
+    formData: CreateSdkWebhookProps,
+  ): Promise<void> => {
+    const currentSnapshots = (data?.webhooks ?? []).map(toSnapshot);
+    const tempId = `temp_${Date.now()}`;
+    const newSnapshot: SDKWebhookRevisionSnapshot = {
+      id: tempId,
+      name: formData.name,
+      endpoint: formData.endpoint,
+      httpMethod: formData.httpMethod ?? "POST",
+      ...(formData.headers !== undefined && { headers: formData.headers }),
+      ...(formData.payloadFormat !== undefined && {
+        payloadFormat: formData.payloadFormat,
+      }),
+      ...(formData.payloadKey !== undefined && {
+        payloadKey: formData.payloadKey,
+      }),
+    };
+    await submitWebhookRevision([...currentSnapshots, newSnapshot]);
+  };
+
+  // Override for EditSDKWebhooksModal when approvals are enabled.
+  const handleEditViaRevision = async (
+    formData: UpdateSdkWebhookProps,
+    id: string | undefined,
+  ): Promise<void> => {
+    const currentSnapshots = (data?.webhooks ?? []).map(toSnapshot);
+    if (!id) {
+      // No id — treat as a new webhook
+      await handleCreateViaRevision(formData as CreateSdkWebhookProps);
+      return;
+    }
+    const updated = currentSnapshots.map((s) =>
+      s.id === id
+        ? {
+            ...s,
+            name: formData.name ?? s.name,
+            endpoint: formData.endpoint ?? s.endpoint,
+            httpMethod: formData.httpMethod ?? s.httpMethod,
+            ...(formData.headers !== undefined && {
+              headers: formData.headers,
+            }),
+            ...(formData.payloadFormat !== undefined && {
+              payloadFormat: formData.payloadFormat,
+            }),
+            ...(formData.payloadKey !== undefined && {
+              payloadKey: formData.payloadKey,
+            }),
+          }
+        : s,
+    );
+    await submitWebhookRevision(updated);
+  };
+
+  // Delete via revision — removes the webhook from the snapshot array.
+  const handleDeleteViaRevision = async (webhookId: string): Promise<void> => {
+    const currentSnapshots = (data?.webhooks ?? []).map(toSnapshot);
+    await submitWebhookRevision(
+      currentSnapshots.filter((s) => s.id !== webhookId),
+    );
+  };
 
   const renderTableRows = () => {
     // only render table if there is data to show
@@ -227,10 +336,14 @@ export default function SdkWebhooks({
                     text="Delete"
                     useIcon={false}
                     onClick={async () => {
-                      await apiCall(`/sdk-webhooks/${webhook.id}`, {
-                        method: "DELETE",
-                      });
-                      mutate();
+                      if (approvalRequired) {
+                        await handleDeleteViaRevision(webhook.id);
+                      } else {
+                        await apiCall(`/sdk-webhooks/${webhook.id}`, {
+                          method: "DELETE",
+                        });
+                        mutate();
+                      }
                     }}
                   />
                 ) : null}
@@ -317,6 +430,9 @@ export default function SdkWebhooks({
           onSave={mutate}
           current={editWebhookData}
           sdkConnectionId={connection.id}
+          onOverrideSubmit={
+            approvalRequired ? handleEditViaRevision : undefined
+          }
         />
       )}
       {createWebhookModalOpen && (
@@ -326,6 +442,9 @@ export default function SdkWebhooks({
           sdkConnectionId={connection.id}
           sdkConnectionKey={connection.key}
           language={connection.languages?.[0]}
+          onOverrideCreate={
+            approvalRequired ? handleCreateViaRevision : undefined
+          }
         />
       )}
       {!isEmpty && renderTable()}
