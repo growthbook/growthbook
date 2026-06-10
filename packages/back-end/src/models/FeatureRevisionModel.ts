@@ -1201,19 +1201,22 @@ export async function submitReviewAndComments(
     },
   );
 
-  // Fire and forget - no route that submits the review and comments expects the log to be there immediately
-  context.models.featureRevisionLogs
-    .create({
+  // Await the log write: `publishRevision` reads these logs to determine
+  // approvers for validateFeaturePublish hooks, so an Approved entry must be
+  // persisted before the review request returns. Failures still don't block
+  // the review itself.
+  try {
+    await context.models.featureRevisionLogs.create({
       featureId: revision.featureId,
       version: revision.version,
       action,
       subject: "",
       user,
       value: JSON.stringify(comment ? { comment } : {}),
-    })
-    .catch((e) => {
-      logger.error(e, "Error creating revisionlog");
     });
+  } catch (e) {
+    logger.error(e, "Error creating revisionlog");
+  }
 }
 
 export async function discardRevision(

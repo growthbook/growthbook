@@ -97,7 +97,10 @@ import {
   deleteVercelExperimentationItemFromFeature,
 } from "back-end/src/services/vercel-native-integration.service";
 import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
-import { runValidateFeatureHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
+import {
+  runValidateFeatureHooks,
+  runValidateFeaturePublishHooks,
+} from "back-end/src/enterprise/sandbox/sandbox-eval";
 import {
   createEvent,
   hasPreviousObject,
@@ -2222,6 +2225,41 @@ export async function publishRevision({
   if (!bypassLockdown) {
     await assertFeatureNotLockedByRamp(context, feature.id);
   }
+
+  // Run publish validation hooks before any writes (feature doc, ramp
+  // schedules, SDK refresh) so a throwing hook blocks the publish cleanly.
+  const revisionLogs =
+    await context.models.featureRevisionLogs.getAllByFeatureIdAndVersion({
+      featureId: revision.featureId,
+      version: revision.version,
+    });
+  // Only count a user as an approver if their most recent review decision is
+  // an approval — an approval followed by "Requested Changes" is withdrawn.
+  const latestReviewByUser = new Map<string, (typeof revisionLogs)[number]>();
+  for (const log of revisionLogs) {
+    if (log.action !== "Approved" && log.action !== "Requested Changes") {
+      continue;
+    }
+    const u = log.user;
+    const key = !u
+      ? "null"
+      : u.type === "api_key"
+        ? `api_key:${u.apiKey}`
+        : `${u.type}:${u.id ?? ""}`;
+    const prev = latestReviewByUser.get(key);
+    if (!prev || log.dateCreated >= prev.dateCreated) {
+      latestReviewByUser.set(key, log);
+    }
+  }
+  const approvers = [...latestReviewByUser.values()]
+    .filter((l) => l.action === "Approved")
+    .map((l) => l.user);
+  await runValidateFeaturePublishHooks({
+    context,
+    feature,
+    revision,
+    approvers,
+  });
 
   // Create ramp schedules BEFORE writing the feature so that a schedule
   // creation failure gates the publish (atomicity: no published feature without
