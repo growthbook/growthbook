@@ -35,23 +35,13 @@ const bodySchema = z
     prompt: z.string().min(1).max(2000),
     variationId: z.string(),
     visualChangesetId: z.string(),
-    // CSS selector of the element the user picked as the injection anchor.
+    // CSS selector of the container the user picked as the injection point.
     targetSelector: z.string().min(1),
-    // Where to place the generated component relative to the target:
-    //   "append" → append inside the target (last child)
-    //   "set"    → replace the target's contents
-    //   "before" → insert as the target's previous sibling
-    //   "after"  → insert as the target's next sibling
-    // before/after require parentSelector (+ insertBeforeSelector) and are
-    // emitted as an append-to-parent + dom-mutator position move so they
-    // survive in the production SDK.
-    injectionMode: z
-      .enum(["append", "set", "before", "after"])
-      .default("append"),
-    // For before/after: the target's parent selector, and the sibling to
-    // insert the component before (null ⇒ append at the parent's end).
-    parentSelector: z.string().optional(),
-    insertBeforeSelector: z.string().nullable().optional(),
+    // "append" → append the component inside the target (last child);
+    // "set" → replace the target's contents. These are the only placements
+    // dom-mutator can apply as a single, conflict-free mutation (it has no
+    // safe "insert new sibling" primitive — see the mutation build below).
+    injectionMode: z.enum(["append", "set"]).default("append"),
     source: z.discriminatedUnion("kind", [
       z.object({ kind: z.literal("figma"), fileUrl: z.string().url() }),
       z.object({ kind: z.literal("image"), image: designImageSchema }),
@@ -127,23 +117,15 @@ Fidelity guidance:
 
 If the requested design is too large or structural to be a single in-page component — for example a full new page, a complete navigation/header overhaul, or many independent page sections — do NOT attempt a partial DOM injection. Instead set "tooLargeWarning" to a one-sentence explanation and return html=null and css=null.`;
 
-type InjectionMode = "append" | "set" | "before" | "after";
+type InjectionMode = "append" | "set";
 
 function placementSentence(
   injectionMode: InjectionMode,
   targetSelector: string,
 ): string {
-  switch (injectionMode) {
-    case "set":
-      return `The component will REPLACE the contents of the target element (${targetSelector}).`;
-    case "before":
-      return `The component will be inserted immediately BEFORE the target element (${targetSelector}), as its previous sibling.`;
-    case "after":
-      return `The component will be inserted immediately AFTER the target element (${targetSelector}), as its next sibling.`;
-    case "append":
-    default:
-      return `The component will be APPENDED inside the target element (${targetSelector}).`;
-  }
+  return injectionMode === "set"
+    ? `The component will REPLACE the contents of the target element (${targetSelector}).`
+    : `The component will be APPENDED inside the target element (${targetSelector}).`;
 }
 
 function buildFigmaUserPrompt({
@@ -182,8 +164,6 @@ export const postFigmaToVariant = createApiRequestHandler(validation)(async (
     visualChangesetId,
     targetSelector,
     injectionMode,
-    parentSelector,
-    insertBeforeSelector,
     source,
     designTokens,
     locale,
@@ -341,48 +321,21 @@ export const postFigmaToVariant = createApiRequestHandler(validation)(async (
 
   const scopedCss = result.css ? scopeCss(result.css, scopeClass) : "";
 
-  // Build the DOM mutation(s) for the chosen placement.
-  //   append/set        → one html mutation on the target.
-  //   before/after      → append the component into the target's PARENT,
-  //                       then position-move it next to the target. This
-  //                       uses only standard dom-mutator capabilities, so
-  //                       it applies identically in the production SDK.
-  // before/after fall back to append-on-target when we don't have a parent
-  // selector to anchor against (defensive — the client should always send
-  // one for those modes).
-  const wantsSibling =
-    (injectionMode === "before" || injectionMode === "after") &&
-    !!parentSelector;
-
-  const mutations = wantsSibling
-    ? [
-        {
-          selector: parentSelector as string,
-          action: "append" as const,
-          attribute: "html",
-          value: html,
-        },
-        {
-          selector: `.${scopeToken}`,
-          action: "set" as const,
-          attribute: "position",
-          parentSelector: parentSelector as string,
-          insertBeforeSelector:
-            injectionMode === "before"
-              ? targetSelector
-              : (insertBeforeSelector ?? null),
-        },
-      ]
-    : [
-        {
-          selector: targetSelector,
-          // before/after without a parent selector degrade to append.
-          action:
-            injectionMode === "set" ? ("set" as const) : ("append" as const),
-          attribute: "html",
-          value: html,
-        },
-      ];
+  // One html mutation on the target. dom-mutator (used here AND in the
+  // production SDK) only supports html append/set and moving EXISTING
+  // elements via `position` — it can't insert a brand-new node as a
+  // sibling, so before/after isn't expressible without two mutations that
+  // fight each other through its MutationObserver (the html re-assert
+  // recreates the node, the position move relocates it, forever). Hence
+  // only the two single-mutation placements are supported.
+  const mutations = [
+    {
+      selector: targetSelector,
+      action: injectionMode, // "append" (inside) or "set" (replace contents)
+      attribute: "html",
+      value: html,
+    },
+  ];
 
   return {
     mutations,
