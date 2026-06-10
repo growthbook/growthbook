@@ -250,6 +250,42 @@ function toOpenApiSchema(schema: z.ZodType): z.core.JSONSchema.BaseSchema {
 }
 
 /**
+ * Remove `default`-bearing properties from every `required` array in a schema
+ * tree (recursing through properties, items, anyOf/oneOf/allOf, etc.).
+ *
+ * `z.toJSONSchema` runs in "output" mode, where a field with a Zod
+ * `.default()` is always present in the parsed result and so gets listed as
+ * `required`. That's correct for responses, but for REQUEST schemas it's
+ * contradictory: `default` means the client may omit the field, so it must not
+ * also be `required`. We only call this on request (params/query/body) schemas;
+ * response schemas keep the output-mode `required` set. Skips `$ref` nodes, so
+ * shared component schemas (used by responses) are never mutated.
+ */
+function stripDefaultedFromRequired(node: unknown): void {
+  if (Array.isArray(node)) {
+    node.forEach(stripDefaultedFromRequired);
+    return;
+  }
+  if (!node || typeof node !== "object") return;
+  const obj = node as Record<string, unknown>;
+
+  const props = obj.properties as Record<string, unknown> | undefined;
+  if (props && Array.isArray(obj.required)) {
+    const filtered = (obj.required as string[]).filter((name) => {
+      const prop = props[name] as Record<string, unknown> | undefined;
+      return !(prop && typeof prop === "object" && "default" in prop);
+    });
+    // Drop the key entirely when empty so we don't emit `required: []`.
+    if (filtered.length) obj.required = filtered;
+    else delete obj.required;
+  }
+
+  for (const value of Object.values(obj)) {
+    stripDefaultedFromRequired(value);
+  }
+}
+
+/**
  * Build a cURL code sample from the example request data and route metadata.
  */
 function buildCurlSample(
@@ -420,6 +456,7 @@ The API may return the following error status codes:
 - **402** - Request Failed - The parameters are valid, but the request failed
 - **403** - Forbidden - Provided API key does not have the required access
 - **404** - Not Found - Unknown API route or requested resource
+- **422** - Soft Warning - The request failed, but can be re-submitted with \`?ignoreWarnings=true\` to proceed anyway.
 - **429** - Too Many Requests - You exceeded the rate limit of 60 requests per minute. Try again later.
 - **5XX** - Server Error - Something went wrong on GrowthBook's end (these are rare)
 
@@ -508,6 +545,7 @@ curl https://api.growthbook.io/api/v1/features \
     // URL params
     if (isNonEmptySchema(schemas?.params)) {
       const jsonSchema = toOpenApiSchema(schemas.params);
+      stripDefaultedFromRequired(jsonSchema);
       Object.entries(jsonSchema.properties ?? {}).forEach(([name, schema]) => {
         const isRequired = (jsonSchema.required ?? []).includes(name);
         const parameter: Parameter = {
@@ -542,6 +580,7 @@ curl https://api.growthbook.io/api/v1/features \
     // Query params
     if (isNonEmptySchema(schemas?.query)) {
       const jsonSchema = toOpenApiSchema(schemas.query);
+      stripDefaultedFromRequired(jsonSchema);
       Object.entries(jsonSchema.properties ?? {}).forEach(([name, schema]) => {
         const isRequired = (jsonSchema.required ?? []).includes(name);
         // Hoist x- extension fields from schema to parameter level
@@ -587,6 +626,7 @@ curl https://api.growthbook.io/api/v1/features \
     let requestBody: RequestBody | undefined = undefined;
     if (isNonEmptySchema(schemas?.body)) {
       const jsonSchema = toOpenApiSchema(schemas.body);
+      stripDefaultedFromRequired(jsonSchema);
       requestBody = {
         required: !(schemas.body instanceof z.ZodOptional),
         content: {

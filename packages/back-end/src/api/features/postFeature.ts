@@ -138,7 +138,11 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     req.body.environments ?? {},
   );
 
-  const jsonSchema = parseApiJsonSchema(req.context.org, req.body.jsonSchema);
+  const jsonSchema = parseApiJsonSchema(
+    req.context.org,
+    req.body.jsonSchema,
+    req.body.valueType,
+  );
 
   feature.jsonSchema = jsonSchema;
 
