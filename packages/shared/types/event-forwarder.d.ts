@@ -64,17 +64,9 @@ export type EventForwarderConfigDraft =
       config: SnowflakeEventForwarderConfigDraft;
     };
 
-export interface EventForwarderManagedResources {
-  identifierTypes: string[];
-  exposureQueryIds: string[];
-  featureUsageQueryIds: string[];
-  factTableId?: string;
-}
-
 export type EventForwarderConfigWithMetadata = EventForwarderConfigDraft & {
   status: EventForwarderStatus;
   connectorName?: string;
   connectorId?: string;
   lastProvisioningError?: string;
-  managedResources?: EventForwarderManagedResources;
 };

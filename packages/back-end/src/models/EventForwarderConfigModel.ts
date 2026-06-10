@@ -56,52 +56,11 @@ export class EventForwarderConfigModel extends BaseClass {
     return this.context.permissions.canDeleteEventForwarderConfig(doc);
   }
 
-  public async updateManagedResourcesFactTableId(
-    existing: EventForwarderConfigInterface,
-    factTableId: string,
-  ): Promise<EventForwarderConfigInterface> {
-    const dateUpdated = new Date();
-    const managedResources = {
-      identifierTypes: existing.managedResources?.identifierTypes ?? [],
-      exposureQueryIds: existing.managedResources?.exposureQueryIds ?? [],
-      featureUsageQueryIds:
-        existing.managedResources?.featureUsageQueryIds ?? [],
-      factTableId,
-    };
-    const updates: UpdateProps<EventForwarderConfigInterface> = {
-      managedResources,
-    };
-    const newDoc = {
-      ...existing,
-      managedResources,
-      dateUpdated,
-    };
-
-    if (this.useConfigFile()) {
-      throw new Error(
-        `Cannot update - ${this.config.collectionName} are being managed by config.yml`,
-      );
-    }
-    if (!this.canUpdate(existing, updates, newDoc)) {
-      throw new Error("You do not have access to update this resource");
-    }
-
-    await this._dangerousGetCollection().updateOne(
-      {
-        ...this.getPrimaryKeyFilter(existing),
-        organization: this.context.org.id,
-      },
-      {
-        $set: {
-          "managedResources.factTableId": factTableId,
-          dateUpdated,
-        },
-      },
-    );
-
-    await eventForwarderConfigAudit.logUpdate(this.context, existing, newDoc);
-
-    return newDoc;
+  public async getByDatasourceId(
+    datasourceId: string,
+  ): Promise<EventForwarderConfigInterface | null> {
+    const rows = await this._find({ datasourceId }, { limit: 1 });
+    return rows[0] ?? null;
   }
 
   /**

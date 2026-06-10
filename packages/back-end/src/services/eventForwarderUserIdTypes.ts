@@ -9,7 +9,6 @@ import { ExposureQuery, UserIdType } from "shared/types/datasource";
 import { EventForwarderConfigInterface } from "shared/validators";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
-import { EventForwarderManagedResources } from "shared/types/event-forwarder";
 import {
   getDataSourceById,
   getRawDataSourceById,
@@ -22,25 +21,6 @@ import { ReqContext } from "back-end/types/request";
 
 function normalize(value: string): string {
   return value.toLowerCase();
-}
-
-function buildManagedResources({
-  config,
-  identifierTypes,
-  exposureQueryIds,
-}: {
-  config: EventForwarderConfigInterface;
-  identifierTypes: string[];
-  exposureQueryIds: string[];
-}): EventForwarderManagedResources {
-  return {
-    identifierTypes,
-    exposureQueryIds,
-    featureUsageQueryIds: config.managedResources?.featureUsageQueryIds ?? [],
-    ...(config.managedResources?.factTableId !== undefined && {
-      factTableId: config.managedResources.factTableId,
-    }),
-  };
 }
 
 function reconcileUserIdTypes(
@@ -58,21 +38,14 @@ function reconcileUserIdTypes(
   return [...preserved, ...desired];
 }
 
-function getManagedExposureOwnership(
-  config: EventForwarderConfigInterface,
-  exposureQueries: ExposureQuery[],
-): {
-  ids: string[];
+function getManagedExposureOwnership(exposureQueries: ExposureQuery[]): {
   userIdTypes: string[];
 } {
-  const storedIds = new Set(config.managedResources?.exposureQueryIds ?? []);
   const managed = (exposureQueries ?? []).filter(
-    (query) =>
-      isEventForwarderManagedExposureQuery(query) || storedIds.has(query.id),
+    isEventForwarderManagedExposureQuery,
   );
 
   return {
-    ids: managed.map((query) => query.id),
     userIdTypes: managed.map((query) => query.userIdType),
   };
 }
@@ -85,18 +58,19 @@ export async function initializeDatasourceUserIdTypesFromOrgAttributeSchema(
   context: ReqContext,
   datasourceId: string,
   eventForwarderConfig?: EventForwarderConfigInterface,
-): Promise<EventForwarderManagedResources | null> {
+): Promise<void> {
   if (eventForwarderConfig) {
-    return reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries(
+    await reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries(
       context,
       eventForwarderConfig,
       context.org.settings?.attributeSchema ?? [],
     );
+    return;
   }
 
   const raw = await getRawDataSourceById(context, datasourceId);
   if (!raw) {
-    return null;
+    return;
   }
 
   const built = buildUserIdTypesFromAttributeSchema(
@@ -106,19 +80,14 @@ export async function initializeDatasourceUserIdTypesFromOrgAttributeSchema(
 
   const existing = raw.settings?.userIdTypes ?? [];
   const merged = mergeUserIdTypes(existing, built);
-  const syncedUserIdTypes = built.map((userIdType) => userIdType.userIdType);
 
   if (merged.length === existing.length) {
-    return {
-      identifierTypes: syncedUserIdTypes,
-      exposureQueryIds: [],
-      featureUsageQueryIds: [],
-    };
+    return;
   }
 
   const datasource = await getDataSourceById(context, datasourceId);
   if (!datasource) {
-    return null;
+    return;
   }
 
   await updateDataSource(context, datasource, {
@@ -127,21 +96,16 @@ export async function initializeDatasourceUserIdTypesFromOrgAttributeSchema(
       userIdTypes: merged,
     },
   });
-  return {
-    identifierTypes: syncedUserIdTypes,
-    exposureQueryIds: [],
-    featureUsageQueryIds: [],
-  };
 }
 
 export async function reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries(
   context: ReqContext,
   config: EventForwarderConfigInterface,
   attributeSchema: SDKAttributeSchema,
-): Promise<EventForwarderManagedResources | null> {
+): Promise<void> {
   const raw = await getRawDataSourceById(context, config.datasourceId);
   if (!raw) {
-    return null;
+    return;
   }
 
   const datasource = await getDataSourceById(context, config.datasourceId);
@@ -153,7 +117,7 @@ export async function reconcileEventForwarderDatasourceUserIdTypesAndExposureQue
       },
       "Skipping event forwarder datasource reconciliation: datasource unavailable",
     );
-    return null;
+    return;
   }
 
   const desiredUserIdTypes = buildUserIdTypesFromAttributeSchema(
@@ -165,9 +129,9 @@ export async function reconcileEventForwarderDatasourceUserIdTypesAndExposureQue
   );
   const existingUserIdTypes = raw.settings?.userIdTypes ?? [];
   const existingExposure = raw.settings?.queries?.exposure ?? [];
-  const managedExposure = getManagedExposureOwnership(config, existingExposure);
+  const managedExposure = getManagedExposureOwnership(existingExposure);
   const ownedUserIdTypes = [
-    ...(config.managedResources?.identifierTypes ?? []),
+    ...desiredUserIdTypeIds,
     ...managedExposure.userIdTypes,
   ];
   const updatedUserIdTypes = reconcileUserIdTypes(
@@ -180,7 +144,6 @@ export async function reconcileEventForwarderDatasourceUserIdTypesAndExposureQue
     .params as BigQueryConnectionParams | SnowflakeConnectionParams;
   const sqlParams = buildExposureQueryParams(config, connectionParams);
   let updatedExposure = existingExposure;
-  let exposureQueryIds = managedExposure.ids;
 
   if (!sqlParams) {
     logger.warn(
@@ -197,11 +160,7 @@ export async function reconcileEventForwarderDatasourceUserIdTypesAndExposureQue
       userIdTypes: desiredUserIdTypeIds,
       params: sqlParams,
       attributeSchema,
-      managedExposureQueryIds: config.managedResources?.exposureQueryIds,
     });
-    exposureQueryIds = updatedExposure
-      .filter(isEventForwarderManagedExposureQuery)
-      .map((query) => query.id);
   }
 
   if (
@@ -224,20 +183,6 @@ export async function reconcileEventForwarderDatasourceUserIdTypesAndExposureQue
       { skipEventForwarderManagedValidation: true },
     );
   }
-
-  const managedResources = buildManagedResources({
-    config,
-    identifierTypes: desiredUserIdTypeIds,
-    exposureQueryIds,
-  });
-
-  if (hasChanges(config.managedResources ?? null, managedResources)) {
-    await context.models.eventForwarderConfigs.update(config, {
-      managedResources,
-    });
-  }
-
-  return managedResources;
 }
 
 export async function reconcileAllEventForwarderDatasourceUserIdTypesAndExposureQueries(
