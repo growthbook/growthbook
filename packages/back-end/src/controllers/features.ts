@@ -1539,8 +1539,7 @@ export async function postFeaturePublish(
             `Feature "${otherFeature.id}" has a merge conflict in its pending draft. Resolve the conflict before starting experiment "${experiment.name}".`,
           );
         }
-        // Also prevalidate custom hooks for the other draft so a hook
-        // rejection surfaces BEFORE the current feature publishes below.
+        // Prevalidate custom hooks for the other draft before the current feature publishes below
         if (mergeResultHasChanges(otherMerge)) {
           await prevalidatePublishRevision({
             context,
@@ -1601,12 +1600,10 @@ export async function postFeaturePublish(
     //
     // Residual exposure: the current feature is already live by this point.
     // Phase-1 pre-flight above caught merge conflicts, approval gaps, and
-    // custom-hook rejections for the OTHER drafts before we published this
-    // one, so the only remaining failure modes here are transient infra
-    // errors during publishRevision and races with concurrent edits (a hook
-    // can also re-reject if state shifted since the pre-flight). Throwing
-    // aborts the experiment status transition; the already-published current
-    // feature stays live. Closing this gap fully would require cross-
+    // custom-hook rejections for the OTHER drafts, so the remaining failure
+    // modes here are transient infra errors and re-rejects after state shifts.
+    // Throwing aborts the experiment status transition; the already-published
+    // current feature stays live. Closing this gap fully would require cross-
     // collection transactions.
     const adminBypass =
       !!adminOverride && context.permissions.canBypassApprovalChecks(feature);
@@ -2183,10 +2180,7 @@ export async function postFeatureRule(
     feature.project,
   );
 
-  // Validate safe-rollout fields and pre-generate the safeRollout id so the
-  // rule can be prevalidated against custom hooks with its final shape. The
-  // doc itself is created AFTER prevalidation below, so a hook rejection
-  // doesn't leave an orphaned safeRollout behind.
+  // Pre-generate the safeRollout id so hooks see the rule's final shape; the doc is created after prevalidation
   let validatedSafeRolloutFields: Awaited<
     ReturnType<typeof validateCreateSafeRolloutFields>
   > | null = null;
@@ -2209,8 +2203,7 @@ export async function postFeatureRule(
 
   // Add holdout to existing experiment and experiment to holdout linkedExperiments
   // if the experiment is not running and has no linked implementations for
-  // experiment-ref rules. Guards run here; the actual linkage writes are
-  // deferred until after custom-hook prevalidation below.
+  // experiment-ref rules (writes deferred until after custom-hook prevalidation)
   let holdoutExperimentToLink: ExperimentInterface | null = null;
   if (rule.type === "experiment-ref" && feature.holdout?.id) {
     const experiment = await getExperimentById(context, rule.experimentId);
@@ -2355,10 +2348,7 @@ export async function postFeatureRule(
     combinedChanges.rampActions = [...filtered, rampActionsUpdate];
   }
 
-  // Run custom hooks against the exact proposed revision BEFORE the
-  // side-effect writes below (safeRollout doc, holdout linkage) so a hook
-  // rejection — or a soft warning the user hasn't acknowledged yet — doesn't
-  // orphan them. updateRevision() re-fires the hooks as the authoritative gate.
+  // Run custom hooks before the side-effect writes below so a rejection doesn't orphan them
   await prevalidateRevisionUpdate(
     context,
     feature,
@@ -3067,7 +3057,6 @@ export async function postFeatureSchema(
     context.permissions.throwPermissionError();
   }
 
-  // Reject schemas that don't make sense for the feature's value type.
   assertSchemaMatchesValueType(schemaDef, feature.valueType);
 
   const jsonSchema: JSONSchemaDef = {

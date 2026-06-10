@@ -1467,9 +1467,7 @@ const updateSafeRolloutStatuses = async (
   });
 };
 
-// Pure computation of the feature-doc changes a revision merge will produce.
-// Shared by applyRevisionChanges() (the write path) and publishRevision()'s
-// hook prevalidation so both see the identical proposed state. No writes.
+// Pure computation of the feature-doc changes a revision merge will produce; no writes
 export function computeRevisionMergeChanges(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -2214,12 +2212,7 @@ async function cleanupOrphanedRampSchedules(
   }
 }
 
-// Best-effort early run of both custom hook types against the proposed
-// post-publish state. publishRevision() calls this before any side-effect
-// writes; publish pre-flight loops (e.g. multi-feature experiment starts)
-// call it directly so a hook rejection fails the batch before anything
-// publishes. The authoritative hook runs still happen inside
-// updateFeature / markRevisionAsPublished.
+// Best-effort early hook run; updateFeature / markRevisionAsPublished re-run hooks authoritatively
 export async function prevalidatePublishRevision({
   context,
   feature,
@@ -2287,14 +2280,7 @@ export async function publishRevision({
     await assertFeatureNotLockedByRamp(context, feature.id);
   }
 
-  // Prevalidate BOTH custom hook types against the proposed post-publish
-  // state BEFORE any side-effect writes (ramp schedule docs below, safe
-  // rollout status syncs inside applyRevisionChanges). The authoritative
-  // hook runs still happen inside updateFeature / markRevisionAsPublished;
-  // this early pass keeps a hook rejection from orphaning those writes and
-  // ensures the revision hook is checked before the feature doc goes live.
-  // A concurrent mutation or non-deterministic hook can still fail at save
-  // time — the rollback below remains as second-line defense for that.
+  // Run custom hooks before the side-effect writes below so a rejection doesn't orphan them
   await prevalidatePublishRevision({
     context,
     feature,
@@ -2353,9 +2339,6 @@ export async function publishRevision({
     );
   } catch (err) {
     // Roll back pre-created ramp schedules so they don't linger as orphans.
-    // Second-line defense: hook rejections are normally caught by the
-    // prevalidation above, so this mostly covers infra failures and the
-    // concurrent-mutation race.
     for (const id of preCreatedScheduleIds) {
       try {
         await context.models.rampSchedules.deleteById(id);

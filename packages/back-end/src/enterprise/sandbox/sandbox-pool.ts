@@ -134,7 +134,6 @@ function handleExit(
   // Ignore exits from a torn-down generation (the job, if any, was failed above).
   if (worker.generation !== generation) return;
 
-  // Keep the pool warm and drain any backlog.
   if (!shuttingDown && started) {
     if (workers.length < POOL_SIZE) workers.push(spawnWorker());
     dispatch();

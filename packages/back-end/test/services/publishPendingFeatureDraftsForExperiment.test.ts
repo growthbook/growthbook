@@ -257,9 +257,7 @@ describe("publishPendingFeatureDraftsForExperiment", () => {
     mockGetRevision.mockImplementation(async ({ version }) => {
       return { version, status: "draft", rules: [] } as never;
     });
-    // feat_a's drafts (v5, v7) merge cleanly; feat_b's (v6) hits a conflict.
-    // Keyed by revision version (not call order) because the hook
-    // prevalidation pass also merges each draft before phase 2 runs.
+    // Keyed by revision version (not call order): feat_a's drafts (v5, v7) merge cleanly; feat_b's (v6) conflicts
     mockAutoMerge.mockImplementation(
       (live, base, revision) =>
         ((revision as { version: number }).version === 6

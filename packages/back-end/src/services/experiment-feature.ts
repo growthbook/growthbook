@@ -414,13 +414,7 @@ export async function publishPendingFeatureDraftsForExperiment(
   }
 
   // ── Phase 1.5: prevalidate custom hooks for every ready draft ────────────
-  // Run the validateFeature/validateFeatureRevision hooks against each
-  // draft's proposed post-publish state BEFORE publishing anything, so a
-  // hook rejection fails the whole batch up front instead of after some
-  // features already published. Throws (including SoftWarningError) rather
-  // than returning a failure so the caller's 422/ignoreWarnings handling
-  // applies. Best-effort: state can still shift between this check and the
-  // sequential publishes below — publishRevision re-checks authoritatively.
+  // A hook rejection fails the whole batch before anything publishes.
   for (const { featureId, revisionVersion } of ready) {
     const feature = await getFeature(context, featureId);
     if (!feature) continue;

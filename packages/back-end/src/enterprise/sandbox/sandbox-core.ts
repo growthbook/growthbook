@@ -6,7 +6,6 @@ import { IS_CLOUD } from "back-end/src/util/secrets";
 
 // Pure isolate runner — kept light (no context/models) so forked workers boot cheaply.
 
-// Default memory limit in MB
 const MEMORY_MB = parseEnvInt(process.env.CUSTOM_HOOK_MEMORY_MB, 32, {
   min: 1,
   name: "CUSTOM_HOOK_MEMORY_MB",
@@ -26,7 +25,6 @@ const WALL_TIMEOUT_MS = parseEnvInt(
   5000,
   { min: 1, name: "CUSTOM_HOOK_WALL_TIMEOUT_MS" },
 );
-// Max response size from fetch calls (default 500KB)
 const MAX_FETCH_RESP_SIZE = parseEnvInt(
   process.env.CUSTOM_HOOK_MAX_FETCH_RESP_SIZE,
   500 * 1024,
@@ -38,12 +36,10 @@ const MAX_LOG_CHARS = parseEnvInt(
   64 * 1024,
   { min: 1, name: "CUSTOM_HOOK_MAX_LOG_CHARS" },
 );
-// Max number of warnings raised via addWarning (default 100)
 const MAX_WARNINGS = parseEnvInt(process.env.CUSTOM_HOOK_MAX_WARNINGS, 100, {
   min: 1,
   name: "CUSTOM_HOOK_MAX_WARNINGS",
 });
-// Max total size of all warnings combined, in characters (default 64KB)
 const MAX_WARNING_CHARS = parseEnvInt(
   process.env.CUSTOM_HOOK_MAX_WARNING_CHARS,
   64 * 1024,
@@ -127,7 +123,6 @@ export async function sandboxEval(
       };
     };
 
-    // Host -> isolate bridge for fetch
     const fetchRef = new Reference(
       async (url: string, opts: RequestInit = {}) => {
         try {
@@ -153,7 +148,6 @@ export async function sandboxEval(
       logChars += line.length;
     });
 
-    // Bounds warning count and total size.
     const warnRef = new Reference((msg: unknown) => {
       if (warnings.length >= MAX_WARNINGS) return;
       const remaining = MAX_WARNING_CHARS - warningChars;

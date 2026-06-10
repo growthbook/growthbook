@@ -10,15 +10,6 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import { ReqContext } from "back-end/types/request";
 
-// ---------------------------------------------------------------------------
-// computeRevisionUpdate is the pure computation consumed by both
-// updateRevision() (the write path) and prevalidateRevisionUpdate() (the
-// custom-hook early gate). The critical invariant: the proposed state a
-// caller prevalidates against must be exactly the state updateRevision()
-// validates and persists — status transitions and rules normalization
-// included.
-// ---------------------------------------------------------------------------
-
 const ORG_ENVS: Environment[] = [
   { id: "dev", description: "" },
   { id: "production", description: "" },

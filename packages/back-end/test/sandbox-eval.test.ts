@@ -113,7 +113,6 @@ describe("sandboxEval", () => {
     });
 
     it("terminates a long-running async log loop with bounded output", async () => {
-      // Either way the loop must terminate and captured output stay bounded.
       const result = await sandboxEval(
         `const s = "x".repeat(100000); while (true) { console.log(s); await null; }`,
         {},

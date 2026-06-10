@@ -11,21 +11,13 @@ import {
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { setupApp } from "../api.setup";
 
-// ---------------------------------------------------------------------------
-// Regression tests for custom-hook prevalidation ordering: a hook rejection
-// (or unacknowledged soft warning) on the rule-add endpoint must NOT leave an
-// orphaned SafeRollout document behind. Before prevalidation existed, the
-// safeRollout doc was created before updateRevision fired the hooks, so a
-// rejection — or a 422 warning followed by a "Save anyway" retry — orphaned
-// (or duplicated) the doc.
-// ---------------------------------------------------------------------------
+// Regression tests: a custom-hook rejection on the rule-add endpoint must not orphan a SafeRollout doc
 
 jest.mock("back-end/src/enterprise/sandbox/sandbox-pool", () => ({
   runInSandbox: jest.fn(),
 }));
 
-// Safe-rollout field validation requires a real datasource + metrics; that
-// plumbing is irrelevant here, so return a canned valid shape.
+// Field validation needs a real datasource + metrics; return a canned valid shape instead
 jest.mock("back-end/src/validators/safe-rollout", () => ({
   validateCreateSafeRolloutFields: jest.fn(async () => ({
     datasourceId: "ds_1",
@@ -62,8 +54,7 @@ function makeContext(query: Record<string, string> = {}) {
     org: ORG,
     auditUser: { type: "api_key", apiKey: "key_test" },
     role: "admin",
-    // context.ignoreWarnings reads req.query; in production the context is
-    // built from the live request, so the URL query flows through naturally.
+    // context.ignoreWarnings reads req.query
     req: { query, headers: {} } as unknown as Request,
   });
 }
@@ -184,12 +175,12 @@ describe("rule-add custom hook prevalidation", () => {
     expect(response.status).toBe(400);
     expect(response.body.message).toContain("Rejected by hook");
 
-    // The headline assertion: no orphaned safeRollout doc.
+    // No orphaned safeRollout doc
     expect(
       await mongoose.connection.collection("saferollout").countDocuments(),
     ).toBe(0);
 
-    // And the revision is untouched.
+    // Revision untouched
     const revisionDoc = await mongoose.connection
       .collection("featurerevisions")
       .findOne({ featureId: FEATURE_ID, version: revision.version });
@@ -216,8 +207,7 @@ describe("rule-add custom hook prevalidation", () => {
       await mongoose.connection.collection("saferollout").countDocuments(),
     ).toBe(0);
 
-    // Retry with ?ignoreWarnings=true — pre-fix this produced a SECOND
-    // safeRollout doc (the first was orphaned by the 422); now it's exactly one.
+    // Pre-fix, the ignoreWarnings retry produced a second safeRollout doc; now exactly one
     setReqContext(makeContext({ ignoreWarnings: "true" }));
     const retried = await request(app)
       .post(
@@ -244,7 +234,7 @@ describe("rule-add custom hook prevalidation", () => {
       .send(SAFE_ROLLOUT_RULE_BODY);
 
     expect(response.status).toBe(200);
-    // One execution from prevalidateRevisionUpdate, one from updateRevision.
+    // One from prevalidateRevisionUpdate, one from updateRevision
     expect(mockRunInSandbox).toHaveBeenCalledTimes(2);
     expect(
       await mongoose.connection.collection("saferollout").countDocuments(),

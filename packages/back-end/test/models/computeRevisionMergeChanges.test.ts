@@ -5,13 +5,6 @@ import { MergeResultChanges } from "shared/util";
 import { computeRevisionMergeChanges } from "back-end/src/models/FeatureModel";
 import { ReqContext } from "back-end/types/request";
 
-// ---------------------------------------------------------------------------
-// computeRevisionMergeChanges is the pure computation shared by
-// applyRevisionChanges() (the publish write path) and
-// prevalidatePublishRevision() (the custom-hook early gate). It must produce
-// exactly the feature-doc changes the publish will persist, with no writes.
-// ---------------------------------------------------------------------------
-
 const ORG_ENVS: Environment[] = [
   { id: "dev", description: "" },
   { id: "production", description: "" },

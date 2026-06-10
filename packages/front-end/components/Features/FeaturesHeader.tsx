@@ -519,8 +519,7 @@ export default function FeaturesHeader({
                   <TabsTrigger value="test">Simulate</TabsTrigger>
                   <TabsTrigger value="stats">Code Refs</TabsTrigger>
                   <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
-                  {/* Custom Hooks are self-hosted only, and boolean flags can't
-                  have a JSON schema, so there's nothing to validate on Cloud */}
+                  {/* Hooks are self-hosted only and boolean flags have no schema, so Cloud booleans have nothing to validate */}
                   {!(isCloud() && feature.valueType === "boolean") && (
                     <TabsTrigger value="validation">Validation</TabsTrigger>
                   )}

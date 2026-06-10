@@ -564,7 +564,6 @@ export default function EditSchemaModal({
           }
         }
 
-        // Reject schemas that don't make sense for the feature's value type.
         assertSchemaMatchesValueType(value, feature.valueType);
 
         const body: Record<string, unknown> = {

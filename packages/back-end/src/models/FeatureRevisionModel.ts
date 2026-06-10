@@ -937,10 +937,7 @@ export async function createRevision({
   return toInterface(doc, context, feature);
 }
 
-// Pure computation of what updateRevision() will validate and persist for the
-// given inputs: the draft-status guard, review-status transitions, and rules
-// normalization. updateRevision() consumes this directly, so the prevalidated
-// state and the saved state stay identical by construction.
+// Pure computation of what updateRevision() will validate and persist; no writes
 export function computeRevisionUpdate(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -1007,11 +1004,7 @@ export function computeRevisionUpdate(
   };
 }
 
-// Best-effort early run of the validateFeatureRevision hooks against the exact
-// state updateRevision() will validate. Call this from controllers/services
-// BEFORE any side-effect writes to other collections (e.g. safe rollout docs,
-// holdout linkage) so a hook rejection doesn't orphan them. The authoritative
-// hook run still happens inside updateRevision().
+// Best-effort early hook run before side-effect writes; updateRevision() re-runs hooks authoritatively
 export async function prevalidateRevisionUpdate(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -1122,9 +1115,7 @@ export async function updateRevision(
   return updatedRevision;
 }
 
-// Pure computation of the changes markRevisionAsPublished() will validate and
-// persist. Also used by publishRevision() to prevalidate the revision hook
-// before any side-effect writes.
+// Pure computation of the changes markRevisionAsPublished() will validate and persist
 export function computeRevisionPublishChanges(
   revision: FeatureRevisionInterface,
   user: EventUser,

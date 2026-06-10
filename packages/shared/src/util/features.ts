@@ -223,7 +223,6 @@ export function validateJSONFeatureValue(
     const validate = ajv.compile(jsonSchema);
     let parsedValue;
     if (valueType === "string") {
-      // String flags store the raw string value; validate it directly.
       parsedValue = value;
     } else if (valueType === "number") {
       parsedValue = typeof value === "string" ? parseFloat(value) : value;
@@ -289,7 +288,6 @@ export function validateFeatureValue(
     if (!value.match(/^-?[0-9]+(\.[0-9]+)?$/)) {
       throw new Error(prefix + "Must be a valid number");
     }
-    // Apply JSON schema validation if set and enabled (e.g. min/max)
     const { valid, errors } = validateJSONFeatureValue(
       value,
       feature,
@@ -299,7 +297,6 @@ export function validateFeatureValue(
       throw new Error(prefix + errors.join(", "));
     }
   } else if (type === "string") {
-    // Apply JSON schema validation if set and enabled (e.g. maxLength/enum)
     const { valid, errors } = validateJSONFeatureValue(
       value,
       feature,
@@ -353,7 +350,6 @@ export function assertSchemaMatchesValueType(
     throw new Error("Boolean features cannot have a validation schema.");
   }
 
-  // Determine the schema's top-level JSON type
   let parsed: unknown;
   try {
     const schemaString =
@@ -374,9 +370,7 @@ export function assertSchemaMatchesValueType(
       : {};
   const topType = schemaObj.type;
 
-  // Schemas without an explicit top-level "type" are only allowed when they
-  // restrict values with an "enum" whose entries all match the feature's
-  // value type (e.g. {"enum": ["red", "green"]} for a string feature).
+  // No top-level "type" is only allowed with an "enum" whose entries all match the value type
   if (topType === undefined) {
     const enumValues = schemaObj.enum;
     if (!Array.isArray(enumValues)) {

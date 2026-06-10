@@ -236,8 +236,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
           }
 
           if (!experiment.holdoutId) {
-            // Linkage writes are deferred until after custom-hook
-            // prevalidation below so a hook rejection doesn't orphan them.
+            // Deferred until after custom-hook prevalidation below
             holdoutExperimentToLink = experiment;
           }
         }
@@ -251,9 +250,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
     validateRuleAttributes(rule, req.context, feature.project);
     await validateRuleReferences(rule, req.context);
 
-    // Validate safe-rollout fields and pre-generate the safeRollout id so
-    // the rule can be prevalidated against custom hooks with its final
-    // shape. The doc itself is created after prevalidation below.
+    // Pre-generate the safeRollout id so hooks see the rule's final shape; the doc is created after prevalidation
     let safeRolloutCreateProps: CreateProps<SafeRolloutInterface> | null = null;
     if (ruleInput.type === "safe-rollout" && rule.type === "safe-rollout") {
       if (!req.context.hasPremiumFeature("safe-rollout")) {
@@ -339,11 +336,7 @@ export const postFeatureRevisionRuleAdd = createApiRequestHandler(
       settings: req.organization.settings,
     });
 
-    // Run custom hooks against the exact proposed revision BEFORE the
-    // side-effect writes below (safeRollout doc, holdout linkage) so a hook
-    // rejection — or a soft warning the caller hasn't acknowledged with
-    // ?ignoreWarnings=true — doesn't orphan them. updateRevision() re-fires
-    // the hooks as the authoritative gate.
+    // Run custom hooks before the side-effect writes below so a rejection doesn't orphan them
     await prevalidateRevisionUpdate(
       req.context,
       feature,
