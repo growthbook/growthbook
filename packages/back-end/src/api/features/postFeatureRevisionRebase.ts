@@ -6,6 +6,7 @@ import {
   filterEnvironmentsByFeature,
   liveRevisionFromFeature,
   MergeStrategy,
+  pruneOrphanedRampActions,
   resetReviewOnChange,
 } from "shared/util";
 import type { FeatureRule } from "shared/types/feature";
@@ -172,6 +173,12 @@ export async function rebaseFeatureRevision(
     ? { ...featureMetadataSnapshot, ...mergeResult.result.metadata }
     : featureMetadataSnapshot;
 
+  // The merge can drop a rule that a pending ramp action targets (e.g. live
+  // deleted it). Prune those orphaned actions rather than carrying dead
+  // intent forward; the prune is recorded in the rebase log entry below.
+  const { kept: keptRampActions, pruned: prunedRampActions } =
+    pruneOrphanedRampActions(revision.rampActions, newRules);
+
   // A rebase that actually pulls in upstream changes must re-trigger review
   // per org policy — the prior approval was for pre-rebase content.
   // The merged result carries rules as a whole array, so when the rebase
@@ -209,12 +216,17 @@ export async function rebaseFeatureRevision(
         "holdout" in mergeResult.result
           ? mergeResult.result.holdout
           : (feature.holdout ?? null),
+      ...(prunedRampActions.length > 0 ? { rampActions: keptRampActions } : {}),
     },
     {
       user: context.auditUser,
       action: "rebase",
       subject: `on top of revision #${live.version}`,
-      value: JSON.stringify(mergeResult.result),
+      value: JSON.stringify(
+        prunedRampActions.length > 0
+          ? { ...mergeResult.result, prunedRampActions }
+          : mergeResult.result,
+      ),
     },
     resetReview,
   );

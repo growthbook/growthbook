@@ -80,8 +80,10 @@ import {
   ExpandableConflict,
   buildRampDiffs,
   DiffContent,
+  DiffCommentsProps,
   RevisionCommentSection,
 } from "@/components/Features/RevisionDiffUtils";
+import { buildAnchoredCommentMap } from "@/components/Features/diffCommentRefs";
 import DivergenceNotice from "@/components/Features/DivergenceNotice";
 import HelperText from "@/ui/HelperText";
 import ReviewCommentPopover from "@/components/Features/ReviewCommentPopover";
@@ -386,6 +388,46 @@ export default function ReviewAndPublish({
   const [actionsDropdownOpen, setActionsDropdownOpen] = useState(false);
   const revisionLogRef = useRef<MutateLog>(null);
 
+  // ── Diff comment anchors ──
+  // Comments whose markdown carries a visible ref token (`diff:rules:R12`)
+  // resolve to markers in the JSON diff gutters. Both log consumers (the
+  // timeline and the reviewers widget) share the SWR key, so one mutate
+  // refreshes everything.
+  const diffCommentAnchors = useMemo(
+    () => buildAnchoredCommentMap(logData?.log ?? []),
+    [logData],
+  );
+  const mutateAllLogs = useCallback(async () => {
+    await mutateReviewLog();
+    await revisionLogRef.current?.mutateLog();
+  }, [mutateReviewLog]);
+  const diffComments = useMemo<DiffCommentsProps>(
+    () => ({
+      anchors: diffCommentAnchors,
+      // New comments only on active drafts — same gate as the timeline's
+      // composer. Existing markers stay visible (read-only) on published /
+      // discarded revisions.
+      onSubmitNew:
+        isActiveDraft && revision
+          ? async (text: string) => {
+              await apiCall(
+                `/feature/${feature.id}/${revision.version}/comment`,
+                { method: "POST", body: JSON.stringify({ comment: text }) },
+              );
+              await mutateAllLogs();
+            }
+          : undefined,
+    }),
+    [
+      diffCommentAnchors,
+      isActiveDraft,
+      revision,
+      apiCall,
+      feature.id,
+      mutateAllLogs,
+    ],
+  );
+
   const mergeResult = useMemo(() => {
     if (!revision || !baseRevision || !liveRevision) return null;
     return autoMerge(
@@ -576,6 +618,7 @@ export default function ReviewAndPublish({
           outOfOrderWarning={false}
           raw={raw}
           variant="card"
+          diffComments={diffComments}
         />
       </Box>
 

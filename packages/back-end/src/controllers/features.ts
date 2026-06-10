@@ -27,6 +27,7 @@ import {
   fillRevisionFromFeature,
   getReviewSetting,
   namespacesToMap,
+  pruneOrphanedRampActions,
 } from "shared/util";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
@@ -950,6 +951,12 @@ export async function postFeatureRebase(
     ? { ...featureMetadataSnapshot, ...mergeResult.result.metadata }
     : featureMetadataSnapshot;
 
+  // The merge can drop a rule that a pending ramp action targets (e.g. live
+  // deleted it). Prune those orphaned actions rather than carrying dead
+  // intent forward; the prune is recorded in the rebase log entry below.
+  const { kept: keptRampActions, pruned: prunedRampActions } =
+    pruneOrphanedRampActions(revision.rampActions, newRules);
+
   await updateRevision(
     context,
     feature,
@@ -967,12 +974,17 @@ export async function postFeatureRebase(
         "holdout" in mergeResult.result
           ? mergeResult.result.holdout
           : (feature.holdout ?? null),
+      ...(prunedRampActions.length > 0 ? { rampActions: keptRampActions } : {}),
     },
     {
       user: res.locals.eventAudit,
       action: "rebase",
       subject: `on top of revision #${live.version}`,
-      value: JSON.stringify(mergeResult.result),
+      value: JSON.stringify(
+        prunedRampActions.length > 0
+          ? { ...mergeResult.result, prunedRampActions }
+          : mergeResult.result,
+      ),
     },
     false,
   );

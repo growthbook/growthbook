@@ -33,6 +33,7 @@ import {
   ruleAppliesToEnv,
   ruleFootprint,
   getRulesForEnvironment,
+  pruneOrphanedRampActions,
   toV2FeatureSnapshot,
 } from "../../src/util";
 import type { RampScheduleInterface } from "../../src/validators/ramp-schedule";
@@ -3568,5 +3569,55 @@ describe("checkIfRevisionNeedsReview — rampActions", () => {
         settings: noReviewSettings,
       }),
     ).toBe(false);
+  });
+});
+
+describe("pruneOrphanedRampActions", () => {
+  const rule = (id: string): FeatureRule => ({
+    id,
+    type: "force",
+    value: "true",
+    description: "",
+    environments: ["production"],
+  });
+
+  it("keeps actions whose target rule survived the merge", () => {
+    const actions = [
+      { mode: "create" as const, ruleId: "a" },
+      { mode: "detach" as const, ruleId: "b" },
+    ];
+    const { kept, pruned } = pruneOrphanedRampActions(actions, [
+      rule("a"),
+      rule("b"),
+    ]);
+    expect(kept).toEqual(actions);
+    expect(pruned).toEqual([]);
+  });
+
+  it("prunes actions whose target rule no longer exists", () => {
+    const actions = [
+      { mode: "create" as const, ruleId: "a" },
+      { mode: "update" as const, ruleId: "gone" },
+      { mode: "detach" as const, ruleId: "also-gone" },
+    ];
+    const { kept, pruned } = pruneOrphanedRampActions(actions, [rule("a")]);
+    expect(kept).toEqual([{ mode: "create", ruleId: "a" }]);
+    expect(pruned).toEqual([
+      { mode: "update", ruleId: "gone" },
+      { mode: "detach", ruleId: "also-gone" },
+    ]);
+  });
+
+  it("keeps actions without a rule reference", () => {
+    const actions = [{ mode: "create" as const, ruleId: undefined }];
+    const { kept, pruned } = pruneOrphanedRampActions(actions, []);
+    expect(kept).toEqual(actions);
+    expect(pruned).toEqual([]);
+  });
+
+  it("handles undefined rampActions", () => {
+    const { kept, pruned } = pruneOrphanedRampActions(undefined, [rule("a")]);
+    expect(kept).toEqual([]);
+    expect(pruned).toEqual([]);
   });
 });

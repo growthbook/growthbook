@@ -1363,6 +1363,30 @@ function mergeRulesGranular(
   return { merged, conflicts };
 }
 
+// Pending ramp actions reference draft rules by id. After a rebase the
+// referenced rule may no longer exist (e.g. live deleted a rule the draft
+// never touched, so the merge dropped it) — such actions can never execute
+// and would otherwise ride along silently until publish-time orphan cleanup.
+// Returns the surviving actions plus the orphans so callers can persist the
+// prune and record it in the audit log. Actions without a rule reference are
+// kept as-is.
+export function pruneOrphanedRampActions<T extends { ruleId?: string }>(
+  rampActions: T[] | undefined,
+  rules: FeatureRule[],
+): { kept: T[]; pruned: T[] } {
+  const ruleIds = new Set(rules.map((r) => r?.id).filter(Boolean));
+  const kept: T[] = [];
+  const pruned: T[] = [];
+  for (const action of rampActions ?? []) {
+    if (!action.ruleId || ruleIds.has(action.ruleId)) {
+      kept.push(action);
+    } else {
+      pruned.push(action);
+    }
+  }
+  return { kept, pruned };
+}
+
 export function autoMerge(
   live: RevisionFields,
   base: RevisionFields,

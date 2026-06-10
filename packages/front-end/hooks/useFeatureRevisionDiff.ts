@@ -103,6 +103,12 @@ export type FeatureRevisionDiffInput = Pick<
 
 export type FeatureRevisionDiff = {
   title: string;
+  // Stable machine identity for this section, independent of the display
+  // title. Uses the same vocabulary as granular merge-conflict keys
+  // (`rules`, `defaultValue`, `environmentsEnabled.<env>`, ...) plus
+  // `rampAction.<id>` / `rampSchedule.<id>` for supplemental entities.
+  // Used by diff comment references (see diffCommentRefs.ts).
+  key?: string;
   a: string;
   b: string;
   customRender?: ReactNode;
@@ -171,6 +177,7 @@ export function useFeatureRevisionDiff({
     );
     if (archivedRender) {
       diffs.push({
+        key: "archived",
         title: "Archive status",
         a: (current.archived ?? false) ? "archived" : "active",
         b: draft.archived ? "archived" : "active",
@@ -233,6 +240,7 @@ export function useFeatureRevisionDiff({
             action: "edit json schema",
           });
         diffs.push({
+          key: "metadata",
           title: "Feature Settings",
           a: JSON.stringify(current.metadata, null, 2),
           b: JSON.stringify(draft.metadata, null, 2),
@@ -263,6 +271,7 @@ export function useFeatureRevisionDiff({
       if (currentVal !== draftVal) {
         const direction = draftVal ? "on" : "off";
         diffs.push({
+          key: `environmentsEnabled.${envId}`,
           title: `Environment Toggle - ${envId}`,
           a: String(currentVal),
           b: String(draftVal),
@@ -283,6 +292,7 @@ export function useFeatureRevisionDiff({
       const draftPrereqs = draft.prerequisites;
       if (!isEqual(currentPrereqs, draftPrereqs)) {
         diffs.push({
+          key: "prerequisites",
           title: "Feature Prerequisites",
           a: JSON.stringify(currentPrereqs, null, 2),
           b: JSON.stringify(draftPrereqs, null, 2),
@@ -304,6 +314,7 @@ export function useFeatureRevisionDiff({
         const pre = { holdout: currentHoldout ?? undefined };
         const post = { holdout: draftHoldout ?? undefined };
         diffs.push({
+          key: "holdout",
           title: "Holdout",
           a: JSON.stringify(currentHoldout, null, 2),
           b: JSON.stringify(draftHoldout, null, 2),
@@ -320,6 +331,7 @@ export function useFeatureRevisionDiff({
     const bValue = parseDefaultValue(draftDefault);
     if (!isEqual(aValue, bValue)) {
       diffs.push({
+        key: "defaultValue",
         title: "Default Value",
         a:
           typeof aValue === "string" ? aValue : JSON.stringify(aValue, null, 2),
@@ -361,6 +373,7 @@ export function useFeatureRevisionDiff({
       hasPendingRampOnUnchangedRule
     ) {
       diffs.push({
+        key: "rules",
         title: "Rules",
         a: JSON.stringify(normalizeFeatureRules(currentRulesArr), null, 2),
         b: JSON.stringify(normalizeFeatureRules(draftRulesArr), null, 2),

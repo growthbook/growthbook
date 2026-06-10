@@ -10,7 +10,7 @@ import {
   PiWarningBold,
   PiX,
 } from "react-icons/pi";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
+import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
 import { datetime } from "shared/dates";
 import EventUser from "@/components/Avatar/EventUser";
 import { auditUserInfoToEventUser } from "@/components/Avatar/auditUserToEventUser";

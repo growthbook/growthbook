@@ -13,6 +13,10 @@ export interface CommentComposerProps {
   placeholder?: string;
   initialValue?: string;
   autofocus?: boolean;
+  // When autofocus is set, drop the caret at the end of `initialValue`
+  // rather than the start — useful when seeding boilerplate the user
+  // should type after.
+  autofocusAtEnd?: boolean;
   onCancel?: () => void;
 }
 
@@ -28,6 +32,7 @@ export default function CommentComposer({
   placeholder,
   initialValue = "",
   autofocus,
+  autofocusAtEnd,
   onCancel,
 }: CommentComposerProps) {
   const [value, setValue] = useState(initialValue);
@@ -56,6 +61,7 @@ export default function CommentComposer({
         value={value}
         setValue={setValue}
         autofocus={autofocus}
+        autofocusAtEnd={autofocusAtEnd}
         cta={cta}
         onCancel={onCancel}
         error={error || ""}

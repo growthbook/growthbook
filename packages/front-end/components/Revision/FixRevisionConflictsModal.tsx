@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
+import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
 import Collapsible from "react-collapsible";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { PiCheckBold, PiGitMergeBold } from "react-icons/pi";

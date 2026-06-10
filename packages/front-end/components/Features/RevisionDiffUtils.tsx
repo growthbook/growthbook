@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
+import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
 import Collapsible from "react-collapsible";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import {
@@ -8,6 +8,7 @@ import {
   PiWarningBold,
   PiCopy,
   PiCaretDown,
+  PiChatCircleTextFill,
   PiListBullets,
   PiGitDiff,
   PiSparkle,
@@ -68,6 +69,18 @@ import {
 import type { FeatureRevisionDiff } from "@/hooks/useFeatureRevisionDiff";
 import { holdoutOccupiesRuleSlot } from "@/hooks/useHoldouts";
 import CoAuthors from "@/components/Features/CoAuthors";
+import { Popover } from "@/ui/Popover";
+import {
+  AnchoredComment,
+  DiffCommentRef,
+  DiffRefSnapshot,
+  DIFF_FORMAT_EVENT,
+  buildDiffSnapshotEntries,
+  captureDiffRefSnapshot,
+  diffRefId,
+  formatDiffRef,
+  scrollToRevisionLogEntry,
+} from "@/components/Features/diffCommentRefs";
 
 // How a contextual diff is rendered: "formatted" = the human-readable section
 // renders; "json" = the per-section left/right JSON diff; "raw" = a single,
@@ -84,6 +97,16 @@ export function useDiffFormat(): [DiffFormat, (v: DiffFormat) => void] {
     "diff:view-format",
     "formatted",
   );
+  // Diff-ref widgets in the timeline force JSON mode from outside any
+  // DiffContent instance (see requestDiffFormat); pick up that broadcast.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const v = (e as CustomEvent).detail;
+      if (v === "formatted" || v === "json" || v === "raw") setValue(v);
+    };
+    window.addEventListener(DIFF_FORMAT_EVENT, handler);
+    return () => window.removeEventListener(DIFF_FORMAT_EVENT, handler);
+  }, [setValue]);
   const normalized: DiffFormat =
     value === "json" ? "json" : value === "raw" ? "raw" : "formatted";
   return [normalized, setValue];
@@ -369,6 +392,100 @@ export function CopyAsButton({
 // DraftModal so it can be shared across all revision/diff surfaces (the
 // unified ReviewAndPublish surface, audit history, revision compare, etc.)
 // without depending on a specific modal.
+// Wiring for gutter comments on JSON diffs. Threaded from the surface that
+// owns the revision log (ReviewAndPublish) down through DiffContent into each
+// ExpandableDiff. `onSubmitNew` is optional so read-only surfaces still
+// render existing comment markers without the write affordance.
+export type DiffCommentsProps = {
+  // refId ("rules:R12") → most recent comment referencing that spot.
+  anchors: Map<string, AnchoredComment>;
+  // Present when the viewer may add new comments (active draft + permission).
+  // Receives the full markdown body (diff-ref block already embedded).
+  onSubmitNew?: (text: string) => Promise<void>;
+};
+
+// One interactive spot in the comment overlay. A spot with an existing
+// comment renders a persistent marker that jumps to the comment in the
+// revision timeline; an empty spot renders a hover-revealed affordance that
+// opens a popover composer pre-seeded with the visible diff-ref block
+// (reference + before/after snapshot) so the reference lives in the comment
+// text itself rather than hidden metadata, and survives even if the diff
+// later changes shape. The icon overlays the diff's own line-number gutter
+// (zero-width host cell, absolutely positioned button) so the table layout
+// doesn't shift. Composer open state is controlled by the parent
+// ExpandableDiff so clicks anywhere on the gutter cell (via
+// onLineNumberClick) toggle the same popover.
+function DiffCommentCell({
+  refObj,
+  snapshot,
+  anchored,
+  comments,
+  open,
+  onOpenChange,
+}: {
+  refObj: DiffCommentRef;
+  snapshot: DiffRefSnapshot;
+  anchored: AnchoredComment | undefined;
+  comments: DiffCommentsProps;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  if (anchored) {
+    return (
+      <button
+        type="button"
+        className="gb-diff-comment-trigger has-comment"
+        title="Go to comment"
+        onClick={(e) => {
+          // Keep the click off the gutter cell's onLineNumberClick (which
+          // would also jump) so the scroll only fires once.
+          e.stopPropagation();
+          if (anchored.logId) scrollToRevisionLogEntry(anchored.logId);
+        }}
+      >
+        <PiChatCircleTextFill />
+      </button>
+    );
+  }
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={onOpenChange}
+      side="right"
+      align="start"
+      content={
+        <Box style={{ width: 560 }}>
+          <CommentComposer
+            placeholder="Comment on this line…"
+            initialValue={`${formatDiffRef(refObj, snapshot)}\n\n`}
+            autofocus
+            autofocusAtEnd
+            onCancel={() => onOpenChange(false)}
+            onSubmit={async (text) => {
+              await comments.onSubmitNew?.(text);
+              onOpenChange(false);
+            }}
+          />
+        </Box>
+      }
+      trigger={
+        <button
+          type="button"
+          className={`gb-diff-comment-trigger${open ? " is-open" : ""}`}
+          title="Add a comment"
+          // Radix's trigger handles the toggle; just keep the click from
+          // bubbling to the gutter cell, whose onLineNumberClick would
+          // re-toggle and cancel it out.
+          onClick={(e) => e.stopPropagation()}
+        >
+          <PiChatCircleTextFill />
+        </button>
+      }
+    />
+  );
+}
+
 export function ExpandableDiff({
   title,
   a,
@@ -377,6 +494,8 @@ export function ExpandableDiff({
   styles,
   leftTitle,
   rightTitle,
+  anchorKey,
+  comments,
 }: {
   title: string;
   a: string;
@@ -385,13 +504,110 @@ export function ExpandableDiff({
   styles?: object;
   leftTitle?: string | React.ReactElement;
   rightTitle?: string | React.ReactElement;
+  // Semantic section key for diff comment references. Gutter comments are
+  // enabled only when both anchorKey and comments are provided.
+  anchorKey?: string;
+  comments?: DiffCommentsProps;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  // refId of the spot whose comment popover is open. Lifted here so both the
+  // overlay icon (Radix trigger) and clicks anywhere on the line-number
+  // gutter (onLineNumberClick) drive the same popover.
+  const [openAnchorId, setOpenAnchorId] = useState<string | null>(null);
+
+  const commentsEnabled = !!anchorKey && !!comments;
+
+  // Line diff of the section, computed once; per-line snapshots (the
+  // before/after window embedded in a composed comment's diff-ref block) are
+  // cheap slices of this.
+  const snapshotEntries = useMemo(
+    () => (commentsEnabled ? buildDiffSnapshotEntries(a, b) : []),
+    [a, b, commentsEnabled],
+  );
 
   if (a === b) return null;
 
+  // Style overrides for ReactDiffViewer. When comments are enabled we add a
+  // small right-padding to the line-number gutters so the digits don't
+  // crowd the icon column that follows (the renderGutter cell). Width on
+  // the host cell itself goes through SCSS — see .gb-diff-comment-cell.
+  const baseStyles = (styles as Record<string, Record<string, unknown>>) ?? {
+    contentText: { wordBreak: "break-all" },
+  };
+  const diffStyles = commentsEnabled
+    ? {
+        ...baseStyles,
+        gutter: { ...(baseStyles.gutter ?? {}), paddingRight: 8 },
+        emptyGutter: { ...(baseStyles.emptyGutter ?? {}), paddingRight: 8 },
+      }
+    : baseStyles;
+
+  // A spot is interactive when it either has an existing comment or the
+  // viewer can start a new one. The host cell is zero-width (the icon
+  // overlays the adjacent line-number gutter) so the table layout is
+  // identical with or without comments enabled. The data-diff-ref attribute
+  // is the scroll target for timeline diff-ref widgets (scrollToDiffRef).
+  const renderGutter = commentsEnabled
+    ? (data: { lineNumber: number; prefix: string }) => {
+        const line = data.lineNumber;
+        const side = data.prefix === "L" ? ("L" as const) : ("R" as const);
+        const refObj: DiffCommentRef = {
+          sectionKey: anchorKey,
+          side,
+          line,
+        };
+        const refId = line ? diffRefId(refObj) : null;
+        const anchored = refId ? comments.anchors.get(refId) : undefined;
+        const interactive = !!refId && (!!anchored || !!comments.onSubmitNew);
+        return (
+          <td
+            className="gb-diff-comment-cell"
+            data-diff-ref={refId ?? undefined}
+          >
+            {interactive ? (
+              <DiffCommentCell
+                refObj={refObj}
+                snapshot={captureDiffRefSnapshot(snapshotEntries, side, line)}
+                anchored={anchored}
+                comments={comments}
+                open={openAnchorId === refId}
+                onOpenChange={(o) => setOpenAnchorId(o ? refId : null)}
+              />
+            ) : null}
+          </td>
+        );
+      }
+    : undefined;
+
+  // Whole-gutter clicks: the library wires onLineNumberClick onto the entire
+  // line-number <td>, so clicking anywhere in the gutter acts like clicking
+  // the overlay icon — jump to an existing comment, or toggle the composer.
+  const onLineNumberClick = commentsEnabled
+    ? (lineId: string) => {
+        const m = /^([LR])-(\d+)$/.exec(lineId);
+        if (!m) return;
+        const refObj: DiffCommentRef = {
+          sectionKey: anchorKey,
+          side: m[1] as "L" | "R",
+          line: parseInt(m[2], 10),
+        };
+        const refId = diffRefId(refObj);
+        const anchored = comments.anchors.get(refId);
+        if (anchored) {
+          if (anchored.logId) scrollToRevisionLogEntry(anchored.logId);
+          return;
+        }
+        if (!comments.onSubmitNew) return;
+        setOpenAnchorId((prev) => (prev === refId ? null : refId));
+      }
+    : undefined;
+
   return (
-    <Box className="diff-wrapper appbox bg-light">
+    <Box
+      className={`diff-wrapper appbox bg-light${
+        commentsEnabled ? " gb-diff-commentable" : ""
+      }`}
+    >
       <Flex
         align="center"
         className=""
@@ -417,9 +633,11 @@ export function ExpandableDiff({
             oldValue={a}
             newValue={b}
             compareMethod={DiffMethod.LINES}
-            styles={styles ?? { contentText: { wordBreak: "break-all" } }}
+            styles={diffStyles}
             leftTitle={leftTitle}
             rightTitle={rightTitle}
+            renderGutter={renderGutter}
+            onLineNumberClick={onLineNumberClick}
           />
         </Box>
       )}
@@ -685,6 +903,7 @@ export function buildRampDiffs({
             ramp.startDate ? "" : " · starts on publish"
           }`;
       return {
+        key: `rampSchedule.${ramp.id}`,
         title: `${kindLabel} – ${ramp.name}`,
         entityName: ramp.name,
         entityType: isSimple ? "schedule" : "ramp-schedule",
@@ -723,6 +942,7 @@ export function buildRampDiffs({
           const kindLabel = isSimple ? "Schedule" : "Ramp Schedule";
           const displayName = action.name ?? "schedule";
           return {
+            key: `rampAction.${action.ruleId}`,
             title: `${kindLabel} – ${displayName}`,
             entityName: displayName,
             entityType: isSimple ? "schedule" : "ramp-schedule",
@@ -757,6 +977,7 @@ export function buildRampDiffs({
           const kindLabelUpdate = isSimpleUpdate ? "Schedule" : "Ramp Schedule";
           const displayName = action.name ?? "schedule";
           return {
+            key: `rampAction.${action.rampScheduleId}`,
             title: `${kindLabelUpdate} – ${displayName}`,
             entityName: displayName,
             entityType: isSimpleUpdate ? "schedule" : "ramp-schedule",
@@ -787,6 +1008,7 @@ export function buildRampDiffs({
           const kindNoun = isSimple ? "schedule" : "ramp schedule";
           const scheduleName = targetSchedule?.name;
           return {
+            key: `rampAction.${action.rampScheduleId}`,
             title: scheduleName ? `${kindLabel} – ${scheduleName}` : kindLabel,
             entityName: scheduleName ?? action.rampScheduleId,
             entityType: isSimple ? "schedule" : "ramp-schedule",
@@ -1311,6 +1533,7 @@ export function DiffContent({
   canEditNotes,
   onNotesSaved,
   variant = "plain",
+  diffComments,
 }: {
   diffs: FeatureRevisionDiff[];
   // Revision notes to render above the diff. Omit when the surface renders
@@ -1336,6 +1559,11 @@ export function DiffContent({
   // header section with a full-width divider below (same pattern as the
   // Notes box header), and the diff views get their own padded body.
   variant?: "plain" | "card";
+  // When provided, the JSON diff views grow a comment gutter: existing
+  // anchored comments render as markers, and (when permitted) clicking a
+  // line opens a composer pre-seeded with a visible ref token. Surfaces
+  // without a revision log (e.g. audit comparisons) simply omit this.
+  diffComments?: DiffCommentsProps;
 }) {
   const [format, setFormat] = useDiffFormat();
   // "Raw JSON" needs whole-shape data; fall back to per-section JSON when a
@@ -1457,6 +1685,8 @@ export function DiffContent({
                     b={stringifyForRawDiff(raw.after)}
                     defaultOpen
                     styles={COMPACT_DIFF_STYLES}
+                    anchorKey="raw"
+                    comments={diffComments}
                   />
                 )}
                 {diffsWithChanges
@@ -1469,6 +1699,8 @@ export function DiffContent({
                       b={d.b}
                       defaultOpen
                       styles={COMPACT_DIFF_STYLES}
+                      anchorKey={d.key}
+                      comments={diffComments}
                     />
                   ))}
               </Flex>
@@ -1482,6 +1714,8 @@ export function DiffContent({
                     b={d.b}
                     defaultOpen
                     styles={COMPACT_DIFF_STYLES}
+                    anchorKey={d.key}
+                    comments={diffComments}
                   />
                 ))}
               </Flex>

@@ -31,7 +31,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import EventUser from "@/components/Avatar/EventUser";
 import Avatar from "@/ui/Avatar";
 import Code from "@/components/SyntaxHighlighting/Code";
-import Markdown from "@/components/Markdown/Markdown";
+import MarkdownWithDiffRefs from "@/components/Features/DiffCommentMarkdown";
 import CommentCard from "@/components/Comments/CommentCard";
 import CommentComposer from "@/components/Comments/CommentComposer";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
@@ -318,75 +318,82 @@ export function RevisionLogRow({
 
   if (renderAsCard) {
     return (
-      <CommentCard
-        user={log.user}
-        metadata={`${visual.verb} on ${datetime(log.timestamp)}`}
-        stripeColor={visual.color}
-        leading={verdictLeading}
-        metadataExtra={
-          retraction ? (
-            <Badge
-              color="gray"
-              variant="solid"
-              label={retraction.label}
-              size="xs"
-            />
-          ) : undefined
-        }
-        actions={
-          canEdit || canDelete || canRetractVerdict ? (
-            <DropdownMenu
-              trigger={
-                <IconButton
-                  variant="ghost"
-                  color="gray"
-                  radius="full"
-                  size="2"
-                  highContrast
-                >
-                  <BsThreeDotsVertical size={14} />
-                </IconButton>
-              }
-              variant="soft"
-              menuPlacement="end"
-            >
-              {canEdit && (
-                <DropdownMenuItem onClick={() => setEditing(true)}>
-                  Edit
-                </DropdownMenuItem>
-              )}
-              {canRetractVerdict && (
-                <DropdownMenuItem
-                  onClick={() => {
-                    void onRetractVerdict?.();
-                  }}
-                >
-                  Retract review
-                </DropdownMenuItem>
-              )}
-              {canDelete && (
-                <DropdownMenuItem
-                  color="red"
-                  confirmation={{
-                    confirmationTitle: "Delete Comment",
-                    cta: "Delete",
-                    submit: async () => {
-                      await apiCall(
-                        `/feature/${featureId}/${version}/log/${log.id}`,
-                        { method: "DELETE" },
-                      );
-                      await onMutate?.();
-                    },
-                  }}
-                >
-                  Delete
-                </DropdownMenuItem>
-              )}
-            </DropdownMenu>
-          ) : undefined
-        }
-        body={<Markdown className="speech-bubble">{comment}</Markdown>}
-      />
+      // Jump target for diff gutter markers (see scrollToRevisionLogEntry).
+      <Box data-revision-log-id={log.id ?? undefined}>
+        <CommentCard
+          user={log.user}
+          metadata={`${visual.verb} on ${datetime(log.timestamp)}`}
+          stripeColor={visual.color}
+          leading={verdictLeading}
+          metadataExtra={
+            retraction ? (
+              <Badge
+                color="gray"
+                variant="solid"
+                label={retraction.label}
+                size="xs"
+              />
+            ) : undefined
+          }
+          actions={
+            canEdit || canDelete || canRetractVerdict ? (
+              <DropdownMenu
+                trigger={
+                  <IconButton
+                    variant="ghost"
+                    color="gray"
+                    radius="full"
+                    size="2"
+                    highContrast
+                  >
+                    <BsThreeDotsVertical size={14} />
+                  </IconButton>
+                }
+                variant="soft"
+                menuPlacement="end"
+              >
+                {canEdit && (
+                  <DropdownMenuItem onClick={() => setEditing(true)}>
+                    Edit
+                  </DropdownMenuItem>
+                )}
+                {canRetractVerdict && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      void onRetractVerdict?.();
+                    }}
+                  >
+                    Retract review
+                  </DropdownMenuItem>
+                )}
+                {canDelete && (
+                  <DropdownMenuItem
+                    color="red"
+                    confirmation={{
+                      confirmationTitle: "Delete Comment",
+                      cta: "Delete",
+                      submit: async () => {
+                        await apiCall(
+                          `/feature/${featureId}/${version}/log/${log.id}`,
+                          { method: "DELETE" },
+                        );
+                        await onMutate?.();
+                      },
+                    }}
+                  >
+                    Delete
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenu>
+            ) : undefined
+          }
+          body={
+            <MarkdownWithDiffRefs className="speech-bubble">
+              {comment ?? ""}
+            </MarkdownWithDiffRefs>
+          }
+        />
+      </Box>
     );
   }
 
