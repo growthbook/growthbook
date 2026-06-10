@@ -7,6 +7,7 @@ import {
   getFeatureKeysForRepoBranch,
   upsertFeatureCodeRefs,
 } from "back-end/src/models/FeatureCodeRefs";
+import { getFeatureProjectsByIds } from "back-end/src/models/FeatureModel";
 
 export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
   async (req) => {
@@ -30,7 +31,43 @@ export const postCodeRefs = createApiRequestHandler(postCodeRefsValidator)(
       featuresToRemove = existingFeatures.filter(
         (feature) => !requestedFeatures.has(feature),
       );
+    }
 
+    // Require write access to every feature being upserted or cleared before
+    // touching the collection. Code ref flag keys equal feature ids. Resolve the
+    // project of each existing feature (regardless of the caller's read access)
+    // so a feature in a project the caller can't reach is still checked against
+    // that project — not silently treated as a non-existent key.
+    const affectedFeatureIds = [
+      ...new Set([...requestedFeatures, ...featuresToRemove]),
+    ];
+    const featureProjects = await getFeatureProjectsByIds(
+      req.context,
+      affectedFeatureIds,
+    );
+    const cannotWriteAll = affectedFeatureIds.some((featureId) => {
+      if (featureProjects.has(featureId)) {
+        // Existing feature: require write access to its project.
+        const project = featureProjects.get(featureId);
+        return !req.context.permissions.canUpdateFeature(
+          { project },
+          { project },
+        );
+      }
+      // No matching feature in the org. When upserting, this is a flag key with
+      // no GrowthBook feature, gated on a global manageFeatures check. When only
+      // clearing (deleteMissing), the feature was deleted and we're just removing
+      // its dangling refs — there's no project to gate on, so allow it.
+      if (requestedFeatures.has(featureId)) {
+        return !req.context.permissions.canCreateFeature({});
+      }
+      return false;
+    });
+    if (cannotWriteAll) {
+      req.context.permissions.throwPermissionError();
+    }
+
+    if (deleteMissing) {
       // Remove references for features not in the request by setting empty refs
       await promiseAllChunks(
         featuresToRemove.map(

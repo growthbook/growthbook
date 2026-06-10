@@ -7,9 +7,10 @@ import {
   updateExperiment,
 } from "../../src/models/ExperimentModel";
 import {
-  getLatestSnapshot,
+  getLatestSuccessfulSnapshot,
   getLatestSnapshotMultipleExperiments,
 } from "../../src/models/ExperimentSnapshotModel";
+import { getMetricsByIds } from "../../src/models/MetricModel";
 import { getDataSourceById } from "../../src/models/DataSourceModel";
 import { setupApp } from "./api.setup";
 
@@ -29,12 +30,13 @@ jest.mock("../../src/models/ExperimentModel", () => ({
 }));
 
 jest.mock("../../src/models/ExperimentSnapshotModel", () => ({
-  getLatestSnapshot: jest.fn(),
+  getLatestSuccessfulSnapshot: jest.fn(),
   getLatestSnapshotMultipleExperiments: jest.fn(),
 }));
 
 jest.mock("../../src/models/MetricModel", () => ({
   getMetricMap: jest.fn().mockResolvedValue(new Map()),
+  getMetricsByIds: jest.fn().mockResolvedValue([]),
 }));
 
 jest.mock("../../src/models/DataSourceModel", () => ({
@@ -80,6 +82,10 @@ describe("experiments API", () => {
               queries: { exposure: [{ id: "user_id", name: "User ID" }] },
             },
           }),
+        },
+        factMetrics: {
+          getAll: jest.fn().mockResolvedValue([]),
+          getByIds: jest.fn().mockResolvedValue([]),
         },
       },
       permissions: {
@@ -1866,7 +1872,7 @@ describe("experiments API", () => {
         ],
       };
       (getExperimentById as jest.Mock).mockResolvedValue(experimentWithPhases);
-      (getLatestSnapshot as jest.Mock).mockResolvedValue({
+      (getLatestSuccessfulSnapshot as jest.Mock).mockResolvedValue({
         id: "snap_123",
         organization: "org_1",
         experiment: "exp_123",
@@ -1905,6 +1911,116 @@ describe("experiments API", () => {
       expect(res.body).toHaveProperty("result");
     });
 
+    it("includes metricName and variationName for each metric/variation pair", async () => {
+      updateReqContext({
+        org,
+        permissions: {
+          canViewExperiment: () => true,
+        },
+      });
+
+      const experimentWithResults = {
+        ...experiment,
+        variations: [
+          {
+            id: "0",
+            key: "control",
+            name: "Control Variation",
+            description: "",
+            screenshots: [],
+          },
+          {
+            id: "1",
+            key: "treatment",
+            name: "Treatment Variation",
+            description: "",
+            screenshots: [],
+          },
+        ],
+        goalMetrics: ["met_1"],
+        phases: [
+          {
+            name: "Main",
+            dateStarted: new Date("2024-01-01"),
+            dateEnded: null,
+            reason: "",
+            seed: "test-seed",
+            coverage: 1,
+            variationWeights: [0.5, 0.5],
+            condition: "",
+            savedGroups: [],
+            prerequisites: [],
+            namespace: { enabled: false },
+          },
+        ],
+      };
+      (getExperimentById as jest.Mock).mockResolvedValue(experimentWithResults);
+      (getMetricsByIds as jest.Mock).mockResolvedValue([
+        { id: "met_1", name: "Signups" },
+      ]);
+      (getLatestSuccessfulSnapshot as jest.Mock).mockResolvedValue({
+        id: "snap_123",
+        organization: "org_1",
+        experiment: "exp_123",
+        phase: 0,
+        dimension: null,
+        dateCreated: new Date(),
+        runStarted: new Date(),
+        queries: [],
+        unknownVariations: [],
+        multipleExposures: 0,
+        hasCorrectedStats: false,
+        analyses: [
+          {
+            settings: { statsEngine: "bayesian" },
+            results: [
+              {
+                name: "",
+                srm: 1,
+                variations: [
+                  { users: 100, metrics: { met_1: { value: 10, users: 100 } } },
+                  { users: 100, metrics: { met_1: { value: 12, users: 100 } } },
+                ],
+              },
+            ],
+          },
+        ],
+        settings: {
+          manual: false,
+          activationMetric: null,
+          queryFilter: "",
+          segment: "",
+          skipPartialData: false,
+          attributionModel: "firstExposure",
+          experimentId: "exp_123",
+          statsEngine: "bayesian",
+          regressionAdjustmentEnabled: false,
+          sequentialTestingEnabled: false,
+          sequentialTestingTuningParameter: 5000,
+          pValueThreshold: 0.05,
+          pValueCorrection: null,
+          differenceType: "relative",
+        },
+      });
+
+      const res = await request(app)
+        .get("/api/v1/experiments/exp_123/results")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      const metrics = res.body.result.results[0].metrics;
+      expect(metrics).toHaveLength(1);
+      expect(metrics[0].metricId).toBe("met_1");
+      expect(metrics[0].metricName).toBe("Signups");
+      expect(metrics[0].variations).toHaveLength(2);
+      expect(metrics[0].variations[0].variationId).toBe("0");
+      expect(metrics[0].variations[0].variationName).toBe("Control Variation");
+      expect(metrics[0].variations[1].variationId).toBe("1");
+      expect(metrics[0].variations[1].variationName).toBe(
+        "Treatment Variation",
+      );
+    });
+
     it("returns 400 when experiment not found", async () => {
       (getExperimentById as jest.Mock).mockResolvedValue(null);
 
@@ -1918,7 +2034,7 @@ describe("experiments API", () => {
 
     it("returns 400 when no results found", async () => {
       (getExperimentById as jest.Mock).mockResolvedValue(experiment);
-      (getLatestSnapshot as jest.Mock).mockResolvedValue(null);
+      (getLatestSuccessfulSnapshot as jest.Mock).mockResolvedValue(null);
 
       const res = await request(app)
         .get("/api/v1/experiments/exp_123/results")

@@ -11,19 +11,50 @@ export function getQuantileBoundsFromQueryResponse(
     [key: string]: number;
   } = {};
   if (row[`${prefix}quantile`] !== undefined) {
-    quantileData[`${prefix}quantile`] =
-      parseFloat(row[`${prefix}quantile`]) || 0;
+    const rawQuantile = row[`${prefix}quantile`];
+
+    quantileData[`${prefix}quantile`] = parseFloat(rawQuantile) || 0;
     quantileData[`${prefix}quantile_n`] =
       parseFloat(row[`${prefix}quantile_n`]) || 0;
 
     const smallestNStar = Math.min(...N_STAR_VALUES);
 
-    // process grid for quantile data
-    N_STAR_VALUES.forEach((n) => {
-      const lowerColumn = `${prefix}quantile_lower_${n}`;
-      const upperColumn = `${prefix}quantile_upper_${n}`;
-      if (row[lowerColumn] === undefined || row[upperColumn] === undefined)
-        return;
+    // For datasources that we can pack the values in a single array column
+    const gridArray = row[`${prefix}quantile_grid`];
+    const isArrayGrid = Array.isArray(gridArray);
+    const expectedGridLength = N_STAR_VALUES.length * 2;
+    // BigQuery translates NULL arrays to empty arrays in query results, so
+    // the no-values grid can/will arrive as []
+    const emptyGridWithoutValues =
+      isArrayGrid &&
+      gridArray.length === 0 &&
+      (rawQuantile ?? null) === null &&
+      quantileData[`${prefix}quantile_n`] === 0;
+    if (
+      isArrayGrid &&
+      gridArray.length !== expectedGridLength &&
+      !emptyGridWithoutValues
+    ) {
+      throw new Error(
+        `Expected ${prefix}quantile_grid array of length ${expectedGridLength}, got ${gridArray.length}. ` +
+          `This indicates a mismatch between SQL generation (getQuantileGridColumns / getQuantileSketchGridColumns) ` +
+          `and N_STAR_VALUES on the read side.`,
+      );
+    }
+
+    const getLower = isArrayGrid
+      ? (k: number) => gridArray[2 * k]
+      : (k: number) => row[`${prefix}quantile_lower_${N_STAR_VALUES[k]}`];
+    const getUpper = isArrayGrid
+      ? (k: number) => gridArray[2 * k + 1]
+      : (k: number) => row[`${prefix}quantile_upper_${N_STAR_VALUES[k]}`];
+
+    N_STAR_VALUES.forEach((n, k) => {
+      const lowerVal = getLower(k);
+      const upperVal = getUpper(k);
+      // Covers both null (e.g. empty-group APPROX_QUANTILES array elements)
+      // and undefined (missing scalar columns)
+      if ((lowerVal ?? null) === null || (upperVal ?? null) === null) return;
 
       if (
         // if nstar is smaller, or if it's the smallest nstar, proceed
@@ -32,13 +63,21 @@ export function getQuantileBoundsFromQueryResponse(
         // this n is the largest n we've seen so far
         n > (Number(quantileData[`${prefix}quantile_nstar`]) || 0)
       ) {
-        quantileData[`${prefix}quantile_lower`] =
-          parseFloat(row[lowerColumn]) || 0;
-        quantileData[`${prefix}quantile_upper`] =
-          parseFloat(row[upperColumn]) || 0;
+        quantileData[`${prefix}quantile_lower`] = parseFloat(lowerVal) || 0;
+        quantileData[`${prefix}quantile_upper`] = parseFloat(upperVal) || 0;
         quantileData[`${prefix}quantile_nstar`] = n;
       }
     });
+
+    // Sparse slices can have quantile columns present but no usable grid bounds.
+    // Chunked query storage unions column names across rows, so omitting these
+    // fields on some rows rehydrates as explicit nulls and breaks gbstats input
+    // validation. Default to zero like other parseFloat(... ) || 0 paths.
+    if (quantileData[`${prefix}quantile_nstar`] === undefined) {
+      quantileData[`${prefix}quantile_lower`] = 0;
+      quantileData[`${prefix}quantile_upper`] = 0;
+      quantileData[`${prefix}quantile_nstar`] = 0;
+    }
   }
   return quantileData;
 }

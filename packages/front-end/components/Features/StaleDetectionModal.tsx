@@ -82,7 +82,7 @@ export default function StaleDetectionModal({
         await mutate();
         const resolvedVersion =
           res?.draftVersion ?? (mode === "existing" ? selectedDraft : null);
-        if (resolvedVersion != null) setVersion(resolvedVersion);
+        if (resolvedVersion !== null) setVersion(resolvedVersion);
         if (enabling && mode === "publish") onEnable?.();
       }}
     >

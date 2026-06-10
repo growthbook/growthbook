@@ -57,25 +57,19 @@ export default function ExplorerSideBar({
   } = useExplorerContext();
   const { factTables, getFactMetricById, project } = useDefinitions();
   const { hasCommercialFeature, permissionsUtil } = useUser();
-  // Check if the user can create dashboards for the current project or globally
-  const canCreateDashboards =
-    permissionsUtil.canCreateGeneralDashboards({
-      projects: [project],
-    }) || permissionsUtil.canCreateGeneralDashboards({ projects: [] });
-  // Check if the user can edit dashboards for the current project or globally
-  const canEditDashboards =
-    permissionsUtil.canUpdateGeneralDashboards(
-      {
-        projects: [project],
-      },
-      {},
-    ) || permissionsUtil.canUpdateGeneralDashboards({ projects: [] }, {});
+  const canCreateDashboards = permissionsUtil.canCreateGeneralDashboards({
+    projects: [project],
+  });
+  const canEditDashboards = permissionsUtil.canUpdateGeneralDashboards(
+    { projects: [project] },
+    {},
+  );
   const hasDashboardsFeature = hasCommercialFeature(
     "product-analytics-dashboards",
   );
   const saveToDashboardDisabledReason =
     !canEditDashboards && !canCreateDashboards
-      ? "You do not have permission to create or edit dashboards."
+      ? "You do not have permission to create or edit dashboards in this project."
       : !isSubmittable
         ? "Configure a valid exploration before saving."
         : undefined;

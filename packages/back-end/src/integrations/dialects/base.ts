@@ -56,7 +56,7 @@ export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
         return "TIMESTAMP";
       case "hll":
         return "VARBINARY";
-      case "kll":
+      case "quantileSketch":
         return "VARBINARY";
       default: {
         const _: never = dataType;
@@ -109,33 +109,34 @@ export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
     );
   },
 
-  kllInit: () => {
+  quantileSketchInit: () => {
+    throw new Error("Quantile sketches are not supported by this data source.");
+  },
+
+  quantileSketchMergePartial: () => {
+    throw new Error("Quantile sketches are not supported by this data source.");
+  },
+
+  quantileSketchExtractPoint: () => {
+    throw new Error("Quantile sketches are not supported by this data source.");
+  },
+
+  quantileSketchExtractQuantiles: () => {
+    throw new Error("Quantile sketches are not supported by this data source.");
+  },
+
+  quantileSketchRankApprox: () => {
     throw new Error(
-      "KLL quantile sketches are not supported by this data source.",
+      "Quantile sketch rank approximation is not implemented for this data source.",
     );
   },
 
-  kllMergePartial: () => {
-    throw new Error(
-      "KLL quantile sketches are not supported by this data source.",
-    );
-  },
+  hasArrayQuantileGrid: () => false,
 
-  kllExtractPoint: () => {
+  quantileGridArrayLiteral: () => {
     throw new Error(
-      "KLL quantile sketches are not supported by this data source.",
-    );
-  },
-
-  kllExtractQuantiles: () => {
-    throw new Error(
-      "KLL quantile sketches are not supported by this data source.",
-    );
-  },
-
-  kllRankApprox: () => {
-    throw new Error(
-      "KLL rank approximation is not implemented for this data source.",
+      "Quantile-grid array literals are not supported by this data source. " +
+        "A dialect must implement quantileGridArrayLiteral to set hasArrayQuantileGrid().",
     );
   },
 

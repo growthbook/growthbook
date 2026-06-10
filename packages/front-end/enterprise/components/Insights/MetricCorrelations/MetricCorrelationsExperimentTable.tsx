@@ -243,6 +243,11 @@ const ExperimentWithMetricsTable: FC<Props> = ({
     defaultSortDir: -1,
     undefinedLast: true,
     searchFields: [],
+    // This is a sort-only table embedded inside pages that own the URL `q`
+    // param (e.g. MetricCorrelations). Without this, the hook would latch
+    // onto the page's filter string at mount, which combined with an empty
+    // searchFields collapses the table to zero rows.
+    disableUrlSearchTerm: true,
   });
 
   const expRows = items.slice(start, end).map((e) => {

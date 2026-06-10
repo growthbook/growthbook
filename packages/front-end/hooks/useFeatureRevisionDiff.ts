@@ -15,9 +15,11 @@ import {
   prerequisiteChangeBadges,
   renderFeatureHoldoutSection,
   getFeatureHoldoutBadges,
+  renderFeatureArchived,
 } from "@/components/Features/FeatureDiffRenders";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 import { useEnvironments } from "@/services/features";
+import { useHoldouts, holdoutOccupiesRuleSlot } from "@/hooks/useHoldouts";
 
 // Helper
 // Normalize nullable metadata fields to canonical empty values so that
@@ -50,6 +52,7 @@ export const featureToFeatureRevisionDiffInput = (
     rules: feature.rules ?? [],
     environmentsEnabled,
     prerequisites: feature.prerequisites,
+    archived: feature.archived ?? false,
     holdout: feature.holdout ?? null,
     rampActions: undefined,
     metadata: normalizeRevisionMetadata({
@@ -89,6 +92,7 @@ export type FeatureRevisionDiffInput = Pick<
   | "rules"
   | "environmentsEnabled"
   | "prerequisites"
+  | "archived"
   | "metadata"
   | "holdout"
 > & {
@@ -143,8 +147,32 @@ export function useFeatureRevisionDiff({
   draft: FeatureRevisionDiffInput;
 }): FeatureRevisionDiff[] {
   const orgEnvs = useEnvironments();
+  const { holdoutsMap } = useHoldouts();
   return useMemo(() => {
     const diffs: FeatureRevisionDiff[] = [];
+
+    // 0. Archive status — a top-level revision field (not part of the metadata
+    // envelope), so it needs its own section. renderFeatureArchived returns null
+    // when unchanged (treating undefined as false), so it doubles as the guard —
+    // no separate change check needed.
+    const archivedRender = renderFeatureArchived(
+      current.archived,
+      draft.archived,
+    );
+    if (archivedRender) {
+      diffs.push({
+        title: "Archive status",
+        a: (current.archived ?? false) ? "archived" : "active",
+        b: draft.archived ? "archived" : "active",
+        customRender: archivedRender,
+        badges: [
+          {
+            label: draft.archived ? "Archived" : "Unarchived",
+            action: "archive",
+          },
+        ],
+      });
+    }
 
     // 1. Settings (metadata)
     if (draft.metadata) {
@@ -228,7 +256,7 @@ export function useFeatureRevisionDiff({
           title: `Environment Toggle - ${envId}`,
           a: String(currentVal),
           b: String(draftVal),
-          customRender: renderEnvironmentsEnabled(envId, currentVal, draftVal),
+          customRender: renderEnvironmentsEnabled(currentVal, draftVal),
           badges: [
             {
               label: `Toggled ${envId} ${direction}`,
@@ -328,15 +356,19 @@ export function useFeatureRevisionDiff({
         b: JSON.stringify(normalizeFeatureRules(draftRulesArr), null, 2),
         customRender: renderFeatureRules(currentRulesArr, draftRulesArr, {
           pendingRampActions: draftRampActions,
-          preHasHoldout: !!current.holdout,
-          postHasHoldout: !!draft.holdout,
+          // Match Rule.tsx numbering: the holdout occupies slot #1 only when
+          // it's actually enabled in some env; a feature can carry a holdout
+          // reference whose holdout is disabled everywhere, in which case the
+          // rules list shows Rule #1, #2, … with no holdout row.
+          preHasHoldout: holdoutOccupiesRuleSlot(current.holdout, holdoutsMap),
+          postHasHoldout: holdoutOccupiesRuleSlot(draft.holdout, holdoutsMap),
         }),
         badges: featureRuleChangeBadges(currentRulesArr, draftRulesArr),
       });
     }
 
     return diffs;
-  }, [current, draft, orgEnvs]);
+  }, [current, draft, orgEnvs, holdoutsMap]);
 }
 
 /**
@@ -359,6 +391,7 @@ export function mergeResultToDiffInput(
     ...(result.prerequisites !== undefined
       ? { prerequisites: result.prerequisites }
       : {}),
+    ...(result.archived !== undefined ? { archived: result.archived } : {}),
     ...("holdout" in result ? { holdout: result.holdout } : {}),
     ...(result.metadata !== undefined
       ? {

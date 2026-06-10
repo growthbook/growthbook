@@ -104,7 +104,7 @@ import { isEmailEnabled } from "./services/email";
 import { init } from "./init";
 import { aiRouter } from "./routers/ai/ai.router";
 import { getCustomLogProps, httpLogger, logger } from "./util/logger";
-import { shouldSkipErrorLog } from "./util/errors";
+import { shouldSkipErrorLog, SoftWarningError } from "./util/errors";
 import { usersRouter } from "./routers/users/users.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
 import { uploadRouter } from "./routers/upload/upload.router";
@@ -127,7 +127,6 @@ import { dataExportRouter } from "./routers/data-export/data-export.router";
 import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/demo-datasource-project.router";
 import { environmentRouter } from "./routers/environment/environment.router";
 import { teamRouter } from "./routers/teams/teams.router";
-import { githubIntegrationRouter } from "./routers/github-integration/github-integration.router";
 import { urlRedirectRouter } from "./routers/url-redirects/url-redirects.router";
 import { metricAnalysisRouter } from "./routers/metric-analysis/metric-analysis.router";
 import { metricGroupRouter } from "./routers/metric-group/metric-group.router";
@@ -270,18 +269,18 @@ app.use(async (req, res, next) => {
 // Visual Designer js file (does not require JWT or cors)
 app.get("/js/:key.js", getExperimentsScript);
 
-// increase max payload json size to 2mb (10mb for the api screenshot upload)
+// 2mb default; 10mb for screenshot upload and visual-editor AI image
+// gen (the latter accepts a base64-encoded reference image).
 app.use((req, res, next) => {
   const isScreenshotUpload =
     req.method === "POST" &&
     /^\/api\/v1\/experiments\/[^/]+\/variation\/[^/]+\/screenshot\/upload$/.test(
       req.path,
     );
-  bodyParser.json({ limit: isScreenshotUpload ? "10mb" : "2mb" })(
-    req,
-    res,
-    next,
-  );
+  const isVisualEditorImageGen =
+    req.method === "POST" && req.path === "/api/v1/visual-editor/ai/image-gen";
+  const needsLargeBody = isScreenshotUpload || isVisualEditorImageGen;
+  bodyParser.json({ limit: needsLargeBody ? "10mb" : "2mb" })(req, res, next);
 });
 
 // Public API routes (does not require JWT, does require cors with origin = *)
@@ -369,9 +368,19 @@ app.get(
 // mount the router at /api — yielding /api/v1/<route> and /api/v2/<route>.
 app.use(
   "/api",
-  // TODO add authentication
+  // Authentication is done via Auth headers and not cookies,
+  // so we can safely allow any origin
   cors({
     origin: "*",
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Organization",
+      "X-SSO-Connection-ID",
+    ],
+    credentials: false,
+    maxAge: 86400,
   }),
   apiRouter,
 );
@@ -649,6 +658,10 @@ app.get(
   "/experiment/:id/snapshot/:phase/:dimension",
   experimentsController.getSnapshotWithDimension,
 );
+app.get(
+  "/experiment/:id/snapshot-summary/:phase",
+  experimentsController.getSnapshotSummary,
+);
 app.post("/experiment/:id/snapshot", experimentsController.postSnapshot);
 app.post(
   "/experiment/:id/banditSnapshot",
@@ -682,6 +695,14 @@ app.post(
   experimentsController.postExperimentFeatureValues,
 );
 app.post("/experiment/:id/status", experimentsController.postExperimentStatus);
+app.post(
+  "/experiment/:id/approve-scheduled-start",
+  experimentsController.postApproveScheduledExperimentStart,
+);
+app.post(
+  "/experiment/:id/unschedule-start",
+  experimentsController.postUnapproveScheduledExperimentStart,
+);
 app.put(
   "/experiment/:id/phase/:phase",
   experimentsController.putExperimentPhase,
@@ -901,6 +922,16 @@ app.get("/features/status", featuresController.getFeaturesStatus);
 app.get("/features/draft-states", featuresController.getFeatureDraftStates);
 app.get("/features/stale", featuresController.getFeaturesStaleStates);
 app.get("/features/dependents", featuresController.getFeaturesDependents);
+app.get("/features/content-search", featuresController.getFeatureContentSearch);
+app.get(
+  "/features/dependency-index",
+  featuresController.getFeatureDependencyIndex,
+);
+app.get("/features/ramp-states", featuresController.getFeatureRampStates);
+app.get(
+  "/features/experiment-states",
+  featuresController.getFeatureExperimentStates,
+);
 app.post(
   "/feature/:id/:version/reorder",
   featuresController.postFeatureMoveRule,
@@ -994,7 +1025,6 @@ app.use(eventWebHooksRouter);
 
 // Slack integration
 app.use("/integrations/slack", slackIntegrationRouter);
-app.use("/integrations/github", githubIntegrationRouter);
 
 // Data Export
 app.use("/data-export", dataExportRouter);
@@ -1152,11 +1182,21 @@ const errorHandler: ErrorRequestHandler = (
     httpLogger.logger[level](getCustomLogProps(req), err.message);
   }
 
-  res.status(status).json({
+  const body: {
+    status: number;
+    message: string;
+    errorId?: string;
+    warnings?: string[];
+  } = {
     status: status,
     message: err.message || "An error occurred",
     errorId: SENTRY_DSN ? res.sentry : undefined,
-  });
+  };
+  // Picked up by front-end (when combined with 422 status code) to show a "Save anyway" dialog
+  if (err instanceof SoftWarningError) {
+    body.warnings = err.warnings;
+  }
+  res.status(status).json(body);
 };
 app.use(errorHandler);
 

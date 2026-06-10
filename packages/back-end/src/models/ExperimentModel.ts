@@ -184,6 +184,17 @@ const experimentSchema = new mongoose.Schema({
   attributionModel: String,
   archived: Boolean,
   status: String,
+  statusUpdateSchedule: {
+    _id: false,
+    startAt: Date,
+    stopAt: Date,
+  },
+  nextScheduledStatusUpdate: {
+    _id: false,
+    type: { type: String },
+    date: Date,
+    failedAttempts: Number,
+  },
   results: String,
   analysis: String,
   winner: Number,
@@ -272,6 +283,7 @@ const experimentSchema = new mongoose.Schema({
   lastSnapshotAttempt: Date,
   nextSnapshotAttempt: Date,
   autoSnapshots: Boolean,
+  disableAutoSnapshots: Boolean,
   ideaSource: String,
   regressionAdjustmentEnabled: Boolean,
   postStratificationEnabled: Boolean,
@@ -361,12 +373,17 @@ const experimentSchema = new mongoose.Schema({
       ],
     },
   ],
+  precomputedUnitDimensionIds: [String],
 });
 
 // Compound indexes for API list filtering
 experimentSchema.index({ organization: 1, datasource: 1 });
 experimentSchema.index({ organization: 1, project: 1 });
 experimentSchema.index({ organization: 1, trackingKey: 1 });
+experimentSchema.index(
+  { "nextScheduledStatusUpdate.date": 1 },
+  { sparse: true },
+);
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;
 
@@ -445,6 +462,7 @@ export async function getAllExperiments(
     trackingKey,
     status,
     sortBy,
+    limit,
   }: {
     project?: string;
     includeArchived?: boolean;
@@ -453,6 +471,10 @@ export async function getAllExperiments(
     trackingKey?: string;
     status?: ExperimentStatus;
     sortBy?: SortFilter;
+    // Mongo-cursor-level cap; pair with `sortBy` to get top-N. Without
+    // it, large orgs materialize the full result set (each row carries
+    // a potentially large analysis blob).
+    limit?: number;
   } = {},
 ): Promise<ExperimentInterface[]> {
   const query: FilterQuery<ExperimentDocument> = {
@@ -489,7 +511,7 @@ export async function getAllExperiments(
     query.type = { $ne: "holdout" };
   }
 
-  return await findExperiments(context, query, undefined, sortBy);
+  return await findExperiments(context, query, limit, sortBy);
 }
 
 export async function hasArchivedExperiments(
@@ -723,6 +745,7 @@ export async function getExperimentsToUpdate(
       },
       status: "running",
       autoSnapshots: true,
+      disableAutoSnapshots: { $ne: true },
       nextSnapshotAttempt: {
         $exists: true,
         $lte: new Date(),
@@ -756,6 +779,7 @@ export async function getExperimentsToUpdateLegacy(
       },
       status: "running",
       autoSnapshots: true,
+      disableAutoSnapshots: { $ne: true },
       nextSnapshotAttempt: {
         $exists: false,
       },
@@ -769,6 +793,32 @@ export async function getExperimentsToUpdateLegacy(
     })
     .limit(100)
     .sort({ nextSnapshotAttempt: 1 })
+    .toArray();
+
+  return experiments.map((exp) => ({
+    id: exp.id,
+    organization: exp.organization,
+  }));
+}
+
+export async function getExperimentsWithScheduledStatusUpdate(): Promise<
+  Pick<ExperimentInterface, "id" | "organization">[]
+> {
+  const now = new Date();
+  const experiments = await getCollection(COLLECTION)
+    .find({
+      "nextScheduledStatusUpdate.date": {
+        $exists: true,
+        $ne: null,
+        $lte: now,
+      },
+    })
+    .project({
+      id: true,
+      organization: true,
+    })
+    .limit(100)
+    .sort({ "nextScheduledStatusUpdate.date": 1 })
     .toArray();
 
   return experiments.map((exp) => ({
@@ -1177,7 +1227,10 @@ export async function deleteExperimentByIdForOrganization(
       organization: context.org.id,
     });
 
-    await VisualChangesetModel.deleteMany({ experiment: experiment.id });
+    await VisualChangesetModel.deleteMany({
+      experiment: experiment.id,
+      organization: context.org.id,
+    });
 
     await onExperimentDelete(context, experiment);
   } catch (e) {
@@ -1209,7 +1262,10 @@ export async function deleteAllExperimentsForAProject({
       id: experiment.id,
       organization: context.org.id,
     });
-    await VisualChangesetModel.deleteMany({ experiment: experiment.id });
+    await VisualChangesetModel.deleteMany({
+      experiment: experiment.id,
+      organization: context.org.id,
+    });
     await onExperimentDelete(context, toInterface(experiment));
   }
 }

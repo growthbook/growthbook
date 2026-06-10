@@ -29,6 +29,7 @@ import {
 } from "@/services/env";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import "diff2html/bundles/css/diff2html.min.css";
+import "react-grid-layout/css/styles.css";
 import Layout from "@/components/Layout/Layout";
 import { AppearanceUIThemeProvider } from "@/services/AppearanceUIThemeProvider";
 import TopNavLite from "@/components/Layout/TopNavLite";

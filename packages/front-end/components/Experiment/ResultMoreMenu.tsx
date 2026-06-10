@@ -18,7 +18,10 @@ import {
 } from "@/ui/DropdownMenu";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
+import {
+  getIsExperimentIncludedInIncrementalRefresh,
+  getPipelineSettingsAfterReenablingExperiment,
+} from "@/services/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Badge from "@/ui/Badge";
 import { useUser } from "@/services/UserContext";
@@ -125,7 +128,7 @@ export default function ResultMoreMenu({
   const { hasCommercialFeature } = useUser();
   const canEdit = permissionsUtil.canViewExperimentModal(project);
 
-  const { latest, snapshot } = useSnapshot();
+  const { latestSummary: latest, snapshot } = useSnapshot();
 
   const canDownloadJupyterNotebook =
     hasData && supportsNotebooks && notebookUrl && notebookFilename;
@@ -309,23 +312,23 @@ export default function ResultMoreMenu({
     setDropdownOpen(false);
   }, []);
 
-  // Re-enable Incremental Refresh: Removes experiment from incremental refresh exclusion list
+  // Re-enable Incremental Refresh: drops the experiment from the exclusion
+  // list and (if the datasource defaults to ephemeral) adds it to the
+  // opt-in list. Mirror of handleDisableIncrementalRefresh.
   const handleReenableIncrementalRefresh = useCallback(async () => {
     if (!datasource || !experiment) return;
+
+    const pipelineSettings = getPipelineSettingsAfterReenablingExperiment(
+      datasource.settings.pipelineSettings,
+      experiment.id,
+    );
 
     await apiCall(`/datasource/${datasource.id}`, {
       method: "PUT",
       body: JSON.stringify({
         settings: {
           ...datasource.settings,
-          pipelineSettings: {
-            ...datasource.settings.pipelineSettings,
-            excludedExperimentIds: [
-              ...(datasource.settings?.pipelineSettings
-                ?.excludedExperimentIds ?? []),
-              experiment.id,
-            ].filter((id) => id !== experiment.id),
-          },
+          pipelineSettings,
         },
       }),
     });

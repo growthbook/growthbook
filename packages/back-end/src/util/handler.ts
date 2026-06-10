@@ -3,11 +3,18 @@ import { z, ZodType, ZodNever, output } from "zod";
 import { ApiPaginationFields } from "shared/validators";
 import { UserInterface } from "shared/types/user";
 import { OrganizationInterface } from "shared/types/organization";
-import { HttpVerb } from "back-end/src/api/apiModelHandlers";
+import {
+  ApiEndpointSpec,
+  ExampleRequest,
+  HttpVerb,
+  RequestSchemas,
+} from "shared/api-spec";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiErrorResponse, ApiRequestLocals } from "back-end/types/api";
-import { ConflictError } from "./errors";
+import { ConflictError, SoftWarningError } from "./errors";
 import { IS_MULTI_ORG } from "./secrets";
+
+export type { ApiEndpointSpec, ExampleRequest, HttpVerb, RequestSchemas };
 
 export type ApiRequest<
   ResponseType = never,
@@ -22,37 +29,14 @@ export type ApiRequest<
     z.infer<QuerySchema>
   >;
 
-export type ExampleRequest<
-  Params = unknown,
-  Body = unknown,
-  Query = unknown,
-  Response = unknown,
-> = {
-  params?: Params;
-  body?: Body;
-  query?: Query;
-  response?: Response;
-};
-
-export type RequestSchemas<ParamsSchema, BodySchema, QuerySchema> = {
-  bodySchema?: BodySchema;
-  querySchema?: QuerySchema;
-  paramsSchema?: ParamsSchema;
-};
-
-export type ApiEndpointSpec<
+// Back-end-only extension of ApiEndpointSpec that adds express middleware.
+// The shared type is intentionally framework-agnostic.
+export type BackEndApiEndpointSpec<
   ParamsSchema,
   BodySchema,
   QuerySchema,
   ResponseSchema,
-> = RequestSchemas<ParamsSchema, BodySchema, QuerySchema> & {
-  responseSchema: ResponseSchema;
-  method: HttpVerb;
-  path: string;
-  operationId: string;
-  summary?: string;
-  description?: string;
-  tags?: string[];
+> = ApiEndpointSpec<ParamsSchema, BodySchema, QuerySchema, ResponseSchema> & {
   middleware?: RequestHandler[];
   exampleRequest?: ExampleRequest<
     z.infer<ParamsSchema>,
@@ -193,6 +177,17 @@ export async function runApiHandler(
     if (e instanceof ConflictError && e.conflicts) {
       body.conflicts = e.conflicts;
     }
+    // Surface soft warnings so clients can re-submit with `?ignoreWarnings=true`
+    if (e instanceof SoftWarningError) {
+      body.warnings = e.warnings;
+      // Front-end shows a "Save anyway" dialog and doesn't need a querystring hint
+      const isJwtAuth = (req as unknown as ApiRequestLocals).isJwtAuth;
+      if (!isJwtAuth) {
+        body.message =
+          e.message +
+          "\n\nEither address the warnings or append '?ignoreWarnings=true' to the URL to proceed.";
+      }
+    }
     return { status: e.status || 400, body };
   }
 }
@@ -257,7 +252,12 @@ export function createApiRequestHandler<
   QuerySchema extends ZodType = ZodType<never>,
   ResponseSchema extends ZodType = ZodType<never>,
 >(
-  data: ApiEndpointSpec<ParamsSchema, BodySchema, QuerySchema, ResponseSchema>,
+  data: BackEndApiEndpointSpec<
+    ParamsSchema,
+    BodySchema,
+    QuerySchema,
+    ResponseSchema
+  >,
 ) {
   const {
     paramsSchema,

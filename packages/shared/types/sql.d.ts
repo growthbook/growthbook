@@ -88,16 +88,21 @@ export interface SqlDialect {
   hllAggregate: (column: string) => string;
   hllReaggregate: (column: string) => string;
   hllCardinality: (column: string) => string;
-  kllInit: (column: string) => string;
-  kllMergePartial: (column: string) => string;
-  kllExtractPoint: (column: string, quantile: number) => string;
-  kllExtractQuantiles: (column: string, numQuantiles: number) => string;
-  kllRankApprox: (
+  quantileSketchInit: (column: string) => string;
+  quantileSketchMergePartial: (column: string) => string;
+  quantileSketchExtractPoint: (column: string, quantile: number) => string;
+  quantileSketchExtractQuantiles: (
+    column: string,
+    numQuantiles: number,
+  ) => string;
+  quantileSketchRankApprox: (
     sketchCol: string,
     thresholdCol: string,
     nEventsCol: string,
     numQuantiles: number,
   ) => string;
+  hasArrayQuantileGrid: () => boolean;
+  quantileGridArrayLiteral: (elements: string[]) => string;
   unpivotLabeledPairs: (
     pairs: UnpivotLabeledPair[],
   ) => UnpivotLabeledPairsResult;
