@@ -133,11 +133,12 @@ export async function toApiSavedGroupRevisions(
   return prepared.map(({ revision, proposedChanges }, i) => {
     const resolvedBase = resolved[i * 2];
     const resolvedProposed = resolved[i * 2 + 1];
-    const createdBy = revision.author
-      ? eventUserToApiEventUser(revision.author)
-      : legacyUserIdToApiEventUser(revision.authorId, legacyUsersById);
+    const createdBy =
+      (revision.author ?? null) !== null
+        ? eventUserToApiEventUser(revision.author)
+        : legacyUserIdToApiEventUser(revision.authorId, legacyUsersById);
     const resolutionUser = revision.resolution
-      ? revision.resolution.user
+      ? (revision.resolution.user ?? null) !== null
         ? eventUserToApiEventUser(revision.resolution.user)
         : legacyUserIdToApiEventUser(
             revision.resolution.userId,

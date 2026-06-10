@@ -63,4 +63,30 @@ describe("eventUserToApiEventUser (re-exported from event-user)", () => {
     expect(mapped).toEqual({ type: "api_key", id: "u_2", name: "CI Bot" });
     expect(mapped).not.toHaveProperty("apiKey");
   });
+
+  it("passes a dashboard actor's identifying fields through", () => {
+    expect(
+      eventUserToApiEventUser({
+        type: "dashboard",
+        id: "u_1",
+        name: "Jane Doe",
+        email: "jane@example.com",
+      }),
+    ).toEqual({
+      type: "dashboard",
+      id: "u_1",
+      name: "Jane Doe",
+      email: "jane@example.com",
+    });
+  });
+
+  it("maps a system actor to type and id, dropping subtype", () => {
+    expect(
+      eventUserToApiEventUser({
+        type: "system",
+        subtype: "agenda",
+        id: "system_1",
+      }),
+    ).toEqual({ type: "system", id: "system_1" });
+  });
 });
