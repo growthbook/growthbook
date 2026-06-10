@@ -27,6 +27,7 @@ import {
   VISUAL_EDITOR_ASSETS_GCS_BUCKET_NAME,
   VISUAL_EDITOR_ASSETS_GCS_DOMAIN,
 } from "back-end/src/util/secrets";
+import { logger } from "back-end/src/util/logger";
 
 // "private" is the existing bucket served via signed URLs.
 // "visual-editor-assets" is the public, CDN-fronted bucket.
@@ -110,28 +111,63 @@ export async function uploadFile(
 
   if (UPLOAD_METHOD === "s3") {
     const client = getS3Client(cfg.s3Region);
-    await client.send(
-      new PutObjectCommand({
-        Bucket: cfg.s3Bucket,
-        Key: filePath,
-        Body: contents,
-        ContentType: contentType,
-        ...(cfg.cacheControl ? { CacheControl: cfg.cacheControl } : {}),
-      }),
-    );
+    try {
+      await client.send(
+        new PutObjectCommand({
+          Bucket: cfg.s3Bucket,
+          Key: filePath,
+          Body: contents,
+          ContentType: contentType,
+          ...(cfg.cacheControl ? { CacheControl: cfg.cacheControl } : {}),
+        }),
+      );
+    } catch (err) {
+      // The API handler returns thrown errors to the client without
+      // logging them, so without this the S3 push failing is invisible
+      // server-side. Log enough to tell "which bucket/region/key" before
+      // re-throwing so the original failure still surfaces to the caller.
+      logger.error(
+        {
+          err,
+          destination,
+          bucket: cfg.s3Bucket,
+          region: cfg.s3Region,
+          key: filePath,
+          contentType,
+          bytes: contents.length,
+        },
+        "[files] S3 PutObject failed",
+      );
+      throw err;
+    }
     fileURL = cfg.s3Domain + (cfg.s3Domain.endsWith("/") ? "" : "/") + filePath;
   } else if (UPLOAD_METHOD === "google-cloud") {
     const storage = new Storage();
 
-    await storage
-      .bucket(cfg.gcsBucket)
-      .file(filePath)
-      .save(contents, {
-        contentType: contentType,
-        ...(cfg.cacheControl
-          ? { metadata: { cacheControl: cfg.cacheControl } }
-          : {}),
-      });
+    try {
+      await storage
+        .bucket(cfg.gcsBucket)
+        .file(filePath)
+        .save(contents, {
+          contentType: contentType,
+          ...(cfg.cacheControl
+            ? { metadata: { cacheControl: cfg.cacheControl } }
+            : {}),
+        });
+    } catch (err) {
+      logger.error(
+        {
+          err,
+          destination,
+          bucket: cfg.gcsBucket,
+          key: filePath,
+          contentType,
+          bytes: contents.length,
+        },
+        "[files] GCS upload failed",
+      );
+      throw err;
+    }
     fileURL =
       cfg.gcsDomain + (cfg.gcsDomain.endsWith("/") ? "" : "/") + filePath;
   } else {

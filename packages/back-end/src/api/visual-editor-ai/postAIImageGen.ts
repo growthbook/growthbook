@@ -161,23 +161,48 @@ export const postAIImageGen = createApiRequestHandler(validation)(async (
   let beforeBytes = 0;
   let afterBytes = 0;
   let unoptimizedCount = 0;
-  for (const img of generated) {
+  for (let i = 0; i < generated.length; i++) {
+    const img = generated[i];
     const optimized = await optimizeAIImage(img);
     if (!optimized.optimized) unoptimizedCount++;
     beforeBytes += img.buffer.length;
     afterBytes += optimized.buffer.length;
     const filePath = `gen/${org.id}/visual-editor/img_${uuidv4()}.${optimized.ext}`;
-    const url = await uploadFile(
-      filePath,
-      optimized.contentType,
-      optimized.buffer,
-      "visual-editor-assets",
-    );
-    images.push({
-      url,
-      width: optimized.width,
-      height: optimized.height,
-    });
+    try {
+      const url = await uploadFile(
+        filePath,
+        optimized.contentType,
+        optimized.buffer,
+        "visual-editor-assets",
+      );
+      images.push({
+        url,
+        width: optimized.width,
+        height: optimized.height,
+      });
+    } catch (err) {
+      // Generation succeeded (and was billed) but the S3/GCS push failed.
+      // Without this, the only signal is a bare 400 to the extension,
+      // which doesn't surface it — i.e. the user sees a silent failure.
+      // Log which image/key failed, then re-throw so we don't return a
+      // partial-but-looks-successful batch.
+      logger.error(
+        {
+          err,
+          orgId: org.id,
+          userId: context.userId,
+          visualChangesetId,
+          imageIndex: i,
+          totalGenerated: generated.length,
+          uploadedSoFar: images.length,
+          filePath,
+          contentType: optimized.contentType,
+          bytes: optimized.buffer.length,
+        },
+        "[visual-editor-ai/image-gen] upload to visual-editor-assets failed",
+      );
+      throw err;
+    }
   }
 
   logger.info(
