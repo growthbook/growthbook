@@ -417,7 +417,10 @@ export function PreLaunchChecklistDrawer() {
             <Box className={styles.drawerInner}>
               <Box
                 className={styles.drawerHeader}
-                onClick={() => setOpen(!open)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setOpen(!open);
+                }}
                 role="button"
               >
                 <Flex align="center">
