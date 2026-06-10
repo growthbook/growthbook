@@ -194,7 +194,7 @@ export async function processJWT(
             res.status(403).json({
               status: 403,
               message:
-                "Account Suspended. Please contact your account executive or support@growthbook.io for assistance.",
+                "Account Suspended. Please contact support@growthbook.io for assistance.",
             });
             return;
           }

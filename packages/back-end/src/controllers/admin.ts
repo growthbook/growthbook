@@ -166,7 +166,7 @@ export async function _dangerousAdminPutOrganization(
     updates.disableSelfServeBilling = disableSelfServeBilling;
     orig.disableSelfServeBilling = org.disableSelfServeBilling;
   }
-  if (suspended !== undefined && suspended !== org.suspended) {
+  if ((suspended ?? false) !== (org.suspended ?? false)) {
     updates.suspended = suspended;
     orig.suspended = org.suspended;
   }

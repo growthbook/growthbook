@@ -11,9 +11,8 @@ export function OrgSuspendedBannerContainer() {
   return (
     <div className="contents pagecontents container mb-3">
       <Callout status="error">
-        <strong>Account Suspended.</strong> Please contact your account
-        executive or{" "}
-        <a href="mailto:support@growthbook.io">support@growthbook.io</a> to
+        <strong>Account Suspended.</strong> Please contact your account manager
+        or <a href="mailto:support@growthbook.io">support@growthbook.io</a> to
         regain access.
       </Callout>
     </div>
