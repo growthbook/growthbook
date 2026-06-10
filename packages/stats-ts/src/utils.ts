@@ -1,20 +1,5 @@
 /** TypeScript port of gbstats `utils.py`; inline normal/Cholesky helpers (no numpy/scipy). */
-
-/** Error function, Abramowitz & Stegun 7.1.26 (|error| < 1.5e-7). */
-function erf(x: number): number {
-  const sign = x >= 0 ? 1 : -1;
-  const ax = Math.abs(x);
-  const a1 = 0.254829592;
-  const a2 = -0.284496736;
-  const a3 = 1.421413741;
-  const a4 = -1.453152027;
-  const a5 = 1.061405429;
-  const p = 0.3275911;
-  const t = 1 / (1 + p * ax);
-  const y =
-    1 - ((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t * Math.exp(-ax * ax);
-  return sign * y;
-}
+import normal from "@stdlib/stats/base/dists/normal";
 
 export function randomNormal(
   nSamples: number,
@@ -35,9 +20,9 @@ export function normPdf(x: number, loc = 0, scale = 1): number {
   return Math.exp(-0.5 * z * z) / (scale * Math.sqrt(2 * Math.PI));
 }
 
-/** Standard normal cumulative distribution function. */
+/** Normal cumulative distribution function (exact, via `@stdlib`). */
 export function normCdf(x: number, loc = 0, scale = 1): number {
-  return 0.5 * (1 + erf((x - loc) / (scale * Math.SQRT2)));
+  return normal.cdf(x, loc, scale);
 }
 
 /** Inverse standard normal CDF via Acklam's rational approximation (rel err < 1.15e-9). */
