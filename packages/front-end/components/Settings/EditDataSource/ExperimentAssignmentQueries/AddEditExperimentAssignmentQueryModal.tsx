@@ -298,19 +298,26 @@ export const AddEditExperimentAssignmentQueryModal: FC<
                   />
                 )}
                 <div>
-                  <button
-                    className="btn btn-primary mt-2"
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setUiMode("sql");
-                    }}
+                  <Tooltip
+                    body="SQL is managed by Event Forwarder and cannot be customized."
+                    shouldDisplay={isManaged}
                   >
-                    <div className="d-flex align-items-center">
-                      Customize SQL
-                      <FaExternalLinkAlt className="ml-2" />
-                    </div>
-                  </button>
+                    <button
+                      className="btn btn-primary mt-2"
+                      type="button"
+                      disabled={isManaged}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (isManaged) return;
+                        setUiMode("sql");
+                      }}
+                    >
+                      <div className="d-flex align-items-center">
+                        Customize SQL
+                        <FaExternalLinkAlt className="ml-2" />
+                      </div>
+                    </button>
+                  </Tooltip>
                 </div>
               </div>
 
