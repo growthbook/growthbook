@@ -22,16 +22,18 @@ const BaseClass = MakeModelClass({
 
 export class ImpactEstimateModel extends BaseClass {
   protected canRead(doc: ImpactEstimateInterface): boolean {
-    const { metric } = this.getForeignRefs(doc);
+    const { metric } = this.getForeignRefs(doc, false);
     return this.context.permissions.canReadMultiProjectResource(
       metric?.projects || [],
     );
   }
 
   protected canCreate(doc: ImpactEstimateInterface): boolean {
-    const { datasource } = this.getForeignRefs(doc);
+    // The doc has no datasource field, so scope the check to the referenced
+    // metric's projects (same scoping canRead uses)
+    const { metric } = this.getForeignRefs(doc);
     return this.context.permissions.canCreateMetricAnalysis({
-      projects: datasource?.projects || [],
+      projects: metric?.projects || [],
     });
   }
 
