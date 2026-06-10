@@ -97,7 +97,10 @@ import {
   deleteVercelExperimentationItemFromFeature,
 } from "back-end/src/services/vercel-native-integration.service";
 import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
-import { runValidateFeatureHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
+import {
+  runValidateFeatureHooks,
+  runValidateFeatureRevisionHooks,
+} from "back-end/src/enterprise/sandbox/sandbox-eval";
 import {
   createEvent,
   hasPreviousObject,
@@ -118,6 +121,7 @@ import {
   deleteAllRevisionsForFeature,
   getRevision,
   markRevisionAsPublished,
+  computeRevisionPublishChanges,
   updateRevision,
   createRevision,
 } from "./FeatureRevisionModel";
@@ -1463,13 +1467,19 @@ const updateSafeRolloutStatuses = async (
   });
 };
 
-// Apply a revision merge result to the feature document.
-export async function applyRevisionChanges(
+// Pure computation of the feature-doc changes a revision merge will produce.
+// Shared by applyRevisionChanges() (the write path) and publishRevision()'s
+// hook prevalidation so both see the identical proposed state. No writes.
+export function computeRevisionMergeChanges(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   result: MergeResultChanges,
-) {
+): {
+  changes: Partial<FeatureInterface>;
+  hasChanges: boolean;
+  removeHoldout: boolean;
+} {
   let hasChanges = false;
   const changes: Partial<FeatureInterface> = {};
   let removeHoldout = false;
@@ -1545,8 +1555,7 @@ export async function applyRevisionChanges(
   // revision behind a stale feature.version, which traps subsequent reverts.
   if (!hasChanges) {
     changes.version = revision.version;
-    changes.dateUpdated = new Date();
-    return await updateFeature(context, feature, changes);
+    return { changes, hasChanges, removeHoldout };
   }
 
   if (changes.rules !== undefined) {
@@ -1554,6 +1563,27 @@ export async function applyRevisionChanges(
   }
 
   changes.version = revision.version;
+
+  return { changes, hasChanges, removeHoldout };
+}
+
+// Apply a revision merge result to the feature document.
+export async function applyRevisionChanges(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  result: MergeResultChanges,
+) {
+  const { changes, hasChanges, removeHoldout } = computeRevisionMergeChanges(
+    context,
+    feature,
+    revision,
+    result,
+  );
+
+  if (!hasChanges) {
+    return await updateFeature(context, feature, changes);
+  }
 
   await updateSafeRolloutStatuses(context, feature, revision);
 
@@ -2184,6 +2214,56 @@ async function cleanupOrphanedRampSchedules(
   }
 }
 
+// Best-effort early run of both custom hook types against the proposed
+// post-publish state. publishRevision() calls this before any side-effect
+// writes; publish pre-flight loops (e.g. multi-feature experiment starts)
+// call it directly so a hook rejection fails the batch before anything
+// publishes. The authoritative hook runs still happen inside
+// updateFeature / markRevisionAsPublished.
+export async function prevalidatePublishRevision({
+  context,
+  feature,
+  revision,
+  result,
+  comment,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+  result: MergeResultChanges;
+  comment?: string;
+}) {
+  const { changes, removeHoldout } = computeRevisionMergeChanges(
+    context,
+    feature,
+    revision,
+    result,
+  );
+  const base = removeHoldout
+    ? (omit(feature, ["holdout"]) as FeatureInterface)
+    : feature;
+  const proposedFeature: FeatureInterface = {
+    ...base,
+    ...changes,
+    dateUpdated: new Date(),
+  };
+  proposedFeature.linkedExperiments = getLinkedExperiments(proposedFeature);
+  await runValidateFeatureHooks({
+    context,
+    feature: proposedFeature,
+    original: feature,
+  });
+  await runValidateFeatureRevisionHooks({
+    context,
+    feature,
+    revision: {
+      ...revision,
+      ...computeRevisionPublishChanges(revision, context.auditUser, comment),
+    },
+    original: revision,
+  });
+}
+
 export async function publishRevision({
   context,
   feature,
@@ -2206,6 +2286,22 @@ export async function publishRevision({
   if (!bypassLockdown) {
     await assertFeatureNotLockedByRamp(context, feature.id);
   }
+
+  // Prevalidate BOTH custom hook types against the proposed post-publish
+  // state BEFORE any side-effect writes (ramp schedule docs below, safe
+  // rollout status syncs inside applyRevisionChanges). The authoritative
+  // hook runs still happen inside updateFeature / markRevisionAsPublished;
+  // this early pass keeps a hook rejection from orphaning those writes and
+  // ensures the revision hook is checked before the feature doc goes live.
+  // A concurrent mutation or non-deterministic hook can still fail at save
+  // time — the rollback below remains as second-line defense for that.
+  await prevalidatePublishRevision({
+    context,
+    feature,
+    revision,
+    result,
+    comment,
+  });
 
   // Create ramp schedules BEFORE writing the feature so that a schedule
   // creation failure gates the publish (atomicity: no published feature without
@@ -2257,6 +2353,9 @@ export async function publishRevision({
     );
   } catch (err) {
     // Roll back pre-created ramp schedules so they don't linger as orphans.
+    // Second-line defense: hook rejections are normally caught by the
+    // prevalidation above, so this mostly covers infra failures and the
+    // concurrent-mutation race.
     for (const id of preCreatedScheduleIds) {
       try {
         await context.models.rampSchedules.deleteById(id);

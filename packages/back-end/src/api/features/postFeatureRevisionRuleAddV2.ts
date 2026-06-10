@@ -6,10 +6,13 @@ import {
   postFeatureRevisionRuleAddV2Validator,
   RuleCreateInput,
   RuleCreateInputV2,
+  SafeRolloutInterface,
 } from "shared/validators";
 import type { FeatureRule, SafeRolloutRule } from "shared/validators";
 import { resetReviewOnChange } from "shared/util";
 import { RevisionChanges } from "shared/types/feature-revision";
+import { ExperimentInterface } from "shared/types/experiment";
+import { CreateProps } from "shared/types/base-model";
 import { getLatestPhaseVariations } from "shared/experiments";
 import {
   toApiRevisionV2,
@@ -24,8 +27,10 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import {
   getRevision,
+  prevalidateRevisionUpdate,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
+import { generateId } from "back-end/src/util/uuid";
 import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import {
   BadRequestError,
@@ -79,6 +84,7 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
   let createdSafeRolloutId: string | undefined;
   let linkedExperimentId: string | undefined;
   let linkedHoldoutId: string | undefined;
+  let holdoutExperimentToLink: ExperimentInterface | null = null;
   try {
     if (!isDraftStatus(revision.status)) {
       throw new BadRequestError(
@@ -148,22 +154,9 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
             );
           }
           if (!experiment.holdoutId) {
-            await updateExperiment({
-              context: req.context,
-              experiment,
-              changes: { holdoutId: feature.holdout.id },
-            });
-            linkedExperimentId = experiment.id;
-            const holdout = await req.context.models.holdout.getById(
-              feature.holdout.id,
-            );
-            await req.context.models.holdout.updateById(feature.holdout.id, {
-              linkedExperiments: {
-                ...holdout?.linkedExperiments,
-                [experiment.id]: { id: experiment.id, dateAdded: new Date() },
-              },
-            });
-            linkedHoldoutId = feature.holdout.id;
+            // Linkage writes are deferred until after custom-hook
+            // prevalidation below so a hook rejection doesn't orphan them.
+            holdoutExperimentToLink = experiment;
           }
         }
       }
@@ -188,6 +181,10 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
     validateRuleAttributes(rule, req.context, feature.project);
     await validateRuleReferences(rule, req.context);
 
+    // Validate safe-rollout fields and pre-generate the safeRollout id so
+    // the rule can be prevalidated against custom hooks with its final
+    // shape. The doc itself is created after prevalidation below.
+    let safeRolloutCreateProps: CreateProps<SafeRolloutInterface> | null = null;
     if (ruleInput.type === "safe-rollout" && rule.type === "safe-rollout") {
       if (!req.context.hasPremiumFeature("safe-rollout")) {
         req.context.throwPlanDoesNotAllowError(
@@ -213,7 +210,9 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
         { percent: 0.75 },
         { percent: 1 },
       ];
-      const safeRollout = await req.context.models.safeRollout.create({
+      const safeRolloutId = generateId("sr_");
+      safeRolloutCreateProps = {
+        id: safeRolloutId,
         ...validatedFields,
         featureId: feature.id,
         status: "running",
@@ -225,12 +224,8 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
           rampUpCompleted: false,
           nextUpdate: undefined,
         },
-      });
-
-      if (!safeRollout)
-        throw new InternalServerError("Failed to create safe rollout");
-      createdSafeRolloutId = safeRollout.id;
-      (rule as SafeRolloutRule).safeRolloutId = safeRollout.id;
+      };
+      (rule as SafeRolloutRule).safeRolloutId = safeRolloutId;
     }
 
     const usesLegacyScheduling =
@@ -289,6 +284,56 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
     const affectedEnvs = resolvedAllEnvs
       ? Object.keys(feature.environmentSettings ?? {})
       : (environments ?? []);
+    const resetReview = resetReviewOnChange({
+      feature,
+      changedEnvironments: affectedEnvs,
+      defaultValueChanged: false,
+      settings: req.organization.settings,
+    });
+
+    // Run custom hooks against the exact proposed revision BEFORE the
+    // side-effect writes below (safeRollout doc, holdout linkage) so a hook
+    // rejection — or a soft warning the caller hasn't acknowledged with
+    // ?ignoreWarnings=true — doesn't orphan them. updateRevision() re-fires
+    // the hooks as the authoritative gate.
+    await prevalidateRevisionUpdate(
+      req.context,
+      feature,
+      revision,
+      changes,
+      resetReview,
+    );
+
+    if (safeRolloutCreateProps) {
+      const safeRollout = await req.context.models.safeRollout.create(
+        safeRolloutCreateProps,
+      );
+      if (!safeRollout)
+        throw new InternalServerError("Failed to create safe rollout");
+      createdSafeRolloutId = safeRollout.id;
+    }
+
+    if (holdoutExperimentToLink && feature.holdout?.id) {
+      await updateExperiment({
+        context: req.context,
+        experiment: holdoutExperimentToLink,
+        changes: { holdoutId: feature.holdout.id },
+      });
+      linkedExperimentId = holdoutExperimentToLink.id;
+      const holdout = await req.context.models.holdout.getById(
+        feature.holdout.id,
+      );
+      await req.context.models.holdout.updateById(feature.holdout.id, {
+        linkedExperiments: {
+          ...holdout?.linkedExperiments,
+          [holdoutExperimentToLink.id]: {
+            id: holdoutExperimentToLink.id,
+            dateAdded: new Date(),
+          },
+        },
+      });
+      linkedHoldoutId = feature.holdout.id;
+    }
 
     await updateRevision(
       req.context,
@@ -303,12 +348,7 @@ export const postFeatureRevisionRuleAddV2 = createApiRequestHandler(
           : `to ${(environments ?? []).join(", ")}`,
         value: JSON.stringify(rule),
       },
-      resetReviewOnChange({
-        feature,
-        changedEnvironments: affectedEnvs,
-        defaultValueChanged: false,
-        settings: req.organization.settings,
-      }),
+      resetReview,
     );
 
     const updated = await getRevision({

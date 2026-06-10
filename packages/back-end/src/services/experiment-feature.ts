@@ -24,6 +24,7 @@ import { applyPartialFeatureRuleUpdatesToRevision } from "back-end/src/util/feat
 import {
   editFeatureRules,
   getFeature,
+  prevalidatePublishRevision,
   publishRevision,
 } from "back-end/src/models/FeatureModel";
 import {
@@ -410,6 +411,48 @@ export async function publishPendingFeatureDraftsForExperiment(
 
   if (failed.length > 0) {
     return { published: [], failed };
+  }
+
+  // ── Phase 1.5: prevalidate custom hooks for every ready draft ────────────
+  // Run the validateFeature/validateFeatureRevision hooks against each
+  // draft's proposed post-publish state BEFORE publishing anything, so a
+  // hook rejection fails the whole batch up front instead of after some
+  // features already published. Throws (including SoftWarningError) rather
+  // than returning a failure so the caller's 422/ignoreWarnings handling
+  // applies. Best-effort: state can still shift between this check and the
+  // sequential publishes below — publishRevision re-checks authoritatively.
+  for (const { featureId, revisionVersion } of ready) {
+    const feature = await getFeature(context, featureId);
+    if (!feature) continue;
+    const revision = await getRevision({
+      context,
+      organization: feature.organization,
+      featureId: feature.id,
+      feature,
+      version: revisionVersion,
+    });
+    if (
+      !revision ||
+      revision.status === "published" ||
+      revision.status === "discarded"
+    ) {
+      continue;
+    }
+    const { live, base } = await getLiveAndBaseRevisionsForFeature({
+      context,
+      feature,
+      revision,
+    });
+    const mergeResult = autoMerge(live, base, revision, orgEnvIds, {});
+    // Merge conflicts and no-op drafts are handled by phase 2.
+    if (!mergeResult.success || !mergeResultHasChanges(mergeResult)) continue;
+    await prevalidatePublishRevision({
+      context,
+      feature,
+      revision,
+      result: mergeResult.result,
+      comment: `Experiment "${experiment.name}" started`,
+    });
   }
 
   // ── Phase 2: sequential publish, re-merging each against fresh live ──────

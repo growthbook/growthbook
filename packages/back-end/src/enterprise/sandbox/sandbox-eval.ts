@@ -8,6 +8,29 @@ import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organiz
 import { runInSandbox } from "./sandbox-pool";
 
 // Custom hook orchestration; sandboxed JS runs in the child-process pool (sandbox-pool.ts).
+//
+// ## Convention for `validateX` hooks on a resource X
+//
+// 1. The hook call inside the low-level model write function (createX/updateX,
+//    immediately before the Mongo write) is MANDATORY and authoritative —
+//    nothing may bypass it.
+// 2. The model module exports a pure function (`computeXUpdate`) that
+//    computes exactly the proposed state the write path passes to
+//    `runValidateXHooks`, and the write path consumes it — so a prevalidated
+//    state and the saved state stay identical by construction.
+// 3. The model module exports `prevalidateXUpdate(...)` =
+//    `runValidateXHooks(computeXUpdate(...))`. Any controller/service that
+//    performs side-effect writes to OTHER collections before the gated save
+//    must call it with the final intended changes BEFORE the first
+//    side-effect write, so a hook rejection (or unacknowledged soft warning)
+//    doesn't orphan those writes. Pre-generate referenced ids
+//    (`generateId(prefix)` + `CreateProps.id`) rather than validating
+//    placeholder values. See `prevalidateRevisionUpdate` /
+//    `prevalidatePublishRevision` for the pattern.
+// 4. Hooks therefore fire more than once per successful save. Never dedupe by
+//    hook id — the model-level run must stay authoritative even if state
+//    changed after prevalidation. Prevalidation is best-effort: a concurrent
+//    mutation or non-deterministic hook (fetch()) can still fail at save time.
 
 export async function runValidateFeatureHooks({
   context,

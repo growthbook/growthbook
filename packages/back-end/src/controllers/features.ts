@@ -11,6 +11,7 @@ import {
   filterEnvironmentsByFeature,
   filterProjectsByEnvironmentWithNull,
   MergeResultChanges,
+  mergeResultHasChanges,
   MergeStrategy,
   checkIfRevisionNeedsReview,
   resetReviewOnChange,
@@ -92,12 +93,14 @@ import {
   getFeatureEnvStatus,
   hasArchivedFeatures,
   migrateDraft,
+  prevalidatePublishRevision,
   publishRevision,
   setDefaultValue,
   updateFeature,
 } from "back-end/src/models/FeatureModel";
 import { getRealtimeUsageByHour } from "back-end/src/models/RealtimeModel";
 import { dangerousLookupOrganizationByApiKey } from "back-end/src/util/api-key.util";
+import { generateId } from "back-end/src/util/uuid";
 import {
   addIdsToFlatRules,
   addIdsToRules,
@@ -149,6 +152,7 @@ import {
   getRevisionsByStatus,
   markRevisionAsReviewRequested,
   normalizeRulesInputToV2,
+  prevalidateRevisionUpdate,
   ReviewSubmittedType,
   submitReviewAndComments,
   updateRevision,
@@ -1535,6 +1539,17 @@ export async function postFeaturePublish(
             `Feature "${otherFeature.id}" has a merge conflict in its pending draft. Resolve the conflict before starting experiment "${experiment.name}".`,
           );
         }
+        // Also prevalidate custom hooks for the other draft so a hook
+        // rejection surfaces BEFORE the current feature publishes below.
+        if (mergeResultHasChanges(otherMerge)) {
+          await prevalidatePublishRevision({
+            context,
+            feature: otherFeature,
+            revision: otherRevision,
+            result: otherMerge.result,
+            comment: `Experiment "${experiment.name}" started`,
+          });
+        }
       }
     }
   }
@@ -1585,11 +1600,13 @@ export async function postFeaturePublish(
     // fail — mirrors the blocking behavior of postExperimentStatus.
     //
     // Residual exposure: the current feature is already live by this point.
-    // Phase-1 pre-flight above caught merge conflicts and approval gaps for
-    // the OTHER drafts before we published this one, so the only remaining
-    // failure modes here are transient infra errors during publishRevision.
-    // Throwing aborts the experiment status transition; the already-published
-    // current feature stays live. Closing this gap fully would require cross-
+    // Phase-1 pre-flight above caught merge conflicts, approval gaps, and
+    // custom-hook rejections for the OTHER drafts before we published this
+    // one, so the only remaining failure modes here are transient infra
+    // errors during publishRevision and races with concurrent edits (a hook
+    // can also re-reject if state shifted since the pre-flight). Throwing
+    // aborts the experiment status transition; the already-published current
+    // feature stays live. Closing this gap fully would require cross-
     // collection transactions.
     const adminBypass =
       !!adminOverride && context.permissions.canBypassApprovalChecks(feature);
@@ -2166,12 +2183,19 @@ export async function postFeatureRule(
     feature.project,
   );
 
+  // Validate safe-rollout fields and pre-generate the safeRollout id so the
+  // rule can be prevalidated against custom hooks with its final shape. The
+  // doc itself is created AFTER prevalidation below, so a hook rejection
+  // doesn't leave an orphaned safeRollout behind.
+  let validatedSafeRolloutFields: Awaited<
+    ReturnType<typeof validateCreateSafeRolloutFields>
+  > | null = null;
   if (rule.type === "safe-rollout") {
     if (!context.hasPremiumFeature("safe-rollout")) {
       throw new Error(`Safe Rollout rules is a premium feature.`);
     }
 
-    const validatedSafeRolloutFields = await validateCreateSafeRolloutFields(
+    validatedSafeRolloutFields = await validateCreateSafeRolloutFields(
       omit(safeRolloutFields, "rampUpSchedule"),
       context,
     );
@@ -2180,36 +2204,14 @@ export async function postFeatureRule(
     rule.seed = rule.seed || uuidv4();
     rule.trackingKey =
       rule.trackingKey || `${SAFE_ROLLOUT_TRACKING_KEY_PREFIX}${uuidv4()}`;
-
-    const safeRollout = await context.models.safeRollout.create({
-      ...validatedSafeRolloutFields,
-      featureId: feature.id,
-      status: rule.status,
-      autoSnapshots: true,
-      rampUpSchedule: {
-        enabled: safeRolloutFields?.rampUpSchedule?.enabled ?? false, // this is used so that we can disable the ramp up schedule using feature Flag
-        step: 0,
-        steps: [
-          { percent: 0.1 },
-          { percent: 0.25 },
-          { percent: 0.5 },
-          { percent: 0.75 },
-          { percent: 1 },
-        ],
-        rampUpCompleted: false,
-        nextUpdate: undefined, // this is set with the rule is enabled
-      },
-    });
-
-    if (!safeRollout) {
-      throw new Error("Failed to create safe rollout");
-    }
-    rule.safeRolloutId = safeRollout.id;
+    rule.safeRolloutId = generateId("sr_");
   }
 
   // Add holdout to existing experiment and experiment to holdout linkedExperiments
   // if the experiment is not running and has no linked implementations for
-  // experiment-ref rules
+  // experiment-ref rules. Guards run here; the actual linkage writes are
+  // deferred until after custom-hook prevalidation below.
+  let holdoutExperimentToLink: ExperimentInterface | null = null;
   if (rule.type === "experiment-ref" && feature.holdout?.id) {
     const experiment = await getExperimentById(context, rule.experimentId);
 
@@ -2240,23 +2242,7 @@ export async function postFeatureRule(
     }
 
     if (!experiment.holdoutId) {
-      await updateExperiment({
-        context,
-        experiment,
-        changes: {
-          holdoutId: feature.holdout.id,
-        },
-      });
-      const holdout = await context.models.holdout.getById(feature.holdout.id);
-      await context.models.holdout.updateById(feature.holdout.id, {
-        linkedExperiments: {
-          ...holdout?.linkedExperiments,
-          [experiment.id]: {
-            id: experiment.id,
-            dateAdded: new Date(),
-          },
-        },
-      });
+      holdoutExperimentToLink = experiment;
     }
   }
 
@@ -2367,6 +2353,65 @@ export async function postFeatureRule(
         ),
     );
     combinedChanges.rampActions = [...filtered, rampActionsUpdate];
+  }
+
+  // Run custom hooks against the exact proposed revision BEFORE the
+  // side-effect writes below (safeRollout doc, holdout linkage) so a hook
+  // rejection — or a soft warning the user hasn't acknowledged yet — doesn't
+  // orphan them. updateRevision() re-fires the hooks as the authoritative gate.
+  await prevalidateRevisionUpdate(
+    context,
+    feature,
+    revision,
+    combinedChanges,
+    resetReview,
+  );
+
+  if (rule.type === "safe-rollout" && validatedSafeRolloutFields) {
+    const safeRollout = await context.models.safeRollout.create({
+      id: rule.safeRolloutId,
+      ...validatedSafeRolloutFields,
+      featureId: feature.id,
+      status: rule.status,
+      autoSnapshots: true,
+      rampUpSchedule: {
+        enabled: safeRolloutFields?.rampUpSchedule?.enabled ?? false, // this is used so that we can disable the ramp up schedule using feature Flag
+        step: 0,
+        steps: [
+          { percent: 0.1 },
+          { percent: 0.25 },
+          { percent: 0.5 },
+          { percent: 0.75 },
+          { percent: 1 },
+        ],
+        rampUpCompleted: false,
+        nextUpdate: undefined, // this is set with the rule is enabled
+      },
+    });
+
+    if (!safeRollout) {
+      throw new Error("Failed to create safe rollout");
+    }
+  }
+
+  if (holdoutExperimentToLink && feature.holdout?.id) {
+    await updateExperiment({
+      context,
+      experiment: holdoutExperimentToLink,
+      changes: {
+        holdoutId: feature.holdout.id,
+      },
+    });
+    const holdout = await context.models.holdout.getById(feature.holdout.id);
+    await context.models.holdout.updateById(feature.holdout.id, {
+      linkedExperiments: {
+        ...holdout?.linkedExperiments,
+        [holdoutExperimentToLink.id]: {
+          id: holdoutExperimentToLink.id,
+          dateAdded: new Date(),
+        },
+      },
+    });
   }
 
   const auditSubject =

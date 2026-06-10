@@ -5,6 +5,7 @@ import type { ReqContext } from "back-end/types/request";
 jest.mock("back-end/src/models/FeatureModel", () => ({
   getFeature: jest.fn(),
   publishRevision: jest.fn(),
+  prevalidatePublishRevision: jest.fn(),
   editFeatureRules: jest.fn(),
 }));
 
@@ -35,7 +36,11 @@ jest.mock("shared/util", () => ({
 }));
 
 import { publishPendingFeatureDraftsForExperiment } from "back-end/src/services/experiment-feature";
-import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
+import {
+  getFeature,
+  prevalidatePublishRevision,
+  publishRevision,
+} from "back-end/src/models/FeatureModel";
 import {
   getRevision,
   discardRevision,
@@ -51,6 +56,10 @@ const mockDiscardRevision = discardRevision as jest.MockedFunction<
 const mockPublishRevision = publishRevision as jest.MockedFunction<
   typeof publishRevision
 >;
+const mockPrevalidatePublish =
+  prevalidatePublishRevision as jest.MockedFunction<
+    typeof prevalidatePublishRevision
+  >;
 const mockRemovePending =
   removePendingFeatureDraftFromExperiment as jest.MockedFunction<
     typeof removePendingFeatureDraftFromExperiment
@@ -146,6 +155,27 @@ describe("publishPendingFeatureDraftsForExperiment", () => {
     expect(mockPublishRevision).not.toHaveBeenCalled();
   });
 
+  it("fails the whole batch before publishing anything when hook prevalidation rejects", async () => {
+    mockGetRevision.mockImplementation(async ({ version }) => {
+      return { version, status: "draft", rules: [] } as never;
+    });
+    // First draft prevalidates fine, second is rejected by a custom hook.
+    mockPrevalidatePublish
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error("Blocked by custom hook"));
+
+    const experiment = makeExperiment([
+      { featureId: "feat_a", revisionVersion: 5 },
+      { featureId: "feat_b", revisionVersion: 6 },
+    ]);
+
+    await expect(
+      publishPendingFeatureDraftsForExperiment(ctx, experiment),
+    ).rejects.toThrow("Blocked by custom hook");
+
+    expect(mockPublishRevision).not.toHaveBeenCalled();
+  });
+
   it("publishes a single draft cleanly", async () => {
     mockGetRevision.mockResolvedValue({
       version: 6,
@@ -227,22 +257,24 @@ describe("publishPendingFeatureDraftsForExperiment", () => {
     mockGetRevision.mockImplementation(async ({ version }) => {
       return { version, status: "draft", rules: [] } as never;
     });
-    // First two drafts merge cleanly, third hits a conflict.
-    mockAutoMerge
-      .mockReturnValueOnce({
-        success: true,
-        conflicts: [],
-        result: { rules: [] },
-      })
-      .mockReturnValueOnce({
-        success: true,
-        conflicts: [],
-        result: { rules: [] },
-      })
-      .mockReturnValueOnce({
-        success: false,
-        conflicts: [{ key: "rules", base: "x", live: "y", revision: "z" }],
-      } as never);
+    // feat_a's drafts (v5, v7) merge cleanly; feat_b's (v6) hits a conflict.
+    // Keyed by revision version (not call order) because the hook
+    // prevalidation pass also merges each draft before phase 2 runs.
+    mockAutoMerge.mockImplementation(
+      (live, base, revision) =>
+        ((revision as { version: number }).version === 6
+          ? {
+              success: false,
+              conflicts: [
+                { key: "rules", base: "x", live: "y", revision: "z" },
+              ],
+            }
+          : {
+              success: true,
+              conflicts: [],
+              result: { rules: [] },
+            }) as never,
+    );
 
     const experiment = makeExperiment([
       { featureId: "feat_a", revisionVersion: 5 },
