@@ -7,12 +7,21 @@ import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "featurerevisionlog";
 
-// Author-managed entries: an author can edit / delete their own log entries
-// for these actions. Restricted to plain "Comment" entries to preserve the
-// audit-trail integrity of verdicts (Approved / Requested Changes), review
-// requests, and other system-generated events. To retract a verdict, use the
-// `undoReview` flow; to retract a review request, use `recallReview`.
-const AUTHOR_MANAGED_ACTIONS = new Set(["Comment"]);
+// Author-editable entries: an author can rewrite the comment text in their
+// own entries for these actions. Verdicts (Approved / Requested Changes)
+// are included so reviewers can fix typos / clarify the rationale, but the
+// model only rewrites the `value.comment` field — the action itself is
+// immutable. To retract a verdict outright, use `undoReview`.
+const EDITABLE_AUTHOR_ACTIONS = new Set([
+  "Comment",
+  "Approved",
+  "Requested Changes",
+]);
+
+// Author-deletable entries: deletion is restricted to plain "Comment"
+// entries to preserve the audit trail. Deleting a verdict would orphan its
+// effect on the revision's status — use `undoReview` for that.
+const DELETABLE_AUTHOR_ACTIONS = new Set(["Comment"]);
 
 const BaseClass = MakeModelClass({
   schema: featureRevisionLogValidator,
@@ -56,23 +65,22 @@ export class FeatureRevisionLogModel extends BaseClass {
     );
   }
 
-  // Owners can edit the comment text in / delete their own author-managed
-  // entries. All other entries remain immutable as audit-trail records.
-  private isOwnedAuthorManagedEntry(
-    doc: FeatureRevisionLogInterface,
-  ): boolean {
-    if (!AUTHOR_MANAGED_ACTIONS.has(doc.action)) return false;
+  // Owner check shared by update / delete. Action membership is checked by
+  // the specific protected method to allow different edit vs delete policies.
+  private isOwnedEntry(doc: FeatureRevisionLogInterface): boolean {
     const docUserId = doc.user && "id" in doc.user ? doc.user.id : null;
     if (!docUserId) return false;
     return this.context.userId === docUserId;
   }
 
   protected canUpdate(existing: FeatureRevisionLogInterface): boolean {
-    return this.isOwnedAuthorManagedEntry(existing);
+    if (!EDITABLE_AUTHOR_ACTIONS.has(existing.action)) return false;
+    return this.isOwnedEntry(existing);
   }
 
   protected canDelete(existing: FeatureRevisionLogInterface): boolean {
-    return this.isOwnedAuthorManagedEntry(existing);
+    if (!DELETABLE_AUTHOR_ACTIONS.has(existing.action)) return false;
+    return this.isOwnedEntry(existing);
   }
 
   public async getAllByFeatureIdAndVersion({
@@ -108,10 +116,8 @@ export class FeatureRevisionLogModel extends BaseClass {
     });
   }
 
-  // Delete an owned author-managed entry. Note that deletion of a verdict
-  // entry (Approved / Requested Changes) does NOT recompute the revision's
-  // `status` field — callers wanting to retract a verdict should use the
-  // `undoReview` flow instead.
+  // Delete an owned plain-comment entry. Verdict entries are not deletable
+  // here — to retract a verdict, callers should use the `undoReview` flow.
   public async deleteOwnedEntry(id: string) {
     const existing = await this.getById(id);
     if (!existing) return undefined;

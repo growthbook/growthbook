@@ -58,7 +58,7 @@ export default function DivergenceNotice({
       status={status}
       icon={<PiGitMergeBold size={16} />}
       contentsAs="div"
-      mb="3"
+      size="sm"
     >
       <Text as="p" weight="semibold" mb="1">
         {heading}

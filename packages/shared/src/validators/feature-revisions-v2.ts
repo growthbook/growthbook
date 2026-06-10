@@ -346,6 +346,21 @@ export const postFeatureRevisionDiscardV2Validator = {
   version: "v2" as const,
 };
 
+export const postFeatureRevisionReopenV2Validator = {
+  method: "post" as const,
+  path: "/features/:id/revisions/:version/reopen",
+  operationId: "postFeatureRevisionReopenV2",
+  summary: "Reopen a discarded revision as a draft",
+  description:
+    "Returns a `discarded` revision to `draft` status so it can be edited, reviewed, and published. Prior review state is not restored — the draft must go back through review if approvals are required.",
+  tags: ["feature-revisions-v2"],
+  paramsSchema: revisionParamsStrict,
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  responseSchema: revisionResponse,
+  version: "v2" as const,
+};
+
 export const postFeatureRevisionPublishV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/publish",
@@ -465,7 +480,7 @@ export const postFeatureRevisionRecallReviewV2Validator = {
   operationId: "postFeatureRevisionRecallReviewV2",
   summary: "Recall a review request (revert to draft)",
   description:
-    "Author retracts the review request, returning the revision from `pending-review`, `changes-requested`, or `approved` back to `draft`. Existing review log entries are preserved.",
+    "Author retracts the review request, returning the revision from `pending-review`, `changes-requested`, or `approved` back to `draft`. Existing review log entries are preserved as audit history but any in-flight reviewer verdicts (Approved / Requested Changes) submitted during this review cycle no longer count — submitting a fresh `request-review` starts a new cycle.",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z.object({}).strict(),
@@ -480,7 +495,7 @@ export const postFeatureRevisionUndoReviewV2Validator = {
   operationId: "postFeatureRevisionUndoReviewV2",
   summary: "Undo a reviewer's own review verdict",
   description:
-    "Reviewer retracts their own verdict, returning the revision from `approved` or `changes-requested` back to `pending-review`. Existing review comments are preserved.",
+    "Reviewer retracts their own verdict. The revision status rewinds to the state implied by the remaining active verdicts from other reviewers: any outstanding `Requested Changes` → `changes-requested`, else any outstanding `Approved` → `approved`, else `pending-review`. Existing review comments are preserved.",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z.object({}).strict(),
@@ -493,13 +508,59 @@ const revisionLogParams = revisionParamsStrict.extend({ logId: z.string() });
 
 const okResponse = z.object({ status: z.literal(200) }).strict();
 
+// Sanitized actor for log entries — never exposes API key secrets.
+const apiRevisionLogUser = z
+  .object({
+    type: z.enum(["dashboard", "api_key", "system"]),
+    id: z.string().optional(),
+    name: z.string().optional(),
+    email: z.string().optional(),
+  })
+  .strict()
+  .nullable();
+
+const apiRevisionLogEntry = z
+  .object({
+    id: z
+      .string()
+      .optional()
+      .describe(
+        "Log entry ID. Use a `Comment` entry's id with the PUT/DELETE log endpoints to edit or delete an owned comment. Absent on legacy entries stored inline on the revision.",
+      ),
+    action: z
+      .string()
+      .describe(
+        'Entry type — content edits (e.g. "add rule", "edit defaultValue", "rebase"), review lifecycle events ("Review Requested", "Approved", "Requested Changes"), comments ("Comment"), or other audit events.',
+      ),
+    subject: z.string(),
+    value: z.string().describe("JSON-encoded payload for the entry"),
+    timestamp: z.string().meta({ format: "date-time" }),
+    user: apiRevisionLogUser,
+  })
+  .strict();
+
+export const getFeatureRevisionLogV2Validator = {
+  method: "get" as const,
+  path: "/features/:id/revisions/:version/log",
+  operationId: "getFeatureRevisionLogV2",
+  summary: "List the activity log for a revision",
+  description:
+    "Returns every log entry for the revision — content edits (rules, default value, rebases), review lifecycle events (review requested, approved, changes requested, recalled, undone), comments, and other audit events — sorted oldest-first.",
+  tags: ["feature-revisions-v2"],
+  paramsSchema: revisionParamsStrict,
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  responseSchema: z.object({ log: z.array(apiRevisionLogEntry) }),
+  version: "v2" as const,
+};
+
 export const putFeatureRevisionLogCommentV2Validator = {
   method: "put" as const,
   path: "/features/:id/revisions/:version/log/:logId",
   operationId: "putFeatureRevisionLogCommentV2",
-  summary: "Edit the text of an owned revision Comment entry",
+  summary: "Edit the comment text of an owned log entry",
   description:
-    "Author of a `Comment` log entry can edit its text. Verdict entries (Approved, Requested Changes, Review Requested) and other audit-trail events are immutable.",
+    "Author of a `Comment`, `Approved`, or `Requested Changes` log entry can rewrite its comment text. The entry's action and other audit-trail metadata remain immutable; this only mutates `value.comment`. Other audit events (e.g. `Review Requested`, system events) are not editable.",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionLogParams,
   bodySchema: z

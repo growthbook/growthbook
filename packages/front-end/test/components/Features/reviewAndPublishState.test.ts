@@ -10,8 +10,10 @@ function base(overrides: Partial<RnPStateInput> = {}): RnPStateInput {
     status: "draft",
     mergeSuccess: true,
     hasChanges: true,
-    canReview: false,
+    hasReviewPermission: false,
     canManageDraft: false,
+    isReviewRequester: false,
+    isReviewer: false,
     adminPublish: false,
     hasSelectedExperiments: false,
     onlyScheduledSelected: false,
@@ -109,7 +111,7 @@ describe("getReviewAndPublishState", () => {
         base({
           requireReviews: true,
           status: "pending-review",
-          canReview: false,
+          hasReviewPermission: false,
         }),
       );
       expect(s.hasSubmit).toBe(false);
@@ -121,7 +123,7 @@ describe("getReviewAndPublishState", () => {
         base({
           requireReviews: true,
           status: "pending-review",
-          canReview: true,
+          hasReviewPermission: true,
         }),
       );
       // Review submission now handled by ReviewCommentPopover, not the state machine CTA.

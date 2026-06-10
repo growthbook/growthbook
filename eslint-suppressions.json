@@ -579,18 +579,8 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/ReviewAndPublish.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/RevisionDropdown.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/RevisionLog.tsx": {
-    "local/no-alert-classname": {
       "count": 1
     }
   },

@@ -37,7 +37,6 @@ import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import EventUser from "@/components/Avatar/EventUser";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import Field from "@/components/Forms/Field";
 import Markdown from "@/components/Markdown/Markdown";
 import CommentComposer from "@/components/Comments/CommentComposer";
 import Link from "@/ui/Link";
@@ -299,27 +298,18 @@ export function CopyAsButton({
     "full-json": <PiCode size={22} />,
     llm: <PiSparkle size={22} />,
     // Deep-dive variant: same sparkle with a small magnifying-glass badge
-    // overlaid in the bottom-right corner.
+    // overlaid in the bottom-right corner. Absolutely positioned inside the
+    // same 22px box as the other icons so it doesn't shift the row's text.
     "llm-full": (
-      <Box
-        style={{
-          position: "relative",
-          display: "inline-flex",
-          lineHeight: 1,
-          transform: "translate(-3px, -3px)",
-        }}
-      >
-        <PiSparkle size={18} />
-        <Box
-          style={{
-            position: "absolute",
-            right: -8,
-            bottom: -8,
-            display: "inline-flex",
-          }}
-        >
-          <PiMagnifyingGlass size={14} />
-        </Box>
+      <Box style={{ position: "relative", width: 22, height: 22 }}>
+        <PiSparkle
+          size={17}
+          style={{ position: "absolute", top: 0, left: 0 }}
+        />
+        <PiMagnifyingGlass
+          size={13}
+          style={{ position: "absolute", right: 0, bottom: 0 }}
+        />
       </Box>
     ),
   };
@@ -359,9 +349,17 @@ export function CopyAsButton({
               text color, which Radix swaps to the high-contrast accent on hover.
               The subtext is just a dimmed version of that same color. */}
           <Flex align="center" gap="3" p="2" pr="4">
-            <Box style={{ color: "currentColor", lineHeight: 1 }} ml="1">
+            {/* Fixed-width icon slot so every row's text starts at the same
+                x-position regardless of the individual glyph's box. */}
+            <Flex
+              align="center"
+              justify="center"
+              flexShrink="0"
+              ml="1"
+              style={{ width: 24, color: "currentColor", lineHeight: 1 }}
+            >
               {formatIcons[f.value as CopyDiffFormat]}
-            </Box>
+            </Flex>
             <Flex direction="column" gap="0">
               <Text weight="medium">{f.label}</Text>
               <Box
@@ -1319,9 +1317,12 @@ export function DiffContent({
   isDraftNotes,
   canEditNotes,
   onNotesSaved,
+  variant = "plain",
 }: {
   diffs: FeatureRevisionDiff[];
-  commentVersions: Array<{
+  // Revision notes to render above the diff. Omit when the surface renders
+  // notes elsewhere (e.g. ReviewAndPublish's Conversation tab).
+  commentVersions?: Array<{
     version: number;
     revisionComment?: string | null;
     title?: string | null;
@@ -1338,6 +1339,10 @@ export function DiffContent({
   isDraftNotes?: boolean;
   canEditNotes?: boolean;
   onNotesSaved?: () => void;
+  // "card" renders inside an unpadded appbox: the heading + badges become a
+  // header section with a full-width divider below (same pattern as the
+  // Notes box header), and the diff views get their own padded body.
+  variant?: "plain" | "card";
 }) {
   const [format, setFormat] = useDiffFormat();
   // "Raw JSON" needs whole-shape data; fall back to per-section JSON when a
@@ -1353,93 +1358,130 @@ export function DiffContent({
 
   return (
     <>
-      <RevisionCommentSection
-        featureId={feature.id}
-        versions={commentVersions}
-        isDraft={isDraftNotes}
-        canEdit={canEditNotes}
-        onSaved={onNotesSaved}
-      />
+      {commentVersions && (
+        <RevisionCommentSection
+          featureId={feature.id}
+          versions={commentVersions}
+          isDraft={isDraftNotes}
+          canEdit={canEditNotes}
+          onSaved={onNotesSaved}
+        />
+      )}
 
       {diffsWithChanges.length === 0 ? (
-        <Text color="text-low">No changes between these revisions.</Text>
+        <Box p={variant === "card" ? "4" : "0"}>
+          <Text color="text-low">No changes between these revisions.</Text>
+        </Box>
       ) : (
         <Box>
-          <Heading as="h4" size="medium" color="text-mid" mt="0" mb="2">
-            Summary of changes
-          </Heading>
-
-          {diffFallbackBadges.length > 0 && (
-            <Flex wrap="wrap" gap="2" mb="5">
-              {diffFallbackBadges.map(({ label, action }) => (
-                <Badge
-                  key={label}
-                  color={logBadgeColor(action)}
-                  variant="soft"
-                  label={label}
-                />
-              ))}
-            </Flex>
-          )}
-
-          <Flex align="center" justify="between" gap="2" wrap="wrap" mb="3">
-            <DiffFormatToggle
-              value={effectiveFormat}
-              setValue={setFormat}
-              showRaw={!!raw}
-            />
-            <CopyAsButton
-              entityName={feature.id}
-              diffs={diffsWithChanges}
-              raw={raw}
-              formattedRef={formattedRef}
-            />
-          </Flex>
-
-          {outOfOrderWarning && (
-            <Callout status="info" size="sm" mb="4">
-              A draft in this comparison is based on an older version than what
-              is currently live. When you publish, it will be merged with the
-              live version, so the result may differ from the diff shown here.
-            </Callout>
-          )}
-
-          {/* Offscreen render used purely as the source for "Copy as →
-              Formatted changes" innerText; kept mounted in every view. */}
           <Box
-            ref={formattedRef}
-            aria-hidden
-            style={{
-              position: "absolute",
-              left: -99999,
-              top: 0,
-              width: 800,
-              pointerEvents: "none",
-            }}
+            px={variant === "card" ? "4" : "0"}
+            py={variant === "card" ? "3" : "0"}
+            style={
+              variant === "card"
+                ? { borderBottom: "1px solid var(--gray-a4)" }
+                : undefined
+            }
           >
-            <FormattedChanges diffs={diffsWithChanges} />
+            <Heading
+              as="h4"
+              size="medium"
+              color="text-mid"
+              mt="0"
+              mb={
+                diffFallbackBadges.length > 0 || variant === "plain" ? "2" : "0"
+              }
+            >
+              Summary of changes
+            </Heading>
+
+            {diffFallbackBadges.length > 0 && (
+              <Flex wrap="wrap" gap="2" mb={variant === "card" ? "0" : "5"}>
+                {diffFallbackBadges.map(({ label, action }) => (
+                  <Badge
+                    key={label}
+                    color={logBadgeColor(action)}
+                    variant="soft"
+                    label={label}
+                  />
+                ))}
+              </Flex>
+            )}
           </Box>
 
-          {effectiveFormat === "formatted" ? (
-            <FormattedChanges diffs={diffsWithChanges} />
-          ) : effectiveFormat === "raw" && raw ? (
-            // One raw diff per top-level entity: the whole feature revision as a
-            // single blob, plus a separate diff for each supplemental entity
-            // (ramp schedules / ramp actions).
-            <Flex direction="column" gap="4">
-              {stringifyForRawDiff(raw.before) !==
-                stringifyForRawDiff(raw.after) && (
-                <ExpandableDiff
-                  title={raw.title ?? "Feature revision"}
-                  a={stringifyForRawDiff(raw.before)}
-                  b={stringifyForRawDiff(raw.after)}
-                  defaultOpen
-                  styles={COMPACT_DIFF_STYLES}
-                />
-              )}
-              {diffsWithChanges
-                .filter((d) => d.supplemental)
-                .map((d) => (
+          <Box p={variant === "card" ? "4" : "0"}>
+            <Flex align="center" justify="between" gap="2" wrap="wrap" mb="3">
+              <DiffFormatToggle
+                value={effectiveFormat}
+                setValue={setFormat}
+                showRaw={!!raw}
+              />
+              <CopyAsButton
+                entityName={feature.id}
+                diffs={diffsWithChanges}
+                raw={raw}
+                formattedRef={formattedRef}
+              />
+            </Flex>
+
+            {outOfOrderWarning && (
+              <Callout status="info" size="sm" mb="4">
+                A draft in this comparison is based on an older version than
+                what is currently live. When you publish, it will be merged with
+                the live version, so the result may differ from the diff shown
+                here.
+              </Callout>
+            )}
+
+            {/* Offscreen render used purely as the source for "Copy as →
+              Formatted changes" innerText; kept mounted in every view. */}
+            <Box
+              ref={formattedRef}
+              aria-hidden
+              style={{
+                position: "absolute",
+                left: -99999,
+                top: 0,
+                width: 800,
+                pointerEvents: "none",
+              }}
+            >
+              <FormattedChanges diffs={diffsWithChanges} />
+            </Box>
+
+            {effectiveFormat === "formatted" ? (
+              <FormattedChanges diffs={diffsWithChanges} />
+            ) : effectiveFormat === "raw" && raw ? (
+              // One raw diff per top-level entity: the whole feature revision as a
+              // single blob, plus a separate diff for each supplemental entity
+              // (ramp schedules / ramp actions).
+              <Flex direction="column" gap="4">
+                {stringifyForRawDiff(raw.before) !==
+                  stringifyForRawDiff(raw.after) && (
+                  <ExpandableDiff
+                    title={raw.title ?? "Feature revision"}
+                    a={stringifyForRawDiff(raw.before)}
+                    b={stringifyForRawDiff(raw.after)}
+                    defaultOpen
+                    styles={COMPACT_DIFF_STYLES}
+                  />
+                )}
+                {diffsWithChanges
+                  .filter((d) => d.supplemental)
+                  .map((d) => (
+                    <ExpandableDiff
+                      key={d.title}
+                      title={d.title}
+                      a={d.a}
+                      b={d.b}
+                      defaultOpen
+                      styles={COMPACT_DIFF_STYLES}
+                    />
+                  ))}
+              </Flex>
+            ) : (
+              <Flex direction="column" gap="4">
+                {diffsWithChanges.map((d) => (
                   <ExpandableDiff
                     key={d.title}
                     title={d.title}
@@ -1449,21 +1491,9 @@ export function DiffContent({
                     styles={COMPACT_DIFF_STYLES}
                   />
                 ))}
-            </Flex>
-          ) : (
-            <Flex direction="column" gap="4">
-              {diffsWithChanges.map((d) => (
-                <ExpandableDiff
-                  key={d.title}
-                  title={d.title}
-                  a={d.a}
-                  b={d.b}
-                  defaultOpen
-                  styles={COMPACT_DIFF_STYLES}
-                />
-              ))}
-            </Flex>
-          )}
+              </Flex>
+            )}
+          </Box>
         </Box>
       )}
     </>

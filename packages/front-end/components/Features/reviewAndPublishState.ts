@@ -23,10 +23,18 @@ export interface RnPStateInput {
   mergeSuccess: boolean;
   // There is something to publish.
   hasChanges: boolean;
-  // Viewer may submit a review (pending, not the author, has permission).
-  canReview: boolean;
+  // Raw `canReviewFeatureDrafts` permission, independent of revision state.
+  // Used to gate retraction of an existing verdict — a reviewer who approved
+  // earlier (status now "approved") must still be allowed to retract.
+  hasReviewPermission: boolean;
   // The current user is the draft author (or co-author) and can manage drafts.
   canManageDraft: boolean;
+  // The current user is the one who most recently submitted the review request
+  // — they're the only one who can retract it.
+  isReviewRequester: boolean;
+  // The current user has an active reviewer verdict on this revision —
+  // they're the only one who can retract it.
+  isReviewer: boolean;
   // Admin opted to bypass approval/lockdown/governance.
   adminPublish: boolean;
   // At least one experiment is selected to start on publish.
@@ -73,8 +81,10 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
     status,
     mergeSuccess,
     hasChanges,
-    canReview,
+    hasReviewPermission,
     canManageDraft,
+    isReviewRequester,
+    isReviewer,
     adminPublish,
     hasSelectedExperiments,
     onlyScheduledSelected,
@@ -84,17 +94,24 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
     governanceCanPublish,
   } = input;
 
-  // recall-review: author can pull back from pending-review / changes-requested / approved
+  // recall-review: only the user who submitted the latest review request can
+  // pull it back (and they need draft-manage permission). Other draft managers
+  // shouldn't be able to retract someone else's review request.
   const recallableStatuses = [
     "pending-review",
     "changes-requested",
     "approved",
   ];
-  const canRecallReview = canManageDraft && recallableStatuses.includes(status);
+  const canRecallReview =
+    canManageDraft && isReviewRequester && recallableStatuses.includes(status);
 
-  // undo-review: reviewer can retract their own approved/changes-requested verdict
+  // undo-review: only the reviewer who submitted the verdict can retract it.
+  // Uses `hasReviewPermission` (not the state-gated `canReview`) so an
+  // approver can still pull back their verdict after status flipped to
+  // "approved".
   const undoableStatuses = ["approved", "changes-requested"];
-  const canUndoReview = canReview && undoableStatuses.includes(status);
+  const canUndoReview =
+    hasReviewPermission && isReviewer && undoableStatuses.includes(status);
 
   // Hard conflicts always route to the conflict-resolution flow first.
   if (!mergeSuccess) {

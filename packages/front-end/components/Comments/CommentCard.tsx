@@ -33,11 +33,17 @@ export interface CommentCardProps {
    * E.g. `"green"` for approvals, `"red"` for change requests.
    */
   stripeColor?: string;
+  /**
+   * Override the leading avatar with a custom element (typically a colored
+   * icon avatar for non-human signals like verdicts). Sized to match the
+   * default `EventUser size="sm"` avatar so the layout stays aligned.
+   */
+  leading?: React.ReactNode;
 }
 
 /**
  * Shared comment-card chrome used by `DiscussionThread`, `RevisionLog`, and
- * any other surface that needs a GitHub-style commented-on card.
+ * any other surface that renders a comment as a standalone card.
  *
  * Layout: `[avatar] | [card with colored stripe | name-email + metadata | body]`
  */
@@ -48,11 +54,12 @@ export default function CommentCard({
   actions,
   body,
   stripeColor = "violet",
+  leading,
 }: CommentCardProps) {
   return (
     <Flex align="start" gap="3">
       <Box flexShrink="0" pt="2">
-        <EventUser user={user} display="avatar" size="sm" />
+        {leading ?? <EventUser user={user} display="avatar" size="sm" />}
       </Box>
       <Card size="1" style={{ overflow: "hidden", flexGrow: 1 }}>
         <div
@@ -62,7 +69,7 @@ export default function CommentCard({
             top: 0,
             bottom: 0,
             width: 4,
-            backgroundColor: `var(--${stripeColor}-7)`,
+            backgroundColor: `var(--${stripeColor}-9)`,
           }}
         />
         <Box px="1">

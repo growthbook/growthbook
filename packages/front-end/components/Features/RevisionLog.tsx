@@ -7,11 +7,13 @@ import { FaCodeCommit } from "react-icons/fa6";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import {
+  PiArrowCounterClockwiseFill,
   PiChatCircleTextFill,
   PiCheckCircleFill,
   PiClockFill,
   PiGearFill,
   PiPencilSimpleFill,
+  PiProhibitFill,
 } from "react-icons/pi";
 import { date, datetime } from "shared/dates";
 import React, {
@@ -27,11 +29,15 @@ import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import EventUser from "@/components/Avatar/EventUser";
+import Avatar from "@/ui/Avatar";
 import Code from "@/components/SyntaxHighlighting/Code";
 import Markdown from "@/components/Markdown/Markdown";
 import CommentCard from "@/components/Comments/CommentCard";
 import CommentComposer from "@/components/Comments/CommentComposer";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import Badge from "@/ui/Badge";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 
 export type MutateLog = {
@@ -42,24 +48,24 @@ export interface Props {
   feature: FeatureInterface;
   revision: FeatureRevisionInterface;
   ref?: MutableRefObject<unknown>;
-  reviewOnly?: boolean;
+  // Called after timeline-initiated actions that mutate the revision itself
+  // (e.g. retracting a verdict via the comment-card overflow). Lets the
+  // parent refetch its revision data so status-dependent UI updates.
+  onRevisionMutate?: () => void | Promise<void>;
 }
 
-const REVIEW_ACTIONS = new Set([
-  "Review Requested",
+// Action sets must mirror EDITABLE_AUTHOR_ACTIONS / DELETABLE_AUTHOR_ACTIONS
+// in FeatureRevisionLogModel. Reviewers can rewrite the comment text on
+// their own verdicts (the action itself stays immutable); only plain
+// `Comment` entries can be deleted outright.
+const EDITABLE_AUTHOR_ACTIONS = new Set([
+  "Comment",
   "Approved",
   "Requested Changes",
-  "Comment",
-  "edit comment",
 ]);
+const DELETABLE_AUTHOR_ACTIONS = new Set(["Comment"]);
 
-// Only first-class user comments are mutable. Everything else — review
-// verdicts, review requests, audit events — has no edit/delete affordance.
-// Must match the AUTHOR_MANAGED_ACTIONS set on the backend
-// (FeatureRevisionLogModel).
-const AUTHOR_MANAGED_ACTIONS = new Set(["Comment"]);
-
-// Per-action visual config, GitHub-PR style: only entries with readable
+// Per-action visual config: only entries with readable
 // content (a comment) render as full cards; everything else renders as a
 // compact one-line timeline event with a semantic icon. The `default` case
 // covers system audit events with a neutral gray icon and an expandable
@@ -79,11 +85,46 @@ type RowVisual = {
   showAuditDetails: boolean;
 };
 
+// Readable past-tense phrases for system audit actions so inline events read
+// as a sentence ("Bryce created a new revision"). Keys must match the raw
+// `action` strings written to the revision log on the backend.
+const AUDIT_ACTION_VERBS: Record<string, string> = {
+  "new revision": "created a new revision",
+  update: "updated this revision",
+  publish: "published this revision",
+  "re-publish": "re-published this revision",
+  rebase: "rebased this revision",
+  revert: "created this revert",
+  "add rule": "added a rule",
+  "add rule with ramp schedule": "added a rule with a ramp schedule",
+  "add experiment rule": "added an experiment rule",
+  "edit rule": "edited a rule",
+  "edit rule with ramp schedule": "edited a rule and its ramp schedule",
+  "delete rule": "deleted a rule",
+  "move rule": "moved a rule",
+  "reorder rules": "reordered the rules",
+  "edit default value": "edited the default value",
+  "edit prerequisites": "edited the prerequisites",
+  "edit title": "edited the revision title",
+  "edit metadata": "edited the revision metadata",
+  "set ramp schedule": "set a ramp schedule",
+  "clear ramp schedule": "cleared a ramp schedule",
+  "Recall Review": "recalled their review request",
+  "Undo Review": "withdrew their review",
+};
+
+function auditVerb(action: string): string {
+  return (
+    AUDIT_ACTION_VERBS[action] ?? `made a change (${action.toLowerCase()})`
+  );
+}
+
 // Icons and colors mirror the revision status presentation in
 // RevisionStatusBadge (`revisionStatusIcon` / `revisionStatusColor`) so the
 // timeline and the actions-column header speak the same visual language:
-// approved = grass check, changes requested = amber chat bubble,
-// review requested (→ pending-review) = orange clock.
+// approved = grass check, changes requested = red chat bubble,
+// review requested (→ pending-review) = orange clock,
+// discard = gray prohibit (matches the Discarded badge's gray).
 function rowVisual(action: string): RowVisual {
   switch (action) {
     case "Comment":
@@ -96,7 +137,7 @@ function rowVisual(action: string): RowVisual {
       };
     case "Approved":
       return {
-        color: "grass",
+        color: "green",
         verb: "approved these changes",
         icon: <PiCheckCircleFill />,
         showCommentBody: true,
@@ -104,7 +145,7 @@ function rowVisual(action: string): RowVisual {
       };
     case "Requested Changes":
       return {
-        color: "amber",
+        color: "red",
         verb: "requested changes",
         icon: <PiChatCircleTextFill />,
         showCommentBody: true,
@@ -126,10 +167,34 @@ function rowVisual(action: string): RowVisual {
         showCommentBody: false,
         showAuditDetails: false,
       };
+    case "edit title":
+      return {
+        color: "gray",
+        verb: "edited the revision title",
+        icon: <PiPencilSimpleFill />,
+        showCommentBody: false,
+        showAuditDetails: false,
+      };
+    case "discard":
+      return {
+        color: "gray",
+        verb: "discarded this revision",
+        icon: <PiProhibitFill />,
+        showCommentBody: false,
+        showAuditDetails: false,
+      };
+    case "reopen":
+      return {
+        color: "indigo",
+        verb: "reopened this revision as a draft",
+        icon: <PiArrowCounterClockwiseFill />,
+        showCommentBody: false,
+        showAuditDetails: false,
+      };
     default:
       return {
         color: "gray",
-        verb: action.toLowerCase(),
+        verb: auditVerb(action),
         icon: <PiGearFill />,
         showCommentBody: false,
         showAuditDetails: true,
@@ -137,17 +202,36 @@ function rowVisual(action: string): RowVisual {
   }
 }
 
+export type VerdictRetraction = {
+  // "self": the reviewer pulled it back via Undo Review.
+  // "recall": the review request was recalled, invalidating any in-flight
+  //   verdicts (regardless of which user submitted them).
+  kind: "self" | "recall";
+  // Display label rendered in the metadata badge (e.g. "Retracted",
+  // "Discarded by Bryce").
+  label: string;
+};
+
 export function RevisionLogRow({
   log,
   featureId,
   version,
   onMutate,
+  retraction,
+  onRetractVerdict,
 }: {
   log: RevisionLog;
   first?: boolean;
   featureId?: string;
   version?: number;
   onMutate?: () => Promise<unknown> | void;
+  // When set, the verdict (Approved / Requested Changes) is no longer
+  // active: card shows a muted "Retracted" / "Discarded by …" badge.
+  retraction?: VerdictRetraction | null;
+  // When provided on the user's own *active* verdict, surfaces a
+  // "Retract review" action in the card's overflow menu (more discoverable
+  // than the actions-column dropdown).
+  onRetractVerdict?: () => void | Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -172,21 +256,31 @@ export function RevisionLogRow({
 
   const visual = rowVisual(log.action);
 
-  // The current user owns the entry, the entry is author-managed, and we have
-  // the wiring (logId + featureId + version) to call the API. Verdicts and
-  // audit-trail events are immutable; only plain Comment entries are editable
-  // /deletable here.
+  // The current user owns the entry and we have the wiring (logId +
+  // featureId + version) to call the API. Edit and delete have different
+  // policies: comments can be edited or deleted, verdicts only have their
+  // comment text edited (retract via Undo Review to remove the verdict).
+  // Owners can still revise the comment text on a retracted verdict, e.g.
+  // to clarify why they pulled back.
   const logUserId =
     log.user && "id" in log.user ? (log.user as { id: string }).id : null;
-  const canManageOwn =
+  const isOwned =
     !!log.id &&
     !!featureId &&
     version !== undefined &&
-    AUTHOR_MANAGED_ACTIONS.has(log.action) &&
     logUserId !== null &&
     logUserId === userId;
+  const canEdit = isOwned && EDITABLE_AUTHOR_ACTIONS.has(log.action);
+  const canDelete = isOwned && DELETABLE_AUTHOR_ACTIONS.has(log.action);
+  // Retract is offered on the user's *own* active (non-retracted) verdict
+  // when the parent has wired up a handler.
+  const canRetractVerdict =
+    isOwned &&
+    !retraction &&
+    !!onRetractVerdict &&
+    (log.action === "Approved" || log.action === "Requested Changes");
 
-  if (editing && canManageOwn) {
+  if (editing && canEdit) {
     return (
       <CommentComposer
         cta="Save"
@@ -206,13 +300,21 @@ export function RevisionLogRow({
     );
   }
 
-  // GitHub-PR style presentation split: entries with readable content (a
-  // markdown comment) render as full cards; everything else — review
-  // requests, verdicts without a comment, notes edits, system audit events —
-  // renders as a compact one-line timeline event with a semantic icon. This
-  // keeps the visual weight on the conversation and makes lifecycle events
-  // scannable instead of comment-shaped.
   const renderAsCard = visual.showCommentBody && !!comment;
+  // Replace the user avatar with a colored verdict icon (green check for
+  // approvals, red speech bubble for change requests) so the timeline reads
+  // at a glance. Plain comments keep the user avatar.
+  const verdictAvatarColor: "green" | "red" | null =
+    log.action === "Approved"
+      ? "green"
+      : log.action === "Requested Changes"
+        ? "red"
+        : null;
+  const verdictLeading = verdictAvatarColor ? (
+    <Avatar size="sm" color={verdictAvatarColor} variant="solid">
+      <>{visual.icon}</>
+    </Avatar>
+  ) : undefined;
 
   if (renderAsCard) {
     return (
@@ -220,8 +322,19 @@ export function RevisionLogRow({
         user={log.user}
         metadata={`${visual.verb} on ${datetime(log.timestamp)}`}
         stripeColor={visual.color}
+        leading={verdictLeading}
+        metadataExtra={
+          retraction ? (
+            <Badge
+              color="gray"
+              variant="solid"
+              label={retraction.label}
+              size="xs"
+            />
+          ) : undefined
+        }
         actions={
-          canManageOwn ? (
+          canEdit || canDelete || canRetractVerdict ? (
             <DropdownMenu
               trigger={
                 <IconButton
@@ -237,25 +350,38 @@ export function RevisionLogRow({
               variant="soft"
               menuPlacement="end"
             >
-              <DropdownMenuItem onClick={() => setEditing(true)}>
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                color="red"
-                confirmation={{
-                  confirmationTitle: "Delete Comment",
-                  cta: "Delete",
-                  submit: async () => {
-                    await apiCall(
-                      `/feature/${featureId}/${version}/log/${log.id}`,
-                      { method: "DELETE" },
-                    );
-                    await onMutate?.();
-                  },
-                }}
-              >
-                Delete
-              </DropdownMenuItem>
+              {canEdit && (
+                <DropdownMenuItem onClick={() => setEditing(true)}>
+                  Edit
+                </DropdownMenuItem>
+              )}
+              {canRetractVerdict && (
+                <DropdownMenuItem
+                  onClick={() => {
+                    void onRetractVerdict?.();
+                  }}
+                >
+                  Retract review
+                </DropdownMenuItem>
+              )}
+              {canDelete && (
+                <DropdownMenuItem
+                  color="red"
+                  confirmation={{
+                    confirmationTitle: "Delete Comment",
+                    cta: "Delete",
+                    submit: async () => {
+                      await apiCall(
+                        `/feature/${featureId}/${version}/log/${log.id}`,
+                        { method: "DELETE" },
+                      );
+                      await onMutate?.();
+                    },
+                  }}
+                >
+                  Delete
+                </DropdownMenuItem>
+              )}
             </DropdownMenu>
           ) : undefined
         }
@@ -285,8 +411,8 @@ export function RevisionLogRow({
         >
           {visual.icon}
         </Flex>
-        <Text size="small" color="text-mid">
-          <Text size="inherit" weight="medium" color="text-high">
+        <Text size="small" color="text-high">
+          <Text size="inherit" weight="medium">
             <EventUser user={log.user} display="name" size="sm" />
           </Text>{" "}
           {visual.verb}{" "}
@@ -295,17 +421,17 @@ export function RevisionLogRow({
           </Text>
         </Text>
         {showDetails && (
-          <Box
-            asChild
-            style={{ cursor: "pointer", userSelect: "none" }}
+          <Button
+            variant="ghost"
+            color="gray"
+            size="xs"
+            mt="0"
+            mb="0"
+            icon={open ? <FaAngleDown /> : <FaAngleRight />}
             onClick={() => setOpen((o) => !o)}
           >
-            <span>
-              <Text size="small" color="text-low">
-                {open ? <FaAngleDown /> : <FaAngleRight />} Details
-              </Text>
-            </span>
-          </Box>
+            Details
+          </Button>
         )}
       </Flex>
       {showDetails && open && (
@@ -318,39 +444,118 @@ export function RevisionLogRow({
 }
 
 const Revisionlog: React.ForwardRefRenderFunction<MutateLog, Props> = (
-  { feature, revision, reviewOnly },
+  { feature, revision, onRevisionMutate },
   ref,
 ) => {
   const { data, error, mutate } = useApi<{ log: RevisionLog[] }>(
     `/feature/${feature.id}/${revision.version}/log`,
   );
+  const { apiCall } = useAuth();
+  const { userId } = useUser();
   useImperativeHandle(ref, () => ({
     async mutateLog() {
       await mutate();
     },
   }));
 
-  const logs = useMemo(() => {
-    if (!data) return {};
-    const filtered = reviewOnly
-      ? data.log.filter((l) => REVIEW_ACTIONS.has(l.action))
-      : data.log;
-    const sorted = [...filtered].sort((a, b) =>
-      (b.timestamp as unknown as string).localeCompare(
-        a.timestamp as unknown as string,
-      ),
-    );
-    const byDate: Record<string, RevisionLog[]> = {};
-    sorted.forEach((log) => {
-      const d = date(log.timestamp);
-      byDate[d] = byDate[d] || [];
-      byDate[d].push(log);
-    });
-    return byDate;
-  }, [data, reviewOnly]);
+  const { logs, verdictRetractions, activeVerdictForCurrentUser } =
+    useMemo(() => {
+      if (!data)
+        return {
+          logs: {},
+          verdictRetractions: new WeakMap<RevisionLog, VerdictRetraction>(),
+          activeVerdictForCurrentUser: null as RevisionLog | null,
+        };
+      // Chronological (newest at the bottom) — the comment composer sits
+      // below the timeline, where new entries append.
+      const sorted = [...data.log].sort((a, b) =>
+        (a.timestamp as unknown as string).localeCompare(
+          b.timestamp as unknown as string,
+        ),
+      );
+      // A verdict (Approved / Requested Changes) is invalidated by the FIRST
+      // of the following events to appear after it:
+      //   - same-user `Undo Review`           → "Retracted"
+      //   - any-user `Recall Review`          → "Discarded by {recaller}"
+      //   - same-user new verdict             → superseded (no badge)
+      // A subsequent `Review Requested` resets the window — verdicts after
+      // that point are fresh decisions on the re-requested review.
+      const retractions = new WeakMap<RevisionLog, VerdictRetraction>();
+      for (let i = 0; i < sorted.length; i++) {
+        const entry = sorted[i];
+        if (entry.action !== "Approved" && entry.action !== "Requested Changes")
+          continue;
+        const uid =
+          entry.user && "id" in entry.user ? entry.user.id : undefined;
+        if (!uid) continue;
+        for (let j = i + 1; j < sorted.length; j++) {
+          const next = sorted[j];
+          if (next.action === "Review Requested") {
+            // New review cycle started; previous verdicts are historical but
+            // not marked retracted/discarded by this scan — only events
+            // between i and the recall/undo count.
+            break;
+          }
+          if (next.action === "Recall Review") {
+            const recallerName =
+              (next.user && "name" in next.user && next.user.name) ||
+              (next.user && "email" in next.user && next.user.email) ||
+              null;
+            const isSelfRecall =
+              next.user && "id" in next.user && next.user.id === userId;
+            const label = isSelfRecall
+              ? "Discarded by you"
+              : recallerName
+                ? `Discarded by ${recallerName}`
+                : "Discarded";
+            retractions.set(entry, { kind: "recall", label });
+            break;
+          }
+          const nextUid =
+            next.user && "id" in next.user ? next.user.id : undefined;
+          if (nextUid !== uid) continue;
+          if (next.action === "Undo Review") {
+            retractions.set(entry, { kind: "self", label: "Retracted" });
+            break;
+          }
+          if (
+            next.action === "Approved" ||
+            next.action === "Requested Changes"
+          ) {
+            // Superseded by a fresh verdict; not a retraction.
+            break;
+          }
+        }
+      }
+      // Find the current user's most recent active verdict (not retracted and
+      // not superseded). This is the row that gets the "Retract review" item.
+      let activeVerdict: RevisionLog | null = null;
+      for (let i = sorted.length - 1; i >= 0; i--) {
+        const entry = sorted[i];
+        if (entry.action !== "Approved" && entry.action !== "Requested Changes")
+          continue;
+        const uid =
+          entry.user && "id" in entry.user ? entry.user.id : undefined;
+        if (!uid || uid !== userId) continue;
+        if (retractions.has(entry)) continue;
+        activeVerdict = entry;
+        break;
+      }
+      const byDate: Record<string, RevisionLog[]> = {};
+      sorted.forEach((log) => {
+        const d = date(log.timestamp);
+        byDate[d] = byDate[d] || [];
+        byDate[d].push(log);
+      });
+      return {
+        logs: byDate,
+        verdictRetractions: retractions,
+        activeVerdictForCurrentUser: activeVerdict,
+      };
+    }, [data, userId]);
 
   if (error) {
-    return <div className="alert alert-danger">{error.message}</div>;
+    return <Callout status="error">{error.message}</Callout>;
   }
   if (!data) {
     return <LoadingOverlay />;
@@ -361,11 +566,11 @@ const Revisionlog: React.ForwardRefRenderFunction<MutateLog, Props> = (
   return (
     <Box>
       {hasEntries ? (
-        <Box pl="2">
+        <Box style={{ paddingLeft: 11 }}>
           {Object.entries(logs).map(([d, entries]) => (
             <Box
               key={d}
-              pl="3"
+              pl="5"
               pt="3"
               style={{
                 position: "relative",
@@ -399,6 +604,19 @@ const Revisionlog: React.ForwardRefRenderFunction<MutateLog, Props> = (
                     featureId={feature.id}
                     version={revision.version}
                     onMutate={mutate}
+                    retraction={verdictRetractions.get(log) ?? null}
+                    onRetractVerdict={
+                      log === activeVerdictForCurrentUser
+                        ? async () => {
+                            await apiCall(
+                              `/feature/${feature.id}/${revision.version}/undo-review`,
+                              { method: "POST" },
+                            );
+                            await mutate();
+                            await onRevisionMutate?.();
+                          }
+                        : undefined
+                    }
                   />
                 ))}
               </Flex>
@@ -406,10 +624,8 @@ const Revisionlog: React.ForwardRefRenderFunction<MutateLog, Props> = (
           ))}
         </Box>
       ) : (
-        <Text as="p" color="text-low" fontStyle="italic">
-          {reviewOnly
-            ? "No review activity yet."
-            : "No history for this revision."}
+        <Text as="p" color="text-low" fontStyle="italic" mt="3">
+          No history for this revision.
         </Text>
       )}
     </Box>

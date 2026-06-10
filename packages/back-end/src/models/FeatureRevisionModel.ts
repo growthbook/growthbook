@@ -1268,8 +1268,41 @@ export async function recallReview(
     });
 }
 
-// Reviewer retracts their own verdict: reverts approved / changes-requested
-// back to pending-review. Review comments remain in the log.
+// Replay the review lifecycle from the merged log to find each reviewer's
+// active verdict. `Review Requested` / `Recall Review` start a new cycle
+// (clearing all verdicts); `Undo Review` removes that reviewer's verdict.
+function activeVerdictsFromLog(
+  entries: { action: string; userId: string | undefined; timestamp: Date }[],
+): Map<string, "approved" | "changes-requested"> {
+  const sorted = [...entries].sort(
+    (a, b) => a.timestamp.getTime() - b.timestamp.getTime(),
+  );
+  const byUser = new Map<string, "approved" | "changes-requested">();
+  for (const entry of sorted) {
+    if (
+      entry.action === "Review Requested" ||
+      entry.action === "Recall Review"
+    ) {
+      byUser.clear();
+      continue;
+    }
+    if (!entry.userId) continue;
+    if (entry.action === "Approved") {
+      byUser.set(entry.userId, "approved");
+    } else if (entry.action === "Requested Changes") {
+      byUser.set(entry.userId, "changes-requested");
+    } else if (entry.action === "Undo Review") {
+      byUser.delete(entry.userId);
+    }
+  }
+  return byUser;
+}
+
+// Reviewer retracts their own verdict. Rather than blanket-reverting to
+// pending-review, rewind to the state implied by the *remaining* active
+// verdicts: any outstanding Requested Changes → changes-requested, else any
+// outstanding Approved → approved, else pending-review. Review comments
+// remain in the log.
 export async function undoReview(
   context: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,
@@ -1282,6 +1315,53 @@ export async function undoReview(
     );
   }
 
+  const retractingUserId = user && "id" in user ? user.id : undefined;
+
+  // Merge legacy inline log entries with the dedicated log collection (same
+  // sources as the revision log endpoints).
+  const docWithLog = await FeatureRevisionModel.findOne(
+    {
+      organization: revision.organization,
+      featureId: revision.featureId,
+      version: revision.version,
+    },
+    { log: 1 },
+  );
+  const modernLogs =
+    await context.models.featureRevisionLogs.getAllByFeatureIdAndVersion({
+      featureId: revision.featureId,
+      version: revision.version,
+    });
+  const entries = [
+    ...(docWithLog?.log ?? []).map((entry) => ({
+      action: entry.action,
+      userId: entry.user && "id" in entry.user ? entry.user.id : undefined,
+      timestamp: new Date(entry.timestamp),
+    })),
+    ...modernLogs.map((entry) => ({
+      action: entry.action,
+      userId: entry.user && "id" in entry.user ? entry.user.id : undefined,
+      timestamp: new Date(entry.dateCreated),
+    })),
+  ];
+
+  const verdicts = activeVerdictsFromLog(entries);
+  // The retraction we're processing hasn't been logged yet — remove this
+  // reviewer's verdict explicitly so the computation doesn't depend on the
+  // fire-and-forget log write below.
+  if (retractingUserId) verdicts.delete(retractingUserId);
+
+  const remaining = Array.from(verdicts.values());
+  let status: "approved" | "changes-requested" | "pending-review" =
+    "pending-review";
+  if (retractingUserId) {
+    if (remaining.includes("changes-requested")) {
+      status = "changes-requested";
+    } else if (remaining.includes("approved")) {
+      status = "approved";
+    }
+  }
+
   await FeatureRevisionModel.updateOne(
     {
       organization: revision.organization,
@@ -1289,8 +1369,10 @@ export async function undoReview(
       version: revision.version,
     },
     {
-      $set: { status: "pending-review", dateUpdated: new Date() },
-      $unset: { approvedBaseVersion: 1 },
+      $set: { status, dateUpdated: new Date() },
+      // An approval that still stands keeps its recorded base version so
+      // staleness detection continues to work.
+      ...(status === "approved" ? {} : { $unset: { approvedBaseVersion: 1 } }),
     },
   );
 
@@ -1305,6 +1387,64 @@ export async function undoReview(
     })
     .catch((e) => {
       logger.error(e, "Error creating revisionlog for undoReview");
+    });
+}
+
+// Reopen a discarded revision as a plain draft. Any prior review state is
+// intentionally not restored — the draft must go back through review.
+export async function reopenRevision(
+  context: ReqContext | ApiReqContext,
+  revision: FeatureRevisionInterface,
+  user: EventUser,
+) {
+  if (revision.status !== "discarded") {
+    throw new Error(`Can only reopen discarded revisions`);
+  }
+
+  await FeatureRevisionModel.updateOne(
+    {
+      organization: revision.organization,
+      featureId: revision.featureId,
+      version: revision.version,
+    },
+    {
+      $set: { status: "draft", dateUpdated: new Date() },
+    },
+  );
+
+  // Fire and forget — callers don't depend on the log entry being there
+  context.models.featureRevisionLogs
+    .create({
+      featureId: revision.featureId,
+      version: revision.version,
+      action: "reopen",
+      subject: "",
+      user,
+      value: JSON.stringify({}),
+    })
+    .catch((e) => {
+      logger.error(e, "Error creating revisionlog");
+    });
+
+  // Sync linkages — the reopened revision's rules count as "open drafts" again.
+  FeatureRevisionModel.find({
+    organization: revision.organization,
+    featureId: revision.featureId,
+    status: { $nin: ["discarded"] },
+  })
+    .then((docs) =>
+      syncFeatureExperimentLinkages(
+        context,
+        revision.featureId,
+        docs.map((d) => ({
+          version: d.version,
+          status: d.status,
+          rules: d.rules,
+        })),
+      ),
+    )
+    .catch((e) => {
+      logger.error(e, "syncFeatureExperimentLinkages failed in reopenRevision");
     });
 }
 

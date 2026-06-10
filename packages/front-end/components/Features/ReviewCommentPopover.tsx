@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { Popover } from "@/ui/Popover";
-import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";
 import LinkButton from "@/components/Button";
 import RadioGroup from "@/ui/RadioGroup";
 import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
+import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import { useAuth } from "@/services/auth";
 
 type ReviewDecision = "Comment" | "Requested Changes" | "Approved";
@@ -14,7 +14,9 @@ type ReviewDecision = "Comment" | "Requested Changes" | "Approved";
 interface Props {
   featureId: string;
   version: number;
-  trigger: React.ReactNode;
+  // Render prop so the trigger can react to the popover's open state — e.g.
+  // disable itself while the panel is mounted to prevent re-toggle clicks.
+  trigger: React.ReactNode | ((state: { open: boolean }) => React.ReactNode);
   /** Prevents self-approval when blockSelfApproval is set. */
   isBlockedContributor?: boolean;
   onSuccess: () => void;
@@ -68,15 +70,14 @@ export default function ReviewCommentPopover({
         Submit review
       </Heading>
 
-      <Field
-        textarea
-        placeholder="Leave a comment…"
+      <MarkdownInput
         value={comment}
-        onChange={(e) => setComment(e.target.value)}
-        minRows={4}
+        setValue={setComment}
+        placeholder="Leave a comment…"
+        showButtons={false}
       />
 
-      <Box mt="3">
+      <Box mt="5">
         <RadioGroup
           value={decision}
           setValue={(val: ReviewDecision) => setDecision(val)}
@@ -84,21 +85,19 @@ export default function ReviewCommentPopover({
             {
               value: "Comment",
               label: "Comment",
-              description:
-                "Submit general feedback without explicit approval.",
+              description: "General feedback, no decision.",
             },
             {
               value: "Requested Changes",
               label: "Request changes",
-              description:
-                "Submit feedback that must be addressed before publishing.",
+              description: "Must be addressed before publishing.",
             },
             {
               value: "Approved",
               label: "Approve",
               description: isBlockedContributor
                 ? "You contributed to this draft and cannot approve it."
-                : "Submit feedback and approve for publishing.",
+                : "Approve for publishing.",
               disabled: isBlockedContributor,
             },
           ]}
@@ -128,6 +127,9 @@ export default function ReviewCommentPopover({
     </Box>
   );
 
+  const resolvedTrigger =
+    typeof trigger === "function" ? trigger({ open }) : trigger;
+
   return (
     <Popover
       open={open}
@@ -135,12 +137,12 @@ export default function ReviewCommentPopover({
         if (!o) reset();
         setOpen(o);
       }}
-      trigger={trigger}
+      trigger={resolvedTrigger}
       content={content}
       side={side}
       align={align}
       showArrow={false}
-      contentStyle={{ padding: 16, width: 320 }}
+      contentStyle={{ padding: 16, width: 560, maxWidth: "calc(100vw - 32px)" }}
     />
   );
 }

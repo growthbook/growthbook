@@ -9630,7 +9630,10 @@ paths:
       description: >-
         Author retracts the review request, returning the revision from
         `pending-review`, `changes-requested`, or `approved` back to `draft`.
-        Existing review log entries are preserved.
+        Existing review log entries are preserved as audit history but any
+        in-flight reviewer verdicts (Approved / Requested Changes) submitted
+        during this review cycle no longer count — submitting a fresh
+        `request-review` starts a new cycle.
       tags:
         - feature-revisions-v2
       parameters:
@@ -9673,8 +9676,10 @@ paths:
       operationId: postFeatureRevisionUndoReviewV2
       summary: Undo a reviewer's own review verdict
       description: >-
-        Reviewer retracts their own verdict, returning the revision from
-        `approved` or `changes-requested` back to `pending-review`. Existing
+        Reviewer retracts their own verdict. The revision status rewinds to the
+        state implied by the remaining active verdicts from other reviewers: any
+        outstanding `Requested Changes` → `changes-requested`, else any
+        outstanding `Approved` → `approved`, else `pending-review`. Existing
         review comments are preserved.
       tags:
         - feature-revisions-v2
@@ -9713,14 +9718,55 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/undo-review'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v2/features/{id}/revisions/{version}/log:
+    get:
+      operationId: getFeatureRevisionLogV2
+      summary: List the activity log for a revision
+      description: >-
+        Returns every log entry for the revision — content edits (rules, default
+        value, rebases), review lifecycle events (review requested, approved,
+        changes requested, recalled, undone), comments, and other audit events —
+        sorted oldest-first.
+      tags:
+        - feature-revisions-v2
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  log:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/log'
+                required:
+                  - log
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/log'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v2/features/{id}/revisions/{version}/log/{logId}:
     put:
       operationId: putFeatureRevisionLogCommentV2
-      summary: Edit the text of an owned revision Comment entry
+      summary: Edit the comment text of an owned log entry
       description: >-
-        Author of a `Comment` log entry can edit its text. Verdict entries
-        (Approved, Requested Changes, Review Requested) and other audit-trail
-        events are immutable.
+        Author of a `Comment`, `Approved`, or `Requested Changes` log entry can
+        rewrite its comment text. The entry's action and other audit-trail
+        metadata remain immutable; this only mutates `value.comment`. Other
+        audit events (e.g. `Review Requested`, system events) are not editable.
       tags:
         - feature-revisions-v2
       parameters:
@@ -10049,6 +10095,51 @@ paths:
           source: >-
             curl -X POST
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/discard'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v2/features/{id}/revisions/{version}/reopen:
+    post:
+      operationId: postFeatureRevisionReopenV2
+      summary: Reopen a discarded revision as a draft
+      description: >-
+        Returns a `discarded` revision to `draft` status so it can be edited,
+        reviewed, and published. Prior review state is not restored — the draft
+        must go back through review if approvals are required.
+      tags:
+        - feature-revisions-v2
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevisionV2'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/reopen'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v2/features/{id}/revisions/{version}/revert:
@@ -43444,6 +43535,56 @@ components:
                 - value
               additionalProperties: false
             - type: 'null'
+      additionalProperties: false
+    log:
+      type: object
+      properties:
+        id:
+          description: >-
+            Log entry ID. Use a `Comment` entry's id with the PUT/DELETE log
+            endpoints to edit or delete an owned comment. Absent on legacy
+            entries stored inline on the revision.
+          type: string
+        action:
+          description: >-
+            Entry type — content edits (e.g. "add rule", "edit defaultValue",
+            "rebase"), review lifecycle events ("Review Requested", "Approved",
+            "Requested Changes"), comments ("Comment"), or other audit events.
+          type: string
+        subject:
+          type: string
+        value:
+          description: JSON-encoded payload for the entry
+          type: string
+        timestamp:
+          format: date-time
+          type: string
+        user:
+          anyOf:
+            - type: object
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - dashboard
+                    - api_key
+                    - system
+                id:
+                  type: string
+                name:
+                  type: string
+                email:
+                  type: string
+              required:
+                - type
+              additionalProperties: false
+            - type: 'null'
+      required:
+        - action
+        - subject
+        - value
+        - timestamp
+        - user
       additionalProperties: false
     checklistItems:
       type: object

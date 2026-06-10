@@ -865,6 +865,7 @@ app.post(
   "/feature/:id/:version/discard",
   featuresController.postFeatureDiscard,
 );
+app.post("/feature/:id/:version/reopen", featuresController.postFeatureReopen);
 app.post(
   "/feature/:id/:version/publish",
   featuresController.postFeaturePublish,

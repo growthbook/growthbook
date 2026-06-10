@@ -3,7 +3,8 @@ import {
   PiCheckCircleFill,
   PiClockFill,
   PiChatCircleTextFill,
-  PiPencilSimpleFill,
+  PiLockSimpleFill,
+  PiPencil,
   PiXCircleFill,
 } from "react-icons/pi";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
@@ -29,22 +30,32 @@ export function revisionStatusColor(
 ): RadixColor {
   switch (status) {
     case "live":
-      return "teal";
+      return "green";
     case "draft":
-      return "plum";
+      return "amber";
 
     case "pending-review":
       return "orange";
     case "approved":
       return "grass";
     case "changes-requested":
-      return "amber";
-    case "discarded":
       return "red";
+    case "discarded":
+      // Same gray as Locked; distinguished by the solid (inverted) badge
+      // variant — see revisionStatusBadgeVariant.
+      return "gray";
     case "published":
     default:
       return "gray";
   }
+}
+
+// Discarded renders as a solid (inverted) gray badge so it reads as muted
+// but stays distinguishable from Locked's soft gray.
+export function revisionStatusBadgeVariant(
+  status: MinimalFeatureRevisionInterface["status"] | "live",
+): "solid" | "soft" {
+  return status === "discarded" ? "solid" : "soft";
 }
 
 export function revisionStatusIcon(
@@ -60,9 +71,12 @@ export function revisionStatusIcon(
       return <PiChatCircleTextFill />;
     case "discarded":
       return <PiXCircleFill />;
+    case "published":
+      // Label is "Locked" — a previously-published, now-immutable revision
+      return <PiLockSimpleFill />;
     case "draft":
     default:
-      return <PiPencilSimpleFill />;
+      return <PiPencil />;
   }
 }
 
@@ -196,6 +210,7 @@ export default function RevisionStatusBadge({ revision, liveVersion }: Props) {
       label={revisionStatusLabel(status)}
       radius="full"
       color={revisionStatusColor(status)}
+      variant={revisionStatusBadgeVariant(status)}
     />
   );
 }

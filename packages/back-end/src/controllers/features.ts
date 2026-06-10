@@ -139,6 +139,7 @@ import {
   createInitialRevision,
   createRevision,
   discardRevision,
+  reopenRevision,
   recallReview,
   undoReview,
   getActiveDraft,
@@ -2218,6 +2219,80 @@ export async function postFeatureDiscard(
     feature,
     finalRevision,
     "revision.discarded",
+    {},
+  );
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function postFeatureReopen(
+  req: AuthRequest<never, { id: string; version: string }>,
+  res: Response<{ status: 200 }, EventUserForResponseLocals>,
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { id, version } = req.params;
+
+  const feature = await getFeature(context, id);
+
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  const revision = await getRevision({
+    context,
+    organization: org.id,
+    featureId: feature.id,
+    feature,
+    version: parseInt(version),
+  });
+  if (!revision) {
+    throw new Error("Could not find feature revision");
+  }
+
+  if (revision.status !== "discarded") {
+    throw new Error(`Can only reopen discarded revisions`);
+  }
+
+  if (
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canManageFeatureDrafts(feature)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  await reopenRevision(context, revision, res.locals.eventAudit);
+
+  const reopened = await getRevision({
+    context,
+    organization: org.id,
+    featureId: feature.id,
+    feature,
+    version: parseInt(version),
+  });
+  const finalRevision = reopened ?? revision;
+
+  void req
+    .audit({
+      event: "feature.revision.reopen",
+      entity: { object: "feature", id: feature.id },
+      details: auditDetailsUpdate(
+        { status: revision.status },
+        { status: finalRevision.status },
+        { version: revision.version },
+      ),
+    })
+    .catch((e) =>
+      logger.error(e, "Failed to write audit log for revision.reopen"),
+    );
+
+  await dispatchFeatureRevisionEvent(
+    context,
+    feature,
+    finalRevision,
+    "revision.reopened",
     {},
   );
 
