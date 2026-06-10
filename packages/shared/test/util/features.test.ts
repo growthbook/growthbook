@@ -237,16 +237,16 @@ describe("autoMerge", () => {
       live: "live",
       revision: "revision",
     };
-    // v2: rules merge at the whole-array level — a single "rules" conflict
-    // bucket, not per-env. `sharedForce` was edited by both sides, so
-    // tryRuleLevelMerge bails and we escalate.
+    // Granular rule merge: `sharedForce` was edited by both sides, so it gets
+    // its own per-rule conflict (`rules.<ruleId>`), while the draft's
+    // independent `revisionForce` addition merges automatically.
     const rulesConflict: MergeConflict = {
-      key: "rules",
-      name: "Rules",
+      key: "rules.sharedForce",
+      name: "Rule – sharedForce",
       resolved: false,
-      base: JSON.stringify([baseShared], null, 2),
-      live: JSON.stringify([liveShared], null, 2),
-      revision: JSON.stringify([revisionForce, revisionShared], null, 2),
+      base: JSON.stringify(baseShared, null, 2),
+      live: JSON.stringify(liveShared, null, 2),
+      revision: JSON.stringify(revisionShared, null, 2),
     };
 
     expect(autoMerge(live, base, revision, ["dev", "prod"], {})).toEqual({
@@ -271,6 +271,9 @@ describe("autoMerge", () => {
       ],
     });
 
+    // Discarding the conflicted rule no longer throws away the draft's
+    // independent `revisionForce` addition — it still merges in. (Previously
+    // the whole-array conflict made "discard" drop every draft rule change.)
     expect(
       autoMerge(live, base, revision, ["dev", "prod"], {
         rules: "discard",
@@ -288,7 +291,9 @@ describe("autoMerge", () => {
           resolved: true,
         },
       ],
-      result: {},
+      result: {
+        rules: [liveShared, revisionForce],
+      },
     });
 
     expect(
@@ -310,6 +315,7 @@ describe("autoMerge", () => {
       ],
       result: {
         defaultValue: revision.defaultValue,
+        rules: [liveShared, revisionForce],
       },
     });
 
@@ -332,12 +338,14 @@ describe("autoMerge", () => {
       ],
       result: {
         defaultValue: revision.defaultValue,
-        rules: [revisionForce, revisionShared],
+        // Live ordering wins (neither side reordered); the draft's edit of
+        // sharedForce and its new rule both land.
+        rules: [revisionShared, revisionForce],
       },
     });
   });
 
-  describe("tryRuleLevelMerge (via autoMerge)", () => {
+  describe("granular rule merge (via autoMerge)", () => {
     // v2: flat FeatureRule[]. We keep the `environments: ["dev"]` scope on
     // every rule so the merge semantics match the v1 "dev-only" tests.
     const A = devRule("a", "a");
@@ -442,10 +450,10 @@ describe("autoMerge", () => {
       const result = autoMerge(live, base, revision, ["dev"], {});
       expect(result.success).toBe(false);
       if (!result.success) {
-        // v2: a single "rules" conflict for the whole flat array, not
-        // per-env buckets.
+        // Granular merge: the delete-vs-modify clash surfaces as a conflict
+        // scoped to the specific rule, not the whole array.
         expect(result.conflicts).toEqual(
-          expect.arrayContaining([expect.objectContaining({ key: "rules" })]),
+          expect.arrayContaining([expect.objectContaining({ key: "rules.b" })]),
         );
       }
     });
@@ -508,7 +516,7 @@ describe("autoMerge", () => {
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.conflicts).toEqual(
-          expect.arrayContaining([expect.objectContaining({ key: "rules" })]),
+          expect.arrayContaining([expect.objectContaining({ key: "rules.b" })]),
         );
       }
     });
@@ -573,6 +581,189 @@ describe("autoMerge", () => {
         // with revision-side edits substituted in.
         expect(result.result.rules.map((r) => r.id)).toEqual(["a", "b"]);
         expect(result.result.rules[1].value).toBe("b-updated");
+      }
+    });
+
+    it("emits one conflict per clashing rule, each independently resolvable", () => {
+      const base: RevisionFields = {
+        defaultValue: "true",
+        rules: [A, B, C],
+        version: 1,
+      };
+      const live: RevisionFields = {
+        defaultValue: "true",
+        rules: [{ ...A, value: "a-live" }, { ...B, value: "b-live" }, C],
+        version: 2,
+      };
+      const revision: RevisionFields = {
+        defaultValue: "true",
+        rules: [
+          { ...A, value: "a-draft" },
+          { ...B, value: "b-draft" },
+          { ...C, value: "c-draft" },
+        ],
+        version: 1,
+      };
+
+      const unresolved = autoMerge(live, base, revision, ["dev"], {});
+      expect(unresolved.success).toBe(false);
+      expect(unresolved.conflicts.map((c) => c.key).sort()).toEqual([
+        "rules.a",
+        "rules.b",
+      ]);
+
+      // Mixed resolution: keep live's edit of A, the draft's edit of B. The
+      // draft's uncontested edit of C merges automatically either way.
+      const resolved = autoMerge(live, base, revision, ["dev"], {
+        "rules.a": "discard",
+        "rules.b": "overwrite",
+      });
+      expect(resolved.success).toBe(true);
+      if (resolved.success) {
+        expect(resolved.result.rules).toEqual([
+          { ...A, value: "a-live" },
+          { ...B, value: "b-draft" },
+          { ...C, value: "c-draft" },
+        ]);
+      }
+    });
+
+    it("resolves a delete-vs-modify conflict in either direction", () => {
+      const Bmod = { ...B, value: "b-draft" };
+      const base: RevisionFields = {
+        defaultValue: "true",
+        rules: [A, B],
+        version: 1,
+      };
+      const live: RevisionFields = {
+        defaultValue: "true",
+        rules: [A],
+        version: 2,
+      };
+      const revision: RevisionFields = {
+        defaultValue: "true",
+        rules: [A, Bmod],
+        version: 1,
+      };
+
+      const keepDraft = autoMerge(live, base, revision, ["dev"], {
+        "rules.b": "overwrite",
+      });
+      expect(keepDraft.success).toBe(true);
+      if (keepDraft.success) {
+        expect(keepDraft.result.rules).toEqual([A, Bmod]);
+      }
+
+      const keepDeletion = autoMerge(live, base, revision, ["dev"], {
+        "rules.b": "discard",
+      });
+      expect(keepDeletion.success).toBe(true);
+      if (keepDeletion.success) {
+        // Live's deletion stands; merged rules equal live so no rules delta.
+        expect(keepDeletion.result.rules).toBeUndefined();
+      }
+    });
+
+    it("honors a draft-only reorder when live changed content but not order", () => {
+      const Amod = { ...A, value: "a-live" };
+      const base: RevisionFields = {
+        defaultValue: "true",
+        rules: [A, B, C],
+        version: 1,
+      };
+      const live: RevisionFields = {
+        defaultValue: "true",
+        rules: [Amod, B, C],
+        version: 2,
+      };
+      const revision: RevisionFields = {
+        defaultValue: "true",
+        rules: [C, A, B],
+        version: 1,
+      };
+
+      const result = autoMerge(live, base, revision, ["dev"], {});
+      expect(result.success).toBe(true);
+      if (result.success) {
+        // Draft ordering with live's content edit of A substituted in.
+        expect(result.result.rules).toEqual([C, Amod, B]);
+      }
+    });
+
+    it("escalates competing reorders to a rules.order conflict", () => {
+      const base: RevisionFields = {
+        defaultValue: "true",
+        rules: [A, B, C],
+        version: 1,
+      };
+      const live: RevisionFields = {
+        defaultValue: "true",
+        rules: [B, A, C],
+        version: 2,
+      };
+      const revision: RevisionFields = {
+        defaultValue: "true",
+        rules: [C, A, B],
+        version: 1,
+      };
+
+      const unresolved = autoMerge(live, base, revision, ["dev"], {});
+      expect(unresolved.success).toBe(false);
+      expect(unresolved.conflicts).toEqual([
+        expect.objectContaining({ key: "rules.order", resolved: false }),
+      ]);
+
+      const draftOrder = autoMerge(live, base, revision, ["dev"], {
+        "rules.order": "overwrite",
+      });
+      expect(draftOrder.success).toBe(true);
+      if (draftOrder.success) {
+        expect(draftOrder.result.rules).toEqual([C, A, B]);
+      }
+
+      const liveOrder = autoMerge(live, base, revision, ["dev"], {
+        "rules.order": "discard",
+      });
+      expect(liveOrder.success).toBe(true);
+      if (liveOrder.success) {
+        // Live's order is the merged outcome — identical to live, no delta.
+        expect(liveOrder.result.rules).toBeUndefined();
+      }
+    });
+
+    it("applies the blanket 'rules' strategy to every rule-level conflict", () => {
+      const base: RevisionFields = {
+        defaultValue: "true",
+        rules: [A, B],
+        version: 1,
+      };
+      const live: RevisionFields = {
+        defaultValue: "true",
+        rules: [
+          { ...A, value: "a-live" },
+          { ...B, value: "b-live" },
+        ],
+        version: 2,
+      };
+      const revision: RevisionFields = {
+        defaultValue: "true",
+        rules: [
+          { ...A, value: "a-draft" },
+          { ...B, value: "b-draft" },
+        ],
+        version: 1,
+      };
+
+      const result = autoMerge(live, base, revision, ["dev"], {
+        rules: "overwrite",
+      });
+      expect(result.success).toBe(true);
+      expect(result.conflicts.every((c) => c.resolved)).toBe(true);
+      if (result.success) {
+        expect(result.result.rules).toEqual([
+          { ...A, value: "a-draft" },
+          { ...B, value: "b-draft" },
+        ]);
       }
     });
   });

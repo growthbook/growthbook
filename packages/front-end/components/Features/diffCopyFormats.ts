@@ -2,12 +2,7 @@ import { createPatch } from "diff";
 import type { FeatureRevisionDiff } from "@/hooks/useFeatureRevisionDiff";
 
 // The shapes a change-set can be copied to the clipboard as.
-export type CopyDiffFormat =
-  | "formatted"
-  | "minimal-json"
-  | "full-json"
-  | "llm"
-  | "llm-full";
+export type CopyDiffFormat = "formatted" | "minimal-json" | "full-json" | "llm";
 
 export const COPY_DIFF_FORMATS: {
   value: CopyDiffFormat;
@@ -22,22 +17,17 @@ export const COPY_DIFF_FORMATS: {
   {
     value: "minimal-json",
     label: "Minimal JSON diff",
-    description: "Unified diff of just the changed fields",
+    description: "Valid JSON describing only what changed",
   },
   {
     value: "full-json",
     label: "Full JSON",
-    description: "Complete before/after of each object",
+    description: "Valid JSON with complete before/after",
   },
   {
     value: "llm",
-    label: "LLM formatted minimal diffs",
-    description: "XML-wrapped diff with context per entity",
-  },
-  {
-    value: "llm-full",
-    label: "LLM formatted full context",
-    description: "XML diff + complete before/after per entity",
+    label: "LLM formatted",
+    description: "XML diff + resulting state per entity",
   },
 ];
 
@@ -47,6 +37,10 @@ export type RawEntity = { before: unknown; after: unknown; title?: string };
 export type DiffCopyInput = {
   // Identifies the change-set as a whole (e.g. the feature key).
   entityName: string;
+  // What kind of object the change-set belongs to. All current surfaces are
+  // feature revisions; pass a different type if this is reused elsewhere
+  // (e.g. "saved-group").
+  entityType?: string;
   // Per-field/per-entity changes (already filtered to a !== b). Includes
   // supplemental entities (ramp schedules/actions) flagged `supplemental`.
   diffs: FeatureRevisionDiff[];
@@ -70,11 +64,18 @@ function ensureTrailingNewline(value: string): string {
 }
 
 // A top-level entity with its complete before/after, derived from `raw` (the
-// primary object) plus any supplemental entities carried in `diffs`.
-type WholeEntity = { title: string; before: string; after: string };
+// primary object) plus any supplemental entities carried in `diffs`. Used by
+// the LLM formats, which render one `<{type} name="{name}">` block per entity.
+type WholeEntity = {
+  name: string;
+  type: string;
+  before: string;
+  after: string;
+};
 
 function collectWholeEntities({
   entityName,
+  entityType = "feature",
   diffs,
   raw,
 }: DiffCopyInput): WholeEntity[] {
@@ -83,17 +84,22 @@ function collectWholeEntities({
     const before = toJson(raw.before);
     const after = toJson(raw.after);
     if (before !== after) {
-      entities.push({ title: raw.title ?? entityName, before, after });
+      entities.push({ name: entityName, type: entityType, before, after });
     }
   } else {
     // No whole-shape available — treat each non-supplemental field diff as its
     // own entity so nothing is lost.
     for (const d of diffs.filter((d) => !d.supplemental)) {
-      entities.push({ title: d.title, before: d.a, after: d.b });
+      entities.push({ name: d.title, type: "field", before: d.a, after: d.b });
     }
   }
   for (const d of diffs.filter((d) => d.supplemental)) {
-    entities.push({ title: d.title, before: d.a, after: d.b });
+    entities.push({
+      name: d.entityName ?? d.title,
+      type: d.entityType ?? "entity",
+      before: d.a,
+      after: d.b,
+    });
   }
   return entities;
 }
@@ -101,10 +107,14 @@ function collectWholeEntities({
 // Fallback for "Formatted changes" when the rendered detail isn't available
 // (the UI prefers the on-screen formatted render's text): a grouped,
 // plain-language list of changes derived from the diff badges.
-export function buildSummary({ entityName, diffs }: DiffCopyInput): string {
-  if (diffs.length === 0) return `No changes to "${entityName}".`;
+export function buildSummary({
+  entityName,
+  entityType = "feature",
+  diffs,
+}: DiffCopyInput): string {
+  if (diffs.length === 0) return `No changes to ${entityType} "${entityName}".`;
 
-  const lines: string[] = [`Changes to "${entityName}":`, ""];
+  const lines: string[] = [`Changes to ${entityType} "${entityName}":`, ""];
   for (const d of diffs) {
     lines.push(d.title);
     const labels = (d.badges ?? []).map((b) => b.label);
@@ -118,38 +128,260 @@ export function buildSummary({ entityName, diffs }: DiffCopyInput): string {
   return lines.join("\n").trimEnd();
 }
 
-// ── "Minimal JSON diff": unified diff of just the changed fields ─────────────
-export function buildMinimalJsonDiff({
-  entityName,
-  diffs,
-}: DiffCopyInput): string {
-  if (diffs.length === 0) return `No changes to "${entityName}".`;
-  const patches = diffs.map((d) =>
-    createPatch(
-      d.title,
-      ensureTrailingNewline(d.a),
-      ensureTrailingNewline(d.b),
-      "before",
-      "after",
-    ).trim(),
-  );
-  return [`Minimal JSON diff for "${entityName}"`, "", ...patches].join("\n\n");
+// Parse a stored diff-side string back into a JSON value. Non-JSON content
+// (plain strings, partial renders) is kept verbatim as a string.
+function tryParse(value: string): unknown {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return value;
+  }
 }
 
-// ── "Full JSON": the complete before/after object of every entity ────────────
-export function buildFullJson(input: DiffCopyInput): string {
-  const entities = collectWholeEntities(input);
-  if (entities.length === 0) return `No changes to "${input.entityName}".`;
-  const blocks = entities.map((e) =>
-    [
-      `=== ${e.title} ===`,
-      "--- before ---",
-      e.before.trim() || "(none)",
-      "--- after ---",
-      e.after.trim() || "(none)",
-    ].join("\n"),
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function deepEqual(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+// Keep only the keys whose values differ, so a modified object reads as a
+// focused before/after instead of repeating the whole shape.
+function changedObjectKeys(
+  before: Record<string, unknown>,
+  after: Record<string, unknown>,
+): { before: Record<string, unknown>; after: Record<string, unknown> } {
+  const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
+  const b: Record<string, unknown> = {};
+  const a: Record<string, unknown> = {};
+  for (const key of keys) {
+    if (deepEqual(before[key], after[key])) continue;
+    if (key in before) b[key] = before[key];
+    if (key in after) a[key] = after[key];
+  }
+  return { before: b, after: a };
+}
+
+// Diff two arrays of `id`-keyed objects into added / removed / modified
+// buckets with positional information (arrays like rules are order-sensitive):
+// - added entries carry the item's index in the after array
+// - removed entries carry the item's index in the before array
+// - modified entries carry both beforeIndex and afterIndex
+// - when the relative order of surviving items changed, `reordered: true` is
+//   set along with `order` — the full id sequence of the after array
+// Returns null when the arrays aren't uniformly id-keyed (caller falls back
+// to whole before/after arrays).
+function diffArraysById(
+  before: unknown[],
+  after: unknown[],
+): Record<string, unknown> | null {
+  const idOf = (item: unknown): string | null =>
+    isPlainObject(item) && typeof item.id === "string" ? item.id : null;
+
+  type Positioned = { item: Record<string, unknown>; index: number };
+  const beforeById = new Map<string, Positioned>();
+  for (const [index, item] of before.entries()) {
+    const id = idOf(item);
+    if (!id || beforeById.has(id)) return null;
+    beforeById.set(id, { item: item as Record<string, unknown>, index });
+  }
+  const afterById = new Map<string, Positioned>();
+  for (const [index, item] of after.entries()) {
+    const id = idOf(item);
+    if (!id || afterById.has(id)) return null;
+    afterById.set(id, { item: item as Record<string, unknown>, index });
+  }
+
+  const added = Array.from(afterById)
+    .filter(([id]) => !beforeById.has(id))
+    .map(([, { item, index }]) => ({ index, value: item }));
+  const removed = Array.from(beforeById)
+    .filter(([id]) => !afterById.has(id))
+    .map(([, { item, index }]) => ({ index, value: item }));
+
+  const modified: Record<string, unknown>[] = [];
+  for (const [id, b] of beforeById) {
+    const a = afterById.get(id);
+    if (!a || deepEqual(a.item, b.item)) continue;
+    const delta = changedObjectKeys(b.item, a.item);
+    modified.push({
+      id,
+      beforeIndex: b.index,
+      afterIndex: a.index,
+      before: delta.before,
+      after: delta.after,
+    });
+  }
+
+  // Reorder detection compares the *relative* order of items present in both
+  // arrays, so insertions/removals (which shift absolute indices) don't count
+  // as a reorder on their own.
+  const beforeCommon = [...beforeById.keys()].filter((id) => afterById.has(id));
+  const afterCommon = [...afterById.keys()].filter((id) => beforeById.has(id));
+  const reordered = !deepEqual(beforeCommon, afterCommon);
+
+  return {
+    added,
+    removed,
+    modified,
+    ...(reordered ? { reordered: true, order: [...afterById.keys()] } : {}),
+  };
+}
+
+// Describe a single value transition: added / removed / modified, with
+// object pruning and positional array bucketing for the modified case.
+function describeChange(
+  before: unknown,
+  after: unknown,
+): Record<string, unknown> {
+  const beforeAbsent = (before ?? null) === null;
+  const afterAbsent = (after ?? null) === null;
+  if (beforeAbsent && !afterAbsent) {
+    return { change: "added", value: after };
+  }
+  if (!beforeAbsent && afterAbsent) {
+    return { change: "removed", value: before };
+  }
+  if (Array.isArray(before) && Array.isArray(after)) {
+    const items = diffArraysById(before, after);
+    if (items) return { change: "modified", items };
+  }
+  if (isPlainObject(before) && isPlainObject(after)) {
+    const delta = changedObjectKeys(before, after);
+    return { change: "modified", before: delta.before, after: delta.after };
+  }
+  return { change: "modified", before, after };
+}
+
+// ── "Minimal JSON diff": a valid-JSON document describing only what changed ──
+// Built from the same whole before/after shapes (`raw`) that feed the
+// "Raw JSON" render, so `changes` is keyed by the actual revision schema
+// fields (defaultValue, environmentsEnabled, rules, …) — not the UI section
+// labels. Shape:
+// {
+//   "name": "...", "type": "feature",
+//   "changes": [
+//     { "field": "environmentsEnabled", "change": "modified",
+//       "before": { "production": true }, "after": { "production": false } },
+//     { "field": "rules", "change": "modified",
+//       "items": { "added": [{ "index": 2, "value": … }],
+//                  "removed": [{ "index": 0, "value": … }],
+//                  "modified": [{ "id": "…", "beforeIndex": 1,
+//                                 "afterIndex": 0, "before": …, "after": … }],
+//                  "reordered": true, "order": ["id1", "id2", …] } }
+//   ],
+//   "supplemental": [{ "name": "Spring rollout", "type": "ramp-schedule",
+//                      "change": "added", "value": … }]
+// }
+// Objects are pruned to changed keys; id-keyed arrays (rules) are bucketed
+// into added/removed/modified items — each with its array position — so the
+// output stays minimal without losing order information. Supplemental
+// entities (ramp schedules / actions) are separate top-level objects, matching
+// how the Raw JSON view renders them. Falls back to the per-section diffs
+// when a surface can't supply the whole shapes.
+export function buildMinimalJsonDiff({
+  entityName,
+  entityType = "feature",
+  diffs,
+  raw,
+}: DiffCopyInput): string {
+  const changes: Record<string, unknown>[] = [];
+
+  const rawBefore = raw?.before;
+  const rawAfter = raw?.after;
+  const beforeObj = isPlainObject(rawBefore) ? rawBefore : null;
+  const afterObj = isPlainObject(rawAfter) ? rawAfter : null;
+  if (beforeObj && afterObj) {
+    const keys = new Set([...Object.keys(beforeObj), ...Object.keys(afterObj)]);
+    for (const key of keys) {
+      const b = beforeObj[key];
+      const a = afterObj[key];
+      if (deepEqual(b, a)) continue;
+      changes.push({ field: key, ...describeChange(b, a) });
+    }
+  } else {
+    // No whole shape available — fall back to the per-section diffs.
+    for (const d of diffs.filter((d) => !d.supplemental)) {
+      changes.push({
+        field: d.title,
+        ...describeChange(tryParse(d.a), tryParse(d.b)),
+      });
+    }
+  }
+
+  const supplemental = diffs
+    .filter((d) => d.supplemental)
+    .map((d) => ({
+      name: d.entityName ?? d.title,
+      type: d.entityType ?? "entity",
+      ...describeChange(tryParse(d.a), tryParse(d.b)),
+    }));
+
+  return JSON.stringify(
+    {
+      name: entityName,
+      type: entityType,
+      changes,
+      ...(supplemental.length > 0 ? { supplemental } : {}),
+    },
+    null,
+    2,
   );
-  return [`Full JSON for "${input.entityName}"`, "", ...blocks].join("\n\n");
+}
+
+// ── "Full JSON": a valid-JSON document with each entity's complete shape ─────
+// Same envelope as the minimal diff — the root *is* the primary entity, with
+// supplemental entities in an optional `supplemental` array. Shape:
+// {
+//   "name": "...", "type": "feature",
+//   "before": …|null, "after": …|null,
+//   "supplemental": [{ "name": "...", "type": "...",
+//                      "before": …|null, "after": …|null }]
+// }
+// When the surface can't supply the whole before/after shape, the primary
+// entity's per-field diffs are emitted under `fields` instead.
+export function buildFullJson({
+  entityName,
+  entityType = "feature",
+  diffs,
+  raw,
+}: DiffCopyInput): string {
+  // `raw` sides may be live objects or pre-serialized JSON strings.
+  const parseSide = (value: unknown): unknown =>
+    typeof value === "string" ? tryParse(value) : (value ?? null);
+
+  const supplemental = diffs
+    .filter((d) => d.supplemental)
+    .map((d) => ({
+      name: d.entityName ?? d.title,
+      type: d.entityType ?? "entity",
+      before: tryParse(d.a),
+      after: tryParse(d.b),
+    }));
+
+  return JSON.stringify(
+    {
+      name: entityName,
+      type: entityType,
+      ...(raw
+        ? { before: parseSide(raw.before), after: parseSide(raw.after) }
+        : {
+            fields: diffs
+              .filter((d) => !d.supplemental)
+              .map((d) => ({
+                name: d.title,
+                before: tryParse(d.a),
+                after: tryParse(d.b),
+              })),
+          }),
+      ...(supplemental.length > 0 ? { supplemental } : {}),
+    },
+    null,
+    2,
+  );
 }
 
 // ── "LLM / agents": XML-wrapped before/after per entity ──────────────────────
@@ -181,27 +413,14 @@ function unifiedDiffBody(
   return patch.split("\n").slice(2).join("\n").trim();
 }
 
-// PascalCase, alphanumeric-only tag name derived from an entity title. The
-// original title is preserved verbatim in a `title="…"` attribute.
-function toTagName(title: string): string {
-  const pascal = title
-    .replace(/[^a-zA-Z0-9]+/g, " ")
-    .trim()
-    .split(" ")
-    .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join("");
-  return pascal || "Entity";
-}
-
-// `includeObjects` toggles between the lean diff-focused payload (just a
-// contextual +/- diff per entity) and the full deep-dive payload that also
-// embeds the complete before/after objects.
-export function buildLLMDiff(
-  input: DiffCopyInput,
-  { includeObjects = false }: { includeObjects?: boolean } = {},
-): string {
-  const { entityName, diffs } = input;
+// Each entity is wrapped in a tag named after its type with its name as an
+// attribute — the same name/type pattern as the JSON formats (e.g.
+// `<feature name="checkout-flow">`). Per entity, the payload pairs a unified
+// +/- diff (what changed) with the complete resulting object (the full state
+// after the change); the prior state is recoverable from those two, so the
+// before-object is omitted to keep the payload lean.
+export function buildLLMDiff(input: DiffCopyInput): string {
+  const { entityName, entityType = "feature", diffs } = input;
   const entities = collectWholeEntities(input);
 
   const summary =
@@ -210,35 +429,31 @@ export function buildLLMDiff(
       : "  - (no changes)";
 
   const parts: string[] = [
-    `<change-set entity="${escapeAttr(entityName)}">`,
+    `<change-set name="${escapeAttr(entityName)}" type="${escapeAttr(
+      entityType,
+    )}">`,
     "<summary>",
     summary,
     "</summary>",
   ];
 
   for (const e of entities) {
-    const tag = toTagName(e.title);
+    const tag = e.type;
     // A unified +/- diff with surrounding context so the change is obvious at a
     // glance without needing to diff two large blobs by hand.
     parts.push(
       "",
-      `<${tag} title="${escapeAttr(e.title)}">`,
+      `<${tag} name="${escapeAttr(e.name)}">`,
       "<diff>",
-      unifiedDiffBody(e.title, e.before, e.after) || "(no textual diff)",
+      unifiedDiffBody(e.name, e.before, e.after) || "(no textual diff)",
       "</diff>",
+      // The complete resulting object, so the model can reason about the full
+      // final state without stitching hunks together.
+      "<after>",
+      e.after.trim() || "(none)",
+      "</after>",
+      `</${tag}>`,
     );
-    // Deep-dive only: the complete objects for exhaustive reasoning.
-    if (includeObjects) {
-      parts.push(
-        "<before>",
-        e.before.trim() || "(none)",
-        "</before>",
-        "<after>",
-        e.after.trim() || "(none)",
-        "</after>",
-      );
-    }
-    parts.push(`</${tag}>`);
   }
 
   parts.push("", "</change-set>");
@@ -257,8 +472,6 @@ export function formatDiffForCopy(
     case "full-json":
       return buildFullJson(input);
     case "llm":
-      return buildLLMDiff(input, { includeObjects: false });
-    case "llm-full":
-      return buildLLMDiff(input, { includeObjects: true });
+      return buildLLMDiff(input);
   }
 }

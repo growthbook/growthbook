@@ -248,6 +248,13 @@ export const getFeatureRevisionMergeStatusValidator = {
   querySchema: z.never(),
   responseSchema: z.object({
     success: z.boolean(),
+    liveVersion: z
+      .number()
+      .describe("The current live version the merge was computed against."),
+    draftDateUpdated: z
+      .string()
+      .meta({ format: "date-time" })
+      .describe("The draft's last-modified timestamp at merge time."),
     conflicts: z.array(mergeConflictSchema),
     result: mergeResultChangesSchema.optional(),
   }),
@@ -259,7 +266,7 @@ export const postFeatureRevisionRebaseValidator = {
   operationId: "postFeatureRevisionRebase",
   summary: "Rebase a draft revision onto the current live version",
   description:
-    "**Deprecated.** Use [POST /v2/features/:id/revisions/:version/rebase](#operation/postFeatureRevisionRebaseV2) instead.\n\nUpdates the draft's base revision to match the currently-live revision, applying the draft's changes on top. Supply `conflictResolutions` to resolve any conflicting fields.\n\n**Conflict key format changed for v1 clients.** Rules now merge as a single flat array, so the per-rule `envName.ruleId` keys used by older clients are no longer recognized. Valid keys: `defaultValue`, `rules`, `prerequisites`, `archived`, `holdout`, and `environmentsEnabled.<env>`. Unrecognized keys are ignored; unresolved conflicts respond with `409`.",
+    "**Deprecated.** Use [POST /v2/features/:id/revisions/:version/rebase](#operation/postFeatureRevisionRebaseV2) instead.\n\nUpdates the draft's base revision to match the currently-live revision, applying the draft's changes on top. Supply `conflictResolutions` to resolve any conflicting fields.\n\n**Conflict key format changed for v1 clients.** The per-rule `envName.ruleId` keys used by older clients are no longer recognized. Valid keys: `defaultValue`, `prerequisites`, `archived`, `holdout`, `environmentsEnabled.<env>`, `metadata.<field>`, `rules.<ruleId>`, `rules.order`, and the blanket `rules` (applies one strategy to all rule-level conflicts). Unrecognized keys are ignored; unresolved conflicts respond with `409`.",
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],

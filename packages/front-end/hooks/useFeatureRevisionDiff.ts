@@ -115,6 +115,11 @@ export type FeatureRevisionDiff = {
   // In the "Raw JSON" view these render as their own per-entity diffs alongside
   // the single whole-revision blob.
   supplemental?: boolean;
+  // For supplemental diffs: the underlying entity's own name and kind (e.g.
+  // "Spring rollout" / "ramp-schedule"). Used by the JSON copy formats, which
+  // emit a { name, type } pair per entity — `title` is a display label.
+  entityName?: string;
+  entityType?: string;
 };
 
 // Mirrors backend `applyEnvironmentInheritance`: fill missing env entries by

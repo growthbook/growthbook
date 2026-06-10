@@ -405,20 +405,83 @@ export const postFeatureRevisionRevertV2Validator = {
   version: "v2" as const,
 };
 
+// Conflicts are keyed per field — and per rule for the rules array:
+// `defaultValue`, `prerequisites`, `archived`, `holdout`,
+// `environmentsEnabled.<env>`, `metadata.<field>`, `rules.<ruleId>` (the two
+// sides changed the same rule differently, including delete-vs-modify), and
+// `rules.order` (the two sides reordered rules differently). Each key is
+// resolved independently with `overwrite` (take the draft's version) or
+// `discard` (keep live's). The blanket `rules` key is also accepted and
+// applies to every rule-level conflict at once.
+const conflictResolutionsDescription =
+  "Map of conflict key → resolution. Keys come from the returned conflicts: `defaultValue`, `prerequisites`, `archived`, `holdout`, `environmentsEnabled.<env>`, `metadata.<field>`, `rules.<ruleId>`, and `rules.order`. `overwrite` keeps the draft's version of that item; `discard` keeps live's. The blanket `rules` key applies one strategy to all rule-level conflicts.";
+
+const rebaseBodySchema = z
+  .object({
+    conflictResolutions: z
+      .record(z.string(), z.enum(["overwrite", "discard"]))
+      .optional()
+      .describe(conflictResolutionsDescription),
+    expectedLiveVersion: z
+      .number()
+      .int()
+      .optional()
+      .describe(
+        "Optimistic-concurrency guard: the live version the resolutions were authored against (as returned by merge-status or rebase preview). If live has since moved, the request fails with `409` instead of applying resolutions to different conflicts.",
+      ),
+    expectedDraftDateUpdated: z
+      .string()
+      .optional()
+      .describe(
+        "Optimistic-concurrency guard for the draft side: the draft's `draftDateUpdated` timestamp as returned by merge-status or rebase preview. If the draft has been modified since (e.g. by a co-author), the request fails with `409` instead of applying resolutions against changed draft content.",
+      ),
+  })
+  .strict();
+
+const mergePreviewResponseSchema = z.object({
+  success: z.boolean(),
+  liveVersion: z
+    .number()
+    .describe(
+      "The current live version the merge was computed against. Echo this back as `expectedLiveVersion` when rebasing.",
+    ),
+  draftDateUpdated: z
+    .string()
+    .meta({ format: "date-time" })
+    .describe(
+      "The draft's last-modified timestamp at merge time. Echo this back as `expectedDraftDateUpdated` when rebasing to guard against concurrent draft edits.",
+    ),
+  conflicts: z.array(mergeConflictSchema),
+  result: mergeResultChangesSchema.optional(),
+});
+
 export const getFeatureRevisionMergeStatusV2Validator = {
   method: "get" as const,
   path: "/features/:id/revisions/:version/merge-status",
   operationId: "getFeatureRevisionMergeStatusV2",
   summary: "Get merge status for a draft revision",
+  description:
+    "Runs the three-way merge between the draft and the current live version without applying it. Conflicts are granular: each conflicting field gets its own key, and rules conflict individually (`rules.<ruleId>`, plus `rules.order` for competing reorders). Pass the returned `liveVersion` as `expectedLiveVersion` when rebasing.",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z.never(),
   querySchema: z.never(),
-  responseSchema: z.object({
-    success: z.boolean(),
-    conflicts: z.array(mergeConflictSchema),
-    result: mergeResultChangesSchema.optional(),
-  }),
+  responseSchema: mergePreviewResponseSchema,
+  version: "v2" as const,
+};
+
+export const postFeatureRevisionRebasePreviewV2Validator = {
+  method: "post" as const,
+  path: "/features/:id/revisions/:version/rebase/preview",
+  operationId: "postFeatureRevisionRebasePreviewV2",
+  summary: "Preview a rebase without applying it",
+  description:
+    "Dry-run of the rebase: runs the same three-way merge with the supplied `conflictResolutions` and returns every conflict (resolved and unresolved) plus the merged result once all are resolved — without modifying the draft. Use it to iterate on resolutions before committing them via the rebase endpoint.",
+  tags: ["feature-revisions-v2"],
+  paramsSchema: revisionParamsStrict,
+  bodySchema: rebaseBodySchema,
+  querySchema: z.never(),
+  responseSchema: mergePreviewResponseSchema,
   version: "v2" as const,
 };
 
@@ -428,16 +491,10 @@ export const postFeatureRevisionRebaseV2Validator = {
   operationId: "postFeatureRevisionRebaseV2",
   summary: "Rebase a draft revision onto the current live version",
   description:
-    "Updates the draft's base revision to match the currently-live revision, applying the draft's changes on top. Supply `conflictResolutions` to resolve any conflicting fields. Valid keys: `defaultValue`, `rules`, `prerequisites`, `archived`, `holdout`, and `environmentsEnabled.<env>`. Unresolved conflicts respond with `409`.",
+    "Updates the draft's base revision to match the currently-live revision, applying the draft's changes on top. Supply `conflictResolutions` to resolve conflicting items individually — including per-rule (`rules.<ruleId>`) and rule-order (`rules.order`) conflicts. Supply `expectedLiveVersion` and/or `expectedDraftDateUpdated` (both returned by merge-status and rebase preview) to fail fast with `409` if either side changes between conflict review and submission. Unresolved conflicts also respond with `409`.",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParamsStrict,
-  bodySchema: z
-    .object({
-      conflictResolutions: z
-        .record(z.string(), z.enum(["overwrite", "discard"]))
-        .optional(),
-    })
-    .strict(),
+  bodySchema: rebaseBodySchema,
   querySchema: z.never(),
   responseSchema: revisionResponse,
   version: "v2" as const,

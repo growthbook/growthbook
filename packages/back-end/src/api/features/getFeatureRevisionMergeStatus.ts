@@ -51,6 +51,8 @@ export const mergeStatusHandler = async (req: {
 
   return {
     success: mergeResult.success,
+    liveVersion: live.version,
+    draftDateUpdated: revision.dateUpdated.toISOString(),
     conflicts: mergeResult.conflicts,
     ...(mergeResult.success ? { result: mergeResult.result } : {}),
   };

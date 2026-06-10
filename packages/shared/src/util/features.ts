@@ -1198,14 +1198,24 @@ function revisionHasMetadataOnlyGlobalChange(
   );
 }
 
-// Try to merge two diverged rule arrays at the individual rule level (matched by id).
-// Returns the merged array when each modified rule was only touched by one side,
-// or null when the same rule was modified by both sides (a genuine conflict).
-function tryRuleLevelMerge(
+// Granular three-way merge of two diverged rule arrays (matched by id).
+// Rules that only one side touched merge automatically. A rule that both
+// sides changed differently — including delete-vs-modify — produces its own
+// `rules.<ruleId>` conflict, resolvable independently via the strategies map
+// (`overwrite` = take the draft's version, `discard` = take live's). When
+// both sides reordered the surviving rules differently, a `rules.order`
+// conflict is emitted with the competing id sequences. The blanket "rules"
+// strategy key is honored as a fallback that applies to every rule-level
+// conflict, preserving the older all-or-nothing resolution contract.
+//
+// Returns the conflicts found (resolved or not) and the merged array — or
+// `merged: null` while any rule-level conflict remains unresolved.
+function mergeRulesGranular(
   base: FeatureRule[],
   live: FeatureRule[],
   revision: FeatureRule[],
-): FeatureRule[] | null {
+  strategies: Record<string, MergeStrategy>,
+): { merged: FeatureRule[] | null; conflicts: MergeConflict[] } {
   // Defensive: callers route through `naiveFlattenV1Rules` which already
   // filters nullish slots, but the merge keys by `r.id` and a stray nullish
   // entry would collapse every other rule into the `undefined` map slot.
@@ -1222,6 +1232,16 @@ function tryRuleLevelMerge(
   const liveById = new Map(live.map((r) => [r.id, r]));
   const revById = new Map(revision.map((r) => [r.id, r]));
 
+  const conflicts: MergeConflict[] = [];
+  // Per-key strategy with the blanket "rules" key as a legacy fallback.
+  const strategyFor = (key: string): MergeStrategy =>
+    strategies[key] || strategies["rules"] || "";
+  const stringifySide = (rule: FeatureRule | undefined): string =>
+    rule === undefined ? "" : JSON.stringify(rule, null, 2);
+
+  // Decide a winner per rule id: the rule's merged content, or null when the
+  // winning side deleted it. Ids with unresolved conflicts get no entry.
+  const winners = new Map<string, FeatureRule | null>();
   const allIds = new Set([
     ...base.map((r) => r.id),
     ...live.map((r) => r.id),
@@ -1229,57 +1249,118 @@ function tryRuleLevelMerge(
   ]);
 
   for (const id of allIds) {
-    const liveChanged = !isEqual(liveById.get(id), baseById.get(id));
-    const revChanged = !isEqual(revById.get(id), baseById.get(id));
-    if (
-      liveChanged &&
-      revChanged &&
-      !isEqual(liveById.get(id), revById.get(id))
-    ) {
-      return null;
-    }
-  }
+    const baseRule = baseById.get(id);
+    const liveRule = liveById.get(id);
+    const revRule = revById.get(id);
+    const liveChanged = !isEqual(liveRule, baseRule);
+    const revChanged = !isEqual(revRule, baseRule);
 
-  // No per-rule conflicts. Walk live ordering, applying revision-side changes.
-  const merged: FeatureRule[] = [];
-  const handledIds = new Set<string>();
-
-  for (const liveRule of live) {
-    handledIds.add(liveRule.id);
-    const revRule = revById.get(liveRule.id);
-    if (revRule === undefined) {
-      // The revision no longer contains this rule.
-      if (baseById.has(liveRule.id)) {
-        // The rule existed in base and the revision removed it. A
-        // delete-vs-modify situation (live also changed it) would have
-        // already escalated to a conflict in the loop above, so reaching
-        // here means live left the rule untouched — honor the draft's
-        // deletion instead of silently resurrecting it.
-        continue;
+    if (liveChanged && revChanged && !isEqual(liveRule, revRule)) {
+      // Both sides changed the same rule differently (an absent side means
+      // that side deleted it) — a genuine per-rule conflict.
+      const sourceRule = revRule ?? liveRule ?? baseRule;
+      const desc =
+        typeof sourceRule?.description === "string"
+          ? sourceRule.description.trim()
+          : "";
+      const conflictInfo: MergeConflict = {
+        name: desc ? `Rule – ${desc}` : `Rule – ${id}`,
+        key: `rules.${id}`,
+        base: stringifySide(baseRule),
+        live: stringifySide(liveRule),
+        revision: stringifySide(revRule),
+        resolved: false,
+      };
+      const strategy = strategyFor(conflictInfo.key);
+      if (strategy === "overwrite") {
+        conflictInfo.resolved = true;
+        winners.set(id, revRule ?? null);
+      } else if (strategy === "discard") {
+        conflictInfo.resolved = true;
+        winners.set(id, liveRule ?? null);
       }
-      // The rule is brand new in live (never in base, absent from the draft).
-      // That is a concurrent live addition, not a draft deletion — keep it.
-      merged.push(liveRule);
+      conflicts.push(conflictInfo);
       continue;
     }
-    const revChanged = !isEqual(revRule, baseById.get(liveRule.id));
-    merged.push(revChanged ? revRule : liveRule);
+
+    // At most one side changed (or both made the identical change): the
+    // changed side wins. An absent winner is a deletion — honoring it here is
+    // what keeps draft deletions from being silently resurrected and live
+    // deletions from reappearing.
+    winners.set(id, (revChanged ? revRule : liveRule) ?? null);
   }
 
-  // Append rules added or modified by the revision that are not present in live.
-  // Skip rules that were in base, unchanged in revision, but deleted from live —
-  // those deletions happened server-side and should be respected.
-  for (const revRule of revision) {
-    if (!handledIds.has(revRule.id)) {
-      const isNew = !baseById.has(revRule.id);
-      const revChanged = !isEqual(revRule, baseById.get(revRule.id));
-      if (isNew || revChanged) {
-        merged.push(revRule);
+  // Ordering: compare each side's relative order of the ids it shares with
+  // base. If only the draft reordered, its order wins; if only live did (or
+  // neither), live's order wins; if both reordered differently, that is an
+  // order conflict the caller must resolve via `rules.order`.
+  const relativeOrder = (
+    rules: FeatureRule[],
+    others: Map<string, FeatureRule>,
+  ): string[] => rules.map((r) => r.id).filter((id) => others.has(id));
+  const liveReordered = !isEqual(
+    relativeOrder(live, baseById),
+    relativeOrder(base, liveById),
+  );
+  const revReordered = !isEqual(
+    relativeOrder(revision, baseById),
+    relativeOrder(base, revById),
+  );
+
+  let useDraftOrder = revReordered && !liveReordered;
+  if (liveReordered && revReordered) {
+    const liveCommon = relativeOrder(live, revById);
+    const revCommon = relativeOrder(revision, liveById);
+    if (!isEqual(liveCommon, revCommon)) {
+      const conflictInfo: MergeConflict = {
+        name: "Rule Order",
+        key: "rules.order",
+        base: JSON.stringify(
+          base.map((r) => r.id),
+          null,
+          2,
+        ),
+        live: JSON.stringify(
+          live.map((r) => r.id),
+          null,
+          2,
+        ),
+        revision: JSON.stringify(
+          revision.map((r) => r.id),
+          null,
+          2,
+        ),
+        resolved: false,
+      };
+      const strategy = strategyFor(conflictInfo.key);
+      if (strategy === "overwrite") {
+        conflictInfo.resolved = true;
+        useDraftOrder = true;
+      } else if (strategy === "discard") {
+        conflictInfo.resolved = true;
       }
+      conflicts.push(conflictInfo);
     }
   }
 
-  return merged;
+  if (conflicts.some((c) => !c.resolved)) {
+    return { merged: null, conflicts };
+  }
+
+  // Walk the winning side's ordering pushing each id's winner, then append
+  // winners only present on the other side (that side's additions).
+  const primary = useDraftOrder ? revision : live;
+  const secondary = useDraftOrder ? live : revision;
+  const merged: FeatureRule[] = [];
+  const placed = new Set<string>();
+  for (const rule of [...primary, ...secondary]) {
+    if (placed.has(rule.id)) continue;
+    placed.add(rule.id);
+    const winner = winners.get(rule.id);
+    if (winner) merged.push(winner);
+  }
+
+  return { merged, conflicts };
 }
 
 export function autoMerge(
@@ -1399,35 +1480,27 @@ export function autoMerge(
     }
   }
 
-  // rules (flat v2 array — one conflict bucket for the whole rule set)
+  // rules (flat v2 array — granular per-rule merge)
   if (revision.rules !== undefined && !isEqual(revRules, baseRules)) {
     if (!isEqual(revRules, liveRules)) {
       if (!isEqual(liveRules, baseRules)) {
-        // Both sides diverged from base. Try a per-rule id-level merge before
-        // escalating to a conflict. The merge walks live order, substitutes
-        // revision-side edits for rules the revision changed, and appends
-        // rules the revision added. Rules the revision-didn't touch but live
-        // deleted stay deleted.
-        const autoMerged = tryRuleLevelMerge(baseRules, liveRules, revRules);
-        if (autoMerged !== null) {
-          result.rules = autoMerged;
-        } else {
-          const conflictInfo: MergeConflict = {
-            name: "Rules",
-            key: "rules",
-            base: JSON.stringify(baseRules, null, 2),
-            live: JSON.stringify(liveRules, null, 2),
-            revision: JSON.stringify(revRules, null, 2),
-            resolved: false,
-          };
-          const strategy = strategies[conflictInfo.key];
-          if (strategy === "overwrite") {
-            conflictInfo.resolved = true;
-            result.rules = revRules;
-          } else if (strategy === "discard") {
-            conflictInfo.resolved = true;
-          }
-          conflicts.push(conflictInfo);
+        // Both sides diverged from base. Merge rule-by-rule: untouched/
+        // one-sided changes merge automatically, while rules both sides
+        // changed differently surface as individual `rules.<ruleId>`
+        // conflicts (plus `rules.order` for competing reorders), each
+        // resolvable independently.
+        const ruleMerge = mergeRulesGranular(
+          baseRules,
+          liveRules,
+          revRules,
+          strategies,
+        );
+        conflicts.push(...ruleMerge.conflicts);
+        if (
+          ruleMerge.merged !== null &&
+          !isEqual(ruleMerge.merged, liveRules)
+        ) {
+          result.rules = ruleMerge.merged;
         }
       } else {
         // Only revision changed; adopt its rules wholesale.

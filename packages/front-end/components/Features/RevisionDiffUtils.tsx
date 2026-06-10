@@ -11,8 +11,7 @@ import {
   PiListBullets,
   PiGitDiff,
   PiSparkle,
-  PiCode,
-  PiMagnifyingGlass,
+  PiBracketsCurly,
   PiPencilSimpleFill,
 } from "react-icons/pi";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
@@ -287,7 +286,7 @@ export function CopyAsButton({
     if (format === "formatted") {
       const root = formattedRef?.current;
       const rendered = root ? formattedNodeToText(root) : "";
-      if (rendered) return `Changes to "${entityName}":\n\n${rendered}`;
+      if (rendered) return `Changes to feature "${entityName}":\n\n${rendered}`;
     }
     return formatDiffForCopy(format, { entityName, diffs, raw });
   };
@@ -295,30 +294,15 @@ export function CopyAsButton({
   const formatIcons: Record<CopyDiffFormat, React.ReactNode> = {
     formatted: <PiListBullets size={22} />,
     "minimal-json": <PiGitDiff size={22} />,
-    "full-json": <PiCode size={22} />,
+    "full-json": <PiBracketsCurly size={22} />,
     llm: <PiSparkle size={22} />,
-    // Deep-dive variant: same sparkle with a small magnifying-glass badge
-    // overlaid in the bottom-right corner. Absolutely positioned inside the
-    // same 22px box as the other icons so it doesn't shift the row's text.
-    "llm-full": (
-      <Box style={{ position: "relative", width: 22, height: 22 }}>
-        <PiSparkle
-          size={17}
-          style={{ position: "absolute", top: 0, left: 0 }}
-        />
-        <PiMagnifyingGlass
-          size={13}
-          style={{ position: "absolute", right: 0, bottom: 0 }}
-        />
-      </Box>
-    ),
   };
 
   return (
     <DropdownMenu
       menuPlacement="end"
       // Wide enough that the label + description sit on single lines.
-      menuWidth={320}
+      menuWidth={340}
       // Soft variant keeps a light highlight on hover so the icon + subtext stay
       // legible (the solid variant paints a dark accent bg that swallows them).
       variant="soft"
@@ -368,6 +352,7 @@ export function CopyAsButton({
                   fontSize: "var(--font-size-1)",
                   color: "currentColor",
                   opacity: 0.7,
+                  whiteSpace: "nowrap",
                 }}
               >
                 {f.description}
@@ -701,6 +686,8 @@ export function buildRampDiffs({
           }`;
       return {
         title: `${kindLabel} – ${ramp.name}`,
+        entityName: ramp.name,
+        entityType: isSimple ? "schedule" : "ramp-schedule",
         titleSuffix: <RampActionLabel action="activate" />,
         a: "",
         b: JSON.stringify(rampConfig, null, 2),
@@ -737,6 +724,8 @@ export function buildRampDiffs({
           const displayName = action.name ?? "schedule";
           return {
             title: `${kindLabel} – ${displayName}`,
+            entityName: displayName,
+            entityType: isSimple ? "schedule" : "ramp-schedule",
             a: "",
             b: JSON.stringify(rampConfig, null, 2),
             customRender: (
@@ -769,6 +758,8 @@ export function buildRampDiffs({
           const displayName = action.name ?? "schedule";
           return {
             title: `${kindLabelUpdate} – ${displayName}`,
+            entityName: displayName,
+            entityType: isSimpleUpdate ? "schedule" : "ramp-schedule",
             titleSuffix: <RampActionLabel action="update" />,
             a: "",
             b: JSON.stringify(rampConfig, null, 2),
@@ -797,6 +788,8 @@ export function buildRampDiffs({
           const scheduleName = targetSchedule?.name;
           return {
             title: scheduleName ? `${kindLabel} – ${scheduleName}` : kindLabel,
+            entityName: scheduleName ?? action.rampScheduleId,
+            entityType: isSimple ? "schedule" : "ramp-schedule",
             titleSuffix: <RampActionLabel action="remove" />,
             a: "",
             b: JSON.stringify(

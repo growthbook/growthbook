@@ -5383,6 +5383,13 @@ paths:
                 properties:
                   success:
                     type: boolean
+                  liveVersion:
+                    description: The current live version the merge was computed against.
+                    type: number
+                  draftDateUpdated:
+                    format: date-time
+                    description: The draft's last-modified timestamp at merge time.
+                    type: string
                   conflicts:
                     type: array
                     items:
@@ -5391,6 +5398,8 @@ paths:
                     $ref: '#/components/schemas/result'
                 required:
                   - success
+                  - liveVersion
+                  - draftDateUpdated
                   - conflicts
                 additionalProperties: false
       x-codeSamples:
@@ -5415,11 +5424,13 @@ paths:
         resolve any conflicting fields.
 
 
-        **Conflict key format changed for v1 clients.** Rules now merge as a
-        single flat array, so the per-rule `envName.ruleId` keys used by older
-        clients are no longer recognized. Valid keys: `defaultValue`, `rules`,
-        `prerequisites`, `archived`, `holdout`, and `environmentsEnabled.<env>`.
-        Unrecognized keys are ignored; unresolved conflicts respond with `409`.
+        **Conflict key format changed for v1 clients.** The per-rule
+        `envName.ruleId` keys used by older clients are no longer recognized.
+        Valid keys: `defaultValue`, `prerequisites`, `archived`, `holdout`,
+        `environmentsEnabled.<env>`, `metadata.<field>`, `rules.<ruleId>`,
+        `rules.order`, and the blanket `rules` (applies one strategy to all
+        rule-level conflicts). Unrecognized keys are ignored; unresolved
+        conflicts respond with `409`.
       deprecated: true
       tags:
         - feature-revisions
@@ -9862,6 +9873,12 @@ paths:
     get:
       operationId: getFeatureRevisionMergeStatusV2
       summary: Get merge status for a draft revision
+      description: >-
+        Runs the three-way merge between the draft and the current live version
+        without applying it. Conflicts are granular: each conflicting field gets
+        its own key, and rules conflict individually (`rules.<ruleId>`, plus
+        `rules.order` for competing reorders). Pass the returned `liveVersion`
+        as `expectedLiveVersion` when rebasing.
       tags:
         - feature-revisions-v2
       parameters:
@@ -9881,6 +9898,18 @@ paths:
                 properties:
                   success:
                     type: boolean
+                  liveVersion:
+                    description: >-
+                      The current live version the merge was computed against.
+                      Echo this back as `expectedLiveVersion` when rebasing.
+                    type: number
+                  draftDateUpdated:
+                    format: date-time
+                    description: >-
+                      The draft's last-modified timestamp at merge time. Echo
+                      this back as `expectedDraftDateUpdated` when rebasing to
+                      guard against concurrent draft edits.
+                    type: string
                   conflicts:
                     type: array
                     items:
@@ -9938,6 +9967,8 @@ paths:
                     additionalProperties: false
                 required:
                   - success
+                  - liveVersion
+                  - draftDateUpdated
                   - conflicts
                 additionalProperties: false
       x-codeSamples:
@@ -9947,16 +9978,16 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/merge-status'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
-  /v2/features/{id}/revisions/{version}/rebase:
+  /v2/features/{id}/revisions/{version}/rebase/preview:
     post:
-      operationId: postFeatureRevisionRebaseV2
-      summary: Rebase a draft revision onto the current live version
+      operationId: postFeatureRevisionRebasePreviewV2
+      summary: Preview a rebase without applying it
       description: >-
-        Updates the draft's base revision to match the currently-live revision,
-        applying the draft's changes on top. Supply `conflictResolutions` to
-        resolve any conflicting fields. Valid keys: `defaultValue`, `rules`,
-        `prerequisites`, `archived`, `holdout`, and `environmentsEnabled.<env>`.
-        Unresolved conflicts respond with `409`.
+        Dry-run of the rebase: runs the same three-way merge with the supplied
+        `conflictResolutions` and returns every conflict (resolved and
+        unresolved) plus the merged result once all are resolved — without
+        modifying the draft. Use it to iterate on resolutions before committing
+        them via the rebase endpoint.
       tags:
         - feature-revisions-v2
       parameters:
@@ -9975,6 +10006,14 @@ paths:
               type: object
               properties:
                 conflictResolutions:
+                  description: >-
+                    Map of conflict key → resolution. Keys come from the
+                    returned conflicts: `defaultValue`, `prerequisites`,
+                    `archived`, `holdout`, `environmentsEnabled.<env>`,
+                    `metadata.<field>`, `rules.<ruleId>`, and `rules.order`.
+                    `overwrite` keeps the draft's version of that item;
+                    `discard` keeps live's. The blanket `rules` key applies one
+                    strategy to all rule-level conflicts.
                   type: object
                   propertyNames:
                     type: string
@@ -9983,6 +10022,175 @@ paths:
                     enum:
                       - overwrite
                       - discard
+                expectedLiveVersion:
+                  description: >-
+                    Optimistic-concurrency guard: the live version the
+                    resolutions were authored against (as returned by
+                    merge-status or rebase preview). If live has since moved,
+                    the request fails with `409` instead of applying resolutions
+                    to different conflicts.
+                  type: integer
+                expectedDraftDateUpdated:
+                  description: >-
+                    Optimistic-concurrency guard for the draft side: the draft's
+                    `draftDateUpdated` timestamp as returned by merge-status or
+                    rebase preview. If the draft has been modified since (e.g.
+                    by a co-author), the request fails with `409` instead of
+                    applying resolutions against changed draft content.
+                  type: string
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  liveVersion:
+                    description: >-
+                      The current live version the merge was computed against.
+                      Echo this back as `expectedLiveVersion` when rebasing.
+                    type: number
+                  draftDateUpdated:
+                    format: date-time
+                    description: >-
+                      The draft's last-modified timestamp at merge time. Echo
+                      this back as `expectedDraftDateUpdated` when rebasing to
+                      guard against concurrent draft edits.
+                    type: string
+                  conflicts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/conflicts'
+                  result:
+                    type: object
+                    properties:
+                      defaultValue:
+                        type: string
+                      rules:
+                        type: array
+                        items: {}
+                      environmentsEnabled:
+                        type: object
+                        propertyNames:
+                          type: string
+                        additionalProperties:
+                          type: boolean
+                      prerequisites:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                            condition:
+                              type: string
+                          required:
+                            - id
+                            - condition
+                          additionalProperties: false
+                      archived:
+                        type: boolean
+                      metadata:
+                        type: object
+                        properties:
+                          releaseType:
+                            type: string
+                          riskLevel:
+                            type: string
+                        additionalProperties: {}
+                      holdout:
+                        anyOf:
+                          - type: object
+                            properties:
+                              id:
+                                type: string
+                              value:
+                                type: string
+                            required:
+                              - id
+                              - value
+                            additionalProperties: false
+                          - type: 'null'
+                    additionalProperties: false
+                required:
+                  - success
+                  - liveVersion
+                  - draftDateUpdated
+                  - conflicts
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/rebase/preview'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v2/features/{id}/revisions/{version}/rebase:
+    post:
+      operationId: postFeatureRevisionRebaseV2
+      summary: Rebase a draft revision onto the current live version
+      description: >-
+        Updates the draft's base revision to match the currently-live revision,
+        applying the draft's changes on top. Supply `conflictResolutions` to
+        resolve conflicting items individually — including per-rule
+        (`rules.<ruleId>`) and rule-order (`rules.order`) conflicts. Supply
+        `expectedLiveVersion` and/or `expectedDraftDateUpdated` (both returned
+        by merge-status and rebase preview) to fail fast with `409` if either
+        side changes between conflict review and submission. Unresolved
+        conflicts also respond with `409`.
+      tags:
+        - feature-revisions-v2
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                conflictResolutions:
+                  description: >-
+                    Map of conflict key → resolution. Keys come from the
+                    returned conflicts: `defaultValue`, `prerequisites`,
+                    `archived`, `holdout`, `environmentsEnabled.<env>`,
+                    `metadata.<field>`, `rules.<ruleId>`, and `rules.order`.
+                    `overwrite` keeps the draft's version of that item;
+                    `discard` keeps live's. The blanket `rules` key applies one
+                    strategy to all rule-level conflicts.
+                  type: object
+                  propertyNames:
+                    type: string
+                  additionalProperties:
+                    type: string
+                    enum:
+                      - overwrite
+                      - discard
+                expectedLiveVersion:
+                  description: >-
+                    Optimistic-concurrency guard: the live version the
+                    resolutions were authored against (as returned by
+                    merge-status or rebase preview). If live has since moved,
+                    the request fails with `409` instead of applying resolutions
+                    to different conflicts.
+                  type: integer
+                expectedDraftDateUpdated:
+                  description: >-
+                    Optimistic-concurrency guard for the draft side: the draft's
+                    `draftDateUpdated` timestamp as returned by merge-status or
+                    rebase preview. If the draft has been modified since (e.g.
+                    by a co-author), the request fails with `409` instead of
+                    applying resolutions against changed draft content.
+                  type: string
               additionalProperties: false
       responses:
         '200':
