@@ -937,14 +937,18 @@ export async function createRevision({
   return toInterface(doc, context, feature);
 }
 
-export async function updateRevision(
+// Pure computation of what updateRevision() will validate and persist; no writes
+export function computeRevisionUpdate(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   changes: RevisionChanges,
-  log: Omit<RevisionLog, "timestamp">,
   resetReview: boolean,
-) {
+): {
+  normalizedChanges: RevisionChanges;
+  status: FeatureRevisionInterface["status"];
+  proposedRevision: FeatureRevisionInterface;
+} {
   let status = revision.status;
 
   const MUTABLE_FIELDS = [
@@ -993,14 +997,56 @@ export async function updateRevision(
         }
       : changes;
 
+  return {
+    normalizedChanges,
+    status,
+    proposedRevision: { ...revision, ...normalizedChanges, status },
+  };
+}
+
+// Best-effort early hook run before side-effect writes; updateRevision() re-runs hooks authoritatively
+export async function prevalidateRevisionUpdate(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  changes: RevisionChanges,
+  resetReview: boolean,
+): Promise<void> {
+  const { proposedRevision } = computeRevisionUpdate(
+    context,
+    feature,
+    revision,
+    changes,
+    resetReview,
+  );
   await runValidateFeatureRevisionHooks({
     context,
     feature,
-    revision: {
-      ...revision,
-      ...normalizedChanges,
-      status,
-    },
+    revision: proposedRevision,
+    original: revision,
+  });
+}
+
+export async function updateRevision(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  changes: RevisionChanges,
+  log: Omit<RevisionLog, "timestamp">,
+  resetReview: boolean,
+) {
+  const { normalizedChanges, status, proposedRevision } = computeRevisionUpdate(
+    context,
+    feature,
+    revision,
+    changes,
+    resetReview,
+  );
+
+  await runValidateFeatureRevisionHooks({
+    context,
+    feature,
+    revision: proposedRevision,
     original: revision,
   });
 
@@ -1069,6 +1115,21 @@ export async function updateRevision(
   return updatedRevision;
 }
 
+// Pure computation of the changes markRevisionAsPublished() will validate and persist
+export function computeRevisionPublishChanges(
+  revision: FeatureRevisionInterface,
+  user: EventUser,
+  comment?: string,
+): Partial<FeatureRevisionInterface> {
+  return {
+    status: "published",
+    publishedBy: user,
+    datePublished: new Date(),
+    dateUpdated: new Date(),
+    comment: revision.comment ? revision.comment : comment,
+  };
+}
+
 export async function markRevisionAsPublished(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -1078,15 +1139,7 @@ export async function markRevisionAsPublished(
 ) {
   const action = revision.status === "draft" ? "publish" : "re-publish";
 
-  const revisionComment = revision.comment ? revision.comment : comment;
-
-  const changes: Partial<FeatureRevisionInterface> = {
-    status: "published",
-    publishedBy: user,
-    datePublished: new Date(),
-    dateUpdated: new Date(),
-    comment: revisionComment,
-  };
+  const changes = computeRevisionPublishChanges(revision, user, comment);
 
   await runValidateFeatureRevisionHooks({
     context,
