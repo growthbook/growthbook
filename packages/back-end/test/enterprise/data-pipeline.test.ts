@@ -4,6 +4,7 @@ import { OrganizationInterface } from "shared/types/organization";
 import { IncrementalRefreshInterface } from "shared/validators";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
+import { IncrementalRefreshRequiresFullRefreshError } from "back-end/src/util/errors";
 import {
   getExperimentSettingsHashForIncrementalRefresh,
   assertIncrementalRefreshPrerequisites,
@@ -130,9 +131,7 @@ describe("assertIncrementalRefreshPrerequisites experimentSettingsHash", () => {
         }),
         analysisType: "main-update",
       }),
-    ).rejects.toThrow(
-      "The experiment configuration is outdated. Please run a Full Refresh.",
-    );
+    ).rejects.toThrow(IncrementalRefreshRequiresFullRefreshError);
   });
 
   it("throws on main-update when the stored hash differs", async () => {
@@ -148,9 +147,7 @@ describe("assertIncrementalRefreshPrerequisites experimentSettingsHash", () => {
         }),
         analysisType: "main-update",
       }),
-    ).rejects.toThrow(
-      "The experiment configuration is outdated. Please run a Full Refresh.",
-    );
+    ).rejects.toThrow(IncrementalRefreshRequiresFullRefreshError);
   });
 
   it("skips hash validation on main-fullRefresh even when hash is null", async () => {

@@ -188,7 +188,11 @@ import {
   getEligiblePrecomputedUnitDimensionIds,
   getExposureQueryEligibleDimensions,
 } from "back-end/src/services/dimensions";
-import { ConcurrentIncrementalRefreshError } from "back-end/src/util/errors";
+import {
+  getErrorMessage,
+  ConcurrentIncrementalRefreshError,
+  IncrementalRefreshRequiresFullRefreshError,
+} from "back-end/src/util/errors";
 import { assertIncrementalRefreshPrerequisites } from "back-end/src/enterprise/services/data-pipeline";
 import {
   ExperimentUpdateLogPlan,
@@ -1326,6 +1330,105 @@ function resolveFullRefresh(
   return { fullRefresh: false, fullRefreshReason: null };
 }
 
+type IncrementalRefreshPrerequisiteArgs = {
+  org: OrganizationInterface;
+  integration: SourceIntegrationInterface;
+  snapshotSettings: ExperimentSnapshotSettings;
+  metricMap: Map<string, ExperimentMetricInterface>;
+  experiment: ExperimentInterface;
+  incrementalRefreshModel: IncrementalRefreshInterface | null;
+};
+
+/**
+ * In case we cannot run an incremental update as planned, we need to determine
+ * the best fallback strategy.
+ *
+ * - If this is from the scheduled job and the error is an `IncrementalRefreshRequiresFullRefreshError`, we can
+ *   promote the scheduled job to a full refresh.
+ * - Otherwise, we downgrade to the non-incremental results runner.
+ */
+async function resolveIncrementalPrerequisiteFailure({
+  error,
+  decision,
+  experiment,
+  triggeredBy,
+  snapshotType,
+  fullRefresh,
+  fullRefreshReason,
+  prerequisites,
+}: {
+  error: unknown;
+  decision: {
+    runnerKind: SnapshotQueryRunnerKind;
+    incrementalFallbackReason: string | null;
+  };
+  experiment: ExperimentInterface;
+  triggeredBy: SnapshotTriggeredBy;
+  snapshotType: SnapshotType;
+  fullRefresh: boolean;
+  fullRefreshReason: string | null;
+  prerequisites: IncrementalRefreshPrerequisiteArgs;
+}): Promise<{
+  runnerKind: SnapshotQueryRunnerKind;
+  incrementalFallbackReason: string | null;
+  fullRefresh: boolean;
+  fullRefreshReason: string | null;
+}> {
+  const validationError = getErrorMessage(error);
+
+  // When the only thing blocking an incremental update is outdated
+  // experiment-level config, a full refresh would rebuild the pipeline tables
+  // and succeed. For the scheduled background job (which has no user to
+  // initiate a manual Full Refresh), do that automatically instead of
+  // silently downgrading to a non-incremental "results" run.
+  // Doing a full refresh or inline scans the same amount of data,
+  // but full refresh helps for the next updates.
+  const canPromoteToFullRefresh =
+    error instanceof IncrementalRefreshRequiresFullRefreshError &&
+    triggeredBy === "schedule" &&
+    snapshotType === "standard" &&
+    !fullRefresh;
+
+  if (canPromoteToFullRefresh) {
+    try {
+      await assertIncrementalRefreshPrerequisites({
+        ...prerequisites,
+        analysisType: "main-fullRefresh",
+      });
+      logger.debug(
+        `Experiment ${experiment.id}: scheduled incremental refresh requires a full refresh (${validationError}); running a full refresh automatically.`,
+      );
+      return {
+        ...decision,
+        incrementalFallbackReason: null,
+        fullRefresh: true,
+        fullRefreshReason: validationError,
+      };
+    } catch (fullRefreshError) {
+      const fullRefreshValidationError = getErrorMessage(fullRefreshError);
+      logger.info(
+        `Experiment ${experiment.id} does not support incremental refresh even as a full refresh: ${fullRefreshValidationError}`,
+      );
+      return {
+        runnerKind: "results",
+        incrementalFallbackReason: fullRefreshValidationError,
+        fullRefresh,
+        fullRefreshReason,
+      };
+    }
+  }
+
+  logger.info(
+    `Experiment ${experiment.id} does not support incremental refresh: ${validationError}`,
+  );
+  return {
+    runnerKind: "results",
+    incrementalFallbackReason: validationError,
+    fullRefresh,
+    fullRefreshReason,
+  };
+}
+
 async function planSnapshotQueryRunner({
   organization,
   datasource,
@@ -1336,6 +1439,8 @@ async function planSnapshotQueryRunner({
   incrementalRefreshModel,
   snapshotType,
   fullRefresh,
+  fullRefreshReason,
+  triggeredBy,
 }: {
   organization: OrganizationInterface;
   datasource: DataSourceInterface;
@@ -1346,9 +1451,13 @@ async function planSnapshotQueryRunner({
   incrementalRefreshModel: IncrementalRefreshInterface | null;
   snapshotType: SnapshotType;
   fullRefresh: boolean;
+  fullRefreshReason: string | null;
+  triggeredBy: SnapshotTriggeredBy;
 }): Promise<{
   runnerKind: SnapshotQueryRunnerKind;
   incrementalFallbackReason: string | null;
+  fullRefresh: boolean;
+  fullRefreshReason: string | null;
 }> {
   const decision = resolveSnapshotRunner({
     datasource,
@@ -1359,34 +1468,39 @@ async function planSnapshotQueryRunner({
   });
 
   if (decision.runnerKind === "results") {
-    return decision;
+    return { ...decision, fullRefresh, fullRefreshReason };
   }
+
+  const prerequisites: IncrementalRefreshPrerequisiteArgs = {
+    org: organization,
+    integration,
+    snapshotSettings,
+    metricMap,
+    experiment,
+    incrementalRefreshModel,
+  };
 
   try {
     await assertIncrementalRefreshPrerequisites({
-      org: organization,
-      integration,
-      snapshotSettings,
-      metricMap,
-      experiment,
-      incrementalRefreshModel,
+      ...prerequisites,
       analysisType: fullRefresh
         ? "main-fullRefresh"
         : snapshotType === "standard"
           ? "main-update"
           : "exploratory",
     });
-    return decision;
+    return { ...decision, fullRefresh, fullRefreshReason };
   } catch (error) {
-    const validationError = "message" in error ? error.message : String(error);
-    logger.info(
-      `Experiment ${experiment.id} does not support incremental refresh: ${validationError}`,
-    );
-
-    return {
-      runnerKind: "results",
-      incrementalFallbackReason: validationError,
-    };
+    return resolveIncrementalPrerequisiteFailure({
+      error,
+      decision,
+      experiment,
+      triggeredBy,
+      snapshotType,
+      fullRefresh,
+      fullRefreshReason,
+      prerequisites,
+    });
   }
 }
 
@@ -1532,6 +1646,8 @@ export async function planSnapshot({
     incrementalRefreshModel,
     snapshotType: type,
     fullRefresh,
+    fullRefreshReason,
+    triggeredBy,
   });
 
   return {
@@ -1539,8 +1655,8 @@ export async function planSnapshot({
     runnerKind: runnerPlan.runnerKind,
     incrementalFallbackReason: runnerPlan.incrementalFallbackReason,
     useCache,
-    fullRefresh,
-    fullRefreshReason,
+    fullRefresh: runnerPlan.fullRefresh,
+    fullRefreshReason: runnerPlan.fullRefreshReason,
     settingsForSnapshotMetrics,
   };
 }

@@ -107,6 +107,25 @@ export class ConcurrentIncrementalRefreshError extends Error {
   }
 }
 
+export class IncrementalRefreshRequiresFullRefreshError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "IncrementalRefreshRequiresFullRefreshError";
+  }
+}
+
+export function getErrorMessage(error: unknown, fallback?: string): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  if (error && typeof error === "object" && "message" in error) {
+    const { message } = error as { message: unknown };
+    if (typeof message === "string") return message;
+    if (message != null) return String(message);
+  }
+  if (error == null) return fallback ?? "Unknown error";
+  return fallback ?? String(error);
+}
+
 // Some errors are part of normal operation and shouldn't pollute
 // error-level logs or Sentry. Add cases here as we identify them.
 export function shouldSkipErrorLog(err: unknown): boolean {
