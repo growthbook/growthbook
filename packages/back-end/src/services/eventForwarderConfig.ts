@@ -443,7 +443,6 @@ export function toEventForwarderConfigWithMetadata(
     connectorName: config.connectorName,
     connectorId: config.connectorId,
     lastProvisioningError: config.lastProvisioningError,
-    managedResources: config.managedResources,
   };
 }
 

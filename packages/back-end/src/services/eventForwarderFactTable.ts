@@ -178,13 +178,6 @@ export async function syncEventForwarderEventsFactTableMetadataAfterAttributeSch
       continue;
     }
 
-    if (eventForwarderConfig.managedResources?.factTableId !== factTable.id) {
-      await context.models.eventForwarderConfigs.updateManagedResourcesFactTableId(
-        eventForwarderConfig,
-        factTable.id,
-      );
-    }
-
     const userIdTypes =
       datasource.settings?.userIdTypes?.map((u) => u.userIdType) ?? [];
     const desiredColumns = buildEventForwarderEventsFactTableColumns(

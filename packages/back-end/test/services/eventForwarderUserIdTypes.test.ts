@@ -208,18 +208,8 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
         hashAttribute: true,
       },
     ];
-    const updateConfig = jest.fn(async (existing, updates) => ({
-      ...existing,
-      ...updates,
-    }));
-    const config = efConfig({
-      managedResources: {
-        identifierTypes: ["legacy_id"],
-        exposureQueryIds: ["legacy_id"],
-        featureUsageQueryIds: ["fuq_1"],
-        factTableId: "ds_1_events",
-      },
-    });
+    const updateConfig = jest.fn();
+    const config = efConfig();
 
     await reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries(
       contextWithSchema(attributeSchema, { update: updateConfig }) as never,
@@ -262,14 +252,7 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
       { skipEventForwarderManagedValidation: true },
     );
 
-    expect(updateConfig).toHaveBeenCalledWith(config, {
-      managedResources: {
-        identifierTypes: ["device_id"],
-        exposureQueryIds: ["device_id"],
-        featureUsageQueryIds: ["fuq_1"],
-        factTableId: "ds_1_events",
-      },
-    });
+    expect(updateConfig).not.toHaveBeenCalled();
   });
 
   it("adds new hash identifiers and managed exposure queries", async () => {
@@ -329,13 +312,7 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
 
     await reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries(
       contextWithSchema(attributeSchema) as never,
-      efConfig({
-        managedResources: {
-          identifierTypes: ["user_id"],
-          exposureQueryIds: ["user_id"],
-          featureUsageQueryIds: [],
-        },
-      }),
+      efConfig(),
       attributeSchema,
     );
 
@@ -349,7 +326,7 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
     );
   });
 
-  it("derives ownership from existing managed exposure queries for older configs", async () => {
+  it("derives ownership from existing managed exposure queries", async () => {
     const raw = ds("ds_1", {
       userIdTypes: [
         { userIdType: "legacy_id", description: "", attributes: ["legacy_id"] },
@@ -369,10 +346,7 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
     });
     mockedGetRaw.mockResolvedValue(raw);
     mockedGetById.mockResolvedValue(raw);
-    const updateConfig = jest.fn(async (existing, updates) => ({
-      ...existing,
-      ...updates,
-    }));
+    const updateConfig = jest.fn();
 
     await reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries(
       contextWithSchema([], { update: updateConfig }) as never,
@@ -384,13 +358,7 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
     expect(mockedUpdate.mock.calls[0][2].settings?.queries?.exposure).toEqual(
       [],
     );
-    expect(updateConfig).toHaveBeenCalledWith(expect.anything(), {
-      managedResources: {
-        identifierTypes: [],
-        exposureQueryIds: [],
-        featureUsageQueryIds: [],
-      },
-    });
+    expect(updateConfig).not.toHaveBeenCalled();
   });
 
   it("does nothing when no event forwarder configs exist", async () => {
@@ -412,36 +380,35 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
     expect(mockedUpdate).not.toHaveBeenCalled();
   });
 
-  it("initialization with an event forwarder config returns and stores managed resource ids", async () => {
+  it("initialization with an event forwarder config reconciles datasource only", async () => {
     const raw = ds("ds_1", {
       userIdTypes: [],
       queries: { exposure: [] },
     });
     mockedGetRaw.mockResolvedValue(raw);
     mockedGetById.mockResolvedValue(raw);
-    const updateConfig = jest.fn(async (existing, updates) => ({
-      ...existing,
-      ...updates,
-    }));
+    const updateConfig = jest.fn();
     const attributeSchema = [
       { property: "id", datatype: "string" as const, hashAttribute: true },
     ];
     const config = efConfig();
 
-    const managedResources =
-      await initializeDatasourceUserIdTypesFromOrgAttributeSchema(
-        contextWithSchema(attributeSchema, { update: updateConfig }) as never,
-        "ds_1",
-        config,
-      );
+    await initializeDatasourceUserIdTypesFromOrgAttributeSchema(
+      contextWithSchema(attributeSchema, { update: updateConfig }) as never,
+      "ds_1",
+      config,
+    );
 
-    expect(managedResources).toEqual({
-      identifierTypes: ["id"],
-      exposureQueryIds: ["id"],
-      featureUsageQueryIds: [],
-    });
-    expect(updateConfig).toHaveBeenCalledWith(config, {
-      managedResources,
-    });
+    expect(mockedUpdate.mock.calls[0][2].settings?.userIdTypes).toEqual([
+      { userIdType: "id", description: "", attributes: ["id"] },
+    ]);
+    expect(mockedUpdate.mock.calls[0][2].settings?.queries?.exposure).toEqual([
+      expect.objectContaining({
+        id: "id",
+        userIdType: "id",
+        managedBy: "api",
+      }),
+    ]);
+    expect(updateConfig).not.toHaveBeenCalled();
   });
 });

@@ -101,16 +101,12 @@ describe("provisionEventForwarderThroughLicenseServer", () => {
       connectorName: "connector_1",
       connectorId: "connector-id-1",
     });
-    mockedInitializeUserIdTypes.mockResolvedValue({
-      identifierTypes: ["user_id"],
-      exposureQueryIds: ["user_id"],
-      featureUsageQueryIds: [],
-    });
+    mockedInitializeUserIdTypes.mockResolvedValue(undefined);
     mockedEnsureFeatureUsage.mockResolvedValue(["fuq_1"]);
     mockedEnsureFactTable.mockResolvedValue("ds_1_events");
   });
 
-  it("stores managed resource ids on the event forwarder config", async () => {
+  it("creates managed datasource resources without storing resource ids on the event forwarder config", async () => {
     const update = jest.fn(async (existing, updates) => ({
       ...existing,
       ...updates,
@@ -151,18 +147,16 @@ describe("provisionEventForwarderThroughLicenseServer", () => {
       { defaultProject: "my-project" } as BigQueryConnectionParams,
     );
 
-    expect(update).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        id: "efc_1",
-      }),
-      {
-        managedResources: {
-          identifierTypes: ["user_id"],
-          exposureQueryIds: ["user_id"],
-          featureUsageQueryIds: ["fuq_1"],
-          factTableId: "ds_1_events",
-        },
-      },
-    );
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(update).toHaveBeenCalledWith(config, {
+      schemaId: 12,
+      status: "pending",
+      connectorName: "connector_1",
+      connectorId: "connector-id-1",
+      lastProvisioningError: "",
+    });
+    expect(mockedInitializeUserIdTypes).toHaveBeenCalled();
+    expect(mockedEnsureFeatureUsage).toHaveBeenCalled();
+    expect(mockedEnsureFactTable).toHaveBeenCalled();
   });
 });
