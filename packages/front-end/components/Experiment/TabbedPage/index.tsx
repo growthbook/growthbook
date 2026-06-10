@@ -205,20 +205,28 @@ export default function TabbedPage({
         setTab(tabName);
         setTabPath(tabPath);
       } else if (!hash) {
-        // If no hash in URL, add the current tab from state to the URL
-        const newUrl =
-          window.location.href.replace(/#.*/, "") + "#" + tabRef.current;
-        router.replace(newUrl, undefined, { shallow: true }).catch((e) => {
-          if (!e.cancelled) {
-            throw e;
-          }
-        });
+        if (experiment.status === "draft") {
+          // Draft experiments only have one tab, and show the default "overview" tab WITHOUT
+          // rewriting the URL to include the hash string.
+          setTab("overview");
+          setTabPath("");
+        } else {
+          // Non-draft experiments: re-add the remembered tab from state to the
+          // URL so navigating back to the experiment restores the last tab.
+          const newUrl =
+            window.location.href.replace(/#.*/, "") + "#" + tabRef.current;
+          router.replace(newUrl, undefined, { shallow: true }).catch((e) => {
+            if (!e.cancelled) {
+              throw e;
+            }
+          });
+        }
       }
     };
     handler();
     window.addEventListener("hashchange", handler, false);
     return () => window.removeEventListener("hashchange", handler, false);
-  }, [setTab, router]);
+  }, [setTab, router, experiment.status]);
 
   const { dashboards } = useExperimentDashboards(experiment.id);
 
