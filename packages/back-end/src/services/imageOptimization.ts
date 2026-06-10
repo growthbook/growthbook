@@ -9,15 +9,6 @@ import {
 } from "back-end/src/util/secrets";
 
 // AI-generated images are optimized via the Kraken.io API (resize + WebP),
-// NOT in-process. We deliberately do no CPU-bound image work on the API
-// server: the native `sharp` module's platform binary went missing in
-// production (`pnpm install --no-optional`), and the `wasm-vips` fallback ran
-// synchronously on the main event loop — blocking it long enough to starve
-// the /healthcheck endpoint and get pods killed by the liveness probe.
-// Offloading to Kraken leaves only async HTTP in our request path. Any
-// failure (disabled, no creds, timeout, API/network error) falls back to
-// uploading the original image untouched, so image generation never fails
-// because of optimization.
 
 // Downscale to a sane longest-edge cap and re-encode as WebP. Gemini returns
 // ~1 MB lossless PNGs; this yields ~80–150 KB WebP with no perceptible loss.

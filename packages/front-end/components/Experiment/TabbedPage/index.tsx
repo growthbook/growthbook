@@ -206,19 +206,8 @@ export default function TabbedPage({
         setTabPath(tabPath);
       } else if (!hash) {
         if (experiment.status === "draft") {
-          // Draft experiments: show the default "overview" tab WITHOUT
-          // rewriting the URL. The previous behavior (re-adding the current
-          // tab to the URL) caused two problems on drafts:
-          //   1. Landing on /experiment/<id> from the list surprised the
-          //      user by appending "#overview".
-          //   2. It runs inside the hashchange listener, so pressing Back to
-          //      strip the hash fired a hashchange that immediately re-added
-          //      it — trapping the Back button so it never reached the
-          //      experiments list (eventually skipping past it to whatever
-          //      came before).
-          // Reflecting the default tab in state (not the URL) keeps the view
-          // correct, preserves deep links (#results, etc.), and lets Back
-          // exit the page cleanly.
+          // Draft experiments only have one tab, and show the default "overview" tab WITHOUT
+          // rewriting the URL to include the hash string.
           setTab("overview");
           setTabPath("");
         } else {
