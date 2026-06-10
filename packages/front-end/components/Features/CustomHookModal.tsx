@@ -362,7 +362,16 @@ export default function CustomHookModal({
           {testResult.log && (
             <div className="mt-3">
               <strong>Log:</strong>
-              <pre className="p-3 bg-light">{testResult.log}</pre>
+              <pre
+                className="p-3 bg-light"
+                style={{
+                  whiteSpace: "pre-wrap",
+                  maxHeight: 200,
+                  overflowY: "auto",
+                }}
+              >
+                {testResult.log}
+              </pre>
             </div>
           )}
         </div>
