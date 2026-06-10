@@ -85,6 +85,8 @@ const DataSourcePage: FC = () => {
   } = useApi<DataSourceInterfaceWithParams>(`/datasource/${did}`, {
     shouldRun: () => !!did,
   });
+  const loadingCurrentDataSource =
+    !!did && !currentDataSource && !currentDataSourceError;
   const d = currentDataSource || definitionDataSource;
 
   const combinedMetrics = useCombinedMetrics({});
@@ -151,7 +153,7 @@ const DataSourcePage: FC = () => {
       </div>
     );
   }
-  if (!ready) {
+  if (!ready || loadingCurrentDataSource) {
     return <LoadingOverlay />;
   }
   if (!d) {

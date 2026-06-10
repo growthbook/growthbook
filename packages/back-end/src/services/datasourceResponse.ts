@@ -46,11 +46,16 @@ export async function getDataSourceWithParams(
   return buildDataSourceWithParams(integration, eventForwarderConfig);
 }
 
-export function getDataSourcesWithParams(
+export async function getDataSourcesWithParams(
   context: ReqContext,
   datasources: DataSourceInterface[],
-): DataSourceInterfaceWithParams[] {
-  return datasources.map((datasource) =>
-    buildDataSourceWithParams(getSourceIntegrationObject(context, datasource)),
+): Promise<DataSourceInterfaceWithParams[]> {
+  return Promise.all(
+    datasources.map((datasource) =>
+      getDataSourceWithParams(
+        context,
+        getSourceIntegrationObject(context, datasource),
+      ),
+    ),
   );
 }
