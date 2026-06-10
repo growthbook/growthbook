@@ -16,7 +16,7 @@ import {
 export const EVENT_FORWARDER_EXPERIMENT_VIEWED_TABLE = "experiment_viewed";
 export const EVENT_FORWARDER_FEATURE_USAGE_TABLE = "feature_usage";
 export const EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION =
-  "Managed by Event Forwarder and updated when Unique Identifiers change.";
+  "Managed by Event Forwarder and updated when the linked Identifier type changes.";
 export const EVENT_FORWARDER_MANAGED_FEATURE_USAGE_QUERY_DESCRIPTION =
   "Managed by Event Forwarder for feature usage events.";
 

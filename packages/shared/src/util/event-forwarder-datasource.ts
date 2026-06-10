@@ -17,7 +17,7 @@ export type EventForwarderDatasourceParams =
   | undefined;
 
 export const EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION =
-  "Managed by Event Forwarder from your Organization Attributes.";
+  "Managed by Event Forwarder.";
 
 export function getEventForwarderSinkTypeForDatasource(datasource: {
   type: DataSourceType;
