@@ -42,6 +42,7 @@ const BaseClass = MakeModelClass({
     maxLeaves: 12,
     canonicalFormVersion: 1,
     currentLeafWeights: [],
+    snapshotUpdateCount: 0,
   },
   auditLog: {
     entity: "contextualBandit",
@@ -186,6 +187,7 @@ export function toApiContextualBandit(
     maxLeaves: doc.maxLeaves,
     holdoutPercent: doc.holdoutPercent,
     canonicalFormVersion: doc.canonicalFormVersion,
+    snapshotUpdateCount: doc.snapshotUpdateCount ?? 0,
   };
 }
 
@@ -257,6 +259,8 @@ export class ContextualBanditModel extends BaseClass {
       // The CB starts with no leaf weights; the first successful snapshot writes them at root.
       // `dateStarted` is intentionally left unset until the lifecycle `start` action runs.
       currentLeafWeights: [],
+      // Restated so the return type satisfies `CreateProps` (tsc can't see the runtime default-merge).
+      snapshotUpdateCount: 0,
       defaultMetricPriorSettings: orgPrior ?? {
         override: false,
         proper: false,
@@ -314,6 +318,7 @@ export class ContextualBanditModel extends BaseClass {
       },
       contextualAttributes: doc.contextualAttributes ?? [],
       currentLeafWeights: doc.currentLeafWeights ?? [],
+      snapshotUpdateCount: doc.snapshotUpdateCount ?? 0,
     } as ContextualBanditInterface;
   }
 
@@ -340,10 +345,17 @@ export class ContextualBanditModel extends BaseClass {
   }
 
   /**
-   * Atomically replace `currentLeafWeights` at the document root.
+   * Atomically replace `currentLeafWeights` at the document root and bump `snapshotUpdateCount`.
    *
-   * The single-document `$set` is concurrency-safe under simultaneous refreshes (last-writer-wins
-   * on the field, same semantics as the legacy positional phases-array update).
+   * `snapshotUpdateCount` is `$inc`-ed by 1 on every call so the count moves in the same atomic write
+   * as the weights — they can never drift apart. This represents one successful snapshot's weight
+   * update, regardless of whether the new weights actually differ from the previous ones.
+   *
+   * When `leafWeights` is empty the `currentLeafWeights` field is left untouched (so a degenerate
+   * empty-result run can't wipe existing weights), but the counter and `dateUpdated` still advance.
+   *
+   * The single-document write is concurrency-safe under simultaneous refreshes (last-writer-wins
+   * on `currentLeafWeights`; `$inc` is atomic, same semantics as the legacy positional phases-array update).
    *
    * Callers MUST preserve the project-wide write ordering for snapshot success (CBE → CB-patch → CBS-success)
    * so a crashed refresh can't leave inconsistent leaf weights vs. the snapshot status.
@@ -363,16 +375,19 @@ export class ContextualBanditModel extends BaseClass {
 
     const collection = this._dangerousGetCollection();
     const now = new Date();
+    const set: Record<string, unknown> = { dateUpdated: now };
+    // Skip writing currentLeafWeights when empty so an empty-result run can't wipe existing weights.
+    if (leafWeights.length > 0) {
+      set.currentLeafWeights = leafWeights;
+    }
     const res = await collection.updateOne(
       {
         organization: this.context.org.id,
         id: cbId,
       },
       {
-        $set: {
-          currentLeafWeights: leafWeights,
-          dateUpdated: now,
-        },
+        $set: set,
+        $inc: { snapshotUpdateCount: 1 },
       },
     );
     if (res.matchedCount === 0) {

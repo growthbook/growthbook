@@ -228,9 +228,10 @@ export async function persistContextualBanditEvent(
     weightsWereUpdated,
   });
 
-  if (leafWeights.length > 0) {
-    await context.models.contextualBandits.patchLeafWeights(cb.id, leafWeights);
-  }
+  // Always patch on a successful snapshot so `snapshotUpdateCount` advances once per CBE, even when
+  // there are no leaf weights to write. `patchLeafWeights` leaves `currentLeafWeights` untouched
+  // when `leafWeights` is empty, so this can't wipe existing weights.
+  await context.models.contextualBandits.patchLeafWeights(cb.id, leafWeights);
 
   const payloadKeys = getPayloadKeysForContextualBandit(context, cb);
   if (payloadKeys.length > 0) {

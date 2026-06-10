@@ -118,6 +118,7 @@ function makeCb(
     canonicalFormVersion: 1,
     dateStarted: new Date("2025-01-02T00:00:00Z"),
     currentLeafWeights: [{ contextId: "ctx_catchall", weights: [0.5, 0.5] }],
+    snapshotUpdateCount: 0,
     ...overrides,
   } as ContextualBanditInterface;
 }

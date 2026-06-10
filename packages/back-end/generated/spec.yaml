@@ -42487,7 +42487,7 @@ components:
               - contextId
               - weights
             additionalProperties: false
-        weightUpdateCount:
+        snapshotUpdateCount:
           type: integer
           minimum: 0
         contextualAttributes:
@@ -42534,7 +42534,7 @@ components:
         - secondaryMetrics
         - guardrailMetrics
         - currentLeafWeights
-        - weightUpdateCount
+        - snapshotUpdateCount
         - contextualAttributes
         - maxContexts
         - treeModel

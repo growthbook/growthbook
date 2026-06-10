@@ -77,6 +77,13 @@ export const contextualBanditValidator = baseSchema
     variationWeights: z.array(z.number()).optional(),
     /** Per-context bandit weights. */
     currentLeafWeights: z.array(leafWeightValidator),
+    /**
+     * Number of successful snapshots applied to this bandit. Incremented once per
+     * successful snapshot (i.e. each time a ContextualBanditEvent is created and the
+     * weight patch runs), regardless of whether the new weights actually differ from
+     * the previous ones. Use `weightsWereUpdated` on the CBE to know if weights changed.
+     */
+    snapshotUpdateCount: z.number().int().nonnegative(),
 
     /** Aliased as `targetingAttributeColumns` so SQL builders don't have to translate. */
     contextualAttributes: z.array(z.string()),
@@ -176,6 +183,7 @@ export const apiContextualBanditValidator = namedSchema(
     seed: z.string().optional(),
     variationWeights: z.array(z.number()).optional(),
     currentLeafWeights: z.array(leafWeightValidator),
+    snapshotUpdateCount: z.number().int().nonnegative(),
 
     contextualAttributes: z.array(z.string()),
     decisionMetric: z.string().optional(),

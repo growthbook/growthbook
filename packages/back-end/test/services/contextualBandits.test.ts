@@ -68,6 +68,7 @@ function makeCb(
     dateStarted: new Date("2025-01-02T00:00:00Z"),
     variationWeights: [0.4, 0.6],
     currentLeafWeights: [{ contextId: "ctx_catchall", weights: [0.5, 0.5] }],
+    snapshotUpdateCount: 0,
     linkedFeatures: [],
     ...overrides,
   } as unknown as ContextualBanditInterface;
@@ -325,6 +326,48 @@ describe("persistContextualBanditEvent", () => {
         }),
       }),
     );
+  });
+
+  it("still patches once with empty weights so snapshotUpdateCount advances on a no-weight run", async () => {
+    const cb = makeCb();
+    const cbs = makeCbs();
+    // Empty responses => leafWeightsFromContextualBanditResult returns [].
+    const result = makeResult({ responses: [], leaf_map: [] });
+
+    const createCbeMock = jest.fn().mockResolvedValue({
+      id: "cbe_empty",
+      organization: "org_1",
+      contextualBandit: cb.id,
+      snapshotId: cbs.id,
+      attributes: result.attributes,
+      responses: [],
+      weightsWereUpdated: false,
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    });
+    const patchLeafWeightsMock = jest.fn().mockResolvedValue(cb);
+
+    const context = {
+      org: { id: "org_1" },
+      models: {
+        contextualBandits: {
+          getById: jest.fn().mockResolvedValue(cb),
+          patchLeafWeights: patchLeafWeightsMock,
+        },
+        contextualBanditEvents: {
+          create: createCbeMock,
+        },
+      },
+    } as unknown as ReqContext;
+
+    await persistContextualBanditEvent(context, cbs, result);
+
+    // The patch must run exactly once with an empty array: patchLeafWeights skips the
+    // currentLeafWeights write but still $inc's snapshotUpdateCount.
+    expect(patchLeafWeightsMock).toHaveBeenCalledTimes(1);
+    const [cbIdArg, leafWeightsArg] = patchLeafWeightsMock.mock.calls[0];
+    expect(cbIdArg).toBe(cb.id);
+    expect(leafWeightsArg).toEqual([]);
   });
 
   it("throws when the CB doc is missing", async () => {
