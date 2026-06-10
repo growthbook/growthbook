@@ -2,7 +2,6 @@ import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import {
   BigQueryEventForwarderStoredConfig,
-  EventForwarderManagedResources,
   SnowflakeEventForwarderStoredConfig,
 } from "shared/types/event-forwarder";
 import { EventForwarderConfigInterface } from "shared/validators";
@@ -35,29 +34,6 @@ function assertEventForwarderWriteAccessResult(
         "Event Forwarder write access validation failed",
     );
   }
-}
-
-function mergeManagedResources(
-  config: EventForwarderConfigInterface,
-  updates: Partial<EventForwarderManagedResources>,
-): EventForwarderManagedResources {
-  return {
-    identifierTypes:
-      updates.identifierTypes ?? config.managedResources?.identifierTypes ?? [],
-    exposureQueryIds:
-      updates.exposureQueryIds ??
-      config.managedResources?.exposureQueryIds ??
-      [],
-    featureUsageQueryIds:
-      updates.featureUsageQueryIds ??
-      config.managedResources?.featureUsageQueryIds ??
-      [],
-    ...(updates.factTableId !== undefined
-      ? { factTableId: updates.factTableId }
-      : config.managedResources?.factTableId !== undefined
-        ? { factTableId: config.managedResources.factTableId }
-        : {}),
-  };
 }
 
 /**
@@ -179,7 +155,7 @@ export async function provisionEventForwarderThroughLicenseServer(
         );
     }
 
-    let currentEventForwarderConfig =
+    const currentEventForwarderConfig =
       await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
         schemaId: result.schemaId,
         status: "pending",
@@ -189,18 +165,11 @@ export async function provisionEventForwarderThroughLicenseServer(
       });
 
     try {
-      const managedResources =
-        await initializeDatasourceUserIdTypesFromOrgAttributeSchema(
-          context,
-          currentEventForwarderConfig.datasourceId,
-          currentEventForwarderConfig,
-        );
-      if (managedResources) {
-        currentEventForwarderConfig = {
-          ...currentEventForwarderConfig,
-          managedResources,
-        };
-      }
+      await initializeDatasourceUserIdTypesFromOrgAttributeSchema(
+        context,
+        currentEventForwarderConfig.datasourceId,
+        currentEventForwarderConfig,
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       logger.error(
@@ -214,25 +183,11 @@ export async function provisionEventForwarderThroughLicenseServer(
     }
 
     try {
-      const featureUsageQueryIds = await ensureEventForwarderFeatureUsageQuery(
+      await ensureEventForwarderFeatureUsageQuery(
         context,
         currentEventForwarderConfig,
         datasourceParams,
       );
-      if (featureUsageQueryIds.length > 0) {
-        currentEventForwarderConfig =
-          await context.models.eventForwarderConfigs.update(
-            currentEventForwarderConfig,
-            {
-              managedResources: mergeManagedResources(
-                currentEventForwarderConfig,
-                {
-                  featureUsageQueryIds,
-                },
-              ),
-            },
-          );
-      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       logger.error(
@@ -246,25 +201,11 @@ export async function provisionEventForwarderThroughLicenseServer(
     }
 
     try {
-      const factTableId = await ensureEventForwarderEventsFactTable(
+      await ensureEventForwarderEventsFactTable(
         context,
         currentEventForwarderConfig,
         datasourceParams,
       );
-      if (factTableId) {
-        currentEventForwarderConfig =
-          await context.models.eventForwarderConfigs.update(
-            currentEventForwarderConfig,
-            {
-              managedResources: mergeManagedResources(
-                currentEventForwarderConfig,
-                {
-                  factTableId,
-                },
-              ),
-            },
-          );
-      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
       logger.error(

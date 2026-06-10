@@ -95,7 +95,6 @@ function context() {
       eventForwarderConfigs: {
         getAll: jest.fn(),
         update: jest.fn(),
-        updateManagedResourcesFactTableId: jest.fn(),
       },
     },
   };
@@ -376,12 +375,6 @@ describe("syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange", 
     expect(mockedQueueFactTableColumnsRefreshAt).toHaveBeenCalledWith(
       ft,
       expect.any(Date),
-    );
-    expect(
-      ctx.models.eventForwarderConfigs.updateManagedResourcesFactTableId,
-    ).toHaveBeenCalledWith(
-      expect.objectContaining({ datasourceId: "ds_1" }),
-      "ds_1_events",
     );
   });
 

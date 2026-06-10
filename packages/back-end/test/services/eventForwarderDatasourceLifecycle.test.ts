@@ -431,13 +431,13 @@ describe("deleteEventForwarderConfigForDatasource", () => {
 
 describe("syncEventForwarderConfigFromDatasource draft null", () => {
   it("returns null on create when draft is null and no existing config", async () => {
-    const getAll = jest.fn().mockResolvedValue([]);
+    const getByDatasourceId = jest.fn().mockResolvedValue(null);
     const deleteConfig = jest.fn();
     const context = {
       org: { id: "org1" },
       models: {
         eventForwarderConfigs: {
-          getAll,
+          getByDatasourceId,
           delete: deleteConfig,
         },
       },
@@ -450,6 +450,7 @@ describe("syncEventForwarderConfigFromDatasource draft null", () => {
     });
 
     expect(result).toBeNull();
+    expect(getByDatasourceId).toHaveBeenCalledWith("ds_new");
     expect(deleteConfig).not.toHaveBeenCalled();
   });
 
@@ -467,13 +468,13 @@ describe("syncEventForwarderConfigFromDatasource draft null", () => {
       dateCreated: new Date(),
       dateUpdated: new Date(),
     };
-    const getAll = jest.fn().mockResolvedValue([existing]);
+    const getByDatasourceId = jest.fn().mockResolvedValue(existing);
     const deleteConfig = jest.fn();
     const context = {
       org: { id: "org1" },
       models: {
         eventForwarderConfigs: {
-          getAll,
+          getByDatasourceId,
           delete: deleteConfig,
         },
       },
@@ -487,6 +488,7 @@ describe("syncEventForwarderConfigFromDatasource draft null", () => {
       }),
     ).rejects.toThrow(/Cannot remove an Event Forwarder via datasource update/);
 
+    expect(getByDatasourceId).toHaveBeenCalledWith("ds_existing");
     expect(deleteConfig).not.toHaveBeenCalled();
   });
 });
