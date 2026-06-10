@@ -60,10 +60,7 @@ function EditSchemaField({
   onChange: (value: SchemaField) => void;
   valueType?: FeatureValueType;
 }) {
-  // String flags only allow a single type, so the Type selector is pointless.
-  // These flags are always single primitives, never in an object, so the
-  // entire row can be hidden. Number flags keep the selector to choose
-  // between Integer and Float.
+  // String features only have 1 type option, so hide the selector
   const hideTypeSelector = valueType === "string";
   const allTypeOptions = [
     { value: "string", label: "Text String" },
@@ -238,7 +235,6 @@ function EditSimpleSchema({
 }) {
   const [expandedFields, setExpandedFields] = useState(new Set<number>());
 
-  // String/number flags lock to a single primitive; hide the structure selector.
   const lockedPrimitive = valueType === "string" || valueType === "number";
 
   return (
