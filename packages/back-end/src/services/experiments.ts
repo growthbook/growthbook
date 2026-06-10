@@ -95,7 +95,7 @@ import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
-  ExperimentSnapshotSettings,
+  SnapshotMetricRequest,
   SnapshotTriggeredBy,
   SnapshotType,
   SnapshotBanditSettings,
@@ -493,7 +493,7 @@ export function getSnapshotSettings({
   datasource?: DataSourceInterface;
   useStickyBucketing?: boolean;
   eligiblePrecomputedUnitDimensionIds?: string[];
-}): ExperimentSnapshotSettings {
+}): SnapshotMetricRequest {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
     throw new Error("Invalid snapshot phase");
@@ -1340,7 +1340,7 @@ async function planSnapshotQueryRunner({
   organization: OrganizationInterface;
   datasource: DataSourceInterface;
   integration: SourceIntegrationInterface;
-  snapshotSettings: ExperimentSnapshotSettings;
+  snapshotSettings: SnapshotMetricRequest;
   metricMap: Map<string, ExperimentMetricInterface>;
   experiment: ExperimentInterface;
   incrementalRefreshModel: IncrementalRefreshInterface | null;
@@ -4311,9 +4311,20 @@ export function updateExperimentApiPayloadToInterface(
   return changes;
 }
 
+/** Narrow input shape for `getSettingsForSnapshotMetrics` so CB callers can pass a `ContextualBanditInterface`. */
+export type SnapshotMetricsLike = Pick<
+  ExperimentInterface,
+  | "goalMetrics"
+  | "secondaryMetrics"
+  | "guardrailMetrics"
+  | "activationMetric"
+  | "metricOverrides"
+  | "regressionAdjustmentEnabled"
+>;
+
 export async function getSettingsForSnapshotMetrics(
   context: ReqContext | ApiReqContext,
-  experiment: ExperimentInterface,
+  experiment: SnapshotMetricsLike,
 ): Promise<{
   regressionAdjustmentEnabled: boolean;
   settingsForSnapshotMetrics: MetricSnapshotSettings[];

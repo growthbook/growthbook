@@ -118,7 +118,7 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
     project: project ?? undefined,
   });
 
-  // Disable auto snapshots for the experiment so it doesn't keep trying to update if schedule is off (non-bandits only)
+  // Disable auto snapshots when schedule is off; MABs manage their own schedule and are skipped here.
   if (
     organization?.settings?.updateSchedule?.type === "never" &&
     experiment.type !== "multi-armed-bandit"
@@ -225,8 +225,10 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
     }
 
     logger.error(e, "Failed to update experiment: " + experimentId);
-    // If we failed to update the experiment, turn off auto-updating for the future (non-bandits only)
-    if (experiment.type === "multi-armed-bandit") return;
+    // On failure, disable future auto-updates; MABs are exempt because they have their own retry/lifecycle handling.
+    if (experiment.type === "multi-armed-bandit") {
+      return;
+    }
     try {
       await updateExperiment({
         context,

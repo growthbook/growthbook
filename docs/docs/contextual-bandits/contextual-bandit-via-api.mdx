@@ -1,0 +1,141 @@
+---
+title: Driving a Contextual Bandit via API
+slug: /bandits/contextual-bandit-via-api
+---
+
+import CommercialFeature from '@site/src/components/CommercialFeature';
+
+<CommercialFeature feature="contextual-bandits" />
+
+This runbook walks through the full lifecycle of a Contextual Bandit driven entirely from the REST API. Every step assumes you have a valid Personal Access Token or Secret Key with the `canRunContextualBandit` permission on the target project.
+
+All endpoints below sit under the `/v1/contextual-bandits` namespace. See the [REST API reference](https://docs.growthbook.io/api) for the full schema.
+
+:::info
+Contextual Bandits are an Enterprise-only feature. Every endpoint below returns `402 Plan Does Not Allow` on Pro / Free plans.
+:::
+
+:::warning Breaking change in v1.5
+The legacy `/v1/experiments/:id/contextual-bandit/*` endpoints (refresh, results, current, snapshots, events, phase) were removed in v1.5 along with the `experimentType: "contextual-bandit"` value. Migrate any integrations that still call the experiment-nested routes to the CB-native `/v1/contextual-bandits/*` surface documented below — the wire shapes are the same, only the path prefix and id space (`cb_…` instead of `exp_cb_…`) changed.
+:::
+
+:::warning Breaking change: `phases` and `phase` removed
+The `phases` array on the Contextual Bandit DTO and the `phase` field on snapshot/event/current responses have been removed. The fields previously nested under `phases[0]` (`coverage`, `condition`, `seed`, `variationWeights`, `currentLeafWeights`) are now top-level on the CB document. The `GET /v1/contextual-bandits/:id/current` response now exposes `currentLeafWeights` (replacing the prior `phaseWeights`). Update any client that reads `cb.phases[0].…` to read the matching root field directly.
+:::
+
+## 1. Create the Contextual Bandit
+
+```bash
+curl -X POST 'https://api.growthbook.io/api/v1/contextual-bandits' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "Homepage CTA bandit",
+    "trackingKey": "homepage-cta-bandit",
+    "datasource": "ds_abc",
+    "exposureQueryId": "logged_in_users",
+    "hashAttribute": "user_id",
+    "goalMetrics": ["metric_signup"],
+    "variations": [
+      { "key": "control",   "name": "Control"  },
+      { "key": "treatment", "name": "Treatment" }
+    ],
+    "contextualAttributes": ["country", "device"],
+    "project": "proj_a"
+  }'
+```
+
+The response includes the new Contextual Bandit id (`cb_…`). The CB is provisioned in `status: "draft"` with an empty `currentLeafWeights` array at the document root; it stays empty until the first successful refresh.
+
+## 2. Start the Contextual Bandit
+
+Move the CB out of `draft` so it is eligible for refresh:
+
+```bash
+curl -X POST 'https://api.growthbook.io/api/v1/contextual-bandits/cb_xxx/start' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+## 3. Refresh — run a snapshot
+
+Triggers the contextual-bandit snapshot pipeline. The orchestrator builds frozen settings, opens a ContextualBanditSnapshot (CBS) doc, runs the warehouse query and the stats engine, and on success persists a ContextualBanditEvent (CBE) with the new per-leaf weights.
+
+```bash
+curl -X POST 'https://api.growthbook.io/api/v1/contextual-bandits/cb_xxx/refresh' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+Response shape:
+
+```json
+{ "snapshotId": "cbs_abc", "cbeId": "cbe_def" }
+```
+
+`cbeId` is omitted when the run failed before producing an event (the CBS doc will be in `status: "error"`).
+
+## 4. Read the latest results
+
+Returns the same payload the GrowthBook UI uses to render the CB results table — the latest CBE stats plus a snapshot-status summary.
+
+```bash
+curl 'https://api.growthbook.io/api/v1/contextual-bandits/cb_xxx/results' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+Response (abbreviated):
+
+```json
+{
+  "contextualBanditSnapshot": {
+    "attributes": ["country"],
+    "responses": [
+      {
+        "context": { "country": "US" },
+        "sampleSizePerVariation": [1200, 1230],
+        "updatedWeights": [0.38, 0.62]
+      }
+    ],
+    "leaf_map": [{ "context": { "country": "US" }, "leafId": 0 }]
+  },
+  "latest": {
+    "id": "cbs_abc",
+    "status": "success",
+    "error": "",
+    "queries": [ /* QueryPointer[] */ ],
+    "runStarted": "2026-05-29T12:00:00.000Z",
+    "dateCreated": "2026-05-29T12:00:05.000Z",
+    "multipleExposures": 0,
+    "type": "standard",
+    "triggeredBy": "manual"
+  }
+}
+```
+
+Use the companion endpoints for finer-grained inspection:
+
+- `GET /v1/contextual-bandits/:id/snapshots` — list recent snapshot runs.
+- `GET /v1/contextual-bandits/:id/snapshots/:snapshotId` — single snapshot status.
+- `GET /v1/contextual-bandits/:id/events` — list CBE outputs (one per successful snapshot).
+- `GET /v1/contextual-bandits/:id/events/:eventId` — single CBE.
+- `GET /v1/contextual-bandits/:id/current` — current root-level `currentLeafWeights` + the latest CBE id.
+
+## 5. Stop the Contextual Bandit
+
+When you're done, stop the CB:
+
+```bash
+curl -X POST 'https://api.growthbook.io/api/v1/contextual-bandits/cb_xxx/stop' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+## Permissions cheat sheet
+
+Permissions are checked directly against the Contextual Bandit doc (CBs no longer delegate RBAC to a paired experiment):
+
+- **Read** (`GET results`, `GET current`, `GET snapshot(s)`, `GET event(s)`, `GET /:id`, `GET /`) — `canReadSingleProjectResource(cb.project)`.
+- **Create** (`POST /`) — `canCreateContextualBandit({ project })`.
+- **Update** (`PUT /:id`) — `canUpdateContextualBandit(existing, updated)`.
+- **Run** (`POST refresh`, `POST start`, `POST stop`) — `canRunContextualBandit(cb, environments)`.
+- **Delete** (`DELETE /:id`) — `canDeleteContextualBandit(cb)`.
+
+Plan gate (`hasPremiumFeature("contextual-bandits")`) is checked first on every endpoint and short-circuits with `402` before any data access.

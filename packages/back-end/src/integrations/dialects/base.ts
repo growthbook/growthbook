@@ -141,4 +141,6 @@ export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
   },
 
   stringLength: (column: string) => `LENGTH(${column})`,
+
+  maxContextualBanditContexts: 3000,
 };

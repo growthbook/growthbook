@@ -33,6 +33,7 @@ import track from "@/services/track";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import ContextualBanditResultsTable from "@/enterprise/components/Experiment/ContextualBanditResultsTable";
 import AnalysisSettingsSummary from "./AnalysisSettingsSummary";
 import { ExperimentTab } from ".";
 
@@ -74,6 +75,8 @@ export interface Props {
   setSortBy: (s: "significance" | "change" | null) => void;
   sortDirection: "asc" | "desc" | null;
   setSortDirection: (d: "asc" | "desc" | null) => void;
+  /** Override for the snapshot refresh call (e.g. Contextual Bandits). */
+  refreshEndpoint?: string;
 }
 
 export default function ResultsTab({
@@ -99,6 +102,7 @@ export default function ResultsTab({
   setSortBy,
   sortDirection,
   setSortDirection,
+  refreshEndpoint,
 }: Props) {
   const {
     getDatasourceById,
@@ -351,46 +355,54 @@ export default function ResultsTab({
           />
         ) : null}
         <div className="mb-2" style={{ overflowX: "initial" }}>
-          <AnalysisSettingsSummary
-            experiment={experiment}
-            mutate={mutate}
-            statsEngine={statsEngine}
-            editMetrics={editMetrics ?? undefined}
-            variationFilter={analysisBarSettings.variationFilter}
-            baselineRow={analysisBarSettings.baselineRow}
-            differenceType={analysisBarSettings.differenceType}
-            dimension={analysisBarSettings.dimension}
-            setDimension={(d: string, resetOtherSettings?: boolean) =>
-              setAnalysisBarSettings({
-                ...analysisBarSettings,
-                dimension: d,
-                ...(resetOtherSettings
-                  ? {
-                      baselineRow: 0,
-                      differenceType: "relative",
-                      variationFilter: [],
-                    }
-                  : {}),
-              })
-            }
-            metricTagFilter={metricTagFilter}
-            setMetricTagFilter={setMetricTagFilter}
-            metricsFilter={metricsFilter}
-            setMetricsFilter={setMetricsFilter}
-            availableMetricsFilters={availableMetricsFilters}
-            availableMetricTags={availableMetricTags}
-            availableSliceTags={availableSliceTags}
-            sliceTagsFilter={sliceTagsFilter}
-            setSliceTagsFilter={setSliceTagsFilter}
-            sortBy={sortBy}
-            sortDirection={sortDirection}
-            onSnapshotSuccessfulUpdate={onSnapshotSuccessfulUpdate}
-          />
+          {!refreshEndpoint && (
+            <AnalysisSettingsSummary
+              experiment={experiment}
+              mutate={mutate}
+              statsEngine={statsEngine}
+              editMetrics={editMetrics ?? undefined}
+              variationFilter={analysisBarSettings.variationFilter}
+              baselineRow={analysisBarSettings.baselineRow}
+              differenceType={analysisBarSettings.differenceType}
+              dimension={analysisBarSettings.dimension}
+              setDimension={(d: string, resetOtherSettings?: boolean) =>
+                setAnalysisBarSettings({
+                  ...analysisBarSettings,
+                  dimension: d,
+                  ...(resetOtherSettings
+                    ? {
+                        baselineRow: 0,
+                        differenceType: "relative",
+                        variationFilter: [],
+                      }
+                    : {}),
+                })
+              }
+              metricTagFilter={metricTagFilter}
+              setMetricTagFilter={setMetricTagFilter}
+              metricsFilter={metricsFilter}
+              setMetricsFilter={setMetricsFilter}
+              availableMetricsFilters={availableMetricsFilters}
+              availableMetricTags={availableMetricTags}
+              availableSliceTags={availableSliceTags}
+              sliceTagsFilter={sliceTagsFilter}
+              setSliceTagsFilter={setSliceTagsFilter}
+              sortBy={sortBy}
+              sortDirection={sortDirection}
+              onSnapshotSuccessfulUpdate={onSnapshotSuccessfulUpdate}
+              refreshEndpoint={refreshEndpoint}
+            />
+          )}
           {experiment.status === "draft" ? (
             <Callout status="info" mx="3" my="4">
               Your experiment is still in a <strong>draft</strong> state. You
               must start the experiment first before seeing results.
             </Callout>
+          ) : refreshEndpoint ? (
+            <ContextualBanditResultsTable
+              experiment={experiment}
+              mutate={mutate}
+            />
           ) : (
             <>
               {experiment.status === "running" &&

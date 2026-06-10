@@ -1,5 +1,5 @@
 import cloneDeep from "lodash/cloneDeep";
-import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import type { SnapshotMetricRequest } from "shared/types/experiment-snapshot";
 import type {
   FactMetricData,
   FactMetricPercentileData,
@@ -32,7 +32,7 @@ export function parseExperimentFactMetricsParams(
   params: {
     metrics: FactMetricInterface[];
     activationMetric: ExperimentMetricInterface | null;
-    settings: ExperimentSnapshotSettings;
+    settings: SnapshotMetricRequest;
     factTableMap: FactTableMap;
     lastMaxTimestamp: Date | null;
     covariateTableAlias: string;

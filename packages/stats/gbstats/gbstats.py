@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 import dataclasses
 import re
@@ -5,6 +6,7 @@ import traceback
 import copy
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
+import numpy as np
 import pandas as pd
 
 from gbstats.bayesian.tests import (
@@ -59,10 +61,18 @@ from gbstats.models.results import (
     BanditResult,
     SingleVariationResult,
     PowerResponse,
+    ContextualBanditResponse,
+    ContextualBanditContextSummary,
+    ContextualBanditNoTreeResult,
+    ContextualBanditResult,
+    ContextualLeafMapEntry,
+    Context,
 )
+
 from gbstats.models.settings import (
     AnalysisSettingsForStatsEngine,
     BanditSettingsForStatsEngine,
+    ContextualBanditSettingsForStatsEngine,
     DataForStatsEngine,
     ExperimentDataForStatsEngine,
     ExperimentMetricQueryResponseRows,
@@ -70,6 +80,10 @@ from gbstats.models.settings import (
     MetricType,
     QueryResultsForStatsEngine,
     VarIdMap,
+    CONTEXTUAL_BANDIT_DIMENSION_COLUMN,
+    CONTEXTUAL_BANDIT_DIMENSION_VALUE,
+    get_bandit_settings,
+    get_contextual_bandit_settings,
 )
 from gbstats.models.statistics import (
     ProportionStatistic,
@@ -79,6 +93,7 @@ from gbstats.models.statistics import (
     RegressionAdjustedRatioStatistic,
     RegressionAdjustedStatistic,
     SampleMeanStatistic,
+    SummableStatistic,
     TestStatistic,
     BanditStatistic,
 )
@@ -135,6 +150,8 @@ BANDIT_DIMENSION = {
     "column": "dimension",
     "value": "All",
 }
+
+LEAF_ID_COLUMN = "leaf_id"
 
 StatisticalTests = Union[
     EffectBayesianABTest,
@@ -1128,6 +1145,154 @@ def get_var_id_map(var_ids: List[str]) -> VarIdMap:
     return {v: i for i, v in enumerate(var_ids)}
 
 
+def variation_index_from_row(
+    variation: Any,
+    var_id_map: VarIdMap,
+    num_variations: int,
+) -> Optional[int]:
+    """Map a query-row ``variation`` cell (id or numeric index string) to 0..n-1."""
+    if variation is None:
+        return None
+    key = str(variation)
+    if key in var_id_map:
+        return var_id_map[key]
+    try:
+        index = int(key)
+        if 0 <= index < num_variations:
+            return index
+    except ValueError:
+        pass
+    return None
+
+
+def _numeric_cell_for_metric_series(value: Any) -> Any:
+    if isinstance(value, np.ndarray):
+        return float(value.flat[0])
+    if isinstance(value, (bool, np.bool_)):
+        return bool(value)
+    if isinstance(value, (int, np.integer)):
+        return int(value)
+    if isinstance(value, (float, np.floating)):
+        return float(value)
+    return value
+
+
+def _sum_aggregate_metric_field(values: List[Any]) -> Any:
+    if not values:
+        return 0
+    total = sum(float(np.asarray(x).flat[0]) for x in values)
+    v0 = values[0]
+    if isinstance(v0, np.ndarray):
+        return np.array([total])
+    if isinstance(v0, (bool, np.bool_)):
+        return bool(round(total))
+    if isinstance(v0, (int, np.integer)):
+        return int(round(total))
+    if isinstance(v0, (float, np.floating)):
+        return float(total)
+    return float(total)
+
+
+def _merge_summable_experiment_metric_rows(
+    rows: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    if not rows:
+        return {}
+    out: Dict[str, Any] = dict(rows[0])
+    for col in SUM_COLS:
+        vals = [r[col] for r in rows if col in r]
+        if vals:
+            out[col] = _sum_aggregate_metric_field(vals)
+        elif col not in out:
+            out[col] = 0
+    return out
+
+
+def _empty_prefixed_metric_series(prefix: str) -> pd.Series:
+    return pd.Series({f"{prefix}_{col}": 0 for col in ROW_COLS})
+
+
+def _narrow_experiment_metric_row_to_prefixed_series(
+    row: Dict[str, Any], prefix: str
+) -> pd.Series:
+    data: Dict[str, Any] = {f"{prefix}_{col}": 0 for col in ROW_COLS}
+    for col in ROW_COLS:
+        if col in row:
+            data[f"{prefix}_{col}"] = _numeric_cell_for_metric_series(row[col])
+    if "users" in row:
+        data[f"{prefix}_users"] = _numeric_cell_for_metric_series(row["users"])
+    if "count" in row:
+        data[f"{prefix}_count"] = _numeric_cell_for_metric_series(row["count"])
+    elif "users" in row:
+        data[f"{prefix}_count"] = data[f"{prefix}_users"]
+    return pd.Series(data)
+
+
+def _summable_statistic_for_variation_row_group(
+    metric_settings: MetricSettingsForStatsEngine,
+    grp: List[Dict[str, Any]],
+) -> SummableStatistic:
+    """Produce one summable statistic for a list of rows that all belong to the same variation arm."""
+    merged = _merge_summable_experiment_metric_rows(grp) if grp else None
+    series = (
+        _narrow_experiment_metric_row_to_prefixed_series(merged, "baseline")
+        if merged
+        else _empty_prefixed_metric_series("baseline")
+    )
+    raw_stat = variation_statistic_from_metric_row(series, "baseline", metric_settings)
+    if not isinstance(raw_stat, SummableStatistic):
+        raise TypeError(f"Expected SummableStatistic, got {type(raw_stat).__name__}")
+    return raw_stat
+
+
+def summable_statistics_per_variation_from_experiment_metric_rows(
+    rows: ExperimentMetricQueryResponseRows,
+    metric: MetricSettingsForStatsEngine,
+    var_ids: List[str],
+) -> List[SummableStatistic]:
+    """One SummableStatistic per variation index (k -> var_ids[k]); quantile metrics unsupported."""
+    if metric.statistic_type in ("quantile_event", "quantile_unit"):
+        raise ValueError(
+            "summable_statistics_per_variation_from_experiment_metric_rows "
+            f"does not support statistic_type={metric.statistic_type!r}"
+        )
+    var_id_map = get_var_id_map(var_ids)
+    num_variations = len(var_ids)
+    by_idx: Dict[int, List[Dict[str, Any]]] = {}
+    for row in rows:
+        vid = row.get("variation")
+        if vid is None:
+            continue
+        idx = var_id_map.get(str(vid))
+        if idx is None:
+            continue
+        by_idx.setdefault(idx, []).append(row)
+
+    summable_types = (
+        ProportionStatistic,
+        SampleMeanStatistic,
+        RegressionAdjustedStatistic,
+        RatioStatistic,
+        RegressionAdjustedRatioStatistic,
+    )
+    out: List[SummableStatistic] = []
+    for k in range(num_variations):
+        grp = by_idx.get(k, [])
+        merged = _merge_summable_experiment_metric_rows(grp)
+        series = (
+            _narrow_experiment_metric_row_to_prefixed_series(merged, "baseline")
+            if merged
+            else _empty_prefixed_metric_series("baseline")
+        )
+        raw_stat = variation_statistic_from_metric_row(series, "baseline", metric)
+        if not isinstance(raw_stat, summable_types):
+            raise TypeError(
+                f"Expected SummableStatistic, got {type(raw_stat).__name__}"
+            )
+        out.append(raw_stat)
+    return out
+
+
 def process_single_metric(
     rows: ExperimentMetricQueryResponseRows,
     metric: MetricSettingsForStatsEngine,
@@ -1240,9 +1405,10 @@ def preprocess_bandits(
             metric_data[0].data.iloc[0], metric, len(bandit_settings.var_names)
         )
     bandit_prior = GaussianPrior(mean=0, variance=float(1e4), proper=True)
+    bandit_weights_rng = bandit_settings.bandit_weights_rng
     bandit_config = BanditConfig(
         prior_distribution=bandit_prior,
-        bandit_weights_seed=bandit_settings.bandit_weights_seed,
+        bandit_weights_rng=bandit_weights_rng,
         weight_by_period=bandit_settings.weight_by_period,
         top_two=bandit_settings.top_two,
         alpha=alpha,
@@ -1280,10 +1446,16 @@ def get_bandit_result(
         bandit_result = b.compute_result()
         if bandit_result.ci:
             single_variation_results = [
-                SingleVariationResult(n, mn, ci)
-                for n, mn, ci in zip(
+                SingleVariationResult(
+                    users=n,
+                    cr=mn,
+                    variationVariances=v,
+                    ci=ci,
+                )
+                for n, mn, v, ci in zip(
                     b.variation_counts,
-                    b.posterior_mean,
+                    bandit_result.cr or [],
+                    bandit_result.variance or [],
                     bandit_result.ci,
                 )
             ]
@@ -1312,7 +1484,7 @@ def get_bandit_result(
                         else bandit_settings.current_weights
                     ),
                     bestArmProbabilities=bandit_result.best_arm_probabilities,
-                    seed=bandit_result.seed,
+                    seed=0,
                     updateMessage=bandit_result.bandit_update_message,
                     error="",
                     reweight=bandit_settings.reweight,
@@ -1340,6 +1512,854 @@ def get_bandit_result(
     )
 
 
+class ContextualBanditWeightsLookup:
+    """Match ``ContextualBanditResponse.context`` conditions to observed attributes and return ``updatedWeights``."""
+
+    @staticmethod
+    def observed_from_tuple(
+        attributes: Sequence[str], context_tuple: tuple[str, ...]
+    ) -> dict[str, str]:
+        """Zip SQL-style context tuple with attribute names (same order as bandit ``attributes``)."""
+        if len(attributes) != len(context_tuple):
+            raise ValueError(
+                f"attributes length {len(attributes)} != context tuple length {len(context_tuple)}"
+            )
+        return {str(a): str(v) for a, v in zip(attributes, context_tuple)}
+
+    @staticmethod
+    def _singleton_condition_value(spec: Any) -> Optional[str]:
+        """Extract a single allowed value from a ``$in`` clause or scalar condition."""
+        if isinstance(spec, dict) and "$in" in spec:
+            allowed = spec["$in"]
+            if isinstance(allowed, (list, tuple)) and len(allowed) == 1:
+                return str(allowed[0])
+            return None
+        if isinstance(spec, dict):
+            return None
+        return str(spec)
+
+    @staticmethod
+    def index_responses_by_attribute_singleton(
+        responses: Sequence[ContextualBanditResponse],
+        attribute: str,
+    ) -> dict[str, ContextualBanditResponse]:
+        """Map one response per distinct single-value condition on ``attribute`` (e.g. ``leaf_id``)."""
+        out: dict[str, ContextualBanditResponse] = {}
+        for r in responses:
+            if attribute not in r.context:
+                continue
+            value = ContextualBanditWeightsLookup._singleton_condition_value(
+                r.context[attribute]
+            )
+            if value is not None:
+                out[value] = r
+        return out
+
+
+class UpdateWeightsContextualBandit:
+    """Updates variation weights per context; call compute_result() for per-context BanditResults."""
+
+    def __init__(
+        self,
+        rows: ExperimentMetricQueryResponseRows,
+        metric_settings: MetricSettingsForStatsEngine,
+        analysis_settings: AnalysisSettingsForStatsEngine,
+        contextual_bandit_settings: ContextualBanditSettingsForStatsEngine,
+    ):
+        self.rows = rows
+        self.metric_settings = metric_settings
+        self.analysis_settings = analysis_settings
+        self.contextual_bandit_settings = contextual_bandit_settings
+
+    @property
+    def num_variations(self) -> int:
+        return len(self.contextual_bandit_settings.var_ids)
+
+    @staticmethod
+    def default_contextual_weights(num_variations: int) -> list[float]:
+        if num_variations < 1:
+            raise ValueError("need positive number of variations in contextual bandit")
+        return [1.0 / num_variations] * num_variations
+
+    @staticmethod
+    def no_update_response(
+        context: Context, num_variations: int, update_message: str
+    ) -> ContextualBanditResponse:
+        default_weights = UpdateWeightsContextualBandit.default_contextual_weights(
+            num_variations
+        )
+        return ContextualBanditResponse(
+            context=context,
+            sampleSizePerVariation=None,
+            variationMeans=None,
+            variationVariances=None,
+            updatedWeights=default_weights,
+            bestArmProbabilities=None,
+            updateMessage=update_message,
+            error=None,
+        )
+
+    @staticmethod
+    def no_update_result(
+        attributes: list[str], num_variations: int, update_message: str
+    ) -> ContextualBanditNoTreeResult:
+        return ContextualBanditNoTreeResult(
+            attributes=attributes,
+            responses=[
+                UpdateWeightsContextualBandit.no_update_response(
+                    context={},
+                    num_variations=num_variations,
+                    update_message=update_message,
+                )
+            ],
+        )
+
+    @staticmethod
+    def _rows_for_bandit(
+        rows: ExperimentMetricQueryResponseRows,
+        dimension_value: str = CONTEXTUAL_BANDIT_DIMENSION_VALUE,
+    ) -> ExperimentMetricQueryResponseRows:
+        """Copy rows and set dimension column to value so get_bandit_result's filter passes."""
+        out = []
+        for r in rows:
+            row = copy.copy(r)
+            row[CONTEXTUAL_BANDIT_DIMENSION_COLUMN] = dimension_value
+            out.append(row)
+        return out
+
+    @staticmethod
+    def create_contexts(
+        rows: ExperimentMetricQueryResponseRows, context_columns: list[str]
+    ) -> list[tuple[str, ...]]:
+        """Unique context tuples from rows, one value per dimension column in context_columns."""
+        return sorted(set(context_tuple_from_row(row, context_columns) for row in rows))
+
+    @staticmethod
+    def create_rows_by_context(
+        rows: ExperimentMetricQueryResponseRows,
+        context_columns: list[str],
+        unique_contexts: list[tuple[str, ...]],
+    ) -> dict[tuple[str, ...], ExperimentMetricQueryResponseRows]:
+        return {
+            ctx: [r for r in rows if context_tuple_from_row(r, context_columns) == ctx]
+            for ctx in unique_contexts
+        }
+
+    def compute_result(self) -> ContextualBanditNoTreeResult:
+        """Run a bandit per context and return per-context BanditResult."""
+        num_variations = len(self.contextual_bandit_settings.var_ids)
+        default_weights = (
+            list(self.analysis_settings.weights)
+            if getattr(self.analysis_settings, "weights", None)
+            else [1.0 / num_variations] * num_variations
+        )
+
+        if not self.rows:
+            update_message = "no rows"
+            return self.no_update_result([], num_variations, update_message)
+
+        elif not self.contextual_bandit_settings.attributes:
+            update_message = "no context columns configured"
+            return self.no_update_result([], num_variations, update_message)
+
+        else:
+            contexts = self.create_contexts(
+                self.rows, self.contextual_bandit_settings.attributes
+            )
+            rows_by_ctx = self.create_rows_by_context(
+                self.rows, self.contextual_bandit_settings.attributes, contexts
+            )
+            responses = []
+            for ctx in contexts:
+                # TODO: get current weights from contextual bandit settings
+                current_weights = default_weights.copy()
+                rows_for_bandit = self._rows_for_bandit(
+                    rows_by_ctx[ctx], CONTEXTUAL_BANDIT_DIMENSION_VALUE
+                )
+                bandit_settings = BanditSettingsForStatsEngine(
+                    var_names=self.contextual_bandit_settings.var_names,
+                    var_ids=self.contextual_bandit_settings.var_ids,
+                    current_weights=current_weights,
+                    reweight=self.contextual_bandit_settings.reweight,
+                    decision_metric=self.contextual_bandit_settings.decision_metric,
+                    bandit_weights_rng=self.contextual_bandit_settings.bandit_weights_rng,
+                    weight_by_period=self.contextual_bandit_settings.weight_by_period,
+                    top_two=self.contextual_bandit_settings.top_two,
+                )
+                r = get_bandit_result(
+                    rows=rows_for_bandit,
+                    metric=self.metric_settings,
+                    settings=self.analysis_settings,
+                    bandit_settings=bandit_settings,
+                )
+                sample_size_per_variation = (
+                    [float(v.users or 0) for v in r.singleVariationResults]
+                    if r.singleVariationResults
+                    else None
+                )
+                variation_means = (
+                    [float(v.cr or 0) for v in r.singleVariationResults]
+                    if r.singleVariationResults
+                    else None
+                )
+                variation_variances = (
+                    [float(v.variationVariances or 0) for v in r.singleVariationResults]
+                    if r.singleVariationResults
+                    else None
+                )
+                context_rule = {
+                    attr: {"$in": [ctx[i]]}
+                    for i, attr in enumerate(self.contextual_bandit_settings.attributes)
+                }
+                contextual_result = ContextualBanditResponse(
+                    context=context_rule,
+                    sampleSizePerVariation=sample_size_per_variation,
+                    variationMeans=variation_means,
+                    variationVariances=variation_variances,
+                    updatedWeights=r.updatedWeights,
+                    bestArmProbabilities=r.bestArmProbabilities,
+                    updateMessage=r.updateMessage,
+                    error=r.error,
+                )
+                responses.append(contextual_result)
+
+            return ContextualBanditNoTreeResult(
+                attributes=self.contextual_bandit_settings.attributes,
+                responses=responses,
+            )
+
+
+LEAF_ID_COLUMN = "leaf_id"
+
+ContextKey = Union[str, Tuple[str, ...]]
+
+COMBINED_CONTEXT_ATTRIBUTE_VALUE = "Combined"
+
+
+def context_tuple_from_row(
+    row: Dict[str, Any],
+    context_columns: list[str],
+) -> tuple[str, ...]:
+    """Read context tuple from a metric row; missing attrs bucket to Combined."""
+    return tuple(
+        str(row.get(col, COMBINED_CONTEXT_ATTRIBUTE_VALUE)) for col in context_columns
+    )
+
+
+@dataclass(frozen=True)
+class RowsByContextWithData:
+    """Partition of metric rows keyed by context tuple, with sorted ``unique_keys``."""
+
+    rows_with_data: dict[tuple[str, ...], ExperimentMetricQueryResponseRows]
+    unique_keys: list[tuple[str, ...]]
+
+    @classmethod
+    def from_rows_by_context(
+        cls,
+        rows_by_context: dict[tuple[str, ...], ExperimentMetricQueryResponseRows],
+    ) -> "RowsByContextWithData":
+        """Drop empty context buckets and return a partition with sorted ``unique_keys``."""
+        rows_with_data = {ctx: r for ctx, r in rows_by_context.items() if r}
+        unique_keys = sorted(rows_with_data.keys())
+        return cls(rows_with_data=rows_with_data, unique_keys=unique_keys)
+
+    @classmethod
+    def from_experiment_rows(
+        cls,
+        rows: ExperimentMetricQueryResponseRows,
+        bandit_settings: ContextualBanditSettingsForStatsEngine,
+    ) -> "RowsByContextWithData":
+        """Partition ``rows`` by ``bandit_settings.attributes``."""
+        if not rows:
+            return cls(rows_with_data={}, unique_keys=[])
+        context_columns = bandit_settings.attributes
+        rows_by_context: dict[tuple[str, ...], ExperimentMetricQueryResponseRows] = {}
+        for row in rows:
+            ctx = context_tuple_from_row(row, context_columns)
+            rows_by_context.setdefault(ctx, []).append(row)
+        return cls.from_rows_by_context(rows_by_context)
+
+
+def no_update_result(weights: list, update_message: str | None = None) -> BanditResult:
+    """Build a BanditResult that leaves weights unchanged (no update)."""
+    w = weights.copy()
+    return BanditResult(
+        singleVariationResults=None,
+        currentWeights=w,
+        updatedWeights=w,
+        bestArmProbabilities=w,
+        seed=0,
+        updateMessage=update_message,
+        error=None,
+        reweight=False,
+        weightsWereUpdated=False,
+    )
+
+
+def bandit_result_to_contextual_response(
+    context: Context, r: BanditResult
+) -> ContextualBanditResponse:
+    sample_size_per_variation = (
+        [float(v.users or 0) for v in r.singleVariationResults]
+        if r.singleVariationResults
+        else None
+    )
+    variation_means = (
+        [float(v.cr or 0) for v in r.singleVariationResults]
+        if r.singleVariationResults
+        else None
+    )
+    variation_variances = (
+        [float(v.variationVariances or 0) for v in r.singleVariationResults]
+        if r.singleVariationResults
+        else None
+    )
+    return ContextualBanditResponse(
+        context=context,
+        sampleSizePerVariation=sample_size_per_variation,
+        variationMeans=variation_means,
+        variationVariances=variation_variances,
+        updatedWeights=r.updatedWeights,
+        bestArmProbabilities=r.bestArmProbabilities,
+        updateMessage=r.updateMessage,
+        error=r.error,
+    )
+
+
+def context_rule_for_context_key(ctx: ContextKey, attributes: List[str]) -> Context:
+    """Build a targeting ``context`` dict from a partition key (tuple or scalar)."""
+    if isinstance(ctx, tuple):
+        return {attr: {"$in": [ctx[i]]} for i, attr in enumerate(attributes)}
+    return {attributes[0]: {"$in": [str(ctx)]}}
+
+
+def contextual_response_for_context_key(
+    ctx: ContextKey,
+    attributes: List[str],
+    source: ContextualBanditResponse,
+) -> ContextualBanditResponse:
+    """Copy leaf-level snapshot fields onto the real per-context condition."""
+    context_rule = context_rule_for_context_key(ctx, attributes)
+    return ContextualBanditResponse(
+        context=context_rule,
+        sampleSizePerVariation=source.sampleSizePerVariation,
+        variationMeans=source.variationMeans,
+        variationVariances=source.variationVariances,
+        updatedWeights=source.updatedWeights,
+        bestArmProbabilities=source.bestArmProbabilities,
+        updateMessage=source.updateMessage,
+        error=source.error,
+    )
+
+
+class UpdateWeightsContextualTree:
+    """Fits a tree over contexts and updates variation weights per leaf via UpdateWeightsContextualBandit."""
+
+    def __init__(
+        self,
+        rows: ExperimentMetricQueryResponseRows,
+        metric_settings: MetricSettingsForStatsEngine,
+        analysis_settings: AnalysisSettingsForStatsEngine,
+        bandit_settings: ContextualBanditSettingsForStatsEngine,
+    ):
+        self.rows = rows
+        self.metric_settings = metric_settings
+        self.analysis_settings = analysis_settings
+        self.bandit_settings = bandit_settings
+        self.var_id_map = get_var_id_map(list(self.bandit_settings.var_ids))
+        self.partition = RowsByContextWithData.from_experiment_rows(
+            rows,
+            bandit_settings,
+        )
+        self.max_leaves = getattr(bandit_settings, "max_leaves")
+        self.num_variations = len(bandit_settings.var_ids)
+        self.constant_weights = list[float](
+            [1.0 / self.num_variations] * self.num_variations
+        )
+        self.rng = bandit_settings.bandit_weights_rng
+        self.leaf_ids = []
+        self.leaf_map = {}
+        self.merge_combined_rows = lambda a, b: (a or []) + (b or [])
+
+    @staticmethod
+    def summable_statistics_per_variation_from_experiment_metric_rows(
+        partition: RowsByContextWithData,
+        metric_settings: MetricSettingsForStatsEngine,
+        bandit_settings: ContextualBanditSettingsForStatsEngine,
+        var_id_map: VarIdMap,
+    ) -> pd.DataFrame:
+        """Build a DataFrame with context columns plus one merged summable statistic per ``var_id`` per context."""
+        var_ids = list(var_id_map.keys())
+        num_variations = len(var_ids)
+        context_columns = bandit_settings.attributes
+        out_columns = list(context_columns) + list(var_ids)
+
+        records: List[Dict[str, Any]] = []
+        for ctx in partition.unique_keys:
+            rows_ctx = partition.rows_with_data[ctx]
+            record: Dict[str, Any] = {
+                context_columns[i]: ctx[i] for i in range(len(context_columns))
+            }
+            for variation_index in range(num_variations):
+                grp = [
+                    r
+                    for r in rows_ctx
+                    if variation_index_from_row(
+                        r.get("variation"), var_id_map, num_variations
+                    )
+                    == variation_index
+                ]
+                record[var_ids[variation_index]] = (
+                    _summable_statistic_for_variation_row_group(metric_settings, grp)
+                )
+            records.append(record)
+        return pd.DataFrame.from_records(records, columns=out_columns)
+
+    @staticmethod
+    def contextual_bandit_settings_for_tree(
+        tree_settings: ContextualBanditSettingsForStatsEngine,
+    ) -> ContextualBanditSettingsForStatsEngine:
+        """Build a leaf-keyed bandit settings from tree settings; omits ``max_leaves``."""
+        bandit_fields = {
+            k: v
+            for k, v in asdict(tree_settings).items()
+            if k in ContextualBanditSettingsForStatsEngine.__dataclass_fields__
+        }
+        bandit_fields["attributes"] = ["leaf_id"]
+        return ContextualBanditSettingsForStatsEngine(**bandit_fields)
+
+    @property
+    def contexts_by_leaf(self) -> dict:
+        """Leaf id -> list of contexts in that leaf."""
+        out: dict = {}
+        for ctx, leaf_id in self.leaf_map.items():
+            out.setdefault(leaf_id, []).append(ctx)
+        return out
+
+    def set_leaf_structure(self, leaf_map: dict):
+        self.leaf_map = leaf_map
+        self.leaf_ids = sorted(set(leaf_map.values()))
+
+    def rows_to_rows_by_context(
+        self, rows: ExperimentMetricQueryResponseRows
+    ) -> dict[tuple, ExperimentMetricQueryResponseRows]:
+        """Partition flat rows into dict keyed by context tuple (per bandit_settings.attributes)."""
+        if not rows:
+            return {}
+        out: dict[tuple, ExperimentMetricQueryResponseRows] = {}
+        for row in rows:
+            ctx = tuple(
+                str(row.get(attribute, CONTEXTUAL_BANDIT_DIMENSION_VALUE))
+                for attribute in self.bandit_settings.attributes
+            )
+            out.setdefault(ctx, []).append(row)
+        return out
+
+    @staticmethod
+    def aggregate_variation_columns(
+        df: pd.DataFrame, variation_columns: List[str]
+    ) -> Dict[str, SummableStatistic]:
+        """Pool each named variation column in ``df`` into summed statistics and variance values."""
+        if df.empty:
+            return {}
+        summed: Dict[str, SummableStatistic] = {}
+        for col in variation_columns:
+            if col not in df.columns:
+                raise KeyError(f"variation column {col!r} not in dataframe")
+            stat = df[col].sum()
+            summed[col] = stat
+        return summed
+
+    @staticmethod
+    def ordered_variation_statistics(
+        summed: Dict[str, SummableStatistic], variation_columns: List[str]
+    ) -> list[SummableStatistic]:
+        return list(summed[col] for col in variation_columns)
+
+    @staticmethod
+    def calculate_sse(d: Dict[str, SummableStatistic]) -> np.ndarray:
+        """Calculate the sum of squared errors for a dictionary of summable statistics."""
+        return np.array([(stat.n - 1) * stat.variance for stat in d.values()])
+
+    @staticmethod
+    def identify_update(
+        stats_encoded: pd.DataFrame,
+        one_hot_encoded_feature_names: List[str],
+        variation_columns: List[str],
+        analysis_settings: AnalysisSettingsForStatsEngine,
+        metric_settings: MetricSettingsForStatsEngine,
+        rng: np.random.Generator,
+    ) -> tuple[int, int, float]:
+        """Pick the (feature, leaf) split that most reduces SSE under the current tree."""
+        num_features = len(one_hot_encoded_feature_names)
+        num_variations = len(variation_columns)
+        num_leaves_current = len(np.unique(stats_encoded["current_leaf"]))
+        sse_current = np.zeros((num_leaves_current, num_variations))
+        sse_split = np.zeros((num_features, num_leaves_current, num_variations))
+
+        for leaf_index in range(num_leaves_current):
+            this_leaf = stats_encoded[stats_encoded["current_leaf"] == leaf_index]
+            aggregated = UpdateWeightsContextualTree.aggregate_variation_columns(
+                this_leaf, variation_columns
+            )
+            sse_current[leaf_index, :] = [
+                (stat.n - 1) * stat.variance for stat in aggregated.values()
+            ]
+            for feature_index in range(num_features):
+                stats_df_0 = this_leaf[
+                    this_leaf[one_hot_encoded_feature_names[feature_index]] == 0
+                ]
+                stats_df_1 = this_leaf[
+                    this_leaf[one_hot_encoded_feature_names[feature_index]] == 1
+                ]
+                if len(stats_df_0) == 0 or len(stats_df_1) == 0:
+                    sse_split[feature_index, leaf_index, :] = sse_current[leaf_index, :]
+                else:
+                    b_0 = UpdateWeightsContextualTree.aggregate_variation_columns(
+                        stats_df_0, variation_columns
+                    )
+                    b_1 = UpdateWeightsContextualTree.aggregate_variation_columns(
+                        stats_df_1, variation_columns
+                    )
+                    sse_0 = np.array(
+                        [(stat.n - 1) * stat.variance for stat in b_0.values()]
+                    )
+                    sse_1 = np.array(
+                        [(stat.n - 1) * stat.variance for stat in b_1.values()]
+                    )
+                    sse_split[feature_index, leaf_index, :] = sse_0 + sse_1
+
+        sse_current_across_variations = np.sum(sse_current, axis=1)
+        sse_split_across_variations = np.sum(sse_split, axis=2)
+        diff = (
+            np.tile(sse_current_across_variations, (num_features, 1))
+            - sse_split_across_variations
+        )
+        idx = np.argmax(diff)
+        pos = np.unravel_index(idx, diff.shape)
+        sse_current_sum = np.sum(sse_current_across_variations)
+        return (int(pos[0]), int(pos[1]), sse_current_sum)
+
+    @staticmethod
+    def create_stats_df(
+        partition: RowsByContextWithData,
+        metric_settings: MetricSettingsForStatsEngine,
+        bandit_settings: ContextualBanditSettingsForStatsEngine,
+    ) -> pd.DataFrame:
+        """Build a DataFrame with context columns plus one merged summable statistic per ``var_id`` per context."""
+        stats_df = UpdateWeightsContextualTree.summable_statistics_per_variation_from_experiment_metric_rows(
+            partition,
+            metric_settings,
+            bandit_settings,
+            get_var_id_map(list(bandit_settings.var_ids)),
+        )
+        stats_df["key"] = list(
+            zip(*(stats_df[c].astype(str) for c in bandit_settings.attributes))
+        )
+        return stats_df
+
+    @staticmethod
+    def one_hot_encode(
+        df: pd.DataFrame,
+        columns: List[str],
+        prefix: Optional[List[str]] = None,
+        dtype: type = float,
+    ) -> pd.DataFrame:
+        """Subset of ``pd.get_dummies``: replace ``columns`` with sorted indicator columns ``{prefix}_{cat}``."""
+        prefixes = prefix if prefix is not None else columns
+        if len(prefixes) != len(columns):
+            raise ValueError("prefix must have the same length as columns")
+
+        encode_set = set(columns)
+        # Non-encoded columns keep their original order and dtype (pandas places
+        # them ahead of the generated indicator columns).
+        parts: List[pd.DataFrame] = [df[[c for c in df.columns if c not in encode_set]]]
+
+        for col, pre in zip(columns, prefixes):
+            series = df[col]
+            categories = sorted(c for c in series.unique() if pd.notna(c))
+            parts.append(
+                pd.DataFrame(
+                    {
+                        f"{pre}_{category}": (series == category).astype(dtype)
+                        for category in categories
+                    },
+                    index=df.index,
+                )
+            )
+
+        # Join all blocks at once to avoid the DataFrame fragmentation that
+        # repeated single-column inserts cause (matches pandas' internal concat).
+        return pd.concat(parts, axis=1)
+
+    @staticmethod
+    def create_stats_encoded(
+        stats_df: pd.DataFrame,
+        bandit_settings: ContextualBanditSettingsForStatsEngine,
+    ) -> pd.DataFrame:
+        """One-hot encode contextual attribute columns, keeping variation statistic columns as-is."""
+        stats_encoded = UpdateWeightsContextualTree.one_hot_encode(
+            stats_df,
+            columns=bandit_settings.attributes,
+            prefix=bandit_settings.attributes,
+            dtype=float,
+        )
+        return stats_encoded
+
+    @staticmethod
+    def calculate_sse_final(
+        stats_encoded: pd.DataFrame, variation_columns: List[str]
+    ) -> float:
+        """Calculate the final SSE for the tree."""
+        sse_final = 0
+        for leaf_id in np.unique(stats_encoded["current_leaf"]):
+            this_leaf = stats_encoded[stats_encoded["current_leaf"] == leaf_id]
+            aggregated = UpdateWeightsContextualTree.aggregate_variation_columns(
+                this_leaf, variation_columns
+            )
+            sse_final += sum(
+                [(stat.n - 1) * stat.variance for stat in aggregated.values()]
+            )
+        return sse_final
+
+    def _build_by_leaf_cumulative(self, rows_by_context: dict) -> dict:
+        """Merge per-context rows into per-leaf rows using ``leaf_map``."""
+        by_leaf_cumulative = {}
+        for leaf_id in self.leaf_ids:
+            rows_leaf = None
+            for ctx in self.partition.unique_keys:
+                if self.leaf_map.get(ctx) == leaf_id and rows_by_context.get(ctx):
+                    if rows_leaf is None:
+                        rows_leaf = copy.deepcopy(rows_by_context[ctx])
+                    else:
+                        rows_leaf = self.merge_combined_rows(
+                            rows_leaf, rows_by_context[ctx]
+                        )
+            if rows_leaf is not None:
+                by_leaf_cumulative[leaf_id] = rows_leaf
+        return by_leaf_cumulative
+
+    def _aggregate_leaf_rows_for_bandit(
+        self, rows: ExperimentMetricQueryResponseRows, leaf_id: int
+    ) -> ExperimentMetricQueryResponseRows:
+        """Merge all rows in a leaf into one row per variation; sets LEAF_ID_COLUMN."""
+        if not rows:
+            return []
+        sum_cols_active = [c for c in SUM_COLS if any(c in r for r in rows)]
+        by_var: dict[int, list[dict[str, Any]]] = {}
+        for r in rows:
+            v = variation_index_from_row(
+                r.get("variation"), self.var_id_map, self.num_variations
+            )
+            if v is None:
+                raise ValueError(
+                    f"Unknown variation {r.get('variation')!r}; expected one of "
+                    f"{list(self.bandit_settings.var_ids)} or index "
+                    f"0..{self.num_variations - 1}"
+                )
+            by_var.setdefault(v, []).append(r)
+        var_ids_canon = [str(v) for v in list(self.bandit_settings.var_ids)]
+        out: ExperimentMetricQueryResponseRows = []
+        for v in range(self.num_variations):
+            grp = by_var.get(v, [])
+            row: dict[str, Any] = {
+                LEAF_ID_COLUMN: leaf_id,
+                "dimension": CONTEXTUAL_BANDIT_DIMENSION_VALUE,
+                "variation": var_ids_canon[v],
+            }
+            for col in sum_cols_active:
+                if not grp:
+                    row[col] = 0
+                    continue
+                vals = [r[col] for r in grp if col in r]
+                row[col] = sum(vals)
+            out.append(row)
+        return out
+
+    def build_tree(self):
+        """Build context leaves by iterative ``identify_update`` splits on one-hot encoded attributes."""
+        self.stats_df = self.create_stats_df(
+            self.partition,
+            self.metric_settings,
+            self.bandit_settings,
+        )
+        self.stats_encoded = self.create_stats_encoded(
+            self.stats_df, self.bandit_settings
+        )
+
+        self.stats_encoded["leaf_0"] = 0
+        self.stats_encoded["current_leaf"] = copy.deepcopy(
+            self.stats_encoded["leaf_0"].astype(int)
+        )
+
+        one_hot_encoded_feature_names = [
+            c for c in self.stats_encoded.columns if c not in self.stats_df.columns
+        ]
+        variation_columns = [str(v) for v in list(self.bandit_settings.var_ids)]
+        sse_current_sums = np.zeros(self.max_leaves)
+
+        for current_leaf in range(0, self.max_leaves - 1):
+            feature_to_update, leaf_to_update, sse_current_sum = self.identify_update(
+                self.stats_encoded,
+                one_hot_encoded_feature_names,
+                variation_columns,
+                self.analysis_settings,
+                self.metric_settings,
+                self.rng,
+            )
+            sse_current_sums[current_leaf] = sse_current_sum
+            new_leaf = current_leaf + 1
+            matches_update_leaf = self.stats_encoded["current_leaf"] == int(
+                leaf_to_update
+            )
+            matches_update_features = (
+                self.stats_encoded[
+                    one_hot_encoded_feature_names[int(feature_to_update)]
+                ]
+                == 1.0
+            )
+            mask = matches_update_leaf & matches_update_features
+            self.stats_encoded.loc[mask, "current_leaf"] = int(new_leaf)  # type: ignore
+            # Snapshot column (must use df[col] = …, not df.loc[col] — loc[col] is row indexing).
+            update_column = "leaf_" + str(new_leaf)
+            self.stats_encoded[update_column] = self.stats_encoded[
+                "current_leaf"
+            ].copy()
+
+        self.leaf_map = dict(
+            zip(
+                self.stats_encoded["key"],
+                self.stats_encoded["current_leaf"].astype(int),
+            )
+        )
+        self.set_leaf_structure(self.leaf_map)
+        self.sse_final = self.calculate_sse_final(self.stats_encoded, variation_columns)
+
+    def compute_result(self) -> ContextualBanditResult:
+        """Fit tree, run one leaf-keyed bandit, then map leaf results back onto each real context."""
+        self.build_tree()
+        if not self.leaf_ids:
+            no_leaf_responses: List[ContextualBanditContextSummary] = []
+            for ctx in self.partition.unique_keys:
+                context_rule = context_rule_for_context_key(
+                    ctx, self.bandit_settings.attributes
+                )
+                no_leaf_responses.append(
+                    ContextualBanditContextSummary(
+                        context=context_rule,
+                        sampleSizePerVariation=None,
+                        sampleMeans=None,
+                        sampleVariances=None,
+                        bestArmProbabilities=None,
+                        error=None,
+                        updatedWeights=list(self.constant_weights),
+                        updateMessage="No update",
+                    )
+                )
+            return ContextualBanditResult(
+                attributes=self.bandit_settings.attributes,
+                responses=[],
+                responsesContext=no_leaf_responses,
+                leafMap=copy.copy(self.leaf_map),
+            )
+        by_leaf_cumulative = self._build_by_leaf_cumulative(
+            self.partition.rows_with_data
+        )
+
+        rows_all: ExperimentMetricQueryResponseRows = []
+
+        for leaf_id in self.leaf_ids:
+            rows_leaf = by_leaf_cumulative.get(leaf_id) or []
+            if not rows_leaf:
+                raise ValueError(f"No rows for leaf {leaf_id}")
+            rows_all.extend(
+                self._aggregate_leaf_rows_for_bandit(rows_leaf, leaf_id=leaf_id)
+            )
+
+        leaf_bandit_settings = self.contextual_bandit_settings_for_tree(
+            self.bandit_settings
+        )
+
+        leaf_bandit = UpdateWeightsContextualBandit(
+            rows_all,
+            self.metric_settings,
+            self.analysis_settings,
+            leaf_bandit_settings,
+        )
+        leaf_response = leaf_bandit.compute_result()
+        leaf_responses_by_id = (
+            ContextualBanditWeightsLookup.index_responses_by_attribute_singleton(
+                leaf_response.responses, LEAF_ID_COLUMN
+            )
+        )
+
+        responses_leaf: List[ContextualBanditResponse] = []
+        for leaf_id in self.leaf_ids:
+            leaf_snapshot = leaf_responses_by_id.get(str(leaf_id))
+            if leaf_snapshot is not None:
+                responses_leaf.append(leaf_snapshot)
+            else:
+                responses_leaf.append(
+                    bandit_result_to_contextual_response(
+                        {LEAF_ID_COLUMN: {"$in": [str(leaf_id)]}},
+                        no_update_result(list(self.constant_weights)),
+                    )
+                )
+
+        # Per-context responses for deep diving.
+        responses_context: List[ContextualBanditContextSummary] = []
+        var_ids = list(self.bandit_settings.var_ids)
+        for ctx in self.partition.unique_keys:
+            context_rule = context_rule_for_context_key(
+                ctx, self.bandit_settings.attributes
+            )
+
+            ctx_stats = summable_statistics_per_variation_from_experiment_metric_rows(
+                self.partition.rows_with_data.get(ctx) or [],
+                self.metric_settings,
+                var_ids,
+            )
+            sample_size_per_variation = [float(s.n) for s in ctx_stats]
+            sample_means = [float(s.unadjusted_mean) for s in ctx_stats]
+            sample_variances = [float(s.unadjusted_variance) for s in ctx_stats]
+
+            # Reuse the per-leaf weights for every context that maps to that leaf.
+            leaf_id = self.leaf_map.get(ctx)
+            leaf_snapshot = (
+                leaf_responses_by_id.get(str(leaf_id)) if leaf_id is not None else None
+            )
+            if leaf_snapshot is not None:
+                updated_weights = leaf_snapshot.updatedWeights
+                best_arm_probabilities = leaf_snapshot.bestArmProbabilities
+                update_message = leaf_snapshot.updateMessage
+                error = leaf_snapshot.error
+            else:
+                updated_weights = list(self.constant_weights)
+                best_arm_probabilities = None
+                update_message = "No update"
+                error = None
+
+            responses_context.append(
+                ContextualBanditContextSummary(
+                    context=context_rule,
+                    sampleSizePerVariation=sample_size_per_variation,
+                    sampleMeans=sample_means,
+                    sampleVariances=sample_variances,
+                    updatedWeights=updated_weights,
+                    bestArmProbabilities=best_arm_probabilities,
+                    updateMessage=update_message,
+                    error=error,
+                )
+            )
+
+        return ContextualBanditResult(
+            attributes=self.bandit_settings.attributes,
+            responses=responses_leaf,
+            responsesContext=responses_context,
+            leafMap=copy.copy(self.leaf_map),
+        )
+
+
 # Get just the columns for a single metric
 def filter_query_rows(
     query_rows: ExperimentMetricQueryResponseRows, metric_index: int
@@ -1362,26 +2382,72 @@ def process_data_dict(data: Dict[str, Any]) -> DataForStatsEngine:
         },
         analyses=[AnalysisSettingsForStatsEngine(**a) for a in data["analyses"]],
         query_results=[QueryResultsForStatsEngine(**q) for q in data["query_results"]],
-        bandit_settings=(
-            BanditSettingsForStatsEngine(**data["bandit_settings"])
-            if "bandit_settings" in data
-            else None
-        ),
+        bandit_settings=get_bandit_settings(data),
+        contextual_bandit_settings=get_contextual_bandit_settings(data),
     )
 
 
-def process_experiment_results(
-    data: Dict[str, Any]
-) -> Tuple[List[ExperimentMetricAnalysis], Optional[BanditResult]]:
+def get_contextual_bandit_result(
+    rows: ExperimentMetricQueryResponseRows,
+    metric: MetricSettingsForStatsEngine,
+    settings: AnalysisSettingsForStatsEngine,
+    contextual_bandit_settings: ContextualBanditSettingsForStatsEngine,
+) -> ContextualBanditResult:
+    result = UpdateWeightsContextualTree(
+        rows=rows,
+        metric_settings=metric,
+        analysis_settings=settings,
+        bandit_settings=contextual_bandit_settings,
+    ).compute_result()
+    # Tuple-keyed leafMap -> JSON-serializable entries before leaving the stats engine.
+    result.leafMap = (
+        serialize_leaf_map_for_json(result.leafMap, list(result.attributes))
+        if result.leafMap
+        else []
+    )
+    return result
+
+
+def serialize_leaf_map_for_json(
+    leaf_map: dict,
+    attributes: List[str],
+) -> List[ContextualLeafMapEntry]:
+    """Convert internal tuple-keyed leaf_map to JSON-serializable entries."""
+    entries: List[ContextualLeafMapEntry] = []
+    for ctx, leaf_id in leaf_map.items():
+        if isinstance(ctx, tuple):
+            context = ContextualBanditWeightsLookup.observed_from_tuple(attributes, ctx)
+        elif isinstance(ctx, str):
+            context = {attributes[0]: ctx} if attributes else {}
+        else:
+            continue
+        entries.append(ContextualLeafMapEntry(context=context, leafId=int(leaf_id)))
+    return entries
+
+
+def process_experiment_results(data: Dict[str, Any]) -> Tuple[
+    List[ExperimentMetricAnalysis],
+    Optional[BanditResult],
+    Optional[ContextualBanditResult],
+]:
     d = process_data_dict(data)
     results: List[ExperimentMetricAnalysis] = []
     bandit_result: Optional[BanditResult] = None
+    contextual_bandit_result: Optional[ContextualBanditResult] = None
     for query_result in d.query_results:
         for i, metric in enumerate(query_result.metrics):
             if metric in d.metrics:
                 this_metric = d.metrics[metric]
                 rows = filter_query_rows(query_result.rows, i)
                 if len(rows):
+                    if d.contextual_bandit_settings:
+                        contextual_bandit_result = get_contextual_bandit_result(
+                            rows=rows,
+                            metric=this_metric,
+                            settings=d.analyses[0],
+                            contextual_bandit_settings=d.contextual_bandit_settings,
+                        )
+                        continue
                     if d.bandit_settings:
                         metric_settings_bandit = copy.deepcopy(this_metric)
                         # when using multi-period data, binomial is no longer iid and variance is wrong
@@ -1428,7 +2494,7 @@ def process_experiment_results(
             reweight=d.bandit_settings.reweight,
             current_weights=d.bandit_settings.current_weights,
         )
-    return results, bandit_result
+    return results, bandit_result, contextual_bandit_result
 
 
 def process_multiple_experiment_results(
@@ -1438,14 +2504,15 @@ def process_multiple_experiment_results(
     for exp_data in data:
         try:
             exp_data_proc = ExperimentDataForStatsEngine(**exp_data)
-            fixed_results, bandit_result = process_experiment_results(
-                exp_data_proc.data
+            fixed_results, bandit_result, contextual_bandit_result = (
+                process_experiment_results(exp_data_proc.data)
             )
             results.append(
                 MultipleExperimentMetricAnalysis(
                     id=exp_data_proc.id,
                     results=fixed_results,
                     banditResult=bandit_result,
+                    contextualBanditResult=contextual_bandit_result,
                     error=None,
                     traceback=None,
                 )
@@ -1456,6 +2523,7 @@ def process_multiple_experiment_results(
                     id=exp_data["id"],
                     results=[],
                     banditResult=None,
+                    contextualBanditResult=None,
                     error=str(e),
                     traceback=traceback.format_exc(),
                 )

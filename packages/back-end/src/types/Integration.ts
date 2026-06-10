@@ -67,7 +67,7 @@ import {
   QueryMetadata,
   QueryType,
 } from "shared/types/query";
-import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import { SnapshotMetricRequest } from "shared/types/experiment-snapshot";
 import { DimensionInterface } from "shared/types/dimension";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { MetricInterface, MetricType } from "shared/types/metric";
@@ -87,13 +87,13 @@ export interface SourceIntegrationInterface {
   ): void;
   getSensitiveParamKeys(): string[];
   getExperimentResultsQuery(
-    snapshotSettings: ExperimentSnapshotSettings,
+    snapshotSettings: SnapshotMetricRequest,
     metricDocs: ExperimentMetricInterface[],
     activationMetricDoc: ExperimentMetricInterface | null,
     dimension: DimensionInterface | null,
   ): string;
   getExperimentResults(
-    snapshotSettings: ExperimentSnapshotSettings,
+    snapshotSettings: SnapshotMetricRequest,
     metrics: ExperimentMetricInterface[],
     activationMetric: ExperimentMetricInterface | null,
     dimension: DimensionInterface | null,
@@ -143,7 +143,7 @@ export interface SourceIntegrationInterface {
   getExperimentFactMetricsQuery?(
     params: ExperimentFactMetricsQueryParams,
   ): string;
-  getExperimentMetricQuery(params: ExperimentMetricQueryParams): string;
+  getSnapshotMetricQuery(params: ExperimentMetricQueryParams): string;
   getExperimentAggregateUnitsQuery(
     params: ExperimentAggregateUnitsQueryParams,
   ): string;
@@ -251,7 +251,7 @@ export interface SourceIntegrationInterface {
     setExternalId: ExternalIdCallback,
     queryMetadata?: QueryMetadata,
   ): Promise<ExperimentFactMetricsQueryResponse>;
-  runExperimentMetricQuery(
+  runSnapshotMetricQuery(
     query: string,
     setExternalId: ExternalIdCallback,
     queryMetadata?: QueryMetadata,

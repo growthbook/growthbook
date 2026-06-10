@@ -2,7 +2,7 @@ import { BigQueryTimestamp } from "@google-cloud/bigquery";
 import { ExperimentMetricInterface } from "shared/experiments";
 import { MetricAnalysisSettings } from "shared/types/metric-analysis";
 import { DimensionInterface } from "shared/types/dimension";
-import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import { SnapshotMetricRequest } from "shared/types/experiment-snapshot";
 import { MetricInterface, MetricType } from "shared/types/metric";
 import { QueryStatistics } from "shared/types/query";
 import {
@@ -303,7 +303,7 @@ export type ColumnTopValuesResponseRow = {
 };
 
 interface ExperimentBaseQueryParams {
-  settings: ExperimentSnapshotSettings;
+  settings: SnapshotMetricRequest;
   activationMetric: ExperimentMetricInterface | null;
   factTableMap: FactTableMap;
   dimensions: Dimension[];
@@ -316,7 +316,7 @@ export interface ExperimentUnitsQueryParams extends ExperimentBaseQueryParams {
 }
 
 export interface CreateExperimentIncrementalUnitsQueryParams {
-  settings: ExperimentSnapshotSettings;
+  settings: SnapshotMetricRequest;
   activationMetric: ExperimentMetricInterface | null;
   dimensions: Dimension[];
   factTableMap: FactTableMap;
@@ -352,7 +352,7 @@ export interface MaxTimestampMetricSourceQueryParams {
 }
 
 export interface CreateMetricSourceTableQueryParams {
-  settings: ExperimentSnapshotSettings;
+  settings: SnapshotMetricRequest;
   // The fact table this cache is rooted in. Schema generation uses this to
   // decide, for each metric, which of its sides (numerator, denominator) the
   // cache materializes — a cross-FT ratio metric's numerator-only cache lives
@@ -365,7 +365,7 @@ export interface CreateMetricSourceTableQueryParams {
 }
 
 export interface InsertMetricSourceDataQueryParams {
-  settings: ExperimentSnapshotSettings;
+  settings: SnapshotMetricRequest;
   activationMetric: ExperimentMetricInterface | null;
   factTableMap: FactTableMap;
   // The fact table whose rows feed this cache. For cross-FT ratio metrics
@@ -383,7 +383,7 @@ export interface DropMetricSourceCovariateTableQueryParams {
 }
 
 export interface CreateMetricSourceCovariateTableQueryParams {
-  settings: ExperimentSnapshotSettings;
+  settings: SnapshotMetricRequest;
   // The fact table this covariate cache is rooted in. Like the metric source
   // schema, only the side(s) this FT actually hosts get materialized — a
   // cross-FT ratio metric's numerator-only covariate cache lives in its
@@ -395,7 +395,7 @@ export interface CreateMetricSourceCovariateTableQueryParams {
 }
 
 export interface InsertMetricSourceCovariateDataQueryParams {
-  settings: ExperimentSnapshotSettings;
+  settings: SnapshotMetricRequest;
   activationMetric: ExperimentMetricInterface | null;
   factTableMap: FactTableMap;
   // The fact table whose rows feed this covariate cache. Disambiguates which
@@ -463,7 +463,7 @@ export interface DropAggregatedFactTableQueryParams {
 }
 
 export interface IncrementalRefreshStatisticsQueryParams {
-  settings: ExperimentSnapshotSettings;
+  settings: SnapshotMetricRequest;
   activationMetric: ExperimentMetricInterface | null;
   dimensionsForPrecomputation: ExperimentDimensionWithSpecifiedSlices[];
   dimensionsForAnalysis: Dimension[];

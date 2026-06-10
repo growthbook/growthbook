@@ -44,7 +44,7 @@ import {
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
-  ExperimentSnapshotSettings,
+  SnapshotMetricRequest,
   MetricForSnapshot,
 } from "shared/types/experiment-snapshot";
 import { OrganizationSettings } from "shared/types/organization";
@@ -101,7 +101,7 @@ export function getReportVariations(
 }
 
 export function getMetricSnapshotSettingsFromSnapshot(
-  snapshotSettings: ExperimentSnapshotSettings,
+  snapshotSettings: SnapshotMetricRequest,
   analysisSettings: ExperimentSnapshotAnalysisSettings,
 ): MetricSnapshotSettings[] {
   return snapshotSettings.metricSettings.map((m) => {
@@ -194,7 +194,7 @@ export function getSnapshotSettingsFromReportArgs(
   experiment?: ExperimentInterface,
   metricGroups: MetricGroupInterface[] = [],
 ): {
-  snapshotSettings: ExperimentSnapshotSettings;
+  snapshotSettings: SnapshotMetricRequest;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
 } {
   const defaultMetricPriorSettings = args.defaultMetricPriorSettings || {
@@ -215,7 +215,7 @@ export function getSnapshotSettingsFromReportArgs(
     });
   }
 
-  const snapshotSettings: ExperimentSnapshotSettings = {
+  const snapshotSettings: SnapshotMetricRequest = {
     metricSettings: getAllExpandedMetricIdsFromExperiment({
       exp: args,
       expandedMetricMap: metricMap,
@@ -653,7 +653,7 @@ export function getReportSnapshotSettings({
   metricGroups: MetricGroupInterface[];
   datasource?: DataSourceInterface;
   experiment?: ExperimentInterface | null;
-}): ExperimentSnapshotSettings {
+}): SnapshotMetricRequest {
   const defaultPriorSettings = orgPriorSettings ?? {
     override: false,
     proper: false,

@@ -115,7 +115,11 @@ const experimentValue = z
 
 export type ExperimentValue = z.infer<typeof experimentValue>;
 
-const experimentType = ["standard", "multi-armed-bandit"] as const;
+const experimentType = [
+  "standard",
+  "multi-armed-bandit",
+  "contextual-bandit",
+] as const;
 const banditStageType = ["explore", "exploit", "paused"] as const;
 
 const experimentRule = baseRule
@@ -179,6 +183,17 @@ const experimentRefRule = baseRule
 
 export type ExperimentRefRule = z.infer<typeof experimentRefRule>;
 
+/** Feature rule referencing a `ContextualBandit` doc; emits same SDK shape as `experiment-ref`. */
+const contextualBanditRefRule = baseRule
+  .extend({
+    type: z.literal("contextual-bandit-ref"),
+    contextualBanditId: z.string(),
+    variations: z.array(experimentRefVariation),
+  })
+  .strict();
+
+export type ContextualBanditRefRule = z.infer<typeof contextualBanditRefRule>;
+
 export const safeRolloutRule = baseRule
   .extend({
     type: z.literal("safe-rollout"),
@@ -201,6 +216,7 @@ export const featureRule = z.union([
   rolloutRule,
   experimentRule,
   experimentRefRule,
+  contextualBanditRefRule,
   safeRolloutRule,
 ]);
 
@@ -773,6 +789,28 @@ export const apiFeatureExperimentRefRuleValidator = namedSchema(
   ),
 );
 
+// ---- FeatureContextualBanditRefRule ----
+export const apiFeatureContextualBanditRefRuleValidator = namedSchema(
+  "FeatureContextualBanditRefRule",
+  z.intersection(
+    apiFeatureBaseRuleValidator
+      .omit({})
+      .describe(
+        "Common fields shared by all feature rule types. Specific rule types extend\nthis base with their own required properties (value, coverage, etc.).\n",
+      ),
+    z.object({
+      type: z.literal("contextual-bandit-ref"),
+      variations: z.array(
+        z.object({
+          value: z.string(),
+          variationId: z.string(),
+        }),
+      ),
+      contextualBanditId: z.string(),
+    }),
+  ),
+);
+
 // ---- FeatureSafeRolloutRule (schemas/FeatureSafeRolloutRule.yaml) ----
 export const apiFeatureSafeRolloutRuleValidator = namedSchema(
   "FeatureSafeRolloutRule",
@@ -805,6 +843,7 @@ export const apiFeatureRuleValidator = namedSchema(
     apiFeatureRolloutRuleValidator,
     apiFeatureExperimentRuleValidator,
     apiFeatureExperimentRefRuleValidator,
+    apiFeatureContextualBanditRefRuleValidator,
     apiFeatureSafeRolloutRuleValidator,
   ]),
 );

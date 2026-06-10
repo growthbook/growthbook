@@ -392,6 +392,28 @@ export const ExperimentModel = mongoose.model<ExperimentInterface>(
   experimentSchema,
 );
 
+export function applyExperimentTypeQuery(
+  query: FilterQuery<ExperimentDocument>,
+  type?: ExperimentType,
+) {
+  if (type === "standard") {
+    query.type = { $in: ["standard", null] };
+    return;
+  }
+
+  if (type === "multi-armed-bandit") {
+    query.type = "multi-armed-bandit";
+    return;
+  }
+
+  if (type) {
+    query.type = type;
+    return;
+  }
+
+  query.type = { $ne: "holdout" };
+}
+
 /**
  * Convert the Mongo document to an ExperimentInterface, omitting Mongo default fields __v, _id
  * @param doc
@@ -501,15 +523,7 @@ export async function getAllExperiments(
     query.status = status;
   }
 
-  if (type === "multi-armed-bandit") {
-    query.type = "multi-armed-bandit";
-  } else if (type === "standard") {
-    query.type = { $in: ["standard", null] };
-  } else if (type === "holdout") {
-    query.type = "holdout";
-  } else if (!type) {
-    query.type = { $ne: "holdout" };
-  }
+  applyExperimentTypeQuery(query, type);
 
   return await findExperiments(context, query, limit, sortBy);
 }
@@ -517,11 +531,13 @@ export async function getAllExperiments(
 export async function hasArchivedExperiments(
   context: ReqContext | ApiReqContext,
   project?: string,
+  type?: ExperimentType,
 ): Promise<boolean> {
   const query: FilterQuery<ExperimentDocument> = {
     organization: context.org.id,
     archived: true,
   };
+  applyExperimentTypeQuery(query, type);
 
   if (project) {
     query.project = project;

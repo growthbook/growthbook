@@ -438,6 +438,9 @@ importers:
       snowflake-sdk:
         specifier: 2.3.3
         version: 2.3.3(asn1.js@5.4.1)(encoding@0.1.13)
+      stats-ts:
+        specifier: workspace:*
+        version: link:../stats-ts
       string-env-interpolation:
         specifier: ^1.0.1
         version: 1.0.1
@@ -1272,6 +1275,49 @@ importers:
         version: 5.7.3
 
   packages/stats: {}
+
+  packages/stats-ts:
+    dependencies:
+      shared:
+        specifier: workspace:*
+        version: link:../shared
+    devDependencies:
+      '@swc-node/register':
+        specifier: ^1.9.0
+        version: 1.9.0(@swc/core@1.3.4)(typescript@5.7.3)
+      '@swc/cli':
+        specifier: ^0.1.57
+        version: 0.1.57(@swc/core@1.3.4)(chokidar@3.6.0)
+      '@swc/core':
+        specifier: ^1.3.4
+        version: 1.3.4
+      '@swc/jest':
+        specifier: ^0.2.23
+        version: 0.2.23(@swc/core@1.3.4)
+      '@types/jest':
+        specifier: ^27.0.1
+        version: 27.0.1
+      '@types/node':
+        specifier: ^22.8.6
+        version: 22.8.6
+      '@typescript/native-preview':
+        specifier: 7.0.0-dev.20260309.1
+        version: 7.0.0-dev.20260309.1
+      chokidar:
+        specifier: ^3.5.3
+        version: 3.6.0
+      jest:
+        specifier: ^27.1.1
+        version: 27.5.1(ts-node@10.9.1(@swc/core@1.3.4)(@swc/wasm@1.2.130)(@types/node@22.8.6)(typescript@5.7.3))
+      prettier:
+        specifier: 3.6.2
+        version: 3.6.2
+      rimraf:
+        specifier: ^3.0.2
+        version: 3.0.2
+      typescript:
+        specifier: 5.7.3
+        version: 5.7.3
 
 packages:
 

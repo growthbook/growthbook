@@ -8,7 +8,7 @@ import {
   isRegressionAdjusted,
   quantileMetricType,
 } from "shared/experiments";
-import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import type { SnapshotMetricRequest } from "shared/types/experiment-snapshot";
 import type {
   FactMetricInterface,
   FactTableInterface,
@@ -48,7 +48,7 @@ export function getMetricData(
   dialect: SqlDialect,
   metricWithIndex: { metric: FactMetricInterface; index: number },
   settings: Pick<
-    ExperimentSnapshotSettings,
+    SnapshotMetricRequest,
     "attributionModel" | "regressionAdjustmentEnabled" | "startDate"
   > & { endDate?: Date },
   activationMetric: ExperimentMetricInterface | null,

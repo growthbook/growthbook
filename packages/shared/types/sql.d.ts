@@ -107,4 +107,6 @@ export interface SqlDialect {
     pairs: UnpivotLabeledPair[],
   ) => UnpivotLabeledPairsResult;
   stringLength: (column: string) => string;
+  /** Max distinct context tuples retained when bucketing contextual bandit attributes. */
+  maxContextualBanditContexts: number;
 }

@@ -8,7 +8,7 @@ import express, {
   RequestHandler,
   Response,
 } from "express";
-import cors from "cors";
+import cors, { CorsOptions } from "cors";
 import asyncHandler from "express-async-handler";
 import compression from "compression";
 import * as Sentry from "@sentry/node";
@@ -362,24 +362,41 @@ app.get(
   uploadController.getSignedPublicImageToken,
 );
 
+// Accept cross-origin requests from the frontend app
+const origins: (string | RegExp)[] = [APP_ORIGIN];
+if (CORS_ORIGIN_REGEX) {
+  origins.push(CORS_ORIGIN_REGEX);
+}
+
+function isAppOrigin(origin: string | undefined): boolean {
+  if (!origin) return false;
+  return origins.some((o) =>
+    typeof o === "string" ? o === origin : o.test(origin),
+  );
+}
+
 // Secret API routes (no JWT or CORS)
 // Routes register themselves with version prefixes (/v1/..., /v2/...) so we
 // mount the router at /api — yielding /api/v1/<route> and /api/v2/<route>.
 app.use(
   "/api",
-  // Authentication is done via Auth headers and not cookies,
-  // so we can safely allow any origin
-  cors({
-    origin: "*",
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-      "X-Organization",
-      "X-SSO-Connection-ID",
-    ],
-    credentials: false,
-    maxAge: 86400,
+  // External clients use API-key auth (any origin allowed); the GrowthBook app sends credentialed requests
+  // which browsers reject with wildcard CORS, so echo the app origin + credentials when it matches.
+  cors((req, callback) => {
+    const corsOptions: CorsOptions = {
+      methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+      allowedHeaders: [
+        "Content-Type",
+        "Authorization",
+        "X-Organization",
+        "X-SSO-Connection-ID",
+      ],
+      maxAge: 86400,
+      ...(isAppOrigin(req.headers.origin)
+        ? { origin: true, credentials: true }
+        : { origin: "*", credentials: false }),
+    };
+    callback(null, corsOptions);
   }),
   apiRouter,
 );
@@ -395,12 +412,6 @@ app.use(
   }),
   scimRouter,
 );
-
-// Accept cross-origin requests from the frontend app
-const origins: (string | RegExp)[] = [APP_ORIGIN];
-if (CORS_ORIGIN_REGEX) {
-  origins.push(CORS_ORIGIN_REGEX);
-}
 
 if (IS_CLOUD && VERCEL_CLIENT_ID && VERCEL_CLIENT_SECRET) {
   app.use(

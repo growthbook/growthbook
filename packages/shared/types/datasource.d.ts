@@ -175,6 +175,8 @@ export interface ExposureQuery {
   query: string;
   hasNameCol?: boolean;
   dimensions: string[];
+  /** Assignment-query columns mapping to org targeting attributes (must appear in SELECT). */
+  targetingAttributeColumns?: string[];
   dimensionSlicesId?: string;
   dimensionMetadata?: ExperimentDimensionMetadata[];
   error?: string;

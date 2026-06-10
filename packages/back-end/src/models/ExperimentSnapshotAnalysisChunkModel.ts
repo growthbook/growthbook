@@ -14,7 +14,7 @@ import {
 import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
-  ExperimentSnapshotSettings,
+  SnapshotMetricRequest,
 } from "shared/types/experiment-snapshot";
 import { MakeModelClass, waitForIndexes } from "./BaseModel";
 
@@ -35,7 +35,7 @@ const BaseClass = MakeModelClass({
   ],
 });
 
-function getMetricOrdering(settings: ExperimentSnapshotSettings): string[] {
+function getMetricOrdering(settings: SnapshotMetricRequest): string[] {
   return buildMetricOrdering(
     settings.goalMetrics,
     settings.secondaryMetrics,
@@ -128,7 +128,7 @@ export class ExperimentSnapshotAnalysisChunkModel extends BaseClass {
     snapshotId: string;
     experimentId: string;
     analyses: ExperimentSnapshotAnalysis[];
-    settings: ExperimentSnapshotSettings;
+    settings: SnapshotMetricRequest;
     scope: "all" | "keys";
   }): Promise<{
     chunkedAnalysesMeta: Record<string, AnalysisMetaEntry>;
@@ -285,7 +285,7 @@ export class ExperimentSnapshotAnalysisChunkModel extends BaseClass {
     snapshotId: string;
     experimentId: string;
     analysis: ExperimentSnapshotAnalysis;
-    settings: ExperimentSnapshotSettings;
+    settings: SnapshotMetricRequest;
   }): Promise<{ metaEntry: AnalysisMetaEntry; metricIds: string[] }> {
     const { chunkedAnalysesMeta, metricIds } = await this.writeAnalyses({
       snapshotId,

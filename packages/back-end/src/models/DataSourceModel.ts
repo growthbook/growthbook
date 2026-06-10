@@ -11,7 +11,10 @@ import {
   DataSourceType,
 } from "shared/types/datasource";
 import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
-import { ApiDataSource } from "shared/validators";
+import {
+  ApiDataSource,
+  assertExposureQueriesTargetingAttributeColumnsValid,
+} from "shared/validators";
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
 import {
   encryptParams,
@@ -300,6 +303,11 @@ export async function createDataSource(
     await testDataSourceConnection(context, datasource);
   }
 
+  assertExposureQueriesTargetingAttributeColumnsValid(
+    context.org.settings?.attributeSchema,
+    settings.queries?.exposure,
+  );
+
   // Add any missing exposure query ids and check query validity
   settings = await validateExposureQueriesAndAddMissingIds(
     context,
@@ -430,6 +438,17 @@ export async function updateDataSource(
   }
 
   if (updates.settings) {
+    // Use updates' exposure when provided so a client-sent [] clears targetingAttributeColumns (lodash.merge would keep stale entries).
+    const exposureQueries =
+      updates.settings.queries?.exposure !== undefined
+        ? updates.settings.queries.exposure
+        : datasource.settings?.queries?.exposure;
+    // Pass previously-saved exposure queries so pre-existing columns referencing archived attributes don't block unrelated updates.
+    assertExposureQueriesTargetingAttributeColumnsValid(
+      context.org.settings?.attributeSchema,
+      exposureQueries,
+      datasource.settings?.queries?.exposure,
+    );
     updates.settings = await validateExposureQueriesAndAddMissingIds(
       context,
       datasource,
@@ -487,6 +506,9 @@ export function toDataSourceApiInterface(
       sql: q.query,
       includesNameColumns: !!q.hasNameCol,
       dimensionColumns: q.dimensions,
+      ...(q.targetingAttributeColumns?.length
+        ? { targetingAttributeColumns: q.targetingAttributeColumns }
+        : {}),
       error: q.error,
     })),
     identifierJoinQueries: (settings?.queries?.identityJoins || []).map(

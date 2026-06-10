@@ -9,7 +9,7 @@ import {
 import { Queries } from "shared/types/query";
 import {
   ExperimentSnapshotAnalysisSettings,
-  ExperimentSnapshotSettings,
+  SnapshotMetricRequest,
 } from "shared/types/experiment-snapshot";
 import { ExperimentInterface } from "shared/types/experiment";
 import type { DataForStatsEngine } from "shared/types/stats";
@@ -139,7 +139,7 @@ export async function generateNotebook({
 }: {
   context: ReqContext | ApiReqContext;
   queryPointers: Queries;
-  snapshotSettings: ExperimentSnapshotSettings;
+  snapshotSettings: SnapshotMetricRequest;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
   variationNames: string[];
   url: string;

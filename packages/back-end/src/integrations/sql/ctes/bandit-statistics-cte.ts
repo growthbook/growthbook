@@ -4,6 +4,19 @@ import type {
   DimensionColumnData,
 } from "shared/types/integrations";
 
+export function banditDimensionJoinCondition(
+  leftPrefix: string,
+  rightPrefix: string,
+  dimensionCols: DimensionColumnData[],
+): string {
+  if (!dimensionCols.length) {
+    return "1=1";
+  }
+  return dimensionCols
+    .map((d) => `${leftPrefix}.${d.alias} = ${rightPrefix}.${d.alias}`)
+    .join(" AND ");
+}
+
 export function getBanditStatisticsCTE(
   dialect: SqlDialect,
   {
@@ -11,6 +24,7 @@ export function getBanditStatisticsCTE(
     metricData,
     dimensionCols,
     hasRegressionAdjustment,
+    poolRegressionTheta = true,
     hasCapping,
     ignoreNulls,
     denominatorIsPercentileCapped,
@@ -19,6 +33,8 @@ export function getBanditStatisticsCTE(
     metricData: BanditMetricData[];
     dimensionCols: DimensionColumnData[];
     hasRegressionAdjustment: boolean;
+    /** When false, emit CUPED covariate columns but skip pooled __theta. */
+    poolRegressionTheta?: boolean;
     hasCapping: boolean;
     ignoreNulls?: boolean;
     denominatorIsPercentileCapped?: boolean;
@@ -119,7 +135,7 @@ export function getBanditStatisticsCTE(
     FROM 
       __banditPeriodStatistics
     GROUP BY
-      ${dimensionCols.map((d) => `${d.alias}`).join(", ")}
+      ${dimensionCols.map((d) => `${d.alias}`).join(", ") || "1"}
   ),
   __banditPeriodWeights AS (
     SELECT
@@ -156,16 +172,15 @@ export function getBanditStatisticsCTE(
         .join("\n")}
     FROM 
       __banditPeriodStatistics bps
-    LEFT JOIN __dimensionTotals dt ON
-      (${dimensionCols
-        .map((d) => `bps.${d.alias} = dt.${d.alias}`)
-        .join(" AND ")})
+    LEFT JOIN __dimensionTotals dt ON (
+      ${banditDimensionJoinCondition("bps", "dt", dimensionCols)}
+    )
     GROUP BY
       bps.bandit_period
       ${dimensionCols.map((d) => `, bps.${d.alias}`).join("\n")}
   )
   ${
-    hasRegressionAdjustment
+    hasRegressionAdjustment && poolRegressionTheta
       ? `
       , __theta AS (
       SELECT
@@ -192,7 +207,7 @@ export function getBanditStatisticsCTE(
       FROM
         __banditPeriodWeights
       GROUP BY
-        ${dimensionCols.map((d) => `${d.alias}`).join(", ")}  
+        ${dimensionCols.map((d) => `${d.alias}`).join(", ") || "1"}
       )
     `
       : ""
@@ -276,7 +291,7 @@ export function getBanditStatisticsCTE(
             SUM(bpw.weight * bps.${alias}main_sum / bps.users) * SUM(bpw.weight * bps.${alias}covariate_sum / bps.users)
           )
         ) AS ${alias}main_covariate_sum_product
-      , MAX(t.${alias}theta) AS ${alias}theta
+      ${poolRegressionTheta ? `, MAX(t.${alias}theta) AS ${alias}theta` : ""}
         `
         : ""
     }`;
@@ -287,19 +302,21 @@ export function getBanditStatisticsCTE(
   LEFT JOIN
     __banditPeriodWeights bpw
     ON (
-      bps.bandit_period = bpw.bandit_period 
-      ${dimensionCols
-        .map((d) => `AND bps.${d.alias} = bpw.${d.alias}`)
-        .join("\n")}
+      bps.bandit_period = bpw.bandit_period
+      ${
+        dimensionCols.length
+          ? dimensionCols
+              .map((d) => `AND bps.${d.alias} = bpw.${d.alias}`)
+              .join("\n")
+          : ""
+      }
     )
   ${
-    hasRegressionAdjustment
+    hasRegressionAdjustment && poolRegressionTheta
       ? `
     LEFT JOIN
       __theta t
-      ON (${dimensionCols
-        .map((d) => `bps.${d.alias} = t.${d.alias}`)
-        .join(" AND ")})
+      ON (${banditDimensionJoinCondition("bps", "t", dimensionCols)})
     `
       : ""
   }

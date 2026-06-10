@@ -17,21 +17,26 @@ from gbstats.utils import (
     gaussian_credible_interval,
 )
 from gbstats.bayesian.tests import BayesianConfig, GaussianPrior
+from pydantic import ConfigDict
 
 
-@dataclass
+@dataclass(config=ConfigDict(arbitrary_types_allowed=True))
 class BanditConfig(BayesianConfig):
     bandit_weights_seed: int = 0
     top_two: bool = True
     prior_distribution: GaussianPrior = field(default_factory=GaussianPrior)
     min_variation_weight: float = 0.01
     weight_by_period: bool = True
+    bandit_weights_rng: np.random.Generator = field(
+        default_factory=lambda: np.random.default_rng()
+    )
 
 
 @dataclass
 class BanditResponse:
     users: Optional[List[float]]
     cr: Optional[List[float]]
+    variance: Optional[List[float]]
     ci: Optional[List[ResponseCI]]
     bandit_weights: Optional[List[float]]
     best_arm_probabilities: Optional[List[float]]
@@ -144,7 +149,7 @@ class Bandits(ABC):
     # number of Monte Carlo samples to perform when sampling to estimate weights for the SDK
     @property
     def n_samples(self) -> int:
-        return int(1e4)
+        return int(1e5)
 
     # scalar to add to the mean for leaderboard plots.  For non-cuped metrics, is 0.
     @property
@@ -184,6 +189,7 @@ class Bandits(ABC):
         return BanditResponse(
             users=self.variation_counts.tolist(),
             cr=(self.variation_means).tolist(),
+            variance=self.variation_variances.tolist(),
             ci=credible_intervals,
             bandit_weights=p.tolist() if enough_units else None,
             best_arm_probabilities=best_arm_probabilities.tolist(),

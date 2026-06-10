@@ -444,6 +444,28 @@ export default defineConfig([
     },
   },
   {
+    files: ["./packages/stats-ts/**/*"],
+
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["*back-end*", "*front-end*"],
+              message: "stats-ts cannot import from back-end or front-end.",
+            },
+            {
+              group: ["shared/src", "shared/src/*", "shared/src/**"],
+              message:
+                "Import from the package (e.g., 'shared/experiments') instead of 'shared/src/...'",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ["./packages/sdk-{js,react}/**/*"],
 
     rules: {

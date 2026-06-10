@@ -36,6 +36,7 @@ export interface Props {
   filterConversionWindowMetrics?: boolean;
   excludeQuantiles?: boolean;
   experimentId?: string;
+  requireDatasource?: boolean;
 }
 
 export default function ExperimentMetricsSelector({
@@ -60,6 +61,7 @@ export default function ExperimentMetricsSelector({
   filterConversionWindowMetrics,
   excludeQuantiles = false,
   experimentId,
+  requireDatasource = false,
 }: Props) {
   const {
     getExperimentMetricById,
@@ -243,6 +245,7 @@ export default function ExperimentMetricsSelector({
             filterConversionWindowMetrics={filterConversionWindowMetrics}
             noLegacyMetrics={noLegacyMetrics}
             disabled={disabled || goalDisabled}
+            requireDatasource={requireDatasource}
             getMetricDisabledInfo={getMetricDisabledInfo}
           />
           {hasIdentifierTypeMismatch && (

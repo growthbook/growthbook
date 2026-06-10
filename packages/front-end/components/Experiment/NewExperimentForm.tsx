@@ -915,20 +915,23 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 </div>
               )}
 
-            {projects.length >= 1 && (
-              <div className="form-group">
-                <label>Project</label>
-                <SelectField
-                  value={form.watch("project") ?? ""}
-                  onChange={(p) => {
-                    form.setValue("project", p);
-                  }}
-                  name="project"
-                  initialOption={allowAllProjects ? "All Projects" : undefined}
-                  options={availableProjects}
-                />
-              </div>
-            )}
+            {projects.length >= 1 &&
+              !(isBandit && (isNewExperiment || duplicate)) && (
+                <div className="form-group">
+                  <label>Project</label>
+                  <SelectField
+                    value={form.watch("project") ?? ""}
+                    onChange={(p) => {
+                      form.setValue("project", p);
+                    }}
+                    name="project"
+                    initialOption={
+                      allowAllProjects ? "All Projects" : undefined
+                    }
+                    options={availableProjects}
+                  />
+                </div>
+              )}
 
             <>
               <HoldoutSelect
@@ -1184,13 +1187,15 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 </>
               )}
             </>
-            <div className="form-group">
-              <label>Tags</label>
-              <TagsInput
-                value={form.watch("tags") ?? []}
-                onChange={(tags) => form.setValue("tags", tags)}
-              />
-            </div>
+            {!(isBandit && (isNewExperiment || duplicate)) && (
+              <div className="form-group">
+                <label>Tags</label>
+                <TagsInput
+                  value={form.watch("tags") ?? []}
+                  onChange={(tags) => form.setValue("tags", tags)}
+                />
+              </div>
+            )}
             {!isNewExperiment && (
               <>
                 <SelectField
@@ -1351,6 +1356,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                       setDisableBanditConversionWindow={
                         setDisableBanditConversionWindow
                       }
+                      contextualBandit={false}
+                      setContextualBandit={() => {}}
                     />
                   </div>
                 </Page>

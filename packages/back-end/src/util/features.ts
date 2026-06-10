@@ -29,7 +29,7 @@ import {
   FeatureMetadata,
 } from "shared/types/sdk";
 import { ProjectInterface } from "shared/types/project";
-import { HoldoutInterface } from "shared/validators";
+import { HoldoutInterface, ContextualBanditInterface } from "shared/validators";
 import {
   expandNestedSavedGroups,
   getJSONValue,
@@ -520,6 +520,7 @@ export function getFeatureDefinition({
   namespaces,
   metadataOptions,
   projectsMap,
+  cbMap,
   rampMonitoredRuleMap,
 }: {
   feature: FeatureInterface;
@@ -546,6 +547,8 @@ export function getFeatureDefinition({
   >;
   metadataOptions?: MetadataOptions;
   projectsMap?: Map<string, ProjectInterface>;
+  /** Optional map of experimentId → CB doc, used to inject CB payload fields. */
+  cbMap?: Map<string, ContextualBanditInterface>;
   rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
 }): FeatureDefinition | null {
   const settings = feature.environmentSettings?.[environment];
@@ -775,6 +778,7 @@ export function getFeatureDefinition({
                 : null;
             });
             rule.weights = phase.variationWeights;
+
             rule.key = exp.trackingKey;
             const phaseVariations = getLatestPhaseVariations(exp);
             rule.meta = includeExperimentNames
@@ -806,6 +810,101 @@ export function getFeatureDefinition({
               projectsMap,
             );
             if (expMetadata) rule.metadata = expMetadata;
+          }
+
+          if (allowedKeys) {
+            const picked = pick(
+              rule,
+              allowedKeys.featureRuleKeys,
+            ) as FeatureDefinitionRule;
+            if (includeRuleIds && r.id != null) {
+              (picked as Record<string, unknown>).id = stemRuleId(r.id);
+            }
+            return picked;
+          }
+          return rule;
+        }
+
+        // Contextual-bandit reference rules: parallel to experiment-ref but sourced
+        // directly from the CB doc; SDKs without `contextualBandits` capability fall back to MAB.
+        if (r.type === "contextual-bandit-ref") {
+          const cb = cbMap?.get(r.contextualBanditId);
+          if (!cb) return null;
+
+          if (cb.status === "draft") return null;
+
+          const phaseCondition = getParsedCondition(groupMap, cb.condition);
+          if (phaseCondition) {
+            rule.condition = phaseCondition;
+          }
+
+          rule.coverage = cb.coverage;
+
+          if (cb.hashAttribute) {
+            rule.hashAttribute = cb.hashAttribute;
+          }
+          if (cb.fallbackAttribute) {
+            rule.fallbackAttribute = cb.fallbackAttribute;
+          }
+          if (cb.disableStickyBucketing) {
+            rule.disableStickyBucketing = cb.disableStickyBucketing;
+          }
+          if (cb.seed) {
+            rule.seed = cb.seed;
+          }
+          rule.hashVersion = cb.hashVersion;
+
+          if (cb.status === "stopped") {
+            // CBs don't yet track `releasedVariationId`; a stopped CB drops out of the payload.
+            return null;
+          }
+
+          rule.variations = cb.variations.map((v) => {
+            const variation = r.variations?.find(
+              (rv) => rv.variationId === v.id,
+            );
+            return variation
+              ? getJSONValue(feature.valueType, variation.value)
+              : null;
+          });
+          rule.weights = cb.variationWeights;
+
+          const cbCapable =
+            capabilities === undefined ||
+            capabilities.includes("contextualBandits");
+          if (cbCapable) {
+            rule.isContextualBandit = true;
+            rule.attributesRequired = cb.contextualAttributes;
+            // TODO(post-stats-engine): emit `rule.contexts` once per-leaf split predicates exist.
+          }
+
+          rule.key = cb.trackingKey;
+          rule.meta = includeExperimentNames
+            ? cb.variations.map((v) => ({ key: v.key, name: v.name }))
+            : cb.variations.map((v) => ({ key: v.key }));
+          // Single-phase CB: emit a constant "0" for SDK back-compat. Sticky-bucketing keys may
+          // incorporate this string, so changing or dropping it could re-bucket existing users.
+          rule.phase = "0";
+          if (includeExperimentNames) rule.name = cb.name;
+
+          if (shouldExpandSavedGroups && savedGroupsMap && organization) {
+            if (rule.condition)
+              recursiveWalk(
+                rule.condition,
+                replaceSavedGroups(savedGroupsMap, organization!),
+              );
+          }
+          if (metadataOptions) {
+            const cbMetadata = buildPayloadMetadata<ExperimentMetadata>(
+              {
+                project: cb.project,
+                customFields: cb.customFields,
+                tags: cb.tags,
+              },
+              metadataOptions,
+              projectsMap,
+            );
+            if (cbMetadata) rule.metadata = cbMetadata;
           }
 
           if (allowedKeys) {

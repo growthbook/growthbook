@@ -36,7 +36,7 @@ import { getMetricStart } from "back-end/src/integrations/sql/dates/metric-start
 import { processActivationMetric } from "back-end/src/integrations/sql/processing/process-activation-metric";
 import { processDimensions } from "back-end/src/integrations/sql/processing/process-dimensions";
 
-export function getExperimentMetricQuery(
+export function getSnapshotMetricQuery(
   dialect: SqlDialect,
   datasource: DataSourceInterface,
   params: ExperimentMetricQueryParams,
@@ -87,7 +87,14 @@ export function getExperimentMetricQuery(
   const ratioMetric = isRatioMetric(metric, denominator);
   const funnelMetric = isFunnelMetric(metric, denominator);
 
+  // Contextual bandits weight variations in TypeScript from raw summable stats,
+  // so they skip the multi-armed-bandit period weighting and run through the
+  // same aggregation as a standard experiment (just with the attr_cb_* context
+  // columns appended to the dimensions). `getBanditDates` returns undefined
+  // when `contextualBandit` is set, which short-circuits the CB path here.
   const banditDates = getBanditDates(settings.banditSettings);
+  const poolRegressionTheta =
+    settings.banditSettings?.poolRegressionTheta !== false;
 
   // redundant checks to make sure configuration makes sense and we only build expensive queries for the cases
   // where RA is actually possible
@@ -491,7 +498,7 @@ WITH
         JOIN __metric m ON (
           m.${baseIdType} = d.${baseIdType}
         )
-      WHERE 
+      WHERE
         m.timestamp >= d.preexposure_start
         AND m.timestamp < d.preexposure_end
       GROUP BY
@@ -522,6 +529,7 @@ WITH
           ],
           dimensionCols,
           hasRegressionAdjustment: regressionAdjusted,
+          poolRegressionTheta,
           hasCapping: isPercentileCapped || denominatorIsPercentileCapped,
           ignoreNulls: "ignoreNulls" in metric && metric.ignoreNulls,
           denominatorIsPercentileCapped,

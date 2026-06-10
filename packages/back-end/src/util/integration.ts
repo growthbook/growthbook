@@ -1,12 +1,12 @@
 import { ExperimentMetricInterface } from "shared/experiments";
-import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
+import { SnapshotMetricRequest } from "shared/types/experiment-snapshot";
 import { QueryMetadata } from "shared/types/query";
 import { logger } from "./logger";
 
 // mutates metric object itself!
 export function applyMetricOverrides(
   metric: ExperimentMetricInterface,
-  settings: ExperimentSnapshotSettings,
+  settings: SnapshotMetricRequest,
 ): void {
   if (!metric) return;
 

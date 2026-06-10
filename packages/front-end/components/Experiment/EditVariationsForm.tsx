@@ -17,12 +17,17 @@ const EditVariationsForm: FC<{
   cancel: () => void;
   mutate: () => void;
   source?: string;
+  /** Override the write endpoint + HTTP method. Defaults to `POST /experiment/:id`. */
+  updateEndpoint?: string;
+  updateMethod?: "POST" | "PUT";
 }> = ({
   experiment,
   onlySafeToEditVariationMetadata,
   cancel,
   mutate,
   source,
+  updateEndpoint,
+  updateMethod,
 }) => {
   const lastPhaseIndex = experiment.phases.length - 1;
   const lastPhase: ExperimentPhaseStringDates | undefined =
@@ -89,8 +94,8 @@ const EditVariationsForm: FC<{
           }
         }
 
-        await apiCall(`/experiment/${experiment.id}`, {
-          method: "POST",
+        await apiCall(updateEndpoint ?? `/experiment/${experiment.id}`, {
+          method: updateMethod ?? "POST",
           body: JSON.stringify(data),
         });
         mutate();

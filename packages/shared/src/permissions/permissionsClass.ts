@@ -29,6 +29,7 @@ import { IdeaInterface } from "shared/types/idea";
 import { ArchetypeInterface } from "shared/types/archetype";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import { CustomHookInterface } from "../validators/custom-hooks";
+import { ContextualBanditInterface } from "../validators/contextual-bandit";
 import { HoldoutInterface } from "../validators/holdout";
 import { PermissionError } from "../util/";
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
@@ -429,6 +430,72 @@ export class Permissions {
       { projects: experiment.project ? [experiment.project] : [] },
       "createAnalyses",
     );
+  };
+
+  // Pass allProjects on list pages where "All Projects" may be selected;
+  // omit it when checking a specific resource's project.
+  public canViewContextualBanditModal = (
+    project?: string,
+    allProjects?: { id: string }[],
+  ): boolean => {
+    if (!project && allProjects?.length) {
+      return allProjects.some((p) =>
+        this.checkProjectFilterPermission(
+          { projects: [p.id] },
+          "createAnalyses",
+        ),
+      );
+    }
+    return this.checkProjectFilterPermission(
+      { projects: project ? [project] : [] },
+      "createAnalyses",
+    );
+  };
+
+  public canCreateContextualBandit = (
+    cb: Pick<ContextualBanditInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: cb.project ? [cb.project] : [] },
+      "createAnalyses",
+    );
+  };
+
+  public canUpdateContextualBandit = (
+    existing: Pick<ContextualBanditInterface, "project">,
+    updated: Pick<ContextualBanditInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterUpdatePermission(
+      { projects: existing.project ? [existing.project] : [] },
+      "project" in updated ? { projects: [updated.project || ""] } : {},
+      "createAnalyses",
+    );
+  };
+
+  public canDeleteContextualBandit = (
+    cb: Pick<ContextualBanditInterface, "project">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(
+      { projects: cb.project ? [cb.project] : [] },
+      "createAnalyses",
+    );
+  };
+
+  public canRunContextualBandit = (
+    cb: Pick<ContextualBanditInterface, "project">,
+    environments: string[],
+  ): boolean => {
+    return this.checkEnvFilterPermission(
+      { projects: cb.project ? [cb.project] : [] },
+      environments,
+      "runExperiments",
+    );
+  };
+
+  public canRunContextualBanditQueries = (
+    datasource: Pick<DataSourceInterface, "projects">,
+  ): boolean => {
+    return this.checkProjectFilterPermission(datasource, "runQueries");
   };
 
   // Frontend helper to gate "Create Holdout" UI.

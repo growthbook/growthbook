@@ -13,8 +13,16 @@ export type ExperimentMetadata = {
 };
 
 // FeatureRule extended with optional metadata for experiment-ref rules
+// and (additive, backwards-compatible) contextual-bandit payload fields.
 export type FeatureDefinitionRule = FeatureRule & {
   metadata?: ExperimentMetadata;
+  isContextualBandit?: boolean;
+  attributesRequired?: string[];
+  contexts?: {
+    contextId: string;
+    condition: Record<string, unknown>;
+    weights: number[];
+  }[];
 };
 
 export type AutoExperimentWithMetadata = AutoExperiment & {

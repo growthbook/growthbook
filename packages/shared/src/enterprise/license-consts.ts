@@ -76,7 +76,8 @@ export type CommercialFeature =
   | "manage-official-resources"
   | "incremental-refresh"
   | "adv-presentations"
-  | "ramp-schedules";
+  | "ramp-schedules"
+  | "contextual-bandits";
 
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -262,6 +263,8 @@ const commercialFeaturesEnterpriseOnly: CommercialFeature[] = [
   "share-product-analytics-dashboards",
   "incremental-refresh",
   "adv-presentations",
+  // TODO(post-launch): promote to commercialFeaturesPro
+  "contextual-bandits",
 ];
 
 const commercialFeaturesEnterprise: CommercialFeature[] = [

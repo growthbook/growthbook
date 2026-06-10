@@ -91,6 +91,10 @@ export interface Props {
   editSchedule?: (() => void) | null;
   visualChangesetEnvStates?: LinkedChangeEnvStates;
   urlRedirectEnvStates?: LinkedChangeEnvStates;
+  /** Override for the "start" lifecycle call (e.g. Contextual Bandits). */
+  startEndpoint?: string;
+  /** Override for the snapshot refresh call (e.g. Contextual Bandits). */
+  refreshEndpoint?: string;
 }
 
 export default function TabbedPage({
@@ -118,6 +122,8 @@ export default function TabbedPage({
   editSchedule,
   visualChangesetEnvStates,
   urlRedirectEnvStates,
+  startEndpoint,
+  refreshEndpoint,
 }: Props) {
   const [tab, setTab] = useLocalStorage<ExperimentTab>(
     `tabbedPageTab__${experiment.id}`,
@@ -318,35 +324,38 @@ export default function TabbedPage({
   const viewingOldPhase =
     experiment.phases.length > 0 && phase < experiment.phases.length - 1;
 
-  const setTabAndScroll = (tab: ExperimentTab, scrollToId?: string) => {
-    setTab(tab);
-    setTabPath("");
-    const newUrl = window.location.href.replace(/#.*/, "") + "#" + tab;
-    if (newUrl !== window.location.href) {
-      router.push(newUrl, undefined, { shallow: true }).catch((e) => {
-        // HACK: Workaround for https://github.com/vercel/next.js/issues/37362#issuecomment-1283671326
-        // This navigation gets cancelled by persistTabPath with the default dashboard id
-        if (!e.cancelled) {
-          throw e;
-        }
-      });
-    }
-    if (scrollToId) {
-      requestAnimationFrame(() => {
-        const el = document.getElementById(scrollToId);
-        if (el) {
-          el.scrollIntoView({ behavior: "smooth", block: "start" });
-        } else {
-          window.scrollTo({ top: 0, behavior: "smooth" });
-        }
-      });
-    } else if (newUrl !== window.location.href) {
-      window.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      });
-    }
-  };
+  const setTabAndScroll = useCallback(
+    (tab: ExperimentTab, scrollToId?: string) => {
+      setTab(tab);
+      setTabPath("");
+      const newUrl = window.location.href.replace(/#.*/, "") + "#" + tab;
+      if (newUrl !== window.location.href) {
+        router.push(newUrl, undefined, { shallow: true }).catch((e) => {
+          // HACK: Workaround for https://github.com/vercel/next.js/issues/37362#issuecomment-1283671326
+          // This navigation gets cancelled by persistTabPath with the default dashboard id
+          if (!e.cancelled) {
+            throw e;
+          }
+        });
+      }
+      if (scrollToId) {
+        requestAnimationFrame(() => {
+          const el = document.getElementById(scrollToId);
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "start" });
+          } else {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }
+        });
+      } else if (newUrl !== window.location.href) {
+        window.scrollTo({
+          top: 0,
+          behavior: "smooth",
+        });
+      }
+    },
+    [router, setTab],
+  );
 
   const persistTabPath = useCallback(
     (path: string) => {
@@ -540,6 +549,7 @@ export default function TabbedPage({
         showDashboardView={showDashboardView}
         safeToEdit={safeToEdit}
         editSchedule={editSchedule}
+        startEndpoint={startEndpoint}
       />
 
       <div
@@ -660,6 +670,7 @@ export default function TabbedPage({
               experiment={experiment}
               mutate={mutate}
               isTabActive={tab === "results"}
+              refreshEndpoint={refreshEndpoint}
             />
           </div>
         ) : null}
@@ -698,7 +709,9 @@ export default function TabbedPage({
           setTab={setTabAndScroll}
           visualChangesets={visualChangesets}
           editTargeting={editTargeting}
-          isTabActive={tab === "results"}
+          isTabActive={
+            (!isBandit && tab === "results") || (isBandit && tab === "explore")
+          }
           metricTagFilter={metricTagFilter}
           metricsFilter={metricsFilter}
           setMetricsFilter={setMetricsFilter}
@@ -714,6 +727,7 @@ export default function TabbedPage({
           setSortBy={setSortBy}
           sortDirection={sortDirection}
           setSortDirection={setSortDirection}
+          refreshEndpoint={refreshEndpoint}
         />
       </div>
       <div

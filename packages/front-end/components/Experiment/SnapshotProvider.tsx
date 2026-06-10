@@ -187,10 +187,19 @@ function useCoherentLatest(
 export default function SnapshotProvider({
   experiment,
   children,
+  resultsEndpoint,
 }: {
   experiment: ExperimentInterfaceStringDates;
   children: ReactNode;
+  /**
+   * When set (Contextual Bandits), the provider reads its status summary from
+   * this CB-native endpoint (`/api/v1/contextual-bandits/:id/results`) instead
+   * of the legacy `/experiment/:id/snapshot*` routes, which 404 ("Experiment
+   * not found") for CBs since they live outside the experiments collection.
+   */
+  resultsEndpoint?: string;
 }) {
+  const isCbMode = !!resultsEndpoint;
   const [phase, setPhase] = useState(experiment.phases?.length - 1 || 0);
   const [dimension, setDimension] = useState("");
   const [snapshotType, setSnapshotType] = useState<SnapshotType | undefined>(
@@ -200,7 +209,7 @@ export default function SnapshotProvider({
   // The heavy snapshot fetch opts out of focus/reconnect revalidation. The
   // cheap status fetch below still revalidates on focus/reconnect and is the
   // signal the provider uses to decide when a new heavy refetch is warranted
-  // (see the transition effect after the status fetch).
+  // (see the transition effect after the status fetch). Disabled in CB mode.
   const {
     data,
     error,
@@ -213,12 +222,12 @@ export default function SnapshotProvider({
     `/experiment/${experiment.id}/snapshot/${phase}` +
       (dimension ? "/" + dimension : "") +
       (snapshotType ? `?type=${snapshotType}` : ""),
-    { autoRevalidate: false },
+    { autoRevalidate: false, shouldRun: () => !isCbMode },
   );
 
   // `latest` is sourced from a dedicated status endpoint that skips loading
   // and decoding the per-metric analysis chunks. Keyed by the same
-  // phase/dimension/type tuple as the main snapshot fetch.
+  // phase/dimension/type tuple as the main snapshot fetch. Disabled in CB mode.
   const statusQuery = new URLSearchParams({
     ...(dimension && { dimension }),
     ...(snapshotType && { type: snapshotType }),
@@ -228,28 +237,48 @@ export default function SnapshotProvider({
   }>(
     `/experiment/${experiment.id}/snapshot-summary/${phase}` +
       (statusQuery ? `?${statusQuery}` : ""),
+    { shouldRun: () => !isCbMode },
   );
+
+  // CB mode: a single CB-native results fetch supplies the status summary.
+  // CBs don't produce experiment-shaped snapshots/analyses, so the heavy
+  // snapshot stays undefined and consumers fall back to the CB leaderboard
+  // data carried on the experiment shape's bandit events.
+  const {
+    data: cbData,
+    error: cbError,
+    isValidating: cbValidating,
+    mutate: mutateCb,
+  } = useApi<{
+    latest: SnapshotStatusSummary | null;
+  }>(resultsEndpoint ?? "", { shouldRun: () => isCbMode });
 
   const mutate = useCallback(
     async (opts?: { inPlace?: boolean }) => {
+      if (isCbMode) {
+        await mutateCb();
+        return;
+      }
       if (opts?.inPlace) {
         await Promise.all([mutateHeavy(), mutateStatus()]);
       } else {
         await mutateStatus();
       }
     },
-    [mutateHeavy, mutateStatus],
+    [isCbMode, mutateCb, mutateHeavy, mutateStatus],
   );
 
   const statusLatest = statusData?.latest ?? undefined;
   const snapshotId = data?.snapshot?.id;
+  // No-ops in CB mode (statusLatest/snapshotId are undefined).
   useRefetchHeavyOnStatusSuccess(
     statusLatest,
     snapshotId,
     isValidating,
     mutateHeavy,
   );
-  const latest = useCoherentLatest(statusLatest, snapshotId);
+  const experimentLatest = useCoherentLatest(statusLatest, snapshotId);
+  const latest = isCbMode ? (cbData?.latest ?? undefined) : experimentLatest;
 
   const defaultAnalysisSettings = data?.snapshot
     ? getSnapshotAnalysis(data?.snapshot)?.settings
@@ -261,15 +290,18 @@ export default function SnapshotProvider({
     <snapshotContext.Provider
       value={{
         experiment,
-        snapshot: data?.snapshot,
-        dimensionless: data?.dimensionless ?? data?.snapshot,
+        snapshot: isCbMode ? undefined : data?.snapshot,
+        dimensionless: isCbMode
+          ? undefined
+          : (data?.dimensionless ?? data?.snapshot),
         latestSummary: latest,
-        analysis: data?.snapshot
-          ? ((getSnapshotAnalysis(
-              data?.snapshot,
-              analysisSettings,
-            ) as ExperimentSnapshotAnalysis) ?? undefined)
-          : undefined,
+        analysis:
+          !isCbMode && data?.snapshot
+            ? ((getSnapshotAnalysis(
+                data?.snapshot,
+                analysisSettings,
+              ) as ExperimentSnapshotAnalysis) ?? undefined)
+            : undefined,
         mutate,
         phase,
         dimension,
@@ -287,8 +319,8 @@ export default function SnapshotProvider({
         setDimension,
         setAnalysisSettings,
         setSnapshotType,
-        error,
-        loading: isValidating,
+        error: isCbMode ? cbError : error,
+        loading: isCbMode ? cbValidating : isValidating,
       }}
     >
       {children}

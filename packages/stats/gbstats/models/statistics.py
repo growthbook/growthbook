@@ -36,6 +36,10 @@ class Statistic(ABC):
         return self.mean
 
     @property
+    def unadjusted_variance(self) -> float:
+        return self.variance
+
+    @property
     def _has_zero_variance(self) -> bool:
         return self.variance <= 0.0
 
@@ -189,7 +193,7 @@ class RegressionAdjustedStatistic(Statistic):
         return self.post_statistic.mean
 
     @property
-    def unadjusted_variances(self) -> float:
+    def unadjusted_variance(self) -> float:
         return self.post_statistic.variance
 
     @property
@@ -358,6 +362,10 @@ class RegressionAdjustedRatioStatistic(Statistic):
     @property
     def variance(self) -> float:
         return self.nabla.T.dot(self.lambda_matrix).dot(self.nabla)
+
+    @property
+    def unadjusted_variance(self) -> float:
+        return self.nabla[0:2].T.dot(self.lambda_matrix[0:2, 0:2]).dot(self.nabla[0:2])
 
     @property
     def var_pre(self) -> float:

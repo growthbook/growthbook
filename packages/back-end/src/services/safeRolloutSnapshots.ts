@@ -37,7 +37,7 @@ import {
 } from "shared/validators";
 import {
   ExperimentSnapshotAnalysisSettings,
-  ExperimentSnapshotSettings,
+  SnapshotMetricRequest,
 } from "shared/types/experiment-snapshot";
 import { OrganizationInterface } from "shared/types/organization";
 import { MetricSnapshotSettings } from "shared/types/report";
@@ -146,7 +146,7 @@ export function getAnalysisSettingsFromSafeRolloutArgs(
 export function getSnapshotSettingsFromSafeRolloutArgs(
   args: SafeRolloutSnapshotInterface,
 ): {
-  snapshotSettings: ExperimentSnapshotSettings;
+  snapshotSettings: SnapshotMetricRequest;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
 } {
   const { settings } = args;
@@ -158,7 +158,7 @@ export function getSnapshotSettingsFromSafeRolloutArgs(
     mean: 0,
     stddev: DEFAULT_PROPER_PRIOR_STDDEV,
   };
-  const snapshotSettings: ExperimentSnapshotSettings = {
+  const snapshotSettings: SnapshotMetricRequest = {
     metricSettings,
     activationMetric: null,
     attributionModel: "firstExposure",

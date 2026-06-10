@@ -7,7 +7,7 @@ import { Dimension } from "shared/types/integrations";
 import { FactMetricInterface } from "shared/types/fact-table";
 import {
   ExperimentSnapshotInterface,
-  ExperimentSnapshotSettings,
+  SnapshotMetricRequest,
   SnapshotType,
 } from "shared/types/experiment-snapshot";
 import {
@@ -45,7 +45,7 @@ import { SnapshotResult } from "./ExperimentResultsQueryRunner";
 
 export type ExperimentIncrementalRefreshExploratoryQueryParams = {
   snapshotType: SnapshotType;
-  snapshotSettings: ExperimentSnapshotSettings;
+  snapshotSettings: SnapshotMetricRequest;
   variationNames: string[];
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;

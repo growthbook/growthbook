@@ -69,6 +69,9 @@ export interface Props {
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   safeToEdit: boolean;
+  /** Override the targeting write endpoint. Defaults to `POST /experiment/:id/targeting`. */
+  updateEndpoint?: string;
+  updateMethod?: "POST" | "PUT";
 }
 
 export default function EditTargetingModal({
@@ -76,6 +79,8 @@ export default function EditTargetingModal({
   experiment,
   mutate,
   safeToEdit,
+  updateEndpoint,
+  updateMethod,
 }: Props) {
   const { apiCall } = useAuth();
   const orgSettings = useOrgSettings();
@@ -233,8 +238,8 @@ export default function EditTargetingModal({
       ns.ranges = mergeContiguousRanges(ns.ranges);
     }
 
-    await apiCall(`/experiment/${experiment.id}/targeting`, {
-      method: "POST",
+    await apiCall(updateEndpoint ?? `/experiment/${experiment.id}/targeting`, {
+      method: updateMethod ?? "POST",
       body: JSON.stringify(value),
     });
     mutate();

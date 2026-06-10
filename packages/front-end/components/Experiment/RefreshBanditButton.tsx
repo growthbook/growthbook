@@ -16,11 +16,21 @@ const RefreshBanditButton: FC<{
   experiment: ExperimentInterfaceStringDates;
   setError: (e: string | undefined) => void;
   setGeneratedSnapshot: (s: ExperimentSnapshotInterface | undefined) => void;
+  /**
+   * Override for the bandit refresh call. Contextual Bandits use their own
+   * endpoint (`POST /api/v1/contextual-bandits/:id/refresh`, empty body) and
+   * live outside the experiments collection, so the legacy
+   * `/experiment/:id/banditSnapshot` call 404s ("Experiment not found") for
+   * them. Reweighting is handled server-side by the CB schedule/stage, so the
+   * reweight toggle is hidden in this mode.
+   */
+  refreshEndpoint?: string;
 }> = ({
   mutate: mutateExperiment,
   experiment,
   setError: setOuterError,
   setGeneratedSnapshot: setOuterGeneratedSnapshot,
+  refreshEndpoint,
 }) => {
   const [loading, setLoading] = useState(false);
   const [_error, setError] = useState("");
@@ -54,6 +64,19 @@ const RefreshBanditButton: FC<{
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let res: any = null;
     try {
+      if (refreshEndpoint) {
+        // CB refresh endpoint: empty body, returns no snapshot object. Nothing
+        // to track; the click handler just mutates afterwards.
+        res = await apiCall(
+          refreshEndpoint,
+          { method: "POST" },
+          (responseData) => {
+            res = responseData;
+          },
+        );
+        await mutateExperiment();
+        return res;
+      }
       res = await apiCall<{
         status: number;
         message: string;
@@ -135,49 +158,56 @@ const RefreshBanditButton: FC<{
               mutate();
             }}
           >
-            <BsArrowRepeat /> {reweight ? "Update Weights" : "Check Results"}
+            <BsArrowRepeat />{" "}
+            {refreshEndpoint
+              ? "Update"
+              : reweight
+                ? "Update Weights"
+                : "Check Results"}
           </Button>
-          <Dropdown
-            uuid="bandit-refresh-type"
-            open={open}
-            setOpen={setOpen}
-            caret={false}
-            toggle={
-              <span className="px-2" style={{ lineHeight: "26px" }}>
-                <FaCaretDown />
-              </span>
-            }
-            toggleClassName="btn btn-outline-primary btn-sm p-0"
-            toggleStyle={{ zIndex: "auto" }}
-            className="nowrap py-0"
-          >
-            <button
-              className="dropdown-item py-2"
-              onClick={() => {
-                setReweight(false);
-                setOpen(false);
-              }}
+          {!refreshEndpoint && (
+            <Dropdown
+              uuid="bandit-refresh-type"
+              open={open}
+              setOpen={setOpen}
+              caret={false}
+              toggle={
+                <span className="px-2" style={{ lineHeight: "26px" }}>
+                  <FaCaretDown />
+                </span>
+              }
+              toggleClassName="btn btn-outline-primary btn-sm p-0"
+              toggleStyle={{ zIndex: "auto" }}
+              className="nowrap py-0"
             >
-              Check results
-            </button>
-            <button
-              className="dropdown-item py-2"
-              onClick={() => {
-                setReweight(true);
-                setOpen(false);
-              }}
-            >
-              Check results and
-              <br />
-              update variation weights
-              {experiment.banditStage === "explore" && (
-                <div className="small text-warning-orange">
-                  <FaExclamationCircle className="mr-1" />
-                  Will immediately begin the <strong>Exploit</strong> stage
-                </div>
-              )}
-            </button>
-          </Dropdown>
+              <button
+                className="dropdown-item py-2"
+                onClick={() => {
+                  setReweight(false);
+                  setOpen(false);
+                }}
+              >
+                Check results
+              </button>
+              <button
+                className="dropdown-item py-2"
+                onClick={() => {
+                  setReweight(true);
+                  setOpen(false);
+                }}
+              >
+                Check results and
+                <br />
+                update variation weights
+                {experiment.banditStage === "explore" && (
+                  <div className="small text-warning-orange">
+                    <FaExclamationCircle className="mr-1" />
+                    Will immediately begin the <strong>Exploit</strong> stage
+                  </div>
+                )}
+              </button>
+            </Dropdown>
+          )}
         </div>
       </div>
 
