@@ -516,6 +516,7 @@ export function getFeatureDefinition({
   savedGroupsMap,
   includeRuleIds,
   includeExperimentNames,
+  includeDraftExperimentRefs,
   namespaces,
   metadataOptions,
   projectsMap,
@@ -539,6 +540,7 @@ export function getFeatureDefinition({
   savedGroupsMap?: Record<string, SavedGroupInterface>;
   includeRuleIds?: boolean;
   includeExperimentNames?: boolean;
+  includeDraftExperimentRefs?: boolean;
   namespaces?: Map<
     string,
     { hashAttribute?: string; seed?: string; format?: "legacy" | "multiRange" }
@@ -690,8 +692,8 @@ export function getFeatureDefinition({
 
           if (!includeExperimentInPayload(exp)) return null;
 
-          // Never include experiment drafts
-          if (exp.status === "draft") return null;
+          if (exp.status === "draft" && !includeDraftExperimentRefs)
+            return null;
 
           // Get current experiment phase and use it to set rule properties
           const phase = exp.phases[exp.phases.length - 1];
@@ -1038,8 +1040,9 @@ export function getFeatureDefinition({
             // shift as coverage increases, and a stale sticky-bucket assignment
             // would lock a user to the wrong arm or prevent new enrollment.
             rule.disableStickyBucketing = true;
-            if (includeExperimentNames)
+            if (includeExperimentNames) {
               rule.name = `${feature.id} - Monitored Ramp`;
+            }
           } else {
             if (monitorInfo && !r.hashAttribute) {
               logger.warn(
@@ -1115,8 +1118,9 @@ export function getFeatureDefinition({
                 ]
               : [{ key: "0" }, { key: "1" }];
             rule.phase = "0";
-            if (includeExperimentNames)
+            if (includeExperimentNames) {
               rule.name = `${feature.id} - Safe Rollout`;
+            }
           }
         }
         if (shouldExpandSavedGroups && savedGroupsMap && organization) {

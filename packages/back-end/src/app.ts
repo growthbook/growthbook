@@ -104,7 +104,7 @@ import { isEmailEnabled } from "./services/email";
 import { init } from "./init";
 import { aiRouter } from "./routers/ai/ai.router";
 import { getCustomLogProps, httpLogger, logger } from "./util/logger";
-import { shouldSkipErrorLog } from "./util/errors";
+import { shouldSkipErrorLog, SoftWarningError } from "./util/errors";
 import { usersRouter } from "./routers/users/users.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
 import { uploadRouter } from "./routers/upload/upload.router";
@@ -268,18 +268,18 @@ app.use(async (req, res, next) => {
 // Visual Designer js file (does not require JWT or cors)
 app.get("/js/:key.js", getExperimentsScript);
 
-// increase max payload json size to 2mb (10mb for the api screenshot upload)
+// 2mb default; 10mb for screenshot upload and visual-editor AI image
+// gen (the latter accepts a base64-encoded reference image).
 app.use((req, res, next) => {
   const isScreenshotUpload =
     req.method === "POST" &&
     /^\/api\/v1\/experiments\/[^/]+\/variation\/[^/]+\/screenshot\/upload$/.test(
       req.path,
     );
-  bodyParser.json({ limit: isScreenshotUpload ? "10mb" : "2mb" })(
-    req,
-    res,
-    next,
-  );
+  const isVisualEditorImageGen =
+    req.method === "POST" && req.path === "/api/v1/visual-editor/ai/image-gen";
+  const needsLargeBody = isScreenshotUpload || isVisualEditorImageGen;
+  bodyParser.json({ limit: needsLargeBody ? "10mb" : "2mb" })(req, res, next);
 });
 
 // Public API routes (does not require JWT, does require cors with origin = *)
@@ -1189,11 +1189,21 @@ const errorHandler: ErrorRequestHandler = (
     httpLogger.logger[level](getCustomLogProps(req), err.message);
   }
 
-  res.status(status).json({
+  const body: {
+    status: number;
+    message: string;
+    errorId?: string;
+    warnings?: string[];
+  } = {
     status: status,
     message: err.message || "An error occurred",
     errorId: SENTRY_DSN ? res.sentry : undefined,
-  });
+  };
+  // Picked up by front-end (when combined with 422 status code) to show a "Save anyway" dialog
+  if (err instanceof SoftWarningError) {
+    body.warnings = err.warnings;
+  }
+  res.status(status).json(body);
 };
 app.use(errorHandler);
 

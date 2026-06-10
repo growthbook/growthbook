@@ -151,6 +151,7 @@ export function generateFeaturesPayload({
   includeRuleIds,
   includeExperimentNames,
   cbMap,
+  includeDraftExperimentRefs,
   rampMonitoredRuleMap,
 }: {
   features: FeatureInterface[];
@@ -176,6 +177,7 @@ export function generateFeaturesPayload({
   includeExperimentNames?: boolean;
   /** Optional map of experimentId → CB doc for contextual-bandit payload injection. */
   cbMap?: Map<string, ContextualBanditInterface>;
+  includeDraftExperimentRefs?: boolean;
   rampMonitoredRuleMap?: Map<string, RampMonitoredRuleInfo>;
 }): Record<string, FeatureDefinition> {
   const defs: Record<string, FeatureDefinition> = {};
@@ -199,6 +201,7 @@ export function generateFeaturesPayload({
       savedGroupsMap,
       includeRuleIds,
       includeExperimentNames,
+      includeDraftExperimentRefs,
       rampMonitoredRuleMap,
       metadataOptions: {
         includeProjectIdInMetadata,
@@ -782,6 +785,7 @@ export async function refreshSDKPayloadCache({
             encryptionKey: connection.encryptionKey,
             includeVisualExperiments: connection.includeVisualExperiments,
             includeDraftExperiments: connection.includeDraftExperiments,
+            includeDraftExperimentRefs: connection.includeDraftExperimentRefs,
             includeExperimentNames: connection.includeExperimentNames,
             includeRedirectExperiments: connection.includeRedirectExperiments,
             includeRuleIds: connection.includeRuleIds,
@@ -990,6 +994,7 @@ export type FeatureDefinitionArgs = {
   encryptionKey?: string;
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
+  includeDraftExperimentRefs?: boolean;
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
   includeRuleIds?: boolean;
@@ -1027,6 +1032,7 @@ export type ConnectionPayloadOptions = {
   encryptionKey?: string;
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
+  includeDraftExperimentRefs?: boolean;
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
   includeRuleIds?: boolean;
@@ -1179,6 +1185,7 @@ export async function buildSDKPayloadForConnection(
     savedGroupsMap,
     includeRuleIds,
     includeExperimentNames: connection.includeExperimentNames,
+    includeDraftExperimentRefs: connection.includeDraftExperimentRefs,
     includeProjectIdInMetadata,
     includeCustomFieldsInMetadata,
     allowedCustomFieldsInMetadata,
@@ -2666,6 +2673,22 @@ export const buildFeatureRulesFromApiEnvSettings = (
   });
 };
 
+function prerequisiteListsDiffer(
+  next: FeaturePrerequisite[],
+  original: FeaturePrerequisite[] | undefined,
+): boolean {
+  const orig = original ?? [];
+  if (next.length !== orig.length) return true;
+  for (let i = 0; i < next.length; i++) {
+    if (
+      next[i]?.id !== orig[i]?.id ||
+      next[i]?.condition !== orig[i]?.condition
+    )
+      return true;
+  }
+  return false;
+}
+
 // Only keep features that are "on" or "conditional". For "on" features, remove any top level prerequisites
 export const reduceFeaturesWithPrerequisites = (
   features: FeatureInterface[],
@@ -2678,11 +2701,10 @@ export const reduceFeaturesWithPrerequisites = (
 
   // block "always off" features, or remove "always on" prereqs
   for (const feature of features) {
-    const newFeature = cloneDeep(feature);
     let removeFeature = false;
 
     const newPrerequisites: FeaturePrerequisite[] = [];
-    for (const prereq of newFeature.prerequisites || []) {
+    for (const prereq of feature.prerequisites || []) {
       let state: PrerequisiteStateResult = {
         state: "deterministic",
         value: null,
@@ -2723,38 +2745,58 @@ export const reduceFeaturesWithPrerequisites = (
         }
       }
     }
-    if (!removeFeature) {
-      newFeature.prerequisites = newPrerequisites;
-      newFeatures.push(newFeature);
-    }
-  }
+    if (removeFeature) continue;
 
-  // Block "always off" rules and reduce "always on" rules for this env.
-  // Rules scoped to other envs are carried through verbatim.
-  for (let i = 0; i < newFeatures.length; i++) {
-    const feature = newFeatures[i];
+    const prerequisitesChanged = prerequisiteListsDiffer(
+      newPrerequisites,
+      feature.prerequisites,
+    );
+
+    // Block "always off" rules and reduce "always on" rules for this env.
+    // Rules scoped to other envs are carried through verbatim.
     const existingRules = feature.rules ?? [];
-    if (existingRules.length === 0) continue;
-
     const newFeatureRules: FeatureRule[] = [];
+
     for (const rule of existingRules) {
       if (!ruleAppliesToEnv(rule, environment)) {
         newFeatureRules.push(rule);
         continue;
       }
-      const { removeRule, newPrerequisites } =
+      const { removeRule, newPrerequisites: rulePrereqs } =
         getInlinePrerequisitesReductionInfo(
           rule.prerequisites || [],
           featuresMap,
           environment,
           prereqStateCache,
         );
-      if (!removeRule) {
-        rule.prerequisites = newPrerequisites;
+      if (removeRule) {
+        continue;
+      }
+      const rulePrereqsChanged = prerequisiteListsDiffer(
+        rulePrereqs,
+        rule.prerequisites,
+      );
+      if (rulePrereqsChanged) {
+        newFeatureRules.push({ ...rule, prerequisites: rulePrereqs });
+      } else {
         newFeatureRules.push(rule);
       }
     }
-    newFeatures[i].rules = newFeatureRules;
+
+    const rulesChanged =
+      newFeatureRules.length !== existingRules.length ||
+      newFeatureRules.some((r, i) => r !== existingRules[i]);
+
+    if (!prerequisitesChanged && !rulesChanged) {
+      newFeatures.push(feature);
+      continue;
+    }
+
+    newFeatures.push({
+      ...feature,
+      ...(prerequisitesChanged && { prerequisites: newPrerequisites }),
+      ...(rulesChanged && { rules: newFeatureRules }),
+    });
   }
 
   return newFeatures;

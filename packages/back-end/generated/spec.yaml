@@ -93,6 +93,9 @@ info:
 
     - **404** - Not Found - Unknown API route or requested resource
 
+    - **422** - Soft Warning - The request failed, but can be re-submitted with
+    `?ignoreWarnings=true` to proceed anyway.
+
     - **429** - Too Many Requests - You exceeded the rate limit of 60 requests
     per minute. Try again later.
 
@@ -281,6 +284,9 @@ tags:
   - name: RampScheduleTemplates
     x-displayName: Ramp Schedule Templates
     description: Reusable step configurations for ramp schedules.
+  - name: AggregatedFactTable_model
+    x-displayName: Aggregated Fact Table
+    description: <SchemaDefinition schemaRef="#/components/schemas/AggregatedFactTable" />
   - name: AnalyticsExploration_model
     x-displayName: Analytics Exploration
     description: <SchemaDefinition schemaRef="#/components/schemas/AnalyticsExploration" />
@@ -9968,6 +9974,13 @@ paths:
                   type: array
                   items:
                     type: string
+                environments:
+                  description: >-
+                    Limit this Archetype to specific environments. Omit or leave
+                    empty to apply to all environments.
+                  type: array
+                  items:
+                    type: string
               required:
                 - name
                 - isPublic
@@ -10045,6 +10058,13 @@ paths:
                     type: string
                   additionalProperties: {}
                 projects:
+                  type: array
+                  items:
+                    type: string
+                environments:
+                  description: >-
+                    Limit this Archetype to specific environments. Omit or leave
+                    empty to apply to all environments.
                   type: array
                   items:
                     type: string
@@ -14241,6 +14261,11 @@ paths:
                   type: boolean
                 includeDraftExperiments:
                   type: boolean
+                includeDraftExperimentRefs:
+                  description: >-
+                    When true, experiment-ref rules linked to draft experiments
+                    are included in feature definitions. Off by default.
+                  type: boolean
                 includeExperimentNames:
                   type: boolean
                 includeRedirectExperiments:
@@ -14346,6 +14371,11 @@ paths:
                 includeVisualExperiments:
                   type: boolean
                 includeDraftExperiments:
+                  type: boolean
+                includeDraftExperimentRefs:
+                  description: >-
+                    When true, experiment-ref rules linked to draft experiments
+                    are included in feature definitions. Off by default.
                   type: boolean
                 includeExperimentNames:
                   type: boolean
@@ -16419,6 +16449,37 @@ paths:
                   type: array
                   items:
                     type: string
+                aggregatedFactTableSettings:
+                  description: >-
+                    Settings for maintaining shared daily aggregated tables (a
+                    subset of userIdTypes plus the daily update time and restate
+                    lookback window) used to speed up CUPED. Requires the data
+                    pipeline (pipeline-mode) feature.
+                  type: object
+                  properties:
+                    idTypes:
+                      type: array
+                      items:
+                        type: string
+                    updateTime:
+                      type: object
+                      properties:
+                        time:
+                          type: string
+                        timezone:
+                          type: string
+                      required:
+                        - time
+                        - timezone
+                      additionalProperties: false
+                    lookbackWindow:
+                      type: integer
+                      exclusiveMinimum: 0
+                  required:
+                    - idTypes
+                    - updateTime
+                    - lookbackWindow
+                  additionalProperties: false
                 sql:
                   description: The SQL query for this fact table
                   type: string
@@ -16526,6 +16587,37 @@ paths:
                   type: array
                   items:
                     type: string
+                aggregatedFactTableSettings:
+                  description: >-
+                    Settings for maintaining shared daily aggregated tables (a
+                    subset of userIdTypes plus the daily update time and restate
+                    lookback window) used to speed up CUPED. Requires the data
+                    pipeline (pipeline-mode) feature.
+                  type: object
+                  properties:
+                    idTypes:
+                      type: array
+                      items:
+                        type: string
+                    updateTime:
+                      type: object
+                      properties:
+                        time:
+                          type: string
+                        timezone:
+                          type: string
+                      required:
+                        - time
+                        - timezone
+                      additionalProperties: false
+                    lookbackWindow:
+                      type: integer
+                      exclusiveMinimum: 0
+                  required:
+                    - idTypes
+                    - updateTime
+                    - lookbackWindow
+                  additionalProperties: false
                 sql:
                   description: The SQL query for this fact table
                   type: string
@@ -16806,6 +16898,101 @@ paths:
             'https://api.growthbook.io/api/v1/fact-tables/abc123/filters/abc123'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/fact-tables/{id}/aggregated-tables:
+    get:
+      operationId: getAggregatedFactTables
+      summary: >-
+        Get the materialization status of a fact table's shared daily aggregated
+        tables
+      tags:
+        - fact-tables
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  aggregatedFactTables:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AggregatedFactTable'
+                  nextScheduledUpdate:
+                    description: >-
+                      When the next scheduled nightly refresh will run, or null
+                      if no schedule is configured
+                    anyOf:
+                      - format: date-time
+                        type: string
+                      - type: 'null'
+                required:
+                  - aggregatedFactTables
+                  - nextScheduledUpdate
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/fact-tables/abc123/aggregated-tables'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/fact-tables/{id}/aggregated-tables/refresh:
+    post:
+      operationId: refreshAggregatedFactTable
+      summary: >-
+        Force a refresh or full restate of a fact table's shared daily
+        aggregated tables
+      tags:
+        - fact-tables
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                idType:
+                  description: >-
+                    Limit the refresh to a single id type. If omitted, all of
+                    the fact table's aggregatedFactTableSettings.idTypes are
+                    refreshed.
+                  type: string
+                fullRestate:
+                  description: >-
+                    Drop and recreate the table, re-scanning the retained
+                    window. This is significantly more expensive than the
+                    default incremental append (it scans ~2-3 months of
+                    history).
+                  type: boolean
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  queued:
+                    description: The id types for which a materialization run was queued
+                    type: array
+                    items:
+                      type: string
+                required:
+                  - queued
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/fact-tables/abc123/aggregated-tables/refresh'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"fullRestate":false}'
   /v1/fact-metrics:
     get:
       operationId: listFactMetrics
@@ -19832,13 +20019,9 @@ paths:
         schedule as `completed`, skipping any remaining steps.
 
 
-        Use this when you are confident the rollout is successful and want to
-        lock
+        Pass `disableRule: true` to also disable the linked rule (equivalent to
 
-        in the final traffic allocation without waiting. For a full traffic
-        revert
-
-        instead, use `/actions/rollback`.
+        the cutoff-date-driven completion).
       tags:
         - ramp-schedules
       parameters:
@@ -19848,6 +20031,16 @@ paths:
           description: ''
           schema:
             type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                disableRule:
+                  type: boolean
+              additionalProperties: false
       responses:
         '200':
           content:
@@ -22845,6 +23038,641 @@ paths:
         - lang: cURL
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/transform-copy' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/ai/edit:
+    post:
+      operationId: postVisualEditorAIEdit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                prompt:
+                  type: string
+                  minLength: 1
+                  maxLength: 2000
+                elementContext:
+                  default: []
+                  maxItems: 20
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      selector:
+                        type: string
+                      tagName:
+                        type: string
+                      textSnippet:
+                        type: string
+                      outerHTML:
+                        type: string
+                      attrs:
+                        type: object
+                        propertyNames:
+                          type: string
+                        additionalProperties:
+                          type: string
+                      computedStyles:
+                        type: object
+                        propertyNames:
+                          type: string
+                        additionalProperties:
+                          type: string
+                    required:
+                      - selector
+                      - tagName
+                      - textSnippet
+                      - outerHTML
+                      - attrs
+                    additionalProperties: false
+                variationId:
+                  type: string
+                visualChangesetId:
+                  type: string
+                domDigest:
+                  type: object
+                  properties:
+                    url:
+                      type: string
+                    title:
+                      type: string
+                    structural:
+                      default: []
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          selector:
+                            type: string
+                          tag:
+                            type: string
+                          note:
+                            type: string
+                        required:
+                          - selector
+                          - tag
+                        additionalProperties: false
+                    headings:
+                      default: []
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          selector:
+                            type: string
+                          tag:
+                            type: string
+                          text:
+                            type: string
+                        required:
+                          - selector
+                          - tag
+                          - text
+                        additionalProperties: false
+                    buttons:
+                      default: []
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          selector:
+                            type: string
+                          tag:
+                            type: string
+                          text:
+                            type: string
+                          href:
+                            type: string
+                        required:
+                          - selector
+                          - tag
+                          - text
+                        additionalProperties: false
+                    links:
+                      default: []
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          selector:
+                            type: string
+                          text:
+                            type: string
+                          href:
+                            type: string
+                        required:
+                          - selector
+                          - text
+                          - href
+                        additionalProperties: false
+                    inputs:
+                      default: []
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          selector:
+                            type: string
+                          type:
+                            type: string
+                          name:
+                            type: string
+                          placeholder:
+                            type: string
+                          label:
+                            type: string
+                        required:
+                          - selector
+                          - type
+                        additionalProperties: false
+                    images:
+                      default: []
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          selector:
+                            type: string
+                          alt:
+                            type: string
+                          src:
+                            type: string
+                        required:
+                          - selector
+                          - src
+                        additionalProperties: false
+                  required:
+                    - url
+                    - title
+                    - structural
+                    - headings
+                    - buttons
+                    - links
+                    - inputs
+                    - images
+                  additionalProperties: false
+                conversationHistory:
+                  maxItems: 12
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      role:
+                        type: string
+                        enum:
+                          - user
+                          - assistant
+                      text:
+                        type: string
+                        maxLength: 4000
+                    required:
+                      - role
+                      - text
+                    additionalProperties: false
+                locale:
+                  type: string
+                  minLength: 2
+                  maxLength: 10
+                  pattern: ^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})?$
+                streamingMode:
+                  type: boolean
+              required:
+                - prompt
+                - elementContext
+                - variationId
+                - visualChangesetId
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/ai/edit' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/ai/edit/resume:
+    post:
+      operationId: postVisualEditorAIEditResume
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                jobId:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                callId:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                result: {}
+              required:
+                - jobId
+                - callId
+                - result
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/ai/edit/resume' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/ai/suggestions:
+    post:
+      operationId: postVisualEditorAISuggestions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                visualChangesetId:
+                  type: string
+                pageHints:
+                  type: object
+                  properties:
+                    url:
+                      type: string
+                    title:
+                      type: string
+                    description:
+                      type: string
+                    headings:
+                      maxItems: 20
+                      type: array
+                      items:
+                        type: string
+                  additionalProperties: false
+              required:
+                - visualChangesetId
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/ai/suggestions' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/ai/image-gen:
+    post:
+      operationId: postVisualEditorAIImageGen
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                prompt:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+                aspectRatio:
+                  type: string
+                count:
+                  type: integer
+                  minimum: 1
+                  maximum: 4
+                visualChangesetId:
+                  type: string
+                referenceImage:
+                  type: object
+                  properties:
+                    data:
+                      type: string
+                      minLength: 1
+                      maxLength: 8388608
+                    mimeType:
+                      type: string
+                      enum:
+                        - image/png
+                        - image/jpeg
+                        - image/gif
+                        - image/webp
+                  required:
+                    - data
+                    - mimeType
+                  additionalProperties: false
+              required:
+                - prompt
+                - visualChangesetId
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/ai/image-gen' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/ai/promote-image:
+    post:
+      operationId: postVisualEditorAIPromoteImage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                visualChangesetId:
+                  type: string
+                filePath:
+                  type: string
+              required:
+                - visualChangesetId
+                - filePath
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/ai/promote-image' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/ai/upload-signed-url:
+    post:
+      operationId: postVisualEditorAIUploadSignedUrl
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                contentType:
+                  type: string
+                  enum:
+                    - image/png
+                    - image/jpeg
+                    - image/gif
+                    - image/webp
+                visualChangesetId:
+                  type: string
+              required:
+                - contentType
+                - visualChangesetId
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/ai/upload-signed-url'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/add-variant:
+    post:
+      operationId: postVisualEditorAddVariant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                visualChangesetId:
+                  type: string
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+              required:
+                - visualChangesetId
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/add-variant' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/create-experiment:
+    post:
+      operationId: postVisualEditorCreateExperiment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                pageUrl:
+                  type: string
+                  format: uri
+                urlPatterns:
+                  minItems: 1
+                  maxItems: 100
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      include:
+                        default: true
+                        type: boolean
+                      type:
+                        default: simple
+                        type: string
+                        enum:
+                          - simple
+                          - regex
+                      pattern:
+                        type: string
+                        minLength: 1
+                        maxLength: 2000
+                    required:
+                      - include
+                      - type
+                      - pattern
+                    additionalProperties: false
+                project:
+                  type: string
+                hashAttribute:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                hypothesis:
+                  type: string
+                  maxLength: 2000
+                description:
+                  type: string
+                  maxLength: 2000
+              required:
+                - name
+                - pageUrl
+                - urlPatterns
+                - hashAttribute
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/create-experiment' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/create-changeset:
+    post:
+      operationId: postVisualEditorCreateChangeset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                visualChangesetId:
+                  type: string
+                pageUrl:
+                  type: string
+                  format: uri
+                urlPatterns:
+                  minItems: 1
+                  maxItems: 100
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      include:
+                        default: true
+                        type: boolean
+                      type:
+                        default: simple
+                        type: string
+                        enum:
+                          - simple
+                          - regex
+                      pattern:
+                        type: string
+                        minLength: 1
+                        maxLength: 2000
+                    required:
+                      - include
+                      - type
+                      - pattern
+                    additionalProperties: false
+              required:
+                - visualChangesetId
+                - pageUrl
+                - urlPatterns
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/create-changeset' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/rename-experiment:
+    post:
+      operationId: postVisualEditorRenameExperiment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                visualChangesetId:
+                  type: string
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+              required:
+                - visualChangesetId
+                - name
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/rename-experiment' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/bootstrap:
+    get:
+      operationId: getVisualEditorBootstrap
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/visual-editor/bootstrap' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/library/images:
+    get:
+      operationId: getVisualEditorLibraryImages
+      parameters:
+        - name: limit
+          in: query
+          description: ''
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/visual-editor/library/images' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/dashboards/{id}:
     get:
@@ -35136,6 +35964,13 @@ components:
           type: array
           items:
             type: string
+        environments:
+          description: >-
+            Limit this Archetype to specific environments. Omit or leave empty
+            to apply to all environments.
+          type: array
+          items:
+            type: string
       required:
         - id
         - dateCreated
@@ -36889,6 +37724,11 @@ components:
           type: boolean
         includeDraftExperiments:
           type: boolean
+        includeDraftExperimentRefs:
+          description: >-
+            When true, experiment-ref rules linked to draft experiments are
+            included in feature definitions. Off by default.
+          type: boolean
         includeExperimentNames:
           type: boolean
         includeRedirectExperiments:
@@ -37572,6 +38412,37 @@ components:
           type: array
           items:
             type: string
+        aggregatedFactTableSettings:
+          description: >-
+            Settings for maintaining shared daily aggregated tables (a subset of
+            userIdTypes plus the daily update time and restate lookback window)
+            used to speed up CUPED. Requires the data pipeline (pipeline-mode)
+            feature.
+          type: object
+          properties:
+            idTypes:
+              type: array
+              items:
+                type: string
+            updateTime:
+              type: object
+              properties:
+                time:
+                  type: string
+                timezone:
+                  type: string
+              required:
+                - time
+                - timezone
+              additionalProperties: false
+            lookbackWindow:
+              type: integer
+              exclusiveMinimum: 0
+          required:
+            - idTypes
+            - updateTime
+            - lookbackWindow
+          additionalProperties: false
         sql:
           type: string
         eventName:
@@ -37745,6 +38616,86 @@ components:
         - managedBy
         - dateCreated
         - dateUpdated
+      additionalProperties: false
+    AggregatedFactTable:
+      type: object
+      properties:
+        idType:
+          description: The id type this aggregated table is keyed by
+          type: string
+        status:
+          description: >-
+            Materialization status: `pending` (not yet built), `running` (a
+            refresh is in progress), `active` (materialized and queryable), or
+            `error` (the last run failed).
+          type: string
+          enum:
+            - running
+            - error
+            - pending
+            - active
+        tableFullName:
+          description: >-
+            Fully-qualified warehouse table name, or null if it has not been
+            created yet
+          anyOf:
+            - type: string
+            - type: 'null'
+        firstEventDate:
+          description: Earliest event date covered by the materialized data
+          anyOf:
+            - format: date-time
+              type: string
+            - type: 'null'
+        lastEventDate:
+          description: Latest event date covered by the materialized data
+          anyOf:
+            - format: date-time
+              type: string
+            - type: 'null'
+        lastMaxTimestamp:
+          description: >-
+            Event-time high-water mark; the next incremental refresh appends
+            events after this timestamp
+          anyOf:
+            - format: date-time
+              type: string
+            - type: 'null'
+        lastError:
+          description: Error message from the last failed run, if any
+          anyOf:
+            - type: string
+            - type: 'null'
+        dateUpdated:
+          description: When the aggregation metadata was last updated
+          anyOf:
+            - format: date-time
+              type: string
+            - type: 'null'
+        pendingRestate:
+          description: >-
+            Whether the next run will be forced to drop and rebuild the table
+            instead of appending incrementally
+          type: boolean
+        pendingRestateReason:
+          description: Why a restate is pending, if `pendingRestate` is true
+          anyOf:
+            - type: string
+              enum:
+                - incomplete-write
+                - schema-drift
+            - type: 'null'
+      required:
+        - idType
+        - status
+        - tableFullName
+        - firstEventDate
+        - lastEventDate
+        - lastMaxTimestamp
+        - lastError
+        - dateUpdated
+        - pendingRestate
+        - pendingRestateReason
       additionalProperties: false
     FactMetric:
       type: object
@@ -41536,6 +42487,9 @@ components:
               - contextId
               - weights
             additionalProperties: false
+        weightUpdateCount:
+          type: integer
+          minimum: 0
         contextualAttributes:
           type: array
           items:
@@ -41580,6 +42534,7 @@ components:
         - secondaryMetrics
         - guardrailMetrics
         - currentLeafWeights
+        - weightUpdateCount
         - contextualAttributes
         - maxContexts
         - treeModel
@@ -44974,6 +45929,7 @@ x-tagGroups:
       - RampScheduleTemplates
   - name: Models
     tags:
+      - AggregatedFactTable_model
       - AnalyticsExploration_model
       - Archetype_model
       - Attribute_model

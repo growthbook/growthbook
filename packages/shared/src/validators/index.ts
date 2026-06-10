@@ -6,6 +6,8 @@ export * from "./experiments";
 export * from "./fact-table";
 export * from "./fact-metrics";
 export * from "./incremental-refresh";
+export * from "./aggregated-fact-table";
+export * from "./aggregated-fact-table-run";
 export * from "./managed-by";
 export * from "./metric-time-series";
 export * from "./archetypes";

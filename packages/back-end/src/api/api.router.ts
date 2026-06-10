@@ -43,6 +43,7 @@ import { factMetricsRoutes } from "./fact-metrics/fact-metrics.router";
 import { bulkImportRoutes } from "./bulk-import/bulk-import.router";
 import { membersRoutes } from "./members/members.router";
 import { openaiRoutes } from "./openai/openai.router";
+import { visualEditorAiRoutes } from "./visual-editor-ai/visualEditorAi.router";
 import { archetypesRoutes } from "./archetypes/archetypes.router";
 import { queriesRoutes } from "./queries/queries.router";
 import { settingsRoutes } from "./settings/settings.router";
@@ -178,6 +179,7 @@ export const allRoutes = [
   ...reportRoutes,
   ...namespacesRoutes,
   ...openaiRoutes,
+  ...visualEditorAiRoutes,
 ];
 
 /** Tag metadata from BaseModel specs, keyed by PascalCase tag name */

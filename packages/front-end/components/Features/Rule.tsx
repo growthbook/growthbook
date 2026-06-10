@@ -573,20 +573,35 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       !isSyntheticRamp &&
       rampSchedule.status === "rolled-back"
     ) {
+      const cutoffPast =
+        rampSchedule.cutoffDate &&
+        new Date(rampSchedule.cutoffDate) <= new Date();
       ruleCtas.push(
-        <Button
-          key="ramp-restart"
-          size="xs"
-          variant="solid"
-          onClick={async () => {
-            await apiCall(`/ramp-schedule/${rampSchedule.id}/actions/restart`, {
-              method: "POST",
-            });
-            await mutate();
-          }}
-        >
-          Restart
-        </Button>,
+        cutoffPast ? (
+          <Tooltip
+            key="ramp-restart"
+            body="The scheduled end date has already passed. Edit the schedule to remove or update the end date before restarting."
+          >
+            <Button size="xs" variant="solid" disabled>
+              Restart
+            </Button>
+          </Tooltip>
+        ) : (
+          <Button
+            key="ramp-restart"
+            size="xs"
+            variant="solid"
+            onClick={async () => {
+              await apiCall(
+                `/ramp-schedule/${rampSchedule.id}/actions/restart`,
+                { method: "POST" },
+              );
+              await mutate();
+            }}
+          >
+            Restart
+          </Button>
+        ),
       );
     }
 
@@ -881,6 +896,67 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                       </DropdownMenuGroup>
                     </>
                   )}
+                  {rampSchedule &&
+                    isSimpleSchedule &&
+                    !!rampSchedule.cutoffDate &&
+                    ["running", "paused"].includes(rampSchedule.status) && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuGroup label="Schedule">
+                          <DropdownMenuItem
+                            onClick={async () => {
+                              await apiCall(
+                                `/ramp-schedule/${rampSchedule.id}/actions/complete`,
+                                { method: "POST" },
+                              );
+                              await mutate();
+                              setDropdownOpen(false);
+                            }}
+                          >
+                            <Flex align="center" gap="2">
+                              <PiFastForward /> Complete schedule and disable
+                            </Flex>
+                          </DropdownMenuItem>
+                        </DropdownMenuGroup>
+                      </>
+                    )}
+                  {rampSchedule &&
+                    isSimpleSchedule &&
+                    !!rampSchedule.cutoffDate &&
+                    ["completed", "rolled-back"].includes(
+                      rampSchedule.status,
+                    ) && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuGroup label="Schedule">
+                          <DropdownMenuItem
+                            onClick={async () => {
+                              const res = await apiCall<{
+                                version: number;
+                              }>(`/feature/${feature.id}/${version}/rule`, {
+                                method: "PUT",
+                                body: JSON.stringify({
+                                  ruleId: rule.id,
+                                  rule,
+                                  rampSchedule: {
+                                    mode: "detach",
+                                    rampScheduleId: rampSchedule.id,
+                                    deleteScheduleWhenEmpty: true,
+                                  },
+                                }),
+                              });
+                              if (res.version) setVersion(res.version);
+                              await mutate();
+                              setDropdownOpen(false);
+                            }}
+                          >
+                            <Flex align="center" gap="2">
+                              <PiTrash /> Remove schedule
+                            </Flex>
+                          </DropdownMenuItem>
+                        </DropdownMenuGroup>
+                      </>
+                    )}
                   {rampSchedule && !isSimpleSchedule && !isSyntheticRamp && (
                     <>
                       <DropdownMenuSeparator />
@@ -1102,39 +1178,90 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                                       ))}
                                   </DropdownSubMenu>
                                 )}
-                                <DropdownMenuItem
-                                  onClick={async () => {
-                                    await apiCall(
-                                      `/ramp-schedule/${rampSchedule.id}/actions/complete`,
-                                      { method: "POST" },
-                                    );
-                                    await mutate();
-                                    setDropdownOpen(false);
-                                  }}
-                                >
-                                  <Flex align="center" gap="2">
-                                    <PiFastForward /> Complete ramp
-                                  </Flex>
-                                </DropdownMenuItem>
+                                {(() => {
+                                  const hasCutoff = !!rampSchedule.cutoffDate;
+                                  const allStepsDone =
+                                    rampSchedule.currentStepIndex >=
+                                    rampSchedule.steps.length;
+                                  return (
+                                    <>
+                                      {!allStepsDone && (
+                                        <DropdownMenuItem
+                                          onClick={async () => {
+                                            await apiCall(
+                                              `/ramp-schedule/${rampSchedule.id}/actions/complete`,
+                                              { method: "POST" },
+                                            );
+                                            await mutate();
+                                            setDropdownOpen(false);
+                                          }}
+                                        >
+                                          <Flex align="center" gap="2">
+                                            <PiFastForward /> Complete ramp
+                                          </Flex>
+                                        </DropdownMenuItem>
+                                      )}
+                                      {hasCutoff && (
+                                        <DropdownMenuItem
+                                          onClick={async () => {
+                                            await apiCall(
+                                              `/ramp-schedule/${rampSchedule.id}/actions/complete`,
+                                              {
+                                                method: "POST",
+                                                body: JSON.stringify({
+                                                  disableRule: true,
+                                                }),
+                                              },
+                                            );
+                                            await mutate();
+                                            setDropdownOpen(false);
+                                          }}
+                                        >
+                                          <Flex align="center" gap="2">
+                                            <PiFastForward /> Complete ramp and
+                                            disable rule
+                                          </Flex>
+                                        </DropdownMenuItem>
+                                      )}
+                                    </>
+                                  );
+                                })()}
                               </>
                             )}
                             {/* Restart / Remove — terminal states */}
                             {rampIsTerminal && (
                               <>
-                                <DropdownMenuItem
-                                  onClick={async () => {
-                                    await apiCall(
-                                      `/ramp-schedule/${rampSchedule.id}/actions/restart`,
-                                      { method: "POST" },
-                                    );
-                                    await mutate();
-                                    setDropdownOpen(false);
-                                  }}
-                                >
-                                  <Flex align="center" gap="2">
-                                    <PiRewind /> Restart ramp
-                                  </Flex>
-                                </DropdownMenuItem>
+                                {rampSchedule.cutoffDate &&
+                                new Date(rampSchedule.cutoffDate) <=
+                                  new Date() ? (
+                                  <Tooltip
+                                    tipPosition="left"
+                                    body="The scheduled end date has already passed. Edit the schedule to remove or update the end date before restarting."
+                                  >
+                                    <div style={{ cursor: "not-allowed" }}>
+                                      <DropdownMenuItem disabled>
+                                        <Flex align="center" gap="2">
+                                          <PiRewind /> Restart ramp
+                                        </Flex>
+                                      </DropdownMenuItem>
+                                    </div>
+                                  </Tooltip>
+                                ) : (
+                                  <DropdownMenuItem
+                                    onClick={async () => {
+                                      await apiCall(
+                                        `/ramp-schedule/${rampSchedule.id}/actions/restart`,
+                                        { method: "POST" },
+                                      );
+                                      await mutate();
+                                      setDropdownOpen(false);
+                                    }}
+                                  >
+                                    <Flex align="center" gap="2">
+                                      <PiRewind /> Restart ramp
+                                    </Flex>
+                                  </DropdownMenuItem>
+                                )}
                                 <DropdownMenuItem
                                   onClick={async () => {
                                     const res = await apiCall<{
@@ -1433,6 +1560,16 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                     await apiCall(
                       `/ramp-schedule/${rampSchedule.id}/actions/complete`,
                       { method: "POST" },
+                    );
+                    await mutate();
+                  }}
+                  onCompleteAndDisable={async () => {
+                    await apiCall(
+                      `/ramp-schedule/${rampSchedule.id}/actions/complete`,
+                      {
+                        method: "POST",
+                        body: JSON.stringify({ disableRule: true }),
+                      },
                     );
                     await mutate();
                   }}
