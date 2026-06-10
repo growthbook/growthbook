@@ -109,6 +109,7 @@ export const testCustomHook = async (
     success: boolean;
     returnVal?: string;
     error?: string;
+    warnings?: string[];
     log?: string;
   }>,
 ) => {
@@ -135,6 +136,7 @@ export const testCustomHook = async (
       returnVal: result.returnVal
         ? JSON.stringify(result.returnVal, null, 2)
         : undefined,
+      warnings: result.warnings,
       log: result.log,
     });
   } else {
@@ -142,6 +144,7 @@ export const testCustomHook = async (
       status: 200,
       success: false,
       error: result.error || "Unknown error",
+      warnings: result.warnings,
       log: result.log,
     });
   }

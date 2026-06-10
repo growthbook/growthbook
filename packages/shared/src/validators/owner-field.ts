@@ -29,3 +29,15 @@ export const ownerInputField = z
   .describe(
     "The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization.",
   );
+
+/**
+ * Optional owner input for create endpoints. When omitted, the owner defaults to
+ * the user associated with the request's Personal Access Token (PAT), if one is
+ * being used. Endpoints that require an owner (e.g. create feature) will reject
+ * the request when the owner is omitted and no PAT user is available.
+ */
+export const optionalOwnerInputField = ownerInputField
+  .optional()
+  .describe(
+    "The userId or email address of the owner. If an email address is provided, it will be used to look up the userId of the matching organization member. If an ID is provided, it will be validated as existing in the organization. When omitted, it defaults to the user associated with the request's Personal Access Token (PAT), if one is being used.",
+  );

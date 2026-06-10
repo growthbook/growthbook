@@ -26,6 +26,7 @@ import { notifyExperimentChange } from "back-end/src/services/experimentNotifica
 import { updateExperimentAnalysisSummary } from "back-end/src/services/experiments";
 import { updateExperimentTimeSeries } from "back-end/src/services/experimentTimeSeries";
 import { runEagerExperimentAndUnitDimensionsAnalyses } from "back-end/src/services/experimentDimensionAnalyses";
+import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimentUpdateExecutionLogger";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { queriesSchema } from "./QueryModel";
@@ -401,10 +402,12 @@ export async function updateSnapshot({
   context,
   id,
   updates,
+  experimentUpdateExecutionLogger,
 }: {
   context: Context;
   id: string;
   updates: Partial<ExperimentSnapshotInterface>;
+  experimentUpdateExecutionLogger?: ExperimentUpdateExecutionLogger | null;
 }) {
   const organization = context.org.id;
 
@@ -417,112 +420,130 @@ export async function updateSnapshot({
   }
 
   const existingInterface = toInterface(existingSnapshotModel);
-  const updatesForDb: Partial<ExperimentSnapshotInterface> = { ...updates };
-  let deleteExistingChunksAfterUpdate = false;
-  let chunkResult: Awaited<ReturnType<typeof chunkAndStripAnalyses>> = null;
   let experimentSnapshot: ExperimentSnapshotInterface = {
     ...existingInterface,
     ...updates,
   };
+  const hasAnalysisUpdates = updates.analyses !== undefined;
 
-  const analysisUpdates = updates.analyses;
-  const hasAnalysisUpdates = analysisUpdates !== undefined;
+  experimentUpdateExecutionLogger?.startPhase("persistSnapshot");
 
-  // Normalize analysis keys up front: preserve keys by settings-match against
-  // the existing on-disk analyses so in-place updates stay on the same
-  // sub-path, mint fresh ones for analyses that don't match.
-  const normalizedAnalyses = hasAnalysisUpdates
-    ? analysisUpdates.map((analysis) => {
-        const resolvedKey = resolveAnalysisKey(
-          existingInterface.analyses,
-          analysis,
-        );
-        return analysis.analysisKey === resolvedKey
-          ? analysis
-          : { ...analysis, analysisKey: resolvedKey };
-      })
-    : undefined;
+  let currentExperimentModel: Awaited<ReturnType<typeof getExperimentById>> =
+    null;
+  let updatedExperimentModel: Awaited<
+    ReturnType<typeof updateExperimentAnalysisSummary>
+  > | null = null;
+  let shouldRunEagerDimensionAnalyses = false;
 
-  // If analyses have results, chunk them into separate documents
-  if (normalizedAnalyses) {
-    chunkResult = await chunkAndStripAnalyses({
-      context,
-      snapshotId: id,
-      experimentId: experimentSnapshot.experiment,
-      analyses: normalizedAnalyses,
-      settings: experimentSnapshot.settings,
-    });
-  }
+  try {
+    const updatesForDb: Partial<ExperimentSnapshotInterface> = { ...updates };
+    let deleteExistingChunksAfterUpdate = false;
+    let chunkResult: Awaited<ReturnType<typeof chunkAndStripAnalyses>> = null;
 
-  if (chunkResult && normalizedAnalyses) {
-    deleteExistingChunksAfterUpdate = chunkResult.metricIds.length === 0;
-    // Clear results from the main document while keeping the logical snapshot
-    // populated for post-success side effects below.
-    updatesForDb.analyses = chunkResult.strippedAnalyses;
-    updatesForDb.hasChunkedAnalyses = chunkResult.hasChunkedAnalyses;
-    updatesForDb.chunkedAnalysesMeta = chunkResult.chunkedAnalysesMeta;
-    experimentSnapshot = {
-      ...experimentSnapshot,
-      analyses: normalizedAnalyses,
-      hasChunkedAnalyses: chunkResult.hasChunkedAnalyses,
-      chunkedAnalysesMeta: chunkResult.chunkedAnalysesMeta,
-    };
-  } else if (normalizedAnalyses) {
-    deleteExistingChunksAfterUpdate = true;
-    updatesForDb.analyses = normalizedAnalyses;
-    updatesForDb.hasChunkedAnalyses = false;
-    updatesForDb.chunkedAnalysesMeta = {};
-    experimentSnapshot = {
-      ...experimentSnapshot,
-      analyses: normalizedAnalyses,
-      hasChunkedAnalyses: false,
-      chunkedAnalysesMeta: {},
-    };
-  }
+    // Normalize analysis keys up front: preserve keys by settings-match against
+    // the existing on-disk analyses so in-place updates stay on the same
+    // sub-path, mint fresh ones for analyses that don't match.
+    const normalizedAnalyses = updates.analyses
+      ? updates.analyses.map((analysis) => {
+          const resolvedKey = resolveAnalysisKey(
+            existingInterface.analyses,
+            analysis,
+          );
+          return analysis.analysisKey === resolvedKey
+            ? analysis
+            : { ...analysis, analysisKey: resolvedKey };
+        })
+      : undefined;
 
-  await ExperimentSnapshotModel.updateOne(
-    {
-      organization,
-      id,
-    },
-    {
-      $set: updatesForDb,
-    },
-  );
-
-  if (deleteExistingChunksAfterUpdate) {
-    await context.models.experimentSnapshotAnalysisChunks.deleteBySnapshotId(
-      id,
-    );
-  }
-
-  if (experimentSnapshot.hasChunkedAnalyses && !chunkResult) {
-    await populateSnapshotAnalyses(context, experimentSnapshot);
-  }
-
-  const shouldUpdateExperimentAnalysisSummary =
-    experimentSnapshot.type === "standard" &&
-    experimentSnapshot.status === "success";
-
-  const shouldRunEagerDimensionAnalyses =
-    shouldUpdateExperimentAnalysisSummary && hasAnalysisUpdates;
-
-  const currentExperimentModel = shouldUpdateExperimentAnalysisSummary
-    ? await getExperimentById(context, experimentSnapshot.experiment)
-    : null;
-
-  const isLatestPhase = currentExperimentModel
-    ? experimentSnapshot.phase === currentExperimentModel.phases.length - 1
-    : false;
-
-  if (currentExperimentModel && isLatestPhase) {
-    if (shouldUpdateExperimentAnalysisSummary) {
-      const updatedExperimentModel = await updateExperimentAnalysisSummary({
+    // If analyses have results, chunk them into separate documents
+    if (normalizedAnalyses) {
+      chunkResult = await chunkAndStripAnalyses({
         context,
-        experiment: currentExperimentModel,
-        experimentSnapshot,
+        snapshotId: id,
+        experimentId: experimentSnapshot.experiment,
+        analyses: normalizedAnalyses,
+        settings: experimentSnapshot.settings,
       });
+    }
 
+    if (chunkResult && normalizedAnalyses) {
+      deleteExistingChunksAfterUpdate = chunkResult.metricIds.length === 0;
+      // Clear results from the main document while keeping the logical snapshot
+      // populated for post-success side effects below.
+      updatesForDb.analyses = chunkResult.strippedAnalyses;
+      updatesForDb.hasChunkedAnalyses = chunkResult.hasChunkedAnalyses;
+      updatesForDb.chunkedAnalysesMeta = chunkResult.chunkedAnalysesMeta;
+      experimentSnapshot = {
+        ...experimentSnapshot,
+        analyses: normalizedAnalyses,
+        hasChunkedAnalyses: chunkResult.hasChunkedAnalyses,
+        chunkedAnalysesMeta: chunkResult.chunkedAnalysesMeta,
+      };
+    } else if (normalizedAnalyses) {
+      deleteExistingChunksAfterUpdate = true;
+      updatesForDb.analyses = normalizedAnalyses;
+      updatesForDb.hasChunkedAnalyses = false;
+      updatesForDb.chunkedAnalysesMeta = {};
+      experimentSnapshot = {
+        ...experimentSnapshot,
+        analyses: normalizedAnalyses,
+        hasChunkedAnalyses: false,
+        chunkedAnalysesMeta: {},
+      };
+    }
+
+    await ExperimentSnapshotModel.updateOne(
+      {
+        organization,
+        id,
+      },
+      {
+        $set: updatesForDb,
+      },
+    );
+
+    if (deleteExistingChunksAfterUpdate) {
+      await context.models.experimentSnapshotAnalysisChunks.deleteBySnapshotId(
+        id,
+      );
+    }
+
+    if (experimentSnapshot.hasChunkedAnalyses && !chunkResult) {
+      await populateSnapshotAnalyses(context, experimentSnapshot);
+    }
+
+    const shouldUpdateExperimentAnalysisSummary =
+      experimentSnapshot.type === "standard" &&
+      experimentSnapshot.status === "success";
+
+    shouldRunEagerDimensionAnalyses =
+      shouldUpdateExperimentAnalysisSummary && hasAnalysisUpdates;
+
+    if (shouldUpdateExperimentAnalysisSummary) {
+      currentExperimentModel = await getExperimentById(
+        context,
+        experimentSnapshot.experiment,
+      );
+
+      const isLatestPhase = currentExperimentModel
+        ? experimentSnapshot.phase === currentExperimentModel.phases.length - 1
+        : false;
+
+      if (currentExperimentModel && isLatestPhase) {
+        updatedExperimentModel = await updateExperimentAnalysisSummary({
+          context,
+          experiment: currentExperimentModel,
+          experimentSnapshot,
+        });
+      }
+    }
+  } finally {
+    experimentUpdateExecutionLogger?.endPhase("persistSnapshot");
+  }
+
+  if (updatedExperimentModel && currentExperimentModel) {
+    experimentUpdateExecutionLogger?.startPhase("propagateSnapshot");
+    try {
       const notificationsTriggered = await notifyExperimentChange({
         context,
         experiment: updatedExperimentModel,
@@ -565,7 +586,19 @@ export async function updateSnapshot({
           );
         });
       }
+    } finally {
+      experimentUpdateExecutionLogger?.endPhase("propagateSnapshot");
     }
+  }
+
+  if (
+    experimentUpdateExecutionLogger &&
+    experimentSnapshot.status !== "running"
+  ) {
+    experimentUpdateExecutionLogger.logUpdateCompleted(context, {
+      snapshotStatus: experimentSnapshot.status,
+      error: experimentSnapshot.error,
+    });
   }
 
   const updateDashboardWithSnapshot = async (dashboard: DashboardInterface) => {

@@ -26,6 +26,12 @@ export const apiSdkConnectionValidator = namedSchema(
       encryptionKey: z.string(),
       includeVisualExperiments: z.boolean().optional(),
       includeDraftExperiments: z.boolean().optional(),
+      includeDraftExperimentRefs: z
+        .boolean()
+        .optional()
+        .describe(
+          "When true, experiment-ref rules linked to draft experiments are included in feature definitions. Off by default.",
+        ),
       includeExperimentNames: z.boolean().optional(),
       includeRedirectExperiments: z.boolean().optional(),
       includeRuleIds: z.boolean().optional(),
@@ -58,6 +64,12 @@ const postSdkConnectionBody = z
     encryptPayload: z.boolean().optional(),
     includeVisualExperiments: z.boolean().optional(),
     includeDraftExperiments: z.boolean().optional(),
+    includeDraftExperimentRefs: z
+      .boolean()
+      .optional()
+      .describe(
+        "When true, experiment-ref rules linked to draft experiments are included in feature definitions. Off by default.",
+      ),
     includeExperimentNames: z.boolean().optional(),
     includeRedirectExperiments: z.boolean().optional(),
     includeRuleIds: z.boolean().optional(),

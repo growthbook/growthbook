@@ -2056,7 +2056,11 @@ export function getDraftAffectedEnvironments(
     if (!isEqual(revRules, baseRules)) {
       envs.add(env);
     }
-    const effectiveBaseEnvVal = baseRevision.environmentsEnabled?.[env];
+    // Base revisions that predate an environment have no key for it at all;
+    // treat missing as false so a freshly-snapshotted `false` on the draft side
+    // doesn't register as a kill-switch change.
+    const effectiveBaseEnvVal =
+      baseRevision.environmentsEnabled?.[env] ?? false;
     if (
       revision.environmentsEnabled?.[env] !== undefined &&
       revision.environmentsEnabled[env] !== effectiveBaseEnvVal
@@ -2174,7 +2178,7 @@ export function checkIfRevisionNeedsReview({
     (env) =>
       revision.environmentsEnabled?.[env] !== undefined &&
       revision.environmentsEnabled[env] !==
-        baseRevision.environmentsEnabled?.[env],
+        (baseRevision.environmentsEnabled?.[env] ?? false),
   );
 
   const gatedEnvs = reviewSetting.environments;

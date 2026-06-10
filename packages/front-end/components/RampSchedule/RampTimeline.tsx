@@ -109,23 +109,24 @@ export function formatStepGateInline(
   return requiresApproval ? `${duration}, approval` : duration;
 }
 
-// Two-line ReactNode for a scheduled datetime; shows year only when it differs from current year.
+// Scheduled datetime label. Two-line by default (for node sublabels);
+// pass `inline` for single-line rendering in popovers.
 export function formatScheduledDate(
   d: Date | string,
-  { compact }: { compact?: boolean } = {},
+  { inline }: { inline?: boolean } = {},
 ): ReactNode {
   const parsed = new Date(d);
   const now = new Date();
   const sameYear = parsed.getFullYear() === now.getFullYear();
   const dateLine = format(parsed, sameYear ? "MMM d" : "MMM d, yyyy");
-  if (compact) {
+  const timeLine = format(parsed, "h:mm a");
+  if (inline) {
     return (
-      <div className={styles.scheduledDateLine}>
-        <Text size="small">{dateLine}</Text>
-      </div>
+      <Text size="small">
+        {dateLine}, {timeLine}
+      </Text>
     );
   }
-  const timeLine = format(parsed, "h:mm a");
   return (
     <>
       <div className={styles.scheduledDateLine}>
@@ -351,6 +352,9 @@ interface NodePopoverContentProps {
   rs: RampScheduleInterface;
   onJump?: (targetStepIndex: number) => Promise<void> | void;
   onComplete?: () => Promise<void> | void;
+  onCompleteAndDisable?: () => Promise<void> | void;
+  isDisableNode?: boolean;
+  ctaLabelOverride?: string;
 }
 
 function NodePopoverContent({
@@ -370,6 +374,9 @@ function NodePopoverContent({
   rs,
   onJump,
   onComplete,
+  onCompleteAndDisable,
+  isDisableNode,
+  ctaLabelOverride,
 }: NodePopoverContentProps) {
   const [loading, setLoading] = useState(false);
 
@@ -377,18 +384,23 @@ function NodePopoverContent({
 
   let ctaLabel: string | null = null;
   if (canAct) {
-    if (stepIndex === "start") ctaLabel = "Roll back to start";
-    else if (stepIndex === "end") ctaLabel = "Complete ramp";
+    if (ctaLabelOverride) ctaLabel = ctaLabelOverride;
+    else if (stepIndex === "start") ctaLabel = "Roll back to start";
+    else if (stepIndex === "end")
+      ctaLabel = isDisableNode
+        ? "Complete ramp and disable rule"
+        : "Complete ramp";
     else ctaLabel = `Jump to Step ${(stepIndex as number) + 1}`;
   }
 
-  const hasCtaHandler = stepIndex === "end" ? !!onComplete : !!onJump;
+  const endHandler = isDisableNode ? onCompleteAndDisable : onComplete;
+  const hasCtaHandler = stepIndex === "end" ? !!endHandler : !!onJump;
 
   async function handleCta() {
     setLoading(true);
     try {
       if (stepIndex === "end") {
-        await onComplete?.();
+        await endHandler?.();
       } else if (stepIndex === "start") {
         await onJump?.(-1);
       } else {
@@ -547,8 +559,19 @@ function hasDualEndNodes(rs: RampScheduleInterface): boolean {
 }
 
 function completedNodeCount(rs: RampScheduleInterface): number {
-  const extra = hasDualEndNodes(rs) ? 1 : 0;
-  if (rs.status === "completed") return rs.steps.length + 2 + extra;
+  const dual = hasDualEndNodes(rs);
+  const extra = dual ? 1 : 0;
+  if (rs.status === "completed") {
+    // When dual end nodes exist and the cutoff date hasn't passed, the
+    // disable node wasn't naturally reached by the scheduler. We can't
+    // distinguish "complete without disable" from "complete and disable"
+    // from the schedule data alone, so we conservatively show the disable
+    // node as not-yet-completed until the cutoff passes.
+    if (dual && rs.cutoffDate && new Date(rs.cutoffDate) > new Date()) {
+      return rs.steps.length + 2;
+    }
+    return rs.steps.length + 2 + extra;
+  }
 
   if (rs.status === "pending" || rs.status === "ready") return 0;
   return rs.currentStepIndex + 1;
@@ -722,6 +745,7 @@ interface Props {
   pendingDetach?: boolean;
   onJump?: (targetStepIndex: number) => Promise<void> | void;
   onComplete?: () => Promise<void> | void;
+  onCompleteAndDisable?: () => Promise<void> | void;
 }
 
 // ─── Exported helpers (used by parent pages to build header rows) ─────────────
@@ -782,6 +806,7 @@ export default function RampTimeline({
   pendingDetach,
   onJump,
   onComplete,
+  onCompleteAndDisable,
 }: Props) {
   const { steps, status, startDate, targets } = rs;
   // activatingRevisionVersion is now per-target; find the first target that has one
@@ -815,6 +840,9 @@ export default function RampTimeline({
   const showStartDate =
     !!startDate && (status === "pending" || status === "ready");
   const startSublabel = showStartDate ? formatScheduledDate(startDate!) : null;
+  const startInline = showStartDate
+    ? formatScheduledDate(startDate!, { inline: true })
+    : null;
   const nodes: NodeMeta[] = [
     {
       key: "start",
@@ -828,7 +856,7 @@ export default function RampTimeline({
           nodeState={getState(0)}
           status={status}
           interval={null}
-          triggerLabel={startSublabel}
+          triggerLabel={startInline}
           actions={rs.startActions ?? []}
           stepIndex="start"
           isActive={getState(0) === "active"}
@@ -920,7 +948,7 @@ export default function RampTimeline({
           {
             key: "end-cutoff",
             label: "disable",
-            sublabel: formatScheduledDate(rs.cutoffDate!, { compact: true }),
+            sublabel: formatScheduledDate(rs.cutoffDate!),
             popoverContent: (
               <NodePopoverContent
                 heading="Disable"
@@ -929,13 +957,16 @@ export default function RampTimeline({
                 nodeState={getState(cutoffIdx)}
                 status={status}
                 interval={null}
-                triggerLabel={formatScheduledDate(rs.cutoffDate!)}
+                triggerLabel={formatScheduledDate(rs.cutoffDate!, {
+                  inline: true,
+                })}
                 actions={[]}
                 stepIndex="end"
                 isActive={getState(cutoffIdx) === "active"}
                 rs={rs}
                 onJump={onJump}
-                onComplete={onComplete}
+                onCompleteAndDisable={onCompleteAndDisable}
+                isDisableNode
               />
             ),
           },
@@ -949,9 +980,7 @@ export default function RampTimeline({
         {
           key: "end",
           label: hasDisableDate ? "disable" : "end",
-          sublabel: singleDate
-            ? formatScheduledDate(singleDate, { compact: true })
-            : null,
+          sublabel: singleDate ? formatScheduledDate(singleDate) : null,
           connectorLabel: lastStepConnector,
           popoverContent: (
             <NodePopoverContent
@@ -961,13 +990,20 @@ export default function RampTimeline({
               nodeState={getState(endNodeIndex)}
               status={status}
               interval={null}
-              triggerLabel={singleDate ? formatScheduledDate(singleDate) : null}
+              triggerLabel={
+                singleDate
+                  ? formatScheduledDate(singleDate, { inline: true })
+                  : null
+              }
               actions={rs.endActions ?? []}
               stepIndex="end"
               isActive={getState(endNodeIndex) === "active"}
               rs={rs}
               onJump={onJump}
               onComplete={onComplete}
+              ctaLabelOverride={
+                hasDisableDate ? "Complete schedule and disable" : undefined
+              }
             />
           ),
         },
