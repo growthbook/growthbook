@@ -190,7 +190,9 @@ export async function processJWT(
 
       if (req.organization) {
         if (req.organization.suspended && !req.superAdmin) {
-          if (!(req.method === "GET" && req.path === "/organization")) {
+          const allowedPaths = new Set(["GET /organization", "GET /user"]);
+          const currentPath = `${req.method} ${req.path}`;
+          if (!allowedPaths.has(currentPath)) {
             res.status(403).json({
               status: 403,
               message:
