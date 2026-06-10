@@ -851,6 +851,7 @@ export async function getOrganization(
       organization: null,
     });
   }
+
   const context = getContextFromReq(req);
   const { org, userId } = context;
   const {
@@ -978,6 +979,7 @@ export async function getOrganization(
         environments: filteredEnvironments,
       },
       autoApproveMembers: org.autoApproveMembers,
+      suspended: org.suspended,
       members: org.members,
       messages: messages || [],
       pendingMembers: org.pendingMembers,
