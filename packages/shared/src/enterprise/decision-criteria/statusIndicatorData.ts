@@ -187,5 +187,14 @@ function getDetailedRunningStatusIndicatorData(
         tooltip: decisionData.tooltip,
         sortOrder: 7,
       };
+    case "review-now":
+      return {
+        color: "amber",
+        status: "Running",
+        detailedStatus: "Review now (mid-ramp signal)",
+        tooltip: decisionData.tooltip,
+        needsAttention: true,
+        sortOrder: 11,
+      };
   }
 }

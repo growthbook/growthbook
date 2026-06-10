@@ -466,9 +466,33 @@ export const featureEntityHandler: EntityHandler = {
   },
 };
 
+export const experimentEntityHandler: EntityHandler = {
+  async applyActions(ctx, entityId, actions, opts) {
+    const { stepLabel } = opts;
+    const { applyExperimentCoverageChange } = await import(
+      "back-end/src/services/experimentRampSchedule"
+    );
+    const experiment = await (
+      await import("back-end/src/models/ExperimentModel")
+    ).getExperimentById(ctx, entityId);
+    if (!experiment) {
+      throw new Error(`Experiment not found: ${entityId}`);
+    }
+    for (const action of actions) {
+      if (action.targetType !== "experiment") continue;
+      await applyExperimentCoverageChange(
+        ctx,
+        experiment,
+        action.patch,
+        stepLabel,
+      );
+    }
+  },
+};
+
 const entityHandlers: Record<string, EntityHandler> = {
   feature: featureEntityHandler,
-  // TODO v2: experiment: experimentEntityHandler,
+  experiment: experimentEntityHandler,
 };
 
 function getEntityHandler(entityType: string): EntityHandler {
@@ -625,8 +649,7 @@ async function executeStepActions(
   stepIndex: number,
   actions: RampStepAction[],
 ): Promise<void> {
-  const ruleActions = actions.filter((a) => a.targetType === "feature-rule");
-  if (!ruleActions.length) return;
+  if (!actions.length) return;
 
   const byEntity = new Map<
     string,
@@ -638,21 +661,34 @@ async function executeStepActions(
     }
   >();
 
-  for (const action of ruleActions) {
-    if (action.targetType !== "feature-rule") continue;
-    const target = schedule.targets.find((t) => t.id === action.targetId);
-    if (!target || target.status !== "active") continue;
-
-    const key = `${target.entityType}:${target.entityId}`;
-    if (!byEntity.has(key)) {
-      byEntity.set(key, {
-        entityType: target.entityType,
-        entityId: target.entityId,
-        actions: [],
-        environment: target.environment,
-      });
+  for (const action of actions) {
+    // For feature-rule actions, resolve the entity via the targets array.
+    if (action.targetType === "feature-rule") {
+      const target = schedule.targets.find((t) => t.id === action.targetId);
+      if (!target || target.status !== "active") continue;
+      const key = `${target.entityType}:${target.entityId}`;
+      if (!byEntity.has(key)) {
+        byEntity.set(key, {
+          entityType: target.entityType,
+          entityId: target.entityId,
+          actions: [],
+          environment: target.environment,
+        });
+      }
+      byEntity.get(key)!.actions.push(action);
+    } else if (action.targetType === "experiment") {
+      // Experiment actions target the entity directly by ID.
+      const key = `experiment:${action.targetId}`;
+      if (!byEntity.has(key)) {
+        byEntity.set(key, {
+          entityType: "experiment",
+          entityId: action.targetId,
+          actions: [],
+          environment: null,
+        });
+      }
+      byEntity.get(key)!.actions.push(action);
     }
-    byEntity.get(key)!.actions.push(action);
   }
 
   const user: EventUser = {
@@ -830,29 +866,48 @@ export async function advanceStep(
   const isMonitoredStep = step.monitored === true;
   const hasInterval = step.interval !== null && step.interval !== undefined;
 
-  const effective = computeEffectivePatch(schedule, nextStepIndex);
+  // Collect actions to execute. For feature-rule steps the effective patch
+  // accumulates sparse fields from all prior steps. For experiment steps we
+  // apply the step's actions directly (no accumulation — each step explicitly
+  // states its target coverage).
+  const effectiveActions: RampStepAction[] = [];
 
-  // so the rule becomes visible in the same revision as its targeting/coverage.
-  // Otherwise the rule would briefly be live with pre-ramp state.
-  if (schedule.currentStepIndex < 0) {
-    for (const target of schedule.targets) {
-      if (target.status !== "active" || target.entityType !== "feature") {
-        continue;
+  const hasExperimentActions = step.actions.some(
+    (a) => a.targetType === "experiment",
+  );
+
+  if (!hasExperimentActions) {
+    // Feature-rule path: compute the accumulated patch up to this step.
+    const effective = computeEffectivePatch(schedule, nextStepIndex);
+
+    // On the very first step advance (from pre-start), ensure target rules are
+    // enabled so the rule becomes visible in the same revision as its patch.
+    if (schedule.currentStepIndex < 0) {
+      for (const target of schedule.targets) {
+        if (target.status !== "active" || target.entityType !== "feature") {
+          continue;
+        }
+        const existing = effective.get(target.id) ?? {
+          ruleId: target.ruleId ?? "",
+        };
+        effective.set(target.id, { ...existing, enabled: true });
       }
-      const existing = effective.get(target.id) ?? {
-        ruleId: target.ruleId ?? "",
-      };
-      effective.set(target.id, { ...existing, enabled: true });
+    }
+
+    for (const [targetId, patch] of effective.entries()) {
+      effectiveActions.push({
+        targetType: "feature-rule" as const,
+        targetId,
+        patch,
+      });
+    }
+  } else {
+    // Experiment-step path: apply each action directly.
+    for (const action of step.actions) {
+      effectiveActions.push(action);
     }
   }
 
-  const effectiveActions: RampStepAction[] = [...effective.entries()].map(
-    ([targetId, patch]) => ({
-      targetType: "feature-rule" as const,
-      targetId,
-      patch,
-    }),
-  );
   await executeStepActions(ctx, schedule, nextStepIndex, effectiveActions);
 
   // `nextStepAt` is the time gate. Steps without an interval (pure approval /
@@ -1658,12 +1713,25 @@ export async function completeRollout(
     },
   );
 
-  if (actionsToApply.length > 0) {
+  // Experiment-entity ramps store their completion patch in endActions with
+  // targetType === "experiment". computeEffectivePatch only accumulates
+  // feature-rule patches, so we collect experiment endActions separately and
+  // fire them through the same executeStepActions path.
+  const experimentEndActions: RampStepAction[] = (
+    schedule.endActions ?? []
+  ).filter((a) => a.targetType === "experiment");
+
+  const allActionsToApply: RampStepAction[] = [
+    ...actionsToApply,
+    ...experimentEndActions,
+  ];
+
+  if (allActionsToApply.length > 0) {
     await executeStepActions(
       ctx,
       schedule,
       schedule.steps.length,
-      actionsToApply,
+      allActionsToApply,
     );
   }
 

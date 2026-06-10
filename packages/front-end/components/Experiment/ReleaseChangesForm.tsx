@@ -298,7 +298,7 @@ export default function ReleaseChangesForm({
   );
 }
 
-function ImpactTooltips({
+export function ImpactTooltips({
   recommendedRolloutData,
   releasePlan = "",
   usingStickyBucketing = false,
@@ -477,9 +477,9 @@ function ImpactTooltips({
   );
 }
 
-type RiskLevel = "safe" | "warning" | "danger";
+export type RiskLevel = "safe" | "warning" | "danger";
 
-interface RecommendedRolloutData {
+export interface RecommendedRolloutData {
   recommendedReleasePlan: ReleasePlan | undefined;
   actualReleasePlan: ReleasePlan | undefined;
   riskLevels: {
@@ -506,7 +506,7 @@ interface RecommendedRolloutData {
     disableVariation?: boolean;
   };
 }
-function getRecommendedRolloutData({
+export function getRecommendedRolloutData({
   experiment,
   data,
   stickyBucketing,
@@ -913,7 +913,7 @@ function comparePrerequisites(
   return null;
 }
 
-function getReleasePlanOptions({
+export function getReleasePlanOptions({
   experiment,
   changeType,
   recommendedRolloutData,
@@ -968,4 +968,150 @@ function getReleasePlanOptions({
         : []),
     ];
   }
+}
+
+// ── Reusable impact panel ──────────────────────────────────────────────────
+// Exported for use in the experiment ramp schedule modal's "Learn more" dialog.
+
+export interface TargetingChangeReasons {
+  moreRestrictiveTargeting?: boolean;
+  otherTargetingChanges?: boolean;
+  decreaseCoverage?: boolean;
+  changeVariationWeights?: boolean;
+}
+
+/**
+ * Reusable impact panel matching the Make Changes "ImpactTooltips" UI.
+ *
+ * When `newPhase` is true the statistical risk is considered resolved (green)
+ * because re-randomization avoids bias, but variation hopping may still occur.
+ */
+export function TargetingChangeImpactPanel({
+  reasons,
+  stickyBucketing,
+  newPhase = false,
+}: {
+  reasons: TargetingChangeReasons;
+  stickyBucketing: boolean;
+  newPhase?: boolean;
+}) {
+  const hasRisk = Object.values(reasons).some(Boolean);
+  const statResolved = newPhase || !hasRisk;
+  const variationHopping =
+    hasRisk &&
+    (!!reasons.changeVariationWeights || !!reasons.otherTargetingChanges || newPhase);
+  const recommendStickyBucketing =
+    !reasons.changeVariationWeights &&
+    (!!reasons.moreRestrictiveTargeting ||
+      !!reasons.otherTargetingChanges ||
+      !!reasons.decreaseCoverage);
+
+  return (
+    <div className="appbox bg-light px-3 pt-3 pb-0 mb-0">
+      <div className="mb-1 font-weight-bold">Statistical impact</div>
+      <div
+        className={clsx("mb-3", {
+          "text-success": statResolved,
+          "text-warning-muted": !statResolved,
+        })}
+      >
+        {statResolved ? (
+          <>
+            <span className="font-weight-semibold">
+              <BsCheckCircle className="mr-1" /> Your changes will not bias
+              experiment results.
+            </span>
+            {newPhase && (
+              <div className="ml-4 mt-2 text-dark">
+                Note: starting a new phase restarts the analysis collection
+                window.
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <span className="font-weight-semibold">
+              <BsExclamationCircle className="mr-1" /> The changes you have made
+              may bias experiment results.
+            </span>
+            <div className="mt-2 mb-0">
+              <div className="pl-4">
+                {reasons.moreRestrictiveTargeting && (
+                  <div className="mt-2">
+                    <strong>More restrictive targeting conditions</strong>{" "}
+                    without starting a new phase may bias results. Some users
+                    already in the experiment analysis may begin receiving the
+                    default feature value.
+                  </div>
+                )}
+                {reasons.otherTargetingChanges && (
+                  <div className="mt-2">
+                    <strong>Ambiguous changes to targeting conditions</strong>{" "}
+                    without starting a new phase may bias results. Some users
+                    already in the experiment analysis may begin receiving the
+                    default feature value.
+                  </div>
+                )}
+                {reasons.decreaseCoverage && (
+                  <div className="mt-2">
+                    <strong>Decreased traffic coverage</strong> without starting
+                    a new phase may bias results. Some users already in the
+                    experiment analysis will begin receiving the default feature
+                    value.
+                  </div>
+                )}
+                {reasons.changeVariationWeights && (
+                  <div className="mt-2">
+                    <strong>Changing variation weights</strong> could lead to
+                    statistical bias and/or multiple exposures.
+                  </div>
+                )}
+              </div>
+              <div className="alert mt-2 mb-0 alert-info">
+                <BsLightbulb /> Re-randomize traffic
+                {recommendStickyBucketing && !stickyBucketing
+                  ? " or use Sticky Bucketing"
+                  : ""}{" "}
+                to help mitigate.
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="mb-1 font-weight-bold">User experience impact</div>
+      <div
+        className={clsx("mb-3", {
+          "text-success": !variationHopping,
+          "text-warning-muted": variationHopping,
+        })}
+      >
+        {variationHopping ? (
+          <div className="font-weight-semibold">
+            <BsExclamationCircle className="mr-1" /> Some users may change their
+            assigned variation.
+          </div>
+        ) : (
+          <div className="font-weight-semibold">
+            <BsCheckCircle className="mr-1" /> Users will keep their assigned
+            variation.
+          </div>
+        )}
+        {variationHopping && !stickyBucketing && (
+          <div className="alert mt-2 mb-0 alert-info">
+            <BsLightbulb /> You may be able to use Sticky Bucketing to prevent
+            variation hopping.
+          </div>
+        )}
+      </div>
+
+      {(variationHopping || recommendStickyBucketing) && !stickyBucketing && (
+        <div className="text-right mb-2 small">
+          <DocLink docSection="stickyBucketing">
+            Learn about Sticky Bucketing <FaExternalLinkAlt />
+          </DocLink>
+        </div>
+      )}
+    </div>
+  );
 }

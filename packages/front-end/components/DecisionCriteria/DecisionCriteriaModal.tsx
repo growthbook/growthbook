@@ -1,6 +1,6 @@
 import { FC } from "react";
 import { DecisionCriteriaData } from "shared/enterprise";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { useDecisionCriteriaForm } from "@/hooks/useDecisionCriteriaForm";
 import DecisionCriteriaModalContent from "@/components/DecisionCriteria/DecisionCriteriaModalContent";
 
@@ -25,13 +25,14 @@ const DecisionCriteriaModal: FC<DecisionCriteriaModalProps> = ({
   });
 
   return (
-    <Modal
+    <ModalStandard
       open={true}
       header={editable ? "Modify Decision Criteria" : "View Decision Criteria"}
-      subHeader="Define rules for automatic decision making based on experiment results"
+      subheader="Define rules for automatic decision making based on experiment results"
       close={onClose}
       submit={editable ? decisionCriteriaFormProps.handleSave : undefined}
       cta={editable ? "Save Decision Criteria" : undefined}
+      cancelText={editable ? "Cancel" : "Close"}
       size="lg"
       trackingEventModalType="decision_criteria_create"
       trackingEventModalSource={trackingEventModalSource}
@@ -40,7 +41,7 @@ const DecisionCriteriaModal: FC<DecisionCriteriaModalProps> = ({
         decisionCriteriaFormProps={decisionCriteriaFormProps}
         editable={editable}
       />
-    </Modal>
+    </ModalStandard>
   );
 };
 

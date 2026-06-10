@@ -374,6 +374,7 @@ const experimentSchema = new mongoose.Schema({
     },
   ],
   precomputedUnitDimensionIds: [String],
+  rampScheduleId: String,
 });
 
 // Compound indexes for API list filtering

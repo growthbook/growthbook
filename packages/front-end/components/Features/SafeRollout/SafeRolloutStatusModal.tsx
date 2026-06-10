@@ -74,6 +74,11 @@ function getDefaultStatusAndText(
         defaultStatus: "",
         text: "The Safe Rollout is ready for review. Are you sure you want to stop early?",
       };
+    case "review-now":
+      return {
+        defaultStatus: "",
+        text: "A mid-ramp review signal has been detected. Are you sure you want to stop early?",
+      };
   }
 }
 

@@ -42,6 +42,7 @@ import {
   TEMPLATE_STRUCTURAL_KEYS,
   type RampStep,
   type FeatureRulePatch,
+  type FeatureRuleStepAction,
   type TemplateEndPatch,
   type RevisionRampCreateAction,
   type RevisionRampUpdateAction,
@@ -394,8 +395,8 @@ function isEmptyConditionValue(value: string | null | undefined): boolean {
 export function buildPatch(
   patch: UIStepPatch,
   ruleId: string,
-): RampStepAction["patch"] {
-  const out: RampStepAction["patch"] = { ruleId };
+): FeatureRuleStepAction["patch"] {
+  const out: FeatureRuleStepAction["patch"] = { ruleId };
 
   if (patch.coverage !== undefined) out.coverage = patch.coverage / 100;
   if (patch.condition !== undefined) {
@@ -440,7 +441,7 @@ export function buildPatch(
 export function buildEndActions(
   endPatch: UIStepPatch,
   ruleId: string,
-): RampStepAction[] {
+): FeatureRuleStepAction[] {
   const patch = buildPatch(endPatch, ruleId);
   const isEmpty = Object.keys(patch).length <= 1; // only ruleId
   if (isEmpty) return [];
@@ -533,7 +534,13 @@ export function buildRampSteps(
       interval: hasInterval
         ? Math.max(1, s.intervalValue) * UNIT_MULT[s.intervalUnit]
         : null,
-      actions: [{ targetType: "feature-rule" as const, targetId, patch }],
+      actions: [
+        {
+          targetType: "feature-rule" as const,
+          targetId,
+          patch,
+        } satisfies FeatureRuleStepAction,
+      ],
       ...(approvalRequired && s.approvalNotes
         ? { approvalNotes: s.approvalNotes }
         : {}),
@@ -4096,7 +4103,10 @@ export function reconstructUIPatch(
 }
 
 export function reconstructUIStep(step: RampStep): UIStep {
-  const patch = reconstructUIPatch(step.actions[0]?.patch);
+  const firstAction = step.actions[0];
+  const firstPatch =
+    firstAction?.targetType === "feature-rule" ? firstAction.patch : undefined;
+  const patch = reconstructUIPatch(firstPatch);
   const additionalEffectsOpen = VALID_STEP_FIELDS.some(
     (f) => patch[f] !== undefined,
   );
@@ -4149,7 +4159,10 @@ export function reconstructUIEndPatch(
   endActions: RampScheduleInterface["endActions"],
 ): UIStepPatch {
   if (!endActions?.length) return { coverage: 100 };
-  return reconstructUIPatch(endActions[0]?.patch);
+  const firstAction = endActions[0];
+  const firstPatch =
+    firstAction?.targetType === "feature-rule" ? firstAction.patch : undefined;
+  return reconstructUIPatch(firstPatch);
 }
 
 export function rampScheduleToSectionState(
@@ -4338,7 +4351,7 @@ export function templateToSectionState(
 ): RampSectionState {
   const rawEndPatch = template.endPatch;
   const endPatch: UIStepPatch = rawEndPatch
-    ? reconstructUIPatch(rawEndPatch as RampStepAction["patch"])
+    ? reconstructUIPatch(rawEndPatch as FeatureRuleStepAction["patch"])
     : { coverage: 100 };
   const mc = template.monitoringConfig;
   return {
@@ -4381,15 +4394,19 @@ export function buildTemplatePayload(
   const PLACEHOLDER_TARGET = "template-target";
   const PLACEHOLDER_RULE = "template-rule";
 
-  function stripIds(actions: RampStepAction[]): RampStepAction[] {
-    return actions.map((a) => ({
-      ...a,
-      targetId: PLACEHOLDER_TARGET,
-      patch: {
-        ...pick(a.patch, TEMPLATE_PATCH_FIELDS),
-        ruleId: PLACEHOLDER_RULE,
-      },
-    }));
+  // Templates only support feature-rule actions; narrow + drop any others.
+  type TemplateAction = Extract<RampStepAction, { targetType: "feature-rule" }>;
+  function stripIds(actions: RampStepAction[]): TemplateAction[] {
+    return actions
+      .filter((a): a is TemplateAction => a.targetType === "feature-rule")
+      .map((a) => ({
+        ...a,
+        targetId: PLACEHOLDER_TARGET,
+        patch: {
+          ...pick(a.patch, TEMPLATE_PATCH_FIELDS),
+          ruleId: PLACEHOLDER_RULE,
+        },
+      }));
   }
 
   const steps = buildRampSteps(

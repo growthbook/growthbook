@@ -2016,12 +2016,13 @@ export function getEnvsFromRampSchedule(
   >,
 ): string[] | "all" {
   const envs = new Set<string>();
-  const allPatches = [
-    ...(schedule.startActions ?? []).map((a) => a.patch),
-    ...schedule.steps.flatMap((s) => s.actions.map((a) => a.patch)),
-    ...(schedule.endActions ?? []).map((a) => a.patch),
-  ];
-  for (const patch of allPatches) {
+  const featureRuleActions = [
+    ...(schedule.startActions ?? []),
+    ...schedule.steps.flatMap((s) => s.actions),
+    ...(schedule.endActions ?? []),
+  ].filter((a) => a.targetType === "feature-rule");
+  for (const action of featureRuleActions) {
+    const patch = action.patch;
     if (patch.allEnvironments) return "all";
     for (const env of patch.environments ?? []) {
       envs.add(env);
@@ -2096,12 +2097,13 @@ export function getDraftAffectedEnvironments(
             if (allEnvironments.includes(env)) envs.add(env);
           }
         }
-        const allPatches = [
-          ...(action.startActions ?? []).map((a) => a.patch),
-          ...action.steps.flatMap((s) => s.actions.map((a) => a.patch)),
-          ...(action.endActions ?? []).map((a) => a.patch),
-        ];
-        for (const patch of allPatches) {
+        const featureRuleActions = [
+          ...(action.startActions ?? []),
+          ...action.steps.flatMap((s) => s.actions),
+          ...(action.endActions ?? []),
+        ].filter((a) => a.targetType === "feature-rule");
+        for (const a of featureRuleActions) {
+          const patch = a.patch;
           if (patch.allEnvironments) return "all";
           for (const env of patch.environments ?? []) {
             if (allEnvironments.includes(env)) envs.add(env);

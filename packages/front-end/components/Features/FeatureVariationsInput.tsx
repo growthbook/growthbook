@@ -54,6 +54,7 @@ export interface Props {
   simple?: boolean;
   sortableClassName?: string;
   onlySafeToEditVariationMetadata?: boolean;
+  className?: string;
 }
 
 export default function FeatureVariationsInput({
@@ -84,6 +85,7 @@ export default function FeatureVariationsInput({
   simple,
   sortableClassName,
   onlySafeToEditVariationMetadata,
+  className,
 }: Props) {
   const weights = variations?.map((v) => v.weight) || [];
   const isEqualWeights = weights?.every(
@@ -122,7 +124,7 @@ export default function FeatureVariationsInput({
           : "Traffic Percentage & Variation Weights";
 
   return (
-    <div className="form-group">
+    <div className={className ?? "form-group"}>
       {_label !== null ? (
         <Text as="label" weight="semibold">
           {label}

@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { Request, Response } from "express";
 import { evaluateFeatures } from "@growthbook/proxy-eval";
 import { cloneDeep, isEqual, omit } from "lodash";
@@ -43,6 +44,7 @@ import {
   RevisionRampDetachAction,
   RevisionRampUpdateAction,
   RampStepAction,
+  featureRulePatch,
 } from "shared/validators";
 import { FeatureUsageLookback } from "shared/types/integrations";
 import {
@@ -214,7 +216,7 @@ function normalizeRampStepAction(a: {
   return {
     targetType: "feature-rule",
     targetId: a.targetId ?? "",
-    patch: a.patch as RampStepAction["patch"],
+    patch: a.patch as z.infer<typeof featureRulePatch>,
   };
 }
 

@@ -296,6 +296,13 @@ export class RampScheduleModel extends BaseClass {
   }
 
   protected migrate(legacyDoc: unknown): RampScheduleInterface {
+    // Strip legacy `endStrategy` from ramp schedule documents — end strategy
+    // moved onto the experiment so it can apply equally to ramp and non-ramp
+    // experiments.
+    if (legacyDoc && typeof legacyDoc === "object") {
+      delete (legacyDoc as Record<string, unknown>).endStrategy;
+      delete (legacyDoc as Record<string, unknown>).rampBehavior;
+    }
     const doc = legacyDoc as RampScheduleInterface;
     const endCondMigrated = migrateRampScheduleEndCondition(doc);
     const statusMigrated = migrateRampScheduleStatus(endCondMigrated);

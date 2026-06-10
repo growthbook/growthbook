@@ -55,6 +55,8 @@ export {
 export type DecisionFrameworkVariation = {
   variationId: string;
   decidingRule: DecisionCriteriaRule | null;
+  /** Metric IDs that caused decidingRule to fire. Populated by the EDF for ramp dashboard display. */
+  triggeredMetricIds?: string[];
 };
 
 export type DecisionFrameworkExperimentRecommendationStatus =
@@ -76,6 +78,16 @@ export type DecisionFrameworkExperimentRecommendationStatus =
       variations: DecisionFrameworkVariation[];
       powerReached: boolean;
       sequentialUsed: boolean;
+    }
+  | {
+      /**
+       * Emitted mid-ramp when a decision criteria rule with action "review" fires
+       * at super-stat-sig threshold. Distinct from "ready-for-review" (power-reached
+       * terminal state). The ramp engine blocks the next step and surfaces a CTA;
+       * the user must actively choose to rollback or continue before the step advances.
+       */
+      status: "review-now";
+      variations: DecisionFrameworkVariation[];
     };
 
 export type ExperimentUnhealthyData = {

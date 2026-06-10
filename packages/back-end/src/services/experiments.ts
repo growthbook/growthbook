@@ -2672,6 +2672,7 @@ export async function toExperimentApiInterface(
         : experiment.nextScheduledStatusUpdate === undefined
           ? undefined
           : null,
+    rampScheduleId: experiment.rampScheduleId,
   };
   return apiExperiment;
 }

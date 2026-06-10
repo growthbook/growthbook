@@ -14,8 +14,22 @@ type TextWhiteSpace =
   | "pre-line"
   | "break-spaces";
 type TextFontStyle = "normal" | "italic" | "oblique";
-// NB: We might need to expand this to support RadixTextProps["color"], but being conservative for now.
-type TextColors = "text-high" | "text-mid" | "text-low" | "text-disabled";
+type SemanticTextColors =
+  | "text-high"
+  | "text-mid"
+  | "text-low"
+  | "text-disabled";
+type RadixAccentColor = NonNullable<RadixTextProps["color"]>;
+type TextColors = SemanticTextColors | RadixAccentColor;
+
+const SEMANTIC_TEXT_COLORS = new Set<SemanticTextColors>([
+  "text-high",
+  "text-mid",
+  "text-low",
+  "text-disabled",
+]);
+const isSemanticTextColor = (c?: TextColors): c is SemanticTextColors =>
+  c !== undefined && SEMANTIC_TEXT_COLORS.has(c as SemanticTextColors);
 
 const radixSizeMap: Record<TextSizes, RadixTextProps["size"] | undefined> = {
   small: "1",
@@ -95,6 +109,8 @@ export default forwardRef<
   };
   if (textTransform) style.textTransform = textTransform;
 
+  // Semantic colors are applied via inline `style` (CSS variables); Radix
+  // accent colors are forwarded to RadixText's `color` prop.
   if (color === "text-high") {
     style.color = "var(--color-text-high)";
   } else if (color === "text-mid") {
@@ -104,6 +120,10 @@ export default forwardRef<
   } else if (color === "text-disabled") {
     style.color = "var(--color-text-disabled)";
   }
+
+  const radixColor: RadixTextProps["color"] = isSemanticTextColor(color)
+    ? undefined
+    : (color as RadixAccentColor | undefined);
 
   return (
     <RadixText
@@ -116,6 +136,7 @@ export default forwardRef<
       style={style}
       truncate={truncate}
       htmlFor={htmlFor}
+      color={radixColor}
       m={m}
       mx={mx}
       my={my}

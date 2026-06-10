@@ -34,7 +34,9 @@ export type Props = TrackingEventModalProps & {
   cta?: string;
   ctaColor?: "red" | "violet";
   ctaEnabled?: boolean;
+  cancelText?: string;
   size?: Size;
+  maxWidth?: string;
   submit?: () => void | Promise<void>;
   trackOnSubmit?: boolean;
   dismissible?: boolean;
@@ -57,7 +59,9 @@ export default function ModalStandard({
   cta = "Save",
   ctaColor = "violet",
   ctaEnabled = true,
+  cancelText = "Cancel",
   size = "md",
+  maxWidth,
   submit,
   secondaryAction,
   close,
@@ -81,7 +85,7 @@ export default function ModalStandard({
         <Flex gap="3" align="center">
           <Modal.Close>
             <Button variant="ghost" onClick={close}>
-              Cancel
+              {cancelText}
             </Button>
           </Modal.Close>
           {submit && (
@@ -103,6 +107,7 @@ export default function ModalStandard({
         if (!nextOpen) close();
       }}
       size={size}
+      maxWidth={maxWidth}
       dismissible={dismissible ?? !submit}
       hasDescription={!!subheader}
       trackingEventModalType={trackingEventModalType}

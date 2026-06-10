@@ -11743,6 +11743,189 @@ paths:
           source: |-
             curl -X GET 'https://api.growthbook.io/api/v1/experiment-names' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/ramp-schedule:
+    get:
+      operationId: getExperimentRampSchedule
+      summary: Get the ramp schedule for an experiment
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rampSchedule:
+                    anyOf:
+                      - {}
+                      - type: 'null'
+                required:
+                  - rampSchedule
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/experiments/exp_abc123/ramp-schedule'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/ramp-schedule/rollback:
+    post:
+      operationId: postExperimentRampScheduleRollback
+      summary: Rollback the experiment ramp schedule
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                excludePreviouslyExposedUsers:
+                  type: boolean
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rampSchedule:
+                    anyOf:
+                      - {}
+                      - type: 'null'
+                required:
+                  - rampSchedule
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/exp_abc123/ramp-schedule/rollback'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"reason":"Guardrail metric regressed"}'
+  /v1/experiments/{id}/ramp-schedule/pause:
+    post:
+      operationId: postExperimentRampSchedulePause
+      summary: Pause the experiment ramp schedule
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rampSchedule:
+                    anyOf:
+                      - {}
+                      - type: 'null'
+                required:
+                  - rampSchedule
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/exp_abc123/ramp-schedule/pause'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/ramp-schedule/resume:
+    post:
+      operationId: postExperimentRampScheduleResume
+      summary: Resume the experiment ramp schedule
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rampSchedule:
+                    anyOf:
+                      - {}
+                      - type: 'null'
+                required:
+                  - rampSchedule
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/exp_abc123/ramp-schedule/resume'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/ramp-schedule/advance:
+    post:
+      operationId: postExperimentRampScheduleAdvance
+      summary: Advance the experiment ramp schedule to the next step
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rampSchedule:
+                    anyOf:
+                      - {}
+                      - type: 'null'
+                required:
+                  - rampSchedule
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/exp_abc123/ramp-schedule/advance'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/experiments/{id}/visual-changesets:
     get:
       operationId: listVisualChangesets
@@ -20187,6 +20370,7 @@ paths:
                     type: string
                     enum:
                       - feature
+                      - experiment
                   entityId:
                     type: string
                   targets:
@@ -20200,7 +20384,180 @@ paths:
                       state. Applied when rolling back or jumping to start.
                     type: array
                     items:
-                      $ref: '#/components/schemas/startActions'
+                      anyOf:
+                        - type: object
+                          properties:
+                            targetType:
+                              type: string
+                              const: feature-rule
+                            targetId:
+                              type: string
+                            patch:
+                              type: object
+                              properties:
+                                ruleId:
+                                  type: string
+                                coverage:
+                                  description: >-
+                                    Traffic fraction (0–1). For monitored steps
+                                    the rollout rule is promoted to an
+                                    experiment: treatment = [0, coverage),
+                                    control = [0.5, 0.5+coverage). Both arms are
+                                    equal-sized and non-adjacent, so a step-up
+                                    only adds new users to each arm — no
+                                    existing user changes group. The REST API
+                                    enforces coverage ≤ 0.5 on monitored steps
+                                    so control end never exceeds 1.0. The SDK
+                                    uses explicit hash ranges on bucketingV2
+                                    clients to keep bucketing stable across
+                                    monitored/unmonitored transitions.
+                                  anyOf:
+                                    - type: number
+                                      minimum: 0
+                                      maximum: 1
+                                    - type: 'null'
+                                condition:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                savedGroups:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
+                                    - type: 'null'
+                                prerequisites:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          id:
+                                            type: string
+                                          condition:
+                                            type: string
+                                        required:
+                                          - id
+                                          - condition
+                                        additionalProperties: false
+                                    - type: 'null'
+                                allEnvironments:
+                                  anyOf:
+                                    - type: boolean
+                                    - type: 'null'
+                                environments:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: string
+                                    - type: 'null'
+                                force:
+                                  description: Force value (any JSON type)
+                                enabled:
+                                  anyOf:
+                                    - type: boolean
+                                    - type: 'null'
+                              required:
+                                - ruleId
+                              additionalProperties: false
+                          required:
+                            - targetType
+                            - targetId
+                            - patch
+                          additionalProperties: false
+                        - type: object
+                          properties:
+                            targetType:
+                              type: string
+                              const: experiment
+                            targetId:
+                              type: string
+                            patch:
+                              type: object
+                              properties:
+                                coverage:
+                                  anyOf:
+                                    - type: number
+                                      minimum: 0
+                                      maximum: 1
+                                    - type: 'null'
+                                variationWeights:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: number
+                                        minimum: 0
+                                        maximum: 1
+                                    - type: 'null'
+                                condition:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                savedGroups:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
+                                    - type: 'null'
+                                prerequisites:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          id:
+                                            type: string
+                                          condition:
+                                            type: string
+                                        required:
+                                          - id
+                                          - condition
+                                        additionalProperties: false
+                                    - type: 'null'
+                                newPhase:
+                                  type: boolean
+                                reseed:
+                                  type: boolean
+                                bumpBucketVersion:
+                                  type: boolean
+                                blockPriorBucketed:
+                                  type: boolean
+                              additionalProperties: false
+                          required:
+                            - targetType
+                            - targetId
+                            - patch
+                          additionalProperties: false
                   steps:
                     description: Ordered ramp steps
                     type: array
@@ -20212,7 +20569,180 @@ paths:
                       completes. Represents the final desired rule state.
                     type: array
                     items:
-                      $ref: '#/components/schemas/startActions'
+                      anyOf:
+                        - type: object
+                          properties:
+                            targetType:
+                              type: string
+                              const: feature-rule
+                            targetId:
+                              type: string
+                            patch:
+                              type: object
+                              properties:
+                                ruleId:
+                                  type: string
+                                coverage:
+                                  description: >-
+                                    Traffic fraction (0–1). For monitored steps
+                                    the rollout rule is promoted to an
+                                    experiment: treatment = [0, coverage),
+                                    control = [0.5, 0.5+coverage). Both arms are
+                                    equal-sized and non-adjacent, so a step-up
+                                    only adds new users to each arm — no
+                                    existing user changes group. The REST API
+                                    enforces coverage ≤ 0.5 on monitored steps
+                                    so control end never exceeds 1.0. The SDK
+                                    uses explicit hash ranges on bucketingV2
+                                    clients to keep bucketing stable across
+                                    monitored/unmonitored transitions.
+                                  anyOf:
+                                    - type: number
+                                      minimum: 0
+                                      maximum: 1
+                                    - type: 'null'
+                                condition:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                savedGroups:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
+                                    - type: 'null'
+                                prerequisites:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          id:
+                                            type: string
+                                          condition:
+                                            type: string
+                                        required:
+                                          - id
+                                          - condition
+                                        additionalProperties: false
+                                    - type: 'null'
+                                allEnvironments:
+                                  anyOf:
+                                    - type: boolean
+                                    - type: 'null'
+                                environments:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: string
+                                    - type: 'null'
+                                force:
+                                  description: Force value (any JSON type)
+                                enabled:
+                                  anyOf:
+                                    - type: boolean
+                                    - type: 'null'
+                              required:
+                                - ruleId
+                              additionalProperties: false
+                          required:
+                            - targetType
+                            - targetId
+                            - patch
+                          additionalProperties: false
+                        - type: object
+                          properties:
+                            targetType:
+                              type: string
+                              const: experiment
+                            targetId:
+                              type: string
+                            patch:
+                              type: object
+                              properties:
+                                coverage:
+                                  anyOf:
+                                    - type: number
+                                      minimum: 0
+                                      maximum: 1
+                                    - type: 'null'
+                                variationWeights:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: number
+                                        minimum: 0
+                                        maximum: 1
+                                    - type: 'null'
+                                condition:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                savedGroups:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
+                                    - type: 'null'
+                                prerequisites:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          id:
+                                            type: string
+                                          condition:
+                                            type: string
+                                        required:
+                                          - id
+                                          - condition
+                                        additionalProperties: false
+                                    - type: 'null'
+                                newPhase:
+                                  type: boolean
+                                reseed:
+                                  type: boolean
+                                bumpBucketVersion:
+                                  type: boolean
+                                blockPriorBucketed:
+                                  type: boolean
+                              additionalProperties: false
+                          required:
+                            - targetType
+                            - targetId
+                            - patch
+                          additionalProperties: false
                   startDate:
                     description: >-
                       When the ramp fires. Absent/null means immediately on
@@ -20538,6 +21068,7 @@ paths:
                     type: string
                     enum:
                       - feature
+                      - experiment
                   entityId:
                     type: string
                   targets:
@@ -20551,7 +21082,180 @@ paths:
                       state. Applied when rolling back or jumping to start.
                     type: array
                     items:
-                      $ref: '#/components/schemas/startActions'
+                      anyOf:
+                        - type: object
+                          properties:
+                            targetType:
+                              type: string
+                              const: feature-rule
+                            targetId:
+                              type: string
+                            patch:
+                              type: object
+                              properties:
+                                ruleId:
+                                  type: string
+                                coverage:
+                                  description: >-
+                                    Traffic fraction (0–1). For monitored steps
+                                    the rollout rule is promoted to an
+                                    experiment: treatment = [0, coverage),
+                                    control = [0.5, 0.5+coverage). Both arms are
+                                    equal-sized and non-adjacent, so a step-up
+                                    only adds new users to each arm — no
+                                    existing user changes group. The REST API
+                                    enforces coverage ≤ 0.5 on monitored steps
+                                    so control end never exceeds 1.0. The SDK
+                                    uses explicit hash ranges on bucketingV2
+                                    clients to keep bucketing stable across
+                                    monitored/unmonitored transitions.
+                                  anyOf:
+                                    - type: number
+                                      minimum: 0
+                                      maximum: 1
+                                    - type: 'null'
+                                condition:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                savedGroups:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
+                                    - type: 'null'
+                                prerequisites:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          id:
+                                            type: string
+                                          condition:
+                                            type: string
+                                        required:
+                                          - id
+                                          - condition
+                                        additionalProperties: false
+                                    - type: 'null'
+                                allEnvironments:
+                                  anyOf:
+                                    - type: boolean
+                                    - type: 'null'
+                                environments:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: string
+                                    - type: 'null'
+                                force:
+                                  description: Force value (any JSON type)
+                                enabled:
+                                  anyOf:
+                                    - type: boolean
+                                    - type: 'null'
+                              required:
+                                - ruleId
+                              additionalProperties: false
+                          required:
+                            - targetType
+                            - targetId
+                            - patch
+                          additionalProperties: false
+                        - type: object
+                          properties:
+                            targetType:
+                              type: string
+                              const: experiment
+                            targetId:
+                              type: string
+                            patch:
+                              type: object
+                              properties:
+                                coverage:
+                                  anyOf:
+                                    - type: number
+                                      minimum: 0
+                                      maximum: 1
+                                    - type: 'null'
+                                variationWeights:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: number
+                                        minimum: 0
+                                        maximum: 1
+                                    - type: 'null'
+                                condition:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                savedGroups:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
+                                    - type: 'null'
+                                prerequisites:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          id:
+                                            type: string
+                                          condition:
+                                            type: string
+                                        required:
+                                          - id
+                                          - condition
+                                        additionalProperties: false
+                                    - type: 'null'
+                                newPhase:
+                                  type: boolean
+                                reseed:
+                                  type: boolean
+                                bumpBucketVersion:
+                                  type: boolean
+                                blockPriorBucketed:
+                                  type: boolean
+                              additionalProperties: false
+                          required:
+                            - targetType
+                            - targetId
+                            - patch
+                          additionalProperties: false
                   steps:
                     description: Ordered ramp steps
                     type: array
@@ -20563,7 +21267,180 @@ paths:
                       completes. Represents the final desired rule state.
                     type: array
                     items:
-                      $ref: '#/components/schemas/startActions'
+                      anyOf:
+                        - type: object
+                          properties:
+                            targetType:
+                              type: string
+                              const: feature-rule
+                            targetId:
+                              type: string
+                            patch:
+                              type: object
+                              properties:
+                                ruleId:
+                                  type: string
+                                coverage:
+                                  description: >-
+                                    Traffic fraction (0–1). For monitored steps
+                                    the rollout rule is promoted to an
+                                    experiment: treatment = [0, coverage),
+                                    control = [0.5, 0.5+coverage). Both arms are
+                                    equal-sized and non-adjacent, so a step-up
+                                    only adds new users to each arm — no
+                                    existing user changes group. The REST API
+                                    enforces coverage ≤ 0.5 on monitored steps
+                                    so control end never exceeds 1.0. The SDK
+                                    uses explicit hash ranges on bucketingV2
+                                    clients to keep bucketing stable across
+                                    monitored/unmonitored transitions.
+                                  anyOf:
+                                    - type: number
+                                      minimum: 0
+                                      maximum: 1
+                                    - type: 'null'
+                                condition:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                savedGroups:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
+                                    - type: 'null'
+                                prerequisites:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          id:
+                                            type: string
+                                          condition:
+                                            type: string
+                                        required:
+                                          - id
+                                          - condition
+                                        additionalProperties: false
+                                    - type: 'null'
+                                allEnvironments:
+                                  anyOf:
+                                    - type: boolean
+                                    - type: 'null'
+                                environments:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: string
+                                    - type: 'null'
+                                force:
+                                  description: Force value (any JSON type)
+                                enabled:
+                                  anyOf:
+                                    - type: boolean
+                                    - type: 'null'
+                              required:
+                                - ruleId
+                              additionalProperties: false
+                          required:
+                            - targetType
+                            - targetId
+                            - patch
+                          additionalProperties: false
+                        - type: object
+                          properties:
+                            targetType:
+                              type: string
+                              const: experiment
+                            targetId:
+                              type: string
+                            patch:
+                              type: object
+                              properties:
+                                coverage:
+                                  anyOf:
+                                    - type: number
+                                      minimum: 0
+                                      maximum: 1
+                                    - type: 'null'
+                                variationWeights:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: number
+                                        minimum: 0
+                                        maximum: 1
+                                    - type: 'null'
+                                condition:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                savedGroups:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
+                                    - type: 'null'
+                                prerequisites:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          id:
+                                            type: string
+                                          condition:
+                                            type: string
+                                        required:
+                                          - id
+                                          - condition
+                                        additionalProperties: false
+                                    - type: 'null'
+                                newPhase:
+                                  type: boolean
+                                reseed:
+                                  type: boolean
+                                bumpBucketVersion:
+                                  type: boolean
+                                blockPriorBucketed:
+                                  type: boolean
+                              additionalProperties: false
+                          required:
+                            - targetType
+                            - targetId
+                            - patch
+                          additionalProperties: false
                   startDate:
                     description: >-
                       When the ramp fires. Absent/null means immediately on
@@ -20951,6 +21828,7 @@ paths:
                     type: string
                     enum:
                       - feature
+                      - experiment
                   entityId:
                     type: string
                   targets:
@@ -20964,7 +21842,180 @@ paths:
                       state. Applied when rolling back or jumping to start.
                     type: array
                     items:
-                      $ref: '#/components/schemas/startActions'
+                      anyOf:
+                        - type: object
+                          properties:
+                            targetType:
+                              type: string
+                              const: feature-rule
+                            targetId:
+                              type: string
+                            patch:
+                              type: object
+                              properties:
+                                ruleId:
+                                  type: string
+                                coverage:
+                                  description: >-
+                                    Traffic fraction (0–1). For monitored steps
+                                    the rollout rule is promoted to an
+                                    experiment: treatment = [0, coverage),
+                                    control = [0.5, 0.5+coverage). Both arms are
+                                    equal-sized and non-adjacent, so a step-up
+                                    only adds new users to each arm — no
+                                    existing user changes group. The REST API
+                                    enforces coverage ≤ 0.5 on monitored steps
+                                    so control end never exceeds 1.0. The SDK
+                                    uses explicit hash ranges on bucketingV2
+                                    clients to keep bucketing stable across
+                                    monitored/unmonitored transitions.
+                                  anyOf:
+                                    - type: number
+                                      minimum: 0
+                                      maximum: 1
+                                    - type: 'null'
+                                condition:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                savedGroups:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
+                                    - type: 'null'
+                                prerequisites:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          id:
+                                            type: string
+                                          condition:
+                                            type: string
+                                        required:
+                                          - id
+                                          - condition
+                                        additionalProperties: false
+                                    - type: 'null'
+                                allEnvironments:
+                                  anyOf:
+                                    - type: boolean
+                                    - type: 'null'
+                                environments:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: string
+                                    - type: 'null'
+                                force:
+                                  description: Force value (any JSON type)
+                                enabled:
+                                  anyOf:
+                                    - type: boolean
+                                    - type: 'null'
+                              required:
+                                - ruleId
+                              additionalProperties: false
+                          required:
+                            - targetType
+                            - targetId
+                            - patch
+                          additionalProperties: false
+                        - type: object
+                          properties:
+                            targetType:
+                              type: string
+                              const: experiment
+                            targetId:
+                              type: string
+                            patch:
+                              type: object
+                              properties:
+                                coverage:
+                                  anyOf:
+                                    - type: number
+                                      minimum: 0
+                                      maximum: 1
+                                    - type: 'null'
+                                variationWeights:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: number
+                                        minimum: 0
+                                        maximum: 1
+                                    - type: 'null'
+                                condition:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                savedGroups:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
+                                    - type: 'null'
+                                prerequisites:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          id:
+                                            type: string
+                                          condition:
+                                            type: string
+                                        required:
+                                          - id
+                                          - condition
+                                        additionalProperties: false
+                                    - type: 'null'
+                                newPhase:
+                                  type: boolean
+                                reseed:
+                                  type: boolean
+                                bumpBucketVersion:
+                                  type: boolean
+                                blockPriorBucketed:
+                                  type: boolean
+                              additionalProperties: false
+                          required:
+                            - targetType
+                            - targetId
+                            - patch
+                          additionalProperties: false
                   steps:
                     description: Ordered ramp steps
                     type: array
@@ -20976,7 +22027,180 @@ paths:
                       completes. Represents the final desired rule state.
                     type: array
                     items:
-                      $ref: '#/components/schemas/startActions'
+                      anyOf:
+                        - type: object
+                          properties:
+                            targetType:
+                              type: string
+                              const: feature-rule
+                            targetId:
+                              type: string
+                            patch:
+                              type: object
+                              properties:
+                                ruleId:
+                                  type: string
+                                coverage:
+                                  description: >-
+                                    Traffic fraction (0–1). For monitored steps
+                                    the rollout rule is promoted to an
+                                    experiment: treatment = [0, coverage),
+                                    control = [0.5, 0.5+coverage). Both arms are
+                                    equal-sized and non-adjacent, so a step-up
+                                    only adds new users to each arm — no
+                                    existing user changes group. The REST API
+                                    enforces coverage ≤ 0.5 on monitored steps
+                                    so control end never exceeds 1.0. The SDK
+                                    uses explicit hash ranges on bucketingV2
+                                    clients to keep bucketing stable across
+                                    monitored/unmonitored transitions.
+                                  anyOf:
+                                    - type: number
+                                      minimum: 0
+                                      maximum: 1
+                                    - type: 'null'
+                                condition:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                savedGroups:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
+                                    - type: 'null'
+                                prerequisites:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          id:
+                                            type: string
+                                          condition:
+                                            type: string
+                                        required:
+                                          - id
+                                          - condition
+                                        additionalProperties: false
+                                    - type: 'null'
+                                allEnvironments:
+                                  anyOf:
+                                    - type: boolean
+                                    - type: 'null'
+                                environments:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: string
+                                    - type: 'null'
+                                force:
+                                  description: Force value (any JSON type)
+                                enabled:
+                                  anyOf:
+                                    - type: boolean
+                                    - type: 'null'
+                              required:
+                                - ruleId
+                              additionalProperties: false
+                          required:
+                            - targetType
+                            - targetId
+                            - patch
+                          additionalProperties: false
+                        - type: object
+                          properties:
+                            targetType:
+                              type: string
+                              const: experiment
+                            targetId:
+                              type: string
+                            patch:
+                              type: object
+                              properties:
+                                coverage:
+                                  anyOf:
+                                    - type: number
+                                      minimum: 0
+                                      maximum: 1
+                                    - type: 'null'
+                                variationWeights:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: number
+                                        minimum: 0
+                                        maximum: 1
+                                    - type: 'null'
+                                condition:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                savedGroups:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
+                                    - type: 'null'
+                                prerequisites:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          id:
+                                            type: string
+                                          condition:
+                                            type: string
+                                        required:
+                                          - id
+                                          - condition
+                                        additionalProperties: false
+                                    - type: 'null'
+                                newPhase:
+                                  type: boolean
+                                reseed:
+                                  type: boolean
+                                bumpBucketVersion:
+                                  type: boolean
+                                blockPriorBucketed:
+                                  type: boolean
+                              additionalProperties: false
+                          required:
+                            - targetType
+                            - targetId
+                            - patch
+                          additionalProperties: false
                   startDate:
                     description: >-
                       When the ramp fires. Absent/null means immediately on
@@ -21305,6 +22529,7 @@ paths:
                     type: string
                     enum:
                       - feature
+                      - experiment
                   entityId:
                     type: string
                   targets:
@@ -21318,7 +22543,180 @@ paths:
                       state. Applied when rolling back or jumping to start.
                     type: array
                     items:
-                      $ref: '#/components/schemas/startActions'
+                      anyOf:
+                        - type: object
+                          properties:
+                            targetType:
+                              type: string
+                              const: feature-rule
+                            targetId:
+                              type: string
+                            patch:
+                              type: object
+                              properties:
+                                ruleId:
+                                  type: string
+                                coverage:
+                                  description: >-
+                                    Traffic fraction (0–1). For monitored steps
+                                    the rollout rule is promoted to an
+                                    experiment: treatment = [0, coverage),
+                                    control = [0.5, 0.5+coverage). Both arms are
+                                    equal-sized and non-adjacent, so a step-up
+                                    only adds new users to each arm — no
+                                    existing user changes group. The REST API
+                                    enforces coverage ≤ 0.5 on monitored steps
+                                    so control end never exceeds 1.0. The SDK
+                                    uses explicit hash ranges on bucketingV2
+                                    clients to keep bucketing stable across
+                                    monitored/unmonitored transitions.
+                                  anyOf:
+                                    - type: number
+                                      minimum: 0
+                                      maximum: 1
+                                    - type: 'null'
+                                condition:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                savedGroups:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
+                                    - type: 'null'
+                                prerequisites:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          id:
+                                            type: string
+                                          condition:
+                                            type: string
+                                        required:
+                                          - id
+                                          - condition
+                                        additionalProperties: false
+                                    - type: 'null'
+                                allEnvironments:
+                                  anyOf:
+                                    - type: boolean
+                                    - type: 'null'
+                                environments:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: string
+                                    - type: 'null'
+                                force:
+                                  description: Force value (any JSON type)
+                                enabled:
+                                  anyOf:
+                                    - type: boolean
+                                    - type: 'null'
+                              required:
+                                - ruleId
+                              additionalProperties: false
+                          required:
+                            - targetType
+                            - targetId
+                            - patch
+                          additionalProperties: false
+                        - type: object
+                          properties:
+                            targetType:
+                              type: string
+                              const: experiment
+                            targetId:
+                              type: string
+                            patch:
+                              type: object
+                              properties:
+                                coverage:
+                                  anyOf:
+                                    - type: number
+                                      minimum: 0
+                                      maximum: 1
+                                    - type: 'null'
+                                variationWeights:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: number
+                                        minimum: 0
+                                        maximum: 1
+                                    - type: 'null'
+                                condition:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                savedGroups:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
+                                    - type: 'null'
+                                prerequisites:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          id:
+                                            type: string
+                                          condition:
+                                            type: string
+                                        required:
+                                          - id
+                                          - condition
+                                        additionalProperties: false
+                                    - type: 'null'
+                                newPhase:
+                                  type: boolean
+                                reseed:
+                                  type: boolean
+                                bumpBucketVersion:
+                                  type: boolean
+                                blockPriorBucketed:
+                                  type: boolean
+                              additionalProperties: false
+                          required:
+                            - targetType
+                            - targetId
+                            - patch
+                          additionalProperties: false
                   steps:
                     description: Ordered ramp steps
                     type: array
@@ -21330,7 +22728,180 @@ paths:
                       completes. Represents the final desired rule state.
                     type: array
                     items:
-                      $ref: '#/components/schemas/startActions'
+                      anyOf:
+                        - type: object
+                          properties:
+                            targetType:
+                              type: string
+                              const: feature-rule
+                            targetId:
+                              type: string
+                            patch:
+                              type: object
+                              properties:
+                                ruleId:
+                                  type: string
+                                coverage:
+                                  description: >-
+                                    Traffic fraction (0–1). For monitored steps
+                                    the rollout rule is promoted to an
+                                    experiment: treatment = [0, coverage),
+                                    control = [0.5, 0.5+coverage). Both arms are
+                                    equal-sized and non-adjacent, so a step-up
+                                    only adds new users to each arm — no
+                                    existing user changes group. The REST API
+                                    enforces coverage ≤ 0.5 on monitored steps
+                                    so control end never exceeds 1.0. The SDK
+                                    uses explicit hash ranges on bucketingV2
+                                    clients to keep bucketing stable across
+                                    monitored/unmonitored transitions.
+                                  anyOf:
+                                    - type: number
+                                      minimum: 0
+                                      maximum: 1
+                                    - type: 'null'
+                                condition:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                savedGroups:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
+                                    - type: 'null'
+                                prerequisites:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          id:
+                                            type: string
+                                          condition:
+                                            type: string
+                                        required:
+                                          - id
+                                          - condition
+                                        additionalProperties: false
+                                    - type: 'null'
+                                allEnvironments:
+                                  anyOf:
+                                    - type: boolean
+                                    - type: 'null'
+                                environments:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: string
+                                    - type: 'null'
+                                force:
+                                  description: Force value (any JSON type)
+                                enabled:
+                                  anyOf:
+                                    - type: boolean
+                                    - type: 'null'
+                              required:
+                                - ruleId
+                              additionalProperties: false
+                          required:
+                            - targetType
+                            - targetId
+                            - patch
+                          additionalProperties: false
+                        - type: object
+                          properties:
+                            targetType:
+                              type: string
+                              const: experiment
+                            targetId:
+                              type: string
+                            patch:
+                              type: object
+                              properties:
+                                coverage:
+                                  anyOf:
+                                    - type: number
+                                      minimum: 0
+                                      maximum: 1
+                                    - type: 'null'
+                                variationWeights:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: number
+                                        minimum: 0
+                                        maximum: 1
+                                    - type: 'null'
+                                condition:
+                                  anyOf:
+                                    - type: string
+                                    - type: 'null'
+                                savedGroups:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          match:
+                                            type: string
+                                            enum:
+                                              - all
+                                              - none
+                                              - any
+                                          ids:
+                                            type: array
+                                            items:
+                                              type: string
+                                        required:
+                                          - match
+                                          - ids
+                                        additionalProperties: false
+                                    - type: 'null'
+                                prerequisites:
+                                  anyOf:
+                                    - type: array
+                                      items:
+                                        type: object
+                                        properties:
+                                          id:
+                                            type: string
+                                          condition:
+                                            type: string
+                                        required:
+                                          - id
+                                          - condition
+                                        additionalProperties: false
+                                    - type: 'null'
+                                newPhase:
+                                  type: boolean
+                                reseed:
+                                  type: boolean
+                                bumpBucketVersion:
+                                  type: boolean
+                                blockPriorBucketed:
+                                  type: boolean
+                              additionalProperties: false
+                          required:
+                            - targetType
+                            - targetId
+                            - patch
+                          additionalProperties: false
                   startDate:
                     description: >-
                       When the ramp fires. Absent/null means immediately on
@@ -35260,6 +36831,11 @@ components:
                 - date
               additionalProperties: false
             - type: 'null'
+        rampScheduleId:
+          description: >-
+            ID of the ramp schedule attached to this experiment. Fetch details
+            via GET /experiments/:id/ramp-schedule.
+          type: string
       required:
         - id
         - trackingKey
@@ -35973,6 +37549,11 @@ components:
                     - date
                   additionalProperties: false
                 - type: 'null'
+            rampScheduleId:
+              description: >-
+                ID of the ramp schedule attached to this experiment. Fetch
+                details via GET /experiments/:id/ramp-schedule.
+              type: string
           required:
             - id
             - trackingKey
@@ -38538,6 +40119,7 @@ components:
           type: string
           enum:
             - feature
+            - experiment
         entityId:
           type: string
         targets:
@@ -38552,6 +40134,7 @@ components:
                 type: string
                 enum:
                   - feature
+                  - experiment
               entityId:
                 type: string
               ruleId:
@@ -38590,98 +40173,178 @@ components:
             Applied when rolling back or jumping to start.
           type: array
           items:
-            type: object
-            properties:
-              targetType:
-                type: string
-                const: feature-rule
-              targetId:
-                type: string
-              patch:
-                type: object
+            anyOf:
+              - type: object
                 properties:
-                  ruleId:
+                  targetType:
                     type: string
-                  coverage:
-                    description: >-
-                      Traffic fraction (0–1). For monitored steps the rollout
-                      rule is promoted to an experiment: treatment = [0,
-                      coverage), control = [0.5, 0.5+coverage). Both arms are
-                      equal-sized and non-adjacent, so a step-up only adds new
-                      users to each arm — no existing user changes group. The
-                      REST API enforces coverage ≤ 0.5 on monitored steps so
-                      control end never exceeds 1.0. The SDK uses explicit hash
-                      ranges on bucketingV2 clients to keep bucketing stable
-                      across monitored/unmonitored transitions.
-                    anyOf:
-                      - type: number
-                        minimum: 0
-                        maximum: 1
-                      - type: 'null'
-                  condition:
-                    anyOf:
-                      - type: string
-                      - type: 'null'
-                  savedGroups:
-                    anyOf:
-                      - type: array
-                        items:
-                          type: object
-                          properties:
-                            match:
+                    const: feature-rule
+                  targetId:
+                    type: string
+                  patch:
+                    type: object
+                    properties:
+                      ruleId:
+                        type: string
+                      coverage:
+                        description: >-
+                          Traffic fraction (0–1). For monitored steps the
+                          rollout rule is promoted to an experiment: treatment =
+                          [0, coverage), control = [0.5, 0.5+coverage). Both
+                          arms are equal-sized and non-adjacent, so a step-up
+                          only adds new users to each arm — no existing user
+                          changes group. The REST API enforces coverage ≤ 0.5 on
+                          monitored steps so control end never exceeds 1.0. The
+                          SDK uses explicit hash ranges on bucketingV2 clients
+                          to keep bucketing stable across monitored/unmonitored
+                          transitions.
+                        anyOf:
+                          - type: number
+                            minimum: 0
+                            maximum: 1
+                          - type: 'null'
+                      condition:
+                        anyOf:
+                          - type: string
+                          - type: 'null'
+                      savedGroups:
+                        anyOf:
+                          - type: array
+                            items:
+                              type: object
+                              properties:
+                                match:
+                                  type: string
+                                  enum:
+                                    - all
+                                    - none
+                                    - any
+                                ids:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - match
+                                - ids
+                              additionalProperties: false
+                          - type: 'null'
+                      prerequisites:
+                        anyOf:
+                          - type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  type: string
+                                condition:
+                                  type: string
+                              required:
+                                - id
+                                - condition
+                              additionalProperties: false
+                          - type: 'null'
+                      allEnvironments:
+                        anyOf:
+                          - type: boolean
+                          - type: 'null'
+                      environments:
+                        anyOf:
+                          - type: array
+                            items:
                               type: string
-                              enum:
-                                - all
-                                - none
-                                - any
-                            ids:
-                              type: array
-                              items:
-                                type: string
-                          required:
-                            - match
-                            - ids
-                          additionalProperties: false
-                      - type: 'null'
-                  prerequisites:
-                    anyOf:
-                      - type: array
-                        items:
-                          type: object
-                          properties:
-                            id:
-                              type: string
-                            condition:
-                              type: string
-                          required:
-                            - id
-                            - condition
-                          additionalProperties: false
-                      - type: 'null'
-                  allEnvironments:
-                    anyOf:
-                      - type: boolean
-                      - type: 'null'
-                  environments:
-                    anyOf:
-                      - type: array
-                        items:
-                          type: string
-                      - type: 'null'
-                  force:
-                    description: Force value (any JSON type)
-                  enabled:
-                    anyOf:
-                      - type: boolean
-                      - type: 'null'
+                          - type: 'null'
+                      force:
+                        description: Force value (any JSON type)
+                      enabled:
+                        anyOf:
+                          - type: boolean
+                          - type: 'null'
+                    required:
+                      - ruleId
+                    additionalProperties: false
                 required:
-                  - ruleId
+                  - targetType
+                  - targetId
+                  - patch
                 additionalProperties: false
-            required:
-              - targetType
-              - targetId
-              - patch
-            additionalProperties: false
+              - type: object
+                properties:
+                  targetType:
+                    type: string
+                    const: experiment
+                  targetId:
+                    type: string
+                  patch:
+                    type: object
+                    properties:
+                      coverage:
+                        anyOf:
+                          - type: number
+                            minimum: 0
+                            maximum: 1
+                          - type: 'null'
+                      variationWeights:
+                        anyOf:
+                          - type: array
+                            items:
+                              type: number
+                              minimum: 0
+                              maximum: 1
+                          - type: 'null'
+                      condition:
+                        anyOf:
+                          - type: string
+                          - type: 'null'
+                      savedGroups:
+                        anyOf:
+                          - type: array
+                            items:
+                              type: object
+                              properties:
+                                match:
+                                  type: string
+                                  enum:
+                                    - all
+                                    - none
+                                    - any
+                                ids:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - match
+                                - ids
+                              additionalProperties: false
+                          - type: 'null'
+                      prerequisites:
+                        anyOf:
+                          - type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  type: string
+                                condition:
+                                  type: string
+                              required:
+                                - id
+                                - condition
+                              additionalProperties: false
+                          - type: 'null'
+                      newPhase:
+                        type: boolean
+                      reseed:
+                        type: boolean
+                      bumpBucketVersion:
+                        type: boolean
+                      blockPriorBucketed:
+                        type: boolean
+                    additionalProperties: false
+                required:
+                  - targetType
+                  - targetId
+                  - patch
+                additionalProperties: false
         steps:
           description: Ordered ramp steps
           type: array
@@ -38723,99 +40386,179 @@ components:
               actions:
                 type: array
                 items:
-                  type: object
-                  properties:
-                    targetType:
-                      type: string
-                      const: feature-rule
-                    targetId:
-                      type: string
-                    patch:
-                      type: object
+                  anyOf:
+                    - type: object
                       properties:
-                        ruleId:
+                        targetType:
                           type: string
-                        coverage:
-                          description: >-
-                            Traffic fraction (0–1). For monitored steps the
-                            rollout rule is promoted to an experiment: treatment
-                            = [0, coverage), control = [0.5, 0.5+coverage). Both
-                            arms are equal-sized and non-adjacent, so a step-up
-                            only adds new users to each arm — no existing user
-                            changes group. The REST API enforces coverage ≤ 0.5
-                            on monitored steps so control end never exceeds 1.0.
-                            The SDK uses explicit hash ranges on bucketingV2
-                            clients to keep bucketing stable across
-                            monitored/unmonitored transitions.
-                          anyOf:
-                            - type: number
-                              minimum: 0
-                              maximum: 1
-                            - type: 'null'
-                        condition:
-                          anyOf:
-                            - type: string
-                            - type: 'null'
-                        savedGroups:
-                          anyOf:
-                            - type: array
-                              items:
-                                type: object
-                                properties:
-                                  match:
+                          const: feature-rule
+                        targetId:
+                          type: string
+                        patch:
+                          type: object
+                          properties:
+                            ruleId:
+                              type: string
+                            coverage:
+                              description: >-
+                                Traffic fraction (0–1). For monitored steps the
+                                rollout rule is promoted to an experiment:
+                                treatment = [0, coverage), control = [0.5,
+                                0.5+coverage). Both arms are equal-sized and
+                                non-adjacent, so a step-up only adds new users
+                                to each arm — no existing user changes group.
+                                The REST API enforces coverage ≤ 0.5 on
+                                monitored steps so control end never exceeds
+                                1.0. The SDK uses explicit hash ranges on
+                                bucketingV2 clients to keep bucketing stable
+                                across monitored/unmonitored transitions.
+                              anyOf:
+                                - type: number
+                                  minimum: 0
+                                  maximum: 1
+                                - type: 'null'
+                            condition:
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            savedGroups:
+                              anyOf:
+                                - type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      match:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - none
+                                          - any
+                                      ids:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - match
+                                      - ids
+                                    additionalProperties: false
+                                - type: 'null'
+                            prerequisites:
+                              anyOf:
+                                - type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      id:
+                                        type: string
+                                      condition:
+                                        type: string
+                                    required:
+                                      - id
+                                      - condition
+                                    additionalProperties: false
+                                - type: 'null'
+                            allEnvironments:
+                              anyOf:
+                                - type: boolean
+                                - type: 'null'
+                            environments:
+                              anyOf:
+                                - type: array
+                                  items:
                                     type: string
-                                    enum:
-                                      - all
-                                      - none
-                                      - any
-                                  ids:
-                                    type: array
-                                    items:
-                                      type: string
-                                required:
-                                  - match
-                                  - ids
-                                additionalProperties: false
-                            - type: 'null'
-                        prerequisites:
-                          anyOf:
-                            - type: array
-                              items:
-                                type: object
-                                properties:
-                                  id:
-                                    type: string
-                                  condition:
-                                    type: string
-                                required:
-                                  - id
-                                  - condition
-                                additionalProperties: false
-                            - type: 'null'
-                        allEnvironments:
-                          anyOf:
-                            - type: boolean
-                            - type: 'null'
-                        environments:
-                          anyOf:
-                            - type: array
-                              items:
-                                type: string
-                            - type: 'null'
-                        force:
-                          description: Force value (any JSON type)
-                        enabled:
-                          anyOf:
-                            - type: boolean
-                            - type: 'null'
+                                - type: 'null'
+                            force:
+                              description: Force value (any JSON type)
+                            enabled:
+                              anyOf:
+                                - type: boolean
+                                - type: 'null'
+                          required:
+                            - ruleId
+                          additionalProperties: false
                       required:
-                        - ruleId
+                        - targetType
+                        - targetId
+                        - patch
                       additionalProperties: false
-                  required:
-                    - targetType
-                    - targetId
-                    - patch
-                  additionalProperties: false
+                    - type: object
+                      properties:
+                        targetType:
+                          type: string
+                          const: experiment
+                        targetId:
+                          type: string
+                        patch:
+                          type: object
+                          properties:
+                            coverage:
+                              anyOf:
+                                - type: number
+                                  minimum: 0
+                                  maximum: 1
+                                - type: 'null'
+                            variationWeights:
+                              anyOf:
+                                - type: array
+                                  items:
+                                    type: number
+                                    minimum: 0
+                                    maximum: 1
+                                - type: 'null'
+                            condition:
+                              anyOf:
+                                - type: string
+                                - type: 'null'
+                            savedGroups:
+                              anyOf:
+                                - type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      match:
+                                        type: string
+                                        enum:
+                                          - all
+                                          - none
+                                          - any
+                                      ids:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - match
+                                      - ids
+                                    additionalProperties: false
+                                - type: 'null'
+                            prerequisites:
+                              anyOf:
+                                - type: array
+                                  items:
+                                    type: object
+                                    properties:
+                                      id:
+                                        type: string
+                                      condition:
+                                        type: string
+                                    required:
+                                      - id
+                                      - condition
+                                    additionalProperties: false
+                                - type: 'null'
+                            newPhase:
+                              type: boolean
+                            reseed:
+                              type: boolean
+                            bumpBucketVersion:
+                              type: boolean
+                            blockPriorBucketed:
+                              type: boolean
+                          additionalProperties: false
+                      required:
+                        - targetType
+                        - targetId
+                        - patch
+                      additionalProperties: false
             required:
               - interval
               - actions
@@ -38826,98 +40569,178 @@ components:
             Represents the final desired rule state.
           type: array
           items:
-            type: object
-            properties:
-              targetType:
-                type: string
-                const: feature-rule
-              targetId:
-                type: string
-              patch:
-                type: object
+            anyOf:
+              - type: object
                 properties:
-                  ruleId:
+                  targetType:
                     type: string
-                  coverage:
-                    description: >-
-                      Traffic fraction (0–1). For monitored steps the rollout
-                      rule is promoted to an experiment: treatment = [0,
-                      coverage), control = [0.5, 0.5+coverage). Both arms are
-                      equal-sized and non-adjacent, so a step-up only adds new
-                      users to each arm — no existing user changes group. The
-                      REST API enforces coverage ≤ 0.5 on monitored steps so
-                      control end never exceeds 1.0. The SDK uses explicit hash
-                      ranges on bucketingV2 clients to keep bucketing stable
-                      across monitored/unmonitored transitions.
-                    anyOf:
-                      - type: number
-                        minimum: 0
-                        maximum: 1
-                      - type: 'null'
-                  condition:
-                    anyOf:
-                      - type: string
-                      - type: 'null'
-                  savedGroups:
-                    anyOf:
-                      - type: array
-                        items:
-                          type: object
-                          properties:
-                            match:
+                    const: feature-rule
+                  targetId:
+                    type: string
+                  patch:
+                    type: object
+                    properties:
+                      ruleId:
+                        type: string
+                      coverage:
+                        description: >-
+                          Traffic fraction (0–1). For monitored steps the
+                          rollout rule is promoted to an experiment: treatment =
+                          [0, coverage), control = [0.5, 0.5+coverage). Both
+                          arms are equal-sized and non-adjacent, so a step-up
+                          only adds new users to each arm — no existing user
+                          changes group. The REST API enforces coverage ≤ 0.5 on
+                          monitored steps so control end never exceeds 1.0. The
+                          SDK uses explicit hash ranges on bucketingV2 clients
+                          to keep bucketing stable across monitored/unmonitored
+                          transitions.
+                        anyOf:
+                          - type: number
+                            minimum: 0
+                            maximum: 1
+                          - type: 'null'
+                      condition:
+                        anyOf:
+                          - type: string
+                          - type: 'null'
+                      savedGroups:
+                        anyOf:
+                          - type: array
+                            items:
+                              type: object
+                              properties:
+                                match:
+                                  type: string
+                                  enum:
+                                    - all
+                                    - none
+                                    - any
+                                ids:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - match
+                                - ids
+                              additionalProperties: false
+                          - type: 'null'
+                      prerequisites:
+                        anyOf:
+                          - type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  type: string
+                                condition:
+                                  type: string
+                              required:
+                                - id
+                                - condition
+                              additionalProperties: false
+                          - type: 'null'
+                      allEnvironments:
+                        anyOf:
+                          - type: boolean
+                          - type: 'null'
+                      environments:
+                        anyOf:
+                          - type: array
+                            items:
                               type: string
-                              enum:
-                                - all
-                                - none
-                                - any
-                            ids:
-                              type: array
-                              items:
-                                type: string
-                          required:
-                            - match
-                            - ids
-                          additionalProperties: false
-                      - type: 'null'
-                  prerequisites:
-                    anyOf:
-                      - type: array
-                        items:
-                          type: object
-                          properties:
-                            id:
-                              type: string
-                            condition:
-                              type: string
-                          required:
-                            - id
-                            - condition
-                          additionalProperties: false
-                      - type: 'null'
-                  allEnvironments:
-                    anyOf:
-                      - type: boolean
-                      - type: 'null'
-                  environments:
-                    anyOf:
-                      - type: array
-                        items:
-                          type: string
-                      - type: 'null'
-                  force:
-                    description: Force value (any JSON type)
-                  enabled:
-                    anyOf:
-                      - type: boolean
-                      - type: 'null'
+                          - type: 'null'
+                      force:
+                        description: Force value (any JSON type)
+                      enabled:
+                        anyOf:
+                          - type: boolean
+                          - type: 'null'
+                    required:
+                      - ruleId
+                    additionalProperties: false
                 required:
-                  - ruleId
+                  - targetType
+                  - targetId
+                  - patch
                 additionalProperties: false
-            required:
-              - targetType
-              - targetId
-              - patch
-            additionalProperties: false
+              - type: object
+                properties:
+                  targetType:
+                    type: string
+                    const: experiment
+                  targetId:
+                    type: string
+                  patch:
+                    type: object
+                    properties:
+                      coverage:
+                        anyOf:
+                          - type: number
+                            minimum: 0
+                            maximum: 1
+                          - type: 'null'
+                      variationWeights:
+                        anyOf:
+                          - type: array
+                            items:
+                              type: number
+                              minimum: 0
+                              maximum: 1
+                          - type: 'null'
+                      condition:
+                        anyOf:
+                          - type: string
+                          - type: 'null'
+                      savedGroups:
+                        anyOf:
+                          - type: array
+                            items:
+                              type: object
+                              properties:
+                                match:
+                                  type: string
+                                  enum:
+                                    - all
+                                    - none
+                                    - any
+                                ids:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - match
+                                - ids
+                              additionalProperties: false
+                          - type: 'null'
+                      prerequisites:
+                        anyOf:
+                          - type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  type: string
+                                condition:
+                                  type: string
+                              required:
+                                - id
+                                - condition
+                              additionalProperties: false
+                          - type: 'null'
+                      newPhase:
+                        type: boolean
+                      reseed:
+                        type: boolean
+                      bumpBucketVersion:
+                        type: boolean
+                      blockPriorBucketed:
+                        type: boolean
+                    additionalProperties: false
+                required:
+                  - targetType
+                  - targetId
+                  - patch
+                additionalProperties: false
         startDate:
           description: >-
             When the ramp fires. Absent/null means immediately on publish; set
@@ -44194,6 +46017,7 @@ components:
           type: string
           enum:
             - feature
+            - experiment
         entityId:
           type: string
         ruleId:
@@ -44225,98 +46049,6 @@ components:
         - entityType
         - entityId
         - status
-      additionalProperties: false
-    startActions:
-      type: object
-      properties:
-        targetType:
-          type: string
-          const: feature-rule
-        targetId:
-          type: string
-        patch:
-          type: object
-          properties:
-            ruleId:
-              type: string
-            coverage:
-              description: >-
-                Traffic fraction (0–1). For monitored steps the rollout rule is
-                promoted to an experiment: treatment = [0, coverage), control =
-                [0.5, 0.5+coverage). Both arms are equal-sized and non-adjacent,
-                so a step-up only adds new users to each arm — no existing user
-                changes group. The REST API enforces coverage ≤ 0.5 on monitored
-                steps so control end never exceeds 1.0. The SDK uses explicit
-                hash ranges on bucketingV2 clients to keep bucketing stable
-                across monitored/unmonitored transitions.
-              anyOf:
-                - type: number
-                  minimum: 0
-                  maximum: 1
-                - type: 'null'
-            condition:
-              anyOf:
-                - type: string
-                - type: 'null'
-            savedGroups:
-              anyOf:
-                - type: array
-                  items:
-                    type: object
-                    properties:
-                      match:
-                        type: string
-                        enum:
-                          - all
-                          - none
-                          - any
-                      ids:
-                        type: array
-                        items:
-                          type: string
-                    required:
-                      - match
-                      - ids
-                    additionalProperties: false
-                - type: 'null'
-            prerequisites:
-              anyOf:
-                - type: array
-                  items:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                      condition:
-                        type: string
-                    required:
-                      - id
-                      - condition
-                    additionalProperties: false
-                - type: 'null'
-            allEnvironments:
-              anyOf:
-                - type: boolean
-                - type: 'null'
-            environments:
-              anyOf:
-                - type: array
-                  items:
-                    type: string
-                - type: 'null'
-            force:
-              description: Force value (any JSON type)
-            enabled:
-              anyOf:
-                - type: boolean
-                - type: 'null'
-          required:
-            - ruleId
-          additionalProperties: false
-      required:
-        - targetType
-        - targetId
-        - patch
       additionalProperties: false
     steps:
       type: object
@@ -44355,98 +46087,178 @@ components:
         actions:
           type: array
           items:
-            type: object
-            properties:
-              targetType:
-                type: string
-                const: feature-rule
-              targetId:
-                type: string
-              patch:
-                type: object
+            anyOf:
+              - type: object
                 properties:
-                  ruleId:
+                  targetType:
                     type: string
-                  coverage:
-                    description: >-
-                      Traffic fraction (0–1). For monitored steps the rollout
-                      rule is promoted to an experiment: treatment = [0,
-                      coverage), control = [0.5, 0.5+coverage). Both arms are
-                      equal-sized and non-adjacent, so a step-up only adds new
-                      users to each arm — no existing user changes group. The
-                      REST API enforces coverage ≤ 0.5 on monitored steps so
-                      control end never exceeds 1.0. The SDK uses explicit hash
-                      ranges on bucketingV2 clients to keep bucketing stable
-                      across monitored/unmonitored transitions.
-                    anyOf:
-                      - type: number
-                        minimum: 0
-                        maximum: 1
-                      - type: 'null'
-                  condition:
-                    anyOf:
-                      - type: string
-                      - type: 'null'
-                  savedGroups:
-                    anyOf:
-                      - type: array
-                        items:
-                          type: object
-                          properties:
-                            match:
+                    const: feature-rule
+                  targetId:
+                    type: string
+                  patch:
+                    type: object
+                    properties:
+                      ruleId:
+                        type: string
+                      coverage:
+                        description: >-
+                          Traffic fraction (0–1). For monitored steps the
+                          rollout rule is promoted to an experiment: treatment =
+                          [0, coverage), control = [0.5, 0.5+coverage). Both
+                          arms are equal-sized and non-adjacent, so a step-up
+                          only adds new users to each arm — no existing user
+                          changes group. The REST API enforces coverage ≤ 0.5 on
+                          monitored steps so control end never exceeds 1.0. The
+                          SDK uses explicit hash ranges on bucketingV2 clients
+                          to keep bucketing stable across monitored/unmonitored
+                          transitions.
+                        anyOf:
+                          - type: number
+                            minimum: 0
+                            maximum: 1
+                          - type: 'null'
+                      condition:
+                        anyOf:
+                          - type: string
+                          - type: 'null'
+                      savedGroups:
+                        anyOf:
+                          - type: array
+                            items:
+                              type: object
+                              properties:
+                                match:
+                                  type: string
+                                  enum:
+                                    - all
+                                    - none
+                                    - any
+                                ids:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - match
+                                - ids
+                              additionalProperties: false
+                          - type: 'null'
+                      prerequisites:
+                        anyOf:
+                          - type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  type: string
+                                condition:
+                                  type: string
+                              required:
+                                - id
+                                - condition
+                              additionalProperties: false
+                          - type: 'null'
+                      allEnvironments:
+                        anyOf:
+                          - type: boolean
+                          - type: 'null'
+                      environments:
+                        anyOf:
+                          - type: array
+                            items:
                               type: string
-                              enum:
-                                - all
-                                - none
-                                - any
-                            ids:
-                              type: array
-                              items:
-                                type: string
-                          required:
-                            - match
-                            - ids
-                          additionalProperties: false
-                      - type: 'null'
-                  prerequisites:
-                    anyOf:
-                      - type: array
-                        items:
-                          type: object
-                          properties:
-                            id:
-                              type: string
-                            condition:
-                              type: string
-                          required:
-                            - id
-                            - condition
-                          additionalProperties: false
-                      - type: 'null'
-                  allEnvironments:
-                    anyOf:
-                      - type: boolean
-                      - type: 'null'
-                  environments:
-                    anyOf:
-                      - type: array
-                        items:
-                          type: string
-                      - type: 'null'
-                  force:
-                    description: Force value (any JSON type)
-                  enabled:
-                    anyOf:
-                      - type: boolean
-                      - type: 'null'
+                          - type: 'null'
+                      force:
+                        description: Force value (any JSON type)
+                      enabled:
+                        anyOf:
+                          - type: boolean
+                          - type: 'null'
+                    required:
+                      - ruleId
+                    additionalProperties: false
                 required:
-                  - ruleId
+                  - targetType
+                  - targetId
+                  - patch
                 additionalProperties: false
-            required:
-              - targetType
-              - targetId
-              - patch
-            additionalProperties: false
+              - type: object
+                properties:
+                  targetType:
+                    type: string
+                    const: experiment
+                  targetId:
+                    type: string
+                  patch:
+                    type: object
+                    properties:
+                      coverage:
+                        anyOf:
+                          - type: number
+                            minimum: 0
+                            maximum: 1
+                          - type: 'null'
+                      variationWeights:
+                        anyOf:
+                          - type: array
+                            items:
+                              type: number
+                              minimum: 0
+                              maximum: 1
+                          - type: 'null'
+                      condition:
+                        anyOf:
+                          - type: string
+                          - type: 'null'
+                      savedGroups:
+                        anyOf:
+                          - type: array
+                            items:
+                              type: object
+                              properties:
+                                match:
+                                  type: string
+                                  enum:
+                                    - all
+                                    - none
+                                    - any
+                                ids:
+                                  type: array
+                                  items:
+                                    type: string
+                              required:
+                                - match
+                                - ids
+                              additionalProperties: false
+                          - type: 'null'
+                      prerequisites:
+                        anyOf:
+                          - type: array
+                            items:
+                              type: object
+                              properties:
+                                id:
+                                  type: string
+                                condition:
+                                  type: string
+                              required:
+                                - id
+                                - condition
+                              additionalProperties: false
+                          - type: 'null'
+                      newPhase:
+                        type: boolean
+                      reseed:
+                        type: boolean
+                      bumpBucketVersion:
+                        type: boolean
+                      blockPriorBucketed:
+                        type: boolean
+                    additionalProperties: false
+                required:
+                  - targetType
+                  - targetId
+                  - patch
+                additionalProperties: false
       required:
         - interval
         - actions

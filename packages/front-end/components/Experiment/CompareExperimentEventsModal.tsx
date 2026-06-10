@@ -208,6 +208,11 @@ const EXPERIMENT_SECTION_KEYS: Record<
   status: "metadata",
   statusUpdateSchedule: "metadata",
   nextScheduledStatusUpdate: "metadata",
+  endDate: "metadata",
+  endStrategy: "metadata",
+  shippingCriteria: "metadata",
+  autoRollbackMode: "metadata",
+  rampProgressionMode: "metadata",
   winner: "metadata",
   owner: "metadata",
   type: "metadata",
@@ -247,6 +252,7 @@ const EXPERIMENT_SECTION_KEYS: Record<
   dismissedWarnings: false,
   holdoutId: false,
   defaultDashboardId: false,
+  rampScheduleId: false,
 };
 
 function sectionKeys(

@@ -70,6 +70,25 @@ export async function evaluateCurrentStep(
     return { action: "advance" };
   }
 
+  // Experiment ramps use their own evaluation logic (reads analysisSummary
+  // directly; no SafeRollout backing entity).
+  if (schedule.entityType === "experiment") {
+    const { evaluateExperimentRampStep } = await import(
+      "back-end/src/services/experimentRampSchedule"
+    );
+    const { getExperimentById } = await import(
+      "back-end/src/models/ExperimentModel"
+    );
+    const experiment = await getExperimentById(ctx, schedule.entityId);
+    if (!experiment) {
+      return {
+        action: "pause",
+        reason: `Experiment ${schedule.entityId} not found — pausing ramp`,
+      };
+    }
+    return evaluateExperimentRampStep(ctx, schedule, experiment, now);
+  }
+
   if (step.monitored) {
     const decision = await evaluateMonitoredStep(ctx, schedule, now);
     return decision;

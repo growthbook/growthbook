@@ -196,6 +196,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
         settings.decisionFrameworkEnabled ?? DEFAULT_DECISION_FRAMEWORK_ENABLED,
       defaultDecisionCriteriaId:
         settings.defaultDecisionCriteriaId ?? PRESET_DECISION_CRITERIA.id,
+      defaultAutoRollbackMode: settings.defaultAutoRollbackMode ?? "off",
+      defaultShippingCriteriaMode:
+        settings.defaultShippingCriteriaMode ?? "off",
+      defaultRampProgressionMode:
+        settings.defaultRampProgressionMode ?? "hold-for-health",
       blockFileUploads: settings.blockFileUploads ?? false,
       requireProjectForFeatures:
         settings.requireProjectForFeatures ??

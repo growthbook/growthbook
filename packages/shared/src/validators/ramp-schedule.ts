@@ -73,16 +73,88 @@ export const rampMonitoringConfig = z.object({
 });
 export type RampMonitoringConfig = z.infer<typeof rampMonitoringConfig>;
 
-export const rampStepAction = z.object({
+export const featureRuleStepAction = z.object({
   targetType: z.literal("feature-rule"),
   targetId: z.string(),
   patch: featureRulePatch,
 });
+export type FeatureRuleStepAction = z.infer<typeof featureRuleStepAction>;
+
+/** Sparse patch applied to an experiment entity by a ramp step. */
+export const experimentPatch = z.object({
+  coverage: z.number().min(0).max(1).nullish(),
+  variationWeights: z.array(z.number().min(0).max(1)).nullish(),
+  condition: z.string().nullish(),
+  savedGroups: z.array(savedGroupTargeting).nullish(),
+  prerequisites: z.array(featurePrerequisite).nullish(),
+  /**
+   * Whether this step starts a new experiment phase.
+   * true  = full phase change (rerandomization, new seed, analysis window reset)
+   * false = simple in-place coverage / targeting update within the current phase
+   */
+  newPhase: z.boolean().optional(),
+  /** Generate a new random seed when starting a new phase. */
+  reseed: z.boolean().optional(),
+  /** Increment experiment.bucketVersion so sticky-bucketed users get re-assigned. */
+  bumpBucketVersion: z.boolean().optional(),
+  /** Set experiment.minBucketVersion = new bucketVersion to block prior-bucketed users entirely. */
+  blockPriorBucketed: z.boolean().optional(),
+});
+export type ExperimentPatch = z.infer<typeof experimentPatch>;
+
+export const experimentStepAction = z.object({
+  targetType: z.literal("experiment"),
+  targetId: z.string(),
+  patch: experimentPatch,
+});
+export type ExperimentStepAction = z.infer<typeof experimentStepAction>;
+
+/** Discriminated union of all supported ramp step action types. */
+export const rampStepAction = z.discriminatedUnion("targetType", [
+  featureRuleStepAction,
+  experimentStepAction,
+]);
 export type RampStepAction = z.infer<typeof rampStepAction>;
+
+// ---------------------------------------------------------------------------
+// Experiment end strategy
+// ---------------------------------------------------------------------------
+
+export const experimentEndStrategyTypeArray = [
+  "soft",
+  "soft-edf",
+  "hard-planned",
+] as const;
+export type ExperimentEndStrategyType =
+  (typeof experimentEndStrategyTypeArray)[number];
+
+/**
+ * Action applied when the experiment reaches its scheduled `endDate`. Stored
+ * on the experiment, not on the ramp schedule. The date itself lives on the
+ * experiment (`endDate`) — strategy is a pure "what happens at endDate" field.
+ * Absent/null means "no automatic action".
+ */
+export const experimentEndStrategy = z
+  .object({
+    type: z.enum(experimentEndStrategyTypeArray),
+    plannedVariationId: z.string().optional(),
+    minimumRuntimeDays: z.number().positive().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.type === "hard-planned" && !data.plannedVariationId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'End strategy type "hard-planned" requires a plannedVariationId.',
+        path: ["plannedVariationId"],
+      });
+    }
+  });
+export type ExperimentEndStrategy = z.infer<typeof experimentEndStrategy>;
 
 export const rampTarget = z.object({
   id: z.string(),
-  entityType: z.enum(["feature"]), // TODO v2: add "experiment"
+  entityType: z.enum(["feature", "experiment"]),
   entityId: z.string(),
   ruleId: z.string().nullish(),
   // Deprecated pre-v2 rule disambiguator.
@@ -176,14 +248,15 @@ export type RampEvent = z.infer<typeof rampEvent>;
 export const rampScheduleValidator = baseSchema
   .extend({
     name: z.string(),
-    entityType: z.enum(["feature"]), // TODO v2: add "experiment"
+    entityType: z.enum(["feature", "experiment"]),
     entityId: z.string(),
     targets: z.array(rampTarget),
-    // Restores the controlled rules to their pre-ramp state when rolling back to start.
+    // Restores the controlled entity to its pre-ramp state when rolling back to start.
     startActions: z.array(rampStepAction).optional(),
     steps: z.array(rampStep),
     // Applied on top of accumulated step patches when the ramp completes.
     endActions: z.array(rampStepAction).optional(),
+
     // When set, the rule stays disabled until this activation date.
     startDate: z.date().nullish(),
     cutoffDate: z.date().nullish(),
@@ -244,6 +317,9 @@ export const rampScheduleValidator = baseSchema
       const step = data.steps[i];
       if (!step.monitored) continue;
       for (const action of step.actions) {
+        // Coverage constraints only apply to feature-rule actions (safe rollout bucketing model).
+        // Experiment steps can use full 0–1 coverage range.
+        if (action.targetType !== "feature-rule") continue;
         if (action.patch.coverage === 0) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
@@ -353,9 +429,13 @@ export const TEMPLATE_STRUCTURAL_KEYS = [
 ] as const;
 
 const templateFeatureRulePatch = featureRulePatch.omit({ force: true });
-const templateRampStepAction = rampStepAction.extend({
+const templateFeatureRuleStepAction = featureRuleStepAction.extend({
   patch: templateFeatureRulePatch,
 });
+// Templates only support feature-rule step actions. Experiment ramps configure
+// their schedule directly on the experiment and inherit ramp behavior from the
+// EDF; saving/loading experiment ramps as templates is intentionally unsupported.
+const templateRampStepAction = templateFeatureRuleStepAction;
 const templateRampStep = rampStep.extend({
   actions: z.array(templateRampStepAction),
 });
@@ -372,6 +452,12 @@ export type TemplateEndPatch = z.infer<typeof templateEndPatchValidator>;
 
 export const rampScheduleTemplateValidator = baseSchema.extend({
   name: z.string(),
+  /**
+   * Templates are feature-only. The `entityType` field is retained (and pinned
+   * to "feature") for forward-compat with any existing documents that may have
+   * been written with the discriminator.
+   */
+  entityType: z.literal("feature").optional(),
   steps: z.array(templateRampStep),
   endPatch: templateEndPatchValidator.optional(),
   official: z.boolean().optional(),
@@ -431,7 +517,7 @@ export const apiRampScheduleInterface = namedSchema(
   apiBaseSchema.extend({
     id: z.string().describe("Unique identifier (rs_ prefix)"),
     name: z.string(),
-    entityType: z.enum(["feature"]),
+    entityType: z.enum(["feature", "experiment"]),
     entityId: z.string(),
     targets: z.array(rampTarget).describe("Controlled entity references"),
     startActions: z

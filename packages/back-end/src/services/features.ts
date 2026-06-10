@@ -63,6 +63,7 @@ import {
   apiFeatureRevisionV2Validator,
   ApiFeatureWithRevisionsV2,
   ApiFeatureEnvironmentV2,
+  apiRevisionRampAction,
 } from "shared/validators";
 import {
   AttributeMap,
@@ -1856,7 +1857,8 @@ export function revisionToApiInterface(
       },
     }),
     ...(rev.rampActions !== undefined && {
-      rampActions: rev.rampActions,
+      // Feature revisions only contain feature-rule ramp actions; cast is safe.
+      rampActions: rev.rampActions as z.infer<typeof apiRevisionRampAction>[],
     }),
   };
 }
@@ -1929,7 +1931,8 @@ export function revisionToApiInterfaceV2(
       },
     }),
     ...(rev.rampActions !== undefined && {
-      rampActions: rev.rampActions,
+      // Feature revisions only contain feature-rule ramp actions; cast is safe.
+      rampActions: rev.rampActions as z.infer<typeof apiRevisionRampAction>[],
     }),
   };
 }

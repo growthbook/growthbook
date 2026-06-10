@@ -17,7 +17,11 @@ import {
   getExperimentResultStatus,
   getHealthSettings,
 } from "shared/enterprise";
-import { ExperimentAnalysisSummary } from "shared/validators";
+import {
+  AutoRollbackMode,
+  ExperimentAnalysisSummary,
+  ShippingCriteriaMode,
+} from "shared/validators";
 import { StatsEngine } from "shared/types/stats";
 import {
   ExperimentHealthSettings,
@@ -33,6 +37,10 @@ import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { logger } from "back-end/src/util/logger";
 import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
+import {
+  resolveHealthSignals,
+  applyExperimentEndStrategy,
+} from "back-end/src/services/experimentRampSchedule";
 import { getExperimentMetricById } from "back-end/src/services/experiments";
 import {
   getEnvironmentIdsFromOrg,
@@ -695,5 +703,181 @@ export const notifyExperimentChange = async ({
     }
   }
 
+  // After notifications, evaluate health signal auto-actions for non-ramp
+  // experiments. Ramp experiments already have their health checks inside
+  // evaluateExperimentRampStep.
+  if (!experiment.rampScheduleId) {
+    await applyHealthActions(
+      context,
+      experiment,
+      currentStatus ?? null,
+      triggeredNoData,
+    );
+  }
+
+  // Evaluate shipping criteria (auto-ship) for non-ramp experiments.
+  // Ramp experiments handle end-of-ramp shipping via their own evaluator.
+  if (!experiment.rampScheduleId) {
+    await evaluateShippingCriteria(context, experiment);
+  }
+
   return notificationsTriggered;
 };
+
+function resolveAutoRollbackMode(
+  experiment: ExperimentInterface,
+  org: { settings?: { defaultAutoRollbackMode?: AutoRollbackMode } },
+): AutoRollbackMode {
+  return (
+    experiment.autoRollbackMode ??
+    org.settings?.defaultAutoRollbackMode ??
+    "off"
+  );
+}
+
+/**
+ * Evaluates health signal auto-actions for non-ramp running experiments.
+ * Health signal classification comes from the experiment's Decision Criteria.
+ *
+ * Gated by autoRollbackMode — only executes when mode includes health
+ * signals ("all" or "health-only").
+ *
+ * "rollback" -> auto-stop the experiment.
+ * "review"   -> no-op here (notifications handled separately;
+ *               rampProgressionMode blocks ramp/shipping in other evaluators).
+ */
+async function applyHealthActions(
+  context: Context,
+  experiment: ExperimentInterface,
+  status: ExperimentResultStatusData | null,
+  noData: boolean,
+): Promise<void> {
+  if (experiment.status !== "running") return;
+
+  const mode = resolveAutoRollbackMode(experiment, context.org);
+  if (mode !== "all" && mode !== "health-only") return;
+
+  const hs = await resolveHealthSignals(context, experiment);
+
+  // No-traffic auto-stop
+  if (noData && hs.noTrafficAction === "rollback") {
+    logger.info(
+      `Health auto-action: stopping experiment ${experiment.id} due to no traffic`,
+    );
+    await updateExperiment({
+      context,
+      experiment,
+      changes: {
+        status: "stopped",
+        results: "dnf",
+      },
+    });
+    return;
+  }
+
+  if (!status || status.status !== "unhealthy") return;
+  const unhealthy = status.unhealthyData;
+
+  // SRM
+  if (unhealthy.srm && hs.srmAction === "rollback") {
+    logger.info(
+      `Health auto-action: stopping experiment ${experiment.id} due to SRM`,
+    );
+    await updateExperiment({
+      context,
+      experiment,
+      changes: { status: "stopped", results: "dnf" },
+    });
+    return;
+  }
+
+  // Multiple exposures
+  if (unhealthy.multipleExposures && hs.multipleExposureAction === "rollback") {
+    logger.info(
+      `Health auto-action: stopping experiment ${experiment.id} due to multiple exposures`,
+    );
+    await updateExperiment({
+      context,
+      experiment,
+      changes: { status: "stopped", results: "dnf" },
+    });
+    return;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Shipping criteria evaluation
+// ---------------------------------------------------------------------------
+
+function resolveShippingMode(
+  experiment: ExperimentInterface,
+  org: { settings?: { defaultShippingCriteriaMode?: ShippingCriteriaMode } },
+): ShippingCriteriaMode {
+  return (
+    experiment.shippingCriteria?.mode ??
+    org.settings?.defaultShippingCriteriaMode ??
+    "off"
+  );
+}
+
+/**
+ * Evaluates shipping criteria for running experiments. Called on every
+ * snapshot update (same cadence as health actions).
+ *
+ * All auto-ship modes require an end date. Without one, no automated
+ * shipping occurs (equivalent to "off").
+ *
+ * Modes:
+ *  - "off": manual — show recommended decision, no automation
+ *  - "auto": wait for end date, then ship if DC says clear winner.
+ *            Continue running past end date if no clear winner yet.
+ *  - "auto-force": wait for end date, then ship regardless of criteria.
+ */
+async function evaluateShippingCriteria(
+  context: Context,
+  experiment: ExperimentInterface,
+): Promise<void> {
+  if (experiment.status !== "running") return;
+
+  const mode = resolveShippingMode(experiment, context.org);
+  if (mode === "off") return;
+
+  // Auto-ship requires an end date
+  if (!experiment.endDate) return;
+
+  const now = new Date();
+  if (new Date(experiment.endDate) > now) return;
+
+  const minDays = experiment.shippingCriteria?.minimumRuntimeDays;
+  if (minDays) {
+    const phases = experiment.phases;
+    const lastPhaseStart = phases?.[phases.length - 1]?.dateStarted;
+    if (lastPhaseStart) {
+      const runtimeMs = now.getTime() - new Date(lastPhaseStart).getTime();
+      const runtimeDays = runtimeMs / (1000 * 60 * 60 * 24);
+      if (runtimeDays < minDays) return;
+    }
+  }
+
+  if (mode === "auto") {
+    await applyExperimentEndStrategy(context, experiment, {
+      type: "soft-edf",
+      plannedVariationId: experiment.shippingCriteria?.plannedVariationId,
+      minimumRuntimeDays: minDays,
+    });
+    return;
+  }
+
+  if (mode === "auto-force") {
+    const plannedVariationId =
+      experiment.shippingCriteria?.plannedVariationId ??
+      experiment.variations[0]?.id;
+    if (!plannedVariationId) return;
+    await applyExperimentEndStrategy(context, experiment, {
+      type: "hard-planned",
+      plannedVariationId,
+      minimumRuntimeDays: minDays,
+    });
+    return;
+  }
+}

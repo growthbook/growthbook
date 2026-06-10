@@ -18,8 +18,57 @@ import {
   ownerInputField,
   optionalOwnerInputField,
 } from "./owner-field";
+import { experimentEndStrategy } from "./ramp-schedule";
+
+// ── Shipping criteria ───────────────────────────────────────────────────────
+// Controls automated shipping at end date. All auto modes require an end date;
+// without one, the experiment runs until manually stopped.
+//   "off"        — manual: show recommended decision, no automation
+//   "auto"       — ship on end date if DC says clear winner; keep running if not
+//   "auto-force" — ship on end date regardless of criteria
+
+export const shippingCriteriaModeArray = ["off", "auto", "auto-force"] as const;
+
+export const shippingCriteriaMode = z.enum(shippingCriteriaModeArray);
+export type ShippingCriteriaMode = z.infer<typeof shippingCriteriaMode>;
+
+export const shippingCriteria = z
+  .object({
+    mode: shippingCriteriaMode,
+    plannedVariationId: z.string().optional(),
+    minimumRuntimeDays: z.number().positive().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.mode === "auto-force" && !data.plannedVariationId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'Shipping criteria mode "auto-force" requires a plannedVariationId.',
+        path: ["plannedVariationId"],
+      });
+    }
+  });
+export type ShippingCriteria = z.infer<typeof shippingCriteria>;
 
 import { namedSchema } from "./openapi-helpers";
+
+// ── Ramp progression mode ───────────────────────────────────────────────────
+// Controls how ramp schedules respond to health signals.
+//   "hold-for-health"  — (default) ramp pauses when health signals fire
+//                         (review or rollback, unless rollback was executed)
+//   "ignore"           — ramp advances on schedule; health signals notify only
+
+export const rampProgressionMode = z.enum(["hold-for-health", "ignore"]);
+export type RampProgressionMode = z.infer<typeof rampProgressionMode>;
+
+// ── Auto-rollback mode ─────────────────────────────────────────────────────
+// Controls whether rollback signals are executed automatically.
+//   "off"          — manual: prompt to rollback
+//   "all"          — auto-rollback for all signals (metric + health)
+//   "health-only"  — auto-rollback for health signals only; prompt for metric
+
+export const autoRollbackMode = z.enum(["off", "all", "health-only"]);
+export type AutoRollbackMode = z.infer<typeof autoRollbackMode>;
 
 export const customMetricSlice = z.object({
   slices: z.array(
@@ -446,6 +495,45 @@ export const experimentInterface = z
       .array(z.string())
       .max(MAX_PRECOMPUTED_UNIT_DIMENSIONS, maxPrecomputedUnitDimensionsError)
       .optional(),
+    /** ID of the attached RampSchedule for this experiment. Set when a ramp is configured. */
+    rampScheduleId: z.string().optional(),
+    /**
+     * Scheduled end timestamp for the experiment. Distinct from
+     * `phases[last].dateEnded`, which records the actual moment the experiment
+     * was stopped. `endDate` is the target/scheduled end and is paired with
+     * `endStrategy` to describe what happens when that date is reached.
+     * Absent (or null) means "manual end" — no scheduled end date.
+     */
+    endDate: z.date().nullish(),
+    /**
+     * @deprecated Use `shippingCriteria` instead. Kept for backward
+     * compatibility during migration.
+     */
+    endStrategy: experimentEndStrategy.nullish(),
+
+    /**
+     * Shipping criteria — automated shipping at end date.
+     * Replaces the narrower `endStrategy`. All auto modes require an end date.
+     * Null means inherit from org default, which itself defaults to "off".
+     */
+    shippingCriteria: shippingCriteria.nullish(),
+
+    /**
+     * Controls whether rollback signals auto-stop the experiment.
+     *   "off"         — manual: prompt to rollback
+     *   "all"         — auto-rollback for all signals (metric + health)
+     *   "health-only" — auto-rollback for health signals only
+     * Null inherits from org default (defaults to "off").
+     */
+    autoRollbackMode: autoRollbackMode.nullish(),
+
+    /**
+     * Controls how ramp schedules respond to health signals.
+     *   "hold-for-health" — ramp pauses on health signals (default)
+     *   "ignore"          — ramp advances regardless; health signals notify only
+     * Null inherits from org default (defaults to "hold-for-health").
+     */
+    rampProgressionMode: rampProgressionMode.nullish(),
   })
   .strict()
   .merge(experimentAnalysisSettings);
@@ -816,6 +904,12 @@ const apiExperimentShape = z.object({
       date: z.string().meta({ format: "date-time" }),
     })
     .nullable()
+    .optional(),
+  rampScheduleId: z
+    .string()
+    .describe(
+      "ID of the ramp schedule attached to this experiment. Fetch details via GET /experiments/:id/ramp-schedule.",
+    )
     .optional(),
 });
 export const apiExperimentValidator = namedSchema(
@@ -1893,4 +1987,91 @@ export const getExperimentSnapshotValidator = {
   tags: ["snapshots"],
   method: "get" as const,
   path: "/snapshots/:id",
+};
+
+// ---------------------------------------------------------------------------
+// Experiment ramp schedule REST validators
+// ---------------------------------------------------------------------------
+
+export const getExperimentRampScheduleValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({
+      rampSchedule: z.unknown().nullable(),
+    })
+    .strict(),
+  summary: "Get the ramp schedule for an experiment",
+  operationId: "getExperimentRampSchedule",
+  tags: ["experiments"],
+  method: "get" as const,
+  path: "/experiments/:id/ramp-schedule",
+  exampleRequest: { params: { id: "exp_abc123" } },
+};
+
+const experimentRampScheduleActionBody = z
+  .object({
+    reason: z.string().optional(),
+    excludePreviouslyExposedUsers: z.boolean().optional(),
+  })
+  .strict();
+
+export const postExperimentRampScheduleRollbackValidator = {
+  bodySchema: experimentRampScheduleActionBody,
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({
+      rampSchedule: z.unknown().nullable(),
+    })
+    .strict(),
+  summary: "Rollback the experiment ramp schedule",
+  operationId: "postExperimentRampScheduleRollback",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/ramp-schedule/rollback",
+  exampleRequest: {
+    params: { id: "exp_abc123" },
+    body: { reason: "Guardrail metric regressed" },
+  },
+};
+
+export const postExperimentRampSchedulePauseValidator = {
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z.object({ rampSchedule: z.unknown().nullable() }).strict(),
+  summary: "Pause the experiment ramp schedule",
+  operationId: "postExperimentRampSchedulePause",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/ramp-schedule/pause",
+  exampleRequest: { params: { id: "exp_abc123" } },
+};
+
+export const postExperimentRampScheduleResumeValidator = {
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z.object({ rampSchedule: z.unknown().nullable() }).strict(),
+  summary: "Resume the experiment ramp schedule",
+  operationId: "postExperimentRampScheduleResume",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/ramp-schedule/resume",
+  exampleRequest: { params: { id: "exp_abc123" } },
+};
+
+export const postExperimentRampScheduleAdvanceValidator = {
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z.object({ rampSchedule: z.unknown().nullable() }).strict(),
+  summary: "Advance the experiment ramp schedule to the next step",
+  operationId: "postExperimentRampScheduleAdvance",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/ramp-schedule/advance",
+  exampleRequest: { params: { id: "exp_abc123" } },
 };
