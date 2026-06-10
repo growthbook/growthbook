@@ -18,8 +18,7 @@ import {
   ContextualBanditWeightsInput,
 } from "stats-ts";
 // DEBUG CSV (gitignored): uncomment to dump weight-update output to CSVs.
-// import { writeContextualBanditDebugCsvs } from "back-end/src/enterprise/services/contextualBanditDebugCsv";
-
+import { writeContextualBanditDebugCsvs } from "back-end/src/enterprise/services/contextualBanditDebugCsv";
 import { logger } from "back-end/src/util/logger";
 import {
   getAnalysisSettingsForStatsEngine,
@@ -91,7 +90,7 @@ export async function runContextualStatsEngine(
     );
     const result = computeContextualBanditWeights(input);
     // DEBUG CSV (gitignored): uncomment to dump weight-update output to CSVs.
-    // writeContextualBanditDebugCsvs(result, rows, input.metricSettings);
+    writeContextualBanditDebugCsvs(result);
     return result;
   }
   return runContextualStatsEngineWithPython(
