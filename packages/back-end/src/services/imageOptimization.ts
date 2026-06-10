@@ -1,71 +1,20 @@
+import FormData from "form-data";
+import { fetch } from "back-end/src/util/http.util";
 import { logger } from "back-end/src/util/logger";
+import {
+  DISABLE_AI_IMAGE_OPTIMIZATION,
+  AI_IMAGE_OPTIMIZATION_TIMEOUT_MS,
+  KRAKEN_API_KEY,
+  KRAKEN_API_SECRET,
+} from "back-end/src/util/secrets";
 
-// We use `wasm-vips` (libvips compiled to WebAssembly) instead of the
-// native `sharp` module: same engine and output quality, but it ships its
-// `.wasm` inside the npm package — there's no platform binary to install,
-// so it loads on any runtime/arch and isn't affected by
-// `pnpm install --no-optional` (which strips sharp's optional platform
-// binaries and broke image gen in production).
-//
-// NB: wasm-vips ships type defs that use the legacy `declare module X {}`
-// syntax, which our compiler (tsgo) rejects with TS1540 even under
-// skipLibCheck. So we deliberately do NOT import its types — we load it
-// through a non-literal specifier (TS then treats the dynamic import as
-// `any` and never parses the offending `.d.ts`) and type the small slice
-// we use locally.
+// AI-generated images are optimized via the Kraken.io API (resize + WebP),
 
-interface VipsImage {
-  readonly width: number;
-  readonly height: number;
-  writeToBuffer(format: string, options?: Record<string, unknown>): Uint8Array;
-  delete(): void;
-}
-interface VipsModule {
-  Image: {
-    thumbnailBuffer(
-      buffer: Uint8Array,
-      width: number,
-      options?: Record<string, unknown>,
-    ): VipsImage;
-  };
-}
-type VipsFactory = (config?: Record<string, unknown>) => Promise<VipsModule>;
-
-// `as string` widens the literal so TS doesn't resolve (and choke on)
-// wasm-vips's type definitions for this dynamic import.
-const VIPS_SPECIFIER = "wasm-vips" as string;
-
-// Init is async and relatively heavy (instantiates the WebAssembly
-// module), so memoize a single instance for the process.
-let vipsPromise: Promise<VipsModule> | null = null;
-const loadVips = (): Promise<VipsModule> => {
-  if (!vipsPromise) {
-    vipsPromise = import(VIPS_SPECIFIER)
-      .then((m: unknown) => {
-        const mod = m as { default?: VipsFactory };
-        const factory: VipsFactory = mod.default ?? (m as VipsFactory);
-        // `dynamicLibraries: []` skips the optional HEIF/JXL/SVG dynamic
-        // `.wasm` modules — we only deal with PNG/JPEG/WebP, which live in
-        // the core `vips.wasm`. Avoids loading files we don't need.
-        return factory({ dynamicLibraries: [] });
-      })
-      .catch((e) => {
-        // Don't cache the rejection — a transient init failure would
-        // otherwise permanently disable optimization for the process
-        // lifetime. Reset so the next request retries the load.
-        vipsPromise = null;
-        throw e;
-      });
-  }
-  return vipsPromise;
-};
-
-// Downscale AI-generated images to a sane longest-edge cap and
-// re-encode as WebP. Gemini returns ~1 MB lossless PNGs; this yields
-// ~80–150 KB WebP (~10× reduction) with no perceptible quality loss.
-
+// Downscale to a sane longest-edge cap and re-encode as WebP. Gemini returns
+// ~1 MB lossless PNGs; this yields ~80–150 KB WebP with no perceptible loss.
 const MAX_LONGEST_EDGE_PX = 1280;
 const WEBP_QUALITY = 82;
+const KRAKEN_UPLOAD_URL = "https://api.kraken.io/v1/upload";
 
 // Source image as produced by the generation provider. Carries enough
 // metadata to upload the original unchanged if optimization is skipped.
@@ -83,63 +32,137 @@ export interface OptimizedImage {
   ext: string;
   width: number;
   height: number;
-  // false when optimization was skipped (vips failed to load / process)
-  // and we're returning the original image untouched.
+  // false when optimization was skipped (disabled, no creds, timed out, or
+  // the API errored) and we're returning the original image untouched.
   optimized: boolean;
 }
 
-// Best-effort optimization. If vips can't load or process the image for
-// any reason, fall back to uploading the original — larger, but
-// functional — rather than failing image generation outright.
+// Minimal slice of Kraken's JSON response (wait:true mode).
+interface KrakenResponse {
+  success?: boolean;
+  kraked_url?: string;
+  message?: string;
+}
+
+// node-fetch v2's bundled AbortSignal type is incompatible with the global
+// AbortController's signal; cast through the fetch wrapper's own init type
+// (the same workaround http.util uses) rather than importing node-fetch.
+type FetchInit = NonNullable<Parameters<typeof fetch>[1]>;
+
+// Return the original image untouched (the universal fallback).
+function passthrough(source: RawImage): OptimizedImage {
+  return {
+    buffer: source.buffer,
+    contentType: source.contentType,
+    ext: source.ext,
+    width: source.width,
+    height: source.height,
+    optimized: false,
+  };
+}
+
+// Dimensions after a "fit within MAX×MAX, never upscale" resize — the same
+// transform we ask Kraken to perform. Kraken's response doesn't return output
+// dimensions, and we intentionally don't decode the bytes (that decode is the
+// CPU work we're offloading), so we derive them from the source dimensions.
+function fitDimensions(
+  width: number,
+  height: number,
+): { width: number; height: number } {
+  const longest = Math.max(width, height);
+  const scale = longest > 0 ? Math.min(1, MAX_LONGEST_EDGE_PX / longest) : 1;
+  return {
+    width: Math.max(1, Math.round(width * scale)),
+    height: Math.max(1, Math.round(height * scale)),
+  };
+}
+
+async function krakenOptimize(source: RawImage): Promise<OptimizedImage> {
+  // Bound the whole round-trip; abort both requests if it runs long.
+  const controller = new AbortController();
+  const timer = setTimeout(
+    () => controller.abort(),
+    AI_IMAGE_OPTIMIZATION_TIMEOUT_MS,
+  );
+
+  try {
+    const form = new FormData();
+    form.append(
+      "data",
+      JSON.stringify({
+        auth: { api_key: KRAKEN_API_KEY, api_secret: KRAKEN_API_SECRET },
+        // Synchronous mode — the response carries the result URL directly.
+        wait: true,
+        lossy: true,
+        quality: WEBP_QUALITY,
+        // Convert to WebP and fit within the box without upscaling.
+        webp: true,
+        resize: {
+          strategy: "fit",
+          width: MAX_LONGEST_EDGE_PX,
+          height: MAX_LONGEST_EDGE_PX,
+        },
+      }),
+    );
+    form.append("upload", source.buffer, {
+      filename: `source.${source.ext}`,
+      contentType: source.contentType,
+    });
+
+    const res = await fetch(KRAKEN_UPLOAD_URL, {
+      method: "POST",
+      body: form,
+      signal: controller.signal as FetchInit["signal"],
+    });
+    if (!res.ok) {
+      throw new Error(`Kraken upload returned HTTP ${res.status}`);
+    }
+    const json = (await res.json()) as KrakenResponse;
+    if (!json.success || !json.kraked_url) {
+      throw new Error(
+        `Kraken optimization failed: ${json.message || "unknown error"}`,
+      );
+    }
+
+    // Download the optimized bytes so we can store them in our own bucket.
+    const imgRes = await fetch(json.kraked_url, {
+      signal: controller.signal as FetchInit["signal"],
+    });
+    if (!imgRes.ok) {
+      throw new Error(`Kraken result download returned HTTP ${imgRes.status}`);
+    }
+    const buffer = Buffer.from(await imgRes.arrayBuffer());
+    const { width, height } = fitDimensions(source.width, source.height);
+    return {
+      buffer,
+      contentType: "image/webp",
+      ext: "webp",
+      width,
+      height,
+      optimized: true,
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Best-effort optimization. If it's disabled, unconfigured, times out, or the
+// API errors, fall back to uploading the original — larger, but functional —
+// rather than failing image generation outright.
 export async function optimizeAIImage(
   source: RawImage,
 ): Promise<OptimizedImage> {
-  try {
-    const vips = await loadVips();
+  if (DISABLE_AI_IMAGE_OPTIMIZATION || !KRAKEN_API_KEY || !KRAKEN_API_SECRET) {
+    return passthrough(source);
+  }
 
-    // `thumbnailBuffer` is libvips' shrink-on-load resize: it fits the
-    // image within the box, preserving aspect ratio, and auto-rotates by
-    // EXIF orientation. `size: "down"` prevents upscaling images smaller
-    // than the cap (equivalent to sharp's `withoutEnlargement: true`).
-    const image = vips.Image.thumbnailBuffer(
-      source.buffer,
-      MAX_LONGEST_EDGE_PX,
-      {
-        height: MAX_LONGEST_EDGE_PX,
-        size: "down",
-      },
-    );
-    try {
-      const data = image.writeToBuffer(".webp", {
-        Q: WEBP_QUALITY,
-        effort: 4,
-        // Drop EXIF/ICC/etc. metadata from the output.
-        strip: true,
-      });
-      return {
-        buffer: Buffer.from(data),
-        contentType: "image/webp",
-        ext: "webp",
-        width: image.width,
-        height: image.height,
-        optimized: true,
-      };
-    } finally {
-      // Free the WASM-side image to avoid leaking emscripten heap memory.
-      image.delete();
-    }
+  try {
+    return await krakenOptimize(source);
   } catch (err) {
     logger.warn(
       { err },
-      "[image-optimization] vips unavailable; uploading original image unoptimized",
+      "[image-optimization] Kraken optimization failed/skipped; uploading original image unoptimized",
     );
-    return {
-      buffer: source.buffer,
-      contentType: source.contentType,
-      ext: source.ext,
-      width: source.width,
-      height: source.height,
-      optimized: false,
-    };
+    return passthrough(source);
   }
 }

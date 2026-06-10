@@ -19072,8 +19072,6 @@ paths:
                         additionalProperties: false
                     required:
                       - interval
-                      - actions
-                      - monitored
                     additionalProperties: false
                 startActions:
                   type: array
@@ -22893,12 +22891,6 @@ paths:
                   required:
                     - url
                     - title
-                    - structural
-                    - headings
-                    - buttons
-                    - links
-                    - inputs
-                    - images
                   additionalProperties: false
                 conversationHistory:
                   maxItems: 12
@@ -22927,7 +22919,6 @@ paths:
                   type: boolean
               required:
                 - prompt
-                - elementContext
                 - variationId
                 - visualChangesetId
               additionalProperties: false
@@ -23205,8 +23196,6 @@ paths:
                         minLength: 1
                         maxLength: 2000
                     required:
-                      - include
-                      - type
                       - pattern
                     additionalProperties: false
                 project:
@@ -23221,6 +23210,12 @@ paths:
                 description:
                   type: string
                   maxLength: 2000
+                type:
+                  default: standard
+                  type: string
+                  enum:
+                    - standard
+                    - multi-armed-bandit
               required:
                 - name
                 - pageUrl
@@ -23274,8 +23269,6 @@ paths:
                         minLength: 1
                         maxLength: 2000
                     required:
-                      - include
-                      - type
                       - pattern
                     additionalProperties: false
               required:
@@ -30946,7 +30939,6 @@ paths:
                         additionalProperties: false
                     required:
                       - interval
-                      - monitored
                     additionalProperties: false
                 startActions:
                   type: array
