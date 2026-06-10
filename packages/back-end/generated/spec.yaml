@@ -518,6 +518,9 @@ tags:
   - name: VisualChangeset_model
     x-displayName: Visual Changeset
     description: <SchemaDefinition schemaRef="#/components/schemas/VisualChangeset" />
+  - name: Warning_model
+    x-displayName: Warning
+    description: <SchemaDefinition schemaRef="#/components/schemas/Warning" />
 security:
   - bearerAuth: []
   - basicAuth: []
@@ -1351,6 +1354,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
         - $ref: '#/components/parameters/withRevisions'
+        - $ref: '#/components/parameters/includeDependents'
       responses:
         '200':
           content:
@@ -1381,6 +1385,12 @@ paths:
         switches, enabled state), prerequisites, holdout assignment, or JSON
         schema validation. All provided fields are merged into the existing
         feature and the result is immediately published as a new revision.
+
+
+        If the feature is a prerequisite for other features or experiments,
+        archiving it (`archived: true`) is rejected with an error unless
+        `bypassDependentsCheck` is true; other updates succeed and include a
+        non-blocking `warnings` array in the response.
 
 
         Returns 403 if the API key lacks permission or if approval rules are
@@ -2132,6 +2142,12 @@ paths:
                         - value
                       additionalProperties: false
                     - type: 'null'
+                bypassDependentsCheck:
+                  description: >-
+                    Set to true to archive the feature even when other features
+                    or experiments reference it as a prerequisite. Without it,
+                    `archived: true` is rejected while dependents exist.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -2142,6 +2158,15 @@ paths:
                 properties:
                   feature:
                     $ref: '#/components/schemas/Feature'
+                  warnings:
+                    description: >-
+                      Non-blocking warnings about the update. Currently the only
+                      type is "prerequisiteDependents", returned when the
+                      updated feature is a prerequisite for other features or
+                      experiments.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Warning'
                 required:
                   - feature
                 additionalProperties: false
@@ -2161,6 +2186,11 @@ paths:
         Permanently deletes a feature and all of its revisions.
 
 
+        Deletion is rejected with an error if the feature is a prerequisite for
+        other features or experiments; remove those references first, or pass
+        `bypassDependentsCheck=true` to override.
+
+
         Archived features can be deleted freely. Deleting a live (non-archived)
         feature returns 403 unless the org setting "REST API always bypasses
         approval requirements" is enabled, or the API key lacks delete
@@ -2170,6 +2200,7 @@ paths:
         - features
       parameters:
         - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/bypassDependentsCheck'
       responses:
         '200':
           content:
@@ -6184,6 +6215,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
         - $ref: '#/components/parameters/withRevisions'
+        - $ref: '#/components/parameters/includeDependents'
       responses:
         '200':
           content:
@@ -6213,9 +6245,13 @@ paths:
         preserve existing rules during a partial edit, GET the feature first,
         mutate the returned `rules` array, and PUT the full array back.
         Safe-rollout rules round-trip via their `safeRolloutId`; use `POST
-        /v2/features/:id/revisions/:version/rules` to create new ones. Returns
-        403 if approval rules are enabled for an affected environment and the
-        bypass setting is off.
+        /v2/features/:id/revisions/:version/rules` to create new ones. If the
+        feature is a prerequisite for other features or experiments, archiving
+        it (`archived: true`) is rejected with an error unless
+        `bypassDependentsCheck` is true; other updates succeed and include a
+        non-blocking `warnings` array in the response. Returns 403 if approval
+        rules are enabled for an affected environment and the bypass setting is
+        off.
       tags:
         - features-v2
       parameters:
@@ -6702,6 +6738,12 @@ paths:
                         - value
                       additionalProperties: false
                     - type: 'null'
+                bypassDependentsCheck:
+                  description: >-
+                    Set to true to archive the feature even when other features
+                    or experiments reference it as a prerequisite. Without it,
+                    `archived: true` is rejected while dependents exist.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -6712,6 +6754,15 @@ paths:
                 properties:
                   feature:
                     $ref: '#/components/schemas/FeatureV2'
+                  warnings:
+                    description: >-
+                      Non-blocking warnings about the update. Currently the only
+                      type is "prerequisiteDependents", returned when the
+                      updated feature is a prerequisite for other features or
+                      experiments.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Warning'
                 required:
                   - feature
                 additionalProperties: false
@@ -6727,6 +6778,11 @@ paths:
         Permanently deletes a feature and all of its revisions.
 
 
+        Deletion is rejected with an error if the feature is a prerequisite for
+        other features or experiments; remove those references first, or pass
+        `bypassDependentsCheck=true` to override.
+
+
         Archived features can be deleted freely. Deleting a live (non-archived)
         feature returns 403 unless the org setting "REST API always bypasses
         approval requirements" is enabled.
@@ -6734,6 +6790,7 @@ paths:
         - features-v2
       parameters:
         - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/bypassDependentsCheck'
       responses:
         '200':
           content:
@@ -31318,6 +31375,50 @@ components:
           - drafts
           - published
           - none
+    includeDependents:
+      name: includeDependents
+      in: query
+      description: >-
+        Set to true to also return the features and experiments that use this
+        feature as a prerequisite. Requires scanning the org's full feature and
+        experiment sets, so it's opt-in.
+      schema:
+        description: >-
+          Set to true to also return the features and experiments that use this
+          feature as a prerequisite. Requires scanning the org's full feature
+          and experiment sets, so it's opt-in.
+        anyOf:
+          - type: string
+            const: 'true'
+          - type: string
+            const: 'false'
+          - type: string
+            const: '0'
+          - type: string
+            const: '1'
+          - type: boolean
+    bypassDependentsCheck:
+      name: bypassDependentsCheck
+      in: query
+      description: >-
+        Set to true to delete the feature even when other features or
+        experiments reference it as a prerequisite. Without it, deletion is
+        rejected while dependents exist.
+      schema:
+        description: >-
+          Set to true to delete the feature even when other features or
+          experiments reference it as a prerequisite. Without it, deletion is
+          rejected while dependents exist.
+        anyOf:
+          - type: string
+            const: 'true'
+          - type: string
+            const: 'false'
+          - type: string
+            const: '0'
+          - type: string
+            const: '1'
+          - type: boolean
     ids:
       name: ids
       in: query
@@ -31727,6 +31828,37 @@ components:
                 - value
               additionalProperties: false
             - type: 'null'
+        dependents:
+          description: >-
+            Features and experiments that use this feature as a prerequisite.
+            Changing or removing this feature may affect them. Included on
+            create/update responses, and on single-feature GET responses when
+            `includeDependents=true` is passed.
+          type: object
+          properties:
+            features:
+              description: IDs of features that use this feature as a prerequisite
+              type: array
+              items:
+                type: string
+            experiments:
+              description: Experiments that use this feature as a prerequisite
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  name:
+                    type: string
+                required:
+                  - id
+                  - name
+                additionalProperties: false
+          required:
+            - features
+            - experiments
+          additionalProperties: false
       required:
         - id
         - dateCreated
@@ -33419,6 +33551,19 @@ components:
         - status
         - rules
       additionalProperties: false
+    Warning:
+      type: object
+      properties:
+        type:
+          description: Machine-readable warning type
+          type: string
+        message:
+          description: Human-readable warning message
+          type: string
+      required:
+        - type
+        - message
+      additionalProperties: false
     FeatureV2:
       type: object
       properties:
@@ -33519,6 +33664,37 @@ components:
                 - value
               additionalProperties: false
             - type: 'null'
+        dependents:
+          description: >-
+            Features and experiments that use this feature as a prerequisite.
+            Changing or removing this feature may affect them. Included on
+            create/update responses, and on single-feature GET responses when
+            `includeDependents=true` is passed.
+          type: object
+          properties:
+            features:
+              description: IDs of features that use this feature as a prerequisite
+              type: array
+              items:
+                type: string
+            experiments:
+              description: Experiments that use this feature as a prerequisite
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  name:
+                    type: string
+                required:
+                  - id
+                  - name
+                additionalProperties: false
+          required:
+            - features
+            - experiments
+          additionalProperties: false
       required:
         - id
         - dateCreated
@@ -44614,3 +44790,4 @@ x-tagGroups:
       - Team_model
       - VisualChange_model
       - VisualChangeset_model
+      - Warning_model

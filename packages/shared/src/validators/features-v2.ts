@@ -13,6 +13,10 @@ import {
   apiRevisionPrerequisiteV2,
   apiRevisionMetadata,
   apiFeatureHoldout,
+  apiFeatureDependentsField,
+  apiFeatureWarningsField,
+  bypassDependentsCheckBodyField,
+  bypassDependentsCheckQueryField,
   revisionStatusFilterSchema,
   apiRevisionRampAction,
 } from "./features";
@@ -181,6 +185,7 @@ export const apiFeatureV2Validator = namedSchema(
       }),
       customFields: z.record(z.string(), z.any()).optional(),
       holdout: apiFeatureHoldout,
+      dependents: apiFeatureDependentsField,
     })
     .strict(),
 );
@@ -207,6 +212,13 @@ export type ApiFeatureWithRevisionsV2 = z.infer<
 
 const featureV2ResponseSchema = z
   .object({ feature: apiFeatureV2Validator })
+  .strict();
+
+const updateFeatureV2ResponseSchema = z
+  .object({
+    feature: apiFeatureV2Validator,
+    warnings: apiFeatureWarningsField,
+  })
   .strict();
 
 // ---- Shared param schemas ----
@@ -448,6 +460,7 @@ export const updateFeatureBodyV2 = z
         "Holdout to assign this feature to. Pass `null` to remove the feature from its current holdout. Omit the field entirely to leave the holdout unchanged.\n",
       )
       .optional(),
+    bypassDependentsCheck: bypassDependentsCheckBodyField,
   })
   .strict();
 
@@ -511,6 +524,9 @@ export const getFeatureV2Validator = {
           "Also return feature revisions (all, draft, or published statuses)",
         )
         .optional(),
+      includeDependents: booleanQueryField.describe(
+        "Set to true to also return the features and experiments that use this feature as a prerequisite. Requires scanning the org's full feature and experiment sets, so it's opt-in.",
+      ),
     })
     .strict(),
   paramsSchema: idParams,
@@ -530,10 +546,10 @@ export const updateFeatureV2Validator = {
   bodySchema: updateFeatureBodyV2,
   querySchema: z.never(),
   paramsSchema: idParams,
-  responseSchema: featureV2ResponseSchema,
+  responseSchema: updateFeatureV2ResponseSchema,
   summary: "Partially update a feature",
   description:
-    "Updates any combination of a feature's metadata, default value, environment state, and rules. Other top-level fields are patch-merged: omit a field to leave it unchanged. The `rules` field, when supplied, replaces the entire `rules` array atomically in a single revision (v1 PUT applied per-environment patches; v2 swaps the full flat array). To preserve existing rules during a partial edit, GET the feature first, mutate the returned `rules` array, and PUT the full array back. Safe-rollout rules round-trip via their `safeRolloutId`; use `POST /v2/features/:id/revisions/:version/rules` to create new ones. Returns 403 if approval rules are enabled for an affected environment and the bypass setting is off.",
+    "Updates any combination of a feature's metadata, default value, environment state, and rules. Other top-level fields are patch-merged: omit a field to leave it unchanged. The `rules` field, when supplied, replaces the entire `rules` array atomically in a single revision (v1 PUT applied per-environment patches; v2 swaps the full flat array). To preserve existing rules during a partial edit, GET the feature first, mutate the returned `rules` array, and PUT the full array back. Safe-rollout rules round-trip via their `safeRolloutId`; use `POST /v2/features/:id/revisions/:version/rules` to create new ones. If the feature is a prerequisite for other features or experiments, archiving it (`archived: true`) is rejected with an error unless `bypassDependentsCheck` is true; other updates succeed and include a non-blocking `warnings` array in the response. Returns 403 if approval rules are enabled for an affected environment and the bypass setting is off.",
   operationId: "updateFeatureV2",
   tags: ["features-v2"],
   method: "post" as const,
@@ -543,7 +559,9 @@ export const updateFeatureV2Validator = {
 
 export const deleteFeatureV2Validator = {
   bodySchema: z.never(),
-  querySchema: z.never(),
+  querySchema: z
+    .object({ bypassDependentsCheck: bypassDependentsCheckQueryField })
+    .strict(),
   paramsSchema: idParams,
   responseSchema: z
     .object({
@@ -555,7 +573,7 @@ export const deleteFeatureV2Validator = {
     .strict(),
   summary: "Deletes a single feature",
   description:
-    'Permanently deletes a feature and all of its revisions.\n\nArchived features can be deleted freely. Deleting a live (non-archived) feature returns 403 unless the org setting "REST API always bypasses approval requirements" is enabled.\n',
+    'Permanently deletes a feature and all of its revisions.\n\nDeletion is rejected with an error if the feature is a prerequisite for other features or experiments; remove those references first, or pass `bypassDependentsCheck=true` to override.\n\nArchived features can be deleted freely. Deleting a live (non-archived) feature returns 403 unless the org setting "REST API always bypasses approval requirements" is enabled.\n',
   operationId: "deleteFeatureV2",
   tags: ["features-v2"],
   method: "delete" as const,

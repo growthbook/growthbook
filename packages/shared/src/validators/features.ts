@@ -8,6 +8,8 @@ import {
   paginationQueryFields,
   skipPaginationQueryField,
   apiPaginationFieldsValidator,
+  apiWarningValidator,
+  booleanQueryField,
 } from "./shared";
 import { safeRolloutStatusArray } from "./safe-rollout";
 import {
@@ -1026,6 +1028,42 @@ export const apiFeatureRevisionValidator = namedSchema(
     .strict(),
 );
 
+// ---- Feature dependents (shared by the v1 and v2 feature schemas) ----
+export const apiFeatureDependentsValidator = z
+  .object({
+    features: z
+      .array(z.string())
+      .describe("IDs of features that use this feature as a prerequisite"),
+    experiments: z
+      .array(z.object({ id: z.string(), name: z.string() }).strict())
+      .describe("Experiments that use this feature as a prerequisite"),
+  })
+  .strict();
+
+export type ApiFeatureDependents = z.infer<
+  typeof apiFeatureDependentsValidator
+>;
+
+export const apiFeatureDependentsField = apiFeatureDependentsValidator
+  .describe(
+    "Features and experiments that use this feature as a prerequisite. Changing or removing this feature may affect them. Included on create/update responses, and on single-feature GET responses when `includeDependents=true` is passed.",
+  )
+  .optional();
+
+// Shared by the v1 and v2 update bodies — overrides the dependents check that
+// otherwise rejects `archived: true`.
+export const bypassDependentsCheckBodyField = z
+  .boolean()
+  .describe(
+    "Set to true to archive the feature even when other features or experiments reference it as a prerequisite. Without it, `archived: true` is rejected while dependents exist.",
+  )
+  .optional();
+
+// Shared by the v1 and v2 delete query schemas.
+export const bypassDependentsCheckQueryField = booleanQueryField.describe(
+  "Set to true to delete the feature even when other features or experiments reference it as a prerequisite. Without it, deletion is rejected while dependents exist.",
+);
+
 // ---- Feature (schemas/Feature.yaml) ----
 export const apiFeatureValidator = namedSchema(
   "Feature",
@@ -1056,6 +1094,7 @@ export const apiFeatureValidator = namedSchema(
       }),
       customFields: z.record(z.string(), z.any()).optional(),
       holdout: apiFeatureHoldout,
+      dependents: apiFeatureDependentsField,
     })
     .strict(),
 );
@@ -1234,6 +1273,20 @@ const featureResponseSchema = z
   .object({ feature: apiFeatureValidator })
   .strict();
 
+export const apiFeatureWarningsField = z
+  .array(apiWarningValidator)
+  .describe(
+    'Non-blocking warnings about the update. Currently the only type is "prerequisiteDependents", returned when the updated feature is a prerequisite for other features or experiments.',
+  )
+  .optional();
+
+const updateFeatureResponseSchema = z
+  .object({
+    feature: apiFeatureValidator,
+    warnings: apiFeatureWarningsField,
+  })
+  .strict();
+
 // ---- PostFeaturePayload ----
 const postFeatureBody = z
   .object({
@@ -1324,6 +1377,7 @@ const updateFeatureBody = z
         "Holdout to assign this feature to. Pass `null` to remove the feature from its current holdout. Omit the field entirely to leave the holdout unchanged.\n",
       )
       .optional(),
+    bypassDependentsCheck: bypassDependentsCheckBodyField,
   })
   .strict();
 
@@ -1397,6 +1451,9 @@ export const getFeatureValidator = {
           "Also return feature revisions (all, draft, or published statuses)",
         )
         .optional(),
+      includeDependents: booleanQueryField.describe(
+        "Set to true to also return the features and experiments that use this feature as a prerequisite. Requires scanning the org's full feature and experiment sets, so it's opt-in.",
+      ),
     })
     .strict(),
   paramsSchema: idParams,
@@ -1421,10 +1478,10 @@ export const updateFeatureValidator = {
   bodySchema: updateFeatureBody,
   querySchema: z.never(),
   paramsSchema: idParams,
-  responseSchema: featureResponseSchema,
+  responseSchema: updateFeatureResponseSchema,
   summary: "Partially update a feature",
   description:
-    '**Deprecated.** Use [POST /v2/features/:id](#operation/updateFeatureV2) instead.\n\nUpdates any combination of a feature\'s metadata (description, owner, tags, project), default value, environment settings (rules, kill switches, enabled state), prerequisites, holdout assignment, or JSON schema validation. All provided fields are merged into the existing feature and the result is immediately published as a new revision.\n\nReturns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.\n',
+    '**Deprecated.** Use [POST /v2/features/:id](#operation/updateFeatureV2) instead.\n\nUpdates any combination of a feature\'s metadata (description, owner, tags, project), default value, environment settings (rules, kill switches, enabled state), prerequisites, holdout assignment, or JSON schema validation. All provided fields are merged into the existing feature and the result is immediately published as a new revision.\n\nIf the feature is a prerequisite for other features or experiments, archiving it (`archived: true`) is rejected with an error unless `bypassDependentsCheck` is true; other updates succeed and include a non-blocking `warnings` array in the response.\n\nReturns 403 if the API key lacks permission or if approval rules are enabled for an affected environment and the org setting "REST API always bypasses approval requirements" is off.\n',
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
   operationId: "updateFeature",
@@ -1435,7 +1492,9 @@ export const updateFeatureValidator = {
 
 export const deleteFeatureValidator = {
   bodySchema: z.never(),
-  querySchema: z.never(),
+  querySchema: z
+    .object({ bypassDependentsCheck: bypassDependentsCheckQueryField })
+    .strict(),
   paramsSchema: idParams,
   responseSchema: z
     .object({
@@ -1447,7 +1506,7 @@ export const deleteFeatureValidator = {
     .strict(),
   summary: "Deletes a single feature",
   description:
-    '**Deprecated.** Use [DELETE /v2/features/:id](#operation/deleteFeatureV2) instead.\n\nPermanently deletes a feature and all of its revisions.\n\nArchived features can be deleted freely. Deleting a live (non-archived) feature returns 403 unless the org setting "REST API always bypasses approval requirements" is enabled, or the API key lacks delete permission.\n',
+    '**Deprecated.** Use [DELETE /v2/features/:id](#operation/deleteFeatureV2) instead.\n\nPermanently deletes a feature and all of its revisions.\n\nDeletion is rejected with an error if the feature is a prerequisite for other features or experiments; remove those references first, or pass `bypassDependentsCheck=true` to override.\n\nArchived features can be deleted freely. Deleting a live (non-archived) feature returns 403 unless the org setting "REST API always bypasses approval requirements" is enabled, or the API key lacks delete permission.\n',
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
   operationId: "deleteFeature",
