@@ -265,6 +265,15 @@ function authenticateWithApiKey(
           );
         }
       }
+
+      // Check if organization is disabled
+      if (org.disabled === true && !req.user?.superAdmin) {
+        res.status(403).json({
+          message: "This organization has been deleted",
+        });
+        return;
+      }
+
       req.organization = org;
 
       // If it's a user API key, verify that the user is part of the organization

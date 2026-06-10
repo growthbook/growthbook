@@ -1,7 +1,14 @@
 import { useUser } from "@/services/UserContext";
 
 export default function AccountPlanBadge() {
-  const { effectiveAccountPlan } = useUser();
+  const { effectiveAccountPlan, organization } = useUser();
+
+  // When organization is disabled (deactivated), show red deactivated badge
+  if (organization?.disabled) {
+    return (
+      <span className="badge badge-pill badge-danger mr-1">DEACTIVATED</span>
+    );
+  }
 
   const badgeText =
     effectiveAccountPlan === "enterprise"
