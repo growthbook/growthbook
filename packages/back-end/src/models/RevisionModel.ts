@@ -541,7 +541,11 @@ export class RevisionModel extends BaseClass {
 
   // Review
 
-  async submitForReview(id: string, userId: string) {
+  async submitForReview(
+    id: string,
+    userId: string,
+    { autoPublishOnApproval }: { autoPublishOnApproval?: boolean } = {},
+  ) {
     const existing = await this.getById(id);
     if (!existing) throw new Error("Revision not found");
 
@@ -560,6 +564,7 @@ export class RevisionModel extends BaseClass {
 
     return this.update(existing, {
       status: "pending-review",
+      autoPublishOnApproval: !!autoPublishOnApproval,
       activityLog: [
         ...this.cleanActivityLog(existing.activityLog),
         {

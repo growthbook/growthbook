@@ -515,6 +515,7 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
     // updateRevision's $addToSet; may be empty if no content edits have been made.
     // Note: the revision author (createdBy) is NOT automatically seeded here.
     contributors: z.array(z.string()).optional(),
+    autoPublishOnApproval: z.boolean().optional(),
   })
   .strict();
 

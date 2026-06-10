@@ -1,8 +1,11 @@
-import { isUserBlockedFromApproving } from "shared/enterprise";
 import { postSavedGroupRevisionSubmitReviewValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
+import {
+  approveRevision,
+  maybeAutoPublishRevision,
+} from "back-end/src/revisions/revisionActions";
 import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
 import { toApiSavedGroupRevision } from "./toApiSavedGroupRevision";
@@ -23,8 +26,27 @@ export const postSavedGroupRevisionSubmitReview = createApiRequestHandler(
     req.params.version,
   );
 
-  // Anyone with edit permission can comment / request-changes; the
-  // self-approve guard below blocks `approve` decisions.
+  const { decision, comment } = req.body;
+
+  if (decision === "approve") {
+    const approved = await approveRevision(
+      req.context,
+      revision,
+      savedGroup as Record<string, unknown>,
+      comment ?? "",
+    );
+
+    const finalRevision = await maybeAutoPublishRevision(
+      req.context,
+      approved,
+      savedGroup as Record<string, unknown>,
+    );
+
+    return {
+      revision: await toApiSavedGroupRevision(finalRevision, req.context),
+    };
+  }
+
   if (
     !getAdapter("saved-group").canUpdate(
       req.context,
@@ -34,28 +56,9 @@ export const postSavedGroupRevisionSubmitReview = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
-  const { decision, comment } = req.body;
-
   // Block the author from any non-comment review action.
   if (revision.authorId === req.context.userId && decision !== "comment") {
     throw new BadRequestError("Cannot submit a review on a draft you created");
-  }
-
-  // Block contributor self-approve when `blockSelfApproval` is set. Same
-  // rule the internal /revision/:id/review endpoint enforces — using the
-  // shared helper keeps the logic in lockstep.
-  if (decision === "approve") {
-    const blocked = isUserBlockedFromApproving({
-      approvalFlows: req.context.org.settings?.approvalFlows,
-      entityType: "saved-group",
-      revision,
-      userId: req.context.userId,
-    });
-    if (blocked) {
-      throw new BadRequestError(
-        "You cannot approve a draft you contributed to.",
-      );
-    }
   }
 
   if (

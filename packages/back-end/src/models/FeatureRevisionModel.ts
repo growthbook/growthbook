@@ -92,6 +92,7 @@ const featureRevisionSchema = new mongoose.Schema({
   // Users who have made edits to this draft beyond the original author.
   contributors: [{}],
   status: String,
+  autoPublishOnApproval: Boolean,
   requiresReview: Boolean,
   log: [
     {
@@ -1184,6 +1185,7 @@ export async function markRevisionAsReviewRequested(
   revision: FeatureRevisionInterface,
   user: EventUser,
   comment?: string,
+  { autoPublishOnApproval }: { autoPublishOnApproval?: boolean } = {},
 ) {
   const action = "Review Requested";
 
@@ -1199,6 +1201,7 @@ export async function markRevisionAsReviewRequested(
         datePublished: null,
         dateUpdated: new Date(),
         comment: comment,
+        autoPublishOnApproval: !!autoPublishOnApproval,
       },
     },
   );

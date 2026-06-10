@@ -19,6 +19,7 @@ import { postSavedGroupRevisionRebase } from "./postSavedGroupRevisionRebase";
 import { postSavedGroupRevisionRevert } from "./postSavedGroupRevisionRevert";
 import { postSavedGroupRevisionRequestReview } from "./postSavedGroupRevisionRequestReview";
 import { postSavedGroupRevisionSubmitReview } from "./postSavedGroupRevisionSubmitReview";
+import { postSavedGroupRevisionApproveAndPublish } from "./postSavedGroupRevisionApproveAndPublish";
 import { putSavedGroupRevisionMetadata } from "./putSavedGroupRevisionMetadata";
 import { putSavedGroupRevisionCondition } from "./putSavedGroupRevisionCondition";
 import { putSavedGroupRevisionValues } from "./putSavedGroupRevisionValues";
@@ -61,6 +62,7 @@ export const savedGroupsRoutes: OpenApiRoute[] = [
   getSavedGroupRevisionMergeStatus,
   postSavedGroupRevisionRebase,
   postSavedGroupRevisionPublish,
+  postSavedGroupRevisionApproveAndPublish,
   postSavedGroupRevisionDiscard,
   postSavedGroupRevisionRevert,
 ];

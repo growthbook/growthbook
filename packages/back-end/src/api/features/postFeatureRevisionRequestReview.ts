@@ -15,11 +15,12 @@ import {
   markRevisionAsReviewRequested,
 } from "back-end/src/models/FeatureRevisionModel";
 import { getEnvironments } from "back-end/src/util/organization.util";
+import { canEnableFeatureAutoPublishOnApproval } from "./autoPublishOnApproval";
 
 export async function requestReview(
   req: Pick<ApiRequestLocals, "context" | "organization" | "audit"> & {
     params: { id: string; version: number };
-    body: { comment?: string };
+    body: { comment?: string; autoPublishOnApproval?: boolean };
   },
 ) {
   const feature = await getFeature(req.context, req.params.id);
@@ -70,11 +71,22 @@ export async function requestReview(
     );
   }
 
+  const autoPublishOnApproval = !!req.body.autoPublishOnApproval;
+  if (
+    autoPublishOnApproval &&
+    !canEnableFeatureAutoPublishOnApproval(req.context, feature)
+  ) {
+    throw new BadRequestError(
+      "You don't have permission to enable auto-publish on approval for this revision",
+    );
+  }
+
   await markRevisionAsReviewRequested(
     req.context,
     revision,
     req.context.auditUser,
     req.body.comment ?? "",
+    { autoPublishOnApproval },
   );
 
   const updated = await getRevision({

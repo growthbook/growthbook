@@ -66,6 +66,7 @@ function RevisionDetail<T>({
   const [mergeResult, setMergeResult] = useState<MergeResult | null>(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState(revision.title || "");
+  const [requestAutoPublish, setRequestAutoPublish] = useState(false);
   const permissionsUtil = usePermissionsUtil();
 
   // Update titleInput when revision changes
@@ -246,11 +247,23 @@ function RevisionDetail<T>({
           )
         : permissionsUtil.canBypassApprovalChecks({ project: "" })));
 
+  const revisionAutoPublishArmed = !!revision.autoPublishOnApproval;
+
+  const canRequestAutoPublish =
+    autopublishOnApproval &&
+    requiresApproval &&
+    revision.status === "draft" &&
+    permissionsUtil.canUpdateSavedGroup(
+      currentState as SavedGroupInterface,
+      {},
+    );
+
   const canApproveAndPublish =
     autopublishOnApproval &&
     requiresApproval &&
     isOpen &&
     !isRevisionAuthor &&
+    !revisionAutoPublishArmed &&
     !isBlockedContributor &&
     canUserReview &&
     (!mergeResult || mergeResult.success) &&
@@ -524,6 +537,15 @@ function RevisionDetail<T>({
             // For drafts: show either "Request Approval" or "Publish" based on approval requirement
             requiresApproval ? (
               <>
+                {canRequestAutoPublish && (
+                  <Flex align="center" mr="2">
+                    <Checkbox
+                      label="Auto-publish when approved"
+                      value={requestAutoPublish}
+                      setValue={(val) => setRequestAutoPublish(!!val)}
+                    />
+                  </Flex>
+                )}
                 <Tooltip
                   content={
                     diffs.length === 0 ? "No changes to submit" : undefined
@@ -534,7 +556,11 @@ function RevisionDetail<T>({
                     <Button
                       variant="solid"
                       color="violet"
-                      onClick={handleSubmitForReview}
+                      onClick={() =>
+                        handleSubmitForReview({
+                          autoPublishOnApproval: requestAutoPublish,
+                        })
+                      }
                       disabled={isSubmitting || diffs.length === 0}
                       style={
                         diffs.length === 0
@@ -667,6 +693,13 @@ function RevisionDetail<T>({
                       Permission checks are validated on submit.
                     </Text>
                   )}
+                  {revisionAutoPublishArmed && reviewDecision === "approve" && (
+                    <Callout status="info" size="sm" mb="2">
+                      The requester set this revision to publish automatically
+                      on approval. Approving it will publish the changes
+                      immediately.
+                    </Callout>
+                  )}
                   {reviewError && (
                     <Text size="medium" mb="2" as="p">
                       {reviewError}
@@ -678,7 +711,7 @@ function RevisionDetail<T>({
                         variant="outline"
                         color="violet"
                         onClick={() => {
-                          handleApproveAndPublish(reviewComment, onPublish);
+                          handleApproveAndPublish(reviewComment);
                         }}
                         disabled={isSubmitting || !reviewComment.trim()}
                       >

@@ -11,6 +11,7 @@ import {
   ReviewSubmittedType,
   submitReviewAndComments,
 } from "back-end/src/models/FeatureRevisionModel";
+import { maybeAutoPublishFeatureRevision } from "./autoPublishOnApproval";
 
 export const actionToReviewType: Record<string, ReviewSubmittedType> = {
   approve: "Approved",
@@ -122,9 +123,25 @@ export async function submitRevisionReview(
   return { feature, revision: finalRevision };
 }
 
+export async function approveFeatureRevision(
+  req: Pick<ApiRequestLocals, "context" | "organization"> & {
+    params: { id: string; version: number };
+    body: { comment?: string };
+  },
+) {
+  return submitRevisionReview({
+    ...req,
+    body: { action: "approve", comment: req.body.comment },
+  });
+}
+
 export const postFeatureRevisionSubmitReview = createApiRequestHandler(
   postFeatureRevisionSubmitReviewValidator,
 )(async (req) => {
   const { feature, revision } = await submitRevisionReview(req);
-  return { revision: toApiRevision(revision, req.context, feature) };
+  const finalRevision =
+    req.body.action === "approve"
+      ? await maybeAutoPublishFeatureRevision(req.context, feature, revision)
+      : revision;
+  return { revision: toApiRevision(finalRevision, req.context, feature) };
 });

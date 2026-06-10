@@ -161,6 +161,10 @@ import {
   buildFeatureLookups,
   getEnabledEnvironments,
 } from "back-end/src/util/features";
+import {
+  canEnableFeatureAutoPublishOnApproval,
+  maybeAutoPublishFeatureRevision,
+} from "back-end/src/api/features/autoPublishOnApproval";
 import { ReqContext } from "back-end/types/request";
 import {
   findSDKConnectionByKey,
@@ -1017,6 +1021,7 @@ export async function postFeatureRequestReview(
   req: AuthRequest<
     {
       comment: string;
+      autoPublishOnApproval?: boolean;
     },
     { id: string; version: string }
   >,
@@ -1046,11 +1051,21 @@ export async function postFeatureRequestReview(
   if (revision.status !== "draft") {
     throw new Error("Can only request review if is a draft");
   }
+
+  const autoPublishOnApproval = !!req.body.autoPublishOnApproval;
+  if (
+    autoPublishOnApproval &&
+    !canEnableFeatureAutoPublishOnApproval(context, feature)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
   await markRevisionAsReviewRequested(
     context,
     revision,
     res.locals.eventAudit,
     comment,
+    { autoPublishOnApproval },
   );
 
   const updatedRevision = await getRevision({
@@ -1189,9 +1204,112 @@ export async function postFeatureReviewOrComment(
     reviewer,
   );
 
+  if (review === "Approved") {
+    await maybeAutoPublishFeatureRevision(context, feature, finalRevision);
+  }
+
   res.status(200).json({
     status: 200,
   });
+}
+
+export async function postFeatureApproveAndPublish(
+  req: AuthRequest<
+    {
+      comment: string;
+      mergeResultSerialized: string;
+      adminOverride?: boolean;
+      publishExperimentIds?: string[];
+    },
+    { id: string; version: string }
+  >,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id, version } = req.params;
+  const { comment } = req.body;
+  const feature = await getFeature(context, id);
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  if (!context.permissions.canReviewFeatureDrafts(feature)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const revision = await getRevision({
+    context,
+    organization: context.org.id,
+    featureId: feature.id,
+    feature,
+    version: parseInt(version),
+  });
+  if (!revision) {
+    throw new Error("Could not find feature revision");
+  }
+
+  const createdByUser = revision.createdBy as EventUserLoggedIn;
+  if (createdByUser?.id === context.userId) {
+    throw new Error("cannot submit a review for your self");
+  }
+
+  const requireReviews = context.org.settings?.requireReviews;
+  const reviewSetting = Array.isArray(requireReviews)
+    ? getReviewSetting(requireReviews, feature)
+    : undefined;
+  if (reviewSetting?.blockSelfApproval) {
+    const isSelfApproval = (revision.contributors ?? []).some(
+      (contributorId) => contributorId === context.userId,
+    );
+    if (isSelfApproval) {
+      throw new Error("You cannot approve a draft you contributed to.");
+    }
+  }
+
+  if (
+    !(
+      revision.status === "changes-requested" ||
+      revision.status === "pending-review" ||
+      revision.status === "approved"
+    )
+  ) {
+    throw new Error("Can only review if review is requested");
+  }
+
+  await submitReviewAndComments(
+    context,
+    revision,
+    res.locals.eventAudit,
+    "Approved",
+    comment,
+  );
+
+  const approvedRevision =
+    (await getRevision({
+      context,
+      organization: context.org.id,
+      featureId: feature.id,
+      feature,
+      version: parseInt(version),
+    })) ?? revision;
+
+  const auditUser = context.auditUser;
+  const reviewer =
+    auditUser && auditUser.type !== "system"
+      ? { id: auditUser.id, name: auditUser.name, email: auditUser.email }
+      : {};
+
+  await dispatchRevisionReviewEvent(
+    context,
+    feature,
+    revision,
+    approvedRevision,
+    "Approved",
+    comment,
+    reviewer,
+  );
+
+  await postFeaturePublish(req, res);
 }
 
 // Detect drift between the live revision (source of truth) and the persisted

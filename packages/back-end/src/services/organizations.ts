@@ -82,7 +82,8 @@ import {
 import { logger } from "back-end/src/util/logger";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { addTags } from "back-end/src/models/TagModel";
-import { getUsersByIds } from "back-end/src/models/UserModel";
+import { getUserById, getUsersByIds } from "back-end/src/models/UserModel";
+import { TeamModel } from "back-end/src/models/TeamModel";
 import {
   getLicenseMetaData,
   getUserCodesForOrg,
@@ -1366,6 +1367,36 @@ export function getContextForAgendaJobByOrgObject(
     auditUser: null,
     // TODO: Limit background job permissions to the user who created the job
     role: "admin",
+  });
+}
+
+export async function getContextForUserIdInOrg(
+  org: OrganizationInterface,
+  userId: string,
+): Promise<ApiReqContext | null> {
+  const user = await getUserById(userId);
+  if (!user) return null;
+
+  const isMember = org.members.some((m) => m.id === user.id);
+  if (!isMember) return null;
+
+  const teams = await TeamModel.dangerousGetTeamsForOrganization(org.id);
+
+  return new ReqContextClass({
+    org,
+    auditUser: {
+      type: "dashboard",
+      id: user.id,
+      email: user.email,
+      name: user.name || "",
+    },
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name || "",
+      superAdmin: user.superAdmin,
+    },
+    teams,
   });
 }
 

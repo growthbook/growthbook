@@ -8,7 +8,6 @@ import {
   checkMergeConflicts,
   JsonPatchOperation,
   normalizeProposedChanges,
-  isUserBlockedFromApproving,
 } from "shared/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
@@ -18,7 +17,12 @@ import {
   getApprovalEnabledEntityTypes,
   getEntityModel,
 } from "back-end/src/revisions";
-import { buildMergeDesiredState } from "back-end/src/revisions/util";
+import {
+  approveRevision,
+  publishRevision,
+  canEnableAutoPublishOnApproval,
+  maybeAutoPublishRevision,
+} from "back-end/src/revisions/revisionActions";
 // Generic, entity-agnostic revision webhook dispatch. The adapter is looked up
 // by revision.target.type, so adding a new approval type needs no changes here.
 import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
@@ -377,7 +381,10 @@ export const getRevision = async (
 
 // region POST /revision/:id/submit
 
-type PostSubmitRequest = AuthRequest<Record<string, never>, { id: string }>;
+type PostSubmitRequest = AuthRequest<
+  { autoPublishOnApproval?: boolean },
+  { id: string }
+>;
 
 type PostSubmitResponse = {
   status: 200;
@@ -429,7 +436,24 @@ export const postSubmit = async (
     context.permissions.throwPermissionError();
   }
 
-  const revision = await revisionModel.submitForReview(id, userId);
+  const autoPublishOnApproval = !!req.body.autoPublishOnApproval;
+  if (
+    autoPublishOnApproval &&
+    !canEnableAutoPublishOnApproval(
+      context,
+      existingRevision.target.type,
+      existingRevision.target.snapshot as Record<string, unknown>,
+    )
+  ) {
+    return res.status(403).json({
+      message:
+        "You don't have permission to enable auto-publish on approval for this revision",
+    });
+  }
+
+  const revision = await revisionModel.submitForReview(id, userId, {
+    autoPublishOnApproval,
+  });
 
   await getRevisionWebhookAdapter(revision.target.type)?.dispatch(
     context,
@@ -494,31 +518,33 @@ export const postReview = async (
       .json({ message: "Cannot review a discarded or merged revision" });
   }
 
-  // Prevent self-review (author cannot approve or request changes on own revision)
-  if (existingRevision.authorId === userId && decision !== "comment") {
-    return res.status(403).json({
-      message: "Cannot approve or request changes on your own revision",
-    });
+  if (decision === "approve") {
+    const approved = await approveRevision(
+      context,
+      existingRevision,
+      existingRevision.target.snapshot as Record<string, unknown>,
+      comment,
+    );
+
+    const adapter = getAdapter(approved.target.type);
+    const entityModel = adapter.getModel(context);
+    const entity = entityModel
+      ? await entityModel.getById(approved.target.id)
+      : null;
+    const revision = entity
+      ? await maybeAutoPublishRevision(
+          context,
+          approved,
+          entity as Record<string, unknown>,
+        )
+      : approved;
+
+    return res.status(200).json({ status: 200, revision });
   }
 
-  // When `blockSelfApproval` is enabled for this entity type, anyone in the
-  // contributors[] list (in addition to the author) is barred from approving.
-  // Only `approve` is gated; `request-changes` and `comment` remain open.
-  // Legacy revisions with no `contributors` field fall back to `[authorId]`,
-  // which means the existing author check above is the only effective guard.
-  if (
-    decision === "approve" &&
-    context.hasPremiumFeature("require-approvals") &&
-    isUserBlockedFromApproving({
-      approvalFlows: context.org.settings?.approvalFlows,
-      entityType: existingRevision.target.type,
-      revision: existingRevision,
-      userId,
-    })
-  ) {
+  if (existingRevision.authorId === userId && decision !== "comment") {
     return res.status(403).json({
-      message:
-        "You contributed to this revision and cannot approve it. A separate reviewer is required.",
+      message: "Cannot request changes on your own revision",
     });
   }
 
@@ -933,7 +959,6 @@ export const postMerge = async (
   res: Response<PostMergeResponse | ApiErrorResponse>,
 ) => {
   const context = getContextFromReq(req);
-  const { userId } = context;
   const { id } = req.params;
 
   const revisionModel = context.models.revisions;
@@ -989,83 +1014,87 @@ export const postMerge = async (
 
   const isBypass = approvalRequired && revision.status !== "approved";
 
-  // Build the desired final state by layering effective proposed changes on
-  // top of the LIVE entity, not the baseline snapshot. This preserves any
-  // out-of-band writes to fields the revision didn't propose to change. See
-  // `buildMergeDesiredState` for the filter rules.
-  const desiredState = buildMergeDesiredState(
-    entity as Record<string, unknown>,
-    revision.target.snapshot as Record<string, unknown>,
-    revision.target.proposedChanges,
-    adapter.getUpdatableFields(),
-  );
-
-  // Check for merge conflicts before applying
-  const conflictResult = checkMergeConflicts(
-    revision.target.snapshot as Record<string, unknown>,
-    entity as Record<string, unknown>,
-    normalizeProposedChanges(revision.target.proposedChanges),
-  );
-  if (!conflictResult.success) {
-    return res.status(400).json({
-      message:
-        "Cannot merge: there are conflicts with the current state. Please rebase first.",
-    });
-  }
-
-  // Check whether there are any updatable fields that actually differ.
-  // The adapter defines which fields may be written; we skip metadata fields.
-  const updatableFields = adapter.getUpdatableFields();
-  const hasChanges = Object.keys(desiredState).some((key) => {
-    if (!updatableFields.has(key)) return false;
-    return !isEqual(
-      desiredState[key],
-      (entity as Record<string, unknown>)[key],
-    );
-  });
-
-  if (!hasChanges) {
-    return res.status(400).json({
-      message: "Cannot publish: no changes detected in this revision",
-    });
-  }
-
-  // Two-step merge: update the live entity first, then mark the revision merged.
-  // These writes are NOT wrapped in a transaction (Mongo multi-document
-  // transactions aren't guaranteed to be available across our deployment
-  // targets). Failure modes:
-  //   1. applyChanges throws -> revision stays in its current status; the
-  //      entity is unchanged. The user can retry safely.
-  //   2. applyChanges succeeds, merge() throws -> entity is updated but the
-  //      revision is still flagged as approved/pending. The next merge attempt
-  //      is a no-op (hasChanges check above returns false) and the operator
-  //      can manually mark the revision merged, or another publish will close
-  //      it via the same path. This is preferred over the inverse ordering,
-  //      which would mark the revision merged without persisting the change.
-  await adapter.applyChanges(
+  const mergedRevision = await publishRevision(
     context,
+    revision,
     entity as Record<string, unknown>,
-    desiredState,
-    { isRevert: !!revision.revertedFrom },
-  );
-
-  const mergedRevision = await revisionModel.merge(id, userId, {
-    bypass: isBypass,
-  });
-
-  // A merged revision that carries `revertedFrom` is an approval-gated revert
-  // landing on the live entity — signal it as `reverted`, not `published`, so
-  // subscribers see a consistent revert event across both revert paths.
-  await getRevisionWebhookAdapter(mergedRevision.target.type)?.dispatch(
-    context,
-    mergedRevision,
-    { type: mergedRevision.revertedFrom ? "reverted" : "published" },
+    { bypass: isBypass },
   );
 
   return res.status(200).json({ status: 200, revision: mergedRevision });
 };
 
 // endregion POST /revision/:id/merge
+
+// region POST /revision/:id/approve-and-publish
+
+type PostApproveAndPublishRequest = AuthRequest<
+  { comment?: string },
+  { id: string }
+>;
+
+type PostApproveAndPublishResponse = {
+  status: 200;
+  revision: Revision;
+};
+
+/**
+ * POST /revision/:id/approve-and-publish
+ * Approve a revision and publish it (merge onto the live entity)
+ * @param req
+ * @param res
+ */
+export const postApproveAndPublish = async (
+  req: PostApproveAndPublishRequest,
+  res: Response<PostApproveAndPublishResponse | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const { comment } = req.body;
+
+  const revisionModel = context.models.revisions;
+  const existingRevision = await revisionModel.getById(id);
+  if (!existingRevision) {
+    return res.status(404).json({ message: "Revision not found" });
+  }
+
+  if (
+    existingRevision.status === "merged" ||
+    existingRevision.status === "discarded"
+  ) {
+    return res
+      .status(400)
+      .json({ message: "Cannot approve a discarded or merged revision" });
+  }
+
+  const adapter = getAdapter(existingRevision.target.type);
+  const entityModel = adapter.getModel(context);
+  if (!entityModel) {
+    return res.status(400).json({ message: "Unsupported entity type" });
+  }
+  const entity = await entityModel.getById(existingRevision.target.id);
+  if (!entity) {
+    return res.status(404).json({ message: "Entity not found" });
+  }
+
+  const approved = await approveRevision(
+    context,
+    existingRevision,
+    entity as Record<string, unknown>,
+    comment ?? "",
+  );
+
+  const merged = await publishRevision(
+    context,
+    approved,
+    entity as Record<string, unknown>,
+    { bypass: false },
+  );
+
+  return res.status(200).json({ status: 200, revision: merged });
+};
+
+// endregion POST /revision/:id/approve-and-publish
 
 // region POST /revision/:id/close
 

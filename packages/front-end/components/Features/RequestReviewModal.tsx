@@ -84,6 +84,7 @@ export default function RequestReviewModal({
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const [showSubmitReview, setShowSumbmitReview] = useState(false);
   const [adminPublish, setAdminPublish] = useState(false);
+  const [requestAutoPublish, setRequestAutoPublish] = useState(false);
   const [approvePublishError, setApprovePublishError] = useState<string | null>(
     null,
   );
@@ -227,6 +228,7 @@ export default function RequestReviewModal({
           body: JSON.stringify({
             mergeResultSerialized: JSON.stringify(mergeResult),
             comment,
+            autoPublishOnApproval: requestAutoPublish,
           }),
         });
       } catch (e) {
@@ -456,9 +458,17 @@ export default function RequestReviewModal({
   const autopublishOnApproval =
     getFeatureAutopublishOnApproval(requireReviews, feature) &&
     hasCommercialFeature("require-approvals");
+  const canRequestAutoPublish =
+    autopublishOnApproval &&
+    !canReview &&
+    !isPendingReview &&
+    !approved &&
+    permissionsUtil.canPublishFeature(feature, envIds);
+  const revisionAutoPublishArmed = !!revision.autoPublishOnApproval;
   const canApproveAndPublish =
     autopublishOnApproval &&
     canReview &&
+    !revisionAutoPublishArmed &&
     !isBlockedContributor &&
     !featureLockedByRamp &&
     permissionsUtil.canPublishFeature(feature, envIds) &&
@@ -471,24 +481,17 @@ export default function RequestReviewModal({
     setApprovePublishError(null);
     try {
       await apiCall(
-        `/feature/${feature.id}/${revision.version}/submit-review`,
+        `/feature/${feature.id}/${revision.version}/approve-and-publish`,
         {
           method: "POST",
           body: JSON.stringify({
+            mergeResultSerialized: JSON.stringify(mergeResult),
             comment: commentText,
-            review: "Approved",
+            adminOverride: false,
+            publishExperimentIds: Array.from(selectedExperiments),
           }),
         },
       );
-      await apiCall(`/feature/${feature.id}/${revision.version}/publish`, {
-        method: "POST",
-        body: JSON.stringify({
-          mergeResultSerialized: JSON.stringify(mergeResult),
-          comment: commentText,
-          adminOverride: false,
-          publishExperimentIds: Array.from(selectedExperiments),
-        }),
-      });
       await mutate();
       onPublish && onPublish();
       close();
@@ -849,6 +852,16 @@ export default function RequestReviewModal({
                         setComment(e.target.value);
                       }}
                     />
+                    {canRequestAutoPublish && (
+                      <Box mt="3" mb="1">
+                        <Checkbox
+                          label="Automatically publish when approved"
+                          description="As soon as a reviewer approves this draft, it will be published for you — no second step needed."
+                          value={requestAutoPublish}
+                          setValue={(val) => setRequestAutoPublish(!!val)}
+                        />
+                      </Box>
+                    )}
                     {((!canReview && revision?.status !== "draft") ||
                       approved) && (
                       <Button
@@ -980,11 +993,20 @@ export default function RequestReviewModal({
                 label: "Approve",
                 description: isBlockedContributor
                   ? "You contributed to this draft and cannot approve it."
-                  : "Submit feedback and approve for publishing.",
+                  : revisionAutoPublishArmed
+                    ? "Approving will publish this draft automatically."
+                    : "Submit feedback and approve for publishing.",
                 disabled: isBlockedContributor,
               },
             ]}
           />
+          {revisionAutoPublishArmed &&
+            submitReviewform.watch("reviewStatus") === "Approved" && (
+              <Callout status="info" mt="3">
+                The requester set this revision to publish automatically on
+                approval. Approving it will publish the changes immediately.
+              </Callout>
+            )}
         </div>
       </Modal>
     );

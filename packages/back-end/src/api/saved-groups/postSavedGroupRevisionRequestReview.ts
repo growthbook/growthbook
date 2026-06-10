@@ -2,6 +2,7 @@ import { postSavedGroupRevisionRequestReviewValidator } from "shared/validators"
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
+import { canEnableAutoPublishOnApproval } from "back-end/src/revisions/revisionActions";
 import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
 import { toApiSavedGroupRevision } from "./toApiSavedGroupRevision";
@@ -43,9 +44,24 @@ export const postSavedGroupRevisionRequestReview = createApiRequestHandler(
     );
   }
 
+  const autoPublishOnApproval = !!req.body.autoPublishOnApproval;
+  if (
+    autoPublishOnApproval &&
+    !canEnableAutoPublishOnApproval(
+      req.context,
+      "saved-group",
+      savedGroup as Record<string, unknown>,
+    )
+  ) {
+    throw new BadRequestError(
+      "You don't have permission to enable auto-publish on approval for this revision",
+    );
+  }
+
   const updated = await req.context.models.revisions.submitForReview(
     revision.id,
     req.context.userId,
+    { autoPublishOnApproval },
   );
 
   await dispatchSavedGroupRevisionEvent(req.context, updated, {

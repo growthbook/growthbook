@@ -283,6 +283,7 @@ export const postFeatureRevisionRequestReviewValidator = {
   bodySchema: z
     .object({
       comment: z.string().optional(),
+      autoPublishOnApproval: z.boolean().optional(),
     })
     .strict(),
   querySchema: z.never(),
