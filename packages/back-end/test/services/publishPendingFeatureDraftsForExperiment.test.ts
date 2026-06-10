@@ -199,6 +199,55 @@ describe("publishPendingFeatureDraftsForExperiment", () => {
     expect(mockPublishRevision).toHaveBeenCalledTimes(1);
   });
 
+  it("fetches each feature/revision once instead of re-fetching per phase", async () => {
+    mockGetRevision.mockImplementation(async ({ version }) => {
+      return { version, status: "draft", rules: [] } as never;
+    });
+
+    const experiment = makeExperiment([
+      { featureId: "feat_a", revisionVersion: 5 },
+      { featureId: "feat_b", revisionVersion: 6 },
+    ]);
+
+    const result = await publishPendingFeatureDraftsForExperiment(
+      ctx,
+      experiment,
+    );
+
+    expect(result.published.length).toBe(2);
+    // One fetch per feature and one per draft revision across all phases.
+    expect(mockGetFeature).toHaveBeenCalledTimes(2);
+    expect(mockGetRevision).toHaveBeenCalledTimes(2);
+    expect(mockGetLiveAndBase).toHaveBeenCalledTimes(2);
+  });
+
+  it("re-fetches fresh state only for later drafts of an already-published feature", async () => {
+    mockGetRevision.mockImplementation(async ({ version }) => {
+      return { version, status: "draft", rules: [] } as never;
+    });
+
+    const experiment = makeExperiment([
+      { featureId: "feat_a", revisionVersion: 5 },
+      { featureId: "feat_a", revisionVersion: 7 },
+    ]);
+
+    const result = await publishPendingFeatureDraftsForExperiment(
+      ctx,
+      experiment,
+    );
+
+    expect(result.published).toEqual([
+      { featureId: "feat_a", revisionVersion: 5 },
+      { featureId: "feat_a", revisionVersion: 7 },
+    ]);
+    // Phase 1 fetches the feature once (cached across drafts) and each
+    // revision once; publishing v5 advances live state, so v7 re-fetches
+    // everything before re-merging.
+    expect(mockGetFeature).toHaveBeenCalledTimes(2);
+    expect(mockGetRevision).toHaveBeenCalledTimes(3);
+    expect(mockGetLiveAndBase).toHaveBeenCalledTimes(3);
+  });
+
   it("publishes multiple drafts of the same feature in version order", async () => {
     mockGetRevision.mockImplementation(async ({ version }) => {
       return { version, status: "draft", rules: [] } as never;

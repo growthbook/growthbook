@@ -60,46 +60,50 @@ function EditSchemaField({
   onChange: (value: SchemaField) => void;
   valueType?: FeatureValueType;
 }) {
+  // String flags only allow a single type, so the Type selector is pointless.
+  // These flags are always single primitives, never in an object, so the
+  // entire row can be hidden. Number flags keep the selector to choose
+  // between Integer and Float.
+  const hideTypeSelector = valueType === "string";
   const allTypeOptions = [
     { value: "string", label: "Text String" },
     { value: "integer", label: "Integer" },
     { value: "float", label: "Float (Decimal)" },
     { value: "boolean", label: "Boolean (True/False)" },
   ];
-  // Restrict field type to match string/number flags.
   const typeOptions =
-    valueType === "string"
-      ? allTypeOptions.filter((o) => o.value === "string")
-      : valueType === "number"
-        ? allTypeOptions.filter((o) => ["integer", "float"].includes(o.value))
-        : allTypeOptions;
+    valueType === "number"
+      ? allTypeOptions.filter((o) => ["integer", "float"].includes(o.value))
+      : allTypeOptions;
   return (
     <div>
-      <div className="row">
-        {inObject && (
+      {!hideTypeSelector && (
+        <div className="row">
+          {inObject && (
+            <div className="col">
+              <Field
+                label="Property Key"
+                value={value.key}
+                onChange={(e) => onChange({ ...value, key: e.target.value })}
+                required
+                maxLength={64}
+              />
+            </div>
+          )}
           <div className="col">
-            <Field
-              label="Property Key"
-              value={value.key}
-              onChange={(e) => onChange({ ...value, key: e.target.value })}
+            <SelectField
+              label="Type"
+              value={value.type}
+              onChange={(type) =>
+                onChange({ ...value, type: type as SchemaField["type"] })
+              }
+              sort={false}
+              options={typeOptions}
               required
-              maxLength={64}
             />
           </div>
-        )}
-        <div className="col">
-          <SelectField
-            label="Type"
-            value={value.type}
-            onChange={(type) =>
-              onChange({ ...value, type: type as SchemaField["type"] })
-            }
-            sort={false}
-            options={typeOptions}
-            required
-          />
         </div>
-      </div>
+      )}
       <Field
         label="Description"
         value={value.description}
@@ -286,7 +290,7 @@ function EditSimpleSchema({
               value={
                 schema.fields[0] || {
                   key: "",
-                  type: "string",
+                  type: valueType === "number" ? "float" : "string",
                   required: false,
                   default: "",
                   description: "",
