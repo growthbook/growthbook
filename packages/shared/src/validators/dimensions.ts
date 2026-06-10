@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 import { queryPointerValidator } from "./queries";
@@ -44,7 +45,7 @@ export const apiDimensionValidator = namedSchema(
       datasourceId: z.string(),
       identifierType: z.string(),
       name: z.string(),
-      description: z.string().optional(),
+      description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
       query: z.string(),
       managedBy: z
         .enum(["", "api", "config"])
@@ -62,7 +63,11 @@ export type ApiDimension = z.infer<typeof apiDimensionValidator>;
 const postDimensionBody = z
   .object({
     name: z.string().describe("Name of the dimension"),
-    description: z.string().describe("Description of the dimension").optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe("Description of the dimension")
+      .optional(),
     owner: ownerInputField.optional(),
     datasourceId: z
       .string()

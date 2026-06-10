@@ -25,6 +25,10 @@ import { logger } from "back-end/src/util/logger";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
+import {
+  ExperimentUpdateExecutionLogger,
+  ExperimentUpdateTimingPhase,
+} from "back-end/src/services/experimentUpdateExecutionLogger";
 
 export type QueryMap = Map<string, QueryInterface>;
 
@@ -135,6 +139,8 @@ export abstract class QueryRunner<
   private pendingTimers: Record<string, NodeJS.Timeout> = {};
   private lockHeartbeatTimer: null | NodeJS.Timeout = null;
   private finishedQueryMapCache: QueryMap = new Map();
+  protected experimentUpdateExecutionLogger: ExperimentUpdateExecutionLogger | null =
+    null;
 
   public constructor(
     context: ReqContext | ApiReqContext,
@@ -280,12 +286,32 @@ export abstract class QueryRunner<
     return getQueryMap(this.context, pointers, this.finishedQueryMapCache);
   }
 
+  setExperimentUpdateExecutionLogger(
+    logger: ExperimentUpdateExecutionLogger | null,
+  ): void {
+    this.experimentUpdateExecutionLogger = logger;
+  }
+
+  withExperimentUpdateTiming<T>(
+    phase: ExperimentUpdateTimingPhase,
+    fn: () => Promise<T> | T,
+  ): Promise<T> | T {
+    if (!this.experimentUpdateExecutionLogger) {
+      return fn();
+    }
+    return this.experimentUpdateExecutionLogger.withTiming(phase, fn);
+  }
+
   public async startAnalysis(params: Params): Promise<Model> {
     logger.debug(this.model.id + " runner: Starting queries");
-    const queries = await this.startQueries(params);
+    const queries = await this.withExperimentUpdateTiming("generateSql", () =>
+      this.startQueries(params),
+    );
+    this.experimentUpdateExecutionLogger?.startPhase("runQueries");
     this.model.queries = queries;
 
     if (queries.length === 0) {
+      this.experimentUpdateExecutionLogger?.endPhase("runQueries");
       const noQueriesError = "No queries were generated for this analysis";
       logger.debug(this.model.id + " runner: " + noQueriesError);
       const newModel = await this.updateModel({
@@ -308,19 +334,23 @@ export abstract class QueryRunner<
       logger.debug(this.model.id + " runner: Query already succeeded (cached)");
       const queryMap = await this.getQueryMap(queries);
       try {
-        result = await this.runAnalysis(queryMap);
+        this.experimentUpdateExecutionLogger?.endPhase("runQueries");
+        result = await this.withExperimentUpdateTiming("analyze", () =>
+          this.runAnalysis(queryMap),
+        );
         logger.debug(this.model.id + " runner: Ran analysis successfully");
       } catch (e) {
         logger.error(e, this.model.id + " runner: Error running analysis");
         error = "Error running analysis: " + e.message;
       }
     } else if (queryStatus === "failed") {
+      this.experimentUpdateExecutionLogger?.endPhase("runQueries");
       logger.debug(this.model.id + " runner: Query failed immediately");
       error = "Error running one or more database queries";
     }
 
     const newModel = await this.updateModel({
-      status: queryStatus,
+      status: error ? "failed" : queryStatus,
       queries,
       runStarted: new Date(),
       result: result,
@@ -548,6 +578,8 @@ export abstract class QueryRunner<
         error = query.error || error;
       }
 
+      this.experimentUpdateExecutionLogger?.endPhase("runQueries");
+
       logger.debug(
         "Query failed for " +
           this.model.id +
@@ -559,7 +591,10 @@ export abstract class QueryRunner<
       (newStatus === "succeeded" || newStatus === "partially-succeeded")
     ) {
       try {
-        result = await this.runAnalysis(queryMap);
+        this.experimentUpdateExecutionLogger?.endPhase("runQueries");
+        result = await this.withExperimentUpdateTiming("analyze", () =>
+          this.runAnalysis(queryMap),
+        );
         logger.debug(`Queries ${newStatus}, ran analysis successfully`);
       } catch (e) {
         error = "Error running analysis: " + e.message;
@@ -568,7 +603,7 @@ export abstract class QueryRunner<
     }
 
     const newModel = await this.updateModel({
-      status: newStatus,
+      status: error ? "failed" : newStatus,
       queries: this.model.queries,
       result,
       error,

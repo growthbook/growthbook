@@ -574,6 +574,83 @@ describe("QueryRunner", () => {
         jest.useRealTimers();
       }
     });
+
+    class FailingAnalysisQueryRunner extends RaceTestQueryRunner {
+      async runAnalysis(): Promise<{ success: boolean }> {
+        throw new Error("stats engine blew up");
+      }
+
+      async onQueryFinish() {}
+    }
+
+    it("persists a failed status when analysis throws on cached results", async () => {
+      const model: InterfaceWithQueries = {
+        id: "test-model",
+        organization: "test-org",
+        queries: [],
+        runStarted: new Date(),
+      };
+      const runner = new FailingAnalysisQueryRunner(
+        mockContext,
+        model,
+        mockIntegration,
+      );
+
+      const pointers: Queries = [
+        { name: "a", query: "qry_a", status: "succeeded" },
+        { name: "b", query: "qry_b", status: "succeeded" },
+      ];
+
+      await runner.startAnalysis({ pointers });
+
+      expect(runner.updateModelSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: "failed",
+          error: expect.stringContaining("stats engine blew up"),
+        }),
+      );
+      expect(runner.status).toBe("finished");
+      await expect(runner.waitForResults()).rejects.toThrow(
+        "stats engine blew up",
+      );
+    });
+
+    it("persists a failed status when analysis throws after queries finish", async () => {
+      const pointers: Queries = [
+        { name: "a", query: "qry_a", status: "running" },
+      ];
+      const model: InterfaceWithQueries = {
+        id: "test-model",
+        organization: "test-org",
+        queries: [],
+        runStarted: new Date(),
+      };
+      const runner = new FailingAnalysisQueryRunner(
+        mockContext,
+        model,
+        mockIntegration,
+      );
+
+      await runner.startAnalysis({ pointers });
+      expect(runner.status).toBe("running");
+      runner.updateModelSpy.mockClear();
+
+      const succeededQuery = createMockQuery("qry_a", "succeeded");
+      (getQueriesByIds as jest.Mock).mockResolvedValue([succeededQuery]);
+
+      await runner.refreshQueryStatuses();
+
+      expect(runner.updateModelSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: "failed",
+          error: expect.stringContaining("stats engine blew up"),
+        }),
+      );
+      expect(runner.status).toBe("finished");
+      await expect(runner.waitForResults()).rejects.toThrow(
+        "stats engine blew up",
+      );
+    });
   });
 
   describe("onHeartbeat lifecycle", () => {
