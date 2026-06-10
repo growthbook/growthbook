@@ -3,6 +3,7 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
 import { naiveFlattenV1Rules, suffixRuleId } from "shared/util";
 import {
+  activeReviewsFromLog,
   buildFeatureRevisionInterface,
   normalizeRulesInputToV2,
 } from "back-end/src/models/FeatureRevisionModel";
@@ -647,5 +648,87 @@ describe("normalizeRulesInputToV2", () => {
       expect(persisted).toHaveLength(2);
       expect(new Set(persisted.map((r) => r.id)).size).toBe(2);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// activeReviewsFromLog replays the review lifecycle from merged log entries
+// to reconstruct per-reviewer verdicts. It's both the legacy fallback for
+// revisions that predate the baked `reviews` field and the semantic spec for
+// how that field is maintained (submit upserts, undo removes, request/recall
+// clears).
+// ---------------------------------------------------------------------------
+
+describe("activeReviewsFromLog", () => {
+  const human = (id: string) => ({
+    type: "dashboard" as const,
+    id,
+    email: `${id}@example.com`,
+    name: id,
+  });
+  const bot = (apiKey: string) => ({ type: "api_key" as const, apiKey });
+  const at = (minute: number) => new Date(2024, 0, 1, 0, minute);
+
+  it("returns the latest verdict per reviewer with timestamps", () => {
+    const reviews = activeReviewsFromLog([
+      { action: "Requested Changes", user: human("u1"), timestamp: at(1) },
+      { action: "Approved", user: human("u2"), timestamp: at(2) },
+      { action: "Approved", user: human("u1"), timestamp: at(3) },
+    ]);
+    expect(reviews).toHaveLength(2);
+    expect(reviews.find((r) => r.userId === "u1")).toMatchObject({
+      status: "approved",
+      timestamp: at(3),
+    });
+    expect(reviews.find((r) => r.userId === "u2")).toMatchObject({
+      status: "approved",
+      timestamp: at(2),
+    });
+  });
+
+  it("keys api_key reviewers by apiKey and preserves the full event user", () => {
+    const reviews = activeReviewsFromLog([
+      { action: "Approved", user: bot("key_abc123"), timestamp: at(1) },
+    ]);
+    expect(reviews).toEqual([
+      {
+        userId: "key_abc123",
+        user: { type: "api_key", apiKey: "key_abc123" },
+        status: "approved",
+        timestamp: at(1),
+      },
+    ]);
+  });
+
+  it("clears all verdicts when a new review cycle starts", () => {
+    for (const reset of ["Review Requested", "Recall Review"]) {
+      const reviews = activeReviewsFromLog([
+        { action: "Approved", user: human("u1"), timestamp: at(1) },
+        { action: reset, user: human("author"), timestamp: at(2) },
+        { action: "Approved", user: human("u2"), timestamp: at(3) },
+      ]);
+      expect(reviews.map((r) => r.userId)).toEqual(["u2"]);
+    }
+  });
+
+  it("removes only the retracting reviewer's verdict on Undo Review", () => {
+    const reviews = activeReviewsFromLog([
+      { action: "Approved", user: human("u1"), timestamp: at(1) },
+      { action: "Requested Changes", user: human("u2"), timestamp: at(2) },
+      { action: "Undo Review", user: human("u2"), timestamp: at(3) },
+    ]);
+    expect(reviews).toHaveLength(1);
+    expect(reviews[0]).toMatchObject({ userId: "u1", status: "approved" });
+  });
+
+  it("replays out-of-order entries by timestamp and skips system/null users", () => {
+    const reviews = activeReviewsFromLog([
+      // New cycle logged "after" the approval but timestamped before it
+      { action: "Approved", user: human("u1"), timestamp: at(5) },
+      { action: "Review Requested", user: human("author"), timestamp: at(1) },
+      { action: "Approved", user: { type: "system" }, timestamp: at(6) },
+      { action: "Approved", user: null, timestamp: at(7) },
+    ]);
+    expect(reviews.map((r) => r.userId)).toEqual(["u1"]);
   });
 });

@@ -1963,6 +1963,18 @@ export function revisionToApiInterfaceV2(
     ...(rev.rampActions !== undefined && {
       rampActions: rev.rampActions,
     }),
+    ...(rev.reviews !== undefined && {
+      reviews: rev.reviews.map((r) => {
+        const user = eventUserToApiEventUser(r.user);
+        return {
+          userId: r.userId,
+          ...(user !== undefined ? { user } : {}),
+          status: r.status,
+          timestamp:
+            r.timestamp?.toISOString?.() || new Date(r.timestamp).toISOString(),
+        };
+      }),
+    }),
   };
 }
 
@@ -1985,6 +1997,7 @@ export function revisionToDiffableV2(
     "createdBy",
     "publishedBy",
     "definitions",
+    "reviews",
   ]);
   const content: Record<string, unknown> = {};
   for (const [key, val] of Object.entries(api)) {

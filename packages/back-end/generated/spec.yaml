@@ -35315,6 +35315,35 @@ components:
                   - rampScheduleId
                   - ruleId
                 additionalProperties: false
+        reviews:
+          description: >-
+            Active reviewer verdicts for the current review cycle (one entry per
+            reviewer). Cleared when a new review cycle starts. Absent on
+            revisions that predate this field.
+          type: array
+          items:
+            type: object
+            properties:
+              userId:
+                description: >-
+                  Stable reviewer identifier: the user ID for dashboard users,
+                  or the API key ID for service accounts
+                type: string
+              user:
+                $ref: '#/components/schemas/EventUser'
+              status:
+                type: string
+                enum:
+                  - approved
+                  - changes-requested
+              timestamp:
+                format: date-time
+                type: string
+            required:
+              - userId
+              - status
+              - timestamp
+            additionalProperties: false
       required:
         - featureId
         - baseVersion

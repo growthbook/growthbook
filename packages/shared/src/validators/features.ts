@@ -490,6 +490,39 @@ export type ApiRevisionRampUpdateAction = z.infer<
 export type RevisionRampDetachAction = z.infer<typeof revisionRampDetachAction>;
 export type RevisionRampAction = z.infer<typeof revisionRampAction>;
 
+// A reviewer's active verdict for the current review cycle. Denormalized onto
+// the revision (the source of truth remains the revision log) so consumers —
+// custom hooks ("2 approvals required, 1 from this list of user IDs"),
+// the REST API, and reviewer-scoped queries — don't have to replay the log.
+export const revisionReviewSchema = z
+  .object({
+    // Stable reviewer identifier used for upserts/queries: the user id for
+    // dashboard users; the key id (or apiKey identifier) for API keys.
+    // See `reviewerKeyForEventUser`.
+    userId: z.string(),
+    // Full event user who submitted the verdict — lets policy hooks match on
+    // type ("dashboard" vs "api_key"), apiKey, email, etc.
+    user: eventUser,
+    status: z.enum(["approved", "changes-requested"]),
+    // When this verdict was submitted. Compare against `dateUpdated` to detect
+    // verdicts that predate later content edits.
+    timestamp: z.date(),
+  })
+  .strict();
+
+export type RevisionReview = z.infer<typeof revisionReviewSchema>;
+
+// Stable identifier for a reviewer across review lifecycle events, or null if
+// the event user can't hold a review verdict (system/anonymous users).
+export function reviewerKeyForEventUser(
+  user: z.infer<typeof eventUser>,
+): string | null {
+  if (!user) return null;
+  if (user.type === "dashboard") return user.id;
+  if (user.type === "api_key") return user.id || user.apiKey || null;
+  return null;
+}
+
 const featureRevisionInterface = minimalFeatureRevisionInterface
   .extend({
     featureId: z.string(),
@@ -523,6 +556,13 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
     // updateRevision's $addToSet; may be empty if no content edits have been made.
     // Note: the revision author (createdBy) is NOT automatically seeded here.
     contributors: z.array(z.string()).optional(),
+    // Active reviewer verdicts for the current review cycle (one entry per
+    // reviewer). Kept in sync by the review lifecycle mutations:
+    // submit review upserts, undo review removes, request/recall review
+    // clears. Mirrors revision-log replay semantics — verdicts survive
+    // content edits (even when the review status resets) until a new review
+    // cycle starts. Absent on revisions that predate this field.
+    reviews: z.array(revisionReviewSchema).optional(),
   })
   .strict();
 
