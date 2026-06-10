@@ -1744,14 +1744,14 @@ export function eventUserToApiEventUser(
     case "api_key":
       return {
         type: "api_key",
-        ...(user.id ? { id: user.id } : {}),
-        ...(user.name ? { name: user.name } : {}),
-        ...(user.email ? { email: user.email } : {}),
+        id: user.id,
+        name: user.name,
+        email: user.email,
       };
     case "system":
       return {
         type: "system",
-        ...(user.id ? { id: user.id } : {}),
+        id: user.id,
       };
   }
   // Fail closed for legacy stored documents with an unrecognized type.

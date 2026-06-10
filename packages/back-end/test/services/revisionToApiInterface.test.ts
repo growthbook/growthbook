@@ -217,6 +217,14 @@ describe("revision author serialization", () => {
       expect(eventUserToApiEventUser(null)).toBeUndefined();
       expect(eventUserToApiEventUser(undefined)).toBeUndefined();
     });
+
+    it("returns undefined for an unrecognized legacy type (fail closed)", () => {
+      expect(
+        eventUserToApiEventUser({
+          type: "unknown_legacy",
+        } as unknown as FeatureRevisionInterface["createdBy"]),
+      ).toBeUndefined();
+    });
   });
 
   it("keeps display-name strings and adds structured authors (v1)", () => {
