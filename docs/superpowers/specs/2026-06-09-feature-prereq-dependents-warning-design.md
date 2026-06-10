@@ -135,29 +135,38 @@ Applies to **both v1 and v2** unless noted.
   has dependents (matching the UI, which shows the callout whenever dependents exist,
   regardless of which fields changed).
 
-### 2c. Block DELETE on v2 only
+### 2c. Block destructive actions (DELETE + ARCHIVE) on v1 and v2
 
-- v1 and v2 delete currently **share** `deleteFeatureHandler` in
-  `packages/back-end/src/api/features/deleteFeature.ts`.
-- Parametrize the handler so only v2 blocks on dependents:
+Two destructive actions must block when the feature is still a prerequisite for others,
+matching the internal UI (both the Delete and Archive modals fully block). Applies to **both
+v1 and v2**.
+
+**Archive note:** the REST API has no dedicated archive endpoint. Archiving is done through the
+**update** endpoint with `archived: true`. Both update handlers detect this transition
+(`hasArchivedChange` / `newArchived`). So "block archive" = in **both update handlers**
+(`updateFeature.ts` v1 and `updateFeatureV2.ts` v2), when the update transitions `archived`
+from `false → true` and dependents exist, throw a blocking error instead of applying the
+change. (Non-archiving updates still only _warn_, per 2b. Un-archiving — `archived: true →
+false` — is never blocked.)
+
+**Delete:**
+
+- v1 and v2 delete already **share** `deleteFeatureHandler` in
+  `packages/back-end/src/api/features/deleteFeature.ts`. Since the block applies to both, add
+  the dependents check directly in the shared handler — no parametrization needed:
   ```
-  export function makeDeleteFeatureHandler({ blockOnDependents = false } = {}) {
-    return async function deleteFeatureHandler(req) {
-      // ...existing fetch + permission checks...
-      if (blockOnDependents) {
-        // load org features (+ experiments), compute dependents for this feature
-        // if any exist, throw a clear error listing them — do NOT delete
-      }
-      // ...existing delete...
-    };
+  export async function deleteFeatureHandler(req) {
+    // ...existing fetch + permission checks...
+    // load org features (+ experiments), compute dependents for this feature
+    // if any exist, throw a clear error listing them — do NOT delete
+    // ...existing delete...
   }
   ```
 
-  - `deleteFeature.ts` (v1): `createApiRequestHandler(deleteFeatureValidator)(makeDeleteFeatureHandler())` — unchanged behavior.
-  - `deleteFeatureV2.ts`: `createApiRequestHandler(deleteFeatureV2Validator)(makeDeleteFeatureHandler({ blockOnDependents: true }))`.
-- Error: a clear message naming the blocking dependent feature/experiment IDs, instructing the
-  caller to remove the prerequisite references first (matches the internal UI block intent).
-- v1 delete keeps current behavior (no block), per decision.
+**Shared error builder:** the delete block (v1 + v2) and the archive block (v1 + v2) all reuse
+the same dependents lookup and the same error-message builder so the wording is identical
+everywhere. The error names the blocking dependent feature/experiment IDs and instructs the
+caller to remove the prerequisite references first.
 
 ### 2d. Docs
 
@@ -180,7 +189,8 @@ unaffected.
 - UI sites: DraftModal, EditDefaultValueModal, RuleModal.
 - API `dependents`: single-feature responses only (not list).
 - API versions for `dependents` + update `warnings`: **both v1 and v2**.
-- DELETE block: **v2 only**.
+- DELETE block: **both v1 and v2**.
+- ARCHIVE block (via update with `archived: true`): **both v1 and v2**.
 
 ## Files touched (summary)
 
@@ -202,6 +212,6 @@ unaffected.
 - `src/services/features.ts` (`getApiFeatureObj`, `getApiFeatureObjV2` accept/emit dependents)
 - `src/api/features/getFeature.ts`, `getFeatureV2.ts` (compute + pass dependents)
 - `src/api/features/postFeature.ts`, `postFeatureV2.ts` (compute + pass dependents)
-- `src/api/features/updateFeature.ts`, `updateFeatureV2.ts` (compute + pass dependents; build warnings)
-- `src/api/features/deleteFeature.ts` (parametrize handler), `deleteFeatureV2.ts` (block on dependents)
+- `src/api/features/updateFeature.ts`, `updateFeatureV2.ts` (compute + pass dependents; build warnings; block when archiving a feature with dependents)
+- `src/api/features/deleteFeature.ts` (block on dependents in the shared handler — covers v1 + v2)
 - `generated/spec.yaml` (regenerated)

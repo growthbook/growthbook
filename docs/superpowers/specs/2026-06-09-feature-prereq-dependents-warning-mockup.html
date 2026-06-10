@@ -333,12 +333,29 @@
     <div class="api-card">
       <div class="api-head">
         <span class="verb del">DELETE</span>
-        <span class="path">/api/v2/features/checkout-flow</span>
-        <span class="note">v2 blocks delete when prerequisite for others (v1 unchanged)</span>
+        <span class="path">/api/v1/features/checkout-flow</span>
+        <span class="note">blocked when prerequisite for others — v1 &amp; v2</span>
         <span class="status bad">400 Bad Request</span>
       </div>
 <pre><span class="hlr">{</span>
 <span class="hlr">  <span class="k">"message"</span>: <span class="s">"Cannot delete 'checkout-flow' — it is a prerequisite for 3 features (checkout-banner, express-pay, one-click-upsell) and 1 experiment (Checkout button color test). Remove these prerequisite references first."</span></span>
+<span class="hlr">}</span></pre>
+    </div>
+
+    <!-- ARCHIVE blocked (via update) -->
+    <div class="api-card">
+      <div class="api-head">
+        <span class="verb post">POST</span>
+        <span class="path">/api/v1/features/checkout-flow</span>
+        <span class="note">archiving (<code>archived: true</code>) is blocked the same way — v1 &amp; v2</span>
+        <span class="status bad">400 Bad Request</span>
+      </div>
+<pre><span class="c">// request body</span>
+{ <span class="k">"archived"</span>: <span class="n">true</span> }
+
+<span class="c">// response</span>
+<span class="hlr">{</span>
+<span class="hlr">  <span class="k">"message"</span>: <span class="s">"Cannot archive 'checkout-flow' — it is a prerequisite for 3 features (checkout-banner, express-pay, one-click-upsell) and 1 experiment (Checkout button color test). Remove these prerequisite references first."</span></span>
 <span class="hlr">}</span></pre>
     </div>
 
