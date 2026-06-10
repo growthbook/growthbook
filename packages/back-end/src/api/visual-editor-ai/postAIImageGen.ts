@@ -160,8 +160,10 @@ export const postAIImageGen = createApiRequestHandler(validation)(async (
   const images: Array<{ url: string; width: number; height: number }> = [];
   let beforeBytes = 0;
   let afterBytes = 0;
+  let unoptimizedCount = 0;
   for (const img of generated) {
-    const optimized = await optimizeAIImage(img.buffer);
+    const optimized = await optimizeAIImage(img);
+    if (!optimized.optimized) unoptimizedCount++;
     beforeBytes += img.buffer.length;
     afterBytes += optimized.buffer.length;
     const filePath = `gen/${org.id}/visual-editor/img_${uuidv4()}.${optimized.ext}`;
@@ -184,6 +186,7 @@ export const postAIImageGen = createApiRequestHandler(validation)(async (
       userId: context.userId,
       generated: generated.length,
       uploaded: images.length,
+      unoptimizedCount,
       providerBytes: beforeBytes,
       optimizedBytes: afterBytes,
       compressionRatio: beforeBytes
