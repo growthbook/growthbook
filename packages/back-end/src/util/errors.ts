@@ -82,6 +82,16 @@ export class ConflictError extends Error {
   }
 }
 
+export class SoftWarningError extends Error {
+  status = 422;
+  warnings: string[];
+  constructor(message: string, warnings: string[]) {
+    super(message);
+    this.name = "SoftWarningError";
+    this.warnings = warnings;
+  }
+}
+
 export class InternalServerError extends Error {
   status = 500;
   constructor(message: string) {

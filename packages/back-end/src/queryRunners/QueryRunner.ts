@@ -350,7 +350,7 @@ export abstract class QueryRunner<
     }
 
     const newModel = await this.updateModel({
-      status: queryStatus,
+      status: error ? "failed" : queryStatus,
       queries,
       runStarted: new Date(),
       result: result,
@@ -603,7 +603,7 @@ export abstract class QueryRunner<
     }
 
     const newModel = await this.updateModel({
-      status: newStatus,
+      status: error ? "failed" : newStatus,
       queries: this.model.queries,
       result,
       error,
