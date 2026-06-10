@@ -28,8 +28,9 @@ describe("DivergenceNotice", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("renders nothing for a hard conflict (owned by the conflict resolver)", () => {
-    const { container } = render(
+  it("renders a Resolve conflicts CTA for the conflict state", () => {
+    const onResolve = vi.fn();
+    render(
       <DivergenceNotice
         governance={gov({
           diverged: true,
@@ -41,9 +42,37 @@ describe("DivergenceNotice", () => {
         })}
         liveVersion={8}
         baseVersion={5}
+        onResolveConflicts={onResolve}
       />,
     );
-    expect(container).toBeEmptyDOMElement();
+    expect(
+      screen.getByText(/conflicts with the live version/i),
+    ).toBeInTheDocument();
+    const btn = screen.getByRole("button", { name: /resolve conflicts/i });
+    fireEvent.click(btn);
+    expect(onResolve).toHaveBeenCalledTimes(1);
+  });
+
+  it("hides the Resolve conflicts CTA when the user cannot rebase", () => {
+    render(
+      <DivergenceNotice
+        governance={gov({
+          diverged: true,
+          divergence: "conflict",
+          recommendRebase: true,
+          rebaseRequired: true,
+          canPublish: false,
+          blockReason: "Resolve conflicts ...",
+        })}
+        liveVersion={8}
+        baseVersion={5}
+        onResolveConflicts={vi.fn()}
+        canRebase={false}
+      />,
+    );
+    expect(
+      screen.queryByRole("button", { name: /resolve conflicts/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("encourages update when diverged but not required (setting off)", () => {
@@ -111,6 +140,66 @@ describe("DivergenceNotice", () => {
     );
     expect(
       screen.getByText(/this approval is out of date/i),
+    ).toBeInTheDocument();
+  });
+
+  it("quantifies a stale approval when timing data is available", () => {
+    const twelveDaysAgo = new Date(Date.now() - 12 * 24 * 60 * 60 * 1000);
+    render(
+      <DivergenceNotice
+        governance={gov({
+          diverged: true,
+          divergence: "diverged",
+          staleApproval: true,
+          recommendRebase: true,
+        })}
+        liveVersion={9}
+        baseVersion={5}
+        onUpdateFromLive={vi.fn()}
+        approvedAt={twelveDaysAgo.toISOString()}
+        revisionsSinceApproval={2}
+      />,
+    );
+    expect(
+      screen.getByText(/approved 12 days ago.*advanced 2 revisions since/i),
+    ).toBeInTheDocument();
+  });
+
+  it("uses singular phrasing for a single revision since approval", () => {
+    render(
+      <DivergenceNotice
+        governance={gov({
+          diverged: true,
+          divergence: "diverged",
+          staleApproval: true,
+          recommendRebase: true,
+        })}
+        liveVersion={9}
+        baseVersion={5}
+        approvedAt={new Date().toISOString()}
+        revisionsSinceApproval={1}
+      />,
+    );
+    expect(screen.getByText(/advanced 1 revision since/i)).toBeInTheDocument();
+  });
+
+  it("falls back to unquantified copy for legacy approvals", () => {
+    render(
+      <DivergenceNotice
+        governance={gov({
+          diverged: true,
+          divergence: "diverged",
+          staleApproval: true,
+          recommendRebase: true,
+        })}
+        liveVersion={9}
+        baseVersion={5}
+      />,
+    );
+    expect(
+      screen.getByText(
+        /changes were published to the live version \(v9\) after this draft was approved/i,
+      ),
     ).toBeInTheDocument();
   });
 

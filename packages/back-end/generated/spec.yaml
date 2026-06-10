@@ -7272,6 +7272,175 @@ paths:
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v2/features/{id}/revisions/{version}/diff:
+    get:
+      operationId: getFeatureRevisionDiffV2
+      summary: Diff a revision against another revision
+      description: >-
+        Returns a schema-keyed JSON diff between this revision and a baseline.
+        The same shapes the in-app review surface produces under `Copy as →
+        Minimal JSON` / `Full JSON`: `minimal` lists only what changed (with
+        id-keyed arrays bucketed into added/removed/modified items and reorder
+        detection), while `full` returns the complete before/after content of
+        the revision. Lifecycle fields (version, status, comment, date,
+        createdBy, publishedBy) are excluded from the diff body and echoed via
+        `from` / `to` instead. Defaults to diffing against the revision's own
+        `baseVersion`; pass `?base=live` to diff against the current live
+        revision, or `?base=<version>` for an arbitrary historical one.
+      tags:
+        - feature-revisions-v2
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+        - $ref: '#/components/parameters/format'
+        - $ref: '#/components/parameters/base'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                anyOf:
+                  - type: object
+                    properties:
+                      diff:
+                        type: object
+                        properties:
+                          name:
+                            description: The feature key.
+                            type: string
+                          type:
+                            type: string
+                            const: feature
+                          from:
+                            description: >-
+                              Version number this revision was diffed against
+                              (the before).
+                            type: integer
+                          to:
+                            description: Version number being diffed (the after).
+                            type: integer
+                          changes:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                field:
+                                  type: string
+                                change:
+                                  type: string
+                                  enum:
+                                    - added
+                                    - removed
+                                    - modified
+                              required:
+                                - field
+                                - change
+                              additionalProperties: {}
+                          supplemental:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                name:
+                                  type: string
+                                type:
+                                  type: string
+                                change:
+                                  type: string
+                                  enum:
+                                    - added
+                                    - removed
+                                    - modified
+                              required:
+                                - name
+                                - type
+                                - change
+                              additionalProperties: {}
+                        required:
+                          - name
+                          - type
+                          - from
+                          - to
+                          - changes
+                        additionalProperties: false
+                    required:
+                      - diff
+                    additionalProperties: false
+                  - type: object
+                    properties:
+                      diff:
+                        type: object
+                        properties:
+                          name:
+                            description: The feature key.
+                            type: string
+                          type:
+                            type: string
+                            const: feature
+                          from:
+                            description: >-
+                              Version number this revision was diffed against
+                              (the before).
+                            type: integer
+                          to:
+                            description: Version number being diffed (the after).
+                            type: integer
+                          before:
+                            type: object
+                            propertyNames:
+                              type: string
+                            additionalProperties: {}
+                          after:
+                            type: object
+                            propertyNames:
+                              type: string
+                            additionalProperties: {}
+                          supplemental:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                name:
+                                  type: string
+                                type:
+                                  type: string
+                                before:
+                                  anyOf:
+                                    - {}
+                                    - type: 'null'
+                                after:
+                                  anyOf:
+                                    - {}
+                                    - type: 'null'
+                              required:
+                                - name
+                                - type
+                                - before
+                                - after
+                              additionalProperties: false
+                        required:
+                          - name
+                          - type
+                          - from
+                          - to
+                          - before
+                          - after
+                        additionalProperties: false
+                    required:
+                      - diff
+                    additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/diff'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v2/features/{id}/revisions/{version}/metadata:
     put:
       operationId: putFeatureRevisionMetadataV2
@@ -31293,6 +31462,42 @@ components:
           - type: string
             const: '1'
           - type: boolean
+    format:
+      name: format
+      in: query
+      description: >-
+        `minimal` (default) returns only what changed, with id-keyed arrays
+        bucketed into added/removed/modified items. `full` returns the complete
+        before/after content of the revision.
+      schema:
+        description: >-
+          `minimal` (default) returns only what changed, with id-keyed arrays
+          bucketed into added/removed/modified items. `full` returns the
+          complete before/after content of the revision.
+        type: string
+        enum:
+          - minimal
+          - full
+    base:
+      name: base
+      in: query
+      description: >-
+        Compare against: `baseVersion` (default — the revision's own
+        `baseVersion`, matches the in-app review view), `live` (the
+        currently-live revision), or an integer version (an arbitrary historical
+        revision).
+      schema:
+        description: >-
+          Compare against: `baseVersion` (default — the revision's own
+          `baseVersion`, matches the in-app review view), `live` (the
+          currently-live revision), or an integer version (an arbitrary
+          historical revision).
+        anyOf:
+          - type: string
+            const: baseVersion
+          - type: string
+            const: live
+          - type: integer
     logId:
       name: logId
       in: path

@@ -35,6 +35,7 @@ export * from "./types";
 export * from "./errors";
 export * from "./namespaces";
 export * from "./custom-fields";
+export * from "./diffFormats";
 
 export const DEFAULT_ENVIRONMENT_IDS = ["production", "dev", "staging", "test"];
 

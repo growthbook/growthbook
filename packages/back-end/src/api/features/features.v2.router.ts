@@ -11,6 +11,7 @@ import { getFeatureStaleV2 } from "./getFeatureStaleV2";
 import { getFeatureRevisionsV2 } from "./getFeatureRevisionsV2";
 import { getFeatureRevisionV2 } from "./getFeatureRevisionV2";
 import { getFeatureRevisionLatestV2 } from "./getFeatureRevisionLatestV2";
+import { getFeatureRevisionDiffV2 } from "./getFeatureRevisionDiffV2";
 import { postFeatureRevisionV2 } from "./postFeatureRevisionV2";
 import { postFeatureRevisionDiscardV2 } from "./postFeatureRevisionDiscardV2";
 import { postFeatureRevisionReopenV2 } from "./postFeatureRevisionReopenV2";
@@ -59,6 +60,7 @@ export const featureV2Routes: OpenApiRoute[] = [
   // swallowed by the :version param and fail int validation.
   getFeatureRevisionLatestV2,
   getFeatureRevisionV2,
+  getFeatureRevisionDiffV2,
 
   // Draft creation
   postFeatureRevisionV2,

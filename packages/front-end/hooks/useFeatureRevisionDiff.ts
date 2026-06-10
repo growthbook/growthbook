@@ -37,6 +37,29 @@ export function normalizeRevisionMetadata(
   };
 }
 
+// Backfill envelope fields from `fallback` (typically the parent feature's
+// current state) when the revision doesn't store them. Pre-snapshot legacy
+// revisions only persisted defaultValue/rules; comparing one against a freshly
+// created draft (which now snapshots the full envelope) would otherwise
+// produce phantom "added" diffs for metadata, env toggles, prerequisites, and
+// holdout. Used by surfaces that diff a raw revision against the live feature
+// (compare modal, review-and-publish conflict fallback).
+export const revisionToFeatureRevisionDiffInput = (
+  r: FeatureRevisionInterface,
+  fallback?: FeatureRevisionDiffInput,
+): FeatureRevisionDiffInput => {
+  return {
+    defaultValue: r.defaultValue,
+    rules: Array.isArray(r.rules) ? r.rules : [],
+    environmentsEnabled: r.environmentsEnabled ?? fallback?.environmentsEnabled,
+    prerequisites: r.prerequisites ?? fallback?.prerequisites,
+    archived: r.archived ?? fallback?.archived,
+    holdout: r.holdout !== undefined ? r.holdout : (fallback?.holdout ?? null),
+    metadata: normalizeRevisionMetadata(r.metadata) ?? fallback?.metadata,
+    rampActions: r.rampActions ?? undefined,
+  };
+};
+
 export const featureToFeatureRevisionDiffInput = (
   feature: FeatureInterface,
 ): FeatureRevisionDiffInput => {

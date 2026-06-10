@@ -470,6 +470,107 @@ export const getFeatureRevisionMergeStatusV2Validator = {
   version: "v2" as const,
 };
 
+// ---- Diff endpoint ----
+//
+// Shape mirrors the front-end's "Copy as → Minimal JSON" / "Full JSON"
+// outputs so a single source of truth describes both the in-app clipboard
+// formats and the REST contract. Lifecycle/identity fields (version,
+// baseVersion, status, comment, date, createdBy, publishedBy, featureId) are
+// not part of the diff body — they're echoed in `from`/`to` instead — so the
+// payload focuses on *content* changes (defaultValue, rules,
+// environmentsEnabled, prerequisites, metadata, rampActions).
+const diffFormatParam = z
+  .enum(["minimal", "full"])
+  .optional()
+  .describe(
+    "`minimal` (default) returns only what changed, with id-keyed arrays bucketed into added/removed/modified items. `full` returns the complete before/after content of the revision.",
+  );
+
+// Either "baseVersion" (the revision's own baseVersion — what it was branched
+// from, mirrors the in-app review surface), "live" (the currently-live
+// revision — useful for pre-publish bots that want to see net effect on the
+// live state), or an integer version (compare against an arbitrary historical
+// revision).
+const diffBaseParam = z
+  .union([z.literal("baseVersion"), z.literal("live"), z.coerce.number().int()])
+  .optional()
+  .describe(
+    "Compare against: `baseVersion` (default — the revision's own `baseVersion`, matches the in-app review view), `live` (the currently-live revision), or an integer version (an arbitrary historical revision).",
+  );
+
+// Per-field/array-item change descriptors used by the minimal format.
+const diffChangeEntry = z
+  .object({
+    field: z.string(),
+    change: z.enum(["added", "removed", "modified"]),
+  })
+  .passthrough();
+
+const diffSupplementalMinimal = z
+  .object({
+    name: z.string(),
+    type: z.string(),
+    change: z.enum(["added", "removed", "modified"]),
+  })
+  .passthrough();
+
+const diffSupplementalFull = z
+  .object({
+    name: z.string(),
+    type: z.string(),
+    before: z.unknown().nullable(),
+    after: z.unknown().nullable(),
+  })
+  .strict();
+
+const diffEnvelope = z.object({
+  name: z.string().describe("The feature key."),
+  type: z.literal("feature"),
+  from: z
+    .number()
+    .int()
+    .describe("Version number this revision was diffed against (the before)."),
+  to: z.number().int().describe("Version number being diffed (the after)."),
+});
+
+const minimalDiffResponse = z.object({
+  diff: diffEnvelope.extend({
+    changes: z.array(diffChangeEntry),
+    supplemental: z.array(diffSupplementalMinimal).optional(),
+  }),
+});
+
+const fullDiffResponse = z.object({
+  diff: diffEnvelope.extend({
+    before: z.record(z.string(), z.unknown()),
+    after: z.record(z.string(), z.unknown()),
+    supplemental: z.array(diffSupplementalFull).optional(),
+  }),
+});
+
+export const getFeatureRevisionDiffV2Validator = {
+  method: "get" as const,
+  path: "/features/:id/revisions/:version/diff",
+  operationId: "getFeatureRevisionDiffV2",
+  summary: "Diff a revision against another revision",
+  description:
+    "Returns a schema-keyed JSON diff between this revision and a baseline. The same shapes the in-app review surface produces under `Copy as → Minimal JSON` / `Full JSON`: `minimal` lists only what changed (with id-keyed arrays bucketed into added/removed/modified items and reorder detection), while `full` returns the complete before/after content of the revision. Lifecycle fields (version, status, comment, date, createdBy, publishedBy) are excluded from the diff body and echoed via `from` / `to` instead. Defaults to diffing against the revision's own `baseVersion`; pass `?base=live` to diff against the current live revision, or `?base=<version>` for an arbitrary historical one.",
+  tags: ["feature-revisions-v2"],
+  paramsSchema: revisionParamsStrict,
+  bodySchema: z.never(),
+  querySchema: z
+    .object({
+      format: diffFormatParam,
+      base: diffBaseParam,
+    })
+    .strict(),
+  // The two formats produce structurally different payloads; the union lets
+  // OpenAPI clients see both. Object identification is via the always-present
+  // `changes` (minimal) / `before` (full) keys.
+  responseSchema: z.union([minimalDiffResponse, fullDiffResponse]),
+  version: "v2" as const,
+};
+
 export const postFeatureRevisionRebasePreviewV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/rebase/preview",

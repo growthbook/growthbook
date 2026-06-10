@@ -57,8 +57,8 @@ import {
   useFeatureRevisionDiff,
   FeatureRevisionDiffInput,
   FeatureRevisionDiff,
-  normalizeRevisionMetadata,
   featureToFeatureRevisionDiffInput,
+  revisionToFeatureRevisionDiffInput,
 } from "@/hooks/useFeatureRevisionDiff";
 import {
   CreatedRampScheduleBody,
@@ -94,26 +94,9 @@ export interface Props {
   rampSchedules?: RampScheduleInterface[];
 }
 
-// Backfill envelope fields from `fallback` (the parent feature's current
-// state) when the revision doesn't store them. Pre-snapshot legacy revisions
-// only persisted defaultValue/rules; comparing one against a freshly created
-// draft (which now snapshots the full envelope) would otherwise produce
-// phantom "added" diffs for metadata, env toggles, prerequisites, and holdout.
-function revisionToDiffInput(
-  r: FeatureRevisionInterface,
-  fallback?: FeatureRevisionDiffInput,
-): FeatureRevisionDiffInput {
-  return {
-    defaultValue: r.defaultValue,
-    rules: Array.isArray(r.rules) ? r.rules : [],
-    environmentsEnabled: r.environmentsEnabled ?? fallback?.environmentsEnabled,
-    prerequisites: r.prerequisites ?? fallback?.prerequisites,
-    archived: r.archived ?? fallback?.archived,
-    holdout: r.holdout !== undefined ? r.holdout : (fallback?.holdout ?? null),
-    metadata: normalizeRevisionMetadata(r.metadata) ?? fallback?.metadata,
-    rampActions: r.rampActions ?? undefined,
-  };
-}
+// Local alias kept for diff readability; logic moved to the diff hook so the
+// publish/review surface can use the same envelope backfill.
+const revisionToDiffInput = revisionToFeatureRevisionDiffInput;
 
 // Build FeatureRevisionDiff items for any ramp schedules linked to a given revision.
 // "newerRevision" is the revision being introduced on the right-hand side of the diff.

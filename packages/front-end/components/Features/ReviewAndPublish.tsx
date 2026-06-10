@@ -54,7 +54,7 @@ import {
   useFeatureRevisionDiff,
   featureToFeatureRevisionDiffInput,
   mergeResultToDiffInput,
-  normalizeRevisionMetadata,
+  revisionToFeatureRevisionDiffInput,
   FeatureRevisionDiffInput,
   FeatureRevisionDiff,
 } from "@/hooks/useFeatureRevisionDiff";
@@ -253,11 +253,15 @@ export default function ReviewAndPublish({
       : `/feature/${feature.id}/0/log`,
     { shouldRun: () => !!revision },
   );
-  const reviewers = useMemo<
-    { id: string; status: "approved" | "changes-requested" }[]
-  >(() => {
+  const { reviewers, approvedAt } = useMemo<{
+    reviewers: { id: string; status: "approved" | "changes-requested" }[];
+    // Timestamp of the most recent *surviving* approval (retractions and
+    // recalls invalidate earlier verdicts). Used to quantify how stale an
+    // approval is in the divergence notice.
+    approvedAt: string | null;
+  }>(() => {
     const log = logData?.log;
-    if (!log) return [];
+    if (!log) return { reviewers: [], approvedAt: null };
     // Replay the lifecycle chronologically so retractions (Undo Review by
     // the reviewer) and recalls (Recall Review by the author) properly
     // invalidate prior verdicts. Without this, a reviewer who pulls back
@@ -267,7 +271,10 @@ export default function ReviewAndPublish({
         b.timestamp as unknown as string,
       ),
     );
-    const byUser = new Map<string, "approved" | "changes-requested">();
+    const byUser = new Map<
+      string,
+      { status: "approved" | "changes-requested"; timestamp: string }
+    >();
     for (const entry of sorted) {
       if (entry.action === "Review Requested") {
         // New cycle wipes prior verdicts.
@@ -281,15 +288,23 @@ export default function ReviewAndPublish({
       }
       const uid = entry.user && "id" in entry.user ? entry.user.id : undefined;
       if (!uid) continue;
+      const timestamp = entry.timestamp as unknown as string;
       if (entry.action === "Approved") {
-        byUser.set(uid, "approved");
+        byUser.set(uid, { status: "approved", timestamp });
       } else if (entry.action === "Requested Changes") {
-        byUser.set(uid, "changes-requested");
+        byUser.set(uid, { status: "changes-requested", timestamp });
       } else if (entry.action === "Undo Review") {
         byUser.delete(uid);
       }
     }
-    return Array.from(byUser, ([id, status]) => ({ id, status }));
+    const approvedTimestamps = [...byUser.values()]
+      .filter((v) => v.status === "approved")
+      .map((v) => v.timestamp)
+      .sort();
+    return {
+      reviewers: Array.from(byUser, ([id, v]) => ({ id, status: v.status })),
+      approvedAt: approvedTimestamps[approvedTimestamps.length - 1] ?? null,
+    };
   }, [logData]);
 
   // User ID of whoever most recently submitted a "Review Requested" entry.
@@ -317,18 +332,8 @@ export default function ReviewAndPublish({
     [feature],
   );
   const toDiffInput = useCallback(
-    (r: FeatureRevisionInterface): FeatureRevisionDiffInput => ({
-      defaultValue: r.defaultValue,
-      rules: Array.isArray(r.rules) ? r.rules : [],
-      environmentsEnabled:
-        r.environmentsEnabled ?? liveBaseInput.environmentsEnabled,
-      prerequisites: r.prerequisites ?? liveBaseInput.prerequisites,
-      archived: r.archived ?? liveBaseInput.archived,
-      holdout:
-        r.holdout !== undefined ? r.holdout : (liveBaseInput.holdout ?? null),
-      metadata: normalizeRevisionMetadata(r.metadata) ?? liveBaseInput.metadata,
-      rampActions: r.rampActions ?? undefined,
-    }),
+    (r: FeatureRevisionInterface): FeatureRevisionDiffInput =>
+      revisionToFeatureRevisionDiffInput(r, liveBaseInput),
     [liveBaseInput],
   );
   // Read-only diff: the selected (published/live) revision vs. the revision it
@@ -487,6 +492,21 @@ export default function ReviewAndPublish({
     });
   }, [revision, mergeResult, feature.version, liveChanges, settings]);
 
+  // How many revisions were published after the point this draft was
+  // approved against. Quantifies the stale-approval notice ("live has
+  // advanced 2 revisions since"). Null for legacy approvals that predate
+  // approvedBaseVersion tracking.
+  const revisionsSinceApproval = useMemo<number | null>(() => {
+    const approvedBase = revision?.approvedBaseVersion ?? null;
+    if (approvedBase === null) return null;
+    return revisions.filter(
+      (r) =>
+        r.status === "published" &&
+        r.version > approvedBase &&
+        r.version <= feature.version,
+    ).length;
+  }, [revisions, revision, feature.version]);
+
   const experimentsMap = useMemo<
     Map<string, ExperimentInterfaceStringDates>
   >(() => {
@@ -531,17 +551,26 @@ export default function ReviewAndPublish({
   );
 
   const currentRevisionData = featureToFeatureRevisionDiffInput(feature);
-  const draftDiffInput = mergeResult?.success
+  // Three modes, picked by what's available:
+  //  - merge success: diff against the merged result (what publish would do).
+  //    `draftDiffInput` is intentionally sparse — only fields the merge
+  //    touched — so the sectional diff above reflects net intent.
+  //  - merge conflict: the merged result isn't computable yet, so fall back
+  //    to the raw draft revision so reviewers can still see what's at stake
+  //    (draft vs live, with conflicting items marked by the conflict modal).
+  //  - no revision: shouldn't happen at this point, but keep a no-op shape.
+  const draftDiffInput: FeatureRevisionDiffInput = mergeResult?.success
     ? mergeResultToDiffInput(mergeResult.result, currentRevisionData)
-    : currentRevisionData;
+    : revision
+      ? revisionToFeatureRevisionDiffInput(revision, currentRevisionData)
+      : currentRevisionData;
   const resultDiffs = useFeatureRevisionDiff({
     current: currentRevisionData,
     draft: draftDiffInput,
   });
-  // `draftDiffInput` intentionally omits fields the merge didn't touch (its
-  // presence semantics drive the sectional diff above). For the whole-object
-  // "Raw JSON" view we need a complete object, otherwise unchanged fields look
-  // like deletions — so layer the merged changes over the current revision.
+  // For the whole-object "Raw JSON" view we need a complete object, otherwise
+  // sparse merge-result fields look like deletions — layer the diff input
+  // over the current revision so unchanged fields are present on both sides.
   const draftRawAfter = { ...currentRevisionData, ...draftDiffInput };
 
   const rampDiffs = useMemo(
@@ -1296,25 +1325,9 @@ export default function ReviewAndPublish({
     state.submitAction === "publish" ? hasPublishPermission : true;
 
   // ── Simple full-width states (no two-column layout) ──
-  if (!mergeResult.success) {
-    return pageWrapper(
-      <>
-        {conflictModal}
-        <Callout status="error" contentsAs="div">
-          <Text as="p" weight="semibold" mb="1">
-            Conflicts detected
-          </Text>
-          <Text as="p" mb="2">
-            Changes were published to the live version that conflict with this
-            draft. Resolve the conflicts to rebase your draft before publishing.
-          </Text>
-          <Button onClick={() => setResolveConflicts(true)}>
-            Resolve conflicts
-          </Button>
-        </Callout>
-      </>,
-    );
-  }
+  // Hard merge conflicts no longer short-circuit the page: keep the
+  // two-column layout so reviewers can still see draft-vs-live changes
+  // alongside a "Resolve conflicts" CTA in the actions column.
   if (!hasChanges) {
     return pageWrapper(
       <Callout status="info">
@@ -1630,7 +1643,7 @@ export default function ReviewAndPublish({
           const blockInfo: BlockInfo = (() => {
             if (!mergeResult.success)
               return {
-                reason: "Resolve merge conflicts before publishing.",
+                buttonLabel: "Resolve conflicts to publish",
                 overridable: false,
               };
             if (!hasChanges)
@@ -1704,7 +1717,7 @@ export default function ReviewAndPublish({
                   (blockInfo?.overridable || adminPublish) && (
                     <Box mb="3">
                       <Checkbox
-                        label="Bypass checks and publish now (Admins only)"
+                        label="Admin: bypass checks and publish now"
                         weight="regular"
                         value={adminPublish}
                         setValue={(val) => {
@@ -1756,6 +1769,9 @@ export default function ReviewAndPublish({
                       canRebase={permissionsUtil.canManageFeatureDrafts(
                         feature,
                       )}
+                      onResolveConflicts={() => setResolveConflicts(true)}
+                      approvedAt={approvedAt}
+                      revisionsSinceApproval={revisionsSinceApproval}
                     />
                   )}
 
