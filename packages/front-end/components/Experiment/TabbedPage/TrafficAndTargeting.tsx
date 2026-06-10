@@ -15,6 +15,7 @@ import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
+import Button from "@/ui/Button";
 
 export interface Props {
   phaseIndex?: number | null;
@@ -70,9 +71,9 @@ export default function TrafficAndTargeting({
               </Heading>
               <div className="flex-1" />
               {editTraffic && !(isBandit && experiment.status === "running") ? (
-                <button className="btn p-0 link-purple" onClick={editTraffic}>
+                <Button variant="ghost" onClick={editTraffic}>
                   Edit
-                </button>
+                </Button>
               ) : null}
             </div>
 
@@ -189,9 +190,9 @@ export default function TrafficAndTargeting({
               <div className="flex-1" />
               {editTargeting &&
               !(isBandit && experiment.status === "running") ? (
-                <button className="btn p-0 link-purple" onClick={editTargeting}>
+                <Button variant="ghost" onClick={editTargeting}>
                   Edit
-                </button>
+                </Button>
               ) : null}
             </div>
             {hasConfiguredTargeting ? (

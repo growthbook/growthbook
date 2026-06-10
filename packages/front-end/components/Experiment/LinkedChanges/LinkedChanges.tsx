@@ -11,9 +11,9 @@ import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTab
 import Avatar from "@/ui/Avatar";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
-import Link from "@/ui/Link";
 import Frame from "@/ui/Frame";
 import VariationsTable from "@/components/Experiment/VariationsTable";
+import Button from "@/ui/Button";
 import { RedirectLinkedChanges } from "./RedirectLinkedChanges";
 import AddLinkedChangeButton from "./AddLinkedChangeButton";
 import {
@@ -74,9 +74,9 @@ export default function LinkedChanges({
           {isPublic ? "Linked Changes" : "Variations & Values"}
         </Heading>
         {!isPublic && onAddVariation ? (
-          <Link onClick={onAddVariation}>
-            <Text weight="semibold">Edit Variations</Text>
-          </Link>
+          <Button variant="ghost" onClick={onAddVariation}>
+            Edit Variations
+          </Button>
         ) : null}
       </Flex>
       {isPublic ? (

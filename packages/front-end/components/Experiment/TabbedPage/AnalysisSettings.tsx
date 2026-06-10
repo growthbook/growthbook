@@ -17,6 +17,7 @@ import Text from "@/ui/Text";
 import { ExperimentMetricInterfaceWithComputedTargetMDE } from "@/components/Experiment/TabbedPage/DecisionMakingSettings";
 import Heading from "@/ui/Heading";
 import Frame from "@/ui/Frame";
+import Button from "@/ui/Button";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -175,14 +176,9 @@ export default function AnalysisSettings({
           </Heading>
           <div className="flex-1" />
           {canEditAnalysisSettings ? (
-            <button
-              className="btn p-0 link-purple"
-              onClick={() => {
-                setAnalysisModal(true);
-              }}
-            >
+            <Button variant="ghost" onClick={() => setAnalysisModal(true)}>
               Edit
-            </button>
+            </Button>
           ) : null}
         </div>
 

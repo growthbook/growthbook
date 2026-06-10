@@ -251,9 +251,12 @@ export default function SetupTabOverview({
                   </Heading>
                   <Flex align="center" gap="2">
                     {canEditExperiment ? (
-                      <Link onClick={() => setShowDescriptionModal(true)}>
+                      <Button
+                        variant="ghost"
+                        onClick={() => setShowDescriptionModal(true)}
+                      >
                         Edit
-                      </Link>
+                      </Button>
                     ) : null}
                     {experiment.description ? (
                       <FaAngleRight className="chevron" />
@@ -319,7 +322,12 @@ export default function SetupTabOverview({
                 Hypothesis
               </Heading>
               {canEditExperiment && (
-                <Link onClick={() => setShowHypothesisModal(true)}>Edit</Link>
+                <Button
+                  variant="ghost"
+                  onClick={() => setShowHypothesisModal(true)}
+                >
+                  Edit
+                </Button>
               )}
             </Flex>
             {experiment.hypothesis ? (
