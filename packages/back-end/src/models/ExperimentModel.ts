@@ -54,6 +54,7 @@ import {
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
 import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
+import { runValidateExperimentHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
@@ -603,7 +604,7 @@ export async function createExperiment({
     context.org.settings?.updateSchedule || null,
   );
 
-  const exp = await ExperimentModel.create({
+  const experimentToCreate = {
     id: uniqid("exp_"),
     uid: uuidv4().replace(/-/g, ""),
     // If this is a sample experiment, we'll override the id with data.id
@@ -622,7 +623,15 @@ export async function createExperiment({
     autoSnapshots: nextUpdate !== null,
     lastSnapshotAttempt: new Date(),
     nextSnapshotAttempt: nextUpdate,
+  } as ExperimentInterface;
+
+  await runValidateExperimentHooks({
+    context,
+    experiment: experimentToCreate,
+    original: null,
   });
+
+  const exp = await ExperimentModel.create(experimentToCreate);
 
   const experiment = toInterface(exp);
 
@@ -672,6 +681,14 @@ export async function updateExperiment({
   if (allChanges.name === "")
     throw new Error("Cannot set empty name for experiment!");
 
+  const updated = { ...experiment, ...allChanges };
+
+  await runValidateExperimentHooks({
+    context,
+    experiment: updated,
+    original: experiment,
+  });
+
   await ExperimentModel.updateOne(
     {
       id: experiment.id,
@@ -681,8 +698,6 @@ export async function updateExperiment({
       $set: allChanges,
     },
   );
-
-  const updated = { ...experiment, ...allChanges };
 
   await onExperimentUpdate({
     context,

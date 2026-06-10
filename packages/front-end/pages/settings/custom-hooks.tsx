@@ -6,6 +6,7 @@ import { Flex, Kbd, Separator, Text } from "@radix-ui/themes";
 import stringify from "json-stringify-pretty-compact";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { ExperimentInterface } from "shared/types/experiment";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
@@ -65,6 +66,41 @@ const dummyRevision: FeatureRevisionInterface = {
   datePublished: null,
   publishedBy: null,
 };
+const dummyExperiment: ExperimentInterface = {
+  id: "exp_abc123",
+  uid: "abc123",
+  organization: "org_abc123",
+  trackingKey: "my-experiment",
+  name: "My Experiment",
+  project: "",
+  status: "draft",
+  hypothesis: "",
+  description: "",
+  tags: [],
+  owner: "user@example.com",
+  dateCreated: new Date(),
+  dateUpdated: new Date(),
+  archived: false,
+  autoSnapshots: false,
+  hashAttribute: "id",
+  hashVersion: 2,
+  variations: [
+    { id: "v0", key: "0", name: "Control", screenshots: [] },
+    { id: "v1", key: "1", name: "Variation 1", screenshots: [] },
+  ],
+  phases: [],
+  datasource: "",
+  exposureQueryId: "",
+  goalMetrics: [],
+  secondaryMetrics: [],
+  guardrailMetrics: [],
+  decisionFrameworkSettings: {},
+  implementation: "code",
+  autoAssign: false,
+  previewURL: "",
+  targetURLRegex: "",
+  releasedVariationId: "",
+};
 
 const hookTypes: Record<
   CustomHookType,
@@ -100,6 +136,16 @@ const hookTypes: Record<
       },
     },
     example: `\n// Block the save (hard error):\nif (!revision.rules.production || revision.rules.production.length === 0) {\n  throw new Error("At least one production rule is required");\n}\n\n// Or raise a soft warning the user can acknowledge:\nif (!revision.comment) {\n  addWarning("Consider adding a comment describing this change");\n}`,
+  },
+  validateExperiment: {
+    label: "Validate Experiment",
+    availableArguments: {
+      experiment: {
+        description: "The experiment object being validated",
+        testValue: stringify(dummyExperiment),
+      },
+    },
+    example: `\n// Example: require a hypothesis\nif (!experiment.hypothesis) {\n  throw new Error("Experiment must have a hypothesis");\n}`,
   },
 };
 
