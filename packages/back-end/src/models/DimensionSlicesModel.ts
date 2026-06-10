@@ -10,6 +10,16 @@ const BaseClass = MakeModelClass({
 });
 
 export class DimensionSlicesModel extends BaseClass {
+  protected migrate(legacyDoc: unknown): DimensionSlicesInterface {
+    const doc = legacyDoc as DimensionSlicesInterface;
+    return {
+      ...doc,
+      dateCreated: doc.dateCreated ?? new Date(),
+      dateUpdated: doc.dateUpdated ?? new Date(),
+      results: doc.results ?? [],
+    };
+  }
+
   protected canRead(doc: DimensionSlicesInterface): boolean {
     const { datasource } = this.getForeignRefs(doc);
     return this.context.permissions.canReadMultiProjectResource(

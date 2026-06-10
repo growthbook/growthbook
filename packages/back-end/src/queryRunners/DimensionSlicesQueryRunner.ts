@@ -113,12 +113,18 @@ export class DimensionSlicesQueryRunner extends QueryRunner<
     result?: DimensionSlicesResult[] | undefined;
     error?: string | undefined;
   }): Promise<DimensionSlicesInterface> {
-    const updates: UpdateProps<DimensionSlicesInterface> = {
-      queries,
-      runStarted,
-      results,
-      error,
-    };
+    // Omit undefined fields: BaseModel writes through the raw driver, which
+    // serializes undefined as null instead of dropping the key from $set
+    const updates: UpdateProps<DimensionSlicesInterface> = { queries };
+    if (runStarted !== undefined) {
+      updates.runStarted = runStarted;
+    }
+    if (results !== undefined) {
+      updates.results = results;
+    }
+    if (error !== undefined) {
+      updates.error = error;
+    }
     const latest = await this.getLatestModel();
     return this.context.models.dimensionSlices.update(latest, updates);
   }
