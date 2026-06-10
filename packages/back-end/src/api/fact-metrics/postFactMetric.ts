@@ -164,10 +164,8 @@ export async function getCreateMetricPropsFromBody(
 
   if (regressionAdjustmentSettings?.override) {
     data.regressionAdjustmentOverride = true;
-    if (regressionAdjustmentSettings.enabled) {
-      data.regressionAdjustmentEnabled = true;
-    }
-    if (regressionAdjustmentSettings.days) {
+    data.regressionAdjustmentEnabled = !!regressionAdjustmentSettings.enabled;
+    if (regressionAdjustmentSettings.days != null) {
       data.regressionAdjustmentDays = regressionAdjustmentSettings.days;
     }
   }

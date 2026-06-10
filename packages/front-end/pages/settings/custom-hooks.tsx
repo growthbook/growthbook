@@ -85,7 +85,7 @@ const hookTypes: Record<
         testValue: stringify(dummyFeature),
       },
     },
-    example: `\n// Example: require a description\nif (!feature.description) {\n  throw new Error("Feature must have a description");\n}`,
+    example: `\n// Block the save (hard error):\nif (!feature.description) {\n  throw new Error("Feature must have a description");\n}\n\n// Or raise a soft warning the user can acknowledge:\nif (feature.tags.length === 0) {\n  addWarning("Consider adding at least one tag");\n}`,
   },
   validateFeatureRevision: {
     label: "Validate Feature Revision",
@@ -99,7 +99,7 @@ const hookTypes: Record<
         testValue: stringify(dummyRevision),
       },
     },
-    example: `\n// Example: require at least one rule in production\nif (!revision.rules.production || revision.rules.production.length === 0) {\n  throw new Error("At least one production rule is required");\n}`,
+    example: `\n// Block the save (hard error):\nif (!revision.rules.production || revision.rules.production.length === 0) {\n  throw new Error("At least one production rule is required");\n}\n\n// Or raise a soft warning the user can acknowledge:\nif (!revision.comment) {\n  addWarning("Consider adding a comment describing this change");\n}`,
   },
 };
 
@@ -142,6 +142,7 @@ function CustomHooksModal({
     status: "" | "success" | "error";
     returnVal?: string;
     error?: string;
+    warnings?: string[];
     log?: string;
   }>({ status: "" });
 
@@ -150,6 +151,7 @@ function CustomHooksModal({
       success: boolean;
       returnVal?: string;
       error?: string;
+      warnings?: string[];
       log?: string;
     }>("/custom-hooks/test", {
       method: "POST",
@@ -170,6 +172,7 @@ function CustomHooksModal({
       status: res.success ? "success" : "error",
       returnVal: res.returnVal,
       error: res.error,
+      warnings: res.warnings,
       log: res.log,
     });
   };
@@ -252,6 +255,12 @@ function CustomHooksModal({
             )}
           </ul>
 
+          <Text as="p" size="1" color="gray" mb="2">
+            Call <code>throw new Error(...)</code> to block the action, or{" "}
+            <code>addWarning(...)</code> for a soft warning the user can
+            acknowledge and override.
+          </Text>
+
           <CodeTextArea
             language="javascript"
             label="Javascript Code"
@@ -298,7 +307,7 @@ function CustomHooksModal({
               <Kbd size="1">{modKey} + Enter</Kbd>
             </Flex>
           </Button>
-          {testResult.status === "success" && (
+          {testResult.status === "success" && !testResult.warnings?.length && (
             <Callout mt="3" status="success">
               Success!
             </Callout>
@@ -307,6 +316,16 @@ function CustomHooksModal({
             <Callout mt="3" status="error">
               Error!
             </Callout>
+          )}
+          {testResult.warnings && testResult.warnings.length > 0 && (
+            <div className="mt-3">
+              <strong>Warnings:</strong>
+              {testResult.warnings.map((w, i) => (
+                <Callout key={i} status="warning" mt="2">
+                  {w}
+                </Callout>
+              ))}
+            </div>
           )}
           {testResult.returnVal && (
             <div className="mt-3">

@@ -3,7 +3,7 @@ import { sandboxEval } from "../src/enterprise/sandbox/sandbox-eval";
 describe("sandboxEval", () => {
   it("should evaluate a function in a sandboxed environment", async () => {
     const result = await sandboxEval("return num + 1", { num: 2 });
-    expect(result).toEqual({ ok: true, returnVal: 3, log: "" });
+    expect(result).toEqual({ ok: true, returnVal: 3, log: "", warnings: [] });
   });
 
   it("should return an error for invalid code", async () => {
@@ -12,6 +12,7 @@ describe("sandboxEval", () => {
       ok: false,
       error: expect.stringContaining("Unexpected identifier 'code'"),
       log: "",
+      warnings: [],
     });
   });
 
@@ -21,6 +22,7 @@ describe("sandboxEval", () => {
       ok: false,
       error: expect.stringContaining("Test error"),
       log: "",
+      warnings: [],
     });
   });
 
@@ -30,6 +32,7 @@ describe("sandboxEval", () => {
       ok: false,
       error: expect.stringContaining("Script execution timed out"),
       log: "",
+      warnings: [],
     });
   });
 
@@ -52,6 +55,37 @@ describe("sandboxEval", () => {
       ok: false,
       error: expect.stringContaining("Array buffer allocation failed"),
       log: "",
+      warnings: [],
     });
+  });
+
+  it("should collect warnings raised via addWarning", async () => {
+    const result = await sandboxEval(
+      `addWarning("first"); addWarning("second");`,
+      {},
+    );
+    expect(result).toEqual({
+      ok: true,
+      log: "",
+      warnings: ["first", "second"],
+    });
+  });
+
+  it("should still report a thrown error even if warnings were raised", async () => {
+    const result = await sandboxEval(
+      `addWarning("a warning"); throw new Error("hard error");`,
+      {},
+    );
+    expect(result).toEqual({
+      ok: false,
+      error: expect.stringContaining("hard error"),
+      log: "",
+      warnings: ["a warning"],
+    });
+  });
+
+  it("should return no warnings when addWarning is not called", async () => {
+    const result = await sandboxEval("return 1", {});
+    expect(result).toEqual({ ok: true, returnVal: 1, log: "", warnings: [] });
   });
 });
