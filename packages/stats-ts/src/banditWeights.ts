@@ -1,5 +1,5 @@
 /** Gaussian-Gaussian Thompson weighting for bandit variation weights. */
-import { randomNormal } from "./utils";
+import { normCdf, randomNormal } from "./utils";
 
 const BANDIT_PRIOR_MEAN = 0;
 const BANDIT_PRIOR_VARIANCE = 1e4;
@@ -20,31 +20,13 @@ export type VariationWeightResult = {
   error: string;
 };
 
-function normalCdf(x: number, mean: number, sd: number): number {
-  return 0.5 * (1 + erf((x - mean) / (sd * Math.SQRT2)));
-}
-
-function erf(x: number): number {
-  // Abramowitz & Stegun approximation, max error 1.5e-7
-  const t = 1 / (1 + 0.3275911 * Math.abs(x));
-  const p =
-    t *
-    (0.254829592 +
-      t *
-        (-0.284496736 +
-          t * (1.421413741 + t * (-1.453152027 + t * 1.061405429))));
-  const v = 1 - p * Math.exp(-x * x);
-  return x >= 0 ? v : -v;
-}
-
 /**
  * Sum of log Φ over the non-k arms.
  *
- * Guards against CDF underflow: the `erf` approximation can return a value that
- * is exactly 0 (or, within its ~1.5e-7 error, slightly negative) for arguments
- * deep in the lower tail. The Gauss-Hermite nodes reach far into the tails, so
- * clamp to the smallest positive double before taking the log to avoid
- * `-Infinity`/`NaN`.
+ * Guards against CDF underflow: the normal CDF can return exactly 0 for
+ * arguments deep in the lower tail. The Gauss-Hermite nodes reach far into the
+ * tails, so clamp to the smallest positive double before taking the log to
+ * avoid `-Infinity`/`NaN`.
  */
 function logProdOtherCdfs(
   x: number,
@@ -55,7 +37,7 @@ function logProdOtherCdfs(
   let logProd = 0;
   for (let i = 0; i < means.length; i++) {
     if (i !== k) {
-      const cdf = normalCdf(x, means[i], sds[i]);
+      const cdf = normCdf(x, means[i], sds[i]);
       logProd += Math.log(cdf > 0 ? cdf : Number.MIN_VALUE);
     }
   }
