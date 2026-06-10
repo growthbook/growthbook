@@ -36,8 +36,7 @@ export type ApiCallType<T> = (
   errorHandler?: ErrorHandler,
 ) => Promise<T>;
 
-// Append the `ignoreWarnings` flag so the server skips soft warnings on retry.
-// Handles URLs that already carry a querystring.
+// Append the ignoreWarnings flag so the server skips soft warnings on retry.
 export function appendIgnoreWarnings(url: string): string {
   return url + (url.includes("?") ? "&" : "?") + "ignoreWarnings=true";
 }
@@ -52,8 +51,7 @@ export interface AuthContextValue {
     errorHandler?: ErrorHandler,
   ) => Promise<T>;
   fetchRaw: (url: string, options?: RequestInit) => Promise<Response>;
-  // Show the global "Save anyway?" dialog for soft warnings returned by the API.
-  // Resolves true if the user chooses to proceed, false if they cancel.
+  // Show the global "Save anyway?" dialog; resolves true if the user proceeds.
   confirmIgnoreWarnings: (warnings: string[]) => Promise<boolean>;
   ssoConnectionId: string;
   orgId: string | null;
@@ -234,8 +232,7 @@ export const AuthProvider: React.FC<{
   const [authComponent, setAuthComponent] = useState<ReactElement | null>(null);
   const [initError, setInitError] = useState("");
   const [sessionError, setSessionError] = useState(false);
-  // Soft warnings returned by the API, shown in a global "Save anyway?" dialog.
-  // Batch together multiple concurrent warnings (e.g. from Promise.all)
+  // Pending soft-warning requests, batched so concurrent ones share one dialog.
   const pendingWarnings = useRef<
     { warnings: string[]; resolve: (proceed: boolean) => void }[]
   >([]);
@@ -446,8 +443,7 @@ export const AuthProvider: React.FC<{
     [orgId, token],
   );
 
-  // Register a warning request and (re)render the combined dialog. All pending
-  // requests share one dialog; resolving it applies the same choice to each.
+  // Register a warning request; all pending requests share one dialog.
   const confirmIgnoreWarnings = useCallback((warnings: string[]) => {
     return new Promise<boolean>((resolve) => {
       pendingWarnings.current.push({ warnings, resolve });
@@ -510,8 +506,7 @@ export const AuthProvider: React.FC<{
           );
         }
 
-        // Soft warning from a server-side validation hook. Let the user
-        // acknowledge it, then re-submit the same request ignoring warnings.
+        // Soft warning: let the user acknowledge, then re-submit ignoring warnings.
         if (
           responseData.status === 422 &&
           Array.isArray(responseData.warnings)

@@ -956,3 +956,50 @@ describe("Role permissions", () => {
     expect(p.canDeleteOfficialResources(projectsResource)).toBe(true);
   });
 });
+
+describe("canManageFeatureCustomHooks", () => {
+  const testOrg: OrganizationInterface = {
+    id: "org_sktwi1id9l7z9xkjb",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [],
+    settings: {
+      environments: [{ id: "production", description: "" }],
+    },
+  };
+
+  function getPermissions(role: string) {
+    return new Permissions({
+      global: {
+        permissions: roleToPermissionMap(role, testOrg),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    });
+  }
+
+  const featureResource = { project: "" };
+
+  it("lets admins manage feature hooks (they have manageFeatures)", () => {
+    expect(
+      getPermissions("admin").canManageFeatureCustomHooks(featureResource),
+    ).toBe(true);
+  });
+
+  it("lets feature editors manage feature hooks", () => {
+    // engineer has manageFeatures
+    expect(
+      getPermissions("engineer").canManageFeatureCustomHooks(featureResource),
+    ).toBe(true);
+  });
+
+  it("does not let users without feature edit access manage hooks", () => {
+    expect(
+      getPermissions("readonly").canManageFeatureCustomHooks(featureResource),
+    ).toBe(false);
+  });
+});
