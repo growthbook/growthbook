@@ -1,5 +1,5 @@
 import { getFeatureV2Validator } from "shared/validators";
-import { stemRuleId } from "shared/util";
+import { stemRuleId, stringToBoolean } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
 import {
   getFeatureRevisionsByStatus,
@@ -82,10 +82,11 @@ export const getFeatureV2 = createApiRequestHandler(getFeatureV2Validator)(
       req.params.id,
       req.query.withRevisions,
     );
-    const dependents = await computeFeatureDependents(
-      req.context,
-      data.feature,
-    );
+    // Computing dependents requires scanning the org's full feature and
+    // experiment sets, so it's opt-in on read paths.
+    const dependents = stringToBoolean(req.query.includeDependents?.toString())
+      ? await computeFeatureDependents(req.context, data.feature)
+      : undefined;
     return {
       feature: await resolveOwnerEmail(
         getApiFeatureObjV2({

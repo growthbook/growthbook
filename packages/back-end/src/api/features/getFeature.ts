@@ -1,3 +1,4 @@
+import { stringToBoolean } from "shared/util";
 import { getFeatureValidator } from "shared/validators";
 import {
   getFeatureRevisionsByStatus,
@@ -30,7 +31,11 @@ export const getFeature = createApiRequestHandler(getFeatureValidator)(async (
     req.context,
     feature.id,
   );
-  const dependents = await computeFeatureDependents(req.context, feature);
+  // Computing dependents requires scanning the org's full feature and
+  // experiment sets, so it's opt-in on read paths.
+  const dependents = stringToBoolean(req.query.includeDependents?.toString())
+    ? await computeFeatureDependents(req.context, feature)
+    : undefined;
   const safeRolloutMap =
     await req.context.models.safeRollout.getAllPayloadSafeRollouts();
   const revision = await getRevision({

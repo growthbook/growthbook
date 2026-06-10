@@ -66,8 +66,9 @@ export async function deleteFeatureHandler(
   // feature as a prerequisite — matches the internal UI's delete modal.
   // `bypassDependentsCheck=true` overrides for callers that intend to clean
   // up the references afterwards.
-  const bypassDependentsCheck =
-    stringToBoolean(req.query.bypassDependentsCheck?.toString()) ?? false;
+  const bypassDependentsCheck = stringToBoolean(
+    req.query.bypassDependentsCheck?.toString(),
+  );
   if (!bypassDependentsCheck) {
     const dependents = await computeFeatureDependents(req.context, feature);
     if (hasDependents(dependents)) {

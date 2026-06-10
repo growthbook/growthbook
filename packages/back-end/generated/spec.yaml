@@ -1344,6 +1344,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
         - $ref: '#/components/parameters/withRevisions'
+        - $ref: '#/components/parameters/includeDependents'
       responses:
         '200':
           content:
@@ -6203,6 +6204,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/id'
         - $ref: '#/components/parameters/withRevisions'
+        - $ref: '#/components/parameters/includeDependents'
       responses:
         '200':
           content:
@@ -30544,6 +30546,28 @@ components:
           - drafts
           - published
           - none
+    includeDependents:
+      name: includeDependents
+      in: query
+      description: >-
+        Set to true to also return the features and experiments that use this
+        feature as a prerequisite. Requires scanning the org's full feature and
+        experiment sets, so it's opt-in.
+      schema:
+        description: >-
+          Set to true to also return the features and experiments that use this
+          feature as a prerequisite. Requires scanning the org's full feature
+          and experiment sets, so it's opt-in.
+        anyOf:
+          - type: string
+            const: 'true'
+          - type: string
+            const: 'false'
+          - type: string
+            const: '0'
+          - type: string
+            const: '1'
+          - type: boolean
     bypassDependentsCheck:
       name: bypassDependentsCheck
       in: query
@@ -30978,8 +31002,9 @@ components:
         dependents:
           description: >-
             Features and experiments that use this feature as a prerequisite.
-            Changing or removing this feature may affect them. Only included on
-            single-feature responses (not the list endpoint).
+            Changing or removing this feature may affect them. Included on
+            create/update responses, and on single-feature GET responses when
+            `includeDependents=true` is passed.
           type: object
           properties:
             features:
@@ -32815,8 +32840,9 @@ components:
         dependents:
           description: >-
             Features and experiments that use this feature as a prerequisite.
-            Changing or removing this feature may affect them. Only included on
-            single-feature responses (not the list endpoint).
+            Changing or removing this feature may affect them. Included on
+            create/update responses, and on single-feature GET responses when
+            `includeDependents=true` is passed.
           type: object
           properties:
             features:

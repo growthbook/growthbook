@@ -523,6 +523,9 @@ export const getFeatureV2Validator = {
           "Also return feature revisions (all, draft, or published statuses)",
         )
         .optional(),
+      includeDependents: booleanQueryField.describe(
+        "Set to true to also return the features and experiments that use this feature as a prerequisite. Requires scanning the org's full feature and experiment sets, so it's opt-in.",
+      ),
     })
     .strict(),
   paramsSchema: idParams,

@@ -174,6 +174,8 @@ describe("features API", () => {
 
     // Default write mocks — individual tests can override as needed.
     (getFeature as jest.Mock).mockReturnValue(undefined);
+    (getAllFeatures as jest.Mock).mockResolvedValue([]);
+    (getAllExperiments as jest.Mock).mockResolvedValue([]);
     (addTags as jest.Mock).mockReturnValue(undefined);
     (createFeature as jest.Mock).mockImplementation((v) => v);
     (updateFeature as jest.Mock).mockImplementation((ctx, f, updates) =>
@@ -1034,20 +1036,19 @@ describe("features API", () => {
       ],
     };
 
-    const mockDependentsOnce = () => {
-      (getAllFeatures as jest.Mock).mockResolvedValueOnce([
+    // Safe to use persistent mocks here: beforeEach resets both back to [].
+    const mockDependents = () => {
+      (getAllFeatures as jest.Mock).mockResolvedValue([
         dependentFeature,
         makeFeature(),
       ]);
-      (getAllExperiments as jest.Mock).mockResolvedValueOnce([
-        dependentExperiment,
-      ]);
+      (getAllExperiments as jest.Mock).mockResolvedValue([dependentExperiment]);
     };
 
     it("returns a non-blocking warning when updating a feature with dependents", async () => {
       defaultContext();
       (getFeature as jest.Mock).mockResolvedValue(makeFeature());
-      mockDependentsOnce();
+      mockDependents();
 
       const response = await request(app)
         .post("/api/v1/features/myfeature")
@@ -1087,7 +1088,7 @@ describe("features API", () => {
     it("blocks archiving a feature with dependents", async () => {
       defaultContext();
       (getFeature as jest.Mock).mockResolvedValue(makeFeature());
-      mockDependentsOnce();
+      mockDependents();
 
       const response = await request(app)
         .post("/api/v1/features/myfeature")
@@ -1104,7 +1105,7 @@ describe("features API", () => {
     it("archives a feature with dependents when bypassDependentsCheck is true", async () => {
       defaultContext();
       (getFeature as jest.Mock).mockResolvedValue(makeFeature());
-      mockDependentsOnce();
+      mockDependents();
 
       const response = await request(app)
         .post("/api/v1/features/myfeature")
@@ -1123,7 +1124,7 @@ describe("features API", () => {
       (getFeature as jest.Mock).mockResolvedValue(
         makeFeature({ archived: true }),
       );
-      mockDependentsOnce();
+      mockDependents();
 
       const response = await request(app)
         .post("/api/v1/features/myfeature")
@@ -1145,7 +1146,7 @@ describe("features API", () => {
       (getFeature as jest.Mock).mockResolvedValue(
         makeFeature({ archived: true }),
       );
-      mockDependentsOnce();
+      mockDependents();
 
       const response = await request(app).delete("/api/v1/features/myfeature");
 
@@ -1164,8 +1165,7 @@ describe("features API", () => {
       (getFeature as jest.Mock).mockResolvedValue(
         makeFeature({ archived: true }),
       );
-      // No mockDependentsOnce(): the bypass skips the dependents lookup
-      // entirely, so queued one-time mocks would leak into later tests.
+      mockDependents();
 
       const response = await request(app).delete(
         "/api/v1/features/myfeature?bypassDependentsCheck=true",
@@ -1174,6 +1174,9 @@ describe("features API", () => {
       expect(response.status).toBe(200);
       expect(response.body.deletedId).toBe("myfeature");
       expect(deleteFeature).toHaveBeenCalled();
+      // The bypass skips the dependents lookup entirely
+      expect(getAllFeatures).not.toHaveBeenCalled();
+      expect(getAllExperiments).not.toHaveBeenCalled();
     });
 
     it("deletes a feature without dependents", async () => {

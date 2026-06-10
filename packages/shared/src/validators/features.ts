@@ -1023,7 +1023,7 @@ export type ApiFeatureDependents = z.infer<
 
 export const apiFeatureDependentsField = apiFeatureDependentsValidator
   .describe(
-    "Features and experiments that use this feature as a prerequisite. Changing or removing this feature may affect them. Only included on single-feature responses (not the list endpoint).",
+    "Features and experiments that use this feature as a prerequisite. Changing or removing this feature may affect them. Included on create/update responses, and on single-feature GET responses when `includeDependents=true` is passed.",
   )
   .optional();
 
@@ -1428,6 +1428,9 @@ export const getFeatureValidator = {
           "Also return feature revisions (all, draft, or published statuses)",
         )
         .optional(),
+      includeDependents: booleanQueryField.describe(
+        "Set to true to also return the features and experiments that use this feature as a prerequisite. Requires scanning the org's full feature and experiment sets, so it's opt-in.",
+      ),
     })
     .strict(),
   paramsSchema: idParams,
