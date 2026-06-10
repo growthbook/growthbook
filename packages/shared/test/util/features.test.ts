@@ -1480,6 +1480,51 @@ describe("assertSchemaMatchesValueType", () => {
     ).toThrow();
   });
 
+  it("allows type-less schemas with an enum matching the value type", () => {
+    expect(() =>
+      assertSchemaMatchesValueType(
+        rawSchema({ enum: ["red", "green", "blue"] }),
+        "string",
+      ),
+    ).not.toThrow();
+    expect(() =>
+      assertSchemaMatchesValueType(rawSchema({ enum: [1, 2, 3] }), "number"),
+    ).not.toThrow();
+  });
+
+  it("rejects type-less schemas whose enum values don't match the value type", () => {
+    expect(() =>
+      assertSchemaMatchesValueType(rawSchema({ enum: [1, 2, 3] }), "string"),
+    ).toThrow();
+    expect(() =>
+      assertSchemaMatchesValueType(rawSchema({ enum: ["red", 2] }), "string"),
+    ).toThrow();
+    expect(() =>
+      assertSchemaMatchesValueType(rawSchema({ enum: ["1", "2"] }), "number"),
+    ).toThrow();
+  });
+
+  it("rejects type-less schemas without an enum", () => {
+    expect(() =>
+      assertSchemaMatchesValueType(
+        rawSchema({ properties: { test: { type: "string" } } }),
+        "string",
+      ),
+    ).toThrow();
+    expect(() =>
+      assertSchemaMatchesValueType(
+        rawSchema({ items: { type: "number" } }),
+        "number",
+      ),
+    ).toThrow();
+    expect(() =>
+      assertSchemaMatchesValueType(
+        rawSchema({ anyOf: [{ const: "a" }, { const: "b" }] }),
+        "string",
+      ),
+    ).toThrow();
+  });
+
   it("does not enforce anything when the schema is disabled", () => {
     expect(() =>
       assertSchemaMatchesValueType(

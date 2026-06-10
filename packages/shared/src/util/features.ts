@@ -354,19 +354,46 @@ export function assertSchemaMatchesValueType(
   }
 
   // Determine the schema's top-level JSON type
-  let topType: unknown;
+  let parsed: unknown;
   try {
     const schemaString =
       jsonSchema.schemaType === "simple"
         ? simpleToJSONSchema(jsonSchema.simple)
         : jsonSchema.schema;
-    topType = JSON.parse(schemaString)?.type;
+    parsed = JSON.parse(schemaString);
   } catch (e) {
     throw new Error(
       `Invalid validation schema: ${
         e instanceof Error ? e.message : String(e)
       }`,
     );
+  }
+  const schemaObj: Record<string, unknown> =
+    parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
+  const topType = schemaObj.type;
+
+  // Schemas without an explicit top-level "type" are only allowed when they
+  // restrict values with an "enum" whose entries all match the feature's
+  // value type (e.g. {"enum": ["red", "green"]} for a string feature).
+  if (topType === undefined) {
+    const enumValues = schemaObj.enum;
+    if (!Array.isArray(enumValues)) {
+      throw new Error(
+        `A ${valueType} feature's validation schema must have a top-level "type" or "enum".`,
+      );
+    }
+    if (
+      !enumValues.every((v) =>
+        valueType === "number" ? typeof v === "number" : typeof v === "string",
+      )
+    ) {
+      throw new Error(
+        `All "enum" values in a ${valueType} feature's validation schema must be of type "${valueType}".`,
+      );
+    }
+    return;
   }
 
   if (valueType === "number") {

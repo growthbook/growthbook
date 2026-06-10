@@ -208,6 +208,7 @@ function dispatch() {
       warnings: [],
     });
     recycle(worker);
+    dispatch();
   }
 }
 
