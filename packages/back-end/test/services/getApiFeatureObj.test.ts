@@ -3,11 +3,11 @@ import { OrganizationInterface } from "shared/types/organization";
 import { ExperimentInterface } from "shared/types/experiment";
 import { SafeRolloutInterface } from "shared/types/safe-rollout";
 import { GroupMap } from "shared/types/saved-group";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   getApiFeatureObj,
   getApiFeatureObjV2,
 } from "back-end/src/services/features";
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { migrateRawFeatureToV2 } from "back-end/src/models/FeatureModel";
 import { ReqContext } from "back-end/types/request";
 
