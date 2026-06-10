@@ -168,41 +168,29 @@ export const postAIImageGen = createApiRequestHandler(validation)(async (
     beforeBytes += img.buffer.length;
     afterBytes += optimized.buffer.length;
     const filePath = `gen/${org.id}/visual-editor/img_${uuidv4()}.${optimized.ext}`;
-    try {
-      const url = await uploadFile(
-        filePath,
-        optimized.contentType,
-        optimized.buffer,
-        "visual-editor-assets",
-      );
-      images.push({
-        url,
-        width: optimized.width,
-        height: optimized.height,
-      });
-    } catch (err) {
-      // Generation succeeded (and was billed) but the S3/GCS push failed.
-      // Without this, the only signal is a bare 400 to the extension,
-      // which doesn't surface it — i.e. the user sees a silent failure.
-      // Log which image/key failed, then re-throw so we don't return a
-      // partial-but-looks-successful batch.
-      logger.error(
-        {
-          err,
-          orgId: org.id,
-          userId: context.userId,
-          visualChangesetId,
-          imageIndex: i,
-          totalGenerated: generated.length,
-          uploadedSoFar: images.length,
-          filePath,
-          contentType: optimized.contentType,
-          bytes: optimized.buffer.length,
-        },
-        "[visual-editor-ai/image-gen] upload to visual-editor-assets failed",
-      );
-      throw err;
-    }
+    // If the S3/GCS push fails, uploadFile logs a single rich entry (bucket/
+    // region/key + this context) and re-throws, surfacing as an error to the
+    // caller — so we deliberately don't catch-and-log again here, which would
+    // double-count the same failure.
+    const url = await uploadFile(
+      filePath,
+      optimized.contentType,
+      optimized.buffer,
+      "visual-editor-assets",
+      {
+        orgId: org.id,
+        userId: context.userId,
+        visualChangesetId,
+        imageIndex: i,
+        totalGenerated: generated.length,
+        uploadedSoFar: images.length,
+      },
+    );
+    images.push({
+      url,
+      width: optimized.width,
+      height: optimized.height,
+    });
   }
 
   logger.info(

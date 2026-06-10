@@ -19069,8 +19069,6 @@ paths:
                         additionalProperties: false
                     required:
                       - interval
-                      - actions
-                      - monitored
                     additionalProperties: false
                 startActions:
                   type: array
@@ -22890,12 +22888,6 @@ paths:
                   required:
                     - url
                     - title
-                    - structural
-                    - headings
-                    - buttons
-                    - links
-                    - inputs
-                    - images
                   additionalProperties: false
                 conversationHistory:
                   maxItems: 12
@@ -22924,7 +22916,6 @@ paths:
                   type: boolean
               required:
                 - prompt
-                - elementContext
                 - variationId
                 - visualChangesetId
               additionalProperties: false
@@ -23202,8 +23193,6 @@ paths:
                         minLength: 1
                         maxLength: 2000
                     required:
-                      - include
-                      - type
                       - pattern
                     additionalProperties: false
                 project:
@@ -23229,7 +23218,6 @@ paths:
                 - pageUrl
                 - urlPatterns
                 - hashAttribute
-                - type
               additionalProperties: false
       responses:
         '200':
@@ -23278,8 +23266,6 @@ paths:
                         minLength: 1
                         maxLength: 2000
                     required:
-                      - include
-                      - type
                       - pattern
                     additionalProperties: false
               required:
@@ -30950,7 +30936,6 @@ paths:
                         additionalProperties: false
                     required:
                       - interval
-                      - monitored
                     additionalProperties: false
                 startActions:
                   type: array

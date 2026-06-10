@@ -100,6 +100,10 @@ export async function uploadFile(
   contentType: string,
   contents: Buffer,
   destination: UploadDestination = "private",
+  // Optional caller context (e.g. orgId, userId) merged into the upload-failure
+  // log so a single, richer entry is emitted per failure — callers should NOT
+  // catch-and-log again on top of this.
+  logContext: Record<string, unknown> = {},
 ) {
   // Watch out for poison null bytes
   if (filePath.indexOf("\0") !== -1) {
@@ -128,6 +132,7 @@ export async function uploadFile(
       // re-throwing so the original failure still surfaces to the caller.
       logger.error(
         {
+          ...logContext,
           err,
           destination,
           bucket: cfg.s3Bucket,
@@ -157,6 +162,7 @@ export async function uploadFile(
     } catch (err) {
       logger.error(
         {
+          ...logContext,
           err,
           destination,
           bucket: cfg.gcsBucket,
