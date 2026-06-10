@@ -253,15 +253,12 @@ export function reconcileEventForwarderManagedExposureQueries({
   userIdTypes,
   params,
   attributeSchema,
-  managedExposureQueryIds = [],
 }: {
   existing: ExposureQuery[];
   userIdTypes: string[];
   params: GenerateEventForwarderExposureQueriesParams;
   attributeSchema?: SDKAttributeSchema;
-  managedExposureQueryIds?: string[];
 }): ExposureQuery[] {
-  const managedIds = new Set(managedExposureQueryIds);
   const desiredManaged = generateEventForwarderExposureQueries(
     userIdTypes,
     params,
@@ -269,11 +266,7 @@ export function reconcileEventForwarderManagedExposureQueries({
   );
 
   return [
-    ...existing.filter(
-      (query) =>
-        !isEventForwarderManagedExposureQuery(query) &&
-        !managedIds.has(query.id),
-    ),
+    ...existing.filter((query) => !isEventForwarderManagedExposureQuery(query)),
     ...desiredManaged,
   ];
 }

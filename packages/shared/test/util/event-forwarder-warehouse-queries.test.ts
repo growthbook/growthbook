@@ -298,7 +298,7 @@ describe("reconcileEventForwarderManagedExposureQueries", () => {
     );
   });
 
-  it("removes stored managed query ids even if managedBy is missing", () => {
+  it("preserves queries without the managed marker", () => {
     const reconciled = reconcileEventForwarderManagedExposureQueries({
       existing: [
         {
@@ -322,10 +322,16 @@ describe("reconcileEventForwarderManagedExposureQueries", () => {
         database: "DB",
         schema: "PUBLIC",
       },
-      managedExposureQueryIds: ["stored_managed"],
     });
 
     expect(reconciled).toEqual([
+      {
+        id: "stored_managed",
+        userIdType: "legacy_id",
+        name: "legacy_id",
+        dimensions: [],
+        query: "SELECT legacy_id",
+      },
       {
         id: "custom_query",
         userIdType: "custom_id",
