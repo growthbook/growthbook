@@ -71,7 +71,6 @@ export async function postIdeas(
     userName: data.userName,
     project: data.project,
     tags: data.tags ?? [],
-    votes: data.votes,
     estimateParams: data.estimateParams,
     archived: data.archived ?? false,
     impactScore: data.impactScore ?? 0,
@@ -167,7 +166,6 @@ export async function postIdea(
   "project" in data && (updates.project = data.project);
   "tags" in data && (updates.tags = data.tags);
   "archived" in data && (updates.archived = data.archived);
-  data.votes && (updates.votes = data.votes);
   "impactScore" in data && (updates.impactScore = data.impactScore);
   data.experimentLength && (updates.experimentLength = data.experimentLength);
   data.estimateParams && (updates.estimateParams = data.estimateParams);

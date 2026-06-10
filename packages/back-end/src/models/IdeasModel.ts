@@ -1,8 +1,26 @@
 import { IdeaInterface } from "shared/types/idea";
+import { Vote } from "shared/types/vote";
 import { ideaValidator } from "shared/validators";
 import { UpdateProps } from "shared/types/base-model";
-import { addTags, addTagsDiff } from "back-end/src/models/TagModel";
 import { MakeModelClass } from "./BaseModel";
+
+// Documents written by the legacy mongoose model can be missing fields the
+// validator requires. In particular, the old vote sub-schema never persisted
+// dateUpdated (it wasn't a schema path, so mongoose stripped it on save).
+type LegacyIdea = Omit<
+  IdeaInterface,
+  "archived" | "tags" | "impactScore" | "experimentLength" | "userId" | "votes"
+> & {
+  archived?: boolean;
+  tags?: string[];
+  impactScore?: number;
+  experimentLength?: number;
+  userId?: string | null;
+  votes?: (Omit<Vote, "dir" | "dateUpdated"> & {
+    dir: number;
+    dateUpdated?: Date;
+  })[];
+};
 
 const BaseClass = MakeModelClass({
   schema: ideaValidator,
@@ -38,19 +56,21 @@ export class IdeasModel extends BaseClass {
     return this.context.permissions.canDeleteIdea(doc);
   }
 
-  protected async afterCreate(doc: IdeaInterface) {
-    if (doc.tags.length > 0) {
-      await addTags(doc.organization, doc.tags);
-    }
-  }
-
-  protected async afterUpdate(
-    existing: IdeaInterface,
-    updates: UpdateProps<IdeaInterface>,
-  ) {
-    if (updates.tags && updates.tags.length > 0) {
-      await addTagsDiff(this.context.org.id, existing.tags || [], updates.tags);
-    }
+  protected migrate(legacyDoc: unknown): IdeaInterface {
+    const doc = legacyDoc as LegacyIdea;
+    return {
+      ...doc,
+      archived: doc.archived ?? false,
+      tags: doc.tags ?? [],
+      impactScore: doc.impactScore ?? 0,
+      experimentLength: doc.experimentLength ?? 0,
+      userId: doc.userId ?? null,
+      votes: doc.votes?.map((v) => ({
+        ...v,
+        dir: v.dir > 0 ? 1 : -1,
+        dateUpdated: v.dateUpdated ?? v.dateCreated,
+      })),
+    };
   }
 
   public getAllByProject(project?: string): Promise<IdeaInterface[]> {

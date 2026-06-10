@@ -11,7 +11,9 @@ export const voteValidator = z.object({
 });
 
 export const estimateParamsValidator = z.object({
-  segment: z.string(),
+  // Deleting a segment $unsets this field from existing ideas, so documents
+  // can have estimateParams without a segment
+  segment: z.string().optional(),
   estimate: z.string(),
   improvement: z.number(),
   numVariations: z.number(),
