@@ -55,12 +55,11 @@ function decryptSinkConfig<T extends SinkConfig>(encrypted: string): T {
   return JSON.parse(AES.decrypt(encrypted, ENCRYPTION_KEY).toString(enc.Utf8));
 }
 
-export async function getEventForwarderConfigForDatasource(
+export async function getEventForwarderForDatasource(
   context: ReqContext,
   datasourceId: string,
 ): Promise<EventForwarderConfigInterface | null> {
-  const configs = await context.models.eventForwarderConfigs.getAll();
-  return configs.find((config) => config.datasourceId === datasourceId) ?? null;
+  return context.models.eventForwarderConfigs.getByDatasourceId(datasourceId);
 }
 
 export async function hasAnyEventForwarderConfig(
@@ -432,6 +431,21 @@ export function isEventForwarderDraftUnchanged(
   );
 }
 
+export function toEventForwarderConfigWithMetadata(
+  config: EventForwarderConfigInterface | null | undefined,
+): EventForwarderConfigWithMetadata | null {
+  const draft = toEventForwarderConfigDraft(config ?? null);
+  if (!config || !draft) return null;
+
+  return {
+    ...draft,
+    status: config.status,
+    connectorName: config.connectorName,
+    connectorId: config.connectorId,
+    lastProvisioningError: config.lastProvisioningError,
+  };
+}
+
 export async function getEventForwarderConfigDraftForDatasource(
   context: ReqContext,
   datasource: Pick<DataSourceInterface, "type" | "id">,
@@ -439,35 +453,19 @@ export async function getEventForwarderConfigDraftForDatasource(
   const sinkType = getEventForwarderSinkTypeForDatasource(datasource);
   if (!sinkType) return null;
 
-  const existing = await getEventForwarderConfigForDatasource(
-    context,
-    datasource.id,
-  );
+  const existing = await getEventForwarderForDatasource(context, datasource.id);
   return toEventForwarderConfigDraft(existing);
 }
 
-export async function getEventForwarderConfigWithMetadataForDatasource(
+export async function getEventForwarderMetadataForDatasource(
   context: ReqContext,
   datasource: Pick<DataSourceInterface, "type" | "id">,
 ): Promise<EventForwarderConfigWithMetadata | null> {
   const sinkType = getEventForwarderSinkTypeForDatasource(datasource);
   if (!sinkType) return null;
 
-  const existing = await getEventForwarderConfigForDatasource(
-    context,
-    datasource.id,
-  );
-  const draft = toEventForwarderConfigDraft(existing);
-  if (!existing || !draft) return null;
-
-  return {
-    ...draft,
-    status: existing.status,
-    connectorName: existing.connectorName,
-    connectorId: existing.connectorId,
-    lastProvisioningError: existing.lastProvisioningError,
-    managedResources: existing.managedResources,
-  };
+  const existing = await getEventForwarderForDatasource(context, datasource.id);
+  return toEventForwarderConfigWithMetadata(existing);
 }
 
 export async function syncEventForwarderConfigFromDatasource({
@@ -488,14 +486,11 @@ export async function syncEventForwarderConfigFromDatasource({
 
   if (!sinkType || draft === undefined) {
     return sinkType
-      ? getEventForwarderConfigForDatasource(context, datasource.id)
+      ? getEventForwarderForDatasource(context, datasource.id)
       : null;
   }
 
-  const existing = await getEventForwarderConfigForDatasource(
-    context,
-    datasource.id,
-  );
+  const existing = await getEventForwarderForDatasource(context, datasource.id);
 
   if (draft === null) {
     if (existing) {
@@ -568,10 +563,7 @@ export async function refreshEventForwarderConfigCredentials(
   >,
   datasourceParams: EventForwarderDatasourceParams,
 ): Promise<EventForwarderConfigInterface | null> {
-  const existing = await getEventForwarderConfigForDatasource(
-    context,
-    datasource.id,
-  );
+  const existing = await getEventForwarderForDatasource(context, datasource.id);
   if (!existing) {
     return null;
   }

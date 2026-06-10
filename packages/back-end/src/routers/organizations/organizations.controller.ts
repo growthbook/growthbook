@@ -3,7 +3,6 @@ import { cloneDeep } from "lodash";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import {
   experimentHasLinkedChanges,
-  getEventForwarderSinkTypeForDatasource,
   getNamespaceRanges,
   getRulesForEnvironment,
   parseIntWithDefaultCapped,
@@ -56,11 +55,7 @@ import {
   revokeInvite,
   setLicenseKey,
 } from "back-end/src/services/organizations";
-import {
-  getNonSensitiveParams,
-  getSourceIntegrationObject,
-} from "back-end/src/services/datasource";
-import { toEventForwarderConfigDraft } from "back-end/src/services/eventForwarderConfig";
+import { getDataSourcesWithParams } from "back-end/src/services/datasourceResponse";
 import { updatePassword } from "back-end/src/services/users";
 import { getAllTags } from "back-end/src/models/TagModel";
 import {
@@ -174,7 +169,6 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     factMetrics,
     decisionCriteria,
     webhookSecrets,
-    eventForwarderConfigs,
   ] = await Promise.all([
     getMetricsByOrganization(context),
     getDataSourcesByOrganization(context),
@@ -189,49 +183,12 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
     context.models.factMetrics.getAll(),
     context.models.decisionCriteria.getAll(),
     context.models.webhookSecrets.getAllForFrontEnd(),
-    context.models.eventForwarderConfigs.getAll(),
   ]);
-
-  const eventForwarderConfigByDatasourceId = new Map(
-    eventForwarderConfigs.map((config) => [config.datasourceId, config]),
-  );
 
   return res.status(200).json({
     status: 200,
     metrics,
-    datasources: datasources.map((d) => {
-      const integration = getSourceIntegrationObject(context, d);
-      const eventForwarderConfig = getEventForwarderSinkTypeForDatasource(d)
-        ? eventForwarderConfigByDatasourceId.get(d.id)
-        : null;
-      const eventForwarderConfigDraft = toEventForwarderConfigDraft(
-        eventForwarderConfig ?? null,
-      );
-      return {
-        id: d.id,
-        name: d.name,
-        description: d.description,
-        type: d.type,
-        settings: d.settings,
-        params: getNonSensitiveParams(integration),
-        projects: d.projects || [],
-        properties: integration.getSourceProperties(),
-        decryptionError: integration.decryptionError || false,
-        eventForwarderConfig:
-          eventForwarderConfig && eventForwarderConfigDraft
-            ? {
-                ...eventForwarderConfigDraft,
-                status: eventForwarderConfig.status,
-                connectorName: eventForwarderConfig.connectorName,
-                connectorId: eventForwarderConfig.connectorId,
-                lastProvisioningError:
-                  eventForwarderConfig.lastProvisioningError,
-              }
-            : null,
-        dateCreated: d.dateCreated,
-        dateUpdated: d.dateUpdated,
-      };
-    }),
+    datasources: await getDataSourcesWithParams(context, datasources),
     dimensions,
     segments,
     metricGroups,
