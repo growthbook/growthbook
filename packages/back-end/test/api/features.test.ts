@@ -4,10 +4,15 @@ import {
   createFeature,
   getFeature,
   updateFeature,
+  deleteFeature,
+  getAllFeatures,
   createAndPublishRevision,
 } from "back-end/src/models/FeatureModel";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
-import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
+import {
+  getExperimentMapForFeature,
+  getAllExperiments,
+} from "back-end/src/models/ExperimentModel";
 import { addTags } from "back-end/src/models/TagModel";
 import {
   getSavedGroupMap,
@@ -24,7 +29,11 @@ jest.mock("back-end/src/models/FeatureModel", () => ({
   getFeature: jest.fn(),
   createFeature: jest.fn(),
   updateFeature: jest.fn(),
+  deleteFeature: jest.fn(),
   createAndPublishRevision: jest.fn(),
+  // Dependents lookup (computeFeatureDependents) loads the org's full
+  // feature + experiment set; default to none.
+  getAllFeatures: jest.fn().mockResolvedValue([]),
 }));
 
 jest.mock("back-end/src/models/TagModel", () => ({
@@ -34,6 +43,7 @@ jest.mock("back-end/src/models/TagModel", () => ({
 
 jest.mock("back-end/src/models/ExperimentModel", () => ({
   getExperimentMapForFeature: jest.fn(),
+  getAllExperiments: jest.fn().mockResolvedValue([]),
 }));
 
 jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
@@ -1003,6 +1013,185 @@ describe("features API", () => {
       expect(createAndPublishRevision).toHaveBeenCalledWith(
         expect.objectContaining({ canBypassApprovalChecks: false }),
       );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Prerequisite dependents — warnings + destructive-action blocks
+  // ---------------------------------------------------------------------------
+
+  describe("prerequisite dependents", () => {
+    // Another feature listing "myfeature" as a top-level prerequisite
+    const dependentFeature = makeFeature({
+      id: "dependent_feature",
+      prerequisites: [{ id: "myfeature", condition: '{"value": true}' }],
+    });
+    const dependentExperiment = {
+      id: "exp_dep",
+      name: "Dependent Experiment",
+      phases: [
+        { prerequisites: [{ id: "myfeature", condition: '{"value": true}' }] },
+      ],
+    };
+
+    const mockDependentsOnce = () => {
+      (getAllFeatures as jest.Mock).mockResolvedValueOnce([
+        dependentFeature,
+        makeFeature(),
+      ]);
+      (getAllExperiments as jest.Mock).mockResolvedValueOnce([
+        dependentExperiment,
+      ]);
+    };
+
+    it("returns a non-blocking warning when updating a feature with dependents", async () => {
+      defaultContext();
+      (getFeature as jest.Mock).mockResolvedValue(makeFeature());
+      mockDependentsOnce();
+
+      const response = await request(app)
+        .post("/api/v1/features/myfeature")
+        .send({ defaultValue: "true" });
+
+      expect(response.status).toBe(200);
+      expect(response.body.warnings).toEqual([
+        {
+          type: "prerequisiteDependents",
+          message:
+            "This feature is a prerequisite for 1 feature and 1 experiment. Your change may affect them.",
+        },
+      ]);
+      // The dependents are also attached to the serialized feature
+      expect(getApiFeatureObj).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dependents: {
+            features: ["dependent_feature"],
+            experiments: [{ id: "exp_dep", name: "Dependent Experiment" }],
+          },
+        }),
+      );
+    });
+
+    it("omits warnings when the updated feature has no dependents", async () => {
+      defaultContext();
+      (getFeature as jest.Mock).mockResolvedValue(makeFeature());
+
+      const response = await request(app)
+        .post("/api/v1/features/myfeature")
+        .send({ defaultValue: "true" });
+
+      expect(response.status).toBe(200);
+      expect(response.body.warnings).toBeUndefined();
+    });
+
+    it("blocks archiving a feature with dependents", async () => {
+      defaultContext();
+      (getFeature as jest.Mock).mockResolvedValue(makeFeature());
+      mockDependentsOnce();
+
+      const response = await request(app)
+        .post("/api/v1/features/myfeature")
+        .send({ archived: true });
+
+      expect(response.status).toBe(400);
+      expect(response.body.message).toContain("Cannot archive feature");
+      expect(response.body.message).toContain("dependent_feature");
+      expect(response.body.message).toContain("exp_dep");
+      expect(updateFeature).not.toHaveBeenCalled();
+      expect(createAndPublishRevision).not.toHaveBeenCalled();
+    });
+
+    it("archives a feature with dependents when bypassDependentsCheck is true", async () => {
+      defaultContext();
+      (getFeature as jest.Mock).mockResolvedValue(makeFeature());
+      mockDependentsOnce();
+
+      const response = await request(app)
+        .post("/api/v1/features/myfeature")
+        .send({ archived: true, bypassDependentsCheck: true });
+
+      expect(response.status).toBe(200);
+      expect(createAndPublishRevision).toHaveBeenCalled();
+      // Still surfaces the non-blocking warning
+      expect(response.body.warnings).toEqual([
+        expect.objectContaining({ type: "prerequisiteDependents" }),
+      ]);
+    });
+
+    it("allows un-archiving a feature with dependents", async () => {
+      defaultContext();
+      (getFeature as jest.Mock).mockResolvedValue(
+        makeFeature({ archived: true }),
+      );
+      mockDependentsOnce();
+
+      const response = await request(app)
+        .post("/api/v1/features/myfeature")
+        .send({ archived: false });
+
+      expect(response.status).toBe(200);
+      expect(response.body.warnings).toEqual([
+        expect.objectContaining({ type: "prerequisiteDependents" }),
+      ]);
+    });
+
+    it("blocks deleting a feature with dependents", async () => {
+      defaultContext({
+        permissions: defaultPermissions({
+          canDeleteFeature: () => true,
+          canManageFeatureDrafts: () => true,
+        }),
+      });
+      (getFeature as jest.Mock).mockResolvedValue(
+        makeFeature({ archived: true }),
+      );
+      mockDependentsOnce();
+
+      const response = await request(app).delete("/api/v1/features/myfeature");
+
+      expect(response.status).toBe(400);
+      expect(response.body.message).toContain("Cannot delete feature");
+      expect(deleteFeature).not.toHaveBeenCalled();
+    });
+
+    it("deletes a feature with dependents when bypassDependentsCheck is true", async () => {
+      defaultContext({
+        permissions: defaultPermissions({
+          canDeleteFeature: () => true,
+          canManageFeatureDrafts: () => true,
+        }),
+      });
+      (getFeature as jest.Mock).mockResolvedValue(
+        makeFeature({ archived: true }),
+      );
+      // No mockDependentsOnce(): the bypass skips the dependents lookup
+      // entirely, so queued one-time mocks would leak into later tests.
+
+      const response = await request(app).delete(
+        "/api/v1/features/myfeature?bypassDependentsCheck=true",
+      );
+
+      expect(response.status).toBe(200);
+      expect(response.body.deletedId).toBe("myfeature");
+      expect(deleteFeature).toHaveBeenCalled();
+    });
+
+    it("deletes a feature without dependents", async () => {
+      defaultContext({
+        permissions: defaultPermissions({
+          canDeleteFeature: () => true,
+          canManageFeatureDrafts: () => true,
+        }),
+      });
+      (getFeature as jest.Mock).mockResolvedValue(
+        makeFeature({ archived: true }),
+      );
+
+      const response = await request(app).delete("/api/v1/features/myfeature");
+
+      expect(response.status).toBe(200);
+      expect(response.body.deletedId).toBe("myfeature");
+      expect(deleteFeature).toHaveBeenCalled();
     });
   });
 });

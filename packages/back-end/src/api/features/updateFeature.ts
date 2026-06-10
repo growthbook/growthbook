@@ -45,6 +45,12 @@ import {
   extractRevisionMetadata,
   validateEnvRulesScheduleRules,
 } from "./v2Shared";
+import {
+  buildDependentsError,
+  buildDependentsWarning,
+  computeFeatureDependents,
+  hasDependents,
+} from "./dependents";
 
 export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
   async (req) => {
@@ -95,6 +101,19 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     }
 
     await assertValidProjectId(project, req.context);
+
+    // Dependents are other features/experiments referencing this one as a
+    // prerequisite — unaffected by this update, so computing once up front is
+    // safe. Used to block archiving and to warn on any other change.
+    const dependents = await computeFeatureDependents(req.context, feature);
+    if (
+      req.body.archived === true &&
+      !feature.archived &&
+      !req.body.bypassDependentsCheck &&
+      hasDependents(dependents)
+    ) {
+      throw buildDependentsError("archive", dependents);
+    }
 
     // check if the custom fields are valid
     const projectChanged = project !== undefined && project !== feature.project;
@@ -416,9 +435,13 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
           experimentMap,
           revision,
           safeRolloutMap,
+          dependents,
         }),
         req.context,
       ),
+      ...(hasDependents(dependents)
+        ? { warnings: [buildDependentsWarning(dependents)] }
+        : {}),
     };
   },
 );

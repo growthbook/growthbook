@@ -24,6 +24,7 @@ import type { ApiFeatureEnvSettings } from "./postFeature";
 import { validateCustomFields, validateRuleAttributes } from "./validations";
 import { validateEnvKeys } from "./postFeature";
 import { assertValidProjectId, mapV2ApiRuleToFeatureRule } from "./v2Shared";
+import { computeFeatureDependents } from "./dependents";
 
 export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
   async (req) => {
@@ -156,6 +157,10 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       version: feature.version,
     });
 
+    // A re-created feature can already have dependents if other features or
+    // experiments still reference its id as a prerequisite.
+    const dependents = await computeFeatureDependents(req.context, feature);
+
     return {
       feature: await resolveOwnerEmail(
         getApiFeatureObjV2({
@@ -165,6 +170,7 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
           experimentMap,
           revision,
           safeRolloutMap,
+          dependents,
         }),
         req.context,
       ),

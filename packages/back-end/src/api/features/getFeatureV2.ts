@@ -13,6 +13,7 @@ import {
 } from "back-end/src/services/features";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { computeFeatureDependents } from "./dependents";
 
 async function loadFeatureForApiV2(
   context: ApiReqContext,
@@ -81,11 +82,16 @@ export const getFeatureV2 = createApiRequestHandler(getFeatureV2Validator)(
       req.params.id,
       req.query.withRevisions,
     );
+    const dependents = await computeFeatureDependents(
+      req.context,
+      data.feature,
+    );
     return {
       feature: await resolveOwnerEmail(
         getApiFeatureObjV2({
           ...data,
           organization: req.organization,
+          dependents,
         }),
         req.context,
       ),

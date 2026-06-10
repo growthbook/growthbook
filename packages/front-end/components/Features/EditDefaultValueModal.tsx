@@ -12,6 +12,7 @@ import DraftSelectorForChanges, {
 } from "@/components/Features/DraftSelectorForChanges";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import DependentFeaturesWarning from "@/components/Features/DependentFeaturesWarning";
 import FeatureValueField from "./FeatureValueField";
 export interface Props {
   feature: FeatureInterface;
@@ -94,6 +95,7 @@ export default function EditDefaultValueModal({
       open={true}
       size={feature.valueType === "json" ? "lg" : "md"}
     >
+      <DependentFeaturesWarning featureId={feature.id} />
       <DraftSelectorForChanges
         feature={feature}
         revisionList={revisionList}

@@ -44,6 +44,7 @@ import {
 import { useHoldouts, holdoutOccupiesRuleSlot } from "@/hooks/useHoldouts";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
+import DependentFeaturesWarning from "@/components/Features/DependentFeaturesWarning";
 import { PreLaunchChecklistForDraft } from "@/components/Experiment/PreLaunchChecklist";
 import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 
@@ -494,6 +495,7 @@ export default function DraftModal({
         ) : undefined
       }
     >
+      <DependentFeaturesWarning featureId={feature.id} />
       {featureLockedByRamp && (
         <Callout status="warning" icon={<PiLockSimple size={15} />} mb="3">
           Publishing is locked by an active ramp-up schedule.
