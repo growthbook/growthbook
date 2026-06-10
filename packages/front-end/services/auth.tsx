@@ -5,6 +5,7 @@ import React, {
   ReactElement,
   ReactNode,
   useCallback,
+  useRef,
 } from "react";
 import { useRouter } from "next/router";
 import {
@@ -18,6 +19,7 @@ import {
 import { setUser as sentrySetUser } from "@sentry/nextjs";
 import { roleSupportsEnvLimit } from "shared/permissions";
 import Modal from "@/components/Modal";
+import ApiWarningModal from "@/components/ApiWarningModal";
 import { DocLink } from "@/components/DocLink";
 import Welcome from "@/components/Auth/Welcome";
 import { useSessionStorage } from "@/hooks/useSessionStorage";
@@ -34,6 +36,11 @@ export type ApiCallType<T> = (
   errorHandler?: ErrorHandler,
 ) => Promise<T>;
 
+// Append the ignoreWarnings flag so the server skips soft warnings on retry.
+export function appendIgnoreWarnings(url: string): string {
+  return url + (url.includes("?") ? "&" : "?") + "ignoreWarnings=true";
+}
+
 export interface AuthContextValue {
   isAuthenticated: boolean;
   loading: boolean;
@@ -44,6 +51,8 @@ export interface AuthContextValue {
     errorHandler?: ErrorHandler,
   ) => Promise<T>;
   fetchRaw: (url: string, options?: RequestInit) => Promise<Response>;
+  // Show the global "Save anyway?" dialog; resolves true if the user proceeds.
+  confirmIgnoreWarnings: (warnings: string[]) => Promise<boolean>;
   ssoConnectionId: string;
   orgId: string | null;
   setOrgId?: (orgId: string) => void;
@@ -68,6 +77,7 @@ export const AuthContext = React.createContext<AuthContextValue>({
     return x;
   },
   fetchRaw: async () => new Response(),
+  confirmIgnoreWarnings: async () => false,
   ssoConnectionId: "",
   orgId: null,
 });
@@ -222,6 +232,11 @@ export const AuthProvider: React.FC<{
   const [authComponent, setAuthComponent] = useState<ReactElement | null>(null);
   const [initError, setInitError] = useState("");
   const [sessionError, setSessionError] = useState(false);
+  // Pending soft-warning requests, batched so concurrent ones share one dialog.
+  const pendingWarnings = useRef<
+    { warnings: string[]; resolve: (proceed: boolean) => void }[]
+  >([]);
+  const [currentWarnings, setCurrentWarnings] = useState<string[] | null>(null);
   const [initialPlanSelection, setInitialPlanSelection] =
     useSessionStorage<InitialPlanOptions>(
       INITIAL_PLAN_SELECTION_SESSION_KEY,
@@ -428,6 +443,24 @@ export const AuthProvider: React.FC<{
     [orgId, token],
   );
 
+  // Register a warning request; all pending requests share one dialog.
+  const confirmIgnoreWarnings = useCallback((warnings: string[]) => {
+    return new Promise<boolean>((resolve) => {
+      pendingWarnings.current.push({ warnings, resolve });
+      setCurrentWarnings([
+        ...new Set(pendingWarnings.current.flatMap((w) => w.warnings)),
+      ]);
+    });
+  }, []);
+
+  // Resolve every pending warning with the same choice and close the dialog.
+  const resolveWarnings = useCallback((proceed: boolean) => {
+    const pending = pendingWarnings.current;
+    pendingWarnings.current = [];
+    setCurrentWarnings(null);
+    pending.forEach((w) => w.resolve(proceed));
+  }, []);
+
   const apiCall = useCallback(
     async (
       url: string | null,
@@ -473,6 +506,29 @@ export const AuthProvider: React.FC<{
           );
         }
 
+        // Soft warning: let the user acknowledge, then re-submit ignoring warnings.
+        if (
+          responseData.status === 422 &&
+          Array.isArray(responseData.warnings)
+        ) {
+          const proceed = await confirmIgnoreWarnings(responseData.warnings);
+          if (proceed) {
+            responseData = await _makeApiCall(
+              appendIgnoreWarnings(url),
+              token,
+              options,
+            );
+            if (responseData.status && responseData.status >= 400) {
+              if (errorHandler) {
+                errorHandler(responseData);
+              }
+              throw new Error(responseData.message || "There was an error");
+            }
+            return responseData;
+          }
+          throw new Error(responseData.message || "Action cancelled");
+        }
+
         if (errorHandler) {
           errorHandler(responseData);
         }
@@ -481,7 +537,7 @@ export const AuthProvider: React.FC<{
 
       return responseData;
     },
-    [token, _makeApiCall],
+    [token, _makeApiCall, confirmIgnoreWarnings],
   );
 
   const wrappedSetOrganizations = useCallback(
@@ -587,6 +643,7 @@ export const AuthProvider: React.FC<{
         },
         apiCall,
         fetchRaw,
+        confirmIgnoreWarnings,
         ssoConnectionId,
         orgId,
         setOrgId,
@@ -613,6 +670,13 @@ export const AuthProvider: React.FC<{
       <>
         {children}
         {authComponent}
+        {currentWarnings && (
+          <ApiWarningModal
+            warnings={currentWarnings}
+            onConfirm={() => resolveWarnings(true)}
+            onCancel={() => resolveWarnings(false)}
+          />
+        )}
       </>
     </AuthContext.Provider>
   );

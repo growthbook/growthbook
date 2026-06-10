@@ -18,6 +18,7 @@ import { ExperimentInterface } from "shared/types/experiment";
 import { DataSourceInterface } from "shared/types/datasource";
 import { FeatureInterface } from "shared/types/feature";
 import { UserInterface } from "shared/types/user";
+import { stringToBoolean } from "shared/util";
 import {
   BadRequestError,
   UnauthorizedError,
@@ -309,6 +310,14 @@ export class ReqContextClass {
     this.permissions = new Permissions(this.userPermissions);
 
     this.initModels();
+  }
+
+  // True to skip soft warnings; background jobs (no req) always ignore.
+  public get ignoreWarnings(): boolean {
+    if (!this.req) return true;
+    const v = this.req.query?.ignoreWarnings;
+    if (typeof v !== "string") return false;
+    return stringToBoolean(v);
   }
 
   public throwBadRequestError(message: string): never {
