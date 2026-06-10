@@ -78,6 +78,7 @@ vi.mock("@/hooks/useHoldouts", () => ({
 vi.mock("@/hooks/useFeatureRevisionDiff", () => ({
   useFeatureRevisionDiff: () => [{ title: "Default Value", a: "x", b: "y" }],
   featureToFeatureRevisionDiffInput: () => ({}),
+  revisionToFeatureRevisionDiffInput: () => ({}),
   mergeResultToDiffInput: () => ({}),
   normalizeRevisionMetadata: (m: unknown) => m,
 }));
@@ -276,9 +277,12 @@ describe("ReviewAndPublish", () => {
       />,
     );
     // The page surfaces a conflict notice rather than auto-opening the modal.
-    expect(screen.getByText(/Conflicts detected/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Conflicts with the live version/i),
+    ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /Resolve conflicts/i }));
+    // Exact name — the disabled publish CTA is "Resolve conflicts to publish".
+    fireEvent.click(screen.getByRole("button", { name: "Resolve conflicts" }));
 
     // The conflict resolver modal opens with the per-conflict choices.
     expect(

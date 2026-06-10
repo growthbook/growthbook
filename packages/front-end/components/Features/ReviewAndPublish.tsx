@@ -1,5 +1,5 @@
 import { FeatureInterface } from "shared/types/feature";
-import { useState, useMemo, useRef, useCallback } from "react";
+import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import {
   RampScheduleInterface,
   ACTIVE_DRAFT_STATUSES,
@@ -524,6 +524,26 @@ export default function ReviewAndPublish({
   const [selectedExperiments, setSelectedExperiments] = useState(
     new Set(experiments.map((e) => e.id)),
   );
+  // `experiments` is derived from the async `experimentsList` prop, so the
+  // useState initializer can run before it arrives. Reconcile: auto-select
+  // newly-appearing experiments and drop ones that vanished, while preserving
+  // explicit user deselections of already-known ids.
+  const knownExperimentIdsRef = useRef<Set<string>>(
+    new Set(experiments.map((e) => e.id)),
+  );
+  useEffect(() => {
+    const currentIds = new Set(experiments.map((e) => e.id));
+    const known = knownExperimentIdsRef.current;
+    const newlyAdded = [...currentIds].filter((id) => !known.has(id));
+    knownExperimentIdsRef.current = currentIds;
+    setSelectedExperiments((prev) => {
+      const next = new Set([...prev].filter((id) => currentIds.has(id)));
+      newlyAdded.forEach((id) => next.add(id));
+      return next.size === prev.size && [...next].every((id) => prev.has(id))
+        ? prev
+        : next;
+    });
+  }, [experiments]);
 
   const selectedImmediateCount = immediateStartExperiments.filter((e) =>
     selectedExperiments.has(e.id),
@@ -538,6 +558,12 @@ export default function ReviewAndPublish({
     Map<string, { failedRequired: boolean; loading: boolean }>
   >(new Map());
   const [checklistBlocked, setChecklistBlocked] = useState(false);
+  // Checklist results are per-revision; clear them when the user switches
+  // revisions so stale failures can't block publishing a clean draft.
+  useEffect(() => {
+    checklistStateRef.current.clear();
+    setChecklistBlocked(false);
+  }, [version]);
   const handleChecklistReady = useCallback(
     (expId: string, failedRequired: boolean, loading: boolean) => {
       checklistStateRef.current.set(expId, { failedRequired, loading });
@@ -583,6 +609,7 @@ export default function ReviewAndPublish({
 
   const onUpdateFromLive = async () => {
     if (!revision || !mergeResult?.success) return;
+    setSubmitError(null);
     setRebasing(true);
     try {
       await apiCall(`/feature/${feature.id}/${revision.version}/rebase`, {
@@ -593,6 +620,9 @@ export default function ReviewAndPublish({
         }),
       });
       await mutate();
+    } catch (e) {
+      await mutate();
+      setSubmitError(e.message || "Failed to update from live");
     } finally {
       setRebasing(false);
     }
@@ -1104,7 +1134,9 @@ export default function ReviewAndPublish({
               comment,
             }),
           });
-          await mutate();
+          // The review log drives reviewRequesterId (and thus the "Retract
+          // review request" affordance) — refresh it alongside the revision.
+          await Promise.all([mutate(), mutateReviewLog()]);
           return;
         case "publish":
           setSubmitting(true);

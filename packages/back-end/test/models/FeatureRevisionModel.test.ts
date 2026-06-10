@@ -5,6 +5,7 @@ import { naiveFlattenV1Rules, suffixRuleId } from "shared/util";
 import {
   activeReviewsFromLog,
   buildFeatureRevisionInterface,
+  computeRevisionUpdate,
   normalizeRulesInputToV2,
 } from "back-end/src/models/FeatureRevisionModel";
 import { ReqContext } from "back-end/types/request";
@@ -730,5 +731,89 @@ describe("activeReviewsFromLog", () => {
       { action: "Approved", user: null, timestamp: at(7) },
     ]);
     expect(reviews.map((r) => r.userId)).toEqual(["u1"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeRevisionUpdate decides what an edit does to the review lifecycle:
+// status resets (changes-requested → pending-review on any content change,
+// approved → pending-review when resetReview policy applies) must also scrub
+// the baked `reviews` verdicts, since they were given against older content.
+// ---------------------------------------------------------------------------
+
+describe("computeRevisionUpdate review scrubbing", () => {
+  const reviewer = {
+    type: "dashboard" as const,
+    id: "u1",
+    email: "u1@example.com",
+    name: "u1",
+  };
+  const reviews = [
+    {
+      userId: "u1",
+      user: reviewer,
+      status: "approved" as const,
+      timestamp: new Date("2024-01-02"),
+    },
+  ];
+
+  function revisionWithStatus(status: FeatureRevisionInterface["status"]) {
+    return {
+      ...BASE_REVISION,
+      status,
+      rules: [],
+      reviews,
+    } as unknown as FeatureRevisionInterface;
+  }
+
+  it("scrubs reviews when resetReview knocks an approved draft back to pending-review", () => {
+    const { status, clearReviews, proposedRevision } = computeRevisionUpdate(
+      mockContext(),
+      { id: FEATURE_ID } as never,
+      revisionWithStatus("approved"),
+      { defaultValue: "false" },
+      true,
+    );
+    expect(status).toBe("pending-review");
+    expect(clearReviews).toBe(true);
+    expect(proposedRevision.reviews).toEqual([]);
+  });
+
+  it("scrubs reviews when a content change resets changes-requested to pending-review", () => {
+    const { status, clearReviews, proposedRevision } = computeRevisionUpdate(
+      mockContext(),
+      { id: FEATURE_ID } as never,
+      revisionWithStatus("changes-requested"),
+      { defaultValue: "false" },
+      false,
+    );
+    expect(status).toBe("pending-review");
+    expect(clearReviews).toBe(true);
+    expect(proposedRevision.reviews).toEqual([]);
+  });
+
+  it("keeps verdicts when the org policy does not reset approved drafts", () => {
+    const { status, clearReviews, proposedRevision } = computeRevisionUpdate(
+      mockContext(),
+      { id: FEATURE_ID } as never,
+      revisionWithStatus("approved"),
+      { defaultValue: "false" },
+      false,
+    );
+    expect(status).toBe("approved");
+    expect(clearReviews).toBe(false);
+    expect(proposedRevision.reviews).toEqual(reviews);
+  });
+
+  it("does not scrub on plain draft edits", () => {
+    const { status, clearReviews } = computeRevisionUpdate(
+      mockContext(),
+      { id: FEATURE_ID } as never,
+      revisionWithStatus("draft"),
+      { defaultValue: "false" },
+      false,
+    );
+    expect(status).toBe("draft");
+    expect(clearReviews).toBe(false);
   });
 });

@@ -964,6 +964,10 @@ export function computeRevisionUpdate(
   normalizedChanges: RevisionChanges;
   status: FeatureRevisionInterface["status"];
   proposedRevision: FeatureRevisionInterface;
+  // True when the edit knocked a verdict-bearing status (approved /
+  // changes-requested) back to pending-review — standing reviewer verdicts no
+  // longer apply to the new content and must be scrubbed from `reviews`.
+  clearReviews: boolean;
 } {
   let status = revision.status;
 
@@ -1013,10 +1017,19 @@ export function computeRevisionUpdate(
         }
       : changes;
 
+  const clearReviews =
+    status === "pending-review" && revision.status !== "pending-review";
+
   return {
     normalizedChanges,
     status,
-    proposedRevision: { ...revision, ...normalizedChanges, status },
+    proposedRevision: {
+      ...revision,
+      ...normalizedChanges,
+      status,
+      ...(clearReviews ? { reviews: [] } : {}),
+    },
+    clearReviews,
   };
 }
 
@@ -1051,13 +1064,8 @@ export async function updateRevision(
   log: Omit<RevisionLog, "timestamp">,
   resetReview: boolean,
 ) {
-  const { normalizedChanges, status, proposedRevision } = computeRevisionUpdate(
-    context,
-    feature,
-    revision,
-    changes,
-    resetReview,
-  );
+  const { normalizedChanges, status, proposedRevision, clearReviews } =
+    computeRevisionUpdate(context, feature, revision, changes, resetReview);
 
   await runValidateFeatureRevisionHooks({
     context,
@@ -1083,6 +1091,9 @@ export async function updateRevision(
         ...normalizedChanges,
         status,
         dateUpdated: new Date(),
+        // The edit invalidated standing verdicts — scrub them so policy hooks
+        // and the REST API don't count approvals made against older content.
+        ...(clearReviews ? { reviews: [] } : {}),
       },
       ...contributorUpdate,
     },

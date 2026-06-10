@@ -92,6 +92,10 @@ export async function submitRevisionReview(
     req.context.auditUser,
     review,
     comment,
+    // Capture the live version the approval is made against so a later publish
+    // can detect when the approval has gone stale (parity with the internal
+    // app's review flow).
+    feature.version,
   );
 
   const updated = await getRevision({

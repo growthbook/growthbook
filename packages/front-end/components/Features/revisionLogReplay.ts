@@ -177,12 +177,31 @@ function applyLogEntry(state: ReplayState, log: RevisionLog): ReplayState {
   }
 
   if (log.action === "rebase") {
-    const r = parsed as Partial<ReplayState>;
+    // The rebase log stores `mergeResult.result`, where `rules` is the flat
+    // v2 array — not the per-env buckets ReplayState uses. Re-bucket it so
+    // rule entries replayed after the rebase still resolve by env+position.
+    const r = parsed as Partial<
+      Omit<ReplayState, "rules"> & {
+        rules: FeatureRevisionInterface["rules"];
+      }
+    >;
+    const environmentsEnabled =
+      r.environmentsEnabled ?? state.environmentsEnabled;
     return {
-      rules: r.rules ?? state.rules,
+      rules: Array.isArray(r.rules)
+        ? bucketRevisionRulesByEnv(
+            r.rules,
+            Array.from(
+              new Set([
+                ...Object.keys(environmentsEnabled),
+                ...Object.keys(state.rules),
+              ]),
+            ),
+          )
+        : state.rules,
       defaultValue: r.defaultValue ?? state.defaultValue,
       prerequisites: r.prerequisites ?? state.prerequisites,
-      environmentsEnabled: r.environmentsEnabled ?? state.environmentsEnabled,
+      environmentsEnabled,
     };
   }
 
