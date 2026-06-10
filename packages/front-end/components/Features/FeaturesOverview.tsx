@@ -103,7 +103,6 @@ import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
-import JSONValidation from "@/components/Features/JSONValidation";
 import {
   PrerequisiteStateResult,
   usePrerequisiteStates,
@@ -1835,17 +1834,6 @@ export default function FeaturesOverview({
                 )}
               </>
             )}
-          </Frame>
-        )}
-
-        {feature.valueType === "json" && (
-          <Frame mb="4" px="6" py="4">
-            <JSONValidation
-              feature={feature}
-              mutate={mutate}
-              setVersion={setVersion}
-              revisionList={revisionList || []}
-            />
           </Frame>
         )}
 

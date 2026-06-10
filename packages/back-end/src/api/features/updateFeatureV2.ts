@@ -125,8 +125,12 @@ export const updateFeatureV2 = createApiRequestHandler(
   await assertValidHoldout(req.body.holdout, req.context);
 
   const jsonSchema =
-    feature.valueType === "json" && req.body.jsonSchema != null
-      ? parseApiJsonSchema(req.organization, req.body.jsonSchema)
+    feature.valueType !== "boolean" && req.body.jsonSchema != null
+      ? parseApiJsonSchema(
+          req.organization,
+          req.body.jsonSchema,
+          feature.valueType,
+        )
       : null;
 
   let inboundFlatRules: FeatureRule[] | null = null;
