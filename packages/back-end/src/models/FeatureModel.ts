@@ -118,6 +118,7 @@ import {
   deleteAllRevisionsForFeature,
   getRevision,
   markRevisionAsPublished,
+  reversionRevisionToHead,
   updateRevision,
   createRevision,
 } from "./FeatureRevisionModel";
@@ -989,6 +990,12 @@ export async function updateFeature(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   updates: Partial<FeatureInterface>,
+  options?: {
+    // Optimistic lock: only apply the update if the live version pointer
+    // hasn't moved since the caller read the feature. Used by publish paths
+    // so two concurrent publishes can't silently overwrite each other.
+    expectedVersion?: number;
+  },
 ): Promise<FeatureInterface> {
   const allUpdates = {
     ...updates,
@@ -1053,12 +1060,28 @@ export async function updateFeature(
     }
   }
 
-  await FeatureModel.updateOne(
-    { organization: feature.organization, id: feature.id },
-    {
-      $set: normalizedUpdates,
-    },
-  );
+  const filter: FilterQuery<FeatureInterface> = {
+    organization: feature.organization,
+    id: feature.id,
+  };
+  if (options?.expectedVersion !== undefined) {
+    // `version: null` also matches legacy docs created before revision
+    // versioning that lack the field entirely (it is backfilled at read time).
+    filter.$or = [{ version: options.expectedVersion }, { version: null }];
+  }
+
+  const updateResult = await FeatureModel.updateOne(filter, {
+    $set: normalizedUpdates,
+  });
+
+  if (
+    options?.expectedVersion !== undefined &&
+    updateResult.matchedCount === 0
+  ) {
+    throw new Error(
+      "The feature was changed by someone else while publishing. Please refresh and try again.",
+    );
+  }
 
   if (experimentsAdded.size > 0) {
     await Promise.all(
@@ -1562,7 +1585,9 @@ export async function applyRevisionChanges(
   if (!hasChanges) {
     changes.version = revision.version;
     changes.dateUpdated = new Date();
-    return await updateFeature(context, feature, changes);
+    return await updateFeature(context, feature, changes, {
+      expectedVersion: feature.version,
+    });
   }
 
   if (changes.rules !== undefined) {
@@ -1582,10 +1607,13 @@ export async function applyRevisionChanges(
       context,
       featureWithoutHoldout as FeatureInterface,
       changes,
+      { expectedVersion: feature.version },
     );
   }
 
-  return await updateFeature(context, feature, changes);
+  return await updateFeature(context, feature, changes, {
+    expectedVersion: feature.version,
+  });
 }
 
 // Run HoldoutModel / Experiment side-effects when a feature's holdout
@@ -2223,6 +2251,16 @@ export async function publishRevision({
     await assertFeatureNotLockedByRamp(context, feature.id);
   }
 
+  // Draft version numbers are allocated when the draft is created, so a
+  // revision published while the draft was open can leave the draft numbered
+  // at or below the current live version. Move it to the head of the version
+  // history first so `feature.version` never moves backwards past a
+  // concurrently published revision. Mutates `revision.version`/`baseVersion`.
+  const preReversionVersion = revision.version;
+  if (feature.version >= revision.version) {
+    await reversionRevisionToHead(context, feature, revision);
+  }
+
   // Create ramp schedules BEFORE writing the feature so that a schedule
   // creation failure gates the publish (atomicity: no published feature without
   // its ramp schedule).
@@ -2257,20 +2295,34 @@ export async function publishRevision({
       await applyHoldoutSideEffects(context, feature, result.holdout);
     }
 
+    // Pass the POST-publish feature so the revision document captures the
+    // live state the publish actually produced (the merge result applied on
+    // top of live), not the draft's possibly-stale snapshot.
     await markRevisionAsPublished(
       context,
-      feature,
+      updatedFeature,
       revision,
       context.auditUser,
       comment,
     );
 
+    // Pending-draft entries on experiments were stored with the version the
+    // draft had when it was saved — use the pre-reversion number (and the
+    // current one, in case entries were added after a re-version).
     await clearPendingFeatureDraftsForRevision(
       context,
       revision.featureId,
-      revision.version,
+      preReversionVersion,
       revision.rules,
     );
+    if (revision.version !== preReversionVersion) {
+      await clearPendingFeatureDraftsForRevision(
+        context,
+        revision.featureId,
+        revision.version,
+        revision.rules,
+      );
+    }
   } catch (err) {
     // Roll back pre-created ramp schedules so they don't linger as orphans.
     for (const id of preCreatedScheduleIds) {

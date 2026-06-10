@@ -743,6 +743,92 @@ async function getLastRevision(
   return lastRevision ? toInterface(lastRevision, context, feature) : null;
 }
 
+export type RevisionContentSnapshot = Pick<
+  FeatureRevisionInterface,
+  | "defaultValue"
+  | "rules"
+  | "environmentsEnabled"
+  | "prerequisites"
+  | "archived"
+  | "metadata"
+  | "holdout"
+>;
+
+// Builds the complete content snapshot stored on a revision from the parent
+// feature, optionally overlaying explicit `changes`. All fields are always
+// written as a complete snapshot so revisions are self-contained and HEAD can
+// be set to any revision without base traversal. Legacy documents missing
+// these fields are handled defensively at read/apply time.
+//
+// Used at revision creation, and again at publish time (without `changes`) to
+// persist the post-merge live state back onto the published revision so
+// "published revision content == the live state it produced" holds even when
+// the publish merged against a diverged live version.
+export function buildRevisionContentSnapshot({
+  feature,
+  orgEnvs,
+  environments,
+  changes,
+}: {
+  feature: FeatureInterface;
+  orgEnvs: Environment[];
+  environments: string[];
+  changes?: Partial<FeatureRevisionInterface>;
+}): RevisionContentSnapshot {
+  const defaultValue = changes?.defaultValue ?? feature.defaultValue;
+
+  const rules: FeatureRule[] =
+    changes && "rules" in changes && changes.rules !== undefined
+      ? normalizeRulesInputToV2(changes.rules as unknown, {
+          orgEnvs,
+          featureProject: feature.project,
+        })
+      : (feature.rules ?? [])
+          .filter(isPlausibleFeatureRule)
+          .map((r) => upgradeFeatureRule(r));
+
+  const environmentsEnabled: Record<string, boolean> = Object.fromEntries(
+    environments.map((env) => [
+      env,
+      changes?.environmentsEnabled?.[env] ??
+        feature.environmentSettings?.[env]?.enabled ??
+        false,
+    ]),
+  );
+  const prerequisites = changes?.prerequisites ?? feature.prerequisites ?? [];
+  const archived = changes?.archived ?? feature.archived ?? false;
+  const featureMetadataSnapshot: RevisionMetadata = {
+    description: feature.description,
+    owner: feature.owner,
+    project: feature.project,
+    tags: feature.tags,
+    neverStale: feature.neverStale,
+    customFields: feature.customFields,
+    jsonSchema: feature.jsonSchema,
+    valueType: feature.valueType,
+  };
+  // Always store a complete snapshot. Partial changes (e.g. { neverStale: true })
+  // are merged on top so other metadata fields aren't silently dropped.
+  const metadata: RevisionMetadata = changes?.metadata
+    ? { ...featureMetadataSnapshot, ...changes.metadata }
+    : featureMetadataSnapshot;
+  // holdout: explicit null in changes = remove; undefined/absent = carry forward from live
+  const holdout =
+    "holdout" in (changes ?? {})
+      ? (changes!.holdout ?? null)
+      : (feature.holdout ?? null);
+
+  return {
+    defaultValue,
+    rules,
+    environmentsEnabled,
+    prerequisites,
+    archived,
+    metadata,
+    holdout,
+  };
+}
+
 export async function createRevision({
   context,
   feature,
@@ -776,54 +862,20 @@ export async function createRevision({
   const lastRevision = await getLastRevision(context, feature);
   const newVersion = lastRevision ? lastRevision.version + 1 : 1;
 
-  const defaultValue =
-    changes && "defaultValue" in changes
-      ? changes.defaultValue
-      : feature.defaultValue;
-
-  const rules: FeatureRule[] =
-    changes && "rules" in changes && changes.rules !== undefined
-      ? normalizeRulesInputToV2(changes.rules as unknown, {
-          orgEnvs: getEnvironments(context.org),
-          featureProject: feature.project,
-        })
-      : (feature.rules ?? [])
-          .filter(isPlausibleFeatureRule)
-          .map((r) => upgradeFeatureRule(r));
-
-  // All fields are always written as a complete snapshot so revisions are
-  // self-contained and HEAD can be set to any revision without base traversal.
-  // Legacy documents missing these fields are handled defensively at read/apply time.
-  const environmentsEnabled: Record<string, boolean> = Object.fromEntries(
-    environments.map((env) => [
-      env,
-      changes?.environmentsEnabled?.[env] ??
-        feature.environmentSettings?.[env]?.enabled ??
-        false,
-    ]),
-  );
-  const prerequisites = changes?.prerequisites ?? feature.prerequisites ?? [];
-  const archived = changes?.archived ?? feature.archived ?? false;
-  const featureMetadataSnapshot: RevisionMetadata = {
-    description: feature.description,
-    owner: feature.owner,
-    project: feature.project,
-    tags: feature.tags,
-    neverStale: feature.neverStale,
-    customFields: feature.customFields,
-    jsonSchema: feature.jsonSchema,
-    valueType: feature.valueType,
-  };
-  // Always store a complete snapshot. Partial changes (e.g. { neverStale: true })
-  // are merged on top so other metadata fields aren't silently dropped.
-  const metadata: RevisionMetadata = changes?.metadata
-    ? { ...featureMetadataSnapshot, ...changes.metadata }
-    : featureMetadataSnapshot;
-  // holdout: explicit null in changes = remove; undefined/absent = carry forward from live
-  const holdout =
-    "holdout" in (changes ?? {})
-      ? (changes!.holdout ?? null)
-      : (feature.holdout ?? null);
+  const {
+    defaultValue,
+    rules,
+    environmentsEnabled,
+    prerequisites,
+    archived,
+    metadata,
+    holdout,
+  } = buildRevisionContentSnapshot({
+    feature,
+    orgEnvs: getEnvironments(context.org),
+    environments,
+    changes,
+  });
 
   if (!baseVersion) baseVersion = lastRevision?.version;
   if (!baseVersion) {
@@ -1069,6 +1121,93 @@ export async function updateRevision(
   return updatedRevision;
 }
 
+/**
+ * Moves a draft revision to the head of the feature's version history just
+ * before it gets published.
+ *
+ * Draft version numbers are allocated at creation time, so when another
+ * revision is published while the draft is open, the draft's number ends up
+ * below the live `feature.version`. Publishing it as-is would move the live
+ * pointer BACKWARDS past the concurrently published revision: the stale-
+ * numbered revision would shadow it as the "live" revision and drift repair
+ * could silently revert the concurrent change.
+ *
+ * Mutates `revision` in place (`version` + `baseVersion`) and returns the new
+ * version number. Log entries in the revision-log collection are migrated to
+ * the new version so the draft's history stays attached. Embedded review/log
+ * entries live on the revision document itself and move with it.
+ */
+export async function reversionRevisionToHead(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+): Promise<number> {
+  const fromVersion = revision.version;
+  let newVersion = fromVersion;
+
+  // Retried on duplicate-key collisions from the
+  // (organization, featureId, version) unique index, mirroring createRevision.
+  await createWithVersionRetry(async () => {
+    const latest = await getLastRevision(context, feature);
+    newVersion = Math.max(latest?.version ?? 0, feature.version) + 1;
+    const result = await FeatureRevisionModel.updateOne(
+      {
+        organization: revision.organization,
+        featureId: revision.featureId,
+        version: fromVersion,
+      },
+      {
+        $set: {
+          version: newVersion,
+          baseVersion: feature.version,
+          dateUpdated: new Date(),
+        },
+      },
+    );
+    if (result.matchedCount === 0) {
+      throw new Error(
+        "Could not re-version the draft revision — it may have been modified concurrently. Please retry.",
+      );
+    }
+  });
+
+  await context.models.featureRevisionLogs.reassignVersion({
+    featureId: revision.featureId,
+    fromVersion,
+    toVersion: newVersion,
+  });
+
+  // Fire and forget - mirrors the other revision-log writes in this file
+  context.models.featureRevisionLogs
+    .create({
+      featureId: revision.featureId,
+      version: newVersion,
+      action: "re-version",
+      subject: `from #${fromVersion} (live revision was #${feature.version} at publish)`,
+      user: context.auditUser ?? revision.createdBy,
+      value: JSON.stringify({ fromVersion, baseVersion: feature.version }),
+    })
+    .catch((e) => {
+      logger.error(e, "Error creating revisionlog");
+    });
+
+  revision.version = newVersion;
+  revision.baseVersion = feature.version;
+  return newVersion;
+}
+
+/**
+ * Marks a revision as published and persists the post-publish live state of
+ * the feature back onto the revision document.
+ *
+ * `feature` MUST be the feature as it stands AFTER the publish was applied
+ * (the return value of `applyRevisionChanges`). When a draft was built on a
+ * stale base, the publish applies a three-way merge result — not the draft's
+ * raw content — so without this write-back the "live" revision would disagree
+ * with the feature and downstream consumers that treat the live revision as
+ * the source of truth (e.g. drift repair) would silently revert the merged-in
+ * concurrent changes.
+ */
 export async function markRevisionAsPublished(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -1080,12 +1219,20 @@ export async function markRevisionAsPublished(
 
   const revisionComment = revision.comment ? revision.comment : comment;
 
+  const orgEnvs = getEnvironments(context.org);
+  const contentSnapshot = buildRevisionContentSnapshot({
+    feature,
+    orgEnvs,
+    environments: orgEnvs.map((e) => e.id),
+  });
+
   const changes: Partial<FeatureRevisionInterface> = {
     status: "published",
     publishedBy: user,
     datePublished: new Date(),
     dateUpdated: new Date(),
     comment: revisionComment,
+    ...contentSnapshot,
   };
 
   await runValidateFeatureRevisionHooks({
