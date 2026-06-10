@@ -499,8 +499,9 @@ export default function StartExperimentModal({
               }}
             >
               <Text weight="semibold" color="text-high">
-                Linked changes will activate. Users will see experiment
-                variations immediately.
+                {scheduledStartDateIsInTheFuture
+                  ? "Linked changes will activate at the scheduled time."
+                  : "Linked changes will activate. Users will see experiment variations immediately."}
               </Text>
               <Flex direction="column" gap="4" mt="3">
                 {linkedFeatures.length > 0 && (
