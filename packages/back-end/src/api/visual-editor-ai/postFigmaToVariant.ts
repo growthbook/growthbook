@@ -35,13 +35,18 @@ const bodySchema = z
     prompt: z.string().min(1).max(2000),
     variationId: z.string(),
     visualChangesetId: z.string(),
-    // CSS selector of the container the user picked as the injection point.
+    // CSS selector of the element the user picked as the injection point.
     targetSelector: z.string().min(1),
-    // "append" → append the component inside the target (last child);
-    // "set" → replace the target's contents. These are the only placements
-    // dom-mutator can apply as a single, conflict-free mutation (it has no
-    // safe "insert new sibling" primitive — see the mutation build below).
-    injectionMode: z.enum(["append", "set"]).default("append"),
+    // Placement relative to the target:
+    //   "append" → inside, last child   · "before" → previous sibling
+    //   "set"    → replace its contents  · "after"  → next sibling
+    // Insert modes (append/before/after) are emitted as a `js` snippet
+    // (insertAdjacentHTML) — NOT a dom-mutation — because dom-mutator
+    // re-asserts/duplicates appended HTML on every subtree change (it has
+    // no safe insert primitive). "set" stays a dom-mutation (it converges).
+    injectionMode: z
+      .enum(["append", "set", "before", "after"])
+      .default("append"),
     source: z.discriminatedUnion("kind", [
       z.object({ kind: z.literal("figma"), fileUrl: z.string().url() }),
       z.object({ kind: z.literal("image"), image: designImageSchema }),
@@ -117,15 +122,55 @@ Fidelity guidance:
 
 If the requested design is too large or structural to be a single in-page component — for example a full new page, a complete navigation/header overhaul, or many independent page sections — do NOT attempt a partial DOM injection. Instead set "tooLargeWarning" to a one-sentence explanation and return html=null and css=null.`;
 
-type InjectionMode = "append" | "set";
+type InjectionMode = "append" | "set" | "before" | "after";
+
+// insertAdjacentHTML position for each insert mode.
+const INSERT_POSITION: Record<
+  Exclude<InjectionMode, "set">,
+  "beforeend" | "beforebegin" | "afterend"
+> = {
+  append: "beforeend",
+  before: "beforebegin",
+  after: "afterend",
+};
 
 function placementSentence(
   injectionMode: InjectionMode,
   targetSelector: string,
 ): string {
-  return injectionMode === "set"
-    ? `The component will REPLACE the contents of the target element (${targetSelector}).`
-    : `The component will be APPENDED inside the target element (${targetSelector}).`;
+  switch (injectionMode) {
+    case "set":
+      return `The component will REPLACE the contents of the target element (${targetSelector}).`;
+    case "before":
+      return `The component will be inserted immediately BEFORE the target element (${targetSelector}), as its previous sibling.`;
+    case "after":
+      return `The component will be inserted immediately AFTER the target element (${targetSelector}), as its next sibling.`;
+    case "append":
+    default:
+      return `The component will be APPENDED inside the target element (${targetSelector}).`;
+  }
+}
+
+// Build a self-contained, idempotent insertion script for the variation's
+// `js` field. It runs once in the SDK (and our preview), guards on the
+// unique scope class so it never double-inserts, and waits (bounded) for
+// late/SPA-rendered targets before giving up — so it never loops.
+function buildInsertJs({
+  scopeToken,
+  targetSelector,
+  position,
+  html,
+}: {
+  scopeToken: string;
+  targetSelector: string;
+  position: "beforeend" | "beforebegin" | "afterend";
+  html: string;
+}): string {
+  const S = JSON.stringify(scopeToken);
+  const T = JSON.stringify(targetSelector);
+  const P = JSON.stringify(position);
+  const H = JSON.stringify(html);
+  return `(function(){var S=${S};function ins(){if(document.querySelector("."+S))return true;var t=document.querySelector(${T});if(!t)return false;t.insertAdjacentHTML(${P},${H});return true;}if(ins())return;var mo=new MutationObserver(function(){if(ins())mo.disconnect();});mo.observe(document.documentElement,{childList:true,subtree:true});setTimeout(function(){mo.disconnect();},10000);})();`;
 }
 
 function buildFigmaUserPrompt({
@@ -191,6 +236,17 @@ export const postFigmaToVariant = createApiRequestHandler(validation)(async (
   if (!currentChange) {
     return context.throwBadRequestError(
       "variationId does not belong to the given changeset",
+    );
+  }
+
+  // "Replace contents" sets the target's innerHTML; doing that to body/html
+  // would wipe the whole page. (Insert modes are fine on any target.)
+  if (
+    injectionMode === "set" &&
+    /^\s*(body|html|:root)\s*$/i.test(targetSelector)
+  ) {
+    return context.throwBadRequestError(
+      "Pick a specific container to replace — replacing the contents of <body>/<html> would wipe the page. Use 'Append inside' to add to the page instead.",
     );
   }
 
@@ -321,26 +377,46 @@ export const postFigmaToVariant = createApiRequestHandler(validation)(async (
 
   const scopedCss = result.css ? scopeCss(result.css, scopeClass) : "";
 
-  // One html mutation on the target. dom-mutator (used here AND in the
-  // production SDK) only supports html append/set and moving EXISTING
-  // elements via `position` — it can't insert a brand-new node as a
-  // sibling, so before/after isn't expressible without two mutations that
-  // fight each other through its MutationObserver (the html re-assert
-  // recreates the node, the position move relocates it, forever). Hence
-  // only the two single-mutation placements are supported.
-  const mutations = [
-    {
-      selector: targetSelector,
-      action: injectionMode, // "append" (inside) or "set" (replace contents)
-      attribute: "html",
-      value: html,
-    },
-  ];
+  // "Replace contents" → a dom-mutator `html` `set` mutation. `set`
+  // re-asserts a FIXED string, so it converges (no multiplication) and is
+  // cleanly revertable + lazy-binds to late targets.
+  if (injectionMode === "set") {
+    return {
+      mutations: [
+        {
+          selector: targetSelector,
+          action: "set",
+          attribute: "html",
+          value: html,
+        },
+      ],
+      ...(scopedCss ? { css: scopedCss } : {}),
+      explanation: result.explanation,
+    };
+  }
+
+  // Insert modes (append/before/after) → inject via the variation's `js`
+  // field (insertAdjacentHTML), NOT a dom-mutation. dom-mutator re-asserts
+  // appended HTML on every subtree change (duplicating it → page freeze,
+  // guaranteed on body), and the same dom-mutator runs in the production
+  // SDK. The SDK applies `js` as a one-shot <script> with no observer, so
+  // an idempotent insert runs exactly once. `insert` is the descriptor the
+  // editor uses to live-preview the same insertion revertably.
+  const position = INSERT_POSITION[injectionMode];
+  const insertJs = buildInsertJs({
+    scopeToken,
+    targetSelector,
+    position,
+    html,
+  });
+  // Append our insertion after any JS the model returned (rare).
+  const js = result.js ? `${result.js}\n${insertJs}` : insertJs;
 
   return {
-    mutations,
+    mutations: [],
+    insert: { targetSelector, position, html, scopeToken },
+    js,
     ...(scopedCss ? { css: scopedCss } : {}),
-    ...(result.js ? { js: result.js } : {}),
     explanation: result.explanation,
   };
 });

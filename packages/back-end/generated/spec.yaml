@@ -23385,6 +23385,8 @@ paths:
                   enum:
                     - append
                     - set
+                    - before
+                    - after
                 source:
                   anyOf:
                     - type: object
