@@ -310,7 +310,7 @@ function compileRoutes(): CompiledRoute[] {
   if (compiled) return compiled;
   const source = routesOverride ?? allRoutes;
   compiled = source
-    .filter((r) => !!r.method)
+    .filter((r) => !!r.method && !r.deprecated)
     .map((r) => {
       const fullPath = routeFullPath(r);
       return {
