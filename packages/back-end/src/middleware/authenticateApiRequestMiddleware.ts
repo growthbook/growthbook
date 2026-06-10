@@ -268,9 +268,10 @@ function authenticateWithApiKey(
       req.organization = org;
 
       if (org.suspended && !req.user?.superAdmin) {
-        throw Error(
-          "This account has been suspended. Please contact support@growthbook.io for assistance.",
-        );
+        return res.status(403).json({
+          message:
+            "This account has been suspended. Please contact support@growthbook.io for assistance.",
+        });
       }
 
       // If it's a user API key, verify that the user is part of the organization
