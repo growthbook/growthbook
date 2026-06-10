@@ -8,6 +8,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { SavedGroupWithoutValues } from "shared/types/saved-group";
 import { FaQuestionCircle } from "react-icons/fa";
 import { BiShow } from "react-icons/bi";
+import { PiArrowSquareOut } from "react-icons/pi";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
@@ -309,6 +310,14 @@ export default function AttributeDetailPage() {
                 <SortedTags tags={attribute.tags ?? []} useFlex={true} />
               </Flex>
             )}
+            {attribute.documentationUrl && (
+              <Flex align="center" gap="2">
+                <Text>Docs:</Text>
+                <Link href={attribute.documentationUrl} target="_blank">
+                  {attribute.documentationUrl} <PiArrowSquareOut />
+                </Link>
+              </Flex>
+            )}
             <Text>
               Identifier:{" "}
               <strong>{attribute.hashAttribute ? "Yes" : "No"}</strong>
@@ -364,6 +373,8 @@ export default function AttributeDetailPage() {
                   if (payload.enum === null) delete payload.enum;
                   if (payload.disableEqualityConditions === null)
                     delete payload.disableEqualityConditions;
+                  if (payload.documentationUrl === null)
+                    delete payload.documentationUrl;
                   await apiCall("/attribute", {
                     method: "PUT",
                     body: JSON.stringify(payload),

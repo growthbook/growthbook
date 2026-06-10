@@ -1,6 +1,7 @@
 import express from "express";
 import { z } from "zod";
 import { attributeDataTypes } from "shared/constants";
+import { documentationUrlSchema } from "shared/validators";
 import { wrapController } from "back-end/src/routers/wrapController";
 import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRequestMiddleware";
 import * as rawAttributesController from "./attributes.controller";
@@ -30,6 +31,7 @@ router.post(
       hashAttribute: z.boolean().optional(),
       disableEqualityConditions: z.boolean().optional(),
       tags: z.array(z.string()).optional(),
+      documentationUrl: documentationUrlSchema,
     }),
   }),
   AttributeController.postAttribute,
@@ -50,6 +52,7 @@ router.put(
       disableEqualityConditions: z.boolean().optional(),
       previousName: z.string().optional(),
       tags: z.array(z.string()).optional(),
+      documentationUrl: documentationUrlSchema,
     }),
   }),
   AttributeController.putAttribute,
