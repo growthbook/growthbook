@@ -1864,8 +1864,6 @@ export function revisionToApiInterface(
     status: rev.status,
     createdBy: eventUserToString(rev.createdBy),
     publishedBy: eventUserToString(rev.publishedBy),
-    createdByUser: eventUserToApiEventUser(rev.createdBy),
-    publishedByUser: eventUserToApiEventUser(rev.publishedBy),
     defaultValue: rev.defaultValue,
     rules,
     ...(rev.environmentsEnabled !== undefined && {
@@ -1936,10 +1934,8 @@ export function revisionToApiInterfaceV2(
       rev.dateCreated?.toISOString?.() ||
       new Date(rev.dateCreated).toISOString(),
     status: rev.status,
-    createdBy: eventUserToString(rev.createdBy),
-    publishedBy: eventUserToString(rev.publishedBy),
-    createdByUser: eventUserToApiEventUser(rev.createdBy),
-    publishedByUser: eventUserToApiEventUser(rev.publishedBy),
+    createdBy: eventUserToApiEventUser(rev.createdBy),
+    publishedBy: eventUserToApiEventUser(rev.publishedBy),
     defaultValue: rev.defaultValue,
     rules,
     ...(rev.environmentsEnabled !== undefined && {
@@ -2030,19 +2026,6 @@ export function getApiFeatureObjV2({
 
   const revisionDefs = revisions?.map(revisionToApiInterfaceV2);
 
-  const createdBy =
-    revision?.createdBy?.type === "api_key"
-      ? "API"
-      : revision?.createdBy?.type === "system"
-        ? "SYSTEM"
-        : revision?.createdBy?.name;
-  const publishedBy =
-    revision?.publishedBy?.type === "api_key"
-      ? "API"
-      : revision?.publishedBy?.type === "system"
-        ? "SYSTEM"
-        : revision?.publishedBy?.name;
-
   return {
     id: feature.id,
     description: feature.description || "",
@@ -2060,10 +2043,8 @@ export function getApiFeatureObjV2({
     revision: {
       comment: revision?.comment || "",
       date: revision?.dateCreated.toISOString() || "",
-      createdBy: createdBy || "",
-      publishedBy: publishedBy || "",
-      createdByUser: eventUserToApiEventUser(revision?.createdBy),
-      publishedByUser: eventUserToApiEventUser(revision?.publishedBy),
+      createdBy: eventUserToApiEventUser(revision?.createdBy),
+      publishedBy: eventUserToApiEventUser(revision?.publishedBy),
       version: feature.version,
     },
     revisions: revisionDefs,
@@ -2224,8 +2205,6 @@ export function getApiFeatureObj({
       status: rev?.status,
       createdBy,
       publishedBy,
-      createdByUser: eventUserToApiEventUser(rev?.createdBy),
-      publishedByUser: eventUserToApiEventUser(rev?.publishedBy),
       rules: environmentRules,
       definitions: environmentDefinitions,
       defaultValue: rev.defaultValue,
@@ -2267,8 +2246,6 @@ export function getApiFeatureObj({
       date: revision?.dateCreated.toISOString() || "",
       createdBy: createdBy || "",
       publishedBy: publishedBy || "",
-      createdByUser: eventUserToApiEventUser(revision?.createdBy),
-      publishedByUser: eventUserToApiEventUser(revision?.publishedBy),
       version: feature.version,
     },
     revisions: revisionDefs,

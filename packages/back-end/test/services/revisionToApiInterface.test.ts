@@ -227,46 +227,42 @@ describe("revision author serialization", () => {
     });
   });
 
-  it("keeps display-name strings and adds structured authors (v1)", () => {
+  it("keeps legacy display-name strings on v1", () => {
     const api = revisionToApiInterface(
       revWith(dashboardUser, apiKeyUser),
       ORG_ENVS,
       "",
     );
     expect(api.createdBy).toBe("U");
-    expect(api.createdByUser).toEqual({
+    expect(api.publishedBy).toBe("API");
+    expect(api).not.toHaveProperty("createdByUser");
+  });
+
+  it("emits structured authors on v2", () => {
+    const api = revisionToApiInterfaceV2(revWith(systemUser, dashboardUser));
+    expect(api.createdBy).toEqual({ type: "system" });
+    expect(api.publishedBy).toEqual({
       type: "dashboard",
       id: "u1",
       name: "U",
       email: "u@x",
     });
-    expect(api.publishedBy).toBe("API");
-    expect(api.publishedByUser).toEqual({
+  });
+
+  it("never exposes the api_key actor's apiKey on v2", () => {
+    const api = revisionToApiInterfaceV2(revWith(apiKeyUser, null));
+    expect(api.createdBy).toEqual({
       type: "api_key",
       id: "u2",
       name: "CI Bot",
     });
-    expect(api.publishedByUser).not.toHaveProperty("apiKey");
+    expect(api.createdBy).not.toHaveProperty("apiKey");
+    expect(api.publishedBy).toBeUndefined();
   });
 
-  it("keeps display-name strings and adds structured authors (v2)", () => {
-    const api = revisionToApiInterfaceV2(revWith(systemUser, dashboardUser));
-    expect(api.createdBy).toBe("SYSTEM");
-    expect(api.createdByUser).toEqual({ type: "system" });
-    expect(api.publishedBy).toBe("U");
-    expect(api.publishedByUser).toEqual({
-      type: "dashboard",
-      id: "u1",
-      name: "U",
-      email: "u@x",
-    });
-  });
-
-  it("omits structured authors for null users", () => {
+  it("omits authors for null users on v2", () => {
     const api = revisionToApiInterfaceV2(revWith(null, null));
     expect(api.createdBy).toBeUndefined();
-    expect(api.createdByUser).toBeUndefined();
     expect(api.publishedBy).toBeUndefined();
-    expect(api.publishedByUser).toBeUndefined();
   });
 });

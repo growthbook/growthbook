@@ -31706,10 +31706,6 @@ components:
               type: string
             publishedBy:
               type: string
-            createdByUser:
-              $ref: '#/components/schemas/EventUser'
-            publishedByUser:
-              $ref: '#/components/schemas/EventUser'
           required:
             - version
             - comment
@@ -32392,25 +32388,6 @@ components:
             - controlValue
             - variationValue
           additionalProperties: false
-    EventUser:
-      description: The user (or automated actor) responsible for an action
-      type: object
-      properties:
-        type:
-          type: string
-          enum:
-            - dashboard
-            - api_key
-            - system
-        id:
-          type: string
-        name:
-          type: string
-        email:
-          type: string
-      required:
-        - type
-      additionalProperties: false
     PaginationFields:
       type: object
       properties:
@@ -32467,10 +32444,6 @@ components:
           type: string
         publishedBy:
           type: string
-        createdByUser:
-          $ref: '#/components/schemas/EventUser'
-        publishedByUser:
-          $ref: '#/components/schemas/EventUser'
         defaultValue:
           description: The default value at the time this revision was created
           type: string
@@ -33524,19 +33497,13 @@ components:
               format: date-time
               type: string
             createdBy:
-              type: string
-            publishedBy:
-              type: string
-            createdByUser:
               $ref: '#/components/schemas/EventUser'
-            publishedByUser:
+            publishedBy:
               $ref: '#/components/schemas/EventUser'
           required:
             - version
             - comment
             - date
-            - createdBy
-            - publishedBy
           additionalProperties: false
         customFields:
           type: object
@@ -33619,6 +33586,25 @@ components:
         - enabled
         - defaultValue
       additionalProperties: false
+    EventUser:
+      description: The user (or automated actor) responsible for an action
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - dashboard
+            - api_key
+            - system
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+      required:
+        - type
+      additionalProperties: false
     FeatureWithRevisionsV2:
       allOf:
         - $ref: '#/components/schemas/FeatureV2'
@@ -33647,12 +33633,8 @@ components:
         status:
           type: string
         createdBy:
-          type: string
-        publishedBy:
-          type: string
-        createdByUser:
           $ref: '#/components/schemas/EventUser'
-        publishedByUser:
+        publishedBy:
           $ref: '#/components/schemas/EventUser'
         defaultValue:
           description: The default value at the time this revision was created

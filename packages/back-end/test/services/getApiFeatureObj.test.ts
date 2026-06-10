@@ -1068,52 +1068,48 @@ describe("getApiFeatureObj: revision author summary", () => {
     safeRolloutMap: new Map<string, SafeRolloutInterface>(),
   });
 
-  it("emits structured authors alongside display-name strings (v1 + v2)", () => {
+  it("keeps v1 strings and emits structured authors on v2", () => {
     const revision = makeRevision(dashboardUser, apiKeyUser);
     const args = { ...baseArgs(), revision, revisions: [revision] };
 
+    // v1 is unchanged: display-name strings, no structured fields
     const api = getApiFeatureObj(args);
     expect(api.revision.createdBy).toBe("Jane Doe");
-    expect(api.revision.createdByUser).toEqual({
+    expect(api.revision.publishedBy).toBe("API");
+    expect(api.revision).not.toHaveProperty("createdByUser");
+    expect(api.revisions?.[0]?.createdBy).toBe("Jane Doe");
+    expect(api.revisions?.[0]?.publishedBy).toBe("API");
+
+    // v2 emits structured authors in both the summary and revisions[]
+    const apiV2 = getApiFeatureObjV2(args);
+    const structuredCreatedBy = {
       type: "dashboard",
       id: "u1",
       name: "Jane Doe",
       email: "jane@example.com",
-    });
-    expect(api.revision.publishedBy).toBe("API");
-    expect(api.revision.publishedByUser).toEqual({
+    };
+    const structuredPublishedBy = {
       type: "api_key",
       id: "u2",
       name: "CI Bot",
-    });
-    expect(api.revision.publishedByUser).not.toHaveProperty("apiKey");
-    expect(api.revisions?.[0]?.createdByUser).toEqual(
-      api.revision.createdByUser,
-    );
-    expect(api.revisions?.[0]?.publishedByUser).toEqual(
-      api.revision.publishedByUser,
-    );
-
-    const apiV2 = getApiFeatureObjV2(args);
-    expect(apiV2.revision.createdByUser).toEqual(api.revision.createdByUser);
-    expect(apiV2.revision.publishedByUser).toEqual(
-      api.revision.publishedByUser,
-    );
-    expect(apiV2.revisions?.[0]?.createdByUser).toEqual(
-      api.revision.createdByUser,
-    );
+    };
+    expect(apiV2.revision.createdBy).toEqual(structuredCreatedBy);
+    expect(apiV2.revision.publishedBy).toEqual(structuredPublishedBy);
+    expect(apiV2.revision.publishedBy).not.toHaveProperty("apiKey");
+    expect(apiV2.revisions?.[0]?.createdBy).toEqual(structuredCreatedBy);
+    expect(apiV2.revisions?.[0]?.publishedBy).toEqual(structuredPublishedBy);
   });
 
-  it("omits structured authors when the revision or its users are null", () => {
-    const api = getApiFeatureObj({ ...baseArgs(), revision: null });
-    expect(api.revision.createdByUser).toBeUndefined();
-    expect(api.revision.publishedByUser).toBeUndefined();
+  it("omits v2 authors when the revision or its users are null", () => {
+    const apiV2 = getApiFeatureObjV2({ ...baseArgs(), revision: null });
+    expect(apiV2.revision.createdBy).toBeUndefined();
+    expect(apiV2.revision.publishedBy).toBeUndefined();
 
-    const apiNullUsers = getApiFeatureObj({
+    const apiV2NullUsers = getApiFeatureObjV2({
       ...baseArgs(),
       revision: makeRevision(null, null),
     });
-    expect(apiNullUsers.revision.createdByUser).toBeUndefined();
-    expect(apiNullUsers.revision.publishedByUser).toBeUndefined();
+    expect(apiV2NullUsers.revision.createdBy).toBeUndefined();
+    expect(apiV2NullUsers.revision.publishedBy).toBeUndefined();
   });
 });

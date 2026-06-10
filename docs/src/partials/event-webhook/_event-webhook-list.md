@@ -85,18 +85,6 @@ Triggered when a feature is created
                 date: string;
                 createdBy: string;
                 publishedBy: string;
-                createdByUser?: {
-                    type: "dashboard" | "api_key" | "system";
-                    id?: string | undefined;
-                    name?: string | undefined;
-                    email?: string | undefined;
-                } | undefined;
-                publishedByUser?: {
-                    type: "dashboard" | "api_key" | "system";
-                    id?: string | undefined;
-                    name?: string | undefined;
-                    email?: string | undefined;
-                } | undefined;
             };
             customFields?: Record<string, {}> | undefined;
             holdout?: ({
@@ -166,18 +154,6 @@ Triggered when a feature is updated
                 date: string;
                 createdBy: string;
                 publishedBy: string;
-                createdByUser?: {
-                    type: "dashboard" | "api_key" | "system";
-                    id?: string | undefined;
-                    name?: string | undefined;
-                    email?: string | undefined;
-                } | undefined;
-                publishedByUser?: {
-                    type: "dashboard" | "api_key" | "system";
-                    id?: string | undefined;
-                    name?: string | undefined;
-                    email?: string | undefined;
-                } | undefined;
             };
             customFields?: Record<string, {}> | undefined;
             holdout?: ({
@@ -208,18 +184,6 @@ Triggered when a feature is updated
                 date: string;
                 createdBy: string;
                 publishedBy: string;
-                createdByUser?: {
-                    type: "dashboard" | "api_key" | "system";
-                    id?: string | undefined;
-                    name?: string | undefined;
-                    email?: string | undefined;
-                } | undefined;
-                publishedByUser?: {
-                    type: "dashboard" | "api_key" | "system";
-                    id?: string | undefined;
-                    name?: string | undefined;
-                    email?: string | undefined;
-                } | undefined;
             } | undefined;
             customFields?: Record<string, {}> | undefined;
             holdout?: ({
@@ -294,18 +258,6 @@ Triggered when a feature is deleted
                 date: string;
                 createdBy: string;
                 publishedBy: string;
-                createdByUser?: {
-                    type: "dashboard" | "api_key" | "system";
-                    id?: string | undefined;
-                    name?: string | undefined;
-                    email?: string | undefined;
-                } | undefined;
-                publishedByUser?: {
-                    type: "dashboard" | "api_key" | "system";
-                    id?: string | undefined;
-                    name?: string | undefined;
-                    email?: string | undefined;
-                } | undefined;
             };
             customFields?: Record<string, {}> | undefined;
             holdout?: ({
@@ -866,18 +818,6 @@ Triggered when a new draft revision is created for a feature
             status: string;
             createdBy?: string | undefined;
             publishedBy?: string | undefined;
-            createdByUser?: {
-                type: "dashboard" | "api_key" | "system";
-                id?: string | undefined;
-                name?: string | undefined;
-                email?: string | undefined;
-            } | undefined;
-            publishedByUser?: {
-                type: "dashboard" | "api_key" | "system";
-                id?: string | undefined;
-                name?: string | undefined;
-                email?: string | undefined;
-            } | undefined;
             /** The default value at the time this revision was created */
             defaultValue?: string | undefined;
             rules: Record<string, any[]>;
@@ -944,18 +884,6 @@ Triggered when a draft revision is modified (rules, default value, toggles, prer
             status: string;
             createdBy?: string | undefined;
             publishedBy?: string | undefined;
-            createdByUser?: {
-                type: "dashboard" | "api_key" | "system";
-                id?: string | undefined;
-                name?: string | undefined;
-                email?: string | undefined;
-            } | undefined;
-            publishedByUser?: {
-                type: "dashboard" | "api_key" | "system";
-                id?: string | undefined;
-                name?: string | undefined;
-                email?: string | undefined;
-            } | undefined;
             /** The default value at the time this revision was created */
             defaultValue?: string | undefined;
             rules: Record<string, any[]>;
@@ -1024,18 +952,6 @@ Triggered when a draft revision is submitted for review
             status: string;
             createdBy?: string | undefined;
             publishedBy?: string | undefined;
-            createdByUser?: {
-                type: "dashboard" | "api_key" | "system";
-                id?: string | undefined;
-                name?: string | undefined;
-                email?: string | undefined;
-            } | undefined;
-            publishedByUser?: {
-                type: "dashboard" | "api_key" | "system";
-                id?: string | undefined;
-                name?: string | undefined;
-                email?: string | undefined;
-            } | undefined;
             /** The default value at the time this revision was created */
             defaultValue?: string | undefined;
             rules: Record<string, any[]>;
@@ -1103,18 +1019,6 @@ Triggered when a draft revision is approved by a reviewer
             status: string;
             createdBy?: string | undefined;
             publishedBy?: string | undefined;
-            createdByUser?: {
-                type: "dashboard" | "api_key" | "system";
-                id?: string | undefined;
-                name?: string | undefined;
-                email?: string | undefined;
-            } | undefined;
-            publishedByUser?: {
-                type: "dashboard" | "api_key" | "system";
-                id?: string | undefined;
-                name?: string | undefined;
-                email?: string | undefined;
-            } | undefined;
             /** The default value at the time this revision was created */
             defaultValue?: string | undefined;
             rules: Record<string, any[]>;
@@ -1187,18 +1091,6 @@ Triggered when a reviewer requests changes on a draft revision
             status: string;
             createdBy?: string | undefined;
             publishedBy?: string | undefined;
-            createdByUser?: {
-                type: "dashboard" | "api_key" | "system";
-                id?: string | undefined;
-                name?: string | undefined;
-                email?: string | undefined;
-            } | undefined;
-            publishedByUser?: {
-                type: "dashboard" | "api_key" | "system";
-                id?: string | undefined;
-                name?: string | undefined;
-                email?: string | undefined;
-            } | undefined;
             /** The default value at the time this revision was created */
             defaultValue?: string | undefined;
             rules: Record<string, any[]>;
@@ -1271,18 +1163,6 @@ Triggered when a comment is added to a draft revision
             status: string;
             createdBy?: string | undefined;
             publishedBy?: string | undefined;
-            createdByUser?: {
-                type: "dashboard" | "api_key" | "system";
-                id?: string | undefined;
-                name?: string | undefined;
-                email?: string | undefined;
-            } | undefined;
-            publishedByUser?: {
-                type: "dashboard" | "api_key" | "system";
-                id?: string | undefined;
-                name?: string | undefined;
-                email?: string | undefined;
-            } | undefined;
             /** The default value at the time this revision was created */
             defaultValue?: string | undefined;
             rules: Record<string, any[]>;
@@ -1355,18 +1235,6 @@ Triggered when a draft revision is discarded
             status: string;
             createdBy?: string | undefined;
             publishedBy?: string | undefined;
-            createdByUser?: {
-                type: "dashboard" | "api_key" | "system";
-                id?: string | undefined;
-                name?: string | undefined;
-                email?: string | undefined;
-            } | undefined;
-            publishedByUser?: {
-                type: "dashboard" | "api_key" | "system";
-                id?: string | undefined;
-                name?: string | undefined;
-                email?: string | undefined;
-            } | undefined;
             /** The default value at the time this revision was created */
             defaultValue?: string | undefined;
             rules: Record<string, any[]>;
@@ -1433,18 +1301,6 @@ Triggered when a draft revision is rebased onto the latest published version
             status: string;
             createdBy?: string | undefined;
             publishedBy?: string | undefined;
-            createdByUser?: {
-                type: "dashboard" | "api_key" | "system";
-                id?: string | undefined;
-                name?: string | undefined;
-                email?: string | undefined;
-            } | undefined;
-            publishedByUser?: {
-                type: "dashboard" | "api_key" | "system";
-                id?: string | undefined;
-                name?: string | undefined;
-                email?: string | undefined;
-            } | undefined;
             /** The default value at the time this revision was created */
             defaultValue?: string | undefined;
             rules: Record<string, any[]>;
@@ -1511,18 +1367,6 @@ Triggered when a draft revision is published. Overlaps with `feature.updated` bu
             status: string;
             createdBy?: string | undefined;
             publishedBy?: string | undefined;
-            createdByUser?: {
-                type: "dashboard" | "api_key" | "system";
-                id?: string | undefined;
-                name?: string | undefined;
-                email?: string | undefined;
-            } | undefined;
-            publishedByUser?: {
-                type: "dashboard" | "api_key" | "system";
-                id?: string | undefined;
-                name?: string | undefined;
-                email?: string | undefined;
-            } | undefined;
             /** The default value at the time this revision was created */
             defaultValue?: string | undefined;
             rules: Record<string, any[]>;
@@ -1589,18 +1433,6 @@ Triggered when a feature is reverted to a previous published revision
             status: string;
             createdBy?: string | undefined;
             publishedBy?: string | undefined;
-            createdByUser?: {
-                type: "dashboard" | "api_key" | "system";
-                id?: string | undefined;
-                name?: string | undefined;
-                email?: string | undefined;
-            } | undefined;
-            publishedByUser?: {
-                type: "dashboard" | "api_key" | "system";
-                id?: string | undefined;
-                name?: string | undefined;
-                email?: string | undefined;
-            } | undefined;
             /** The default value at the time this revision was created */
             defaultValue?: string | undefined;
             rules: Record<string, any[]>;
