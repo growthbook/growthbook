@@ -8,6 +8,7 @@ import {
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
+import { IS_CLOUD } from "back-end/src/util/secrets";
 import { requireUserAuth } from "./requireUserAuth";
 import { buildVisualEditorTools, VISUAL_EDITOR_MAX_STEPS } from "./aiTools";
 import { aiEditJobStore } from "./aiTools/clientJob";
@@ -674,10 +675,20 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
   // client; non-streaming mode runs without DOM tools so the race only
   // ever resolves to "final".
   const streamingMode = !!req.body.streamingMode;
+  // The streaming tool loop keeps an in-memory job (a paused, mid-flight
+  // generation) and resumes it via a follow-up /edit/resume request. That
+  // only works when the resume lands on the SAME process. On Cloud
+  // (multi-instance, no session affinity) a resume can hit a different
+  // instance → "AI edit session not found". An in-flight generation can't
+  // be serialized/shared either, so the fix is to NOT use the DOM-side
+  // tool loop on Cloud: run a single-shot generation (server-side tools
+  // only) and answer immediately. We still return the streaming-shaped
+  // {kind:"final"} envelope below so the extension's handling is unchanged.
+  const useToolLoop = streamingMode && !IS_CLOUD;
   const job = aiEditJobStore.create();
   const tools = buildVisualEditorTools({
     context,
-    job: streamingMode ? job : undefined,
+    job: useToolLoop ? job : undefined,
   });
   // Cast through unknown — the job store is invariant in TFinal for
   // type-erasure reasons but each job is used with one schema only.
@@ -740,14 +751,14 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     throw new Error(outcome.error);
   }
   if (outcome.kind === "toolCall") {
-    // Only streamingMode includes DOM-side tools, so this branch is
-    // unreachable when streaming is off — defensive throw makes that
+    // DOM-side tools are only attached when useToolLoop is true, so this
+    // branch is unreachable otherwise — defensive throw makes that
     // explicit. Server-side tools execute synchronously inside
     // generateText and never reach the race.
-    if (!streamingMode) {
+    if (!useToolLoop) {
       aiEditJobStore.delete(job.id);
       throw new Error(
-        "Internal: unexpected client-side tool call without streamingMode.",
+        "Internal: unexpected client-side tool call without the tool loop.",
       );
     }
     return {

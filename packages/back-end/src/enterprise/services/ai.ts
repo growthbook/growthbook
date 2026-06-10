@@ -5,6 +5,7 @@ import {
   Output,
   tool as aiTool,
   stepCountIs,
+  NoObjectGeneratedError,
 } from "ai";
 import type { ToolSet, ModelMessage } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
@@ -412,18 +413,46 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     ? undefined
     : temperature;
 
-  const response = await generateText({
-    model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
-    messages: messages,
-    output: Output.object({
-      schema: zodObjectSchema,
-    }),
-    ...(effectiveTemperature != null
-      ? { temperature: effectiveTemperature }
-      : {}),
-    ...(tools ? { tools, stopWhen: stepCountIs(maxSteps) } : {}),
-    ...(onStepFinish ? { onStepFinish } : {}),
-  });
+  const generateOnce = () =>
+    generateText({
+      model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
+      messages: messages,
+      output: Output.object({
+        schema: zodObjectSchema,
+      }),
+      ...(effectiveTemperature != null
+        ? { temperature: effectiveTemperature }
+        : {}),
+      ...(tools ? { tools, stopWhen: stepCountIs(maxSteps) } : {}),
+      ...(onStepFinish ? { onStepFinish } : {}),
+    });
+
+  // Structured-output adherence is probabilistic, especially on providers
+  // without native JSON-schema enforcement (e.g. Anthropic, which the AI
+  // SDK emulates via a forced tool call) and even more so when tools +
+  // multi-step are in play. When the model fails to emit a schema-valid
+  // object the SDK throws NoObjectGeneratedError ("No object generated:
+  // response did not match schema."). That's almost always transient, so
+  // retry once before surfacing a clear error rather than the raw SDK
+  // string.
+  let response: Awaited<ReturnType<typeof generateOnce>>;
+  try {
+    response = await generateOnce();
+  } catch (err) {
+    if (!NoObjectGeneratedError.isInstance(err)) throw err;
+    logger.warn(
+      { type, model },
+      "parsePrompt: model returned no schema-valid object; retrying once",
+    );
+    try {
+      response = await generateOnce();
+    } catch (retryErr) {
+      if (!NoObjectGeneratedError.isInstance(retryErr)) throw retryErr;
+      throw new Error(
+        "The AI couldn't format a valid response for this request. Please try again, or rephrase/simplify the request.",
+      );
+    }
+  }
 
   if (IS_CLOUD) {
     // Fire and forget
