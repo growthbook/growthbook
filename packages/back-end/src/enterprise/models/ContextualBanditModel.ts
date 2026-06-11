@@ -50,11 +50,6 @@ const BaseClass = MakeModelClass({
     updateEvent: "contextualBandit.update",
     deleteEvent: "contextualBandit.delete",
   },
-  // The legacy `{ organization, experiment }` unique index is dropped now that
-  // CBs are decoupled from experiments. With `experiment` gone from the schema
-  // every doc indexed `experiment: null`, so the unique constraint allowed only
-  // a single CB per org (any second create threw an E11000 dup-key error).
-  indexesToRemove: ["organization_1_experiment_1"],
   apiConfig: {
     modelKey: "contextualBandits",
     openApiSpec: contextualBanditApiSpec,
@@ -248,7 +243,7 @@ export class ContextualBanditModel extends BaseClass {
         id: generateVariationId(),
         screenshots: [],
       })),
-      // Alias kept in lockstep with `datasource` for legacy shape parity.
+      // `datasourceId` mirrors `datasource`; the snapshot orchestrator reads `datasourceId`.
       datasourceId: body.datasource,
       // SQL-side spelling mirrored so the snapshot orchestrator reads either.
       targetingAttributeColumns: body.contextualAttributes,
@@ -289,39 +284,6 @@ export class ContextualBanditModel extends BaseClass {
     return out as Parameters<typeof this.updateById>[1];
   }
 
-  /** Coerce missing CB-native fields to safe defaults so older on-disk docs read cleanly. */
-  protected migrate(legacyDoc: unknown): ContextualBanditInterface {
-    const doc = legacyDoc as Partial<ContextualBanditInterface> &
-      Record<string, unknown>;
-
-    return {
-      ...doc,
-      name: doc.name ?? "",
-      owner: doc.owner ?? "",
-      tags: doc.tags ?? [],
-      archived: doc.archived ?? false,
-      status: doc.status ?? "draft",
-      trackingKey: doc.trackingKey ?? "",
-      hashAttribute: doc.hashAttribute ?? "",
-      hashVersion: doc.hashVersion ?? 2,
-      disableStickyBucketing: doc.disableStickyBucketing ?? false,
-      variations: doc.variations ?? [],
-      datasource: doc.datasource ?? doc.datasourceId ?? "",
-      goalMetrics: doc.goalMetrics ?? [],
-      secondaryMetrics: doc.secondaryMetrics ?? [],
-      guardrailMetrics: doc.guardrailMetrics ?? [],
-      defaultMetricPriorSettings: doc.defaultMetricPriorSettings ?? {
-        override: false,
-        proper: false,
-        mean: 0,
-        stddev: 0.1,
-      },
-      contextualAttributes: doc.contextualAttributes ?? [],
-      currentLeafWeights: doc.currentLeafWeights ?? [],
-      snapshotUpdateCount: doc.snapshotUpdateCount ?? 0,
-    } as ContextualBanditInterface;
-  }
-
   protected canRead(doc: ContextualBanditInterface): boolean {
     return this.context.permissions.canReadSingleProjectResource(doc.project);
   }
@@ -355,7 +317,7 @@ export class ContextualBanditModel extends BaseClass {
    * empty-result run can't wipe existing weights), but the counter and `dateUpdated` still advance.
    *
    * The single-document write is concurrency-safe under simultaneous refreshes (last-writer-wins
-   * on `currentLeafWeights`; `$inc` is atomic, same semantics as the legacy positional phases-array update).
+   * on `currentLeafWeights`; `$inc` is atomic).
    *
    * Callers MUST preserve the project-wide write ordering for snapshot success (CBE → CB-patch → CBS-success)
    * so a crashed refresh can't leave inconsistent leaf weights vs. the snapshot status.

@@ -21,10 +21,6 @@ const BaseClass = MakeModelClass({
       fields: { contextualBanditEventId: 1 },
     },
   ],
-  // The legacy `{ organization, contextualBandit, phase, dateCreated }` index is dropped now
-  // that `phase` is no longer part of the schema. Mongo will rebuild the new index on the
-  // first read after deploy via `BaseModel.updateIndexes()`.
-  indexesToRemove: ["organization_1_contextualBandit_1_phase_1_dateCreated_-1"],
 });
 
 export class ContextualBanditSnapshotModel extends BaseClass {

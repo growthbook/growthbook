@@ -22,7 +22,6 @@ const BaseClass = MakeModelClass({
       fields: { snapshotId: 1 },
     },
   ],
-  indexesToRemove: ["organization_1_contextualBandit_1_phase_1_dateCreated_-1"],
 });
 
 export class ContextualBanditEventModel extends BaseClass {

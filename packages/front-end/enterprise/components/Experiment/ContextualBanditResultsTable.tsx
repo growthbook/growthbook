@@ -298,7 +298,7 @@ export default function ContextualBanditResultsTable({
 
   const { data: cbResults, mutate: mutateCbResults } =
     useApi<ContextualBanditResultsResponse>(
-      // `experiment.id` is a `cb_` id, so the legacy route would 404.
+      // `experiment.id` is a `cb_` id, so the experiment-nested route would 404.
       `/api/v1/contextual-bandits/${experiment.id}/results`,
     );
 
@@ -419,7 +419,7 @@ export default function ContextualBanditResultsTable({
         phase={phase}
         dimension={dimension}
         setAnalysisSettings={setAnalysisSettings}
-        // `experiment.id` is a `cb_` id, so the legacy `/experiment/:id/snapshot`
+        // `experiment.id` is a `cb_` id, so the `/experiment/:id/snapshot`
         // route 404s. Route the refresh through the CB-native endpoint instead.
         refreshEndpoint={`/api/v1/contextual-bandits/${experiment.id}/refresh`}
       />

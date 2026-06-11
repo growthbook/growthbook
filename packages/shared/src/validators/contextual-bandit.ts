@@ -65,11 +65,6 @@ export const contextualBanditValidator = baseSchema
     skipPartialData: z.boolean().optional(),
     regressionAdjustmentEnabled: z.boolean().optional(),
 
-    /**
-     * Lifted from the legacy single-element `phases[0]` to the document root.
-     * Old docs are normalized by `ContextualBanditModel.migrate()`, which reads
-     * `phases[last]` into these fields and strips `phases` before validation.
-     */
     coverage: z.number().min(0).max(1).optional(),
     condition: z.string().optional(),
     seed: z.string().optional(),
@@ -177,7 +172,6 @@ export const apiContextualBanditValidator = namedSchema(
     skipPartialData: z.boolean().optional(),
     regressionAdjustmentEnabled: z.boolean().optional(),
 
-    // Lifted from the legacy single-element `phases[0]` to the document root.
     coverage: z.number().min(0).max(1).optional(),
     condition: z.string().optional(),
     seed: z.string().optional(),
@@ -303,7 +297,6 @@ export const apiUpdateContextualBanditBody = z.object({
   archived: z.boolean().optional(),
   status: z.enum(contextualBanditStatus).optional(),
 
-  // Lifted to the document root from the legacy `phases[0]`. Now first-class typed fields.
   coverage: z.number().min(0).max(1).optional(),
   condition: z.string().optional(),
   seed: z.string().optional(),
@@ -363,7 +356,6 @@ export const CONTEXTUAL_BANDIT_API_UPDATE_FIELDS = [
   "maxLeaves",
   "archived",
   "status",
-  // Lifted root fields (formerly nested under `phases[0]`).
   "coverage",
   "condition",
   "seed",
