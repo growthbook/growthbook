@@ -2,6 +2,7 @@ import React, { FC, useEffect, useState, useCallback, useMemo } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
+  ExperimentPhaseStringDates,
   ExperimentStatus,
   Variation,
 } from "shared/types/experiment";
@@ -56,6 +57,23 @@ import {
   getDefaultVariations,
   getNewExperimentDatasourceDefaults,
 } from "@/components/Experiment/NewExperimentForm";
+
+// CBs have no `phases`; the few targeting fields the shared bandit UI edits are lifted
+// to the form root. Reuses the phase field types so shapes match the shared components.
+type ContextualBanditFormValues = Partial<ExperimentInterfaceStringDates> &
+  Partial<
+    Pick<
+      ExperimentPhaseStringDates,
+      | "coverage"
+      | "condition"
+      | "savedGroups"
+      | "prerequisites"
+      | "variationWeights"
+      | "namespace"
+      | "dateStarted"
+      | "dateEnded"
+    >
+  >;
 
 export type ContextualBanditFormProps = {
   initialStep?: number;
@@ -135,19 +153,15 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
     : hashAttributes[0] || "id";
 
   const lastPhase = (initialValue?.phases?.length ?? 1) - 1;
+  const initialPhase = initialValue?.phases?.[lastPhase];
   const initialHashAttribute = initialValue?.hashAttribute || hashAttribute;
 
   const initialExpVariations =
     initialValue?.variations ?? getDefaultVariations(initialNumVariations);
-  const toPhaseVariations = (vars: Variation[]) =>
-    vars.map((v) => ({
-      id: v.id,
-      status: "active" as const,
-    }));
   const toEqualWeights = (vars: Variation[]) => getEqualWeights(vars.length);
 
   // TODO(holdout-v1.5): wire up holdout configuration UI when back-end is ready.
-  const form = useForm<Partial<ExperimentInterfaceStringDates>>({
+  const form = useForm<ContextualBanditFormValues>({
     defaultValues: {
       project: initialValue?.project || project || "",
       trackingKey: initialValue?.trackingKey || "",
@@ -175,45 +189,19 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
       description: initialValue?.description || "",
       guardrailMetrics: initialValue?.guardrailMetrics || [],
       variations: initialExpVariations,
-      phases: [
-        ...(initialValue?.phases?.[lastPhase]
-          ? [
-              {
-                ...initialValue.phases[lastPhase],
-                coverage: initialValue.phases?.[lastPhase]?.coverage || 1,
-                dateStarted: getValidDate(
-                  initialValue.phases?.[lastPhase]?.dateStarted ?? "",
-                )
-                  .toISOString()
-                  .substring(0, 16),
-                dateEnded: getValidDate(
-                  initialValue.phases?.[lastPhase]?.dateEnded ?? "",
-                )
-                  .toISOString()
-                  .substring(0, 16),
-                name: initialValue.phases?.[lastPhase]?.name || "Main",
-                reason: "",
-                variationWeights:
-                  initialValue.phases[lastPhase].variationWeights ??
-                  toEqualWeights(initialExpVariations),
-                variations:
-                  initialValue.phases[lastPhase].variations ??
-                  toPhaseVariations(initialExpVariations),
-                ...(duplicate ? { seed: undefined } : {}),
-              },
-            ]
-          : [
-              {
-                coverage: 1,
-                dateStarted: new Date().toISOString().substring(0, 16),
-                dateEnded: new Date().toISOString().substring(0, 16),
-                name: "Main",
-                reason: "",
-                variationWeights: toEqualWeights(initialExpVariations),
-                variations: toPhaseVariations(initialExpVariations),
-              },
-            ]),
-      ],
+      coverage: initialPhase?.coverage || 1,
+      condition: initialPhase?.condition,
+      savedGroups: initialPhase?.savedGroups,
+      prerequisites: initialPhase?.prerequisites,
+      namespace: initialPhase?.namespace,
+      variationWeights:
+        initialPhase?.variationWeights ?? toEqualWeights(initialExpVariations),
+      dateStarted: getValidDate(initialPhase?.dateStarted ?? "")
+        .toISOString()
+        .substring(0, 16),
+      dateEnded: getValidDate(initialPhase?.dateEnded ?? "")
+        .toISOString()
+        .substring(0, 16),
       status: "draft",
       customFields: initialValue?.customFields,
       regressionAdjustmentEnabled:
@@ -241,7 +229,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
     : null;
 
   const watchedExpVariations = form.watch("variations") ?? [];
-  const watchedWeights = form.watch("phases.0.variationWeights") ?? [];
+  const watchedWeights = form.watch("variationWeights") ?? [];
   const combinedVariations = watchedExpVariations.map((v, i) => ({
     id: v.id || "",
     name: v.name,
@@ -279,15 +267,8 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
         })),
       );
       form.setValue(
-        "phases.0.variationWeights",
+        "variationWeights",
         normalizedVariations.map((data) => data.weight),
-      );
-      form.setValue(
-        "phases.0.variations",
-        normalizedVariations.map((data) => ({
-          id: data.id,
-          status: "active" as const,
-        })),
       );
     },
     [form],
@@ -295,7 +276,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
 
   const setVariationWeight = useCallback(
     (i: number, weight: number) => {
-      form.setValue(`phases.0.variationWeights.${i}`, weight);
+      form.setValue(`variationWeights.${i}`, weight);
     },
     [form],
   );
@@ -320,107 +301,102 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
 
     const data = { ...value };
 
-    if (data.status !== "stopped" && data.phases?.[0]) {
-      data.phases[0].dateEnded = "";
+    if (data.status !== "stopped") {
+      data.dateEnded = "";
     }
-    if (data.phases?.[0]) {
+    if (data.dateStarted && !data.dateStarted.match(/Z$/)) {
+      data.dateStarted += ":00Z";
+    }
+    if (data.dateEnded && !data.dateEnded.match(/Z$/)) {
+      data.dateEnded += ":00Z";
+    }
+
+    validateSavedGroupTargeting(data.savedGroups);
+
+    validateAndFixCondition(data.condition, (condition) => {
+      form.setValue("condition", condition);
+      forceConditionRender();
+    });
+
+    if (prerequisiteTargetingSdkIssues) {
+      throw new Error("Prerequisite targeting issues must be resolved");
+    }
+
+    validateUnregisteredAttributes(
+      {
+        hashAttribute: (data as { hashAttribute?: string }).hashAttribute,
+        fallbackAttribute: (data as { fallbackAttribute?: string })
+          .fallbackAttribute,
+        condition: data.condition,
+      },
+      "experiment",
+      {
+        attributeSchema: allAttributesSchema,
+        requireRegisteredAttributes: settings.requireRegisteredAttributes,
+        project: data.project || project || undefined,
+      },
+    );
+
+    if (!hasCommercialFeature("contextual-bandits")) {
+      throw new Error("Contextual Bandits are a premium feature");
+    }
+    if (!data.datasource) {
+      throw new Error("You must select a datasource");
+    }
+
+    data.statsEngine = "bayesian";
+    data.secondaryMetrics = [];
+    data.guardrailMetrics = [];
+    data.customMetricSlices = [];
+
+    const ds = datasources.find((d) => d.id === data.datasource);
+    const queries = ds?.settings?.queries?.exposure ?? [];
+    const withTargetingAttributes = queries.filter(
+      (q) => (q.targetingAttributeColumns?.length ?? 0) > 0,
+    );
+    if (queries.length > 0 && withTargetingAttributes.length === 0) {
+      setStep(2);
+      throw new Error(
+        "No Experiment Assignment Tables with targeting attributes exist for this data source. Add attributes to an experiment assignment table on the data source page, then try again.",
+      );
+    }
+    if (withTargetingAttributes.length > 0) {
+      const selected = queries.find((q) => q.id === data.exposureQueryId);
       if (
-        data.phases[0].dateStarted &&
-        !data.phases[0].dateStarted.match(/Z$/)
+        !selected?.targetingAttributeColumns?.length ||
+        !withTargetingAttributes.some((q) => q.id === data.exposureQueryId)
       ) {
-        data.phases[0].dateStarted += ":00Z";
-      }
-      if (data.phases[0].dateEnded && !data.phases[0].dateEnded.match(/Z$/)) {
-        data.phases[0].dateEnded += ":00Z";
-      }
-
-      validateSavedGroupTargeting(data.phases[0].savedGroups);
-
-      validateAndFixCondition(data.phases[0].condition, (condition) => {
-        form.setValue("phases.0.condition", condition);
-        forceConditionRender();
-      });
-
-      if (prerequisiteTargetingSdkIssues) {
-        throw new Error("Prerequisite targeting issues must be resolved");
-      }
-
-      validateUnregisteredAttributes(
-        {
-          hashAttribute: (data as { hashAttribute?: string }).hashAttribute,
-          fallbackAttribute: (data as { fallbackAttribute?: string })
-            .fallbackAttribute,
-          condition: data.phases[0].condition,
-        },
-        "experiment",
-        {
-          attributeSchema: allAttributesSchema,
-          requireRegisteredAttributes: settings.requireRegisteredAttributes,
-          project: data.project || project || undefined,
-        },
-      );
-
-      if (!hasCommercialFeature("contextual-bandits")) {
-        throw new Error("Contextual Bandits are a premium feature");
-      }
-      if (!data.datasource) {
-        throw new Error("You must select a datasource");
-      }
-
-      data.statsEngine = "bayesian";
-      data.secondaryMetrics = [];
-      data.guardrailMetrics = [];
-      data.customMetricSlices = [];
-
-      const ds = datasources.find((d) => d.id === data.datasource);
-      const queries = ds?.settings?.queries?.exposure ?? [];
-      const withTargetingAttributes = queries.filter(
-        (q) => (q.targetingAttributeColumns?.length ?? 0) > 0,
-      );
-      if (queries.length > 0 && withTargetingAttributes.length === 0) {
         setStep(2);
         throw new Error(
-          "No Experiment Assignment Tables with targeting attributes exist for this data source. Add attributes to an experiment assignment table on the data source page, then try again.",
+          "Select an Experiment Assignment Table that has targeting attribute columns configured.",
         );
       }
-      if (withTargetingAttributes.length > 0) {
-        const selected = queries.find((q) => q.id === data.exposureQueryId);
-        if (
-          !selected?.targetingAttributeColumns?.length ||
-          !withTargetingAttributes.some((q) => q.id === data.exposureQueryId)
-        ) {
-          setStep(2);
-          throw new Error(
-            "Select an Experiment Assignment Table that has targeting attribute columns configured.",
-          );
-        }
-      }
+    }
 
-      if ((data.goalMetrics?.length ?? 0) !== 1 || !data.goalMetrics?.[0]) {
-        throw new Error("You must select 1 decision metric");
-      }
-      const goalMetric = getExperimentMetricById(data.goalMetrics[0]);
-      if (goalMetric?.datasource !== data.datasource) {
-        setStep(2);
-        throw new Error(
-          "The decision metric must belong to the selected data source",
-        );
-      }
-      const shouldIncludeConversionWindow =
-        !disableBanditConversionWindow &&
-        (!settings.useStickyBucketing || data.disableStickyBucketing);
+    if ((data.goalMetrics?.length ?? 0) !== 1 || !data.goalMetrics?.[0]) {
+      throw new Error("You must select 1 decision metric");
+    }
+    const goalMetric = getExperimentMetricById(data.goalMetrics[0]);
+    if (goalMetric?.datasource !== data.datasource) {
+      setStep(2);
+      throw new Error(
+        "The decision metric must belong to the selected data source",
+      );
+    }
+    const shouldIncludeConversionWindow =
+      !disableBanditConversionWindow &&
+      (!settings.useStickyBucketing || data.disableStickyBucketing);
 
-      if (!shouldIncludeConversionWindow) {
-        delete data.banditConversionWindowValue;
-        delete data.banditConversionWindowUnit;
-      } else if (
-        !data.banditConversionWindowValue ||
-        !data.banditConversionWindowUnit
-      ) {
-        throw new Error(
-          "Enter a conversion window override or disable the conversion window override",
-        );
-      }
+    if (!shouldIncludeConversionWindow) {
+      delete data.banditConversionWindowValue;
+      delete data.banditConversionWindowUnit;
+    } else if (
+      !data.banditConversionWindowValue ||
+      !data.banditConversionWindowUnit
+    ) {
+      throw new Error(
+        "Enter a conversion window override or disable the conversion window override",
+      );
     }
 
     // Preflight tracking-key uniqueness since BaseModel CRUD response lacks the duplicate-key sentinel.
@@ -692,28 +668,23 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
                 {status !== "draft" && (
                   <DatePicker
                     label="Start Time (UTC)"
-                    date={form.watch("phases.0.dateStarted")}
+                    date={form.watch("dateStarted")}
                     setDate={(v) => {
-                      form.setValue(
-                        "phases.0.dateStarted",
-                        v ? datetime(v) : "",
-                      );
+                      form.setValue("dateStarted", v ? datetime(v) : "");
                     }}
-                    scheduleEndDate={form.watch("phases.0.dateEnded")}
-                    disableAfter={form.watch("phases.0.dateEnded") || undefined}
+                    scheduleEndDate={form.watch("dateEnded")}
+                    disableAfter={form.watch("dateEnded") || undefined}
                   />
                 )}
                 {status === "stopped" && (
                   <DatePicker
                     label="End Time (UTC)"
-                    date={form.watch("phases.0.dateEnded")}
+                    date={form.watch("dateEnded")}
                     setDate={(v) => {
-                      form.setValue("phases.0.dateEnded", v ? datetime(v) : "");
+                      form.setValue("dateEnded", v ? datetime(v) : "");
                     }}
-                    scheduleStartDate={form.watch("phases.0.dateStarted")}
-                    disableBefore={
-                      form.watch("phases.0.dateStarted") || undefined
-                    }
+                    scheduleStartDate={form.watch("dateStarted")}
+                    disableBefore={form.watch("dateStarted") || undefined}
                   />
                 )}
               </>
@@ -745,30 +716,26 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
                       source="experiment"
                       project={project}
                       environments={envs}
-                      prerequisiteValue={
-                        form.watch("phases.0.prerequisites") || []
-                      }
+                      prerequisiteValue={form.watch("prerequisites") || []}
                       setPrerequisiteValue={(prerequisites) =>
-                        form.setValue("phases.0.prerequisites", prerequisites)
+                        form.setValue("prerequisites", prerequisites)
                       }
                       setPrerequisiteTargetingSdkIssues={
                         setPrerequisiteTargetingSdkIssues
                       }
-                      savedGroupValue={form.watch("phases.0.savedGroups") || []}
+                      savedGroupValue={form.watch("savedGroups") || []}
                       setSavedGroupValue={(savedGroups) =>
-                        form.setValue("phases.0.savedGroups", savedGroups)
+                        form.setValue("savedGroups", savedGroups)
                       }
-                      defaultConditionValue={
-                        form.watch("phases.0.condition") || ""
-                      }
+                      defaultConditionValue={form.watch("condition") || ""}
                       setConditionValue={(value) =>
-                        form.setValue("phases.0.condition", value)
+                        form.setValue("condition", value)
                       }
                       conditionKey={conditionKey}
-                      namespaceFormPrefix={"phases.0."}
-                      coverage={form.watch("phases.0.coverage")}
+                      namespaceFormPrefix={""}
+                      coverage={form.watch("coverage") ?? 1}
                       setCoverage={(coverage) =>
-                        form.setValue("phases.0.coverage", coverage)
+                        form.setValue("coverage", coverage)
                       }
                       setWeight={setVariationWeight}
                       variations={variationsForInput}

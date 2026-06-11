@@ -224,9 +224,7 @@ export class ContextualBanditModel extends BaseClass {
     return {
       ...body,
       tags: body.tags ?? [],
-      // `_createOne` resolves owner; empty fallback satisfies the TS shape pre-hook.
       owner: body.owner ?? "",
-      // Restated so the return type satisfies `CreateProps` (tsc can't see runtime default-merge).
       archived: false,
       holdoutPercent: 0,
       canonicalFormVersion: 1,
@@ -243,18 +241,15 @@ export class ContextualBanditModel extends BaseClass {
         id: generateVariationId(),
         screenshots: [],
       })),
-      // `datasourceId` mirrors `datasource`; the snapshot orchestrator reads `datasourceId`.
+      // `datasourceId`/`targetingAttributeColumns` mirror `datasource`/`contextualAttributes` for the snapshot orchestrator.
       datasourceId: body.datasource,
-      // SQL-side spelling mirrored so the snapshot orchestrator reads either.
       targetingAttributeColumns: body.contextualAttributes,
       contextualAttributes: body.contextualAttributes,
       status: "draft" as const,
       secondaryMetrics: body.secondaryMetrics ?? [],
       guardrailMetrics: body.guardrailMetrics ?? [],
-      // The CB starts with no leaf weights; the first successful snapshot writes them at root.
-      // `dateStarted` is intentionally left unset until the lifecycle `start` action runs.
+      // First successful snapshot writes the leaf weights; `dateStarted` is set by the `start` action.
       currentLeafWeights: [],
-      // Restated so the return type satisfies `CreateProps` (tsc can't see the runtime default-merge).
       snapshotUpdateCount: 0,
       defaultMetricPriorSettings: orgPrior ?? {
         override: false,
@@ -307,20 +302,9 @@ export class ContextualBanditModel extends BaseClass {
   }
 
   /**
-   * Atomically replace `currentLeafWeights` at the document root and bump `snapshotUpdateCount`.
-   *
-   * `snapshotUpdateCount` is `$inc`-ed by 1 on every call so the count moves in the same atomic write
-   * as the weights — they can never drift apart. This represents one successful snapshot's weight
-   * update, regardless of whether the new weights actually differ from the previous ones.
-   *
-   * When `leafWeights` is empty the `currentLeafWeights` field is left untouched (so a degenerate
-   * empty-result run can't wipe existing weights), but the counter and `dateUpdated` still advance.
-   *
-   * The single-document write is concurrency-safe under simultaneous refreshes (last-writer-wins
-   * on `currentLeafWeights`; `$inc` is atomic).
-   *
-   * Callers MUST preserve the project-wide write ordering for snapshot success (CBE → CB-patch → CBS-success)
-   * so a crashed refresh can't leave inconsistent leaf weights vs. the snapshot status.
+   * Atomically replace `currentLeafWeights` and `$inc` `snapshotUpdateCount` in one write so they
+   * can't drift. Empty `leafWeights` leaves the weights untouched but still advances the counter and
+   * `dateUpdated`. Callers MUST keep the snapshot-success write ordering (CBE → CB-patch → CBS-success).
    */
   public async patchLeafWeights(
     cbId: string,

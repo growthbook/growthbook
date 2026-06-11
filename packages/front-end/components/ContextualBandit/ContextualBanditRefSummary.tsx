@@ -58,7 +58,7 @@ export default function ContextualBanditRefSummary({
     );
   }
 
-  const phaseWeights = cb.variationWeights ?? [];
+  const variationWeights = cb.variationWeights ?? [];
 
   return (
     <Box>
@@ -84,7 +84,7 @@ export default function ContextualBanditRefSummary({
             const ruleVariation = rule.variations.find(
               (rv) => rv.variationId === v.id,
             );
-            const weight = phaseWeights[i];
+            const weight = variationWeights[i];
             return (
               <TableRow key={v.id}>
                 <TableCell>

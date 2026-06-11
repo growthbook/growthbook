@@ -107,7 +107,7 @@ export async function executeContextualBanditStart(
   return { updated, publishResult };
 }
 
-/** Core CB stop (no permission checks). Closes the current phase, records `dateStopped`, refreshes SDK payload. */
+/** Core CB stop (no permission checks). Records `dateStopped`, refreshes SDK payload. */
 export async function executeContextualBanditStop(
   context: ReqContext | ApiReqContext,
   cb: ContextualBanditInterface,

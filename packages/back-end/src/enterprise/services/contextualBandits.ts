@@ -174,7 +174,7 @@ export function leafWeightsFromContextualBanditResult(
     }));
 }
 
-/** True when any leaf's updated weights differ from the current phase weights. */
+/** True when any leaf's updated weights differ from the current leaf weights. */
 export function contextualBanditWeightsWereUpdated(
   result: ContextualBanditResult,
   seed: string,
@@ -197,7 +197,7 @@ export function contextualBanditWeightsWereUpdated(
   });
 }
 
-/** Persists one CB run's side effects: creates the CBE doc, patches parent CB phase weights, refreshes SDK payload. */
+/** Persists one CB run's side effects: creates the CBE doc, patches parent CB leaf weights, refreshes SDK payload. */
 export async function persistContextualBanditEvent(
   context: ReqContext,
   cbs: ContextualBanditSnapshotInterface,
@@ -311,7 +311,7 @@ export function buildContextualBanditSnapshotSettings(
     startDate: cb.dateStarted ?? new Date(),
     endDate: cb.dateStopped ?? null,
     reweight: true,
-    // Single-phase CB: seed is a fixed 0. A future stored `banditSeed` field can re-introduce variability if needed.
+    // Seed is a fixed 0. A future stored `banditSeed` field can re-introduce variability if needed.
     banditWeightsSeed: 0,
 
     // TODO(holdout-v1.5): thread `holdoutPercent` + seed so SQL can split train_id=0/1 and stats can compute holdout-vs-bandit lift.
@@ -375,7 +375,7 @@ export function getContextualBanditSettingsForStatsEngine(
     var_names: variations.map((v) => v.name),
     var_ids: variations.map((v) => v.id),
     reweight: true,
-    // Single-phase CB: seed is a fixed 0 (matches `buildContextualBanditSnapshotSettings.banditWeightsSeed`).
+    // Seed is a fixed 0 (matches `buildContextualBanditSnapshotSettings.banditWeightsSeed`).
     bandit_weights_seed: 0,
     contextual_attributes: cb.contextualAttributes,
     current_weights_by_context: currentWeightsByContext,
