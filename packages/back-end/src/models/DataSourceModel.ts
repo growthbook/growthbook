@@ -36,8 +36,8 @@ import { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
 import { deleteClickhouseUser } from "back-end/src/services/licenseServerManagedClickhouse";
 import { createModelAuditLogger } from "back-end/src/services/audit";
-import { syncEventForwarderAfterDatasourceDeleted } from "back-end/src/services/eventForwarderDatasourceLifecycle";
-import { deleteEventForwarderEventsFactTableForDatasource } from "back-end/src/services/eventForwarderFactTable";
+import { syncEventForwarderAfterDatasourceDeleted } from "back-end/src/services/eventForwarder/datasourceLifecycle";
+import { deleteEventForwarderEventsFactTableForDatasource } from "back-end/src/services/eventForwarder/factTable";
 import { deleteFactTable, getFactTable } from "./FactTableModel";
 
 const dataSourceAuditConfig = {

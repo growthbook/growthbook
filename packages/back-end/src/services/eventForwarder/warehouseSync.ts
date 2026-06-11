@@ -9,7 +9,7 @@ import {
   updateDataSource,
   validateExposureQueriesAndAddMissingIds,
 } from "back-end/src/models/DataSourceModel";
-import { queueDelayedFactTableColumnsRefreshForDatasource } from "back-end/src/services/eventForwarderFactTable";
+import { queueDelayedFactTableColumnsRefreshForDatasource } from "back-end/src/services/eventForwarder/factTable";
 import { queueRevalidateEventForwarderDataSourceQueriesAt } from "back-end/src/jobs/revalidateEventForwarderDataSourceQueries";
 import { logger } from "back-end/src/util/logger";
 

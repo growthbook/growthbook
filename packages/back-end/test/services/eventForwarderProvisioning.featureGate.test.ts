@@ -1,4 +1,4 @@
-import { pauseEventForwarderThroughLicenseServer } from "back-end/src/services/eventForwarderProvisioning";
+import { pauseEventForwarderThroughLicenseServer } from "back-end/src/services/eventForwarder/connector";
 import { postPauseEventForwarderToLicenseServer } from "back-end/src/enterprise/licenseUtil";
 
 jest.mock("back-end/src/enterprise/licenseUtil", () => ({

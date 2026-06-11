@@ -23,14 +23,14 @@ import {
   getEventForwarderDatasourceParams,
 } from "shared/util";
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
-import { ReqContext } from "back-end/types/request";
 import {
   encryptParams,
   getSourceIntegrationObject,
 } from "back-end/src/services/datasource";
-import { buildNormalizedEventForwarderSinkPayloadForTest } from "back-end/src/services/eventForwarderConfig";
+import { buildNormalizedEventForwarderSinkPayloadForTest } from "back-end/src/services/eventForwarder/config";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { logger } from "back-end/src/util/logger";
+import { ReqContext } from "back-end/types/request";
 
 type EventForwarderWriteAccessInput =
   | {
@@ -66,7 +66,7 @@ export function getEventForwarderWriteAccessFailedResponse(
   };
 }
 
-function success(): EventForwarderAccessTestResponse {
+function writeAccessSuccess(): EventForwarderAccessTestResponse {
   return {
     status: 200,
     results: {
@@ -199,7 +199,7 @@ function getProbeParams(
   }
 }
 
-async function runProbe({
+async function runWriteAccessProbe({
   integration,
   fullTestTablePath,
 }: {
@@ -249,7 +249,7 @@ async function runProbe({
   if (failure) {
     return getEventForwarderWriteAccessFailedResponse(failure);
   }
-  return success();
+  return writeAccessSuccess();
 }
 
 export async function testEventForwarderWriteAccess(
@@ -277,7 +277,7 @@ export async function testEventForwarderWriteAccess(
     input,
   });
 
-  return runProbe({
+  return runWriteAccessProbe({
     integration,
     fullTestTablePath,
   });
@@ -369,5 +369,17 @@ export async function runEventForwarderAccessTest(
     });
   } catch (error) {
     return getEventForwarderWriteAccessFailedResponse(getErrorMessage(error));
+  }
+}
+
+export function assertEventForwarderWriteAccessResult(
+  result: Awaited<ReturnType<typeof testEventForwarderWriteAccess>>,
+): void {
+  const sinkWrite = result.results.sinkWrite;
+  if (sinkWrite.result !== "success") {
+    throw new Error(
+      sinkWrite.resultMessage ||
+        "Event Forwarder write access validation failed",
+    );
   }
 }

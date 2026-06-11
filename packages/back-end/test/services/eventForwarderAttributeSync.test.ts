@@ -1,11 +1,11 @@
-import { syncEventForwarderAfterAttributeSchemaChange } from "back-end/src/services/eventForwarderAttributeSync";
-import * as EventForwarderConfig from "back-end/src/services/eventForwarderConfig";
-import * as EventForwarderFactTable from "back-end/src/services/eventForwarderFactTable";
-import * as EventForwarderUserIdTypes from "back-end/src/services/eventForwarderUserIdTypes";
+import { syncEventForwarderAfterAttributeSchemaChange } from "back-end/src/services/eventForwarder/attributeSync";
+import * as EventForwarderConfig from "back-end/src/services/eventForwarder/config";
+import * as EventForwarderFactTable from "back-end/src/services/eventForwarder/factTable";
+import * as EventForwarderUserIdTypes from "back-end/src/services/eventForwarder/datasourceSync";
 
-jest.mock("back-end/src/services/eventForwarderConfig");
-jest.mock("back-end/src/services/eventForwarderFactTable");
-jest.mock("back-end/src/services/eventForwarderUserIdTypes");
+jest.mock("back-end/src/services/eventForwarder/config");
+jest.mock("back-end/src/services/eventForwarder/factTable");
+jest.mock("back-end/src/services/eventForwarder/datasourceSync");
 
 const mockedHasAnyEventForwarderConfig =
   EventForwarderConfig.hasAnyEventForwarderConfig as jest.MockedFunction<

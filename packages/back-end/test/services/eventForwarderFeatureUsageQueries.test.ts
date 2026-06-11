@@ -1,12 +1,12 @@
 import type { DataSourceInterface } from "shared/types/datasource";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
-import { ensureEventForwarderFeatureUsageQuery } from "back-end/src/services/eventForwarderFeatureUsageQueries";
+import { ensureEventForwarderFeatureUsageQuery } from "back-end/src/services/eventForwarder/datasourceQueries";
 import * as DataSourceModel from "back-end/src/models/DataSourceModel";
-import * as EventForwarderConfig from "back-end/src/services/eventForwarderConfig";
+import * as EventForwarderConfig from "back-end/src/services/eventForwarder/config";
 import { encryptParams } from "back-end/src/services/datasource";
 
 jest.mock("back-end/src/models/DataSourceModel");
-jest.mock("back-end/src/services/eventForwarderConfig");
+jest.mock("back-end/src/services/eventForwarder/config");
 
 const mockedGetRaw =
   DataSourceModel.getRawDataSourceById as jest.MockedFunction<

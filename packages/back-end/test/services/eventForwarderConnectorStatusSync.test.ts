@@ -2,15 +2,15 @@ import {
   buildEventForwarderStatusResponse,
   mapLicenseConnectorPhaseToEventForwarderStatus,
   syncEventForwarderStatusFromLicenseServer,
-} from "back-end/src/services/eventForwarderConnectorStatusSync";
+} from "back-end/src/services/eventForwarder/connector";
 import { postEventForwarderStatusToLicenseServer } from "back-end/src/enterprise/licenseUtil";
-import { queueDelayedEventForwarderWarehouseSyncForDatasource } from "back-end/src/services/eventForwarderWarehouseSync";
+import { queueDelayedEventForwarderWarehouseSyncForDatasource } from "back-end/src/services/eventForwarder/warehouseSync";
 
 jest.mock("back-end/src/enterprise/licenseUtil", () => ({
   postEventForwarderStatusToLicenseServer: jest.fn(),
 }));
 
-jest.mock("back-end/src/services/eventForwarderWarehouseSync", () => ({
+jest.mock("back-end/src/services/eventForwarder/warehouseSync", () => ({
   queueDelayedEventForwarderWarehouseSyncForDatasource: jest.fn(),
 }));
 

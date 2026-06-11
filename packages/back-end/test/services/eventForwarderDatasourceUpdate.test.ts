@@ -1,12 +1,12 @@
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { EventForwarderConfigInterface } from "shared/validators";
 import type { EventForwarderConfigDraft } from "shared/types/event-forwarder";
-import { syncEventForwarderAfterDatasourceUpdate } from "back-end/src/services/eventForwarderDatasourceUpdate";
-import * as eventForwarderConfig from "back-end/src/services/eventForwarderConfig";
-import * as eventForwarderProvisioning from "back-end/src/services/eventForwarderProvisioning";
+import { syncEventForwarderAfterDatasourceUpdate } from "back-end/src/services/eventForwarder/datasourceLifecycle";
+import * as eventForwarderConfig from "back-end/src/services/eventForwarder/config";
+import * as eventForwarderProvisioning from "back-end/src/services/eventForwarder/connector";
 
-jest.mock("back-end/src/services/eventForwarderConfig");
-jest.mock("back-end/src/services/eventForwarderProvisioning");
+jest.mock("back-end/src/services/eventForwarder/config");
+jest.mock("back-end/src/services/eventForwarder/connector");
 
 const mockedGetEventForwarderForDatasource =
   eventForwarderConfig.getEventForwarderForDatasource as jest.MockedFunction<

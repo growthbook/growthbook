@@ -1,15 +1,17 @@
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { DataSourceInterface } from "shared/types/datasource";
-import { provisionEventForwarderThroughLicenseServer } from "back-end/src/services/eventForwarderProvisioning";
+import { provisionEventForwarderThroughLicenseServer } from "back-end/src/services/eventForwarder/connector";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { postProvisionEventForwarderToLicenseServer } from "back-end/src/enterprise/licenseUtil";
-import { decryptEventForwarderConfigModel } from "back-end/src/services/eventForwarderConfig";
-import { resolveBigQueryEventForwarderTableName } from "back-end/src/services/eventForwarderBqTableResolution";
-import { testEventForwarderWriteAccess } from "back-end/src/services/eventForwarderWriteAccessValidation";
-import { ensureEventForwarderBigQueryTables } from "back-end/src/services/eventForwarderBqTables";
-import { initializeDatasourceUserIdTypesFromOrgAttributeSchema } from "back-end/src/services/eventForwarderUserIdTypes";
-import { ensureEventForwarderFeatureUsageQuery } from "back-end/src/services/eventForwarderFeatureUsageQueries";
-import { ensureEventForwarderEventsFactTable } from "back-end/src/services/eventForwarderFactTable";
+import { decryptEventForwarderConfigModel } from "back-end/src/services/eventForwarder/config";
+import {
+  resolveBigQueryEventForwarderTableName,
+  ensureEventForwarderBigQueryTables,
+} from "back-end/src/services/eventForwarder/bigquery";
+import { testEventForwarderWriteAccess } from "back-end/src/services/eventForwarder/writeAccess";
+import { initializeDatasourceUserIdTypesFromOrgAttributeSchema } from "back-end/src/services/eventForwarder/datasourceSync";
+import { ensureEventForwarderFeatureUsageQuery } from "back-end/src/services/eventForwarder/datasourceQueries";
+import { ensureEventForwarderEventsFactTable } from "back-end/src/services/eventForwarder/factTable";
 
 jest.mock("back-end/src/models/DataSourceModel");
 jest.mock("back-end/src/enterprise/licenseUtil", () => ({
@@ -20,13 +22,12 @@ jest.mock("back-end/src/enterprise/licenseUtil", () => ({
   postTeardownEventForwarderToLicenseServer: jest.fn(),
   postUpdateEventForwarderCredentialsToLicenseServer: jest.fn(),
 }));
-jest.mock("back-end/src/services/eventForwarderConfig");
-jest.mock("back-end/src/services/eventForwarderBqTableResolution");
-jest.mock("back-end/src/services/eventForwarderWriteAccessValidation");
-jest.mock("back-end/src/services/eventForwarderBqTables");
-jest.mock("back-end/src/services/eventForwarderUserIdTypes");
-jest.mock("back-end/src/services/eventForwarderFeatureUsageQueries");
-jest.mock("back-end/src/services/eventForwarderFactTable");
+jest.mock("back-end/src/services/eventForwarder/config");
+jest.mock("back-end/src/services/eventForwarder/bigquery");
+jest.mock("back-end/src/services/eventForwarder/writeAccess");
+jest.mock("back-end/src/services/eventForwarder/datasourceSync");
+jest.mock("back-end/src/services/eventForwarder/datasourceQueries");
+jest.mock("back-end/src/services/eventForwarder/factTable");
 
 const mockedGetDataSourceById = getDataSourceById as jest.MockedFunction<
   typeof getDataSourceById
