@@ -161,6 +161,7 @@ import {
   ReviewSubmittedType,
   submitReviewAndComments,
   updateRevision,
+  setAutoPublishOnApproval,
 } from "back-end/src/models/FeatureRevisionModel";
 import {
   buildFeatureLookups,
@@ -210,6 +211,10 @@ import {
 import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { UnrecoverableApiError } from "back-end/src/util/errors";
+import {
+  canEnableFeatureAutoPublishOnApproval,
+  maybeAutoPublishFeatureRevision,
+} from "back-end/src/api/features/autoPublishOnApproval";
 import {
   shouldValidateCustomFieldsOnUpdate,
   validateCustomFieldsForSection,
@@ -1033,6 +1038,7 @@ export async function postFeatureRequestReview(
   req: AuthRequest<
     {
       comment: string;
+      autoPublishOnApproval?: boolean;
     },
     { id: string; version: string }
   >,
@@ -1040,7 +1046,7 @@ export async function postFeatureRequestReview(
 ) {
   const context = getContextFromReq(req);
   const { id, version } = req.params;
-  const { comment } = req.body;
+  const { comment, autoPublishOnApproval } = req.body;
   const feature = await getFeature(context, id);
   if (!feature) {
     throw new Error("Could not find feature");
@@ -1062,11 +1068,16 @@ export async function postFeatureRequestReview(
   if (revision.status !== "draft") {
     throw new Error("Can only request review if is a draft");
   }
+  const enableAutoPublish =
+    autoPublishOnApproval &&
+    canEnableFeatureAutoPublishOnApproval(context, feature);
+
   await markRevisionAsReviewRequested(
     context,
     revision,
     res.locals.eventAudit,
     comment,
+    { autoPublishOnApproval: enableAutoPublish },
   );
 
   const updatedRevision = await getRevision({
@@ -1213,9 +1224,145 @@ export async function postFeatureReviewOrComment(
     reviewer,
   );
 
+  if (review === "Approved") {
+    await maybeAutoPublishFeatureRevision(context, feature, finalRevision);
+  }
+
   res.status(200).json({
     status: 200,
   });
+}
+
+export async function postFeatureApproveAndPublish(
+  req: AuthRequest<
+    {
+      comment: string;
+      mergeResultSerialized: string;
+      adminOverride?: boolean;
+      publishExperimentIds?: string[];
+    },
+    { id: string; version: string }
+  >,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id, version } = req.params;
+  const { comment } = req.body;
+  const feature = await getFeature(context, id);
+  if (!feature) throw new Error("Could not find feature");
+
+  if (!context.permissions.canReviewFeatureDrafts(feature)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const revision = await getRevision({
+    context,
+    organization: context.org.id,
+    featureId: feature.id,
+    feature,
+    version: parseInt(version),
+  });
+  if (!revision) throw new Error("Could not find feature revision");
+
+  const createdByUser = revision.createdBy as EventUserLoggedIn;
+  if (createdByUser?.id === context.userId) {
+    throw Error("Cannot approve a draft you created");
+  }
+
+  if (revision.contributors?.some((cid) => cid === context.userId)) {
+    const requireReviews = context.org.settings?.requireReviews;
+    const reviewSetting = Array.isArray(requireReviews)
+      ? getReviewSetting(requireReviews, feature)
+      : undefined;
+    if (reviewSetting?.blockSelfApproval) {
+      throw new Error("You cannot approve a draft you contributed to.");
+    }
+  }
+
+  if (
+    !["pending-review", "changes-requested", "approved"].includes(
+      revision.status,
+    )
+  ) {
+    throw new Error(
+      `Can only approve when review has been requested (status is "${revision.status}")`,
+    );
+  }
+
+  await submitReviewAndComments(
+    context,
+    revision,
+    res.locals.eventAudit,
+    "Approved",
+    comment,
+    feature.version,
+  );
+
+  const approvedRevision = await getRevision({
+    context,
+    organization: context.org.id,
+    featureId: feature.id,
+    feature,
+    version: parseInt(version),
+  });
+  const finalApproved = approvedRevision ?? revision;
+
+  const auditUser = context.auditUser;
+  const reviewer =
+    auditUser && auditUser.type !== "system"
+      ? { id: auditUser.id, name: auditUser.name, email: auditUser.email }
+      : {};
+
+  await dispatchRevisionReviewEvent(
+    context,
+    feature,
+    revision,
+    finalApproved,
+    "Approved",
+    comment,
+    reviewer,
+  );
+
+  await postFeaturePublish(req, res);
+}
+
+export async function postFeatureToggleAutoPublish(
+  req: AuthRequest<{ enabled: boolean }, { id: string; version: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id, version } = req.params;
+  const { enabled } = req.body;
+
+  const feature = await getFeature(context, id);
+  if (!feature) throw new Error("Could not find feature");
+
+  const revision = await getRevision({
+    context,
+    organization: context.org.id,
+    featureId: feature.id,
+    feature,
+    version: parseInt(version),
+  });
+  if (!revision) throw new Error("Could not find feature revision");
+
+  if (
+    !["draft", "pending-review", "changes-requested", "approved"].includes(
+      revision.status,
+    )
+  ) {
+    throw new Error(
+      "Cannot change auto-publish on a published or discarded draft",
+    );
+  }
+
+  if (enabled && !canEnableFeatureAutoPublishOnApproval(context, feature)) {
+    context.permissions.throwPermissionError();
+  }
+
+  await setAutoPublishOnApproval(revision, !!enabled);
+
+  res.status(200).json({ status: 200 });
 }
 
 // Author retracts a review request: draft reverts from pending-review /

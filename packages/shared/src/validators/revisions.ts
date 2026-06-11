@@ -123,6 +123,7 @@ export const revisionValidator = z.object({
   // prevent contributors from approving their own work.
   // Optional for backward compatibility with revisions created before this field existed.
   contributors: z.array(z.string()).optional(),
+  autoPublishOnApproval: z.boolean().optional(),
   activityLog: z.array(activityLogEntryValidator),
   resolution: z
     .object({

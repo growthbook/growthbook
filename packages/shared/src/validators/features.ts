@@ -567,6 +567,7 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
     // updateRevision's $addToSet; may be empty if no content edits have been made.
     // Note: the revision author (createdBy) is NOT automatically seeded here.
     contributors: z.array(z.string()).optional(),
+    autoPublishOnApproval: z.boolean().optional(),
     // Active reviewer verdicts for the current review cycle (one entry per
     // reviewer). Kept in sync by the review lifecycle mutations:
     // submit review upserts, undo review removes, request/recall review

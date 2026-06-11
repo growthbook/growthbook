@@ -12,22 +12,27 @@ import { useAuth } from "@/services/auth";
 type ReviewDecision = "Comment" | "Requested Changes" | "Approved";
 
 interface Props {
-  // API endpoint for submitting a review verdict + optional comment. The
-  // caller builds this from the entity type and identity (e.g.
-  // `/feature/${id}/${version}/submit-review`).
   submitUrl: string;
-  // Render prop so the trigger can react to the popover's open state — e.g.
-  // disable itself while the panel is mounted to prevent re-toggle clicks.
+  // When true, a "Submit and Publish" option appears when "Approve" is
+  // selected. If `autoPublishArmed` is also true the primary CTA becomes
+  // "Submit and Publish"; otherwise a secondary outline button appears.
+  allowPublishOnApprove?: boolean;
+  // Whether the auto-publish checkbox is checked on the revision.
+  autoPublishArmed?: boolean;
   trigger: React.ReactNode | ((state: { open: boolean }) => React.ReactNode);
   /** Prevents self-approval when blockSelfApproval is set. */
   isBlockedContributor?: boolean;
-  onSuccess: () => void;
+  // Called after a successful submit-review. `publish` is true when the user
+  // chose "Submit and Publish" so the parent can proceed with its publish flow.
+  onSuccess: (opts?: { publish?: boolean }) => void;
   side?: "top" | "right" | "bottom" | "left";
   align?: "start" | "center" | "end";
 }
 
 export default function ReviewCommentPopover({
   submitUrl,
+  allowPublishOnApprove = false,
+  autoPublishArmed = false,
   trigger,
   isBlockedContributor = false,
   onSuccess,
@@ -51,7 +56,12 @@ export default function ReviewCommentPopover({
   // "Comment" decision with no text would create an empty log entry.
   const canSubmit = decision !== "Comment" || comment.trim().length > 0;
 
-  const handleSubmit = async () => {
+  const isApproval = decision === "Approved";
+  const willPublish = isApproval && autoPublishArmed && allowPublishOnApprove;
+  const showPublishOption =
+    isApproval && !autoPublishArmed && allowPublishOnApprove;
+
+  const doSubmit = async (publish: boolean) => {
     setLoading(true);
     setError(null);
     try {
@@ -61,7 +71,7 @@ export default function ReviewCommentPopover({
       });
       reset();
       setOpen(false);
-      onSuccess();
+      onSuccess({ publish });
     } catch (e) {
       setError((e as Error).message || "Something went wrong");
     } finally {
@@ -125,8 +135,22 @@ export default function ReviewCommentPopover({
         >
           Cancel
         </LinkButton>
-        <Button onClick={handleSubmit} loading={loading} disabled={!canSubmit}>
-          Submit
+        {showPublishOption && (
+          <Button
+            variant="outline"
+            onClick={() => doSubmit(true)}
+            loading={loading}
+            disabled={!canSubmit}
+          >
+            Submit and Publish
+          </Button>
+        )}
+        <Button
+          onClick={() => doSubmit(willPublish)}
+          loading={loading}
+          disabled={!canSubmit}
+        >
+          {willPublish ? "Submit and Publish" : "Submit"}
         </Button>
       </Flex>
     </Box>

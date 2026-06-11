@@ -3,6 +3,7 @@ import { postSavedGroupRevisionSubmitReviewValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
+import { maybeAutoPublishRevision } from "back-end/src/revisions/revisionActions";
 import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
 import { loadRevisionByVersion } from "./validations";
 import { toApiSavedGroupRevision } from "./toApiSavedGroupRevision";
@@ -82,6 +83,18 @@ export const postSavedGroupRevisionSubmitReview = createApiRequestHandler(
     userId: req.context.userId,
     ...(comment ? { comment } : {}),
   });
+
+  if (decision === "approve") {
+    const entity = savedGroup as unknown as Record<string, unknown>;
+    const autoPublished = await maybeAutoPublishRevision(
+      req.context,
+      updated,
+      entity,
+    );
+    return {
+      revision: await toApiSavedGroupRevision(autoPublished, req.context),
+    };
+  }
 
   return {
     revision: await toApiSavedGroupRevision(updated, req.context),

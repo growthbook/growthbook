@@ -109,6 +109,7 @@ const featureRevisionSchema = new mongoose.Schema({
   ],
   status: String,
   requiresReview: Boolean,
+  autoPublishOnApproval: Boolean,
   log: [
     {
       _id: false,
@@ -1237,6 +1238,7 @@ export async function markRevisionAsReviewRequested(
   revision: FeatureRevisionInterface,
   user: EventUser,
   comment?: string,
+  { autoPublishOnApproval }: { autoPublishOnApproval?: boolean } = {},
 ) {
   const action = "Review Requested";
 
@@ -1252,6 +1254,7 @@ export async function markRevisionAsReviewRequested(
         datePublished: null,
         dateUpdated: new Date(),
         comment: comment,
+        autoPublishOnApproval: !!autoPublishOnApproval,
         // Requesting review starts a new review cycle — prior verdicts no
         // longer stand (mirrors the revision-log replay semantics).
         reviews: [],
@@ -1272,6 +1275,20 @@ export async function markRevisionAsReviewRequested(
     .catch((e) => {
       logger.error(e, "Error creating revisionlog");
     });
+}
+
+export async function setAutoPublishOnApproval(
+  revision: FeatureRevisionInterface,
+  enabled: boolean,
+) {
+  await FeatureRevisionModel.updateOne(
+    {
+      organization: revision.organization,
+      featureId: revision.featureId,
+      version: revision.version,
+    },
+    { $set: { autoPublishOnApproval: enabled } },
+  );
 }
 
 export async function submitReviewAndComments(

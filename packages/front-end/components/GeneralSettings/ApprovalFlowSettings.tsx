@@ -212,6 +212,22 @@ export default function ApprovalFlowSettings() {
                             )
                           }
                         />
+                        <Checkbox
+                          id={`toggle-autopublish-on-approval-${i}`}
+                          label="Allow approve & publish in one step"
+                          description="Adds an 'Approve & Publish' option so reviewers with publish access can approve and publish a draft together."
+                          value={
+                            !!form.watch(
+                              `requireReviews.${i}.autopublishOnApproval`,
+                            )
+                          }
+                          setValue={(v) =>
+                            form.setValue(
+                              `requireReviews.${i}.autopublishOnApproval`,
+                              v,
+                            )
+                          }
+                        />
                         <Box mt="2">
                           <Text
                             as="label"
@@ -381,6 +397,22 @@ export default function ApprovalFlowSettings() {
                       setValue={(v) =>
                         form.setValue(
                           `approvalFlows.savedGroups.0.blockSelfApproval`,
+                          v,
+                        )
+                      }
+                    />
+                    <Checkbox
+                      id="toggle-saved-group-autopublish-on-approval"
+                      label="Allow approve & publish in one step"
+                      description="Adds an 'Approve & Publish' option so reviewers with publish access can approve and publish a saved group change together."
+                      value={
+                        !!form.watch(
+                          `approvalFlows.savedGroups.0.autopublishOnApproval`,
+                        )
+                      }
+                      setValue={(v) =>
+                        form.setValue(
+                          `approvalFlows.savedGroups.0.autopublishOnApproval`,
                           v,
                         )
                       }

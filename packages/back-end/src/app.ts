@@ -879,6 +879,14 @@ app.post(
   featuresController.postFeatureReviewOrComment,
 );
 app.post(
+  "/feature/:id/:version/approve-and-publish",
+  featuresController.postFeatureApproveAndPublish,
+);
+app.post(
+  "/feature/:id/:version/toggle-auto-publish",
+  featuresController.postFeatureToggleAutoPublish,
+);
+app.post(
   "/feature/:id/:version/recall-review",
   featuresController.postFeatureRecallReview,
 );

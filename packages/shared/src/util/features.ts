@@ -2307,6 +2307,14 @@ export function getReviewSetting(
   }
 }
 
+export function getFeatureAutopublishOnApproval(
+  requireReviews: boolean | RequireReview[] | undefined,
+  feature: FeatureInterface,
+): boolean {
+  if (!Array.isArray(requireReviews)) return false;
+  return !!getReviewSetting(requireReviews, feature)?.autopublishOnApproval;
+}
+
 export function checkEnvironmentsMatch(
   environments: string[],
   reviewSetting: RequireReview,

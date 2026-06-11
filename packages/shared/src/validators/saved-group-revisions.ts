@@ -404,10 +404,14 @@ export const postSavedGroupRevisionRequestReviewValidator = {
   operationId: "postSavedGroupRevisionRequestReview",
   summary: "Request review for a draft revision",
   description:
-    "Moves the draft from `draft` into `pending-review`. Notifies reviewers per the org's approval-flow settings.",
+    "Moves the draft from `draft` into `pending-review`. Notifies reviewers per the org's approval-flow settings.\n\nSet `autoPublishOnApproval` to `true` to publish the revision automatically the moment it is approved (GitHub auto-merge model). This requires the org to have auto-publish-on-approval enabled and the caller to have publish permission on the saved group; the auto-publish then executes with the caller's authority.",
   tags: ["saved-group-revisions"],
   paramsSchema: revisionParamsStrict,
-  bodySchema: z.object({}).strict(),
+  bodySchema: z
+    .object({
+      autoPublishOnApproval: z.boolean().optional(),
+    })
+    .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
@@ -424,6 +428,24 @@ export const postSavedGroupRevisionSubmitReviewValidator = {
   bodySchema: z
     .object({
       decision: z.enum(reviewDecision),
+      comment: z.string().optional(),
+    })
+    .strict(),
+  querySchema: z.never(),
+  responseSchema: revisionResponse,
+};
+
+export const postSavedGroupRevisionApproveAndPublishValidator = {
+  method: "post" as const,
+  path: "/saved-groups-revisions/:savedGroupId/:version/approve-and-publish",
+  operationId: "postSavedGroupRevisionApproveAndPublish",
+  summary: "Approve and publish a draft revision in one request",
+  description:
+    'Atomically approves the revision and publishes it as the live state of the saved group — the single-request equivalent of submitting an `approve` review and then publishing. Designed for automated agents.\n\n"Atomic" here means a single request plus idempotent self-heal: the approval is persisted first, and if the subsequent publish fails the revision is left `approved`, so retrying this same endpoint completes the publish (no database transaction is used, consistent with the merge-ordering approach of the standalone publish endpoint). Authors and contributors cannot approve their own drafts when `blockSelfApproval` is enabled.',
+  tags: ["saved-group-revisions"],
+  paramsSchema: revisionParamsStrict,
+  bodySchema: z
+    .object({
       comment: z.string().optional(),
     })
     .strict(),

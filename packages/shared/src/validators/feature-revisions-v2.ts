@@ -606,9 +606,16 @@ export const postFeatureRevisionRequestReviewV2Validator = {
   path: "/features/:id/revisions/:version/request-review",
   operationId: "postFeatureRevisionRequestReviewV2",
   summary: "Request review for a draft revision",
+  description:
+    "Moves the draft into the `pending-review` state and notifies reviewers.\n\nSet `autoPublishOnApproval` to `true` to publish the revision automatically the moment it is approved (GitHub auto-merge model). This requires the org to have auto-publish-on-approval enabled for the feature and the caller to have publish permission; the auto-publish then executes with the caller's authority.",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParamsStrict,
-  bodySchema: z.object({ comment: z.string().optional() }).strict(),
+  bodySchema: z
+    .object({
+      comment: z.string().optional(),
+      autoPublishOnApproval: z.boolean().optional(),
+    })
+    .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
   version: "v2" as const,
@@ -627,6 +634,21 @@ export const postFeatureRevisionSubmitReviewV2Validator = {
       action: z.enum(["approve", "request-changes", "comment"]).optional(),
     })
     .strict(),
+  querySchema: z.never(),
+  responseSchema: revisionResponse,
+  version: "v2" as const,
+};
+
+export const postFeatureRevisionApproveAndPublishV2Validator = {
+  method: "post" as const,
+  path: "/features/:id/revisions/:version/approve-and-publish",
+  operationId: "postFeatureRevisionApproveAndPublishV2",
+  summary: "Approve and publish a draft revision in one request",
+  description:
+    'Atomically approves the revision and publishes it as the live version of the feature — the single-request equivalent of submitting an `approve` review and then publishing. Designed for automated agents.\n\n"Atomic" here means a single request plus idempotent self-heal: the approval is persisted first, and if the subsequent publish fails the revision is left `approved`, so retrying this same endpoint completes the publish (no database transaction is used). Authors and contributors cannot approve their own drafts when `blockSelfApproval` is enabled.',
+  tags: ["feature-revisions-v2"],
+  paramsSchema: revisionParamsStrict,
+  bodySchema: z.object({ comment: z.string().optional() }).strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
   version: "v2" as const,
