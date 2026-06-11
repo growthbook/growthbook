@@ -149,7 +149,8 @@ export async function updateMaterializedColumns({
 // --- Session Replay ---
 
 export type SessionReplayRow = {
-  session_id: string;
+  // The sessions view groups by session_replay_id (not session_id).
+  session_replay_id: string;
   org_id: string;
   client_key: string;
   user_id: string;
@@ -169,34 +170,12 @@ export type SessionReplayRow = {
   page_title: string;
   viewport_width: number;
   viewport_height: number;
-  utm_source: string;
-  utm_medium: string;
-  utm_campaign: string;
-  utm_term: string;
-  utm_content: string;
   attributes: Record<string, string>;
-  feature_evals: {
-    items: Array<{
-      featureKey: string;
-      timestamp: number;
-      result: { value: unknown; experimentKey?: string };
-    }>;
-  };
-  experiment_evals: {
-    items: Array<{
-      key: string;
-      timestamp: number;
-      name?: string;
-      result: { value: unknown; variationId: number; featureId: string | null };
-    }>;
-  };
-  session_events: {
-    items: Array<{
-      eventName: string;
-      timestamp: number;
-      properties?: Record<string, unknown>;
-    }>;
-  };
+  // Flat key arrays aggregated across all chunks by the sessions view.
+  // Use these for filtering and list display. For full structured eval history
+  // (with timestamps) query session_replay_metadata directly.
+  feature_keys: string[];
+  experiment_keys: string[];
   country: string;
   user_agent: string;
   device: string;
@@ -276,20 +255,12 @@ export async function listSessionReplays(
     conditions.push(`event_count <= ${Math.round(options.maxEventCount)}`);
   }
   if (options?.featureKey) {
-    // Sessions where a specific feature flag was evaluated.
-    // toString() normalises the column regardless of whether it is stored as a
-    // plain String or a ClickHouse JSON/Object type.
     const escaped = escapeClickhouseString(options.featureKey);
-    conditions.push(
-      `arrayExists(x -> JSONExtractString(x, 'featureKey') = '${escaped}', JSONExtractArrayRaw(toString(feature_evals), 'items'))`,
-    );
+    conditions.push(`has(feature_keys, '${escaped}')`);
   }
   if (options?.experimentKey) {
-    // Sessions where a specific experiment was exposed.
     const escaped = escapeClickhouseString(options.experimentKey);
-    conditions.push(
-      `arrayExists(x -> JSONExtractString(x, 'key') = '${escaped}', JSONExtractArrayRaw(toString(experiment_evals), 'items'))`,
-    );
+    conditions.push(`has(experiment_keys, '${escaped}')`);
   }
 
   const limit = Math.max(1, Math.min(100, Math.floor(options?.limit ?? 100)));
@@ -337,7 +308,7 @@ export async function getSessionReplayBySessionId(
   const { rows } = await integration.runQuery(`
     SELECT *, ingested_at AS created_at
     FROM session_replay_sessions
-    WHERE session_id = '${sanitizedSessionId}' AND deleted_at IS NULL
+    WHERE session_replay_id = '${sanitizedSessionId}' AND deleted_at IS NULL
     LIMIT 1
   `);
 

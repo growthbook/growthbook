@@ -76,21 +76,31 @@ export const sessionReplayValidator = baseSchema.safeExtend({
   lastEventAt: z.date(),
   durationMs: z.number().int().nonnegative(),
   eventCount: z.number().int().nonnegative(),
+  errorCount: z.number().int().nonnegative(),
   urlFirst: z.string(),
   urlsVisited: z.array(z.string()),
   pageTitle: z.string(),
   viewportWidth: z.number().int().nonnegative(),
   viewportHeight: z.number().int().nonnegative(),
-  utmSource: z.string(),
-  utmMedium: z.string(),
-  utmCampaign: z.string(),
-  utmTerm: z.string(),
-  utmContent: z.string(),
   attributes: z.record(z.string(), z.string()),
-  featureEvals: featureEvalsColumnSchema,
-  experimentEvals: experimentEvalsColumnSchema,
-  sessionEvents: sessionEventsColumnSchema,
+  // Flat key arrays aggregated across all chunks of a session for filtering
+  // and list display. Populated by the ingestor at ingest time and aggregated
+  // in the sessions view with arrayDistinct + arrayFlatten. For the full
+  // structured eval history (with timestamps), query session_replay_metadata
+  // directly — the SDK drains these per chunk so they cannot be roll-up aggregated.
+  featureKeys: z.array(z.string()),
+  experimentKeys: z.array(z.string()),
+  // Optional: populated only when fetching from the per-chunk metadata table.
+  // The sessions view omits these because per-chunk deltas cannot be correctly
+  // aggregated to session granularity. The replay player falls back to rrweb
+  // type-5 custom events when these are absent.
+  featureEvals: featureEvalsColumnSchema.optional(),
+  experimentEvals: experimentEvalsColumnSchema.optional(),
+  sessionEvents: sessionEventsColumnSchema.optional(),
   userAgent: z.string(),
+  country: z.string(),
+  device: z.string(),
+  browser: z.string(),
   state: z.enum(["recording", "finalized", "deleted"]),
 });
 

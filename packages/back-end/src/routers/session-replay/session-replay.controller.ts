@@ -80,12 +80,8 @@ function toListItem(session: SessionReplayInterface): SessionReplayListItem {
     durationMs: session.durationMs,
     eventCount: session.eventCount,
     state: session.state,
-    featureKeys: Array.from(
-      new Set(session.featureEvals.items.map((item) => item.featureKey)),
-    ).sort(),
-    experimentKeys: Array.from(
-      new Set(session.experimentEvals.items.map((item) => item.key)),
-    ).sort(),
+    featureKeys: session.featureKeys,
+    experimentKeys: session.experimentKeys,
   };
 }
 

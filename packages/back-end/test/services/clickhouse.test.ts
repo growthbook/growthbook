@@ -241,12 +241,8 @@ describe("listSessionReplays", () => {
     expect(query).toContain("duration_ms <= 10000");
     expect(query).toContain("event_count >= 5");
     expect(query).toContain("event_count <= 25");
-    expect(query).toContain(
-      "JSONExtractString(x, 'featureKey') = 'flag\\'one'",
-    );
-    expect(query).toContain("JSONExtractArrayRaw(toString(feature_evals)");
-    expect(query).toContain("JSONExtractString(x, 'key') = 'exp_one'");
-    expect(query).toContain("JSONExtractArrayRaw(toString(experiment_evals)");
+    expect(query).toContain("has(feature_keys, 'flag\\'one')");
+    expect(query).toContain("has(experiment_keys, 'exp_one')");
     expect(query).toContain("LIMIT 50");
     expect(query).toContain("OFFSET 100");
   });

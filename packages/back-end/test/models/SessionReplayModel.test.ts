@@ -70,7 +70,7 @@ function makeContext(
 
 function makeRow(overrides: Partial<SessionReplayRow> = {}): SessionReplayRow {
   return {
-    session_id: "sess_abc123",
+    session_replay_id: "sess_abc123",
     org_id: "org_1",
     client_key: "ck_test",
     user_id: "user_1",
@@ -88,27 +88,9 @@ function makeRow(overrides: Partial<SessionReplayRow> = {}): SessionReplayRow {
     page_title: "Example Page",
     viewport_width: 1440,
     viewport_height: 900,
-    utm_source: "google",
-    utm_medium: "cpc",
-    utm_campaign: "spring",
-    utm_term: "test",
-    utm_content: "banner",
     attributes: { plan: "pro" },
-    feature_evals: {
-      items: [
-        { featureKey: "feat_1", timestamp: 1000, result: { value: true } },
-      ],
-    },
-    experiment_evals: {
-      items: [
-        {
-          key: "exp_1",
-          timestamp: 2000,
-          result: { value: "control", variationId: 0, featureId: null },
-        },
-      ],
-    },
-    session_events: { items: [{ eventName: "click", timestamp: 3000 }] },
+    feature_keys: ["feat_1"],
+    experiment_keys: ["exp_1"],
     country: "US",
     user_agent: "Mozilla/5.0",
     device: "desktop",
@@ -252,9 +234,9 @@ describe("SessionReplayModel — list()", () => {
 
   it("returns all rows when all pass permission checks", async () => {
     const rows = [
-      makeRow({ session_id: "sess_1" }),
-      makeRow({ session_id: "sess_2" }),
-      makeRow({ session_id: "sess_3" }),
+      makeRow({ session_replay_id: "sess_1" }),
+      makeRow({ session_replay_id: "sess_2" }),
+      makeRow({ session_replay_id: "sess_3" }),
     ];
     mockListSessionReplays.mockResolvedValue(rows);
 
@@ -273,9 +255,9 @@ describe("SessionReplayModel — list()", () => {
 
   it("filters out rows from a different org", async () => {
     const rows = [
-      makeRow({ session_id: "sess_1", org_id: "org_1" }),
-      makeRow({ session_id: "sess_2", org_id: "org_other" }),
-      makeRow({ session_id: "sess_3", org_id: "org_1" }),
+      makeRow({ session_replay_id: "sess_1", org_id: "org_1" }),
+      makeRow({ session_replay_id: "sess_2", org_id: "org_other" }),
+      makeRow({ session_replay_id: "sess_3", org_id: "org_1" }),
     ];
     mockListSessionReplays.mockResolvedValue(rows);
 
@@ -291,7 +273,7 @@ describe("SessionReplayModel — list()", () => {
   it("filters out all rows when view permission is denied", async () => {
     mockListSessionReplays.mockResolvedValue([
       makeRow(),
-      makeRow({ session_id: "sess_2" }),
+      makeRow({ session_replay_id: "sess_2" }),
     ]);
 
     const model = new SessionReplayModel(
@@ -345,44 +327,43 @@ describe("SessionReplayModel — list()", () => {
     const model = new SessionReplayModel(makeContext());
     const [session] = await model.list();
 
-    expect(session.id).toBe(row.session_id);
+    expect(session.id).toBe(row.session_replay_id);
     expect(session.organization).toBe(row.org_id);
-    expect(session.sessionId).toBe(row.session_id);
+    expect(session.sessionId).toBe(row.session_replay_id);
     expect(session.clientKey).toBe(row.client_key);
     expect(session.userId).toBe(row.user_id);
     expect(session.deviceId).toBe(row.device_id);
     expect(session.storagePrefix).toBe(row.s3_key);
     expect(session.durationMs).toBe(row.duration_ms);
     expect(session.eventCount).toBe(row.event_count);
+    expect(session.errorCount).toBe(row.error_count);
     expect(session.urlFirst).toBe(row.url_first);
     expect(session.urlsVisited).toEqual(row.urls_visited);
     expect(session.pageTitle).toBe(row.page_title);
     expect(session.viewportWidth).toBe(row.viewport_width);
     expect(session.viewportHeight).toBe(row.viewport_height);
-    expect(session.utmSource).toBe(row.utm_source);
-    expect(session.utmMedium).toBe(row.utm_medium);
-    expect(session.utmCampaign).toBe(row.utm_campaign);
-    expect(session.utmTerm).toBe(row.utm_term);
-    expect(session.utmContent).toBe(row.utm_content);
     expect(session.attributes).toEqual(row.attributes);
-    expect(session.featureEvals).toEqual(row.feature_evals);
-    expect(session.experimentEvals).toEqual(row.experiment_evals);
-    expect(session.sessionEvents).toEqual(row.session_events);
+    expect(session.featureKeys).toEqual(row.feature_keys);
+    expect(session.experimentKeys).toEqual(row.experiment_keys);
     expect(session.userAgent).toBe(row.user_agent);
+    expect(session.country).toBe(row.country);
+    expect(session.device).toBe(row.device);
+    expect(session.browser).toBe(row.browser);
     expect(session.state).toBe(row.state);
   });
 
-  it("defaults null optional fields to empty strings and zero", async () => {
+  it("defaults null optional fields to empty strings, arrays, and zero", async () => {
     const row = makeRow({
       device_id: null as unknown as string,
       page_title: null as unknown as string,
       viewport_width: null as unknown as number,
       viewport_height: null as unknown as number,
-      utm_source: null as unknown as string,
-      utm_medium: null as unknown as string,
-      utm_campaign: null as unknown as string,
-      utm_term: null as unknown as string,
-      utm_content: null as unknown as string,
+      attributes: null as unknown as Record<string, string>,
+      feature_keys: null as unknown as string[],
+      experiment_keys: null as unknown as string[],
+      country: null as unknown as string,
+      device: null as unknown as string,
+      browser: null as unknown as string,
     });
     mockListSessionReplays.mockResolvedValue([row]);
 
@@ -393,29 +374,12 @@ describe("SessionReplayModel — list()", () => {
     expect(session.pageTitle).toBe("");
     expect(session.viewportWidth).toBe(0);
     expect(session.viewportHeight).toBe(0);
-    expect(session.utmSource).toBe("");
-    expect(session.utmMedium).toBe("");
-    expect(session.utmCampaign).toBe("");
-    expect(session.utmTerm).toBe("");
-    expect(session.utmContent).toBe("");
-  });
-
-  it("defaults null nested eval columns to empty items arrays", async () => {
-    const row = makeRow({
-      attributes: null as unknown as Record<string, string>,
-      feature_evals: null as unknown as SessionReplayRow["feature_evals"],
-      experiment_evals: null as unknown as SessionReplayRow["experiment_evals"],
-      session_events: null as unknown as SessionReplayRow["session_events"],
-    });
-    mockListSessionReplays.mockResolvedValue([row]);
-
-    const model = new SessionReplayModel(makeContext());
-    const [session] = await model.list();
-
     expect(session.attributes).toEqual({});
-    expect(session.featureEvals).toEqual({ items: [] });
-    expect(session.experimentEvals).toEqual({ items: [] });
-    expect(session.sessionEvents).toEqual({ items: [] });
+    expect(session.featureKeys).toEqual([]);
+    expect(session.experimentKeys).toEqual([]);
+    expect(session.country).toBe("");
+    expect(session.device).toBe("");
+    expect(session.browser).toBe("");
   });
 });
 
