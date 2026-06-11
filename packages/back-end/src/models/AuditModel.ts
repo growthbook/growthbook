@@ -1,10 +1,10 @@
 import mongoose, { FilterQuery, QueryOptions } from "mongoose";
-import uniqid from "uniqid";
 import { AuditInterface, EntityType } from "shared/types/audit";
 import {
   removeMongooseFields,
   ToInterface,
 } from "back-end/src/util/mongo.util";
+import { generateId } from "back-end/src/util/uuid";
 
 const auditSchema = new mongoose.Schema({
   id: {
@@ -52,7 +52,7 @@ export async function insertAudit(
 ): Promise<AuditInterface> {
   const auditDoc = await AuditModel.create({
     ...data,
-    id: uniqid("aud_"),
+    id: generateId("aud_"),
   });
   return toInterface(auditDoc);
 }
