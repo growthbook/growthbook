@@ -558,6 +558,13 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       zodObjectSchema: outputSchema,
       overrideModel: visualEditorAIModel,
       cacheSystemPrompt: true,
+      // This IS a retry (selector self-correction). Disable parsePrompt's
+      // own NoObjectGeneratedError auto-retry so a single user request
+      // can't fan out to 4 LLM calls (main call's 2 attempts + this
+      // correction call's 2). Worst case is now 3: main(≤2) + correction(1).
+      // If this correction call itself returns no object, finalizeOutput's
+      // try/catch keeps the original result.
+      retryOnNoObject: false,
     });
 
   // Every selector a mutation requires on the page. Position moves
