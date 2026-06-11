@@ -839,6 +839,50 @@ describe("BaseModel", () => {
     expect(updated).toBe(existing);
   });
 
+  it("throws when an update tries to unset a required field", async () => {
+    const model = new TestModel(defaultContext);
+
+    const updateOneMock = jest.fn();
+    model.dangerousGetCollectionMock.mockReturnValue({
+      updateOne: updateOneMock,
+    });
+
+    const existing = {
+      name: "foo",
+      id: "aabb",
+      organization: "a",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    };
+
+    await expect(model.update(existing, { name: undefined })).rejects.toThrow(
+      'Cannot unset required field "name"',
+    );
+    expect(updateOneMock).not.toHaveBeenCalled();
+  });
+
+  it("throws when updating a doc with an undefined primary key value", async () => {
+    const model = new TestModel(defaultContext);
+
+    const updateOneMock = jest.fn();
+    model.dangerousGetCollectionMock.mockReturnValue({
+      updateOne: updateOneMock,
+    });
+
+    const existing = {
+      name: "foo",
+      id: undefined as unknown as string,
+      organization: "a",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+    };
+
+    await expect(model.update(existing, { name: "gni" })).rejects.toThrow(
+      'Missing primary key field "id"',
+    );
+    expect(updateOneMock).not.toHaveBeenCalled();
+  });
+
   it("strips legacy nulls from fields whose schema rejects null", async () => {
     const model = new TestModel(defaultContext);
     // Return a copy so the recorded call args aren't mutated by the strip
@@ -931,6 +975,59 @@ describe("BaseModel", () => {
       ],
       { ignoreUndefined: true },
     );
+  });
+
+  it("translates undefined $set fields to $unset in bulkWrite", async () => {
+    const model = new TestModel(defaultContext);
+
+    const bulkWriteMock = jest.fn();
+    model.dangerousGetCollectionMock.mockReturnValue({
+      bulkWrite: bulkWriteMock,
+    });
+
+    await model.exposeBulkWrite([
+      {
+        updateOne: {
+          filter: { id: "aabb" },
+          update: { $set: { name: "gni", testDefaultField: undefined } },
+        },
+      },
+    ]);
+
+    expect(bulkWriteMock).toHaveBeenCalledWith(
+      [
+        {
+          updateOne: {
+            filter: { id: "aabb", organization: "a" },
+            update: { $set: { name: "gni" }, $unset: { testDefaultField: "" } },
+          },
+        },
+      ],
+      { ignoreUndefined: true },
+    );
+  });
+
+  it("rejects bulkWrite updateOne filters containing undefined values", async () => {
+    const model = new TestModel(defaultContext);
+
+    const bulkWriteMock = jest.fn();
+    model.dangerousGetCollectionMock.mockReturnValue({
+      bulkWrite: bulkWriteMock,
+    });
+
+    await expect(
+      model.exposeBulkWrite([
+        {
+          updateOne: {
+            filter: { testDefaultField: undefined },
+            update: { $set: { name: "gni" } },
+          },
+        },
+      ]),
+    ).rejects.toThrow(
+      "bulkWrite updateOne filter must not contain undefined values",
+    );
+    expect(bulkWriteMock).not.toHaveBeenCalled();
   });
 
   it("raises an error when attempting to delete a document without delete access", () => {
