@@ -1377,13 +1377,11 @@ async function resolveIncrementalPrerequisiteFailure({
 }> {
   const validationError = getErrorMessage(error);
 
-  // When the only thing blocking an incremental update is outdated
-  // experiment-level config, a full refresh would rebuild the pipeline tables
-  // and succeed. For the scheduled background job (which has no user to
-  // initiate a manual Full Refresh), do that automatically instead of
-  // silently downgrading to a non-incremental "results" run.
-  // Doing a full refresh or inline scans the same amount of data,
-  // but full refresh helps for the next updates.
+  // In some scenarios, marked by this error, we know a Full Refresh will fix the pipeline.
+  // Given the cost of a non-incremental update and a full refresh is comparable
+  // but the latter provides cheaper incremental updates after it is done, we want to recover
+  // automatically and promote the update to be a full refresh.
+  // In the UI we have a confirmation dialog, but here, for the background job, we want to do it automatically.
   const canPromoteToFullRefresh =
     error instanceof IncrementalUpdateRequiresFullRefreshError &&
     triggeredBy === "schedule" &&
@@ -1475,9 +1473,9 @@ async function planSnapshotQueryRunner({
   const prerequisites: IncrementalRefreshPrerequisiteArgs = {
     org: organization,
     integration,
-    snapshotSettings,
-    metricMap,
     experiment,
+    metricMap,
+    snapshotSettings,
     incrementalRefreshModel,
   };
 
