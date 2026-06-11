@@ -14,6 +14,7 @@ import Modal from "@/components/Modal";
 import { isCloud } from "@/services/env";
 import Checkbox from "@/ui/Checkbox";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import ConfirmDialog from "@/ui/ConfirmDialog";
 
 type MessageWithId = OrganizationMessage & { id: string };
 
@@ -66,6 +67,9 @@ const EditOrganization: FC<{
   const [eventForwardersLoading, setEventForwardersLoading] = useState(true);
   const [eventForwardersError, setEventForwardersError] = useState("");
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [deletingEventForwarderId, setDeletingEventForwarderId] = useState<
+    string | null
+  >(null);
 
   const { apiCall } = useAuth();
 
@@ -147,13 +151,6 @@ const EditOrganization: FC<{
   };
 
   const handleDeleteEventForwarder = async (datasourceId: string) => {
-    if (
-      !window.confirm(
-        "Delete this Event Forwarder configuration? This cannot be undone from the UI.",
-      )
-    ) {
-      return;
-    }
     setActionLoadingId(datasourceId);
     setEventForwardersError("");
     try {
@@ -505,7 +502,7 @@ const EditOrganization: FC<{
                           style={{ flexShrink: 0 }}
                           disabled={isLoading}
                           onClick={() =>
-                            handleDeleteEventForwarder(row.datasourceId)
+                            setDeletingEventForwarderId(row.datasourceId)
                           }
                         >
                           Delete
@@ -521,6 +518,18 @@ const EditOrganization: FC<{
                 <LoadingSpinner style={{ width: "14px", height: "14px" }} />
                 Loading event forwarders...
               </div>
+            ) : null}
+            {deletingEventForwarderId ? (
+              <ConfirmDialog
+                title="Delete Event Forwarder configuration?"
+                content="This cannot be undone from the UI."
+                yesText="Delete"
+                onConfirm={async () => {
+                  await handleDeleteEventForwarder(deletingEventForwarderId);
+                  setDeletingEventForwarderId(null);
+                }}
+                onCancel={() => setDeletingEventForwarderId(null)}
+              />
             ) : null}
           </>
         ) : null}
