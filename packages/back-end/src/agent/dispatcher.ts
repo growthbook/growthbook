@@ -200,7 +200,12 @@ function fireSuccessHook(
  */
 type FakeApiRequest = Pick<
   ApiRequestLocals,
-  "apiKey" | "organization" | "eventAudit" | "audit" | "context" | "checkPermissions"
+  | "apiKey"
+  | "organization"
+  | "eventAudit"
+  | "audit"
+  | "context"
+  | "checkPermissions"
 > & {
   // `ctx` only carries these four user fields, so we build a partial user rather
   // than a full `UserInterface`. Derived from the canonical type (not redeclared)
