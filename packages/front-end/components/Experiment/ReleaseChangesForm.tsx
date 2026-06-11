@@ -24,7 +24,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import {
   ChangeType,
   ReleasePlan,
-} from "@/components/Experiment/EditTargetingModal";
+} from "@/components/Experiment/MakeChangesFlow";
 import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";

@@ -93,6 +93,9 @@ info:
 
     - **404** - Not Found - Unknown API route or requested resource
 
+    - **422** - Soft Warning - The request failed, but can be re-submitted with
+    `?ignoreWarnings=true` to proceed anyway.
+
     - **429** - Too Many Requests - You exceeded the rate limit of 60 requests
     per minute. Try again later.
 
@@ -305,6 +308,9 @@ tags:
   - name: Environment_model
     x-displayName: Environment
     description: <SchemaDefinition schemaRef="#/components/schemas/Environment" />
+  - name: EventUser_model
+    x-displayName: Event User
+    description: <SchemaDefinition schemaRef="#/components/schemas/EventUser" />
   - name: Experiment_model
     x-displayName: Experiment
     description: <SchemaDefinition schemaRef="#/components/schemas/Experiment" />
@@ -11240,6 +11246,27 @@ paths:
                 required:
                   - experiment
                 additionalProperties: false
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                description: One or more linked feature drafts could not be published
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - pending_draft_publish_failed
+                  details:
+                    $ref: >-
+                      #/components/schemas/ApiErrorPendingDraftPublishFailedDetails
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -11352,6 +11379,59 @@ paths:
                 required:
                   - experiment
                 additionalProperties: false
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    description: Required checklist items are incomplete
+                    properties:
+                      message:
+                        type: string
+                      code:
+                        type: string
+                        enum:
+                          - checklist_incomplete
+                      details:
+                        $ref: >-
+                          #/components/schemas/ApiErrorChecklistIncompleteDetails
+                    required:
+                      - message
+                      - code
+                      - details
+                  - type: object
+                    description: One or more linked feature drafts could not be published
+                    properties:
+                      message:
+                        type: string
+                      code:
+                        type: string
+                        enum:
+                          - pending_draft_publish_failed
+                      details:
+                        $ref: >-
+                          #/components/schemas/ApiErrorPendingDraftPublishFailedDetails
+                    required:
+                      - message
+                      - code
+                      - details
+                  - type: object
+                    description: Resource is not in a valid status for this operation
+                    properties:
+                      message:
+                        type: string
+                      code:
+                        type: string
+                        enum:
+                          - invalid_status
+                      details:
+                        $ref: '#/components/schemas/ApiErrorInvalidStatusDetails'
+                    required:
+                      - message
+                      - code
+                      - details
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -11486,6 +11566,26 @@ paths:
                 required:
                   - experiment
                 additionalProperties: false
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Resource is not in a valid status for this operation
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - invalid_status
+                  details:
+                    $ref: '#/components/schemas/ApiErrorInvalidStatusDetails'
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -11536,6 +11636,26 @@ paths:
                 required:
                   - experiment
                 additionalProperties: false
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Resource is not in a valid status for this operation
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - invalid_status
+                  details:
+                    $ref: '#/components/schemas/ApiErrorInvalidStatusDetails'
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -19066,8 +19186,6 @@ paths:
                         additionalProperties: false
                     required:
                       - interval
-                      - actions
-                      - monitored
                     additionalProperties: false
                 startActions:
                   type: array
@@ -22719,6 +22837,636 @@ paths:
         - lang: cURL
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/transform-copy' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/ai/edit:
+    post:
+      operationId: postVisualEditorAIEdit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                prompt:
+                  type: string
+                  minLength: 1
+                  maxLength: 2000
+                elementContext:
+                  default: []
+                  maxItems: 20
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      selector:
+                        type: string
+                      tagName:
+                        type: string
+                      textSnippet:
+                        type: string
+                      outerHTML:
+                        type: string
+                      attrs:
+                        type: object
+                        propertyNames:
+                          type: string
+                        additionalProperties:
+                          type: string
+                      computedStyles:
+                        type: object
+                        propertyNames:
+                          type: string
+                        additionalProperties:
+                          type: string
+                    required:
+                      - selector
+                      - tagName
+                      - textSnippet
+                      - outerHTML
+                      - attrs
+                    additionalProperties: false
+                variationId:
+                  type: string
+                visualChangesetId:
+                  type: string
+                domDigest:
+                  type: object
+                  properties:
+                    url:
+                      type: string
+                    title:
+                      type: string
+                    structural:
+                      default: []
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          selector:
+                            type: string
+                          tag:
+                            type: string
+                          note:
+                            type: string
+                        required:
+                          - selector
+                          - tag
+                        additionalProperties: false
+                    headings:
+                      default: []
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          selector:
+                            type: string
+                          tag:
+                            type: string
+                          text:
+                            type: string
+                        required:
+                          - selector
+                          - tag
+                          - text
+                        additionalProperties: false
+                    buttons:
+                      default: []
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          selector:
+                            type: string
+                          tag:
+                            type: string
+                          text:
+                            type: string
+                          href:
+                            type: string
+                        required:
+                          - selector
+                          - tag
+                          - text
+                        additionalProperties: false
+                    links:
+                      default: []
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          selector:
+                            type: string
+                          text:
+                            type: string
+                          href:
+                            type: string
+                        required:
+                          - selector
+                          - text
+                          - href
+                        additionalProperties: false
+                    inputs:
+                      default: []
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          selector:
+                            type: string
+                          type:
+                            type: string
+                          name:
+                            type: string
+                          placeholder:
+                            type: string
+                          label:
+                            type: string
+                        required:
+                          - selector
+                          - type
+                        additionalProperties: false
+                    images:
+                      default: []
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          selector:
+                            type: string
+                          alt:
+                            type: string
+                          src:
+                            type: string
+                        required:
+                          - selector
+                          - src
+                        additionalProperties: false
+                  required:
+                    - url
+                    - title
+                  additionalProperties: false
+                conversationHistory:
+                  maxItems: 12
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      role:
+                        type: string
+                        enum:
+                          - user
+                          - assistant
+                      text:
+                        type: string
+                        maxLength: 4000
+                    required:
+                      - role
+                      - text
+                    additionalProperties: false
+                locale:
+                  type: string
+                  minLength: 2
+                  maxLength: 10
+                  pattern: ^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})?$
+                streamingMode:
+                  type: boolean
+              required:
+                - prompt
+                - variationId
+                - visualChangesetId
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/ai/edit' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/ai/edit/resume:
+    post:
+      operationId: postVisualEditorAIEditResume
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                jobId:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                callId:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                result: {}
+              required:
+                - jobId
+                - callId
+                - result
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/ai/edit/resume' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/ai/suggestions:
+    post:
+      operationId: postVisualEditorAISuggestions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                visualChangesetId:
+                  type: string
+                pageHints:
+                  type: object
+                  properties:
+                    url:
+                      type: string
+                    title:
+                      type: string
+                    description:
+                      type: string
+                    headings:
+                      maxItems: 20
+                      type: array
+                      items:
+                        type: string
+                  additionalProperties: false
+              required:
+                - visualChangesetId
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/ai/suggestions' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/ai/image-gen:
+    post:
+      operationId: postVisualEditorAIImageGen
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                prompt:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+                aspectRatio:
+                  type: string
+                count:
+                  type: integer
+                  minimum: 1
+                  maximum: 4
+                visualChangesetId:
+                  type: string
+                referenceImage:
+                  type: object
+                  properties:
+                    data:
+                      type: string
+                      minLength: 1
+                      maxLength: 8388608
+                    mimeType:
+                      type: string
+                      enum:
+                        - image/png
+                        - image/jpeg
+                        - image/gif
+                        - image/webp
+                  required:
+                    - data
+                    - mimeType
+                  additionalProperties: false
+              required:
+                - prompt
+                - visualChangesetId
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/ai/image-gen' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/ai/promote-image:
+    post:
+      operationId: postVisualEditorAIPromoteImage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                visualChangesetId:
+                  type: string
+                filePath:
+                  type: string
+              required:
+                - visualChangesetId
+                - filePath
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/ai/promote-image' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/ai/upload-signed-url:
+    post:
+      operationId: postVisualEditorAIUploadSignedUrl
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                contentType:
+                  type: string
+                  enum:
+                    - image/png
+                    - image/jpeg
+                    - image/gif
+                    - image/webp
+                visualChangesetId:
+                  type: string
+              required:
+                - contentType
+                - visualChangesetId
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/ai/upload-signed-url'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/add-variant:
+    post:
+      operationId: postVisualEditorAddVariant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                visualChangesetId:
+                  type: string
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+              required:
+                - visualChangesetId
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/add-variant' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/create-experiment:
+    post:
+      operationId: postVisualEditorCreateExperiment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                pageUrl:
+                  type: string
+                  format: uri
+                urlPatterns:
+                  minItems: 1
+                  maxItems: 100
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      include:
+                        default: true
+                        type: boolean
+                      type:
+                        default: simple
+                        type: string
+                        enum:
+                          - simple
+                          - regex
+                      pattern:
+                        type: string
+                        minLength: 1
+                        maxLength: 2000
+                    required:
+                      - pattern
+                    additionalProperties: false
+                project:
+                  type: string
+                hashAttribute:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                hypothesis:
+                  type: string
+                  maxLength: 2000
+                description:
+                  type: string
+                  maxLength: 2000
+                type:
+                  default: standard
+                  type: string
+                  enum:
+                    - standard
+                    - multi-armed-bandit
+              required:
+                - name
+                - pageUrl
+                - urlPatterns
+                - hashAttribute
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/create-experiment' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/create-changeset:
+    post:
+      operationId: postVisualEditorCreateChangeset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                visualChangesetId:
+                  type: string
+                pageUrl:
+                  type: string
+                  format: uri
+                urlPatterns:
+                  minItems: 1
+                  maxItems: 100
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      include:
+                        default: true
+                        type: boolean
+                      type:
+                        default: simple
+                        type: string
+                        enum:
+                          - simple
+                          - regex
+                      pattern:
+                        type: string
+                        minLength: 1
+                        maxLength: 2000
+                    required:
+                      - pattern
+                    additionalProperties: false
+              required:
+                - visualChangesetId
+                - pageUrl
+                - urlPatterns
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/create-changeset' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/rename-experiment:
+    post:
+      operationId: postVisualEditorRenameExperiment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                visualChangesetId:
+                  type: string
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+              required:
+                - visualChangesetId
+                - name
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/rename-experiment' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/bootstrap:
+    get:
+      operationId: getVisualEditorBootstrap
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/visual-editor/bootstrap' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/library/images:
+    get:
+      operationId: getVisualEditorLibraryImages
+      parameters:
+        - name: limit
+          in: query
+          description: ''
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/visual-editor/library/images' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/dashboards/{id}:
     get:
@@ -30305,7 +31053,6 @@ paths:
                         additionalProperties: false
                     required:
                       - interval
-                      - monitored
                     additionalProperties: false
                 startActions:
                   type: array
@@ -32856,15 +33603,13 @@ components:
               format: date-time
               type: string
             createdBy:
-              type: string
+              $ref: '#/components/schemas/EventUser'
             publishedBy:
-              type: string
+              $ref: '#/components/schemas/EventUser'
           required:
             - version
             - comment
             - date
-            - createdBy
-            - publishedBy
           additionalProperties: false
         customFields:
           type: object
@@ -32947,6 +33692,25 @@ components:
         - enabled
         - defaultValue
       additionalProperties: false
+    EventUser:
+      description: The user (or automated actor) responsible for an action
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - dashboard
+            - api_key
+            - system
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+      required:
+        - type
+      additionalProperties: false
     FeatureWithRevisionsV2:
       allOf:
         - $ref: '#/components/schemas/FeatureV2'
@@ -32975,9 +33739,9 @@ components:
         status:
           type: string
         createdBy:
-          type: string
+          $ref: '#/components/schemas/EventUser'
         publishedBy:
-          type: string
+          $ref: '#/components/schemas/EventUser'
         defaultValue:
           description: The default value at the time this revision was created
           type: string
@@ -42444,6 +43208,85 @@ components:
       required:
         - variation
       additionalProperties: false
+    ApiErrorConflictDetails:
+      type: object
+      properties:
+        conflicts:
+          type: array
+          items: {}
+      required:
+        - conflicts
+      additionalProperties: false
+    ApiErrorChecklistIncompleteDetails:
+      type: object
+      properties:
+        remainingChecklistItems:
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+              required:
+                type: boolean
+              status:
+                type: string
+                enum:
+                  - complete
+                  - incomplete
+              manual:
+                type: boolean
+              reason:
+                type: string
+            required:
+              - key
+              - required
+              - status
+              - manual
+              - reason
+            additionalProperties: false
+      required:
+        - remainingChecklistItems
+      additionalProperties: false
+    ApiErrorPendingDraftPublishFailedDetails:
+      type: object
+      properties:
+        failedFeatureDrafts:
+          type: array
+          items:
+            type: object
+            properties:
+              featureId:
+                type: string
+              revisionVersion:
+                type: number
+              reason:
+                type: string
+                enum:
+                  - merge-conflict
+                  - needs-approval
+                  - publish-error
+            required:
+              - featureId
+              - revisionVersion
+              - reason
+            additionalProperties: false
+      required:
+        - failedFeatureDrafts
+      additionalProperties: false
+    ApiErrorInvalidStatusDetails:
+      type: object
+      properties:
+        currentStatus:
+          type: string
+        expectedStatuses:
+          type: array
+          items:
+            type: string
+      required:
+        - currentStatus
+        - expectedStatuses
+      additionalProperties: false
     features:
       description: >-
         Map of feature ID to stale status. Only requested features that were
@@ -43902,6 +44745,7 @@ x-tagGroups:
       - DataSource_model
       - Dimension_model
       - Environment_model
+      - EventUser_model
       - Experiment_model
       - Experiment Rule_model
       - ExperimentAnalysisSettings_model

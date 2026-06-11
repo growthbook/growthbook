@@ -41,12 +41,11 @@ export const updateFactTable = createApiRequestHandler(
     }
   }
 
+  let datasource: Awaited<ReturnType<typeof getDataSourceById>> | undefined;
+
   // Validate userIdTypes
   if (req.body.userIdTypes) {
-    const datasource = await getDataSourceById(
-      req.context,
-      factTable.datasource,
-    );
+    datasource ??= await getDataSourceById(req.context, factTable.datasource);
     if (!datasource) {
       throw new Error("Could not find datasource for this fact table");
     }
@@ -66,6 +65,13 @@ export const updateFactTable = createApiRequestHandler(
       throw new Error(
         "Maintaining shared daily aggregated tables requires the data pipeline feature.",
       );
+    }
+    datasource ??= await getDataSourceById(req.context, factTable.datasource);
+    if (!datasource) {
+      throw new Error("Could not find datasource for this fact table");
+    }
+    if (!req.context.permissions.canUpdateDataSourceSettings(datasource)) {
+      req.context.permissions.throwPermissionError();
     }
     validateAggregatedFactTableSettings(
       req.body.aggregatedFactTableSettings,

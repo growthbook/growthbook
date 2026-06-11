@@ -9,7 +9,7 @@ import type { PipelineIntegration } from "shared/types/integrations";
  * Single source of truth for whether an experiment runs with incremental
  * refresh on a given data source. Used at snapshot planning time
  * (`isIncrementalRefreshEnabledForSnapshot`) and validation time
- * (`validateIncrementalPipeline`).
+ * (`assertIncrementalRefreshPrerequisites`).
  *
  * Resolution order:
  * 1. If `mode === "incremental"`, apply include/exclude semantics. Opt-in is

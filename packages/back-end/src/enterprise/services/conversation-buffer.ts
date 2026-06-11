@@ -1,5 +1,8 @@
 import type { AIChatMessage, AIChatToolResultPart } from "shared/ai-chat";
-import type { AIChatFeedbackEntry } from "shared/validators";
+import type {
+  AIChatFeedbackEntry,
+  AIAgentPendingAction,
+} from "shared/validators";
 import { logger } from "back-end/src/util/logger";
 import type { AIConversationModel } from "back-end/src/models/AIConversationModel";
 
@@ -26,6 +29,8 @@ export interface ConversationBufferSnapshot {
   lastAccessedAt: number;
   model: string | undefined;
   agentType: string;
+  /** `null` means there is no parked mutation awaiting confirmation. */
+  pendingAction: AIAgentPendingAction | null;
 }
 
 export interface ConversationBuffer {
@@ -36,12 +41,15 @@ export interface ConversationBuffer {
   getLatestToolResult(toolName: string): AIChatToolResultPart | undefined;
   getModel(): string | undefined;
 
+  getPendingAction(): AIAgentPendingAction | undefined;
+
   // Mutate (sync — safe to call from the streaming loop)
   appendMessages(messages: AIChatMessage[]): void;
   setStreaming(streaming: boolean): void;
   touchStreamedAt(): void;
   updateTitle(title: string): void;
   setModel(model: string | undefined): void;
+  setPendingAction(action: AIAgentPendingAction | undefined): void;
 
   /** Point-in-time snapshot of buffer state for persistence. */
   snapshot(): ConversationBufferSnapshot;
@@ -59,6 +67,7 @@ export class LocalConversationBuffer implements ConversationBuffer {
   private titleValue: string;
   private modelValue: string | undefined;
   private readonly agentTypeValue: string;
+  private pendingActionValue: AIAgentPendingAction | null;
 
   constructor(
     public readonly conversationId: string,
@@ -69,6 +78,7 @@ export class LocalConversationBuffer implements ConversationBuffer {
       title: string;
       agentType: string;
       model?: string;
+      pendingAction?: AIAgentPendingAction | null;
     },
   ) {
     this.messages = init.messages;
@@ -78,6 +88,7 @@ export class LocalConversationBuffer implements ConversationBuffer {
     this.titleValue = init.title;
     this.agentTypeValue = init.agentType;
     this.modelValue = init.model;
+    this.pendingActionValue = init.pendingAction ?? null;
   }
 
   getMessages(): AIChatMessage[] {
@@ -128,6 +139,14 @@ export class LocalConversationBuffer implements ConversationBuffer {
     this.modelValue = model;
   }
 
+  getPendingAction(): AIAgentPendingAction | undefined {
+    return this.pendingActionValue ?? undefined;
+  }
+
+  setPendingAction(action: AIAgentPendingAction | undefined): void {
+    this.pendingActionValue = action ?? null;
+  }
+
   snapshot(): ConversationBufferSnapshot {
     return {
       messages: this.messages,
@@ -137,6 +156,7 @@ export class LocalConversationBuffer implements ConversationBuffer {
       lastAccessedAt: this.lastAccessedAtMs,
       model: this.modelValue,
       agentType: this.agentTypeValue,
+      pendingAction: this.pendingActionValue,
     };
   }
 }
@@ -150,6 +170,8 @@ export interface ConversationStatus {
   lastStreamedAt: number;
   messages: AIChatMessage[];
   feedback: AIChatFeedbackEntry[];
+  /** Parked mutation awaiting the user's confirm/cancel; `null` if none. */
+  pendingAction: AIAgentPendingAction | null;
 }
 
 export interface ConversationSummary {
@@ -188,6 +210,7 @@ export async function loadOrInitConversation(
       title: existing.title,
       agentType: existing.agentType,
       model: existing.model,
+      pendingAction: existing.pendingAction ?? null,
     });
   }
 
@@ -216,12 +239,11 @@ export async function loadOrInitConversation(
 /**
  * Flushes the buffer's current state to MongoDB.
  *
- * Called twice per streaming request:
+ * Called per streaming request:
  *   - After the user message is appended (crash-safety: user turn is durable).
- *   - In the finally block after the stream closes (persists assistant/tool turns).
- *
- * Both call sites fire-and-forget (.catch'd), so this never blocks the
- * SSE response.
+ *     Fire-and-forget so it never blocks the start of the SSE response.
+ *   - In the finally block, awaited before the stream is closed, so the final
+ *     assistant/tool turn is durable in MongoDB before the client syncs.
  */
 export async function persistConversation(
   model: AIConversationModel,
@@ -235,6 +257,7 @@ export async function persistConversation(
     lastAccessedAt,
     model: conversationModel,
     agentType,
+    pendingAction,
   } = buffer.snapshot();
 
   const firstUserMsg = messages.find((m) => m.role === "user");
@@ -254,6 +277,7 @@ export async function persistConversation(
       preview,
       model: conversationModel,
       agentType,
+      pendingAction,
     });
   } catch (err) {
     logger.error(err, "Failed to persist conversation to DB");
@@ -276,6 +300,7 @@ export async function getConversationStatus(
     lastStreamedAt: doc.lastStreamedAt.getTime(),
     messages: doc.messages as AIChatMessage[],
     feedback: (doc.feedback ?? []) as AIChatFeedbackEntry[],
+    pendingAction: doc.pendingAction ?? null,
   };
 }
 
