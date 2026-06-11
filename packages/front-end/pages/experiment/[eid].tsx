@@ -24,6 +24,7 @@ import EditPhasesModal from "@/components/Experiment/EditPhasesModal";
 import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
 import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
 import EditTrafficModal from "@/components/Experiment/EditTrafficModal";
+import EditNamespaceModal from "@/components/Experiment/EditNamespaceModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -46,6 +47,7 @@ const ExperimentPage = (): ReactElement => {
   const [editPhaseId, setEditPhaseId] = useState<number | null>(null);
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
   const [trafficModalOpen, setTrafficModalOpen] = useState(false);
+  const [namespaceModalOpen, setNamespaceModalOpen] = useState(false);
   const [editScheduleModalOpen, setEditScheduleModalOpen] = useState(false);
 
   const { data, error, mutate } = useApi<{
@@ -135,6 +137,9 @@ const ExperimentPage = (): ReactElement => {
     ? () => setTargetingModalOpen(true)
     : null;
   const editTraffic = canRunExperiment ? () => setTrafficModalOpen(true) : null;
+  const editNamespace = canRunExperiment
+    ? () => setNamespaceModalOpen(true)
+    : null;
   const editSchedule = canEditExperiment
     ? () => setEditScheduleModalOpen(true)
     : null;
@@ -245,6 +250,14 @@ const ExperimentPage = (): ReactElement => {
           safeToEdit={safeToEdit}
         />
       )}
+      {namespaceModalOpen && (
+        <EditNamespaceModal
+          close={() => setNamespaceModalOpen(false)}
+          mutate={mutate}
+          experiment={experiment}
+          safeToEdit={safeToEdit}
+        />
+      )}
       {editScheduleModalOpen && (
         <EditScheduleModal
           experiment={experiment}
@@ -281,6 +294,7 @@ const ExperimentPage = (): ReactElement => {
           envs={envs}
           editTargeting={editTargeting}
           editTraffic={editTraffic}
+          editNamespace={editNamespace}
           visualChangesetEnvStates={visualChangesetEnvStates}
           urlRedirectEnvStates={urlRedirectEnvStates}
           editSchedule={editSchedule}
