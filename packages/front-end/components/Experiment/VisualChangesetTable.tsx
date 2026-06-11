@@ -8,17 +8,16 @@ import {
   VisualChangesetInterface,
 } from "shared/types/visual-changeset";
 import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, Separator } from "@radix-ui/themes";
 import {
+  PiArrowSquareOut,
   PiArrowSquareOutBold,
   PiArrowsOutCardinalBold,
   PiCaretDown,
   PiCaretRight,
   PiCodeBold,
   PiImageBold,
-  PiMagicWandBold,
   PiPaintBrushBold,
-  PiPencilSimpleBold,
   PiTextTBold,
   PiTrashBold,
 } from "react-icons/pi";
@@ -30,6 +29,12 @@ import EditDOMMutationsModal from "@/components/Experiment/EditDOMMutationsModal
 import EnvironmentStatesGrid from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
 import OpenVisualEditorLink from "@/components/OpenVisualEditorLink";
 import ConfirmDialog from "@/ui/ConfirmDialog";
+import Avatar from "@/ui/Avatar";
+import Button from "@/ui/Button";
+import Link from "@/ui/Link";
+import Text from "@/ui/Text";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { ICON_PROPERTIES } from "./LinkedChanges/constants";
 import {
   ChangeType,
   Humanized,
@@ -37,18 +42,6 @@ import {
   humanizeMutation,
 } from "./visualChangesetHumanize";
 import styles from "./VisualChangesetTable.module.scss";
-
-// ============================================================================
-// Visual Editor "Values" block — Direction A redesign
-// ----------------------------------------------------------------------------
-// Implements the experiment-page Values block per the design handoff
-// (design_handoff_experiment_values 2/). Phase 1: visual restyle + mid-depth
-// humanization (see visualChangesetHumanize.ts). Cross-references between
-// changesets are intentionally NOT rendered (the README says they were
-// removed as confusing — the helper exists if we revisit).
-//
-// Design tokens are scoped to a local CSS module rather than the global
-// stylesheet — see VisualChangesetTable.module.scss.
 
 /** Stored editor URLs often omit a protocol; Next.js Link treats those as
  * app-relative paths. */
@@ -174,24 +167,6 @@ function toneVars(type: ChangeType): React.CSSProperties {
     ["--tone-soft" as string]: `var(--${scale}-a3)`,
     ["--tone-text" as string]: `var(--${scale}-11)`,
   };
-}
-
-// Variation-row swatch color: one of the Radix color scales' solid step
-// per variation index. Same palette spirit as the design handoff but
-// dark-mode-aware via Radix.
-function variantColor(index: number): string {
-  const scales = [
-    "blue",
-    "teal",
-    "orange",
-    "pink",
-    "amber",
-    "green",
-    "lime",
-    "cyan",
-    "red",
-  ];
-  return `var(--${scales[index % scales.length]}-9)`;
 }
 
 // Targeting-rule pill (Applies-to / Except rows). Includes get a green dot,
@@ -349,6 +324,7 @@ function VariationRow({
   canEdit,
   canDeleteVariation,
   defaultOpen,
+  isLast,
   setEditingVisualChange,
   onDeleteDomMutation,
   onClearGlobal,
@@ -366,6 +342,10 @@ function VariationRow({
   // experiments / when only 2 variations remain.
   canDeleteVariation: boolean;
   defaultOpen: boolean;
+  // Whether this is the last variation row. The separator between rows
+  // lives inside the component so it inherits the row's horizontal
+  // padding; we skip it on the final row.
+  isLast: boolean;
   setEditingVisualChange: (params: {
     visualChange: VisualChange;
     visualChangeIndex: number;
@@ -475,30 +455,27 @@ function VariationRow({
     return list;
   }, [change, changeIdx, canEdit, vc, onDeleteDomMutation, onClearGlobal]);
 
-  const swatchColor = variantColor(variationIndex);
-
   return (
     <Box className={styles.variationRow}>
       <Flex className={styles.variationHead}>
-        <span
-          className={styles.variationSwatch}
-          style={{ ["--swatch-color" as string]: swatchColor }}
+        <Flex
+          gap="1"
+          flexBasis="15%"
+          flexShrink="0"
+          className={`variation with-variation-label variation${variationIndex}`}
         >
-          {variationIndex}
-        </span>
-        <span className={styles.variationName}>{variationName}</span>
-        <span
-          className={styles.splitWrap}
-          style={{ ["--swatch-color" as string]: swatchColor }}
-        >
-          <span className={styles.splitTrack}>
-            <span
-              className={styles.splitFill}
-              style={{ width: `${Math.max(0, Math.min(100, splitPct))}%` }}
-            />
-          </span>
-          <span className={styles.splitLabel}>{splitPct}%</span>
-        </span>
+          <Box as="span" className="label">
+            {variationIndex}
+          </Box>
+          <Box as="span" className="text-ellipsis" title={variationName}>
+            <Text color="text-high" weight="medium">
+              {variationName}
+            </Text>
+          </Box>
+        </Flex>
+        <Flex flexBasis="90px" flexShrink="0" justify="end">
+          <Text>{splitPct}% Split</Text>
+        </Flex>
         <Box className={styles.changesArea}>
           {count === 0 ? (
             <span className={styles.changesEmpty}>No visual changes</span>
@@ -531,9 +508,8 @@ function VariationRow({
             </a>
           )}
           {canEdit && change && (
-            <button
-              type="button"
-              className={`${styles.ghostAction} ${styles.ghostAccent}`}
+            <Button
+              variant="ghost"
               onClick={() =>
                 setEditingVisualChange({
                   visualChange: change,
@@ -543,8 +519,7 @@ function VariationRow({
               }
             >
               Edit
-              <PiPencilSimpleBold size={12} />
-            </button>
+            </Button>
           )}
           {canDeleteVariation && (
             <button
@@ -589,6 +564,7 @@ function VariationRow({
           ))}
         </Flex>
       )}
+      {!isLast && <Separator size="4" mt="2" />}
     </Box>
   );
 }
@@ -637,31 +613,9 @@ function TargetingRows({
   );
 }
 
-// Inline SVG monitor glyph used in the card header tile — the design's
-// reference icon and not a great fit for any react-icons/pi alternative
-// we tested. Stroke-only, currentColor-driven so the tile's color wins.
-function MonitorGlyph() {
-  return (
-    <svg
-      viewBox="0 0 16 16"
-      width="16"
-      height="16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <rect x="1.5" y="2.5" width="13" height="9" rx="1.5" />
-      <path d="M5.5 14h5M8 11.5V14" />
-    </svg>
-  );
-}
+const VisualEditorIcon = ICON_PROPERTIES["visual-editor"].component;
+const radixColor = ICON_PROPERTIES["visual-editor"].radixColor;
 
-// A single changeset card — replaces the LinkedChange wrapper for the
-// visual-editor surface. Feature-flag + URL-redirect cards keep using
-// LinkedChange; this is visual-only.
 function UrlCard({
   vc,
   experiment,
@@ -729,116 +683,109 @@ function UrlCard({
   }, [vc.visualChanges]);
 
   return (
-    // `appbox` gives us the codebase's dark-mode-aware card surface
-    // (background, border, base radius). The local `cardChrome` class
-    // only adds overflow clipping so the inner hairlines clip correctly.
-    <Box mb="5" className={`appbox ${styles.cardChrome}`}>
-      {/* Header band */}
-      <Flex className={styles.cardHeader}>
-        <span className={styles.monitorTile}>
-          <MonitorGlyph />
-        </span>
-        <Box className={styles.cardHeaderTitleBlock}>
-          <Flex className={styles.cardUrlRow}>
-            {linkUrl ? (
-              <a
-                className={styles.cardUrl}
-                href={linkUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {editorUrl}
-              </a>
-            ) : (
-              <span className={styles.cardUrl}>{editorUrl || "(no URL)"}</span>
-            )}
-            {linkUrl && (
-              <span className={styles.footerIcon}>
-                <PiArrowSquareOutBold size={12} />
-              </span>
-            )}
-          </Flex>
-          <span className={styles.cardSummary}>{subline}</span>
+    <Box p="1">
+      <Flex align="center" justify="between" mb="3">
+        <Flex align="center" gap="3">
+          <Avatar radius="small" color={radixColor} size="md" variant="soft">
+            <VisualEditorIcon />
+          </Avatar>
+          <Box className={styles.cardHeaderTitleBlock}>
+            <Flex className={styles.cardUrlRow}>
+              {linkUrl ? (
+                <Link href={linkUrl} target="_blank">
+                  <Text weight="semibold">
+                    {editorUrl}
+                    <PiArrowSquareOut className="ml-2" />
+                  </Text>
+                </Link>
+              ) : (
+                <span className={styles.cardUrl}>
+                  {editorUrl || "(no URL)"}
+                </span>
+              )}
+            </Flex>
+            <span className={styles.cardSummary}>{subline}</span>
+          </Box>
+        </Flex>
+        <Box>
+          {canEdit && (
+            <DeleteButton
+              className="btn-sm ml-4"
+              useRadix={true}
+              text="Remove"
+              stopPropagation={true}
+              onClick={() => onDeleteChangeset()}
+              displayName="Visual Changeset"
+            />
+          )}
+          {canEdit && experiment.status === "draft" && (
+            <OpenVisualEditorLink
+              visualChangeset={vc}
+              useLink
+              button={<Button variant="ghost">Launch visual editor</Button>}
+            />
+          )}
         </Box>
-        {canEdit && experiment.status === "draft" && (
-          <OpenVisualEditorLink
-            visualChangeset={vc}
-            useLink
-            button={
-              <span className={styles.launchBtn}>
-                <PiMagicWandBold size={13} />
-                Launch visual editor
-              </span>
-            }
-          />
-        )}
-        {canEdit && (
-          <button
-            type="button"
-            className={styles.iconBtn}
-            onClick={onDeleteChangeset}
-            title="Remove visual changeset"
-            aria-label="Remove visual changeset"
-          >
-            <PiTrashBold size={14} />
-          </button>
-        )}
       </Flex>
-
-      {/* Targeting */}
-      {vc.urlPatterns?.length > 0 && (
-        <TargetingRows
-          urlPatterns={vc.urlPatterns}
-          canEdit={canEdit}
-          onEdit={onEditTargeting}
-        />
-      )}
-
-      {/* Variations */}
-      <Box>
-        {phaseVariations.map((v, j) => (
-          <VariationRow
-            key={v.id}
-            vc={vc}
-            experiment={experiment}
-            variationIndex={j}
-            variationId={v.id}
-            variationName={v.name}
-            splitPct={decimalToPercent(latestPhase?.variationWeights?.[j] ?? 0)}
+      <Box mb="5" className="appbox" style={{ backgroundColor: "transparent" }}>
+        {/* Targeting */}
+        {vc.urlPatterns?.length > 0 && (
+          <TargetingRows
+            urlPatterns={vc.urlPatterns}
             canEdit={canEdit}
-            // Deleting a variation is allowed only on drafts (running
-            // experiments shouldn't lose buckets retroactively), only
-            // for non-Control rows, and only when removing one would
-            // still leave a valid experiment (>= 2 variations). The
-            // base canEdit permission also has to hold.
-            canDeleteVariation={
-              canEdit &&
-              j !== 0 &&
-              experiment.status === "draft" &&
-              phaseVariations.length > 2
-            }
-            // All variations start collapsed — matches the environments
-            // drop-down pattern used elsewhere on this page. Users opt
-            // in to seeing the change list by clicking the chevron.
-            defaultOpen={false}
-            setEditingVisualChange={setEditingVisualChange}
-            onDeleteDomMutation={onDeleteDomMutation}
-            onClearGlobal={onClearGlobal}
-            onDeleteVariation={onDeleteVariation}
+            onEdit={onEditTargeting}
           />
-        ))}
-      </Box>
+        )}
 
-      {/* Environments footer — uses the shared EnvironmentStatesGrid
+        {/* Variations */}
+        <Box>
+          {phaseVariations.map((v, j) => (
+            <VariationRow
+              key={v.id}
+              vc={vc}
+              experiment={experiment}
+              variationIndex={j}
+              variationId={v.id}
+              variationName={v.name}
+              splitPct={decimalToPercent(
+                latestPhase?.variationWeights?.[j] ?? 0,
+              )}
+              canEdit={canEdit}
+              // Deleting a variation is allowed only on drafts (running
+              // experiments shouldn't lose buckets retroactively), only
+              // for non-Control rows, and only when removing one would
+              // still leave a valid experiment (>= 2 variations). The
+              // base canEdit permission also has to hold.
+              canDeleteVariation={
+                canEdit &&
+                j !== 0 &&
+                experiment.status === "draft" &&
+                phaseVariations.length > 2
+              }
+              // All variations start collapsed — matches the environments
+              // drop-down pattern used elsewhere on this page. Users opt
+              // in to seeing the change list by clicking the chevron.
+              defaultOpen={false}
+              isLast={j === phaseVariations.length - 1}
+              setEditingVisualChange={setEditingVisualChange}
+              onDeleteDomMutation={onDeleteDomMutation}
+              onClearGlobal={onClearGlobal}
+              onDeleteVariation={onDeleteVariation}
+            />
+          ))}
+        </Box>
+
+        {/* Environments footer — uses the shared EnvironmentStatesGrid
           which renders a clickable "Environments (active / total)"
           header that expands to a per-env check / warning grid with
           per-env tooltips. Same component the prior layout used; we
           just give it a hairline above to fit the card's banded look. */}
-      {envStatesArray.length > 0 && (
-        <Box className={styles.cardFooter}>
-          <EnvironmentStatesGrid environmentStates={envStatesArray} />
-        </Box>
-      )}
+        {envStatesArray.length > 0 && (
+          <Box className={styles.cardFooter}>
+            <EnvironmentStatesGrid environmentStates={envStatesArray} />
+          </Box>
+        )}
+      </Box>
     </Box>
   );
 }

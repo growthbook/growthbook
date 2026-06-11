@@ -7,7 +7,6 @@ import {
   fillRevisionFromFeature,
   liveRevisionFromFeature,
   filterEnvironmentsByFeature,
-  getAffectedEnvsForExperiment,
   mergeResultHasChanges,
   getReviewSetting,
 } from "shared/util";
@@ -52,7 +51,7 @@ import {
 import { useHoldouts, holdoutOccupiesRuleSlot } from "@/hooks/useHoldouts";
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
-import { PreLaunchChecklistForDraft } from "@/components/Experiment/PreLaunchChecklist";
+import { PreLaunchChecklistForDraftFeature } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 import Checkbox from "@/ui/Checkbox";
 import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 import Heading from "@/ui/Heading";
@@ -636,15 +635,10 @@ export default function RequestReviewModal({
                           .
                         </Callout>
                       )}
-                      <PreLaunchChecklistForDraft
+                      <PreLaunchChecklistForDraftFeature
                         experiment={experiment}
                         feature={feature}
                         mutateExperiment={mutate}
-                        envs={getAffectedEnvsForExperiment({
-                          experiment,
-                          orgEnvironments: allEnvironments,
-                          linkedFeatures: [],
-                        })}
                         onReady={(failed, loading) =>
                           handleChecklistReady(experiment.id, failed, loading)
                         }

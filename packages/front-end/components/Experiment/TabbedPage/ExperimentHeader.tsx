@@ -3,6 +3,8 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
+import { URLRedirectInterface } from "shared/types/url-redirect";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { FaAngleRight } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { experimentHasLiveLinkedChanges } from "shared/util";
@@ -53,6 +55,7 @@ import HelperText from "@/ui/HelperText";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
 import StartExperimentModal from "@/components/Experiment/TabbedPage/StartExperimentModal";
+import { usePreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import PhaseSelector from "@/components/Experiment/PhaseSelector";
 import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
@@ -83,14 +86,14 @@ export interface Props {
   safeToEdit: boolean;
   mutateWatchers: () => void;
   usersWatching: (string | undefined)[];
-  checklistItemsRemaining: number | null;
-  checklistHardBlockerCount: number;
   newPhase?: (() => void) | null;
   editTargeting?: (() => void) | null;
   editPhases?: (() => void) | null;
   editTags?: (() => void) | null;
   healthNotificationCount: number;
   linkedFeatures: LinkedFeatureInfo[];
+  visualChangesets: VisualChangesetInterface[];
+  urlRedirects: URLRedirectInterface[];
   holdout?: HoldoutInterfaceStringDates;
   showDashboardView: boolean;
   editSchedule?: (() => void) | null;
@@ -144,14 +147,14 @@ export default function ExperimentHeader({
   usersWatching,
   mutateWatchers,
   editResult,
-  checklistItemsRemaining,
-  checklistHardBlockerCount,
   editTargeting,
   newPhase,
   editPhases,
   editTags,
   healthNotificationCount,
   linkedFeatures,
+  visualChangesets,
+  urlRedirects,
   holdout,
   showDashboardView,
   editSchedule,
@@ -165,6 +168,11 @@ export default function ExperimentHeader({
   const dataSource = getDatasourceById(experiment.datasource);
   const startCelebration = useCelebration();
   const { snapshot, phase, analysis } = useSnapshot();
+  const {
+    checklistItemsRemaining,
+    checklistHardBlockerCount,
+    incompleteChecklistItems,
+  } = usePreLaunchChecklist();
 
   const [showSdkForm, setShowSdkForm] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -675,7 +683,11 @@ export default function ExperimentHeader({
           scheduleExperiment={approveScheduledExperimentStart}
           checklistItemsRemaining={checklistItemsRemaining || 0}
           checklistHardBlockerCount={checklistHardBlockerCount}
+          incompleteChecklistItems={incompleteChecklistItems}
           isHoldout={isHoldout}
+          linkedFeatures={linkedFeatures}
+          visualChangesets={visualChangesets}
+          urlRedirects={urlRedirects}
         />
       )}
       {showScheduleModal && !isHoldout ? (
