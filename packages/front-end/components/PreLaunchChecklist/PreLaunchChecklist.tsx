@@ -33,7 +33,6 @@ function PreLaunchChecklistUI({
   experiment,
   mutateExperiment,
   checklist,
-  checklistItemsRemaining,
   loading = false,
   allowEditChecklist,
   title = "Pre-Launch Checklist",
@@ -41,7 +40,6 @@ function PreLaunchChecklistUI({
 }: {
   experiment: ExperimentInterfaceStringDates;
   mutateExperiment: () => unknown | Promise<unknown>;
-  checklistItemsRemaining: number | null;
   checklist: CheckListItem[];
   loading?: boolean;
   className?: string;
@@ -59,6 +57,9 @@ function PreLaunchChecklistUI({
     permissionsUtil.canManageOrgSettings();
   const canEditExperiment =
     !experiment.archived && permissionsUtil.canUpdateExperiment(experiment, {});
+  const checklistItemsRemaining = checklist.filter(
+    (item) => item.status === "incomplete",
+  ).length;
 
   async function updateTaskStatus(checked: boolean, key: string | undefined) {
     if (!key) return;
@@ -160,7 +161,7 @@ function PreLaunchChecklistUI({
     <div className="d-flex flex-row align-items-center justify-content-between text-dark">
       <h4 className="mb-0">
         {title}{" "}
-        {!loading && checklistItemsRemaining !== null ? (
+        {!loading ? (
           <span
             className={`badge rounded-circle p-1 ${
               checklistItemsRemaining === 0 ? "badge-success" : "badge-warning"
@@ -215,9 +216,6 @@ function PreLaunchChecklistFeatureExpRule({
         experiment={experiment}
         mutateExperiment={mutateExperiment}
         checklist={checklist}
-        checklistItemsRemaining={
-          checklist.filter((item) => item.status === "incomplete").length
-        }
         loading={false}
         title={experiment.name}
       />
@@ -434,7 +432,6 @@ export function PreLaunchChecklistDrawer() {
                   experiment={experiment}
                   mutateExperiment={mutateExperiment}
                   checklist={checklist}
-                  checklistItemsRemaining={checklistItemsRemaining}
                   loading={loading}
                   allowEditChecklist={true}
                   showHeader={false}
