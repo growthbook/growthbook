@@ -123,7 +123,7 @@
     "saslprep": "^1.0.0",
     "scim2-parse-filter": "^0.2.8",
     "shared": "workspace:*",
-    "snowflake-sdk": "2.3.3",
+    "snowflake-sdk": "^2.4.3",
     "string-env-interpolation": "^1.0.1",
     "stripe": "^17.4.0",
     "tiktoken": "1.0.21",
