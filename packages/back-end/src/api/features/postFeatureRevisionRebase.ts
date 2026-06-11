@@ -30,7 +30,7 @@ import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import {
   BadRequestError,
-  ConflictError,
+  MergeConflictError,
   NotFoundError,
 } from "back-end/src/util/errors";
 import { isDraftStatus } from "./validations";
@@ -143,7 +143,7 @@ export async function rebaseFeatureRevision(
     await computeRebaseMerge(context, organization, params, body);
 
   if (!mergeResult.success) {
-    throw new ConflictError(
+    throw new MergeConflictError(
       "Unresolved conflicts remain — provide strategies for all conflicting keys",
       mergeResult.conflicts,
     );

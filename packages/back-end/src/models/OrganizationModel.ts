@@ -143,6 +143,7 @@ const organizationSchema = new mongoose.Schema({
   customRoles: {},
   deactivatedRoles: [],
   disabled: Boolean,
+  suspended: Boolean,
   setupEventTracker: String,
   trackingDisabled: Boolean,
 });

@@ -25,7 +25,7 @@ import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevis
 import { getEnvironments } from "back-end/src/util/organization.util";
 import {
   BadRequestError,
-  ConflictError,
+  MergeConflictError,
   NotFoundError,
 } from "back-end/src/util/errors";
 import { canUseRestApiBypassSetting } from "./reviewBypass";
@@ -95,7 +95,7 @@ export async function publishFeatureRevision(
   );
 
   if (!mergeResult.success) {
-    throw new ConflictError(
+    throw new MergeConflictError(
       "Merge conflicts exist — rebase before publishing",
       mergeResult.conflicts,
     );

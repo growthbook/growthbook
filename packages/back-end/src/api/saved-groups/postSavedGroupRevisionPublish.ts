@@ -7,7 +7,7 @@ import { postSavedGroupRevisionPublishValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   BadRequestError,
-  ConflictError,
+  MergeConflictError,
   NotFoundError,
 } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
@@ -91,7 +91,7 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
     normalizeProposedChanges(revision.target.proposedChanges),
   );
   if (!conflictResult.success) {
-    throw new ConflictError(
+    throw new MergeConflictError(
       "Merge conflicts exist — rebase before publishing",
       conflictResult.conflicts,
     );
