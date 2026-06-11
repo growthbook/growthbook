@@ -124,7 +124,7 @@ export default function MakeChangesFlow({
       cta = "Select a release plan";
       ctaEnabled = false;
     }
-    if (step == lastStepNumber && !changesConfirmed) {
+    if (step === lastStepNumber && !changesConfirmed) {
       ctaEnabled = false;
     }
   }
