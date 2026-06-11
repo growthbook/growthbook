@@ -100,8 +100,7 @@ export function HistoryTableRow({
   itemName?: string;
   url?: string;
 }) {
-  // Legacy audit docs may be missing the user field entirely
-  const user = event.user ?? { name: "Unknown" };
+  const user = event.user;
   const userDisplay =
     ("name" in user && user.name) ||
     ("email" in user && user.email) ||

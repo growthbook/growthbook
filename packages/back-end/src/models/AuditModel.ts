@@ -44,7 +44,12 @@ type AuditDocument = mongoose.Document & AuditInterface;
 const AuditModel = mongoose.model<AuditInterface>("Audit", auditSchema);
 
 const toInterface: ToInterface<AuditInterface> = (doc) => {
-  return removeMongooseFields(doc);
+  const audit = removeMongooseFields(doc);
+  // Legacy audit docs may be missing the user field entirely
+  if (!audit.user) {
+    audit.user = { id: "", email: "", name: "Unknown" };
+  }
+  return audit;
 };
 
 export async function insertAudit(
