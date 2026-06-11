@@ -466,6 +466,65 @@ export const postSubmit = async (
 
 // endregion POST /revision/:id/submit
 
+// region POST /revision/:id/recall-review
+
+type PostRecallReviewRequest = AuthRequest<never, { id: string }>;
+
+type PostRecallReviewResponse = {
+  status: 200;
+  revision: Revision;
+};
+
+/**
+ * POST /revision/:id/recall-review
+ * Return a revision in review back to "draft" (recall the review request).
+ * Anyone who can update the underlying entity can recall — same gate as
+ * submitting for review — so co-authors can pull back a teammate's request.
+ */
+export const postRecallReview = async (
+  req: PostRecallReviewRequest,
+  res: Response<PostRecallReviewResponse | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+  const { userId } = context;
+  const { id } = req.params;
+
+  const revisionModel = context.models.revisions;
+
+  const existingRevision = await revisionModel.getById(id);
+  if (!existingRevision) {
+    return res.status(404).json({ message: "Revision not found" });
+  }
+
+  if (
+    existingRevision.status !== "pending-review" &&
+    existingRevision.status !== "changes-requested" &&
+    existingRevision.status !== "approved"
+  ) {
+    return res.status(400).json({
+      message: "Only revisions in review can be returned to draft",
+    });
+  }
+
+  if (
+    !getAdapter(existingRevision.target.type).canUpdate(
+      context,
+      existingRevision.target.snapshot as Record<string, unknown>,
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  const revision = await revisionModel.recallReview(id, userId);
+
+  res.status(200).json({
+    status: 200,
+    revision,
+  });
+};
+
+// endregion POST /revision/:id/recall-review
+
 // region POST /revision/:id/review
 
 type PostReviewRequest = AuthRequest<

@@ -590,6 +590,39 @@ export class RevisionModel extends BaseClass {
     } as UpdateProps<Revision>);
   }
 
+  /**
+   * Return a revision in review back to "draft", recalling the review
+   * request. The "reopened" activity entry starts a new verdict cycle (see
+   * `addReview`), so verdicts submitted before the recall no longer count as
+   * active approvals/blocks if the revision is re-submitted later.
+   */
+  async recallReview(id: string, userId: string) {
+    const existing = await this.getById(id);
+    if (!existing) throw new Error("Revision not found");
+
+    if (
+      existing.status !== "pending-review" &&
+      existing.status !== "changes-requested" &&
+      existing.status !== "approved"
+    ) {
+      throw new Error("Only revisions in review can be returned to draft");
+    }
+
+    return this.update(existing, {
+      status: "draft",
+      activityLog: [
+        ...this.cleanActivityLog(existing.activityLog),
+        {
+          id: uniqid("act_"),
+          userId,
+          action: "reopened",
+          description: "Returned to draft — review request recalled",
+          dateCreated: new Date(),
+        },
+      ],
+    } as UpdateProps<Revision>);
+  }
+
   async addReview(
     id: string,
     userId: string,

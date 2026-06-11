@@ -151,6 +151,19 @@ router.post(
   revisionController.postSubmit,
 );
 
+// Recall a review request (return the revision to "draft")
+router.post(
+  "/:id/recall-review",
+  validateRequestMiddleware({
+    params: z
+      .object({
+        id: z.string(),
+      })
+      .strict(),
+  }),
+  revisionController.postRecallReview,
+);
+
 // Add a review to a revision
 router.post(
   "/:id/review",
