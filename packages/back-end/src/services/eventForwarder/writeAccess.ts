@@ -234,14 +234,13 @@ async function runWriteAccessProbe({
         );
       } catch (error) {
         const dropError = getErrorMessage(error);
-        if (failure) {
-          failure = `${failure}; cleanup failed: ${dropError}`;
-        } else {
-          logger.warn(
-            error,
-            `Event Forwarder write access cleanup failed for ${fullTestTablePath}`,
-          );
-        }
+        failure = failure
+          ? `${failure}; cleanup failed: ${dropError}`
+          : `cleanup failed: ${dropError}`;
+        logger.warn(
+          error,
+          `Event Forwarder write access cleanup failed for ${fullTestTablePath}`,
+        );
       }
     }
   }
