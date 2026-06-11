@@ -23,7 +23,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
-import { IncrementalRefreshRequiresFullRefreshError } from "back-end/src/util/errors";
+import { IncrementalUpdateRequiresFullRefreshError } from "back-end/src/util/errors";
 import { factMetricFactory } from "../factories/FactMetric.factory";
 import { factTableFactory } from "../factories/FactTable.factory";
 
@@ -478,7 +478,7 @@ describe("snapshot planning", () => {
     const staleConfigMessage =
       "The experiment configuration is outdated. Please run a Full Refresh.";
     assertIncrementalRefreshPrerequisitesMock.mockRejectedValue(
-      new IncrementalRefreshRequiresFullRefreshError(staleConfigMessage),
+      new IncrementalUpdateRequiresFullRefreshError(staleConfigMessage),
     );
 
     const context = makeContext();
@@ -582,7 +582,7 @@ describe("snapshot planning", () => {
     // full-refresh retry succeeds.
     assertIncrementalRefreshPrerequisitesMock
       .mockRejectedValueOnce(
-        new IncrementalRefreshRequiresFullRefreshError(staleConfigMessage),
+        new IncrementalUpdateRequiresFullRefreshError(staleConfigMessage),
       )
       .mockResolvedValueOnce(undefined as never);
 
@@ -638,7 +638,7 @@ describe("snapshot planning", () => {
     );
     assertIncrementalRefreshPrerequisitesMock
       .mockRejectedValueOnce(
-        new IncrementalRefreshRequiresFullRefreshError(
+        new IncrementalUpdateRequiresFullRefreshError(
           "The experiment configuration is outdated. Please run a Full Refresh.",
         ),
       )

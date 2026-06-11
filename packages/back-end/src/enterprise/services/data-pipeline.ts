@@ -23,7 +23,7 @@ import {
   FactTableInterface,
 } from "shared/types/fact-table";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
-import { IncrementalRefreshRequiresFullRefreshError } from "back-end/src/util/errors";
+import { IncrementalUpdateRequiresFullRefreshError } from "back-end/src/util/errors";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { getFiltersForHash } from "back-end/src/services/experimentTimeSeries";
 import { getColumnsForMetric } from "back-end/src/integrations/sql/fact-metrics/columns-for-metric";
@@ -135,7 +135,7 @@ export async function assertIncrementalRefreshPrerequisites({
       getExperimentSettingsHashForIncrementalRefresh(snapshotSettings);
     const storedSettingsHash = incrementalRefreshModel.experimentSettingsHash;
     if (!storedSettingsHash || currentSettingsHash !== storedSettingsHash) {
-      throw new IncrementalRefreshRequiresFullRefreshError(
+      throw new IncrementalUpdateRequiresFullRefreshError(
         "The experiment configuration is outdated. Please run a Full Refresh.",
       );
     }

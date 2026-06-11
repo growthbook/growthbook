@@ -173,10 +173,10 @@ export class ConcurrentIncrementalRefreshError extends Error {
   }
 }
 
-export class IncrementalRefreshRequiresFullRefreshError extends Error {
+export class IncrementalUpdateRequiresFullRefreshError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = "IncrementalRefreshRequiresFullRefreshError";
+    this.name = "IncrementalUpdateRequiresFullRefreshError";
   }
 }
 

@@ -192,7 +192,7 @@ import {
 import {
   getErrorMessage,
   ConcurrentIncrementalRefreshError,
-  IncrementalRefreshRequiresFullRefreshError,
+  IncrementalUpdateRequiresFullRefreshError,
 } from "back-end/src/util/errors";
 import { assertIncrementalRefreshPrerequisites } from "back-end/src/enterprise/services/data-pipeline";
 import {
@@ -1334,9 +1334,9 @@ function resolveFullRefresh(
 type IncrementalRefreshPrerequisiteArgs = {
   org: OrganizationInterface;
   integration: SourceIntegrationInterface;
-  snapshotSettings: ExperimentSnapshotSettings;
-  metricMap: Map<string, ExperimentMetricInterface>;
   experiment: ExperimentInterface;
+  metricMap: Map<string, ExperimentMetricInterface>;
+  snapshotSettings: ExperimentSnapshotSettings;
   incrementalRefreshModel: IncrementalRefreshInterface | null;
 };
 
@@ -1344,7 +1344,7 @@ type IncrementalRefreshPrerequisiteArgs = {
  * In case we cannot run an incremental update as planned, we need to determine
  * the best fallback strategy.
  *
- * - If this is from the scheduled job and the error is an `IncrementalRefreshRequiresFullRefreshError`, we can
+ * - If this is from the scheduled job and the error is an `IncrementalUpdateRequiresFullRefreshError`, we can
  *   promote the scheduled job to a full refresh.
  * - Otherwise, we downgrade to the non-incremental results runner.
  */
@@ -1385,7 +1385,7 @@ async function resolveIncrementalPrerequisiteFailure({
   // Doing a full refresh or inline scans the same amount of data,
   // but full refresh helps for the next updates.
   const canPromoteToFullRefresh =
-    error instanceof IncrementalRefreshRequiresFullRefreshError &&
+    error instanceof IncrementalUpdateRequiresFullRefreshError &&
     triggeredBy === "schedule" &&
     snapshotType === "standard" &&
     !fullRefresh;
