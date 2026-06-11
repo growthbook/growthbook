@@ -30,10 +30,14 @@ import {
 } from "back-end/src/services/experiments";
 import {
   formatPendingDraftFailureMessage,
-  PendingDraftFailure,
   PendingDraftPublishResult,
   publishPendingFeatureDraftsForExperiment,
 } from "back-end/src/services/experiment-feature";
+import {
+  ChecklistIncompleteError,
+  InvalidStatusError,
+  PendingDraftPublishFailedError,
+} from "back-end/src/util/errors";
 import { assertFeatureNotLockedByRamp } from "back-end/src/services/rampSchedule";
 
 export type StartChecklistItemStatus = {
@@ -344,11 +348,10 @@ export async function executeExperimentStart(
     experiment,
   );
   if (publishResult.failed.length > 0) {
-    const err = new Error(
+    throw new PendingDraftPublishFailedError(
       formatPendingDraftFailureMessage(publishResult.failed),
-    ) as Error & { failedFeatureDrafts?: PendingDraftFailure[] };
-    err.failedFeatureDrafts = publishResult.failed;
-    throw err;
+      publishResult.failed,
+    );
   }
 
   // Build a default phase if the experiment has none so getChangesToStartExperiment
@@ -449,15 +452,20 @@ export async function startExperiment({
 
   const experiment = loadedExperiment;
   if (experiment.status !== "draft") {
-    throw new Error("invalid_status: Experiment must be in draft status");
+    throw new InvalidStatusError(
+      "Experiment must be in draft status",
+      experiment.status,
+      ["draft"],
+    );
   }
 
   if (status === "notReady" && !skipChecklist) {
-    throw new Error(
-      `checklist_incomplete: ${checklistItems
-        .filter((i) => i.required && i.status === "incomplete")
-        .map((i) => i.key)
-        .join(", ")}`,
+    const incompleteRequiredItems = checklistItems.filter(
+      (item) => item.required && item.status === "incomplete",
+    );
+    throw new ChecklistIncompleteError(
+      "Experiment cannot be started: required checklist items are incomplete",
+      incompleteRequiredItems,
     );
   }
 
@@ -494,8 +502,10 @@ export async function approveScheduledExperimentStart({
   );
 
   if (experiment.status !== "draft") {
-    throw new Error(
-      "invalid_status: Experiment must be in draft status to approve a scheduled start",
+    throw new InvalidStatusError(
+      "Experiment must be in draft status to approve a scheduled start",
+      experiment.status,
+      ["draft"],
     );
   }
 
@@ -517,8 +527,9 @@ export async function approveScheduledExperimentStart({
       (item) => item.required && item.status === "incomplete",
     );
     if (incompleteRequired.length > 0) {
-      throw new Error(
-        `checklist_incomplete: ${incompleteRequired.map((i) => i.key).join(", ")}`,
+      throw new ChecklistIncompleteError(
+        "Experiment cannot be started: required checklist items are incomplete",
+        incompleteRequired,
       );
     }
   }
@@ -590,12 +601,14 @@ export async function stopExperiment({
     input.experimentId,
   );
 
-  if (
-    experiment.status !== "running" &&
-    !(allowAlreadyStopped && experiment.status === "stopped")
-  ) {
-    throw new Error(
-      "invalid_status: Can only stop an experiment in running status",
+  const expectedStopStatuses = allowAlreadyStopped
+    ? ["running", "stopped"]
+    : ["running"];
+  if (!expectedStopStatuses.includes(experiment.status)) {
+    throw new InvalidStatusError(
+      `Can only stop an experiment in ${expectedStopStatuses.join(" or ")} status`,
+      experiment.status,
+      expectedStopStatuses,
     );
   }
   if (input.dateEnded && Number.isNaN(new Date(input.dateEnded).getTime())) {
@@ -720,8 +733,10 @@ export async function modifyTemporaryRollout({
     input.experimentId,
   );
   if (experiment.status !== "stopped") {
-    throw new Error(
-      "invalid_status: Can only modify temporary rollout for stopped experiments",
+    throw new InvalidStatusError(
+      "Can only modify temporary rollout for stopped experiments",
+      experiment.status,
+      ["stopped"],
     );
   }
 
