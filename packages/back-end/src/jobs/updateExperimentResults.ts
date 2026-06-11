@@ -17,7 +17,13 @@ import {
 import { ConcurrentIncrementalRefreshError } from "back-end/src/util/errors";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { getMetricMap } from "back-end/src/models/MetricModel";
-import { notifyAutoUpdate } from "back-end/src/services/experimentNotifications";
+import {
+  notifyAutoUpdate,
+  notifyBanditWeightsChanged,
+  notifyExperimentEndingSoon,
+  notifyExperimentQueryFailed,
+  notifyExperimentStale,
+} from "back-end/src/services/experimentNotifications";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
@@ -109,6 +115,9 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
   const experiment = await getExperimentById(context, experimentId);
   if (!experiment) return;
 
+  await notifyExperimentEndingSoon({ context, experiment });
+  await notifyExperimentStale({ context, experiment });
+
   let project = null;
   if (experiment.project) {
     project = await context.models.projects.getById(experiment.project);
@@ -199,6 +208,19 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
     );
 
     if (experiment.type === "multi-armed-bandit") {
+      if (
+        currentSnapshot?.banditResult?.weightsWereUpdated &&
+        currentSnapshot.banditResult.currentWeights &&
+        currentSnapshot.banditResult.updatedWeights
+      ) {
+        await notifyBanditWeightsChanged({
+          context,
+          experiment,
+          currentWeights: currentSnapshot.banditResult.currentWeights,
+          updatedWeights: currentSnapshot.banditResult.updatedWeights,
+        });
+      }
+
       const changes = updateExperimentBanditSettings({
         experiment,
         snapshot: currentSnapshot,
@@ -225,6 +247,18 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
     }
 
     logger.error(e, "Failed to update experiment: " + experimentId);
+    try {
+      await notifyExperimentQueryFailed({
+        context,
+        experiment,
+        errorMessage: e instanceof Error ? e.message : `${e}`,
+      });
+    } catch (notifyError) {
+      logger.error(
+        notifyError,
+        "Failed to notify experiment query failure: " + experimentId,
+      );
+    }
     // If we failed to update the experiment, turn off auto-updating for the future (non-bandits only)
     if (experiment.type === "multi-armed-bandit") return;
     try {

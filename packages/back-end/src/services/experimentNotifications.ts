@@ -99,6 +99,7 @@ export const memoizeNotification = async ({
       pastNotifications,
     },
   });
+  experiment.pastNotifications = pastNotifications;
 };
 
 export const notifyAutoUpdate = ({
@@ -130,6 +131,162 @@ export const notifyAutoUpdate = ({
         },
       }),
   });
+
+export const notifyExperimentStarted = async ({
+  context,
+  experiment,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+}) => {
+  const latestPhase = experiment.phases[experiment.phases.length - 1];
+
+  await dispatchEvent({
+    context,
+    experiment,
+    event: "started",
+    data: {
+      object: {
+        type: "started",
+        experimentId: experiment.id,
+        experimentName: experiment.name,
+        phaseName: latestPhase?.name,
+        variationCount: experiment.variations.length,
+      },
+    },
+  });
+};
+
+export const notifyExperimentStopped = async ({
+  context,
+  experiment,
+  type,
+  results,
+  enableTemporaryRollout,
+  releasedVariationName,
+  reason,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  type: "shipped" | "rolledback";
+  results: NonNullable<ExperimentInterface["results"]>;
+  enableTemporaryRollout: boolean;
+  releasedVariationName?: string;
+  reason?: string;
+}) => {
+  await dispatchEvent({
+    context,
+    experiment,
+    event: `stopped.${type}`,
+    data: {
+      object: {
+        type,
+        experimentId: experiment.id,
+        experimentName: experiment.name,
+        results,
+        releasedVariationName,
+        enableTemporaryRollout,
+        reason,
+      },
+    },
+  });
+};
+
+const getSafeDate = (value: Date | string | undefined): Date | null => {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const daysBetweenDates = (start: Date, end: Date): number =>
+  Math.max(0, Math.ceil((end.getTime() - start.getTime()) / 86400000));
+
+export const notifyExperimentEndingSoon = async ({
+  context,
+  experiment,
+  windowDays = 3,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  windowDays?: number;
+}) => {
+  const latestPhase = experiment.phases[experiment.phases.length - 1];
+  const endsAt = getSafeDate(latestPhase?.dateEnded);
+  const now = new Date();
+  const daysRemaining = endsAt ? daysBetweenDates(now, endsAt) : 0;
+  const triggered =
+    experiment.status === "running" &&
+    !!endsAt &&
+    endsAt.getTime() >= now.getTime() &&
+    daysRemaining <= windowDays;
+
+  await memoizeNotification({
+    context,
+    experiment,
+    type: "ending-soon",
+    triggered,
+    dispatch: async () => {
+      if (!triggered || !endsAt) return;
+      await dispatchEvent({
+        context,
+        experiment,
+        event: "endingSoon",
+        data: {
+          object: {
+            type: "ending-soon",
+            experimentId: experiment.id,
+            experimentName: experiment.name,
+            endsAt: endsAt.toISOString(),
+            daysRemaining,
+          },
+        },
+      });
+    },
+  });
+};
+
+export const notifyExperimentStale = async ({
+  context,
+  experiment,
+  staleAfterDays = 90,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  staleAfterDays?: number;
+}) => {
+  const firstPhase = experiment.phases[0];
+  const startedAt = getSafeDate(firstPhase?.dateStarted);
+  const daysRunning = startedAt ? daysBetweenDates(startedAt, new Date()) : 0;
+  const triggered =
+    experiment.status === "running" &&
+    !!startedAt &&
+    daysRunning >= staleAfterDays;
+
+  await memoizeNotification({
+    context,
+    experiment,
+    type: "stale",
+    triggered,
+    dispatch: async () => {
+      if (!triggered) return;
+      await dispatchEvent({
+        context,
+        experiment,
+        event: "stale",
+        data: {
+          object: {
+            type: "stale",
+            experimentId: experiment.id,
+            experimentName: experiment.name,
+            daysRunning,
+            reason:
+              "This experiment has been running for a long time. Review whether it should ship, roll back, or be extended.",
+          },
+        },
+      });
+    },
+  });
+};
 
 export const notifyMultipleExposures = async ({
   context,
@@ -216,6 +373,163 @@ export const notifySrm = async ({
   return triggered && !experiment.pastNotifications?.includes("srm");
 };
 
+const getFailedGuardrailMetrics = async ({
+  context,
+  experiment,
+  analysisSummary,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  analysisSummary?: ExperimentAnalysisSummary;
+}) => {
+  const failedMetrics: {
+    id: string;
+    name: string;
+    variationName: string;
+  }[] = [];
+  const variations = getLatestPhaseVariations(experiment);
+
+  for (const [variationIndex, variationStatus] of (
+    analysisSummary?.resultsStatus?.variations || []
+  ).entries()) {
+    for (const [metricId, metricStatus] of Object.entries(
+      variationStatus.guardrailMetrics || {},
+    )) {
+      if (metricStatus.status !== "lost") continue;
+
+      const metric = await getExperimentMetricById(context, metricId);
+      const variation =
+        variations.find((v) => v.id === variationStatus.variationId) ||
+        variations[variationIndex];
+
+      failedMetrics.push({
+        id: metricId,
+        name: metric?.name || metricId,
+        variationName: variation?.name || variationStatus.variationId,
+      });
+    }
+  }
+
+  return failedMetrics;
+};
+
+export const notifyGuardrailFailed = async ({
+  context,
+  experiment,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+}) => {
+  const failedMetrics = await getFailedGuardrailMetrics({
+    context,
+    experiment,
+    analysisSummary: experiment.analysisSummary,
+  });
+  const triggered = experiment.status === "running" && failedMetrics.length > 0;
+
+  await memoizeNotification({
+    context,
+    experiment,
+    type: "guardrail-failed",
+    triggered,
+    dispatch: async () => {
+      if (!triggered) return;
+
+      await dispatchEvent({
+        context,
+        experiment,
+        event: "health.guardrailFailed",
+        data: {
+          object: {
+            type: "guardrail-failed",
+            experimentId: experiment.id,
+            experimentName: experiment.name,
+            failedMetrics,
+          },
+        },
+      });
+    },
+  });
+
+  return (
+    triggered && !experiment.pastNotifications?.includes("guardrail-failed")
+  );
+};
+
+export const notifyNoData = async ({
+  context,
+  experiment,
+  currentStatus,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  currentStatus: ExperimentResultStatusData;
+}) => {
+  const triggered =
+    experiment.status === "running" && currentStatus.status === "no-data";
+
+  await memoizeNotification({
+    context,
+    experiment,
+    type: "no-data",
+    triggered,
+    dispatch: async () => {
+      if (!triggered) return;
+
+      await dispatchEvent({
+        context,
+        experiment,
+        event: "health.noData",
+        data: {
+          object: {
+            type: "no-data",
+            experimentId: experiment.id,
+            experimentName: experiment.name,
+          },
+        },
+      });
+    },
+  });
+
+  return triggered && !experiment.pastNotifications?.includes("no-data");
+};
+
+export const notifyExperimentQueryFailed = async ({
+  context,
+  experiment,
+  errorMessage,
+  triggered = true,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  errorMessage?: string;
+  triggered?: boolean;
+}) => {
+  await memoizeNotification({
+    context,
+    experiment,
+    type: "query-failed",
+    triggered: experiment.status === "running" && triggered,
+    dispatch: async () => {
+      if (!triggered || experiment.status !== "running") return;
+
+      await dispatchEvent({
+        context,
+        experiment,
+        event: "health.queryFailed",
+        data: {
+          object: {
+            type: "query-failed",
+            experimentId: experiment.id,
+            experimentName: experiment.name,
+            errorMessage,
+          },
+        },
+      });
+    },
+  });
+};
+
 type ExperimentSignificanceChange = {
   experimentId: string;
   experimentName: string;
@@ -223,9 +537,12 @@ type ExperimentSignificanceChange = {
   variationName: string;
   metricId: string;
   metricName: string;
+  metricRole?: "goal" | "secondary" | "guardrail";
   statsEngine: StatsEngine;
   criticalValue: number;
   winning: boolean;
+  uplift?: number;
+  ci?: [number, number];
 };
 
 const sendSignificanceEmail = async (
@@ -304,6 +621,22 @@ export const computeExperimentChanges = async ({
     experiment.goalMetrics,
     metricGroups,
   );
+  const expandedSecondaryMetrics = expandMetricGroups(
+    experiment.secondaryMetrics || [],
+    metricGroups,
+  );
+  const expandedGuardrailMetrics = expandMetricGroups(
+    experiment.guardrailMetrics || [],
+    metricGroups,
+  );
+  const getMetricRole = (
+    metricId: string,
+  ): ExperimentSignificanceChange["metricRole"] => {
+    if (expandedGoalMetrics.includes(metricId)) return "goal";
+    if (expandedGuardrailMetrics.includes(metricId)) return "guardrail";
+    if (expandedSecondaryMetrics.includes(metricId)) return "secondary";
+    return undefined;
+  };
 
   const currentResults = cloneDeep(currentAnalysis.results);
   setAdjustedPValuesOnResults(
@@ -401,9 +734,12 @@ export const computeExperimentChanges = async ({
         variationName,
         metricId: m,
         metricName: metric.name,
+        metricRole: getMetricRole(m),
         statsEngine,
         criticalValue,
         winning,
+        uplift: curMetric.uplift?.mean,
+        ci: curMetric.ciAdjusted || curMetric.ci,
       });
     }
   }
@@ -440,17 +776,77 @@ export const notifySignificance = async ({
   }
 
   await Promise.all(
-    experimentChanges.map((change) =>
-      dispatchEvent({
-        context,
-        experiment,
-        event: "info.significance",
-        data: {
-          object: change,
-        },
-      }),
-    ),
+    experimentChanges.flatMap((change) => {
+      const events = [
+        dispatchEvent({
+          context,
+          experiment,
+          event: "info.significance",
+          data: {
+            object: change,
+          },
+        }),
+      ];
+
+      if (!change.winning) {
+        events.push(
+          dispatchEvent({
+            context,
+            experiment,
+            event: "metric.regression",
+            data: {
+              object: {
+                type: "metric-regression",
+                experimentId: change.experimentId,
+                experimentName: change.experimentName,
+                metricId: change.metricId,
+                metricName: change.metricName,
+                variationName: change.variationName,
+                metricRole: change.metricRole,
+                uplift: change.uplift,
+                ci: change.ci,
+              },
+            },
+          }),
+        );
+      }
+
+      return events;
+    }),
   );
+};
+
+export const notifyBanditWeightsChanged = async ({
+  context,
+  experiment,
+  currentWeights,
+  updatedWeights,
+}: {
+  context: Context;
+  experiment: ExperimentInterface;
+  currentWeights: number[];
+  updatedWeights: number[];
+}) => {
+  if (!currentWeights.length || !updatedWeights.length) return;
+  const maxDelta = Math.max(
+    ...updatedWeights.map((weight, i) => Math.abs(weight - currentWeights[i])),
+  );
+  if (maxDelta < 0.05) return;
+
+  await dispatchEvent({
+    context,
+    experiment,
+    event: "bandit.weightsChanged",
+    data: {
+      object: {
+        type: "bandit-weights-changed",
+        experimentId: experiment.id,
+        experimentName: experiment.name,
+        currentWeights,
+        updatedWeights,
+      },
+    },
+  });
 };
 
 export const notifyDecision = async ({
@@ -562,6 +958,12 @@ export const notifyExperimentChange = async ({
     decisionCriteria,
   });
 
+  await notifyExperimentQueryFailed({
+    context,
+    experiment,
+    triggered: false,
+  });
+
   if (currentStatus) {
     const triggeredMultipleExposures = await notifyMultipleExposures({
       context,
@@ -580,6 +982,23 @@ export const notifyExperimentChange = async ({
     });
     if (triggeredSrm) {
       notificationsTriggered.push("srm");
+    }
+
+    const triggeredGuardrailFailure = await notifyGuardrailFailed({
+      context,
+      experiment,
+    });
+    if (triggeredGuardrailFailure) {
+      notificationsTriggered.push("guardrail-failed");
+    }
+
+    const triggeredNoData = await notifyNoData({
+      context,
+      experiment,
+      currentStatus,
+    });
+    if (triggeredNoData) {
+      notificationsTriggered.push("no-data");
     }
 
     const lastStatus = getExperimentResultStatus({

@@ -15,6 +15,23 @@ export const eventWebHookMethods = ["POST", "PUT", "PATCH"] as const;
 
 export type EventWebHookMethod = (typeof eventWebHookMethods)[number];
 
+export const slackEventWebHookMetadata = z
+  .object({
+    appId: z.string().optional(),
+    teamId: z.string().optional(),
+    teamName: z.string().optional(),
+    enterpriseId: z.string().optional(),
+    enterpriseName: z.string().optional(),
+    channelName: z.string().optional(),
+    channelId: z.string().optional(),
+    configurationUrl: z.string().url().optional(),
+    botUserId: z.string().optional(),
+    authedUserId: z.string().optional(),
+    scope: z.string().optional(),
+    isEnterpriseInstall: z.boolean().optional(),
+  })
+  .strict();
+
 // Matches multi-level wildcard patterns like "feature.*" or "feature.revision.*".
 export const EVENT_WEBHOOK_WILDCARD_PATTERN = /^[a-z]+(\.[a-zA-Z]+)*\.\*$/;
 
@@ -47,6 +64,13 @@ const eventNameOrWildcard = z
     },
   );
 
+// Coalescing window: when > 0, deliveries for chat-style payload types
+// (slack, discord) buffer events keyed by the touched object for this many
+// milliseconds, then send a single digest message. 0/undefined disables
+// (events deliver one-to-one as before).
+export const EVENT_WEBHOOK_DEFAULT_COALESCE_WINDOW_MS = 15_000;
+export const EVENT_WEBHOOK_MAX_COALESCE_WINDOW_MS = 5 * 60_000;
+
 export const eventWebHookInterface = z
   .object({
     id: z.string(),
@@ -60,13 +84,23 @@ export const eventWebHookInterface = z
     projects: z.array(z.string()),
     tags: z.array(z.string()),
     environments: z.array(z.string()),
+    experiments: z.array(z.string()),
+    metrics: z.array(z.string()),
     payloadType: z.enum(eventWebHookPayloadTypes),
     method: z.enum(eventWebHookMethods),
     headers: z.record(z.string(), z.string()),
+    slack: slackEventWebHookMetadata.optional(),
     signingKey: z.string().min(2),
     lastRunAt: z.union([z.date(), z.null()]),
     lastState: z.enum(["none", "success", "error"]),
     lastResponseBody: z.union([z.string(), z.null()]),
+    coalesceWindowMs: z
+      .number()
+      .int()
+      .min(0)
+      .max(EVENT_WEBHOOK_MAX_COALESCE_WINDOW_MS)
+      .optional(),
+    dailyDigestHourUtc: z.number().int().min(0).max(23).optional(),
   })
   .strict();
 

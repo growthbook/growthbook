@@ -38,6 +38,19 @@ import {
 import { experimentWarningNotificationPayload } from "./experiment-warnings";
 import { experimentInfoSignificance } from "./experiment-info";
 import { experimentDecisionNotificationPayload } from "./experiment-decision";
+import {
+  experimentStartedNotificationPayload,
+  experimentStoppedNotificationPayload,
+  experimentGuardrailFailedNotificationPayload,
+  experimentNoDataNotificationPayload,
+  experimentQueryFailedNotificationPayload,
+  experimentStatusChangedNotificationPayload,
+  experimentEndingSoonNotificationPayload,
+  experimentStaleNotificationPayload,
+  experimentMetricRegressionNotificationPayload,
+  experimentBanditChangedNotificationPayload,
+  experimentHoldoutNotificationPayload,
+} from "./experiment-alerts";
 import { userLoginInterface } from "./users";
 
 // Re-export for consumers of shared/validators
@@ -68,6 +81,15 @@ export const eventData = <T extends z.ZodTypeAny>(data: T) =>
 
 const webhookTestEventSchema = z.object({ webhookId: z.string() }).strict();
 
+const featureStaleCandidateNotificationPayload = z
+  .object({
+    featureId: z.string(),
+    featureName: z.string().optional(),
+    daysSinceLastUpdate: z.number().optional(),
+    reason: z.string(),
+  })
+  .strict();
+
 export const notificationEvents = {
   feature: {
     created: {
@@ -97,6 +119,11 @@ export const notificationEvents = {
       schema: safeRolloutUnhealthyNotificationPayload,
       description:
         "Triggered when a safe rollout is failing a health check and may not be working as expected.",
+    },
+    "stale.candidate": {
+      schema: featureStaleCandidateNotificationPayload,
+      description:
+        "Triggered when a feature flag looks stale and may be ready for cleanup.",
     },
     "rampSchedule.created": {
       schema: rampScheduleCreatedPayload,
@@ -214,6 +241,67 @@ export const notificationEvents = {
     "decision.review": {
       schema: experimentDecisionNotificationPayload,
       description: `Triggered when an experiment has reached the desired power point, but the results may be ambiguous.`,
+    },
+    started: {
+      schema: experimentStartedNotificationPayload,
+      description: "Triggered when an experiment starts running.",
+    },
+    "stopped.shipped": {
+      schema: experimentStoppedNotificationPayload,
+      description:
+        "Triggered when an experiment is stopped and a variation is shipped.",
+    },
+    "stopped.rolledback": {
+      schema: experimentStoppedNotificationPayload,
+      description:
+        "Triggered when an experiment is stopped and rolled back to control.",
+    },
+    "health.guardrailFailed": {
+      schema: experimentGuardrailFailedNotificationPayload,
+      description:
+        "Triggered when a running experiment has a failing guardrail metric.",
+    },
+    "health.noData": {
+      schema: experimentNoDataNotificationPayload,
+      description:
+        "Triggered when experiment results update successfully but contain no data.",
+    },
+    "health.queryFailed": {
+      schema: experimentQueryFailedNotificationPayload,
+      description:
+        "Triggered when experiment results fail to update because of a query error.",
+    },
+    "status.changed": {
+      schema: experimentStatusChangedNotificationPayload,
+      description: "Triggered when an experiment status changes.",
+    },
+    endingSoon: {
+      schema: experimentEndingSoonNotificationPayload,
+      description:
+        "Triggered when a running experiment is nearing its scheduled end date.",
+    },
+    stale: {
+      schema: experimentStaleNotificationPayload,
+      description:
+        "Triggered when a running experiment has been active for a long time without a decision.",
+    },
+    "metric.regression": {
+      schema: experimentMetricRegressionNotificationPayload,
+      description:
+        "Triggered when a metric regression is detected in an experiment.",
+    },
+    "bandit.weightsChanged": {
+      schema: experimentBanditChangedNotificationPayload,
+      description:
+        "Triggered when a multi-armed bandit materially changes variation weights.",
+    },
+    "holdout.created": {
+      schema: experimentHoldoutNotificationPayload,
+      description: "Triggered when a holdout is created.",
+    },
+    "holdout.updated": {
+      schema: experimentHoldoutNotificationPayload,
+      description: "Triggered when a holdout is updated.",
     },
   },
   user: {

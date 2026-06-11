@@ -148,6 +148,13 @@ export const experimentNotification = [
   "multiple-exposures",
   "srm",
   "significance",
+  "guardrail-failed",
+  "no-data",
+  "query-failed",
+  "ending-soon",
+  "stale",
+  "metric-regression",
+  "bandit-weights-changed",
 ] as const;
 export type ExperimentNotification = (typeof experimentNotification)[number];
 

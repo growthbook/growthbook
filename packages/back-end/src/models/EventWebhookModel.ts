@@ -13,6 +13,7 @@ import {
   EventWebHookMethod,
   isEventWebhookWildcard,
   getWildcardPatternsForEvent,
+  NotificationEventNameOrWildcard,
 } from "shared/validators";
 import { EventWebHookInterface } from "shared/types/event-webhook";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
@@ -38,6 +39,21 @@ const eventWebHookSchema = new mongoose.Schema({
     type: Map,
     of: String,
     required: false,
+  },
+  slack: {
+    appId: String,
+    teamId: String,
+    teamName: String,
+    enterpriseId: String,
+    enterpriseName: String,
+    channelName: String,
+    channelId: String,
+    configurationUrl: String,
+    botUserId: String,
+    authedUserId: String,
+    botAccessToken: String,
+    scope: String,
+    isEnterpriseInstall: Boolean,
   },
   method: {
     type: String,
@@ -96,6 +112,14 @@ const eventWebHookSchema = new mongoose.Schema({
     required: false,
   },
   environments: {
+    type: [String],
+    required: false,
+  },
+  experiments: {
+    type: [String],
+    required: false,
+  },
+  metrics: {
     type: [String],
     required: false,
   },
@@ -166,6 +190,17 @@ const eventWebHookSchema = new mongoose.Schema({
     type: String,
     required: false,
   },
+  coalesceWindowMs: {
+    type: Number,
+    required: false,
+    min: 0,
+  },
+  dailyDigestHourUtc: {
+    type: Number,
+    required: false,
+    min: 0,
+    max: 23,
+  },
 });
 
 eventWebHookSchema.index({ organizationId: 1 });
@@ -179,6 +214,9 @@ type EventWebHookDocument = mongoose.Document & EventWebHookInterface;
  */
 const toInterface = (doc: EventWebHookDocument): EventWebHookInterface => {
   const payload = omit(doc.toJSON<EventWebHookDocument>(), ["__v", "_id"]);
+  if (payload.slack && "botAccessToken" in payload.slack) {
+    delete (payload.slack as Record<string, unknown>).botAccessToken;
+  }
 
   // Add defaults values
   const defaults = {
@@ -190,6 +228,8 @@ const toInterface = (doc: EventWebHookDocument): EventWebHookInterface => {
     ...(payload.tags ? {} : { tags: [] }),
     ...(payload.projects ? {} : { projects: [] }),
     ...(payload.environments ? {} : { environments: [] }),
+    ...(payload.experiments ? {} : { experiments: [] }),
+    ...(payload.metrics ? {} : { metrics: [] }),
   };
 
   if (Object.keys(defaults).length)
@@ -222,13 +262,18 @@ type CreateEventWebHookOptions = {
   url: string;
   organizationId: string;
   enabled: boolean;
-  events: NotificationEventName[];
+  events: NotificationEventNameOrWildcard[];
   projects: string[];
+  experiments?: string[];
+  metrics?: string[];
   tags: string[];
   environments: string[];
   payloadType: EventWebHookPayloadType;
   method: EventWebHookMethod;
   headers: Record<string, string>;
+  slack?: EventWebHookInterface["slack"];
+  coalesceWindowMs?: number;
+  dailyDigestHourUtc?: number;
 };
 
 /**
@@ -243,11 +288,16 @@ export const createEventWebHook = async ({
   enabled,
   events,
   projects,
+  experiments = [],
+  metrics = [],
   tags,
   environments,
   payloadType,
   method,
   headers,
+  slack,
+  coalesceWindowMs,
+  dailyDigestHourUtc,
 }: CreateEventWebHookOptions): Promise<EventWebHookInterface> => {
   const now = new Date();
   const signingKey = "ewhk_" + md5(randomUUID()).substr(0, 32);
@@ -263,14 +313,19 @@ export const createEventWebHook = async ({
     url,
     signingKey,
     projects,
+    experiments,
+    metrics,
     tags,
     environments,
     payloadType,
     method,
     headers,
+    slack,
     lastRunAt: null,
     lastState: "none",
     lastResponseBody: null,
+    ...(coalesceWindowMs !== undefined ? { coalesceWindowMs } : {}),
+    ...(dailyDigestHourUtc !== undefined ? { dailyDigestHourUtc } : {}),
   });
 
   return toInterface(doc);
@@ -335,13 +390,18 @@ export type UpdateEventWebHookAttributes = {
   name?: string;
   url?: string;
   enabled?: boolean;
-  events?: NotificationEventName[];
+  events?: NotificationEventNameOrWildcard[];
   tags?: string[];
   environments?: string[];
   projects?: string[];
+  experiments?: string[];
+  metrics?: string[];
   payloadType?: EventWebHookPayloadType;
   method?: EventWebHookMethod;
   headers?: Record<string, string>;
+  slack?: EventWebHookInterface["slack"];
+  coalesceWindowMs?: number;
+  dailyDigestHourUtc?: number | null;
 };
 
 /**
@@ -357,13 +417,22 @@ export const updateEventWebHook = async (
   { eventWebHookId, organizationId }: UpdateEventWebHookQueryOptions,
   updates: UpdateEventWebHookAttributes,
 ): Promise<boolean> => {
+  const setUpdates = { ...updates };
+  const unsetUpdates: Record<string, ""> = {};
+
+  if (updates.dailyDigestHourUtc === null) {
+    delete setUpdates.dailyDigestHourUtc;
+    unsetUpdates.dailyDigestHourUtc = "";
+  }
+
   const result = await EventWebHookModel.updateOne(
     { id: eventWebHookId, organizationId },
     {
       $set: {
-        ...updates,
+        ...setUpdates,
         dateUpdated: new Date(),
       },
+      ...(Object.keys(unsetUpdates).length ? { $unset: unsetUpdates } : {}),
     },
   );
 
@@ -413,6 +482,22 @@ export const getAllEventWebHooks = async (
   return docs.map(toInterface);
 };
 
+export const getSlackBotAccessTokenForWebhook = async ({
+  eventWebHookId,
+  organizationId,
+}: {
+  eventWebHookId: string;
+  organizationId: string;
+}): Promise<string | null> => {
+  const doc = await EventWebHookModel.findOne({
+    id: eventWebHookId,
+    organizationId,
+    payloadType: "slack",
+  }).lean();
+  const slack = doc?.slack as { botAccessToken?: string } | undefined;
+  return slack?.botAccessToken || null;
+};
+
 const filterOptional = <T>(want: T[] = [], has: T[]) => {
   if (!want.length) return true;
   return !!intersection(want, has).length;
@@ -431,12 +516,16 @@ export const getAllEventWebHooksForEvent = async ({
   enabled,
   tags,
   projects,
+  experimentId,
+  metricIds,
 }: {
   organizationId: string;
   eventName: NotificationEventName;
   enabled: boolean;
   tags: string[];
   projects: string[];
+  experimentId?: string;
+  metricIds?: string[];
 }): Promise<EventWebHookInterface[]> => {
   const allDocs = await EventWebHookModel.find({
     organizationId,
@@ -447,6 +536,9 @@ export const getAllEventWebHooksForEvent = async ({
   const docs = allDocs.filter((doc) => {
     if (!filterOptional(doc.tags, tags)) return false;
     if (!filterOptional(doc.projects, projects)) return false;
+    if (!filterOptional(doc.experiments, experimentId ? [experimentId] : []))
+      return false;
+    if (!filterOptional(doc.metrics, metricIds || [])) return false;
 
     return true;
   });

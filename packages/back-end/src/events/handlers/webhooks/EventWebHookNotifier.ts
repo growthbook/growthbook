@@ -4,7 +4,11 @@ import {
   EventWebHookMethod,
 } from "shared/types/event-webhook";
 import { LegacyNotificationEvent } from "shared/types/events/notification-events";
-import { NotificationEventName } from "shared/types/events/event";
+import {
+  EventInterface,
+  NotificationEventName,
+} from "shared/types/events/event";
+import { NotificationEventResource } from "shared/types/events/base-types";
 import { getAgendaInstance } from "back-end/src/services/queueing";
 import { getEvent } from "back-end/src/models/EventModel";
 import {
@@ -13,11 +17,14 @@ import {
 } from "back-end/src/models/EventWebhookModel";
 import { findOrganizationById } from "back-end/src/models/OrganizationModel";
 import { createEventWebHookLog } from "back-end/src/models/EventWebHookLogModel";
+import { claimCoalesceBucket } from "back-end/src/models/EventWebHookCoalesceBucketModel";
 import { logger } from "back-end/src/util/logger";
 import { cancellableFetch } from "back-end/src/util/http.util";
 import {
+  buildCoalescedSlackMessage,
   getSlackMessageForNotificationEvent,
   getSlackMessageForLegacyNotificationEvent,
+  SlackMessage,
 } from "back-end/src/events/handlers/slack/slack-event-handler-utils";
 import { getLegacyMessageForNotificationEvent } from "back-end/src/events/handlers/legacy";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
@@ -28,6 +35,19 @@ import {
   EventWebHookSuccessResult,
   getEventWebHookSignatureForPayload,
 } from "./event-webhooks-utils";
+
+export const EVENT_WEBHOOK_COALESCE_FLUSH_JOB = "eventWebHookCoalesceFlush";
+
+type EventWebHookCoalesceFlushJobData = JobAttributesData & {
+  organizationId: string;
+  eventWebHookId: string;
+  objectType: NotificationEventResource;
+  objectId: string;
+  retryCount: number;
+  // Populated after the first execution claims the bucket. Subsequent
+  // retries reuse these so we never lose events mid-retry.
+  eventIds?: string[];
+};
 
 let jobDefined = false;
 
@@ -56,6 +76,10 @@ export class EventWebHookNotifier implements Notifier {
       "eventWebHook",
       EventWebHookNotifier.handleAgendaJob,
     );
+    this.agenda.define<EventWebHookCoalesceFlushJobData>(
+      EVENT_WEBHOOK_COALESCE_FLUSH_JOB,
+      EventWebHookNotifier.handleCoalesceFlushJob,
+    );
     jobDefined = true;
   }
 
@@ -72,6 +96,48 @@ export class EventWebHookNotifier implements Notifier {
       "data.eventWebHookId": this.options.eventWebHookId,
     });
     job.schedule(new Date());
+    await job.save();
+  }
+
+  /**
+   * Schedule a coalesce-window flush for (org, webhook, object). Uniqued
+   * by that tuple so concurrent events within the window do not create
+   * additional jobs — the first scheduling wins, and subsequent events
+   * just `$push` into the existing bucket which the pending job will
+   * pick up at `flushAt`.
+   */
+  static async scheduleFlush({
+    organizationId,
+    eventWebHookId,
+    objectType,
+    objectId,
+    flushAt,
+    agenda = getAgendaInstance(),
+  }: {
+    organizationId: string;
+    eventWebHookId: string;
+    objectType: NotificationEventResource;
+    objectId: string;
+    flushAt: Date;
+    agenda?: Agenda;
+  }): Promise<void> {
+    const job = agenda.create<EventWebHookCoalesceFlushJobData>(
+      EVENT_WEBHOOK_COALESCE_FLUSH_JOB,
+      {
+        organizationId,
+        eventWebHookId,
+        objectType,
+        objectId,
+        retryCount: 0,
+      },
+    );
+    job.unique({
+      "data.organizationId": organizationId,
+      "data.eventWebHookId": eventWebHookId,
+      "data.objectType": objectType,
+      "data.objectId": objectId,
+    });
+    job.schedule(flushAt);
     await job.save();
   }
 
@@ -200,6 +266,157 @@ export class EventWebHookNotifier implements Notifier {
           payload,
         });
     }
+  }
+
+  /**
+   * Coalesce-flush job: claim the bucket (or reuse retry-captured event
+   * ids), render a digest, deliver as a single Slack/Discord message,
+   * and log it as one webhook delivery. On error, the captured event ids
+   * are preserved in the job's data so the retry cycle replays the same
+   * payload instead of re-claiming a now-empty bucket.
+   */
+  private static async handleCoalesceFlushJob(
+    job: Job<EventWebHookCoalesceFlushJobData>,
+  ): Promise<void> {
+    const {
+      organizationId,
+      eventWebHookId,
+      objectType,
+      objectId,
+      eventIds: cachedEventIds,
+    } = job.attrs.data;
+
+    let eventIds: string[];
+    if (cachedEventIds && cachedEventIds.length > 0) {
+      eventIds = cachedEventIds;
+    } else {
+      const bucket = await claimCoalesceBucket({
+        organizationId,
+        eventWebHookId,
+        objectType,
+        objectId,
+      });
+      if (!bucket || bucket.eventIds.length === 0) {
+        // Nothing to deliver — bucket was already drained by another
+        // worker or pruned. Treat as a no-op.
+        return;
+      }
+      eventIds = bucket.eventIds;
+      job.attrs.data.eventIds = eventIds;
+    }
+
+    const eventWebHook = await getEventWebHookById(
+      eventWebHookId,
+      organizationId,
+    );
+    if (!eventWebHook) {
+      logger.warn(
+        { eventWebHookId, organizationId },
+        "Coalesce flush: webhook not found, dropping bucket",
+      );
+      return;
+    }
+
+    const organization = await findOrganizationById(organizationId);
+    if (!organization) {
+      logger.error(
+        { organizationId },
+        "Coalesce flush: organization not found",
+      );
+      return;
+    }
+
+    const loadedEvents: EventInterface[] = [];
+    for (const id of eventIds) {
+      const e = await getEvent(id);
+      if (e) loadedEvents.push(e);
+    }
+    if (loadedEvents.length === 0) {
+      logger.warn(
+        { eventIds, eventWebHookId },
+        "Coalesce flush: no events resolved, dropping bucket",
+      );
+      return;
+    }
+
+    const payload = await EventWebHookNotifier.buildCoalescedPayload({
+      events: loadedEvents,
+      payloadType: eventWebHook.payloadType || "raw",
+    });
+    if (!payload) {
+      // No renderable events; nothing to deliver.
+      return;
+    }
+
+    const method = eventWebHook.method || "POST";
+    const context = getContextForAgendaJobByOrgObject(organization);
+    const origin = new URL(eventWebHook.url).origin;
+    const applySecrets =
+      await context.models.webhookSecrets.getBackEndSecretsReplacer(origin);
+
+    const webHookResult = await EventWebHookNotifier.sendDataToWebHook({
+      payload: payload.body,
+      eventWebHook,
+      method,
+      applySecrets,
+    });
+
+    const logPayload = {
+      ...(payload.body as Record<string, unknown>),
+      coalescedEventIds: eventIds,
+    };
+
+    // Use the first event's name as the representative "event" for
+    // status/log entries; the bundled ids are preserved in the payload.
+    const representativeEvent = loadedEvents[0].event;
+
+    switch (webHookResult.result) {
+      case "success":
+        return EventWebHookNotifier.handleWebHookSuccess({
+          job: job as unknown as Job<EventWebHookJobData>,
+          webHookResult,
+          organizationId,
+          event: representativeEvent,
+          url: eventWebHook.url,
+          method,
+          payload: logPayload,
+        });
+      case "error":
+        return EventWebHookNotifier.handleWebHookError({
+          job: job as unknown as Job<EventWebHookJobData>,
+          webHookResult,
+          organizationId,
+          event: representativeEvent,
+          url: eventWebHook.url,
+          method,
+          payload: logPayload,
+        });
+    }
+  }
+
+  /**
+   * Render an array of events into a single Slack/Discord payload. Raw
+   * and JSON payload types do not support coalescing — they must remain
+   * 1:1 with events for API consumers — so we return null for those.
+   */
+  private static async buildCoalescedPayload({
+    events,
+    payloadType,
+  }: {
+    events: EventInterface[];
+    payloadType: NonNullable<EventWebHookInterface["payloadType"]>;
+  }): Promise<{ body: Record<string, unknown> } | null> {
+    if (payloadType !== "slack" && payloadType !== "discord") return null;
+
+    const slackMessage = await buildCoalescedSlackMessage(events);
+    if (!slackMessage) return null;
+
+    if (payloadType === "slack") {
+      return { body: slackMessage as unknown as Record<string, unknown> };
+    }
+
+    // discord
+    return { body: { content: (slackMessage as SlackMessage).text } };
   }
 
   /**

@@ -123,6 +123,7 @@ import { projectRouter } from "./routers/project/project.router";
 import { vercelRouter } from "./routers/vercel-native-integration/vercel-native-integration.router";
 import { factTableRouter } from "./routers/fact-table/fact-table.router";
 import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router";
+import { slackActionsRouter } from "./routers/slack-actions/slack-actions.router";
 import { slackTestRouter } from "./routers/slack-test/slack-test.router";
 import { dataExportRouter } from "./routers/data-export/data-export.router";
 import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/demo-datasource-project.router";
@@ -442,6 +443,7 @@ else {
 app.post("/auth/refresh", authController.postRefresh);
 app.post("/auth/logout", authController.postLogout);
 app.get("/auth/hasorgs", authController.getHasOrganizations);
+app.use("/integrations/slack", slackActionsRouter);
 
 // All other routes require a valid JWT
 const auth = getAuthConnection();

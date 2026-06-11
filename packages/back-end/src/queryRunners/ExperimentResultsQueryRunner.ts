@@ -54,6 +54,9 @@ import { expandDenominatorMetrics } from "back-end/src/util/sql";
 import { FactTableMap } from "back-end/src/models/FactTableModel";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { updateReport } from "back-end/src/models/ReportModel";
+import { getExperimentById } from "back-end/src/models/ExperimentModel";
+import { notifyExperimentQueryFailed } from "back-end/src/services/experimentNotifications";
+import { logger } from "back-end/src/util/logger";
 import {
   QueryRunner,
   QueryMap,
@@ -524,6 +527,23 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       id: this.model.id,
       updates,
     });
+    if (status === "failed") {
+      try {
+        const experiment = await getExperimentById(
+          this.context,
+          this.model.experiment,
+        );
+        if (experiment) {
+          await notifyExperimentQueryFailed({
+            context: this.context,
+            experiment,
+            errorMessage: error,
+          });
+        }
+      } catch (e) {
+        logger.error(e, "Failed to send experiment query failure notification");
+      }
+    }
     if (
       this.model.report &&
       ["failed", "partially-succeeded", "succeeded"].includes(status)

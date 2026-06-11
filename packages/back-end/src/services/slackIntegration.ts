@@ -1,0 +1,411 @@
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { z } from "zod";
+import { SlackOAuthIntegrationInterface } from "shared/types/slack-integration";
+import { EventWebHookInterface } from "shared/types/event-webhook";
+import { EVENT_WEBHOOK_DEFAULT_COALESCE_WINDOW_MS } from "shared/validators";
+import {
+  APP_ORIGIN,
+  JWT_SECRET,
+  SLACK_CLIENT_ID,
+  SLACK_CLIENT_SECRET,
+} from "back-end/src/util/secrets";
+import { ReqContext } from "back-end/types/request";
+import {
+  createEventWebHook,
+  deleteEventWebHookById,
+  EventWebHookModel,
+  getAllEventWebHooks,
+  getEventWebHookById,
+  updateEventWebHook,
+} from "back-end/src/models/EventWebhookModel";
+import { deleteCoalesceBucketsForWebhook } from "back-end/src/models/EventWebHookCoalesceBucketModel";
+import { fetch } from "back-end/src/util/http.util";
+
+const SLACK_AUTHORIZE_URL = "https://slack.com/oauth/v2/authorize";
+const SLACK_OAUTH_ACCESS_URL = "https://slack.com/api/oauth.v2.access";
+const SLACK_OAUTH_SCOPE =
+  "incoming-webhook,commands,chat:write,users:read,users:read.email";
+const SLACK_OAUTH_STATE_MAX_AGE_MS = 10 * 60 * 1000;
+const DEFAULT_SLACK_EVENTS = ["feature.*", "experiment.*"];
+
+const slackOAuthStateSchema = z
+  .object({
+    orgId: z.string(),
+    userId: z.string(),
+    nonce: z.string(),
+    createdAt: z.number(),
+  })
+  .strict();
+
+const slackOAuthAccessSuccessSchema = z
+  .object({
+    ok: z.literal(true),
+    app_id: z.string().optional(),
+    access_token: z.string().optional(),
+    token_type: z.string().optional(),
+    scope: z.string().optional(),
+    bot_user_id: z.string().optional(),
+    team: z
+      .object({
+        id: z.string().optional(),
+        name: z.string().optional(),
+      })
+      .nullable()
+      .optional(),
+    enterprise: z
+      .object({
+        id: z.string().optional(),
+        name: z.string().optional(),
+      })
+      .nullable()
+      .optional(),
+    authed_user: z
+      .object({
+        id: z.string().optional(),
+      })
+      .passthrough()
+      .optional(),
+    incoming_webhook: z
+      .object({
+        channel: z.string().optional(),
+        channel_id: z.string().optional(),
+        configuration_url: z.string().url().optional(),
+        url: z.string().url().startsWith("https://hooks.slack.com/services/"),
+      })
+      .strict(),
+    is_enterprise_install: z.boolean().optional(),
+  })
+  .passthrough();
+
+const slackOAuthAccessErrorSchema = z
+  .object({
+    ok: z.literal(false),
+    error: z.string(),
+  })
+  .passthrough();
+
+const slackOAuthAccessResponseSchema = z.union([
+  slackOAuthAccessSuccessSchema,
+  slackOAuthAccessErrorSchema,
+]);
+
+type SlackOAuthAccessSuccess = z.infer<typeof slackOAuthAccessSuccessSchema>;
+
+export const isSlackOAuthConfigured = () =>
+  !!SLACK_CLIENT_ID && !!SLACK_CLIENT_SECRET;
+
+export const getSlackOAuthRedirectUri = () =>
+  `${APP_ORIGIN}/integrations/slack`;
+
+const signSlackOAuthState = (payload: string) =>
+  createHmac("sha256", JWT_SECRET).update(payload).digest("base64url");
+
+const encodeSlackOAuthState = ({
+  orgId,
+  userId,
+}: {
+  orgId: string;
+  userId: string;
+}) => {
+  const payload = Buffer.from(
+    JSON.stringify({
+      orgId,
+      userId,
+      nonce: randomBytes(16).toString("base64url"),
+      createdAt: Date.now(),
+    }),
+  ).toString("base64url");
+
+  return `${payload}.${signSlackOAuthState(payload)}`;
+};
+
+const assertSlackOAuthState = ({
+  state,
+  context,
+}: {
+  state: string;
+  context: ReqContext;
+}) => {
+  const [payload, signature] = state.split(".");
+  if (!payload || !signature) {
+    throw new Error("Invalid Slack OAuth state");
+  }
+
+  const expected = signSlackOAuthState(payload);
+  const actualBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expected);
+
+  if (
+    actualBuffer.length !== expectedBuffer.length ||
+    !timingSafeEqual(actualBuffer, expectedBuffer)
+  ) {
+    throw new Error("Invalid Slack OAuth state");
+  }
+
+  const parsed = slackOAuthStateSchema.safeParse(
+    JSON.parse(Buffer.from(payload, "base64url").toString("utf8")),
+  );
+  if (!parsed.success) {
+    throw new Error("Invalid Slack OAuth state");
+  }
+
+  if (Date.now() - parsed.data.createdAt > SLACK_OAUTH_STATE_MAX_AGE_MS) {
+    throw new Error("Slack OAuth state expired");
+  }
+
+  if (
+    parsed.data.orgId !== context.org.id ||
+    parsed.data.userId !== context.userId
+  ) {
+    throw new Error("Slack OAuth state does not match the current user");
+  }
+};
+
+export const getSlackOAuthAuthorizeUrl = (context: ReqContext) => {
+  if (!isSlackOAuthConfigured()) {
+    throw new Error("Slack OAuth is not configured");
+  }
+
+  const url = new URL(SLACK_AUTHORIZE_URL);
+  url.searchParams.set("client_id", SLACK_CLIENT_ID);
+  url.searchParams.set("scope", SLACK_OAUTH_SCOPE);
+  url.searchParams.set("redirect_uri", getSlackOAuthRedirectUri());
+  url.searchParams.set(
+    "state",
+    encodeSlackOAuthState({
+      orgId: context.org.id,
+      userId: context.userId,
+    }),
+  );
+
+  return url.toString();
+};
+
+const exchangeSlackOAuthCode = async (
+  code: string,
+): Promise<SlackOAuthAccessSuccess> => {
+  if (!isSlackOAuthConfigured()) {
+    throw new Error("Slack OAuth is not configured");
+  }
+
+  const response = await fetch(SLACK_OAUTH_ACCESS_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${Buffer.from(
+        `${SLACK_CLIENT_ID}:${SLACK_CLIENT_SECRET}`,
+      ).toString("base64")}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({
+      code,
+      redirect_uri: getSlackOAuthRedirectUri(),
+    }).toString(),
+  });
+
+  const responseBody: unknown = await response.json();
+  const parsed = slackOAuthAccessResponseSchema.safeParse(responseBody);
+
+  if (!parsed.success) {
+    throw new Error("Slack returned an invalid OAuth response");
+  }
+
+  if (!response.ok) {
+    throw new Error(`Slack OAuth exchange failed: ${response.statusText}`);
+  }
+
+  if (!parsed.data.ok) {
+    throw new Error(`Slack OAuth exchange failed: ${parsed.data.error}`);
+  }
+
+  return parsed.data;
+};
+
+const getSlackMetadata = (slackOAuthResponse: SlackOAuthAccessSuccess) => ({
+  appId: slackOAuthResponse.app_id,
+  teamId: slackOAuthResponse.team?.id,
+  teamName: slackOAuthResponse.team?.name,
+  enterpriseId: slackOAuthResponse.enterprise?.id,
+  enterpriseName: slackOAuthResponse.enterprise?.name,
+  channelName: slackOAuthResponse.incoming_webhook.channel,
+  channelId: slackOAuthResponse.incoming_webhook.channel_id,
+  configurationUrl: slackOAuthResponse.incoming_webhook.configuration_url,
+  botUserId: slackOAuthResponse.bot_user_id,
+  authedUserId: slackOAuthResponse.authed_user?.id,
+  scope: slackOAuthResponse.scope,
+  isEnterpriseInstall: slackOAuthResponse.is_enterprise_install,
+});
+
+const persistSlackBotAccessToken = async ({
+  eventWebHookId,
+  organizationId,
+  accessToken,
+}: {
+  eventWebHookId: string;
+  organizationId: string;
+  accessToken?: string;
+}) => {
+  if (!accessToken) return;
+
+  await EventWebHookModel.updateOne(
+    { id: eventWebHookId, organizationId },
+    { $set: { "slack.botAccessToken": accessToken } },
+  );
+};
+
+const getSlackWebhookName = (slackOAuthResponse: SlackOAuthAccessSuccess) => {
+  const channel =
+    slackOAuthResponse.incoming_webhook.channel || "Slack channel";
+  const team = slackOAuthResponse.team?.name;
+
+  return team ? `Slack ${channel} (${team})` : `Slack ${channel}`;
+};
+
+const findExistingSlackEventWebhook = async ({
+  context,
+  slackOAuthResponse,
+}: {
+  context: ReqContext;
+  slackOAuthResponse: SlackOAuthAccessSuccess;
+}) => {
+  const teamId = slackOAuthResponse.team?.id;
+  const channelId = slackOAuthResponse.incoming_webhook.channel_id;
+
+  if (!teamId || !channelId) return null;
+
+  const eventWebHooks = await getAllEventWebHooks(context.org.id);
+  return (
+    eventWebHooks.find(
+      (eventWebHook) =>
+        eventWebHook.payloadType === "slack" &&
+        eventWebHook.slack?.teamId === teamId &&
+        eventWebHook.slack?.channelId === channelId,
+    ) || null
+  );
+};
+
+export const slackEventWebhookToIntegration = (
+  eventWebHook: EventWebHookInterface,
+): SlackOAuthIntegrationInterface => ({
+  id: eventWebHook.id,
+  eventWebHookId: eventWebHook.id,
+  name: eventWebHook.name,
+  dateCreated: eventWebHook.dateCreated,
+  dateUpdated: eventWebHook.dateUpdated,
+  enabled: eventWebHook.enabled,
+  events: eventWebHook.events,
+  projects: eventWebHook.projects,
+  experiments: eventWebHook.experiments,
+  metrics: eventWebHook.metrics,
+  environments: eventWebHook.environments,
+  tags: eventWebHook.tags,
+  coalesceWindowMs: eventWebHook.coalesceWindowMs,
+  dailyDigestHourUtc: eventWebHook.dailyDigestHourUtc,
+  lastRunAt: eventWebHook.lastRunAt,
+  lastState: eventWebHook.lastState,
+  slack: eventWebHook.slack,
+});
+
+export const getSlackOAuthIntegrations = async (
+  context: ReqContext,
+): Promise<SlackOAuthIntegrationInterface[]> => {
+  const eventWebHooks = await getAllEventWebHooks(context.org.id);
+
+  return eventWebHooks
+    .filter((eventWebHook) => eventWebHook.payloadType === "slack")
+    .map(slackEventWebhookToIntegration);
+};
+
+export const connectSlackOAuthIntegration = async ({
+  context,
+  code,
+  state,
+}: {
+  context: ReqContext;
+  code: string;
+  state: string;
+}) => {
+  assertSlackOAuthState({ state, context });
+
+  const slackOAuthResponse = await exchangeSlackOAuthCode(code);
+  const existing = await findExistingSlackEventWebhook({
+    context,
+    slackOAuthResponse,
+  });
+
+  if (existing) {
+    await updateEventWebHook(
+      {
+        eventWebHookId: existing.id,
+        organizationId: context.org.id,
+      },
+      {
+        url: slackOAuthResponse.incoming_webhook.url,
+        slack: getSlackMetadata(slackOAuthResponse),
+      },
+    );
+    await persistSlackBotAccessToken({
+      eventWebHookId: existing.id,
+      organizationId: context.org.id,
+      accessToken: slackOAuthResponse.access_token,
+    });
+
+    const updated = await getEventWebHookById(existing.id, context.org.id);
+    if (!updated) {
+      throw new Error("Unable to load updated Slack integration");
+    }
+
+    return slackEventWebhookToIntegration(updated);
+  }
+
+  const created = await createEventWebHook({
+    name: getSlackWebhookName(slackOAuthResponse),
+    url: slackOAuthResponse.incoming_webhook.url,
+    organizationId: context.org.id,
+    enabled: true,
+    events: DEFAULT_SLACK_EVENTS,
+    projects: [],
+    experiments: [],
+    metrics: [],
+    tags: [],
+    environments: [],
+    payloadType: "slack",
+    method: "POST",
+    headers: {},
+    slack: getSlackMetadata(slackOAuthResponse),
+    coalesceWindowMs: EVENT_WEBHOOK_DEFAULT_COALESCE_WINDOW_MS,
+  });
+  await persistSlackBotAccessToken({
+    eventWebHookId: created.id,
+    organizationId: context.org.id,
+    accessToken: slackOAuthResponse.access_token,
+  });
+
+  const updated = await getEventWebHookById(created.id, context.org.id);
+  return slackEventWebhookToIntegration(updated || created);
+};
+
+export const deleteSlackOAuthIntegration = async ({
+  context,
+  id,
+}: {
+  context: ReqContext;
+  id: string;
+}) => {
+  const eventWebHook = await getEventWebHookById(id, context.org.id);
+
+  if (!eventWebHook || eventWebHook.payloadType !== "slack") {
+    return false;
+  }
+
+  // Drop any in-flight coalesce buckets so the next flush doesn't try to
+  // deliver to a now-deleted webhook.
+  await deleteCoalesceBucketsForWebhook({
+    organizationId: context.org.id,
+    eventWebHookId: eventWebHook.id,
+  });
+
+  return deleteEventWebHookById({
+    eventWebHookId: eventWebHook.id,
+    organizationId: context.org.id,
+  });
+};

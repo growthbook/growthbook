@@ -13,6 +13,25 @@ const slackIntegrationController = wrapController(
 
 router.get("/", slackIntegrationController.getSlackIntegrations);
 
+router.post(
+  "/connect",
+  validateRequestMiddleware({}),
+  slackIntegrationController.postSlackOAuthConnect,
+);
+
+router.post(
+  "/oauth-callback",
+  validateRequestMiddleware({
+    body: z
+      .object({
+        code: z.string().min(1),
+        state: z.string().min(1),
+      })
+      .strict(),
+  }),
+  slackIntegrationController.postSlackOAuthCallback,
+);
+
 router.get(
   "/:id",
   validateRequestMiddleware({

@@ -1,10 +1,20 @@
 import type { Response } from "express";
-import { SlackIntegrationInterface } from "shared/types/slack-integration";
+import {
+  SlackIntegrationInterface,
+  SlackOAuthIntegrationInterface,
+} from "shared/types/slack-integration";
 import { NotificationEventName } from "shared/types/events/base-types";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import * as SlackIntegration from "back-end/src/models/SlackIntegrationModel";
+import {
+  connectSlackOAuthIntegration,
+  deleteSlackOAuthIntegration,
+  getSlackOAuthAuthorizeUrl,
+  getSlackOAuthIntegrations,
+  isSlackOAuthConfigured,
+} from "back-end/src/services/slackIntegration";
 
 // region GET /integrations/slack
 
@@ -15,7 +25,8 @@ type GetSlackIntegrationsRequest = AuthRequest<
 >;
 
 type GetSlackIntegrationsResponse = {
-  slackIntegrations: SlackIntegrationInterface[];
+  slackIntegrations: SlackOAuthIntegrationInterface[];
+  oauthConfigured: boolean;
 };
 
 /**
@@ -34,16 +45,78 @@ export const getSlackIntegrations = async (
     context.permissions.throwPermissionError();
   }
 
-  const slackIntegrations = await SlackIntegration.getSlackIntegrations(
-    context.org.id,
-  );
+  const slackIntegrations = await getSlackOAuthIntegrations(context);
 
   return res.json({
     slackIntegrations,
+    oauthConfigured: isSlackOAuthConfigured(),
   });
 };
 
 // endregion GET /integrations/slack
+
+// region POST /integrations/slack/connect
+
+type PostSlackOAuthConnectRequest = AuthRequest<
+  Record<string, never>,
+  Record<string, never>,
+  Record<string, never>
+>;
+
+type PostSlackOAuthConnectResponse = {
+  url: string;
+};
+
+export const postSlackOAuthConnect = async (
+  req: PostSlackOAuthConnectRequest,
+  res: Response<PostSlackOAuthConnectResponse | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageIntegrations()) {
+    context.permissions.throwPermissionError();
+  }
+
+  return res.json({
+    url: getSlackOAuthAuthorizeUrl(context),
+  });
+};
+
+// endregion POST /integrations/slack/connect
+
+// region POST /integrations/slack/oauth-callback
+
+type PostSlackOAuthCallbackRequest = AuthRequest<{
+  code: string;
+  state: string;
+}>;
+
+type PostSlackOAuthCallbackResponse = {
+  slackIntegration: SlackOAuthIntegrationInterface;
+};
+
+export const postSlackOAuthCallback = async (
+  req: PostSlackOAuthCallbackRequest,
+  res: Response<PostSlackOAuthCallbackResponse | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canManageIntegrations()) {
+    context.permissions.throwPermissionError();
+  }
+
+  const slackIntegration = await connectSlackOAuthIntegration({
+    context,
+    code: req.body.code,
+    state: req.body.state,
+  });
+
+  return res.json({
+    slackIntegration,
+  });
+};
+
+// endregion POST /integrations/slack/oauth-callback
 
 // region GET /integrations/slack/:id
 
@@ -252,10 +325,15 @@ export const deleteSlackIntegration = async (
   if (!context.permissions.canManageIntegrations()) {
     context.permissions.throwPermissionError();
   }
-  const successful = await SlackIntegration.deleteSlackIntegration({
-    slackIntegrationId: req.params.id,
-    organizationId: context.org.id,
-  });
+  const successful =
+    (await deleteSlackOAuthIntegration({
+      context,
+      id: req.params.id,
+    })) ||
+    (await SlackIntegration.deleteSlackIntegration({
+      slackIntegrationId: req.params.id,
+      organizationId: context.org.id,
+    }));
 
   const status = successful ? 200 : 404;
 
