@@ -1,25 +1,11 @@
 // TODO(holdout-v1.5): attach holdout-vs-bandit comparison view and EDF recommendations here.
-import {
-  useEffect,
-  useMemo,
-  useState,
-  type CSSProperties,
-  type ReactNode,
-} from "react";
-import type { SnapshotStatusSummary } from "shared/types/experiment-snapshot";
+import { useMemo, useState, type CSSProperties } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { startCase } from "lodash";
-import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import type {
-  ContextualBanditResponseSnapshot,
-  ContextualBanditSnapshot,
-} from "shared/types/stats";
+import { ApiContextualBanditInterface } from "shared/validators";
+import type { ContextualBanditResponseSnapshot } from "shared/types/stats";
 import { ATTR_CB_PREFIX } from "shared/constants";
-import {
-  expandMetricGroups,
-  getAllMetricIdsFromExperiment,
-  getLatestPhaseVariations,
-} from "shared/experiments";
+import { expandMetricGroups } from "shared/experiments";
 import Text from "@/ui/Text";
 import Table, {
   TableBody,
@@ -28,19 +14,16 @@ import Table, {
   TableHeader,
   TableRow,
 } from "@/ui/Table";
+import Button from "@/ui/Button";
 import Switch from "@/ui/Switch";
 import Callout from "@/ui/Callout";
 import Metadata from "@/ui/Metadata";
-import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import RefreshResultsButton from "@/components/Experiment/RefreshResultsButton";
+import { useContextualBanditResults } from "@/hooks/useContextualBandits";
 import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
-import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
-import { useAuth } from "@/services/auth";
-import useApi from "@/hooks/useApi";
 import styles from "./ContextualBanditResultsTable.module.scss";
 
 const numberFormatter = Intl.NumberFormat();
@@ -75,21 +58,6 @@ function displayAttributeName(attr: string): string {
 function shouldShowUpdateMessage(message: string | null | undefined): boolean {
   if (!message?.trim()) return false;
   return message.trim().toLowerCase() !== "successfully updated";
-}
-
-function CalloutLike({ children }: { children: ReactNode }) {
-  return (
-    <Box
-      p="3"
-      style={{
-        borderRadius: 8,
-        border: "1px solid var(--gray-a6)",
-        background: "var(--gray-a2)",
-      }}
-    >
-      {children}
-    </Box>
-  );
 }
 
 function contextRowLabel(
@@ -267,100 +235,68 @@ function HeatmapValueCell({
   );
 }
 
-type ContextualBanditResultsResponse = {
-  status: number;
-  contextualBanditSnapshot: ContextualBanditSnapshot | null;
-  latest: SnapshotStatusSummary | null;
-};
-
+/**
+ * CB-native results table. Consumes the CB API shape and the CB results context directly —
+ * no experiment SnapshotProvider, no phases, no experiment-shaped adapter.
+ */
 export default function ContextualBanditResultsTable({
-  experiment,
+  cb,
   mutate,
 }: {
-  experiment: ExperimentInterfaceStringDates;
+  cb: ApiContextualBanditInterface;
   mutate: () => void;
 }) {
   const [mode, setMode] = useState<"weights" | "means">("weights");
-  const [refreshError, setRefreshError] = useState("");
   const [queriesModalOpen, setQueriesModalOpen] = useState(false);
-  const {
-    snapshot,
-    latestSummary: latest,
-    mutate: mutateSnapshot,
-    setSnapshotType,
-    setAnalysisSettings,
-    phase,
-    dimension,
-  } = useSnapshot();
   const { getDatasourceById, metricGroups } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
-  const { apiCall } = useAuth();
 
-  const { data: cbResults, mutate: mutateCbResults } =
-    useApi<ContextualBanditResultsResponse>(
-      // `experiment.id` is a `cb_` id, so the experiment-nested route would 404.
-      `/api/v1/contextual-bandits/${experiment.id}/results`,
-    );
+  const {
+    contextualBanditSnapshot,
+    latest,
+    refresh,
+    refreshing,
+    refreshError,
+  } = useContextualBanditResults(cb.id);
 
-  const contextualBanditSnapshot = cbResults?.contextualBanditSnapshot;
-  const cbLatest = cbResults?.latest;
-
-  useEffect(() => {
-    if (cbLatest?.status !== "running") {
-      return;
-    }
-    const timer = setInterval(() => {
-      void mutateCbResults();
-    }, 2000);
-    return () => clearInterval(timer);
-  }, [cbLatest?.status, mutateCbResults]);
-
-  const refreshAll = () => {
-    mutate();
-    void mutateSnapshot();
-    void mutateCbResults();
-  };
-
-  const datasource = experiment.datasource
-    ? getDatasourceById(experiment.datasource)
-    : null;
-
+  const datasource = cb.datasource ? getDatasourceById(cb.datasource) : null;
   const datasourceSettings = datasource?.settings;
   const userIdType = datasourceSettings?.queries?.exposure?.find(
-    (e) => e.id === experiment.exposureQueryId,
+    (e) => e.id === cb.exposureQueryId,
   )?.userIdType;
   const unitDisplayName = userIdType
     ? startCase(userIdType.split("_").join(" ")) + "s"
     : "Units";
 
-  const queryLatest = cbLatest ?? latest;
+  const queryLatest = latest;
   const { status } = getQueryStatus(
     queryLatest?.queries || [],
     queryLatest?.error,
   );
 
-  const allExpandedMetrics = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          expandMetricGroups(
-            getAllMetricIdsFromExperiment(experiment, false, metricGroups),
-            metricGroups,
-          ),
-        ),
-      ),
-    [experiment, metricGroups],
-  );
+  const allExpandedMetrics = useMemo(() => {
+    const ids = [
+      ...(cb.goalMetrics ?? []),
+      ...(cb.secondaryMetrics ?? []),
+      ...(cb.guardrailMetrics ?? []),
+    ];
+    if (cb.activationMetric) ids.push(cb.activationMetric);
+    return Array.from(new Set(expandMetricGroups(ids, metricGroups)));
+  }, [
+    cb.goalMetrics,
+    cb.secondaryMetrics,
+    cb.guardrailMetrics,
+    cb.activationMetric,
+    metricGroups,
+  ]);
 
   const canRunQueries =
     !!datasource &&
     permissionsUtil.canRunExperimentQueries(datasource) &&
     allExpandedMetrics.length > 0;
 
-  const variations = useMemo(
-    () => getLatestPhaseVariations(experiment),
-    [experiment],
-  );
+  const variations = cb.variations;
+  const numVariations = variations.length;
 
   const hasTableData = Boolean(contextualBanditSnapshot?.responses?.length);
   const attributes = contextualBanditSnapshot?.attributes ?? [];
@@ -368,7 +304,6 @@ export default function ContextualBanditResultsTable({
     () => contextualBanditSnapshot?.responses ?? [],
     [contextualBanditSnapshot?.responses],
   );
-  const numVariations = variations.length;
 
   const responsesBySampleSize = useMemo(
     () =>
@@ -383,52 +318,18 @@ export default function ContextualBanditResultsTable({
     [responses, numVariations],
   );
 
-  const totalUnits = useMemo(() => {
-    const healthVariationUnits =
-      snapshot?.health?.traffic?.overall?.variationUnits;
-    if (healthVariationUnits && healthVariationUnits.length > 0) {
-      return healthVariationUnits.reduce((acc, a) => acc + a, 0);
-    }
-    if (responses.length > 0) {
-      return responses.reduce(
-        (sum, row) => sum + contextTotalSampleSize(row),
-        0,
-      );
-    }
-    return 0;
-  }, [snapshot?.health?.traffic?.overall?.variationUnits, responses]);
+  const totalUnits = useMemo(
+    () => responses.reduce((sum, row) => sum + contextTotalSampleSize(row), 0),
+    [responses],
+  );
 
-  const runResultsControl =
-    canRunQueries && phase !== undefined ? (
-      <RefreshResultsButton
-        entityType={experiment.type === "holdout" ? "holdout" : "experiment"}
-        entityId={experiment.id}
-        datasourceId={experiment.datasource}
-        latest={queryLatest}
-        experimentSnapshotTrackingProps={{
-          trackingSource: "RunQueriesButton",
-          datasourceType: datasource?.type || null,
-        }}
-        onSuccess={() => {
-          setSnapshotType?.(undefined);
-        }}
-        mutate={mutateSnapshot}
-        mutateAdditional={refreshAll}
-        setRefreshError={setRefreshError}
-        experiment={experiment}
-        phase={phase}
-        dimension={dimension}
-        setAnalysisSettings={setAnalysisSettings}
-        // `experiment.id` is a `cb_` id, so the `/experiment/:id/snapshot`
-        // route 404s. Route the refresh through the CB-native endpoint instead.
-        refreshEndpoint={`/api/v1/contextual-bandits/${experiment.id}/refresh`}
-      />
-    ) : null;
+  const showQueries =
+    !!queryLatest && (status === "failed" || status === "partially-succeeded");
 
   return (
     <Box>
       <Flex justify="end" align="center" mb="3" gap="4" wrap="wrap">
-        {snapshot ? (
+        {contextualBanditSnapshot ? (
           <Metadata
             label={unitDisplayName}
             value={numberFormatter.format(totalUnits)}
@@ -438,65 +339,34 @@ export default function ContextualBanditResultsTable({
         <Flex align="center" gap="2">
           <QueriesLastRun
             status={status}
-            dateCreated={queryLatest?.dateCreated ?? snapshot?.dateCreated}
+            dateCreated={queryLatest?.dateCreated}
             latestQueryDate={queryLatest?.dateCreated}
-            nextUpdate={experiment.nextSnapshotAttempt}
-            autoUpdateEnabled={
-              experiment.autoSnapshots && !experiment.disableAutoSnapshots
-            }
-            showAutoUpdateWidget={true}
+            nextUpdate={undefined}
+            autoUpdateEnabled={false}
+            showAutoUpdateWidget={false}
             failedString={
               queryLatest && !queryLatest.queries.length && queryLatest.error
                 ? `Snapshot update failed: ${queryLatest.error}`
                 : undefined
             }
             queries={
-              queryLatest &&
-              (status === "failed" || status === "partially-succeeded")
-                ? queryLatest.queries.map((q) => q.query)
-                : undefined
+              showQueries ? queryLatest.queries.map((q) => q.query) : undefined
             }
             onViewQueries={
-              queryLatest &&
-              (status === "failed" || status === "partially-succeeded")
-                ? () => setQueriesModalOpen(true)
-                : undefined
+              showQueries ? () => setQueriesModalOpen(true) : undefined
             }
           />
         </Flex>
-        {runResultsControl}
-        {datasource ? (
-          <ResultMoreMenu
-            experiment={experiment}
-            datasource={datasource}
-            legacyQueries={cbLatest?.queries ?? []}
-            legacyQueryError={cbLatest?.error}
-            forceRefresh={
-              canRunQueries
-                ? async () => {
-                    await apiCall<{
-                      snapshotId: string;
-                      cbeId?: string;
-                    }>(`/api/v1/contextual-bandits/${experiment.id}/refresh`, {
-                      method: "POST",
-                    })
-                      .then(() => {
-                        refreshAll();
-                        setRefreshError("");
-                      })
-                      .catch((e) => {
-                        console.error(e);
-                        setRefreshError(e.message);
-                      });
-                  }
-                : undefined
-            }
-            notebookUrl={`/experiments/notebook/${snapshot?.id}`}
-            notebookFilename={experiment.trackingKey}
-            supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
-            hasData={hasTableData}
-            project={experiment.project}
-          />
+        {canRunQueries ? (
+          <Button
+            loading={refreshing}
+            onClick={async () => {
+              await refresh();
+              mutate();
+            }}
+          >
+            Update results
+          </Button>
         ) : null}
       </Flex>
       {refreshError ? (
@@ -505,12 +375,10 @@ export default function ContextualBanditResultsTable({
         </Callout>
       ) : null}
       {!hasTableData ? (
-        <CalloutLike>
-          <Text size="medium" color="text-low">
-            Contextual bandit results are not available for this snapshot yet.
-            Run or refresh results to compute weights per context.
-          </Text>
-        </CalloutLike>
+        <Callout status="info">
+          Contextual bandit results are not available for this snapshot yet. Run
+          or refresh results to compute weights per context.
+        </Callout>
       ) : (
         <>
           <Table variant="list" className={styles.contextualBanditTable} mb="4">
@@ -615,16 +483,14 @@ export default function ContextualBanditResultsTable({
           </Table>
         </>
       )}
-      {queriesModalOpen &&
-        queryLatest &&
-        (status === "failed" || status === "partially-succeeded") && (
-          <AsyncQueriesModal
-            close={() => setQueriesModalOpen(false)}
-            queries={queryLatest.queries.map((q) => q.query)}
-            savedQueries={[]}
-            error={queryLatest.error}
-          />
-        )}
+      {queriesModalOpen && showQueries && (
+        <AsyncQueriesModal
+          close={() => setQueriesModalOpen(false)}
+          queries={queryLatest.queries.map((q) => q.query)}
+          savedQueries={[]}
+          error={queryLatest.error}
+        />
+      )}
     </Box>
   );
 }

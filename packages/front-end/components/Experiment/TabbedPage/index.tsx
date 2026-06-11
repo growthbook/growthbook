@@ -91,10 +91,6 @@ export interface Props {
   editSchedule?: (() => void) | null;
   visualChangesetEnvStates?: LinkedChangeEnvStates;
   urlRedirectEnvStates?: LinkedChangeEnvStates;
-  /** Override for the "start" lifecycle call (e.g. Contextual Bandits). */
-  startEndpoint?: string;
-  /** Override for the snapshot refresh call (e.g. Contextual Bandits). */
-  refreshEndpoint?: string;
 }
 
 export default function TabbedPage({
@@ -122,8 +118,6 @@ export default function TabbedPage({
   editSchedule,
   visualChangesetEnvStates,
   urlRedirectEnvStates,
-  startEndpoint,
-  refreshEndpoint,
 }: Props) {
   const [tab, setTab] = useLocalStorage<ExperimentTab>(
     `tabbedPageTab__${experiment.id}`,
@@ -549,7 +543,6 @@ export default function TabbedPage({
         showDashboardView={showDashboardView}
         safeToEdit={safeToEdit}
         editSchedule={editSchedule}
-        startEndpoint={startEndpoint}
       />
 
       <div
@@ -670,7 +663,6 @@ export default function TabbedPage({
               experiment={experiment}
               mutate={mutate}
               isTabActive={tab === "results"}
-              refreshEndpoint={refreshEndpoint}
             />
           </div>
         ) : null}
@@ -727,7 +719,6 @@ export default function TabbedPage({
           setSortBy={setSortBy}
           sortDirection={sortDirection}
           setSortDirection={setSortDirection}
-          refreshEndpoint={refreshEndpoint}
         />
       </div>
       <div

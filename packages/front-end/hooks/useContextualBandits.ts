@@ -1,5 +1,8 @@
 import { ApiContextualBanditInterface } from "shared/validators";
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { SnapshotStatusSummary } from "shared/types/experiment-snapshot";
+import type { ContextualBanditSnapshot } from "shared/types/stats";
+import { useAuth } from "@/services/auth";
 import useApi from "./useApi";
 
 /** Fetches CB docs from the REST API and returns the API shape directly. */
@@ -60,5 +63,69 @@ export function useContextualBandit(cbId: string | undefined) {
     contextualBandit: data?.contextualBandit,
     error,
     mutate,
+  };
+}
+
+export type ContextualBanditResultsResponse = {
+  status: number;
+  contextualBanditSnapshot: ContextualBanditSnapshot | null;
+  latest: SnapshotStatusSummary | null;
+};
+
+/**
+ * CB-native results state: fetches the CB results snapshot, auto-polls while a run is in progress,
+ * and exposes a refresh action. Replaces the experiment `useSnapshot()` context for CBs.
+ */
+export function useContextualBanditResults(cbId: string | undefined) {
+  const { apiCall } = useAuth();
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState("");
+
+  const { data, error, mutate } = useApi<ContextualBanditResultsResponse>(
+    cbId
+      ? `/api/v1/contextual-bandits/${cbId}/results`
+      : "/api/v1/contextual-bandits/__missing__/results",
+    { shouldRun: () => !!cbId },
+  );
+
+  const latest = data?.latest ?? null;
+  const isRunning = latest?.status === "running";
+
+  // Poll while a run is in progress so weights update live.
+  useEffect(() => {
+    if (!isRunning) return;
+    const timer = setInterval(() => {
+      void mutate();
+    }, 2000);
+    return () => clearInterval(timer);
+  }, [isRunning, mutate]);
+
+  const refresh = useCallback(async () => {
+    if (!cbId) return;
+    setRefreshing(true);
+    setRefreshError("");
+    try {
+      await apiCall<{ snapshotId: string; cbeId?: string }>(
+        `/api/v1/contextual-bandits/${cbId}/refresh`,
+        { method: "POST" },
+      );
+      await mutate();
+    } catch (e) {
+      setRefreshError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setRefreshing(false);
+    }
+  }, [apiCall, cbId, mutate]);
+
+  return {
+    loading: !!cbId && !error && !data,
+    contextualBanditSnapshot: data?.contextualBanditSnapshot ?? null,
+    latest,
+    error,
+    mutate,
+    refresh,
+    refreshing,
+    refreshError,
+    setRefreshError,
   };
 }

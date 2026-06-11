@@ -77,7 +77,7 @@ type ContextualBanditFormValues = Partial<ExperimentInterfaceStringDates> &
 
 export type ContextualBanditFormProps = {
   initialStep?: number;
-  initialValue?: Partial<ExperimentInterfaceStringDates>;
+  initialValue?: ContextualBanditFormValues;
   initialNumVariations?: number;
   duplicate?: boolean;
   source: string;
@@ -152,8 +152,6 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
     ? "id"
     : hashAttributes[0] || "id";
 
-  const lastPhase = (initialValue?.phases?.length ?? 1) - 1;
-  const initialPhase = initialValue?.phases?.[lastPhase];
   const initialHashAttribute = initialValue?.hashAttribute || hashAttribute;
 
   const initialExpVariations =
@@ -189,17 +187,18 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
       description: initialValue?.description || "",
       guardrailMetrics: initialValue?.guardrailMetrics || [],
       variations: initialExpVariations,
-      coverage: initialPhase?.coverage || 1,
-      condition: initialPhase?.condition,
-      savedGroups: initialPhase?.savedGroups,
-      prerequisites: initialPhase?.prerequisites,
-      namespace: initialPhase?.namespace,
+      coverage: initialValue?.coverage || 1,
+      condition: initialValue?.condition,
+      savedGroups: initialValue?.savedGroups,
+      prerequisites: initialValue?.prerequisites,
+      namespace: initialValue?.namespace,
       variationWeights:
-        initialPhase?.variationWeights ?? toEqualWeights(initialExpVariations),
-      dateStarted: getValidDate(initialPhase?.dateStarted ?? "")
+        initialValue?.variationWeights ??
+        toEqualWeights(initialExpVariations),
+      dateStarted: getValidDate(initialValue?.dateStarted ?? "")
         .toISOString()
         .substring(0, 16),
-      dateEnded: getValidDate(initialPhase?.dateEnded ?? "")
+      dateEnded: getValidDate(initialValue?.dateEnded ?? "")
         .toISOString()
         .substring(0, 16),
       status: "draft",

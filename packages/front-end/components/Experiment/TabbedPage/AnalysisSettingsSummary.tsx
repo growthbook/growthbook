@@ -80,13 +80,6 @@ export interface Props {
   sortBy?: "significance" | "change" | "custom" | null;
   sortDirection?: "asc" | "desc" | null;
   onSnapshotSuccessfulUpdate?: () => void;
-  /**
-   * Override for the snapshot refresh call (e.g. Contextual Bandits, which use
-   * `POST /api/v1/contextual-bandits/:id/refresh`). When set, the legacy
-   * `/experiment/:id/snapshot` calls in the Update button and the "force
-   * refresh" menu action are bypassed.
-   */
-  refreshEndpoint?: string;
 }
 
 const numberFormatter = Intl.NumberFormat();
@@ -113,7 +106,6 @@ export default function AnalysisSettingsSummary({
   sortBy,
   sortDirection,
   onSnapshotSuccessfulUpdate,
-  refreshEndpoint,
 }: Props) {
   const {
     getDatasourceById,
@@ -726,7 +718,6 @@ export default function AnalysisSettingsSummary({
                 phase={phase}
                 dimension={dimension}
                 setAnalysisSettings={setAnalysisSettings}
-                refreshEndpoint={refreshEndpoint}
               />
             ) : null}
 
@@ -736,20 +727,6 @@ export default function AnalysisSettingsSummary({
               forceRefresh={
                 allMetrics.length > 0
                   ? async () => {
-                      if (refreshEndpoint) {
-                        // CB refresh endpoint: empty body, no snapshot to track.
-                        await apiCall(refreshEndpoint, { method: "POST" })
-                          .then(() => {
-                            mutate();
-                            mutateExperiment();
-                            setRefreshError("");
-                          })
-                          .catch((e) => {
-                            console.error(e);
-                            setRefreshError(e.message);
-                          });
-                        return;
-                      }
                       await apiCall<{
                         snapshot: ExperimentSnapshotInterface;
                       }>(`/experiment/${experiment.id}/snapshot?force=true`, {

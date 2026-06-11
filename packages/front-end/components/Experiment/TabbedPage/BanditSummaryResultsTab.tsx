@@ -28,8 +28,6 @@ export interface Props {
   ssrSnapshot?: ExperimentSnapshotInterface;
   ssrPolyfills?: SSRPolyfills;
   isPublic?: boolean;
-  /** Override for the bandit refresh call (e.g. Contextual Bandits). */
-  refreshEndpoint?: string;
 }
 
 export default function BanditSummaryResultsTab({
@@ -39,7 +37,6 @@ export default function BanditSummaryResultsTab({
   ssrSnapshot,
   ssrPolyfills,
   isPublic,
-  refreshEndpoint,
 }: Props) {
   const { getExperimentMetricById } = useDefinitions();
 
@@ -173,7 +170,6 @@ export default function BanditSummaryResultsTab({
                     experiment={experiment}
                     mutate={mutate}
                     isPublic={isPublic}
-                    refreshEndpoint={refreshEndpoint}
                   />
                 </div>
               )}
