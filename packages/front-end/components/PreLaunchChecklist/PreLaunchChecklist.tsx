@@ -3,7 +3,7 @@ import {
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FaCheck } from "react-icons/fa";
 import { PiCaretDown, PiCaretUp } from "react-icons/pi";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
@@ -309,11 +309,11 @@ export function PreLaunchChecklistForDraft({
     (item) => item.status === "incomplete" && item.required,
   );
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const stableOnReady = useCallback(onReady ?? (() => {}), []);
+  const onReadyRef = useRef(onReady);
+  onReadyRef.current = onReady;
   useEffect(() => {
-    stableOnReady(failedRequired, !!isLoading);
-  }, [failedRequired, isLoading, stableOnReady]);
+    onReadyRef.current?.(failedRequired, !!isLoading);
+  }, [failedRequired, isLoading]);
 
   if (isLoading) {
     return <LoadingSpinner />;
