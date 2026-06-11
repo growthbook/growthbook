@@ -1,7 +1,7 @@
 import { SDKAttributeSchema } from "shared/types/organization";
-import { hasAnyEventForwarderConfig } from "back-end/src/services/eventForwarderConfig";
-import { syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange } from "back-end/src/services/eventForwarderFactTable";
-import { reconcileAllEventForwarderDatasourceUserIdTypesAndExposureQueries } from "back-end/src/services/eventForwarderUserIdTypes";
+import { hasAnyEventForwarderConfig } from "back-end/src/services/eventForwarder/config";
+import { reconcileAllEventForwarderDatasourceUserIdTypesAndExposureQueries } from "back-end/src/services/eventForwarder/datasourceSync";
+import { syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange } from "back-end/src/services/eventForwarder/factTable";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 

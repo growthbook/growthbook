@@ -2,9 +2,14 @@ import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import {
   BigQueryEventForwarderStoredConfig,
+  EventForwarderStatus,
   SnowflakeEventForwarderStoredConfig,
 } from "shared/types/event-forwarder";
-import { EventForwarderConfigInterface } from "shared/validators";
+import {
+  EventForwarderConfigInterface,
+  EventForwarderConnectorPhase,
+  EventForwarderStatusResponse,
+} from "shared/validators";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   postPauseEventForwarderToLicenseServer,
@@ -13,28 +18,168 @@ import {
   postResumeEventForwarderToLicenseServer,
   postTeardownEventForwarderToLicenseServer,
   postUpdateEventForwarderCredentialsToLicenseServer,
+  EventForwarderLicenseConnectorPhase,
+  EventForwarderLicenseConnectorStatus,
+  postEventForwarderStatusToLicenseServer,
 } from "back-end/src/enterprise/licenseUtil";
-import { decryptEventForwarderConfigModel } from "back-end/src/services/eventForwarderConfig";
-import { resolveBigQueryEventForwarderTableName } from "back-end/src/services/eventForwarderBqTableResolution";
-import { testEventForwarderWriteAccess } from "back-end/src/services/eventForwarderWriteAccessValidation";
-import { initializeDatasourceUserIdTypesFromOrgAttributeSchema } from "back-end/src/services/eventForwarderUserIdTypes";
-import { ensureEventForwarderEventsFactTable } from "back-end/src/services/eventForwarderFactTable";
-import { ensureEventForwarderBigQueryTables } from "back-end/src/services/eventForwarderBqTables";
-import { ensureEventForwarderFeatureUsageQuery } from "back-end/src/services/eventForwarderFeatureUsageQueries";
+import { decryptEventForwarderConfigModel } from "back-end/src/services/eventForwarder/config";
+import {
+  ensureEventForwarderBigQueryTables,
+  resolveBigQueryEventForwarderTableName,
+} from "back-end/src/services/eventForwarder/bigquery";
+import { ensureEventForwarderFeatureUsageQuery } from "back-end/src/services/eventForwarder/datasourceQueries";
+import { initializeDatasourceUserIdTypesFromOrgAttributeSchema } from "back-end/src/services/eventForwarder/datasourceSync";
+import { ensureEventForwarderEventsFactTable } from "back-end/src/services/eventForwarder/factTable";
+import { queueDelayedEventForwarderWarehouseSyncForDatasource } from "back-end/src/services/eventForwarder/warehouseSync";
+import {
+  assertEventForwarderWriteAccessResult,
+  testEventForwarderWriteAccess,
+} from "back-end/src/services/eventForwarder/writeAccess";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 
-function assertEventForwarderWriteAccessResult(
-  result: Awaited<ReturnType<typeof testEventForwarderWriteAccess>>,
-): void {
-  const sinkWrite = result.results.sinkWrite;
-  if (sinkWrite.result !== "success") {
-    throw new Error(
-      sinkWrite.resultMessage ||
-        "Event Forwarder write access validation failed",
-    );
+// ---------------------------------------------------------------------------
+// Connector status sync
+// ---------------------------------------------------------------------------
+
+export function mapLicenseConnectorPhaseToEventForwarderStatus(
+  phase: EventForwarderLicenseConnectorPhase,
+): EventForwarderStatus {
+  switch (phase) {
+    case "ready":
+      return "ready";
+    case "error":
+      return "error";
+    case "paused":
+      return "paused";
+    case "provisioning":
+    default:
+      return "pending";
   }
 }
+
+export function buildEventForwarderStatusResponse(
+  connectorStatus: EventForwarderLicenseConnectorStatus,
+): EventForwarderStatusResponse {
+  const status = mapLicenseConnectorPhaseToEventForwarderStatus(
+    connectorStatus.phase,
+  );
+  return {
+    status,
+    phase: connectorStatus.phase as EventForwarderConnectorPhase,
+    message: connectorStatus.message,
+    confluentState: connectorStatus.confluentState,
+    taskErrors: connectorStatus.taskErrors,
+  };
+}
+
+function hasInitialWarehouseSyncQueued(
+  eventForwarderConfig: EventForwarderConfigInterface,
+): boolean {
+  return eventForwarderConfig.initialWarehouseSyncQueued === true;
+}
+
+async function queueInitialWarehouseSyncIfNeeded(
+  context: ReqContext,
+  eventForwarderConfig: EventForwarderConfigInterface,
+): Promise<boolean> {
+  if (hasInitialWarehouseSyncQueued(eventForwarderConfig)) {
+    return false;
+  }
+
+  try {
+    await queueDelayedEventForwarderWarehouseSyncForDatasource(
+      context,
+      eventForwarderConfig.datasourceId,
+    );
+    await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
+      initialWarehouseSyncQueued: true,
+    });
+    return true;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    logger.error(
+      {
+        eventForwarderConfigId: eventForwarderConfig.id,
+        organizationId: context.org.id,
+        datasourceId: eventForwarderConfig.datasourceId,
+        error: message,
+      },
+      "Failed to queue initial event forwarder warehouse sync",
+    );
+    return false;
+  }
+}
+
+export async function syncEventForwarderStatusFromLicenseServer(
+  context: ReqContext,
+  eventForwarderConfig: EventForwarderConfigInterface,
+): Promise<EventForwarderStatusResponse> {
+  const connectorName = eventForwarderConfig.connectorName?.trim();
+  if (!connectorName) {
+    return {
+      status: "pending",
+      phase: "provisioning",
+      message: "Waiting for connector",
+    };
+  }
+
+  const connectorStatus = await postEventForwarderStatusToLicenseServer({
+    organizationId: context.org.id,
+    datasourceId: eventForwarderConfig.datasourceId,
+    connectorName,
+  });
+
+  const response = buildEventForwarderStatusResponse(connectorStatus);
+
+  if (response.status === "ready") {
+    const lastProvisioningError = "";
+    if (
+      eventForwarderConfig.status !== "ready" ||
+      eventForwarderConfig.lastProvisioningError !== lastProvisioningError
+    ) {
+      await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
+        status: "ready",
+        lastProvisioningError,
+      });
+    }
+
+    await queueInitialWarehouseSyncIfNeeded(context, eventForwarderConfig);
+  } else if (response.status === "error") {
+    const lastProvisioningError =
+      response.message || "Event forwarder connector failed";
+    if (
+      eventForwarderConfig.status !== "error" ||
+      eventForwarderConfig.lastProvisioningError !== lastProvisioningError
+    ) {
+      await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
+        status: "error",
+        lastProvisioningError,
+      });
+    }
+  } else if (response.status === "paused") {
+    const lastProvisioningError = "";
+    if (
+      eventForwarderConfig.status !== "paused" ||
+      eventForwarderConfig.lastProvisioningError !== lastProvisioningError
+    ) {
+      await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
+        status: "paused",
+        lastProvisioningError,
+      });
+    }
+  } else if (eventForwarderConfig.status !== "pending") {
+    await context.models.eventForwarderConfigs.update(eventForwarderConfig, {
+      status: "pending",
+    });
+  }
+
+  return response;
+}
+
+// ---------------------------------------------------------------------------
+// Provisioning
+// ---------------------------------------------------------------------------
 
 /**
  * Provisions Confluent resources for an event forwarder via the central license server.

@@ -53,7 +53,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<
     return userIdTypes[editingIndex] || null;
   }, [editingIndex, userIdTypes]);
 
-  const editingDescriptionOnly = useMemo(
+  const isEditingEventForwarderManagedType = useMemo(
     () =>
       recordEditing
         ? isLockedHashAttributeType(recordEditing.userIdType)
@@ -91,7 +91,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<
       async (userIdType: string, description: string, attributes: string[]) => {
         const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
         const types = copy.settings?.userIdTypes ?? [];
-        const descriptionOnly =
+        const isEventForwarderManagedType =
           uiMode === "edit" && isLockedHashAttributeType(userIdType);
 
         if (idx >= types.length) {
@@ -101,7 +101,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<
           if (!existing) {
             return;
           }
-          types[idx] = descriptionOnly
+          types[idx] = isEventForwarderManagedType
             ? { ...existing, description }
             : {
                 userIdType,
@@ -216,7 +216,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<
           attributes={recordEditing?.attributes}
           onSave={handleSave(editingIndex)}
           dataSource={dataSource}
-          descriptionOnly={editingDescriptionOnly}
+          isEventForwarderManagedType={isEditingEventForwarderManagedType}
         />
       ) : null}
       {/* endregion Add/Edit modal */}

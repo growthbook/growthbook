@@ -1,4 +1,4 @@
-import { getEventForwarderTopicName } from "back-end/src/services/eventForwarderConfig";
+import { getEventForwarderTopicName } from "back-end/src/services/eventForwarder/config";
 
 describe("event forwarder per-datasource naming", () => {
   it("getEventForwarderTopicName differs by datasource id", () => {
