@@ -40,6 +40,7 @@ export default function LinkedChanges({
   onAddVariation,
   canEditExperiment,
   setEditVariationIndex,
+  hideVariations,
 }: {
   linkedFeatures: LinkedFeatureInfo[];
   visualChangesets: VisualChangesetInterface[];
@@ -57,6 +58,9 @@ export default function LinkedChanges({
   onAddVariation?: () => void;
   canEditExperiment?: boolean;
   setEditVariationIndex?: (index: number) => void;
+  // Standard experiments render variations in the Traffic Allocation funnel, so
+  // they hide the variations table (and "Edit Variations" button) here.
+  hideVariations?: boolean;
 }) {
   const numLinkedChanges =
     linkedFeatures.length + visualChangesets.length + urlRedirects.length;
@@ -71,9 +75,11 @@ export default function LinkedChanges({
     <Frame>
       <Flex justify="between" align="center" mb="4" mx="1" gap="3">
         <Heading color="text-high" as="h4" size="small" mb="0">
-          {isPublic ? "Linked Changes" : "Variations & Values"}
+          {isPublic || hideVariations
+            ? "Linked Changes"
+            : "Variations & Values"}
         </Heading>
-        {!isPublic && onAddVariation ? (
+        {!isPublic && !hideVariations && onAddVariation ? (
           <Button variant="ghost" onClick={onAddVariation}>
             Edit Variations
           </Button>
@@ -108,7 +114,7 @@ export default function LinkedChanges({
         </Flex>
       ) : (
         <>
-          {!isPublic ? (
+          {!isPublic && !hideVariations ? (
             <>
               <Box>
                 <VariationsTable

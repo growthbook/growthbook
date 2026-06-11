@@ -14,6 +14,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
 import EditVariationMetadataModal from "@/components/Experiment/EditVariationMetadataModal";
 import TrafficAndTargeting from "@/components/Experiment/TabbedPage/TrafficAndTargeting";
+import TrafficAllocationFunnel from "@/components/Experiment/TabbedPage/TrafficAllocationFunnel";
 import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
 import DecisionMakingSettings from "@/components/Experiment/TabbedPage/DecisionMakingSettings";
 import Callout from "@/ui/Callout";
@@ -38,6 +39,7 @@ export interface Props {
   mutate: () => void;
   editTargeting?: (() => void) | null;
   editTraffic?: (() => void) | null;
+  editNamespace?: (() => void) | null;
   editVariations?: (() => void) | null;
   setFeatureModal: (open: boolean) => void;
   setVisualEditorModal: (open: boolean) => void;
@@ -58,6 +60,7 @@ export default function Implementation({
   mutate,
   editTargeting,
   editTraffic,
+  editNamespace,
   editVariations,
   setFeatureModal,
   setVisualEditorModal,
@@ -102,6 +105,11 @@ export default function Implementation({
   );
 
   const isHoldout = experiment.type === "holdout";
+  const isBandit = experiment.type === "multi-armed-bandit";
+  // The new Traffic Allocation funnel (with the dedicated namespace block and
+  // variations inside) is only for standard experiments. Bandits and holdouts
+  // keep their existing layout.
+  const isStandardExperiment = !isHoldout && !isBandit;
   const canEditHoldoutDefaultState =
     isHoldout &&
     !!holdout &&
@@ -143,17 +151,38 @@ export default function Implementation({
         <Heading as="h2" size="large" color="text-high" mb="2">
           Implementation
         </Heading>
-        <TrafficAndTargeting
-          experiment={experiment}
-          editTraffic={
-            experiment.nextScheduledStatusUpdate ? null : editTraffic
-          }
-          editTargeting={
-            experiment.nextScheduledStatusUpdate ? null : editTargeting
-          }
-          phaseIndex={phases.length - 1}
-        />
-        {!isHoldout ? (
+        {isStandardExperiment ? (
+          <TrafficAllocationFunnel
+            experiment={experiment}
+            editTraffic={
+              experiment.nextScheduledStatusUpdate ? null : editTraffic
+            }
+            editTargeting={
+              experiment.nextScheduledStatusUpdate ? null : editTargeting
+            }
+            editNamespace={
+              experiment.nextScheduledStatusUpdate ? null : editNamespace
+            }
+            editVariations={editVariations}
+            setEditVariationIndex={setEditMetadataIndex}
+            canEditExperiment={canEditExperiment}
+            mutate={mutate}
+            phaseIndex={phases.length - 1}
+          />
+        ) : (
+          <TrafficAndTargeting
+            experiment={experiment}
+            editTraffic={
+              experiment.nextScheduledStatusUpdate ? null : editTraffic
+            }
+            editTargeting={
+              experiment.nextScheduledStatusUpdate ? null : editTargeting
+            }
+            phaseIndex={phases.length - 1}
+          />
+        )}
+        {!isHoldout &&
+        (!isStandardExperiment || hasLinkedChanges || canAddLinkedChanges) ? (
           <LinkedChanges
             linkedFeatures={linkedFeatures}
             experiment={experiment}
@@ -170,6 +199,7 @@ export default function Implementation({
             onAddVariation={editVariations ?? undefined}
             canEditExperiment={canEditExperiment}
             setEditVariationIndex={setEditMetadataIndex}
+            hideVariations={isStandardExperiment}
           />
         ) : null}
 

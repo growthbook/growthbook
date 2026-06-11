@@ -77,6 +77,10 @@ export default function EditTrafficModal({
 
   const orgStickyBucketing = !!settings.useStickyBucketing;
   const isBandit = experiment.type === "multi-armed-bandit";
+  const isHoldout = experiment.type === "holdout";
+  // Standard experiments edit the namespace from a dedicated block/modal on the
+  // overview. Bandits and holdouts keep the namespace inside the traffic modal.
+  const showNamespace = isBandit || isHoldout;
 
   if (safeToEdit) {
     return (
@@ -156,13 +160,15 @@ export default function EditTrafficModal({
             />
           ) : null}
 
-          <NamespaceSelector
-            form={form}
-            featureId={experiment.trackingKey}
-            trackingKey={experiment.trackingKey}
-            experimentHashAttribute={form.watch("hashAttribute")}
-            fallbackAttribute={form.watch("fallbackAttribute")}
-          />
+          {showNamespace ? (
+            <NamespaceSelector
+              form={form}
+              featureId={experiment.trackingKey}
+              trackingKey={experiment.trackingKey}
+              experimentHashAttribute={form.watch("hashAttribute")}
+              fallbackAttribute={form.watch("fallbackAttribute")}
+            />
+          ) : null}
 
           <hr className="my-4" />
 
