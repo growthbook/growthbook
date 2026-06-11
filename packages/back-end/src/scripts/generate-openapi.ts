@@ -525,8 +525,14 @@ curl https://api.growthbook.io/api/v1/features \
   // componentSchemas) so they don't pick up the auto-generated `_model` doc
   // tags reserved for user-facing API resource models. We don't document
   // generic errors per-endpoint — only the actionable, declared ones below.
+  // e.g. "pending_draft_publish_failed" → "ApiErrorPendingDraftPublishFailedDetails"
+  const errorDetailsSchemaName = (code: string) =>
+    `ApiError${code
+      .split("_")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join("")}Details`;
   for (const [code, { detailsSchema }] of Object.entries(apiErrorRegistry)) {
-    schemaRefs[`ApiError_${code}_details`] = toOpenApiSchema(detailsSchema);
+    schemaRefs[errorDetailsSchemaName(code)] = toOpenApiSchema(detailsSchema);
   }
 
   // The response-level description is rendered prominently next to the status
@@ -767,7 +773,7 @@ curl https://api.growthbook.io/api/v1/features \
               message: { type: "string" },
               code: { type: "string", enum: [code] },
               details: {
-                $ref: `#/components/schemas/ApiError_${code}_details`,
+                $ref: `#/components/schemas/${errorDetailsSchemaName(code)}`,
               },
             },
             required: ["message", "code", "details"],
