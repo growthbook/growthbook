@@ -202,7 +202,7 @@ The hook runs at publish time with `revision.status === "published"` on the prop
 
 - `userId` — stable reviewer identifier: the user ID for dashboard users, or the API key ID for service accounts.
 - `user` — the full event user: `{ type: "dashboard", id, name, email }` for humans, `{ type: "api_key", apiKey }` for service accounts (where `apiKey` is the key's ID, not its secret).
-- `status` — `"approved"` or `"changes-requested"`. A verdict that was retracted no longer appears, and all verdicts reset when a new review cycle starts (review re-requested or recalled).
+- `status` — `"approved"` or `"changes-requested"` for active verdicts. When draft content changes after a verdict is given (and the org's review settings reset reviews on change), the verdict is demoted to `"approved-stale"` / `"changes-requested-stale"` — still attributable, but no longer an active verdict, so policies matching on the active statuses ignore it automatically. A verdict that was retracted no longer appears, and all verdicts clear when a new review cycle starts (review re-requested or recalled).
 - `timestamp` — when the verdict was submitted. Compare against `revision.dateUpdated` to detect approvals that predate later edits.
 
 Disable **Incremental Changes Only** for publish-gating hooks so the policy is enforced on every publish.

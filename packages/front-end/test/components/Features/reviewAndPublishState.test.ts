@@ -27,10 +27,37 @@ function base(overrides: Partial<RnPStateInput> = {}): RnPStateInput {
 
 describe("getReviewAndPublishState", () => {
   describe("conflict mode", () => {
-    it("routes to fix-conflicts when the merge failed", () => {
+    it("flags fix-conflicts and disables publish when the merge failed", () => {
       const s = getReviewAndPublishState(base({ mergeSuccess: false }));
       expect(s.mode).toBe("fix-conflicts");
-      expect(s.ctaLabel).toBe("Update Draft");
+      expect(s.submitAction).toBe("publish");
+      expect(s.ctaEnabled).toBe(false);
+    });
+
+    it("still allows requesting a review while conflicted", () => {
+      const s = getReviewAndPublishState(
+        base({
+          mergeSuccess: false,
+          requireReviews: true,
+          canManageDraft: true,
+        }),
+      );
+      expect(s.mode).toBe("fix-conflicts");
+      expect(s.submitAction).toBe("request-review");
+      expect(s.ctaLabel).toBe("Request Review");
+      expect(s.ctaEnabled).toBe(true);
+    });
+
+    it("blocks publishing an approved draft while conflicted", () => {
+      const s = getReviewAndPublishState(
+        base({
+          mergeSuccess: false,
+          requireReviews: true,
+          status: "approved",
+        }),
+      );
+      expect(s.submitAction).toBe("publish");
+      expect(s.ctaEnabled).toBe(false);
     });
   });
 
@@ -53,6 +80,23 @@ describe("getReviewAndPublishState", () => {
       const s = getReviewAndPublishState(base({ governanceCanPublish: false }));
       expect(s.ctaEnabled).toBe(false);
       expect(s.submitAction).toBe("publish");
+    });
+
+    it("lets admins bypass a forced rebase (but not conflicts)", () => {
+      const bypassed = getReviewAndPublishState(
+        base({ governanceCanPublish: false, adminPublish: true }),
+      );
+      expect(bypassed.ctaEnabled).toBe(true);
+
+      const conflicted = getReviewAndPublishState(
+        base({
+          governanceCanPublish: false,
+          adminPublish: true,
+          mergeSuccess: false,
+        }),
+      );
+      expect(conflicted.mode).toBe("fix-conflicts");
+      expect(conflicted.ctaEnabled).toBe(false);
     });
 
     it("advances to the experiments step when experiments are selected", () => {

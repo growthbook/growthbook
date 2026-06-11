@@ -277,12 +277,9 @@ describe("ReviewAndPublish", () => {
       />,
     );
     // The page surfaces a conflict notice rather than auto-opening the modal.
-    expect(
-      screen.getByText(/Conflicts with the live version/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Conflicts with live/i)).toBeInTheDocument();
 
-    // Exact name — the disabled publish CTA is "Resolve conflicts to publish".
-    fireEvent.click(screen.getByRole("button", { name: "Resolve conflicts" }));
+    fireEvent.click(screen.getByRole("button", { name: "Fix conflicts" }));
 
     // The conflict resolver modal opens with the per-conflict choices.
     expect(

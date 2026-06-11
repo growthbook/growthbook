@@ -50,6 +50,8 @@ const MarkdownInput: FC<{
   autofocusAtEnd?: boolean;
   error?: string;
   cta?: string;
+  // Disable the submit CTA (e.g. while the input is empty).
+  ctaDisabled?: boolean;
   id?: string;
   placeholder?: string;
   aiSuggestFunction?: () => Promise<string>;
@@ -70,6 +72,7 @@ const MarkdownInput: FC<{
   autofocusAtEnd = false,
   error: externalError,
   cta,
+  ctaDisabled = false,
   id,
   onCancel,
   placeholder,
@@ -341,7 +344,11 @@ const MarkdownInput: FC<{
                     Cancel
                   </Button>
                 )}
-                {cta && <Button type="submit">{cta}</Button>}
+                {cta && (
+                  <Button type="submit" disabled={ctaDisabled}>
+                    {cta}
+                  </Button>
+                )}
               </Flex>
             )}
             {aiSuggestFunction && !aiSuggestionText && (

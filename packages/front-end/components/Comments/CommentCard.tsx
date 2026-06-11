@@ -2,6 +2,7 @@ import React from "react";
 import { Box, Card, Flex } from "@radix-ui/themes";
 import { EventUser as EventUserType } from "shared/types/events/event-types";
 import EventUser from "@/components/Avatar/EventUser";
+import { Size } from "@/ui/Avatar";
 import Text from "@/ui/Text";
 
 export interface CommentCardProps {
@@ -35,10 +36,14 @@ export interface CommentCardProps {
   stripeColor?: string;
   /**
    * Override the leading avatar with a custom element (typically a colored
-   * icon avatar for non-human signals like verdicts). Sized to match the
-   * default `EventUser size="sm"` avatar so the layout stays aligned.
+   * icon avatar for non-human signals like verdicts). Should be sized to
+   * match `avatarSize` so the layout stays aligned.
    */
   leading?: React.ReactNode;
+  /**
+   * Size of the leading user avatar. Default `"sm"`.
+   */
+  avatarSize?: Size;
 }
 
 /**
@@ -55,11 +60,14 @@ export default function CommentCard({
   body,
   stripeColor = "violet",
   leading,
+  avatarSize = "sm",
 }: CommentCardProps) {
   return (
     <Flex align="start" gap="3">
       <Box flexShrink="0" pt="2">
-        {leading ?? <EventUser user={user} display="avatar" size="sm" />}
+        {leading ?? (
+          <EventUser user={user} display="avatar" size={avatarSize} />
+        )}
       </Box>
       <Card size="1" style={{ overflow: "hidden", flexGrow: 1 }}>
         <div

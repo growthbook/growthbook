@@ -79,6 +79,7 @@ import {
   captureDiffRefSnapshot,
   diffRefId,
   formatDiffRef,
+  requestReviewSubTab,
   scrollToRevisionLogEntry,
 } from "@/components/Features/diffCommentRefs";
 
@@ -124,43 +125,113 @@ export function stringifyForRawDiff(value: unknown): string {
 
 // Segmented toggle that drives the diff format. Render it directly under the
 // "Summary of changes" badges. "Formatted changes" shows human-readable
-// renders, "JSON diffs" shows per-section JSON diffs, and "Raw JSON" shows a
+// renders, "JSON diffs" shows per-section JSON diffs, and "Full JSON" shows a
 // single diff of the entire before/after shape.
+const DIFF_FORMAT_LABELS: Record<DiffFormat, string> = {
+  formatted: "Formatted changes",
+  json: "JSON diffs",
+  raw: "Full JSON",
+};
+
 export function DiffFormatToggle({
   value,
   setValue,
   showRaw = true,
+  options,
   mt,
   mb,
 }: {
   value: DiffFormat;
   setValue: (v: DiffFormat) => void;
-  // Hide the "Raw JSON" segment on surfaces that can't supply a whole-shape diff.
+  // Hide the "Full JSON" segment on surfaces that can't supply a whole-shape diff.
   showRaw?: boolean;
+  // Restrict which formats this surface offers (defaults to all three). The
+  // toggle hides itself entirely when fewer than two remain.
+  options?: DiffFormat[];
   mt?: "0" | "1" | "2" | "3" | "4";
   mb?: "0" | "1" | "2" | "3" | "4";
 }) {
-  const segment = (target: DiffFormat, label: string) => (
+  const segment = (target: DiffFormat) => (
     <Button
       key={target}
       size="sm"
       variant={value === target ? "solid" : "outline"}
       onClick={() => setValue(target)}
     >
-      {label}
+      {DIFF_FORMAT_LABELS[target]}
     </Button>
   );
+
+  const visible = (options ?? ["formatted", "json", "raw"]).filter(
+    (f) => f !== "raw" || showRaw,
+  );
+  if (visible.length < 2) return null;
 
   return (
     <Box mt={mt} mb={mb}>
       <SplitButton variant="outline" className="diff-format-toggle">
-        {[
-          segment("formatted", "Formatted changes"),
-          segment("json", "JSON diffs"),
-          ...(showRaw ? [segment("raw", "Raw JSON")] : []),
-        ]}
+        {visible.map(segment)}
       </SplitButton>
     </Box>
+  );
+}
+
+// Height-capped wrapper with a fade-out and a "Show more"/"Show less" toggle
+// (same affordance as the Notes panel). Only collapses when the content
+// actually overflows; a ResizeObserver re-checks as content reflows.
+function CollapsedSection({
+  maxHeight,
+  children,
+}: {
+  maxHeight: number;
+  children: React.ReactNode;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [overflowing, setOverflowing] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    const check = () => setOverflowing(el.scrollHeight > maxHeight + 1);
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [maxHeight]);
+
+  return (
+    <>
+      <Box
+        style={
+          !expanded && overflowing
+            ? { position: "relative", maxHeight, overflow: "hidden" }
+            : { position: "relative" }
+        }
+      >
+        <Box ref={contentRef}>{children}</Box>
+        {!expanded && overflowing && (
+          <Box
+            style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: 64,
+              background:
+                "linear-gradient(transparent, var(--color-panel-solid))",
+              pointerEvents: "none",
+            }}
+          />
+        )}
+      </Box>
+      {overflowing && (
+        <Box mt="2">
+          <Link onClick={() => setExpanded((v) => !v)}>
+            {expanded ? "Show less" : "Show more"}
+          </Link>
+        </Box>
+      )}
+    </>
   );
 }
 
@@ -1317,7 +1388,7 @@ function RevisionCommentItem({
       >
         <Flex align="center" gap="2">
           <Heading as="h5" size="small" color="text-mid" mb="0">
-            Notes
+            Revision description
           </Heading>
           {isDraft && canEdit && !editing && (
             <IconButton
@@ -1327,7 +1398,7 @@ function RevisionCommentItem({
               radius="full"
               mx="1"
               onClick={() => setEditing(true)}
-              aria-label="Edit notes"
+              aria-label="Edit description"
             >
               <PiPencilSimpleFill />
             </IconButton>
@@ -1366,7 +1437,7 @@ function RevisionCommentItem({
         {editing ? (
           <CommentComposer
             cta="Save"
-            placeholder="Add notes describing this revision..."
+            placeholder="Describe this revision..."
             initialValue={comment}
             autofocus
             onCancel={() => setEditing(false)}
@@ -1422,7 +1493,7 @@ function RevisionCommentItem({
           </>
         ) : (
           <Text size="medium" as="div" color="text-low" fontStyle="italic">
-            No notes yet.
+            No description yet.
           </Text>
         )}
       </Box>
@@ -1487,11 +1558,19 @@ function formatSectionTitle(title: string): string {
 // using its rich customRender, falling back to a JSON diff when a section has
 // no human render. Extracted so it can be rendered both visibly and in a hidden
 // node whose innerText powers the "Copy as → Formatted changes" action.
-function FormattedChanges({ diffs }: { diffs: FeatureRevisionDiff[] }) {
+// `jsonFallback={false}` (the review Overview tab) swaps that fallback for a
+// link to the Changes tab, keeping this view strictly human-readable.
+function FormattedChanges({
+  diffs,
+  jsonFallback = true,
+}: {
+  diffs: FeatureRevisionDiff[];
+  jsonFallback?: boolean;
+}) {
   return (
     <Flex direction="column" gap="0">
       {diffs.map((d) =>
-        d.customRender ? (
+        d.customRender || !jsonFallback ? (
           <Box key={d.title} p="3" my="3" className="rounded bg-light">
             <Flex align="center" gap="2" mb="2" wrap="wrap">
               <Heading as="h6" size="small" color="text-mid" mb="0">
@@ -1499,7 +1578,15 @@ function FormattedChanges({ diffs }: { diffs: FeatureRevisionDiff[] }) {
               </Heading>
               {d.titleSuffix}
             </Flex>
-            {d.customRender}
+            {d.customRender ?? (
+              <Text size="medium" as="div" color="text-low">
+                This section changed.{" "}
+                <Link onClick={() => requestReviewSubTab("changes")}>
+                  View the diff on the Changes tab
+                </Link>
+                .
+              </Text>
+            )}
           </Box>
         ) : (
           // No human-readable render for this section — fall back to the JSON
@@ -1534,6 +1621,11 @@ export function DiffContent({
   onNotesSaved,
   variant = "plain",
   diffComments,
+  formats,
+  collapsedMaxHeight,
+  showSummaryHeader = true,
+  showCopyAs = true,
+  jsonFallback = true,
 }: {
   diffs: FeatureRevisionDiff[];
   // Revision notes to render above the diff. Omit when the surface renders
@@ -1564,12 +1656,39 @@ export function DiffContent({
   // line opens a composer pre-seeded with a visible ref token. Surfaces
   // without a revision log (e.g. audit comparisons) simply omit this.
   diffComments?: DiffCommentsProps;
+  // Restrict which view formats this surface offers (defaults to all three).
+  // The shared format preference is clamped into this list without being
+  // written back, so e.g. an Overview tab showing only "formatted" doesn't
+  // clobber the preference used by JSON-capable surfaces.
+  formats?: DiffFormat[];
+  // Cap the rendered changes at this height with a Show more toggle (used by
+  // the review Overview tab; mirrors the Notes panel affordance).
+  collapsedMaxHeight?: number;
+  // Hide the "Summary of changes" heading + change badges and go straight to
+  // the diff body (used by the review Changes tab, where the Overview tab
+  // already provides the summary).
+  showSummaryHeader?: boolean;
+  // Hide the "Copy as" export button (used by the review Overview tab, which
+  // is a read-along surface; exports live on the Changes tab).
+  showCopyAs?: boolean;
+  // When false, formatted sections without a human render link to the Changes
+  // tab instead of falling back to a JSON diff (see FormattedChanges).
+  jsonFallback?: boolean;
 }) {
   const [format, setFormat] = useDiffFormat();
-  // "Raw JSON" needs whole-shape data; fall back to per-section JSON when a
-  // surface doesn't supply it.
-  const effectiveFormat: DiffFormat =
-    format === "raw" && !raw ? "json" : format;
+  const allowedFormats: DiffFormat[] = formats ?? ["formatted", "json", "raw"];
+  // Clamp the shared preference into this surface's allowed formats, and
+  // fall back from "raw" when whole-shape data wasn't supplied.
+  let effectiveFormat: DiffFormat = allowedFormats.includes(format)
+    ? format
+    : allowedFormats.includes("json")
+      ? "json"
+      : allowedFormats[0];
+  if (effectiveFormat === "raw" && !raw) {
+    effectiveFormat = allowedFormats.includes("json")
+      ? "json"
+      : allowedFormats[0];
+  }
   const diffsWithChanges = diffs.filter((d) => d.a !== d.b);
   const diffFallbackBadges = badgesFromDiffs(diffsWithChanges);
 
@@ -1595,40 +1714,44 @@ export function DiffContent({
         </Box>
       ) : (
         <Box>
-          <Box
-            px={variant === "card" ? "4" : "0"}
-            py={variant === "card" ? "3" : "0"}
-            style={
-              variant === "card"
-                ? { borderBottom: "1px solid var(--gray-a4)" }
-                : undefined
-            }
-          >
-            <Heading
-              as="h4"
-              size="medium"
-              color="text-mid"
-              mt="0"
-              mb={
-                diffFallbackBadges.length > 0 || variant === "plain" ? "2" : "0"
+          {showSummaryHeader && (
+            <Box
+              px={variant === "card" ? "4" : "0"}
+              py={variant === "card" ? "3" : "0"}
+              style={
+                variant === "card"
+                  ? { borderBottom: "1px solid var(--gray-a4)" }
+                  : undefined
               }
             >
-              Summary of changes
-            </Heading>
+              <Heading
+                as="h4"
+                size="medium"
+                color="text-mid"
+                mt="0"
+                mb={
+                  diffFallbackBadges.length > 0 || variant === "plain"
+                    ? "2"
+                    : "0"
+                }
+              >
+                Summary of changes
+              </Heading>
 
-            {diffFallbackBadges.length > 0 && (
-              <Flex wrap="wrap" gap="2" mb={variant === "card" ? "0" : "5"}>
-                {diffFallbackBadges.map(({ label, action }) => (
-                  <Badge
-                    key={label}
-                    color={logBadgeColor(action)}
-                    variant="soft"
-                    label={label}
-                  />
-                ))}
-              </Flex>
-            )}
-          </Box>
+              {diffFallbackBadges.length > 0 && (
+                <Flex wrap="wrap" gap="2" mb={variant === "card" ? "0" : "5"}>
+                  {diffFallbackBadges.map(({ label, action }) => (
+                    <Badge
+                      key={label}
+                      color={logBadgeColor(action)}
+                      variant="soft"
+                      label={label}
+                    />
+                  ))}
+                </Flex>
+              )}
+            </Box>
+          )}
 
           <Box p={variant === "card" ? "4" : "0"}>
             <Flex align="center" justify="between" gap="2" wrap="wrap" mb="3">
@@ -1636,13 +1759,18 @@ export function DiffContent({
                 value={effectiveFormat}
                 setValue={setFormat}
                 showRaw={!!raw}
+                options={allowedFormats}
               />
-              <CopyAsButton
-                entityName={feature.id}
-                diffs={diffsWithChanges}
-                raw={raw}
-                formattedRef={formattedRef}
-              />
+              {showCopyAs && (
+                <Box ml="auto">
+                  <CopyAsButton
+                    entityName={feature.id}
+                    diffs={diffsWithChanges}
+                    raw={raw}
+                    formattedRef={formattedRef}
+                  />
+                </Box>
+              )}
             </Flex>
 
             {outOfOrderWarning && (
@@ -1656,70 +1784,85 @@ export function DiffContent({
 
             {/* Offscreen render used purely as the source for "Copy as →
               Formatted changes" innerText; kept mounted in every view. */}
-            <Box
-              ref={formattedRef}
-              aria-hidden
-              style={{
-                position: "absolute",
-                left: -99999,
-                top: 0,
-                width: 800,
-                pointerEvents: "none",
-              }}
-            >
-              <FormattedChanges diffs={diffsWithChanges} />
-            </Box>
-
-            {effectiveFormat === "formatted" ? (
-              <FormattedChanges diffs={diffsWithChanges} />
-            ) : effectiveFormat === "raw" && raw ? (
-              // One raw diff per top-level entity: the whole feature revision as a
-              // single blob, plus a separate diff for each supplemental entity
-              // (ramp schedules / ramp actions).
-              <Flex direction="column" gap="4">
-                {stringifyForRawDiff(raw.before) !==
-                  stringifyForRawDiff(raw.after) && (
-                  <ExpandableDiff
-                    title={raw.title ?? "Feature revision"}
-                    a={stringifyForRawDiff(raw.before)}
-                    b={stringifyForRawDiff(raw.after)}
-                    defaultOpen
-                    styles={COMPACT_DIFF_STYLES}
-                    anchorKey="raw"
-                    comments={diffComments}
-                  />
-                )}
-                {diffsWithChanges
-                  .filter((d) => d.supplemental)
-                  .map((d) => (
-                    <ExpandableDiff
-                      key={d.title}
-                      title={d.title}
-                      a={d.a}
-                      b={d.b}
-                      defaultOpen
-                      styles={COMPACT_DIFF_STYLES}
-                      anchorKey={d.key}
-                      comments={diffComments}
-                    />
-                  ))}
-              </Flex>
-            ) : (
-              <Flex direction="column" gap="4">
-                {diffsWithChanges.map((d) => (
-                  <ExpandableDiff
-                    key={d.title}
-                    title={d.title}
-                    a={d.a}
-                    b={d.b}
-                    defaultOpen
-                    styles={COMPACT_DIFF_STYLES}
-                    anchorKey={d.key}
-                    comments={diffComments}
-                  />
-                ))}
-              </Flex>
+            {showCopyAs && (
+              <Box
+                ref={formattedRef}
+                aria-hidden
+                style={{
+                  position: "absolute",
+                  left: -99999,
+                  top: 0,
+                  width: 800,
+                  pointerEvents: "none",
+                }}
+              >
+                <FormattedChanges diffs={diffsWithChanges} />
+              </Box>
             )}
+
+            {(() => {
+              const view =
+                effectiveFormat === "formatted" ? (
+                  <FormattedChanges
+                    diffs={diffsWithChanges}
+                    jsonFallback={jsonFallback}
+                  />
+                ) : effectiveFormat === "raw" && raw ? (
+                  // One raw diff per top-level entity: the whole feature revision as a
+                  // single blob, plus a separate diff for each supplemental entity
+                  // (ramp schedules / ramp actions).
+                  <Flex direction="column" gap="4">
+                    {stringifyForRawDiff(raw.before) !==
+                      stringifyForRawDiff(raw.after) && (
+                      <ExpandableDiff
+                        title={raw.title ?? "Feature revision"}
+                        a={stringifyForRawDiff(raw.before)}
+                        b={stringifyForRawDiff(raw.after)}
+                        defaultOpen
+                        styles={COMPACT_DIFF_STYLES}
+                        anchorKey="raw"
+                        comments={diffComments}
+                      />
+                    )}
+                    {diffsWithChanges
+                      .filter((d) => d.supplemental)
+                      .map((d) => (
+                        <ExpandableDiff
+                          key={d.title}
+                          title={d.title}
+                          a={d.a}
+                          b={d.b}
+                          defaultOpen
+                          styles={COMPACT_DIFF_STYLES}
+                          anchorKey={d.key}
+                          comments={diffComments}
+                        />
+                      ))}
+                  </Flex>
+                ) : (
+                  <Flex direction="column" gap="4">
+                    {diffsWithChanges.map((d) => (
+                      <ExpandableDiff
+                        key={d.title}
+                        title={d.title}
+                        a={d.a}
+                        b={d.b}
+                        defaultOpen
+                        styles={COMPACT_DIFF_STYLES}
+                        anchorKey={d.key}
+                        comments={diffComments}
+                      />
+                    ))}
+                  </Flex>
+                );
+              return collapsedMaxHeight ? (
+                <CollapsedSection maxHeight={collapsedMaxHeight}>
+                  {view}
+                </CollapsedSection>
+              ) : (
+                view
+              );
+            })()}
           </Box>
         </Box>
       )}

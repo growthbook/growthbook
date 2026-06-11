@@ -737,11 +737,13 @@ describe("activeReviewsFromLog", () => {
 // ---------------------------------------------------------------------------
 // computeRevisionUpdate decides what an edit does to the review lifecycle:
 // status resets (changes-requested → pending-review on any content change,
-// approved → pending-review when resetReview policy applies) must also scrub
-// the baked `reviews` verdicts, since they were given against older content.
+// approved → pending-review when resetReview policy applies) must also demote
+// the baked `reviews` verdicts to their "-stale" variants, since they were
+// given against older content. They stay attributable but no longer count as
+// active verdicts.
 // ---------------------------------------------------------------------------
 
-describe("computeRevisionUpdate review scrubbing", () => {
+describe("computeRevisionUpdate review staleness", () => {
   const reviewer = {
     type: "dashboard" as const,
     id: "u1",
@@ -766,7 +768,7 @@ describe("computeRevisionUpdate review scrubbing", () => {
     } as unknown as FeatureRevisionInterface;
   }
 
-  it("scrubs reviews when resetReview knocks an approved draft back to pending-review", () => {
+  it("demotes reviews to -stale when resetReview knocks an approved draft back to pending-review", () => {
     const { status, clearReviews, proposedRevision } = computeRevisionUpdate(
       mockContext(),
       { id: FEATURE_ID } as never,
@@ -776,20 +778,55 @@ describe("computeRevisionUpdate review scrubbing", () => {
     );
     expect(status).toBe("pending-review");
     expect(clearReviews).toBe(true);
-    expect(proposedRevision.reviews).toEqual([]);
+    expect(proposedRevision.reviews).toEqual([
+      { ...reviews[0], status: "approved-stale" },
+    ]);
   });
 
-  it("scrubs reviews when a content change resets changes-requested to pending-review", () => {
+  it("demotes reviews to -stale when a content change resets changes-requested to pending-review", () => {
     const { status, clearReviews, proposedRevision } = computeRevisionUpdate(
       mockContext(),
       { id: FEATURE_ID } as never,
-      revisionWithStatus("changes-requested"),
+      {
+        ...revisionWithStatus("changes-requested"),
+        reviews: [{ ...reviews[0], status: "changes-requested" as const }],
+      },
       { defaultValue: "false" },
       false,
     );
     expect(status).toBe("pending-review");
     expect(clearReviews).toBe(true);
-    expect(proposedRevision.reviews).toEqual([]);
+    expect(proposedRevision.reviews).toEqual([
+      { ...reviews[0], status: "changes-requested-stale" },
+    ]);
+  });
+
+  it("leaves already-stale verdicts unchanged when demoting", () => {
+    const { proposedRevision } = computeRevisionUpdate(
+      mockContext(),
+      { id: FEATURE_ID } as never,
+      {
+        ...revisionWithStatus("approved"),
+        reviews: [
+          ...reviews,
+          {
+            userId: "u2",
+            user: { ...reviewer, id: "u2" },
+            status: "changes-requested-stale" as const,
+            timestamp: new Date("2024-01-01"),
+          },
+        ],
+      },
+      { defaultValue: "false" },
+      true,
+    );
+    expect(proposedRevision.reviews).toEqual([
+      { ...reviews[0], status: "approved-stale" },
+      expect.objectContaining({
+        userId: "u2",
+        status: "changes-requested-stale",
+      }),
+    ]);
   });
 
   it("keeps verdicts when the org policy does not reset approved drafts", () => {

@@ -904,7 +904,7 @@ export default function FeaturesOverview({
         <CoAuthors rev={revision} mt="3" mb="3" />
         <Flex align="start" gap="2" style={{ width: "fit-content" }}>
           <Text weight="semibold" color="text-high">
-            Revision notes:
+            Revision description:
           </Text>{" "}
           {revision.comment ? (
             <Flex align="start" gap="1">
@@ -2152,7 +2152,7 @@ export default function FeaturesOverview({
               </Box>
               {showNewDraftNotes ? (
                 <Field
-                  label="Notes"
+                  label="Description"
                   labelClassName="font-weight-bold"
                   textarea
                   value={newDraftNotes}
@@ -2167,7 +2167,7 @@ export default function FeaturesOverview({
                 >
                   <Flex align="center" gap="1" mb="3">
                     <PiPlus />
-                    <Text weight="medium">Add notes</Text>
+                    <Text weight="medium">Add description</Text>
                   </Flex>
                 </Link>
               )}

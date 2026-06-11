@@ -217,6 +217,15 @@ export function requestDiffFormat(format: "formatted" | "json" | "raw"): void {
   window.dispatchEvent(new CustomEvent(DIFF_FORMAT_EVENT, { detail: format }));
 }
 
+// The review surface splits into Overview / Changes sub-tabs; line-level diff
+// targets only exist on the Changes tab. Diff-ref widgets broadcast this event
+// so ReviewAndPublish can swap tabs before the scroll retry loop runs.
+export const REVIEW_SUBTAB_EVENT = "gb:review-subtab";
+
+export function requestReviewSubTab(tab: "overview" | "changes"): void {
+  window.dispatchEvent(new CustomEvent(REVIEW_SUBTAB_EVENT, { detail: tab }));
+}
+
 // Scrolls to the diff line a ref points at (gutter cells carry
 // data-diff-ref) and flashes its row. If the target isn't rendered in the
 // current view format, switches to the format that can render it — "raw" for
@@ -246,6 +255,9 @@ export function scrollToDiffRef(ref: DiffCommentRef): void {
     return;
   }
 
+  // The target may live on the Changes sub-tab (the Overview tab renders no
+  // line-level diffs); swap there first, then wait out both re-renders.
+  requestReviewSubTab("changes");
   requestDiffFormat(ref.sectionKey === "raw" ? "raw" : "json");
   const tryScroll = (attempt: number) => {
     const el = find();
@@ -253,7 +265,7 @@ export function scrollToDiffRef(ref: DiffCommentRef): void {
       scrollTo(el);
       return;
     }
-    if (attempt < 10) setTimeout(() => tryScroll(attempt + 1), 100);
+    if (attempt < 20) setTimeout(() => tryScroll(attempt + 1), 100);
   };
   tryScroll(0);
 }

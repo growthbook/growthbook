@@ -26,7 +26,7 @@ export default function EditRevisionCommentModal({
       trackingEventModalType=""
       open={true}
       close={close}
-      header="Edit Revision Notes"
+      header="Edit Revision Description"
       cta="Save"
       submit={async () => {
         await apiCall(`/feature/${feature.id}/${revision.version}/comment`, {
@@ -41,7 +41,7 @@ export default function EditRevisionCommentModal({
       <MarkdownInput
         value={comment}
         setValue={setComment}
-        placeholder="Add notes describing this revision..."
+        placeholder="Describe this revision..."
         showButtons={false}
       />
     </ModalStandard>

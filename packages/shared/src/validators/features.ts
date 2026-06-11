@@ -503,7 +503,18 @@ export const revisionReviewSchema = z
     // Full event user who submitted the verdict — lets policy hooks match on
     // type ("dashboard" vs "api_key"), apiKey, email, etc.
     user: eventUser,
-    status: z.enum(["approved", "changes-requested"]),
+    // Active verdicts ("approved" / "changes-requested") become their
+    // "-stale" variants when the draft's content changes afterward (orgs with
+    // reset-on-review enabled). Stale verdicts no longer gate publishing but
+    // stay attributable; policy hooks matching on the active statuses ignore
+    // them naturally. A new verdict from the same reviewer replaces the stale
+    // entry; recall / re-request clears the list entirely.
+    status: z.enum([
+      "approved",
+      "changes-requested",
+      "approved-stale",
+      "changes-requested-stale",
+    ]),
     // When this verdict was submitted. Compare against `dateUpdated` to detect
     // verdicts that predate later content edits.
     timestamp: z.date(),

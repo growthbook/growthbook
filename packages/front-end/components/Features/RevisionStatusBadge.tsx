@@ -1,10 +1,10 @@
 import React from "react";
 import {
-  PiCheckCircleFill,
+  PiCheckBold,
   PiClockFill,
-  PiChatCircleTextFill,
   PiLockSimpleFill,
   PiPencil,
+  PiPlusMinusBold,
   PiXCircleFill,
 } from "react-icons/pi";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
@@ -37,7 +37,7 @@ export function revisionStatusColor(
     case "pending-review":
       return "orange";
     case "approved":
-      return "grass";
+      return "green";
     case "changes-requested":
       return "red";
     case "discarded":
@@ -55,20 +55,24 @@ export function revisionStatusColor(
 export function revisionStatusBadgeVariant(
   status: MinimalFeatureRevisionInterface["status"] | "live",
 ): "solid" | "soft" {
-  return status === "discarded" ? "solid" : "soft";
+  if (status === "discarded" || status === "live") return "solid";
+  return "soft";
 }
 
 export function revisionStatusIcon(
   status: MinimalFeatureRevisionInterface["status"] | "live",
 ): React.ReactNode {
   switch (status) {
-    case "approved":
     case "live":
-      return <PiCheckCircleFill />;
+      return null;
+    case "approved":
+      // Standalone bold glyph (matching the timeline's verdict icon) — the
+      // surrounding chip/band provides the container.
+      return <PiCheckBold />;
     case "pending-review":
       return <PiClockFill />;
     case "changes-requested":
-      return <PiChatCircleTextFill />;
+      return <PiPlusMinusBold />;
     case "discarded":
       return <PiXCircleFill />;
     case "published":

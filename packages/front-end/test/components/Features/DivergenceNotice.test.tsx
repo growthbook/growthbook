@@ -28,7 +28,7 @@ describe("DivergenceNotice", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("renders a Resolve conflicts CTA for the conflict state", () => {
+  it("renders a Fix conflicts CTA for the conflict state", () => {
     const onResolve = vi.fn();
     render(
       <DivergenceNotice
@@ -45,15 +45,13 @@ describe("DivergenceNotice", () => {
         onResolveConflicts={onResolve}
       />,
     );
-    expect(
-      screen.getByText(/conflicts with the live version/i),
-    ).toBeInTheDocument();
-    const btn = screen.getByRole("button", { name: /resolve conflicts/i });
+    expect(screen.getByText(/conflicts with live/i)).toBeInTheDocument();
+    const btn = screen.getByRole("button", { name: /fix conflicts/i });
     fireEvent.click(btn);
     expect(onResolve).toHaveBeenCalledTimes(1);
   });
 
-  it("hides the Resolve conflicts CTA when the user cannot rebase", () => {
+  it("hides the Fix conflicts CTA when the user cannot rebase", () => {
     render(
       <DivergenceNotice
         governance={gov({
@@ -71,7 +69,7 @@ describe("DivergenceNotice", () => {
       />,
     );
     expect(
-      screen.queryByRole("button", { name: /resolve conflicts/i }),
+      screen.queryByRole("button", { name: /fix conflicts/i }),
     ).not.toBeInTheDocument();
   });
 
@@ -92,35 +90,9 @@ describe("DivergenceNotice", () => {
         onUpdateFromLive={vi.fn()}
       />,
     );
+    expect(screen.getByText(/out-of-date with live/i)).toBeInTheDocument();
     expect(
-      screen.getByText(/live version has changed since this draft/i),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Rules")).toBeInTheDocument();
-    expect(screen.getByText("Env Enabled - prod")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /update from live/i }),
-    ).toBeInTheDocument();
-  });
-
-  it("shows the block reason when rebase is required (setting on)", () => {
-    render(
-      <DivergenceNotice
-        governance={gov({
-          diverged: true,
-          divergence: "diverged",
-          recommendRebase: true,
-          rebaseRequired: true,
-          canPublish: false,
-          blockReason: "This draft is based on an older version.",
-          liveChanges: [{ key: "rules", name: "Rules" }],
-        })}
-        liveVersion={8}
-        baseVersion={5}
-        onUpdateFromLive={vi.fn()}
-      />,
-    );
-    expect(
-      screen.getByText(/this draft is based on an older version/i),
+      screen.getByRole("button", { name: /rebase with live/i }),
     ).toBeInTheDocument();
   });
 
@@ -218,7 +190,7 @@ describe("DivergenceNotice", () => {
       />,
     );
     expect(
-      screen.queryByRole("button", { name: /update from live/i }),
+      screen.queryByRole("button", { name: /rebase with live/i }),
     ).not.toBeInTheDocument();
   });
 
@@ -236,7 +208,7 @@ describe("DivergenceNotice", () => {
         onUpdateFromLive={onUpdate}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: /update from live/i }));
+    fireEvent.click(screen.getByRole("button", { name: /rebase with live/i }));
     expect(onUpdate).toHaveBeenCalledTimes(1);
   });
 });

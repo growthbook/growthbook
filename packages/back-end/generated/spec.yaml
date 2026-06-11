@@ -35317,9 +35317,10 @@ components:
                 additionalProperties: false
         reviews:
           description: >-
-            Active reviewer verdicts for the current review cycle (one entry per
-            reviewer). Cleared when a new review cycle starts. Absent on
-            revisions that predate this field.
+            Reviewer verdicts for the current review cycle (one entry per
+            reviewer). Verdicts flip to their -stale variants when draft content
+            changes after submission; the list is cleared when a new review
+            cycle starts. Absent on revisions that predate this field.
           type: array
           items:
             type: object
@@ -35336,6 +35337,8 @@ components:
                 enum:
                   - approved
                   - changes-requested
+                  - approved-stale
+                  - changes-requested-stale
               timestamp:
                 format: date-time
                 type: string

@@ -9,11 +9,14 @@ import { BsThreeDotsVertical } from "react-icons/bs";
 import {
   PiArrowCounterClockwiseFill,
   PiChatCircleTextFill,
-  PiCheckCircleFill,
+  PiCheckBold,
   PiClockFill,
   PiGearFill,
+  PiFilePlus,
   PiPencilSimpleFill,
+  PiPlusMinusBold,
   PiProhibitFill,
+  PiRocketLaunch,
 } from "react-icons/pi";
 import { date, datetime } from "shared/dates";
 import React, {
@@ -52,7 +55,33 @@ export interface Props {
   // (e.g. retracting a verdict via the comment-card overflow). Lets the
   // parent refetch its revision data so status-dependent UI updates.
   onRevisionMutate?: () => void | Promise<void>;
+  // When provided, entries failing the predicate are collapsed into
+  // "N other events" toggles (one per consecutive run, within each date
+  // group) instead of rendering inline. The verdict-retraction scan still
+  // runs over the full log so review-state badges stay correct.
+  collapseFilter?: (log: RevisionLog) => boolean;
 }
+
+// Events the review Overview tab keeps uncollapsed. Everything else (rule
+// edits, rebases, metadata changes, …) collapses into "N other events" runs;
+// the Changes tab shows the full timeline.
+export const REVIEW_ACTIVITY_ACTIONS = new Set([
+  // Conversation
+  "Comment",
+  // Verdicts & review state
+  "Approved",
+  "Requested Changes",
+  "Review Requested",
+  "Recall Review",
+  "Undo Review",
+  // Critical revision lifecycle
+  "new revision",
+  "publish",
+  "re-publish",
+  "revert",
+  "discard",
+  "reopen",
+]);
 
 // Action sets must mirror EDITABLE_AUTHOR_ACTIONS / DELETABLE_AUTHOR_ACTIONS
 // in FeatureRevisionLogModel. Reviewers can rewrite the comment text on
@@ -80,7 +109,7 @@ type RowVisual = {
   showCommentBody: boolean;
   // Offer an expandable "Details" disclosure with the raw JSON payload when
   // the entry has structured data. Used for generic audit events; `edit
-  // comment` opts out because the notes already live in the Notes panel
+  // comment` opts out because the text already lives in the description panel
   // above the log.
   showAuditDetails: boolean;
 };
@@ -138,8 +167,10 @@ function rowVisual(action: string): RowVisual {
     case "Approved":
       return {
         color: "green",
+        // Standalone glyph — the surrounding circle (solid verdict avatar or
+        // soft inline badge) acts as the check's container.
         verb: "approved these changes",
-        icon: <PiCheckCircleFill />,
+        icon: <PiCheckBold />,
         showCommentBody: true,
         showAuditDetails: false,
       };
@@ -147,7 +178,7 @@ function rowVisual(action: string): RowVisual {
       return {
         color: "red",
         verb: "requested changes",
-        icon: <PiChatCircleTextFill />,
+        icon: <PiPlusMinusBold />,
         showCommentBody: true,
         showAuditDetails: false,
       };
@@ -162,7 +193,7 @@ function rowVisual(action: string): RowVisual {
     case "edit comment":
       return {
         color: "gray",
-        verb: "edited the revision notes",
+        verb: "edited the revision description",
         icon: <PiPencilSimpleFill />,
         showCommentBody: false,
         showAuditDetails: false,
@@ -172,6 +203,31 @@ function rowVisual(action: string): RowVisual {
         color: "gray",
         verb: "edited the revision title",
         icon: <PiPencilSimpleFill />,
+        showCommentBody: false,
+        showAuditDetails: false,
+      };
+    case "new revision":
+      return {
+        color: "indigo",
+        verb: auditVerb(action),
+        icon: <PiFilePlus />,
+        showCommentBody: false,
+        // Keep the default-case Details disclosure — the payload carries the
+        // base-revision context.
+        showAuditDetails: true,
+      };
+    case "publish":
+    case "re-publish":
+      return {
+        color: "indigo",
+        verb:
+          action === "publish"
+            ? "published this revision"
+            : "re-published this revision",
+        icon: <PiRocketLaunch />,
+        // Publishes are plain lifecycle markers. Legacy entries may still
+        // carry a comment in their payload — ignore it and render the
+        // standard inline event.
         showCommentBody: false,
         showAuditDetails: false,
       };
@@ -311,7 +367,7 @@ export function RevisionLogRow({
         ? "red"
         : null;
   const verdictLeading = verdictAvatarColor ? (
-    <Avatar size="sm" color={verdictAvatarColor} variant="solid">
+    <Avatar size="md" color={verdictAvatarColor} variant="solid">
       <>{visual.icon}</>
     </Avatar>
   ) : undefined;
@@ -325,6 +381,7 @@ export function RevisionLogRow({
           metadata={`${visual.verb} on ${datetime(log.timestamp)}`}
           stripeColor={visual.color}
           leading={verdictLeading}
+          avatarSize="md"
           metadataExtra={
             retraction ? (
               <Badge
@@ -403,21 +460,26 @@ export function RevisionLogRow({
   return (
     <Box py="2">
       <Flex align="center" gap="3">
-        <Flex
-          align="center"
-          justify="center"
-          flexShrink="0"
-          style={{
-            width: 24,
-            height: 24,
-            borderRadius: "50%",
-            background: `var(--${visual.color}-a3)`,
-            color: `var(--${visual.color}-11)`,
-            fontSize: 14,
-          }}
-        >
-          {visual.icon}
-        </Flex>
+        {/* Verdicts use the same solid avatar as their card render so an
+            approval reads identically with or without a comment. */}
+        {verdictLeading ?? (
+          <Flex
+            align="center"
+            justify="center"
+            flexShrink="0"
+            style={{
+              // Matches the md (size "2" = 32px) card avatars.
+              width: 32,
+              height: 32,
+              borderRadius: "50%",
+              background: `var(--${visual.color}-a3)`,
+              color: `var(--${visual.color}-11)`,
+              fontSize: 20,
+            }}
+          >
+            {visual.icon}
+          </Flex>
+        )}
         <Text size="small" color="text-high">
           <Text size="inherit" weight="medium">
             <EventUser user={log.user} display="name" size="sm" />
@@ -450,8 +512,51 @@ export function RevisionLogRow({
   );
 }
 
+// Splits the full chronological log into alternating runs of visible entries
+// and collapsed "N other events" runs (entries failing the collapse
+// predicate). Runs ignore date boundaries — consecutive collapsed entries
+// merge into a single toggle even when they span several dates — so visible
+// entries carry date headers per-date within their run, and collapsed runs
+// pre-bucket their entries by date for when they're expanded. Run ids key the
+// expand/collapse state and stay stable as new entries append (they derive
+// from the run's first entry).
+type TimelineEntry = { log: RevisionLog; key: string };
+type TimelineDateGroup = { date: string; logs: TimelineEntry[] };
+type TimelineBlock =
+  | ({ type: "date" } & TimelineDateGroup)
+  | { type: "collapsed"; id: string; groups: TimelineDateGroup[] };
+
+function buildTimelineBlocks(
+  sorted: RevisionLog[],
+  collapseFilter?: (log: RevisionLog) => boolean,
+): TimelineBlock[] {
+  const blocks: TimelineBlock[] = [];
+  sorted.forEach((log, i) => {
+    const key = log.id ?? `log-${i}`;
+    const entry: TimelineEntry = { log, key };
+    const d = date(log.timestamp);
+    const last = blocks[blocks.length - 1];
+    if (!collapseFilter || collapseFilter(log)) {
+      if (last && last.type === "date" && last.date === d)
+        last.logs.push(entry);
+      else blocks.push({ type: "date", date: d, logs: [entry] });
+    } else if (last && last.type === "collapsed") {
+      const lastGroup = last.groups[last.groups.length - 1];
+      if (lastGroup.date === d) lastGroup.logs.push(entry);
+      else last.groups.push({ date: d, logs: [entry] });
+    } else {
+      blocks.push({
+        type: "collapsed",
+        id: `run-${key}`,
+        groups: [{ date: d, logs: [entry] }],
+      });
+    }
+  });
+  return blocks;
+}
+
 const Revisionlog: React.ForwardRefRenderFunction<MutateLog, Props> = (
-  { feature, revision, onRevisionMutate },
+  { feature, revision, onRevisionMutate, collapseFilter },
   ref,
 ) => {
   const { data, error, mutate } = useApi<{ log: RevisionLog[] }>(
@@ -464,12 +569,14 @@ const Revisionlog: React.ForwardRefRenderFunction<MutateLog, Props> = (
       await mutate();
     },
   }));
+  // Which collapsed "N other events" runs the user has expanded.
+  const [expandedRuns, setExpandedRuns] = useState<Set<string>>(new Set());
 
-  const { logs, verdictRetractions, activeVerdictForCurrentUser } =
+  const { blocks, verdictRetractions, activeVerdictForCurrentUser } =
     useMemo(() => {
       if (!data)
         return {
-          logs: {},
+          blocks: [] as TimelineBlock[],
           verdictRetractions: new WeakMap<RevisionLog, VerdictRetraction>(),
           activeVerdictForCurrentUser: null as RevisionLog | null,
         };
@@ -548,18 +655,12 @@ const Revisionlog: React.ForwardRefRenderFunction<MutateLog, Props> = (
         activeVerdict = entry;
         break;
       }
-      const byDate: Record<string, RevisionLog[]> = {};
-      sorted.forEach((log) => {
-        const d = date(log.timestamp);
-        byDate[d] = byDate[d] || [];
-        byDate[d].push(log);
-      });
       return {
-        logs: byDate,
+        blocks: buildTimelineBlocks(sorted, collapseFilter),
         verdictRetractions: retractions,
         activeVerdictForCurrentUser: activeVerdict,
       };
-    }, [data, userId]);
+    }, [data, userId, collapseFilter]);
 
   if (error) {
     return <Callout status="error">{error.message}</Callout>;
@@ -568,67 +669,111 @@ const Revisionlog: React.ForwardRefRenderFunction<MutateLog, Props> = (
     return <LoadingOverlay />;
   }
 
-  const hasEntries = Object.keys(logs).length > 0;
+  const renderRow = (log: RevisionLog, key: string) => (
+    <RevisionLogRow
+      log={log}
+      key={key}
+      featureId={feature.id}
+      version={revision.version}
+      onMutate={mutate}
+      retraction={verdictRetractions.get(log) ?? null}
+      onRetractVerdict={
+        log === activeVerdictForCurrentUser
+          ? async () => {
+              await apiCall(
+                `/feature/${feature.id}/${revision.version}/undo-review`,
+                { method: "POST" },
+              );
+              await mutate();
+              await onRevisionMutate?.();
+            }
+          : undefined
+      }
+    />
+  );
+
+  // A date-labelled timeline node: commit marker, date header, rows.
+  const renderDateGroup = (group: TimelineDateGroup, key: string) => (
+    <Box
+      key={key}
+      pl="5"
+      pt="3"
+      style={{
+        position: "relative",
+        borderLeft: "2px solid var(--gray-4)",
+      }}
+    >
+      <Box
+        style={{
+          // top = the group's 12px top padding + (date line-height 16 −
+          // icon 16) / 2, centering the marker on the date's line box.
+          position: "absolute",
+          left: -8,
+          top: 12,
+          color: "var(--gray-8)",
+          fontSize: 16,
+          display: "flex",
+        }}
+      >
+        <FaCodeCommit />
+      </Box>
+      <Text size="small" weight="semibold" color="text-mid" mb="3" as="div">
+        {group.date}
+      </Text>
+      <Flex direction="column" gap="3">
+        {group.logs.map(({ log, key: k }) => renderRow(log, k))}
+      </Flex>
+    </Box>
+  );
 
   return (
     <Box>
-      {hasEntries ? (
-        <Box style={{ paddingLeft: 11 }}>
-          {Object.entries(logs).map(([d, entries]) => (
-            <Box
-              key={d}
-              pl="5"
-              pt="3"
-              style={{
-                position: "relative",
-                borderLeft: "2px solid var(--gray-4)",
-              }}
-            >
-              <Box
-                style={{
-                  position: "absolute",
-                  left: -7,
-                  top: 8,
-                  color: "var(--gray-8)",
-                }}
-              >
-                <FaCodeCommit />
-              </Box>
-              <Text
-                size="small"
-                weight="semibold"
-                color="text-mid"
-                mb="3"
-                as="div"
-              >
-                {d}
-              </Text>
-              <Flex direction="column" gap="3">
-                {entries.map((log, i) => (
-                  <RevisionLogRow
-                    log={log}
-                    key={log.id ?? i}
-                    featureId={feature.id}
-                    version={revision.version}
-                    onMutate={mutate}
-                    retraction={verdictRetractions.get(log) ?? null}
-                    onRetractVerdict={
-                      log === activeVerdictForCurrentUser
-                        ? async () => {
-                            await apiCall(
-                              `/feature/${feature.id}/${revision.version}/undo-review`,
-                              { method: "POST" },
-                            );
-                            await mutate();
-                            await onRevisionMutate?.();
-                          }
-                        : undefined
+      {blocks.length > 0 ? (
+        // Rail center sits at 16px (15px padding + half the 2px border) so
+        // the line runs through the center of the 32px md avatars, including
+        // the comment composer's avatar below the timeline.
+        <Box style={{ paddingLeft: 15 }}>
+          {blocks.map((block) => {
+            if (block.type === "date") {
+              // Keyed by the first entry, not the date label — a date split
+              // by a collapsed run produces two blocks with the same date.
+              return renderDateGroup(block, block.logs[0].key);
+            }
+            const isOpen = expandedRuns.has(block.id);
+            const n = block.groups.reduce((sum, g) => sum + g.logs.length, 0);
+            return (
+              <React.Fragment key={block.id}>
+                <Box
+                  pl="5"
+                  py="3"
+                  style={{ borderLeft: "2px solid var(--gray-4)" }}
+                >
+                  <Button
+                    variant="ghost"
+                    color="gray"
+                    size="xs"
+                    mt="0"
+                    mb="0"
+                    icon={isOpen ? <FaAngleDown /> : <FaAngleRight />}
+                    onClick={() =>
+                      setExpandedRuns((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(block.id)) next.delete(block.id);
+                        else next.add(block.id);
+                        return next;
+                      })
                     }
-                  />
-                ))}
-              </Flex>
-            </Box>
-          ))}
+                  >
+                    {n} other event{n === 1 ? "" : "s"}
+                  </Button>
+                </Box>
+                {isOpen &&
+                  block.groups.map((g) =>
+                    renderDateGroup(g, `${block.id}-${g.date}`),
+                  )}
+              </React.Fragment>
+            );
+          })}
         </Box>
       ) : (
         <Text as="p" color="text-low" fontStyle="italic" mt="3">

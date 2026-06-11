@@ -29,7 +29,12 @@ import {
 } from "shared/types/events/event-types";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FaArrowLeft } from "react-icons/fa";
-import { PiLockSimple, PiGitMergeBold, PiCaretDownBold } from "react-icons/pi";
+import {
+  PiLockSimple,
+  PiGitMergeBold,
+  PiCaretDownBold,
+  PiHourglassHighFill,
+} from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { format } from "date-fns";
@@ -46,7 +51,10 @@ import { getFutureScheduledStartDate } from "@/services/experiments";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
 import LinkButton from "@/components/Button";
-import Revisionlog, { MutateLog } from "@/components/Features/RevisionLog";
+import Revisionlog, {
+  MutateLog,
+  REVIEW_ACTIVITY_ACTIONS,
+} from "@/components/Features/RevisionLog";
 import useApi from "@/hooks/useApi";
 import RevisionLabel from "@/components/Features/RevisionLabel";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -63,6 +71,7 @@ import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import Heading from "@/ui/Heading";
+import Avatar from "@/ui/Avatar";
 import Badge from "@/ui/Badge";
 import {
   revisionStatusBadgeVariant,
@@ -83,9 +92,20 @@ import {
   DiffCommentsProps,
   RevisionCommentSection,
 } from "@/components/Features/RevisionDiffUtils";
-import { buildAnchoredCommentMap } from "@/components/Features/diffCommentRefs";
+import {
+  buildAnchoredCommentMap,
+  REVIEW_SUBTAB_EVENT,
+} from "@/components/Features/diffCommentRefs";
+import useURLHash from "@/hooks/useURLHash";
+import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
+
+// Sub-views of the review surface: "overview" is the conversation-first view
+// (notes, human-readable changes, review activity), "changes" is the diff-first
+// view (JSON diffs, full edit timeline, inline diff comments).
+type ReviewSubTab = "overview" | "changes";
 import DivergenceNotice from "@/components/Features/DivergenceNotice";
 import HelperText from "@/ui/HelperText";
+import Metadata from "@/ui/Metadata";
 import ReviewCommentPopover from "@/components/Features/ReviewCommentPopover";
 import CommentComposer from "@/components/Comments/CommentComposer";
 import {
@@ -151,7 +171,11 @@ function PersonRow({
           </Text>
         )}
       </Box>
-      {trailing && <Box flexShrink="0">{trailing}</Box>}
+      {trailing && (
+        <Flex flexShrink="0" align="center" style={{ alignSelf: "stretch" }}>
+          {trailing}
+        </Flex>
+      )}
     </Flex>
   );
 }
@@ -162,32 +186,54 @@ function PersonRow({
 function ReviewerVerdictIcon({
   status,
   name,
+  timestamp,
+  stale,
 }: {
   status: "approved" | "changes-requested";
   name: string;
+  timestamp?: string;
+  // The draft's content changed after this verdict (see the reviewers memo).
+  stale?: boolean;
 }) {
   const color = revisionStatusColor(status);
   const who = name || "This reviewer";
-  const content =
+  const verdict =
     status === "approved"
       ? `${who} approved these changes`
       : `${who} requested changes`;
+  const when = timestamp
+    ? ` on ${format(new Date(timestamp), "MMM d, yyyy")}`
+    : "";
+  const staleNote = stale ? " — the draft has changed since" : "";
+  const content = `${verdict}${when}${staleNote}`;
   return (
     <Tooltip content={content}>
-      <Flex
-        align="center"
-        justify="center"
-        style={{
-          width: 24,
-          height: 24,
-          borderRadius: "50%",
-          background: `var(--${color}-a3)`,
-          color: `var(--${color}-11)`,
-          fontSize: 14,
-        }}
-      >
-        {revisionStatusIcon(status)}
-      </Flex>
+      <Box style={{ position: "relative", display: "inline-flex" }}>
+        {/* Stale verdicts mute to the soft variant with an hourglass pip —
+            still attributable, but visibly not vouching for the current
+            draft content. */}
+        <Avatar size="sm" color={color} variant={stale ? "soft" : "solid"}>
+          <>{revisionStatusIcon(status)}</>
+        </Avatar>
+        {stale && (
+          <Flex
+            align="center"
+            justify="center"
+            style={{
+              position: "absolute",
+              right: -5,
+              bottom: -4,
+              color: "var(--gray-10)",
+              fontSize: 13,
+              // Halo separates the glyph from the chip without boxing it in.
+              filter:
+                "drop-shadow(0 0 1.5px var(--color-panel-solid)) drop-shadow(0 0 1.5px var(--color-panel-solid))",
+            }}
+          >
+            <PiHourglassHighFill />
+          </Flex>
+        )}
+      </Box>
     </Tooltip>
   );
 }
@@ -254,23 +300,107 @@ export default function ReviewAndPublish({
     { shouldRun: () => !!revision },
   );
   const { reviewers, approvedAt } = useMemo<{
-    reviewers: { id: string; status: "approved" | "changes-requested" }[];
+    reviewers: {
+      id: string;
+      status: "approved" | "changes-requested";
+      timestamp: string;
+      // The draft's content changed after this verdict was given (only
+      // possible when the org doesn't reset reviews on change — otherwise
+      // the verdict would have been cleared server-side).
+      stale: boolean;
+      // Display fallbacks from the baked review's event user, for reviewers
+      // not present in the members map (e.g. API keys).
+      name?: string;
+      email?: string;
+    }[];
     // Timestamp of the most recent *surviving* approval (retractions and
     // recalls invalidate earlier verdicts). Used to quantify how stale an
     // approval is in the divergence notice.
     approvedAt: string | null;
   }>(() => {
     const log = logData?.log;
+    const sorted = log
+      ? [...log].sort((a, b) =>
+          (a.timestamp as unknown as string).localeCompare(
+            b.timestamp as unknown as string,
+          ),
+        )
+      : [];
+    // Most recent content-mutating entry: anything that isn't conversation /
+    // review lifecycle (those are in REVIEW_ACTIVITY_ACTIONS) or a
+    // presentation-only edit. Verdicts older than this predate the changes
+    // they vouched for.
+    const PRESENTATION_ACTIONS = new Set(["edit comment", "edit title"]);
+    const lastContentEditAt =
+      sorted
+        .filter(
+          (e) =>
+            !REVIEW_ACTIVITY_ACTIONS.has(e.action) &&
+            !PRESENTATION_ACTIONS.has(e.action),
+        )
+        .map((e) => e.timestamp as unknown as string)
+        .pop() ?? null;
+    const isStale = (ts: string) =>
+      (lastContentEditAt ?? null) !== null &&
+      new Date(ts).getTime() < new Date(lastContentEditAt as string).getTime();
+    const finish = (
+      entries: {
+        id: string;
+        status: "approved" | "changes-requested";
+        timestamp: string;
+        // The model already demoted this verdict to a "-stale" variant.
+        forceStale?: boolean;
+        name?: string;
+        email?: string;
+      }[],
+    ) => {
+      const approvedTimestamps = entries
+        .filter((v) => v.status === "approved" && !v.forceStale)
+        .map((v) => v.timestamp)
+        .sort();
+      return {
+        reviewers: entries.map(({ forceStale, ...v }) => ({
+          ...v,
+          stale: forceStale || isStale(v.timestamp),
+        })),
+        approvedAt: approvedTimestamps[approvedTimestamps.length - 1] ?? null,
+      };
+    };
+
+    // Preferred source: the baked `reviews` field. It's authoritative — the
+    // server clears it on recall, re-request, and reset-on-change — and it's
+    // exactly what `validateFeatureRevision` policy hooks evaluate. Legacy
+    // revisions (no baked field yet) fall back to replaying the log below.
+    if (revision?.reviews) {
+      return finish(
+        revision.reviews.map((r) => ({
+          id: r.userId,
+          // "-stale" variants (verdicts demoted by later content edits) keep
+          // their base verdict for display; `finish` re-derives the stale
+          // flag from timestamps, which these always trip.
+          status:
+            r.status === "approved" || r.status === "approved-stale"
+              ? ("approved" as const)
+              : ("changes-requested" as const),
+          forceStale:
+            r.status === "approved-stale" ||
+            r.status === "changes-requested-stale",
+          timestamp: new Date(r.timestamp).toISOString(),
+          name:
+            r.user && "name" in r.user && r.user.name ? r.user.name : undefined,
+          email:
+            r.user && "email" in r.user && r.user.email
+              ? r.user.email
+              : undefined,
+        })),
+      );
+    }
+
     if (!log) return { reviewers: [], approvedAt: null };
     // Replay the lifecycle chronologically so retractions (Undo Review by
     // the reviewer) and recalls (Recall Review by the author) properly
     // invalidate prior verdicts. Without this, a reviewer who pulls back
     // their approval would still appear listed with the stale verdict.
-    const sorted = [...log].sort((a, b) =>
-      (a.timestamp as unknown as string).localeCompare(
-        b.timestamp as unknown as string,
-      ),
-    );
     const byUser = new Map<
       string,
       { status: "approved" | "changes-requested"; timestamp: string }
@@ -297,15 +427,14 @@ export default function ReviewAndPublish({
         byUser.delete(uid);
       }
     }
-    const approvedTimestamps = [...byUser.values()]
-      .filter((v) => v.status === "approved")
-      .map((v) => v.timestamp)
-      .sort();
-    return {
-      reviewers: Array.from(byUser, ([id, v]) => ({ id, status: v.status })),
-      approvedAt: approvedTimestamps[approvedTimestamps.length - 1] ?? null,
-    };
-  }, [logData]);
+    return finish(
+      Array.from(byUser, ([id, v]) => ({
+        id,
+        status: v.status,
+        timestamp: v.timestamp,
+      })),
+    );
+  }, [logData, revision]);
 
   // User ID of whoever most recently submitted a "Review Requested" entry.
   // Used to gate "Retract review request" so only the requester sees it.
@@ -392,6 +521,31 @@ export default function ReviewAndPublish({
   const [secondaryError, setSecondaryError] = useState<string | null>(null);
   const [actionsDropdownOpen, setActionsDropdownOpen] = useState(false);
   const revisionLogRef = useRef<MutateLog>(null);
+
+  // ── Sub-tabs ──
+  // "Overview" (human-readable changes + review activity) vs "Changes" (JSON
+  // diffs + full timeline). Reflected in the URL hash as `#review` /
+  // `#review,changes` so the view is deep-linkable; a bare `#review` reads as
+  // Overview.
+  const [urlHash, setUrlHash] = useURLHash();
+  const subTab: ReviewSubTab =
+    urlHash?.split(",")[1] === "changes" ? "changes" : "overview";
+  const setSubTab = useCallback(
+    (t: ReviewSubTab) => {
+      setUrlHash(t === "changes" ? "review,changes" : "review");
+    },
+    [setUrlHash],
+  );
+  // Diff-ref widgets broadcast a sub-tab request before scrolling (their
+  // line-level targets only exist on the Changes tab).
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail === "overview" || detail === "changes") setSubTab(detail);
+    };
+    window.addEventListener(REVIEW_SUBTAB_EVENT, handler);
+    return () => window.removeEventListener(REVIEW_SUBTAB_EVENT, handler);
+  }, [setSubTab]);
 
   // ── Diff comment anchors ──
   // Comments whose markdown carries a visible ref token (`diff:rules:R12`)
@@ -648,37 +802,73 @@ export default function ReviewAndPublish({
     );
   }
 
-  // ── Shared left column (both the draft flow and the read-only review):
-  // notes + full diffs, followed by the lifecycle/audit timeline and the
-  // comment composer. ──
+  // ── Sub-tab bar: Overview | Changes, full-width underline (rendered above
+  // the two-column layout in both the draft and read-only flows). ──
+  const subTabBar = (
+    <Box mb="4">
+      <Tabs value={subTab} onValueChange={(v) => setSubTab(v as ReviewSubTab)}>
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="changes">Changes</TabsTrigger>
+        </TabsList>
+      </Tabs>
+    </Box>
+  );
+
+  // ── Shared left column (both the draft flow and the read-only review).
+  // Overview: notes + height-capped human-readable changes + the review
+  // activity timeline. Changes: JSON/Full JSON diffs (with the comment
+  // gutter) + the full edit timeline. Both end with the comment composer. ──
   const renderLeftColumn = (
     diffs: FeatureRevisionDiff[],
     raw: { before: unknown; after: unknown },
   ) => (
     <>
-      <RevisionCommentSection
-        featureId={feature.id}
-        versions={[
-          {
-            version: revision.version,
-            revisionComment: revision.comment,
-            title: revision.title,
-          },
-        ]}
-        isDraft={isActiveDraft}
-        canEdit={permissionsUtil.canManageFeatureDrafts(feature)}
-        onSaved={mutate}
-      />
+      {subTab === "overview" && (
+        <RevisionCommentSection
+          featureId={feature.id}
+          versions={[
+            {
+              version: revision.version,
+              revisionComment: revision.comment,
+              title: revision.title,
+            },
+          ]}
+          isDraft={isActiveDraft}
+          canEdit={permissionsUtil.canManageFeatureDrafts(feature)}
+          onSaved={mutate}
+        />
+      )}
 
       <Box className="appbox" mb="0">
-        <DiffContent
-          diffs={diffs}
-          feature={feature}
-          outOfOrderWarning={false}
-          raw={raw}
-          variant="card"
-          diffComments={diffComments}
-        />
+        {subTab === "overview" ? (
+          <DiffContent
+            diffs={diffs}
+            feature={feature}
+            outOfOrderWarning={false}
+            raw={raw}
+            variant="card"
+            formats={["formatted"]}
+            collapsedMaxHeight={250}
+            // Strictly human-readable: no JSON fallback, no export button —
+            // both live on the Changes tab.
+            jsonFallback={false}
+            showCopyAs={false}
+          />
+        ) : (
+          <DiffContent
+            diffs={diffs}
+            feature={feature}
+            outOfOrderWarning={false}
+            raw={raw}
+            variant="card"
+            formats={["json", "raw"]}
+            diffComments={diffComments}
+            // The Overview tab already carries the summary heading + badges;
+            // here we go straight to the diffs.
+            showSummaryHeader={false}
+          />
+        )}
       </Box>
 
       {/* The timeline's vertical line runs straight out of the bottom of
@@ -689,6 +879,14 @@ export default function ReviewAndPublish({
           revision={revision}
           ref={revisionLogRef}
           onRevisionMutate={mutate}
+          // Overview foregrounds the conversation: comments, verdicts, and
+          // lifecycle events. Granular content-edit entries collapse into
+          // per-run "N other events" toggles.
+          collapseFilter={
+            subTab === "overview"
+              ? (l) => REVIEW_ACTIVITY_ACTIONS.has(l.action)
+              : undefined
+          }
         />
 
         {/* Composer sits below the timeline — entries are chronological
@@ -706,13 +904,13 @@ export default function ReviewAndPublish({
                   email: userEmail || "",
                 }}
                 display="avatar"
-                size="sm"
+                size="md"
               />
             </Box>
             <Box flexGrow="1" style={{ minWidth: 0 }}>
-              {/* Fixed-height row matching the 24px sm avatar so the label
+              {/* Fixed-height row matching the 32px md avatar so the label
                     centers against it */}
-              <Flex align="center" style={{ height: 24 }}>
+              <Flex align="center" style={{ height: 32 }}>
                 <Heading as="h4" size="small" mb="0">
                   Add a comment
                 </Heading>
@@ -740,15 +938,39 @@ export default function ReviewAndPublish({
   // Contributor IDs (author + everyone whose edits touched the revision).
   // Hoisted above the read-only branch so both the draft flow and the
   // read-only column can render the same Contributors / Reviewers widgets.
+  // System actors (e.g. ramp schedules) stamp their own id into createdBy and
+  // contributors; those aren't org members, so exclude them from the people
+  // rows and render a "Generated by" line instead (same as the overview page).
+  const systemCreator =
+    revision.createdBy?.type === "system" ? revision.createdBy : null;
   const authorId =
-    revision.createdBy && "id" in revision.createdBy && revision.createdBy.id
+    !systemCreator &&
+    revision.createdBy &&
+    "id" in revision.createdBy &&
+    revision.createdBy.id
       ? revision.createdBy.id
       : undefined;
-  const contribIds = revision.contributors ?? [];
+  const contribIds = (revision.contributors ?? []).filter(
+    (id) => id !== systemCreator?.id,
+  );
   const contributorIds =
     authorId && !contribIds.includes(authorId)
       ? [authorId, ...contribIds]
       : contribIds;
+  const generatedByRow = systemCreator ? (
+    <Box mb="3">
+      <Metadata
+        label="Generated by"
+        value={
+          <em>
+            {systemCreator.subtype === "ramp-schedule"
+              ? "ramp schedule"
+              : "system"}
+          </em>
+        }
+      />
+    </Box>
+  ) : null;
 
   // Read-only review: the selected version is not an active draft. Same
   // two-column layout as the draft flow, but the actions column offers the
@@ -851,9 +1073,11 @@ export default function ReviewAndPublish({
             gap="2"
             style={{ color: `var(--${statusColor}-11)` }}
           >
-            <Box style={{ fontSize: 14, lineHeight: 1, display: "flex" }}>
-              {revisionStatusIcon(status)}
-            </Box>
+            {revisionStatusIcon(status) && (
+              <Box style={{ fontSize: 18, lineHeight: 1, display: "flex" }}>
+                {revisionStatusIcon(status)}
+              </Box>
+            )}
             <Heading as="h4" size="small">
               <span style={{ color: `var(--${statusColor}-11)` }}>
                 {revisionStatusLabel(status)}
@@ -865,6 +1089,7 @@ export default function ReviewAndPublish({
         <Box p="4">
           {/* People: same widgets as the draft flow. Useful on locked / live
               / discarded revisions for attribution and audit context. */}
+          {generatedByRow}
           {contributorIds.length > 0 && (
             <Box mb="3">
               <Text
@@ -904,18 +1129,22 @@ export default function ReviewAndPublish({
                 Reviewers
               </Text>
               <Flex direction="column" gap="2">
-                {reviewers.map(({ id, status }) => {
+                {reviewers.map(({ id, status, timestamp, stale, ...r }) => {
                   const u = users.get(id);
+                  const name = u?.name || r.name || "";
+                  const email = u?.email || r.email || "";
                   return (
                     <PersonRow
                       key={id}
                       id={id}
-                      name={u?.name || ""}
-                      email={u?.email || ""}
+                      name={name}
+                      email={email}
                       trailing={
                         <ReviewerVerdictIcon
                           status={status}
-                          name={u?.name || u?.email || ""}
+                          name={name || email}
+                          timestamp={timestamp}
+                          stale={stale}
                         />
                       }
                     />
@@ -1007,6 +1236,7 @@ export default function ReviewAndPublish({
           </ModalStandard>
         )}
         {readonlyHeader}
+        {subTabBar}
         <Flex gap="5" align="start">
           <Box style={{ flex: 1, minWidth: 0 }}>
             {renderLeftColumn(readonlyDiffs, {
@@ -1359,7 +1589,7 @@ export default function ReviewAndPublish({
   // ── Simple full-width states (no two-column layout) ──
   // Hard merge conflicts no longer short-circuit the page: keep the
   // two-column layout so reviewers can still see draft-vs-live changes
-  // alongside a "Resolve conflicts" CTA in the actions column.
+  // alongside a "Fix conflicts" CTA in the actions column.
   if (!hasChanges) {
     return pageWrapper(
       <Callout status="info">
@@ -1497,9 +1727,11 @@ export default function ReviewAndPublish({
           gap="2"
           style={{ color: `var(--${statusColor}-11)` }}
         >
-          <Box style={{ fontSize: 14, lineHeight: 1, display: "flex" }}>
-            {revisionStatusIcon(revision.status)}
-          </Box>
+          {revisionStatusIcon(revision.status) && (
+            <Box style={{ fontSize: 18, lineHeight: 1, display: "flex" }}>
+              {revisionStatusIcon(revision.status)}
+            </Box>
+          )}
           <Heading as="h4" size="small">
             <span style={{ color: `var(--${statusColor}-11)` }}>
               {revisionStatusLabel(revision.status)}
@@ -1561,6 +1793,7 @@ export default function ReviewAndPublish({
             beneath. Both render compactly — avatar + name on top, email
             below — so long emails wrap naturally instead of overflowing
             the narrow actions column. ── */}
+        {generatedByRow}
         {contributorIds.length > 0 && (
           <Box mb="3">
             <Text
@@ -1600,18 +1833,22 @@ export default function ReviewAndPublish({
               Reviewers
             </Text>
             <Flex direction="column" gap="2">
-              {reviewers.map(({ id, status }) => {
+              {reviewers.map(({ id, status, timestamp, stale, ...r }) => {
                 const u = users.get(id);
+                const name = u?.name || r.name || "";
+                const email = u?.email || r.email || "";
                 return (
                   <PersonRow
                     key={id}
                     id={id}
-                    name={u?.name || ""}
-                    email={u?.email || ""}
+                    name={name}
+                    email={email}
                     trailing={
                       <ReviewerVerdictIcon
                         status={status}
-                        name={u?.name || u?.email || ""}
+                        name={name || email}
+                        timestamp={timestamp}
+                        stale={stale}
                       />
                     }
                   />
@@ -1653,65 +1890,36 @@ export default function ReviewAndPublish({
 
         {/* ─── Publish footer ─── */}
         {(() => {
-          // Step actions that come before publish (Request Review, Submit Review, Next).
+          // Step actions that come before publish (Request Review, Submit
+          // Review, Next). Not gated on conflict state — requesting a review
+          // is allowed while conflicts exist; only publishing is blocked.
           const isStepAction =
-            state.mode === "main" &&
             state.hasSubmit &&
             state.submitAction !== "publish" &&
             state.submitAction !== "none";
 
-          // What's blocking publish right now (raw, ignoring adminPublish so the
-          // reason is still visible while the checkbox is unchecked).
-          // `buttonLabel` — when set, the button shows this instead of "Publish"
-          //   and no callout is rendered below (the label is self-explanatory).
-          // `reason` — shown as a status callout below the button for technical
-          //   blocks where the label alone isn't enough context (e.g. merge
-          //   conflicts).
-          type BlockInfo = {
-            reason?: string;
-            buttonLabel?: string;
-            overridable: boolean;
-          } | null;
+          // What's blocking publish right now (raw, ignoring adminPublish so
+          // the block is still visible while the checkbox is unchecked). The
+          // button label never changes — the surrounding context (status
+          // header, divergence notice, conflict callout) explains why it's
+          // disabled. `overridable` gates the admin-bypass checkbox.
+          type BlockInfo = { overridable: boolean } | null;
           const blockInfo: BlockInfo = (() => {
-            if (!mergeResult.success)
-              return {
-                buttonLabel: "Resolve conflicts to publish",
-                overridable: false,
-              };
-            if (!hasChanges)
-              return { buttonLabel: "Nothing to publish", overridable: false };
-            if (!hasPublishPermission)
-              return {
-                buttonLabel: "No publish permission",
-                overridable: false,
-              };
-            if (requireReviews && !adminPublish) {
-              if (revision.status === "draft")
-                return {
-                  buttonLabel: "Review required to publish",
-                  overridable: true,
-                };
-              if (revision.status === "pending-review")
-                return {
-                  buttonLabel: "Awaiting approval to publish",
-                  overridable: true,
-                };
-              if (revision.status === "changes-requested")
-                return {
-                  buttonLabel: "Changes requested — cannot publish",
-                  overridable: true,
-                };
-            }
+            if (!mergeResult.success) return { overridable: false };
+            if (!hasChanges) return { overridable: false };
+            if (!hasPublishPermission) return { overridable: false };
+            if (
+              requireReviews &&
+              !adminPublish &&
+              ["draft", "pending-review", "changes-requested"].includes(
+                revision.status,
+              )
+            )
+              return { overridable: true };
             if (!adminPublish && !governance?.canPublish)
-              return {
-                buttonLabel: "Rebase required to publish",
-                overridable: true,
-              };
+              return { overridable: true };
             if (!adminPublish && featureLockedByRamp)
-              return {
-                buttonLabel: "Locked by active ramp schedule",
-                overridable: true,
-              };
+              return { overridable: true };
             return null;
           })();
 
@@ -1745,7 +1953,26 @@ export default function ReviewAndPublish({
                 pt="4"
                 style={{ borderTop: "1px solid var(--gray-a5)" }}
               >
+                {/* Divergence/rebase notice renders above the publish button
+                    so users consider rebasing before reaching for Publish. */}
+                {governance && (
+                  <DivergenceNotice
+                    governance={governance}
+                    liveVersion={feature.version}
+                    baseVersion={revision.baseVersion}
+                    onUpdateFromLive={onUpdateFromLive}
+                    updating={rebasing}
+                    canRebase={permissionsUtil.canManageFeatureDrafts(feature)}
+                    onResolveConflicts={() => setResolveConflicts(true)}
+                    approvedAt={approvedAt}
+                    revisionsSinceApproval={revisionsSinceApproval}
+                  />
+                )}
+
+                {/* Merge conflicts are never admin-overridable — hide the
+                    bypass checkbox entirely while one exists. */}
                 {canAdminPublish &&
+                  mergeResult.success &&
                   (blockInfo?.overridable || adminPublish) && (
                     <Box mb="3">
                       <Checkbox
@@ -1771,42 +1998,15 @@ export default function ReviewAndPublish({
                   icon={state.ctaLocked ? <PiLockSimple /> : undefined}
                   style={{ width: "100%" }}
                 >
-                  {blockInfo?.buttonLabel ??
-                    (onlyScheduledSelected ? "Schedule to Start" : "Publish")}
+                  {onlyScheduledSelected ? "Schedule to Start" : "Publish"}
                 </Button>
 
                 {/* ── Uniform status displays for the publish state ──
                     All callouts use the same size, spacing, and chrome so
                     the column doesn't read as a pile of differently-styled
-                    messages. Stacked in priority order: blocking reason,
-                    governance/divergence, ramps, errors, and finally the
-                    "no approval necessary" note. */}
+                    messages. Stacked in priority order: ramps, errors, and
+                    finally the "no approval necessary" note. */}
                 <Flex direction="column" gap="2" mt="3">
-                  {blockInfo?.reason && (
-                    <Callout
-                      status={blockInfo.overridable ? "warning" : "error"}
-                      size="sm"
-                    >
-                      {blockInfo.reason}
-                    </Callout>
-                  )}
-
-                  {governance && (
-                    <DivergenceNotice
-                      governance={governance}
-                      liveVersion={feature.version}
-                      baseVersion={revision.baseVersion}
-                      onUpdateFromLive={onUpdateFromLive}
-                      updating={rebasing}
-                      canRebase={permissionsUtil.canManageFeatureDrafts(
-                        feature,
-                      )}
-                      onResolveConflicts={() => setResolveConflicts(true)}
-                      approvedAt={approvedAt}
-                      revisionsSinceApproval={revisionsSinceApproval}
-                    />
-                  )}
-
                   {linkedRamps.map((ramp) => (
                     <Callout key={ramp.id} status="info" size="sm">
                       Publishing this draft will activate ramp schedule{" "}
@@ -1861,6 +2061,9 @@ export default function ReviewAndPublish({
     <>
       {conflictModal}
       {mergeHeader}
+      {/* The experiments checklist step temporarily replaces the left column;
+          hide the sub-tabs so the step reads as a focused flow. */}
+      {!experimentsStep && subTabBar}
       <Flex gap="5" align="start">
         <Box style={{ flex: 1, minWidth: 0 }}>{changesColumn}</Box>
         <Box style={{ width: 360, minWidth: 360, flexShrink: 0 }}>

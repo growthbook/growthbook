@@ -46,6 +46,10 @@ export default function ReviewCommentPopover({
     setError(null);
   };
 
+  // Verdicts (Approve / Request changes) may stand alone, but a plain
+  // "Comment" decision with no text would create an empty log entry.
+  const canSubmit = decision !== "Comment" || comment.trim().length > 0;
+
   const handleSubmit = async () => {
     setLoading(true);
     setError(null);
@@ -120,7 +124,7 @@ export default function ReviewCommentPopover({
         >
           Cancel
         </LinkButton>
-        <Button onClick={handleSubmit} loading={loading}>
+        <Button onClick={handleSubmit} loading={loading} disabled={!canSubmit}>
           Submit
         </Button>
       </Flex>

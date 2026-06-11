@@ -966,8 +966,13 @@ export function computeRevisionUpdate(
   proposedRevision: FeatureRevisionInterface;
   // True when the edit knocked a verdict-bearing status (approved /
   // changes-requested) back to pending-review — standing reviewer verdicts no
-  // longer apply to the new content and must be scrubbed from `reviews`.
+  // longer apply to the new content. They aren't deleted: they flip to their
+  // "-stale" variants (see `staleReviews`) so they stay attributable in the
+  // UI and visible to policy hooks, without counting as active verdicts.
   clearReviews: boolean;
+  // The `reviews` array to persist when `clearReviews` is true: prior active
+  // verdicts demoted to "approved-stale" / "changes-requested-stale".
+  staleReviews: FeatureRevisionInterface["reviews"];
 } {
   let status = revision.status;
 
@@ -1019,6 +1024,17 @@ export function computeRevisionUpdate(
 
   const clearReviews =
     status === "pending-review" && revision.status !== "pending-review";
+  const staleReviews = clearReviews
+    ? (revision.reviews ?? []).map((r) => ({
+        ...r,
+        status:
+          r.status === "approved"
+            ? ("approved-stale" as const)
+            : r.status === "changes-requested"
+              ? ("changes-requested-stale" as const)
+              : r.status,
+      }))
+    : undefined;
 
   return {
     normalizedChanges,
@@ -1027,9 +1043,10 @@ export function computeRevisionUpdate(
       ...revision,
       ...normalizedChanges,
       status,
-      ...(clearReviews ? { reviews: [] } : {}),
+      ...(clearReviews ? { reviews: staleReviews } : {}),
     },
     clearReviews,
+    staleReviews,
   };
 }
 
@@ -1064,8 +1081,13 @@ export async function updateRevision(
   log: Omit<RevisionLog, "timestamp">,
   resetReview: boolean,
 ) {
-  const { normalizedChanges, status, proposedRevision, clearReviews } =
-    computeRevisionUpdate(context, feature, revision, changes, resetReview);
+  const {
+    normalizedChanges,
+    status,
+    proposedRevision,
+    clearReviews,
+    staleReviews,
+  } = computeRevisionUpdate(context, feature, revision, changes, resetReview);
 
   await runValidateFeatureRevisionHooks({
     context,
@@ -1091,9 +1113,10 @@ export async function updateRevision(
         ...normalizedChanges,
         status,
         dateUpdated: new Date(),
-        // The edit invalidated standing verdicts — scrub them so policy hooks
-        // and the REST API don't count approvals made against older content.
-        ...(clearReviews ? { reviews: [] } : {}),
+        // The edit invalidated standing verdicts — demote them to "-stale" so
+        // policy hooks and the REST API don't count approvals made against
+        // older content, while the UI can still attribute them.
+        ...(clearReviews ? { reviews: staleReviews } : {}),
       },
       ...contributorUpdate,
     },
@@ -1190,6 +1213,9 @@ export async function markRevisionAsPublished(
   );
 
   // Fire and forget - no route that marks the revision as published expects the log to be there immediately
+  // Note: no comment in the payload — publish events are plain lifecycle
+  // markers. Any publish-time comment only feeds the revision description
+  // fallback (computeRevisionPublishChanges), not the log.
   context.models.featureRevisionLogs
     .create({
       featureId: revision.featureId,
@@ -1197,7 +1223,7 @@ export async function markRevisionAsPublished(
       action,
       subject: "",
       user,
-      value: JSON.stringify(comment ? { comment } : {}),
+      value: JSON.stringify({}),
     })
     .catch((e) => {
       logger.error(e, "Error creating revisionlog");

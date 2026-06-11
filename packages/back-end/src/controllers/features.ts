@@ -1139,6 +1139,11 @@ export async function postFeatureReviewOrComment(
   }
   const createdByUser = revision.createdBy as EventUserLoggedIn;
 
+  // Verdicts may stand alone, but a plain comment must have a body.
+  if (review === "Comment" && !comment?.trim()) {
+    throw new Error("Comment cannot be empty");
+  }
+
   if (createdByUser?.id === context.userId && review !== "Comment") {
     throw Error("cannot submit a review for your self");
   }
@@ -1277,6 +1282,9 @@ export async function putFeatureRevisionLogComment(
   const context = getContextFromReq(req);
   const { id, logId } = req.params;
   const { comment } = req.body;
+  if (!comment?.trim()) {
+    throw new Error("Comment cannot be empty");
+  }
   const feature = await getFeature(context, id);
   if (!feature) throw new Error("Could not find feature");
   await context.models.featureRevisionLogs.updateCommentText(logId, comment);
@@ -1492,10 +1500,11 @@ export async function postFeaturePublish(
     throw new Error("Can only publish Draft revisions");
   }
 
-  if (adminOverride && requiresReview) {
-    if (!context.permissions.canBypassApprovalChecks(feature)) {
-      context.permissions.throwPermissionError();
-    }
+  // adminOverride skips review requirements AND the rebase-required governance
+  // gate below, so it always demands the bypass permission — not just when
+  // reviews are required.
+  if (adminOverride && !context.permissions.canBypassApprovalChecks(feature)) {
+    context.permissions.throwPermissionError();
   }
   if (JSON.stringify(mergeResult) !== mergeResultSerialized) {
     throw new Error(

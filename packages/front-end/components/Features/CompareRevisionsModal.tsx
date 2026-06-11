@@ -328,7 +328,9 @@ function LogEntryMeta({ log }: { log: RevisionLog }) {
   return (
     <Box>
       <Heading as="h4" size="small" mb="3">
-        {log.action === "edit comment" ? "Edit revision notes" : log.action}
+        {log.action === "edit comment"
+          ? "Edit revision description"
+          : log.action}
       </Heading>
       <Flex direction="column" gap="2">
         {rows.map(([label, value]) => (

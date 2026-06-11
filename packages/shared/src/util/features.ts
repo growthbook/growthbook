@@ -1121,7 +1121,7 @@ export interface PublishGovernanceResult {
   // because changes were published after approval.
   staleApproval: boolean;
   // Rebasing is advisable (divergence or a stale approval). UI should surface
-  // an "Update from live" affordance.
+  // a "Rebase with live" affordance.
   recommendRebase: boolean;
   // Rebasing/conflict-resolution is mandatory before publishing (hard conflict,
   // or org policy requires same-base merges, or a stale approval under policy).
@@ -1177,8 +1177,8 @@ export function evaluatePublishGovernance({
   } else if (rebaseRequired) {
     canPublish = false;
     blockReason = staleApproval
-      ? "Changes were published after this draft was approved. Update from live and get re-approval before publishing."
-      : "This draft is based on an older version. Update from live before publishing.";
+      ? "Changes were published after this draft was approved. Rebase with live and get re-approval before publishing."
+      : "This draft is based on an older version. Rebase with live before publishing.";
   }
 
   return {

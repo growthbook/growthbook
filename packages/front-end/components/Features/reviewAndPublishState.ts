@@ -113,19 +113,10 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
   const canUndoReview =
     hasReviewPermission && isReviewer && undoableStatuses.includes(status);
 
-  // Hard conflicts always route to the conflict-resolution flow first.
-  if (!mergeSuccess) {
-    return {
-      mode: "fix-conflicts",
-      ctaLabel: "Update Draft",
-      ctaEnabled: false, // enabled once all conflicts are resolved (handled in-view)
-      ctaLocked: false,
-      submitAction: "none",
-      hasSubmit: true,
-      canRecallReview,
-      canUndoReview,
-    };
-  }
+  // Hard conflicts block publishing (never bypassable), but the review
+  // workflow — requesting reviews, submitting verdicts, retracting — stays
+  // available so the conversation can continue while conflicts are resolved.
+  const mode: RnPMode = mergeSuccess ? "main" : "fix-conflicts";
 
   const isPendingReview =
     status === "pending-review" || status === "changes-requested";
@@ -135,13 +126,15 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
   if (!requireReviews) {
     const hasNextStep =
       mergeSuccess && hasChanges && hasSelectedExperiments && !experimentsStep;
+    // Admins can bypass a forced rebase (governance), but never unresolved
+    // merge conflicts — those are handled by the fix-conflicts mode above.
     const ctaEnabled =
       mergeSuccess &&
       hasChanges &&
       (!featureLockedByRamp || adminPublish) &&
-      governanceCanPublish;
+      (governanceCanPublish || adminPublish);
     return {
-      mode: "main",
+      mode,
       ctaLabel: hasNextStep
         ? "Next"
         : publishLabel(featureLockedByRamp, onlyScheduledSelected),
@@ -155,7 +148,8 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
   }
 
   // ── Review path (approvals required) ──
-  const hasNextStep = approved && hasSelectedExperiments && !experimentsStep;
+  const hasNextStep =
+    mergeSuccess && approved && hasSelectedExperiments && !experimentsStep;
 
   let ctaLabel = "Request Review";
   let ctaLocked = false;
@@ -184,10 +178,13 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
   const ctaEnabled =
     !(experimentsStep && checklistBlocked && !adminPublish) &&
     (!featureLockedByRamp || adminPublish) &&
-    !(approved && !governanceCanPublish && !adminPublish);
+    !(approved && !governanceCanPublish && !adminPublish) &&
+    // Publishing is the only action a conflict blocks — request-review
+    // remains enabled so the review cycle can start regardless.
+    (mergeSuccess || submitAction === "request-review");
 
   return {
-    mode: "main",
+    mode,
     ctaLabel,
     ctaEnabled,
     ctaLocked,

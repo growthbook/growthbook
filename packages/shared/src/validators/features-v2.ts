@@ -144,13 +144,18 @@ export const apiFeatureRevisionV2Validator = namedSchema(
                   "Stable reviewer identifier: the user ID for dashboard users, or the API key ID for service accounts",
                 ),
               user: apiEventUserValidator.optional(),
-              status: z.enum(["approved", "changes-requested"]),
+              status: z.enum([
+                "approved",
+                "changes-requested",
+                "approved-stale",
+                "changes-requested-stale",
+              ]),
               timestamp: z.string().meta({ format: "date-time" }),
             })
             .strict(),
         )
         .describe(
-          "Active reviewer verdicts for the current review cycle (one entry per reviewer). Cleared when a new review cycle starts. Absent on revisions that predate this field.",
+          "Reviewer verdicts for the current review cycle (one entry per reviewer). Verdicts flip to their -stale variants when draft content changes after submission; the list is cleared when a new review cycle starts. Absent on revisions that predate this field.",
         )
         .optional(),
     })

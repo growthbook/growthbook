@@ -63,6 +63,7 @@ export default function CommentComposer({
         autofocus={autofocus}
         autofocusAtEnd={autofocusAtEnd}
         cta={cta}
+        ctaDisabled={value.trim().length < 1}
         onCancel={onCancel}
         error={error || ""}
         placeholder={placeholder}

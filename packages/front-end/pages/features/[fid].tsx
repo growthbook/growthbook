@@ -82,7 +82,13 @@ export default function FeaturePage() {
       );
     const method =
       queryV === undefined || isCorrection ? router.replace : router.push;
-    const hash = new URL(router.asPath, "http://x").hash.slice(1) || undefined;
+    // Read the live hash rather than router.asPath: review sub-tab changes
+    // update the hash via replaceState (useURLHash), which the Next router
+    // doesn't observe — asPath would resurrect a stale hash here.
+    const hash =
+      (typeof window !== "undefined"
+        ? window.location.hash.slice(1)
+        : new URL(router.asPath, "http://x").hash.slice(1)) || undefined;
     void method(
       {
         pathname: router.pathname,
@@ -117,8 +123,11 @@ export default function FeaturePage() {
   };
 
   useEffect(() => {
-    const hash = (new URL(router.asPath, "http://x").hash.slice(1) ||
-      undefined) as FeatureTab | undefined;
+    // The review tab encodes a sub-tab after a comma (`#review,changes`);
+    // only the first segment selects the page-level tab.
+    const hash = (new URL(router.asPath, "http://x").hash
+      .slice(1)
+      .split(",")[0] || undefined) as FeatureTab | undefined;
     if (hash && featureTabs.includes(hash)) {
       setTab(hash);
     }

@@ -1,10 +1,9 @@
 import { Box, Flex } from "@radix-ui/themes";
+import { ReactNode } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { PiGitMergeBold, PiWarningOctagonBold } from "react-icons/pi";
 import type { PublishGovernanceResult } from "shared/util";
-import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
-import Badge from "@/ui/Badge";
 import Text from "@/ui/Text";
 
 export interface DivergenceNoticeProps {
@@ -28,12 +27,69 @@ export interface DivergenceNoticeProps {
   revisionsSinceApproval?: number | null;
 }
 
+// GitHub-style banner ("This branch is out-of-date with the base branch"):
+// neutral panel, tinted icon disk, bold title with a muted one-line body,
+// and a right-aligned secondary action that wraps below in narrow columns.
+function NoticeBanner({
+  icon,
+  iconColor,
+  title,
+  body,
+  action,
+}: {
+  icon: ReactNode;
+  iconColor: string;
+  title: string;
+  body: string;
+  action?: ReactNode;
+}) {
+  return (
+    <Flex
+      gap="3"
+      align="start"
+      wrap="wrap"
+      p="3"
+      mb="3"
+      style={{
+        background: "var(--color-panel-solid)",
+        border: "1px solid var(--gray-a6)",
+        borderRadius: "var(--radius-3)",
+      }}
+    >
+      <Flex
+        align="center"
+        justify="center"
+        flexShrink="0"
+        style={{
+          width: 28,
+          height: 28,
+          borderRadius: "50%",
+          background: `var(--${iconColor}-a3)`,
+          color: `var(--${iconColor}-11)`,
+          fontSize: 15,
+        }}
+      >
+        {icon}
+      </Flex>
+      <Box flexGrow="1" style={{ minWidth: 0, flexBasis: 180 }}>
+        <Text as="div" size="medium" weight="semibold">
+          {title}
+        </Text>
+        <Text as="div" size="small" color="text-low">
+          {body}
+        </Text>
+      </Box>
+      {action && <Box ml="auto">{action}</Box>}
+    </Flex>
+  );
+}
+
 // Surfaces governance signals in the publish/review flow. Three distinct
 // states are rendered:
 //   - "conflict"   — live and draft both touched the same items; user must
-//                    pick a per-conflict strategy. CTA: "Resolve conflicts".
+//                    pick a per-conflict strategy. CTA: "Fix conflicts".
 //   - "diverged"   — live moved past base but no conflict; rebase auto-merges.
-//                    CTA: "Update from live".
+//                    CTA: "Rebase with live".
 //   - "current" + staleApproval — approval was for older live state; same CTA.
 // Renders nothing for "current" drafts with a fresh approval.
 export default function DivergenceNotice({
@@ -47,13 +103,7 @@ export default function DivergenceNotice({
   approvedAt = null,
   revisionsSinceApproval = null,
 }: DivergenceNoticeProps) {
-  const {
-    divergence,
-    staleApproval,
-    liveChanges,
-    rebaseRequired,
-    blockReason,
-  } = governance;
+  const { divergence, staleApproval, rebaseRequired } = governance;
 
   // Up-to-date drafts with no stale approval have nothing to surface.
   if (divergence === "current" && !staleApproval) return null;
@@ -62,40 +112,30 @@ export default function DivergenceNotice({
   // publish regardless of the requireRebaseBeforePublish policy.
   if (divergence === "conflict") {
     return (
-      <Callout
-        status="error"
-        icon={<PiWarningOctagonBold size={16} />}
-        contentsAs="div"
-        size="sm"
-      >
-        <Text as="p" weight="semibold" mb="1">
-          Conflicts with the live version
-        </Text>
-        <Text as="p" mb={canRebase && onResolveConflicts ? "2" : "0"}>
-          Changes were published to v{liveVersion} that touch the same items as
-          this draft. Resolve each conflict to rebase your draft before
-          publishing.
-        </Text>
-
-        {canRebase && onResolveConflicts && (
-          <Box>
-            <Button variant="solid" onClick={() => onResolveConflicts()}>
-              Resolve conflicts
+      <NoticeBanner
+        icon={<PiWarningOctagonBold />}
+        iconColor="red"
+        title="Draft has conflicts with live"
+        body={`Fix conflicts to rebase onto v${liveVersion} before publishing.`}
+        action={
+          canRebase && onResolveConflicts ? (
+            <Button
+              variant="outline"
+              color="red"
+              onClick={() => onResolveConflicts()}
+            >
+              Fix conflicts
             </Button>
-          </Box>
-        )}
-      </Callout>
+          ) : undefined
+        }
+      />
     );
   }
 
   // ── Diverged / stale-approval variant ──
-  // A stale approval is always at least a warning: the standing approval no
-  // longer reflects what publish would do, even when policy doesn't block.
-  const status = rebaseRequired || staleApproval ? "warning" : "info";
-
-  const heading = staleApproval
+  const title = staleApproval
     ? "This approval is out of date"
-    : "The live version has changed since this draft was created";
+    : "Draft is out-of-date with live revision";
 
   // Quantify the staleness when we can: when the surviving approval was
   // given, and how many revisions live has advanced since.
@@ -104,58 +144,37 @@ export default function DivergenceNotice({
     : null;
   const advancedPhrase =
     (revisionsSinceApproval ?? 0) > 0
-      ? `the live version has advanced ${revisionsSinceApproval} revision${
+      ? `live has advanced ${revisionsSinceApproval} revision${
           revisionsSinceApproval === 1 ? "" : "s"
         } since (now v${liveVersion})`
-      : `changes were published to the live version (v${liveVersion}) since`;
+      : `changes were published to live (v${liveVersion}) since`;
 
   const staleBody = approvedAgo
-    ? `This draft was approved ${approvedAgo}, and ${advancedPhrase}. Update from live and re-review so you publish against the current state.`
-    : `Changes were published to the live version (v${liveVersion}) after this draft was approved. Update from live and re-review so you publish against the current state.`;
+    ? `Approved ${approvedAgo} — ${advancedPhrase}.`
+    : `Changes were published to the live version (v${liveVersion}) after this draft was approved.`;
 
   const body = staleApproval
     ? staleBody
-    : `The items below were published to the live version (v${liveVersion}) after this draft branched from v${baseVersion}. Update from live so your changes apply on top of the current state.`;
+    : `Rebase the latest changes from v${liveVersion} into this draft (branched from v${baseVersion}).`;
 
   return (
-    <Callout
-      status={status}
-      icon={<PiGitMergeBold size={16} />}
-      contentsAs="div"
-      size="sm"
-    >
-      <Text as="p" weight="semibold" mb="1">
-        {heading}
-      </Text>
-      <Text as="p" mb={liveChanges.length > 0 ? "2" : "0"}>
-        {body}
-      </Text>
-
-      {liveChanges.length > 0 && (
-        <Flex wrap="wrap" gap="2" mb="2">
-          {liveChanges.map((c) => (
-            <Badge key={c.key} color="amber" variant="soft" label={c.name} />
-          ))}
-        </Flex>
-      )}
-
-      {rebaseRequired && blockReason && (
-        <Text as="p" weight="medium" mb="2">
-          {blockReason}
-        </Text>
-      )}
-
-      {canRebase && onUpdateFromLive && (
-        <Box>
+    <NoticeBanner
+      icon={<PiGitMergeBold />}
+      iconColor={rebaseRequired || staleApproval ? "amber" : "gray"}
+      title={title}
+      body={body}
+      action={
+        canRebase && onUpdateFromLive ? (
           <Button
-            variant="solid"
+            variant="outline"
+            color="violet"
             loading={updating}
             onClick={() => onUpdateFromLive()}
           >
-            Update from live
+            Rebase with live
           </Button>
-        </Box>
-      )}
-    </Callout>
+        ) : undefined
+      }
+    />
   );
 }
