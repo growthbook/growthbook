@@ -45,24 +45,6 @@
   border-bottom: 1px solid var(--gray-a4);
 }
 
-.monitorTile {
-  width: 30px;
-  height: 30px;
-  border-radius: var(--radius-3);
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--accent-3);
-  color: var(--accent-11);
-}
-
-// Sibling cards switch to green for visual distinction.
-.cardChrome:not(:first-of-type) .monitorTile {
-  background: var(--green-3);
-  color: var(--green-11);
-}
-
 .cardHeaderTitleBlock {
   min-width: 0;
   flex: 1;
@@ -246,7 +228,7 @@
 .variationHead {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 64px;
   padding: 14px 18px;
 }
 
