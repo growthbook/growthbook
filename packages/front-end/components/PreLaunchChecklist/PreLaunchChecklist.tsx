@@ -4,10 +4,9 @@ import {
 } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FaAngleRight, FaCheck } from "react-icons/fa";
+import { FaCheck } from "react-icons/fa";
 import { PiCaretDown, PiCaretUp } from "react-icons/pi";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
-import Collapsible from "react-collapsible";
 import clsx from "clsx";
 import { Box, Flex, Theme } from "@radix-ui/themes";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
@@ -23,7 +22,6 @@ import AnalysisForm from "@/components/Experiment/AnalysisForm";
 import InitialSDKConnectionForm from "@/components/Features/SDKConnections/InitialSDKConnectionForm";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
-import Frame from "@/ui/Frame";
 import Badge from "@/ui/Badge";
 import EditScheduleModal from "@/components/Experiment/EditScheduleModal";
 import Heading from "@/ui/Heading";
@@ -39,7 +37,6 @@ function PreLaunchChecklistUI({
   loading = false,
   allowEditChecklist,
   title = "Pre-Launch Checklist",
-  collapsible = true,
   showHeader = true,
 }: {
   experiment: ExperimentInterfaceStringDates;
@@ -50,7 +47,6 @@ function PreLaunchChecklistUI({
   className?: string;
   allowEditChecklist?: boolean;
   title?: string;
-  collapsible?: boolean;
   showHeader?: boolean;
 }) {
   const { apiCall } = useAuth();
@@ -88,7 +84,6 @@ function PreLaunchChecklistUI({
       };
     }
     try {
-      // Updates the experiment's manual checklist and logs the event to the audit log
       await apiCall(`/experiment/${experiment.id}/launch-checklist`, {
         method: "PUT",
         body: JSON.stringify({
@@ -109,7 +104,6 @@ function PreLaunchChecklistUI({
   ) : (
     <div>
       {checklist.map((item, i) => {
-        // Auto items can't be toggled by the user.
         const isReadonly = item.type === "auto";
         const isReadonlyIncomplete = isReadonly && item.status === "incomplete";
         return (
@@ -191,28 +185,13 @@ function PreLaunchChecklistUI({
           Edit
         </Link>
       ) : null}
-      {collapsible && <FaAngleRight className="chevron" />}
     </div>
   );
 
   return (
     <>
-      {collapsible ? (
-        <Frame>
-          <Collapsible
-            open={!!checklistItemsRemaining}
-            transitionTime={100}
-            trigger={<div>{header}</div>}
-          >
-            <div className="mt-2">{contents}</div>
-          </Collapsible>
-        </Frame>
-      ) : (
-        <>
-          {showHeader && header}
-          {contents}
-        </>
-      )}
+      {showHeader && header}
+      {contents}
     </>
   );
 }
@@ -240,7 +219,6 @@ function PreLaunchChecklistFeatureExpRule({
           checklist.filter((item) => item.status === "incomplete").length
         }
         loading={false}
-        collapsible={false}
         title={experiment.name}
       />
       {failedRequired ? (
@@ -469,7 +447,6 @@ export function PreLaunchChecklistDrawer() {
                   checklistItemsRemaining={checklistItemsRemaining}
                   loading={loading}
                   allowEditChecklist={true}
-                  collapsible={false}
                   showHeader={false}
                 />
               </Box>
