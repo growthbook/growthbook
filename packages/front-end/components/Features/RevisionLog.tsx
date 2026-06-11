@@ -62,7 +62,7 @@ export interface Props {
   collapseFilter?: (log: RevisionLog) => boolean;
 }
 
-// Events the review Overview tab keeps uncollapsed. Everything else (rule
+// Events the review Conversation tab keeps uncollapsed. Everything else (rule
 // edits, rebases, metadata changes, …) collapses into "N other events" runs;
 // the Changes tab shows the full timeline.
 export const REVIEW_ACTIVITY_ACTIONS = new Set([

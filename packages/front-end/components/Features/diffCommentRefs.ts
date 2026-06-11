@@ -255,7 +255,7 @@ export function scrollToDiffRef(ref: DiffCommentRef): void {
     return;
   }
 
-  // The target may live on the Changes sub-tab (the Overview tab renders no
+  // The target may live on the Changes sub-tab (the Conversation tab renders no
   // line-level diffs); swap there first, then wait out both re-renders.
   requestReviewSubTab("changes");
   requestDiffFormat(ref.sectionKey === "raw" ? "raw" : "json");

@@ -1558,7 +1558,7 @@ function formatSectionTitle(title: string): string {
 // using its rich customRender, falling back to a JSON diff when a section has
 // no human render. Extracted so it can be rendered both visibly and in a hidden
 // node whose innerText powers the "Copy as → Formatted changes" action.
-// `jsonFallback={false}` (the review Overview tab) swaps that fallback for a
+// `jsonFallback={false}` (the review Conversation tab) swaps that fallback for a
 // link to the Changes tab, keeping this view strictly human-readable.
 function FormattedChanges({
   diffs,
@@ -1658,17 +1658,17 @@ export function DiffContent({
   diffComments?: DiffCommentsProps;
   // Restrict which view formats this surface offers (defaults to all three).
   // The shared format preference is clamped into this list without being
-  // written back, so e.g. an Overview tab showing only "formatted" doesn't
+  // written back, so e.g. a Conversation tab showing only "formatted" doesn't
   // clobber the preference used by JSON-capable surfaces.
   formats?: DiffFormat[];
   // Cap the rendered changes at this height with a Show more toggle (used by
-  // the review Overview tab; mirrors the Notes panel affordance).
+  // the review Conversation tab; mirrors the Notes panel affordance).
   collapsedMaxHeight?: number;
   // Hide the "Summary of changes" heading + change badges and go straight to
-  // the diff body (used by the review Changes tab, where the Overview tab
+  // the diff body (used by the review Changes tab, where the Conversation tab
   // already provides the summary).
   showSummaryHeader?: boolean;
-  // Hide the "Copy as" export button (used by the review Overview tab, which
+  // Hide the "Copy as" export button (used by the review Conversation tab, which
   // is a read-along surface; exports live on the Changes tab).
   showCopyAs?: boolean;
   // When false, formatted sections without a human render link to the Changes
@@ -1754,24 +1754,29 @@ export function DiffContent({
           )}
 
           <Box p={variant === "card" ? "4" : "0"}>
-            <Flex align="center" justify="between" gap="2" wrap="wrap" mb="3">
-              <DiffFormatToggle
-                value={effectiveFormat}
-                setValue={setFormat}
-                showRaw={!!raw}
-                options={allowedFormats}
-              />
-              {showCopyAs && (
-                <Box ml="auto">
-                  <CopyAsButton
-                    entityName={feature.id}
-                    diffs={diffsWithChanges}
-                    raw={raw}
-                    formattedRef={formattedRef}
-                  />
-                </Box>
-              )}
-            </Flex>
+            {/* The toggle hides itself with <2 visible formats; skip the whole
+                row (and its margin) when neither it nor Copy-as will render. */}
+            {(allowedFormats.filter((f) => f !== "raw" || !!raw).length >= 2 ||
+              showCopyAs) && (
+              <Flex align="center" justify="between" gap="2" wrap="wrap" mb="3">
+                <DiffFormatToggle
+                  value={effectiveFormat}
+                  setValue={setFormat}
+                  showRaw={!!raw}
+                  options={allowedFormats}
+                />
+                {showCopyAs && (
+                  <Box ml="auto">
+                    <CopyAsButton
+                      entityName={feature.id}
+                      diffs={diffsWithChanges}
+                      raw={raw}
+                      formattedRef={formattedRef}
+                    />
+                  </Box>
+                )}
+              </Flex>
+            )}
 
             {outOfOrderWarning && (
               <Callout status="info" size="sm" mb="4">

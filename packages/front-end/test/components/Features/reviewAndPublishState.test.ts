@@ -13,6 +13,7 @@ function base(overrides: Partial<RnPStateInput> = {}): RnPStateInput {
     hasReviewPermission: false,
     canManageDraft: false,
     isReviewRequester: false,
+    isContributor: false,
     isReviewer: false,
     adminPublish: false,
     hasSelectedExperiments: false,
@@ -228,6 +229,51 @@ describe("getReviewAndPublishState", () => {
         }),
       );
       expect(s.ctaEnabled).toBe(false);
+    });
+  });
+
+  describe("return to draft (recall review)", () => {
+    const pending = { requireReviews: true, status: "pending-review" } as const;
+
+    it("allows the review requester", () => {
+      const s = getReviewAndPublishState(
+        base({ ...pending, canManageDraft: true, isReviewRequester: true }),
+      );
+      expect(s.canRecallReview).toBe(true);
+    });
+
+    it("allows an author/contributor who didn't request the review", () => {
+      const s = getReviewAndPublishState(
+        base({ ...pending, canManageDraft: true, isContributor: true }),
+      );
+      expect(s.canRecallReview).toBe(true);
+    });
+
+    it("blocks an unrelated draft manager", () => {
+      const s = getReviewAndPublishState(
+        base({ ...pending, canManageDraft: true }),
+      );
+      expect(s.canRecallReview).toBe(false);
+    });
+
+    it("blocks a contributor without draft-manage permission", () => {
+      const s = getReviewAndPublishState(
+        base({ ...pending, isContributor: true }),
+      );
+      expect(s.canRecallReview).toBe(false);
+    });
+
+    it("is unavailable once the revision is back in plain draft", () => {
+      const s = getReviewAndPublishState(
+        base({
+          requireReviews: true,
+          status: "draft",
+          canManageDraft: true,
+          isContributor: true,
+          isReviewRequester: true,
+        }),
+      );
+      expect(s.canRecallReview).toBe(false);
     });
   });
 });

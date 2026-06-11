@@ -31,6 +31,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FaArrowLeft } from "react-icons/fa";
 import {
   PiLockSimple,
+  PiGitDiff,
   PiGitMergeBold,
   PiCaretDownBold,
   PiHourglassHighFill,
@@ -133,6 +134,8 @@ export interface Props {
   // the empty state.
   onClose?: () => void;
   onPublish?: () => void;
+  // Opens the cross-revision compare modal (owned by the feature page).
+  onCompareRevisions?: () => void;
   experiments?: ExperimentInterfaceStringDates[];
   rampSchedules?: RampScheduleInterface[];
 }
@@ -254,6 +257,7 @@ export default function ReviewAndPublish({
   mutate,
   onClose,
   onPublish,
+  onCompareRevisions,
   experiments: experimentsList,
   rampSchedules,
 }: Props) {
@@ -437,7 +441,8 @@ export default function ReviewAndPublish({
   }, [logData, revision]);
 
   // User ID of whoever most recently submitted a "Review Requested" entry.
-  // Used to gate "Retract review request" so only the requester sees it.
+  // Drives the header attribution and (together with author/contributor
+  // status) gates "Return to draft".
   const reviewRequesterId = useMemo<string | undefined>(() => {
     const log = logData?.log;
     if (!log) return undefined;
@@ -456,6 +461,7 @@ export default function ReviewAndPublish({
   // --- Read-only review (selected version is not an active draft) ----------
   const [revertOpen, setRevertOpen] = useState(false);
   const [confirmReopen, setConfirmReopen] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const liveBaseInput = useMemo(
     () => featureToFeatureRevisionDiffInput(feature),
     [feature],
@@ -834,14 +840,37 @@ export default function ReviewAndPublish({
   }
 
   // ── Sub-tab bar: Overview | Changes, full-width underline (rendered above
-  // the two-column layout in both the draft and read-only flows). ──
+  // the two-column layout in both the draft and read-only flows). The
+  // cross-revision audit tool rides along on the right so reviewers can
+  // pivot from "this draft vs live" to "any revision vs any revision".
+  // Same embed pattern as the rules tab bar: the wrapping Flex carries the
+  // underline so it runs beneath the right-aligned action too. ──
   const subTabBar = (
     <Box mb="4">
       <Tabs value={subTab} onValueChange={(v) => setSubTab(v as ReviewSubTab)}>
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="changes">Changes</TabsTrigger>
-        </TabsList>
+        <Flex
+          align="center"
+          justify="between"
+          style={{ boxShadow: "inset 0 -1px 0 0 var(--slate-a3)" }}
+        >
+          <TabsList style={{ boxShadow: "none" }}>
+            <TabsTrigger value="overview">Conversation</TabsTrigger>
+            <TabsTrigger value="changes">Changes</TabsTrigger>
+          </TabsList>
+          {onCompareRevisions && (
+            <Box pl="2" flexShrink="0">
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={<PiGitDiff />}
+                onClick={onCompareRevisions}
+                style={{ whiteSpace: "nowrap" }}
+              >
+                Compare revisions
+              </Button>
+            </Box>
+          )}
+        </Flex>
       </Tabs>
     </Box>
   );
@@ -895,7 +924,7 @@ export default function ReviewAndPublish({
             variant="card"
             formats={["json", "raw"]}
             diffComments={diffComments}
-            // The Overview tab already carries the summary heading + badges;
+            // The Conversation tab already carries the summary heading + badges;
             // here we go straight to the diffs.
             showSummaryHeader={false}
           />
@@ -1367,6 +1396,7 @@ export default function ReviewAndPublish({
     canManageDraft: permissionsUtil.canManageFeatureDrafts(feature),
     isReviewRequester:
       !!userId && !!reviewRequesterId && userId === reviewRequesterId,
+    isContributor: !!userId && contributorIds.includes(userId),
     isReviewer: !!userId && reviewers.some((r) => r.id === userId),
     adminPublish,
     hasSelectedExperiments: selectedExperiments.size > 0,
@@ -1625,30 +1655,74 @@ export default function ReviewAndPublish({
   const canDoPrimary =
     state.submitAction === "publish" ? hasPublishPermission : true;
 
+  // Shared by the no-changes empty state and the actions column kebab — the
+  // only two places an active draft can be discarded from.
+  const canDiscardDraft = permissionsUtil.canManageFeatureDrafts(feature);
+  const discardConfirmModal = confirmDiscard ? (
+    <ModalStandard
+      trackingEventModalType="discard-feature-revision"
+      open={true}
+      header="Discard Draft"
+      cta="Discard"
+      ctaColor="red"
+      close={() => setConfirmDiscard(false)}
+      submit={async () => {
+        try {
+          await apiCall(`/feature/${feature.id}/${revision.version}/discard`, {
+            method: "POST",
+          });
+        } finally {
+          await mutate();
+        }
+      }}
+    >
+      Are you sure you want to discard this draft? This action cannot be undone.
+    </ModalStandard>
+  ) : null;
+
   // ── Simple full-width states (no two-column layout) ──
   // Hard merge conflicts no longer short-circuit the page: keep the
   // two-column layout so reviewers can still see draft-vs-live changes
   // alongside a "Fix conflicts" CTA in the actions column.
   if (!hasChanges) {
     return pageWrapper(
-      <Callout status="info">
-        There are no changes to publish. Either discard the draft or add changes
-        first before publishing.
-      </Callout>,
+      <>
+        {discardConfirmModal}
+        <Callout status="info">
+          There are no changes to publish. Either discard the draft or add
+          changes first before publishing.
+        </Callout>
+        {canDiscardDraft && (
+          <Box mt="3">
+            <Button
+              color="red"
+              variant="outline"
+              onClick={() => setConfirmDiscard(true)}
+            >
+              Discard draft
+            </Button>
+          </Box>
+        )}
+      </>,
     );
   }
 
   // ── Full-width page header: big title, status badge, and a
-  // one-line summary of which revision merges into which. We surface the review
-  // requester (the revision author) once a review has actually been requested;
-  // otherwise we just describe what would be merged. ──
+  // one-line summary of which revision merges into which. We surface the
+  // review requester once a review has actually been requested; otherwise we
+  // just describe what would be merged. ──
   // Match the status colors/labels used by the revision selector badge.
   const reviewRequested =
     requireReviews &&
     (revision.status === "pending-review" ||
       revision.status === "approved" ||
       revision.status === "changes-requested");
-  const requester = authorId ? users.get(authorId) : undefined;
+  // Attribute the request to whoever actually clicked "Request review" (from
+  // the review log — the same source that feeds the "Return to draft" gate).
+  // The revision author is only a fallback while the log loads, since the
+  // requester is often a different person than the author.
+  const requesterId = reviewRequesterId || authorId;
+  const requester = requesterId ? users.get(requesterId) : undefined;
   const requesterName = requester?.name || requester?.email || "";
   const headerTitle =
     revision.title?.trim() ||
@@ -1778,7 +1852,7 @@ export default function ReviewAndPublish({
           </Heading>
         </Flex>
 
-        {(state.canRecallReview || state.canUndoReview) && (
+        {(state.canRecallReview || state.canUndoReview || canDiscardDraft) && (
           <Box ml="auto" style={{ marginRight: -6 }}>
             <DropdownMenu
               trigger={
@@ -1807,7 +1881,7 @@ export default function ReviewAndPublish({
                       doRecallReview();
                     }}
                   >
-                    Retract review request
+                    Return to draft
                   </DropdownMenuItem>
                 )}
                 {state.canUndoReview && (
@@ -1819,6 +1893,18 @@ export default function ReviewAndPublish({
                     }}
                   >
                     Retract review
+                  </DropdownMenuItem>
+                )}
+                {canDiscardDraft && (
+                  <DropdownMenuItem
+                    color="red"
+                    disabled={secondaryLoading !== null}
+                    onClick={() => {
+                      setActionsDropdownOpen(false);
+                      setConfirmDiscard(true);
+                    }}
+                  >
+                    Discard draft
                   </DropdownMenuItem>
                 )}
               </DropdownMenuGroup>
@@ -2099,6 +2185,7 @@ export default function ReviewAndPublish({
   return pageWrapper(
     <>
       {conflictModal}
+      {discardConfirmModal}
       {mergeHeader}
       {/* The experiments checklist step temporarily replaces the left column;
           hide the sub-tabs so the step reads as a focused flow. */}

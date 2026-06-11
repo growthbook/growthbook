@@ -29,9 +29,12 @@ export interface RnPStateInput {
   hasReviewPermission: boolean;
   // The current user is the draft author (or co-author) and can manage drafts.
   canManageDraft: boolean;
-  // The current user is the one who most recently submitted the review request
-  // — they're the only one who can retract it.
+  // The current user is the one who most recently submitted the review request.
   isReviewRequester: boolean;
+  // The current user is the revision author or a contributor (their edits
+  // touched the revision). Contributors share ownership of the draft, so they
+  // can return it to draft even if someone else requested the review.
+  isContributor: boolean;
   // The current user has an active reviewer verdict on this revision —
   // they're the only one who can retract it.
   isReviewer: boolean;
@@ -60,7 +63,8 @@ export interface RnPState {
   // Whether the main modal wires up a submit handler at all.
   hasSubmit: boolean;
   // Secondary actions shown as links/ghost buttons alongside the primary CTA.
-  // Author retracts the review request → back to draft.
+  // Requester/author/contributor returns the revision to draft (retracting the
+  // review request).
   canRecallReview: boolean;
   // Reviewer retracts their own verdict → back to pending-review.
   canUndoReview: boolean;
@@ -84,6 +88,7 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
     hasReviewPermission,
     canManageDraft,
     isReviewRequester,
+    isContributor,
     isReviewer,
     adminPublish,
     hasSelectedExperiments,
@@ -94,16 +99,20 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
     governanceCanPublish,
   } = input;
 
-  // recall-review: only the user who submitted the latest review request can
-  // pull it back (and they need draft-manage permission). Other draft managers
-  // shouldn't be able to retract someone else's review request.
+  // recall-review ("Return to draft"): the requester or anyone with skin in
+  // the draft (author/contributor) can pull it back, provided they have
+  // draft-manage permission. Unrelated draft managers shouldn't be able to
+  // retract someone else's review request. (The backend only enforces
+  // canManageFeatureDrafts, so this is deliberately the stricter gate.)
   const recallableStatuses = [
     "pending-review",
     "changes-requested",
     "approved",
   ];
   const canRecallReview =
-    canManageDraft && isReviewRequester && recallableStatuses.includes(status);
+    canManageDraft &&
+    (isReviewRequester || isContributor) &&
+    recallableStatuses.includes(status);
 
   // undo-review: only the reviewer who submitted the verdict can retract it.
   // Uses `hasReviewPermission` (not the state-gated `canReview`) so an

@@ -13,7 +13,9 @@ import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import { useUser } from "@/services/UserContext";
 import useApi from "@/hooks/useApi";
+// eslint-disable-next-line no-restricted-imports -- legacy Modal still backs the watchers modal; migrate to @/ui/Modal in a follow-up
 import Modal from "@/components/Modal";
+import Callout from "@/ui/Callout";
 import FeatureStatusBadge from "@/components/Features/FeatureStatusBadge";
 import { getEnabledEnvironments, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
@@ -58,6 +60,7 @@ export default function FeaturesHeader({
   setEditFeatureInfoModal,
   holdout,
   isReadOnly = false,
+  onCompareRevisions,
 }: {
   feature: FeatureInterface;
   mutate: () => Promise<unknown>;
@@ -69,6 +72,7 @@ export default function FeaturesHeader({
   setEditFeatureInfoModal: (open: boolean) => void;
   holdout: HoldoutInterface | undefined;
   isReadOnly?: boolean;
+  onCompareRevisions?: () => void;
 }) {
   const router = useRouter();
   const projectId = feature?.project;
@@ -247,6 +251,16 @@ export default function FeaturesHeader({
           >
             Audit history
           </DropdownMenuItem>
+          {onCompareRevisions && (
+            <DropdownMenuItem
+              onClick={() => {
+                onCompareRevisions();
+                setDropdownOpen(false);
+              }}
+            >
+              Compare revisions
+            </DropdownMenuItem>
+          )}
           <DropdownSubMenu
             trigger={
               <Flex
@@ -485,14 +499,12 @@ export default function FeaturesHeader({
               </Box>
             ) : null}
           </Box>
-          <div>
-            {isArchived && (
-              <div className="alert alert-secondary mb-2">
-                <strong>This feature is archived.</strong> It will not be
-                included in SDK Endpoints or Webhook payloads.
-              </div>
-            )}
-          </div>
+          {isArchived && (
+            <Callout status="info" mb="2">
+              <strong>This feature is archived.</strong> It will not be included
+              in SDK Endpoints or Webhook payloads.
+            </Callout>
+          )}
         </Box>
       </Box>
       <>

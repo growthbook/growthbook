@@ -1,6 +1,7 @@
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { FeatureEvalDiagnosticsQueryResponseRows } from "shared/types/integrations";
+import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
 import FeaturesHeader from "@/components/Features/FeaturesHeader";
@@ -17,6 +18,7 @@ import EditTagsForm from "@/components/Tags/EditTagsForm";
 import EditFeatureInfoModal from "@/components/Features/EditFeatureInfoModal";
 import FeatureDiagnostics from "@/components/Features/FeatureDiagnostics";
 import FeatureValidationTab from "@/components/Features/FeatureValidationTab";
+import CompareRevisionsModal from "@/components/Features/CompareRevisionsModal";
 import { useFeaturePageData } from "@/hooks/useFeaturePageData";
 import { useFeatureDependents } from "@/hooks/useFeatureDependents";
 import Callout from "@/ui/Callout";
@@ -39,6 +41,7 @@ export default function FeaturePage() {
   const [editProjectModal, setEditProjectModal] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
   const [editFeatureInfoModal, setEditFeatureInfoModal] = useState(false);
+  const [compareRevisionsOpen, setCompareRevisionsOpen] = useState(false);
   const [diagnosticsResults, setDiagnosticsResults] = useState<Array<
     FeatureEvalDiagnosticsQueryResponseRows[number] & { id: string }
   > | null>(null);
@@ -145,6 +148,11 @@ export default function FeaturePage() {
     return <LoadingOverlay />;
   }
 
+  const viewingDraft = (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(
+    revision.status,
+  );
+  const viewingLive = revision.version === feature.version;
+
   return (
     <FeatureRevisionsContext.Provider
       value={{
@@ -174,6 +182,11 @@ export default function FeaturePage() {
             revision.status === "discarded" ||
             (revision.status === "published" &&
               revision.version !== feature.version)
+          }
+          onCompareRevisions={
+            (data.revisionList?.length ?? 0) >= 2
+              ? () => setCompareRevisionsOpen(true)
+              : undefined
           }
         />
 
@@ -208,6 +221,11 @@ export default function FeaturePage() {
             rampSchedules={rampSchedules}
             mutate={refreshData}
             onPublish={() => setVersion(baseFeature.version)}
+            onCompareRevisions={
+              (data.revisionList?.length ?? 0) >= 2
+                ? () => setCompareRevisionsOpen(true)
+                : undefined
+            }
           />
         )}
 
@@ -253,6 +271,24 @@ export default function FeaturePage() {
             }}
             cancel={() => setEditTagsModal(false)}
             mutate={refreshData}
+          />
+        )}
+
+        {compareRevisionsOpen && (
+          <CompareRevisionsModal
+            feature={feature}
+            baseFeature={baseFeature}
+            revisionList={data.revisionList || []}
+            revisions={data.revisions}
+            currentVersion={version ?? feature.version}
+            onClose={() => setCompareRevisionsOpen(false)}
+            initialPreviewDraft={
+              viewingDraft ? (version ?? undefined) : undefined
+            }
+            initialMode={
+              viewingLive && !viewingDraft ? "most-recent-live" : undefined
+            }
+            rampSchedules={rampSchedules}
           />
         )}
 
