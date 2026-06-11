@@ -1,4 +1,5 @@
 import {
+  EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
   attributeMatchesDatasourceProjects,
   buildUserIdTypesFromAttributeSchema,
   getEventForwarderDatasourceParams,
@@ -115,7 +116,7 @@ describe("buildUserIdTypesFromAttributeSchema", () => {
     expect(result).toEqual([
       {
         userIdType: "id",
-        description: "",
+        description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
         attributes: ["id"],
       },
     ]);
@@ -138,13 +139,13 @@ describe("buildUserIdTypesFromAttributeSchema", () => {
     expect(result).toEqual([
       {
         userIdType: "id",
-        description: "",
+        description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
         attributes: ["id"],
       },
     ]);
   });
 
-  it("uses attribute description when present", () => {
+  it("uses managed description when attribute description is present", () => {
     const result = buildUserIdTypesFromAttributeSchema([
       {
         property: "user_id",
@@ -154,7 +155,9 @@ describe("buildUserIdTypesFromAttributeSchema", () => {
       },
     ]);
 
-    expect(result[0]?.description).toBe("Logged-in user");
+    expect(result[0]?.description).toBe(
+      EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
+    );
   });
 });
 

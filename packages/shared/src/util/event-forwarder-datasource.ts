@@ -16,6 +16,9 @@ export type EventForwarderDatasourceParams =
   | SnowflakeConnectionParams
   | undefined;
 
+export const EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION =
+  "Managed by Event Forwarder.";
+
 export function getEventForwarderSinkTypeForDatasource(datasource: {
   type: DataSourceType;
 }): EventForwarderSinkType | null {
@@ -71,7 +74,7 @@ export function buildUserIdTypesFromAttributeSchema(
     .filter((a) => attributeMatchesDatasourceProjects(a, datasourceProjects))
     .map((a) => ({
       userIdType: a.property,
-      description: a.description ?? "",
+      description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
       attributes: [a.property],
     }));
 }
