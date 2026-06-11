@@ -560,6 +560,12 @@ export class GrowthBook<
 
   /** @internal — called by sessionReplayPlugin to register its handlers */
   public _registerSessionReplay(start: () => void, stop: () => void) {
+    if (this._sessionReplayStart || this._sessionReplayStop) {
+      console.warn(
+        "[GrowthBook] sessionReplayPlugin registered more than once — " +
+          "only the latest handlers will be used. Check your plugins array for duplicates.",
+      );
+    }
     this._sessionReplayStart = start;
     this._sessionReplayStop = stop;
   }

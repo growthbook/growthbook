@@ -77,11 +77,12 @@ const REPLAY_STORAGE_KEY = "gb_session_replay";
 
 /**
  * Maximum idle gap between successful chunk sends before a resume across a
- * page reload is rejected and a fresh session starts. Aligned with
- * IDLE_TIMEOUT_MS plus buffer for the gap between rotation and the next
- * interaction that triggers recording again.
+ * page reload is rejected and a fresh session starts. Must match
+ * autoAttributesPlugin's SESSION_IDLE_TIMEOUT_MS (30 min): if this were
+ * shorter, a reload in the gap would reuse the same session_replay_id but
+ * reset chunkIndex to 0, creating a chunk-0 collision in the ingestor.
  */
-const RESUME_STALENESS_MS = 15 * 60 * 1000;
+const RESUME_STALENESS_MS = 30 * 60 * 1000;
 
 function readPersistedReplayState(): PersistedReplayState | null {
   if (typeof sessionStorage === "undefined") return null;

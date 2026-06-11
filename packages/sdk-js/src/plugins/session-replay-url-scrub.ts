@@ -59,10 +59,10 @@ const ID_PATTERNS: RegExp[] = [
 const ID_REPLACEMENT = "[id]";
 
 /**
- * Scrub a single URL string. Best-effort: if parsing fails (malformed
- * URL, e.g. relative or `javascript:` schemes that the spec explicitly
- * forbids), returns "[invalid-url]" rather than the original — better to
- * lose a debugging breadcrumb than leak something we couldn't parse.
+ * Scrub a single URL string. Relative URLs (e.g. `/path?q=1`, `../foo`)
+ * are resolved against the current document so they can be properly scrubbed
+ * rather than discarded. Truly unparseable values (e.g. `javascript:`) return
+ * "[invalid-url]".
  */
 export function scrubUrl(
   url: string,
@@ -74,7 +74,16 @@ export function scrubUrl(
   try {
     parsed = new URL(url);
   } catch {
-    return "[invalid-url]";
+    // Relative URLs are the common case in DOM attributes (href, src, action).
+    // Resolve against the current document so we can scrub them properly.
+    try {
+      const base =
+        typeof window !== "undefined" ? window.location.href : undefined;
+      if (!base) return "[invalid-url]";
+      parsed = new URL(url, base);
+    } catch {
+      return "[invalid-url]";
+    }
   }
 
   // --- Path: replace ID-like segments ---
