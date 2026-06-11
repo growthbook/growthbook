@@ -283,14 +283,8 @@ export default function ExperimentHeader({
   }, [shouldHideTabs]);
 
   // When the tab strip is hidden (e.g. an unstarted draft), the only
-  // reachable view is the overview, so force the active tab there. Guard
-  // on the current tab: `setTab` is `setTabAndScroll`, which does a
-  // `router.push("#overview")`, and it's recreated every render — without
-  // this guard the effect re-ran on every render and, crucially, re-pushed
-  // "#overview" right after the user pressed Back to strip the hash,
-  // trapping the Back button so it could never return to the experiments
-  // list. Once `tab` is already "overview" this is a no-op, so Back exits
-  // cleanly.
+  // reachable view is the overview, so force the active tab there. Once `tab`
+  // is already "overview" this is a no-op, so Back exits cleanly.
   useEffect(() => {
     if (shouldHideTabs && tab !== "overview") {
       setTab("overview");
