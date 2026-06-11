@@ -4,7 +4,7 @@ import { FeatureInterface } from "shared/types/feature";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   resolveOwnerEmail,
-  resolveOwnerToUserId,
+  resolveOwnerForCreate,
 } from "back-end/src/services/owner";
 import { createFeature, getFeature } from "back-end/src/models/FeatureModel";
 import { getExperimentMapForFeature } from "back-end/src/models/ExperimentModel";
@@ -72,7 +72,7 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
     const feature: FeatureInterface = {
       defaultValue: req.body.defaultValue ?? "",
       valueType: req.body.valueType,
-      owner: (await resolveOwnerToUserId(req.body.owner, req.context)) ?? "",
+      owner: await resolveOwnerForCreate(req.body.owner, req.context),
       description: req.body.description || "",
       project: req.body.project || "",
       dateCreated: new Date(),
@@ -113,7 +113,11 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       mapV2ApiRuleToFeatureRule(rule),
     );
 
-    const jsonSchema = parseApiJsonSchema(req.context.org, req.body.jsonSchema);
+    const jsonSchema = parseApiJsonSchema(
+      req.context.org,
+      req.body.jsonSchema,
+      feature.valueType,
+    );
     feature.jsonSchema = jsonSchema;
     feature.defaultValue = validateFeatureValue(feature, feature.defaultValue);
 

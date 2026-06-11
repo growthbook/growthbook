@@ -8,6 +8,7 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useAuth } from "@/services/auth";
 import MetricGroupModal from "@/components/Metrics/MetricGroupModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -36,9 +37,13 @@ const MetricGroupsList: FC = () => {
   const hasGroupsFeature = hasCommercialFeature("metric-groups");
 
   const permissionsUtil = usePermissionsUtil();
-  const canEdit = permissionsUtil.canUpdateMetricGroup();
-  const canCreate = permissionsUtil.canCreateMetricGroup();
-  const canDelete = permissionsUtil.canDeleteMetricGroup();
+  const { currentProjectIsDemo } = useDemoDataSourceProject();
+  const canEdit =
+    permissionsUtil.canUpdateMetricGroup() && !currentProjectIsDemo;
+  const canCreate =
+    permissionsUtil.canCreateMetricGroup() && !currentProjectIsDemo;
+  const canDelete =
+    permissionsUtil.canDeleteMetricGroup() && !currentProjectIsDemo;
   const { apiCall } = useAuth();
 
   const updateArchiveState = async (
@@ -84,7 +89,9 @@ const MetricGroupsList: FC = () => {
           Create groups of metrics that can be ordered and added to experiments
         </p>
         <Box mt="3">
-          <Button onClick={() => setOpenModal(true)}>Add Metric Group</Button>
+          <Button disabled={!canCreate} onClick={() => setOpenModal(true)}>
+            Add Metric Group
+          </Button>
         </Box>
 
         <Box mt="4">

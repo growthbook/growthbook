@@ -34,7 +34,12 @@ import {
   setTag as sentrySetTag,
 } from "@sentry/nextjs";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
-import { Permissions, userHasPermission } from "shared/permissions";
+import {
+  Permissions,
+  roleToPermissionMap,
+  userHasPermission,
+} from "shared/permissions";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { getValidDate } from "shared/dates";
 import sha256 from "crypto-js/sha256";
 import { AgreementType } from "shared/validators";
@@ -120,6 +125,7 @@ export interface UserContextValue {
   roles: Role[];
   teams?: Team[];
   error?: string;
+  orgSuspended: boolean;
   hasCommercialFeature: (feature: CommercialFeature) => boolean;
   commercialFeatureLowestPlan?: Partial<Record<CommercialFeature, AccountPlan>>;
   permissionsUtil: Permissions;
@@ -179,6 +185,7 @@ export const UserContext = createContext<UserContextValue>({
   },
   canSubscribe: false,
   freeSeats: 3,
+  orgSuspended: false,
 });
 
 export function useUser() {
@@ -430,7 +437,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   ]);
 
   const permissionsUtil = useMemo(() => {
-    return new Permissions(
+    const basePermissions: UserPermissions =
       currentOrg?.currentUserPermissions || {
         global: {
           permissions: {},
@@ -438,9 +445,127 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
           environments: [],
         },
         projects: {},
-      },
-    );
-  }, [currentOrg?.currentUserPermissions]);
+      };
+
+    // Inject a project-scoped role for the sample data project. The
+    // permissions system already supports per-project role overrides, so this
+    // gives us the existing readonly UX everywhere with no per-page tweaks.
+    //
+    // We start from readonly, then grant just the permissions needed to
+    // explore the sample data — running queries plus updating features,
+    // experiments, and fact metrics. We then patch the create/delete entry
+    // points below to keep new-resource CTAs disabled (the underlying
+    // permission can't separate update from create/delete).
+    const orgId = currentOrg?.organization?.id;
+    const org = currentOrg?.organization;
+    if (orgId && org) {
+      const demoProjectId = getDemoDatasourceProjectIdForOrganization(orgId);
+      const permissions = new Permissions({
+        ...basePermissions,
+        projects: {
+          ...basePermissions.projects,
+          [demoProjectId]: {
+            permissions: {
+              ...roleToPermissionMap("readonly", org),
+              runQueries: true,
+              // Allow editing existing features/experiments/fact metrics.
+              manageFeatures: true,
+              manageFeatureDrafts: true,
+              canReview: true,
+              createAnalyses: true,
+              manageFactMetrics: true,
+              // Allow publishing the resulting changes.
+              publishFeatures: true,
+              runExperiments: true,
+            },
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        },
+      });
+
+      // Block create/delete on the demo project — the granted permissions above
+      // gate update + create + delete equally, so we patch the create/delete
+      // call sites to keep "Add ..." CTAs disabled across the app.
+      const targetsDemoProject = (project?: string) =>
+        project === demoProjectId;
+      const projectsTargetDemoOnly = (projects?: string[]) =>
+        !!projects?.length && projects.every((p) => p === demoProjectId);
+
+      const wrapByProject =
+        <T extends { project?: string }, R extends boolean>(
+          original: (arg: T) => R,
+        ) =>
+        (arg: T) =>
+          (targetsDemoProject(arg.project) ? false : original(arg)) as R;
+
+      const wrapByProjects =
+        <T extends { projects?: string[] }, R extends boolean>(
+          original: (arg: T) => R,
+        ) =>
+        (arg: T) =>
+          (projectsTargetDemoOnly(arg.projects) ? false : original(arg)) as R;
+
+      const wrapByProjectString =
+        (
+          original: (
+            project?: string,
+            allProjects?: { id: string }[],
+          ) => boolean,
+        ) =>
+        (project?: string, allProjects?: { id: string }[]) =>
+          targetsDemoProject(project) ? false : original(project, allProjects);
+
+      permissions.canCreateFeature = wrapByProject(
+        permissions.canCreateFeature,
+      );
+      permissions.canDeleteFeature = wrapByProject(
+        permissions.canDeleteFeature,
+      );
+      permissions.canViewFeatureModal = wrapByProjectString(
+        permissions.canViewFeatureModal,
+      );
+
+      permissions.canCreateExperiment = wrapByProject(
+        permissions.canCreateExperiment,
+      );
+      permissions.canDeleteExperiment = wrapByProject(
+        permissions.canDeleteExperiment,
+      );
+      permissions.canViewExperimentModal = wrapByProjectString(
+        permissions.canViewExperimentModal,
+      );
+      permissions.canCreateExperimentTemplate = wrapByProject(
+        permissions.canCreateExperimentTemplate,
+      );
+      permissions.canDeleteExperimentTemplate = wrapByProject(
+        permissions.canDeleteExperimentTemplate,
+      );
+      permissions.canViewExperimentTemplateModal = wrapByProjectString(
+        permissions.canViewExperimentTemplateModal,
+      );
+
+      permissions.canCreateFactMetric = wrapByProjects(
+        permissions.canCreateFactMetric,
+      );
+      permissions.canDeleteFactMetric = wrapByProjects(
+        permissions.canDeleteFactMetric,
+      );
+
+      permissions.canCreateHoldout = wrapByProjects(
+        permissions.canCreateHoldout,
+      );
+      permissions.canDeleteHoldout = wrapByProjects(
+        permissions.canDeleteHoldout,
+      );
+      permissions.canViewHoldoutModal = wrapByProjectString(
+        permissions.canViewHoldoutModal,
+      );
+
+      return permissions;
+    }
+    return new Permissions(basePermissions);
+  }, [currentOrg?.currentUserPermissions, currentOrg?.organization]);
 
   const getUserDisplay = useCallback(
     (id: string, fallback = true) => {
@@ -532,6 +657,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         seatsInUse: currentOrg?.seatsInUse || 0,
         teams,
         error: error?.message || orgLoadingError?.message,
+        orgSuspended: organization?.suspended === true && !data?.superAdmin,
         hasCommercialFeature: (feature) => commercialFeatures.has(feature),
         watching: watching,
         canSubscribe,

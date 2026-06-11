@@ -19,6 +19,8 @@ import {
   SchemaField,
   SimpleSchema,
   ScheduleRule,
+  JSONSchemaDef,
+  FeatureValueType,
 } from "shared/types/feature";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -209,6 +211,8 @@ export function validateJSONFeatureValue(
   // eslint-disable-next-line
   value: any,
   feature: Pick<FeatureInterface, "jsonSchema">,
+  // Non-json flags hold a raw scalar; coerce instead of JSON-parsing (default keeps json behavior).
+  valueType?: FeatureValueType,
 ) {
   const { jsonSchema, validationEnabled } = getValidation(feature);
   if (!validationEnabled) {
@@ -218,7 +222,11 @@ export function validateJSONFeatureValue(
     const ajv = getJSONValidator();
     const validate = ajv.compile(jsonSchema);
     let parsedValue;
-    if (typeof value === "string") {
+    if (valueType === "string") {
+      parsedValue = value;
+    } else if (valueType === "number") {
+      parsedValue = typeof value === "string" ? parseFloat(value) : value;
+    } else if (typeof value === "string") {
       try {
         parsedValue = JSON.parse(value);
       } catch (e) {
@@ -280,6 +288,23 @@ export function validateFeatureValue(
     if (!value.match(/^-?[0-9]+(\.[0-9]+)?$/)) {
       throw new Error(prefix + "Must be a valid number");
     }
+    const { valid, errors } = validateJSONFeatureValue(
+      value,
+      feature,
+      "number",
+    );
+    if (!valid) {
+      throw new Error(prefix + errors.join(", "));
+    }
+  } else if (type === "string") {
+    const { valid, errors } = validateJSONFeatureValue(
+      value,
+      feature,
+      "string",
+    );
+    if (!valid) {
+      throw new Error(prefix + errors.join(", "));
+    }
   } else if (type === "json") {
     let parsedValue;
     let validJSON = true;
@@ -306,6 +331,78 @@ export function validateFeatureValue(
   }
 
   return value;
+}
+
+// Ensure a feature's enabled validation schema is compatible with its value type.
+export function assertSchemaMatchesValueType(
+  jsonSchema: Pick<
+    JSONSchemaDef,
+    "schemaType" | "schema" | "simple" | "enabled"
+  >,
+  valueType: FeatureValueType,
+): void {
+  if (!jsonSchema.enabled) return;
+
+  // JSON flags accept any schema
+  if (valueType === "json") return;
+
+  if (valueType === "boolean") {
+    throw new Error("Boolean features cannot have a validation schema.");
+  }
+
+  let parsed: unknown;
+  try {
+    const schemaString =
+      jsonSchema.schemaType === "simple"
+        ? simpleToJSONSchema(jsonSchema.simple)
+        : jsonSchema.schema;
+    parsed = JSON.parse(schemaString);
+  } catch (e) {
+    throw new Error(
+      `Invalid validation schema: ${
+        e instanceof Error ? e.message : String(e)
+      }`,
+    );
+  }
+  const schemaObj: Record<string, unknown> =
+    parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
+  const topType = schemaObj.type;
+
+  // No top-level "type" is only allowed with an "enum" whose entries all match the value type
+  if (topType === undefined) {
+    const enumValues = schemaObj.enum;
+    if (!Array.isArray(enumValues)) {
+      throw new Error(
+        `A ${valueType} feature's validation schema must have a top-level "type" or "enum".`,
+      );
+    }
+    if (
+      !enumValues.every((v) =>
+        valueType === "number" ? typeof v === "number" : typeof v === "string",
+      )
+    ) {
+      throw new Error(
+        `All "enum" values in a ${valueType} feature's validation schema must be of type "${valueType}".`,
+      );
+    }
+    return;
+  }
+
+  if (valueType === "number") {
+    if (topType !== "number" && topType !== "integer") {
+      throw new Error(
+        'A number feature\'s validation schema must have a top-level type of "number" or "integer".',
+      );
+    }
+  } else if (valueType === "string") {
+    if (topType !== "string") {
+      throw new Error(
+        'A string feature\'s validation schema must have a top-level type of "string".',
+      );
+    }
+  }
 }
 
 // Helper function to validate ISO timestamp format
@@ -2069,7 +2166,11 @@ export function getDraftAffectedEnvironments(
     if (!isEqual(revRules, baseRules)) {
       envs.add(env);
     }
-    const effectiveBaseEnvVal = baseRevision.environmentsEnabled?.[env];
+    // Base revisions that predate an environment have no key for it at all;
+    // treat missing as false so a freshly-snapshotted `false` on the draft side
+    // doesn't register as a kill-switch change.
+    const effectiveBaseEnvVal =
+      baseRevision.environmentsEnabled?.[env] ?? false;
     if (
       revision.environmentsEnabled?.[env] !== undefined &&
       revision.environmentsEnabled[env] !== effectiveBaseEnvVal
@@ -2187,7 +2288,7 @@ export function checkIfRevisionNeedsReview({
     (env) =>
       revision.environmentsEnabled?.[env] !== undefined &&
       revision.environmentsEnabled[env] !==
-        baseRevision.environmentsEnabled?.[env],
+        (baseRevision.environmentsEnabled?.[env] ?? false),
   );
 
   const gatedEnvs = reviewSetting.environments;

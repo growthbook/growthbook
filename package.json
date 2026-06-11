@@ -77,6 +77,7 @@
   "pnpm": {
     "overrides": {
       "@babel/runtime@7": "^7.28.6",
+      "@tootallnate/once@2": "^2.0.1",
       "@growthbook/growthbook": "1.6.5",
       "@grpc/grpc-js@1.8": "1.8.22",
       "@octokit/plugin-paginate-rest@9": "^9.2.2",
@@ -96,7 +97,6 @@
       "form-data@3": "^3.0.4",
       "form-data@4": "^4.0.5",
       "brace-expansion@5": "^5.0.6",
-      "fast-xml-parser@4": "^4.5.5",
       "fast-xml-parser@5": "^5.7.0",
       "follow-redirects@1": "^1.16.0",
       "js-cookie@3": "^3.0.7",
@@ -113,6 +113,7 @@
       "@protobufjs/utf8@1": "^1.1.1",
       "protobufjs@7": "^7.6.1",
       "qs@6": "^6.15.2",
+      "socks@2": "^2.8.9",
       "uuid@8": "^11.1.1",
       "uuid@9": "^11.1.1",
       "uuid@10": "^11.1.1",

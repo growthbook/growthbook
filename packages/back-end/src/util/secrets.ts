@@ -76,6 +76,18 @@ export const S3_BUCKET = process.env.S3_BUCKET || "";
 export const S3_REGION = process.env.S3_REGION || "us-east-1";
 export const S3_DOMAIN =
   process.env.S3_DOMAIN || `https://${S3_BUCKET}.s3.amazonaws.com/`;
+
+// Separate public, CDN-fronted bucket for visual-editor assets. Falls
+// back to the private S3_BUCKET when not configured.
+export const VISUAL_EDITOR_ASSETS_S3_BUCKET =
+  process.env.VISUAL_EDITOR_ASSETS_S3_BUCKET || S3_BUCKET;
+export const VISUAL_EDITOR_ASSETS_S3_REGION =
+  process.env.VISUAL_EDITOR_ASSETS_S3_REGION || S3_REGION;
+// Must be the long-lived public/CDN hostname — gets baked into
+// visual-changeset DOM mutations and persisted forever.
+export const VISUAL_EDITOR_ASSETS_S3_DOMAIN =
+  process.env.VISUAL_EDITOR_ASSETS_S3_DOMAIN ||
+  `https://${VISUAL_EDITOR_ASSETS_S3_BUCKET}.s3.amazonaws.com/`;
 export const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || "dev";
 if (prod && ENCRYPTION_KEY === "dev") {
   throw new Error(
@@ -87,6 +99,14 @@ export const GCS_BUCKET_NAME = process.env.GCS_BUCKET_NAME || "";
 export const GCS_DOMAIN =
   process.env.GCS_DOMAIN ||
   `https://storage.googleapis.com/${GCS_BUCKET_NAME}/`;
+
+// Visual-editor public-assets bucket (GCS variant). Falls back to the
+// private GCS_BUCKET_NAME when not configured.
+export const VISUAL_EDITOR_ASSETS_GCS_BUCKET_NAME =
+  process.env.VISUAL_EDITOR_ASSETS_GCS_BUCKET_NAME || GCS_BUCKET_NAME;
+export const VISUAL_EDITOR_ASSETS_GCS_DOMAIN =
+  process.env.VISUAL_EDITOR_ASSETS_GCS_DOMAIN ||
+  `https://storage.googleapis.com/${VISUAL_EDITOR_ASSETS_GCS_BUCKET_NAME}/`;
 
 export const JWT_SECRET = process.env.JWT_SECRET || "dev";
 if ((prod || !IS_LOCALHOST) && !IS_CLOUD && JWT_SECRET === "dev") {
@@ -228,6 +248,32 @@ if ((prod || !IS_LOCALHOST) && secretAPIKey === "dev") {
   );
 }
 export const SECRET_API_KEY = secretAPIKey;
+
+// Gemini (Google AI Studio) — used by the visual editor's image-gen endpoint.
+export const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
+// Pin a specific model ID — if your key returns 404, hit
+// /v1beta/models to find an ID your account has access to and override.
+export const GEMINI_IMAGE_MODEL =
+  process.env.GEMINI_IMAGE_MODEL || "gemini-2.5-flash-image";
+// Kraken.io credentials — AI-generated images are resized + re-encoded to
+// WebP via the Kraken API instead of any in-process codec (sharp/wasm-vips),
+// which proved unreliable in production. When unset, optimization is skipped
+// and the original image is uploaded untouched.
+export const KRAKEN_API_KEY = process.env.KRAKEN_API_KEY || "";
+export const KRAKEN_API_SECRET = process.env.KRAKEN_API_SECRET || "";
+// Kill-switch: when true, skip AI-image optimization entirely and upload
+// the original (larger but functional) image. Instant escape hatch — no
+// code change needed.
+export const DISABLE_AI_IMAGE_OPTIMIZATION = stringToBoolean(
+  process.env.DISABLE_AI_IMAGE_OPTIMIZATION,
+);
+// Wall-clock cap (ms) for the full Kraken round-trip (upload + result
+// download). On timeout we abort and fall back to the original image.
+export const AI_IMAGE_OPTIMIZATION_TIMEOUT_MS = parseEnvInt(
+  process.env.AI_IMAGE_OPTIMIZATION_TIMEOUT_MS,
+  20000,
+  { name: "AI_IMAGE_OPTIMIZATION_TIMEOUT_MS", min: 1000, max: 120000 },
+);
 // This is typically used for the Proxy Server, which only requires readonly access
 export const SECRET_API_KEY_ROLE =
   process.env.SECRET_API_KEY_ROLE || "readonly";
