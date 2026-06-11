@@ -12,7 +12,7 @@ import { getAdapter } from "back-end/src/revisions";
 import { buildMergeDesiredState } from "back-end/src/revisions/util";
 import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
 import { getContextForUserIdInOrg } from "back-end/src/services/organizations";
-import { BadRequestError, ConflictError } from "back-end/src/util/errors";
+import { BadRequestError, MergeConflictError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 
 export async function approveRevision(
@@ -112,7 +112,7 @@ export async function publishRevision(
     normalizeProposedChanges(revision.target.proposedChanges),
   );
   if (!conflictResult.success) {
-    throw new ConflictError(
+    throw new MergeConflictError(
       "Merge conflicts exist — rebase before publishing",
       conflictResult.conflicts,
     );

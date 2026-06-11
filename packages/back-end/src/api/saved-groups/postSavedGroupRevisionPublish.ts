@@ -7,6 +7,7 @@ import { postSavedGroupRevisionPublishValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   BadRequestError,
+  ConflictError,
   MergeConflictError,
   NotFoundError,
 } from "back-end/src/util/errors";
@@ -117,7 +118,6 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
       throw new ConflictError(
         "This revision was created against an older version of the saved group. " +
           'Rebase the revision first, or retry this request with "mergeNow": true to merge the stale revision anyway.',
-        [],
       );
     }
   }

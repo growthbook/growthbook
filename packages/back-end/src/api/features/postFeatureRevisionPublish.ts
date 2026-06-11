@@ -25,6 +25,7 @@ import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevis
 import { getEnvironments } from "back-end/src/util/organization.util";
 import {
   BadRequestError,
+  ConflictError,
   MergeConflictError,
   NotFoundError,
 } from "back-end/src/util/errors";
@@ -128,7 +129,6 @@ export async function publishFeatureRevision(
     ) {
       throw new ConflictError(
         `${governance.blockReason} Rebase the revision (POST .../rebase) first, or retry this request with "mergeNow": true to merge the stale draft anyway.`,
-        [],
       );
     }
   }
