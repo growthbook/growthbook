@@ -493,6 +493,11 @@
       "count": 1
     }
   },
+  "packages/front-end/components/Features/CustomHookModal.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    }
+  },
   "packages/front-end/components/Features/DraftModal.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -1009,11 +1014,6 @@
   },
   "packages/front-end/components/OfficialResourceModal.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/OrganizationMessages/OrganizationMessages.tsx": {
-    "local/no-alert-classname": {
       "count": 1
     }
   },
@@ -1825,11 +1825,6 @@
   "packages/front-end/pages/sdks/index.tsx": {
     "local/no-alert-classname": {
       "count": 1
-    }
-  },
-  "packages/front-end/pages/settings/custom-hooks.tsx": {
-    "no-restricted-imports": {
-      "count": 2
     }
   },
   "packages/front-end/pages/settings/custom-markdown.tsx": {

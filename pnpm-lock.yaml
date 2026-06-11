@@ -330,6 +330,9 @@ importers:
       fast-json-patch:
         specifier: ^3.1.1
         version: 3.1.1
+      form-data:
+        specifier: ^4.0.5
+        version: 4.0.5
       free-email-domains-typescript:
         specifier: ^1.0.9
         version: 1.0.9
@@ -432,9 +435,6 @@ importers:
       shared:
         specifier: workspace:*
         version: link:../shared
-      sharp:
-        specifier: ^0.34.5
-        version: 0.34.5
       snowflake-sdk:
         specifier: 2.3.3
         version: 2.3.3(asn1.js@5.4.1)(encoding@0.1.13)
@@ -15944,7 +15944,8 @@ snapshots:
 
   '@iarna/toml@2.2.5': {}
 
-  '@img/colour@1.0.0': {}
+  '@img/colour@1.0.0':
+    optional: true
 
   '@img/sharp-darwin-arm64@0.34.5':
     optionalDependencies:
@@ -27333,6 +27334,7 @@ snapshots:
       '@img/sharp-win32-arm64': 0.34.5
       '@img/sharp-win32-ia32': 0.34.5
       '@img/sharp-win32-x64': 0.34.5
+    optional: true
 
   shebang-command@1.2.0:
     dependencies:
