@@ -11,7 +11,7 @@ import {
 } from "shared/api-spec";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiErrorResponse, ApiRequestLocals } from "back-end/types/api";
-import { ApiError, MergeConflictError } from "./errors";
+import { ApiError, MergeConflictError, SoftWarningError } from "./errors";
 import { IS_MULTI_ORG } from "./secrets";
 
 export type { ApiEndpointSpec, ExampleRequest, HttpVerb, RequestSchemas };
@@ -241,6 +241,17 @@ export function createApiRequestHandler<
             // TODO: remove once clients are reading `details.conflicts` instead.
             if (e instanceof MergeConflictError) {
               body.conflicts = e.details.conflicts;
+            }
+          }
+          // Surface soft warnings so clients can re-submit with `?ignoreWarnings=true`
+          if (e instanceof SoftWarningError) {
+            body.warnings = e.warnings;
+            // Front-end shows a "Save anyway" dialong and doesn't need a querystring hint
+            const isJwtAuth = (req as unknown as ApiRequestLocals).isJwtAuth;
+            if (!isJwtAuth) {
+              body.message =
+                e.message +
+                "\n\nEither address the warnings or append '?ignoreWarnings=true' to the URL to proceed.";
             }
           }
           return res.status(e.status || 400).json(body);

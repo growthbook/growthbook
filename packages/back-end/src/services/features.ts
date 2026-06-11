@@ -55,6 +55,7 @@ import { ProjectInterface } from "shared/types/project";
 import {
   HoldoutInterface,
   SdkConnectionCacheAuditContext,
+  ApiEventUser,
   apiFeatureRevisionValidator,
   ApiFeatureWithRevisions,
   ApiFeatureEnvironment,
@@ -1726,6 +1727,37 @@ function eventUserToString(
   return user.name || undefined;
 }
 
+// API-safe projection of the internal EventUser union. Deliberately never
+// exposes the api_key actor's `apiKey` field — only stable identifying fields.
+export function eventUserToApiEventUser(
+  user: FeatureRevisionInterface["createdBy"] | undefined,
+): ApiEventUser | undefined {
+  if (!user) return undefined;
+  switch (user.type) {
+    case "dashboard":
+      return {
+        type: "dashboard",
+        id: user.id,
+        name: user.name,
+        email: user.email,
+      };
+    case "api_key":
+      return {
+        type: "api_key",
+        id: user.id,
+        name: user.name,
+        email: user.email,
+      };
+    case "system":
+      return {
+        type: "system",
+        id: user.id,
+      };
+  }
+  // Fail closed for legacy stored documents with an unrecognized type.
+  return undefined;
+}
+
 export function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
   const base = {
     description: rule.description,
@@ -1902,8 +1934,8 @@ export function revisionToApiInterfaceV2(
       rev.dateCreated?.toISOString?.() ||
       new Date(rev.dateCreated).toISOString(),
     status: rev.status,
-    createdBy: eventUserToString(rev.createdBy),
-    publishedBy: eventUserToString(rev.publishedBy),
+    createdBy: eventUserToApiEventUser(rev.createdBy),
+    publishedBy: eventUserToApiEventUser(rev.publishedBy),
     defaultValue: rev.defaultValue,
     rules,
     ...(rev.environmentsEnabled !== undefined && {
@@ -1994,19 +2026,6 @@ export function getApiFeatureObjV2({
 
   const revisionDefs = revisions?.map(revisionToApiInterfaceV2);
 
-  const createdBy =
-    revision?.createdBy?.type === "api_key"
-      ? "API"
-      : revision?.createdBy?.type === "system"
-        ? "SYSTEM"
-        : revision?.createdBy?.name;
-  const publishedBy =
-    revision?.publishedBy?.type === "api_key"
-      ? "API"
-      : revision?.publishedBy?.type === "system"
-        ? "SYSTEM"
-        : revision?.publishedBy?.name;
-
   return {
     id: feature.id,
     description: feature.description || "",
@@ -2024,8 +2043,8 @@ export function getApiFeatureObjV2({
     revision: {
       comment: revision?.comment || "",
       date: revision?.dateCreated.toISOString() || "",
-      createdBy: createdBy || "",
-      publishedBy: publishedBy || "",
+      createdBy: eventUserToApiEventUser(revision?.createdBy),
+      publishedBy: eventUserToApiEventUser(revision?.publishedBy),
       version: feature.version,
     },
     revisions: revisionDefs,
@@ -2637,6 +2656,22 @@ export const buildFeatureRulesFromApiEnvSettings = (
   });
 };
 
+function prerequisiteListsDiffer(
+  next: FeaturePrerequisite[],
+  original: FeaturePrerequisite[] | undefined,
+): boolean {
+  const orig = original ?? [];
+  if (next.length !== orig.length) return true;
+  for (let i = 0; i < next.length; i++) {
+    if (
+      next[i]?.id !== orig[i]?.id ||
+      next[i]?.condition !== orig[i]?.condition
+    )
+      return true;
+  }
+  return false;
+}
+
 // Only keep features that are "on" or "conditional". For "on" features, remove any top level prerequisites
 export const reduceFeaturesWithPrerequisites = (
   features: FeatureInterface[],
@@ -2649,11 +2684,10 @@ export const reduceFeaturesWithPrerequisites = (
 
   // block "always off" features, or remove "always on" prereqs
   for (const feature of features) {
-    const newFeature = cloneDeep(feature);
     let removeFeature = false;
 
     const newPrerequisites: FeaturePrerequisite[] = [];
-    for (const prereq of newFeature.prerequisites || []) {
+    for (const prereq of feature.prerequisites || []) {
       let state: PrerequisiteStateResult = {
         state: "deterministic",
         value: null,
@@ -2694,38 +2728,58 @@ export const reduceFeaturesWithPrerequisites = (
         }
       }
     }
-    if (!removeFeature) {
-      newFeature.prerequisites = newPrerequisites;
-      newFeatures.push(newFeature);
-    }
-  }
+    if (removeFeature) continue;
 
-  // Block "always off" rules and reduce "always on" rules for this env.
-  // Rules scoped to other envs are carried through verbatim.
-  for (let i = 0; i < newFeatures.length; i++) {
-    const feature = newFeatures[i];
+    const prerequisitesChanged = prerequisiteListsDiffer(
+      newPrerequisites,
+      feature.prerequisites,
+    );
+
+    // Block "always off" rules and reduce "always on" rules for this env.
+    // Rules scoped to other envs are carried through verbatim.
     const existingRules = feature.rules ?? [];
-    if (existingRules.length === 0) continue;
-
     const newFeatureRules: FeatureRule[] = [];
+
     for (const rule of existingRules) {
       if (!ruleAppliesToEnv(rule, environment)) {
         newFeatureRules.push(rule);
         continue;
       }
-      const { removeRule, newPrerequisites } =
+      const { removeRule, newPrerequisites: rulePrereqs } =
         getInlinePrerequisitesReductionInfo(
           rule.prerequisites || [],
           featuresMap,
           environment,
           prereqStateCache,
         );
-      if (!removeRule) {
-        rule.prerequisites = newPrerequisites;
+      if (removeRule) {
+        continue;
+      }
+      const rulePrereqsChanged = prerequisiteListsDiffer(
+        rulePrereqs,
+        rule.prerequisites,
+      );
+      if (rulePrereqsChanged) {
+        newFeatureRules.push({ ...rule, prerequisites: rulePrereqs });
+      } else {
         newFeatureRules.push(rule);
       }
     }
-    newFeatures[i].rules = newFeatureRules;
+
+    const rulesChanged =
+      newFeatureRules.length !== existingRules.length ||
+      newFeatureRules.some((r, i) => r !== existingRules[i]);
+
+    if (!prerequisitesChanged && !rulesChanged) {
+      newFeatures.push(feature);
+      continue;
+    }
+
+    newFeatures.push({
+      ...feature,
+      ...(prerequisitesChanged && { prerequisites: newPrerequisites }),
+      ...(rulesChanged && { rules: newFeatureRules }),
+    });
   }
 
   return newFeatures;

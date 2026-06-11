@@ -45,6 +45,8 @@ type ApiErrorResponseBase = {
   code?: undefined;
   details?: undefined;
   conflicts?: unknown[];
+  // Populated on 422 soft-warning responses; re-submit with ?ignoreWarnings=true to proceed.
+  warnings?: string[];
 };
 type ApiErrorResponseStructured = {
   [C in ApiErrorCode]: {
@@ -53,6 +55,7 @@ type ApiErrorResponseStructured = {
     details: ApiErrorDetails<C>;
     /** @deprecated Read `details.conflicts` instead. Populated only when code === "conflict" for backwards compatibility. */
     conflicts?: unknown[];
+    warnings?: string[];
   };
 }[ApiErrorCode];
 
