@@ -110,6 +110,7 @@ const featureRevisionSchema = new mongoose.Schema({
   status: String,
   requiresReview: Boolean,
   autoPublishOnApproval: Boolean,
+  autoPublishEnabledBy: String,
   log: [
     {
       _id: false,
@@ -1242,6 +1243,12 @@ export async function markRevisionAsReviewRequested(
 ) {
   const action = "Review Requested";
 
+  // The auto-publish later runs with the arming user's authority, so record
+  // who that was. Actors without a user ID (e.g. API keys) can still arm —
+  // the publish then falls back to `createdBy`.
+  const enabledBy =
+    autoPublishOnApproval && user && "id" in user ? user.id : null;
+
   await FeatureRevisionModel.updateOne(
     {
       organization: revision.organization,
@@ -1255,10 +1262,12 @@ export async function markRevisionAsReviewRequested(
         dateUpdated: new Date(),
         comment: comment,
         autoPublishOnApproval: !!autoPublishOnApproval,
+        ...(enabledBy !== null ? { autoPublishEnabledBy: enabledBy } : {}),
         // Requesting review starts a new review cycle — prior verdicts no
         // longer stand (mirrors the revision-log replay semantics).
         reviews: [],
       },
+      ...(enabledBy === null ? { $unset: { autoPublishEnabledBy: 1 } } : {}),
     },
   );
 
@@ -1280,6 +1289,10 @@ export async function markRevisionAsReviewRequested(
 export async function setAutoPublishOnApproval(
   revision: FeatureRevisionInterface,
   enabled: boolean,
+  // User arming the flag; the auto-publish runs with their authority.
+  // Cleared on disable (and on enable without a user ID, where the publish
+  // falls back to `createdBy`).
+  enabledBy: string | null,
 ) {
   await FeatureRevisionModel.updateOne(
     {
@@ -1287,7 +1300,17 @@ export async function setAutoPublishOnApproval(
       featureId: revision.featureId,
       version: revision.version,
     },
-    { $set: { autoPublishOnApproval: enabled } },
+    enabled && enabledBy !== null
+      ? {
+          $set: {
+            autoPublishOnApproval: true,
+            autoPublishEnabledBy: enabledBy,
+          },
+        }
+      : {
+          $set: { autoPublishOnApproval: enabled },
+          $unset: { autoPublishEnabledBy: 1 },
+        },
   );
 }
 
@@ -1302,34 +1325,11 @@ export async function submitReviewAndComments(
   liveVersion?: number,
 ) {
   const action = reviewSubmittedType;
-  let status = "pending-review";
-  switch (reviewSubmittedType) {
-    case "Approved":
-      status = "approved";
-      break;
-    case "Requested Changes":
-      status = "changes-requested";
-      break;
-    default:
-      // we dont want comments to override approved state
-      status = revision.status;
-  }
 
   const filter = {
     organization: revision.organization,
     featureId: revision.featureId,
     version: revision.version,
-  };
-
-  const baseSet = {
-    status,
-    datePublished: null,
-    dateUpdated: new Date(),
-    // Record the version this approval was made against. Only meaningful
-    // for approvals; harmless to set otherwise.
-    ...(status === "approved" && liveVersion !== undefined
-      ? { approvedBaseVersion: liveVersion }
-      : {}),
   };
 
   // Bake this reviewer's verdict into the revision's `reviews` array so
@@ -1347,15 +1347,50 @@ export async function submitReviewAndComments(
       ? { userId: reviewerKey, user, status: verdict, timestamp: new Date() }
       : null;
 
+  // The post-update verdict set (this reviewer's verdict replaces any prior
+  // one). For legacy revisions predating the baked field, backfill from log
+  // replay (one-time self-heal) so pre-deploy verdicts aren't lost.
+  let updatedReviews: RevisionReview[] | null = null;
+  if (newReview !== null) {
+    const priorReviews =
+      revision.reviews ?? (await getActiveReviewsFromLog(context, revision));
+    updatedReviews = [
+      ...priorReviews.filter((r) => r.userId !== newReview.userId),
+      newReview,
+    ];
+  }
+
+  // `status` aggregates ALL standing verdicts — one reviewer's approval must
+  // not override another reviewer's active changes-requested. Stale verdicts
+  // don't count, and comments never change the status.
+  let status: string = revision.status;
+  if (updatedReviews !== null) {
+    status = updatedReviews.some((r) => r.status === "changes-requested")
+      ? "changes-requested"
+      : updatedReviews.some((r) => r.status === "approved")
+        ? "approved"
+        : "pending-review";
+  } else if (verdict !== null) {
+    // Verdict from a user without a stable reviewer key (e.g. system events)
+    // can't be baked into `reviews`; fall back to latest-verdict-wins.
+    status = verdict === "approved" ? "approved" : "changes-requested";
+  }
+
+  const baseSet = {
+    status,
+    datePublished: null,
+    dateUpdated: new Date(),
+    // Record the version this approval was made against. Only meaningful
+    // for approvals; harmless to set otherwise.
+    ...(status === "approved" && liveVersion !== undefined
+      ? { approvedBaseVersion: liveVersion }
+      : {}),
+  };
+
   if (newReview !== null && revision.reviews === undefined) {
-    // Legacy revision that predates the baked field: backfill the whole
-    // array from log replay (one-time self-heal) so pre-deploy verdicts
-    // aren't lost, then layer this verdict on top.
-    const backfilled = (
-      await getActiveReviewsFromLog(context, revision)
-    ).filter((r) => r.userId !== newReview.userId);
+    // Legacy revision: persist the whole backfilled array.
     await FeatureRevisionModel.updateOne(filter, {
-      $set: { ...baseSet, reviews: [...backfilled, newReview] },
+      $set: { ...baseSet, reviews: updatedReviews },
     });
   } else if (newReview !== null) {
     // Upsert = $pull any prior entry, then $push the new one. Mongo can't

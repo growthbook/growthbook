@@ -189,11 +189,13 @@ export async function maybeAutoPublishRevision(
   if (!revision.autoPublishOnApproval) return revision;
   if (revision.status !== "approved") return revision;
 
-  const enablerId = revision.authorId;
+  // Publish with the authority of whoever armed auto-publish; fall back to
+  // the author for revisions armed before `autoPublishEnabledBy` existed.
+  const enablerId = revision.autoPublishEnabledBy ?? revision.authorId;
   if (!enablerId) {
     logger.warn(
       { revisionId: revision.id },
-      "auto-publish-on-approval skipped: revision has no authorId; left approved",
+      "auto-publish-on-approval skipped: no arming user or author; left approved",
     );
     return revision;
   }

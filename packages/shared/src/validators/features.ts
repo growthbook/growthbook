@@ -568,6 +568,11 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
     // Note: the revision author (createdBy) is NOT automatically seeded here.
     contributors: z.array(z.string()).optional(),
     autoPublishOnApproval: z.boolean().optional(),
+    // User ID of whoever most recently armed `autoPublishOnApproval` — the
+    // auto-publish executes with this user's authority. Absent when armed by
+    // an actor without a user ID (e.g. an API key), in which case the
+    // publish falls back to `createdBy`.
+    autoPublishEnabledBy: z.string().optional(),
     // Active reviewer verdicts for the current review cycle (one entry per
     // reviewer). Kept in sync by the review lifecycle mutations:
     // submit review upserts, undo review removes, request/recall review

@@ -1360,7 +1360,7 @@ export async function postFeatureToggleAutoPublish(
     context.permissions.throwPermissionError();
   }
 
-  await setAutoPublishOnApproval(revision, !!enabled);
+  await setAutoPublishOnApproval(revision, !!enabled, context.userId || null);
 
   res.status(200).json({ status: 200 });
 }

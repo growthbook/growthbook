@@ -565,6 +565,13 @@ export class RevisionModel extends BaseClass {
     return this.update(existing, {
       status: "pending-review",
       autoPublishOnApproval: !!autoPublishOnApproval,
+      // The auto-publish runs with the arming user's authority. A stale
+      // value from a previous cycle is harmless — `autoPublishOnApproval`
+      // gates everything. `userId` is empty for API-key actors; skip so the
+      // publish falls back to `authorId`.
+      ...(autoPublishOnApproval && userId
+        ? { autoPublishEnabledBy: userId }
+        : {}),
       activityLog: [
         ...this.cleanActivityLog(existing.activityLog),
         {
@@ -609,12 +616,41 @@ export class RevisionModel extends BaseClass {
       comment: "commented",
     };
 
+    // Verdicts only stand for the current review cycle. Every transition
+    // that invalidates prior verdicts (submit for review, approval reset on
+    // content edit, reopen of a discarded revision) logs a "reopened"
+    // activity entry, so reviews submitted before the latest one are
+    // history, not active approvals/blocks.
+    let cycleStart: Date | null = null;
+    for (const entry of existing.activityLog) {
+      if (
+        entry.action === "reopened" &&
+        (cycleStart === null || entry.dateCreated > cycleStart)
+      ) {
+        cycleStart = entry.dateCreated;
+      }
+    }
+
+    // Latest verdict per reviewer within the cycle; comments carry no verdict.
+    const verdictByReviewer = new Map<string, ReviewDecision>();
+    for (const r of [...existing.reviews, review]) {
+      if (r.decision === "comment") continue;
+      if (cycleStart !== null && r.dateCreated < cycleStart) continue;
+      verdictByReviewer.set(r.userId, r.decision);
+    }
+    const verdicts = Array.from(verdictByReviewer.values());
+
+    // Aggregate across reviewers — one reviewer's approval must not override
+    // another reviewer's standing request-changes. Comments leave the status
+    // unchanged.
     const newStatus =
-      decision === "approve"
-        ? "approved"
-        : decision === "request-changes"
+      decision === "comment"
+        ? existing.status
+        : verdicts.includes("request-changes")
           ? "changes-requested"
-          : existing.status;
+          : verdicts.includes("approve")
+            ? "approved"
+            : existing.status;
 
     return this.update(existing, {
       reviews: [...existing.reviews, review],

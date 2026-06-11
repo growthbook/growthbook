@@ -41,10 +41,14 @@ export async function maybeAutoPublishFeatureRevision(
   if (!revision.autoPublishOnApproval) return revision;
   if (revision.status !== "approved") return revision;
 
+  // Publish with the authority of whoever armed auto-publish. Fall back to
+  // the draft author for revisions armed by actors without a user ID (API
+  // keys) or before `autoPublishEnabledBy` existed.
   const enablerId =
-    revision.createdBy && "id" in revision.createdBy
+    revision.autoPublishEnabledBy ??
+    (revision.createdBy && "id" in revision.createdBy
       ? revision.createdBy.id
-      : null;
+      : null);
   if (!enablerId) {
     logger.warn(
       { featureId: feature.id, version: revision.version },
