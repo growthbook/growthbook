@@ -43,7 +43,7 @@ import {
 import { useHoldouts, holdoutOccupiesRuleSlot } from "@/hooks/useHoldouts";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
-import { PreLaunchChecklistForDraft } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
+import { PreLaunchChecklistForDraftFeature } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 
 export interface Props {
@@ -569,7 +569,7 @@ export default function DraftModal({
                       .
                     </Callout>
                   )}
-                  <PreLaunchChecklistForDraft
+                  <PreLaunchChecklistForDraftFeature
                     experiment={experiment}
                     feature={feature}
                     mutateExperiment={mutate}

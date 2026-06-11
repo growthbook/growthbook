@@ -234,10 +234,7 @@ function PreLaunchChecklistFeatureExpRule({
   );
 }
 
-// Checklist for the DraftModal / RequestReviewModal publish flow.
-// Fetches the project-aware /experiment/:id/launch-checklist endpoint so
-// project-scoped custom tasks match what's shown on the experiment page.
-export function PreLaunchChecklistForDraft({
+export function PreLaunchChecklistForDraftFeature({
   experiment,
   feature,
   mutateExperiment,
@@ -246,16 +243,12 @@ export function PreLaunchChecklistForDraft({
   experiment: ExperimentInterfaceStringDates;
   feature: FeatureInterface;
   mutateExperiment: () => unknown | Promise<unknown>;
-  // Called when failedRequired or loading changes so the parent can gate submit.
   onReady?: (failedRequired: boolean, loading: boolean) => void;
 }) {
   const { data: checklistData, isLoading: checklistLoading } = useApi<{
     checklist: ExperimentLaunchChecklistInterface;
   }>(`/experiment/${experiment.id}/launch-checklist`);
 
-  // Fetch linked feature info so other features' merge conflicts surface in the
-  // checklist. The current feature is replaced by a synthetic "live" entry so
-  // the "Add at least one linked change" item stays green.
   const { data: experimentData, isLoading: expLoading } = useApi<{
     linkedFeatures: LinkedFeatureInfo[];
   }>(`/experiment/${experiment.id}`);
@@ -266,8 +259,7 @@ export function PreLaunchChecklistForDraft({
   );
 
   // Synthetic entry for the current feature: treat as "live" so the checklist
-  // passes the "Add at least one linked change" item. pendingApproval is
-  // intentionally omitted — approval is handled by the modal flow itself.
+  // passes the "Add at least one linked change" item.
   const syntheticLinkedFeature: LinkedFeatureInfo = useMemo(
     () => ({
       feature,
@@ -281,8 +273,6 @@ export function PreLaunchChecklistForDraft({
     [feature],
   );
 
-  // Combine: synthetic entry for the current feature + real info for all other
-  // linked features (so their hasMergeConflict / pendingApproval states show).
   const linkedFeatures: LinkedFeatureInfo[] = useMemo(() => {
     const others = (experimentData?.linkedFeatures ?? []).filter(
       (f) => f.feature.id !== feature.id,

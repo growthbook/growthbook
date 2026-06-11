@@ -51,7 +51,7 @@ import {
 import { useHoldouts, holdoutOccupiesRuleSlot } from "@/hooks/useHoldouts";
 import RadioGroup from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
-import { PreLaunchChecklistForDraft } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
+import { PreLaunchChecklistForDraftFeature } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 import Checkbox from "@/ui/Checkbox";
 import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 import Heading from "@/ui/Heading";
@@ -635,7 +635,7 @@ export default function RequestReviewModal({
                           .
                         </Callout>
                       )}
-                      <PreLaunchChecklistForDraft
+                      <PreLaunchChecklistForDraftFeature
                         experiment={experiment}
                         feature={feature}
                         mutateExperiment={mutate}
