@@ -1007,11 +1007,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/OrganizationMessages/OrganizationMessages.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/OutdatedBadge.tsx": {
     "no-restricted-imports": {
       "count": 1
