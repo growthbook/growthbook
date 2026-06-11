@@ -7,11 +7,12 @@
   },
   "scripts": {
     "build:emails": "mkdir -p dist/templates && cp -r src/templates/* dist/templates",
+    "build:skills": "mkdir -p dist/agent/skills && cp -r src/agent/skills/* dist/agent/skills",
     "build:clean": "rimraf -rf dist",
     "build:typescript": "tsc",
     "clean": "rimraf node_modules",
     "dev": "pnpm build:clean && concurrently \"pnpm watch-compile\" \"pnpm watch-dev | pnpm pino-pretty\"",
-    "build": "pnpm build:clean && pnpm build:typescript && pnpm build:emails",
+    "build": "pnpm build:clean && pnpm build:typescript && pnpm build:emails && pnpm build:skills",
     "start": "node dist/server.js",
     "start:with-tracing": "node --require ./dist/tracing.opentelemetry.js dist/server.js",
     "start:with-datadog": "node --require ./dist/tracing.datadog.js dist/server.js",
