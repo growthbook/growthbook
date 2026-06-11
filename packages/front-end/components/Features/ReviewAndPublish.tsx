@@ -587,7 +587,27 @@ export default function ReviewAndPublish({
     ],
   );
 
+  // Raw merge state — no client-side conflict resolutions applied. Drives all
+  // page-level UI (divergence notice, publish gating, state machine) and the
+  // publish/request payloads: the page must keep treating the draft as
+  // conflicted until a rebase is actually persisted server-side.
   const mergeResult = useMemo(() => {
+    if (!revision || !baseRevision || !liveRevision) return null;
+    return autoMerge(
+      liveRevisionFromFeature(liveRevision, feature),
+      fillRevisionFromFeature(baseRevision, feature),
+      revision,
+      envIds,
+      {},
+    );
+  }, [revision, baseRevision, liveRevision, envIds, feature]);
+
+  // Strategies-applied preview for the Resolve Conflicts modal. Becomes
+  // successful once every conflict has a chosen strategy, which enables the
+  // modal's Next → Review Changes → Update Draft flow and forms the rebase
+  // payload. Never leaks into page-level state — only the persisted rebase
+  // clears the conflict for the rest of the surface.
+  const resolvedMergeResult = useMemo(() => {
     if (!revision || !baseRevision || !liveRevision) return null;
     return autoMerge(
       liveRevisionFromFeature(liveRevision, feature),
@@ -747,6 +767,17 @@ export default function ReviewAndPublish({
   const resultDiffs = useFeatureRevisionDiff({
     current: currentRevisionData,
     draft: draftDiffInput,
+  });
+  // Preview diffs for the conflict modal's "Review Changes" step: what the
+  // draft will contain once the chosen resolutions are applied and the
+  // rebase runs.
+  const resolvedDraftDiffInput: FeatureRevisionDiffInput =
+    resolvedMergeResult?.success
+      ? mergeResultToDiffInput(resolvedMergeResult.result, currentRevisionData)
+      : draftDiffInput;
+  const resolvedResultDiffs = useFeatureRevisionDiff({
+    current: currentRevisionData,
+    draft: resolvedDraftDiffInput,
   });
   // For the whole-object "Raw JSON" view we need a complete object, otherwise
   // sparse merge-result fields look like deletions — layer the diff input
@@ -1487,7 +1518,9 @@ export default function ReviewAndPublish({
             await apiCall(`/feature/${feature.id}/${revision.version}/rebase`, {
               method: "POST",
               body: JSON.stringify({
-                mergeResultSerialized: JSON.stringify(mergeResult),
+                // The server recomputes autoMerge with these strategies and
+                // byte-compares — so send the strategies-applied result.
+                mergeResultSerialized: JSON.stringify(resolvedMergeResult),
                 strategies,
               }),
             });
@@ -1496,10 +1529,16 @@ export default function ReviewAndPublish({
             throw e;
           }
           await mutate();
+          // Don't let stale picks silently auto-resolve a future conflict
+          // on the same key.
+          setStrategies({});
         }}
         cta={conflictStep === 1 ? "Update Draft" : "Next"}
-        ctaEnabled={!!mergeResult.success}
-        close={() => setResolveConflicts(false)}
+        ctaEnabled={!!resolvedMergeResult?.success}
+        close={() => {
+          setResolveConflicts(false);
+          setConflictStep(0);
+        }}
         closeCta="Cancel"
         size="max"
         useRadixButton={true}
@@ -1508,7 +1547,7 @@ export default function ReviewAndPublish({
           display="Fix Conflicts"
           enabled
           validate={async () => {
-            if (!mergeResult?.success) {
+            if (!resolvedMergeResult?.success) {
               throw new Error("Please resolve all conflicts first");
             }
           }}
@@ -1549,7 +1588,7 @@ export default function ReviewAndPublish({
         <Page display="Review Changes">
           {hasChanges ? (
             <Flex direction="column" gap="4">
-              {resultDiffs
+              {resolvedResultDiffs
                 .filter((d) => d.a !== d.b)
                 .map((diff) => (
                   <ExpandableDiff

@@ -354,6 +354,7 @@ function RevisionDetail<T>({
           revision={revision}
           currentState={currentState as Record<string, unknown>}
           close={() => setShowFixConflicts(false)}
+          onRebased={(updated) => setCurrentRevision(updated)}
           mutate={async () => {
             setShowFixConflicts(false);
             await mutate?.();
