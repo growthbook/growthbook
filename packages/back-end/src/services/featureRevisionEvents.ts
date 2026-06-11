@@ -1,7 +1,6 @@
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
-  EventEnvironments,
   NotificationEventPayloadSchemaType,
   ResourceEvents,
 } from "shared/types/events/base-types";
@@ -15,10 +14,7 @@ import {
   toApiRevision,
 } from "back-end/src/services/features";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
-import {
-  deriveRevisionEventEnvironments,
-  routingEnvironments,
-} from "back-end/src/events/eventEnvironments";
+import { deriveRevisionEventEnvironments } from "back-end/src/events/eventEnvironments";
 import { getEnvironments } from "back-end/src/util/organization.util";
 
 type RevisionChange = FeatureRevisionUpdatedPayload["change"];
@@ -59,17 +55,12 @@ export async function dispatchFeatureRevisionEvent<
     const apiRevision = toApiRevision(revision, ctx, feature);
     const projects = feature.project ? [feature.project] : [];
     const tags = feature.tags ?? [];
-    // Draft events have no live before/after pair, so the only environment
-    // fact is `applicable` — the envs the revision touches, resolved at
-    // dispatch time.
-    const environmentFacts: EventEnvironments = {
-      applicable: deriveRevisionEventEnvironments(
-        feature,
-        revision,
-        getEnvironments(ctx.org),
-        opts.environments,
-      ),
-    };
+    const environments = deriveRevisionEventEnvironments(
+      feature,
+      revision,
+      getEnvironments(ctx.org),
+      opts.environments,
+    );
 
     const object = {
       ...apiRevision,
@@ -84,13 +75,10 @@ export async function dispatchFeatureRevisionEvent<
       object: "feature",
       objectId: feature.id,
       event,
-      data: {
-        object,
-        environments: environmentFacts,
-      } as CreateEventData<"feature", T>,
+      data: { object } as CreateEventData<"feature", T>,
       projects,
       tags,
-      environments: routingEnvironments(environmentFacts),
+      environments,
       containsSecrets: false,
     });
   } catch (e) {

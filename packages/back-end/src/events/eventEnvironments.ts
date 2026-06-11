@@ -1,6 +1,5 @@
 import isEqual from "lodash/isEqual";
 import { ApiFeature } from "shared/validators";
-import { EventEnvironments } from "shared/types/events/base-types";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
@@ -8,34 +7,24 @@ import { getApiFeatureAllEnvs, getApiFeatureEnabledEnvs } from "shared/util";
 import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Event `environments` semantics — one semantic with a refinement.
+// Event `environments` semantics — one meaning, everywhere:
 //
-// Every event carries a single meaning for its environments routing field:
-// "the environments this event is relevant to". Two facts feed it:
+//   "The environments affected by the change described by this event."
 //
-// - `applicable` — where the object operates. The universal computation,
-//   valid for every event. Resolved at dispatch time (rule scopes expanded
-//   against the org's project-filtered env list) so the stored payload is a
-//   point-in-time snapshot that later env-config changes can't rewrite.
-// - `changed` — where behavior actually moved. A *refinement* of
-//   `applicable`, only definable when a before/after pair exists (live-state
-//   transitions). It is pure denormalization — consumers can re-derive it
-//   from `object` / `previous_attributes` — and exists for routing precision.
+// - Live-state events (`feature.updated`, …): the environments whose
+//   effective configuration actually changed in the before/after transition.
+//   Feature-wide keys (defaultValue, prerequisites, …) affect every env.
+// - Draft lifecycle events (`feature.revision.*`): the environments the
+//   revision's proposed changes would affect — the union of its rule scopes,
+//   resolved at dispatch time (`allEnvironments: true` expanded against the
+//   org's project-filtered env list) so the persisted payload is a
+//   point-in-time snapshot.
+// - An empty array means the event has no environment-scoped impact; such
+//   events are only delivered to subscriptions without an environment filter.
 //
-// The routing field is always derived by `routingEnvironments`:
-// `changed ?? applicable ?? []`. Both facts are also persisted on the payload
-// as `data.environments` so consumers don't have to reverse-engineer which
-// computation produced the routing value.
+// All producers must derive the routing field through the helpers in this
+// module so the semantics can't fork per event family again.
 // ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Derive the top-level routing field from the environment facts:
- * `changed` when a transition exists, else `applicable`, else `[]`
- * (not environment-scoped).
- */
-export function routingEnvironments(facts: EventEnvironments): string[] {
-  return facts.changed ?? facts.applicable ?? [];
-}
 
 // Some of the feature keys that change affect all enabled environments
 export const RELEVANT_KEYS_FOR_ALL_ENVS: (keyof ApiFeature)[] = [
@@ -47,9 +36,8 @@ export const RELEVANT_KEYS_FOR_ALL_ENVS: (keyof ApiFeature)[] = [
 ];
 
 /**
- * `changed` fact for live feature transitions: environments whose effective
- * configuration differs between the previous and current snapshots.
- * Feature-wide keys (defaultValue, prerequisites, …) expand to every env.
+ * Environments whose effective configuration differs between the previous
+ * and current snapshots. Feature-wide keys expand to every env.
  */
 export function getChangedApiFeatureEnvironments(
   previous: ApiFeature,
@@ -92,15 +80,13 @@ export function getChangedApiFeatureEnvironments(
 }
 
 /**
- * Environment facts for live-state feature events (created/updated/deleted).
+ * Affected environments for live-state feature events.
  *
- * `applicable`: enabled envs for created/updated; every configured env for
- * deleted (the deletion is relevant wherever the feature *was* live).
- * `changed`: only when a previous snapshot exists (transitions).
- *
- * Routing derivation (`routingEnvironments`) preserves the historical
- * behavior exactly: created → enabled envs, deleted → all envs,
- * updated → changed envs.
+ * - `updated` (previous snapshot exists): the envs whose effective config
+ *   actually changed in the transition.
+ * - `created`: every env the feature is live in (enabled envs).
+ * - `deleted`: every configured env — the deletion is relevant wherever the
+ *   feature existed, enabled or not.
  */
 export function deriveLiveFeatureEventEnvironments({
   previous,
@@ -110,23 +96,20 @@ export function deriveLiveFeatureEventEnvironments({
   previous?: ApiFeature;
   current: ApiFeature;
   deleted?: boolean;
-}): EventEnvironments {
-  const applicable = deleted
+}): string[] {
+  if (previous !== undefined) {
+    return getChangedApiFeatureEnvironments(previous, current);
+  }
+  return deleted
     ? getApiFeatureAllEnvs(current)
     : getApiFeatureEnabledEnvs(current);
-  if (previous === undefined) {
-    return { applicable };
-  }
-  return {
-    applicable,
-    changed: getChangedApiFeatureEnvironments(previous, current),
-  };
 }
 
 /**
- * `applicable` fact for `feature.revision.*` events (no live state changes,
- * so no `changed` refinement exists). Precedence: `overrideEnvironments` →
- * union of rule scopes on `revision.rules` → feature's configured envs.
+ * Affected environments for `feature.revision.*` events: the envs the
+ * revision's proposed changes would affect. Precedence:
+ * `overrideEnvironments` → union of rule scopes on `revision.rules` →
+ * feature's configured envs (for env-agnostic changes like default value).
  * `allEnvironments: true` rules expand to the feature's project-filtered
  * applicable envs — resolved here, at dispatch time, so the persisted payload
  * snapshots the expansion. Result is filtered to envs applicable to the

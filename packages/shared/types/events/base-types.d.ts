@@ -79,20 +79,6 @@ export type NotificationEventPayloadExtraAttributes<
   ? z.infer<ZodType<T, U, V>>
   : unknown;
 
-/**
- * Environment facts attached to event payload `data`. One semantic with a
- * refinement: `applicable` = the environments the object operates in
- * (resolved at dispatch time), valid for every env-scoped event; `changed` =
- * the environments whose effective configuration actually moved, only
- * definable for state transitions (a refinement of `applicable`). The
- * top-level routing `environments` field is always derived as
- * `changed ?? applicable ?? []`.
- */
-export type EventEnvironments = {
-  changed?: string[];
-  applicable?: string[];
-};
-
 export type NotificationEventPayloadDataType<
   Resource extends NotificationEventResource,
   Event extends ResourceEvents<Resource>,
@@ -105,12 +91,8 @@ export type NotificationEventPayloadDataType<
       object: Obj;
       previous_attributes: PreviousAttributes;
       changes?: DiffResult;
-      environments?: EventEnvironments;
     } & NotificationEventPayloadExtraAttributes<Resource, Event>
-  : {
-      object: Obj;
-      environments?: EventEnvironments;
-    } & NotificationEventPayloadExtraAttributes<Resource, Event>;
+  : { object: Obj } & NotificationEventPayloadExtraAttributes<Resource, Event>;
 
 /**
  * Event Notification payload
