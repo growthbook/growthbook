@@ -104,13 +104,13 @@ export default [
     external: () => false,
     output: [
       {
-        file: "dist/bundles/auto-plus.js",
+        file: "dist/bundles/core+sessions.js",
         format: "iife",
         name: "_growthbook",
         sourcemap: true,
       },
       {
-        file: "dist/bundles/auto-plus.min.js",
+        file: "dist/bundles/core+sessions.min.js",
         format: "iife",
         name: "_growthbook",
         plugins: [terserSettings],
@@ -126,7 +126,7 @@ export default [
       replace({
         __SDK_VERSION__: JSON.stringify(version),
         __INGESTOR_HOST__:
-          process.env.INGESTOR_HOST || "https://ingestor.growthbook.io",
+          process.env.INGESTOR_HOST || "https://us1.gb-ingest.com",
         preventAssignment: true,
       }),
       babel({
