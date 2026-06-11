@@ -7,6 +7,8 @@ import {
   buildEventForwarderFeatureUsageTableReference,
   EVENT_FORWARDER_EXPERIMENT_VIEWED_TABLE,
   EVENT_FORWARDER_FEATURE_USAGE_TABLE,
+  EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
+  EVENT_FORWARDER_MANAGED_FEATURE_USAGE_QUERY_DESCRIPTION,
   eventForwarderManagedFeatureUsageQueryExists,
   exposureQueryExistsForUserIdType,
   generateEventForwarderExposureQueries,
@@ -167,6 +169,9 @@ describe("generateEventForwarderExposureQueries", () => {
     expect(queries[0].id).toBe("user_id");
     expect(queries[0].userIdType).toBe("user_id");
     expect(queries[1].userIdType).toBe("anonymous_id");
+    expect(queries[0].description).toBe(
+      EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
+    );
     expect(queries[0].dimensions).toEqual([]);
     expect(queries[0].managedBy).toBe("api");
     expect(isEventForwarderManagedExposureQuery(queries[0])).toBe(true);
@@ -406,6 +411,9 @@ describe("buildEventForwarderFeatureUsageQuery", () => {
     });
 
     expect(query.managedBy).toBe("api");
+    expect(query.description).toBe(
+      EVENT_FORWARDER_MANAGED_FEATURE_USAGE_QUERY_DESCRIPTION,
+    );
     expect(query.query).toContain("feature_usage");
     expect(isEventForwarderManagedFeatureUsageQuery(query as never)).toBe(true);
   });
