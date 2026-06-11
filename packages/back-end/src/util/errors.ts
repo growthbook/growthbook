@@ -173,6 +173,14 @@ export class ConcurrentIncrementalRefreshError extends Error {
   }
 }
 
+// Snapshot failures that repeat on every retry; auto-updates get disabled, even for bandits
+export class UnrecoverableSnapshotError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "UnrecoverableSnapshotError";
+  }
+}
+
 // Some errors are part of normal operation and shouldn't pollute
 // error-level logs or Sentry. Add cases here as we identify them.
 export function shouldSkipErrorLog(err: unknown): boolean {
