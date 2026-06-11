@@ -15,6 +15,10 @@ import {
 
 export const EVENT_FORWARDER_EXPERIMENT_VIEWED_TABLE = "experiment_viewed";
 export const EVENT_FORWARDER_FEATURE_USAGE_TABLE = "feature_usage";
+export const EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION =
+  "Managed by Event Forwarder and updated when the linked Identifier type changes.";
+export const EVENT_FORWARDER_MANAGED_FEATURE_USAGE_QUERY_DESCRIPTION =
+  "Managed by Event Forwarder for feature usage events.";
 
 export type BuildEventForwarderExperimentViewedTableRefParams =
   | {
@@ -163,7 +167,7 @@ export function generateEventForwarderExposureQueries(
       id: userIdType,
       userIdType,
       name: userIdType,
-      description: "",
+      description: EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
       dimensions: [],
       managedBy: "api" as const,
       query: buildEventForwarderExposureQuerySql({
@@ -297,11 +301,12 @@ export type GenerateEventForwarderFeatureUsageQueryParams =
 
 export function buildEventForwarderFeatureUsageQuery(
   params: GenerateEventForwarderFeatureUsageQueryParams,
-): Pick<FeatureUsageQuery, "query" | "managedBy"> {
+): Pick<FeatureUsageQuery, "query" | "managedBy" | "description"> {
   const tableRef = buildEventForwarderFeatureUsageTableReference(params);
 
   return {
     managedBy: "api",
+    description: EVENT_FORWARDER_MANAGED_FEATURE_USAGE_QUERY_DESCRIPTION,
     query: buildEventForwarderFeatureUsageQuerySql({
       sinkType: params.sinkType,
       tableRef,
