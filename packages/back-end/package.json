@@ -88,6 +88,7 @@
     "express-jwt": "^8.4.1",
     "express-rate-limit": "^6.6.0",
     "fast-json-patch": "^3.1.1",
+    "form-data": "^4.0.0",
     "free-email-domains-typescript": "^1.0.9",
     "generate-password": "^1.7.1",
     "generic-pool": "^3.9.0",
@@ -122,13 +123,12 @@
     "saslprep": "^1.0.0",
     "scim2-parse-filter": "^0.2.8",
     "shared": "workspace:*",
-    "snowflake-sdk": "2.3.3",
+    "snowflake-sdk": "^2.4.3",
     "string-env-interpolation": "^1.0.1",
     "stripe": "^17.4.0",
     "tiktoken": "1.0.21",
     "uniqid": "^5.3.0",
     "uuid": "^14.0.0",
-    "wasm-vips": "^0.0.17",
     "zod": "^4.1.12"
   },
   "devDependencies": {

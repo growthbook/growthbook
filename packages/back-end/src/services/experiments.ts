@@ -131,6 +131,7 @@ import { ProjectInterface } from "shared/types/project";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { ExperimentQueryMetadata } from "shared/types/query";
 import { isExperimentIncrementalEnabled } from "shared/enterprise";
+import { generateId } from "back-end/src/util/uuid";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import {
@@ -1483,7 +1484,7 @@ export async function planSnapshot({
   });
 
   const data: ExperimentSnapshotInterface = {
-    id: uniqid("snp_"),
+    id: generateId("snp_"),
     organization: experiment.organization,
     experiment: experiment.id,
     runStarted: new Date(),

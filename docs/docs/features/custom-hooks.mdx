@@ -13,13 +13,17 @@ Custom Hooks are JavaScript snippets that run on the server during validation. U
 
 ## Using Custom Hooks
 
-To manage Custom Hooks, navigate to **Settings → Custom Hooks** in the GrowthBook UI.
-
 :::note Custom Hooks are only available on self-hosted GrowthBook Enterprise.
 
 :::
 
-Custom Hooks can be global or scoped to specific projects, and you can create multiple hooks of the same type for flexible, granular validation rules.
+You can create multiple hooks of the same type for flexible, granular validation rules. Each hook has a **scope** that controls which features it runs for:
+
+- **Global** — runs for every feature.
+- **Project** — runs only for features in the selected projects.
+- **Feature** — runs only for a single feature.
+
+Global and project-scoped hooks are managed under **Settings → Custom Hooks**. Feature-scoped hooks are created and managed from a feature's **Validation** tab by anyone who can edit that feature; that tab also lists any global and project hooks that apply to the feature.
 
 ### Limits
 
@@ -31,6 +35,10 @@ The following default limits are in place to prevent abuse and ensure performanc
 - `CUSTOM_HOOK_CPU_TIMEOUT_MS` - Maximum active CPU time (default: 100ms)
 - `CUSTOM_HOOK_WALL_TIMEOUT_MS` - Maximum total run time (including async calls) (default: 5000ms)
 - `CUSTOM_HOOK_MAX_FETCH_RESP_SIZE` - Maximum response size from fetch calls in bytes (default: 500KB)
+
+### Execution Frequency
+
+A hook may execute **multiple times for a single save**. GrowthBook runs hooks early in a request (before related records are written) and again immediately before the final database write, and the Incremental Changes option adds additional runs against the previous state. Keep hooks fast and free of side effects — they should validate their inputs and either return, `throw`, or `addWarning()`, nothing else.
 
 ### Debugging
 

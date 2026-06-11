@@ -437,7 +437,25 @@
   border: 1px solid var(--gray-a5);
   padding: 1px 6px;
   border-radius: var(--radius-1);
-  white-space: nowrap;
+  // Long selectors wrap here (the chip now lives in the raw-values panel,
+  // not as an inline headline chip), so break rather than overflow.
+  word-break: break-all;
+}
+
+// "Applies to: <selector>" row at the top of the raw-values panel. Moved
+// out of the headline because a CSS selector isn't human-readable.
+.appliesTo {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.appliesToLabel {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--gray-11);
+  flex-shrink: 0;
 }
 
 .changeHuman {
