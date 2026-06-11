@@ -282,11 +282,14 @@ export default function ExperimentHeader({
     return () => observer.disconnect();
   }, [shouldHideTabs]);
 
+  // When the tab strip is hidden (e.g. an unstarted draft), the only
+  // reachable view is the overview, so force the active tab there. Once `tab`
+  // is already "overview" this is a no-op, so Back exits cleanly.
   useEffect(() => {
-    if (shouldHideTabs) {
+    if (shouldHideTabs && tab !== "overview") {
       setTab("overview");
     }
-  }, [shouldHideTabs, setTab]);
+  }, [shouldHideTabs, tab, setTab]);
 
   async function handleWatchUpdates(watch: boolean) {
     await apiCall(
