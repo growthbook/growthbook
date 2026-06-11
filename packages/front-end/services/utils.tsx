@@ -81,7 +81,7 @@ export function getHoldoutTrafficBreakdown(
     inHoldoutPercent: Math.floor(coverage * inHoldoutWeight * 100),
     forMeasurementPercent: Math.floor(coverage * forMeasurementWeight * 100),
     notForMeasurementPercent: Math.floor(
-      (1 - coverage * inHoldoutWeight * 2) * 100,
+      (1 - coverage * (inHoldoutWeight + forMeasurementWeight)) * 100,
     ),
   };
 }
