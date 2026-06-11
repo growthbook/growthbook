@@ -328,8 +328,13 @@ export function sessionReplayPlugin({
     const sessionEventsBeingSent = sessionEvents.splice(0);
 
     try {
+      const attrs = gbRef.getAttributes();
+      const userIdAttr = attrs.user_id;
+      const deviceIdAttr = attrs.device_id || attrs.anonymous_id || attrs.id;
       const context = {
-        attributes: JSON.stringify(gbRef.getAttributes()),
+        attributes: JSON.stringify(attrs),
+        ...(typeof userIdAttr === "string" && { user_id: userIdAttr }),
+        ...(typeof deviceIdAttr === "string" && { device_id: deviceIdAttr }),
       };
 
       // Synthesize rrweb custom events (type 5) from the typed eval buffers
