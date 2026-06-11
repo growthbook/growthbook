@@ -23550,7 +23550,6 @@ paths:
                 - variationId
                 - visualChangesetId
                 - targetSelector
-                - injectionMode
                 - source
               additionalProperties: false
       responses:
