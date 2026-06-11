@@ -8,7 +8,7 @@ import {
   VisualChangesetInterface,
 } from "shared/types/visual-changeset";
 import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, Separator } from "@radix-ui/themes";
 import {
   PiArrowSquareOut,
   PiArrowSquareOutBold,
@@ -324,6 +324,7 @@ function VariationRow({
   canEdit,
   canDeleteVariation,
   defaultOpen,
+  isLast,
   setEditingVisualChange,
   onDeleteDomMutation,
   onClearGlobal,
@@ -341,6 +342,10 @@ function VariationRow({
   // experiments / when only 2 variations remain.
   canDeleteVariation: boolean;
   defaultOpen: boolean;
+  // Whether this is the last variation row. The separator between rows
+  // lives inside the component so it inherits the row's horizontal
+  // padding; we skip it on the final row.
+  isLast: boolean;
   setEditingVisualChange: (params: {
     visualChange: VisualChange;
     visualChangeIndex: number;
@@ -559,6 +564,7 @@ function VariationRow({
           ))}
         </Flex>
       )}
+      {!isLast && <Separator size="4" mt="2" />}
     </Box>
   );
 }
@@ -760,6 +766,7 @@ function UrlCard({
               // drop-down pattern used elsewhere on this page. Users opt
               // in to seeing the change list by clicking the chevron.
               defaultOpen={false}
+              isLast={j === phaseVariations.length - 1}
               setEditingVisualChange={setEditingVisualChange}
               onDeleteDomMutation={onDeleteDomMutation}
               onClearGlobal={onClearGlobal}

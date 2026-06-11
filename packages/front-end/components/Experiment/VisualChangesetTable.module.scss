@@ -216,20 +216,16 @@
   text-decoration: underline;
 }
 
-// ---- Variation row ----
 .variationRow {
-  border-bottom: 1px solid var(--gray-a4);
-}
-
-.variationRow:last-child {
-  border-bottom: none;
+  padding: 0px 24px;
 }
 
 .variationHead {
   display: flex;
   align-items: center;
   gap: 64px;
-  padding: 14px 18px;
+  padding-top: 14px;
+  padding-bottom: 14px;
 }
 
 .variationSwatch {
@@ -360,7 +356,7 @@
 
 // Expanded change list under a variation row.
 .changeList {
-  padding: 2px 18px 18px 58px;
+  padding: 2px 0px 18px 35px;
   display: flex;
   flex-direction: column;
   gap: 8px;
