@@ -231,7 +231,9 @@ export default function StartExperimentModal({
   const subHeader =
     hasSchedule && parsedScheduledDate
       ? `Scheduled to start ${format(parsedScheduledDate, "MMM d, yyyy 'at' h:mm a (z)")}`
-      : null;
+      : isHoldout
+        ? "Once started, experiments and features can be added to the holdout."
+        : null;
 
   const primaryAction = useScheduledFlow
     ? scheduleExperiment!
@@ -490,12 +492,7 @@ export default function StartExperimentModal({
             >
               This experiment contains URL redirects, which require a paid plan.
             </PremiumCallout>
-          ) : isHoldout ? (
-            <Text>
-              Once started, experiments and features can be added to the
-              holdout.
-            </Text>
-          ) : hasLinkedChanges ? (
+          ) : !isHoldout && hasLinkedChanges ? (
             <Box
               mt="3"
               style={{
