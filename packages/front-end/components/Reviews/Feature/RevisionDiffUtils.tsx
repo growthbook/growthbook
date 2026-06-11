@@ -49,11 +49,11 @@ import {
   COPY_DIFF_FORMATS,
   CopyDiffFormat,
   formatDiffForCopy,
-} from "@/components/Features/diffCopyFormats";
-import RevisionStatusBadge from "@/components/Features/RevisionStatusBadge";
+} from "@/components/Reviews/diffCopyFormats";
+import RevisionStatusBadge from "@/components/Reviews/RevisionStatusBadge";
 import RevisionLabel, {
   revisionLabelText,
-} from "@/components/Features/RevisionLabel";
+} from "@/components/Reviews/RevisionLabel";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import {
   COMPACT_DIFF_STYLES,
@@ -68,7 +68,7 @@ import {
 } from "@/components/Features/FeatureDiffRenders";
 import type { FeatureRevisionDiff } from "@/hooks/useFeatureRevisionDiff";
 import { holdoutOccupiesRuleSlot } from "@/hooks/useHoldouts";
-import CoAuthors from "@/components/Features/CoAuthors";
+import CoAuthors from "@/components/Reviews/Feature/CoAuthors";
 import { Popover } from "@/ui/Popover";
 import {
   AnchoredComment,
@@ -81,7 +81,7 @@ import {
   formatDiffRef,
   requestReviewSubTab,
   scrollToRevisionLogEntry,
-} from "@/components/Features/diffCommentRefs";
+} from "@/components/Reviews/diffCommentRefs";
 
 // How a contextual diff is rendered: "formatted" = the human-readable section
 // renders; "json" = the per-section left/right JSON diff; "raw" = a single,

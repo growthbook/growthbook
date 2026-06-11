@@ -9,7 +9,7 @@ import {
   parseDiffRefs,
   splitDiffRefSegments,
   stripDiffRefs,
-} from "@/components/Features/diffCommentRefs";
+} from "@/components/Reviews/diffCommentRefs";
 
 const logEntry = (
   overrides: Partial<RevisionLog> & { comment?: string },

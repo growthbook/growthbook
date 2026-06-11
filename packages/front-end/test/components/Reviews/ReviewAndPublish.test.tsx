@@ -1,7 +1,7 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import ReviewAndPublish from "@/components/Features/ReviewAndPublish";
+import ReviewAndPublish from "@/components/Reviews/Feature/ReviewAndPublish";
 
 // Control the merge outcome and review gating directly so we can drive each mode
 // without building full revision fixtures. The lifecycle/CTA decision logic

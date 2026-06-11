@@ -6,7 +6,7 @@ import {
   buildSummary,
   formatDiffForCopy,
   type DiffCopyInput,
-} from "@/components/Features/diffCopyFormats";
+} from "@/components/Reviews/diffCopyFormats";
 
 const input: DiffCopyInput = {
   entityName: "checkout-flow",

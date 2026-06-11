@@ -12,8 +12,10 @@ import { useAuth } from "@/services/auth";
 type ReviewDecision = "Comment" | "Requested Changes" | "Approved";
 
 interface Props {
-  featureId: string;
-  version: number;
+  // API endpoint for submitting a review verdict + optional comment. The
+  // caller builds this from the entity type and identity (e.g.
+  // `/feature/${id}/${version}/submit-review`).
+  submitUrl: string;
   // Render prop so the trigger can react to the popover's open state — e.g.
   // disable itself while the panel is mounted to prevent re-toggle clicks.
   trigger: React.ReactNode | ((state: { open: boolean }) => React.ReactNode);
@@ -25,8 +27,7 @@ interface Props {
 }
 
 export default function ReviewCommentPopover({
-  featureId,
-  version,
+  submitUrl,
   trigger,
   isBlockedContributor = false,
   onSuccess,
@@ -54,7 +55,7 @@ export default function ReviewCommentPopover({
     setLoading(true);
     setError(null);
     try {
-      await apiCall(`/feature/${featureId}/${version}/submit-review`, {
+      await apiCall(submitUrl, {
         method: "POST",
         body: JSON.stringify({ comment, review: decision }),
       });

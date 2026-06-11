@@ -30,7 +30,7 @@ import Badge from "@/ui/Badge";
 import {
   revisionStatusColor,
   revisionStatusLabel,
-} from "@/components/Features/RevisionStatusBadge";
+} from "@/components/Reviews/RevisionStatusBadge";
 import styles from "./PreLaunchChecklist.module.scss";
 import EditScheduleModal from "./EditScheduleModal";
 

@@ -8,7 +8,7 @@ import {
   DiffRefSnapshot,
   scrollToDiffRef,
   splitDiffRefSegments,
-} from "@/components/Features/diffCommentRefs";
+} from "@/components/Reviews/diffCommentRefs";
 
 // Boxed rendering of a `diff-ref` block inside a comment: a mini before/after
 // diff snapshot captured when the comment was written (removed lines red,

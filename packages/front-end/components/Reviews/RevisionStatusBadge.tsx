@@ -7,26 +7,32 @@ import {
   PiPlusMinusBold,
   PiXCircleFill,
 } from "react-icons/pi";
-import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import { ActiveDraftStatus } from "shared/validators";
+import type { RevisionStatus, ActiveDraftStatus } from "shared/validators";
+import type { EventUser } from "shared/types/events/event-types";
 import Badge from "@/ui/Badge";
 import { RadixColor } from "@/ui/HelperText";
 
-export function isRampGenerated(
-  r: Pick<MinimalFeatureRevisionInterface, "createdBy">,
-): boolean {
+// Entity-agnostic revision identity — enough to render status badges, labels,
+// and icons without depending on FeatureRevisionInterface.
+export interface RevisionLike {
+  version: number;
+  status: RevisionStatus;
+  createdBy?: EventUser | null;
+}
+
+export function isRampGenerated(r: Pick<RevisionLike, "createdBy">): boolean {
   return (
     r.createdBy?.type === "system" && r.createdBy.subtype === "ramp-schedule"
   );
 }
 
 export interface Props {
-  revision: MinimalFeatureRevisionInterface | null | undefined;
+  revision: RevisionLike | null | undefined;
   liveVersion: number;
 }
 
 export function revisionStatusColor(
-  status: MinimalFeatureRevisionInterface["status"] | "live",
+  status: RevisionStatus | "live",
 ): RadixColor {
   switch (status) {
     case "live":
@@ -53,14 +59,14 @@ export function revisionStatusColor(
 // Discarded renders as a solid (inverted) gray badge so it reads as muted
 // but stays distinguishable from Locked's soft gray.
 export function revisionStatusBadgeVariant(
-  status: MinimalFeatureRevisionInterface["status"] | "live",
+  status: RevisionStatus | "live",
 ): "solid" | "soft" {
   if (status === "discarded" || status === "live") return "solid";
   return "soft";
 }
 
 export function revisionStatusIcon(
-  status: MinimalFeatureRevisionInterface["status"] | "live",
+  status: RevisionStatus | "live",
 ): React.ReactNode {
   switch (status) {
     case "live":
@@ -182,7 +188,7 @@ export function draftStatusTooltip(
 }
 
 export function revisionStatusLabel(
-  status: MinimalFeatureRevisionInterface["status"] | "live" | "merged",
+  status: RevisionStatus | "live" | "merged",
 ): string {
   switch (status) {
     case "live":

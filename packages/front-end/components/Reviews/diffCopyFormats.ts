@@ -5,9 +5,20 @@ import {
   type DiffCopyInput as SharedDiffCopyInput,
   type RawEntity,
 } from "shared/util";
-import type { FeatureRevisionDiff } from "@/hooks/useFeatureRevisionDiff";
-
 export type { RawEntity } from "shared/util";
+
+// Entity-agnostic diff section — any entity adapter that produces sections
+// matching this shape can reuse the copy/export infrastructure.
+export interface DiffSection {
+  title: string;
+  key?: string;
+  a: string;
+  b: string;
+  supplemental?: boolean;
+  entityName?: string;
+  entityType?: string;
+  badges?: { label: string; action?: string }[];
+}
 
 // The shapes a change-set can be copied to the clipboard as.
 export type CopyDiffFormat = "formatted" | "minimal-json" | "full-json" | "llm";
@@ -40,13 +51,13 @@ export const COPY_DIFF_FORMATS: {
 ];
 
 // Front-end facing input: same shape as the shared one, but typed against the
-// FE's richer `FeatureRevisionDiff` (which carries ReactNodes for the
-// formatted view). `buildSummary` / `buildLLMDiff` use the React-free fields
-// (title, a, b, badges) directly; the JSON formats delegate to shared.
+// entity-agnostic DiffSection (which is structurally compatible with the richer
+// FeatureRevisionDiff). `buildSummary` / `buildLLMDiff` use the React-free
+// fields (title, a, b, badges) directly; the JSON formats delegate to shared.
 export type DiffCopyInput = {
   entityName: string;
   entityType?: string;
-  diffs: FeatureRevisionDiff[];
+  diffs: DiffSection[];
   raw?: RawEntity;
 };
 

@@ -12,8 +12,8 @@ import {
   buildEffectiveDraft,
   filterEnvironmentsByFeature,
 } from "shared/util";
-import { revisionLabelText } from "@/components/Features/RevisionLabel";
-import { isRampGenerated } from "@/components/Features/RevisionStatusBadge";
+import { revisionLabelText } from "@/components/Reviews/RevisionLabel";
+import { isRampGenerated } from "@/components/Reviews/RevisionStatusBadge";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
 import AffectedEnvironmentsBadges from "@/components/Features/AffectedEnvironmentsBadges";
 import useOrgSettings from "@/hooks/useOrgSettings";

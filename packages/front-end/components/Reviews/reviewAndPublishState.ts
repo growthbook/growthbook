@@ -1,10 +1,15 @@
-import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { RevisionStatus } from "shared/validators";
 
-// Pure decision logic for the consolidated ReviewAndPublish surface. This
-// captures the CTA label, enablement, and submit routing that previously lived
-// (and drifted) across DraftModal and RequestReviewModal, plus the conflict
-// and submit-review sub-modes. Keeping it pure makes the full lifecycle/CTA
-// matrix unit-testable without rendering the heavy modal tree.
+// Pure, entity-agnostic decision logic for the review-and-publish CTA
+// lifecycle. Lives in components/Reviews/ (the shared core) and is consumed by
+// entity-specific adapters (e.g. components/Reviews/Feature/ReviewAndPublish).
+//
+// Relationship to components/Revision/: that namespace is the newer generic
+// revision system (RevisionModel + EntityRevisionAdapter) currently serving
+// saved groups. This module belongs to the older feature-revision pipeline.
+// Once feature revisions converge onto the generic system, this state machine
+// can be unified with RevisionDetail's approval logic — until then the two
+// coexist as separate UI flows sharing the same entity-agnostic concepts.
 
 export type RnPMode = "fix-conflicts" | "main";
 
@@ -18,7 +23,7 @@ export type RnPSubmitAction =
 export interface RnPStateInput {
   // Org/feature requires approval before publishing.
   requireReviews: boolean;
-  status: FeatureRevisionInterface["status"];
+  status: RevisionStatus;
   // autoMerge succeeded (no unresolved conflicts).
   mergeSuccess: boolean;
   // There is something to publish.

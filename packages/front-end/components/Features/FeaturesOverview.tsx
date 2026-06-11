@@ -35,7 +35,7 @@ import {
   RampScheduleInterface,
 } from "shared/validators";
 import EventUser from "@/components/Avatar/EventUser";
-import CoAuthors from "@/components/Features/CoAuthors";
+import CoAuthors from "@/components/Reviews/Feature/CoAuthors";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import { useAuth } from "@/services/auth";
@@ -65,10 +65,10 @@ import {
   useFeatureUsage,
 } from "@/components/Features/FeatureUsageGraph";
 import EditRevisionCommentModal from "@/components/Features/EditRevisionCommentModal";
-import RevisionStatusBadge from "@/components/Features/RevisionStatusBadge";
+import RevisionStatusBadge from "@/components/Reviews/RevisionStatusBadge";
 import RevisionLabel, {
   revisionLabelText,
-} from "@/components/Features/RevisionLabel";
+} from "@/components/Reviews/RevisionLabel";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";

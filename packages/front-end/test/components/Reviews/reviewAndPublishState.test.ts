@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   getReviewAndPublishState,
   RnPStateInput,
-} from "@/components/Features/reviewAndPublishState";
+} from "@/components/Reviews/reviewAndPublishState";
 
 function base(overrides: Partial<RnPStateInput> = {}): RnPStateInput {
   return {

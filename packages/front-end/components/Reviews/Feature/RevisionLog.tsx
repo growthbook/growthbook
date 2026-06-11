@@ -34,7 +34,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import EventUser from "@/components/Avatar/EventUser";
 import Avatar from "@/ui/Avatar";
 import Code from "@/components/SyntaxHighlighting/Code";
-import MarkdownWithDiffRefs from "@/components/Features/DiffCommentMarkdown";
+import MarkdownWithDiffRefs from "@/components/Reviews/DiffCommentMarkdown";
 import CommentCard from "@/components/Comments/CommentCard";
 import CommentComposer from "@/components/Comments/CommentComposer";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";

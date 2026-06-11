@@ -38,6 +38,7 @@ import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
+// eslint-disable-next-line no-restricted-imports
 import Modal from "@/components/Modal";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
@@ -49,10 +50,10 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import RevisionLabel, {
   revisionLabelText,
-} from "@/components/Features/RevisionLabel";
+} from "@/components/Reviews/RevisionLabel";
 import RevisionStatusBadge, {
   isRampGenerated,
-} from "@/components/Features/RevisionStatusBadge";
+} from "@/components/Reviews/RevisionStatusBadge";
 import {
   useFeatureRevisionDiff,
   FeatureRevisionDiffInput,

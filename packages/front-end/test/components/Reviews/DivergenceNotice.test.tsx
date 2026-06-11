@@ -2,7 +2,7 @@ import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import type { PublishGovernanceResult } from "shared/util";
-import DivergenceNotice from "@/components/Features/DivergenceNotice";
+import DivergenceNotice from "@/components/Reviews/DivergenceNotice";
 
 function gov(
   overrides: Partial<PublishGovernanceResult> = {},

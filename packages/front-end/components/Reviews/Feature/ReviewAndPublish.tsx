@@ -55,9 +55,9 @@ import LinkButton from "@/components/Button";
 import Revisionlog, {
   MutateLog,
   REVIEW_ACTIVITY_ACTIONS,
-} from "@/components/Features/RevisionLog";
+} from "@/components/Reviews/Feature/RevisionLog";
 import useApi from "@/hooks/useApi";
-import RevisionLabel from "@/components/Features/RevisionLabel";
+import RevisionLabel from "@/components/Reviews/RevisionLabel";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import {
   useFeatureRevisionDiff,
@@ -79,7 +79,7 @@ import {
   revisionStatusColor,
   revisionStatusIcon,
   revisionStatusLabel,
-} from "@/components/Features/RevisionStatusBadge";
+} from "@/components/Reviews/RevisionStatusBadge";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import { useHoldouts } from "@/hooks/useHoldouts";
@@ -92,11 +92,11 @@ import {
   DiffContent,
   DiffCommentsProps,
   RevisionCommentSection,
-} from "@/components/Features/RevisionDiffUtils";
+} from "@/components/Reviews/Feature/RevisionDiffUtils";
 import {
   buildAnchoredCommentMap,
   REVIEW_SUBTAB_EVENT,
-} from "@/components/Features/diffCommentRefs";
+} from "@/components/Reviews/diffCommentRefs";
 import useURLHash from "@/hooks/useURLHash";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 
@@ -104,18 +104,18 @@ import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 // (notes, human-readable changes, review activity), "changes" is the diff-first
 // view (JSON diffs, full edit timeline, inline diff comments).
 type ReviewSubTab = "overview" | "changes";
-import DivergenceNotice from "@/components/Features/DivergenceNotice";
+import DivergenceNotice from "@/components/Reviews/DivergenceNotice";
 import HelperText from "@/ui/HelperText";
 import Metadata from "@/ui/Metadata";
-import ReviewCommentPopover from "@/components/Features/ReviewCommentPopover";
+import ReviewCommentPopover from "@/components/Reviews/ReviewCommentPopover";
 import CommentComposer from "@/components/Comments/CommentComposer";
 import {
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
 } from "@/ui/DropdownMenu";
-import RevertModal from "@/components/Features/RevertModal";
-import { getReviewAndPublishState } from "@/components/Features/reviewAndPublishState";
+import RevertModal from "@/components/Reviews/Feature/RevertModal";
+import { getReviewAndPublishState } from "@/components/Reviews/reviewAndPublishState";
 
 export interface Props {
   // The base (live) feature.
@@ -1991,8 +1991,7 @@ export default function ReviewAndPublish({
         {canReview && isPendingReview && !approved && (
           <Box mt="5">
             <ReviewCommentPopover
-              featureId={feature.id}
-              version={revision.version}
+              submitUrl={`/feature/${feature.id}/${revision.version}/submit-review`}
               isBlockedContributor={!!isBlockedContributor}
               onSuccess={async () => {
                 await mutate();

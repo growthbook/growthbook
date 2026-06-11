@@ -14,7 +14,7 @@ import EditFeatureFlagValuesModal from "@/components/Experiment/LinkedChanges/Ed
 import {
   revisionStatusColor,
   revisionStatusLabel,
-} from "@/components/Features/RevisionStatusBadge";
+} from "@/components/Reviews/RevisionStatusBadge";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";

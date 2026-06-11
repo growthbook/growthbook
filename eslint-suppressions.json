@@ -488,11 +488,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/CompareRevisionsModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Features/CustomHookModal.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -559,11 +554,6 @@
     }
   },
   "packages/front-end/components/Features/PrerequisiteStatusRow.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Features/RevertModal.tsx": {
     "no-restricted-imports": {
       "count": 1
     }

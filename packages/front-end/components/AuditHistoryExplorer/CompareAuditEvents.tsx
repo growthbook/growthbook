@@ -35,7 +35,7 @@ import {
   useDiffFormat,
   DiffFormatToggle,
   stringifyForRawDiff,
-} from "@/components/Features/RevisionDiffUtils";
+} from "@/components/Reviews/Feature/RevisionDiffUtils";
 import { PAGE_LIMIT, UseAuditEntriesResult } from "./useAuditEntries";
 import { AuditDiffConfig, CoarsenedAuditEntry } from "./types";
 import {
