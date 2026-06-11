@@ -25,6 +25,7 @@ export type EditSDKConnectionParams = {
   hashSecureAttributes?: boolean;
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
+  includeDraftExperimentRefs?: boolean;
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
   includeRuleIds?: boolean;
@@ -48,6 +49,7 @@ export type CreateSDKConnectionParams = {
   hashSecureAttributes: boolean;
   includeVisualExperiments: boolean;
   includeDraftExperiments: boolean;
+  includeDraftExperimentRefs?: boolean;
   includeExperimentNames: boolean;
   includeRedirectExperiments: boolean;
   includeRuleIds: boolean;
@@ -84,6 +86,7 @@ export interface SDKConnectionInterface {
   hashSecureAttributes?: boolean;
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
+  includeDraftExperimentRefs?: boolean;
   includeExperimentNames?: boolean;
   includeRedirectExperiments?: boolean;
   includeRuleIds?: boolean;

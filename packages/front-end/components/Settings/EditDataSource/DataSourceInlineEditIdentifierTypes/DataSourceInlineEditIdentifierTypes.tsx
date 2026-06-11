@@ -97,13 +97,11 @@ export const DataSourceInlineEditIdentifierTypes: FC<
           </Heading>
           <Badge label={userIdTypes.length + ""} color="gray" radius="medium" />
         </Flex>
-        {canEdit && (
-          <Box>
-            <Button variant="solid" onClick={handleAdd}>
-              <FaPlus className="mr-1" /> Add
-            </Button>
-          </Box>
-        )}
+        <Box>
+          <Button variant="solid" onClick={handleAdd} disabled={!canEdit}>
+            <FaPlus className="mr-1" /> Add
+          </Button>
+        </Box>
       </Flex>
       <p>The different units you use to split traffic in an experiment.</p>
 

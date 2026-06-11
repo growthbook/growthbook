@@ -52,7 +52,10 @@ const ImportedExperimentGuide = (): React.ReactElement => {
       )
     : experiments.some((e) => e.project !== demoProjectId);
 
-  const hasFactTables = factTables.length > 0;
+  // Ignore the demo datasource
+  const hasFactTables = factTables.some(
+    (f) => !f.projects?.includes(demoProjectId),
+  );
   // Ignore the demo datasource
   const hasDatasource = datasources.some(
     (d) => !d.projects?.includes(demoProjectId),

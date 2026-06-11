@@ -93,6 +93,9 @@ info:
 
     - **404** - Not Found - Unknown API route or requested resource
 
+    - **422** - Soft Warning - The request failed, but can be re-submitted with
+    `?ignoreWarnings=true` to proceed anyway.
+
     - **429** - Too Many Requests - You exceeded the rate limit of 60 requests
     per minute. Try again later.
 
@@ -275,6 +278,9 @@ tags:
   - name: RampScheduleTemplates
     x-displayName: Ramp Schedule Templates
     description: Reusable step configurations for ramp schedules.
+  - name: AggregatedFactTable_model
+    x-displayName: Aggregated Fact Table
+    description: <SchemaDefinition schemaRef="#/components/schemas/AggregatedFactTable" />
   - name: AnalyticsExploration_model
     x-displayName: Analytics Exploration
     description: <SchemaDefinition schemaRef="#/components/schemas/AnalyticsExploration" />
@@ -302,6 +308,9 @@ tags:
   - name: Environment_model
     x-displayName: Environment
     description: <SchemaDefinition schemaRef="#/components/schemas/Environment" />
+  - name: EventUser_model
+    x-displayName: Event User
+    description: <SchemaDefinition schemaRef="#/components/schemas/EventUser" />
   - name: Experiment_model
     x-displayName: Experiment
     description: <SchemaDefinition schemaRef="#/components/schemas/Experiment" />
@@ -583,12 +592,15 @@ paths:
                 description:
                   description: Description of the feature
                   type: string
+                  maxLength: 10000
                 owner:
                   description: >-
                     The userId or email address of the owner. If an email
                     address is provided, it will be used to look up the userId
                     of the matching organization member. If an ID is provided,
-                    it will be validated as existing in the organization.
+                    it will be validated as existing in the organization. When
+                    omitted, it defaults to the user associated with the
+                    request's Personal Access Token (PAT), if one is being used.
                   type: string
                 project:
                   description: An associated project ID
@@ -633,6 +645,7 @@ paths:
                               properties:
                                 description:
                                   type: string
+                                  maxLength: 10000
                                 condition:
                                   description: Applied to everyone by default.
                                   type: string
@@ -691,6 +704,7 @@ paths:
                               properties:
                                 description:
                                   type: string
+                                  maxLength: 10000
                                 condition:
                                   description: Applied to everyone by default.
                                   type: string
@@ -771,6 +785,7 @@ paths:
                               properties:
                                 description:
                                   type: string
+                                  maxLength: 10000
                                 id:
                                   type: string
                                 enabled:
@@ -842,6 +857,7 @@ paths:
                               properties:
                                 description:
                                   type: string
+                                  maxLength: 10000
                                 condition:
                                   type: string
                                 id:
@@ -960,6 +976,7 @@ paths:
                                   properties:
                                     description:
                                       type: string
+                                      maxLength: 10000
                                     condition:
                                       description: Applied to everyone by default.
                                       type: string
@@ -1018,6 +1035,7 @@ paths:
                                   properties:
                                     description:
                                       type: string
+                                      maxLength: 10000
                                     condition:
                                       description: Applied to everyone by default.
                                       type: string
@@ -1098,6 +1116,7 @@ paths:
                                   properties:
                                     description:
                                       type: string
+                                      maxLength: 10000
                                     id:
                                       type: string
                                     enabled:
@@ -1169,6 +1188,7 @@ paths:
                                   properties:
                                     description:
                                       type: string
+                                      maxLength: 10000
                                     condition:
                                       type: string
                                     id:
@@ -1298,7 +1318,6 @@ paths:
                     type: string
               required:
                 - id
-                - owner
                 - valueType
                 - defaultValue
               additionalProperties: false
@@ -1382,6 +1401,7 @@ paths:
                 description:
                   description: Description of the feature
                   type: string
+                  maxLength: 10000
                 archived:
                   type: boolean
                 project:
@@ -1420,6 +1440,7 @@ paths:
                               properties:
                                 description:
                                   type: string
+                                  maxLength: 10000
                                 condition:
                                   description: Applied to everyone by default.
                                   type: string
@@ -1478,6 +1499,7 @@ paths:
                               properties:
                                 description:
                                   type: string
+                                  maxLength: 10000
                                 condition:
                                   description: Applied to everyone by default.
                                   type: string
@@ -1558,6 +1580,7 @@ paths:
                               properties:
                                 description:
                                   type: string
+                                  maxLength: 10000
                                 id:
                                   type: string
                                 enabled:
@@ -1629,6 +1652,7 @@ paths:
                               properties:
                                 description:
                                   type: string
+                                  maxLength: 10000
                                 condition:
                                   type: string
                                 id:
@@ -1747,6 +1771,7 @@ paths:
                                   properties:
                                     description:
                                       type: string
+                                      maxLength: 10000
                                     condition:
                                       description: Applied to everyone by default.
                                       type: string
@@ -1805,6 +1830,7 @@ paths:
                                   properties:
                                     description:
                                       type: string
+                                      maxLength: 10000
                                     condition:
                                       description: Applied to everyone by default.
                                       type: string
@@ -1885,6 +1911,7 @@ paths:
                                   properties:
                                     description:
                                       type: string
+                                      maxLength: 10000
                                     id:
                                       type: string
                                     enabled:
@@ -1956,6 +1983,7 @@ paths:
                                   properties:
                                     description:
                                       type: string
+                                      maxLength: 10000
                                     condition:
                                       type: string
                                     id:
@@ -2738,7 +2766,7 @@ paths:
                                 maxLength: 256
                               description:
                                 type: string
-                                maxLength: 256
+                                maxLength: 10000
                               enum:
                                 maxItems: 256
                                 type: array
@@ -5622,6 +5650,7 @@ paths:
         - $ref: '#/components/parameters/offset'
         - $ref: '#/components/parameters/projectId'
         - $ref: '#/components/parameters/clientKey'
+        - $ref: '#/components/parameters/archived'
         - $ref: '#/components/parameters/skipPagination'
       responses:
         '200':
@@ -5670,12 +5699,15 @@ paths:
                 description:
                   description: Description of the feature
                   type: string
+                  maxLength: 10000
                 owner:
                   description: >-
                     The userId or email address of the owner. If an email
                     address is provided, it will be used to look up the userId
                     of the matching organization member. If an ID is provided,
-                    it will be validated as existing in the organization.
+                    it will be validated as existing in the organization. When
+                    omitted, it defaults to the user associated with the
+                    request's Personal Access Token (PAT), if one is being used.
                   type: string
                 project:
                   description: An associated project ID
@@ -5709,6 +5741,7 @@ paths:
                         properties:
                           description:
                             type: string
+                            maxLength: 10000
                           condition:
                             type: string
                           savedGroupTargeting:
@@ -5792,6 +5825,7 @@ paths:
                         properties:
                           description:
                             type: string
+                            maxLength: 10000
                           condition:
                             type: string
                           savedGroupTargeting:
@@ -5887,6 +5921,7 @@ paths:
                         properties:
                           description:
                             type: string
+                            maxLength: 10000
                           id:
                             type: string
                           enabled:
@@ -5984,6 +6019,7 @@ paths:
                         properties:
                           description:
                             type: string
+                            maxLength: 10000
                           id:
                             type: string
                           enabled:
@@ -6119,7 +6155,6 @@ paths:
                     type: string
               required:
                 - id
-                - owner
                 - valueType
                 - defaultValue
               additionalProperties: false
@@ -6195,6 +6230,7 @@ paths:
                 description:
                   description: Description of the feature
                   type: string
+                  maxLength: 10000
                 archived:
                   type: boolean
                 project:
@@ -6233,6 +6269,7 @@ paths:
                         properties:
                           description:
                             type: string
+                            maxLength: 10000
                           condition:
                             type: string
                           savedGroupTargeting:
@@ -6316,6 +6353,7 @@ paths:
                         properties:
                           description:
                             type: string
+                            maxLength: 10000
                           condition:
                             type: string
                           savedGroupTargeting:
@@ -6411,6 +6449,7 @@ paths:
                         properties:
                           description:
                             type: string
+                            maxLength: 10000
                           id:
                             type: string
                           enabled:
@@ -6508,6 +6547,7 @@ paths:
                         properties:
                           description:
                             type: string
+                            maxLength: 10000
                           id:
                             type: string
                           enabled:
@@ -6964,6 +7004,27 @@ paths:
               - type: string
                 const: '1'
               - type: boolean
+        - name: archived
+          in: query
+          description: >-
+            Whether to include revisions for archived features. Defaults to
+            `false` (non-archived features only). Pass `true` to include
+            revisions for archived features alongside non-archived ones.
+          schema:
+            description: >-
+              Whether to include revisions for archived features. Defaults to
+              `false` (non-archived features only). Pass `true` to include
+              revisions for archived features alongside non-archived ones.
+            anyOf:
+              - type: string
+                const: 'true'
+              - type: string
+                const: 'false'
+              - type: string
+                const: '0'
+              - type: string
+                const: '1'
+              - type: boolean
       responses:
         '200':
           content:
@@ -7019,6 +7080,7 @@ paths:
         - $ref: '#/components/parameters/skipPagination'
         - $ref: '#/components/parameters/status'
         - $ref: '#/components/parameters/author'
+        - $ref: '#/components/parameters/mine'
       responses:
         '200':
           content:
@@ -7107,8 +7169,9 @@ paths:
       operationId: getFeatureRevisionLatestV2
       summary: Get the most recent active draft revision
       description: >-
-        Returns the most recently updated draft revision for the feature.
-        Returns 404 if there is no active draft.
+        Returns the most recently updated active draft revision for the feature.
+        Returns 404 if no matching draft exists. Filter by status, author, or
+        use `mine=true` to scope to the calling user's own drafts.
       tags:
         - feature-revisions-v2
       parameters:
@@ -7137,6 +7200,13 @@ paths:
               - type: string
                 const: '1'
               - type: boolean
+        - $ref: '#/components/parameters/status'
+        - name: author
+          in: query
+          description: Filter to drafts created by this user (userId).
+          schema:
+            description: Filter to drafts created by this user (userId).
+            type: string
       responses:
         '200':
           content:
@@ -7288,7 +7358,7 @@ paths:
                                 maxLength: 256
                               description:
                                 type: string
-                                maxLength: 256
+                                maxLength: 10000
                               enum:
                                 maxItems: 256
                                 type: array
@@ -7410,6 +7480,11 @@ paths:
     put:
       operationId: putFeatureRevisionPrerequisitesV2
       summary: Set feature-level prerequisites in a draft revision
+      description: >-
+        Sets the feature-level prerequisites for this revision. Each
+        prerequisite must be a boolean feature flag; the gate is always
+        'prerequisite flag is on'. The condition is applied automatically — only
+        the flag ID is required.
       tags:
         - feature-revisions-v2
       parameters:
@@ -7436,17 +7511,19 @@ paths:
               type: object
               properties:
                 prerequisites:
+                  description: >-
+                    List of prerequisite boolean flags. When any prerequisite
+                    flag is off for a user, this flag returns its defaultValue
+                    for that user.
                   type: array
                   items:
                     type: object
                     properties:
                       id:
-                        type: string
-                      condition:
+                        description: ID of a boolean feature flag
                         type: string
                     required:
                       - id
-                      - condition
                     additionalProperties: false
                 revisionTitle:
                   description: >-
@@ -9870,6 +9947,7 @@ paths:
                   type: string
                 description:
                   type: string
+                  maxLength: 10000
                 isPublic:
                   description: >-
                     Whether to make this Archetype available to other team
@@ -9882,6 +9960,13 @@ paths:
                     type: string
                   additionalProperties: {}
                 projects:
+                  type: array
+                  items:
+                    type: string
+                environments:
+                  description: >-
+                    Limit this Archetype to specific environments. Omit or leave
+                    empty to apply to all environments.
                   type: array
                   items:
                     type: string
@@ -9949,6 +10034,7 @@ paths:
                   type: string
                 description:
                   type: string
+                  maxLength: 10000
                 isPublic:
                   description: >-
                     Whether to make this Archetype available to other team
@@ -9961,6 +10047,13 @@ paths:
                     type: string
                   additionalProperties: {}
                 projects:
+                  type: array
+                  items:
+                    type: string
+                environments:
+                  description: >-
+                    Limit this Archetype to specific environments. Omit or leave
+                    empty to apply to all environments.
                   type: array
                   items:
                     type: string
@@ -10109,6 +10202,7 @@ paths:
                 description:
                   description: Description of the experiment
                   type: string
+                  maxLength: 10000
                 tags:
                   type: array
                   items:
@@ -10139,7 +10233,9 @@ paths:
                     The userId or email address of the owner. If an email
                     address is provided, it will be used to look up the userId
                     of the matching organization member. If an ID is provided,
-                    it will be validated as existing in the organization.
+                    it will be validated as existing in the organization. When
+                    omitted, it defaults to the user associated with the
+                    request's Personal Access Token (PAT), if one is being used.
                   type: string
                 archived:
                   type: boolean
@@ -10245,6 +10341,7 @@ paths:
                         type: string
                       description:
                         type: string
+                        maxLength: 10000
                       screenshots:
                         type: array
                         items:
@@ -10258,6 +10355,7 @@ paths:
                               type: number
                             description:
                               type: string
+                              maxLength: 10000
                           required:
                             - path
                           additionalProperties: false
@@ -10687,6 +10785,7 @@ paths:
                 description:
                   description: Description of the experiment
                   type: string
+                  maxLength: 10000
                 tags:
                   type: array
                   items:
@@ -10850,6 +10949,7 @@ paths:
                         type: string
                       description:
                         type: string
+                        maxLength: 10000
                       screenshots:
                         type: array
                         items:
@@ -10863,6 +10963,7 @@ paths:
                               type: number
                             description:
                               type: string
+                              maxLength: 10000
                           required:
                             - path
                           additionalProperties: false
@@ -11145,6 +11246,27 @@ paths:
                 required:
                   - experiment
                 additionalProperties: false
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                description: One or more linked feature drafts could not be published
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - pending_draft_publish_failed
+                  details:
+                    $ref: >-
+                      #/components/schemas/ApiErrorPendingDraftPublishFailedDetails
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -11257,6 +11379,59 @@ paths:
                 required:
                   - experiment
                 additionalProperties: false
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    description: Required checklist items are incomplete
+                    properties:
+                      message:
+                        type: string
+                      code:
+                        type: string
+                        enum:
+                          - checklist_incomplete
+                      details:
+                        $ref: >-
+                          #/components/schemas/ApiErrorChecklistIncompleteDetails
+                    required:
+                      - message
+                      - code
+                      - details
+                  - type: object
+                    description: One or more linked feature drafts could not be published
+                    properties:
+                      message:
+                        type: string
+                      code:
+                        type: string
+                        enum:
+                          - pending_draft_publish_failed
+                      details:
+                        $ref: >-
+                          #/components/schemas/ApiErrorPendingDraftPublishFailedDetails
+                    required:
+                      - message
+                      - code
+                      - details
+                  - type: object
+                    description: Resource is not in a valid status for this operation
+                    properties:
+                      message:
+                        type: string
+                      code:
+                        type: string
+                        enum:
+                          - invalid_status
+                      details:
+                        $ref: '#/components/schemas/ApiErrorInvalidStatusDetails'
+                    required:
+                      - message
+                      - code
+                      - details
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -11391,6 +11566,26 @@ paths:
                 required:
                   - experiment
                 additionalProperties: false
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Resource is not in a valid status for this operation
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - invalid_status
+                  details:
+                    $ref: '#/components/schemas/ApiErrorInvalidStatusDetails'
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -11441,6 +11636,26 @@ paths:
                 required:
                   - experiment
                 additionalProperties: false
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Resource is not in a valid status for this operation
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - invalid_status
+                  details:
+                    $ref: '#/components/schemas/ApiErrorInvalidStatusDetails'
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -11847,6 +12062,7 @@ paths:
                 description:
                   description: Description of the metric
                   type: string
+                  maxLength: 10000
                 type:
                   description: >-
                     Type of metric. See [Metrics
@@ -12274,6 +12490,7 @@ paths:
                 description:
                   description: Description of the metric
                   type: string
+                  maxLength: 10000
                 type:
                   description: >-
                     Type of metric. See [Metrics
@@ -12752,6 +12969,7 @@ paths:
                 description:
                   description: Description of the segment
                   type: string
+                  maxLength: 10000
                 datasourceId:
                   description: ID of the datasource this segment belongs to
                   type: string
@@ -12876,6 +13094,7 @@ paths:
                 description:
                   description: Description of the segment
                   type: string
+                  maxLength: 10000
                 datasourceId:
                   description: ID of the datasource this segment belongs to
                   type: string
@@ -13018,6 +13237,7 @@ paths:
                 description:
                   description: Description of the dimension
                   type: string
+                  maxLength: 10000
                 owner:
                   description: >-
                     The userId or email address of the owner. If an email
@@ -13112,6 +13332,7 @@ paths:
                 description:
                   description: Description of the dimension
                   type: string
+                  maxLength: 10000
                 owner:
                   description: >-
                     The userId or email address of the owner. If an email
@@ -13252,6 +13473,7 @@ paths:
                   type: string
                 description:
                   type: string
+                  maxLength: 10000
                 publicId:
                   description: >-
                     URL-safe slug (lowercase letters, numbers, dashes).
@@ -13342,6 +13564,7 @@ paths:
                 description:
                   description: Project description.
                   type: string
+                  maxLength: 10000
                 publicId:
                   description: URL-safe slug (lowercase letters, numbers, dashes).
                   type: string
@@ -13568,6 +13791,19 @@ paths:
       summary: Get the organization's attributes
       tags:
         - attributes
+      parameters:
+        - name: projectId
+          in: query
+          description: >-
+            Filter to attributes available in this project — includes org-wide
+            attributes (no project restriction) and attributes explicitly scoped
+            to this project.
+          schema:
+            description: >-
+              Filter to attributes available in this project — includes org-wide
+              attributes (no project restriction) and attributes explicitly
+              scoped to this project.
+            type: string
       responses:
         '200':
           content:
@@ -13826,6 +14062,11 @@ paths:
                   type: boolean
                 includeDraftExperiments:
                   type: boolean
+                includeDraftExperimentRefs:
+                  description: >-
+                    When true, experiment-ref rules linked to draft experiments
+                    are included in feature definitions. Off by default.
+                  type: boolean
                 includeExperimentNames:
                   type: boolean
                 includeRedirectExperiments:
@@ -13931,6 +14172,11 @@ paths:
                 includeVisualExperiments:
                   type: boolean
                 includeDraftExperiments:
+                  type: boolean
+                includeDraftExperimentRefs:
+                  description: >-
+                    When true, experiment-ref rules linked to draft experiments
+                    are included in feature definitions. Off by default.
                   type: boolean
                 includeExperimentNames:
                   type: boolean
@@ -14480,7 +14726,9 @@ paths:
                     The userId or email address of the owner. If an email
                     address is provided, it will be used to look up the userId
                     of the matching organization member. If an ID is provided,
-                    it will be validated as existing in the organization.
+                    it will be validated as existing in the organization. When
+                    omitted, it defaults to the user associated with the
+                    request's Personal Access Token (PAT), if one is being used.
                   type: string
                 projects:
                   type: array
@@ -15974,6 +16222,7 @@ paths:
                 description:
                   description: Description of the fact table
                   type: string
+                  maxLength: 10000
                 owner:
                   description: >-
                     The userId or email address of the owner. If an email
@@ -16001,6 +16250,37 @@ paths:
                   type: array
                   items:
                     type: string
+                aggregatedFactTableSettings:
+                  description: >-
+                    Settings for maintaining shared daily aggregated tables (a
+                    subset of userIdTypes plus the daily update time and restate
+                    lookback window) used to speed up CUPED. Requires the data
+                    pipeline (pipeline-mode) feature.
+                  type: object
+                  properties:
+                    idTypes:
+                      type: array
+                      items:
+                        type: string
+                    updateTime:
+                      type: object
+                      properties:
+                        time:
+                          type: string
+                        timezone:
+                          type: string
+                      required:
+                        - time
+                        - timezone
+                      additionalProperties: false
+                    lookbackWindow:
+                      type: integer
+                      exclusiveMinimum: 0
+                  required:
+                    - idTypes
+                    - updateTime
+                    - lookbackWindow
+                  additionalProperties: false
                 sql:
                   description: The SQL query for this fact table
                   type: string
@@ -16083,6 +16363,7 @@ paths:
                 description:
                   description: Description of the fact table
                   type: string
+                  maxLength: 10000
                 owner:
                   description: >-
                     The userId or email address of the owner. If an email
@@ -16107,6 +16388,37 @@ paths:
                   type: array
                   items:
                     type: string
+                aggregatedFactTableSettings:
+                  description: >-
+                    Settings for maintaining shared daily aggregated tables (a
+                    subset of userIdTypes plus the daily update time and restate
+                    lookback window) used to speed up CUPED. Requires the data
+                    pipeline (pipeline-mode) feature.
+                  type: object
+                  properties:
+                    idTypes:
+                      type: array
+                      items:
+                        type: string
+                    updateTime:
+                      type: object
+                      properties:
+                        time:
+                          type: string
+                        timezone:
+                          type: string
+                      required:
+                        - time
+                        - timezone
+                      additionalProperties: false
+                    lookbackWindow:
+                      type: integer
+                      exclusiveMinimum: 0
+                  required:
+                    - idTypes
+                    - updateTime
+                    - lookbackWindow
+                  additionalProperties: false
                 sql:
                   description: The SQL query for this fact table
                   type: string
@@ -16236,6 +16548,7 @@ paths:
                 description:
                   description: Description of the fact table filter
                   type: string
+                  maxLength: 10000
                 value:
                   description: The SQL expression for this filter.
                   example: country = 'US'
@@ -16321,6 +16634,7 @@ paths:
                 description:
                   description: Description of the fact table filter
                   type: string
+                  maxLength: 10000
                 value:
                   description: The SQL expression for this filter.
                   example: country = 'US'
@@ -16385,6 +16699,101 @@ paths:
             'https://api.growthbook.io/api/v1/fact-tables/abc123/filters/abc123'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/fact-tables/{id}/aggregated-tables:
+    get:
+      operationId: getAggregatedFactTables
+      summary: >-
+        Get the materialization status of a fact table's shared daily aggregated
+        tables
+      tags:
+        - fact-tables
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  aggregatedFactTables:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AggregatedFactTable'
+                  nextScheduledUpdate:
+                    description: >-
+                      When the next scheduled nightly refresh will run, or null
+                      if no schedule is configured
+                    anyOf:
+                      - format: date-time
+                        type: string
+                      - type: 'null'
+                required:
+                  - aggregatedFactTables
+                  - nextScheduledUpdate
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/fact-tables/abc123/aggregated-tables'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/fact-tables/{id}/aggregated-tables/refresh:
+    post:
+      operationId: refreshAggregatedFactTable
+      summary: >-
+        Force a refresh or full restate of a fact table's shared daily
+        aggregated tables
+      tags:
+        - fact-tables
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                idType:
+                  description: >-
+                    Limit the refresh to a single id type. If omitted, all of
+                    the fact table's aggregatedFactTableSettings.idTypes are
+                    refreshed.
+                  type: string
+                fullRestate:
+                  description: >-
+                    Drop and recreate the table, re-scanning the retained
+                    window. This is significantly more expensive than the
+                    default incremental append (it scans ~2-3 months of
+                    history).
+                  type: boolean
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  queued:
+                    description: The id types for which a materialization run was queued
+                    type: array
+                    items:
+                      type: string
+                required:
+                  - queued
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/fact-tables/abc123/aggregated-tables/refresh'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"fullRestate":false}'
   /v1/fact-metrics:
     get:
       operationId: listFactMetrics
@@ -16443,6 +16852,7 @@ paths:
                   type: string
                 description:
                   type: string
+                  maxLength: 10000
                 owner:
                   description: >-
                     The userId or email address of the owner. If an email
@@ -16971,6 +17381,7 @@ paths:
                   type: string
                 description:
                   type: string
+                  maxLength: 10000
                 owner:
                   description: >-
                     The userId or email address of the owner. If an email
@@ -18775,8 +19186,6 @@ paths:
                         additionalProperties: false
                     required:
                       - interval
-                      - actions
-                      - monitored
                     additionalProperties: false
                 startActions:
                   type: array
@@ -19409,13 +19818,9 @@ paths:
         schedule as `completed`, skipping any remaining steps.
 
 
-        Use this when you are confident the rollout is successful and want to
-        lock
+        Pass `disableRule: true` to also disable the linked rule (equivalent to
 
-        in the final traffic allocation without waiting. For a full traffic
-        revert
-
-        instead, use `/actions/rollback`.
+        the cutoff-date-driven completion).
       tags:
         - ramp-schedules
       parameters:
@@ -19425,6 +19830,16 @@ paths:
           description: ''
           schema:
             type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                disableRule:
+                  type: boolean
+              additionalProperties: false
       responses:
         '200':
           content:
@@ -22422,6 +22837,636 @@ paths:
         - lang: cURL
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/transform-copy' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/ai/edit:
+    post:
+      operationId: postVisualEditorAIEdit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                prompt:
+                  type: string
+                  minLength: 1
+                  maxLength: 2000
+                elementContext:
+                  default: []
+                  maxItems: 20
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      selector:
+                        type: string
+                      tagName:
+                        type: string
+                      textSnippet:
+                        type: string
+                      outerHTML:
+                        type: string
+                      attrs:
+                        type: object
+                        propertyNames:
+                          type: string
+                        additionalProperties:
+                          type: string
+                      computedStyles:
+                        type: object
+                        propertyNames:
+                          type: string
+                        additionalProperties:
+                          type: string
+                    required:
+                      - selector
+                      - tagName
+                      - textSnippet
+                      - outerHTML
+                      - attrs
+                    additionalProperties: false
+                variationId:
+                  type: string
+                visualChangesetId:
+                  type: string
+                domDigest:
+                  type: object
+                  properties:
+                    url:
+                      type: string
+                    title:
+                      type: string
+                    structural:
+                      default: []
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          selector:
+                            type: string
+                          tag:
+                            type: string
+                          note:
+                            type: string
+                        required:
+                          - selector
+                          - tag
+                        additionalProperties: false
+                    headings:
+                      default: []
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          selector:
+                            type: string
+                          tag:
+                            type: string
+                          text:
+                            type: string
+                        required:
+                          - selector
+                          - tag
+                          - text
+                        additionalProperties: false
+                    buttons:
+                      default: []
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          selector:
+                            type: string
+                          tag:
+                            type: string
+                          text:
+                            type: string
+                          href:
+                            type: string
+                        required:
+                          - selector
+                          - tag
+                          - text
+                        additionalProperties: false
+                    links:
+                      default: []
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          selector:
+                            type: string
+                          text:
+                            type: string
+                          href:
+                            type: string
+                        required:
+                          - selector
+                          - text
+                          - href
+                        additionalProperties: false
+                    inputs:
+                      default: []
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          selector:
+                            type: string
+                          type:
+                            type: string
+                          name:
+                            type: string
+                          placeholder:
+                            type: string
+                          label:
+                            type: string
+                        required:
+                          - selector
+                          - type
+                        additionalProperties: false
+                    images:
+                      default: []
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          selector:
+                            type: string
+                          alt:
+                            type: string
+                          src:
+                            type: string
+                        required:
+                          - selector
+                          - src
+                        additionalProperties: false
+                  required:
+                    - url
+                    - title
+                  additionalProperties: false
+                conversationHistory:
+                  maxItems: 12
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      role:
+                        type: string
+                        enum:
+                          - user
+                          - assistant
+                      text:
+                        type: string
+                        maxLength: 4000
+                    required:
+                      - role
+                      - text
+                    additionalProperties: false
+                locale:
+                  type: string
+                  minLength: 2
+                  maxLength: 10
+                  pattern: ^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})?$
+                streamingMode:
+                  type: boolean
+              required:
+                - prompt
+                - variationId
+                - visualChangesetId
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/ai/edit' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/ai/edit/resume:
+    post:
+      operationId: postVisualEditorAIEditResume
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                jobId:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                callId:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                result: {}
+              required:
+                - jobId
+                - callId
+                - result
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/ai/edit/resume' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/ai/suggestions:
+    post:
+      operationId: postVisualEditorAISuggestions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                visualChangesetId:
+                  type: string
+                pageHints:
+                  type: object
+                  properties:
+                    url:
+                      type: string
+                    title:
+                      type: string
+                    description:
+                      type: string
+                    headings:
+                      maxItems: 20
+                      type: array
+                      items:
+                        type: string
+                  additionalProperties: false
+              required:
+                - visualChangesetId
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/ai/suggestions' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/ai/image-gen:
+    post:
+      operationId: postVisualEditorAIImageGen
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                prompt:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+                aspectRatio:
+                  type: string
+                count:
+                  type: integer
+                  minimum: 1
+                  maximum: 4
+                visualChangesetId:
+                  type: string
+                referenceImage:
+                  type: object
+                  properties:
+                    data:
+                      type: string
+                      minLength: 1
+                      maxLength: 8388608
+                    mimeType:
+                      type: string
+                      enum:
+                        - image/png
+                        - image/jpeg
+                        - image/gif
+                        - image/webp
+                  required:
+                    - data
+                    - mimeType
+                  additionalProperties: false
+              required:
+                - prompt
+                - visualChangesetId
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/ai/image-gen' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/ai/promote-image:
+    post:
+      operationId: postVisualEditorAIPromoteImage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                visualChangesetId:
+                  type: string
+                filePath:
+                  type: string
+              required:
+                - visualChangesetId
+                - filePath
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/ai/promote-image' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/ai/upload-signed-url:
+    post:
+      operationId: postVisualEditorAIUploadSignedUrl
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                contentType:
+                  type: string
+                  enum:
+                    - image/png
+                    - image/jpeg
+                    - image/gif
+                    - image/webp
+                visualChangesetId:
+                  type: string
+              required:
+                - contentType
+                - visualChangesetId
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/ai/upload-signed-url'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/add-variant:
+    post:
+      operationId: postVisualEditorAddVariant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                visualChangesetId:
+                  type: string
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+              required:
+                - visualChangesetId
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/add-variant' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/create-experiment:
+    post:
+      operationId: postVisualEditorCreateExperiment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                pageUrl:
+                  type: string
+                  format: uri
+                urlPatterns:
+                  minItems: 1
+                  maxItems: 100
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      include:
+                        default: true
+                        type: boolean
+                      type:
+                        default: simple
+                        type: string
+                        enum:
+                          - simple
+                          - regex
+                      pattern:
+                        type: string
+                        minLength: 1
+                        maxLength: 2000
+                    required:
+                      - pattern
+                    additionalProperties: false
+                project:
+                  type: string
+                hashAttribute:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                hypothesis:
+                  type: string
+                  maxLength: 2000
+                description:
+                  type: string
+                  maxLength: 2000
+                type:
+                  default: standard
+                  type: string
+                  enum:
+                    - standard
+                    - multi-armed-bandit
+              required:
+                - name
+                - pageUrl
+                - urlPatterns
+                - hashAttribute
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/create-experiment' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/create-changeset:
+    post:
+      operationId: postVisualEditorCreateChangeset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                visualChangesetId:
+                  type: string
+                pageUrl:
+                  type: string
+                  format: uri
+                urlPatterns:
+                  minItems: 1
+                  maxItems: 100
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      include:
+                        default: true
+                        type: boolean
+                      type:
+                        default: simple
+                        type: string
+                        enum:
+                          - simple
+                          - regex
+                      pattern:
+                        type: string
+                        minLength: 1
+                        maxLength: 2000
+                    required:
+                      - pattern
+                    additionalProperties: false
+              required:
+                - visualChangesetId
+                - pageUrl
+                - urlPatterns
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/create-changeset' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/rename-experiment:
+    post:
+      operationId: postVisualEditorRenameExperiment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                visualChangesetId:
+                  type: string
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+              required:
+                - visualChangesetId
+                - name
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/visual-editor/rename-experiment' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/bootstrap:
+    get:
+      operationId: getVisualEditorBootstrap
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/visual-editor/bootstrap' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/visual-editor/library/images:
+    get:
+      operationId: getVisualEditorLibraryImages
+      parameters:
+        - name: limit
+          in: query
+          description: ''
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/visual-editor/library/images' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/dashboards/{id}:
     get:
@@ -25980,6 +27025,7 @@ paths:
                   type: string
                 description:
                   type: string
+                  maxLength: 10000
                 tags:
                   type: array
                   items:
@@ -26038,6 +27084,7 @@ paths:
                   type: string
                 description:
                   type: string
+                  maxLength: 10000
                 tags:
                   type: array
                   items:
@@ -26554,6 +27601,7 @@ paths:
                       type: string
                     description:
                       type: string
+                      maxLength: 10000
                   required:
                     - name
                   additionalProperties: false
@@ -26565,6 +27613,7 @@ paths:
                   type: string
                 description:
                   type: string
+                  maxLength: 10000
                 tags:
                   type: array
                   items:
@@ -26715,6 +27764,7 @@ paths:
                       type: string
                     description:
                       type: string
+                      maxLength: 10000
                   required:
                     - name
                   additionalProperties: false
@@ -26726,6 +27776,7 @@ paths:
                   type: string
                 description:
                   type: string
+                  maxLength: 10000
                 tags:
                   type: array
                   items:
@@ -26924,6 +27975,7 @@ paths:
                                 type: string
                               description:
                                 type: string
+                                maxLength: 10000
                             required:
                               - name
                             additionalProperties: false
@@ -26935,6 +27987,7 @@ paths:
                             type: string
                           description:
                             type: string
+                            maxLength: 10000
                           tags:
                             type: array
                             items:
@@ -30000,7 +31053,6 @@ paths:
                         additionalProperties: false
                     required:
                       - interval
-                      - monitored
                     additionalProperties: false
                 startActions:
                   type: array
@@ -30401,17 +31453,22 @@ components:
     status:
       name: status
       in: query
-      description: ''
+      description: >-
+        Filter by revision status. Single value, comma-separated list, repeated
+        params (?status=draft&status=approved), or `all-drafts` shorthand for
+        all active-draft statuses (draft, pending-review, approved,
+        changes-requested).
       schema:
-        type: string
-        enum:
-          - draft
-          - published
-          - discarded
-          - approved
-          - changes-requested
-          - pending-review
-          - pending-parent
+        description: >-
+          Filter by revision status. Single value, comma-separated list,
+          repeated params (?status=draft&status=approved), or `all-drafts`
+          shorthand for all active-draft statuses (draft, pending-review,
+          approved, changes-requested).
+        anyOf:
+          - type: string
+          - type: array
+            items:
+              type: string
     author:
       name: author
       in: query
@@ -30454,6 +31511,28 @@ components:
       description: ''
       schema:
         type: string
+    archived:
+      name: archived
+      in: query
+      description: >-
+        Whether to include archived features. Defaults to `false` (non-archived
+        only). Pass `true` to include archived features alongside non-archived
+        ones.
+      schema:
+        description: >-
+          Whether to include archived features. Defaults to `false`
+          (non-archived only). Pass `true` to include archived features
+          alongside non-archived ones.
+        anyOf:
+          - type: string
+            const: 'true'
+          - type: string
+            const: 'false'
+          - type: string
+            const: '0'
+          - type: string
+            const: '1'
+          - type: boolean
     datasourceId:
       name: datasourceId
       in: query
@@ -30684,6 +31763,7 @@ components:
           type: boolean
         description:
           type: string
+          maxLength: 10000
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
@@ -30834,6 +31914,7 @@ components:
           properties:
             description:
               type: string
+              maxLength: 10000
             condition:
               type: string
             id:
@@ -30946,6 +32027,7 @@ components:
           properties:
             description:
               type: string
+              maxLength: 10000
             condition:
               type: string
             id:
@@ -31060,6 +32142,7 @@ components:
           properties:
             description:
               type: string
+              maxLength: 10000
             condition:
               type: string
             id:
@@ -31201,6 +32284,7 @@ components:
           properties:
             description:
               type: string
+              maxLength: 10000
             condition:
               type: string
             id:
@@ -31309,6 +32393,7 @@ components:
           properties:
             description:
               type: string
+              maxLength: 10000
             condition:
               type: string
             id:
@@ -31540,6 +32625,7 @@ components:
           properties:
             description:
               type: string
+              maxLength: 10000
             owner:
               description: >-
                 The userId of the owner (or raw owner name/email for legacy
@@ -32462,6 +33548,7 @@ components:
           type: boolean
         description:
           type: string
+          maxLength: 10000
         owner:
           description: >-
             The userId or email address of the owner. If an email address is
@@ -32516,15 +33603,13 @@ components:
               format: date-time
               type: string
             createdBy:
-              type: string
+              $ref: '#/components/schemas/EventUser'
             publishedBy:
-              type: string
+              $ref: '#/components/schemas/EventUser'
           required:
             - version
             - comment
             - date
-            - createdBy
-            - publishedBy
           additionalProperties: false
         customFields:
           type: object
@@ -32607,6 +33692,25 @@ components:
         - enabled
         - defaultValue
       additionalProperties: false
+    EventUser:
+      description: The user (or automated actor) responsible for an action
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - dashboard
+            - api_key
+            - system
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+      required:
+        - type
+      additionalProperties: false
     FeatureWithRevisionsV2:
       allOf:
         - $ref: '#/components/schemas/FeatureV2'
@@ -32635,9 +33739,9 @@ components:
         status:
           type: string
         createdBy:
-          type: string
+          $ref: '#/components/schemas/EventUser'
         publishedBy:
-          type: string
+          $ref: '#/components/schemas/EventUser'
         defaultValue:
           description: The default value at the time this revision was created
           type: string
@@ -32679,30 +33783,25 @@ components:
               type: object
               properties:
                 id:
-                  description: Feature ID
-                  type: string
-                condition:
+                  description: Feature ID of the prerequisite boolean flag
                   type: string
               required:
                 - id
-                - condition
               additionalProperties: false
         prerequisites:
           description: >-
-            Feature-level prerequisites captured in this revision (only present
-            when prerequisite gating is enabled)
+            Feature-level prerequisites captured in this revision. Each entry is
+            a boolean flag ID that must evaluate to true for this flag to be
+            active for a given user.
           type: array
           items:
             type: object
             properties:
               id:
-                description: Feature ID
-                type: string
-              condition:
+                description: Feature ID of the prerequisite boolean flag
                 type: string
             required:
               - id
-              - condition
             additionalProperties: false
         metadata:
           description: >-
@@ -32712,6 +33811,7 @@ components:
           properties:
             description:
               type: string
+              maxLength: 10000
             owner:
               description: >-
                 The userId of the owner (or raw owner name/email for legacy
@@ -33934,6 +35034,7 @@ components:
           type: string
         description:
           type: string
+          maxLength: 10000
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
@@ -33951,6 +35052,13 @@ components:
             type: string
           additionalProperties: {}
         projects:
+          type: array
+          items:
+            type: string
+        environments:
+          description: >-
+            Limit this Archetype to specific environments. Omit or leave empty
+            to apply to all environments.
           type: array
           items:
             type: string
@@ -33990,6 +35098,7 @@ components:
           type: string
         description:
           type: string
+          maxLength: 10000
         tags:
           type: array
           items:
@@ -34037,6 +35146,7 @@ components:
                 type: string
               description:
                 type: string
+                maxLength: 10000
               screenshots:
                 type: array
                 items:
@@ -34696,6 +35806,7 @@ components:
               type: string
             description:
               type: string
+              maxLength: 10000
             tags:
               type: array
               items:
@@ -34745,6 +35856,7 @@ components:
                     type: string
                   description:
                     type: string
+                    maxLength: 10000
                   screenshots:
                     type: array
                     items:
@@ -35136,6 +36248,7 @@ components:
           type: string
         description:
           type: string
+          maxLength: 10000
         type:
           type: string
           enum:
@@ -35471,6 +36584,7 @@ components:
           type: string
         description:
           type: string
+          maxLength: 10000
         query:
           type: string
         dateCreated:
@@ -35535,6 +36649,7 @@ components:
           type: string
         description:
           type: string
+          maxLength: 10000
         query:
           type: string
         managedBy:
@@ -35571,6 +36686,7 @@ components:
           type: string
         description:
           type: string
+          maxLength: 10000
         publicId:
           description: >-
             URL-safe slug used in SDK payload metadata. Auto-generated from name
@@ -35699,6 +36815,11 @@ components:
           type: boolean
         includeDraftExperiments:
           type: boolean
+        includeDraftExperimentRefs:
+          description: >-
+            When true, experiment-ref rules linked to draft experiments are
+            included in feature definitions. Off by default.
+          type: boolean
         includeExperimentNames:
           type: boolean
         includeRedirectExperiments:
@@ -35764,6 +36885,7 @@ components:
           type: string
         description:
           type: string
+          maxLength: 10000
         projectIds:
           type: array
           items:
@@ -35779,6 +36901,7 @@ components:
                 type: string
               description:
                 type: string
+                maxLength: 10000
             required:
               - id
               - description
@@ -35794,6 +36917,7 @@ components:
                 type: string
               description:
                 type: string
+                maxLength: 10000
               identifierType:
                 type: string
               sql:
@@ -36008,6 +37132,7 @@ components:
             type: string
         description:
           type: string
+          maxLength: 10000
         projects:
           type: array
           items:
@@ -36351,6 +37476,7 @@ components:
           type: string
         description:
           type: string
+          maxLength: 10000
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
@@ -36373,6 +37499,37 @@ components:
           type: array
           items:
             type: string
+        aggregatedFactTableSettings:
+          description: >-
+            Settings for maintaining shared daily aggregated tables (a subset of
+            userIdTypes plus the daily update time and restate lookback window)
+            used to speed up CUPED. Requires the data pipeline (pipeline-mode)
+            feature.
+          type: object
+          properties:
+            idTypes:
+              type: array
+              items:
+                type: string
+            updateTime:
+              type: object
+              properties:
+                time:
+                  type: string
+                timezone:
+                  type: string
+              required:
+                - time
+                - timezone
+              additionalProperties: false
+            lookbackWindow:
+              type: integer
+              exclusiveMinimum: 0
+          required:
+            - idTypes
+            - updateTime
+            - lookbackWindow
+          additionalProperties: false
         sql:
           type: string
         eventName:
@@ -36471,6 +37628,7 @@ components:
           type: string
         description:
           type: string
+          maxLength: 10000
         alwaysInlineFilter:
           default: false
           description: >-
@@ -36520,6 +37678,7 @@ components:
           type: string
         description:
           type: string
+          maxLength: 10000
         value:
           type: string
         managedBy:
@@ -36545,6 +37704,86 @@ components:
         - dateCreated
         - dateUpdated
       additionalProperties: false
+    AggregatedFactTable:
+      type: object
+      properties:
+        idType:
+          description: The id type this aggregated table is keyed by
+          type: string
+        status:
+          description: >-
+            Materialization status: `pending` (not yet built), `running` (a
+            refresh is in progress), `active` (materialized and queryable), or
+            `error` (the last run failed).
+          type: string
+          enum:
+            - running
+            - error
+            - pending
+            - active
+        tableFullName:
+          description: >-
+            Fully-qualified warehouse table name, or null if it has not been
+            created yet
+          anyOf:
+            - type: string
+            - type: 'null'
+        firstEventDate:
+          description: Earliest event date covered by the materialized data
+          anyOf:
+            - format: date-time
+              type: string
+            - type: 'null'
+        lastEventDate:
+          description: Latest event date covered by the materialized data
+          anyOf:
+            - format: date-time
+              type: string
+            - type: 'null'
+        lastMaxTimestamp:
+          description: >-
+            Event-time high-water mark; the next incremental refresh appends
+            events after this timestamp
+          anyOf:
+            - format: date-time
+              type: string
+            - type: 'null'
+        lastError:
+          description: Error message from the last failed run, if any
+          anyOf:
+            - type: string
+            - type: 'null'
+        dateUpdated:
+          description: When the aggregation metadata was last updated
+          anyOf:
+            - format: date-time
+              type: string
+            - type: 'null'
+        pendingRestate:
+          description: >-
+            Whether the next run will be forced to drop and rebuild the table
+            instead of appending incrementally
+          type: boolean
+        pendingRestateReason:
+          description: Why a restate is pending, if `pendingRestate` is true
+          anyOf:
+            - type: string
+              enum:
+                - incomplete-write
+                - schema-drift
+            - type: 'null'
+      required:
+        - idType
+        - status
+        - tableFullName
+        - firstEventDate
+        - lastEventDate
+        - lastMaxTimestamp
+        - lastError
+        - dateUpdated
+        - pendingRestate
+        - pendingRestateReason
+      additionalProperties: false
     FactMetric:
       type: object
       properties:
@@ -36554,6 +37793,7 @@ components:
           type: string
         description:
           type: string
+          maxLength: 10000
         owner:
           description: The userId of the owner (or raw owner name/email for legacy records)
           type: string
@@ -40304,6 +41544,7 @@ components:
           type: string
         description:
           type: string
+          maxLength: 10000
         tags:
           type: array
           items:
@@ -40446,6 +41687,7 @@ components:
               type: string
             description:
               type: string
+              maxLength: 10000
           required:
             - name
           additionalProperties: false
@@ -40457,6 +41699,7 @@ components:
           type: string
         description:
           type: string
+          maxLength: 10000
         tags:
           type: array
           items:
@@ -40877,6 +42120,7 @@ components:
       properties:
         description:
           type: string
+          maxLength: 10000
         condition:
           type: string
         id:
@@ -41964,6 +43208,85 @@ components:
       required:
         - variation
       additionalProperties: false
+    ApiErrorConflictDetails:
+      type: object
+      properties:
+        conflicts:
+          type: array
+          items: {}
+      required:
+        - conflicts
+      additionalProperties: false
+    ApiErrorChecklistIncompleteDetails:
+      type: object
+      properties:
+        remainingChecklistItems:
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+              required:
+                type: boolean
+              status:
+                type: string
+                enum:
+                  - complete
+                  - incomplete
+              manual:
+                type: boolean
+              reason:
+                type: string
+            required:
+              - key
+              - required
+              - status
+              - manual
+              - reason
+            additionalProperties: false
+      required:
+        - remainingChecklistItems
+      additionalProperties: false
+    ApiErrorPendingDraftPublishFailedDetails:
+      type: object
+      properties:
+        failedFeatureDrafts:
+          type: array
+          items:
+            type: object
+            properties:
+              featureId:
+                type: string
+              revisionVersion:
+                type: number
+              reason:
+                type: string
+                enum:
+                  - merge-conflict
+                  - needs-approval
+                  - publish-error
+            required:
+              - featureId
+              - revisionVersion
+              - reason
+            additionalProperties: false
+      required:
+        - failedFeatureDrafts
+      additionalProperties: false
+    ApiErrorInvalidStatusDetails:
+      type: object
+      properties:
+        currentStatus:
+          type: string
+        expectedStatuses:
+          type: array
+          items:
+            type: string
+      required:
+        - currentStatus
+        - expectedStatuses
+      additionalProperties: false
     features:
       description: >-
         Map of feature ID to stale status. Only requested features that were
@@ -42090,6 +43413,7 @@ components:
                 properties:
                   description:
                     type: string
+                    maxLength: 10000
                   condition:
                     type: string
                   id:
@@ -42171,6 +43495,7 @@ components:
                 properties:
                   description:
                     type: string
+                    maxLength: 10000
                   condition:
                     type: string
                   id:
@@ -42266,6 +43591,7 @@ components:
                 properties:
                   description:
                     type: string
+                    maxLength: 10000
                   condition:
                     type: string
                   id:
@@ -42504,6 +43830,7 @@ components:
                 properties:
                   description:
                     type: string
+                    maxLength: 10000
                   condition:
                     type: string
                   id:
@@ -42599,6 +43926,7 @@ components:
                 properties:
                   description:
                     type: string
+                    maxLength: 10000
                   condition:
                     type: string
                   id:
@@ -42941,8 +44269,12 @@ components:
               type: number
             variationUnits:
               description: >-
-                Per-variation user counts. Index 0 = control, index 1 =
-                treatment.
+                Per-variation user counts. Index 0 = baseline arm (users
+                continuing to see the existing behavior — either the configured
+                control value on a v1 safe rollout, or users passed through to
+                subsequent rules / feature default on a v2 monitored ramp).
+                Index 1 = treatment arm (users exposed to the new rollout
+                value).
               type: array
               items:
                 type: number
@@ -43025,13 +44357,14 @@ components:
                   - signal
               relativeLift:
                 description: >-
-                  Expected relative lift of the treatment vs control (e.g. 0.05
-                  = +5%).
+                  Expected relative lift of the treatment arm vs the baseline
+                  arm (e.g. 0.05 = +5%). See `traffic.variationUnits` for what
+                  each arm represents.
                 type: number
               absoluteLift:
                 description: >-
-                  Absolute difference in conversion rate between treatment and
-                  control.
+                  Absolute difference in conversion rate between the treatment
+                  and baseline arms.
                 type: number
               ciHarmBound:
                 description: >-
@@ -43402,6 +44735,7 @@ x-tagGroups:
       - RampScheduleTemplates
   - name: Models
     tags:
+      - AggregatedFactTable_model
       - AnalyticsExploration_model
       - Archetype_model
       - Attribute_model
@@ -43411,6 +44745,7 @@ x-tagGroups:
       - DataSource_model
       - Dimension_model
       - Environment_model
+      - EventUser_model
       - Experiment_model
       - Experiment Rule_model
       - ExperimentAnalysisSettings_model

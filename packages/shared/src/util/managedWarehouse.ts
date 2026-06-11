@@ -58,13 +58,24 @@ export function formatQueryExecutionErrorForApi(e: unknown): string {
 }
 
 /**
+ * Managed Warehouse is backed by the growthbook_clickhouse datasource type.
+ * Because GrowthBook owns the warehouse compute, we enable query optimizations
+ * (e.g. multi-metric queries) for it even on non-enterprise plans.
+ */
+export function isManagedWarehouse(
+  datasource: Pick<DataSourceInterface, "type">,
+): boolean {
+  return datasource.type === "growthbook_clickhouse";
+}
+
+/**
  * Managed Warehouse rows created before provisioning was deferred will not
  * have this flag; treat them as provisioned.
  */
 export function isManagedWarehouseAwaitingProvisioning(
   datasource: Pick<DataSourceInterface, "type" | "settings">,
 ): boolean {
-  if (datasource.type !== "growthbook_clickhouse") {
+  if (!isManagedWarehouse(datasource)) {
     return false;
   }
   const settings = datasource.settings as {

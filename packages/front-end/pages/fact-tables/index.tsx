@@ -24,7 +24,6 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Switch from "@/ui/Switch";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
-import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import LinkButton from "@/ui/LinkButton";
 import Table, {
   TableBody,
@@ -42,6 +41,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { GBInfo } from "@/components/Icons";
 import { useUser } from "@/services/UserContext";
+import Text from "@/ui/Text";
 
 export default function FactTablesPage() {
   const {
@@ -57,12 +57,9 @@ export default function FactTablesPage() {
   const router = useRouter();
   const { getOwnerDisplay } = useUser();
 
-  const { demoDataSourceId } = useDemoDataSourceProject();
-
   const hasDatasource = datasources.some(
     (d) =>
       d.properties?.queryLanguage === "sql" &&
-      d.id !== demoDataSourceId &&
       isProjectListValidForProject(d.projects, project),
   );
 
@@ -191,37 +188,22 @@ export default function FactTablesPage() {
         <Box className="appbox" p="5" style={{ textAlign: "center" }}>
           <h2>A SQL Foundation for your Metrics</h2>
           <p>
-            With Fact Tables, you can better organize your metrics, cut down on
-            repetitive copy/pasting, and unlock massive{" "}
-            <Tooltip
-              body={
-                <div style={{ textAlign: "left" }}>
-                  <p>
-                    <strong>Enterprise-Only</strong> GrowthBook calculates
-                    multiple metrics in a single database query when they share
-                    the same Fact Table.
-                  </p>
-                  <p>
-                    For warehouses like BigQuery that charge based on data
-                    scanned, this can drastically reduce the costs, especially
-                    when an experiment has many metrics.
-                  </p>
-                </div>
-              }
-            >
-              <span
-                style={{
-                  textDecoration: "underline",
-                  textDecorationStyle: "dotted",
-                }}
-              >
-                SQL cost savings <GBInfo />
-              </span>
-            </Tooltip>
+            Fact Tables are SQL queries that select a set of rows from your data
+            warehouse.
+          </p>
+          <p>
+            Metrics are then defined on top of Fact Tables by filtering and
+            aggregating the data.
           </p>
           <div className="mt-3">
             {!hasDatasource ? (
-              <LinkButton href="/datasources">Connect Data Source</LinkButton>
+              <>
+                <p>
+                  Before creating a fact table, you must connect a SQL data
+                  source.
+                </p>
+                <LinkButton href="/datasources">Connect Data Source</LinkButton>
+              </>
             ) : initialFactTableData && canCreate ? (
               <div>
                 <Button
@@ -281,12 +263,19 @@ export default function FactTablesPage() {
             </Callout>
           )}
 
-          <Separator size="4" mb="9" mt="9" />
+          <Separator size="4" mb="6" mt="9" />
+
+          <Box mb="6">
+            <Text>
+              GrowthBook is very flexible and supports a wide variety of data
+              schemas. Here are a few examples:
+            </Text>
+          </Box>
 
           <Flex gap="9" justify={"center"} wrap="wrap">
             <Box>
               <h3>Raw Event Stream Example</h3>
-              <Flex gap="2">
+              <Flex gap="2" mt="5">
                 <Flex direction="column" gap="1">
                   <div>Fact Table</div>
                   <Box className="border px-3 py-2 bg-white">
@@ -301,12 +290,37 @@ export default function FactTablesPage() {
                 </Box>
                 <Flex direction="column" gap="1">
                   <div>Metrics</div>
-                  <Box className="border p-2 bg-white">Mobile Sign Ups</Box>
-                  <Box className="border p-2 bg-white">Downloads per User</Box>
-                  <Box className="border p-2 bg-white">
-                    Form Completion Rate
-                  </Box>
-                  <Box className="border p-2 bg-white">Pages per Session</Box>
+                  <ExampleMetric
+                    name="Mobile Sign Ups"
+                    info={{
+                      Filters:
+                        "event_name = 'sign_up'\nAND device_type = 'mobile'",
+                      Aggregation: "COUNT(DISTINCT user_id)",
+                    }}
+                  />
+                  <ExampleMetric
+                    name="Downloads per User"
+                    info={{
+                      Filters: "event_name = 'download'",
+                      Aggregation: "COUNT(*)",
+                    }}
+                  />
+                  <ExampleMetric
+                    name="Form Completion Rate"
+                    info={{
+                      Numerator: "event_name = 'form_completion'",
+                      Denominator: "event_name = 'form_start'",
+                      Aggregation: "COUNT(*) / COUNT(*)",
+                    }}
+                  />
+                  <ExampleMetric
+                    name="Pages per Session"
+                    info={{
+                      Numerator: "event_name = 'page_view'",
+                      Denominator: "event_name = 'session_start'",
+                      Aggregation: "COUNT(*) / COUNT(*)",
+                    }}
+                  />
                 </Flex>
               </Flex>
             </Box>
@@ -315,7 +329,7 @@ export default function FactTablesPage() {
             </Box>
             <Box>
               <h3>Modeled Table Example</h3>
-              <Flex gap="2">
+              <Flex gap="2" mt="5">
                 <Flex direction="column" gap="1">
                   <div>Fact Table</div>
                   <Box className="border px-3 py-2 bg-white">
@@ -330,12 +344,32 @@ export default function FactTablesPage() {
                 </Box>
                 <Flex direction="column" gap="1">
                   <div>Metrics</div>
-                  <Box className="border p-2 bg-white">Conversion Rate</Box>
-                  <Box className="border p-2 bg-white">Revenue per User</Box>
-                  <Box className="border p-2 bg-white">Average Order Value</Box>
-                  <Box className="border p-2 bg-white">
-                    Orders with 5+ Items
-                  </Box>
+                  <ExampleMetric
+                    name="Conversion Rate"
+                    info={{
+                      Aggregation: "COUNT(DISTINCT user_id)",
+                    }}
+                  />
+                  <ExampleMetric
+                    name="Revenue per User"
+                    info={{
+                      Aggregation: "SUM(amount)",
+                    }}
+                  />
+                  <ExampleMetric
+                    name="Average Order Value"
+                    info={{
+                      Numerator: "SUM(amount)",
+                      Denominator: "COUNT(*)",
+                    }}
+                  />
+                  <ExampleMetric
+                    name="Orders with 5+ Items"
+                    info={{
+                      Filters: "numItems >= 5",
+                      Aggregation: "COUNT(*)",
+                    }}
+                  />
                 </Flex>
               </Flex>
             </Box>
@@ -537,5 +571,37 @@ export default function FactTablesPage() {
         </Box>
       )}
     </Box>
+  );
+}
+
+function ExampleMetric({
+  name,
+  info,
+}: {
+  name: string;
+  info: { [key: string]: string };
+}) {
+  return (
+    <Tooltip
+      flipTheme={false}
+      body={
+        <Flex direction="column" gap="3" style={{ textAlign: "left" }}>
+          {Object.entries(info).map(([key, value]) => (
+            <div key={key}>
+              <div>
+                <Text size="small" weight="medium" color="text-low">
+                  {key}:
+                </Text>
+              </div>
+              <InlineCode language="sql" code={value} />
+            </div>
+          ))}
+        </Flex>
+      }
+    >
+      <Box className="border p-2 bg-white">
+        {name} <GBInfo />
+      </Box>
+    </Tooltip>
   );
 }

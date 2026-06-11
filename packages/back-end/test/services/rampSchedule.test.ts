@@ -42,6 +42,8 @@ import {
   applyRampStartActions,
   startReadyScheduleNow,
   approveAndPublishStep,
+  computeNextProcessAt,
+  pauseSchedule,
 } from "back-end/src/services/rampSchedule";
 
 // ---------------------------------------------------------------------------
@@ -338,6 +340,8 @@ describe("getStartPatchForRule", () => {
       condition: '{"country":"US"}',
       savedGroups,
       prerequisites,
+      allEnvironments: false,
+      environments: ["production", "staging"],
     } as FeatureRule);
 
     expect(patch).toMatchObject({
@@ -345,8 +349,97 @@ describe("getStartPatchForRule", () => {
       condition: '{"country":"US"}',
       savedGroups,
       prerequisites,
+      allEnvironments: false,
+      environments: ["production", "staging"],
       enabled: false,
     });
+  });
+
+  it("captures force value (including null as a valid value)", () => {
+    const patch = getStartPatchForRule({
+      id: "r1",
+      type: "force",
+      hashAttribute: "id",
+      enabled: true,
+      value: "variant-b",
+    } as FeatureRule);
+
+    expect(patch.force).toBe("variant-b");
+
+    const nullPatch = getStartPatchForRule({
+      id: "r1",
+      type: "force",
+      hashAttribute: "id",
+      enabled: true,
+      value: null,
+    } as FeatureRule);
+
+    expect(nullPatch.force).toBeNull();
+  });
+
+  it("round-trips: capture → computeEffectivePatch → applyPatchToRule restores original rule", () => {
+    const originalRule = {
+      id: "r1",
+      type: "rollout" as const,
+      coverage: 0.75,
+      hashAttribute: "id",
+      enabled: true,
+      condition: '{"country":"US"}',
+      savedGroups: [{ match: "any" as const, ids: ["grp1"] }],
+      prerequisites: [{ id: "feat_gate", condition: '{"value":true}' }],
+      allEnvironments: false,
+      environments: ["production"],
+    } as FeatureRule;
+
+    // A. Capture into startActions
+    const startPatch = getStartPatchForRule(originalRule);
+    const startActions = [
+      {
+        targetType: "feature-rule" as const,
+        targetId: TARGET_ID,
+        patch: { ruleId: RULE_ID, ...startPatch },
+      },
+    ];
+
+    // B. Build a schedule at step 1 (ramp changed coverage to 0.5)
+    const sched = {
+      steps: [
+        {
+          interval: 300,
+          actions: [
+            {
+              targetType: "feature-rule" as const,
+              targetId: TARGET_ID,
+              patch: { ruleId: RULE_ID, coverage: 0.5 },
+            },
+          ],
+        },
+      ],
+      startActions,
+      endActions: [],
+    };
+
+    // C. computeEffectivePatch at step 0 merges startActions + step 0
+    const effective = computeEffectivePatch(sched, 0);
+    const merged = effective.get(TARGET_ID)!;
+    expect(merged.coverage).toBe(0.5); // step override
+    expect(merged.condition).toBe('{"country":"US"}'); // from startActions
+
+    // D. Apply the startActions patch directly (simulates rollbackToStep(-1))
+    const driftedRule = {
+      ...originalRule,
+      coverage: 0.5,
+      condition: "",
+    } as FeatureRule;
+    const restored = applyPatchToRule(driftedRule, startPatch);
+    expect((restored as { coverage?: number }).coverage).toBe(0.75);
+    expect(restored.condition).toBe('{"country":"US"}');
+    expect(restored.savedGroups).toEqual([{ match: "any", ids: ["grp1"] }]);
+    expect(restored.prerequisites).toEqual([
+      { id: "feat_gate", condition: '{"value":true}' },
+    ]);
+    expect(restored.allEnvironments).toBe(false);
+    expect(restored.environments).toEqual(["production"]);
   });
 });
 
@@ -497,6 +590,86 @@ describe("computeEffectivePatch", () => {
   it("returns empty map when no actions anywhere", () => {
     const sched = sparseSchedule([]);
     expect(computeEffectivePatch(sched, -1).size).toBe(0);
+  });
+
+  it("seeds from startActions so step 0 inherits the full initial rule state", () => {
+    const sched = {
+      ...sparseSchedule([[action(TARGET_ID, { coverage: 0.1 })]]),
+      startActions: [
+        {
+          targetType: "feature-rule" as const,
+          targetId: TARGET_ID,
+          patch: {
+            ruleId: RULE_ID,
+            coverage: 0.0,
+            condition: '{"country":"US"}',
+            savedGroups: [{ ids: ["grp1"], match: "any" }],
+            prerequisites: [
+              { id: "feat_gate", condition: '{"$or":[{"value":true}]}' },
+            ],
+            allEnvironments: false,
+            environments: ["production", "staging"],
+            force: "variant-b",
+          },
+        },
+      ],
+    };
+    const result = computeEffectivePatch(sched, 0);
+    const patch = result.get(TARGET_ID);
+    // Step 0's coverage override wins; all other fields inherited from startActions
+    expect(patch).toMatchObject({
+      coverage: 0.1,
+      condition: '{"country":"US"}',
+      savedGroups: [{ ids: ["grp1"], match: "any" }],
+      prerequisites: [
+        { id: "feat_gate", condition: '{"$or":[{"value":true}]}' },
+      ],
+      allEnvironments: false,
+      environments: ["production", "staging"],
+      force: "variant-b",
+    });
+  });
+
+  it("rollback to intermediate step still inherits startActions fields", () => {
+    const sched = {
+      ...sparseSchedule([
+        [action(TARGET_ID, { coverage: 0.3 })],
+        [action(TARGET_ID, { coverage: 0.6 })],
+        [action(TARGET_ID, { coverage: 1.0 })],
+      ]),
+      startActions: [
+        {
+          targetType: "feature-rule" as const,
+          targetId: TARGET_ID,
+          patch: {
+            ruleId: RULE_ID,
+            coverage: 0.0,
+            condition: '{"country":"US"}',
+            savedGroups: [{ ids: ["grp1"], match: "any" }],
+            prerequisites: [
+              { id: "feat_gate", condition: '{"$or":[{"value":true}]}' },
+            ],
+            allEnvironments: false,
+            environments: ["production", "staging"],
+            force: "variant-b",
+          },
+        },
+      ],
+    };
+    // Rolling back to step 1 — startActions fields persist through step 0 and 1
+    const result = computeEffectivePatch(sched, 1);
+    const patch = result.get(TARGET_ID);
+    expect(patch).toMatchObject({
+      coverage: 0.6,
+      condition: '{"country":"US"}',
+      savedGroups: [{ ids: ["grp1"], match: "any" }],
+      prerequisites: [
+        { id: "feat_gate", condition: '{"$or":[{"value":true}]}' },
+      ],
+      allEnvironments: false,
+      environments: ["production", "staging"],
+      force: "variant-b",
+    });
   });
 });
 
@@ -1591,11 +1764,11 @@ describe("resumeSchedule", () => {
     mockPublishRevision.mockResolvedValue(makeFeature() as never);
   });
 
-  it("resume after jump-to-last-step sets nextStepAt=now so advanceUntilBlocked can complete the schedule", async () => {
+  it("resume after jump-to-last-step honours the step interval before completing", async () => {
     // jumpAheadToStep stores nextStepAt:null and status:paused. The schedule
-    // has 3 steps; currentStepIndex=2 is the last one. Resuming should set
-    // nextStepAt to now so advanceUntilBlocked → advanceStep → completeRollout
-    // fires, rather than leaving the schedule stranded in "running" forever.
+    // has 3 steps; currentStepIndex=2 is the last one with interval=900s.
+    // Resuming should compute a future nextStepAt based on the step's interval
+    // so the step runs its hold time before advancing to completion.
     const schedule = makeSchedule({
       status: "paused",
       currentStepIndex: 2, // last step (steps.length - 1 = 2)
@@ -1629,16 +1802,19 @@ describe("resumeSchedule", () => {
 
     await resumeSchedule(ctx as never, schedule);
 
-    // The first updateById call is the resume update — nextStepAt must be set
-    // so advanceUntilBlocked can gate on it.
     const [, resumeUpdates] = updateById.mock.calls[0];
     expect(resumeUpdates.nextStepAt).not.toBeNull();
     expect(resumeUpdates.nextStepAt).toBeInstanceOf(Date);
 
-    // completeRollout (triggered by advanceUntilBlocked → advanceStep) calls
-    // publishRevision to apply endActions, confirming the schedule reached
-    // completion rather than stalling.
-    expect(mockPublishRevision).toHaveBeenCalled();
+    // nextStepAt should be in the future (step interval not yet elapsed),
+    // NOT set to now — the step needs to run its hold time first.
+    expect(resumeUpdates.nextStepAt.getTime()).toBeGreaterThan(
+      Date.now() - 1000,
+    );
+
+    // completeRollout should NOT fire immediately — the step interval must
+    // elapse first.
+    expect(mockPublishRevision).not.toHaveBeenCalled();
   });
 });
 
@@ -3605,5 +3781,231 @@ describe("isReadyForApproval", () => {
         steps: [{ interval: null, holdConditions: {} }],
       }),
     ).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// computeNextProcessAt
+// ---------------------------------------------------------------------------
+
+describe("computeNextProcessAt", () => {
+  it("running: returns earliest of nextStepAt, nextSnapshotAt, cutoffDate", () => {
+    const step = new Date("2026-06-10T00:00:00Z");
+    const snapshot = new Date("2026-06-08T00:00:00Z");
+    const cutoff = new Date("2026-06-15T00:00:00Z");
+    const result = computeNextProcessAt({
+      status: "running",
+      nextStepAt: step,
+      nextSnapshotAt: snapshot,
+      cutoffDate: cutoff,
+    });
+    expect(result).toEqual(snapshot);
+  });
+
+  it("running: returns cutoffDate when no step or snapshot timers exist", () => {
+    const cutoff = new Date("2026-06-15T00:00:00Z");
+    const result = computeNextProcessAt({
+      status: "running",
+      nextStepAt: null,
+      nextSnapshotAt: null,
+      cutoffDate: cutoff,
+    });
+    expect(result).toEqual(cutoff);
+  });
+
+  it("running: returns null when no timers exist at all", () => {
+    const result = computeNextProcessAt({
+      status: "running",
+      nextStepAt: null,
+      nextSnapshotAt: null,
+    });
+    expect(result).toBeNull();
+  });
+
+  it("ready: returns startDate", () => {
+    const start = new Date("2026-06-05T00:00:00Z");
+    const result = computeNextProcessAt({
+      status: "ready",
+      startDate: start,
+    });
+    expect(result).toEqual(start);
+  });
+
+  it("ready: returns null when no startDate", () => {
+    const result = computeNextProcessAt({ status: "ready" });
+    expect(result).toBeNull();
+  });
+
+  it("paused: returns cutoffDate so scheduler can enforce the cutoff", () => {
+    const cutoff = new Date("2026-06-15T00:00:00Z");
+    const result = computeNextProcessAt({
+      status: "paused",
+      cutoffDate: cutoff,
+    });
+    expect(result).toEqual(cutoff);
+  });
+
+  it("paused: returns null when no cutoffDate", () => {
+    const result = computeNextProcessAt({ status: "paused" });
+    expect(result).toBeNull();
+  });
+
+  it("completed: returns null (terminal state)", () => {
+    const result = computeNextProcessAt({
+      status: "completed",
+      cutoffDate: new Date("2026-06-15T00:00:00Z"),
+    });
+    expect(result).toBeNull();
+  });
+
+  it("rolled-back: returns null (terminal state)", () => {
+    const result = computeNextProcessAt({
+      status: "rolled-back",
+      cutoffDate: new Date("2026-06-15T00:00:00Z"),
+    });
+    expect(result).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// advanceStep — future cutoffDate keeps schedule running
+// ---------------------------------------------------------------------------
+
+describe("advanceStep — future cutoffDate keeps schedule running", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetFeature.mockResolvedValue(makeFeature() as never);
+    mockCreateRevision.mockResolvedValue(makeRevision() as never);
+    mockPublishRevision.mockResolvedValue(makeFeature() as never);
+  });
+
+  it("stays running with nextProcessAt=cutoffDate when all steps are done but cutoff is future", async () => {
+    const futureCutoff = new Date(Date.now() + 60 * 60_000);
+    const schedule = makeSchedule({
+      currentStepIndex: 2,
+      cutoffDate: futureCutoff,
+    });
+    const { ctx, updateById } = makeContext({
+      currentStepIndex: 2,
+      cutoffDate: futureCutoff,
+    });
+
+    await advanceStep(ctx as never, schedule);
+
+    expect(mockPublishRevision).toHaveBeenCalledTimes(1);
+
+    const [, updates] = updateById.mock.calls[0];
+    expect(updates.status).toBe("running");
+    expect(updates.currentStepIndex).toBe(3);
+    expect(updates.nextProcessAt).toEqual(futureCutoff);
+    expect(updates.nextStepAt).toBeNull();
+  });
+
+  it("completes normally when cutoffDate is in the past", async () => {
+    const pastCutoff = new Date(Date.now() - 60_000);
+    const schedule = makeSchedule({
+      currentStepIndex: 2,
+      cutoffDate: pastCutoff,
+    });
+    const { ctx, updateById } = makeContext({
+      currentStepIndex: 2,
+      cutoffDate: pastCutoff,
+    });
+
+    await advanceStep(ctx as never, schedule);
+
+    const [, updates] = updateById.mock.calls[0];
+    expect(updates.status).toBe("completed");
+  });
+
+  it("completes normally when no cutoffDate exists", async () => {
+    const schedule = makeSchedule({ currentStepIndex: 2 });
+    const { ctx, updateById } = makeContext({ currentStepIndex: 2 });
+
+    await advanceStep(ctx as never, schedule);
+
+    const [, updates] = updateById.mock.calls[0];
+    expect(updates.status).toBe("completed");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// pauseSchedule — nextProcessAt from cutoffDate
+// ---------------------------------------------------------------------------
+
+describe("pauseSchedule", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("sets nextProcessAt to cutoffDate when a cutoff exists", async () => {
+    const futureCutoff = new Date(Date.now() + 60 * 60_000);
+    const schedule = makeSchedule({
+      status: "running",
+      currentStepIndex: 1,
+      cutoffDate: futureCutoff,
+    });
+
+    const updateById = jest
+      .fn()
+      .mockImplementation(
+        (_id: string, updates: Partial<RampScheduleInterface>) => ({
+          ...schedule,
+          ...updates,
+        }),
+      );
+
+    const ctx = {
+      org: { id: ORG_ID, settings: {} },
+      auditUser: { type: "system" },
+      environments: [],
+      permissions: {
+        canUpdateFeature: jest.fn().mockReturnValue(true),
+      },
+      models: {
+        rampSchedules: { updateById, getById: jest.fn() },
+      },
+    };
+
+    await pauseSchedule(ctx as never, schedule);
+
+    const [, updates] = updateById.mock.calls[0];
+    expect(updates.status).toBe("paused");
+    expect(updates.nextProcessAt).toEqual(futureCutoff);
+    expect(updates.nextSnapshotAt).toBeNull();
+  });
+
+  it("sets nextProcessAt to null when no cutoffDate exists", async () => {
+    const schedule = makeSchedule({
+      status: "running",
+      currentStepIndex: 1,
+    });
+
+    const updateById = jest
+      .fn()
+      .mockImplementation(
+        (_id: string, updates: Partial<RampScheduleInterface>) => ({
+          ...schedule,
+          ...updates,
+        }),
+      );
+
+    const ctx = {
+      org: { id: ORG_ID, settings: {} },
+      auditUser: { type: "system" },
+      environments: [],
+      permissions: {
+        canUpdateFeature: jest.fn().mockReturnValue(true),
+      },
+      models: {
+        rampSchedules: { updateById, getById: jest.fn() },
+      },
+    };
+
+    await pauseSchedule(ctx as never, schedule);
+
+    const [, updates] = updateById.mock.calls[0];
+    expect(updates.status).toBe("paused");
+    expect(updates.nextProcessAt).toBeNull();
   });
 });

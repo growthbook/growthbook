@@ -1,4 +1,5 @@
 import { FC, useMemo, useState } from "react";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { useForm } from "react-hook-form";
 import { DimensionInterface } from "shared/types/dimension";
 import { FaExternalLinkAlt } from "react-icons/fa";
@@ -96,7 +97,12 @@ const DimensionForm: FC<{
           value={form.watch("owner")}
           onChange={(v) => form.setValue("owner", v)}
         />
-        <Field label="Description" textarea {...form.register("description")} />
+        <Field
+          label="Description"
+          textarea
+          maxLength={MAX_DESCRIPTION_LENGTH}
+          {...form.register("description")}
+        />
         <SelectField
           label="Data Source"
           required

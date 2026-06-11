@@ -297,6 +297,9 @@ export default function RuleModal({
   const { templates: allTemplates } = useTemplates();
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
+  const disabledEnvironmentIds = environments
+    .filter((e) => !feature.environmentSettings[e.id]?.enabled)
+    .map((e) => e.id);
 
   const { data: sdkConnectionsData } = useSDKConnections();
   const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
@@ -398,6 +401,41 @@ export default function RuleModal({
           seed: "",
         }
       : {}),
+    // Backward-compat: rules saved before the stripping logic was removed may
+    // have empty targeting on the rule with the real values in startActions.
+    // For pre-start/terminal states, restore from startActions if the rule's
+    // own fields are empty. For running/paused, the rule's live values are
+    // managed by the engine and are always correct.
+    ...(() => {
+      const isPreStartOrTerminal =
+        ruleRampSchedule == null ||
+        ["pending", "ready", "rolled-back", "completed"].includes(
+          ruleRampSchedule.status,
+        );
+      if (!isPreStartOrTerminal && !pendingCreateActionTyped) return {};
+
+      const startActions =
+        ruleRampSchedule?.startActions ??
+        pendingCreateActionTyped?.startActions;
+      if (!startActions?.length) return {};
+      // Safe to use .find() (first match): per-env entries always share the
+      // same targeting fields — only coverage differs across targets.
+      const patch = startActions.find(
+        (a) => a.targetType === "feature-rule",
+      )?.patch;
+      if (!patch) return {};
+      const restored: Record<string, unknown> = {};
+      if (patch.condition != null && !rule?.condition) {
+        restored.condition = patch.condition;
+      }
+      if (patch.savedGroups != null && !rule?.savedGroups?.length) {
+        restored.savedGroups = patch.savedGroups;
+      }
+      if (patch.prerequisites != null && !rule?.prerequisites?.length) {
+        restored.prerequisites = patch.prerequisites;
+      }
+      return restored;
+    })(),
   };
 
   // Overview Page
@@ -1379,22 +1417,15 @@ export default function RuleModal({
             values.enabled = true;
           }
 
-          // For real ramps that have not started yet, targeting widgets edit the
-          // ramp's start conditions instead of the immediately served rule.
-          if (
-            rampScheduleInline &&
-            "steps" in rampScheduleInline &&
-            rampScheduleInline.steps &&
-            rampScheduleInline.steps.length > 0 &&
-            (values.type === "rollout" || values.type === "force")
-          ) {
-            values = {
-              ...values,
-              condition: "",
-              savedGroups: [],
-              prerequisites: [],
-            };
-          }
+          // Targeting fields (condition, savedGroups, prerequisites) are always
+          // written directly to the rule — they must be live immediately. For
+          // pre-start ramps (pending/ready), they're ALSO captured into
+          // startActions by buildRampStartActionsFromRule above, so the ramp
+          // knows the initial state for rollback purposes. We no longer strip
+          // these fields from the rule: the ramp engine overlays them via
+          // computeEffectivePatch (which seeds from startActions) when it
+          // advances, but the rule must have them set immediately for the period
+          // between publish and ramp-start (or if the ramp never starts).
 
           // Future-dated schedule → publish the rule as disabled so it
           // remains hidden until the schedule activates.
@@ -1445,7 +1476,7 @@ export default function RuleModal({
               // Single environment: scope patches to that env only.
               // Multiple environments: omit so the ramp applies to all matching ruleIds.
               environment:
-                selectedEnvironments.length === 1
+                !scopeAllEnvs && selectedEnvironments.length === 1
                   ? selectedEnvironments[0]
                   : undefined,
               ...(!isScheduleMode
@@ -1495,23 +1526,10 @@ export default function RuleModal({
           values = { ...values, enabled: false };
         }
 
-        // Ramp-up steps own targeting over time; clear rule-level targeting so
-        // they don't conflict. Standard schedules (no steps) don't control
-        // targeting, so preserve user-set values.
-        if (
-          rampScheduleInline &&
-          "steps" in rampScheduleInline &&
-          rampScheduleInline.steps &&
-          rampScheduleInline.steps.length > 0 &&
-          (values.type === "rollout" || values.type === "force")
-        ) {
-          values = {
-            ...values,
-            condition: "",
-            savedGroups: [],
-            prerequisites: [],
-          };
-        }
+        // Targeting is always written directly to the rule so it's live
+        // immediately. For pre-start ramps, buildRampStartActionsFromRule
+        // (above) also captures it into startActions for rollback purposes.
+        // We no longer strip condition/savedGroups/prerequisites from the rule.
 
         res = await apiCall<{ version: number }>(
           `/feature/${feature.id}/${targetVersion}/rule`,
@@ -1724,6 +1742,7 @@ export default function RuleModal({
     setAllEnvironments: setScopeAllEnvs,
     selectedEnvironments,
     setSelectedEnvironments,
+    disabledEnvironmentIds,
   };
 
   // Resolved env list used by child components that care about which envs the

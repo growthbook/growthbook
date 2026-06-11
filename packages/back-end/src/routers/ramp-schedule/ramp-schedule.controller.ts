@@ -7,6 +7,7 @@ import {
   appendRampEvent,
   assertCanUpdateLinkedSafeRolloutMonitoringConfig,
   approveAndPublishStep,
+  completeRampKeepCutoff,
   completeRollout,
   computeNextProcessAt,
   dispatchRampEvent,
@@ -52,6 +53,7 @@ type ActionBody = {
   enabled?: boolean;
   monitoringMode?: "auto" | "manual";
   force?: boolean;
+  disableRule?: boolean;
 };
 
 function normalizeMonitoringConfig(
@@ -361,7 +363,20 @@ export const postRampScheduleAction = async (
           message: `Schedule is already in terminal status "${schedule.status}"`,
         });
       }
-      updated = await completeRollout(context, schedule);
+      {
+        const isSimple = schedule.steps.length === 0 && !!schedule.cutoffDate;
+        const disableNow = req.body?.disableRule === true || isSimple;
+        const hasFutureCutoff =
+          schedule.cutoffDate && schedule.cutoffDate > new Date();
+
+        if (!disableNow && hasFutureCutoff) {
+          updated = await completeRampKeepCutoff(context, schedule);
+        } else {
+          updated = await completeRollout(context, schedule, {
+            disableActiveTargets: disableNow,
+          });
+        }
+      }
       break;
 
     case "rollback": {

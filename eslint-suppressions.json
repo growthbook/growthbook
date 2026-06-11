@@ -382,9 +382,6 @@
     }
   },
   "packages/front-end/components/Experiment/TabbedPage/index.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    },
     "no-restricted-imports": {
       "count": 2
     }
@@ -492,6 +489,11 @@
     }
   },
   "packages/front-end/components/Features/CompareRevisionsModal.tsx": {
+    "no-restricted-imports": {
+      "count": 1
+    }
+  },
+  "packages/front-end/components/Features/CustomHookModal.tsx": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -1015,11 +1017,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/OrganizationMessages/OrganizationMessages.tsx": {
-    "local/no-alert-classname": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/OutdatedBadge.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -1060,11 +1057,6 @@
       "count": 7
     },
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Queries/ExpandableQuery.tsx": {
-    "local/no-alert-classname": {
       "count": 1
     }
   },
@@ -1723,7 +1715,7 @@
   },
   "packages/front-end/pages/datasources/[did].tsx": {
     "local/no-alert-classname": {
-      "count": 4
+      "count": 3
     }
   },
   "packages/front-end/pages/datasources/queries/[did].tsx": {
@@ -1733,11 +1725,6 @@
   },
   "packages/front-end/pages/environments.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/experiments/index.tsx": {
-    "local/no-alert-classname": {
       "count": 1
     }
   },
@@ -1784,7 +1771,7 @@
   },
   "packages/front-end/pages/metric/[mid].tsx": {
     "local/no-alert-classname": {
-      "count": 7
+      "count": 6
     }
   },
   "packages/front-end/pages/presentations.tsx": {
@@ -1833,11 +1820,6 @@
   "packages/front-end/pages/sdks/index.tsx": {
     "local/no-alert-classname": {
       "count": 1
-    }
-  },
-  "packages/front-end/pages/settings/custom-hooks.tsx": {
-    "no-restricted-imports": {
-      "count": 2
     }
   },
   "packages/front-end/pages/settings/custom-markdown.tsx": {
