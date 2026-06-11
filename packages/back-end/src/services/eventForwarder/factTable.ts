@@ -26,7 +26,7 @@ import {
   updateEventForwarderFactTableMetadata,
 } from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { decryptEventForwarderConfigModel } from "back-end/src/services/eventForwarderConfig";
+import { decryptEventForwarderConfigModel } from "back-end/src/services/eventForwarder/config";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import {
   queueFactTableColumnsRefresh,

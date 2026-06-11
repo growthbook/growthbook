@@ -1,8 +1,22 @@
 import { DataSourceInterface } from "shared/types/datasource";
+import { EventForwarderConfigDraft } from "shared/types/event-forwarder";
 import { EventForwarderConfigInterface } from "shared/validators";
-import { getEventForwarderSinkTypeForDatasource } from "shared/util";
+import {
+  EventForwarderDatasourceParams,
+  getEventForwarderSinkTypeForDatasource,
+} from "shared/util";
 import { usingFileConfig } from "back-end/src/init/config";
-import { teardownEventForwarderInfrastructureRemote } from "back-end/src/services/eventForwarderProvisioning";
+import {
+  getEventForwarderForDatasource,
+  isEventForwarderDraftUnchanged,
+  refreshEventForwarderConfigCredentials,
+  syncEventForwarderConfigFromDatasource,
+} from "back-end/src/services/eventForwarder/config";
+import {
+  provisionEventForwarderThroughLicenseServer,
+  teardownEventForwarderInfrastructureRemote,
+  updateEventForwarderCredentialsThroughLicenseServer,
+} from "back-end/src/services/eventForwarder/connector";
 import { logger } from "back-end/src/util/logger";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
@@ -184,8 +198,10 @@ export async function syncEventForwarderAfterDatasourceDeleted(
     return;
   }
 
+  // Bypass read permission — datasource delete is authorized separately; we must
+  // still find the row to tear down Confluent resources (see model JSDoc).
   const existing =
-    await context.models.eventForwarderConfigs.dangerousGetByDatasourceIdBypassPermission(
+    await context.models.eventForwarderConfigs.getByDatasourceIdForDatasourceCascade(
       datasource.id,
     );
   if (!existing) {
@@ -220,4 +236,68 @@ export async function syncEventForwarderAfterDatasourceDeleted(
       );
     },
   });
+}
+
+export async function syncEventForwarderAfterDatasourceUpdate({
+  context,
+  datasource,
+  eventForwarderConfig,
+  datasourceParams,
+  didUpdateDatasourceParams,
+}: {
+  context: ReqContext;
+  datasource: Pick<
+    DataSourceInterface,
+    "id" | "organization" | "projects" | "type"
+  >;
+  eventForwarderConfig?: EventForwarderConfigDraft | null;
+  datasourceParams: EventForwarderDatasourceParams;
+  didUpdateDatasourceParams: boolean;
+}): Promise<void> {
+  if (eventForwarderConfig === null) {
+    throw new Error(
+      "Cannot remove an Event Forwarder via datasource update. Use DELETE /datasource/:id/event-forwarder instead.",
+    );
+  }
+
+  if (eventForwarderConfig !== undefined) {
+    const existing = await getEventForwarderForDatasource(
+      context,
+      datasource.id,
+    );
+
+    if (isEventForwarderDraftUnchanged(eventForwarderConfig, existing)) {
+      return;
+    }
+
+    const syncedEventForwarderConfig =
+      await syncEventForwarderConfigFromDatasource({
+        context,
+        datasource,
+        draft: eventForwarderConfig,
+        datasourceParams,
+      });
+    await provisionEventForwarderThroughLicenseServer(
+      context,
+      syncedEventForwarderConfig,
+      datasourceParams,
+      { restartAfterProvision: !!existing?.connectorName?.trim() },
+    );
+    return;
+  }
+
+  if (!didUpdateDatasourceParams) {
+    return;
+  }
+
+  const refreshedConfig = await refreshEventForwarderConfigCredentials(
+    context,
+    datasource,
+    datasourceParams,
+  );
+  await updateEventForwarderCredentialsThroughLicenseServer(
+    context,
+    refreshedConfig,
+    datasourceParams,
+  );
 }

@@ -56,6 +56,7 @@ export class EventForwarderConfigModel extends BaseClass {
     return this.context.permissions.canDeleteEventForwarderConfig(doc);
   }
 
+  /** User-facing lookup; respects `canRead` (requires `readData` on the row's projects). */
   public async getByDatasourceId(
     datasourceId: string,
   ): Promise<EventForwarderConfigInterface | null> {
@@ -64,10 +65,13 @@ export class EventForwarderConfigModel extends BaseClass {
   }
 
   /**
-   * Loads the forwarder row for a datasource regardless of project visibility on the row.
-   * Caller must enforce higher-level authorization (e.g. datasource delete).
+   * Internal lookup for datasource-delete cascade only. Skips `canRead` so teardown
+   * still runs when the deleter has `createDatasources` but not `readData`, or when
+   * the row's `projects` are out of sync with the datasource. Pair with
+   * `deleteForDatasourceCascade`. Do not use from user-facing endpoints — use
+   * `getByDatasourceId` instead.
    */
-  public async dangerousGetByDatasourceIdBypassPermission(
+  public async getByDatasourceIdForDatasourceCascade(
     datasourceId: string,
   ): Promise<EventForwarderConfigInterface | null> {
     const rows = await this._find(
@@ -78,8 +82,9 @@ export class EventForwarderConfigModel extends BaseClass {
   }
 
   /**
-   * Deletes after datasource removal. Mirrors BaseModel delete persistence/audit
-   * without `canDelete` — caller must already authorize (e.g. datasource delete).
+   * Deletes the Mongo row after datasource removal. Mirrors BaseModel delete
+   * persistence/audit without `canDelete` — caller must already authorize
+   * (e.g. `canDeleteDataSource`). Pair with `getByDatasourceIdForDatasourceCascade`.
    */
   public async deleteForDatasourceCascade(
     existing: EventForwarderConfigInterface,

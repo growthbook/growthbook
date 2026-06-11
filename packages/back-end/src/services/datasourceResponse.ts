@@ -11,7 +11,7 @@ import {
   getSourceIntegrationObject,
 } from "back-end/src/services/datasource";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
-import { getEventForwarderMetadataForDatasource } from "back-end/src/services/eventForwarderConfig";
+import { getEventForwarderMetadataForDatasource } from "back-end/src/services/eventForwarder/config";
 
 export function buildDataSourceWithParams(
   integration: SourceIntegrationInterface,

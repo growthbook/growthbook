@@ -7,16 +7,16 @@ import {
   mergeEventForwarderFactTableColumnFromDesired,
   queueEventForwarderEventsFactTablesColumnsRefresh,
   syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange,
-} from "back-end/src/services/eventForwarderFactTable";
+} from "back-end/src/services/eventForwarder/factTable";
 import * as DataSourceModel from "back-end/src/models/DataSourceModel";
 import * as FactTableModel from "back-end/src/models/FactTableModel";
-import * as EventForwarderConfig from "back-end/src/services/eventForwarderConfig";
+import * as EventForwarderConfig from "back-end/src/services/eventForwarder/config";
 import * as DataSourceService from "back-end/src/services/datasource";
 import * as RefreshFactTableColumns from "back-end/src/jobs/refreshFactTableColumns";
 
 jest.mock("back-end/src/models/DataSourceModel");
 jest.mock("back-end/src/models/FactTableModel");
-jest.mock("back-end/src/services/eventForwarderConfig");
+jest.mock("back-end/src/services/eventForwarder/config");
 jest.mock("shared/util", () => ({
   ...jest.requireActual<typeof SharedUtil>("shared/util"),
   getEventForwarderSinkTypeForDatasource: jest.fn(),

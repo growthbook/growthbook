@@ -1,4 +1,4 @@
-import { normalizeSnowflakePrivateKeyForEventForwarder } from "back-end/src/services/eventForwarderConfig";
+import { normalizeSnowflakePrivateKeyForEventForwarder } from "back-end/src/services/eventForwarder/config";
 
 describe("normalizeSnowflakePrivateKeyForEventForwarder", () => {
   it("strips unencrypted PKCS#8 PEM headers and \\n line endings", () => {

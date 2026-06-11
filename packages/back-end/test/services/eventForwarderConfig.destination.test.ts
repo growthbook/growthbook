@@ -3,7 +3,7 @@ import { AES } from "crypto-js";
 import {
   buildNormalizedEventForwarderSinkPayloadForTest,
   toEventForwarderConfigDraft,
-} from "back-end/src/services/eventForwarderConfig";
+} from "back-end/src/services/eventForwarder/config";
 
 const ENCRYPTION_KEY = "test-encryption-key-for-event-forwarder!!";
 

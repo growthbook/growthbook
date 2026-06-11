@@ -1,14 +1,14 @@
 import type { DataSourceInterface } from "shared/types/datasource";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
-import { ensureEventForwarderExposureQueries } from "back-end/src/services/eventForwarderExposureQueries";
+import { ensureEventForwarderExposureQueries } from "back-end/src/services/eventForwarder/datasourceQueries";
 import * as DataSourceModel from "back-end/src/models/DataSourceModel";
-import * as EventForwarderConfig from "back-end/src/services/eventForwarderConfig";
+import * as EventForwarderConfig from "back-end/src/services/eventForwarder/config";
 import { encryptParams } from "back-end/src/services/datasource";
-import { queueDelayedEventForwarderWarehouseSyncForDatasource } from "back-end/src/services/eventForwarderWarehouseSync";
+import { queueDelayedEventForwarderWarehouseSyncForDatasource } from "back-end/src/services/eventForwarder/warehouseSync";
 
 jest.mock("back-end/src/models/DataSourceModel");
-jest.mock("back-end/src/services/eventForwarderConfig");
-jest.mock("back-end/src/services/eventForwarderWarehouseSync", () => ({
+jest.mock("back-end/src/services/eventForwarder/config");
+jest.mock("back-end/src/services/eventForwarder/warehouseSync", () => ({
   queueDelayedEventForwarderWarehouseSyncForDatasource: jest.fn(),
 }));
 
