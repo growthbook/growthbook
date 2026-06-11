@@ -34,6 +34,7 @@ const EditOrganization: FC<{
   const [disableSelfServeBilling, setDisableSelfServeBilling] = useState(
     currentOrg.disableSelfServeBilling || false,
   );
+  const [suspended, setSuspended] = useState(currentOrg.suspended || false);
   const [messages, setMessages] = useState<MessageWithId[]>(
     (currentOrg.messages || []).map((m) => ({
       ...m,
@@ -60,6 +61,7 @@ const EditOrganization: FC<{
         enterprise: legacyEnterprise,
         freeSeats,
         disableSelfServeBilling,
+        suspended,
         messages: messages.map(({ id: _id, ...m }) => m),
       }),
     });
@@ -109,9 +111,7 @@ const EditOrganization: FC<{
                     message?: string;
                   }>(`/admin/organization/enable`, {
                     method: "PUT",
-                    body: JSON.stringify({
-                      orgId: id,
-                    }),
+                    body: JSON.stringify({ orgId: id }),
                   });
                   onEdit();
                   if (close) close();
@@ -134,9 +134,7 @@ const EditOrganization: FC<{
                       message?: string;
                     }>(`/admin/organization/disable`, {
                       method: "PUT",
-                      body: JSON.stringify({
-                        orgId: id,
-                      }),
+                      body: JSON.stringify({ orgId: id }),
                     });
                     onEdit();
                     if (close) close();
@@ -219,6 +217,22 @@ const EditOrganization: FC<{
         </div>
         {isCloud() ? (
           <>
+            <div className="mt-3">
+              <Checkbox
+                id="suspended"
+                label="Suspend organization"
+                value={suspended}
+                setValue={setSuspended}
+                disabled={!disablable}
+                disabledMessage="You cannot suspend the organization you are currently logged into."
+              />
+              <div>
+                <span className="text-muted small">
+                  Blocks all users and API keys from accessing this
+                  organization.
+                </span>
+              </div>
+            </div>
             <div className="mt-3">
               Free Seats
               <input

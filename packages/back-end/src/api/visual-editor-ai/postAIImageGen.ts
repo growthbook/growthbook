@@ -161,17 +161,30 @@ export const postAIImageGen = createApiRequestHandler(validation)(async (
   let beforeBytes = 0;
   let afterBytes = 0;
   let unoptimizedCount = 0;
-  for (const img of generated) {
+  for (let i = 0; i < generated.length; i++) {
+    const img = generated[i];
     const optimized = await optimizeAIImage(img);
     if (!optimized.optimized) unoptimizedCount++;
     beforeBytes += img.buffer.length;
     afterBytes += optimized.buffer.length;
     const filePath = `gen/${org.id}/visual-editor/img_${uuidv4()}.${optimized.ext}`;
+    // If the S3/GCS push fails, uploadFile logs a single rich entry (bucket/
+    // region/key + this context) and re-throws, surfacing as an error to the
+    // caller — so we deliberately don't catch-and-log again here, which would
+    // double-count the same failure.
     const url = await uploadFile(
       filePath,
       optimized.contentType,
       optimized.buffer,
       "visual-editor-assets",
+      {
+        orgId: org.id,
+        userId: context.userId,
+        visualChangesetId,
+        imageIndex: i,
+        totalGenerated: generated.length,
+        uploadedSoFar: images.length,
+      },
     );
     images.push({
       url,
