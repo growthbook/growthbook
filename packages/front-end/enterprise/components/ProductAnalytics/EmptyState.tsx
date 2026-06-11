@@ -8,6 +8,7 @@ import {
   PiChartBar,
   PiCode,
   PiDatabase,
+  PiFunnel,
   PiTable,
 } from "react-icons/pi";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
@@ -280,6 +281,21 @@ export default function EmptyState() {
                     <Flex direction="column" align="center" gap="1">
                       <PiDatabase size={24} />
                       <Text weight="medium">Data Source</Text>
+                    </Flex>
+                  </LinkButton>
+                  <LinkButton
+                    href="/product-analytics/explore/funnel"
+                    variant="outline"
+                    disabled={
+                      !permissionsUtil.canRunFactQueries({
+                        projects: [project],
+                      }) && !permissionsUtil.canRunFactQueries({ projects: [] })
+                    }
+                    style={buttonStyle}
+                  >
+                    <Flex direction="column" align="center" gap="1">
+                      <PiFunnel size={24} />
+                      <Text weight="medium">Funnel</Text>
                     </Flex>
                   </LinkButton>
                   <LinkButton
