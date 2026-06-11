@@ -94,7 +94,7 @@ This means:
 
    Omit `startDate` or `endDate` if no bound on that side.
 
-4. Capture the returned `version`. Call `loadSkill('feature-publish')`.
+4. Capture the returned `version`. Call `loadSkill('flag-publish')`.
 
 ### Path B — Add a schedule to an existing rule
 
@@ -129,7 +129,7 @@ This means:
    - Use `null` for a timestamp to omit that bound (open-ended start or end)
    - `scheduleType` must be `"schedule"`
 
-4. Capture the returned `version`. Call `loadSkill('feature-publish')`.
+4. Capture the returned `version`. Call `loadSkill('flag-publish')`.
 
 ### Path C — Remove a schedule from a rule
 
@@ -173,4 +173,4 @@ Setting all timestamps to `null` and `scheduleType: "none"` clears the schedule.
 - `loadSkill('flag-targeting')` — to build the rule's targeting conditions alongside the schedule
 - `loadSkill('flag-ramp')` — for multi-step progressive rollouts with intervals between coverage increases
 - `loadSkill('flag-rules')` — to reorder rules after adding a scheduled rule
-- `loadSkill('feature-publish')` — to publish the draft
+- `loadSkill('flag-publish')` — to publish the draft

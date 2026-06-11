@@ -28,9 +28,9 @@ sub-skill below → follow that leaf's workflow.
 | `flag-prerequisites` | Feature-level prerequisite gates                          |
 | `flag-monitoring`    | Monitored / safe rollout rules                            |
 | `flag-graph`         | Visualizing flag dependencies                             |
-| `feature-revisions`  | Draft revisions without a specific rule change            |
-| `feature-publish`    | Publishing a draft (approval / merge-conflict paths)      |
-| `feature-review`     | Review and approval workflow                              |
+| `flag-revisions`     | Draft revisions without a specific rule change            |
+| `flag-publish`       | Publishing a draft (approval / merge-conflict paths)      |
+| `flag-review`        | Review and approval workflow                              |
 | `flag-cleanup`       | Archive or delete a stale flag                            |
 
 ## Page context

@@ -13,13 +13,6 @@ export const LOG_LEVEL = process.env.LOG_LEVEL;
 export const IS_CLOUD = stringToBoolean(process.env.IS_CLOUD);
 export const IS_MULTI_ORG = stringToBoolean(process.env.IS_MULTI_ORG);
 
-// Logs the assembled general agent system prompt at startup. Defaults to false;
-// set to "true" to enable (useful in development).
-export const LOG_AGENT_SYSTEM_PROMPT = stringToBoolean(
-  process.env.LOG_AGENT_SYSTEM_PROMPT,
-  false,
-);
-
 // Default to true
 export const ALLOW_SELF_ORG_CREATION = stringToBoolean(
   process.env.ALLOW_SELF_ORG_CREATION,

@@ -358,6 +358,7 @@ Print a summary:
 ## Handoffs
 
 - `loadSkill('experiment-design')` — if no spec exists, route back here first.
+- `loadSkill('flag-search')` — to find an existing flag ID when you only have a name or description.
 - `loadSkill('experiment-analyze')` — after the experiment is running and traffic accumulates.
 - `loadSkill('experiment-stop')` — when results are settled.
 - Manual metric creation — if a metric you need doesn't exist yet, the user must create it in the GrowthBook UI at `/metrics` (or `/fact-tables` for fact metrics) before re-running this skill. No skill for that yet.

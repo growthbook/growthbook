@@ -62,7 +62,7 @@ Send only the fields the user wants to change. Do not echo back unchanged fields
 
 Ask: "Publish this metadata change now, or leave it as a draft?"
 
-Metadata changes are low-risk — default to offering publish immediately. Call `loadSkill('feature-publish')` for the publish step, including any approval-required or merge-conflict handling.
+Metadata changes are low-risk — default to offering publish immediately. Call `loadSkill('flag-publish')` for the publish step, including any approval-required or merge-conflict handling.
 
 ## Guardrails
 
@@ -72,7 +72,7 @@ Metadata changes are low-risk — default to offering publish immediately. Call 
 - **`tags` replaces the full array.** It's not additive — if the flag has existing tags and the user only wants to add one, fetch the current tags first, append, and send the full updated array.
 - **`neverStale: true` opts the flag out of stale detection permanently.** Use for kill switches, ops toggles, and license gates. Warn the user: once set, it won't appear in stale-flag reports even if untouched for months.
 - **`jsonSchema` is enterprise-only.** If the org doesn't have the feature, the API returns an error — surface it clearly.
-- **Metadata changes still go through approval workflows.** A seemingly innocuous description change can trigger the org's review gate. Use feature-publish and expect the same approval-required / merge-conflict failure modes as any other revision.
+- **Metadata changes still go through approval workflows.** A seemingly innocuous description change can trigger the org's review gate. Use flag-publish and expect the same approval-required / merge-conflict failure modes as any other revision.
 - **`customFields` keys must match the org's configured custom field definitions.** If the key isn't recognized by the org, the API may silently drop it or error. Verify custom field key names are correct.
 
 ## Endpoints used
@@ -86,4 +86,4 @@ Metadata changes are low-risk — default to offering publish immediately. Call 
 - `loadSkill('flag-search')` — if the user gives a description instead of a flag ID
 - `loadSkill('flag-default-value')` — to change what the flag serves when no rules match
 - `loadSkill('flag-cleanup')` — to archive or delete the flag entirely
-- `loadSkill('feature-publish')` — to publish the draft, handle approval-required (400) and merge conflicts (409)
+- `loadSkill('flag-publish')` — to publish the draft, handle approval-required (400) and merge conflicts (409)

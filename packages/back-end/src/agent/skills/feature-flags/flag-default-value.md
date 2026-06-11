@@ -57,7 +57,7 @@ Changing the default value affects every user who matches no rules — this is p
 
 > Changing the default from `<old>` to `<new>` will affect all users not matched by any rule. In `<env>` that's currently `<rule-count>` rule(s) — users falling through all of them will now get `<new>` instead of `<old>`.
 
-Call `loadSkill('feature-publish')` for the publish step.
+Call `loadSkill('flag-publish')` for the publish step.
 
 ## Guardrails
 
@@ -78,4 +78,4 @@ Call `loadSkill('feature-publish')` for the publish step.
 - `loadSkill('flag-search')` — if the user gives a description instead of a flag ID
 - `loadSkill('flag-targeting')` — to add or edit rules that serve specific values to targeted users
 - `loadSkill('flag-cleanup')` — if the flag is no longer needed and should be archived
-- `loadSkill('feature-publish')` — to publish the draft, handle approval-required (400) and merge conflicts (409)
+- `loadSkill('flag-publish')` — to publish the draft, handle approval-required (400) and merge conflicts (409)

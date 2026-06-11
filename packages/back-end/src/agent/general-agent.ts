@@ -15,12 +15,9 @@ import {
 } from "back-end/src/agent/dispatcher";
 import {
   assembleSkillsIndexForPrompt,
-  getAllSkills,
   getSkillByName,
   getSkillNames,
 } from "back-end/src/agent/skills";
-import { logger } from "back-end/src/util/logger";
-import { LOG_AGENT_SYSTEM_PROMPT } from "back-end/src/util/secrets";
 
 // =============================================================================
 // System prompt
@@ -194,44 +191,6 @@ function buildGeneralAgentSystemPrompt(): string {
     "",
     skillsIndex,
   ].join("\n");
-}
-
-/**
- * Diagnostic helper: print the assembled general agent system prompt at
- * server startup so engineers can see exactly what the model is being
- * primed with (preamble + every skill body, concatenated). Disable with
- * `LOG_AGENT_SYSTEM_PROMPT=false`.
- *
- * The body is written to stdout directly (not via pino) so multi-line
- * markdown stays readable instead of being JSON-escaped onto one line.
- */
-export function logGeneralAgentSystemPrompt(): void {
-  if (!LOG_AGENT_SYSTEM_PROMPT) return;
-
-  try {
-    const prompt = buildGeneralAgentSystemPrompt();
-    const skills = getAllSkills();
-
-    logger.info(
-      {
-        skillCount: skills.length,
-        skillNames: skills.map((s) => s.name),
-        promptChars: prompt.length,
-        approxTokens: Math.round(prompt.length / 4),
-      },
-      "[agent] General agent system prompt assembled at startup",
-    );
-
-    const banner = "=".repeat(72);
-    process.stdout.write(
-      `\n${banner}\nBEGIN GENERAL AGENT SYSTEM PROMPT (${prompt.length} chars)\n${banner}\n${prompt}\n${banner}\nEND GENERAL AGENT SYSTEM PROMPT\n${banner}\n\n`,
-    );
-  } catch (err) {
-    logger.warn(
-      { err },
-      "[agent] Failed to log general agent system prompt at startup",
-    );
-  }
 }
 
 // =============================================================================

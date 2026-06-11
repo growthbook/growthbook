@@ -4,8 +4,6 @@ import "./instrumentation";
 import app from "./app";
 import { logger } from "./util/logger";
 import { getAgendaInstance } from "./services/queueing";
-import { logGeneralAgentSystemPrompt } from "./agent/general-agent";
-import { getAllSkills } from "./agent/skills";
 
 const server = app.listen(app.get("port"), () => {
   logger.info(
@@ -13,10 +11,6 @@ const server = app.listen(app.get("port"), () => {
       "env",
     )} mode. Press CTRL-C to stop`,
   );
-  // Warm the skill cache at startup so the first agent request doesn't pay the
-  // synchronous-read cost (and block concurrent requests) on a cold cache.
-  getAllSkills();
-  logGeneralAgentSystemPrompt();
 });
 
 export default server;

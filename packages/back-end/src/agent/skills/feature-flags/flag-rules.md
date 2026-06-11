@@ -1,6 +1,6 @@
 ---
 name: flag-rules
-description: Entry point for working with rules on a GrowthBook feature flag. Use when the user asks "what rules does flag X have", "show me the rules on this flag", "add a rule", "delete a rule", "reorder the rules", or describes a flag operation without specifying the rule type. Routes to specialized skills for creating and editing specific rule types. Also handles listing, reordering, and deleting rules directly. For specific rule types: use flag-targeting for force/rollout rules, flag-experiment for experiment-ref rules, flag-schedule for timed activation, flag-ramp for progressive rollouts, flag-monitoring for monitored rollouts, flag-prerequisites for feature-level prerequisite gates.
+description: Entry point for working with rules on a GrowthBook feature flag. Use when the user asks "what rules does flag X have", "show me the rules on this flag", "add a rule", "delete a rule", "reorder the rules", or describes a flag operation without specifying the rule type. Routes to specialized skills for creating and editing specific rule types. Also handles listing, reordering, and deleting rules directly. For specific rule types, use flag-targeting for force/rollout rules, flag-experiment for experiment-ref rules, flag-schedule for timed activation, flag-ramp for progressive rollouts, flag-monitoring for monitored rollouts, flag-prerequisites for feature-level prerequisite gates.
 ---
 
 # flag-rules
@@ -69,7 +69,7 @@ Show the numbered list (Path A) so the user can pick by number. Confirm:
 }
 ```
 
-Capture the returned `version`. Call `loadSkill('feature-publish')`.
+Capture the returned `version`. Call `loadSkill('flag-publish')`.
 
 **safe-rollout removal:** The server cleans up the `SafeRollout` entity when the rule is still in draft and the rollout hasn't started. If the rollout has already started, the SafeRollout entity is preserved (no data loss) but the rule is removed from the flag.
 
@@ -87,7 +87,7 @@ Show the current order (Path A). Ask the user for the new order (by number or by
 }
 ```
 
-Supply the **complete ordered array** of all rule IDs — this replaces the full order, not a swap. Capture the returned `version`. Call `loadSkill('feature-publish')`.
+Supply the **complete ordered array** of all rule IDs — this replaces the full order, not a swap. Capture the returned `version`. Call `loadSkill('flag-publish')`.
 
 Remind the user that evaluation is top-to-bottom, first match wins — rules higher in the list take priority.
 
@@ -114,4 +114,4 @@ Remind the user that evaluation is top-to-bottom, first match wins — rules hig
 - `loadSkill('flag-ramp')` — multi-step progressive rollout schedules
 - `loadSkill('flag-monitoring')` — monitored rollouts and safe-rollout rules
 - `loadSkill('flag-prerequisites')` — feature-level prerequisite gates (not rule-level)
-- `loadSkill('feature-publish')` — to publish the draft after a delete or reorder
+- `loadSkill('flag-publish')` — to publish the draft after a delete or reorder

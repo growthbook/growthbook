@@ -1,4 +1,5 @@
 import type { ReqContext } from "back-end/types/request";
+import type { ApiRequestLocals } from "back-end/types/api";
 import { type OpenApiRoute, runApiHandler } from "back-end/src/util/handler";
 import { allRoutes } from "back-end/src/api/api.router";
 import { logger } from "back-end/src/util/logger";
@@ -189,6 +190,38 @@ function fireSuccessHook(
 // =============================================================================
 
 /**
+ * The subset of an Express API request that `buildFakeReq` populates and our
+ * handlers/middleware actually read. The auth/permission fields are `Pick`ed
+ * from `ApiRequestLocals` so they stay tied to the canonical type — if that
+ * contract changes, `buildFakeReq` breaks loudly. The HTTP fields are declared
+ * here with the simple shapes we build, rather than `Pick`ed from Express's
+ * `Request`, whose `params`/`query`/`body` are generic, whose `get` is an
+ * overloaded signature, and whose `headers` is the wider `IncomingHttpHeaders`.
+ */
+type FakeApiRequest = Pick<
+  ApiRequestLocals,
+  "apiKey" | "organization" | "eventAudit" | "audit" | "context" | "checkPermissions"
+> & {
+  // `ctx` only carries these four user fields, so we build a partial user rather
+  // than a full `UserInterface`. Derived from the canonical type (not redeclared)
+  // so it stays in sync, but narrowed to exactly what we populate.
+  user?: Pick<
+    NonNullable<ApiRequestLocals["user"]>,
+    "id" | "email" | "name" | "superAdmin"
+  >;
+  method: string;
+  path: string;
+  url: string;
+  originalUrl: string;
+  baseUrl: string;
+  params: Record<string, string>;
+  query: unknown;
+  body: unknown;
+  headers: Record<string, string>;
+  get(name: string): string | undefined;
+};
+
+/**
  * Build a minimal Express-shaped request with the fields our API handlers read.
  * Every access-gating field derives from the caller's `ctx`, so a handler can
  * only do what the caller's org role allows — no privilege elevation.
@@ -197,7 +230,7 @@ function buildFakeReq(
   ctx: ReqContext,
   input: DispatchInput,
   params: Record<string, string>,
-): Record<string, unknown> {
+): FakeApiRequest {
   const headers: Record<string, string> = {};
 
   // Canonical `/api/v1/...` form so handlers reading `req.path`/`req.originalUrl`

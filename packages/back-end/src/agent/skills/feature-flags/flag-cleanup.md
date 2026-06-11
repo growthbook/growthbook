@@ -335,6 +335,6 @@ Print a summary:
 - `loadSkill('flag-search')` — for finding and auditing stale flags before cleanup (Path C in flag-search is the natural caller).
 - `loadSkill('flag-graph')` — to check what depends on a flag before archiving or deleting it.
 - `loadSkill('flag-targeting')` — if the user really wants to change the flag's behavior rather than remove it.
-- `loadSkill('feature-revisions')` — to check for open drafts that must be resolved before archiving.
-- `loadSkill('feature-publish')` — handles the approval-required (4a) and merge-conflict (4b) branches on archive.
+- `loadSkill('flag-revisions')` — to check for open drafts that must be resolved before archiving.
+- `loadSkill('flag-publish')` — handles the approval-required (4a) and merge-conflict (4b) branches on archive.
 - `loadSkill('experiment-stop')` — must precede cleanup of a flag wired to a running experiment.

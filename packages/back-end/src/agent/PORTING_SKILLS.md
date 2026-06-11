@@ -9,7 +9,7 @@ retired in favor of an agent doing the port manually against this spec.
 
 **This file is the prompt.** To re-sync after the upstream `skills` repo changes,
 re-run an agent with: "Re-port the skills following
-`packages/back-end/src/agent/skills/PORTING.md`." Some drift between the two repos
+`packages/back-end/src/agent/PORTING_SKILLS.md`." Some drift between the two repos
 is acceptable — the GrowthBook REST API contract is stable across releases, so a
 slightly stale port keeps working.
 
@@ -48,17 +48,18 @@ reverse.
 ## File layout
 
 ```
-skills/
-  index.ts                  # loader (do not port into; it's the runtime)
-  PORTING.md                # this file
-  product-analytics.md      # backend-only, hand-authored — DO NOT overwrite from skills repo
-  growthbook-docs.md        # backend-only, hand-authored — DO NOT overwrite from skills repo
-  feature-flags/
-    SKILL.md                # hand-written domain router — DO NOT overwrite from skills repo
-    flag-*.md               # ported leaves (group: feature-flags)
-  experiments/
-    SKILL.md                # hand-written domain router — DO NOT overwrite from skills repo
-    experiment-*.md         # ported leaves (group: experiments)
+agent/
+  skills.ts                 # loader (do not port into; it's the runtime)
+  PORTING_SKILLS.md         # this file
+  skills/                   # agent-readable content only — everything here is copied into dist
+    product-analytics.md    # backend-only, hand-authored — DO NOT overwrite from skills repo
+    growthbook-docs.md      # backend-only, hand-authored — DO NOT overwrite from skills repo
+    feature-flags/
+      SKILL.md              # hand-written domain router — DO NOT overwrite from skills repo
+      flag-*.md             # ported leaves (group: feature-flags)
+    experiments/
+      SKILL.md              # hand-written domain router — DO NOT overwrite from skills repo
+      experiment-*.md       # ported leaves (group: experiments)
 ```
 
 ### Mapping (skills repo → backend)
@@ -67,7 +68,7 @@ Feature-flag leaves (→ `feature-flags/<name>.md`):
 `flag-create`, `flag-search`, `flag-toggle`, `flag-targeting`, `flag-rules`,
 `flag-experiment`, `flag-default-value`, `flag-metadata`, `flag-schedule`,
 `flag-ramp`, `flag-prerequisites`, `flag-monitoring`, `flag-graph`,
-`flag-cleanup`, `feature-review`, `feature-publish`, `feature-revisions`.
+`flag-cleanup`, `flag-review`, `flag-publish`, `flag-revisions`.
 
 Experiment leaves (→ `experiments/<name>.md`):
 `experiment-brainstorm`, `experiment-design`, `experiment-launch`,

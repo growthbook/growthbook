@@ -181,3 +181,4 @@ Use the `callApi` tool for every REST request. This skill is read-only — it ne
 
 - `loadSkill('experiment-stop')` — when the user is ready to act on a conclusive result.
 - `loadSkill('flag-targeting')` — after stopping with a winner, the linked flag (if any) needs its `experiment-ref` rule updated or removed.
+- `loadSkill('experiment-brainstorm')` — to ground ideas for the next test in results from past experiments.

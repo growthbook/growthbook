@@ -6,10 +6,14 @@ import { logger } from "back-end/src/util/logger";
  * Agent skills teach the generic agent how to use slices of the GrowthBook
  * REST API via the `callApi` tool.
  *
+ * This module is the loader; the skill content lives in the sibling `skills/`
+ * directory as plain markdown (copied verbatim into `dist/agent/skills` at
+ * build time by the `build:skills` script).
+ *
  * Layout (one level deep):
  *
+ *   skills.ts                          # this loader
  *   skills/
- *     index.ts
  *     product-analytics.md          # standalone domain (no children)
  *     feature-flags/
  *       SKILL.md                    # domain router (name: feature-flags)
@@ -76,8 +80,12 @@ function skillsDirHasContent(dir: string): boolean {
 
 function resolveSkillsDir(): string | null {
   const candidates = [
-    __dirname,
-    path.resolve(__dirname, "..", "..", "..", "src", "agent", "skills"),
+    // Compiled (dist/agent/skills.js -> dist/agent/skills) and tests run from
+    // source (src/agent/skills.ts -> src/agent/skills) both resolve here.
+    path.join(__dirname, "skills"),
+    // Fallback to source when running compiled code in the repo layout
+    // (dist/agent -> packages/back-end/src/agent/skills).
+    path.resolve(__dirname, "..", "..", "src", "agent", "skills"),
   ];
   for (const dir of candidates) {
     if (skillsDirHasContent(dir)) {
@@ -129,9 +137,8 @@ function loadSkillsFromDisk(): Skill[] {
     const fullPath = path.join(dir, entry);
 
     if (entry.endsWith(".md") && fs.statSync(fullPath).isFile()) {
-      // Top-level markdown without frontmatter is documentation (e.g.
-      // PORTING.md), not a routable skill — skip it so it never lands in the
-      // system-prompt index.
+      // Top-level markdown without frontmatter is documentation, not a
+      // routable skill — skip it so it never lands in the system-prompt index.
       if (!FRONTMATTER_RE.test(fs.readFileSync(fullPath, "utf8"))) {
         continue;
       }

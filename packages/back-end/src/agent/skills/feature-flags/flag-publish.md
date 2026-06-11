@@ -1,9 +1,9 @@
 ---
-name: feature-publish
-description: Publish a GrowthBook feature flag draft revision, resolve merge conflicts, revert to a prior revision, or discard a draft. Use when the user says "publish this draft", "push this live", "go live with revision X", "there's a merge conflict on my flag", "rebase my draft", "fix the merge conflict on flag X", "revert flag X to a previous version", "roll back this flag change", "discard this draft", or "abandon these changes". For requesting or submitting an approval review before publish, use feature-review. For listing and inspecting drafts, use feature-revisions.
+name: flag-publish
+description: Publish a GrowthBook feature flag draft revision, resolve merge conflicts, revert to a prior revision, or discard a draft. Use when the user says "publish this draft", "push this live", "go live with revision X", "there's a merge conflict on my flag", "rebase my draft", "fix the merge conflict on flag X", "revert flag X to a previous version", "roll back this flag change", "discard this draft", or "abandon these changes". For requesting or submitting an approval review before publish, use flag-review. For listing and inspecting drafts, use flag-revisions.
 ---
 
-# feature-publish
+# flag-publish
 
 Get a GrowthBook feature flag draft revision live, or undo a change. Handles the full publish flow including the two common failure modes — approval-required (blocked) and merge conflict (stale base) — and the escape hatches: discard and revert.
 
@@ -94,14 +94,14 @@ The draft exists but publish is blocked by the org's approval policy. Branch on 
 
 **If `pending-review`:** someone has already been asked to approve. Nothing to do but wait.
 
-> "Revision `<version>` is already pending review. Once a teammate approves it in GrowthBook, re-run feature-publish to finish."
+> "Revision `<version>` is already pending review. Once a teammate approves it in GrowthBook, re-run flag-publish to finish."
 > Stop here.
 
 **If `approved`:** the revision is approved but publish is still failing — the issue is the org bypass setting, not the review state. Skip option A and present only the bypass options:
 
 > "Revision `<version>` is approved but publish is still blocked. Pick one:
 >
-> **A. Org-wide bypass** — an admin enables "REST API always bypasses approval requirements" under Settings → General → Approvals. Re-run feature-publish after that.
+> **A. Org-wide bypass** — an admin enables "REST API always bypasses approval requirements" under Settings → General → Approvals. Re-run flag-publish after that.
 >
 > **B. Per-token bypass** — use credentials whose role grants `bypassApprovalChecks` on this project, then re-run."
 
@@ -109,7 +109,7 @@ The draft exists but publish is blocked by the org's approval policy. Branch on 
 
 > "Your org requires approval before this revision can publish. Options:
 >
-> **A. Standard review flow** (recommended) — I'll request review now. A teammate approves it in GrowthBook, then re-run feature-publish to finish.
+> **A. Standard review flow** (recommended) — I'll request review now. A teammate approves it in GrowthBook, then re-run flag-publish to finish.
 >
 > **B. Review in the UI** — open the flag page (`/features/<flag-id>?v=<version>`) directly and manage the review there.
 >
@@ -124,7 +124,7 @@ If the user picks **A**, request review and stop:
   "method": "POST",
   "path": "/api/v2/features/<id>/revisions/<version>/request-review",
   "body": {
-    "comment": "Requesting review — re-run feature-publish after approval"
+    "comment": "Requesting review — re-run flag-publish after approval"
   }
 }
 ```
@@ -143,7 +143,7 @@ A 409 means the draft's base revision is stale — the live flag changed since t
 
 > "There's a merge conflict on `<flag-id>`. Want to resolve it in the GrowthBook UI (recommended for complex changes — open `/features/<flag-id>?v=<version>`), or should I walk through it here?"
 
-If the user wants the UI, stop here — tell them to rebase in the UI and re-run feature-publish when done.
+If the user wants the UI, stop here — tell them to rebase in the UI and re-run flag-publish when done.
 
 If the user wants to resolve via API, continue:
 
@@ -228,7 +228,7 @@ Confirm the intent: "Restore flag `<id>` to how it looked at revision `<N>` (pub
 }
 ```
 
-`strategy: "draft"` creates a new draft with the prior state — the user reviews it via feature-publish before it goes live. **This is the default and recommended path.**
+`strategy: "draft"` creates a new draft with the prior state — the user reviews it via flag-publish before it goes live. **This is the default and recommended path.**
 
 `strategy: "publish"` creates and publishes immediately. Only offer this if the user explicitly asks for an immediate rollback. Org approval settings still apply.
 
@@ -268,5 +268,5 @@ Confirm the intent: "Restore flag `<id>` to how it looked at revision `<N>` (pub
 
 ## Handoffs
 
-- `loadSkill('feature-review')` — for the approval workflow (triggered in step 3a)
-- `loadSkill('feature-revisions')` — to list and inspect drafts before publishing
+- `loadSkill('flag-review')` — for the approval workflow (triggered in step 3a)
+- `loadSkill('flag-revisions')` — to list and inspect drafts before publishing

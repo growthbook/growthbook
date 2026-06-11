@@ -63,7 +63,7 @@ For each experiment variation, confirm what flag value should be served. The fla
 
 Variation order in the `variations` array must match the experiment's variation order. If the user omits all `variationId` fields, the server auto-fills them from the experiment — but explicitly providing them is safer and avoids silent mismatches.
 
-Capture the returned `version`. Call `loadSkill('feature-publish')`.
+Capture the returned `version`. Call `loadSkill('flag-publish')`.
 
 ### Path B — Edit an existing experiment-ref rule's targeting
 
@@ -89,8 +89,9 @@ The server allows patching `enabled`, `condition`, `savedGroups`, `prerequisites
 
 ## Handoffs
 
+- `loadSkill('flag-search')` — to find a flag ID when you only have a name or description
 - `loadSkill('experiment-launch')` — to create a new experiment and wire it to a flag end-to-end
 - `loadSkill('flag-targeting')` — to edit the targeting conditions, scope, or saved groups on an existing experiment-ref rule
 - `loadSkill('flag-rules')` — to reorder or delete experiment rules
 - `loadSkill('experiment-stop')` — to stop the experiment; after stopping, use flag-rules to clean up the experiment-ref rule
-- `loadSkill('feature-publish')` — to publish the draft
+- `loadSkill('flag-publish')` — to publish the draft

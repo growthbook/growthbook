@@ -1,13 +1,13 @@
 ---
 name: flag-targeting
-description: Add, edit, or remove force-value or percentage-rollout rules on a GrowthBook feature flag, including conditions, saved groups, and rule-level prerequisites. Use when the user says "add a rule to flag Y", "release this flag to 10% of users", "turn this on for beta testers", "target US users", "add a condition to rule X", "edit the targeting condition on flag Z", "disable this rule", "remove the rule", "only for logged-in users", or "target users matching attribute Y". For environment kill switches (enable/disable the whole flag in an env), use flag-toggle. For experiment rules, use flag-experiment. For ramp schedules, use flag-ramp. For feature-level prerequisites, use flag-prerequisites.
+description: Add, edit, or remove force-value or percentage-rollout rules on a GrowthBook feature flag, including conditions, saved groups, and rule-level prerequisites. Use when the user says "add a rule to flag Y", "release this flag to 10% of users", "turn this on for beta testers", "target US users", "add a condition to rule X", "edit the targeting condition on flag Z", "disable this rule", "remove the rule", "only for logged-in users", or "target users matching attribute Y". For environment kill switches (enable/disable the whole flag in an env), use flag-toggle. For experiment rules, use flag-experiment. For ramp schedules, use flag-ramp. For monitored rollouts with guardrail metrics, use flag-monitoring. For feature-level prerequisites, use flag-prerequisites.
 ---
 
 # flag-targeting
 
 Add, edit, or remove targeting rules on an existing GrowthBook feature flag. Handles `force` (serve a specific value to matched users) and `rollout` (serve a value to a random percentage of users) rule types, with full support for conditions, saved groups, and rule-level prerequisites.
 
-Every change goes through a draft revision and requires publishing. For publishing, call `loadSkill('feature-publish')` — it handles approval-required and merge-conflict failure modes.
+Every change goes through a draft revision and requires publishing. For publishing, call `loadSkill('flag-publish')` — it handles approval-required and merge-conflict failure modes.
 
 Use the `callApi` tool for every REST request. Mutating calls are gated automatically — issue `callApi` directly; do not use `askUser` for mutation confirmation.
 
@@ -46,7 +46,7 @@ Collect before starting:
 - [ ] 3a. Add path
 - [ ] 3b. Edit path
 - [ ] 3c. Remove path
-- [ ] 4. Hand off to feature-publish
+- [ ] 4. Hand off to flag-publish
 ```
 
 ### 1. Fetch flag and current state
@@ -306,11 +306,11 @@ For experiment-ref removal: "The linked experiment is not affected by removing t
 
 Capture `revision.version`.
 
-### 4. Hand off to feature-publish
+### 4. Hand off to flag-publish
 
 After any mutation, ask: "Publish this change now, or leave it as a draft?"
 
-Call `loadSkill('feature-publish')`. It handles:
+Call `loadSkill('flag-publish')`. It handles:
 
 - Approval-required (400) — offer review flow, org-wide bypass, per-token bypass
 - Merge conflict (409) — show conflict fields, collect overwrite/discard decisions, rebase
@@ -344,6 +344,8 @@ Call `loadSkill('feature-publish')`. It handles:
 - `loadSkill('flag-toggle')` — for environment-level enable/disable (kill switch)
 - `loadSkill('flag-rules')` — for reordering rules or routing to other rule types
 - `loadSkill('flag-experiment')` — for adding experiment-ref or inline experiment rules
+- `loadSkill('flag-ramp')` — to progressively increase coverage on a rollout rule over time
+- `loadSkill('flag-monitoring')` — to add guardrail metric monitoring to a rollout
 - `loadSkill('flag-prerequisites')` — for feature-level prerequisite gates
 - `loadSkill('flag-search')` — to resolve a flag ID from a description
-- `loadSkill('feature-publish')` — to publish the draft (handles approval and merge conflicts)
+- `loadSkill('flag-publish')` — to publish the draft (handles approval and merge conflicts)

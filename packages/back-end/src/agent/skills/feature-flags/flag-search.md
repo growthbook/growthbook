@@ -150,4 +150,4 @@ Do not delete anything. Call `loadSkill('flag-cleanup')` for actual removal.
 - `loadSkill('flag-graph')` — to trace dependencies for a specific flag (what does it depend on, what depends on it)
 - `loadSkill('flag-cleanup')` — to archive or delete cleanup candidates found in Path C
 - `loadSkill('flag-targeting')`, `loadSkill('flag-rules')` — to make changes after identifying which flag needs updating
-- `loadSkill('feature-revisions')` — to check for open drafts on flags found in the search
+- `loadSkill('flag-revisions')` — to check for open drafts on flags found in the search

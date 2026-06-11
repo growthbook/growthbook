@@ -55,6 +55,13 @@ See Path D for how to submit approvals via API once the interval has cleared.
 
 ```json
 {
+  "startActions": [
+    {
+      "targetType": "feature-rule",
+      "targetId": "<rule-id>",
+      "patch": { "coverage": "<current-coverage>" }
+    }
+  ],
   "steps": [
     {
       "interval": 86400,
@@ -62,37 +69,18 @@ See Path D for how to submit approvals via API once the interval has cleared.
         {
           "targetType": "feature-rule",
           "targetId": "<rule-id>",
-          "patch": { "coverage": 0.05 }
+          "patch": { "coverage": 0.1 }
         }
       ]
     },
     {
       "interval": 86400,
-      "actions": [
-        {
-          "targetType": "feature-rule",
-          "targetId": "<rule-id>",
-          "patch": { "coverage": 0.25 }
-        }
-      ]
-    },
-    {
-      "interval": 86400,
+      "holdConditions": { "requiresApproval": true },
       "actions": [
         {
           "targetType": "feature-rule",
           "targetId": "<rule-id>",
           "patch": { "coverage": 0.5 }
-        }
-      ]
-    },
-    {
-      "interval": 86400,
-      "actions": [
-        {
-          "targetType": "feature-rule",
-          "targetId": "<rule-id>",
-          "patch": { "coverage": 1.0 }
         }
       ]
     }
@@ -103,19 +91,14 @@ See Path D for how to submit approvals via API once the interval has cleared.
       "targetId": "<rule-id>",
       "patch": { "coverage": 1.0 }
     }
-  ],
-  "startActions": [
-    {
-      "targetType": "feature-rule",
-      "targetId": "<rule-id>",
-      "patch": { "coverage": "<current-coverage>" }
-    }
   ]
 }
 ```
 
+`startActions` = the state applied when the ramp begins and restored on rollback. Set this to the rule's **current coverage** before the ramp starts (captured in step 1) — typically `0` for a new rule.
 `endActions` = final state after all steps complete (typically 100% coverage).
-`startActions` = rollback state (the rule's coverage before the ramp started).
+
+To add guardrail metric monitoring to the ramp, add a `monitoringConfig` block and `"monitored": true` on each step — see flag-monitoring.
 
 Omit `startDate` and `cutoffDate` unless the user explicitly requests them — see Guardrails.
 
@@ -131,7 +114,7 @@ Omit `startDate` and `cutoffDate` unless the user explicitly requests them — s
 
 Capture the returned `version`. The ramp schedule is staged as a `rampAction` on the draft — it becomes live when the draft is published.
 
-**5. Call `loadSkill('feature-publish')`.**
+**5. Call `loadSkill('flag-publish')`.**
 
 ### Path B — Create a new rule with a ramp schedule in one step
 
@@ -162,6 +145,13 @@ Validate the rule's `value` against the flag's `valueType` (captured from the fl
       "environments": ["<env-id>"]
     },
     "rampSchedule": {
+      "startActions": [
+        {
+          "targetType": "feature-rule",
+          "targetId": "new",
+          "patch": { "coverage": 0.0 }
+        }
+      ],
       "steps": [
         {
           "interval": 86400,
@@ -169,27 +159,18 @@ Validate the rule's `value` against the flag's `valueType` (captured from the fl
             {
               "targetType": "feature-rule",
               "targetId": "new",
-              "patch": { "coverage": 0.05 }
+              "patch": { "coverage": 0.1 }
             }
           ]
         },
         {
           "interval": 86400,
+          "holdConditions": { "requiresApproval": true },
           "actions": [
             {
               "targetType": "feature-rule",
               "targetId": "new",
-              "patch": { "coverage": 0.25 }
-            }
-          ]
-        },
-        {
-          "interval": 86400,
-          "actions": [
-            {
-              "targetType": "feature-rule",
-              "targetId": "new",
-              "patch": { "coverage": 1.0 }
+              "patch": { "coverage": 0.5 }
             }
           ]
         }
@@ -199,13 +180,6 @@ Validate the rule's `value` against the flag's `valueType` (captured from the fl
           "targetType": "feature-rule",
           "targetId": "new",
           "patch": { "coverage": 1.0 }
-        }
-      ],
-      "startActions": [
-        {
-          "targetType": "feature-rule",
-          "targetId": "new",
-          "patch": { "coverage": 0.0 }
         }
       ]
     }
@@ -356,4 +330,4 @@ To force past an unsatisfied approval gate (requires canBypassApprovalChecks per
 - `loadSkill('flag-monitoring')` — to add guardrail metrics and automated monitoring signals to the ramp
 - `loadSkill('flag-targeting')` — to set up the rule's targeting conditions before attaching a ramp
 - `loadSkill('flag-toggle')` — for an emergency kill-switch if the ramp needs to be stopped immediately
-- `loadSkill('feature-publish')` — to publish the draft and activate the ramp
+- `loadSkill('flag-publish')` — to publish the draft and activate the ramp

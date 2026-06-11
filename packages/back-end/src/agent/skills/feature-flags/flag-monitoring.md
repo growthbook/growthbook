@@ -21,14 +21,24 @@ Before configuring, collect:
 - **Auto-rollback** (`autoUpdate` in the monitored ramp payload, `autoRollback` in safe-rollout) — `true` means the system rolls back without human approval on guardrail failure; `false` holds for human review. Default to `true` unless the user has concerns about query cost or wants to control the cadence of monitoring snapshots manually
 
 ```json
-{ "method": "GET", "path": "/api/v1/datasources" }
+{ "method": "GET", "path": "/api/v1/data-sources" }
+```
+
+Resolve metric IDs — query both: fact metrics and legacy metrics are separate endpoints, and most orgs keep guardrail/signal metrics as fact metrics:
+
+```json
+{
+  "method": "GET",
+  "path": "/api/v1/fact-metrics",
+  "query": { "datasourceId": "<ds-id>", "limit": "100" }
+}
 ```
 
 ```json
 {
   "method": "GET",
   "path": "/api/v1/metrics",
-  "query": { "datasourceId": "<ds-id>" }
+  "query": { "datasourceId": "<ds-id>", "limit": "100" }
 }
 ```
 
@@ -43,14 +53,22 @@ Build the full ramp schedule payload with `monitoringConfig` included in a singl
 **2. Collect monitoring config** (see Required inputs above):
 
 ```json
-{ "method": "GET", "path": "/api/v1/datasources" }
+{ "method": "GET", "path": "/api/v1/data-sources" }
+```
+
+```json
+{
+  "method": "GET",
+  "path": "/api/v1/fact-metrics",
+  "query": { "datasourceId": "<ds-id>", "limit": "100" }
+}
 ```
 
 ```json
 {
   "method": "GET",
   "path": "/api/v1/metrics",
-  "query": { "datasourceId": "<ds-id>" }
+  "query": { "datasourceId": "<ds-id>", "limit": "100" }
 }
 ```
 
@@ -61,34 +79,34 @@ Build the full ramp schedule payload with `monitoringConfig` included in a singl
   "method": "PUT",
   "path": "/api/v2/features/<flag-id>/revisions/new/rules/<rule-id>/ramp-schedule",
   "body": {
+    "startActions": [
+      {
+        "targetType": "feature-rule",
+        "targetId": "<rule-id>",
+        "patch": { "coverage": 0 }
+      }
+    ],
     "steps": [
       {
         "interval": 86400,
+        "monitored": true,
         "actions": [
           {
             "targetType": "feature-rule",
             "targetId": "<rule-id>",
-            "patch": { "coverage": 0.05 }
+            "patch": { "coverage": 0.1 }
           }
         ]
       },
       {
         "interval": 86400,
+        "monitored": true,
+        "holdConditions": { "requiresApproval": true },
         "actions": [
           {
             "targetType": "feature-rule",
             "targetId": "<rule-id>",
-            "patch": { "coverage": 0.25 }
-          }
-        ]
-      },
-      {
-        "interval": 86400,
-        "actions": [
-          {
-            "targetType": "feature-rule",
-            "targetId": "<rule-id>",
-            "patch": { "coverage": 1.0 }
+            "patch": { "coverage": 0.5 }
           }
         ]
       }
@@ -100,19 +118,12 @@ Build the full ramp schedule payload with `monitoringConfig` included in a singl
         "patch": { "coverage": 1.0 }
       }
     ],
-    "startActions": [
-      {
-        "targetType": "feature-rule",
-        "targetId": "<rule-id>",
-        "patch": { "coverage": "<pre-ramp-coverage>" }
-      }
-    ],
     "monitoringConfig": {
       "datasourceId": "<ds-id>",
       "exposureQueryId": "<query-id>",
       "guardrailMetricIds": ["<metric-id>"],
       "signalMetricIds": ["<metric-id>"],
-      "autoUpdate": false,
+      "autoUpdate": true,
       "srmAction": "hold",
       "noTrafficAction": "warn",
       "noTrafficGracePeriodHours": 24,
@@ -122,11 +133,13 @@ Build the full ramp schedule payload with `monitoringConfig` included in a singl
 }
 ```
 
-`autoUpdate: true` is the default — the system automatically rolls back on guardrail failure. Mention `autoUpdate: false` only if the user wants to control monitoring cadence manually or is concerned about query costs.
+`startActions` sets coverage to 0 (the rollback anchor). `monitored: true` on a step tells the ramp to wait for monitoring results before auto-advancing — it only has effect when `monitoringConfig` is present. The `holdConditions.requiresApproval` on step 2 adds a human gate after the interval elapses and monitoring clears. Monitored steps require `0 < coverage ≤ 0.5` (the rollout rule is promoted to a 50/50 experiment), so keep monitored coverage at or below 0.5.
+
+`autoUpdate: true` rolls back automatically on guardrail failure. Mention `autoUpdate: false` only if the user wants to control monitoring cadence manually or is concerned about query costs.
 
 Omit `startDate` unless the user explicitly requests a delayed start.
 
-**4. Call `loadSkill('feature-publish')`.**
+**4. Call `loadSkill('flag-publish')`.**
 
 ### Path B — Check monitoring status or respond to signals
 
@@ -210,8 +223,8 @@ This skill orchestrates:
 **Draft (pre-publish):**
 
 - `GET /api/v2/features/:id` — fetch flag and current rules
-- `GET /api/v1/datasources` — resolve datasource IDs
-- `GET /api/v1/metrics` — resolve guardrail and signal metric IDs
+- `GET /api/v1/data-sources` — resolve datasource IDs
+- `GET /api/v1/fact-metrics?datasourceId=…`, `GET /api/v1/metrics?datasourceId=…` — resolve guardrail and signal metric IDs (fact metrics and legacy metrics are separate endpoints)
 - `PUT /api/v2/features/:id/revisions/new/rules/:ruleId/ramp-schedule` — create/update ramp schedule with monitoringConfig
 
 **Live ramp management:**
@@ -228,4 +241,4 @@ This skill orchestrates:
 - `loadSkill('flag-ramp')` — for managing ramp step structure without monitoring
 - `loadSkill('flag-toggle')` — for emergency kill-switch during a live monitored rollout
 - `loadSkill('flag-targeting')` — to configure rule conditions before setting up monitoring
-- `loadSkill('feature-publish')` — to publish the draft and activate the monitored rollout
+- `loadSkill('flag-publish')` — to publish the draft and activate the monitored rollout

@@ -54,7 +54,7 @@ Use the `callApi` tool for every REST request. Mutating calls are gated automati
    }
    ```
 
-5. Call `loadSkill('feature-publish')`.
+5. Call `loadSkill('flag-publish')`.
 
 ### Path B — Remove a prerequisite
 
@@ -62,7 +62,7 @@ Use the `callApi` tool for every REST request. Mutating calls are gated automati
 2. Show the list and ask which to remove.
 3. Build the updated array without the removed entry.
 4. Apply via draft (step A-4 above) with the filtered array. An empty array `[]` removes all prerequisites.
-5. Call `loadSkill('feature-publish')`.
+5. Call `loadSkill('flag-publish')`.
 
 ### Path C — Inspect current prerequisites
 
@@ -93,4 +93,4 @@ Surface the `prerequisites` array. For each entry, fetch the prerequisite flag t
 - `loadSkill('flag-search')` — to find the prerequisite flag's ID if the user gives a name
 - `loadSkill('flag-graph')` — to trace the full dependency chain and detect circular dependencies
 - `loadSkill('flag-targeting')` — to add rule-level prerequisites (scoped to a single rule rather than the whole flag)
-- `loadSkill('feature-publish')` — to publish the draft, handle approval-required (400) and merge conflicts (409)
+- `loadSkill('flag-publish')` — to publish the draft, handle approval-required (400) and merge conflicts (409)

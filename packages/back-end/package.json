@@ -7,7 +7,7 @@
   },
   "scripts": {
     "build:emails": "mkdir -p dist/templates && cp -r src/templates/* dist/templates",
-    "build:skills": "mkdir -p dist/agent/skills && find src/agent/skills -name '*.md' -exec sh -c 'dest=\"dist/agent/skills/${1#src/agent/skills/}\"; mkdir -p \"$(dirname \"$dest\")\"; cp \"$1\" \"$dest\"' _ {} \\;",
+    "build:skills": "mkdir -p dist/agent/skills && cp -r src/agent/skills/* dist/agent/skills",
     "build:clean": "rimraf -rf dist",
     "build:typescript": "tsc",
     "clean": "rimraf node_modules",

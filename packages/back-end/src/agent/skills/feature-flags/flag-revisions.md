@@ -1,9 +1,9 @@
 ---
-name: feature-revisions
-description: List, inspect, and manage draft revisions for a GrowthBook feature flag. Use when the user asks "what drafts are open for flag X", "show me pending approvals", "who owns this draft", "discard this draft", "start a new draft", "what revision is my flag on", "list all my pending changes", "what's waiting for review", or any question about the state of in-progress changes to a flag. Every flag write operation — rules, metadata, default value, toggles — works through a draft revision; use this skill to see what's in flight before making changes. For requesting or submitting an approval review, use feature-review. For publishing a draft live or resolving merge conflicts, use feature-publish. For making flag changes, use the relevant flag-* write skill.
+name: flag-revisions
+description: List, inspect, and manage draft revisions for a GrowthBook feature flag. Use when the user asks "what drafts are open for flag X", "show me pending approvals", "who owns this draft", "discard this draft", "start a new draft", "what revision is my flag on", "list all my pending changes", "what's waiting for review", or any question about the state of in-progress changes to a flag. Every flag write operation — rules, metadata, default value, toggles — works through a draft revision; use this skill to see what's in flight before making changes. For requesting or submitting an approval review, use flag-review. For publishing a draft live or resolving merge conflicts, use flag-publish. For making flag changes, use the relevant flag-* write skill.
 ---
 
-# feature-revisions
+# flag-revisions
 
 Inspect and manage draft revisions on GrowthBook feature flags. Every flag change goes through a draft revision before going live — this is the "what's in flight?" skill. Use it to see open drafts, understand their status, and manage their lifecycle (create, discard). Making actual flag changes (rules, metadata, toggles, default value) is handled by the relevant flag-\* write skills, which create and manage drafts automatically.
 
@@ -11,15 +11,15 @@ Use the `callApi` tool for every REST request. Mutating calls are gated automati
 
 ## Revision status reference
 
-| Status              | Meaning                             | What happens next                            |
-| ------------------- | ----------------------------------- | -------------------------------------------- |
-| `draft`             | Being edited, not yet submitted     | Edit more, then request-review or publish    |
-| `pending-review`    | Review requested, awaiting approval | Reviewer submits decision via feature-review |
-| `approved`          | Approved, ready to publish          | Publish via feature-publish                  |
-| `changes-requested` | Reviewer flagged issues             | Author edits draft, re-requests review       |
-| `published`         | Live, immutable                     | Can be reverted via feature-publish          |
-| `discarded`         | Abandoned                           | No further action                            |
-| `pending-parent`    | Auto-managed by a ramp schedule     | Do not discard manually                      |
+| Status              | Meaning                             | What happens next                         |
+| ------------------- | ----------------------------------- | ----------------------------------------- |
+| `draft`             | Being edited, not yet submitted     | Edit more, then request-review or publish |
+| `pending-review`    | Review requested, awaiting approval | Reviewer submits decision via flag-review |
+| `approved`          | Approved, ready to publish          | Publish via flag-publish                  |
+| `changes-requested` | Reviewer flagged issues             | Author edits draft, re-requests review    |
+| `published`         | Live, immutable                     | Can be reverted via flag-publish          |
+| `discarded`         | Abandoned                           | No further action                         |
+| `pending-parent`    | Auto-managed by a ramp schedule     | Do not discard manually                   |
 
 ## Workflow
 
@@ -141,7 +141,7 @@ Do not proceed to Phase 3 until **all** intended changes have been applied.
 
 **Phase 3 — Publish (only after all changes are done):**
 
-Call `loadSkill('feature-publish')` with version `<N>`.
+Call `loadSkill('flag-publish')` with version `<N>`.
 
 Use this pattern when: the user wants a clean slate independent of existing open drafts, when making several coordinated changes that must land in the same revision, or when multiple drafts are open and you need to control which one receives the edits.
 
@@ -167,7 +167,7 @@ Works on any non-terminal status — `draft`, `pending-review`, `approved`, `cha
 - **A flag can have multiple open drafts.** Always show all of them — don't assume there's only one.
 - **`version=new` is the canonical write pattern.** Other write skills use it to create-or-reuse a draft atomically. Only call `POST /revisions` explicitly when the user wants a blank draft before editing.
 - **Discard is irreversible.** The draft and all its pending changes are gone. If the user says "discard" casually as part of "I'll redo this," confirm they understand the changes won't be preserved.
-- **`changes-requested` ≠ discarded.** The draft still exists and can be edited. The author fixes the issues and calls request-review again via feature-review.
+- **`changes-requested` ≠ discarded.** The draft still exists and can be edited. The author fixes the issues and calls request-review again via flag-review.
 - **This skill is read/manage only.** For changing a flag's rules, metadata, default value, or environment toggles, use the relevant write skill.
 
 ## Endpoints used
@@ -181,6 +181,6 @@ Works on any non-terminal status — `draft`, `pending-review`, `approved`, `cha
 
 ## Handoffs
 
-- `loadSkill('feature-review')` — to request or submit an approval review on a draft
-- `loadSkill('feature-publish')` — to publish a draft, resolve merge conflicts, or revert to a prior revision
+- `loadSkill('flag-review')` — to request or submit an approval review on a draft
+- `loadSkill('flag-publish')` — to publish a draft, resolve merge conflicts, or revert to a prior revision
 - `loadSkill('flag-rules')`, `loadSkill('flag-targeting')`, `loadSkill('flag-toggle')`, `loadSkill('flag-metadata')`, `loadSkill('flag-default-value')`, `loadSkill('flag-prerequisites')` — write skills that create and modify drafts
