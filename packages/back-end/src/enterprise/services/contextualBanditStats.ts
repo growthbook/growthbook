@@ -90,7 +90,7 @@ export async function runContextualStatsEngine(
     );
     const result = computeContextualBanditWeights(input);
     // DEBUG CSV (gitignored): uncomment to dump weight-update output to CSVs.
-    writeContextualBanditDebugCsvs(result);
+    writeContextualBanditDebugCsvs(result, rows, input.metricSettings);
     return result;
   }
   return runContextualStatsEngineWithPython(
