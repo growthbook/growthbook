@@ -155,14 +155,14 @@ export default function StartExperimentModal({
   incompleteChecklistItems = [],
 }: Props) {
   const checklistIncomplete = checklistItemsRemaining > 0;
-  const phase = experiment.phases?.[experiment.phases.length - 1];
-  const holdoutTraffic = getHoldoutTrafficBreakdown(phase);
+  const latestPhase = experiment.phases?.[experiment.phases.length - 1];
+  const holdoutTraffic = getHoldoutTrafficBreakdown(latestPhase);
   const isBandit = experiment.type === "multi-armed-bandit";
   const hasAttributeTargeting = !!(
-    phase?.condition && phase.condition !== "{}"
+    latestPhase?.condition && latestPhase.condition !== "{}"
   );
-  const hasSavedGroupTargeting = !!phase?.savedGroups?.length;
-  const hasPrerequisites = !!phase?.prerequisites?.length && !isHoldout;
+  const hasSavedGroupTargeting = !!latestPhase?.savedGroups?.length;
+  const hasPrerequisites = !!latestPhase?.prerequisites?.length && !isHoldout;
   const hasLinkedChanges =
     linkedFeatures.length > 0 ||
     visualChangesets.length > 0 ||
@@ -402,7 +402,7 @@ export default function StartExperimentModal({
             </Box>
           )}
 
-          {phase && (
+          {latestPhase && (
             <Box>
               <Flex align="center" gap="1">
                 <PiInfoFill color="var(--indigo-11)" size={15} />
@@ -436,10 +436,14 @@ export default function StartExperimentModal({
                       </Flex>
                     ) : (
                       <Text>
-                        {Math.floor(phase.coverage * 100)}% included
+                        {Math.floor(latestPhase.coverage * 100)}% included
                         {!isBandit && (
                           <>
-                            , {formatTrafficSplit(phase.variationWeights, 2)}{" "}
+                            ,{" "}
+                            {formatTrafficSplit(
+                              latestPhase.variationWeights,
+                              2,
+                            )}{" "}
                             split
                           </>
                         )}
@@ -448,19 +452,21 @@ export default function StartExperimentModal({
                   </SummaryRow>
                   {hasAttributeTargeting && (
                     <SummaryRow label="Attribute Targeting">
-                      <ConditionDisplay condition={phase.condition} />
+                      <ConditionDisplay condition={latestPhase.condition} />
                     </SummaryRow>
                   )}
                   {hasSavedGroupTargeting && (
                     <SummaryRow label="Saved Group Targeting">
                       <SavedGroupTargetingDisplay
-                        savedGroups={phase.savedGroups}
+                        savedGroups={latestPhase.savedGroups}
                       />
                     </SummaryRow>
                   )}
                   {hasPrerequisites && (
                     <SummaryRow label="Prerequisites">
-                      <ConditionDisplay prerequisites={phase.prerequisites} />
+                      <ConditionDisplay
+                        prerequisites={latestPhase.prerequisites}
+                      />
                     </SummaryRow>
                   )}
                 </Flex>

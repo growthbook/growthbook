@@ -17,7 +17,6 @@ import RadioGroup, { RadioOptions } from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import TargetingForm from "./TargetingForm";
-import { TargetingEditScope } from "./useExperimentTargetingForm";
 
 export type ChangeType =
   | "targeting"
@@ -44,7 +43,7 @@ export interface MakeChangesFlowProps {
   defaultValues: Record<string, unknown>;
   // Receives the selected change type as the validation scope so the shared
   // submit handler only validates the fields this flow actually rendered.
-  onSubmit: (scope?: TargetingEditScope) => Promise<void>;
+  onSubmit: (scope?: ChangeType) => Promise<void>;
   close: () => void;
   canSubmit: boolean;
   conditionKey: number;
