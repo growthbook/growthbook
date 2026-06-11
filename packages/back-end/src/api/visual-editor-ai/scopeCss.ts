@@ -86,8 +86,12 @@ export function scopeCss(css: string, scopeSelector: string): string {
     }
 
     if (css[i] === ";") {
-      // Statement at-rule (e.g. @import, @charset, @layer a,b;) — pass through.
-      out.push(`${prelude.trim()};`);
+      // Statement at-rule (@charset, @layer a,b; etc.) — pass through, but
+      // strip @import: it loads global, unscopable stylesheets and could
+      // pull in external resources.
+      if (atRuleName(prelude.trim()) !== "import") {
+        out.push(`${prelude.trim()};`);
+      }
       i++; // consume ';'
       continue;
     }

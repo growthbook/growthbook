@@ -53,9 +53,9 @@ describe("scopeCss", () => {
     expect(out).not.toContain(".gbf-abc123 to");
   });
 
-  it("passes statement at-rules (@import) through", () => {
+  it("strips @import (unscopable, can load external resources)", () => {
     const out = scopeCss("@import url('x.css'); button { color: red; }", SCOPE);
-    expect(out).toContain("@import url('x.css');");
+    expect(out).not.toContain("@import");
     expect(out).toContain(".gbf-abc123 button");
   });
 

@@ -32,6 +32,13 @@ export function getFigmaClientId(): string {
   return FIGMA_OAUTH_CLIENT_ID;
 }
 
+// Fall back to a week when Figma omits expires_in, so we don't treat the
+// token as already expired and refresh on every call.
+const DEFAULT_TOKEN_TTL_SEC = 7 * 24 * 60 * 60;
+function computeExpiresAt(expiresIn?: number): number {
+  return Date.now() + (expiresIn ?? DEFAULT_TOKEN_TTL_SEC) * 1000;
+}
+
 // ---- token encryption (at rest) ----
 function encryptToken(plaintext: string): string {
   return AES.encrypt(plaintext, ENCRYPTION_KEY).toString();
@@ -124,11 +131,10 @@ async function storeTokens(
   context: Context,
   json: FigmaTokenResponse,
 ): Promise<void> {
-  const expiresAt = Date.now() + (json.expires_in ?? 0) * 1000;
   await context.models.figmaConnections.upsertForUser(context.userId, {
     accessToken: encryptToken(json.access_token || ""),
     refreshToken: encryptToken(json.refresh_token || ""),
-    expiresAt,
+    expiresAt: computeExpiresAt(json.expires_in),
   });
 }
 
@@ -167,7 +173,7 @@ export async function getValidFigmaAccessToken(
     accessToken: encryptToken(json.access_token || ""),
     // Figma's refresh response may omit refresh_token; keep the existing one.
     refreshToken: encryptToken(json.refresh_token || refreshToken),
-    expiresAt: Date.now() + (json.expires_in ?? 0) * 1000,
+    expiresAt: computeExpiresAt(json.expires_in),
   });
   return json.access_token || "";
 }
@@ -185,10 +191,16 @@ export async function isFigmaConnected(context: Context): Promise<{
   const conn = await context.models.figmaConnections.getByUserId(
     context.userId,
   );
-  return {
-    connected: !!conn,
-    expiresAt: conn?.expiresAt ?? null,
-  };
+  if (!conn) return { connected: false, expiresAt: null };
+  // Resolve a live token (refreshing if the access token has expired) so a
+  // record with a dead/unrefreshable token reports connected:false rather
+  // than a stale "Connected".
+  try {
+    await getValidFigmaAccessToken(context);
+    return { connected: true, expiresAt: conn.expiresAt };
+  } catch {
+    return { connected: false, expiresAt: conn.expiresAt };
+  }
 }
 
 // ---- Figma frame URL parsing ----
@@ -222,8 +234,10 @@ export function parseFigmaFrameUrl(
 // Bound SSRF: only download rendered images from Figma-controlled hosts.
 function isAllowedFigmaImageHost(host: string): boolean {
   if (/(^|\.)figma\.com$/.test(host)) return true;
-  // Figma renders are also served from its S3 buckets.
-  if (/(^|\.)amazonaws\.com$/.test(host) && /figma/.test(host)) return true;
+  // Figma renders are also served from its S3 buckets (figma-prefixed).
+  if (/(^|\.)amazonaws\.com$/.test(host) && /^figma[.-]/.test(host)) {
+    return true;
+  }
   return false;
 }
 
