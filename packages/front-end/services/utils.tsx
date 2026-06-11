@@ -73,7 +73,7 @@ export function getHoldoutTrafficBreakdown(phase: {
       phase.coverage * phase.variationWeights[0] * 100,
     ),
     forMeasurementPercent: Math.floor(
-      phase.coverage * phase.variationWeights[0] * 100,
+      phase.coverage * phase.variationWeights[1] * 100,
     ),
     notForMeasurementPercent: Math.floor(
       (1 - phase.coverage * phase.variationWeights[0] * 2) * 100,
