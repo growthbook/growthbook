@@ -38,6 +38,7 @@ import EventUser from "@/components/Avatar/EventUser";
 import CoAuthors from "@/components/Reviews/Feature/CoAuthors";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
 import { useAuth } from "@/services/auth";
 import ForceSummary from "@/components/Features/ForceSummary";
 import track from "@/services/track";
@@ -454,6 +455,18 @@ export default function FeaturesOverview({
   const isDraft =
     !!revision &&
     (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(revision.status);
+
+  // Soft per-feature draft cap (org setting). Purely advisory in the UI:
+  // a warning dot + tooltip on "New Draft" and a callout in the confirm
+  // modal — creating the draft is never blocked.
+  const activeDraftCount = revisions.filter((r) =>
+    (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
+  ).length;
+  const maxDrafts = settings.maxConcurrentDrafts || 0;
+  const atDraftCap = maxDrafts > 0 && activeDraftCount >= maxDrafts;
+  // Per-modal acknowledgment: creating past the cap requires ticking the
+  // checkbox in the warning callout. Resets whenever the modal closes.
+  const [draftCapAcknowledged, setDraftCapAcknowledged] = useState(false);
 
   const projectId = feature.project;
 
@@ -937,15 +950,37 @@ export default function FeaturesOverview({
                     Review and Publish tab — the card only offers "New Draft"
                     and navigation into the review surface. */}
                 {canEditDrafts && !isDraft && (
-                  <Box>
-                    <Button
-                      loading={creatingDraft}
-                      onClick={() => setConfirmNewDraft(true)}
-                      variant="soft"
-                      style={{ whiteSpace: "nowrap" }}
+                  <Box position="relative">
+                    <Tooltip
+                      shouldDisplay={atDraftCap}
+                      body={`This feature has ${activeDraftCount} active draft${
+                        activeDraftCount === 1 ? "" : "s"
+                      }, at your organization's cap of ${maxDrafts} per feature. You can still create one after acknowledging the cap.`}
                     >
-                      New Draft
-                    </Button>
+                      <Button
+                        loading={creatingDraft}
+                        onClick={() => setConfirmNewDraft(true)}
+                        variant="soft"
+                        style={{ whiteSpace: "nowrap" }}
+                      >
+                        New Draft
+                      </Button>
+                      {atDraftCap && (
+                        <span
+                          style={{
+                            position: "absolute",
+                            top: -3,
+                            right: -3,
+                            width: 10,
+                            height: 10,
+                            borderRadius: "50%",
+                            backgroundColor: "var(--amber-9)",
+                            border: "2px solid var(--color-panel-solid)",
+                            pointerEvents: "none",
+                          }}
+                        />
+                      )}
+                    </Tooltip>
                   </Box>
                 )}
                 {/* Slot: draftCtaGroup portal mounts here when not scrolled
@@ -1645,9 +1680,12 @@ export default function FeaturesOverview({
               setEditingNewDraftTitle(false);
               setNewDraftNotes("");
               setShowNewDraftNotes(false);
+              setDraftCapAcknowledged(false);
             }}
             header="Create New Draft"
             cta="Create Draft"
+            ctaEnabled={!atDraftCap || draftCapAcknowledged}
+            disabledMessage="Acknowledge the draft cap warning to continue"
             loading={creatingDraft}
             useRadixButton={true}
             submit={async () => {
@@ -1675,6 +1713,24 @@ export default function FeaturesOverview({
             }}
           >
             <Flex direction="column" gap="2">
+              {atDraftCap && (
+                <Callout status="warning" mb="2">
+                  <Flex direction="column" gap="2" align="start">
+                    <Text>
+                      This feature already has {activeDraftCount} active draft
+                      {activeDraftCount === 1 ? "" : "s"} — your organization
+                      recommends keeping it to {maxDrafts} per feature.
+                    </Text>
+                    <Checkbox
+                      id="acknowledge-draft-cap"
+                      label="Acknowledge and override"
+                      weight="regular"
+                      value={draftCapAcknowledged}
+                      setValue={setDraftCapAcknowledged}
+                    />
+                  </Flex>
+                </Callout>
+              )}
               <Text>
                 Creating a <Text weight="semibold">new draft</Text> based on{" "}
                 <span

@@ -271,6 +271,12 @@ export interface OrganizationSettings {
   // live version (or whose approval has gone stale) must be rebased
   // ("Rebase with live") before it can be published.
   requireRebaseBeforePublish?: boolean;
+  // Soft cap on active (unpublished, non-discarded) drafts per feature.
+  // Advisory only: the UI warns and asks for confirmation, REST returns an
+  // escapable 409 (`overrideDraftLimit=true`), and automated processes
+  // (ramps, experiment linkages, reverts, reopens) ignore it entirely.
+  // 0 or absent = no cap.
+  maxConcurrentDrafts?: number;
   restApiBypassesReviews?: boolean;
   defaultDataSource?: string;
   testQueryDays?: number;

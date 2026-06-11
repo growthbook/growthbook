@@ -76,6 +76,7 @@ export const apiSettingsValidator = namedSchema(
       ),
       restApiBypassesReviews: z.boolean().optional(),
       requireRebaseBeforePublish: z.boolean().optional(),
+      maxConcurrentDrafts: z.coerce.number().optional(),
       featureKeyExample: z.string(),
       featureRegexValidator: z.string(),
       banditScheduleValue: z.coerce.number(),

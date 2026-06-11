@@ -1910,7 +1910,7 @@ export default function ReviewAndPublish({
                       doRecallReview();
                     }}
                   >
-                    Return to draft
+                    Return to draft state
                   </DropdownMenuItem>
                 )}
                 {state.canUndoReview && (

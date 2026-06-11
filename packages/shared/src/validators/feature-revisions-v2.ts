@@ -328,7 +328,13 @@ export const postFeatureRevisionV2Validator = {
   bodySchema: z
     .object({ comment: z.string().optional(), title: z.string().optional() })
     .strict(),
-  querySchema: z.never(),
+  querySchema: z
+    .object({
+      overrideDraftLimit: booleanQueryField.describe(
+        "If the organization caps concurrent drafts per feature (`maxConcurrentDrafts` setting), requests at or over the cap are rejected with a 409. Pass `true` to create the draft anyway.",
+      ),
+    })
+    .strict(),
   responseSchema: revisionResponse,
   version: "v2" as const,
 };

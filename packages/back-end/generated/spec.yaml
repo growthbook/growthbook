@@ -2521,6 +2521,7 @@ paths:
           description: ''
           schema:
             type: string
+        - $ref: '#/components/parameters/overrideDraftLimit'
       requestBody:
         required: true
         content:
@@ -7162,6 +7163,7 @@ paths:
           description: ''
           schema:
             type: string
+        - $ref: '#/components/parameters/overrideDraftLimit'
       requestBody:
         required: true
         content:
@@ -32236,6 +32238,28 @@ components:
       description: ''
       schema:
         type: integer
+    overrideDraftLimit:
+      name: overrideDraftLimit
+      in: query
+      description: >-
+        If the organization caps concurrent drafts per feature
+        (`maxConcurrentDrafts` setting), requests at or over the cap are
+        rejected with a 409. Pass `true` to create the draft anyway.
+      schema:
+        description: >-
+          If the organization caps concurrent drafts per feature
+          (`maxConcurrentDrafts` setting), requests at or over the cap are
+          rejected with a 409. Pass `true` to create the draft anyway.
+        anyOf:
+          - type: string
+            const: 'true'
+          - type: string
+            const: 'false'
+          - type: string
+            const: '0'
+          - type: string
+            const: '1'
+          - type: boolean
     ruleId:
       name: ruleId
       in: path
@@ -39346,6 +39370,8 @@ components:
           type: boolean
         requireRebaseBeforePublish:
           type: boolean
+        maxConcurrentDrafts:
+          type: number
         featureKeyExample:
           type: string
         featureRegexValidator:
