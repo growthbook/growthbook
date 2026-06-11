@@ -4,6 +4,90 @@ import type { SDKAttributeSchema } from "shared/types/organization";
 /** Source of truth — these columns are interpolated as bare SQL identifiers, so injection-safety requires this exact shape. */
 export const SAFE_SQL_IDENTIFIER = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
+/**
+ * Extra columns a contextual-bandit assignment query must SELECT. Used later to compute
+ * SRM in SQL for contextual bandits. `variation_weights` is an array column; validation
+ * only checks the column is present, not its type.
+ */
+export const CONTEXTUAL_BANDIT_EAQ_REQUIRED_COLUMNS = [
+  "snapshot_update_count",
+  "leaf_id",
+  "variation_weights",
+] as const;
+
+/** A contextual-bandit EAQ is identified solely by the explicit `contextualBandit` flag. */
+export function isContextualBanditExposureQuery(
+  query: Pick<ExposureQuery, "contextualBandit">,
+): boolean {
+  return query.contextualBandit === true;
+}
+
+/** Invariant: a contextual-bandit EAQ must declare at least one targeting attribute column. */
+export function getContextualBanditExposureQueriesMissingTargeting(
+  exposureQueries: ExposureQuery[] | undefined,
+): { queryLabel: string }[] {
+  const problems: { queryLabel: string }[] = [];
+  for (const q of exposureQueries ?? []) {
+    if (
+      q.contextualBandit &&
+      (q.targetingAttributeColumns?.length ?? 0) === 0
+    ) {
+      problems.push({ queryLabel: q.name?.trim() || q.id });
+    }
+  }
+  return problems;
+}
+
+export function formatContextualBanditMissingTargetingMessages(
+  queryLabels: string[],
+): string {
+  const unique = [...new Set(queryLabels)];
+  return unique
+    .map(
+      (label) =>
+        `${label} is marked as a contextual bandit query but has no targeting attribute columns. Add at least one targeting attribute column.`,
+    )
+    .join("\n\n");
+}
+
+/** Throws when any contextual-bandit EAQ is missing its required targeting attribute columns. */
+export function assertContextualBanditExposureQueriesValid(
+  exposureQueries: ExposureQuery[] | undefined,
+): void {
+  const problems =
+    getContextualBanditExposureQueriesMissingTargeting(exposureQueries);
+  if (problems.length === 0) {
+    return;
+  }
+  throw new Error(
+    formatContextualBanditMissingTargetingMessages(
+      problems.map((p) => p.queryLabel),
+    ),
+  );
+}
+
+/**
+ * Experiment-level guard: a contextual-bandit experiment must reference an assignment query
+ * that declares targeting attribute columns. No-op for other experiment types.
+ */
+export function assertContextualBanditExperimentFieldsValid(args: {
+  experimentType?: string;
+  exposureQueryId: string;
+  exposureQueries: ExposureQuery[] | undefined;
+}): void {
+  if (args.experimentType !== "contextual-bandit") {
+    return;
+  }
+  const exposureQuery = (args.exposureQueries ?? []).find(
+    (q) => q.id === args.exposureQueryId,
+  );
+  if ((exposureQuery?.targetingAttributeColumns?.length ?? 0) === 0) {
+    throw new Error(
+      "Contextual bandit experiments require an experiment assignment query with targeting attribute columns.",
+    );
+  }
+}
+
 export function isSafeSqlIdentifier(name: string): boolean {
   return SAFE_SQL_IDENTIFIER.test(name);
 }

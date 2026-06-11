@@ -13,6 +13,7 @@ import {
 import { GoogleAnalyticsParams } from "shared/types/integrations/googleanalytics";
 import {
   ApiDataSource,
+  assertContextualBanditExposureQueriesValid,
   assertExposureQueriesTargetingAttributeColumnsValid,
 } from "shared/validators";
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
@@ -307,6 +308,7 @@ export async function createDataSource(
     context.org.settings?.attributeSchema,
     settings.queries?.exposure,
   );
+  assertContextualBanditExposureQueriesValid(settings.queries?.exposure);
 
   // Add any missing exposure query ids and check query validity
   settings = await validateExposureQueriesAndAddMissingIds(
@@ -449,6 +451,7 @@ export async function updateDataSource(
       exposureQueries,
       datasource.settings?.queries?.exposure,
     );
+    assertContextualBanditExposureQueriesValid(exposureQueries);
     updates.settings = await validateExposureQueriesAndAddMissingIds(
       context,
       datasource,
@@ -506,6 +509,7 @@ export function toDataSourceApiInterface(
       sql: q.query,
       includesNameColumns: !!q.hasNameCol,
       dimensionColumns: q.dimensions,
+      ...(q.contextualBandit ? { contextualBandit: q.contextualBandit } : {}),
       ...(q.targetingAttributeColumns?.length
         ? { targetingAttributeColumns: q.targetingAttributeColumns }
         : {}),

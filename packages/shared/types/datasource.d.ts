@@ -175,6 +175,8 @@ export interface ExposureQuery {
   query: string;
   hasNameCol?: boolean;
   dimensions: string[];
+  /** Marks this assignment query as a contextual bandit query. When true, `targetingAttributeColumns` must be non-empty. */
+  contextualBandit?: boolean;
   /** Assignment-query columns mapping to org targeting attributes (must appear in SELECT). */
   targetingAttributeColumns?: string[];
   dimensionSlicesId?: string;

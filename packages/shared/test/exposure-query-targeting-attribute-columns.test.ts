@@ -1,11 +1,14 @@
 import type { ExposureQuery } from "shared/types/datasource";
 import type { SDKAttributeSchema } from "shared/types/organization";
 import {
+  assertContextualBanditExperimentFieldsValid,
+  assertContextualBanditExposureQueriesValid,
   assertExposureQueriesTargetingAttributeColumnsValid,
   formatInvalidTargetingAttributeColumnMessages,
   getAllowedTargetingAttributePropertyNames,
   getInvalidTargetingAttributeColumnsForExposureQueries,
   getMalformedTargetingAttributeColumnsForExposureQueries,
+  isContextualBanditExposureQuery,
   isSafeSqlIdentifier,
 } from "../src/validators/exposure-query-targeting-attribute-columns";
 
@@ -179,5 +182,65 @@ describe("exposure query targeting attribute columns", () => {
     ).toBe(
       `planet is not a saved targeting attribute. Column aliases in your assignment query must match organization targeting attributes (Settings → Attributes).\n\nx is not a saved targeting attribute. Column aliases in your assignment query must match organization targeting attributes (Settings → Attributes).`,
     );
+  });
+
+  describe("isContextualBanditExposureQuery", () => {
+    it("returns true only when the contextualBandit flag is set", () => {
+      expect(isContextualBanditExposureQuery({ contextualBandit: true })).toBe(
+        true,
+      );
+      expect(isContextualBanditExposureQuery({ contextualBandit: false })).toBe(
+        false,
+      );
+      expect(isContextualBanditExposureQuery({})).toBe(false);
+    });
+  });
+
+  describe("assertContextualBanditExposureQueriesValid", () => {
+    it("throws when a contextual bandit query has no targeting columns", () => {
+      expect(() =>
+        assertContextualBanditExposureQueriesValid([
+          {
+            id: "q1",
+            name: "CB",
+            userIdType: "user_id",
+            query: "SELECT 1",
+            dimensions: [],
+            contextualBandit: true,
+            targetingAttributeColumns: [],
+          },
+        ]),
+      ).toThrow(/no targeting attribute columns/);
+    });
+
+    it("passes when a contextual bandit query has targeting columns", () => {
+      expect(() =>
+        assertContextualBanditExposureQueriesValid([
+          {
+            id: "q1",
+            name: "CB",
+            userIdType: "user_id",
+            query: "SELECT 1",
+            dimensions: [],
+            contextualBandit: true,
+            targetingAttributeColumns: ["country"],
+          },
+        ]),
+      ).not.toThrow();
+    });
+
+    it("is a no-op for non contextual bandit queries", () => {
+      expect(() =>
+        assertContextualBanditExposureQueriesValid([
+          {
+            id: "q1",
+            name: "Standard",
+            userIdType: "user_id",
+            query: "SELECT 1",
+            dimensions: [],
+          },
+        ]),
+      ).not.toThrow();
+    });
   });
 });

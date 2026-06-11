@@ -6,6 +6,7 @@ import {
   ExposureQuery,
 } from "shared/types/datasource";
 import {
+  CONTEXTUAL_BANDIT_EAQ_REQUIRED_COLUMNS,
   formatInvalidTargetingAttributeColumnMessages,
   formatMalformedTargetingAttributeColumnMessages,
   getInvalidTargetingAttributeColumnsForExposureQueries,
@@ -87,7 +88,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       !!exposureQuery?.hasNameCol,
   );
   const [isContextualBanditQuery, setIsContextualBanditQuery] = useState(
-    () => (exposureQuery?.targetingAttributeColumns?.length ?? 0) > 0,
+    () => exposureQuery?.contextualBandit === true,
   );
   const [uiMode, setUiMode] = useState<"view" | "sql" | "dimension">("view");
   const modalTitle =
@@ -151,6 +152,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       id: registered.id ?? base.id,
       query: registered.query ?? userEnteredQuery,
       dimensions: [...(registered.dimensions ?? userEnteredDimensions ?? [])],
+      contextualBandit: isContextualBanditQuery,
       targetingAttributeColumns: isContextualBanditQuery
         ? [
             ...(registered.targetingAttributeColumns ??
@@ -169,6 +171,12 @@ export const AddEditExperimentAssignmentQueryModal: FC<
 
     const value = composeExposureQueryPayload();
     if (isContextualBanditQuery) {
+      // Invariant: a contextual bandit query must declare at least one targeting attribute column.
+      if ((value.targetingAttributeColumns?.length ?? 0) === 0) {
+        throw new Error(
+          "Add at least one targeting attribute column for a contextual bandit query.",
+        );
+      }
       // Reject malformed identifiers first since these columns get interpolated into SQL.
       const malformed = getMalformedTargetingAttributeColumnsForExposureQueries(
         [value],
@@ -197,6 +205,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       query: "",
       name: "",
       dimensions: [],
+      contextualBandit: false,
       targetingAttributeColumns: [],
       description: "",
       hasNameCol: false,
@@ -212,7 +221,10 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       userEnteredUserIdType,
       ...(userEnteredDimensions || []),
       ...(isContextualBanditQuery
-        ? userEnteredTargetingAttributeColumns || []
+        ? [
+            ...(userEnteredTargetingAttributeColumns || []),
+            ...CONTEXTUAL_BANDIT_EAQ_REQUIRED_COLUMNS,
+          ]
         : []),
       ...(userEnteredHasNameCol ? ["experiment_name", "variation_name"] : []),
     ]);
