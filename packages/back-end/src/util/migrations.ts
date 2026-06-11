@@ -73,6 +73,11 @@ function adjustWeights(weights: number[]): number[] {
 export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
   const newDoc = { ...doc };
 
+  // Raw-driver reads skip Mongoose date casting; legacy docs may store strings
+  if (typeof newDoc.runStarted === "string") {
+    newDoc.runStarted = new Date(newDoc.runStarted);
+  }
+
   if (doc.windowSettings === undefined) {
     if (doc.conversionDelayHours == null && doc.earlyStart) {
       newDoc.windowSettings = {

@@ -266,7 +266,6 @@ function ChangeRow({
             <span className={styles.changeVerbTitle}>
               {h.verb} {h.title}
             </span>
-            <code className={styles.selectorChip}>{h.selectorLabel}</code>
           </Flex>
           <Box className={styles.changeHuman}>{h.human}</Box>
         </Box>
@@ -314,6 +313,13 @@ function ChangeRow({
       )}
       {showCode && (
         <Box className={styles.codePanel}>
+          {/* The CSS selector lives here in the raw-values panel rather
+              than next to the human-readable description — it's an
+              implementation detail, not human-readable. */}
+          <div className={styles.appliesTo}>
+            <span className={styles.appliesToLabel}>Applies to:</span>
+            <code className={styles.selectorChip}>{h.selectorLabel}</code>
+          </div>
           {h.imageUrl && !imageError && (
             <Box className={styles.imagePreview}>
               <img
