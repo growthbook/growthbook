@@ -94,6 +94,12 @@ Triggered when a feature is created
                 value: string;
             } | null) | undefined;
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -112,6 +118,7 @@ Triggered when a feature is created
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -198,6 +205,12 @@ Triggered when a feature is updated
             removed: Record<string, unknown>;
             modified: Record<string, unknown>;
         } | undefined;
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -216,6 +229,7 @@ Triggered when a feature is updated
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -267,6 +281,12 @@ Triggered when a feature is deleted
                 value: string;
             } | null) | undefined;
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -285,6 +305,7 @@ Triggered when a feature is deleted
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -311,6 +332,12 @@ Triggered when a safe rollout is completed and safe to rollout to 100%.
             safeRolloutId: string;
             environment: string;
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -329,6 +356,7 @@ Triggered when a safe rollout is completed and safe to rollout to 100%.
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -355,6 +383,12 @@ Triggered when a safe rollout has a failing guardrail and should be reverted.
             safeRolloutId: string;
             environment: string;
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -373,6 +407,7 @@ Triggered when a safe rollout has a failing guardrail and should be reverted.
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -400,6 +435,12 @@ Triggered when a safe rollout is failing a health check and may not be working a
             environment: string;
             unhealthyReason: ("srm" | "multipleExposures")[];
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -418,6 +459,7 @@ Triggered when a safe rollout is failing a health check and may not be working a
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -446,6 +488,12 @@ Triggered when a ramp schedule is created for a feature
             entityType: string;
             entityId: string;
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -464,6 +512,7 @@ Triggered when a ramp schedule is created for a feature
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -490,6 +539,12 @@ Triggered when a ramp schedule is deleted from a feature
             rampName: string;
             orgId: string;
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -508,6 +563,7 @@ Triggered when a ramp schedule is deleted from a feature
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -536,6 +592,12 @@ Triggered when a feature ramp schedule starts
             currentStepIndex: number;
             status: string;
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -554,6 +616,7 @@ Triggered when a feature ramp schedule starts
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -582,6 +645,12 @@ Triggered when a feature ramp schedule completes all steps
             currentStepIndex: number;
             status: string;
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -600,6 +669,7 @@ Triggered when a feature ramp schedule completes all steps
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -629,6 +699,12 @@ Triggered when a feature ramp schedule is rolled back or reset to start
             status: string;
             targetStepIndex: number;
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -647,6 +723,7 @@ Triggered when a feature ramp schedule is rolled back or reset to start
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -676,6 +753,12 @@ Triggered when a feature ramp schedule is jumped to a specific step
             status: string;
             targetStepIndex: number;
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -694,6 +777,7 @@ Triggered when a feature ramp schedule is jumped to a specific step
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -722,6 +806,12 @@ Triggered when a feature ramp schedule advances to the next step
             currentStepIndex: number;
             status: string;
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -740,6 +830,7 @@ Triggered when a feature ramp schedule advances to the next step
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -769,6 +860,12 @@ Triggered when a feature ramp step is waiting for approval
             status: string;
             approvalNotes?: (string | null) | undefined;
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -787,6 +884,7 @@ Triggered when a feature ramp step is waiting for approval
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -835,6 +933,12 @@ Triggered when a new draft revision is created for a feature
             }[] | undefined;
             metadata?: {} | undefined;
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -853,6 +957,7 @@ Triggered when a new draft revision is created for a feature
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -903,6 +1008,12 @@ Triggered when a draft revision is modified (rules, default value, toggles, prer
             change: "rule.add" | "rule.update" | "rule.delete" | "rule.reorder" | "rule.rampSchedule.set" | "rule.rampSchedule.remove" | "toggle" | "defaultValue" | "prerequisites" | "holdout" | "archive" | "metadata";
             environments?: string[] | undefined;
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -921,6 +1032,7 @@ Triggered when a draft revision is modified (rules, default value, toggles, prer
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -970,6 +1082,12 @@ Triggered when a draft revision is submitted for review
             metadata?: {} | undefined;
             reviewComment: string | null;
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -988,6 +1106,7 @@ Triggered when a draft revision is submitted for review
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -1042,6 +1161,12 @@ Triggered when a draft revision is approved by a reviewer
             };
             reviewComment: string | null;
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -1060,6 +1185,7 @@ Triggered when a draft revision is approved by a reviewer
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -1114,6 +1240,12 @@ Triggered when a reviewer requests changes on a draft revision
             };
             reviewComment: string | null;
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -1132,6 +1264,7 @@ Triggered when a reviewer requests changes on a draft revision
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -1186,6 +1319,12 @@ Triggered when a comment is added to a draft revision
             };
             reviewComment: string;
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -1204,6 +1343,7 @@ Triggered when a comment is added to a draft revision
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -1252,6 +1392,12 @@ Triggered when a draft revision is discarded
             }[] | undefined;
             metadata?: {} | undefined;
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -1270,6 +1416,7 @@ Triggered when a draft revision is discarded
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -1318,6 +1465,12 @@ Triggered when a draft revision is rebased onto the latest published version
             }[] | undefined;
             metadata?: {} | undefined;
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -1336,6 +1489,7 @@ Triggered when a draft revision is rebased onto the latest published version
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -1384,6 +1538,12 @@ Triggered when a draft revision is published. Overlaps with `feature.updated` bu
             }[] | undefined;
             metadata?: {} | undefined;
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -1402,6 +1562,7 @@ Triggered when a draft revision is published. Overlaps with `feature.updated` bu
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -1451,6 +1612,12 @@ Triggered when a feature is reverted to a previous published revision
             metadata?: {} | undefined;
             revertedToVersion: number;
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -1469,6 +1636,7 @@ Triggered when a feature is reverted to a previous published revision
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -1708,6 +1876,12 @@ Triggered when an experiment is created
                 date: string;
             } | null) | undefined;
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -1726,6 +1900,7 @@ Triggered when an experiment is created
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -2188,6 +2363,12 @@ Triggered when an experiment is updated
             removed: Record<string, unknown>;
             modified: Record<string, unknown>;
         } | undefined;
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -2206,6 +2387,7 @@ Triggered when an experiment is updated
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -2445,6 +2627,12 @@ Triggered when an experiment is deleted
                 date: string;
             } | null) | undefined;
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -2463,6 +2651,7 @@ Triggered when an experiment is deleted
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -2514,6 +2703,12 @@ Triggered when a warning condition is detected on an experiment
             willRetry: boolean;
             reason: string;
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -2532,6 +2727,7 @@ Triggered when a warning condition is detected on an experiment
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -2564,6 +2760,12 @@ Triggered when a goal or guardrail metric reaches significance in an experiment 
             criticalValue: number;
             winning: boolean;
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -2582,6 +2784,7 @@ Triggered when a goal or guardrail metric reaches significance in an experiment 
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -2608,6 +2811,12 @@ Triggered when an experiment is ready to ship a variation.
             experimentId: string;
             decisionDescription?: string | undefined;
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -2626,6 +2835,7 @@ Triggered when an experiment is ready to ship a variation.
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -2652,6 +2862,12 @@ Triggered when an experiment should be rolled back to the control.
             experimentId: string;
             decisionDescription?: string | undefined;
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -2670,6 +2886,7 @@ Triggered when an experiment should be rolled back to the control.
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -2696,6 +2913,12 @@ Triggered when an experiment has reached the desired power point, but the result
             experimentId: string;
             decisionDescription?: string | undefined;
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -2714,6 +2937,7 @@ Triggered when an experiment has reached the desired power point, but the result
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -2755,6 +2979,12 @@ Triggered when a saved group is created
             archived?: boolean | undefined;
             useEmptyListGroup?: boolean | undefined;
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -2773,6 +3003,7 @@ Triggered when a saved group is created
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -2839,6 +3070,12 @@ Triggered when a saved group is updated
             removed: Record<string, unknown>;
             modified: Record<string, unknown>;
         } | undefined;
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -2857,6 +3094,7 @@ Triggered when a saved group is updated
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -2898,6 +3136,12 @@ Triggered when a saved group is deleted
             archived?: boolean | undefined;
             useEmptyListGroup?: boolean | undefined;
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -2916,6 +3160,7 @@ Triggered when a saved group is deleted
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -3011,6 +3256,12 @@ Triggered when a new draft revision is created for a saved group
                 path: string;
             }[];
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -3029,6 +3280,7 @@ Triggered when a new draft revision is created for a saved group
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -3125,6 +3377,12 @@ Triggered when a draft revision's proposed changes are modified (values, conditi
             }[];
             change: "metadata" | "condition" | "values" | "archive";
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -3143,6 +3401,7 @@ Triggered when a draft revision's proposed changes are modified (values, conditi
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -3238,6 +3497,12 @@ Triggered when a draft revision is submitted for review
                 path: string;
             }[];
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -3256,6 +3521,7 @@ Triggered when a draft revision is submitted for review
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -3357,6 +3623,12 @@ Triggered when a draft revision is approved by a reviewer
             };
             reviewComment: string | null;
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -3375,6 +3647,7 @@ Triggered when a draft revision is approved by a reviewer
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -3476,6 +3749,12 @@ Triggered when a reviewer requests changes on a draft revision
             };
             reviewComment: string | null;
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -3494,6 +3773,7 @@ Triggered when a reviewer requests changes on a draft revision
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -3595,6 +3875,12 @@ Triggered when a comment is added to a draft revision
             };
             reviewComment: string;
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -3613,6 +3899,7 @@ Triggered when a comment is added to a draft revision
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -3708,6 +3995,12 @@ Triggered when a draft revision is discarded
                 path: string;
             }[];
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -3726,6 +4019,7 @@ Triggered when a draft revision is discarded
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -3821,6 +4115,12 @@ Triggered when a draft revision is rebased onto the latest live state
                 path: string;
             }[];
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -3839,6 +4139,7 @@ Triggered when a draft revision is rebased onto the latest live state
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -3934,6 +4235,12 @@ Triggered when a draft revision is published. Overlaps with `savedGroup.updated`
                 path: string;
             }[];
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -3952,6 +4259,7 @@ Triggered when a draft revision is published. Overlaps with `savedGroup.updated`
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -4048,6 +4356,12 @@ Triggered when a saved group is reverted to a previous published revision
             }[];
             revertedToVersion?: number | undefined;
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -4066,6 +4380,7 @@ Triggered when a saved group is reverted to a previous published revision
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -4161,6 +4476,12 @@ Triggered when a discarded revision is reopened
                 path: string;
             }[];
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -4179,6 +4500,7 @@ Triggered when a discarded revision is reopened
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -4209,6 +4531,12 @@ Triggered when a user logs in
             os: string;
             device: string;
         };
+        environments?: {
+            /** Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field. */
+            changed?: string[] | undefined;
+            /** Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field. */
+            applicable?: string[] | undefined;
+        } | undefined;
     };
     user: {
         type: "dashboard";
@@ -4227,6 +4555,7 @@ Triggered when a user logs in
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped). */
     environments: string[];
     containsSecrets: boolean;
 }

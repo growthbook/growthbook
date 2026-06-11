@@ -2,7 +2,8 @@ import { ApiFeature, ApiFeatureForceRule } from "shared/validators";
 import {
   RELEVANT_KEYS_FOR_ALL_ENVS,
   getChangedApiFeatureEnvironments,
-} from "back-end/src/events/handlers/utils";
+  routingEnvironments,
+} from "back-end/src/events/eventEnvironments";
 
 describe("getChangedApiFeatureEnvironments", () => {
   const rule: ApiFeatureForceRule = {
@@ -176,5 +177,32 @@ describe("getChangedApiFeatureEnvironments", () => {
         getFeatureToTest(1, 1),
       ),
     ).toEqual([]);
+  });
+});
+
+describe("routingEnvironments", () => {
+  it("prefers the changed refinement when a transition exists", () => {
+    expect(
+      routingEnvironments({
+        changed: ["production"],
+        applicable: ["production", "staging"],
+      }),
+    ).toEqual(["production"]);
+  });
+
+  it("uses changed even when empty (nothing moved in this transition)", () => {
+    expect(
+      routingEnvironments({ changed: [], applicable: ["production"] }),
+    ).toEqual([]);
+  });
+
+  it("falls back to applicable for non-transition events", () => {
+    expect(
+      routingEnvironments({ applicable: ["production", "staging"] }),
+    ).toEqual(["production", "staging"]);
+  });
+
+  it("returns [] for non-environment-scoped events", () => {
+    expect(routingEnvironments({})).toEqual([]);
   });
 });

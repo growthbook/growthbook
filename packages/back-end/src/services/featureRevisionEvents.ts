@@ -1,11 +1,11 @@
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
+  EventEnvironments,
   NotificationEventPayloadSchemaType,
   ResourceEvents,
 } from "shared/types/events/base-types";
 import { FeatureRevisionUpdatedPayload } from "shared/validators";
-import { Environment } from "shared/types/organization";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { createEvent, CreateEventData } from "back-end/src/models/EventModel";
@@ -15,60 +15,13 @@ import {
   toApiRevision,
 } from "back-end/src/services/features";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
-import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
+import {
+  deriveRevisionEventEnvironments,
+  routingEnvironments,
+} from "back-end/src/events/eventEnvironments";
 import { getEnvironments } from "back-end/src/util/organization.util";
 
 type RevisionChange = FeatureRevisionUpdatedPayload["change"];
-
-/**
- * Envs a revision event applies to, used to fan out webhook/Slack
- * notifications. Precedence: `overrideEnvironments` → union of rule scopes
- * on `revision.rules` → feature's configured envs. Result is filtered to
- * envs applicable to the feature's project.
- */
-export function deriveRevisionEventEnvironments(
-  feature: FeatureInterface,
-  revision: FeatureRevisionInterface,
-  orgEnvs: Environment[],
-  overrideEnvironments?: string[],
-): string[] {
-  const featureProject = feature.project;
-  const inProject = (envId: string) => {
-    const envDef = orgEnvs.find((e) => e.id === envId);
-    return (
-      !envDef ||
-      !envDef.projects?.length ||
-      !featureProject ||
-      envDef.projects.includes(featureProject)
-    );
-  };
-
-  let rawEnvironments: string[];
-  if (overrideEnvironments !== undefined) {
-    rawEnvironments = overrideEnvironments;
-  } else if (Array.isArray(revision.rules) && revision.rules.length > 0) {
-    // Union of each rule's scope. `allEnvironments: true` expands to the
-    // feature's applicable envs, not every org env. Nullish slots (sparse
-    // pre-v2 docs) are skipped defensively — JIT-boundary filters already
-    // drop them, but this loop fans out into event dispatch so a guard here
-    // protects against any future regression.
-    const applicableEnvs = getApplicableEnvIds(orgEnvs, featureProject);
-    const declared = new Set<string>();
-    for (const rule of revision.rules) {
-      if (rule == null || typeof rule !== "object") continue;
-      if (rule.allEnvironments) {
-        applicableEnvs.forEach((e) => declared.add(e));
-      } else if (rule.environments?.length) {
-        rule.environments.forEach((e) => declared.add(e));
-      }
-    }
-    rawEnvironments = [...declared];
-  } else {
-    rawEnvironments = Object.keys(feature.environmentSettings ?? {});
-  }
-
-  return rawEnvironments.filter(inProject);
-}
 
 type FeatureRevisionEvent = Extract<
   ResourceEvents<"feature">,
@@ -106,12 +59,17 @@ export async function dispatchFeatureRevisionEvent<
     const apiRevision = toApiRevision(revision, ctx, feature);
     const projects = feature.project ? [feature.project] : [];
     const tags = feature.tags ?? [];
-    const environments = deriveRevisionEventEnvironments(
-      feature,
-      revision,
-      getEnvironments(ctx.org),
-      opts.environments,
-    );
+    // Draft events have no live before/after pair, so the only environment
+    // fact is `applicable` — the envs the revision touches, resolved at
+    // dispatch time.
+    const environmentFacts: EventEnvironments = {
+      applicable: deriveRevisionEventEnvironments(
+        feature,
+        revision,
+        getEnvironments(ctx.org),
+        opts.environments,
+      ),
+    };
 
     const object = {
       ...apiRevision,
@@ -126,10 +84,13 @@ export async function dispatchFeatureRevisionEvent<
       object: "feature",
       objectId: feature.id,
       event,
-      data: { object } as CreateEventData<"feature", T>,
+      data: {
+        object,
+        environments: environmentFacts,
+      } as CreateEventData<"feature", T>,
       projects,
       tags,
-      environments,
+      environments: routingEnvironments(environmentFacts),
       containsSecrets: false,
     });
   } catch (e) {

@@ -4,6 +4,7 @@ import omit from "lodash/omit";
 import mongoose from "mongoose";
 import { isEqual } from "lodash";
 import {
+  EventEnvironments,
   NotificationEventResource,
   NotificationEvents,
   ResourceEvents,
@@ -158,11 +159,15 @@ export type CreateEventData<
       object: Payload;
       previous_object: Payload;
       changes?: DiffResult;
+      // Environment facts persisted on the payload (`data.environments`).
+      // The top-level routing field should be derived from these via
+      // `routingEnvironments` so the two can't drift.
+      environments?: EventEnvironments;
     } & NotificationEventPayloadExtraAttributes<Resource, Event>
-  : { object: Payload } & NotificationEventPayloadExtraAttributes<
-      Resource,
-      Event
-    >;
+  : {
+      object: Payload;
+      environments?: EventEnvironments;
+    } & NotificationEventPayloadExtraAttributes<Resource, Event>;
 
 export const hasPreviousObject = <
   Resource extends NotificationEventResource,

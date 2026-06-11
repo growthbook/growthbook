@@ -5,8 +5,6 @@ import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import {
   MergeResultChanges,
-  getApiFeatureEnabledEnvs,
-  getApiFeatureAllEnvs,
   checkIfRevisionNeedsReview,
   autoMerge,
   fillRevisionFromFeature,
@@ -89,7 +87,10 @@ import {
 } from "back-end/src/services/organizations";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { ApiReqContext } from "back-end/types/api";
-import { getChangedApiFeatureEnvironments } from "back-end/src/events/handlers/utils";
+import {
+  deriveLiveFeatureEventEnvironments,
+  routingEnvironments,
+} from "back-end/src/events/eventEnvironments";
 import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
 import {
   createVercelExperimentationItemFromFeature,
@@ -768,21 +769,26 @@ export const createFeatureEvent = async <
       safeRolloutMap,
     });
 
-    if (!hasPreviousObject<"feature", Event, FeatureInterface>(eventData.data))
+    if (
+      !hasPreviousObject<"feature", Event, FeatureInterface>(eventData.data)
+    ) {
+      const environmentFacts = deriveLiveFeatureEventEnvironments({
+        current: currentApiFeature,
+        deleted: eventData.event === "deleted",
+      });
       return {
         ...eventData,
         object: "feature",
         data: {
           object: currentApiFeature,
+          environments: environmentFacts,
         },
         projects: [currentApiFeature.project],
         tags: currentApiFeature.tags,
-        environments:
-          eventData.event === "deleted"
-            ? getApiFeatureAllEnvs(currentApiFeature)
-            : getApiFeatureEnabledEnvs(currentApiFeature),
+        environments: routingEnvironments(environmentFacts),
         containsSecrets: false,
       } as CreateEventParams<"feature", Event>;
+    }
 
     const previousRevision = await getRevision({
       context: eventData.context,
@@ -818,6 +824,11 @@ export const createFeatureEvent = async <
       logger.error(e, "error creating change patch");
     }
 
+    const environmentFacts = deriveLiveFeatureEventEnvironments({
+      previous: previousApiFeature,
+      current: currentApiFeature,
+    });
+
     return {
       ...eventData,
       object: "feature",
@@ -826,6 +837,7 @@ export const createFeatureEvent = async <
         object: currentApiFeature,
         previous_object: previousApiFeature,
         changes,
+        environments: environmentFacts,
       },
       projects: Array.from(
         new Set([previousApiFeature.project, currentApiFeature.project]),
@@ -833,10 +845,7 @@ export const createFeatureEvent = async <
       tags: Array.from(
         new Set([...previousApiFeature.tags, ...currentApiFeature.tags]),
       ),
-      environments: getChangedApiFeatureEnvironments(
-        previousApiFeature,
-        currentApiFeature,
-      ),
+      environments: routingEnvironments(environmentFacts),
       containsSecrets: false,
     } as CreateEventParams<"feature", Event>;
   })();

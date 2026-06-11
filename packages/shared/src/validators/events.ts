@@ -339,6 +339,26 @@ export const notificationEventNames = (
 export const zodNotificationEventNamesEnum =
   notificationEventNames as UnionToTuple<NotificationEventName>;
 
+// Environment facts attached to event payload `data`. One semantic with a
+// refinement — the top-level routing `environments` field is always derived
+// from these as `changed ?? applicable ?? []`.
+export const eventEnvironmentsFacts = z
+  .object({
+    changed: z
+      .array(z.string())
+      .describe(
+        "Environments whose effective configuration actually changed. Only present on state-transition events (e.g. `updated`, where a before/after pair exists). When present, this is the value of the top-level `environments` routing field.",
+      )
+      .optional(),
+    applicable: z
+      .array(z.string())
+      .describe(
+        "Environments this object operates in, resolved at dispatch time (rule scopes — including `allEnvironments: true` — are expanded against the org's project-filtered environment list). When `changed` is absent, this is the value of the top-level `environments` routing field.",
+      )
+      .optional(),
+  })
+  .strict();
+
 export const notificationEventPayloadData = <
   Resource extends NotificationEventResource,
   Event extends ResourceEvents<Resource>,
@@ -364,6 +384,7 @@ export const notificationEventPayloadData = <
             .optional(),
         }
       : {}),
+    environments: eventEnvironmentsFacts.optional(),
   });
 
   if (!data.extra) return ret;
@@ -386,6 +407,10 @@ export const notificationEventPayload = <
     data: notificationEventPayloadData(resource, event),
     user: eventUser,
     tags: z.array(z.string()),
-    environments: z.array(z.string()),
+    environments: z
+      .array(z.string())
+      .describe(
+        "Routing field used by webhook environment filters: the environments this event is relevant to. Derived from `data.environments` as `changed ?? applicable ?? []` (an empty array means the event is not environment-scoped).",
+      ),
     containsSecrets: z.boolean(),
   });
