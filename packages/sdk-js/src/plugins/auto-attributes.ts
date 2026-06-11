@@ -9,8 +9,6 @@ export type AutoAttributeSettings = {
   uuidKey?: string;
   uuid?: string;
   uuidAutoPersist?: boolean;
-  sessionId?: string;
-  sessionIdleTimeoutMs?: number;
 };
 
 type StoredSession = {
@@ -53,7 +51,6 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
   const COOKIE_NAME = settings.uuidCookieName || "gbuuid";
   const SESSION_STORAGE_KEY = "gb_session";
   const uuidKey = settings.uuidKey || "id";
-  const sessionIdleTimeoutMs = settings.sessionIdleTimeoutMs ?? 30 * 60 * 1000;
   let uuid = settings.uuid || "";
   function persistUUID() {
     setCookie(COOKIE_NAME, uuid);
@@ -81,21 +78,13 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
     }
   }
 
+  // Internal — session boundary threshold is not a consumer-facing knob.
+  const SESSION_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
+
   function getOrCreateSessionId(): string {
     const now = Date.now();
 
-    // Customer-supplied ID wins unconditionally and is persisted so the
-    // value reads the same on every subsequent call.
-    if (settings.sessionId) {
-      const fresh: StoredSession = {
-        id: settings.sessionId,
-        lastTouchedAt: now,
-      };
-      persistSession(fresh);
-      return fresh.id;
-    }
-
-    // No customer-supplied ID — read from storage with idle-window check.
+    // Read from storage with idle-window check.
     let stored: StoredSession | null = null;
     try {
       const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
@@ -111,7 +100,7 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
       typeof stored.id === "string" &&
       stored.id &&
       typeof stored.lastTouchedAt === "number" &&
-      now - stored.lastTouchedAt < sessionIdleTimeoutMs
+      now - stored.lastTouchedAt < SESSION_IDLE_TIMEOUT_MS
     ) {
       stored.lastTouchedAt = now;
       persistSession(stored);
@@ -148,7 +137,7 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
     return {
       ...getDataLayerVariables(),
       [uuidKey]: _uuid,
-      session_id: getOrCreateSessionId(),
+      session_replay_id: getOrCreateSessionId(),
       ...getURLAttributes(url),
       pageTitle: document.title,
       viewportWidth: window.innerWidth || 0,

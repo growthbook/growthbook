@@ -6,7 +6,11 @@ import {
   buildRrwebPrivacyOptions,
 } from "./session-replay-privacy";
 import { scrubEventUrls } from "./session-replay-url-scrub";
-import { createBackoff } from "./retry-manager";
+import {
+  createRetry,
+  RetryExhaustedError,
+  RetryCancelledError,
+} from "./retry-manager";
 
 export type {
   SessionReplayPrivacyConfig,
@@ -213,14 +217,6 @@ export function sessionReplayPlugin({
     properties?: Record<string, unknown>;
   }> = [];
 
-  // Exponential back-off handler for retriable failures (5xx / 429 / network).
-  const backoff = createBackoff({
-    baseDelayMs: RETRY_BASE_DELAY_MS,
-    maxDelayMs: RETRY_MAX_DELAY_MS,
-    maxAttempts: RETRY_MAX_ATTEMPTS,
-    jitterMs: RETRY_JITTER_MS,
-  });
-
   /**
    * Gzip a string body via the browser's native CompressionStream API and
    * return the compressed blob, or null if compression isn't available or
@@ -283,6 +279,28 @@ export function sessionReplayPlugin({
       throw err;
     }
   };
+
+  // Wraps sendChunk with exponential back-off for retriable failures (5xx / 429 / network).
+  // Permanent 4xx errors (except 429) are not retried — the payload or credentials
+  // are wrong and retrying would produce the same result.
+  const sendWithRetry = createRetry(
+    {
+      baseDelayMs: RETRY_BASE_DELAY_MS,
+      maxDelayMs: RETRY_MAX_DELAY_MS,
+      maxAttempts: RETRY_MAX_ATTEMPTS,
+      jitterMs: RETRY_JITTER_MS,
+      isRetriable: (e) => {
+        const status = (e as { status?: number })?.status;
+        const is4xx =
+          typeof status === "number" &&
+          status >= 400 &&
+          status < 500 &&
+          status !== 429;
+        return !is4xx;
+      },
+    },
+    sendChunk,
+  );
 
   const flushBuffer = async (): Promise<void> => {
     // Re-entrancy guard — a flush awaiting its response should not be raced
@@ -379,7 +397,7 @@ export function sessionReplayPlugin({
       bufferedBytes = 0;
 
       try {
-        await sendChunk(payload);
+        await sendWithRetry(payload);
         // Success — commit the chunk index advance, but only if the session
         // is still the one we sent for. If it rotated mid-flight, the new
         // session has its own chunkIndex counter starting at 0.
@@ -392,88 +410,30 @@ export function sessionReplayPlugin({
             lastChunkAt: Date.now(),
           });
         }
-        // Successful send — clear retry state.
-        backoff.reset();
       } catch (e) {
-        const status = (e as { status?: number })?.status;
-
-        // 4XX errors (except 429) are permanent — the payload or credentials
-        // are wrong and retrying produces the same failure forever. Instant
-        // drop: advance chunkIndex and continue, or stop recording for auth.
-        //
-        // 5XX, 429, and network errors (no status) are retriable: revert state
-        // and schedule a retry with exponential back-off so we don't hammer a
-        // struggling ingestor or burn CPU on a hot loop.
-        const is4xx =
-          typeof status === "number" &&
-          status >= 400 &&
-          status < 500 &&
-          status !== 429;
-        const isRetriable = !is4xx;
+        if (e instanceof RetryCancelledError) {
+          // stopRecording cancelled a pending retry. Restore the snapshotted
+          // events so the final keepalive flush from stopRecording can send them.
+          window._gbReplayEvents.unshift(...eventsBeingSent);
+          bufferedBytes += bufferedBytesBeingSent;
+          featureEvals.unshift(...featureEvalsBeingSent);
+          experimentEvals.unshift(...experimentEvalsBeingSent);
+          sessionEvents.unshift(...sessionEventsBeingSent);
+          return;
+        }
 
         if (sessionId !== sessionIdBeingSent) {
-          // Session rotated mid-flight — re-prepending into the new session's
-          // buffer would corrupt it. Chunk is lost regardless of error class.
+          // Session rotated mid-flight — chunk is lost regardless of error class.
           console.warn(
             `session-replay: chunk ${chunkIndexBeingSent} lost during session rotation`,
             e,
           );
-          backoff.reset();
-        } else if (isRetriable) {
-          const delay = backoff.scheduleRetry(() => void flushBuffer());
-          if (delay !== null) {
-            // Revert state so the chunk is included in the next attempt.
-            window._gbReplayEvents.unshift(...eventsBeingSent);
-            bufferedBytes += bufferedBytesBeingSent;
-            featureEvals.unshift(...featureEvalsBeingSent);
-            experimentEvals.unshift(...experimentEvalsBeingSent);
-            sessionEvents.unshift(...sessionEventsBeingSent);
-            console.warn(
-              `session-replay: chunk ${chunkIndexBeingSent} send failed ` +
-                `(HTTP ${status ?? "network"}), ` +
-                `retry ${backoff.attempts}/${RETRY_MAX_ATTEMPTS} in ${Math.round(delay)}ms`,
-              e,
-            );
-          } else {
-            // All retries exhausted — treat the chunk as permanently lost:
-            // advance chunkIndex so the next chunk gets a fresh number and
-            // recording continues rather than stalling indefinitely.
-            backoff.reset();
-            chunkIndex = chunkIndexBeingSent + 1;
-            writePersistedReplayState({
-              sessionId,
-              sessionStartedAt,
-              lastChunkIndex: chunkIndexBeingSent,
-              lastChunkAt: Date.now(),
-            });
-            console.error(
-              `session-replay: chunk ${chunkIndexBeingSent} failed after ` +
-                `${RETRY_MAX_ATTEMPTS} retries ` +
-                `(HTTP ${status ?? "network"}); skipping`,
-              e,
-            );
-          }
-        } else {
-          // Permanent 4XX failure — chunk or credentials are unrecoverable.
-          backoff.reset();
-          if (status === 401 || status === 403) {
-            // Auth failure: stop recording immediately. No point holding
-            // buffered events — a bad clientKey won't fix itself within
-            // the page load, and pagehide would otherwise fire one last
-            // keepalive POST against the same bad key.
-            console.error(
-              `session-replay: stopping recorder after HTTP ${status}. ` +
-                "Verify your GrowthBook clientKey and that the org has " +
-                "session replay enabled on the ingestor.",
-              e,
-            );
-            window._gbReplayEvents.length = 0;
-            bufferedBytes = 0;
-            stopRecording();
-            return;
-          }
-          // Other 4XX (400, 413, 422, 404, …): payload is unrecoverable,
-          // advance chunkIndex and continue recording.
+          return;
+        }
+
+        if (e instanceof RetryExhaustedError) {
+          // All retries exhausted — treat the chunk as permanently lost so
+          // recording continues rather than stalling indefinitely.
           chunkIndex = chunkIndexBeingSent + 1;
           writePersistedReplayState({
             sessionId,
@@ -482,11 +442,45 @@ export function sessionReplayPlugin({
             lastChunkAt: Date.now(),
           });
           console.error(
-            `session-replay: chunk ${chunkIndexBeingSent} permanently rejected ` +
-              `(HTTP ${status}); skipping`,
+            `session-replay: chunk ${chunkIndexBeingSent} failed after ` +
+              `${RETRY_MAX_ATTEMPTS} retries; skipping`,
+            e.cause,
+          );
+          return;
+        }
+
+        // Permanent 4XX failure (not retriable per isRetriable) — the payload
+        // or credentials are unrecoverable.
+        const status = (e as { status?: number })?.status;
+        if (status === 401 || status === 403) {
+          // Auth failure: stop recording immediately. A bad clientKey won't fix
+          // itself within the page load, and pagehide would otherwise fire one
+          // last keepalive POST against the same bad key.
+          console.error(
+            `session-replay: stopping recorder after HTTP ${status}. ` +
+              "Verify your GrowthBook clientKey and that the org has " +
+              "session replay enabled on the ingestor.",
             e,
           );
+          window._gbReplayEvents.length = 0;
+          bufferedBytes = 0;
+          stopRecording();
+          return;
         }
+        // Other 4XX (400, 413, 422, 404, …): payload is unrecoverable,
+        // advance chunkIndex and continue recording.
+        chunkIndex = chunkIndexBeingSent + 1;
+        writePersistedReplayState({
+          sessionId,
+          sessionStartedAt,
+          lastChunkIndex: chunkIndexBeingSent,
+          lastChunkAt: Date.now(),
+        });
+        console.error(
+          `session-replay: chunk ${chunkIndexBeingSent} permanently rejected ` +
+            `(HTTP ${status}); skipping`,
+          e,
+        );
       }
     } finally {
       flushInFlight = false;
@@ -505,29 +499,29 @@ export function sessionReplayPlugin({
     // bail BEFORE rrweb starts so no events are even generated.
     if (userOptedOutOfTracking()) return;
 
-    const { session_id } = gbRef?.getAttributes() || {};
-    if (!session_id || typeof session_id !== "string") return;
+    const { session_replay_id } = gbRef?.getAttributes() || {};
+    if (!session_replay_id || typeof session_replay_id !== "string") return;
 
     const persisted = readPersistedReplayState();
     const now = Date.now();
-    // Resume when the persisted session_id matches the current one (same
+    // Resume when the persisted session_replay_id matches the current one (same
     // logical session, no new id minted by autoAttributesPlugin) and the
     // last successful chunk was recent enough to count as continuous activity.
     const canResume =
       persisted !== null &&
-      persisted.sessionId === session_id &&
+      persisted.sessionId === session_replay_id &&
       now - persisted.lastChunkAt < RESUME_STALENESS_MS;
 
     if (canResume) {
-      sessionId = session_id;
+      sessionId = session_replay_id;
       sessionStartedAt = persisted.sessionStartedAt;
       chunkIndex = persisted.lastChunkIndex + 1;
     } else {
-      sessionId = session_id;
+      sessionId = session_replay_id;
       chunkIndex = 0;
       sessionStartedAt = now;
       writePersistedReplayState({
-        sessionId: session_id,
+        sessionId: session_replay_id,
         sessionStartedAt: now,
         lastChunkIndex: -1,
         lastChunkAt: now,
@@ -671,9 +665,11 @@ export function sessionReplayPlugin({
   const stopRecording = () => {
     if (!isRecording) return;
 
-    // Cancel any pending back-off retry — the recorder is stopping so
-    // there is no point scheduling a future flush attempt.
-    backoff.reset();
+    // Cancel any pending retry delay — the recorder is stopping, so there
+    // is no point waiting for the next attempt. The RetryCancelledError
+    // handler in flushBuffer will restore the buffered events so the final
+    // keepalive flush below can deliver them.
+    sendWithRetry.cancel();
 
     // Fire-and-forget the final flush; keepalive in sendChunk lets the
     // browser deliver it even after the recorder is torn down. Awaiting
