@@ -57,8 +57,11 @@ import {
   hasAnyEventForwarderConfig,
   syncEventForwarderConfigFromDatasource,
   toEventForwarderConfigDraft,
-} from "back-end/src/services/eventForwarderConfig";
-import { syncEventForwarderAfterDatasourceUpdate } from "back-end/src/services/eventForwarderDatasourceUpdate";
+} from "back-end/src/services/eventForwarder/config";
+import {
+  syncEventForwarderAfterDatasourceUpdate,
+  deleteEventForwarderConfigForDatasource,
+} from "back-end/src/services/eventForwarder/datasourceLifecycle";
 import {
   getDataSourcesWithParams,
   getDataSourceWithParams,
@@ -66,14 +69,13 @@ import {
 import {
   buildEventForwarderAccessTestDatasource,
   runEventForwarderAccessTest,
-} from "back-end/src/services/eventForwarderWriteAccessValidation";
+} from "back-end/src/services/eventForwarder/writeAccess";
 import {
   pauseEventForwarderThroughLicenseServer,
   provisionEventForwarderThroughLicenseServer,
   resumeEventForwarderThroughLicenseServer,
-} from "back-end/src/services/eventForwarderProvisioning";
-import { syncEventForwarderStatusFromLicenseServer } from "back-end/src/services/eventForwarderConnectorStatusSync";
-import { deleteEventForwarderConfigForDatasource } from "back-end/src/services/eventForwarderDatasourceLifecycle";
+  syncEventForwarderStatusFromLicenseServer,
+} from "back-end/src/services/eventForwarder/connector";
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import {

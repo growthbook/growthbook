@@ -1,4 +1,4 @@
-import { resumeEventForwarderThroughLicenseServer } from "back-end/src/services/eventForwarderProvisioning";
+import { resumeEventForwarderThroughLicenseServer } from "back-end/src/services/eventForwarder/connector";
 import { postResumeEventForwarderToLicenseServer } from "back-end/src/enterprise/licenseUtil";
 
 jest.mock("back-end/src/enterprise/licenseUtil", () => ({
@@ -9,7 +9,7 @@ jest.mock("back-end/src/enterprise/licenseUtil", () => ({
   postUpdateEventForwarderCredentialsToLicenseServer: jest.fn(),
 }));
 
-jest.mock("back-end/src/services/eventForwarderFactTable", () => ({
+jest.mock("back-end/src/services/eventForwarder/factTable", () => ({
   ensureEventForwarderEventsFactTable: jest.fn(),
   queueDelayedFactTableColumnsRefreshForDatasource: jest.fn(),
 }));

@@ -1,8 +1,8 @@
-import { queueDelayedFactTableColumnsRefreshForDatasource } from "back-end/src/services/eventForwarderFactTable";
-import { queueDelayedEventForwarderWarehouseSyncForDatasource } from "back-end/src/services/eventForwarderWarehouseSync";
+import { queueDelayedFactTableColumnsRefreshForDatasource } from "back-end/src/services/eventForwarder/factTable";
+import { queueDelayedEventForwarderWarehouseSyncForDatasource } from "back-end/src/services/eventForwarder/warehouseSync";
 import { queueRevalidateEventForwarderDataSourceQueriesAt } from "back-end/src/jobs/revalidateEventForwarderDataSourceQueries";
 
-jest.mock("back-end/src/services/eventForwarderFactTable", () => ({
+jest.mock("back-end/src/services/eventForwarder/factTable", () => ({
   queueDelayedFactTableColumnsRefreshForDatasource: jest.fn(),
 }));
 

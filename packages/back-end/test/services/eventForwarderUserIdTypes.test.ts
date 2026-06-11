@@ -3,9 +3,9 @@ import {
   initializeDatasourceUserIdTypesFromOrgAttributeSchema,
   reconcileAllEventForwarderDatasourceUserIdTypesAndExposureQueries,
   reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries,
-} from "back-end/src/services/eventForwarderUserIdTypes";
+} from "back-end/src/services/eventForwarder/datasourceSync";
 import * as DataSourceModel from "back-end/src/models/DataSourceModel";
-import * as EventForwarderExposureQueries from "back-end/src/services/eventForwarderExposureQueries";
+import * as EventForwarderExposureQueries from "back-end/src/services/eventForwarder/sinkParams";
 import * as DataSourceService from "back-end/src/services/datasource";
 
 const EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION =
@@ -16,7 +16,7 @@ jest.mock("back-end/src/models/DataSourceModel", () => ({
   getDataSourceById: jest.fn(),
   updateDataSource: jest.fn(),
 }));
-jest.mock("back-end/src/services/eventForwarderExposureQueries");
+jest.mock("back-end/src/services/eventForwarder/sinkParams");
 jest.mock("back-end/src/services/datasource");
 
 const mockedGetRaw =

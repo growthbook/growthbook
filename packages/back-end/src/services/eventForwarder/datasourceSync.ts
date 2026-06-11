@@ -6,20 +6,20 @@ import {
 } from "shared/util";
 import { SDKAttributeSchema } from "shared/types/organization";
 import { ExposureQuery, UserIdType } from "shared/types/datasource";
-import { EventForwarderConfigInterface } from "shared/validators";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
+import { EventForwarderConfigInterface } from "shared/validators";
 import {
   getDataSourceById,
   getRawDataSourceById,
   updateDataSource,
 } from "back-end/src/models/DataSourceModel";
-import { buildExposureQueryParams } from "back-end/src/services/eventForwarderExposureQueries";
+import { buildExposureQueryParams } from "back-end/src/services/eventForwarder/sinkParams";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 
-function normalize(value: string): string {
+function normalizeUserIdType(value: string): string {
   return value.toLowerCase();
 }
 
@@ -28,10 +28,12 @@ function reconcileUserIdTypes(
   desired: UserIdType[],
   ownedUserIdTypes: string[],
 ): UserIdType[] {
-  const desiredIds = new Set(desired.map((item) => normalize(item.userIdType)));
-  const ownedIds = new Set(ownedUserIdTypes.map(normalize));
+  const desiredIds = new Set(
+    desired.map((item) => normalizeUserIdType(item.userIdType)),
+  );
+  const ownedIds = new Set(ownedUserIdTypes.map(normalizeUserIdType));
   const preserved = existing.filter((item) => {
-    const id = normalize(item.userIdType);
+    const id = normalizeUserIdType(item.userIdType);
     return !desiredIds.has(id) && !ownedIds.has(id);
   });
 

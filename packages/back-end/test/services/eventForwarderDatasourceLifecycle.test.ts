@@ -3,13 +3,15 @@ import type { DataSourceInterface } from "shared/types/datasource";
 import {
   deleteEventForwarderConfigForDatasource,
   syncEventForwarderAfterDatasourceDeleted,
-} from "back-end/src/services/eventForwarderDatasourceLifecycle";
-import { syncEventForwarderConfigFromDatasource } from "back-end/src/services/eventForwarderConfig";
+} from "back-end/src/services/eventForwarder/datasourceLifecycle";
+import { syncEventForwarderConfigFromDatasource } from "back-end/src/services/eventForwarder/config";
 import * as configInit from "back-end/src/init/config";
-import * as provisioning from "back-end/src/services/eventForwarderProvisioning";
+import * as provisioning from "back-end/src/services/eventForwarder/connector";
 
 jest.mock("back-end/src/init/config");
-jest.mock("back-end/src/services/eventForwarderProvisioning");
+jest.mock("back-end/src/services/eventForwarder/connector", () => ({
+  teardownEventForwarderInfrastructureRemote: jest.fn(),
+}));
 
 const mockedUsingFileConfig = configInit.usingFileConfig as jest.MockedFunction<
   typeof configInit.usingFileConfig
@@ -65,7 +67,7 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
     mockedTeardownRemote.mockImplementation(async () => {
       callOrder.push("teardown");
     });
-    const dangerousGetByDatasourceIdBypassPermission = jest
+    const getByDatasourceIdForDatasourceCascade = jest
       .fn()
       .mockResolvedValue(existing);
 
@@ -74,7 +76,7 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
       auditLog: jest.fn().mockResolvedValue(undefined),
       models: {
         eventForwarderConfigs: {
-          dangerousGetByDatasourceIdBypassPermission,
+          getByDatasourceIdForDatasourceCascade,
           deleteForDatasourceCascade,
         },
       },
@@ -85,9 +87,7 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
       bqDatasource("ds_a"),
     );
 
-    expect(dangerousGetByDatasourceIdBypassPermission).toHaveBeenCalledWith(
-      "ds_a",
-    );
+    expect(getByDatasourceIdForDatasourceCascade).toHaveBeenCalledWith("ds_a");
     expect(deleteForDatasourceCascade).toHaveBeenCalledWith(existing);
     expect(mockedTeardownRemote).toHaveBeenCalledWith({
       organizationId: "org1",
@@ -101,7 +101,7 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
   });
 
   it("does nothing when no event forwarder exists for that datasource", async () => {
-    const dangerousGetByDatasourceIdBypassPermission = jest
+    const getByDatasourceIdForDatasourceCascade = jest
       .fn()
       .mockResolvedValue(null);
     const deleteForDatasourceCascade = jest.fn();
@@ -111,7 +111,7 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
       auditLog: jest.fn(),
       models: {
         eventForwarderConfigs: {
-          dangerousGetByDatasourceIdBypassPermission,
+          getByDatasourceIdForDatasourceCascade,
           deleteForDatasourceCascade,
         },
       },
@@ -150,7 +150,7 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
     mockedTeardownRemote.mockImplementation(async () => {
       callOrder.push("teardown");
     });
-    const dangerousGetByDatasourceIdBypassPermission = jest
+    const getByDatasourceIdForDatasourceCascade = jest
       .fn()
       .mockResolvedValue(existing);
 
@@ -159,7 +159,7 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
       auditLog: jest.fn(),
       models: {
         eventForwarderConfigs: {
-          dangerousGetByDatasourceIdBypassPermission,
+          getByDatasourceIdForDatasourceCascade,
           deleteForDatasourceCascade,
         },
       },
@@ -208,7 +208,7 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
       topic: "topic-b",
     };
 
-    const dangerousGetByDatasourceIdBypassPermission = jest
+    const getByDatasourceIdForDatasourceCascade = jest
       .fn()
       .mockImplementation((datasourceId: string) => {
         if (datasourceId === "ds_a") return Promise.resolve(existingA);
@@ -222,7 +222,7 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
       auditLog: jest.fn().mockResolvedValue(undefined),
       models: {
         eventForwarderConfigs: {
-          dangerousGetByDatasourceIdBypassPermission,
+          getByDatasourceIdForDatasourceCascade,
           deleteForDatasourceCascade,
         },
       },
@@ -280,7 +280,7 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
     };
 
     const deleteForDatasourceCascade = jest.fn().mockResolvedValue(undefined);
-    const dangerousGetByDatasourceIdBypassPermission = jest
+    const getByDatasourceIdForDatasourceCascade = jest
       .fn()
       .mockResolvedValue(existing);
     const auditLog = jest.fn().mockResolvedValue(undefined);
@@ -291,7 +291,7 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
       auditLog,
       models: {
         eventForwarderConfigs: {
-          dangerousGetByDatasourceIdBypassPermission,
+          getByDatasourceIdForDatasourceCascade,
           deleteForDatasourceCascade,
         },
       },
