@@ -311,7 +311,7 @@ export function sessionReplayPlugin({
     // next trigger.
     if (flushInFlight) return;
 
-    if (!gbRef || window._gbReplayEvents?.length === 0) return;
+    if (!gbRef || !window._gbReplayEvents?.length) return;
     // First chunk must contain a full snapshot so the player can initialize
     if (chunkIndex === 0 && !window._gbReplayEvents.some((e) => e.type === 2))
       return;
@@ -493,7 +493,11 @@ export function sessionReplayPlugin({
     }
   };
 
-  const startRecording = () => {
+  // forceNew skips the persisted-state resume check. Used by checkAndRotate
+  // so in-page session rotations (MAX_DURATION / idle) always start with a
+  // fresh sessionStartedAt — without this, canResume restores the old
+  // sessionStartedAt and tooLong stays true on the next interval, looping forever.
+  const startRecording = (forceNew = false) => {
     if (isRecording) return;
 
     // Customer-side kill switch — set enabled: false on the plugin to
@@ -513,7 +517,9 @@ export function sessionReplayPlugin({
     // Resume when the persisted session_replay_id matches the current one (same
     // logical session, no new id minted by autoAttributesPlugin) and the
     // last successful chunk was recent enough to count as continuous activity.
+    // forceNew bypasses this so in-page rotations always start fresh.
     const canResume =
+      !forceNew &&
       persisted !== null &&
       persisted.sessionId === session_replay_id &&
       now - persisted.lastChunkAt < RESUME_STALENESS_MS;
@@ -660,8 +666,10 @@ export function sessionReplayPlugin({
     stopRecording();
     // Only spin up a fresh session if the previous one had interaction
     // worth recording. Tabs left open all day shouldn't endlessly mint
-    // empty session IDs.
-    if (hasUserInteraction) startRecording();
+    // empty session IDs. forceNew=true prevents canResume from restoring
+    // the just-stopped session's sessionStartedAt, which would re-trigger
+    // tooLong on the very next interval.
+    if (hasUserInteraction) startRecording(true);
   };
 
   const onVisibilityChange = () => {
@@ -742,16 +750,21 @@ export function sessionReplayPlugin({
 
     if (autoRecord) startRecording();
 
-    window.addEventListener("pagehide", flushBuffer);
-    document.addEventListener("visibilitychange", () => {
+    const onPageHide = () => void flushBuffer();
+    const onVisibilityHide = () => {
       if (document.visibilityState === "hidden") void flushBuffer();
-    });
+    };
+
+    window.addEventListener("pagehide", onPageHide);
+    document.addEventListener("visibilitychange", onVisibilityHide);
 
     gb.onDestroy(() => {
       offFeature();
       offExperiment();
       offEvent();
       stopRecording();
+      window.removeEventListener("pagehide", onPageHide);
+      document.removeEventListener("visibilitychange", onVisibilityHide);
     });
   };
 }

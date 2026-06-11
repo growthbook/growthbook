@@ -571,10 +571,12 @@ export class GrowthBook<
   }
 
   public startSessionReplay() {
+    if (this._destroyed) return;
     this._sessionReplayStart?.();
   }
 
   public stopSessionReplay() {
+    if (this._destroyed) return;
     this._sessionReplayStop?.();
   }
 
@@ -597,6 +599,8 @@ export class GrowthBook<
     });
 
     // Release references to save memory
+    this._sessionReplayStart = undefined;
+    this._sessionReplayStop = undefined;
     this._subscriptions.clear();
     this._featureEvalSubs.clear();
     this._eventEvalSubs.clear();
