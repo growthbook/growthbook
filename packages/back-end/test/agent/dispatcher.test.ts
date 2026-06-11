@@ -2,7 +2,7 @@ import type { ZodType } from "zod";
 import { z } from "zod";
 import type { ReqContext } from "back-end/types/request";
 import type { OpenApiRoute } from "back-end/src/util/handler";
-import { ConflictError } from "back-end/src/util/errors";
+import { MergeConflictError } from "back-end/src/util/errors";
 
 // Short-circuit the import chain — dispatcher.ts imports allRoutes from
 // api.router, which pulls in the entire app (mongoose, integrations, etc.)
@@ -229,10 +229,10 @@ describe("dispatchInternal", () => {
     expect(seenCount).toBe(3);
   });
 
-  it("preserves a ConflictError's status and conflicts", async () => {
+  it("preserves a MergeConflictError's status and conflicts", async () => {
     _setRoutesForTests([
       makeRoute("post", "/conflict", () => {
-        throw new ConflictError("revision is stale", [{ field: "base" }]);
+        throw new MergeConflictError("revision is stale", [{ field: "base" }]);
       }),
     ]);
 
@@ -244,6 +244,8 @@ describe("dispatchInternal", () => {
     expect(result.status).toBe(409);
     expect(result.body).toEqual({
       message: "revision is stale",
+      code: "conflict",
+      details: { conflicts: [{ field: "base" }] },
       conflicts: [{ field: "base" }],
     });
   });
