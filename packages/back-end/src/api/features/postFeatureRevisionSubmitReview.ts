@@ -25,6 +25,7 @@ export async function submitRevisionReview(
     body: {
       action?: "approve" | "request-changes" | "comment";
       comment?: string;
+      skipAutoPublish?: boolean;
     };
   },
 ) {
@@ -124,33 +125,29 @@ export async function submitRevisionReview(
     reviewer,
   );
 
-  if (action === "approve") {
-    const autoPublished = await maybeAutoPublishFeatureRevision(
+  if (action === "approve" && !req.body.skipAutoPublish) {
+    const afterAutoPublish = await maybeAutoPublishFeatureRevision(
       req.context,
       feature,
       finalRevision,
     );
-    return { feature, revision: autoPublished };
+    const didAutoPublish = afterAutoPublish.status === "published";
+    return {
+      feature,
+      revision: afterAutoPublish,
+      autoPublished: didAutoPublish,
+    };
   }
 
-  return { feature, revision: finalRevision };
-}
-
-export async function approveFeatureRevision(
-  req: Pick<ApiRequestLocals, "context" | "organization"> & {
-    params: { id: string; version: number };
-    body: { comment?: string };
-  },
-) {
-  return submitRevisionReview({
-    ...req,
-    body: { action: "approve", comment: req.body.comment },
-  });
+  return { feature, revision: finalRevision, autoPublished: false };
 }
 
 export const postFeatureRevisionSubmitReview = createApiRequestHandler(
   postFeatureRevisionSubmitReviewValidator,
 )(async (req) => {
-  const { feature, revision } = await submitRevisionReview(req);
-  return { revision: toApiRevision(revision, req.context, feature) };
+  const { feature, revision, autoPublished } = await submitRevisionReview(req);
+  return {
+    revision: toApiRevision(revision, req.context, feature),
+    autoPublished,
+  };
 });

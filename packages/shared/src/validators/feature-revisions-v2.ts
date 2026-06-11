@@ -626,31 +626,21 @@ export const postFeatureRevisionSubmitReviewV2Validator = {
   path: "/features/:id/revisions/:version/submit-review",
   operationId: "postFeatureRevisionSubmitReviewV2",
   summary: "Submit a review on a draft revision",
+  description:
+    "Submits an `approve`, `request-changes`, or `comment` review on the draft. Contributors cannot approve their own drafts when `blockSelfApproval` is enabled.\n\nWhen `action` is `approve` and the revision has `autoPublishOnApproval` enabled, the revision is automatically published after approval. The response includes `autoPublished: true` when this happens. Pass `skipAutoPublish: true` to approve without triggering auto-publish.",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
       comment: z.string().optional(),
       action: z.enum(["approve", "request-changes", "comment"]).optional(),
+      skipAutoPublish: z.boolean().optional(),
     })
     .strict(),
   querySchema: z.never(),
-  responseSchema: revisionResponse,
-  version: "v2" as const,
-};
-
-export const postFeatureRevisionApproveAndPublishV2Validator = {
-  method: "post" as const,
-  path: "/features/:id/revisions/:version/approve-and-publish",
-  operationId: "postFeatureRevisionApproveAndPublishV2",
-  summary: "Approve and publish a draft revision in one request",
-  description:
-    'Atomically approves the revision and publishes it as the live version of the feature — the single-request equivalent of submitting an `approve` review and then publishing. Designed for automated agents.\n\n"Atomic" here means a single request plus idempotent self-heal: the approval is persisted first, and if the subsequent publish fails the revision is left `approved`, so retrying this same endpoint completes the publish (no database transaction is used). Authors and contributors cannot approve their own drafts when `blockSelfApproval` is enabled.',
-  tags: ["feature-revisions-v2"],
-  paramsSchema: revisionParamsStrict,
-  bodySchema: z.object({ comment: z.string().optional() }).strict(),
-  querySchema: z.never(),
-  responseSchema: revisionResponse,
+  responseSchema: revisionResponse.extend({
+    autoPublished: z.boolean().optional(),
+  }),
   version: "v2" as const,
 };
 

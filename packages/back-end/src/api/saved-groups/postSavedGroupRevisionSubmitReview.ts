@@ -84,19 +84,22 @@ export const postSavedGroupRevisionSubmitReview = createApiRequestHandler(
     ...(comment ? { comment } : {}),
   });
 
-  if (decision === "approve") {
+  if (decision === "approve" && !req.body.skipAutoPublish) {
     const entity = savedGroup as unknown as Record<string, unknown>;
-    const autoPublished = await maybeAutoPublishRevision(
+    const afterAutoPublish = await maybeAutoPublishRevision(
       req.context,
       updated,
       entity,
     );
+    const didAutoPublish = afterAutoPublish.status === "merged";
     return {
-      revision: await toApiSavedGroupRevision(autoPublished, req.context),
+      revision: await toApiSavedGroupRevision(afterAutoPublish, req.context),
+      autoPublished: didAutoPublish,
     };
   }
 
   return {
     revision: await toApiSavedGroupRevision(updated, req.context),
+    autoPublished: false,
   };
 });

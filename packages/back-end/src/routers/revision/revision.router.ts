@@ -164,6 +164,7 @@ router.post(
       .object({
         decision: z.enum(["approve", "request-changes", "comment"]),
         comment: z.string(),
+        skipAutoPublish: z.boolean().optional(),
       })
       .strict(),
   }),

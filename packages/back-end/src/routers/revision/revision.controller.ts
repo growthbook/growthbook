@@ -472,6 +472,7 @@ type PostReviewRequest = AuthRequest<
   {
     decision: ReviewDecision;
     comment: string;
+    skipAutoPublish?: boolean;
   },
   { id: string }
 >;
@@ -494,7 +495,7 @@ export const postReview = async (
   const context = getContextFromReq(req);
   const { userId } = context;
   const { id } = req.params;
-  const { decision, comment } = req.body;
+  const { decision, comment, skipAutoPublish } = req.body;
 
   const revisionModel = context.models.revisions;
 
@@ -564,18 +565,18 @@ export const postReview = async (
     },
   );
 
-  if (decision === "approve") {
+  if (decision === "approve" && !skipAutoPublish) {
     const entityModel = getEntityModel(context, existingRevision.target.type);
     const entity = entityModel
       ? await entityModel.getById(existingRevision.target.id)
       : null;
     if (entity) {
-      const autoPublished = await maybeAutoPublishRevision(
+      const afterAutoPublish = await maybeAutoPublishRevision(
         context,
         revision,
         entity as Record<string, unknown>,
       );
-      return res.status(200).json({ status: 200, revision: autoPublished });
+      return res.status(200).json({ status: 200, revision: afterAutoPublish });
     }
   }
 

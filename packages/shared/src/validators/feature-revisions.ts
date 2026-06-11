@@ -309,7 +309,7 @@ export const postFeatureRevisionSubmitReviewValidator = {
   operationId: "postFeatureRevisionSubmitReview",
   summary: "Submit a review on a draft revision",
   description:
-    "**Deprecated.** Use [POST /v2/features/:id/revisions/:version/submit-review](#operation/postFeatureRevisionSubmitReviewV2) instead.\n\nSubmits an `approve`, `request-changes`, or `comment` review on the draft. Contributors cannot approve their own drafts, but may submit comments or request changes.",
+    "**Deprecated.** Use [POST /v2/features/:id/revisions/:version/submit-review](#operation/postFeatureRevisionSubmitReviewV2) instead.\n\nSubmits an `approve`, `request-changes`, or `comment` review on the draft. Contributors cannot approve their own drafts, but may submit comments or request changes.\n\nWhen `action` is `approve` and the revision has `autoPublishOnApproval` enabled, the revision is automatically published after approval. Pass `skipAutoPublish: true` to approve without triggering auto-publish.",
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
   tags: ["feature-revisions"],
@@ -318,10 +318,13 @@ export const postFeatureRevisionSubmitReviewValidator = {
     .object({
       comment: z.string().optional(),
       action: z.enum(["approve", "request-changes", "comment"]).optional(),
+      skipAutoPublish: z.boolean().optional(),
     })
     .strict(),
   querySchema: z.never(),
-  responseSchema: revisionResponse,
+  responseSchema: revisionResponse.extend({
+    autoPublished: z.boolean().optional(),
+  }),
 };
 
 // ---- Rule validators ----

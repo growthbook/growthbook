@@ -5312,6 +5312,11 @@ paths:
         Submits an `approve`, `request-changes`, or `comment` review on the
         draft. Contributors cannot approve their own drafts, but may submit
         comments or request changes.
+
+
+        When `action` is `approve` and the revision has `autoPublishOnApproval`
+        enabled, the revision is automatically published after approval. Pass
+        `skipAutoPublish: true` to approve without triggering auto-publish.
       deprecated: true
       tags:
         - feature-revisions
@@ -5338,6 +5343,8 @@ paths:
                     - approve
                     - request-changes
                     - comment
+                skipAutoPublish:
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -5348,6 +5355,8 @@ paths:
                 properties:
                   revision:
                     $ref: '#/components/schemas/FeatureRevision'
+                  autoPublished:
+                    type: boolean
                 required:
                   - revision
                 additionalProperties: false
@@ -9777,6 +9786,16 @@ paths:
     post:
       operationId: postFeatureRevisionSubmitReviewV2
       summary: Submit a review on a draft revision
+      description: >-
+        Submits an `approve`, `request-changes`, or `comment` review on the
+        draft. Contributors cannot approve their own drafts when
+        `blockSelfApproval` is enabled.
+
+
+        When `action` is `approve` and the revision has `autoPublishOnApproval`
+        enabled, the revision is automatically published after approval. The
+        response includes `autoPublished: true` when this happens. Pass
+        `skipAutoPublish: true` to approve without triggering auto-publish.
       tags:
         - feature-revisions-v2
       parameters:
@@ -9802,6 +9821,8 @@ paths:
                     - approve
                     - request-changes
                     - comment
+                skipAutoPublish:
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -9812,6 +9833,8 @@ paths:
                 properties:
                   revision:
                     $ref: '#/components/schemas/FeatureRevisionV2'
+                  autoPublished:
+                    type: boolean
                 required:
                   - revision
                 additionalProperties: false
@@ -9820,60 +9843,6 @@ paths:
           source: >-
             curl -X POST
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/submit-review'
-            \
-              -H 'Authorization: Bearer YOUR_API_KEY'
-  /v2/features/{id}/revisions/{version}/approve-and-publish:
-    post:
-      operationId: postFeatureRevisionApproveAndPublishV2
-      summary: Approve and publish a draft revision in one request
-      description: >-
-        Atomically approves the revision and publishes it as the live version of
-        the feature — the single-request equivalent of submitting an `approve`
-        review and then publishing. Designed for automated agents.
-
-
-        "Atomic" here means a single request plus idempotent self-heal: the
-        approval is persisted first, and if the subsequent publish fails the
-        revision is left `approved`, so retrying this same endpoint completes
-        the publish (no database transaction is used). Authors and contributors
-        cannot approve their own drafts when `blockSelfApproval` is enabled.
-      tags:
-        - feature-revisions-v2
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
-        - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                comment:
-                  type: string
-              additionalProperties: false
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  revision:
-                    $ref: '#/components/schemas/FeatureRevisionV2'
-                required:
-                  - revision
-                additionalProperties: false
-      x-codeSamples:
-        - lang: cURL
-          source: >-
-            curl -X POST
-            'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/approve-and-publish'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v2/features/{id}/revisions/{version}/recall-review:
@@ -16318,6 +16287,13 @@ paths:
         Submits an `approve`, `request-changes`, or `comment` review on the
         revision. Authors and contributors cannot submit `approve` reviews on
         their own drafts when the org has `blockSelfApproval` enabled.
+
+
+        When `decision` is `approve` and the revision has
+        `autoPublishOnApproval` enabled, the revision is automatically published
+        after approval. The response includes `autoPublished: true` when this
+        happens. Pass `skipAutoPublish: true` to approve without triggering
+        auto-publish.
       tags:
         - saved-group-revisions
       parameters:
@@ -16343,6 +16319,8 @@ paths:
                     - comment
                 comment:
                   type: string
+                skipAutoPublish:
+                  type: boolean
               required:
                 - decision
               additionalProperties: false
@@ -16355,6 +16333,8 @@ paths:
                 properties:
                   revision:
                     $ref: '#/components/schemas/SavedGroupRevision'
+                  autoPublished:
+                    type: boolean
                 required:
                   - revision
                 additionalProperties: false
@@ -16363,62 +16343,6 @@ paths:
           source: >-
             curl -X POST
             'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/submit-review'
-            \
-              -H 'Authorization: Bearer YOUR_API_KEY'
-  /v1/saved-groups-revisions/{savedGroupId}/{version}/approve-and-publish:
-    post:
-      operationId: postSavedGroupRevisionApproveAndPublish
-      summary: Approve and publish a draft revision in one request
-      description: >-
-        Atomically approves the revision and publishes it as the live state of
-        the saved group — the single-request equivalent of submitting an
-        `approve` review and then publishing. Designed for automated agents.
-
-
-        "Atomic" here means a single request plus idempotent self-heal: the
-        approval is persisted first, and if the subsequent publish fails the
-        revision is left `approved`, so retrying this same endpoint completes
-        the publish (no database transaction is used, consistent with the
-        merge-ordering approach of the standalone publish endpoint). Authors and
-        contributors cannot approve their own drafts when `blockSelfApproval` is
-        enabled.
-      tags:
-        - saved-group-revisions
-      parameters:
-        - name: savedGroupId
-          in: path
-          required: true
-          description: ''
-          schema:
-            type: string
-        - $ref: '#/components/parameters/version'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                comment:
-                  type: string
-              additionalProperties: false
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  revision:
-                    $ref: '#/components/schemas/SavedGroupRevision'
-                required:
-                  - revision
-                additionalProperties: false
-      x-codeSamples:
-        - lang: cURL
-          source: >-
-            curl -X POST
-            'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/approve-and-publish'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/saved-groups-revisions/{savedGroupId}/{version}/merge-status:
