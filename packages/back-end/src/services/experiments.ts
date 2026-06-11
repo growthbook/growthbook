@@ -1395,7 +1395,7 @@ async function resolveIncrementalPrerequisiteFailure({
         ...prerequisites,
         analysisType: "main-fullRefresh",
       });
-      logger.debug(
+      logger.info(
         `Experiment ${experiment.id}: scheduled incremental refresh requires a full refresh (${validationError}); running a full refresh automatically.`,
       );
       return {
