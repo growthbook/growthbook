@@ -183,6 +183,11 @@ const indexesUpdated: Set<string> = new Set();
 // Global map to track pending index operations
 const pendingIndexOperations = new Map<string, Promise<string | void>[]>();
 
+// Per-schema cache of top-level fields that accept undefined but reject null.
+// Legacy writes serialized undefined as BSON null; reads strip those nulls so
+// they look unset, without requiring a data migration.
+const nullIntolerantOptionalFields = new WeakMap<object, ReadonlySet<string>>();
+
 // Helper function to wait for all pending index operations to complete
 export async function waitForIndexes(): Promise<void> {
   const allPromises: Promise<string | void>[] = [];
@@ -716,7 +721,7 @@ export abstract class BaseModel<
     if (!rawDocs.length) return [];
 
     const migrated = rawDocs.map((d) =>
-      this.migrate(this._removeMongooseFields(d)),
+      this._stripLegacyNullFields(this.migrate(this._removeMongooseFields(d))),
     );
     const filtered = bypassReadPermissionChecks
       ? migrated
@@ -740,7 +745,9 @@ export abstract class BaseModel<
       : await this._dangerousGetCollection().findOne(fullQuery);
     if (!doc) return null;
 
-    const migrated = this.migrate(this._removeMongooseFields(doc));
+    const migrated = this._stripLegacyNullFields(
+      this.migrate(this._removeMongooseFields(doc)),
+    );
 
     await this.populateForeignRefs([migrated]);
     if (!this.canRead(migrated)) {
@@ -827,7 +834,9 @@ export abstract class BaseModel<
 
     await this.beforeCreate(doc, writeOptions);
 
-    await this._dangerousGetCollection().insertOne(doc);
+    await this._dangerousGetCollection().insertOne(doc, {
+      ignoreUndefined: true,
+    });
 
     if (this._auditLogger) {
       await this._auditLogger.logCreate(this.context, doc);
@@ -925,14 +934,25 @@ export abstract class BaseModel<
 
     await this.customValidation(newDoc, doc, options?.writeOptions);
 
+    // Explicitly-undefined fields mean "clear this field" — translate them to
+    // $unset, since the driver would otherwise serialize undefined as null
+    const setFields: Record<string, unknown> = {};
+    const unsetFields: Record<string, ""> = {};
+    for (const [k, v] of Object.entries(allUpdates)) {
+      if (v === undefined) unsetFields[k] = "";
+      else setFields[k] = v;
+    }
+
     await this._dangerousGetCollection().updateOne(
       {
         ...this.getPrimaryKeyFilter(doc),
         organization: this.context.org.id,
       },
       {
-        $set: allUpdates,
+        ...(Object.keys(setFields).length ? { $set: setFields } : {}),
+        ...(Object.keys(unsetFields).length ? { $unset: unsetFields } : {}),
       },
+      { ignoreUndefined: true },
     );
 
     if (this._auditLogger) {
@@ -969,7 +989,9 @@ export abstract class BaseModel<
   protected async _dangerousBulkWriteCrossOrganization(
     operations: AnyBulkWriteOperation[],
   ) {
-    return dbSafeBulkWrite(this._dangerousGetCollection(), operations);
+    return dbSafeBulkWrite(this._dangerousGetCollection(), operations, {
+      ignoreUndefined: true,
+    });
   }
 
   protected async bulkWrite(operations: AnyBulkWriteOperation[]) {
@@ -998,6 +1020,7 @@ export abstract class BaseModel<
           "Unsupported bulkWrite operation type in BaseModel#bulkWrite",
         );
       }),
+      { ignoreUndefined: true },
     );
   }
 
@@ -1257,6 +1280,32 @@ export abstract class BaseModel<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private _removeMongooseFields(doc: any) {
     return omit(doc, ["__v", "_id"]) as unknown;
+  }
+
+  private _getNullIntolerantOptionalFields(): ReadonlySet<string> {
+    const cached = nullIntolerantOptionalFields.get(this.config.schema);
+    if (cached) return cached;
+    const fields = new Set<string>();
+    for (const [key, fieldSchema] of Object.entries(this.config.schema.shape)) {
+      if (
+        !z.safeParse(fieldSchema, null).success &&
+        z.safeParse(fieldSchema, undefined).success
+      ) {
+        fields.add(key);
+      }
+    }
+    nullIntolerantOptionalFields.set(this.config.schema, fields);
+    return fields;
+  }
+
+  // Mutates in place: doc is always a fresh copy from _removeMongooseFields
+  private _stripLegacyNullFields(doc: z.infer<T>): z.infer<T> {
+    for (const key of this._getNullIntolerantOptionalFields()) {
+      if ((doc as Record<string, unknown>)[key] === null) {
+        delete (doc as Record<string, unknown>)[key];
+      }
+    }
+    return doc;
   }
 }
 
