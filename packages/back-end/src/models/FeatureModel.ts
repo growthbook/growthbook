@@ -9,7 +9,7 @@ import {
   getApiFeatureAllEnvs,
   checkIfRevisionNeedsReview,
   autoMerge,
-  fillRevisionFromFeature,
+  liveRevisionFromFeature,
   PermissionError,
   stemRuleId,
 } from "shared/util";
@@ -2446,16 +2446,27 @@ export async function createAndPublishRevision({
   });
   if (!liveRevision) throw new Error("Could not load live revision");
 
+  // Live baseline for the review check and the publish merge. Built from the
+  // FEATURE document (the actual live state), never the stored revision doc:
+  // legacy revision docs can be sparse or store rules in pre-v2 shapes that
+  // read as empty, and a stale baseline makes the merge silently no-op (the
+  // revision gets marked published while the feature is never written) or
+  // skip required reviews.
+  const liveBase: FeatureRevisionInterface = {
+    ...liveRevision,
+    ...liveRevisionFromFeature(liveRevision, feature),
+  } as FeatureRevisionInterface;
+
   // Synthetic revision for the review check; caller-supplied rules replace
   // the live array wholesale (same as autoMerge).
   const syntheticRevision: FeatureRevisionInterface = {
-    ...liveRevision,
+    ...liveBase,
     ...(changes ?? {}),
-    rules: changes?.rules ?? liveRevision.rules ?? [],
+    rules: changes?.rules ?? liveBase.rules ?? [],
   };
   const requiresReview = checkIfRevisionNeedsReview({
     feature,
-    baseRevision: liveRevision,
+    baseRevision: liveBase,
     revision: syntheticRevision,
     allEnvironments,
     settings: org.settings,
@@ -2483,26 +2494,11 @@ export async function createAndPublishRevision({
     canBypassApprovalChecks,
   });
 
-  // Compute the merge result the same way postFeaturePublish does —
-  // filling sparse environmentsEnabled + holdout from the live feature.
-  const featureEnvs: Record<string, boolean> = Object.fromEntries(
-    Object.entries(feature.environmentSettings ?? {}).map(([envId, env]) => [
-      envId,
-      !!env.enabled,
-    ]),
-  );
-  const fillEnvs = (r: FeatureRevisionInterface) => ({
-    ...fillRevisionFromFeature(r, feature),
-    environmentsEnabled: {
-      ...featureEnvs,
-      ...(r.environmentsEnabled ?? {}),
-    },
-    holdout: feature.holdout ?? null,
-  });
-
+  // Merge the new revision against the live-feature baseline. base === live
+  // for a fresh revision off HEAD.
   const mergeResult = autoMerge(
-    fillEnvs(liveRevision),
-    fillEnvs(liveRevision), // base === live for a fresh revision off HEAD
+    liveBase,
+    liveBase,
     revision,
     allEnvironments,
     {},
