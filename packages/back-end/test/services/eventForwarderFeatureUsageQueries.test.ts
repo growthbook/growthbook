@@ -22,6 +22,14 @@ const mockedDecrypt =
   EventForwarderConfig.decryptEventForwarderConfigModel as jest.MockedFunction<
     typeof EventForwarderConfig.decryptEventForwarderConfigModel
   >;
+const mockedGetBigQueryTablePrefix =
+  EventForwarderConfig.getBigQueryEventForwarderTablePrefix as jest.MockedFunction<
+    typeof EventForwarderConfig.getBigQueryEventForwarderTablePrefix
+  >;
+const mockedGetSnowflakeTablePrefix =
+  EventForwarderConfig.getSnowflakeEventForwarderTablePrefix as jest.MockedFunction<
+    typeof EventForwarderConfig.getSnowflakeEventForwarderTablePrefix
+  >;
 
 function ds(
   settings: DataSourceInterface["settings"] = {},
@@ -66,6 +74,8 @@ function context() {
 describe("ensureEventForwarderFeatureUsageQuery", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockedGetBigQueryTablePrefix.mockReturnValue("gb");
+    mockedGetSnowflakeTablePrefix.mockReturnValue("GB");
   });
 
   it("creates a managed feature usage query for BigQuery", async () => {
@@ -74,7 +84,7 @@ describe("ensureEventForwarderFeatureUsageQuery", () => {
     mockedGetById.mockResolvedValue(raw);
     mockedDecrypt.mockReturnValue({
       dataset: "analytics_123",
-      tableName: "gb_events",
+      tablePrefix: "gb",
       serviceAccountKey: "{}",
     });
 
@@ -104,7 +114,7 @@ describe("ensureEventForwarderFeatureUsageQuery", () => {
     const featureUsage =
       mockedUpdate.mock.calls[0][2].settings?.queries?.featureUsage ?? [];
     expect(featureUsage).toHaveLength(1);
-    expect(featureUsage[0].query).toContain("feature_usage");
+    expect(featureUsage[0].query).toContain("gb_feature_usage");
     expect(featureUsage[0].query).toContain("feature_key AS feature_key");
     expect(featureUsage[0].query).toContain("received_at BETWEEN");
     expect(ids).toEqual([featureUsage[0].id]);
@@ -120,7 +130,7 @@ describe("ensureEventForwarderFeatureUsageQuery", () => {
     mockedGetById.mockResolvedValue(raw);
     mockedDecrypt.mockReturnValue({
       dataset: "analytics_123",
-      tableName: "gb_events",
+      tablePrefix: "gb",
       serviceAccountKey: "{}",
     });
 
@@ -162,7 +172,7 @@ describe("ensureEventForwarderFeatureUsageQuery", () => {
     mockedDecrypt.mockReturnValue({
       database: "MY_DB",
       schema: "PUBLIC",
-      tableName: "MY_DB.PUBLIC.GB_EVENTS",
+      tablePrefix: "GB",
       account: "acct",
       username: "user",
       privateKey: "key",
@@ -176,7 +186,7 @@ describe("ensureEventForwarderFeatureUsageQuery", () => {
 
     const featureUsage =
       mockedUpdate.mock.calls[0][2].settings?.queries?.featureUsage ?? [];
-    expect(featureUsage[0].query).toContain("MY_DB.PUBLIC.FEATURE_USAGE");
+    expect(featureUsage[0].query).toContain("MY_DB.PUBLIC.GB_FEATURE_USAGE");
     expect(featureUsage[0].query).not.toContain("WHERE");
   });
 
@@ -192,7 +202,7 @@ describe("ensureEventForwarderFeatureUsageQuery", () => {
     mockedGetById.mockResolvedValue(raw);
     mockedDecrypt.mockReturnValue({
       dataset: "analytics_123",
-      tableName: "gb_events",
+      tablePrefix: "gb",
       serviceAccountKey: "{}",
     });
 

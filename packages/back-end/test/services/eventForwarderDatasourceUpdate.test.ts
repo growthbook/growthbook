@@ -49,7 +49,7 @@ function draft(): EventForwarderConfigDraft {
   return {
     sinkType: "bigquery",
     config: {
-      tableName: "analytics.gb_events",
+      tablePrefix: "analytics.gb",
     },
   };
 }

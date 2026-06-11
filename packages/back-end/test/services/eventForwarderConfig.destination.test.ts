@@ -16,11 +16,11 @@ function encryptConfig(config: Record<string, unknown>): string {
 }
 
 describe("event forwarder qualified destinations", () => {
-  it("stores parsed BigQuery dataset.table from draft", () => {
+  it("stores parsed BigQuery dataset.prefix from draft", () => {
     const result = buildNormalizedEventForwarderSinkPayloadForTest(
       {
         sinkType: "bigquery",
-        config: { tableName: "analytics_123.gb_events" },
+        config: { tablePrefix: "analytics_123.gb" },
       },
       {
         projectId: "my-project",
@@ -33,16 +33,16 @@ describe("event forwarder qualified destinations", () => {
 
     expect(result).toMatchObject({
       dataset: "analytics_123",
-      tableName: "gb_events",
+      tablePrefix: "gb",
     });
   });
 
-  it("stores parsed Snowflake DATABASE.SCHEMA.TABLE and draft role/warehouse", () => {
+  it("stores parsed Snowflake DATABASE.SCHEMA.PREFIX and draft role/warehouse", () => {
     const result = buildNormalizedEventForwarderSinkPayloadForTest(
       {
         sinkType: "snowflake",
         config: {
-          tableName: "EVENT_DB.PUBLIC.gb-events",
+          tablePrefix: "EVENT_DB.PUBLIC.gb-",
           accessUrl: "https://myorg-account.snowflakecomputing.com",
           role: "EVENT_ROLE",
           warehouse: "EVENT_WH",
@@ -65,7 +65,7 @@ describe("event forwarder qualified destinations", () => {
     expect(result).toMatchObject({
       database: "EVENT_DB",
       schema: "PUBLIC",
-      tableName: "GB_EVENTS",
+      tablePrefix: "GB",
       accessUrl: "https://myorg-account.snowflakecomputing.com",
       role: "EVENT_ROLE",
       warehouse: "EVENT_WH",
@@ -77,7 +77,7 @@ describe("event forwarder qualified destinations", () => {
       id: "ef_1",
       sinkType: "snowflake",
       config: encryptConfig({
-        tableName: "GB_EVENTS",
+        tablePrefix: "GB",
         account: "myorg-account",
         accessUrl: "https://xy12345.us-east-2.aws.snowflakecomputing.com",
         username: "svc",
@@ -93,7 +93,7 @@ describe("event forwarder qualified destinations", () => {
     expect(draft).toEqual({
       sinkType: "snowflake",
       config: {
-        tableName: "EVENT_DB.PUBLIC.GB_EVENTS",
+        tablePrefix: "EVENT_DB.PUBLIC.GB",
         accessUrl: "https://xy12345.us-east-2.aws.snowflakecomputing.com",
         role: "EVENT_ROLE",
         warehouse: "EVENT_WH",

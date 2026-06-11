@@ -186,6 +186,7 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
       sinkType: "bigquery",
       projectId: "my-project",
       dataset: "analytics_123",
+      tablePrefix: "gb",
     });
   });
 

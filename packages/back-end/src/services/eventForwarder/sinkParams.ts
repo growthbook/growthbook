@@ -5,18 +5,24 @@ import {
   SnowflakeEventForwarderStoredConfig,
 } from "shared/types/event-forwarder";
 import { EventForwarderConfigInterface } from "shared/validators";
-import { decryptEventForwarderConfigModel } from "back-end/src/services/eventForwarder/config";
+import {
+  decryptEventForwarderConfigModel,
+  getBigQueryEventForwarderTablePrefix,
+  getSnowflakeEventForwarderTablePrefix,
+} from "back-end/src/services/eventForwarder/config";
 
 export type SinkQueryConnectionParams =
   | {
       sinkType: "bigquery";
       projectId: string;
       dataset: string;
+      tablePrefix: string;
     }
   | {
       sinkType: "snowflake";
       database: string;
       schema: string;
+      tablePrefix: string;
     };
 
 export function buildSinkQueryConnectionParams(
@@ -45,6 +51,7 @@ export function buildSinkQueryConnectionParams(
         sinkType: "bigquery",
         projectId,
         dataset: decrypted.dataset.trim(),
+        tablePrefix: getBigQueryEventForwarderTablePrefix(decrypted),
       };
     }
     case "snowflake": {
@@ -57,6 +64,7 @@ export function buildSinkQueryConnectionParams(
         sinkType: "snowflake",
         database: decrypted.database.trim(),
         schema: decrypted.schema.trim(),
+        tablePrefix: getSnowflakeEventForwarderTablePrefix(decrypted),
       };
     }
     default:

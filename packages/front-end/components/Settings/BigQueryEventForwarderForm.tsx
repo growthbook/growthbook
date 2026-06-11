@@ -22,20 +22,19 @@ const BigQueryEventForwarderForm: FC<{
   return (
     <Flex direction="column" gap="3" className={className}>
       <EventForwarderTableNameField
-        label="Destination table"
-        value={bigQueryEventForwarderConfig.config.tableName}
-        onChange={(tableName) =>
+        label="Destination tables prefix"
+        value={bigQueryEventForwarderConfig.config.tablePrefix}
+        onChange={(tablePrefix) =>
           setEventForwarderConfig({
             sinkType: "bigquery",
             config: {
               ...bigQueryEventForwarderConfig.config,
-              tableName,
+              tablePrefix,
             },
           })
         }
-        placeholder="my_dataset.gb_events"
-        tooltip="BigQuery table where enriched events are written. Use dataset.table; project comes from the datasource unless you specify project.dataset.table."
-        helpText="Example: analytics_123456789.gb_events. Letters, numbers, and underscores in the table name; hyphens and spaces are normalized to underscores when saving."
+        placeholder="my_dataset.gb"
+        tooltip="BigQuery table prefix used for Event Forwarder tables."
       />
     </Flex>
   );

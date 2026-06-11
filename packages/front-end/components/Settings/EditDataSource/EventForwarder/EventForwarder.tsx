@@ -1,11 +1,10 @@
 import { useCallback, useRef, useState } from "react";
 import {
-  DEFAULT_EVENT_FORWARDER_BIGQUERY_TABLE_NAME,
-  DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME,
-  formatBigQueryEventForwarderDestination,
-  formatSnowflakeEventForwarderDestination,
-  parseBigQueryEventForwarderDestination,
-  parseSnowflakeEventForwarderDestination,
+  DEFAULT_EVENT_FORWARDER_TABLE_PREFIX,
+  formatBigQueryEventForwarderTablePrefix,
+  formatSnowflakeEventForwarderTablePrefix,
+  parseBigQueryEventForwarderTablePrefix,
+  parseSnowflakeEventForwarderTablePrefix,
   stripLeadingUtf8ByteOrderMark,
   supportsEventForwarder,
   tryDeriveSnowflakeAccessUrlFromAccount,
@@ -127,7 +126,7 @@ function getEventForwarderDraft(
     return {
       sinkType: "bigquery",
       config: {
-        tableName: existing.config.tableName,
+        tablePrefix: existing.config.tablePrefix,
         serviceAccountKey: existing.config.serviceAccountKey,
       },
     };
@@ -136,7 +135,7 @@ function getEventForwarderDraft(
     return {
       sinkType: "snowflake",
       config: {
-        tableName: existing.config.tableName,
+        tablePrefix: existing.config.tablePrefix,
         accessUrl: existing.config.accessUrl,
         role: existing.config.role,
         warehouse: existing.config.warehouse,
@@ -153,9 +152,9 @@ function getEventForwarderDraft(
     return {
       sinkType: "bigquery",
       config: {
-        tableName: formatBigQueryEventForwarderDestination({
+        tablePrefix: formatBigQueryEventForwarderTablePrefix({
           dataset: params.defaultDataset || "",
-          table: DEFAULT_EVENT_FORWARDER_BIGQUERY_TABLE_NAME,
+          tablePrefix: DEFAULT_EVENT_FORWARDER_TABLE_PREFIX,
         }),
         ...(serviceAccountKey ? { serviceAccountKey } : {}),
       },
@@ -166,10 +165,10 @@ function getEventForwarderDraft(
     return {
       sinkType: "snowflake",
       config: {
-        tableName: formatSnowflakeEventForwarderDestination({
+        tablePrefix: formatSnowflakeEventForwarderTablePrefix({
           database: params.database || "",
           schema: params.schema || "",
-          table: DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME,
+          tablePrefix: DEFAULT_EVENT_FORWARDER_TABLE_PREFIX.toUpperCase(),
         }),
         accessUrl:
           params.accessUrl?.trim() ||
@@ -193,7 +192,9 @@ function getEventForwarderParamsForSubmit(
   if (!cfg || cfg.sinkType !== "bigquery") return undefined;
 
   try {
-    const parsed = parseBigQueryEventForwarderDestination(cfg.config.tableName);
+    const parsed = parseBigQueryEventForwarderTablePrefix(
+      cfg.config.tablePrefix,
+    );
     const originalParams =
       dataSource.params as Partial<BigQueryConnectionParams>;
     if (parsed.dataset === (originalParams.defaultDataset || "")) {
@@ -215,7 +216,7 @@ function getCanConfirmEventForwarder(
   const rawParams = draft.params || {};
   if (cfg.sinkType === "bigquery") {
     try {
-      parseBigQueryEventForwarderDestination(cfg.config.tableName);
+      parseBigQueryEventForwarderTablePrefix(cfg.config.tablePrefix);
       return true;
     } catch {
       return false;
@@ -227,7 +228,7 @@ function getCanConfirmEventForwarder(
     const hasSnowflakePrivateKey =
       authMethod === "key-pair" || !!p.privateKey?.trim();
     try {
-      parseSnowflakeEventForwarderDestination(cfg.config.tableName);
+      parseSnowflakeEventForwarderTablePrefix(cfg.config.tablePrefix);
     } catch {
       return false;
     }
@@ -681,8 +682,8 @@ export default function EventForwarder({
             <Flex direction="column" gap="4">
               {eventForwarderConfig.sinkType === "bigquery" ? (
                 <EventForwarderConfigField
-                  label="Destination table"
-                  value={eventForwarderConfig.config.tableName}
+                  label="Destination tables prefix"
+                  value={eventForwarderConfig.config.tablePrefix}
                 />
               ) : null}
               {eventForwarderConfig.sinkType === "snowflake" ? (
@@ -692,8 +693,8 @@ export default function EventForwarder({
                     value={eventForwarderConfig.config.accessUrl}
                   />
                   <EventForwarderConfigField
-                    label="Destination table"
-                    value={eventForwarderConfig.config.tableName}
+                    label="Destination tables prefix"
+                    value={eventForwarderConfig.config.tablePrefix}
                   />
                   <EventForwarderConfigField
                     label="Role"

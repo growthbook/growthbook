@@ -69,7 +69,7 @@ describe("event-forwarder-fact-table SQL", () => {
       sinkType: "bigquery",
       projectId: "my-project",
       dataset: "analytics_123",
-      tableName: "gb_events",
+      tablePrefix: "gb",
     });
 
     expect(sql).toContain("SELECT\n  timestamp,\n  event_name");
@@ -84,7 +84,7 @@ describe("event-forwarder-fact-table SQL", () => {
       sinkType: "bigquery",
       projectId: "my-project",
       dataset: "analytics_123",
-      tableName: "gb_events",
+      tablePrefix: "gb",
       datasourceProjects: ["proj_1"],
       attributeSchema: [
         { property: "user_id", datatype: "string" },
@@ -109,7 +109,7 @@ WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{end
       sinkType: "bigquery",
       projectId: "my-project",
       dataset: "analytics_123",
-      tableName: "gb_events",
+      tablePrefix: "gb",
       attributeSchema: [
         { property: "age", datatype: "number" },
         { property: "is_active", datatype: "boolean" },
@@ -137,7 +137,7 @@ WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{end
       sinkType: "snowflake",
       database: "MY_DB",
       schema: "PUBLIC",
-      tableName: "GB_EVENTS",
+      tablePrefix: "GB",
       userIdTypes: ["device_id"],
     });
 
@@ -150,7 +150,7 @@ WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{end
       sinkType: "snowflake",
       database: "MY_DB",
       schema: "PUBLIC",
-      tableName: "GB_EVENTS",
+      tablePrefix: "GB",
       attributeSchema: [
         { property: "employee_id", datatype: "number", hashAttribute: true },
       ],
@@ -167,7 +167,7 @@ WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{end
       sinkType: "bigquery",
       projectId: "my-project",
       dataset: "analytics_123",
-      tableName: "gb_events",
+      tablePrefix: "gb",
       userIdTypes: ["employee_id"],
       attributeSchema: [
         { property: "employee_id", datatype: "number", hashAttribute: true },
@@ -197,7 +197,7 @@ WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{end
       sinkType: "snowflake",
       database: "MY_DB",
       schema: "PUBLIC",
-      tableName: "GB_EVENTS",
+      tablePrefix: "GB",
       attributeSchema: [
         { property: "user_id", datatype: "string" },
         { property: "browser", datatype: "string" },
@@ -241,7 +241,7 @@ FROM MY_DB.PUBLIC.GB_EVENTS`);
       sinkType: "bigquery",
       projectId: "my-project",
       dataset: "analytics_123",
-      tableName: "gb_events",
+      tablePrefix: "gb",
       attributeSchema: defaultAutoAttributes,
     });
 
@@ -266,7 +266,7 @@ FROM MY_DB.PUBLIC.GB_EVENTS`);
       sinkType: "snowflake",
       database: "MY_DB",
       schema: "PUBLIC",
-      tableName: "GB_EVENTS",
+      tablePrefix: "GB",
       attributeSchema: [
         { property: "age", datatype: "number" },
         { property: "is_active", datatype: "boolean" },

@@ -5,6 +5,10 @@ import type {
   SDKAttributeType,
 } from "shared/types/organization";
 import { attributeMatchesDatasourceProjects } from "./event-forwarder-datasource";
+import {
+  resolveBigQueryEventForwarderTableNames,
+  resolveSnowflakeEventForwarderTableNames,
+} from "./event-forwarder-destination";
 
 /** BigQuery daily partition column for BigQueryStorageSink (timestamp-millis). */
 export const EVENT_FORWARDER_AVRO_PARTITION_FIELD = "received_at" as const;
@@ -380,7 +384,7 @@ export type BuildEventForwarderEventsFactTableSqlParams =
       sinkType: "bigquery";
       projectId: string;
       dataset: string;
-      tableName: string;
+      tablePrefix: string;
       attributeSchema?: SDKAttributeSchema;
       datasourceProjects?: string[];
       userIdTypes?: string[];
@@ -389,7 +393,7 @@ export type BuildEventForwarderEventsFactTableSqlParams =
       sinkType: "snowflake";
       database: string;
       schema: string;
-      tableName: string;
+      tablePrefix: string;
       attributeSchema?: SDKAttributeSchema;
       datasourceProjects?: string[];
       userIdTypes?: string[];
@@ -401,19 +405,25 @@ export function buildEventForwarderEventsFactTableSql(
   const partitionFilter = `${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{endDate}}'`;
 
   if (params.sinkType === "bigquery") {
+    const tableNames = resolveBigQueryEventForwarderTableNames(
+      params.tablePrefix,
+    );
     const tableRef = buildBigQueryEventForwarderTableReference(
       params.projectId,
       params.dataset,
-      params.tableName,
+      tableNames.events,
     );
     const select = buildEventForwarderEventsFactTableSelect(params);
     return `${select}\nFROM ${tableRef}\nWHERE ${partitionFilter}`;
   }
 
+  const tableNames = resolveSnowflakeEventForwarderTableNames(
+    params.tablePrefix,
+  );
   const tableRef = buildSnowflakeEventForwarderTableReference(
     params.database,
     params.schema,
-    params.tableName,
+    tableNames.events,
   );
   const select = buildEventForwarderEventsFactTableSelect(params);
 

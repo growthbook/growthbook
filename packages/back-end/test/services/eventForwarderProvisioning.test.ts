@@ -5,7 +5,7 @@ import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { postProvisionEventForwarderToLicenseServer } from "back-end/src/enterprise/licenseUtil";
 import { decryptEventForwarderConfigModel } from "back-end/src/services/eventForwarder/config";
 import {
-  resolveBigQueryEventForwarderTableName,
+  resolveBigQueryEventForwarderTablePrefix,
   ensureEventForwarderBigQueryTables,
 } from "back-end/src/services/eventForwarder/bigquery";
 import { testEventForwarderWriteAccess } from "back-end/src/services/eventForwarder/writeAccess";
@@ -39,9 +39,9 @@ const mockedProvisionRemote =
 const mockedDecrypt = decryptEventForwarderConfigModel as jest.MockedFunction<
   typeof decryptEventForwarderConfigModel
 >;
-const mockedResolveBigQueryTableName =
-  resolveBigQueryEventForwarderTableName as jest.MockedFunction<
-    typeof resolveBigQueryEventForwarderTableName
+const mockedResolveBigQueryTablePrefix =
+  resolveBigQueryEventForwarderTablePrefix as jest.MockedFunction<
+    typeof resolveBigQueryEventForwarderTablePrefix
   >;
 const mockedWriteAccess = testEventForwarderWriteAccess as jest.MockedFunction<
   typeof testEventForwarderWriteAccess
@@ -87,10 +87,10 @@ describe("provisionEventForwarderThroughLicenseServer", () => {
     mockedGetDataSourceById.mockResolvedValue(datasource());
     mockedDecrypt.mockReturnValue({
       dataset: "analytics_123",
-      tableName: "gb_events",
+      tablePrefix: "gb",
       serviceAccountKey: "{}",
     });
-    mockedResolveBigQueryTableName.mockResolvedValue("gb_events");
+    mockedResolveBigQueryTablePrefix.mockResolvedValue("gb");
     mockedWriteAccess.mockResolvedValue({
       results: {
         sinkWrite: { result: "success" },

@@ -1,16 +1,16 @@
 import * as bq from "@google-cloud/bigquery";
 import {
-  EVENT_FORWARDER_EXPERIMENT_VIEWED_TABLE,
   EVENT_FORWARDER_AVRO_PARTITION_FIELD,
   isValidBigQueryTableName,
-  normalizeBigQueryTableNameForEventForwarder,
+  resolveBigQueryEventForwarderTableNames,
 } from "shared/util";
 import { BigQueryEventForwarderStoredConfig } from "shared/types/event-forwarder";
 import { EventForwarderConfigInterface } from "shared/validators";
-import { decryptEventForwarderConfigModel } from "back-end/src/services/eventForwarder/config";
+import {
+  decryptEventForwarderConfigModel,
+  getBigQueryEventForwarderTablePrefix,
+} from "back-end/src/services/eventForwarder/config";
 import { logger } from "back-end/src/util/logger";
-
-const FEATURE_USAGE_TABLE = "feature_usage";
 
 const TIME_PARTITIONING: bq.TableMetadata["timePartitioning"] = {
   type: "DAY",
@@ -136,9 +136,9 @@ async function ensureTable(
 }
 
 /**
- * Resolves the BigQuery table name for the Confluent sink. Existing tables are reused.
+ * Resolves the BigQuery table prefix for the Confluent sink. Existing tables are reused.
  */
-export async function resolveBigQueryEventForwarderTableName(
+export async function resolveBigQueryEventForwarderTablePrefix(
   eventForwarderConfig: EventForwarderConfigInterface,
 ): Promise<string> {
   const storedConfig =
@@ -146,12 +146,12 @@ export async function resolveBigQueryEventForwarderTableName(
       eventForwarderConfig,
     );
 
-  const trimmed = storedConfig.tableName.trim();
+  const trimmed = getBigQueryEventForwarderTablePrefix(storedConfig);
   if (!trimmed) {
-    throw new Error("Missing BigQuery event forwarder table name");
+    throw new Error("Missing BigQuery event forwarder table prefix");
   }
 
-  const baseTableName = normalizeBigQueryTableNameForEventForwarder(trimmed);
+  const tableNames = resolveBigQueryEventForwarderTableNames(trimmed);
 
   if (!storedConfig.dataset) {
     throw new Error(
@@ -159,22 +159,24 @@ export async function resolveBigQueryEventForwarderTableName(
     );
   }
 
-  validateBigQueryTableName(baseTableName);
-  return baseTableName;
+  validateBigQueryTableName(tableNames.events);
+  validateBigQueryTableName(tableNames.experimentViewed);
+  validateBigQueryTableName(tableNames.featureUsage);
+  return trimmed;
 }
 
 export type EnsureEventForwarderBigQueryTablesParams = {
   projectId: string;
   dataset: string;
-  tableName: string;
+  tablePrefix: string;
   serviceAccountKey?: string;
 };
 
 /**
  * Idempotently creates the three BigQuery tables for an event forwarder:
- * - The main catch-all events table (user-defined name)
- * - `experiment_viewed` — dedicated table for Experiment Viewed events
- * - `feature_usage` — dedicated table for Feature Evaluated events
+ * - `{prefix}_events` — main catch-all events table
+ * - `{prefix}_experiment_viewed` — dedicated table for Experiment Viewed events
+ * - `{prefix}_feature_usage` — dedicated table for Feature Evaluated events
  *
  * All three are DAY-partitioned on `received_at`. `attributes` and `properties`
  * are stored as native BigQuery JSON columns.
@@ -190,14 +192,13 @@ export async function ensureEventForwarderBigQueryTables(
     params.serviceAccountKey,
   );
   const ds = client.dataset(params.dataset);
+  const tableNames = resolveBigQueryEventForwarderTableNames(
+    params.tablePrefix,
+  );
 
   await Promise.all([
-    ensureTable(ds, params.tableName, MAIN_TABLE_SCHEMA),
-    ensureTable(
-      ds,
-      EVENT_FORWARDER_EXPERIMENT_VIEWED_TABLE,
-      EXPERIMENT_VIEWED_SCHEMA,
-    ),
-    ensureTable(ds, FEATURE_USAGE_TABLE, FEATURE_USAGE_SCHEMA),
+    ensureTable(ds, tableNames.events, MAIN_TABLE_SCHEMA),
+    ensureTable(ds, tableNames.experimentViewed, EXPERIMENT_VIEWED_SCHEMA),
+    ensureTable(ds, tableNames.featureUsage, FEATURE_USAGE_SCHEMA),
   ]);
 }
