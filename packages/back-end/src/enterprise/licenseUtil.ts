@@ -1031,14 +1031,14 @@ export type EventForwarderLicenseProvisionParams =
   | (EventForwarderLicenseProvisionBaseParams & {
       sinkType: "bigquery";
       bigqueryProjectId: string;
-      resolvedTableName: string;
+      tablePrefix: string;
       bigqueryDataset: string;
       serviceAccountKeyJson: string;
     })
   | (EventForwarderLicenseProvisionBaseParams & {
       sinkType: "snowflake";
       snowflake: {
-        tableName: string;
+        tablePrefix: string;
         account: string;
         accessUrl?: string;
         username: string;
@@ -1164,7 +1164,7 @@ export type EventForwarderLicenseUpdateCredentialsParams =
       sinkType: "bigquery";
       bigqueryProjectId: string;
       bigqueryDataset: string;
-      resolvedTableName: string;
+      tablePrefix: string;
       serviceAccountKeyJson: string;
     }
   | {
@@ -1173,7 +1173,7 @@ export type EventForwarderLicenseUpdateCredentialsParams =
       connectorName: string;
       sinkType: "snowflake";
       snowflake: {
-        tableName: string;
+        tablePrefix: string;
         account: string;
         accessUrl?: string;
         username: string;

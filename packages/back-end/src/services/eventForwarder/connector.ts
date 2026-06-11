@@ -25,7 +25,7 @@ import {
 import { decryptEventForwarderConfigModel } from "back-end/src/services/eventForwarder/config";
 import {
   ensureEventForwarderBigQueryTables,
-  resolveBigQueryEventForwarderTableName,
+  resolveBigQueryEventForwarderTablePrefix,
 } from "back-end/src/services/eventForwarder/bigquery";
 import { ensureEventForwarderFeatureUsageQuery } from "back-end/src/services/eventForwarder/datasourceQueries";
 import { initializeDatasourceUserIdTypesFromOrgAttributeSchema } from "back-end/src/services/eventForwarder/datasourceSync";
@@ -226,8 +226,8 @@ export async function provisionEventForwarderThroughLicenseServer(
           );
         }
 
-        const resolvedTableName =
-          await resolveBigQueryEventForwarderTableName(eventForwarderConfig);
+        const tablePrefix =
+          await resolveBigQueryEventForwarderTablePrefix(eventForwarderConfig);
 
         const decrypted =
           decryptEventForwarderConfigModel<BigQueryEventForwarderStoredConfig>(
@@ -246,7 +246,7 @@ export async function provisionEventForwarderThroughLicenseServer(
         await ensureEventForwarderBigQueryTables({
           projectId,
           dataset: decrypted.dataset.trim(),
-          tableName: resolvedTableName,
+          tablePrefix,
           serviceAccountKey: decrypted.serviceAccountKey,
         });
 
@@ -256,7 +256,7 @@ export async function provisionEventForwarderThroughLicenseServer(
           topic: eventForwarderConfig.topic,
           sinkType: "bigquery",
           bigqueryProjectId: projectId,
-          resolvedTableName,
+          tablePrefix,
           bigqueryDataset: decrypted.dataset.trim(),
           serviceAccountKeyJson: (decrypted.serviceAccountKey ?? "").trim(),
           attributeSchema,
@@ -433,8 +433,8 @@ export async function updateEventForwarderCredentialsThroughLicenseServer(
           );
         }
 
-        const resolvedTableName =
-          await resolveBigQueryEventForwarderTableName(eventForwarderConfig);
+        const tablePrefix =
+          await resolveBigQueryEventForwarderTablePrefix(eventForwarderConfig);
 
         const decrypted =
           decryptEventForwarderConfigModel<BigQueryEventForwarderStoredConfig>(
@@ -447,7 +447,7 @@ export async function updateEventForwarderCredentialsThroughLicenseServer(
           connectorName,
           sinkType: "bigquery",
           bigqueryProjectId: projectId,
-          resolvedTableName,
+          tablePrefix,
           bigqueryDataset: decrypted.dataset.trim(),
           serviceAccountKeyJson: (decrypted.serviceAccountKey ?? "").trim(),
         });

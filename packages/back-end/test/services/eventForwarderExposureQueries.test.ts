@@ -26,6 +26,14 @@ const mockedDecrypt =
   EventForwarderConfig.decryptEventForwarderConfigModel as jest.MockedFunction<
     typeof EventForwarderConfig.decryptEventForwarderConfigModel
   >;
+const mockedGetBigQueryTablePrefix =
+  EventForwarderConfig.getBigQueryEventForwarderTablePrefix as jest.MockedFunction<
+    typeof EventForwarderConfig.getBigQueryEventForwarderTablePrefix
+  >;
+const mockedGetSnowflakeTablePrefix =
+  EventForwarderConfig.getSnowflakeEventForwarderTablePrefix as jest.MockedFunction<
+    typeof EventForwarderConfig.getSnowflakeEventForwarderTablePrefix
+  >;
 const mockedQueueWarehouseSync =
   queueDelayedEventForwarderWarehouseSyncForDatasource as jest.MockedFunction<
     typeof queueDelayedEventForwarderWarehouseSyncForDatasource
@@ -83,6 +91,8 @@ function context(
 describe("ensureEventForwarderExposureQueries", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockedGetBigQueryTablePrefix.mockReturnValue("gb");
+    mockedGetSnowflakeTablePrefix.mockReturnValue("GB");
   });
 
   it("creates BigQuery exposure queries using decrypted params when datasourceParams is omitted", async () => {
@@ -100,7 +110,7 @@ describe("ensureEventForwarderExposureQueries", () => {
     mockedGetById.mockResolvedValue(raw);
     mockedDecrypt.mockReturnValue({
       dataset: "analytics_123",
-      tableName: "gb_events",
+      tablePrefix: "gb",
       serviceAccountKey: "{}",
     });
 
@@ -142,7 +152,7 @@ describe("ensureEventForwarderExposureQueries", () => {
     mockedGetById.mockResolvedValue(raw);
     mockedDecrypt.mockReturnValue({
       dataset: "analytics_123",
-      tableName: "gb_events",
+      tablePrefix: "gb",
       serviceAccountKey: "{}",
     });
 
@@ -179,7 +189,7 @@ describe("ensureEventForwarderExposureQueries", () => {
     const exposure =
       mockedUpdate.mock.calls[0][2].settings?.queries?.exposure ?? [];
     expect(exposure).toHaveLength(2);
-    expect(exposure[0].query).toContain("experiment_viewed");
+    expect(exposure[0].query).toContain("gb_experiment_viewed");
     expect(exposure[0].query).toContain("received_at BETWEEN");
     expect(exposure[0].query).not.toContain("experiment_id LIKE");
     expect(mockedQueueWarehouseSync).toHaveBeenCalledWith(
@@ -202,7 +212,7 @@ describe("ensureEventForwarderExposureQueries", () => {
     mockedDecrypt.mockReturnValue({
       database: "MY_DB",
       schema: "PUBLIC",
-      tableName: "gb_events",
+      tablePrefix: "GB",
       account: "acct",
       username: "user",
       privateKey: "key",
@@ -217,7 +227,7 @@ describe("ensureEventForwarderExposureQueries", () => {
     const exposure =
       mockedUpdate.mock.calls[0][2].settings?.queries?.exposure ?? [];
     expect(exposure).toHaveLength(1);
-    expect(exposure[0].query).toContain("MY_DB.PUBLIC.EXPERIMENT_VIEWED");
+    expect(exposure[0].query).toContain("MY_DB.PUBLIC.GB_EXPERIMENT_VIEWED");
     expect(exposure[0].query).not.toContain("WHERE");
   });
 
@@ -240,7 +250,7 @@ describe("ensureEventForwarderExposureQueries", () => {
     mockedGetById.mockResolvedValue(raw);
     mockedDecrypt.mockReturnValue({
       dataset: "analytics_123",
-      tableName: "gb_events",
+      tablePrefix: "gb",
       serviceAccountKey: "{}",
     });
 
@@ -277,7 +287,7 @@ describe("ensureEventForwarderExposureQueries", () => {
     mockedGetById.mockResolvedValue(raw);
     mockedDecrypt.mockReturnValue({
       dataset: "analytics_123",
-      tableName: "gb_events",
+      tablePrefix: "gb",
       serviceAccountKey: "{}",
     });
 
@@ -321,7 +331,7 @@ describe("ensureEventForwarderExposureQueries", () => {
     mockedGetById.mockResolvedValue(raw);
     mockedDecrypt.mockReturnValue({
       dataset: "analytics_123",
-      tableName: "gb_events",
+      tablePrefix: "gb",
       serviceAccountKey: "{}",
     });
 
@@ -366,7 +376,7 @@ describe("ensureEventForwarderExposureQueries", () => {
     mockedGetById.mockResolvedValue(raw);
     mockedDecrypt.mockReturnValue({
       dataset: "analytics_123",
-      tableName: "gb_events",
+      tablePrefix: "gb",
       serviceAccountKey: "{}",
     });
 
@@ -415,7 +425,7 @@ describe("ensureEventForwarderExposureQueries", () => {
     mockedGetById.mockResolvedValue(raw);
     mockedDecrypt.mockReturnValue({
       dataset: "analytics_123",
-      tableName: "gb_events",
+      tablePrefix: "gb",
       serviceAccountKey: "{}",
     });
 

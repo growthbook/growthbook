@@ -4,7 +4,12 @@ import type {
   SDKAttributeSchema,
   SDKAttributeType,
 } from "shared/types/organization";
-import { normalizeSnowflakeTableNameForEventForwarder } from "./event-forwarder-destination";
+import {
+  EVENT_FORWARDER_EXPERIMENT_VIEWED_TABLE_SUFFIX,
+  EVENT_FORWARDER_FEATURE_USAGE_TABLE_SUFFIX,
+  resolveBigQueryEventForwarderTableNames,
+  resolveSnowflakeEventForwarderTableNames,
+} from "./event-forwarder-destination";
 import {
   buildBigQueryEventForwarderTableReference,
   buildEventForwarderNestedAttributeValueSql,
@@ -13,8 +18,10 @@ import {
   quoteBigQueryIdentifier,
 } from "./event-forwarder-fact-table";
 
-export const EVENT_FORWARDER_EXPERIMENT_VIEWED_TABLE = "experiment_viewed";
-export const EVENT_FORWARDER_FEATURE_USAGE_TABLE = "feature_usage";
+export const EVENT_FORWARDER_EXPERIMENT_VIEWED_TABLE =
+  EVENT_FORWARDER_EXPERIMENT_VIEWED_TABLE_SUFFIX;
+export const EVENT_FORWARDER_FEATURE_USAGE_TABLE =
+  EVENT_FORWARDER_FEATURE_USAGE_TABLE_SUFFIX;
 export const EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION =
   "Managed by Event Forwarder and updated when the linked Identifier type changes.";
 export const EVENT_FORWARDER_MANAGED_FEATURE_USAGE_QUERY_DESCRIPTION =
@@ -25,11 +32,13 @@ export type BuildEventForwarderExperimentViewedTableRefParams =
       sinkType: "bigquery";
       projectId: string;
       dataset: string;
+      tablePrefix: string;
     }
   | {
       sinkType: "snowflake";
       database: string;
       schema: string;
+      tablePrefix: string;
     };
 
 export type BuildEventForwarderFeatureUsageTableRefParams =
@@ -39,19 +48,23 @@ export function buildEventForwarderExperimentViewedTableReference(
   params: BuildEventForwarderExperimentViewedTableRefParams,
 ): string {
   if (params.sinkType === "bigquery") {
+    const tableNames = resolveBigQueryEventForwarderTableNames(
+      params.tablePrefix,
+    );
     return buildBigQueryEventForwarderTableReference(
       params.projectId,
       params.dataset,
-      EVENT_FORWARDER_EXPERIMENT_VIEWED_TABLE,
+      tableNames.experimentViewed,
     );
   }
 
+  const tableNames = resolveSnowflakeEventForwarderTableNames(
+    params.tablePrefix,
+  );
   return buildSnowflakeEventForwarderTableReference(
     params.database,
     params.schema,
-    normalizeSnowflakeTableNameForEventForwarder(
-      EVENT_FORWARDER_EXPERIMENT_VIEWED_TABLE,
-    ),
+    tableNames.experimentViewed,
   );
 }
 
@@ -59,19 +72,23 @@ export function buildEventForwarderFeatureUsageTableReference(
   params: BuildEventForwarderFeatureUsageTableRefParams,
 ): string {
   if (params.sinkType === "bigquery") {
+    const tableNames = resolveBigQueryEventForwarderTableNames(
+      params.tablePrefix,
+    );
     return buildBigQueryEventForwarderTableReference(
       params.projectId,
       params.dataset,
-      EVENT_FORWARDER_FEATURE_USAGE_TABLE,
+      tableNames.featureUsage,
     );
   }
 
+  const tableNames = resolveSnowflakeEventForwarderTableNames(
+    params.tablePrefix,
+  );
   return buildSnowflakeEventForwarderTableReference(
     params.database,
     params.schema,
-    normalizeSnowflakeTableNameForEventForwarder(
-      EVENT_FORWARDER_FEATURE_USAGE_TABLE,
-    ),
+    tableNames.featureUsage,
   );
 }
 

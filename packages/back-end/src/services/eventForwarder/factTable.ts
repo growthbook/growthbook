@@ -26,7 +26,11 @@ import {
   updateEventForwarderFactTableMetadata,
 } from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { decryptEventForwarderConfigModel } from "back-end/src/services/eventForwarder/config";
+import {
+  decryptEventForwarderConfigModel,
+  getBigQueryEventForwarderTablePrefix,
+  getSnowflakeEventForwarderTablePrefix,
+} from "back-end/src/services/eventForwarder/config";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import {
   queueFactTableColumnsRefresh,
@@ -125,7 +129,7 @@ function buildEventForwarderEventsFactTableSqlForDatasource(
         sinkType: "bigquery",
         projectId,
         dataset: decrypted.dataset.trim(),
-        tableName: decrypted.tableName.trim(),
+        tablePrefix: getBigQueryEventForwarderTablePrefix(decrypted),
         attributeSchema,
         datasourceProjects: datasource.projects,
         userIdTypes:
@@ -141,7 +145,7 @@ function buildEventForwarderEventsFactTableSqlForDatasource(
         sinkType: "snowflake",
         database: decrypted.database.trim(),
         schema: decrypted.schema.trim(),
-        tableName: decrypted.tableName.trim(),
+        tablePrefix: getSnowflakeEventForwarderTablePrefix(decrypted),
         attributeSchema,
         datasourceProjects: datasource.projects,
         userIdTypes:
@@ -341,7 +345,7 @@ export async function ensureEventForwarderEventsFactTable(
         sinkType: "bigquery",
         projectId,
         dataset: decrypted.dataset.trim(),
-        tableName: decrypted.tableName.trim(),
+        tablePrefix: getBigQueryEventForwarderTablePrefix(decrypted),
         attributeSchema: context.org.settings?.attributeSchema,
         datasourceProjects: datasource.projects,
         userIdTypes,
@@ -358,7 +362,7 @@ export async function ensureEventForwarderEventsFactTable(
         sinkType: "snowflake",
         database: decrypted.database.trim(),
         schema: decrypted.schema.trim(),
-        tableName: decrypted.tableName.trim(),
+        tablePrefix: getSnowflakeEventForwarderTablePrefix(decrypted),
         attributeSchema: context.org.settings?.attributeSchema,
         datasourceProjects: datasource.projects,
         userIdTypes,

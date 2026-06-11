@@ -44,12 +44,11 @@ const SnowflakeEventForwarderForm: FC<{
       </div>
       <div className="form-group col-md-12 px-0">
         <EventForwarderTableNameField
-          label="Destination table"
-          value={snowflakeEventForwarderConfig.config.tableName}
-          onChange={(tableName) => updateConfig({ tableName })}
-          placeholder="EVENT_FORWARDER_DB.PUBLIC.GB_EVENTS"
-          tooltip="Snowflake table where enriched events are written. Use DATABASE.SCHEMA.TABLE."
-          subTitle="The table segment is normalized to uppercase with underscores when saving."
+          label="Destination tables prefix"
+          value={snowflakeEventForwarderConfig.config.tablePrefix}
+          onChange={(tablePrefix) => updateConfig({ tablePrefix })}
+          placeholder="EVENT_FORWARDER_DB.PUBLIC.GB"
+          tooltip="Snowflake table prefix used for Event Forwarder tables. Use DATABASE.SCHEMA.PREFIX."
         />
       </div>
       <div className="col-md-12 px-0">

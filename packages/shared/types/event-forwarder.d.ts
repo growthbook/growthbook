@@ -13,28 +13,28 @@ export type EventForwarderStatus =
 
 /**
  * BigQuery sink settings edited in the event forwarder UI.
- * `tableName` is the qualified destination (`dataset.table` or `project.dataset.table`).
- * Stored config keeps separate `dataset` and `tableName` fields.
+ * `tablePrefix` is the qualified destination prefix (`dataset.prefix` or `project.dataset.prefix`).
+ * Stored config keeps separate `dataset` and `tablePrefix` fields.
  */
 export interface BigQueryEventForwarderConfigDraft {
-  tableName: string;
+  tablePrefix: string;
   serviceAccountKey?: string;
 }
 
 /** Encrypted payload saved for provisioning; `dataset` is copied from datasource params at sync time. */
 export interface BigQueryEventForwarderStoredConfig {
   dataset: string;
-  tableName: string;
+  tablePrefix: string;
   serviceAccountKey?: string;
 }
 
 /**
  * Snowflake sink settings edited in the event forwarder UI.
- * `tableName` is the qualified destination (`DATABASE.SCHEMA.TABLE`).
- * Stored config keeps separate database, schema, and tableName fields.
+ * `tablePrefix` is the qualified destination prefix (`DATABASE.SCHEMA.PREFIX`).
+ * Stored config keeps separate database, schema, and tablePrefix fields.
  */
 export interface SnowflakeEventForwarderConfigDraft {
-  tableName: string;
+  tablePrefix: string;
   accessUrl?: string;
   role?: string;
   warehouse?: string;
@@ -42,7 +42,7 @@ export interface SnowflakeEventForwarderConfigDraft {
 
 /** Encrypted payload saved for provisioning; credentials are copied from datasource params at sync time. */
 export interface SnowflakeEventForwarderStoredConfig {
-  tableName: string;
+  tablePrefix: string;
   account: string;
   accessUrl?: string;
   username: string;

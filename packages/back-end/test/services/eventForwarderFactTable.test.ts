@@ -47,6 +47,14 @@ const mockedDecrypt =
   EventForwarderConfig.decryptEventForwarderConfigModel as jest.MockedFunction<
     typeof EventForwarderConfig.decryptEventForwarderConfigModel
   >;
+const mockedGetBigQueryTablePrefix =
+  EventForwarderConfig.getBigQueryEventForwarderTablePrefix as jest.MockedFunction<
+    typeof EventForwarderConfig.getBigQueryEventForwarderTablePrefix
+  >;
+const mockedGetSnowflakeTablePrefix =
+  EventForwarderConfig.getSnowflakeEventForwarderTablePrefix as jest.MockedFunction<
+    typeof EventForwarderConfig.getSnowflakeEventForwarderTablePrefix
+  >;
 const mockedGetSourceIntegrationObject =
   DataSourceService.getSourceIntegrationObject as jest.MockedFunction<
     typeof DataSourceService.getSourceIntegrationObject
@@ -127,6 +135,8 @@ function eventsFactTable(
 describe("ensureEventForwarderEventsFactTable", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockedGetBigQueryTablePrefix.mockReturnValue("gb");
+    mockedGetSnowflakeTablePrefix.mockReturnValue("GB");
   });
 
   it("creates fact table with datasource id and display name", async () => {
@@ -134,7 +144,7 @@ describe("ensureEventForwarderEventsFactTable", () => {
     mockedGetFactTable.mockResolvedValue(null);
     mockedDecrypt.mockReturnValue({
       dataset: "analytics_123",
-      tableName: "gb_events",
+      tablePrefix: "gb",
       serviceAccountKey: "{}",
     });
     const createdFactTable = eventsFactTable();
@@ -292,6 +302,8 @@ describe("queueEventForwarderEventsFactTablesColumnsRefresh", () => {
 describe("syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockedGetBigQueryTablePrefix.mockReturnValue("gb");
+    mockedGetSnowflakeTablePrefix.mockReturnValue("GB");
   });
 
   it("updates managed fact table attribute jsonFields and queues delayed refresh", async () => {
@@ -336,7 +348,7 @@ describe("syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange", 
     } as never);
     mockedDecrypt.mockReturnValue({
       dataset: "analytics_123",
-      tableName: "gb_events",
+      tablePrefix: "gb",
       serviceAccountKey: "{}",
     });
 
@@ -429,7 +441,7 @@ WHERE received_at BETWEEN '{{startDate}}' AND '{{endDate}}'`;
     } as never);
     mockedDecrypt.mockReturnValue({
       dataset: "analytics_123",
-      tableName: "gb_events",
+      tablePrefix: "gb",
       serviceAccountKey: "{}",
     });
 
@@ -496,7 +508,7 @@ WHERE received_at BETWEEN '{{startDate}}' AND '{{endDate}}'`;
     } as never);
     mockedDecrypt.mockReturnValue({
       dataset: "analytics_123",
-      tableName: "gb_events",
+      tablePrefix: "gb",
       serviceAccountKey: "{}",
     });
 

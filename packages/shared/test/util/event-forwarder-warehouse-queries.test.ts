@@ -5,8 +5,6 @@ import {
   buildEventForwarderFeatureUsageQuery,
   buildEventForwarderFeatureUsageQuerySql,
   buildEventForwarderFeatureUsageTableReference,
-  EVENT_FORWARDER_EXPERIMENT_VIEWED_TABLE,
-  EVENT_FORWARDER_FEATURE_USAGE_TABLE,
   EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
   EVENT_FORWARDER_MANAGED_FEATURE_USAGE_QUERY_DESCRIPTION,
   eventForwarderManagedFeatureUsageQueryExists,
@@ -28,10 +26,9 @@ describe("event-forwarder-warehouse-queries experiment_viewed table reference", 
         sinkType: "bigquery",
         projectId: "my-project",
         dataset: "analytics_123",
+        tablePrefix: "gb",
       }),
-    ).toBe(
-      `\`my-project\`.\`analytics_123\`.\`${EVENT_FORWARDER_EXPERIMENT_VIEWED_TABLE}\``,
-    );
+    ).toBe(`\`my-project\`.\`analytics_123\`.\`gb_experiment_viewed\``);
   });
 
   it("builds Snowflake experiment_viewed table reference", () => {
@@ -40,8 +37,9 @@ describe("event-forwarder-warehouse-queries experiment_viewed table reference", 
         sinkType: "snowflake",
         database: "MY_DB",
         schema: "PUBLIC",
+        tablePrefix: "GB",
       }),
-    ).toBe("MY_DB.PUBLIC.EXPERIMENT_VIEWED");
+    ).toBe("MY_DB.PUBLIC.GB_EXPERIMENT_VIEWED");
   });
 });
 
@@ -162,6 +160,7 @@ describe("generateEventForwarderExposureQueries", () => {
         sinkType: "bigquery",
         projectId: "proj",
         dataset: "ds",
+        tablePrefix: "gb",
       },
     );
 
@@ -184,6 +183,7 @@ describe("mergeEventForwarderExposureQueries", () => {
       sinkType: "snowflake",
       database: "DB",
       schema: "PUBLIC",
+      tablePrefix: "GB",
     });
 
     const merged = mergeEventForwarderExposureQueries(
@@ -193,6 +193,7 @@ describe("mergeEventForwarderExposureQueries", () => {
         sinkType: "snowflake",
         database: "DB",
         schema: "PUBLIC",
+        tablePrefix: "GB",
       },
     );
 
@@ -206,6 +207,7 @@ describe("mergeEventForwarderExposureQueries", () => {
       sinkType: "snowflake",
       database: "DB",
       schema: "PUBLIC",
+      tablePrefix: "GB",
     });
 
     expect(exposureQueryExistsForUserIdType(existing, "user_id")).toBe(true);
@@ -214,6 +216,7 @@ describe("mergeEventForwarderExposureQueries", () => {
       sinkType: "snowflake",
       database: "DB",
       schema: "PUBLIC",
+      tablePrefix: "GB",
     });
 
     expect(merged).toHaveLength(1);
@@ -226,6 +229,7 @@ describe("refreshEventForwarderManagedExposureQuery", () => {
       sinkType: "bigquery",
       projectId: "proj",
       dataset: "ds",
+      tablePrefix: "gb",
     });
 
     const refreshed = refreshEventForwarderManagedExposureQuery(
@@ -240,6 +244,7 @@ describe("refreshEventForwarderManagedExposureQuery", () => {
         sinkType: "bigquery",
         projectId: "proj",
         dataset: "ds",
+        tablePrefix: "gb",
       },
     );
 
@@ -257,6 +262,7 @@ describe("reconcileEventForwarderManagedExposureQueries", () => {
         sinkType: "bigquery",
         projectId: "proj",
         dataset: "ds",
+        tablePrefix: "gb",
       }),
       {
         id: "custom_query",
@@ -274,6 +280,7 @@ describe("reconcileEventForwarderManagedExposureQueries", () => {
         sinkType: "bigquery",
         projectId: "proj",
         dataset: "ds",
+        tablePrefix: "gb",
       },
       attributeSchema: [
         {
@@ -326,6 +333,7 @@ describe("reconcileEventForwarderManagedExposureQueries", () => {
         sinkType: "snowflake",
         database: "DB",
         schema: "PUBLIC",
+        tablePrefix: "GB",
       },
     });
 
@@ -355,10 +363,9 @@ describe("event-forwarder-warehouse-queries feature_usage table reference", () =
         sinkType: "bigquery",
         projectId: "my-project",
         dataset: "analytics_123",
+        tablePrefix: "gb",
       }),
-    ).toBe(
-      `\`my-project\`.\`analytics_123\`.\`${EVENT_FORWARDER_FEATURE_USAGE_TABLE}\``,
-    );
+    ).toBe(`\`my-project\`.\`analytics_123\`.\`gb_feature_usage\``);
   });
 
   it("builds Snowflake feature_usage table reference", () => {
@@ -367,8 +374,9 @@ describe("event-forwarder-warehouse-queries feature_usage table reference", () =
         sinkType: "snowflake",
         database: "MY_DB",
         schema: "PUBLIC",
+        tablePrefix: "GB",
       }),
-    ).toBe("MY_DB.PUBLIC.FEATURE_USAGE");
+    ).toBe("MY_DB.PUBLIC.GB_FEATURE_USAGE");
   });
 });
 
@@ -408,6 +416,7 @@ describe("buildEventForwarderFeatureUsageQuery", () => {
       sinkType: "bigquery",
       projectId: "proj",
       dataset: "ds",
+      tablePrefix: "gb",
     });
 
     expect(query.managedBy).toBe("api");

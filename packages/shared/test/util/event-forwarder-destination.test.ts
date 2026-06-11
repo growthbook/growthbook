@@ -1,25 +1,34 @@
 import {
-  DEFAULT_EVENT_FORWARDER_BIGQUERY_TABLE_NAME,
-  DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME,
+  DEFAULT_EVENT_FORWARDER_TABLE_PREFIX,
   formatBigQueryEventForwarderDestination,
+  formatBigQueryEventForwarderTablePrefix,
   formatSnowflakeEventForwarderDestination,
+  formatSnowflakeEventForwarderTablePrefix,
   isValidBigQueryTableName,
+  isValidBigQueryTablePrefix,
   isValidSnowflakeTableName,
+  isValidSnowflakeTablePrefix,
+  normalizeBigQueryTablePrefixForEventForwarder,
   normalizeBigQueryTableNameForEventForwarder,
   normalizeSnowflakeEventForwarderAccessUrl,
+  normalizeSnowflakeTablePrefixForEventForwarder,
   normalizeSnowflakeTableNameForEventForwarder,
   parseBigQueryEventForwarderDestination,
+  parseBigQueryEventForwarderTablePrefix,
   parseSnowflakeEventForwarderDestination,
+  parseSnowflakeEventForwarderTablePrefix,
+  resolveBigQueryEventForwarderTableNames,
+  resolveSnowflakeEventForwarderTableNames,
   tryDeriveSnowflakeAccessUrlFromAccount,
 } from "../../src/util/event-forwarder-destination";
 
 describe("normalizeBigQueryTableNameForEventForwarder", () => {
   it("returns default when raw is empty", () => {
     expect(normalizeBigQueryTableNameForEventForwarder("")).toBe(
-      DEFAULT_EVENT_FORWARDER_BIGQUERY_TABLE_NAME,
+      `${DEFAULT_EVENT_FORWARDER_TABLE_PREFIX}_events`,
     );
     expect(normalizeBigQueryTableNameForEventForwarder("   ")).toBe(
-      DEFAULT_EVENT_FORWARDER_BIGQUERY_TABLE_NAME,
+      `${DEFAULT_EVENT_FORWARDER_TABLE_PREFIX}_events`,
     );
   });
 
@@ -64,13 +73,45 @@ describe("isValidBigQueryTableName", () => {
   });
 });
 
+describe("normalizeBigQueryTablePrefixForEventForwarder", () => {
+  it("returns default when raw is empty", () => {
+    expect(normalizeBigQueryTablePrefixForEventForwarder("")).toBe(
+      DEFAULT_EVENT_FORWARDER_TABLE_PREFIX,
+    );
+  });
+
+  it("strips trailing underscores before suffix composition", () => {
+    expect(normalizeBigQueryTablePrefixForEventForwarder("gb-")).toBe("gb");
+    expect(normalizeBigQueryTablePrefixForEventForwarder("gb_")).toBe("gb");
+  });
+
+  it("prefixes when the first character would be a digit", () => {
+    expect(normalizeBigQueryTablePrefixForEventForwarder("42gb_")).toBe(
+      "_42gb",
+    );
+  });
+
+  it("throws when there are no letters or digits", () => {
+    expect(() => normalizeBigQueryTablePrefixForEventForwarder("___")).toThrow(
+      /letter or number/,
+    );
+  });
+});
+
+describe("isValidBigQueryTablePrefix", () => {
+  it("validates every derived table name", () => {
+    expect(isValidBigQueryTablePrefix("gb")).toBe(true);
+    expect(isValidBigQueryTablePrefix("1gb")).toBe(false);
+  });
+});
+
 describe("normalizeSnowflakeTableNameForEventForwarder", () => {
   it("returns default when raw is empty", () => {
     expect(normalizeSnowflakeTableNameForEventForwarder("")).toBe(
-      DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME,
+      `${DEFAULT_EVENT_FORWARDER_TABLE_PREFIX}_events`.toUpperCase(),
     );
     expect(normalizeSnowflakeTableNameForEventForwarder("   ")).toBe(
-      DEFAULT_EVENT_FORWARDER_SNOWFLAKE_TABLE_NAME,
+      `${DEFAULT_EVENT_FORWARDER_TABLE_PREFIX}_events`.toUpperCase(),
     );
   });
 
@@ -115,6 +156,38 @@ describe("isValidSnowflakeTableName", () => {
   it("rejects lowercase and hyphens", () => {
     expect(isValidSnowflakeTableName("gb_events")).toBe(false);
     expect(isValidSnowflakeTableName("GB-EVENTS")).toBe(false);
+  });
+});
+
+describe("normalizeSnowflakeTablePrefixForEventForwarder", () => {
+  it("returns default when raw is empty", () => {
+    expect(normalizeSnowflakeTablePrefixForEventForwarder("")).toBe(
+      DEFAULT_EVENT_FORWARDER_TABLE_PREFIX.toUpperCase(),
+    );
+  });
+
+  it("strips trailing underscores and uppercases", () => {
+    expect(normalizeSnowflakeTablePrefixForEventForwarder("gb-")).toBe("GB");
+    expect(normalizeSnowflakeTablePrefixForEventForwarder("gb_")).toBe("GB");
+  });
+
+  it("prefixes when the first character would be a digit", () => {
+    expect(normalizeSnowflakeTablePrefixForEventForwarder("42gb_")).toBe(
+      "_42GB",
+    );
+  });
+
+  it("throws when there are no letters or digits", () => {
+    expect(() => normalizeSnowflakeTablePrefixForEventForwarder("___")).toThrow(
+      /letter or number/,
+    );
+  });
+});
+
+describe("isValidSnowflakeTablePrefix", () => {
+  it("validates every derived table name", () => {
+    expect(isValidSnowflakeTablePrefix("GB")).toBe(true);
+    expect(isValidSnowflakeTablePrefix("gb")).toBe(false);
   });
 });
 
@@ -171,6 +244,64 @@ describe("formatBigQueryEventForwarderDestination", () => {
   });
 });
 
+describe("parseBigQueryEventForwarderTablePrefix", () => {
+  it("parses dataset.prefix", () => {
+    expect(parseBigQueryEventForwarderTablePrefix("analytics_123.gb_")).toEqual(
+      {
+        dataset: "analytics_123",
+        tablePrefix: "gb",
+      },
+    );
+  });
+
+  it("parses project.dataset.prefix", () => {
+    expect(
+      parseBigQueryEventForwarderTablePrefix("my-project.my_dataset.gb_"),
+    ).toEqual({
+      projectId: "my-project",
+      dataset: "my_dataset",
+      tablePrefix: "gb",
+    });
+  });
+
+  it("unwraps backticks", () => {
+    expect(
+      parseBigQueryEventForwarderTablePrefix("`my-project`.my_dataset.gb_"),
+    ).toEqual({
+      projectId: "my-project",
+      dataset: "my_dataset",
+      tablePrefix: "gb",
+    });
+  });
+
+  it("rejects invalid segment counts", () => {
+    expect(() => parseBigQueryEventForwarderTablePrefix("only_prefix")).toThrow(
+      /dataset\.prefix/,
+    );
+  });
+});
+
+describe("formatBigQueryEventForwarderTablePrefix", () => {
+  it("round-trips two-part paths", () => {
+    const destination = { dataset: "analytics_123", tablePrefix: "gb" };
+    expect(
+      parseBigQueryEventForwarderTablePrefix(
+        formatBigQueryEventForwarderTablePrefix(destination),
+      ),
+    ).toEqual(destination);
+  });
+});
+
+describe("resolveBigQueryEventForwarderTableNames", () => {
+  it("derives all table names from the prefix", () => {
+    expect(resolveBigQueryEventForwarderTableNames("gb")).toEqual({
+      events: "gb_events",
+      experimentViewed: "gb_experiment_viewed",
+      featureUsage: "gb_feature_usage",
+    });
+  });
+});
+
 describe("parseSnowflakeEventForwarderDestination", () => {
   it("parses DATABASE.SCHEMA.TABLE and normalizes identifiers", () => {
     expect(
@@ -203,6 +334,49 @@ describe("formatSnowflakeEventForwarderDestination", () => {
         formatSnowflakeEventForwarderDestination(destination),
       ),
     ).toEqual(destination);
+  });
+});
+
+describe("parseSnowflakeEventForwarderTablePrefix", () => {
+  it("parses DATABASE.SCHEMA.PREFIX and normalizes identifiers", () => {
+    expect(
+      parseSnowflakeEventForwarderTablePrefix("event_forwarder_db.public.gb-"),
+    ).toEqual({
+      database: "EVENT_FORWARDER_DB",
+      schema: "PUBLIC",
+      tablePrefix: "GB",
+    });
+  });
+
+  it("rejects wrong segment count", () => {
+    expect(() => parseSnowflakeEventForwarderTablePrefix("DB.SCHEMA")).toThrow(
+      /three dot-separated/,
+    );
+  });
+});
+
+describe("formatSnowflakeEventForwarderTablePrefix", () => {
+  it("round-trips three-part paths", () => {
+    const destination = {
+      database: "EVENT_FORWARDER_DB",
+      schema: "PUBLIC",
+      tablePrefix: "GB",
+    };
+    expect(
+      parseSnowflakeEventForwarderTablePrefix(
+        formatSnowflakeEventForwarderTablePrefix(destination),
+      ),
+    ).toEqual(destination);
+  });
+});
+
+describe("resolveSnowflakeEventForwarderTableNames", () => {
+  it("derives all table names from the prefix", () => {
+    expect(resolveSnowflakeEventForwarderTableNames("GB")).toEqual({
+      events: "GB_EVENTS",
+      experimentViewed: "GB_EXPERIMENT_VIEWED",
+      featureUsage: "GB_FEATURE_USAGE",
+    });
   });
 });
 
