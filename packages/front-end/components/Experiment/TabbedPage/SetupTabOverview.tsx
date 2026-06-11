@@ -253,6 +253,7 @@ export default function SetupTabOverview({
                     {canEditExperiment ? (
                       <Button
                         variant="ghost"
+                        stopPropagation
                         onClick={() => setShowDescriptionModal(true)}
                       >
                         Edit
