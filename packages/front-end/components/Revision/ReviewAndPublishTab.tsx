@@ -1041,7 +1041,9 @@ function RevisionDescriptionSection({
             }}
           />
         ) : description ? (
-          <Markdown className="speech-bubble">{description}</Markdown>
+          <Markdown className="speech-bubble" highlightCode>
+            {description}
+          </Markdown>
         ) : (
           <Text size="medium" as="div" color="text-low" fontStyle="italic">
             No description yet.
