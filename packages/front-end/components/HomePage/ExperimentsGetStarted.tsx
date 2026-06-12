@@ -3,10 +3,16 @@ import { useRouter } from "next/router";
 import { FaArrowLeft } from "react-icons/fa";
 import { ProjectInterface } from "shared/types/project";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import {
+  canCreateLegacyMetric,
+  isLegacyMetricCreationDisabled,
+} from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { envAllowsCreatingMetrics, hasFileConfig } from "@/services/env";
 import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
 import MetricForm from "@/components/Metrics/MetricForm";
+import FactMetricModal from "@/components/FactTables/FactMetricModal";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import { DocLink } from "@/components/DocLink";
 import DocumentationLinksSidebar from "@/components/HomePage/DocumentationLinksSidebar";
 import GetStartedStep from "@/components/HomePage/GetStartedStep";
@@ -20,10 +26,18 @@ import Button from "@/components/Button";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const ExperimentsGetStarted = (): React.ReactElement => {
-  const { metrics, datasources, mutateDefinitions, project, projects } =
-    useDefinitions();
+  const {
+    metrics,
+    factMetrics,
+    datasources,
+    mutateDefinitions,
+    project,
+    projects,
+  } = useDefinitions();
 
   const permissionsUtil = usePermissionsUtil();
+  const settings = useOrgSettings();
+  const legacyMetricCreationDisabled = isLegacyMetricCreationDisabled(settings);
 
   const [dataSourceOpen, setDataSourceOpen] = useState(false);
   const [metricsOpen, setMetricsOpen] = useState(false);
@@ -43,9 +57,10 @@ const ExperimentsGetStarted = (): React.ReactElement => {
   const hasDataSource = datasources.some(
     (d) => !d.projects?.includes(demoProjectId),
   );
-  const hasMetrics = metrics.some(
-    (m) => !m.id.match(/^met_sample/) && !m.projects?.includes(demoProjectId),
-  );
+  const hasMetrics =
+    metrics.some(
+      (m) => !m.id.match(/^met_sample/) && !m.projects?.includes(demoProjectId),
+    ) || factMetrics.some((m) => !m.projects?.includes(demoProjectId));
   const currentStep = hasMetrics ? 3 : hasDataSource ? 2 : 1;
 
   const { projectId: demoDataSourceProjectId, demoExperimentId } =
@@ -90,16 +105,24 @@ const ExperimentsGetStarted = (): React.ReactElement => {
           />
         )}
 
-        {metricsOpen && (
-          <MetricForm
-            current={{}}
-            edit={false}
-            source="get-started"
-            onClose={() => {
-              setMetricsOpen(false);
-            }}
-          />
-        )}
+        {metricsOpen &&
+          (legacyMetricCreationDisabled ? (
+            <FactMetricModal
+              source="get-started"
+              close={() => {
+                setMetricsOpen(false);
+              }}
+            />
+          ) : (
+            <MetricForm
+              current={{}}
+              edit={false}
+              source="get-started"
+              onClose={() => {
+                setMetricsOpen(false);
+              }}
+            />
+          ))}
         {importExperimentsOpen && (
           <ImportExperimentModal
             onClose={() => setImportExperimentsOpen(false)}
@@ -220,10 +243,15 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     finishedCTA="View metrics"
                     permissionsError={
                       envAllowsCreatingMetrics() &&
-                      !permissionsUtil.canCreateMetric({
-                        projects: [project],
-                      }) &&
-                      !hasMetrics
+                      !hasMetrics &&
+                      !(
+                        permissionsUtil.canCreateFactMetric({
+                          projects: [project],
+                        }) ||
+                        canCreateLegacyMetric(settings, permissionsUtil, {
+                          projects: [project],
+                        })
+                      )
                     }
                     imageLeft={false}
                     onClick={(finished) => {
