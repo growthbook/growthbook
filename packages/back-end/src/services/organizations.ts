@@ -1163,6 +1163,8 @@ export async function addMemberFromSSOConnection(
   const ssoConnection = req.loginMethod;
   if (!ssoConnection) return null;
 
+  if (!req.verified) return null;
+
   // For non-vercel, require email domains to match
   if (!ssoConnection.id?.startsWith("vercel:")) {
     if (!ssoConnection?.emailDomains?.length) return null;
