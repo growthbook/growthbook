@@ -91,6 +91,7 @@ export type SubscriptionInfo = {
   cancelationDate: string;
   pendingCancelation: boolean;
   isVercelIntegration: boolean;
+  stripeCustomerId?: string;
 };
 
 export interface LicenseInterface {
@@ -115,6 +116,7 @@ export interface LicenseInterface {
     showAllUsers: boolean; // True if all users should see the notice rather than just the admins
   };
   vercelInstallationId?: string;
+  stripeCustomerId?: string;
   stripeSubscription?: {
     id: string;
     qty: number;
