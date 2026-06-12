@@ -27,6 +27,7 @@ function bqExisting(): EventForwarderConfigInterface {
     schemaId: 100,
     sinkType: "bigquery",
     config: encryptConfig({
+      projectId: "my-project",
       dataset: "analytics",
       tablePrefix: "gb",
       serviceAccountKey: "secret-key",
@@ -70,7 +71,8 @@ describe("isEventForwarderDraftUnchanged", () => {
           sinkType: "bigquery",
           config: {
             ...draft!.config,
-            tablePrefix: "other_dataset.other",
+            dataset: "other_dataset",
+            tablePrefix: "other",
           },
         },
         existing,
@@ -83,7 +85,11 @@ describe("isEventForwarderDraftUnchanged", () => {
       isEventForwarderDraftUnchanged(
         {
           sinkType: "bigquery",
-          config: { tablePrefix: "analytics.gb" },
+          config: {
+            projectId: "my-project",
+            dataset: "analytics",
+            tablePrefix: "gb",
+          },
         },
         null,
       ),
@@ -94,13 +100,21 @@ describe("isEventForwarderDraftUnchanged", () => {
     expect(
       stripEventForwarderConfigMetadata({
         sinkType: "bigquery",
-        config: { tablePrefix: "analytics.gb" },
+        config: {
+          projectId: "my-project",
+          dataset: "analytics",
+          tablePrefix: "gb",
+        },
         status: "ready",
         connectorName: "c1",
       }),
     ).toEqual({
       sinkType: "bigquery",
-      config: { tablePrefix: "analytics.gb" },
+      config: {
+        projectId: "my-project",
+        dataset: "analytics",
+        tablePrefix: "gb",
+      },
     });
   });
 });

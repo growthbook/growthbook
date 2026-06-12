@@ -5,6 +5,8 @@ const datasourceParamsSchema = z.record(z.string(), z.unknown());
 const bigQueryEventForwarderConfigSchema = z.object({
   sinkType: z.literal("bigquery"),
   config: z.object({
+    projectId: z.string(),
+    dataset: z.string(),
     tablePrefix: z.string(),
     serviceAccountKey: z.string().optional(),
   }),
@@ -13,6 +15,8 @@ const bigQueryEventForwarderConfigSchema = z.object({
 const snowflakeEventForwarderConfigSchema = z.object({
   sinkType: z.literal("snowflake"),
   config: z.object({
+    database: z.string(),
+    schema: z.string(),
     tablePrefix: z.string(),
     accessUrl: z.string().optional(),
     role: z.string().optional(),

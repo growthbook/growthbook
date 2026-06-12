@@ -3,7 +3,10 @@ import { DataSourceInterface } from "shared/types/datasource";
 import { provisionEventForwarderThroughLicenseServer } from "back-end/src/services/eventForwarder/connector";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { postProvisionEventForwarderToLicenseServer } from "back-end/src/enterprise/licenseUtil";
-import { decryptEventForwarderConfigModel } from "back-end/src/services/eventForwarder/config";
+import {
+  decryptEventForwarderConfigModel,
+  getBigQueryEventForwarderProjectId,
+} from "back-end/src/services/eventForwarder/config";
 import {
   resolveBigQueryEventForwarderTablePrefix,
   ensureEventForwarderBigQueryTables,
@@ -39,6 +42,10 @@ const mockedProvisionRemote =
 const mockedDecrypt = decryptEventForwarderConfigModel as jest.MockedFunction<
   typeof decryptEventForwarderConfigModel
 >;
+const mockedGetBigQueryProjectId =
+  getBigQueryEventForwarderProjectId as jest.MockedFunction<
+    typeof getBigQueryEventForwarderProjectId
+  >;
 const mockedResolveBigQueryTablePrefix =
   resolveBigQueryEventForwarderTablePrefix as jest.MockedFunction<
     typeof resolveBigQueryEventForwarderTablePrefix
@@ -90,6 +97,7 @@ describe("provisionEventForwarderThroughLicenseServer", () => {
       tablePrefix: "gb",
       serviceAccountKey: "{}",
     });
+    mockedGetBigQueryProjectId.mockReturnValue("my-project");
     mockedResolveBigQueryTablePrefix.mockResolvedValue("gb");
     mockedWriteAccess.mockResolvedValue({
       results: {

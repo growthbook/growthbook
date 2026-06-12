@@ -27,7 +27,10 @@ import {
   encryptParams,
   getSourceIntegrationObject,
 } from "back-end/src/services/datasource";
-import { buildNormalizedEventForwarderSinkPayloadForTest } from "back-end/src/services/eventForwarder/config";
+import {
+  buildNormalizedEventForwarderSinkPayloadForTest,
+  getBigQueryEventForwarderProjectId,
+} from "back-end/src/services/eventForwarder/config";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
@@ -158,8 +161,10 @@ function getProbeTablePath({
 }): string {
   switch (input.sinkType) {
     case "bigquery": {
-      const projectId =
-        input.params.defaultProject?.trim() || input.params.projectId?.trim();
+      const projectId = getBigQueryEventForwarderProjectId(
+        input.config,
+        input.params,
+      );
       return integration.generateTablePath(
         tableName,
         input.config.dataset.trim(),

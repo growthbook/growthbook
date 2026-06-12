@@ -30,57 +30,77 @@ const SnowflakeEventForwarderForm: FC<{
   };
 
   return (
-    <Flex direction="column">
-      <div className="form-group col-md-12 px-0">
-        <EventForwarderTableNameField
-          label="Snowflake Access URL"
-          name="eventForwarderSnowflakeUrl"
-          value={snowflakeEventForwarderConfig.config.accessUrl || ""}
-          onChange={(accessUrl) => updateConfig({ accessUrl })}
-          placeholder="https://myorg-account123.snowflakecomputing.com"
-          tooltip="Derived from the Snowflake datasource connection (account or access URL). Update the datasource settings to change this value."
-          readOnly
-        />
-      </div>
-      <div className="form-group col-md-12 px-0">
-        <EventForwarderTableNameField
-          label="Destination tables prefix"
-          value={snowflakeEventForwarderConfig.config.tablePrefix}
-          onChange={(tablePrefix) => updateConfig({ tablePrefix })}
-          placeholder="EVENT_FORWARDER_DB.PUBLIC.GB"
-          tooltip="Snowflake table prefix used for Event Forwarder tables. Use DATABASE.SCHEMA.PREFIX."
-        />
-      </div>
-      <div className="col-md-12 px-0">
-        <Field
-          label="Role"
-          type="text"
-          className="form-control"
-          name="eventForwarderRole"
-          value={snowflakeEventForwarderConfig.config.role || ""}
-          onChange={(e) => updateConfig({ role: e.target.value })}
-          placeholder=""
-          helpText="Required. Snowflake role for the Confluent Snowflake Sink (Snowpipe Streaming + schema evolution). Defaults from the datasource connection."
-        />
-      </div>
-      <div className="col-md-12 px-0">
-        <Field
-          label={
-            <>
-              Warehouse (optional){" "}
-              <Tooltip body="If empty, Snowflake uses the default warehouse for the user.">
-                <GBInfo />
-              </Tooltip>
-            </>
-          }
-          type="text"
-          className="form-control"
-          name="eventForwarderWarehouse"
-          value={snowflakeEventForwarderConfig.config.warehouse || ""}
-          onChange={(e) => updateConfig({ warehouse: e.target.value })}
-          placeholder=""
-        />
-      </div>
+    <Flex direction="column" gap="2" className="form-group col-md-12 px-0">
+      <EventForwarderTableNameField
+        label="Snowflake Access URL"
+        name="eventForwarderSnowflakeUrl"
+        value={snowflakeEventForwarderConfig.config.accessUrl || ""}
+        onChange={(accessUrl) => updateConfig({ accessUrl })}
+        placeholder="https://myorg-account123.snowflakecomputing.com"
+        tooltip="Derived from the Snowflake datasource connection (account or access URL). Update the datasource settings to change this value."
+        readOnly
+      />
+      <Field
+        label="Database"
+        type="text"
+        className="form-control"
+        containerClassName="mb-0"
+        name="eventForwarderSnowflakeDatabase"
+        value={snowflakeEventForwarderConfig.config.database}
+        onChange={(e) => updateConfig({ database: e.target.value })}
+        placeholder="EVENT_FORWARDER_DB"
+        required
+      />
+      <Field
+        label="Schema"
+        type="text"
+        className="form-control"
+        containerClassName="mb-0"
+        name="eventForwarderSnowflakeSchema"
+        value={snowflakeEventForwarderConfig.config.schema}
+        onChange={(e) => updateConfig({ schema: e.target.value })}
+        placeholder="PUBLIC"
+        required
+      />
+      <Field
+        label="Table Prefix (optional)"
+        type="text"
+        className="form-control"
+        containerClassName="mb-0"
+        name="eventForwarderSnowflakeTablePrefix"
+        value={snowflakeEventForwarderConfig.config.tablePrefix}
+        onChange={(e) => updateConfig({ tablePrefix: e.target.value })}
+        placeholder="GB"
+        helpText="GrowthBook creates EVENTS, EXPERIMENT_VIEWED, and FEATURE_USAGE tables using this prefix."
+      />
+      <Field
+        label="Role"
+        type="text"
+        className="form-control"
+        containerClassName="mb-0"
+        name="eventForwarderRole"
+        value={snowflakeEventForwarderConfig.config.role || ""}
+        onChange={(e) => updateConfig({ role: e.target.value })}
+        placeholder=""
+        helpText="Required. Snowflake role for the Confluent Snowflake Sink (Snowpipe Streaming + schema evolution). Defaults from the datasource connection."
+      />
+      <Field
+        label={
+          <>
+            Warehouse (optional){" "}
+            <Tooltip body="If empty, Snowflake uses the default warehouse for the user.">
+              <GBInfo />
+            </Tooltip>
+          </>
+        }
+        type="text"
+        className="form-control"
+        containerClassName="mb-0"
+        name="eventForwarderWarehouse"
+        value={snowflakeEventForwarderConfig.config.warehouse || ""}
+        onChange={(e) => updateConfig({ warehouse: e.target.value })}
+        placeholder=""
+      />
     </Flex>
   );
 };
