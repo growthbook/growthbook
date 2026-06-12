@@ -47,6 +47,7 @@ import UserAvatar from "@/components/Avatar/UserAvatar";
 import { useUser } from "@/services/UserContext";
 import { RevisionDiff } from "@/components/Revision/RevisionDiff";
 import { useRevisionDiff } from "@/components/Revision/useRevisionDiff";
+import { buildPerEntryDiffSnapshots } from "@/components/Revision/revisionActivityDiff";
 import { REVISION_SAVED_GROUP_DIFF_CONFIG } from "@/components/Revision/RevisionDiffConfig";
 import { getStatusBadge } from "@/components/Revision/revisionUtils";
 import styles from "./CompareSavedGroupRevisionsModal.module.scss";
@@ -243,63 +244,6 @@ function buildActivityTimeline(revision: Revision): ActivityTimelineItem[] {
   ];
   items.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
   return items;
-}
-
-// Reconstruct the state on either side of a single activity-log entry by
-// replaying the per-entry snapshots in chronological order. Returns `null`
-// for entries that didn't change content (e.g. merged/discarded/reopened,
-// or any entry from a revision created before per-entry snapshots were
-// persisted).
-function buildPerEntryDiffSnapshots(
-  revision: Revision,
-  activityId: string,
-): {
-  baseSnapshot: SavedGroupInterface;
-  proposedSnapshot: SavedGroupInterface;
-} | null {
-  const contentEntries = revision.activityLog
-    .filter((e) => Array.isArray(e.proposedChangesSnapshot))
-    .slice()
-    .sort(
-      (a, b) =>
-        new Date(a.dateCreated).getTime() - new Date(b.dateCreated).getTime(),
-    );
-  const targetIdx = contentEntries.findIndex((e) => e.id === activityId);
-  if (targetIdx === -1) return null;
-
-  // Initial baseline = first content entry's targetSnapshot if captured
-  // ("created" entry stores this), else fall back to the revision's current
-  // `target.snapshot` (best-effort for revisions created before this field
-  // existed and which haven't been rebased).
-  let runningBaseline: SavedGroupInterface =
-    (contentEntries[0]?.targetSnapshot as SavedGroupInterface | undefined) ??
-    (revision.target.snapshot as SavedGroupInterface);
-  let runningProposed: JsonPatchOperation[] = [];
-
-  for (let i = 0; i <= targetIdx; i++) {
-    const entry = contentEntries[i];
-    if (i === targetIdx) {
-      const beforeSnapshot = applyTopLevelPatchOps(
-        runningBaseline,
-        runningProposed,
-      ) as SavedGroupInterface;
-      const afterBaseline =
-        entry.targetSnapshot != null
-          ? (entry.targetSnapshot as SavedGroupInterface)
-          : runningBaseline;
-      const afterSnapshot = applyTopLevelPatchOps(
-        afterBaseline,
-        (entry.proposedChangesSnapshot ?? []) as JsonPatchOperation[],
-      ) as SavedGroupInterface;
-      return { baseSnapshot: beforeSnapshot, proposedSnapshot: afterSnapshot };
-    }
-    if (entry.targetSnapshot != null) {
-      runningBaseline = entry.targetSnapshot as SavedGroupInterface;
-    }
-    runningProposed = (entry.proposedChangesSnapshot ??
-      []) as JsonPatchOperation[];
-  }
-  return null;
 }
 
 function activityLabel(item: ActivityTimelineItem): string {
@@ -945,7 +889,7 @@ export default function CompareSavedGroupRevisionsModal({
   // recorded.
   const perEntryDiffSnapshots = useMemo(() => {
     if (!logEntryRevision || !activeActivity) return null;
-    return buildPerEntryDiffSnapshots(
+    return buildPerEntryDiffSnapshots<SavedGroupInterface>(
       logEntryRevision,
       activeActivity.activityId,
     );

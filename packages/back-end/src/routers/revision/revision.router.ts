@@ -151,6 +151,19 @@ router.post(
   revisionController.postSubmit,
 );
 
+// Recall a review request (return the revision to "draft")
+router.post(
+  "/:id/recall-review",
+  validateRequestMiddleware({
+    params: z
+      .object({
+        id: z.string(),
+      })
+      .strict(),
+  }),
+  revisionController.postRecallReview,
+);
+
 // Add a review to a revision
 router.post(
   "/:id/review",
@@ -205,6 +218,24 @@ router.patch(
       .strict(),
   }),
   revisionController.patchTitle,
+);
+
+// Update description of a revision (markdown; stored on `comment`)
+router.patch(
+  "/:id/description",
+  validateRequestMiddleware({
+    params: z
+      .object({
+        id: z.string(),
+      })
+      .strict(),
+    body: z
+      .object({
+        description: z.string(),
+      })
+      .strict(),
+  }),
+  revisionController.patchDescription,
 );
 
 // Merge a revision
