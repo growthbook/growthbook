@@ -1,4 +1,5 @@
 import type { DataType } from "shared/types/integrations";
+import { createLikeStringMatchFn } from "shared/sql";
 import type { DateTruncGranularity, SqlDialect } from "shared/types/sql";
 import {
   defaultPercentileCapSelectClause,
@@ -101,6 +102,9 @@ function bigQueryPercentileCapSelectClause(
       `;
 }
 
+const bigQueryEscapeStringLiteral = (value: string) =>
+  value.replace(/(['\\])/g, "\\$1");
+
 export const bigQueryDialect: SqlDialect = {
   ...baseDialect,
   formatDialect: "bigquery",
@@ -120,7 +124,11 @@ export const bigQueryDialect: SqlDialect = {
   formatDate: (col: string) => `format_date("%F", ${col})`,
   formatDateTimeString: (col: string) => `format_datetime("%F %T", ${col})`,
   castToString: (col: string) => `cast(${col} as string)`,
-  escapeStringLiteral: (value: string) => value.replace(/(['\\])/g, "\\$1"),
+  stringMatch: createLikeStringMatchFn({
+    escapeStringLiteral: bigQueryEscapeStringLiteral,
+    emitEscapeClause: false,
+  }),
+  escapeStringLiteral: bigQueryEscapeStringLiteral,
   castUserDateCol: (column: string) => `CAST(${column} as DATETIME)`,
   hasCountDistinctHLL: () => true,
   hllAggregate: (col: string) => `HLL_COUNT.INIT(${col})`,
