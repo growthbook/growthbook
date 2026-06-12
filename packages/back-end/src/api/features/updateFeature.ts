@@ -39,6 +39,7 @@ import {
   getEnvironmentIdsFromOrg,
 } from "back-end/src/services/organizations";
 import { getApplicableEnvIds } from "back-end/src/util/flattenRules";
+import { logger } from "back-end/src/util/logger";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
 import { validateEnvKeys } from "./postFeature";
@@ -285,6 +286,21 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       // No-env "pending" rules and untouched rules pass through unchanged.
       if (remaining.length === footprint.length) return [r];
       if (remaining.length === 0) return [];
+      // Splitting a wildcard rule pins it to an explicit env list: envs added
+      // to the org later will no longer pick it up automatically. That scope
+      // narrowing is inherent to per-env edits of a shared rule, so log it
+      // for operators debugging unexpected coverage gaps.
+      if (isWildcard) {
+        logger.warn(
+          {
+            organization: req.context.org.id,
+            featureId: feature.id,
+            ruleId: r.id,
+            remainingEnvs: remaining,
+          },
+          "v1 feature update narrowed an all-environments rule to an explicit environment list",
+        );
+      }
       return [
         {
           ...r,
@@ -305,11 +321,12 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     // Keep merged env lists in org env order (unknown/orphan envs last) so
     // re-merging a round-tripped rule is order-stable and diff-free.
     const orgEnvOrder = getEnvironments(req.context.org).map((e) => e.id);
+    const orgEnvOrderSet = new Set(orgEnvOrder);
     const canonicalizeEnvs = (envs: string[]) => {
       const envSet = new Set(envs);
       return [
         ...orgEnvOrder.filter((e) => envSet.has(e)),
-        ...envs.filter((e) => !orgEnvOrder.includes(e)),
+        ...envs.filter((e) => !orgEnvOrderSet.has(e)),
       ];
     };
     const revisedRulesFlat: FeatureRule[] = [...preservedRules];
