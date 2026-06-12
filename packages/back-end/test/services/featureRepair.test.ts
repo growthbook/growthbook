@@ -432,6 +432,42 @@ describe("featureRepair service", () => {
     expect((draft?.rules ?? []).map((r) => r.id)).toEqual(["fr_live3"]);
   });
 
+  it("preserves allEnvironments scope when every applicable env was wiped", async () => {
+    const context = makeContext();
+    const allEnvRule = {
+      ...forceRule("fr_all", []),
+      allEnvironments: true,
+      environments: [],
+    };
+    await seedFeature("feat_allenv", { rules: [allEnvRule] });
+    await seedRevision("feat_allenv", 1, { rules: [allEnvRule] });
+    // Corruption wiped both applicable envs (production AND staging)
+    await seedRevision("feat_allenv", 2, {
+      status: "draft",
+      datePublished: null,
+      publishedBy: null,
+      rules: [],
+    });
+
+    const scan = await scanOrgFeatureRepairs(context);
+    expect(scan.findings[0].corruptDrafts).toMatchObject([
+      { version: 2, wipedEnvs: ["production", "staging"] },
+    ]);
+
+    const results = await applyOrgFeatureRepairs(context, {
+      repairedBy: "admin@test.com",
+      mode: "corruptDrafts",
+    });
+    expect(results[0].status).toBe("repaired");
+
+    // The restored rule keeps its all-env scope instead of being narrowed,
+    // and isn't duplicated across the two env plans
+    const draft = await getRawRevision("feat_allenv", 2);
+    expect(draft?.rules).toHaveLength(1);
+    expect(draft?.rules[0].id).toBe("fr_all");
+    expect(draft?.rules[0].allEnvironments).toBe(true);
+  });
+
   it("re-adds the wiped env to a rule the draft still has for other envs (no duplicates)", async () => {
     const context = makeContext();
     const rules = [forceRule("fr_both", ["production", "staging"])];

@@ -1162,6 +1162,21 @@ export async function applyOrgFeatureRepairs(
             context,
             migrated,
           );
+          // When every applicable env was wiped there is no surviving
+          // per-env draft state to protect, so restored `allEnvironments`
+          // rules can keep their original scope. If only SOME envs were
+          // wiped, restored rules are narrowed to the wiped env — granting
+          // a broader footprint could override intentional draft edits in
+          // the surviving envs.
+          const applicableEnvs = getApplicableEnvIds(
+            getEnvironments(context.org),
+            migrated.project,
+          );
+          const wipedSet = new Set(draft.wipedEnvs);
+          const allApplicableWiped = applicableEnvs.every((e) =>
+            wipedSet.has(e),
+          );
+
           const newRules: FeatureRule[] = cloneDeep(draftMigrated.rules ?? []);
           for (const plan of plans) {
             for (const rule of plan.rules) {
@@ -1173,6 +1188,8 @@ export async function applyOrgFeatureRepairs(
                     plan.env,
                   ];
                 }
+              } else if (rule.allEnvironments === true && allApplicableWiped) {
+                newRules.push(cloneDeep(rule));
               } else {
                 newRules.push({
                   ...cloneDeep(rule),
