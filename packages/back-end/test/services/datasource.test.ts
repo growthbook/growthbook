@@ -262,4 +262,124 @@ describe("testQueryValidity", () => {
       "testQuery",
     );
   });
+
+  describe("column type validation", () => {
+    it("should return error when timestamp column value is a non-date string — row-based inference", async () => {
+      const query = {
+        id: "u",
+        name: "Test Query",
+        userIdType: "user_id",
+        dimensions: [],
+        hasNameCol: false,
+        query: "SELECT * FROM t",
+      };
+
+      mockDataSourceIntegration.getTestValidityQuery = jest
+        .fn()
+        .mockReturnValue("SELECT * FROM t LIMIT 1");
+      mockDataSourceIntegration.runTestQuery = jest.fn().mockResolvedValue({
+        results: [
+          {
+            user_id: "1",
+            experiment_id: "e1",
+            variation_id: "v1",
+            timestamp: "not-a-date",
+          },
+        ],
+      });
+
+      const result = await testQueryValidity(mockDataSourceIntegration, query);
+
+      expect(result).toBe(
+        'Column "timestamp" must be date, but is string in experiment assignment query "Test Query"',
+      );
+    });
+
+    it("should return error when timestamp type is string in engine metadata — BigQuery LIMIT 0", async () => {
+      const query = {
+        id: "u",
+        name: "BigQuery Test",
+        userIdType: "user_id",
+        dimensions: [],
+        hasNameCol: false,
+        query: "SELECT * FROM t",
+      };
+
+      mockLimitZeroIntegration.getTestValidityQuery = jest
+        .fn()
+        .mockReturnValue("SELECT * FROM t LIMIT 0");
+      mockLimitZeroIntegration.runTestQuery = jest.fn().mockResolvedValue({
+        results: [],
+        columns: [
+          { name: "user_id", dataType: "string" },
+          { name: "experiment_id", dataType: "string" },
+          { name: "variation_id", dataType: "string" },
+          { name: "timestamp", dataType: "string" },
+        ],
+      });
+
+      const result = await testQueryValidity(mockLimitZeroIntegration, query);
+
+      expect(result).toBe(
+        'Column "timestamp" must be date, but is string in experiment assignment query "BigQuery Test"',
+      );
+    });
+
+    it("should pass validation when timestamp is an ISO date string in row data", async () => {
+      const query = {
+        id: "u",
+        name: "Valid Test",
+        userIdType: "user_id",
+        dimensions: [],
+        hasNameCol: false,
+        query: "SELECT * FROM t",
+      };
+
+      mockDataSourceIntegration.getTestValidityQuery = jest
+        .fn()
+        .mockReturnValue("SELECT * FROM t LIMIT 1");
+      mockDataSourceIntegration.runTestQuery = jest.fn().mockResolvedValue({
+        results: [
+          {
+            user_id: "1",
+            experiment_id: "e1",
+            variation_id: "v1",
+            timestamp: "2024-01-01T00:00:00Z",
+          },
+        ],
+      });
+
+      const result = await testQueryValidity(mockDataSourceIntegration, query);
+
+      expect(result).toBeUndefined();
+    });
+
+    it("should pass validation when timestamp type is date in engine metadata — BigQuery LIMIT 0", async () => {
+      const query = {
+        id: "u",
+        name: "BigQuery Date Test",
+        userIdType: "user_id",
+        dimensions: [],
+        hasNameCol: false,
+        query: "SELECT * FROM t",
+      };
+
+      mockLimitZeroIntegration.getTestValidityQuery = jest
+        .fn()
+        .mockReturnValue("SELECT * FROM t LIMIT 0");
+      mockLimitZeroIntegration.runTestQuery = jest.fn().mockResolvedValue({
+        results: [],
+        columns: [
+          { name: "user_id", dataType: "string" },
+          { name: "experiment_id", dataType: "string" },
+          { name: "variation_id", dataType: "string" },
+          { name: "timestamp", dataType: "date" },
+        ],
+      });
+
+      const result = await testQueryValidity(mockLimitZeroIntegration, query);
+
+      expect(result).toBeUndefined();
+    });
+  });
 });
