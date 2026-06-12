@@ -174,6 +174,100 @@ function envRules(rules: FeatureRule[], env: string): FeatureRule[] {
   return getRulesForEnvironment(rules, env);
 }
 
+// Detect drift between the live revision (source of truth) and the persisted
+// `feature.rules` / `feature.defaultValue`. If found, repair in place by
+// re-writing through `updateFeature` — which scrubs legacy
+// `environmentSettings.{env}.rules` so the JIT read-time migration stops
+// re-flattening them and shadowing the v2 top-level rules.
+//
+// Idempotent and converges in one round-trip. Mutates `feature` so callers in
+// the same request see the repaired state without re-reading.
+//
+// Used by the GET-path self-heal (feature page load, publish, revert) and by
+// the admin feature-repair apply path.
+export async function repairFeatureDriftIfNeeded(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  live: FeatureRevisionInterface | undefined,
+  environmentIds: string[],
+  { throwOnFailure = false }: { throwOnFailure?: boolean } = {},
+): Promise<void> {
+  if (!live) return;
+
+  const liveRulesFlat: FeatureRule[] = live.rules ?? [];
+  const featureRulesFlat: FeatureRule[] = feature.rules ?? [];
+  const defaultValueDrift = live.defaultValue !== feature.defaultValue;
+  const driftedEnvs = environmentIds.filter(
+    (env) =>
+      !isEqual(
+        getRulesForEnvironment(featureRulesFlat, env),
+        getRulesForEnvironment(liveRulesFlat, env),
+      ),
+  );
+
+  if (!defaultValueDrift && driftedEnvs.length === 0) return;
+
+  logger.warn(
+    {
+      featureId: feature.id,
+      orgId: context.org.id,
+      defaultValueDrift,
+      driftedEnvs,
+    },
+    "Repairing feature drift against live revision",
+  );
+
+  try {
+    const original = { ...feature };
+    const repaired = await updateFeature(context, feature, {
+      ...(defaultValueDrift ? { defaultValue: live.defaultValue } : {}),
+      rules: liveRulesFlat,
+    });
+    Object.assign(feature, repaired);
+
+    // Record the repair in the audit history so automated rewrites are
+    // visible and searchable (`context.autoRepair` in details). Non-fatal:
+    // an audit write failure must not abort a publish/revert whose repair
+    // succeeded.
+    try {
+      await context.auditLog({
+        event: "feature.update",
+        entity: {
+          object: "feature",
+          id: feature.id,
+        },
+        details: auditDetailsUpdate(original, repaired, {
+          autoRepair: true,
+          note: "Automatic drift repair: feature did not match its live revision and was rewritten from it",
+          liveRevisionVersion: live.version,
+          defaultValueDrift,
+          driftedEnvs,
+        }),
+      });
+    } catch (auditError) {
+      logger.error(
+        { err: auditError, featureId: feature.id, orgId: context.org.id },
+        "Failed to write audit entry for feature drift repair",
+      );
+    }
+  } catch (e) {
+    logger.error(
+      { err: e, featureId: feature.id, orgId: context.org.id },
+      "Failed to repair feature drift",
+    );
+    // Write callers (publish, revert) MUST abort if the repair fails —
+    // otherwise the subsequent diff runs against the stale `feature.rules`
+    // and the operation silently no-ops or produces an incorrect merge
+    // (the exact failure this helper exists to prevent). Read callers
+    // (e.g. getFeatureById) tolerate the stale response.
+    if (throwOnFailure) {
+      throw new Error(
+        "Could not reconcile feature with its live revision. Please retry.",
+      );
+    }
+  }
+}
+
 async function fetchRevisionDocsForFeatures(
   organization: string,
   features: { id: string; version: number }[],
@@ -634,30 +728,33 @@ export async function applyOrgFeatureRepairs(
       }
 
       // 3. Feature doc write. Either a drift repair from the live revision
-      //    (production self-heal polarity) or a canonical-shape persist;
-      //    both routes scrub legacy env rules from disk via `updateFeature`.
+      //    (the exact same self-heal the GET/publish paths run) or a
+      //    canonical-shape persist; both routes scrub legacy env rules from
+      //    disk via `updateFeature`.
       const needsCanonicalWrite =
         finding.legacyEnvRulesOnDisk.length > 0 || finding.nonV2TopLevelRules;
-      let featureUpdates: Partial<FeatureInterface> | null = null;
       if (
         finding.drift?.direction === "feature_from_revision" &&
         liveRevisionMigrated
       ) {
-        featureUpdates = {
-          rules: liveRevisionMigrated.rules ?? [],
-          ...(finding.drift.defaultValue
-            ? { defaultValue: liveRevisionMigrated.defaultValue }
-            : {}),
-        };
-        actions.push("rewrote feature from live revision");
+        const applicableEnvs = getApplicableEnvIds(
+          getEnvironments(context.org),
+          migrated.project,
+        );
+        await repairFeatureDriftIfNeeded(
+          context,
+          migrated,
+          liveRevisionMigrated,
+          applicableEnvs,
+          { throwOnFailure: true },
+        );
+        actions.push("rewrote feature from live revision (drift self-heal)");
       } else if (needsCanonicalWrite) {
-        featureUpdates = { rules: migrated.rules ?? [] };
-        actions.push("persisted canonical v2 shape");
-      }
-
-      if (featureUpdates) {
         const original = { ...migrated };
-        const repaired = await updateFeature(context, migrated, featureUpdates);
+        const repaired = await updateFeature(context, migrated, {
+          rules: migrated.rules ?? [],
+        });
+        actions.push("persisted canonical v2 shape");
         try {
           await context.auditLog({
             event: "feature.update",
@@ -666,8 +763,7 @@ export async function applyOrgFeatureRepairs(
               autoRepair: true,
               adminRepair: true,
               repairedBy,
-              note: "Admin feature repair: feature document canonicalized/reconciled with its live revision",
-              driftedEnvs: finding.drift?.envs ?? [],
+              note: "Admin feature repair: feature document persisted in canonical v2 shape",
               scrubbedEnvRules: finding.legacyEnvRulesOnDisk,
             }),
           });

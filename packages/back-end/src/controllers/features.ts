@@ -116,6 +116,7 @@ import {
   getDraftRevision,
   assertCanAutoPublish,
 } from "back-end/src/services/features";
+import { repairFeatureDriftIfNeeded } from "back-end/src/services/featureRepair";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
   moveFlatRule,
@@ -1192,97 +1193,6 @@ export async function postFeatureReviewOrComment(
   res.status(200).json({
     status: 200,
   });
-}
-
-// Detect drift between the live revision (source of truth) and the persisted
-// `feature.rules` / `feature.defaultValue`. If found, repair in place by
-// re-writing through `updateFeature` — which scrubs legacy
-// `environmentSettings.{env}.rules` so the JIT read-time migration stops
-// re-flattening them and shadowing the v2 top-level rules.
-//
-// Idempotent and converges in one round-trip. Mutates `feature` so callers in
-// the same request see the repaired state without re-reading.
-async function repairFeatureDriftIfNeeded(
-  context: ReqContext,
-  feature: FeatureInterface,
-  live: FeatureRevisionInterface | undefined,
-  environmentIds: string[],
-  { throwOnFailure = false }: { throwOnFailure?: boolean } = {},
-): Promise<void> {
-  if (!live) return;
-
-  const liveRulesFlat: FeatureRule[] = live.rules ?? [];
-  const featureRulesFlat: FeatureRule[] = feature.rules ?? [];
-  const defaultValueDrift = live.defaultValue !== feature.defaultValue;
-  const driftedEnvs = environmentIds.filter(
-    (env) =>
-      !isEqual(
-        getRulesForEnvironment(featureRulesFlat, env),
-        getRulesForEnvironment(liveRulesFlat, env),
-      ),
-  );
-
-  if (!defaultValueDrift && driftedEnvs.length === 0) return;
-
-  logger.warn(
-    {
-      featureId: feature.id,
-      orgId: context.org.id,
-      defaultValueDrift,
-      driftedEnvs,
-    },
-    "Repairing feature drift against live revision",
-  );
-
-  try {
-    const original = { ...feature };
-    const repaired = await updateFeature(context, feature, {
-      ...(defaultValueDrift ? { defaultValue: live.defaultValue } : {}),
-      rules: liveRulesFlat,
-    });
-    Object.assign(feature, repaired);
-
-    // Record the repair in the audit history so automated rewrites are
-    // visible and searchable (`context.autoRepair` in details). Non-fatal:
-    // an audit write failure must not abort a publish/revert whose repair
-    // succeeded.
-    try {
-      await context.auditLog({
-        event: "feature.update",
-        entity: {
-          object: "feature",
-          id: feature.id,
-        },
-        details: auditDetailsUpdate(original, repaired, {
-          autoRepair: true,
-          note: "Automatic drift repair: feature did not match its live revision and was rewritten from it",
-          liveRevisionVersion: live.version,
-          defaultValueDrift,
-          driftedEnvs,
-        }),
-      });
-    } catch (auditError) {
-      logger.error(
-        { err: auditError, featureId: feature.id, orgId: context.org.id },
-        "Failed to write audit entry for feature drift repair",
-      );
-    }
-  } catch (e) {
-    logger.error(
-      { err: e, featureId: feature.id, orgId: context.org.id },
-      "Failed to repair feature drift",
-    );
-    // Write callers (publish, revert) MUST abort if the repair fails —
-    // otherwise the subsequent diff runs against the stale `feature.rules`
-    // and the operation silently no-ops or produces an incorrect merge
-    // (the exact failure this helper exists to prevent). Read callers
-    // (e.g. getFeatureById) tolerate the stale response.
-    if (throwOnFailure) {
-      throw new Error(
-        "Could not reconcile feature with its live revision. Please retry.",
-      );
-    }
-  }
 }
 
 export async function postFeaturePublish(
