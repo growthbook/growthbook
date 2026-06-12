@@ -19,6 +19,9 @@ interface Props {
   allowPublishOnApprove?: boolean;
   // Whether the auto-publish checkbox is checked on the revision.
   autoPublishArmed?: boolean;
+  // When true, publish CTAs use a trailing arrow to signal a follow-on step
+  // (e.g. the pre-launch checklist before the final publish).
+  publishHasMoreSteps?: boolean;
   trigger: React.ReactNode | ((state: { open: boolean }) => React.ReactNode);
   /** Prevents self-approval when blockSelfApproval is set. */
   isBlockedContributor?: boolean;
@@ -33,6 +36,7 @@ export default function ReviewCommentPopover({
   submitUrl,
   allowPublishOnApprove = false,
   autoPublishArmed = false,
+  publishHasMoreSteps = false,
   trigger,
   isBlockedContributor = false,
   onSuccess,
@@ -60,6 +64,10 @@ export default function ReviewCommentPopover({
   const willPublish = isApproval && autoPublishArmed && allowPublishOnApprove;
   const showPublishOption =
     isApproval && !autoPublishArmed && allowPublishOnApprove;
+
+  const publishCtaLabel = publishHasMoreSteps
+    ? "Submit and Publish →"
+    : "Submit and Publish";
 
   const doSubmit = async (publish: boolean) => {
     setLoading(true);
@@ -142,7 +150,7 @@ export default function ReviewCommentPopover({
             loading={loading}
             disabled={!canSubmit}
           >
-            Submit and Publish
+            {publishCtaLabel}
           </Button>
         )}
         <Button
@@ -150,7 +158,7 @@ export default function ReviewCommentPopover({
           loading={loading}
           disabled={!canSubmit}
         >
-          {willPublish ? "Submit and Publish" : "Submit"}
+          {willPublish ? publishCtaLabel : "Submit"}
         </Button>
       </Flex>
     </Box>

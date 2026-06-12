@@ -1,13 +1,18 @@
+import { ExperimentRefRule } from "shared/validators";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   filterEnvironmentsByFeature,
   getFeatureAutopublishOnApproval,
+  getMatchingRules,
+  getNewDraftExperimentsToPublish,
 } from "shared/util";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { getContextForUserIdInOrg } from "back-end/src/services/organizations";
+import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
 import { logger } from "back-end/src/util/logger";
 import { publishFeatureRevision } from "./postFeatureRevisionPublish";
 
@@ -33,6 +38,43 @@ export function canEnableFeatureAutoPublishOnApproval(
   return context.permissions.canPublishFeature(feature, environmentIds);
 }
 
+async function revisionRequiresPreLaunchChecklist(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+): Promise<boolean> {
+  const allEnvironments = getEnvironments(context.org);
+  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
+  const environmentIds = environments.map((e) => e.id);
+  const experimentIds = [
+    ...new Set(
+      getMatchingRules(
+        feature,
+        (rule) => rule.type === "experiment-ref",
+        environmentIds,
+        revision,
+      ).map((result) => (result.rule as ExperimentRefRule).experimentId),
+    ),
+  ];
+  if (experimentIds.length === 0) return false;
+
+  const experiments = await getExperimentsByIds(context, experimentIds);
+  const experimentsMap = new Map<string, ExperimentInterfaceStringDates>(
+    experiments.map((exp) => [
+      exp.id,
+      exp as unknown as ExperimentInterfaceStringDates,
+    ]),
+  );
+  return (
+    getNewDraftExperimentsToPublish({
+      feature,
+      revision,
+      environments,
+      experimentsMap,
+    }).length > 0
+  );
+}
+
 export async function maybeAutoPublishFeatureRevision(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -40,6 +82,14 @@ export async function maybeAutoPublishFeatureRevision(
 ): Promise<FeatureRevisionInterface> {
   if (!revision.autoPublishOnApproval) return revision;
   if (revision.status !== "approved") return revision;
+
+  if (await revisionRequiresPreLaunchChecklist(context, feature, revision)) {
+    logger.info(
+      { featureId: feature.id, version: revision.version },
+      "auto-publish-on-approval skipped: pre-launch checklist required",
+    );
+    return revision;
+  }
 
   // Publish with the authority of whoever armed auto-publish. Fall back to
   // the draft author for revisions armed by actors without a user ID (API

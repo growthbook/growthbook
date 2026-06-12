@@ -2511,6 +2511,61 @@ export function getDraftAffectedEnvironments(
   return [...envs];
 }
 
+/** Draft experiments whose rules would go live when this revision is published. */
+export function getNewDraftExperimentsToPublish({
+  environments,
+  feature,
+  revision,
+  experimentsMap,
+}: {
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+  environments: Environment[];
+  experimentsMap: Map<string, ExperimentInterfaceStringDates>;
+}): ExperimentInterfaceStringDates[] {
+  const environmentIds = environments.map((e) => e.id);
+
+  const liveExperimentIds = new Set(
+    getMatchingRules(
+      feature,
+      (rule) => rule.type === "experiment-ref",
+      environmentIds,
+    ).map((result) => (result.rule as ExperimentRefRule).experimentId),
+  );
+
+  function isExp(
+    exp: ExperimentInterfaceStringDates | undefined,
+  ): exp is ExperimentInterfaceStringDates {
+    return !!exp;
+  }
+
+  const draftExperiments = getMatchingRules(
+    feature,
+    (rule) => {
+      if (rule.enabled === false) return false;
+      if (rule.type !== "experiment-ref") return false;
+
+      const exp = experimentsMap.get(rule.experimentId);
+      if (!exp) return false;
+
+      if (liveExperimentIds.has(rule.experimentId)) return false;
+      if (exp.status !== "draft") return false;
+      if (exp.archived) return false;
+      if (exp.hasVisualChangesets) return false;
+
+      return true;
+    },
+    environmentIds,
+    revision,
+  )
+    .map((result) =>
+      experimentsMap.get((result.rule as ExperimentRefRule).experimentId),
+    )
+    .filter(isExp);
+
+  return [...new Set(draftExperiments)];
+}
+
 export function checkIfRevisionNeedsReview({
   feature,
   baseRevision,

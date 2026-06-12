@@ -589,6 +589,7 @@ export default function ReviewAndPublish({
   const [secondaryError, setSecondaryError] = useState<string | null>(null);
   const [actionsDropdownOpen, setActionsDropdownOpen] = useState(false);
   const publishAfterApproval = useRef(false);
+  const checklistAfterApproval = useRef(false);
   const doSubmitRef = useRef<() => void>(() => {});
   const revisionLogRef = useRef<MutateLog>(null);
 
@@ -814,6 +815,14 @@ export default function ReviewAndPublish({
   const onlyScheduledSelected =
     selectedImmediateCount === 0 && selectedScheduledCount > 0;
 
+  const hasChecklistStep = experiments.length > 0;
+
+  const openChecklistStep = useCallback(() => {
+    checklistStateRef.current.clear();
+    setChecklistBlocked(false);
+    setExperimentsStep(true);
+  }, []);
+
   const checklistStateRef = useRef<
     Map<string, { failedRequired: boolean; loading: boolean }>
   >(new Map());
@@ -903,16 +912,23 @@ export default function ReviewAndPublish({
     <Box className="contents container-fluid pagecontents pt-4">{children}</Box>
   );
 
-  // After a reviewer clicks "Submit and Publish", the review is submitted
-  // first. Once mutate() refreshes the revision to "approved", this effect
-  // picks up the flag and triggers the normal publish flow (which may include
-  // experiment selection, merge-result verification, etc.).
+  // After a reviewer chooses "Submit and Publish", advance to the pre-launch
+  // checklist when linked experiments require it; otherwise run publish once
+  // the revision is approved.
   useEffect(() => {
-    if (publishAfterApproval.current && revision?.status === "approved") {
+    if (revision?.status !== "approved") return;
+
+    if (checklistAfterApproval.current) {
+      checklistAfterApproval.current = false;
+      openChecklistStep();
+      return;
+    }
+
+    if (publishAfterApproval.current) {
       publishAfterApproval.current = false;
       doSubmitRef.current();
     }
-  }, [revision?.status]);
+  }, [revision?.status, openChecklistStep]);
 
   // The selected version doesn't exist yet (still loading) or ?v= is invalid.
   if (!revision) {
@@ -1519,9 +1535,7 @@ export default function ReviewAndPublish({
     try {
       switch (state.submitAction) {
         case "next-experiments":
-          checklistStateRef.current.clear();
-          setChecklistBlocked(false);
-          setExperimentsStep(true);
+          openChecklistStep();
           return;
         case "request-review":
           setSubmitting(true);
@@ -2125,10 +2139,15 @@ export default function ReviewAndPublish({
                 submitUrl={`/feature/${feature.id}/${revision.version}/submit-review`}
                 allowPublishOnApprove={autopublishOnApproval}
                 autoPublishArmed={revisionAutoPublishArmed}
+                publishHasMoreSteps={hasChecklistStep}
                 isBlockedContributor={!!isBlockedContributor}
                 onSuccess={async (opts) => {
-                  if (opts?.publish && !revisionAutoPublishArmed) {
-                    publishAfterApproval.current = true;
+                  if (opts?.publish) {
+                    if (hasChecklistStep) {
+                      checklistAfterApproval.current = true;
+                    } else if (!revisionAutoPublishArmed) {
+                      publishAfterApproval.current = true;
+                    }
                   }
                   await mutate();
                   await revisionLogRef?.current?.mutateLog();
@@ -2156,7 +2175,14 @@ export default function ReviewAndPublish({
             const isStepAction =
               state.hasSubmit &&
               state.submitAction !== "publish" &&
-              state.submitAction !== "none";
+              state.submitAction !== "none" &&
+              // Pre-launch checklist uses the publish footer CTA instead.
+              state.submitAction !== "next-experiments";
+
+            const continueToPublish =
+              state.submitAction === "next-experiments" && !experimentsStep;
+
+            const continueLabel = "Continue to Publish →";
 
             // What's blocking publish right now (raw, ignoring adminPublish so
             // the block is still visible while the checkbox is unchecked). The
@@ -2187,6 +2213,19 @@ export default function ReviewAndPublish({
               state.submitAction === "publish" &&
               state.ctaEnabled &&
               canDoPrimary;
+
+            const continueEnabled =
+              continueToPublish && state.ctaEnabled && canDoPrimary;
+
+            const primaryFooterEnabled = continueToPublish
+              ? continueEnabled
+              : publishEnabled;
+
+            const primaryFooterLabel = continueToPublish
+              ? continueLabel
+              : onlyScheduledSelected
+                ? "Schedule to Start"
+                : "Publish";
 
             return (
               <>
@@ -2266,13 +2305,16 @@ export default function ReviewAndPublish({
                     )}
 
                   <Button
-                    onClick={publishEnabled ? doSubmit : undefined}
-                    loading={submitting && state.submitAction === "publish"}
-                    disabled={!publishEnabled}
+                    onClick={primaryFooterEnabled ? doSubmit : undefined}
+                    loading={
+                      submitting &&
+                      (state.submitAction === "publish" || continueToPublish)
+                    }
+                    disabled={!primaryFooterEnabled}
                     icon={state.ctaLocked ? <PiLockSimple /> : undefined}
                     style={{ width: "100%" }}
                   >
-                    {onlyScheduledSelected ? "Schedule to Start" : "Publish"}
+                    {primaryFooterLabel}
                   </Button>
 
                   {/* ── Uniform status displays for the publish state ──
