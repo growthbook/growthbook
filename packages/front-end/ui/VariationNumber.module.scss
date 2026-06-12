@@ -1,0 +1,40 @@
+@import "../styles/colors.scss";
+
+$border-colors:
+  $variant-0, $variant-1, $variant-2, $variant-3, $variant-4, $variant-5,
+  $variant-6, $variant-7, $variant-8;
+
+$text-colors:
+  $variant-a-0, $variant-a-1, $variant-a-2, $variant-a-3, $variant-a-4,
+  $variant-a-5, $variant-a-6, $variant-a-7, $variant-a-8;
+
+.variation {
+  .label {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    text-align: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    line-height: 16px;
+    font-size: 12px;
+    color: var(--slate-a11);
+    font-weight: 500;
+    border: 1.2px solid var(--slate-a11);
+    border-radius: 50%;
+    padding: 2px var(--space-1, 4px);
+  }
+
+  @for $i from 0 through 99 {
+    $color-index: $i % length($border-colors);
+    $border-color: nth($border-colors, $color-index + 1);
+    $text-color: nth($text-colors, $color-index + 1);
+    &.variation#{$i} {
+      .label {
+        border-color: $border-color;
+        color: $text-color;
+      }
+    }
+  }
+}
