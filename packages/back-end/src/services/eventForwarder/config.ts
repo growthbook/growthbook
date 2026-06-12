@@ -390,7 +390,7 @@ export function stripEventForwarderConfigMetadata(
     };
   }
   return {
-    sinkType: "snowflake",
+    sinkType: draft.sinkType,
     config: draft.config,
   };
 }
