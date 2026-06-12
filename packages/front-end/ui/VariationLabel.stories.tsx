@@ -1,0 +1,36 @@
+import { Flex, Text } from "@radix-ui/themes";
+import VariationLabel from "./VariationLabel";
+
+export default function VariationLabelStories() {
+  return (
+    <Flex direction="column" gap="4">
+      <Flex direction="column" gap="2">
+        <Text size="2" weight="bold">
+          Sizes
+        </Text>
+        <Flex direction="column" gap="2">
+          {(["small", "medium", "large"] as const).map((size) => (
+            <Flex key={size} gap="2" align="center">
+              <Text size="1" style={{ width: 64, color: "var(--gray-9)" }}>
+                {size}
+              </Text>
+              <VariationLabel number={1} name="Variation 1" size={size} />
+            </Flex>
+          ))}
+        </Flex>
+      </Flex>
+
+      <Flex direction="column" gap="2">
+        <Text size="2" weight="bold">
+          Variations
+        </Text>
+        <Flex direction="column" gap="2">
+          <VariationLabel number={0} name="Control" />
+          <VariationLabel number={1} name="Variation 1" />
+          <VariationLabel number={2} name="Variation 2" />
+          <VariationLabel number={3} name="Variation 3" />
+        </Flex>
+      </Flex>
+    </Flex>
+  );
+}
