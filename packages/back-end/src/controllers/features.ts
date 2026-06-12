@@ -1235,11 +1235,39 @@ async function repairFeatureDriftIfNeeded(
   );
 
   try {
+    const original = { ...feature };
     const repaired = await updateFeature(context, feature, {
       ...(defaultValueDrift ? { defaultValue: live.defaultValue } : {}),
       rules: liveRulesFlat,
     });
     Object.assign(feature, repaired);
+
+    // Leave a trail in the audit history. These repairs previously ran
+    // silently, which made incidents hard to reconstruct (e.g. an audit
+    // entry showing rules deleted with no visible entry restoring them).
+    // `context.autoRepair` is the searchable marker. Non-fatal: an audit
+    // write failure must not abort a publish/revert whose repair succeeded.
+    try {
+      await context.auditLog({
+        event: "feature.update",
+        entity: {
+          object: "feature",
+          id: feature.id,
+        },
+        details: auditDetailsUpdate(original, repaired, {
+          autoRepair: true,
+          note: "Automatic drift repair: feature did not match its live revision and was rewritten from it",
+          liveRevisionVersion: live.version,
+          defaultValueDrift,
+          driftedEnvs,
+        }),
+      });
+    } catch (auditError) {
+      logger.error(
+        { err: auditError, featureId: feature.id, orgId: context.org.id },
+        "Failed to write audit entry for feature drift repair",
+      );
+    }
   } catch (e) {
     logger.error(
       { err: e, featureId: feature.id, orgId: context.org.id },
