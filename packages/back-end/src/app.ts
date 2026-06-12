@@ -1096,6 +1096,18 @@ app.get(
   "/admin/organization/:orgId/members",
   adminController._dangerousAdminGetOrganizationMembers,
 );
+app.get(
+  "/admin/organization/:orgId/feature-repair/scan",
+  adminController._dangerousAdminFeatureRepairScan,
+);
+app.post(
+  "/admin/organization/:orgId/feature-repair/dry-run",
+  adminController._dangerousAdminFeatureRepairDryRun,
+);
+app.post(
+  "/admin/organization/:orgId/feature-repair/apply",
+  adminController._dangerousAdminFeatureRepairApply,
+);
 app.get("/admin/members", adminController._dangerousAdminGetMembers);
 app.put("/admin/member", adminController._dangerousAdminPutMember);
 app.post(
