@@ -70,6 +70,7 @@
     "@rollup/plugin-babel": "^6.1.0",
     "@rollup/plugin-node-resolve": "^16.0.3",
     "@rollup/plugin-replace": "^6.0.3",
+    "@rrweb/types": "2.0.1",
     "@types/jest": "^27.0.1",
     "@types/js-cookie": "^3.0.5",
     "@types/lodash": "^4.14.169",
@@ -90,6 +91,7 @@
     "rimraf": "^3.0.2",
     "rollup": "^4.52.5",
     "rollup-plugin-terser": "^7.0.2",
+    "rrweb": "2.0.1",
     "ts-jest": "^27.0.5",
     "typescript": "5.7.3"
   },

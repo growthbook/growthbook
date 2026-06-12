@@ -99,5 +99,41 @@ export default [
       }),
     ],
   },
+  {
+    input: "src/auto-wrapper-plus.ts",
+    external: () => false,
+    output: [
+      {
+        file: "dist/bundles/core+sessions.js",
+        format: "iife",
+        name: "_growthbook",
+        sourcemap: true,
+      },
+      {
+        file: "dist/bundles/core+sessions.min.js",
+        format: "iife",
+        name: "_growthbook",
+        plugins: [terserSettings],
+        sourcemap: true,
+      },
+    ],
+    plugins: [
+      resolve({ extensions, jsnext: true }),
+      replace({
+        "process.env.NODE_ENV": JSON.stringify("production"),
+        preventAssignment: true,
+      }),
+      replace({
+        __SDK_VERSION__: JSON.stringify(version),
+        __INGESTOR_HOST__:
+          process.env.INGESTOR_HOST || "https://us1.gb-ingest.com",
+        preventAssignment: true,
+      }),
+      babel({
+        babelHelpers: "bundled",
+        extensions,
+      }),
+    ],
+  },
 ];
 
