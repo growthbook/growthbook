@@ -18,6 +18,7 @@ import Table, {
   TableCell,
 } from "@/ui/Table";
 import { tagFilterOnClick, tagLinkProps } from "@/services/search";
+import { isHealthDetailedStatus } from "@/services/experiments";
 
 interface ExperimentsListTableProps {
   tab: string;
@@ -55,6 +56,9 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
     tab === "stopped" || tab === "running" || tab === "all";
   // If "All Projects" is selected and some experiments are in a project, show the project column
   const showProjectColumn = !project && filtered.some((e) => e.project);
+  // State column surfaces signals like "No data", "Unhealthy", or
+  // "Temp Rollout" — things that need attention beyond the lifecycle status.
+  const showHealthColumn = filtered.some((e) => e.healthStatus !== "");
 
   // Reset to page 1 when a filter is applied or tabs change
   useEffect(() => {
@@ -64,11 +68,9 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
   const colSpan =
     5 +
     (showProjectColumn ? 1 : 0) +
-    (needsStatusColumn && needsResultColumn
-      ? 2
-      : needsStatusColumn || needsResultColumn
-        ? 1
-        : 0);
+    (needsStatusColumn ? 1 : 0) +
+    (needsResultColumn ? 1 : 0) +
+    (showHealthColumn ? 1 : 0);
 
   return (
     <>
@@ -93,18 +95,21 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
             <SortableTableColumnHeader field="date">
               Date
             </SortableTableColumnHeader>
-            {needsStatusColumn && needsResultColumn ? (
-              <>
-                <SortableTableColumnHeader field="statusSortOrder">
-                  Status
-                </SortableTableColumnHeader>
-                <TableColumnHeader></TableColumnHeader>
-              </>
-            ) : needsStatusColumn || needsResultColumn ? (
+            {needsStatusColumn && (
               <SortableTableColumnHeader field="statusSortOrder">
                 Status
               </SortableTableColumnHeader>
-            ) : null}
+            )}
+            {needsResultColumn && (
+              <SortableTableColumnHeader field="statusSortOrder">
+                Result
+              </SortableTableColumnHeader>
+            )}
+            {showHealthColumn && (
+              <SortableTableColumnHeader field="healthStatus">
+                State
+              </SortableTableColumnHeader>
+            )}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -235,9 +240,48 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
               ) : null}
               {needsResultColumn ? (
                 <TableCell>
-                  <ExperimentStatusDetailsWithDot
-                    statusIndicatorData={e.statusIndicator}
-                  />
+                  {isHealthDetailedStatus(
+                    e.statusIndicator.detailedStatus,
+                  ) ? null : (
+                    <ExperimentStatusDetailsWithDot
+                      statusIndicatorData={e.statusIndicator}
+                    />
+                  )}
+                </TableCell>
+              ) : null}
+              {showHealthColumn ? (
+                <TableCell style={{ whiteSpace: "nowrap" }}>
+                  {isHealthDetailedStatus(e.statusIndicator.detailedStatus) ? (
+                    <ExperimentStatusDetailsWithDot
+                      statusIndicatorData={e.statusIndicator}
+                    />
+                  ) : e.hasTempRollout ? (
+                    <Tooltip
+                      flipTheme={false}
+                      body="A stopped experiment is still serving its released variation. Ready for cleanup."
+                    >
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        <span
+                          aria-label="Temporary rollout"
+                          style={{
+                            display: "inline-block",
+                            width: 8,
+                            height: 8,
+                            borderRadius: 8,
+                            backgroundColor: "var(--orange-9)",
+                          }}
+                        />
+                        Temp Rollout
+                      </span>
+                    </Tooltip>
+                  ) : null}
                 </TableCell>
               ) : null}
             </TableRow>
