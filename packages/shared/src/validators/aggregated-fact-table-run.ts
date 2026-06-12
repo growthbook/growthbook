@@ -47,6 +47,7 @@ export type AggregatedFactTableRunInterface = z.infer<
 
 export const aggregatedTableRefreshTriggerStatusValidator = z.enum([
   "started",
+  "failed",
   "skipped",
 ]);
 
@@ -134,14 +135,18 @@ export const apiAggregatedTableRefreshTriggerValidator = componentSchema(
         .string()
         .nullable()
         .describe(
-          "The id of the run that was started, or null when status is skipped.",
+          "The id of the run, set when status is started or failed and null when skipped.",
         ),
       status: aggregatedTableRefreshTriggerStatusValidator.describe(
-        "Whether a refresh was started for this id type",
+        "Whether a refresh was started, failed to be created, or was skipped",
       ),
       reason: aggregatedTableRefreshSkipReasonValidator
         .nullable()
         .describe("Why the refresh was skipped, when status is skipped."),
+      error: z
+        .string()
+        .nullable()
+        .describe("The error message when status is failed; null otherwise."),
     })
     .strict(),
 );

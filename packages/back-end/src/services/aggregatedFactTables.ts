@@ -251,6 +251,7 @@ export function toAggregatedTableRunApiInterface(
 
 export type AggregatedFactTableUpdateOutcome =
   | { status: "started"; runId: string }
+  | { status: "failed"; runId: string; error: string }
   | { status: "skipped"; reason: AggregatedTableRefreshSkipReason };
 
 export function toAggregatedTableRefreshTriggerResult(
@@ -259,9 +260,13 @@ export function toAggregatedTableRefreshTriggerResult(
 ) {
   return {
     idType,
-    runId: outcome.status === "started" ? outcome.runId : null,
+    runId:
+      outcome.status === "started" || outcome.status === "failed"
+        ? outcome.runId
+        : null,
     status: outcome.status,
     reason: outcome.status === "skipped" ? outcome.reason : null,
+    error: outcome.status === "failed" ? outcome.error : null,
   };
 }
 
@@ -402,6 +407,7 @@ export async function runAggregatedFactTableUpdate(
         `Failed to record error for aggregated fact table ${factTable.id}/${idType}`,
       );
     }
+    return message;
   };
 
   const runner = new AggregatedFactTableQueryRunner(
@@ -425,8 +431,8 @@ export async function runAggregatedFactTableUpdate(
         factTable.aggregatedFactTableSettings?.lookbackWindow ?? 60,
     });
   } catch (e) {
-    await handleFailure(e);
-    return { status: "started", runId: run.id };
+    const error = await handleFailure(e);
+    return { status: "failed", runId: run.id, error };
   }
 
   const waitForCompletion = async () => {

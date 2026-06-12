@@ -37879,15 +37879,18 @@ components:
           description: The id type this refresh targets
           type: string
         runId:
-          description: The id of the run that was started, or null when status is skipped.
+          description: >-
+            The id of the run, set when status is started or failed and null
+            when skipped.
           anyOf:
             - type: string
             - type: 'null'
         status:
-          description: Whether a refresh was started for this id type
+          description: Whether a refresh was started, failed to be created, or was skipped
           type: string
           enum:
             - started
+            - failed
             - skipped
         reason:
           description: Why the refresh was skipped, when status is skipped.
@@ -37900,11 +37903,17 @@ components:
                 - unsupported-datasource
                 - no-eligible-metrics
             - type: 'null'
+        error:
+          description: The error message when status is failed; null otherwise.
+          anyOf:
+            - type: string
+            - type: 'null'
       required:
         - idType
         - runId
         - status
         - reason
+        - error
       additionalProperties: false
     AggregatedTableRunSummary:
       type: object

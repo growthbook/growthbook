@@ -4,7 +4,7 @@ import {
   createApiRequestHandler,
   validatePagination,
 } from "back-end/src/util/handler";
-import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import { NotFoundError } from "back-end/src/util/errors";
 import { toAggregatedTableRunSummaryApiInterface } from "back-end/src/services/aggregatedFactTables";
 
 export const listAggregatedTableRuns = createApiRequestHandler(
@@ -15,15 +15,9 @@ export const listAggregatedTableRuns = createApiRequestHandler(
     throw new NotFoundError("Could not find factTable with that id");
   }
 
+  // NB: We intentionally don't validate idType against the fact table's
+  // currently-enabled id types to allow historical querying of the runs.
   const { idType } = req.query;
-  if (
-    idType &&
-    !(factTable.aggregatedFactTableSettings?.idTypes ?? []).includes(idType)
-  ) {
-    throw new BadRequestError(
-      `id type '${idType}' is not enabled for shared daily aggregated tables on this fact table.`,
-    );
-  }
 
   const { limit, offset } = validatePagination(req.query);
   const { runs, total } =
