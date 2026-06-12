@@ -14,7 +14,10 @@ GrowthBook publishes a library of them that runs the entire feature flag and exp
 
 Each skill is a playbook your agent follows: it knows the GrowthBook REST API, the right order of operations, and the guardrails (draft → review → publish, safe rollouts, two-step deletes) that keep changes safe.
 
-{/* TODO: add a short demo video or screenshot of a skill running (e.g. flag-create end to end). Place media under /static/images/integrations/agent-skills/ or /static/videos/. */}
+<figure>
+<iframe width="560" height="315" style={{aspectRatio: "16/9", width: "100%", height: "auto", marginBottom: "1rem"}} src="https://www.youtube.com/embed/FJG9Q5YsnVs" title="YouTube video player" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen></iframe>
+<figcaption>GrowthBook's Head of Experimentation, Luke Sonnet, runs an experiment end to end using the skills.</figcaption>
+</figure>
 
 :::info Open source
 The skills live at [github.com/growthbook/skills](https://github.com/growthbook/skills) and call the [GrowthBook REST API](/app/api) directly through a small bundled helper.
