@@ -16777,13 +16777,13 @@ paths:
               schema:
                 type: object
                 properties:
-                  queued:
-                    description: The id types for which a materialization run was queued
+                  runs:
+                    description: One entry per id type refreshed
                     type: array
                     items:
-                      type: string
+                      $ref: '#/components/schemas/AggregatedTableRefreshTrigger'
                 required:
-                  - queued
+                  - runs
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
@@ -16794,6 +16794,75 @@ paths:
               -H 'Authorization: Bearer YOUR_API_KEY' \
               -H 'Content-Type: application/json' \
               -d '{"fullRestate":false}'
+  /v1/fact-tables/{id}/aggregated-tables/runs:
+    get:
+      operationId: listAggregatedTableRuns
+      summary: List aggregated table runs
+      tags:
+        - fact-tables
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/idType'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    properties:
+                      runs:
+                        description: A list of the aggregated table runs for the fact table
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/AggregatedTableRunSummary'
+                    required:
+                      - runs
+                    additionalProperties: false
+                  - $ref: '#/components/schemas/PaginationFields'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/fact-tables/ftb_123/aggregated-tables/runs?idType=user_id'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/fact-tables/{id}/aggregated-tables/runs/{runId}:
+    get:
+      operationId: getAggregatedTableRun
+      summary: Get a single aggregated table run
+      tags:
+        - fact-tables
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The id of the fact table
+          schema:
+            description: The id of the fact table
+            type: string
+        - $ref: '#/components/parameters/runId'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  run:
+                    $ref: '#/components/schemas/AggregatedTableRun'
+                required:
+                  - run
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/fact-tables/abc123/aggregated-tables/runs/aftr_abc123'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/fact-metrics:
     get:
       operationId: listFactMetrics
@@ -31663,6 +31732,25 @@ components:
       schema:
         description: Specify a specific fact table
         type: string
+    idType:
+      name: idType
+      in: query
+      description: >-
+        Only return runs for this id type. When omitted, runs for all id types
+        are returned.
+      schema:
+        description: >-
+          Only return runs for this id type. When omitted, runs for all id types
+          are returned.
+        type: string
+    runId:
+      name: runId
+      in: path
+      required: true
+      description: The id of the aggregated table run (e.g. aftr_...)
+      schema:
+        description: The id of the aggregated table run (e.g. aftr_...)
+        type: string
     deleteMissing:
       name: deleteMissing
       in: query
@@ -37783,6 +37871,199 @@ components:
         - dateUpdated
         - pendingRestate
         - pendingRestateReason
+      additionalProperties: false
+    AggregatedTableRefreshTrigger:
+      type: object
+      properties:
+        idType:
+          description: The id type this refresh targets
+          type: string
+        runId:
+          description: The id of the run that was started, or null when status is skipped.
+          anyOf:
+            - type: string
+            - type: 'null'
+        status:
+          description: Whether a refresh was started for this id type
+          type: string
+          enum:
+            - started
+            - skipped
+        reason:
+          description: Why the refresh was skipped, when status is skipped.
+          anyOf:
+            - type: string
+              enum:
+                - already-in-progress
+                - datasource-not-found
+                - pipeline-not-configured
+                - unsupported-datasource
+                - no-eligible-metrics
+            - type: 'null'
+      required:
+        - idType
+        - runId
+        - status
+        - reason
+      additionalProperties: false
+    AggregatedTableRunSummary:
+      type: object
+      properties:
+        id:
+          description: The run id (e.g. aftr_...)
+          type: string
+        idType:
+          description: The id type this run materialized
+          type: string
+        mode:
+          description: Whether this run appended new data or rebuilt the table
+          type: string
+          enum:
+            - incremental
+            - restate
+        status:
+          description: Overall run status derived from its warehouse queries
+          type: string
+          enum:
+            - queued
+            - running
+            - failed
+            - partially-succeeded
+            - succeeded
+        runStarted:
+          description: When query execution began
+          anyOf:
+            - format: date-time
+              type: string
+            - type: 'null'
+        dateCreated:
+          format: date-time
+          description: When the run record was created
+          type: string
+        finishedAt:
+          description: When the run finished, or null if still in progress
+          anyOf:
+            - format: date-time
+              type: string
+            - type: 'null'
+        error:
+          description: Error message when the run failed
+          anyOf:
+            - type: string
+            - type: 'null'
+        queryIds:
+          description: >-
+            Warehouse query ids for this run; poll each via GET /queries/{id}
+            for per-query status
+          type: array
+          items:
+            type: string
+      required:
+        - id
+        - idType
+        - mode
+        - status
+        - runStarted
+        - dateCreated
+        - finishedAt
+        - error
+        - queryIds
+      additionalProperties: false
+    AggregatedTableRun:
+      type: object
+      properties:
+        id:
+          description: The run id (e.g. aftr_...)
+          type: string
+        idType:
+          description: The id type this run materialized
+          type: string
+        mode:
+          description: Whether this run appended new data or rebuilt the table
+          type: string
+          enum:
+            - incremental
+            - restate
+        status:
+          description: Overall run status derived from its warehouse queries
+          type: string
+          enum:
+            - queued
+            - running
+            - failed
+            - partially-succeeded
+            - succeeded
+        runStarted:
+          description: When query execution began
+          anyOf:
+            - format: date-time
+              type: string
+            - type: 'null'
+        dateCreated:
+          format: date-time
+          description: When the run record was created
+          type: string
+        finishedAt:
+          description: When the run finished, or null if still in progress
+          anyOf:
+            - format: date-time
+              type: string
+            - type: 'null'
+        error:
+          description: Error message when the run failed
+          anyOf:
+            - type: string
+            - type: 'null'
+        queryIds:
+          description: >-
+            Warehouse query ids for this run; poll each via GET /queries/{id}
+            for per-query status
+          type: array
+          items:
+            type: string
+        factTableId:
+          type: string
+        datasourceId:
+          type: string
+        result:
+          description: Coverage written on success, or null while running/failed
+          anyOf:
+            - type: object
+              properties:
+                lastMaxTimestamp:
+                  anyOf:
+                    - format: date-time
+                      type: string
+                    - type: 'null'
+                firstEventDate:
+                  anyOf:
+                    - format: date-time
+                      type: string
+                    - type: 'null'
+                lastEventDate:
+                  anyOf:
+                    - format: date-time
+                      type: string
+                    - type: 'null'
+              required:
+                - lastMaxTimestamp
+                - firstEventDate
+                - lastEventDate
+              additionalProperties: false
+            - type: 'null'
+      required:
+        - id
+        - idType
+        - mode
+        - status
+        - runStarted
+        - dateCreated
+        - finishedAt
+        - error
+        - queryIds
+        - factTableId
+        - datasourceId
+        - result
       additionalProperties: false
     FactMetric:
       type: object
