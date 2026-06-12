@@ -5,6 +5,7 @@ import {
   Output,
   tool as aiTool,
   stepCountIs,
+  NoObjectGeneratedError,
 } from "ai";
 import type { ToolSet, ModelMessage } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
@@ -345,6 +346,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   maxSteps = 1,
   cacheSystemPrompt = false,
   onStepFinish,
+  retryOnNoObject = true,
 }: {
   context: ReqContext | ApiReqContext;
   instructions?: string;
@@ -354,6 +356,12 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   isDefaultPrompt: boolean;
   zodObjectSchema: T;
   overrideModel?: AIModel;
+  // Retry once on NoObjectGeneratedError (see the generation block). Set
+  // false from callers that are THEMSELVES a retry, so the retry doesn't
+  // stack (e.g. postAIEdit's selector-correction runRetry — otherwise a
+  // single request could fan out to the main call's 2 attempts + the
+  // correction call's 2 = 4 LLM invocations).
+  retryOnNoObject?: boolean;
   // Optional tool-calling: when present, the model may emit tool calls
   // across up to `maxSteps` LLM round-trips before producing the final
   // structured output. Default of 1 keeps the no-tools shape identical.
@@ -412,18 +420,63 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     ? undefined
     : temperature;
 
-  const response = await generateText({
-    model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
-    messages: messages,
-    output: Output.object({
-      schema: zodObjectSchema,
-    }),
-    ...(effectiveTemperature != null
-      ? { temperature: effectiveTemperature }
-      : {}),
-    ...(tools ? { tools, stopWhen: stepCountIs(maxSteps) } : {}),
-    ...(onStepFinish ? { onStepFinish } : {}),
-  });
+  const generateOnce = () =>
+    generateText({
+      model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
+      messages: messages,
+      output: Output.object({
+        schema: zodObjectSchema,
+      }),
+      ...(effectiveTemperature != null
+        ? { temperature: effectiveTemperature }
+        : {}),
+      ...(tools ? { tools, stopWhen: stepCountIs(maxSteps) } : {}),
+      ...(onStepFinish ? { onStepFinish } : {}),
+    });
+
+  // Structured-output adherence is probabilistic, especially on providers
+  // without native JSON-schema enforcement (e.g. Anthropic, which the AI
+  // SDK emulates via a forced tool call) and even more so when tools +
+  // multi-step are in play. When the model fails to emit a schema-valid
+  // object the SDK throws NoObjectGeneratedError ("No object generated:
+  // response did not match schema."). That's almost always transient, so
+  // retry once before surfacing a clear error rather than the raw SDK
+  // string.
+  // A failed first attempt still consumes tokens (NoObjectGeneratedError
+  // carries the usage of the call that produced the unparseable output).
+  // Track it so cloud billing / rate-limiting below counts it — otherwise
+  // every transient retry under-counts by a full call.
+  let retriedTokens = 0;
+  let response: Awaited<ReturnType<typeof generateOnce>>;
+  try {
+    response = await generateOnce();
+  } catch (err) {
+    if (!NoObjectGeneratedError.isInstance(err)) throw err;
+    // Don't stack retries when the caller is already a retry path.
+    if (!retryOnNoObject) throw err;
+    retriedTokens += err.usage?.totalTokens ?? 0;
+    logger.warn(
+      { type, model },
+      "parsePrompt: model returned no schema-valid object; retrying once",
+    );
+    try {
+      response = await generateOnce();
+    } catch (retryErr) {
+      if (!NoObjectGeneratedError.isInstance(retryErr)) throw retryErr;
+      retriedTokens += retryErr.usage?.totalTokens ?? 0;
+      // Bill the tokens both failed attempts consumed before surfacing the
+      // error, so the rate-limiter doesn't under-count a double failure.
+      if (IS_CLOUD && retriedTokens > 0) {
+        await updateTokenUsage({
+          numTokensUsed: retriedTokens,
+          organization: context.org,
+        });
+      }
+      throw new Error(
+        "The AI couldn't format a valid response for this request. Please try again, or rephrase/simplify the request.",
+      );
+    }
+  }
 
   if (IS_CLOUD) {
     // Fire and forget
@@ -438,7 +491,8 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     });
 
     const numTokensUsed =
-      response.usage?.totalTokens ?? numTokensFromMessages(messages, model);
+      (response.usage?.totalTokens ?? numTokensFromMessages(messages, model)) +
+      retriedTokens;
     await updateTokenUsage({ numTokensUsed, organization: context.org });
   }
 
