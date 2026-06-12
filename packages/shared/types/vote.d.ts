@@ -1,8 +1,6 @@
-export type VoteDirType = 1 | -1;
+import { z } from "zod";
+import { voteValidator } from "shared/validators";
 
-export interface Vote {
-  userId: string;
-  dir: VoteDirType;
-  dateCreated: Date;
-  dateUpdated: Date;
-}
+export type Vote = z.infer<typeof voteValidator>;
+
+export type VoteDirType = Vote["dir"];

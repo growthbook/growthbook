@@ -5,7 +5,6 @@ import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { getMetricById } from "back-end/src/models/MetricModel";
 import { ReqContext } from "back-end/types/request";
-import { getIdeaById } from "./ideas";
 
 export async function getDiscussionByParent(
   organization: string,
@@ -52,7 +51,7 @@ export async function getProjectsByParentId(
     }
 
     case "idea": {
-      const idea = await getIdeaById(parentId);
+      const idea = await context.models.ideas.getById(parentId);
 
       if (!idea) {
         throw Error("Idea not found");

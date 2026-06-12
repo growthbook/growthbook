@@ -114,7 +114,6 @@ import {
   getPastExperimentsModelByDatasource,
   updatePastExperiments,
 } from "back-end/src/models/PastExperimentsModel";
-import { IdeaModel } from "back-end/src/models/IdeasModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import { generateExperimentNotebook } from "back-end/src/services/notebook";
@@ -753,10 +752,7 @@ export async function getExperiment(
   let idea: IdeaInterface | undefined = undefined;
   if (experiment.ideaSource) {
     idea =
-      (await IdeaModel.findOne({
-        organization: experiment.organization,
-        id: experiment.ideaSource,
-      })) || undefined;
+      (await context.models.ideas.getById(experiment.ideaSource)) || undefined;
   }
 
   const visualChangesets = await findVisualChangesetsByExperiment(

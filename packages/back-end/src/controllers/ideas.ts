@@ -1,22 +1,13 @@
 import { Response } from "express";
-import { FilterQuery } from "mongoose";
 import { IdeaInterface } from "shared/types/idea";
 import { Vote } from "shared/types/vote";
+import { UpdateProps } from "shared/types/base-model";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
-import {
-  getIdeasByOrganization,
-  createIdea,
-  getIdeaById,
-  deleteIdeaById,
-  getIdeasByQuery,
-} from "back-end/src/services/ideas";
-import { addTagsDiff } from "back-end/src/models/TagModel";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   getImpactEstimate,
   ImpactEstimateModel,
 } from "back-end/src/models/ImpactEstimateModel";
-import { IdeaDocument } from "back-end/src/models/IdeasModel";
 import { getExperimentByIdea } from "back-end/src/models/ExperimentModel";
 
 export async function getIdeas(
@@ -24,13 +15,15 @@ export async function getIdeas(
   req: AuthRequest<any, any, { project?: string }>,
   res: Response,
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
   let project = "";
   if (typeof req.query.project === "string") {
     project = req.query.project;
   }
 
-  const ideas = await getIdeasByOrganization(org.id, project);
+  const ideas = await context.models.ideas.getAllByProject(
+    project || undefined,
+  );
 
   res.status(200).json({
     status: 200,
@@ -64,20 +57,27 @@ export async function getEstimatedImpact(
  * @param res
  */
 export async function postIdeas(
-  req: AuthRequest<Partial<IdeaInterface>>,
+  req: AuthRequest<Partial<IdeaInterface> & Pick<IdeaInterface, "text">>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const { org, userId } = context;
+  const { userId } = context;
   const data = req.body;
 
-  if (!context.permissions.canCreateIdea(data)) {
-    context.permissions.throwPermissionError();
-  }
-  data.organization = org.id;
-  data.source = "web";
-  data.userId = userId;
-  const idea = await createIdea(data);
+  // create() enforces canCreateIdea via the model's permission check
+  const idea = await context.models.ideas.create({
+    text: data.text,
+    details: data.details,
+    userName: data.userName,
+    project: data.project,
+    tags: data.tags ?? [],
+    estimateParams: data.estimateParams,
+    archived: data.archived ?? false,
+    impactScore: data.impactScore ?? 0,
+    experimentLength: data.experimentLength ?? 0,
+    source: "web",
+    userId,
+  });
 
   res.status(200).json({
     status: 200,
@@ -92,9 +92,9 @@ export async function getIdea(
   const { id } = req.params;
   const context = getContextFromReq(req);
 
-  const idea = await getIdeaById(id);
+  const idea = await context.models.ideas.getById(id);
 
-  if (!idea || idea.organization !== context.org.id) {
+  if (!idea) {
     res.status(404).json({
       status: 404,
       message: "Idea not found",
@@ -120,7 +120,7 @@ export async function getIdea(
     }
   }
 
-  const experiment = await getExperimentByIdea(context, idea);
+  const experiment = await getExperimentByIdea(context, idea.id);
 
   res.status(200).json({
     status: 200,
@@ -147,51 +147,35 @@ export async function postIdea(
   res: Response,
 ) {
   const { id } = req.params;
-  const idea = await getIdeaById(id);
-  const data = req.body;
   const context = getContextFromReq(req);
-  const { org } = context;
+
+  const idea = await context.models.ideas.getById(id);
+  const data = req.body;
 
   if (!idea) {
-    res.status(403).json({
+    res.status(404).json({
       status: 404,
       message: "Idea not found",
     });
     return;
   }
 
-  if (idea.organization !== org.id) {
-    res.status(403).json({
-      status: 403,
-      message: "You do not have access to this idea",
-    });
-    return;
-  }
+  const updates: UpdateProps<IdeaInterface> = {};
+  data.text && (updates.text = data.text);
+  "details" in data && (updates.details = data.details);
+  "project" in data && (updates.project = data.project);
+  "tags" in data && (updates.tags = data.tags);
+  "archived" in data && (updates.archived = data.archived);
+  "impactScore" in data && (updates.impactScore = data.impactScore);
+  data.experimentLength && (updates.experimentLength = data.experimentLength);
+  data.estimateParams && (updates.estimateParams = data.estimateParams);
 
-  if (!context.permissions.canUpdateIdea(idea, data)) {
-    context.permissions.throwPermissionError();
-  }
-  const existing = idea.toJSON();
-
-  data.text && idea.set("text", data.text);
-  "details" in data && idea.set("details", data.details);
-  "project" in data && idea.set("project", data.project);
-  "tags" in data && idea.set("tags", data.tags);
-  "archived" in data && idea.set("archived", data.archived);
-  data.votes && idea.set("votes", data.votes);
-  "impactScore" in data && idea.set("impactScore", data.impactScore);
-  data.experimentLength && idea.set("experimentLength", data.experimentLength);
-  data.estimateParams && idea.set("estimateParams", data.estimateParams);
-
-  await idea.save();
-
-  if (data.tags && data.tags.length > 0) {
-    await addTagsDiff(org.id, existing.tags || [], data.tags);
-  }
+  // update() enforces canUpdateIdea via the model's permission check
+  const updated = await context.models.ideas.update(idea, updates);
 
   res.status(200).json({
     status: 200,
-    idea,
+    idea: updated,
   });
 }
 
@@ -200,37 +184,25 @@ export async function deleteIdea(
   res: Response,
 ) {
   const { id } = req.params;
-  const idea = await getIdeaById(id);
   const context = getContextFromReq(req);
-  const { org } = context;
+
+  const idea = await context.models.ideas.getById(id);
 
   if (!idea) {
-    res.status(403).json({
+    res.status(404).json({
       status: 404,
       message: "Idea not found",
     });
     return;
   }
 
-  if (idea.organization !== org.id) {
-    res.status(403).json({
-      status: 403,
-      message: "You do not have access to this idea",
-    });
-    return;
-  }
-
-  if (!context.permissions.canDeleteIdea(idea)) {
-    context.permissions.throwPermissionError();
-  }
-
   // note: we might want to change this to change the status to
   // 'deleted' instead of actually deleting the document.
-  const del = await deleteIdeaById(idea.id);
+  // delete() enforces canDeleteIdea via the model's permission check
+  await context.models.ideas.delete(idea);
 
   res.status(200).json({
     status: 200,
-    result: del,
   });
 }
 
@@ -240,57 +212,50 @@ export async function postVote(
 ) {
   const { id } = req.params;
   const data = req.body;
-  const idea = await getIdeaById(id);
+  const context = getContextFromReq(req);
+  const { userId } = context;
 
-  const { org, userId } = getContextFromReq(req);
+  const idea = await context.models.ideas.getById(id);
 
   if (!idea) {
-    res.status(403).json({
+    res.status(404).json({
       status: 404,
       message: "Idea not found",
     });
     return;
   }
-  if (idea.organization !== org.id) {
-    res.status(403).json({
-      status: 403,
-      message: "You do not have access to this idea",
-    });
-    return;
-  }
 
   try {
-    const newVote = (data.dir || 1) > 0 ? 1 : -1;
+    const newVote: 1 | -1 = (data.dir || 1) > 0 ? 1 : -1;
     let found = false;
-    if (idea.votes) {
-      // you can only vote once, see if they've already voted
-      idea.votes.map((v) => {
-        if (v.userId === userId) {
-          // they have changed their vote, or are voting again
-          v.dir = newVote;
-          v.dateUpdated = new Date();
-          found = true;
-        }
-      });
-    }
+    const votes: Vote[] = (idea.votes || []).map((v) => {
+      if (v.userId === userId) {
+        // they have changed their vote, or are voting again
+        found = true;
+        return { ...v, dir: newVote, dateUpdated: new Date() };
+      }
+      return v;
+    });
     if (!found) {
-      // add the vote:
-      const v: Vote = {
-        userId: userId,
+      // add the vote
+      votes.push({
+        userId,
         dir: newVote,
         dateCreated: new Date(),
         dateUpdated: new Date(),
-      };
-
-      idea.votes = idea.votes || [];
-      idea.votes.push(v);
+      });
     }
 
-    await idea.save();
+    // Voting historically only required being a member of the org (no
+    // createIdeas permission), so bypass the canUpdate check here.
+    const updated = await context.models.ideas.dangerousUpdateBypassPermission(
+      idea,
+      { votes },
+    );
 
     res.status(200).json({
       status: 200,
-      idea: idea,
+      idea: updated,
     });
   } catch (e) {
     req.log.error(e, "Failed to vote");
@@ -305,30 +270,25 @@ export async function getRecentIdeas(
   req: AuthRequest<unknown, { num: string }, { project?: string }>,
   res: Response,
 ) {
-  const { org } = getContextFromReq(req);
+  const context = getContextFromReq(req);
   const { num } = req.params;
   let intNum = parseInt(num);
   if (intNum > 100) intNum = 100;
 
   try {
-    const query: FilterQuery<IdeaDocument> = {
-      organization: org.id,
-    };
+    let project = "";
     if (typeof req.query.project === "string" && req.query.project) {
-      query.project = req.query.project;
+      project = req.query.project;
     }
 
-    // since deletes can update the dateUpdated, we want to give ourselves a bit of buffer.
-    const ideas = await getIdeasByQuery(query)
-      .sort({ dateUpdated: -1 })
-      .limit(intNum + 5);
-
-    const recentIdeas = ideas.sort(
-      (a, b) => b.dateCreated.getTime() - a.dateCreated.getTime(),
+    const recentIdeas = await context.models.ideas.getRecent(
+      intNum,
+      project || undefined,
     );
+
     res.status(200).json({
       status: 200,
-      ideas: recentIdeas.slice(0, intNum),
+      ideas: recentIdeas,
     });
   } catch (e) {
     res.status(400).json({
