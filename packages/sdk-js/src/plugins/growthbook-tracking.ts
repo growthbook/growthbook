@@ -29,6 +29,7 @@ type EventPayload = {
   sdk_language: string;
   sdk_version: string;
   url: string;
+  timestamp: string;
   context_json: Record<string, unknown>;
   user_id: string | null;
   device_id: string | null;
@@ -99,6 +100,7 @@ type EventData = {
   properties: EventProperties;
   attributes: Attributes;
   url: string;
+  timestamp: string;
 };
 
 function getEventPayload({
@@ -106,6 +108,7 @@ function getEventPayload({
   properties,
   attributes,
   url,
+  timestamp,
 }: EventData): EventPayload {
   const { nested, topLevel } = parseAttributes(attributes || {});
 
@@ -116,6 +119,7 @@ function getEventPayload({
     sdk_language: "js",
     sdk_version: SDK_VERSION,
     url: url,
+    timestamp,
     context_json: nested,
   };
 }
@@ -124,17 +128,25 @@ async function track({
   clientKey,
   ingestorHost,
   events,
+  keepalive = false,
 }: {
   events: EventPayload[];
   clientKey: string;
   ingestorHost?: string;
+  // keepalive prevents the browser from canceling the request on unload
+  // (capped at 64KB per request, well above a typical batch)
+  keepalive?: boolean;
 }) {
   if (!events.length) return;
 
   const endpoint = `${
     ingestorHost || "https://us1.gb-ingest.com"
   }/track?client_key=${clientKey}`;
-  const body = JSON.stringify(events);
+  const payload = {
+    events,
+    sentAt: new Date().toISOString(),
+  };
+  const body = JSON.stringify(payload);
 
   try {
     await fetch(endpoint, {
@@ -145,6 +157,7 @@ async function track({
         "Content-Type": "text/plain",
       },
       credentials: "omit",
+      keepalive,
     });
   } catch (e) {
     console.error("Failed to track event", e);
@@ -181,21 +194,27 @@ export function growthbookTrackingPlugin({
     if ("setEventLogger" in gb) {
       let _q: EventPayload[] = [];
       let timer: NodeJS.Timeout | null = null;
-      const flush = async () => {
+      let isUnloading = false;
+      let promise: Promise<void> | null = null;
+      const flush = async (keepalive = false) => {
         const events = _q;
         _q = [];
         timer && clearTimeout(timer);
         timer = null;
-        events.length && (await track({ clientKey, events, ingestorHost }));
+        // Reset so the next logEvent starts a fresh batch — otherwise a
+        // manual flush (e.g. on visibilitychange) leaves callers awaiting
+        // a promise whose setTimeout we just cleared
+        promise = null;
+        events.length &&
+          (await track({ clientKey, events, ingestorHost, keepalive }));
       };
-
-      let promise: Promise<void> | null = null;
       gb.setEventLogger(async (eventName, properties, userContext) => {
         const data: EventData = {
           eventName,
           properties,
           attributes: userContext.attributes || {},
           url: userContext.url || "",
+          timestamp: new Date().toISOString(),
         };
 
         // Skip logging if the event is being filtered
@@ -244,32 +263,54 @@ export function growthbookTrackingPlugin({
 
         _q.push(payload);
 
-        // Only one in-progress promise at a time
-        if (!promise) {
-          promise = new Promise((resolve, reject) => {
-            // Flush the queue after a delay
-            timer = setTimeout(() => {
-              flush().then(resolve).catch(reject);
-              promise = null;
-            }, queueFlushInterval);
-          });
+        if (isUnloading) {
+          flush().catch(console.error);
+        } else {
+          // Only one in-progress promise at a time
+          if (!promise) {
+            promise = new Promise((resolve, reject) => {
+              // Flush the queue after a delay
+              timer = setTimeout(() => {
+                flush().then(resolve).catch(reject);
+                promise = null;
+              }, queueFlushInterval);
+            });
+          }
+          await promise;
         }
-        await promise;
       });
 
-      // Flush the queue on page unload
-      if (typeof document !== "undefined" && document.visibilityState) {
-        document.addEventListener("visibilitychange", () => {
-          if (document.visibilityState === "hidden") {
-            flush().catch(console.error);
-          }
-        });
+      // Flush on unload (both events; web-vitals does the same):
+      //   visibilitychange → hidden: reliable on iOS Safari when backgrounding;
+      //     don't set isUnloading so a tab switch doesn't degrade batching
+      //   pagehide: actual unload signal (also fires for bfcache); set
+      //     isUnloading so further events skip the queue delay
+      // Both flush with keepalive so the request survives teardown.
+      let removeUnloadListener: (() => void) | null = null;
+      if (typeof window !== "undefined" && "addEventListener" in window) {
+        const onVisibilityChange = () => {
+          document.visibilityState === "hidden" &&
+            flush(true).catch(console.error);
+        };
+        const onPageHide = () => {
+          isUnloading = true;
+          flush(true).catch(console.error);
+        };
+        document.addEventListener("visibilitychange", onVisibilityChange);
+        window.addEventListener("pagehide", onPageHide);
+        removeUnloadListener = () => {
+          document.removeEventListener("visibilitychange", onVisibilityChange);
+          window.removeEventListener("pagehide", onPageHide);
+        };
       }
 
       // Flush the queue when the growthbook instance is destroyed
       "onDestroy" in gb &&
         gb.onDestroy(() => {
-          flush().catch(console.error);
+          isUnloading = true;
+          flush(true).catch(console.error);
+          removeUnloadListener?.();
+          removeUnloadListener = null;
         });
     }
 
