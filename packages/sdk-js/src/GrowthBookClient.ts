@@ -379,6 +379,8 @@ export class UserScopedGrowthBook<
 > {
   private _gb: GrowthBookClient;
   private _userContext: UserContext;
+  private _destroyed?: boolean;
+  private _destroyCallbacks: Array<() => void>;
   public logs: Array<LogUnion>;
 
   constructor(
@@ -388,6 +390,7 @@ export class UserScopedGrowthBook<
   ) {
     this._gb = gb;
     this._userContext = userContext;
+    this._destroyCallbacks = [];
     this.logs = [];
 
     this._userContext.trackedExperiments =
@@ -401,6 +404,26 @@ export class UserScopedGrowthBook<
         plugin(this);
       }
     }
+  }
+
+  public onDestroy(cb: () => void) {
+    this._destroyCallbacks.push(cb);
+  }
+
+  public isDestroyed() {
+    return !!this._destroyed;
+  }
+
+  public destroy() {
+    this._destroyed = true;
+    this._destroyCallbacks.forEach((cb) => {
+      try {
+        cb();
+      } catch (e) {
+        console.error(e);
+      }
+    });
+    this._destroyCallbacks = [];
   }
 
   public runInlineExperiment<T>(experiment: Experiment<T>): Result<T> {
