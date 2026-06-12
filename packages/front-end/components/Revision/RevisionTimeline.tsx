@@ -12,13 +12,19 @@ import {
   PiArrowCounterClockwise,
   PiPlusBold,
 } from "react-icons/pi";
+import { FaAngleDown, FaAngleRight } from "react-icons/fa";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import Avatar from "@/ui/Avatar";
+import Button from "@/ui/Button";
 import { RadixColor } from "@/ui/HelperText";
 import EventUser from "@/components/Avatar/EventUser";
 import { useUser } from "@/services/UserContext";
 import MarkdownWithDiffRefs from "@/components/Reviews/DiffCommentMarkdown";
+import { ExpandableDiff } from "@/components/Reviews/Feature/RevisionDiffUtils";
+import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
+import { useRevisionDiff, RevisionDiffConfig } from "./useRevisionDiff";
+import { buildPerEntryDiffSnapshots } from "./revisionActivityDiff";
 
 type EntryKind =
   | "comment"
@@ -38,6 +44,9 @@ type TimelineEntry = {
   body?: string;
   icon: React.ReactNode;
   color: RadixColor;
+  // Set for content-changing activity entries that recorded a per-entry
+  // snapshot — enables the "Details" disclosure with the per-edit diff.
+  detailId?: string;
 };
 
 // Activity actions that duplicate entries already surfaced from `reviews[]`.
@@ -101,15 +110,22 @@ function activityEntry(
 // widgets); verdicts and lifecycle events render as compact inline rows.
 // `collapseEdits` (the Conversation sub-tab) folds content-edit entries into
 // a single expandable "N edits" row so the conversation stays in front.
-export default function RevisionTimeline({
+export default function RevisionTimeline<T>({
   revision,
   collapseEdits = false,
+  diffConfig,
 }: {
   revision: Revision;
   collapseEdits?: boolean;
+  // When provided, content-changing entries get a "Details" disclosure
+  // showing the per-edit before/after diff (reconstructed from the entry's
+  // persisted snapshots).
+  diffConfig?: RevisionDiffConfig<T>;
 }) {
   const { users, getUserDisplay } = useUser();
   const [editsExpanded, setEditsExpanded] = useState(false);
+  // Entry ids whose "Details" diff is expanded.
+  const [openDetails, setOpenDetails] = useState<Set<string>>(new Set());
 
   const entries = useMemo<TimelineEntry[]>(() => {
     const list: TimelineEntry[] = [];
@@ -152,6 +168,9 @@ export default function RevisionTimeline({
         userId: a.userId,
         timestamp: new Date(a.dateCreated).toISOString(),
         ...mapped,
+        // Content-changing entries persist a proposedChangesSnapshot; those
+        // are the ones a per-entry diff can be reconstructed for.
+        ...(Array.isArray(a.proposedChangesSnapshot) ? { detailId: a.id } : {}),
       });
     }
     return list.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
@@ -211,6 +230,8 @@ export default function RevisionTimeline({
             <Flex direction="column" gap="3">
               {items.map((entry) => {
                 const name = renderUserName(entry.userId);
+                const showDetails = !!entry.detailId && !!diffConfig;
+                const detailsOpen = showDetails && openDetails.has(entry.id);
                 const header = (
                   <Flex align="center" gap="2">
                     <Avatar size="sm" color={entry.color} variant="soft">
@@ -225,10 +246,43 @@ export default function RevisionTimeline({
                     <Text size="small" color="text-low">
                       {ago(entry.timestamp)}
                     </Text>
+                    {showDetails && (
+                      <Button
+                        variant="ghost"
+                        color="gray"
+                        size="xs"
+                        mt="0"
+                        mb="0"
+                        icon={detailsOpen ? <FaAngleDown /> : <FaAngleRight />}
+                        onClick={() =>
+                          setOpenDetails((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(entry.id)) next.delete(entry.id);
+                            else next.add(entry.id);
+                            return next;
+                          })
+                        }
+                      >
+                        Details
+                      </Button>
+                    )}
                   </Flex>
                 );
                 if (!entry.body) {
-                  return <Box key={entry.id}>{header}</Box>;
+                  return (
+                    <Box key={entry.id}>
+                      {header}
+                      {detailsOpen && diffConfig && entry.detailId && (
+                        <Box mt="2" ml="6">
+                          <TimelineEntryDiff<T>
+                            revision={revision}
+                            activityId={entry.detailId}
+                            diffConfig={diffConfig}
+                          />
+                        </Box>
+                      )}
+                    </Box>
+                  );
                 }
                 return (
                   <Box
@@ -271,5 +325,57 @@ export default function RevisionTimeline({
         ))}
       </Flex>
     </Box>
+  );
+}
+
+// "Details" panel for a single content-changing timeline entry: the
+// before/after diff of exactly what that one edit changed, reconstructed by
+// replaying the per-entry snapshots (same logic as the compare modal's
+// log-entry drill-down).
+function TimelineEntryDiff<T>({
+  revision,
+  activityId,
+  diffConfig,
+}: {
+  revision: Revision;
+  activityId: string;
+  diffConfig: RevisionDiffConfig<T>;
+}) {
+  const snapshots = useMemo(
+    () => buildPerEntryDiffSnapshots<T>(revision, activityId),
+    [revision, activityId],
+  );
+  // Fall back to the revision snapshot so the hook can run unconditionally;
+  // the null check below hides the panel when no per-entry data exists.
+  const fallback = revision.target.snapshot as unknown as T;
+  const { diffs } = useRevisionDiff<T>(
+    snapshots?.baseSnapshot ?? fallback,
+    snapshots?.proposedSnapshot ?? fallback,
+    diffConfig,
+  );
+
+  if (!snapshots) return null;
+
+  if (diffs.length === 0) {
+    return (
+      <Text size="small" color="text-low" as="p">
+        No content changes recorded for this edit.
+      </Text>
+    );
+  }
+
+  return (
+    <Flex direction="column" gap="2">
+      {diffs.map((d, i) => (
+        <ExpandableDiff
+          key={i}
+          title={d.label}
+          a={d.a}
+          b={d.b}
+          defaultOpen
+          styles={COMPACT_DIFF_STYLES}
+        />
+      ))}
+    </Flex>
   );
 }

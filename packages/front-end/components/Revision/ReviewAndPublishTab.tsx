@@ -524,9 +524,10 @@ function ReviewAndPublishRevision<T>({
       </Box>
 
       <Box mb="4">
-        <RevisionTimeline
+        <RevisionTimeline<T>
           revision={revision}
           collapseEdits={subTab === "overview"}
+          diffConfig={diffConfig}
         />
 
         {/* Composer below the timeline — entries are chronological (newest
