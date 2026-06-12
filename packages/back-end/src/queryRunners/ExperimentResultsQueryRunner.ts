@@ -85,6 +85,7 @@ export type ExperimentResultsQueryParams = {
 export const TRAFFIC_QUERY_NAME = "traffic";
 
 export const UNITS_TABLE_PREFIX = "growthbook_tmp_units";
+export const ASSIGNMENT_UNITS_TABLE_PREFIX = "gb_units_assignment";
 
 export const startExperimentResultQueries = async (
   context: ApiReqContext,
@@ -140,13 +141,42 @@ export const startExperimentResultQueries = async (
   const queries: Queries = [];
 
   // Settings for units table
+  const canWriteTable =
+    integration.getSourceProperties().supportsWritingTables &&
+    !!settings.pipelineSettings?.writeDataset;
+
   const useUnitsTable =
-    (integration.getSourceProperties().supportsWritingTables &&
+    (canWriteTable &&
       settings.pipelineSettings?.allowWriting &&
       settings.pipelineSettings?.mode === "ephemeral" &&
-      !!settings.pipelineSettings?.writeDataset &&
       hasPipelineModeFeature) ??
     false;
+
+  // When we can write tables but full pipeline mode is not active, still
+  // materialize the assignment/exposure query into its own table so it runs
+  // once instead of being inlined as a CTE inside every metric query.
+  const separateAssignmentQuery =
+    canWriteTable &&
+    settings.pipelineSettings?.allowWriting &&
+    hasPipelineModeFeature &&
+    !useUnitsTable;
+  const shouldCreateUnitsTable = useUnitsTable || separateAssignmentQuery;
+
+  // Table name: use a per-snapshot name for full pipeline mode (ephemeral),
+  // and a stable per-experiment name for the separate-assignment path so the
+  // materialized results can be reused across refreshes.
+  const unitsTableName = useUnitsTable
+    ? `${UNITS_TABLE_PREFIX}_${queryParentId}`
+    : `${ASSIGNMENT_UNITS_TABLE_PREFIX}_${snapshotSettings.experimentId}`;
+  const unitsTableFullName =
+    shouldCreateUnitsTable && !!integration.generateTablePath
+      ? integration.generateTablePath(
+          unitsTableName,
+          settings.pipelineSettings?.writeDataset,
+          settings.pipelineSettings?.writeDatabase,
+          true,
+        )
+      : "";
 
   // Configured "always-computed" unit dimensions. These are materialized as
   // extra dim_unit_<id> columns on the shared units table and get isolated
@@ -163,15 +193,6 @@ export const startExperimentResultQueries = async (
     )
   ).filter((d): d is Dimension => d !== null);
   let unitQuery: QueryPointer | null = null;
-  const unitsTableFullName =
-    useUnitsTable && !!integration.generateTablePath
-      ? integration.generateTablePath(
-          `${UNITS_TABLE_PREFIX}_${queryParentId}`,
-          settings.pipelineSettings?.writeDataset,
-          settings.pipelineSettings?.writeDatabase,
-          true,
-        )
-      : "";
 
   // Settings for health query
   const runTrafficQuery = shouldRunHealthTrafficQuery({
@@ -202,7 +223,7 @@ export const startExperimentResultQueries = async (
     factTableMap: params.factTableMap,
   };
 
-  if (useUnitsTable) {
+  if (shouldCreateUnitsTable) {
     // The Mixpanel integration does not support writing tables
     if (!integration.generateTablePath) {
       throw new Error(
@@ -218,7 +239,7 @@ export const startExperimentResultQueries = async (
         ...unitQueryParams,
         dimensions: [
           ...unitQueryParams.dimensions,
-          ...unitDimensionsToPrecompute,
+          ...(useUnitsTable ? unitDimensionsToPrecompute : []),
         ],
       }),
       dependencies: [],
@@ -451,7 +472,7 @@ export const startExperimentResultQueries = async (
   const dropUnitsTable =
     integration.getSourceProperties().dropUnitsTable &&
     settings.pipelineSettings?.unitsTableDeletion;
-  if (useUnitsTable && dropUnitsTable) {
+  if (shouldCreateUnitsTable && dropUnitsTable) {
     const dropUnitsTableQuery = await startQuery({
       name: `drop_${queryParentId}`,
       query: integration.getDropUnitsTableQuery({
