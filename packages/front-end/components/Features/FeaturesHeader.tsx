@@ -7,10 +7,11 @@ import { FeatureInterface } from "shared/types/feature";
 import { filterEnvironmentsByFeature, isDefined } from "shared/util";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiEye, PiWarning } from "react-icons/pi";
-import { HoldoutInterface } from "shared/validators";
+import { ACTIVE_DRAFT_STATUSES, HoldoutInterface } from "shared/validators";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
+import Badge from "@/ui/Badge";
 import { useUser } from "@/services/UserContext";
 import useApi from "@/hooks/useApi";
 // eslint-disable-next-line no-restricted-imports -- legacy Modal still backs the watchers modal; migrate to @/ui/Modal in a follow-up
@@ -46,6 +47,7 @@ import {
 } from "@/ui/DropdownMenu";
 import { useFeatureStaleStates } from "@/hooks/useFeatureStaleStates";
 import { useScrollPosition } from "@/hooks/useScrollPosition";
+import { draftStatusTooltip } from "@/components/Reviews/RevisionStatusBadge";
 import FeatureArchiveModal from "./FeatureArchiveModal";
 import FeatureDeleteModal from "./FeatureDeleteModal";
 import AddToHoldoutModal from "./AddToHoldoutModal";
@@ -197,6 +199,18 @@ export default function FeaturesHeader({
   const enabledEnvs = getEnabledEnvironments(feature, environments);
   const canPublish = permissionsUtil.canPublishFeature(feature, enabledEnvs);
   const isArchived = feature.archived;
+
+  // Active-draft counts for the "Review and Publish" tab chip + its tooltip.
+  const draftStatusCounts: Partial<Record<string, number>> = {};
+  revisions.forEach((r) => {
+    if ((ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status)) {
+      draftStatusCounts[r.status] = (draftStatusCounts[r.status] ?? 0) + 1;
+    }
+  });
+  const activeDraftCount = Object.values(draftStatusCounts).reduce<number>(
+    (sum, n) => sum + (n ?? 0),
+    0,
+  );
 
   // Rendered once via a stable portal host (see above).
   const revisionAndSettingsGroup = (
@@ -528,7 +542,21 @@ export default function FeaturesHeader({
               <Tabs value={tab} onValueChange={setTab}>
                 <TabsList size="3" style={{ width: "100%" }}>
                   <TabsTrigger value="overview">Overview</TabsTrigger>
-                  <TabsTrigger value="review">Review and Publish</TabsTrigger>
+                  <TabsTrigger value="review">
+                    Review and Publish
+                    {activeDraftCount > 0 && (
+                      <Tooltip body={draftStatusTooltip(draftStatusCounts)}>
+                        <Badge
+                          label={String(activeDraftCount)}
+                          color="red"
+                          variant="solid"
+                          radius="full"
+                          ml="2"
+                          style={{ minWidth: 18, height: 18 }}
+                        />
+                      </Tooltip>
+                    )}
+                  </TabsTrigger>
                   <TabsTrigger value="test">Simulate</TabsTrigger>
                   <TabsTrigger value="stats">Code Refs</TabsTrigger>
                   <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>

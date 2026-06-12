@@ -107,11 +107,11 @@ describe("diff snapshots", () => {
     const entries = buildDiffSnapshotEntries(a, b);
     const snapshot = captureDiffRefSnapshot(entries, "R", 2);
     expect(snapshot.lines).toEqual([
-      { op: "-", text: '  "type": "rollout",' },
-      { op: "-", text: '  "coverage": 0.5' },
-      { op: "+", text: '  "type": "force",' },
-      { op: "+", text: '  "value": "true"' },
-      { op: " ", text: "}" },
+      { op: "-", text: '  "type": "rollout",', anchored: false },
+      { op: "-", text: '  "coverage": 0.5', anchored: false },
+      { op: "+", text: '  "type": "force",', anchored: true },
+      { op: "+", text: '  "value": "true"', anchored: false },
+      { op: " ", text: "}", anchored: false },
     ]);
   });
 
@@ -125,6 +125,7 @@ describe("diff snapshots", () => {
     const ref = { sectionKey: "rules", side: "R" as const, line: 2 };
     const snapshot = captureDiffRefSnapshot(entries, "R", 2);
     const block = formatDiffRef(ref, snapshot);
+    expect(block).toContain('+!   "type": "force",');
     const segments = splitDiffRefSegments(`Intro\n\n${block}\n\nOutro`);
     expect(segments).toEqual([
       { type: "markdown", text: "Intro\n\n" },

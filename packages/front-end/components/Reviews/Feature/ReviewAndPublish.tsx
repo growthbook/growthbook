@@ -57,7 +57,9 @@ import Revisionlog, {
   REVIEW_ACTIVITY_ACTIONS,
 } from "@/components/Reviews/Feature/RevisionLog";
 import useApi from "@/hooks/useApi";
-import RevisionLabel from "@/components/Reviews/RevisionLabel";
+import RevisionLabel, {
+  revisionLabelText,
+} from "@/components/Reviews/RevisionLabel";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import {
   useFeatureRevisionDiff,
@@ -74,7 +76,8 @@ import Tooltip from "@/ui/Tooltip";
 import Heading from "@/ui/Heading";
 import Avatar from "@/ui/Avatar";
 import Badge from "@/ui/Badge";
-import {
+import Link from "@/ui/Link";
+import RevisionStatusBadge, {
   revisionStatusBadgeVariant,
   revisionStatusColor,
   revisionStatusIcon,
@@ -96,6 +99,7 @@ import {
 import {
   buildAnchoredCommentMap,
   REVIEW_SUBTAB_EVENT,
+  scrollToLatestRevisionLogEntry,
 } from "@/components/Reviews/diffCommentRefs";
 import useURLHash from "@/hooks/useURLHash";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
@@ -289,6 +293,59 @@ export default function ReviewAndPublish({
     (r) => r.version === revision?.baseVersion,
   );
   const liveRevision = revisions.find((r) => r.version === feature.version);
+
+  // Other active drafts, offered as quick navigation in the revision header.
+  const otherAttentionDrafts = revisionList
+    .filter(
+      (r) =>
+        (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status) &&
+        r.version !== revision?.version,
+    )
+    .sort((a, b) => b.version - a.version);
+  const otherDraftsNav =
+    otherAttentionDrafts.length === 1 ? (
+      <Flex align="center" gap="2">
+        <Text color="text-mid" whiteSpace="nowrap">
+          1 other draft needs attention:
+        </Text>
+        <Link
+          weight="medium"
+          onClick={() => setVersion(otherAttentionDrafts[0].version)}
+        >
+          {revisionLabelText(
+            otherAttentionDrafts[0].version,
+            otherAttentionDrafts[0].title,
+            false,
+          )}
+        </Link>
+        <RevisionStatusBadge
+          revision={otherAttentionDrafts[0]}
+          liveVersion={feature.version}
+        />
+      </Flex>
+    ) : otherAttentionDrafts.length > 1 ? (
+      <DropdownMenu
+        trigger={
+          <Link weight="medium">
+            {otherAttentionDrafts.length} other drafts need attention{" "}
+            <PiCaretDownBold size={11} />
+          </Link>
+        }
+        menuPlacement="end"
+      >
+        {otherAttentionDrafts.map((r) => (
+          <DropdownMenuItem
+            key={r.version}
+            onClick={() => setVersion(r.version)}
+          >
+            <Flex align="center" justify="between" gap="4" width="100%">
+              <RevisionLabel version={r.version} title={r.title} />
+              <RevisionStatusBadge revision={r} liveVersion={feature.version} />
+            </Flex>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenu>
+    ) : null;
 
   // ── Reviewers (per-user latest verdict) ──
   // Pull the revision log (SWR-deduped against <Revisionlog>'s own fetch) and
@@ -585,6 +642,7 @@ export default function ReviewAndPublish({
                 { method: "POST", body: JSON.stringify({ comment: text }) },
               );
               await mutateAllLogs();
+              scrollToLatestRevisionLogEntry();
             }
           : undefined,
     }),
@@ -1015,7 +1073,8 @@ export default function ReviewAndPublish({
                       body: JSON.stringify({ comment }),
                     },
                   );
-                  await revisionLogRef.current?.mutateLog();
+                  await mutateAllLogs();
+                  scrollToLatestRevisionLogEntry();
                 }}
               />
             </Box>
@@ -1102,43 +1161,57 @@ export default function ReviewAndPublish({
     };
 
     const readonlyHeader = (
-      <Box mb="6">
-        <Heading as="h3" size="large" mb="2">
-          {headerTitle}
-        </Heading>
-        <Flex align="center" gap="2">
-          <Box style={{ flexShrink: 0 }}>
-            <Badge
-              size="lg"
-              variant={revisionStatusBadgeVariant(status)}
-              radius="full"
-              color={statusColor}
-              label={revisionStatusLabel(status)}
-            />
+      <Box mb="4">
+        <Flex align="start" justify="between" gap="4">
+          <Box>
+            <Heading as="h3" size="medium" mb="2">
+              {headerTitle}{" "}
+              <span
+                style={{
+                  display: "inline-block",
+                  verticalAlign: "middle",
+                  // correct `middle` to the visual center of the glyphs
+                  transform: "translateY(-2px)",
+                  marginLeft: 4,
+                }}
+              >
+                <Badge
+                  variant={revisionStatusBadgeVariant(status)}
+                  radius="full"
+                  color={statusColor}
+                  label={revisionStatusLabel(status)}
+                />
+              </span>
+            </Heading>
+            <Text as="span" color="text-low">
+              {isDiscarded ? (
+                <>
+                  Revision <strong>{revision.version}</strong>
+                  {baseV != null ? <> (based on revision {baseV})</> : null} was
+                  discarded{discardedDate ? ` on ${discardedDate}` : ""}
+                </>
+              ) : (
+                <>
+                  Revision <strong>{revision.version}</strong>
+                  {baseV != null ? (
+                    <>
+                      {" "}
+                      was merged into revision <strong>{baseV}</strong> and
+                      published
+                    </>
+                  ) : (
+                    <> was published</>
+                  )}
+                  {publishedDate ? ` on ${publishedDate}` : ""}
+                </>
+              )}
+            </Text>
           </Box>
-          <Text as="span" color="text-low">
-            {isDiscarded ? (
-              <>
-                Revision <strong>{revision.version}</strong>
-                {baseV != null ? <> (based on revision {baseV})</> : null} was
-                discarded{discardedDate ? ` on ${discardedDate}` : ""}
-              </>
-            ) : (
-              <>
-                Revision <strong>{revision.version}</strong>
-                {baseV != null ? (
-                  <>
-                    {" "}
-                    was merged into revision <strong>{baseV}</strong> and
-                    published
-                  </>
-                ) : (
-                  <> was published</>
-                )}
-                {publishedDate ? ` on ${publishedDate}` : ""}
-              </>
-            )}
-          </Text>
+          {otherDraftsNav && (
+            <Box flexShrink="0" pt="1">
+              {otherDraftsNav}
+            </Box>
+          )}
         </Flex>
       </Box>
     );
@@ -1267,6 +1340,7 @@ export default function ReviewAndPublish({
 
           {isDiscarded ? (
             <Button
+              variant="outline"
               onClick={() => setConfirmReopen(true)}
               disabled={!canManageDrafts}
               style={{ width: "100%" }}
@@ -1759,32 +1833,48 @@ export default function ReviewAndPublish({
   const staleBase = revision.baseVersion !== feature.version;
 
   const mergeHeader = (
-    <Box mb="6">
-      <Heading as="h3" size="large" mb="2">
-        {headerTitle}
-      </Heading>
-      <Flex align="center" gap="2">
-        <Box style={{ flexShrink: 0 }}>
-          <Badge
-            size="lg"
-            variant="soft"
-            radius="full"
-            color={revisionStatusColor(revision.status)}
-            label={revisionStatusLabel(revision.status)}
-          />
+    <Box mb="4">
+      <Flex align="start" justify="between" gap="4">
+        <Box>
+          <Heading as="h3" size="medium" mb="2">
+            {headerTitle}{" "}
+            <span
+              style={{
+                display: "inline-block",
+                verticalAlign: "middle",
+                // correct `middle` to the visual center of the glyphs
+                transform: "translateY(-2px)",
+                marginLeft: 4,
+              }}
+            >
+              <Badge
+                variant="soft"
+                radius="full"
+                color={revisionStatusColor(revision.status)}
+                label={revisionStatusLabel(revision.status)}
+              />
+            </span>
+          </Heading>
+          <Text as="span" color="text-low">
+            {reviewRequested && requesterName ? (
+              <>
+                <strong>{requesterName}</strong> requested review to merge{" "}
+              </>
+            ) : (
+              <>Merging </>
+            )}
+            revision <strong>{revision.version}</strong> into the live version
+            (revision <strong>{feature.version}</strong>)
+            {staleBase ? (
+              <> · based on revision {revision.baseVersion}</>
+            ) : null}
+          </Text>
         </Box>
-        <Text as="span" color="text-low">
-          {reviewRequested && requesterName ? (
-            <>
-              <strong>{requesterName}</strong> requested review to merge{" "}
-            </>
-          ) : (
-            <>Merging </>
-          )}
-          revision <strong>{revision.version}</strong> into the live version
-          (revision <strong>{feature.version}</strong>)
-          {staleBase ? <> · based on revision {revision.baseVersion}</> : null}
-        </Text>
+        {otherDraftsNav && (
+          <Box flexShrink="0" pt="1">
+            {otherDraftsNav}
+          </Box>
+        )}
       </Flex>
     </Box>
   );

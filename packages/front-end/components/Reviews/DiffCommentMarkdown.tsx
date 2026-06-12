@@ -54,8 +54,12 @@ function DiffRefWidget({
                 : line.op === "+"
                   ? " gb-diff-ref-add"
                   : "";
+            const anchorClass = line.anchored ? " gb-diff-ref-anchor" : "";
             return (
-              <div key={i} className={`gb-diff-ref-line${opClass}`}>
+              <div
+                key={i}
+                className={`gb-diff-ref-line${opClass}${anchorClass}`}
+              >
                 <span className="gb-diff-ref-op">
                   {line.op === " " ? "\u00a0" : line.op}
                 </span>

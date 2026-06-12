@@ -434,6 +434,11 @@ export default function FeaturesOverview({
     if (target) target.appendChild(draftCtaPortalHost);
   });
 
+  // Per-modal acknowledgment of the soft draft cap: creating past the cap
+  // requires ticking the checkbox in the warning callout. Resets whenever the
+  // modal closes.
+  const [draftCapAcknowledged, setDraftCapAcknowledged] = useState(false);
+
   if (!baseFeature || !feature || !revision) return null;
 
   const hasConditionalState =
@@ -464,9 +469,6 @@ export default function FeaturesOverview({
   ).length;
   const maxDrafts = settings.maxConcurrentDrafts || 0;
   const atDraftCap = maxDrafts > 0 && activeDraftCount >= maxDrafts;
-  // Per-modal acknowledgment: creating past the cap requires ticking the
-  // checkbox in the warning callout. Resets whenever the modal closes.
-  const [draftCapAcknowledged, setDraftCapAcknowledged] = useState(false);
 
   const projectId = feature.project;
 

@@ -9,9 +9,12 @@ import type { RevisionLog } from "shared/validators";
 //     ```diff-ref rules:R12
 //       "id": "abc",
 //     - "type": "rollout",
-//     + "type": "force",
+//     +! "type": "force",
 //       "value": "true"
 //     ```
+//
+// Lines prefixed with `!` after the diff op (`+!`, `-!`, ` !`) are the
+// anchored line the comment was written against.
 //
 // The info string is `diff-ref <sectionKey>:<side><line>` where <sectionKey>
 // is the semantic key of the diff section (see `FeatureRevisionDiff.key`),
@@ -42,10 +45,12 @@ export type DiffSnapshotOp = "-" | "+" | " ";
 export type DiffRefSnapshotLine = {
   op: DiffSnapshotOp;
   text: string;
+  // The line the comment was anchored on when the snapshot was captured.
+  anchored?: boolean;
 };
 
 // A small window of the diff around the anchored line: removed/added/context
-// lines. The diff itself is the context; the anchored line isn't singled out.
+// lines. The anchored line is marked so the widget can bold it.
 export type DiffRefSnapshot = {
   lines: DiffRefSnapshotLine[];
 };
@@ -108,7 +113,11 @@ export function captureDiffRefSnapshot(
   const start = Math.max(0, idx - 2);
   const end = Math.min(entries.length - 1, idx + 2);
   return {
-    lines: entries.slice(start, end + 1).map(({ op, text }) => ({ op, text })),
+    lines: entries.slice(start, end + 1).map(({ op, text }, i) => ({
+      op,
+      text,
+      anchored: start + i === idx,
+    })),
   };
 }
 
@@ -118,7 +127,7 @@ export function formatDiffRef(
 ): string {
   const header = `\`\`\`diff-ref ${ref.sectionKey}:${ref.side}${ref.line}`;
   const body = (snapshot?.lines ?? [])
-    .map((l) => `${l.op} ${l.text}`)
+    .map((l) => `${l.op}${l.anchored ? "!" : ""} ${l.text}`)
     .join("\n");
   return body ? `${header}\n${body}\n\`\`\`` : `${header}\n\`\`\``;
 }
@@ -129,14 +138,19 @@ export function diffRefId(ref: DiffCommentRef): string {
   return `${ref.sectionKey}:${ref.side}${ref.line}`;
 }
 
-const SNAPSHOT_LINE_RE = /^([-+ ]) (.*)$/;
+const SNAPSHOT_LINE_RE = /^([-+ ])(!?) (.*)$/;
 
 function snapshotFromBlockBody(body: string): DiffRefSnapshot {
   if (!body.trim()) return { lines: [] };
   const rawLines = body.replace(/\n$/, "").split("\n");
   const lines: DiffRefSnapshotLine[] = rawLines.map((raw) => {
     const m = SNAPSHOT_LINE_RE.exec(raw);
-    if (m) return { op: m[1] as DiffSnapshotOp, text: m[2] };
+    if (m)
+      return {
+        op: m[1] as DiffSnapshotOp,
+        text: m[3],
+        anchored: m[2] === "!",
+      };
     // Hand-edited or malformed line; keep it visible as context.
     return { op: " ", text: raw };
   });
@@ -281,6 +295,29 @@ export function scrollToRevisionLogEntry(logId: string): void {
   el.scrollIntoView({ behavior: "smooth", block: "center" });
   el.classList.add("gb-log-entry-flash");
   setTimeout(() => el.classList.remove("gb-log-entry-flash"), 1800);
+}
+
+// After posting a new timeline comment, scroll to the newest rendered entry.
+// Retries while the log refetch re-renders (same pattern as scrollToDiffRef).
+export function scrollToLatestRevisionLogEntry(): void {
+  const scrollTo = (el: Element) => {
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.classList.add("gb-log-entry-flash");
+    setTimeout(() => el.classList.remove("gb-log-entry-flash"), 1800);
+  };
+  const find = () => {
+    const entries = document.querySelectorAll("[data-revision-log-id]");
+    return entries.length ? entries[entries.length - 1] : null;
+  };
+  const tryScroll = (attempt: number) => {
+    const el = find();
+    if (el) {
+      scrollTo(el);
+      return;
+    }
+    if (attempt < 20) setTimeout(() => tryScroll(attempt + 1), 100);
+  };
+  tryScroll(0);
 }
 
 // A revision-log comment resolved to a diff spot. `logId` is absent for
