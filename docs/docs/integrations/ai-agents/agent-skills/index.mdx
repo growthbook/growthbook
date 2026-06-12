@@ -14,14 +14,15 @@ GrowthBook publishes a library of them that runs the entire feature flag and exp
 
 Each skill is a playbook your agent follows: it knows the GrowthBook REST API, the right order of operations, and the guardrails (draft → review → publish, safe rollouts, two-step deletes) that keep changes safe.
 
-<figure>
-<iframe width="560" height="315" style={{aspectRatio: "16/9", width: "100%", height: "auto", marginBottom: "1rem"}} src="https://www.youtube.com/embed/FJG9Q5YsnVs" title="YouTube video player" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen></iframe>
-<figcaption>GrowthBook's Head of Experimentation, Luke Sonnet, runs an experiment end to end using the skills.</figcaption>
-</figure>
-
 :::info Open source
 The skills live at [github.com/growthbook/skills](https://github.com/growthbook/skills) and call the [GrowthBook REST API](/app/api) directly through a small bundled helper.
 :::
+
+Watch GrowthBook's Head of Experimentation, Luke Sonnet, run an experiment end-to-end using skills.
+
+<figure>
+<iframe width="560" height="315" style={{aspectRatio: "16/9", width: "100%", height: "auto", marginBottom: "1rem"}} src="https://www.youtube.com/embed/FJG9Q5YsnVs" title="YouTube video player" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen></iframe>
+</figure>
 
 ## Prerequisites
 
@@ -118,7 +119,7 @@ The skills fall into three groups. The two reference pages list each one with an
 
 The skills follow GrowthBook's built-in safeguards:
 
-- **draft → review → publish.** Every flag change is staged on a draft revision. Skills route through `flag-review` and `flag-publish` so approvals and merge conflicts are handled the same way they are in the app. See [Publishing & approval flows](/features/publishing-and-approval-flows).
+- **Draft → review → publish.** Every flag change is staged on a draft revision. Skills route through `flag-review` and `flag-publish` so approvals and merge conflicts are handled the same way they are in the app. See [Publishing & approval flows](/features/publishing-and-approval-flows).
 - **Two-step deletes.** `flag-cleanup` archives a flag, pauses for you to verify nothing broke, and only then deletes. It won't collapse those steps.
 - **Read-only by default where it matters.** `flag-search`, `flag-graph`, `experiment-brainstorm`, `experiment-design`, and `experiment-analyze` never write.
 - **Secrets stay local.** `gb-setup` writes your key to a `0600` file and recommends a scoped PAT you can revoke independently.
@@ -127,8 +128,8 @@ The skills follow GrowthBook's built-in safeguards:
 
 - [Feature flag skills](/integrations/ai-agents/agent-skills/feature-flags): the full flag catalog
 - [Experiment skills](/integrations/ai-agents/agent-skills/experiments): design, launch, analyze, and stop tests
-- [Agent Skills vs. the MCP Server](/integrations/ai-agents): which to use
-- [GrowthBook REST API](/app/api): what the skills call under the hood
+- [Agent Skills vs. the MCP Server](/integrations/ai-agents)
+- [GrowthBook REST API](/app/api), which the skills call under the hood
 - [Skills source on GitHub](https://github.com/growthbook/skills)
 
 [Join our community Slack for additional help, tips, and announcements](https://join.slack.com/t/growthbookusers/shared_invite/zt-2xw8fu279-Y~hwnfCEf7WrEI9qScHURQ)
