@@ -3,17 +3,13 @@ import type {
   UserScopedGrowthBook,
   GrowthBookClient,
 } from "../GrowthBookClient";
+import { genUUID, getOrCreateSessionReplayId } from "./session-replay-id";
 
 export type AutoAttributeSettings = {
   uuidCookieName?: string;
   uuidKey?: string;
   uuid?: string;
   uuidAutoPersist?: boolean;
-};
-
-type StoredSession = {
-  id: string;
-  lastTouchedAt: number;
 };
 
 function getBrowserDevice(ua: string): { browser: string; deviceType: string } {
@@ -49,7 +45,6 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
   }
 
   const COOKIE_NAME = settings.uuidCookieName || "gbuuid";
-  const SESSION_STORAGE_KEY = "gb_session";
   const uuidKey = settings.uuidKey || "id";
   let uuid = settings.uuid || "";
   function persistUUID() {
@@ -66,55 +61,6 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
     // Generate a new UUID
     uuid = genUUID(window.crypto);
     return uuid;
-  }
-
-  let inMemorySessionFallback: StoredSession | null = null;
-
-  function persistSession(session: StoredSession): void {
-    try {
-      sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
-    } catch {
-      inMemorySessionFallback = session;
-    }
-  }
-
-  // Internal — session boundary threshold is not a consumer-facing knob.
-  const SESSION_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
-
-  function getOrCreateSessionId(): string {
-    const now = Date.now();
-
-    // Read from storage with idle-window check.
-    let stored: StoredSession | null = null;
-    try {
-      const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
-      if (raw) stored = JSON.parse(raw) as StoredSession;
-    } catch {
-      // sessionStorage disabled — fall through to in-memory
-      stored = inMemorySessionFallback;
-    }
-
-    // Existing session still inside its sliding idle window — bump and reuse.
-    if (
-      stored &&
-      typeof stored.id === "string" &&
-      stored.id &&
-      typeof stored.lastTouchedAt === "number" &&
-      now - stored.lastTouchedAt < SESSION_IDLE_TIMEOUT_MS
-    ) {
-      stored.lastTouchedAt = now;
-      persistSession(stored);
-      return stored.id;
-    }
-
-    // No valid session — generate one with the same UUID helper used
-    // elsewhere in this plugin (gbuuid cookie path).
-    const fresh: StoredSession = {
-      id: genUUID(window.crypto),
-      lastTouchedAt: now,
-    };
-    persistSession(fresh);
-    return fresh.id;
   }
 
   // Listen for a custom event to persist the UUID cookie
@@ -137,7 +83,7 @@ export function autoAttributesPlugin(settings: AutoAttributeSettings = {}) {
     return {
       ...getDataLayerVariables(),
       [uuidKey]: _uuid,
-      session_replay_id: getOrCreateSessionId(),
+      session_replay_id: getOrCreateSessionReplayId(),
       ...getURLAttributes(url),
       pageTitle: document.title,
       viewportWidth: window.innerWidth || 0,
@@ -198,21 +144,6 @@ function getCookie(name: string): string {
   const value = "; " + document.cookie;
   const parts = value.split(`; ${name}=`);
   return parts.length === 2 ? parts[1].split(";")[0] : "";
-}
-
-// Use the browsers crypto.randomUUID if set to generate a UUID
-function genUUID(crypto?: Crypto) {
-  if (crypto && crypto.randomUUID) return crypto.randomUUID();
-  return ("" + 1e7 + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c) => {
-    const n =
-      crypto && crypto.getRandomValues
-        ? crypto.getRandomValues(new Uint8Array(1))[0]
-        : Math.floor(Math.random() * 256);
-    return (
-      (c as unknown as number) ^
-      (n & (15 >> ((c as unknown as number) / 4)))
-    ).toString(16);
-  });
 }
 
 function getUtmAttributes(url: URL | Location | undefined) {

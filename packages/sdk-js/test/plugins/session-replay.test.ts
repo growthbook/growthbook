@@ -49,10 +49,21 @@ function buildGrowthBook() {
   return new GrowthBook({
     clientKey: "sdk-test-key",
     apiHost: "https://cdn.example.com",
-    // session_replay_id is set by autoAttributesPlugin in production;
-    // supplied directly here so the test runs without that plugin.
-    attributes: { session_replay_id: "f47ac10b-58cc-4372-a567-0e02b2c3d479" },
+    attributes: {
+      session_id: "customer-session-id",
+      session_replay_id: "user-supplied-replay-id",
+    },
   });
+}
+
+function seedSessionReplayId(sessionReplayId: string) {
+  sessionStorage.setItem(
+    "gb_session",
+    JSON.stringify({
+      session_replay_id: sessionReplayId,
+      lastTouchedAt: Date.now(),
+    }),
+  );
 }
 
 describe("sessionReplayPlugin — stopRecording keepalive flush", () => {
@@ -61,6 +72,8 @@ describe("sessionReplayPlugin — stopRecording keepalive flush", () => {
 
   beforeEach(() => {
     jest.useFakeTimers();
+    mockRecord.mockClear();
+    seedSessionReplayId("f47ac10b-58cc-4372-a567-0e02b2c3d479");
 
     // Expose rrweb's emit callback so tests can push events into the buffer
     mockRecord.mockImplementation((options) => {
@@ -185,5 +198,38 @@ describe("sessionReplayPlugin — stopRecording keepalive flush", () => {
     ) as Record<string, unknown>;
     expect(body.session_replay_id).toBe("f47ac10b-58cc-4372-a567-0e02b2c3d479");
     expect(body).not.toHaveProperty("sessionId");
+    expect(
+      JSON.parse((body.context as { attributes: string }).attributes),
+    ).toEqual(
+      expect.objectContaining({
+        session_id: "customer-session-id",
+        session_replay_id: "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+      }),
+    );
+  });
+
+  it("rotates session_replay_id in sessionStorage for a new replay session", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: "OK",
+    } as Response);
+    global.fetch = fetchMock;
+
+    const initialStored = JSON.parse(
+      sessionStorage.getItem("gb_session") || "{}",
+    ) as { session_replay_id?: string };
+
+    jest.advanceTimersByTime(31 * 60 * 1000);
+    await flushMicrotasks();
+
+    const rotatedStored = JSON.parse(
+      sessionStorage.getItem("gb_session") || "{}",
+    ) as { session_replay_id?: string };
+    expect(rotatedStored.session_replay_id).toBeTruthy();
+    expect(rotatedStored.session_replay_id).not.toBe(
+      initialStored.session_replay_id,
+    );
+    expect(mockRecord).toHaveBeenCalledTimes(2);
   });
 });

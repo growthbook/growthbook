@@ -65,6 +65,9 @@ describe("autoAttributesPlugin", () => {
     });
 
     deleteAllCookies();
+    if (typeof sessionStorage.clear === "function") {
+      sessionStorage.clear();
+    }
   });
 
   it("should set initial attributes", async () => {
@@ -97,6 +100,48 @@ describe("autoAttributesPlugin", () => {
       viewportWidth: expect.any(Number),
       viewportHeight: expect.any(Number),
     });
+
+    gb.destroy();
+  });
+
+  it("stores session_replay_id in sessionStorage", () => {
+    const plugin = autoAttributesPlugin();
+    const gb = new GrowthBook({
+      plugins: [plugin],
+    });
+
+    const stored = JSON.parse(sessionStorage.getItem("gb_session") || "{}") as {
+      session_replay_id?: string;
+    };
+    expect(stored.session_replay_id).toBe(gb.getAttributes().session_replay_id);
+
+    gb.destroy();
+  });
+
+  it("preserves customer session_id while owning session_replay_id", () => {
+    sessionStorage.setItem(
+      "gb_session",
+      JSON.stringify({
+        session_replay_id: "internal-replay-id",
+        lastTouchedAt: Date.now(),
+      }),
+    );
+
+    const plugin = autoAttributesPlugin();
+    const gb = new GrowthBook({
+      attributes: {
+        session_id: "customer-session-id",
+        session_replay_id: "user-supplied-replay-id",
+      },
+      plugins: [plugin],
+    });
+
+    expect(gb.getAttributes()).toEqual(
+      expect.objectContaining({
+        session_id: "customer-session-id",
+        session_replay_id: "internal-replay-id",
+      }),
+    );
 
     gb.destroy();
   });
@@ -156,6 +201,7 @@ describe("autoAttributesPlugin", () => {
       "http://localhost/?utm_source=google&utm_medium=cpc&utm_unknown=foo",
     );
 
+    const originalSessionStorage = window.sessionStorage;
     // Mock sessionStorage
     const sessionStorage = {
       getItem: jest.fn(),
@@ -165,7 +211,6 @@ describe("autoAttributesPlugin", () => {
       value: sessionStorage,
       writable: true,
     });
-    const originalSessionStorage = window.sessionStorage;
     window.sessionStorage =
       sessionStorage as unknown as typeof window.sessionStorage;
 

@@ -11,6 +11,7 @@ import {
   RetryExhaustedError,
   RetryCancelledError,
 } from "./retry-manager";
+import { getOrCreateSessionReplayId } from "./session-replay-id";
 
 export type {
   SessionReplayPrivacyConfig,
@@ -61,7 +62,7 @@ function userOptedOutOfTracking(): boolean {
 }
 
 type PersistedReplayState = {
-  sessionId: string;
+  sessionReplayId: string;
   sessionStartedAt: number;
   lastChunkIndex: number;
   lastChunkAt: number;
@@ -71,10 +72,10 @@ const REPLAY_STORAGE_KEY = "gb_session_replay";
 
 /**
  * Maximum idle gap between successful chunk sends before a resume across a
- * page reload is rejected and a fresh session starts. Must match
- * autoAttributesPlugin's SESSION_IDLE_TIMEOUT_MS (30 min): if this were
- * shorter, a reload in the gap would reuse the same session_replay_id but
- * reset chunkIndex to 0, creating a chunk-0 collision in the ingestor.
+ * page reload is rejected and a fresh session starts. Must match the
+ * session replay ID manager's idle timeout (30 min): if this were shorter,
+ * a reload in the gap would reuse the same session_replay_id but reset
+ * chunkIndex to 0, creating a chunk-0 collision in the ingestor.
  */
 const RESUME_STALENESS_MS = 30 * 60 * 1000;
 
@@ -83,16 +84,27 @@ function readPersistedReplayState(): PersistedReplayState | null {
     const raw = sessionStorage.getItem(REPLAY_STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as PersistedReplayState;
+    const legacyParsed = parsed as unknown as { sessionId?: unknown };
+    const sessionReplayId =
+      typeof parsed?.sessionReplayId === "string"
+        ? parsed.sessionReplayId
+        : typeof legacyParsed.sessionId === "string"
+          ? legacyParsed.sessionId
+          : "";
     if (
-      typeof parsed?.sessionId !== "string" ||
-      !parsed.sessionId ||
+      !sessionReplayId ||
       typeof parsed.sessionStartedAt !== "number" ||
       typeof parsed.lastChunkIndex !== "number" ||
       typeof parsed.lastChunkAt !== "number"
     ) {
       return null;
     }
-    return parsed;
+    return {
+      sessionReplayId,
+      sessionStartedAt: parsed.sessionStartedAt,
+      lastChunkIndex: parsed.lastChunkIndex,
+      lastChunkAt: parsed.lastChunkAt,
+    };
   } catch {
     return null;
   }
@@ -170,7 +182,7 @@ export function sessionReplayPlugin({
 
   let stopFn: (() => void) | undefined;
   let isRecording = false;
-  let sessionId = "";
+  let sessionReplayId = "";
   let chunkIndex = 0;
   let hasUserInteraction = false;
   let sessionStartedAt = 0;
@@ -314,7 +326,7 @@ export function sessionReplayPlugin({
 
     flushInFlight = true;
 
-    const sessionIdBeingSent = sessionId;
+    const sessionReplayIdBeingSent = sessionReplayId;
     const eventsBeingSent = [...replayEvents];
     const bufferedBytesBeingSent = bufferedBytes;
     const chunkIndexBeingSent = chunkIndex;
@@ -378,7 +390,7 @@ export function sessionReplayPlugin({
 
       const payload = JSON.stringify({
         clientKey,
-        session_replay_id: sessionId,
+        session_replay_id: sessionReplayId,
         chunkIndex: chunkIndexBeingSent,
         sessionStartedAt,
         viewport: { width: viewportWidth, height: viewportHeight },
@@ -401,10 +413,10 @@ export function sessionReplayPlugin({
         // Success — commit the chunk index advance, but only if the session
         // is still the one we sent for. If it rotated mid-flight, the new
         // session has its own chunkIndex counter starting at 0.
-        if (sessionId === sessionIdBeingSent) {
+        if (sessionReplayId === sessionReplayIdBeingSent) {
           chunkIndex = chunkIndexBeingSent + 1;
           writePersistedReplayState({
-            sessionId,
+            sessionReplayId,
             sessionStartedAt,
             lastChunkIndex: chunkIndexBeingSent,
             lastChunkAt: Date.now(),
@@ -422,7 +434,7 @@ export function sessionReplayPlugin({
           return;
         }
 
-        if (sessionId !== sessionIdBeingSent) {
+        if (sessionReplayId !== sessionReplayIdBeingSent) {
           // Session rotated mid-flight — chunk is lost regardless of error class.
           console.warn(
             `session-replay: chunk ${chunkIndexBeingSent} lost during session rotation`,
@@ -436,7 +448,7 @@ export function sessionReplayPlugin({
           // recording continues rather than stalling indefinitely.
           chunkIndex = chunkIndexBeingSent + 1;
           writePersistedReplayState({
-            sessionId,
+            sessionReplayId,
             sessionStartedAt,
             lastChunkIndex: chunkIndexBeingSent,
             lastChunkAt: Date.now(),
@@ -471,7 +483,7 @@ export function sessionReplayPlugin({
         // advance chunkIndex and continue recording.
         chunkIndex = chunkIndexBeingSent + 1;
         writePersistedReplayState({
-          sessionId,
+          sessionReplayId,
           sessionStartedAt,
           lastChunkIndex: chunkIndexBeingSent,
           lastChunkAt: Date.now(),
@@ -510,31 +522,32 @@ export function sessionReplayPlugin({
     // bail BEFORE rrweb starts so no events are even generated.
     if (userOptedOutOfTracking()) return;
 
-    const { session_replay_id } = gbRef?.getAttributes() || {};
-    if (!session_replay_id || typeof session_replay_id !== "string") return;
-
     const persisted = readPersistedReplayState();
     const now = Date.now();
-    // Resume when the persisted session_replay_id matches the current one (same
-    // logical session, no new id minted by autoAttributesPlugin) and the
-    // last successful chunk was recent enough to count as continuous activity.
+    const nextSessionReplayId = getOrCreateSessionReplayId(forceNew);
+    if (!nextSessionReplayId) return;
+    void gbRef?.updateAttributes({ session_replay_id: nextSessionReplayId });
+
+    // Resume when the persisted session_replay_id matches the internal current
+    // one (same logical replay session, no forced rotation) and the last
+    // successful chunk was recent enough to count as continuous activity.
     // forceNew bypasses this so in-page rotations always start fresh.
     const canResume =
       !forceNew &&
       persisted !== null &&
-      persisted.sessionId === session_replay_id &&
+      persisted.sessionReplayId === nextSessionReplayId &&
       now - persisted.lastChunkAt < RESUME_STALENESS_MS;
 
     if (canResume) {
-      sessionId = session_replay_id;
+      sessionReplayId = nextSessionReplayId;
       sessionStartedAt = persisted.sessionStartedAt;
       chunkIndex = persisted.lastChunkIndex + 1;
     } else {
-      sessionId = session_replay_id;
+      sessionReplayId = nextSessionReplayId;
       chunkIndex = 0;
       sessionStartedAt = now;
       writePersistedReplayState({
-        sessionId: session_replay_id,
+        sessionReplayId: nextSessionReplayId,
         sessionStartedAt: now,
         lastChunkIndex: -1,
         lastChunkAt: now,
