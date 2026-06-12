@@ -26,6 +26,10 @@ const mockedGetBigQueryTablePrefix =
   EventForwarderConfig.getBigQueryEventForwarderTablePrefix as jest.MockedFunction<
     typeof EventForwarderConfig.getBigQueryEventForwarderTablePrefix
   >;
+const mockedGetBigQueryProjectId =
+  EventForwarderConfig.getBigQueryEventForwarderProjectId as jest.MockedFunction<
+    typeof EventForwarderConfig.getBigQueryEventForwarderProjectId
+  >;
 const mockedGetSnowflakeTablePrefix =
   EventForwarderConfig.getSnowflakeEventForwarderTablePrefix as jest.MockedFunction<
     typeof EventForwarderConfig.getSnowflakeEventForwarderTablePrefix
@@ -75,6 +79,13 @@ describe("ensureEventForwarderFeatureUsageQuery", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockedGetBigQueryTablePrefix.mockReturnValue("gb");
+    mockedGetBigQueryProjectId.mockImplementation(
+      (config, params) =>
+        config.projectId?.trim() ||
+        params?.defaultProject?.trim() ||
+        params?.projectId?.trim() ||
+        "",
+    );
     mockedGetSnowflakeTablePrefix.mockReturnValue("GB");
   });
 

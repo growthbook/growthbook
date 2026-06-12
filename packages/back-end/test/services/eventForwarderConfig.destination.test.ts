@@ -16,11 +16,15 @@ function encryptConfig(config: Record<string, unknown>): string {
 }
 
 describe("event forwarder qualified destinations", () => {
-  it("stores parsed BigQuery dataset.prefix from draft", () => {
+  it("stores split BigQuery project, dataset, and prefix from draft", () => {
     const result = buildNormalizedEventForwarderSinkPayloadForTest(
       {
         sinkType: "bigquery",
-        config: { tablePrefix: "analytics_123.gb" },
+        config: {
+          projectId: "event-project",
+          dataset: "analytics_123",
+          tablePrefix: "gb",
+        },
       },
       {
         projectId: "my-project",
@@ -32,17 +36,20 @@ describe("event forwarder qualified destinations", () => {
     );
 
     expect(result).toMatchObject({
+      projectId: "event-project",
       dataset: "analytics_123",
       tablePrefix: "gb",
     });
   });
 
-  it("stores parsed Snowflake DATABASE.SCHEMA.PREFIX and draft role/warehouse", () => {
+  it("stores split Snowflake database, schema, prefix, and draft role/warehouse", () => {
     const result = buildNormalizedEventForwarderSinkPayloadForTest(
       {
         sinkType: "snowflake",
         config: {
-          tablePrefix: "EVENT_DB.PUBLIC.gb-",
+          database: "EVENT_DB",
+          schema: "PUBLIC",
+          tablePrefix: "gb-",
           accessUrl: "https://myorg-account.snowflakecomputing.com",
           role: "EVENT_ROLE",
           warehouse: "EVENT_WH",
@@ -93,7 +100,9 @@ describe("event forwarder qualified destinations", () => {
     expect(draft).toEqual({
       sinkType: "snowflake",
       config: {
-        tablePrefix: "EVENT_DB.PUBLIC.GB",
+        database: "EVENT_DB",
+        schema: "PUBLIC",
+        tablePrefix: "GB",
         accessUrl: "https://xy12345.us-east-2.aws.snowflakecomputing.com",
         role: "EVENT_ROLE",
         warehouse: "EVENT_WH",

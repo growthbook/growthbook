@@ -49,7 +49,9 @@ function draft(): EventForwarderConfigDraft {
   return {
     sinkType: "bigquery",
     config: {
-      tablePrefix: "analytics.gb",
+      projectId: "my-project",
+      dataset: "analytics",
+      tablePrefix: "gb",
     },
   };
 }
