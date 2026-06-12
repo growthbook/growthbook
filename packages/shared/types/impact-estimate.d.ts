@@ -1,12 +1,5 @@
-import { QueryLanguage } from "./datasource";
+import { z } from "zod";
 
-export interface ImpactEstimateInterface {
-  id: string;
-  organization: string;
-  metric: string;
-  segment?: string;
-  conversionsPerDay: number;
-  query: string;
-  queryLanguage: QueryLanguage;
-  dateCreated: Date;
-}
+import { impactEstimateValidator } from "../validators";
+
+export type ImpactEstimateInterface = z.infer<typeof impactEstimateValidator>;

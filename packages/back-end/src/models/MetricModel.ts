@@ -20,7 +20,6 @@ import {
 import { generateEmbeddings } from "back-end/src/enterprise/services/ai";
 import { createModelAuditLogger } from "back-end/src/services/audit";
 import { queriesSchema } from "./QueryModel";
-import { ImpactEstimateModel } from "./ImpactEstimateModel";
 import { removeMetricFromExperiments } from "./ExperimentModel";
 import { addTagsDiff } from "./TagModel";
 
@@ -248,13 +247,7 @@ export async function deleteMetricById(
 
   // delete references:
   // ideas (impact estimate)
-  await ImpactEstimateModel.updateMany(
-    {
-      metric: metric.id,
-      organization: context.org.id,
-    },
-    { metric: "" },
-  );
+  await context.models.impactEstimates.clearMetric(metric.id);
 
   // Experiments
   await removeMetricFromExperiments(context, metric.id);

@@ -2,6 +2,7 @@ import { Response } from "express";
 import { FilterQuery } from "mongoose";
 import { IdeaInterface } from "shared/types/idea";
 import { Vote } from "shared/types/vote";
+import { ImpactEstimateInterface } from "shared/types/impact-estimate";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   getIdeasByOrganization,
@@ -12,10 +13,6 @@ import {
 } from "back-end/src/services/ideas";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import { getContextFromReq } from "back-end/src/services/organizations";
-import {
-  getImpactEstimate,
-  ImpactEstimateModel,
-} from "back-end/src/models/ImpactEstimateModel";
 import { IdeaDocument } from "back-end/src/models/IdeasModel";
 import { getExperimentByIdea } from "back-end/src/models/ExperimentModel";
 
@@ -45,8 +42,7 @@ export async function getEstimatedImpact(
   const { metric, segment } = req.body;
 
   const context = getContextFromReq(req);
-  const estimate = await getImpactEstimate(
-    context,
+  const estimate = await context.models.impactEstimates.getImpactEstimate(
     metric,
     context.org.settings?.metricAnalysisDays || 30,
     segment,
@@ -102,22 +98,13 @@ export async function getIdea(
     return;
   }
 
-  let estimate = null;
+  let estimate: ImpactEstimateInterface | null = null;
   if (idea.estimateParams?.estimate) {
-    estimate = await ImpactEstimateModel.findOne({
-      id: idea.estimateParams.estimate,
-    });
-    if (estimate && estimate.organization !== idea.organization) {
-      req.log.error(
-        {
-          estimateId: estimate.id,
-          estimateOrg: estimate.organization,
-          ideaOrg: idea.organization,
-        },
-        "Estimate org does not match idea org",
-      );
-      estimate = null;
-    }
+    // getById is automatically scoped to the request's organization, so an
+    // estimate belonging to another org will simply return null here.
+    estimate = await context.models.impactEstimates.getById(
+      idea.estimateParams.estimate,
+    );
   }
 
   const experiment = await getExperimentByIdea(context, idea);

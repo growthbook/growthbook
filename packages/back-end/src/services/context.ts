@@ -78,6 +78,7 @@ import { PresentationThemeModel } from "back-end/src/models/PresentationThemeMod
 import { WatchModel } from "back-end/src/models/WatchModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { getUserByEmail, getUsersByIds } from "back-end/src/models/UserModel";
+import { ImpactEstimateModel } from "back-end/src/models/ImpactEstimateModel";
 import { getExperimentMetricsByIds } from "./experiments";
 
 export type ForeignRefTypes = {
@@ -126,7 +127,8 @@ export type ModelName =
   | "apiKeys"
   | "rampSchedules"
   | "rampScheduleTemplates"
-  | "aiConversations";
+  | "aiConversations"
+  | "impactEstimates";
 
 export const modelClasses = {
   agreements: AgreementModel,
@@ -168,6 +170,7 @@ export const modelClasses = {
   rampSchedules: RampScheduleModel,
   rampScheduleTemplates: RampScheduleTemplateModel,
   aiConversations: AIConversationModel,
+  impactEstimates: ImpactEstimateModel,
 };
 export type ModelClass = (typeof modelClasses)[ModelName];
 type ModelInstances = {
@@ -219,6 +222,7 @@ export class ReqContextClass {
       rampSchedules: new RampScheduleModel(this),
       rampScheduleTemplates: new RampScheduleTemplateModel(this),
       aiConversations: new AIConversationModel(this),
+      impactEstimates: new ImpactEstimateModel(this),
     };
   }
 
