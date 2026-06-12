@@ -14,7 +14,6 @@ import {
   fillRevisionFromFeature,
   liveRevisionFromFeature,
   filterEnvironmentsByFeature,
-  getAffectedEnvsForExperiment,
   getEnvsFromRampSchedule,
   mergeResultHasChanges,
   getReviewSetting,
@@ -84,7 +83,7 @@ import {
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import { useHoldouts } from "@/hooks/useHoldouts";
-import { PreLaunchChecklistForDraft } from "@/components/Experiment/PreLaunchChecklist";
+import { PreLaunchChecklistForDraftFeature } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 import {
   ExpandableDiff,
@@ -1821,15 +1820,10 @@ export default function ReviewAndPublish({
                 .
               </Callout>
             )}
-            <PreLaunchChecklistForDraft
+            <PreLaunchChecklistForDraftFeature
               experiment={experiment}
               feature={feature}
               mutateExperiment={mutate}
-              envs={getAffectedEnvsForExperiment({
-                experiment,
-                orgEnvironments: allEnvironments,
-                linkedFeatures: [],
-              })}
               onReady={(failed, loading) =>
                 handleChecklistReady(experiment.id, failed, loading)
               }

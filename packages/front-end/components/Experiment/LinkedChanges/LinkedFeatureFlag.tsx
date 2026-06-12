@@ -285,7 +285,7 @@ export default function LinkedFeatureFlag({
             </Callout>
           )}
         {info.state !== "discarded" && info.state !== "archived" && (
-          <Box className="appbox">
+          <Box className="appbox" style={{ backgroundColor: "transparent" }}>
             <Flex width="100%" gap="4" py="4" px="5" direction="column">
               <Box flexGrow="1">
                 <LinkedChangeVariationRows

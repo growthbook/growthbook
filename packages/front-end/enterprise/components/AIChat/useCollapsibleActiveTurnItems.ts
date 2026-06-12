@@ -1,25 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import type { ActiveTurnItem } from "@/enterprise/hooks/useAIChat";
-import { chartDataFromRecord } from "./ExplorationBubble";
 
-const DWELL_MS = 1200;
-const FADE_MS = 350;
-
-export const COLLAPSE_FADE_MS = FADE_MS;
+const DEFAULT_DWELL_MS = 1200;
+const DEFAULT_FADE_MS = 250;
 
 export type CollapsePhase = "visible" | "fading" | "collapsed";
 
 function getItemKey(item: ActiveTurnItem): string {
   return item.kind === "tool-status" ? item.toolCallId : item.id;
-}
-
-function isChartItem(item: ActiveTurnItem): boolean {
-  return (
-    item.kind === "tool-status" &&
-    item.status === "done" &&
-    !!item.toolResultData &&
-    chartDataFromRecord(item.toolResultData) !== null
-  );
 }
 
 function isItemComplete(
@@ -36,11 +24,27 @@ function isItemComplete(
   return true;
 }
 
+interface UseCollapsibleActiveTurnItemsOptions {
+  /**
+   * Items that match this predicate stay visible (never get superseded and
+   * collapsed) — useful for "pinned" artifacts like rendered charts that
+   * should remain after subsequent steps appear. Defaults to no pinning.
+   */
+  isPinned?: (item: ActiveTurnItem) => boolean;
+  /** How long a completed, superseded item stays at full opacity before fading. */
+  dwellMs?: number;
+  /**
+   * Duration of the fade animation. Must stay in sync with the CSS
+   * `gb-ai-collapse-out` keyframe in `AIChatPrimitives.module.scss`.
+   */
+  fadeMs?: number;
+}
+
 /**
  * Manages the collapse lifecycle for active-turn items during streaming.
  *
- * Items that are superseded (have a successor and are not charts) go through:
- *   visible → (typewriter completes) → dwell (DWELL_MS) → fading (FADE_MS) → collapsed
+ * Items that are superseded (have a successor and are not pinned) go through:
+ *   visible → (typewriter completes) → dwell → fading → collapsed
  *
  * Collapsed items are returned separately so the UI can render them inside a
  * togglable "N steps" indicator.
@@ -48,10 +52,17 @@ function isItemComplete(
 export function useCollapsibleActiveTurnItems(
   activeTurnItems: ActiveTurnItem[],
   displayedTextMap: Map<string, string>,
+  options: UseCollapsibleActiveTurnItemsOptions = {},
 ): {
   collapsedItems: ActiveTurnItem[];
   visibleItems: { item: ActiveTurnItem; phase: CollapsePhase }[];
 } {
+  const {
+    isPinned,
+    dwellMs = DEFAULT_DWELL_MS,
+    fadeMs = DEFAULT_FADE_MS,
+  } = options;
+
   const [phases, setPhases] = useState<Map<string, CollapsePhase>>(new Map());
   const scheduledRef = useRef<Set<string>>(new Set());
   const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(
@@ -77,7 +88,11 @@ export function useCollapsibleActiveTurnItems(
       const key = getItemKey(item);
       const isLast = i === activeTurnItems.length - 1;
 
-      if (isLast || isChartItem(item) || scheduledRef.current.has(key)) {
+      if (
+        isLast ||
+        (isPinned && isPinned(item)) ||
+        scheduledRef.current.has(key)
+      ) {
         continue;
       }
       if (!isItemComplete(item, displayedTextMap)) continue;
@@ -91,12 +106,12 @@ export function useCollapsibleActiveTurnItems(
         const fadeTimer = setTimeout(() => {
           setPhases((prev) => new Map(prev).set(key, "collapsed"));
           timersRef.current.delete(key + "_fade");
-        }, FADE_MS);
+        }, fadeMs);
         timersRef.current.set(key + "_fade", fadeTimer);
-      }, DWELL_MS);
+      }, dwellMs);
       timersRef.current.set(key, dwellTimer);
     }
-  }, [activeTurnItems, displayedTextMap]);
+  }, [activeTurnItems, displayedTextMap, isPinned, dwellMs, fadeMs]);
 
   useEffect(() => {
     const timers = timersRef.current;
@@ -105,7 +120,6 @@ export function useCollapsibleActiveTurnItems(
     };
   }, []);
 
-  // Partition items into collapsed vs visible
   const collapsedItems: ActiveTurnItem[] = [];
   const visibleItems: { item: ActiveTurnItem; phase: CollapsePhase }[] = [];
 
