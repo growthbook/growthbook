@@ -7,10 +7,7 @@ import {
   DimensionSlicesResult,
 } from "shared/types/dimension";
 import { Queries } from "shared/types/query";
-import {
-  getDimensionSlicesById,
-  updateDimensionSlices,
-} from "back-end/src/models/DimensionSlicesModel";
+import { UpdateProps } from "shared/types/base-model";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 export type DimensionSlicesParams = {
   exposureQueryId: string;
@@ -99,8 +96,7 @@ export class DimensionSlicesQueryRunner extends QueryRunner<
     return results;
   }
   async getLatestModel(): Promise<DimensionSlicesInterface> {
-    const model = await getDimensionSlicesById(
-      this.model.organization,
+    const model = await this.context.models.dimensionSlices.getById(
       this.model.id,
     );
     if (!model) throw new Error("Could not find automatic dimension model");
@@ -117,11 +113,17 @@ export class DimensionSlicesQueryRunner extends QueryRunner<
     result?: DimensionSlicesResult[] | undefined;
     error?: string | undefined;
   }): Promise<DimensionSlicesInterface> {
-    return updateDimensionSlices(this.model, {
-      queries,
-      runStarted,
-      results,
-      error,
-    });
+    // BaseModel writes raw, so undefined $set values become null — omit them
+    const updates: UpdateProps<DimensionSlicesInterface> = { queries };
+    if (runStarted !== undefined) {
+      updates.runStarted = runStarted;
+    }
+    if (results !== undefined) {
+      updates.results = results;
+    }
+    if (error !== undefined) {
+      updates.error = error;
+    }
+    return this.context.models.dimensionSlices.update(this.model, updates);
   }
 }

@@ -2,8 +2,35 @@ import { z } from "zod";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
+import { queryPointerValidator } from "./queries";
+import { baseSchema } from "./base-model";
 
 import { namedSchema } from "./openapi-helpers";
+
+export const dimensionSlicesResultValidator = z
+  .object({
+    dimension: z.string(),
+    dimensionSlices: z.array(
+      z
+        .object({
+          name: z.string(),
+          percent: z.number(),
+        })
+        .strict(),
+    ),
+  })
+  .strict();
+
+export const dimensionSlicesValidator = baseSchema.safeExtend({
+  runStarted: z.date(),
+  queries: z.array(queryPointerValidator),
+  error: z.string().optional(),
+
+  datasource: z.string(),
+  exposureQueryId: z.string(),
+
+  results: z.array(dimensionSlicesResultValidator),
+});
 
 // Corresponds to schemas/Dimension.yaml
 export const apiDimensionValidator = namedSchema(
