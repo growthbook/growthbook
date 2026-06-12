@@ -20,6 +20,7 @@ import { redshiftDialect } from "back-end/src/integrations/dialects/redshift";
 import { databricksDialect } from "back-end/src/integrations/dialects/databricks";
 import { mssqlDialect } from "back-end/src/integrations/dialects/mssql";
 import { postgresDialect } from "back-end/src/integrations/dialects/postgres";
+import { verticaDialect } from "back-end/src/integrations/dialects/vertica";
 import { addCaseWhenTimeFilter } from "back-end/src/integrations/sql/clauses/add-case-when-time-filter";
 import { getAggregateMetricColumnLegacyMetrics } from "back-end/src/integrations/sql/columns/aggregate-metric-column-legacy-metrics";
 import { getMaxHoursToConvert } from "back-end/src/integrations/sql/dates/max-hours-to-convert";
@@ -356,9 +357,15 @@ describe("bigquery integration", () => {
       );
     });
 
-    it("emits a Postgres pattern with a single-backslash ESCAPE clause", () => {
+    it("emits a valid Postgres pattern with no ESCAPE clause", () => {
       expect(likeSQL(postgresDialect, "foo_bar")).toEqual(
-        String.raw`(event_name LIKE 'foo\_bar%' ESCAPE '\')`,
+        String.raw`(event_name LIKE 'foo\_bar%')`,
+      );
+    });
+
+    it("emits a valid Vertica pattern with no ESCAPE clause", () => {
+      expect(likeSQL(verticaDialect, "foo_bar")).toEqual(
+        String.raw`(event_name LIKE 'foo\_bar%')`,
       );
     });
 
