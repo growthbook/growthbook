@@ -467,12 +467,18 @@ export const getFeatureRevisionMergeStatusV2Validator = {
   operationId: "getFeatureRevisionMergeStatusV2",
   summary: "Get merge status for a draft revision",
   description:
-    "Runs the three-way merge between the draft and the current live version without applying it. Conflicts are granular: each conflicting field gets its own key, and rules conflict individually (`rules.<ruleId>`, plus `rules.order` for competing reorders). Pass the returned `liveVersion` as `expectedLiveVersion` when rebasing.",
+    "Runs the three-way merge between the draft and the current live version without applying it. Conflicts are granular: each conflicting field gets its own key, and rules conflict individually (`rules.<ruleId>`, plus `rules.order` for competing reorders). Pass the returned `liveVersion` as `expectedLiveVersion` when rebasing. Also reports `rebaseRequired` so callers can detect ahead of time whether the publish endpoint will block until the draft is rebased.",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z.never(),
   querySchema: z.never(),
-  responseSchema: mergePreviewResponseSchema,
+  responseSchema: mergePreviewResponseSchema.extend({
+    rebaseRequired: z
+      .boolean()
+      .describe(
+        "True when publishing this draft is blocked until it is rebased — either the merge has conflicts, or the draft is behind live (or its approval went stale) while the organization enforces rebase-before-publish. When true with no conflicts, publish can still proceed with `mergeNow: true`.",
+      ),
+  }),
   version: "v2" as const,
 };
 

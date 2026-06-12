@@ -262,6 +262,11 @@ export const getFeatureRevisionMergeStatusValidator = {
       .meta({ format: "date-time" })
       .describe("The draft's last-modified timestamp at merge time."),
     conflicts: z.array(mergeConflictSchema),
+    rebaseRequired: z
+      .boolean()
+      .describe(
+        "True when publishing this draft is blocked until it is rebased — either the merge has conflicts, or the draft is behind live (or its approval went stale) while the organization enforces rebase-before-publish. When true with no conflicts, publish can still proceed with `mergeNow: true`.",
+      ),
     result: mergeResultChangesSchema.optional(),
   }),
 };
