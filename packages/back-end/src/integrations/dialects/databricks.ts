@@ -1,7 +1,11 @@
 import type { DataType } from "shared/types/integrations";
+import { createLikeStringMatchFn } from "shared/sql";
 import type { SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
 import { baseDialect } from "./base";
+
+const databricksEscapeStringLiteral = (value: string) =>
+  value.replace(/(['\\])/g, "\\$1");
 
 export const databricksDialect: SqlDialect = {
   ...baseDialect,
@@ -18,7 +22,11 @@ export const databricksDialect: SqlDialect = {
     `date_format(${col}, 'y-MM-dd HH:mm:ss.SSS')`,
   castToString: (col: string) => `cast(${col} as string)`,
   castToFloat: (col: string) => `cast(${col} as double)`,
-  escapeStringLiteral: (value: string) => value.replace(/(['\\])/g, "\\$1"),
+  stringMatch: createLikeStringMatchFn({
+    escapeStringLiteral: databricksEscapeStringLiteral,
+    emitEscapeClause: false,
+  }),
+  escapeStringLiteral: databricksEscapeStringLiteral,
   hasCountDistinctHLL: () => true,
   hllAggregate: (col: string) =>
     `HLL_SKETCH_AGG(${databricksDialect.castToString(col)})`,
