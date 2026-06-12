@@ -33,6 +33,7 @@ interface RepairFinding {
     direction: "feature_from_revision" | "revision_from_feature";
   } | null;
   phantomPublishedVersions: number[];
+  analysisError?: boolean;
   corruptDrafts: {
     version: number;
     wipedEnvs: string[];
@@ -88,6 +89,9 @@ function findingIssues(
   f: RepairFinding,
 ): { label: string; version?: number }[] {
   const issues: { label: string; version?: number }[] = [];
+  if (f.analysisError) {
+    issues.push({ label: "analysis failed — check server logs" });
+  }
   if (f.missingLiveRevision) {
     issues.push({ label: "no revision doc at live version" });
   }

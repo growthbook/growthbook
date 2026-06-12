@@ -86,6 +86,8 @@ export interface FeatureRepairFinding {
    * intentional cleanup, so reported as a note instead of a corrupt draft.
    */
   emptiedDraftsWithHistory: { version: number; wipedEnvs: string[] }[];
+  /** Analysis threw for this feature; flags above are unreliable (see server logs) */
+  analysisError?: boolean;
 }
 
 /**
@@ -858,7 +860,8 @@ function findingNeedsAttention(finding: FeatureRepairFinding): boolean {
     finding.drift !== null ||
     finding.phantomPublishedVersions.length > 0 ||
     finding.corruptDrafts.length > 0 ||
-    finding.emptiedDraftsWithHistory.length > 0
+    finding.emptiedDraftsWithHistory.length > 0 ||
+    finding.analysisError === true
   );
 }
 
@@ -920,6 +923,7 @@ async function analyzeOrgFeatures(
             phantomPublishedVersions: [],
             corruptDrafts: [],
             emptiedDraftsWithHistory: [],
+            analysisError: true,
           },
           raw,
           migrated: raw as unknown as FeatureInterface,
@@ -1047,6 +1051,12 @@ function buildProposal(a: AnalyzedFeature): FeatureRepairProposal {
   ) {
     notes.push(
       "Benign legacy storage shapes present (handled transparently by the read path; not modified)",
+    );
+  }
+
+  if (finding.analysisError) {
+    notes.push(
+      "Analysis FAILED for this feature — findings are unreliable and no repair will be attempted; check server logs",
     );
   }
 

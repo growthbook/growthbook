@@ -537,6 +537,18 @@ export async function _dangerousAdminFeatureRepairApply(
   }
 
   const context = await getContextForAgendaJobByOrgId(req.params.orgId);
+  // The job context has no user identity; attribute audit entries (e.g. the
+  // drift repair's feature.update) to the acting superadmin instead of
+  // recording them as anonymous system actions.
+  context.userId = req.userId || "";
+  context.email = req.email || "";
+  context.userName = req.name || "";
+  context.auditUser = {
+    type: "dashboard",
+    id: req.userId || "",
+    email: req.email || "",
+    name: req.name || "",
+  };
   const results = await applyOrgFeatureRepairs(context, {
     featureIds,
     mode,
