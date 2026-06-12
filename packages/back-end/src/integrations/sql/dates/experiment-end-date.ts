@@ -3,12 +3,15 @@ import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 export function getExperimentEndDate(
   settings: ExperimentSnapshotSettings,
   conversionWindowHours: number,
+  // Reference "now" for the cutoff; callers can pin it (e.g. incremental
+  // refresh) for determinism across a run.
+  now: Date = new Date(),
 ): Date {
   // Only include users who entered the experiment before this timestamp
   // If we need to wait until users have had a chance to fully convert
   if (settings.skipPartialData) {
     // The last date allowed to give enough time for users to convert
-    const conversionWindowEndDate = new Date();
+    const conversionWindowEndDate = new Date(now);
     conversionWindowEndDate.setHours(
       conversionWindowEndDate.getHours() - conversionWindowHours,
     );

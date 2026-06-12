@@ -476,6 +476,9 @@ export interface IncrementalRefreshStatisticsQueryParams {
   unitsSourceTableFullName: string;
   metrics: FactMetricInterface[];
   lastMaxTimestamp: Date | null;
+  // skipPartialData cutoff: filters __experimentUnits to
+  // first_exposure_timestamp <= this. Unset => include in-progress conversions.
+  maxFirstExposureTimestamp?: Date | null;
 }
 
 type UnitsSource = "exposureQuery" | "exposureTable" | "otherQuery";

@@ -1,7 +1,10 @@
 import { FactMetricInterface } from "shared/types/fact-table";
+import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import {
   chunkMetrics,
   getFactMetricGroup,
+  getStatsQueryBuckets,
+  groupMetricsByConversionWindowHours,
   maxColumnsNeededForMetric,
 } from "back-end/src/services/experimentQueries/experimentQueries";
 import { MAX_METRICS_PER_QUERY } from "back-end/src/services/experimentQueries/constants";
@@ -688,6 +691,195 @@ describe("experimentQueries", () => {
           getFactMetricGroup(b, { skipPartialData: true }),
         );
       });
+    });
+  });
+
+  describe("groupMetricsByConversionWindowHours", () => {
+    const conversionWindow = (
+      windowValue: number,
+      windowUnit: "minutes" | "hours" | "days" | "weeks",
+      delayValue = 0,
+      delayUnit: "minutes" | "hours" | "days" | "weeks" = "hours",
+    ) => ({
+      type: "conversion" as const,
+      delayValue,
+      delayUnit,
+      windowValue,
+      windowUnit,
+    });
+
+    const metric = (
+      id: string,
+      windowSettings: FactMetricInterface["windowSettings"],
+    ) =>
+      factMetricFactory.build({
+        id,
+        metricType: "mean",
+        numerator: { factTableId: "ft_1" },
+        windowSettings,
+      });
+
+    it("groups metrics with the same conversion window into one bucket", () => {
+      const a = metric("a", conversionWindow(3, "days"));
+      const b = metric("b", conversionWindow(3, "days"));
+
+      const groups = groupMetricsByConversionWindowHours([a, b]);
+
+      expect(groups.size).toBe(1);
+      // 3 days = 72 hours
+      expect(groups.get(72)?.map((m) => m.id)).toEqual(["a", "b"]);
+    });
+
+    it("separates metrics with different conversion windows into different buckets", () => {
+      const a = metric("a", conversionWindow(3, "days")); // 72h
+      const b = metric("b", conversionWindow(7, "days")); // 168h
+
+      const groups = groupMetricsByConversionWindowHours([a, b]);
+
+      expect(groups.size).toBe(2);
+      expect(groups.get(72)?.map((m) => m.id)).toEqual(["a"]);
+      expect(groups.get(168)?.map((m) => m.id)).toEqual(["b"]);
+    });
+
+    it("groups equivalent windows expressed in different units together", () => {
+      const days = metric("days", conversionWindow(1, "days")); // 24h
+      const hours = metric("hours", conversionWindow(24, "hours")); // 24h
+
+      const groups = groupMetricsByConversionWindowHours([days, hours]);
+
+      expect(groups.size).toBe(1);
+      expect(groups.get(24)?.map((m) => m.id)).toEqual(["days", "hours"]);
+    });
+
+    it("buckets lookback and no-window metrics together under 0 hours", () => {
+      const noWindow = metric("none", {
+        type: "",
+        delayValue: 0,
+        delayUnit: "hours",
+        windowValue: 0,
+        windowUnit: "hours",
+      });
+      const lookback = metric("lookback", {
+        type: "lookback",
+        delayValue: 0,
+        delayUnit: "hours",
+        windowValue: 3,
+        windowUnit: "days",
+      });
+      const conversion = metric("conversion", conversionWindow(3, "days"));
+
+      const groups = groupMetricsByConversionWindowHours([
+        noWindow,
+        lookback,
+        conversion,
+      ]);
+
+      expect(groups.size).toBe(2);
+      expect(groups.get(0)?.map((m) => m.id)).toEqual(["none", "lookback"]);
+      expect(groups.get(72)?.map((m) => m.id)).toEqual(["conversion"]);
+    });
+
+    it("returns an empty map for no metrics", () => {
+      expect(groupMetricsByConversionWindowHours([]).size).toBe(0);
+    });
+  });
+
+  describe("getStatsQueryBuckets", () => {
+    const conversionWindow = (windowValue: number) => ({
+      type: "conversion" as const,
+      delayValue: 0,
+      delayUnit: "hours" as const,
+      windowValue,
+      windowUnit: "days" as const,
+    });
+
+    const metric = (
+      id: string,
+      windowSettings: FactMetricInterface["windowSettings"],
+    ) =>
+      factMetricFactory.build({
+        id,
+        metricType: "mean",
+        numerator: { factTableId: "ft_1" },
+        windowSettings,
+      });
+
+    const buildSettings = (
+      skipPartialData: boolean,
+      endDate: Date,
+    ): ExperimentSnapshotSettings => ({
+      manual: false,
+      dimensions: [],
+      metricSettings: [],
+      goalMetrics: [],
+      secondaryMetrics: [],
+      guardrailMetrics: [],
+      activationMetric: null,
+      defaultMetricPriorSettings: {
+        override: false,
+        proper: false,
+        mean: 0,
+        stddev: 0,
+      },
+      regressionAdjustmentEnabled: false,
+      attributionModel: "firstExposure",
+      experimentId: "exp_1",
+      queryFilter: "",
+      segment: "",
+      skipPartialData,
+      datasourceId: "ds_1",
+      exposureQueryId: "exposure",
+      startDate: new Date("2024-01-01T00:00:00Z"),
+      endDate,
+      variations: [],
+    });
+
+    const referenceTime = new Date("2024-06-15T00:00:00Z");
+
+    it("returns a single uncut bucket when skipPartialData is off", () => {
+      const a = metric("a", conversionWindow(3));
+      const b = metric("b", conversionWindow(7));
+
+      const buckets = getStatsQueryBuckets({
+        metrics: [a, b],
+        snapshotSettings: buildSettings(
+          false,
+          new Date("2024-06-30T00:00:00Z"),
+        ),
+        referenceTime,
+      });
+
+      expect(buckets).toEqual([
+        { metrics: [a, b], maxFirstExposureTimestamp: null, nameSuffix: "" },
+      ]);
+    });
+
+    it("returns one bucket per conversion window when skipPartialData is on", () => {
+      const a = metric("a", conversionWindow(3)); // 72h
+      const b = metric("b", conversionWindow(3)); // 72h
+      const c = metric("c", conversionWindow(7)); // 168h
+
+      const buckets = getStatsQueryBuckets({
+        // far-future endDate so the cutoff is referenceTime - window
+        metrics: [a, b, c],
+        snapshotSettings: buildSettings(true, new Date("2025-01-01T00:00:00Z")),
+        referenceTime,
+      });
+
+      expect(buckets).toHaveLength(2);
+      const cw72 = buckets.find((x) => x.nameSuffix === "_cw72");
+      const cw168 = buckets.find((x) => x.nameSuffix === "_cw168");
+      expect(cw72?.metrics.map((m) => m.id)).toEqual(["a", "b"]);
+      expect(cw168?.metrics.map((m) => m.id)).toEqual(["c"]);
+
+      // Cutoff is derived from referenceTime (not wall clock) and is earlier
+      // for the longer window.
+      expect(cw72?.maxFirstExposureTimestamp?.getTime()).toBeLessThan(
+        referenceTime.getTime(),
+      );
+      expect(cw168?.maxFirstExposureTimestamp?.getTime()).toBeLessThan(
+        cw72?.maxFirstExposureTimestamp?.getTime() ?? 0,
+      );
     });
   });
 });
