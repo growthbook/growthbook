@@ -60,12 +60,6 @@ function userOptedOutOfTracking(): boolean {
   return false;
 }
 
-declare global {
-  interface Window {
-    _gbReplayEvents: eventWithTime[];
-  }
-}
-
 type PersistedReplayState = {
   sessionId: string;
   sessionStartedAt: number;
@@ -85,7 +79,6 @@ const REPLAY_STORAGE_KEY = "gb_session_replay";
 const RESUME_STALENESS_MS = 30 * 60 * 1000;
 
 function readPersistedReplayState(): PersistedReplayState | null {
-  if (typeof sessionStorage === "undefined") return null;
   try {
     const raw = sessionStorage.getItem(REPLAY_STORAGE_KEY);
     if (!raw) return null;
@@ -106,7 +99,6 @@ function readPersistedReplayState(): PersistedReplayState | null {
 }
 
 function writePersistedReplayState(state: PersistedReplayState): void {
-  if (typeof sessionStorage === "undefined") return;
   try {
     sessionStorage.setItem(REPLAY_STORAGE_KEY, JSON.stringify(state));
   } catch {
@@ -196,6 +188,9 @@ export function sessionReplayPlugin({
   // size-based flush trigger. Reset whenever the buffer is cleared. This is
   // an upper-bound approximation
   let bufferedBytes = 0;
+  // Event buffer kept in closure scope — not on window — so third-party
+  // scripts cannot read, mutate, or clear it.
+  let replayEvents: eventWithTime[] = [];
 
   const featureEvals: Array<{
     featureKey: string;
@@ -311,17 +306,16 @@ export function sessionReplayPlugin({
     // next trigger.
     if (flushInFlight) return;
 
-    if (!gbRef || !window._gbReplayEvents?.length) return;
+    if (!gbRef || !replayEvents?.length) return;
     // First chunk must contain a full snapshot so the player can initialize
-    if (chunkIndex === 0 && !window._gbReplayEvents.some((e) => e.type === 2))
-      return;
+    if (chunkIndex === 0 && !replayEvents.some((e) => e.type === 2)) return;
     // Don't flush sessions with no real user interaction (filters out hot-reload noise)
     if (!hasUserInteraction) return;
 
     flushInFlight = true;
 
     const sessionIdBeingSent = sessionId;
-    const eventsBeingSent = [...window._gbReplayEvents];
+    const eventsBeingSent = [...replayEvents];
     const bufferedBytesBeingSent = bufferedBytes;
     const chunkIndexBeingSent = chunkIndex;
     const featureEvalsBeingSent = featureEvals.splice(0);
@@ -384,7 +378,7 @@ export function sessionReplayPlugin({
 
       const payload = JSON.stringify({
         clientKey,
-        sessionId,
+        session_replay_id: sessionId,
         chunkIndex: chunkIndexBeingSent,
         sessionStartedAt,
         viewport: { width: viewportWidth, height: viewportHeight },
@@ -399,7 +393,7 @@ export function sessionReplayPlugin({
       // mid-flight land in a fresh buffer instead of being lost to a
       // "clear-after-await" race. chunkIndex is NOT advanced yet — we only
       // commit the advance once the send is acknowledged below.
-      window._gbReplayEvents.length = 0;
+      replayEvents.length = 0;
       bufferedBytes = 0;
 
       try {
@@ -420,7 +414,7 @@ export function sessionReplayPlugin({
         if (e instanceof RetryCancelledError) {
           // stopRecording cancelled a pending retry. Restore the snapshotted
           // events so the final keepalive flush from stopRecording can send them.
-          window._gbReplayEvents.unshift(...eventsBeingSent);
+          replayEvents.unshift(...eventsBeingSent);
           bufferedBytes += bufferedBytesBeingSent;
           featureEvals.unshift(...featureEvalsBeingSent);
           experimentEvals.unshift(...experimentEvalsBeingSent);
@@ -468,7 +462,7 @@ export function sessionReplayPlugin({
               "session replay enabled on the ingestor.",
             e,
           );
-          window._gbReplayEvents.length = 0;
+          replayEvents.length = 0;
           bufferedBytes = 0;
           stopRecording();
           return;
@@ -490,6 +484,13 @@ export function sessionReplayPlugin({
       }
     } finally {
       flushInFlight = false;
+      // If stopRecording cancelled an in-flight retry, its void flushBuffer()
+      // call was a no-op (flushInFlight was still true at the time). Now that
+      // the guard is clear and events have been restored by the
+      // RetryCancelledError handler, fire the final keepalive flush ourselves.
+      if (!isRecording && replayEvents?.length) {
+        void flushBuffer();
+      }
     }
   };
 
@@ -550,14 +551,14 @@ export function sessionReplayPlugin({
 
     hasUserInteraction = false;
     lastInteractionAt = Date.now();
-    window._gbReplayEvents = [];
+    replayEvents = [];
     bufferedBytes = 0;
 
     const rrwebStop = record({
       emit(event: eventWithTime) {
         // Scrub URL fields BEFORE the event lands in the buffer so any
         // downstream observer (the buffer itself, the flush payload, an
-        // attacker who somehow reads window._gbReplayEvents) only ever
+        // attacker who somehow reads replayEvents) only ever
         // sees a sanitized version. Meta events are the only URL-bearing
         // events rrweb emits today; see scrubEventUrls for the contract.
         const scrubbedEvent = scrubEventUrls(event, privacy?.url);
@@ -602,7 +603,7 @@ export function sessionReplayPlugin({
         // events to keep flapping.
         if (
           hasUserInteraction &&
-          window._gbReplayEvents.length > 0 &&
+          replayEvents.length > 0 &&
           bufferedBytes + eventBytes > FLUSH_BYTE_SIZE
         ) {
           void flushBuffer();
@@ -614,9 +615,9 @@ export function sessionReplayPlugin({
         // fires well before this cap is hit. We drop NEW events rather than
         // evict old ones so the type-2 snapshot at the head of the buffer
         // (required for the player to initialize) is preserved.
-        if (window._gbReplayEvents.length >= MAX_BUFFERED_EVENTS) return;
+        if (replayEvents.length >= MAX_BUFFERED_EVENTS) return;
 
-        window._gbReplayEvents.push(scrubbedEvent);
+        replayEvents.push(scrubbedEvent);
         bufferedBytes += eventBytes;
       },
       recordCanvas: false,
@@ -679,16 +680,20 @@ export function sessionReplayPlugin({
   const stopRecording = () => {
     if (!isRecording) return;
 
-    // Cancel any pending retry delay — the recorder is stopping, so there
-    // is no point waiting for the next attempt. The RetryCancelledError
-    // handler in flushBuffer will restore the buffered events so the final
-    // keepalive flush below can deliver them.
+    // Cancel any pending retry delay. If a retry sleep is active,
+    // cancel() rejects the sleep promise as a microtask, which means
+    // flushInFlight is still true when the void flushBuffer() call below
+    // runs — so that call is a no-op. flushBuffer's finally block detects
+    // this case (!isRecording + buffered events) and fires the keepalive
+    // flush once the guard is clear. When no retry is in progress, cancel()
+    // is a no-op and the void flushBuffer() below fires normally.
     sendWithRetry.cancel();
 
     // Fire-and-forget the final flush; keepalive in sendChunk lets the
     // browser deliver it even after the recorder is torn down. Awaiting
     // here would block the synchronous shutdown path (onDestroy,
-    // checkAndRotate).
+    // checkAndRotate). If a retry cancel is in progress this is a no-op —
+    // see the finally block in flushBuffer for the follow-up.
     void flushBuffer();
     stopFn?.();
     stopFn = undefined;
@@ -717,6 +722,7 @@ export function sessionReplayPlugin({
     // the plugin's own typed buffer; flushBuffer snapshots and drains those
     // buffers on every chunk send.
     const offFeature = gb._onFeatureEval((featureKey, result) => {
+      if (featureEvals.length >= MAX_BUFFERED_EVENTS) featureEvals.shift();
       featureEvals.push({
         featureKey,
         timestamp: Date.now(),
@@ -728,6 +734,8 @@ export function sessionReplayPlugin({
     });
 
     const offExperiment = gb.subscribe((experiment, result) => {
+      if (experimentEvals.length >= MAX_BUFFERED_EVENTS)
+        experimentEvals.shift();
       experimentEvals.push({
         key: experiment.key,
         timestamp: Date.now(),
@@ -741,10 +749,9 @@ export function sessionReplayPlugin({
     });
 
     const offEvent = gb._onEvent((eventName, properties) => {
+      if (sessionEvents.length >= MAX_BUFFERED_EVENTS) sessionEvents.shift();
       sessionEvents.push({ eventName, timestamp: Date.now(), properties });
     });
-
-    window._gbReplayEvents = window._gbReplayEvents || [];
 
     gb._registerSessionReplay(startRecording, stopRecording);
 
