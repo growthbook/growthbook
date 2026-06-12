@@ -13,6 +13,7 @@ import {
   quantileMetricType,
   getRowFilterSQL,
 } from "shared/experiments";
+import { createLikeStringMatchFn } from "shared/sql";
 import { formatAIRateLimitRetryMessage } from "shared/ai";
 
 import { useGrowthBook } from "@growthbook/growthbook-react";
@@ -161,6 +162,10 @@ function RowFilterCodeDisplay({
               rowFilter: rf,
               factTable,
               escapeStringLiteral: (s) => s.replace(/'/g, "''"),
+              stringMatch: createLikeStringMatchFn({
+                escapeStringLiteral: (s) => s.replace(/'/g, "''"),
+                emitEscapeClause: false,
+              }),
               evalBoolean: (col, value) =>
                 `${col} IS ${value ? "TRUE" : "FALSE"}`,
               jsonExtract: (col, path) => `${col}.${path}`,
