@@ -9,6 +9,7 @@ import { Flex, Box } from "@radix-ui/themes";
 import useApi from "@/hooks/useApi";
 import { getAffectedRevisionEnvs, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
+// eslint-disable-next-line no-restricted-imports
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import {
@@ -22,7 +23,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
-import { ExpandableDiff } from "./DraftModal";
+import { ExpandableDiff } from "./RevisionDiffUtils";
 
 export interface Props {
   feature: FeatureInterface;

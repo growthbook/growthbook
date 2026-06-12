@@ -142,6 +142,11 @@ router.post(
         id: z.string(),
       })
       .strict(),
+    body: z
+      .object({
+        autoPublishOnApproval: z.boolean().optional(),
+      })
+      .strict(),
   }),
   revisionController.postSubmit,
 );
@@ -159,6 +164,7 @@ router.post(
       .object({
         decision: z.enum(["approve", "request-changes", "comment"]),
         comment: z.string(),
+        skipAutoPublish: z.boolean().optional(),
       })
       .strict(),
   }),
@@ -212,6 +218,24 @@ router.post(
       .strict(),
   }),
   revisionController.postMerge,
+);
+
+// Approve and publish a revision in one request
+router.post(
+  "/:id/approve-and-publish",
+  validateRequestMiddleware({
+    params: z
+      .object({
+        id: z.string(),
+      })
+      .strict(),
+    body: z
+      .object({
+        comment: z.string().optional(),
+      })
+      .strict(),
+  }),
+  revisionController.postApproveAndPublish,
 );
 
 // Close a revision

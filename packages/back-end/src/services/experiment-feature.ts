@@ -2,7 +2,10 @@ import isEqual from "lodash/isEqual";
 import {
   autoMerge,
   AutoMergeResult,
+  evaluatePublishGovernance,
+  fillRevisionFromFeature,
   getMatchingRules,
+  liveRevisionFromFeature,
   MatchingRule,
   mergeResultHasChanges,
   resetReviewOnChange,
@@ -284,6 +287,7 @@ export async function validateExperimentFeatureUpdates({
 
 export type PendingDraftFailureReason =
   | "merge-conflict"
+  | "needs-rebase"
   | "needs-approval"
   | "publish-error";
 
@@ -311,6 +315,7 @@ export function formatPendingDraftFailureMessage(
       ),
     );
   const conflictIds = ids("merge-conflict");
+  const rebaseIds = ids("needs-rebase");
   const approvalIds = ids("needs-approval");
   const errorIds = ids("publish-error");
 
@@ -319,6 +324,11 @@ export function formatPendingDraftFailureMessage(
   if (conflictIds.length) {
     parts.push(
       `merge conflict${conflictIds.length > 1 ? "s" : ""} in: ${conflictIds.join(", ")}`,
+    );
+  }
+  if (rebaseIds.length) {
+    parts.push(
+      `draft${rebaseIds.length > 1 ? "s" : ""} behind live (rebase needed, no conflicts) on: ${rebaseIds.join(", ")}`,
     );
   }
   if (approvalIds.length) {
@@ -334,6 +344,42 @@ export function formatPendingDraftFailureMessage(
 
 type ResolvedDraft = { featureId: string; revisionVersion: number };
 
+// Merges a draft against live exactly like the manual publish flow does:
+// the same fillRevisionFromFeature/liveRevisionFromFeature normalization the
+// FF detail page applies (raw sparse revisions produce phantom conflicts),
+// followed by the same publish governance. `rebaseRequired` is only set for
+// the mergeable-but-blocked case (org requires rebase-before-publish or the
+// approval went stale) — true conflicts are reported via `mergeResult`.
+function mergeDraftForAutoPublish(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  live: FeatureRevisionInterface,
+  base: FeatureRevisionInterface,
+): { mergeResult: AutoMergeResult; rebaseRequired: boolean } {
+  const mergeResult = autoMerge(
+    liveRevisionFromFeature(live, feature),
+    fillRevisionFromFeature(base, feature),
+    revision,
+    context.environments,
+    {},
+  );
+  const governance = evaluatePublishGovernance({
+    revisionStatus: revision.status,
+    baseVersion: revision.baseVersion,
+    liveVersion: live.version,
+    mergeSuccess: mergeResult.success,
+    liveChanges: [],
+    approvedBaseVersion: revision.approvedBaseVersion ?? null,
+    requireRebaseBeforePublish:
+      !!context.org.settings?.requireRebaseBeforePublish,
+  });
+  return {
+    mergeResult,
+    rebaseRequired: mergeResult.success && governance.rebaseRequired,
+  };
+}
+
 type ReadyDraft = ResolvedDraft & {
   feature: FeatureInterface;
   revision: FeatureRevisionInterface;
@@ -341,7 +387,8 @@ type ReadyDraft = ResolvedDraft & {
 };
 
 // Auto-publishes pendingFeatureDrafts on experiment start. Phase 1 resolves
-// each draft once (prune stale, gate on approval, merge against live);
+// each draft once (prune stale, gate on approval, merge against live with
+// the same normalization + governance as the manual publish flow);
 // Phase 1.5 prevalidates custom hooks; Phase 2 publishes sequentially,
 // reusing the resolved state except when an earlier publish in this run
 // advanced the same feature's live version, which forces a re-merge.
@@ -355,7 +402,6 @@ export async function publishPendingFeatureDraftsForExperiment(
   const drafts = experiment.pendingFeatureDrafts ?? [];
   if (!drafts.length) return { published: [], failed: [] };
 
-  const orgEnvIds = context.environments;
   const failed: PendingDraftFailure[] = [];
   const ready: ReadyDraft[] = [];
   // Multiple drafts can target the same feature — fetch each feature once.
@@ -423,7 +469,21 @@ export async function publishPendingFeatureDraftsForExperiment(
       continue;
     }
 
-    const mergeResult = autoMerge(live, base, revision, orgEnvIds, {});
+    const { mergeResult, rebaseRequired } = mergeDraftForAutoPublish(
+      context,
+      feature,
+      revision,
+      live,
+      base,
+    );
+    if (rebaseRequired) {
+      logger.warn(
+        { experimentId: experiment.id, featureId, revisionVersion },
+        "Cannot auto-publish pending feature draft: rebase with live required before publishing",
+      );
+      failed.push({ featureId, revisionVersion, reason: "needs-rebase" });
+      continue;
+    }
     ready.push({ featureId, revisionVersion, feature, revision, mergeResult });
   }
 
@@ -486,7 +546,22 @@ export async function publishPendingFeatureDraftsForExperiment(
         feature,
         revision,
       });
-      mergeResult = autoMerge(live, base, revision, orgEnvIds, {});
+      const remerged = mergeDraftForAutoPublish(
+        context,
+        feature,
+        revision,
+        live,
+        base,
+      );
+      mergeResult = remerged.mergeResult;
+      if (remerged.rebaseRequired) {
+        logger.warn(
+          { experimentId: experiment.id, featureId, revisionVersion },
+          "Cannot auto-publish pending feature draft: rebase with live required after an earlier publish advanced the feature",
+        );
+        failed.push({ featureId, revisionVersion, reason: "needs-rebase" });
+        break;
+      }
     }
 
     if (!mergeResult.success) {

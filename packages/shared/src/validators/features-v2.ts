@@ -134,6 +134,30 @@ export const apiFeatureRevisionV2Validator = namedSchema(
           "Pending ramp schedule actions that will be applied when this draft is published",
         )
         .optional(),
+      reviews: z
+        .array(
+          z
+            .object({
+              userId: z
+                .string()
+                .describe(
+                  "Stable reviewer identifier: the user ID for dashboard users, or the API key ID for service accounts",
+                ),
+              user: apiEventUserValidator.optional(),
+              status: z.enum([
+                "approved",
+                "changes-requested",
+                "approved-stale",
+                "changes-requested-stale",
+              ]),
+              timestamp: z.string().meta({ format: "date-time" }),
+            })
+            .strict(),
+        )
+        .describe(
+          "Reviewer verdicts for the current review cycle (one entry per reviewer). Verdicts flip to their -stale variants when draft content changes after submission; the list is cleared when a new review cycle starts. Absent on revisions that predate this field.",
+        )
+        .optional(),
     })
     .strict(),
 );

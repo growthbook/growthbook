@@ -104,7 +104,7 @@ import { isEmailEnabled } from "./services/email";
 import { init } from "./init";
 import { aiRouter } from "./routers/ai/ai.router";
 import { getCustomLogProps, httpLogger, logger } from "./util/logger";
-import { shouldSkipErrorLog, SoftWarningError } from "./util/errors";
+import { ApiError, shouldSkipErrorLog, SoftWarningError } from "./util/errors";
 import { usersRouter } from "./routers/users/users.router";
 import { organizationsRouter } from "./routers/organizations/organizations.router";
 import { uploadRouter } from "./routers/upload/upload.router";
@@ -866,6 +866,7 @@ app.post(
   "/feature/:id/:version/discard",
   featuresController.postFeatureDiscard,
 );
+app.post("/feature/:id/:version/reopen", featuresController.postFeatureReopen);
 app.post(
   "/feature/:id/:version/publish",
   featuresController.postFeaturePublish,
@@ -878,7 +879,31 @@ app.post(
   "/feature/:id/:version/submit-review",
   featuresController.postFeatureReviewOrComment,
 );
+app.post(
+  "/feature/:id/:version/approve-and-publish",
+  featuresController.postFeatureApproveAndPublish,
+);
+app.post(
+  "/feature/:id/:version/toggle-auto-publish",
+  featuresController.postFeatureToggleAutoPublish,
+);
+app.post(
+  "/feature/:id/:version/recall-review",
+  featuresController.postFeatureRecallReview,
+);
+app.post(
+  "/feature/:id/:version/undo-review",
+  featuresController.postFeatureUndoReview,
+);
 app.get("/feature/:id/:version/log", featuresController.getRevisionLog);
+app.put(
+  "/feature/:id/:version/log/:logId",
+  featuresController.putFeatureRevisionLogComment,
+);
+app.delete(
+  "/feature/:id/:version/log/:logId",
+  featuresController.deleteFeatureRevisionLogEntry,
+);
 app.post("/feature/:id/archive", featuresController.postFeatureArchive);
 app.post("/feature/:id/toggle", featuresController.postFeatureToggle);
 app.post("/feature/:id/draft", featuresController.postFeatureCreateDraft);
@@ -1187,6 +1212,8 @@ const errorHandler: ErrorRequestHandler = (
     message: string;
     errorId?: string;
     warnings?: string[];
+    code?: string;
+    details?: unknown;
   } = {
     status: status,
     message: err.message || "An error occurred",
@@ -1195,6 +1222,12 @@ const errorHandler: ErrorRequestHandler = (
   // Picked up by front-end (when combined with 422 status code) to show a "Save anyway" dialog
   if (err instanceof SoftWarningError) {
     body.warnings = err.warnings;
+  }
+  // Structured errors carry a machine-readable code + details (same contract
+  // the REST API exposes) so the front-end can render richer error states.
+  if (err instanceof ApiError) {
+    body.code = err.code;
+    body.details = err.details;
   }
   res.status(status).json(body);
 };

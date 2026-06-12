@@ -71,6 +71,7 @@ export type RequireReview = {
   featureRequireMetadataReview?: boolean;
   // When true, co-authors (contributors[]) are also blocked from approving, not just the original author.
   blockSelfApproval?: boolean;
+  autopublishOnApproval?: boolean;
 };
 
 export type OwnerJobTitle = keyof typeof OWNER_JOB_TITLES;
@@ -206,6 +207,7 @@ export type ApprovalFlowConfiguration = {
   // is blocked from approving the revision. A separate, non-contributor
   // reviewer is required.
   blockSelfApproval?: boolean;
+  autopublishOnApproval?: boolean;
   // TODO: Should we add support for these additional settings?
   canBypassReview?: boolean;
   resetReviewOnChange?: boolean;
@@ -265,6 +267,16 @@ export interface OrganizationSettings {
   /** @deprecated */
   killswitchConfirmation?: boolean;
   requireReviews?: boolean | RequireReview[];
+  // When enabled, a feature draft whose base version is behind the current
+  // live version (or whose approval has gone stale) must be rebased
+  // ("Rebase with live") before it can be published.
+  requireRebaseBeforePublish?: boolean;
+  // Soft cap on active (unpublished, non-discarded) drafts per feature.
+  // Advisory only: the UI warns and asks for confirmation, REST returns an
+  // escapable 409 (`overrideDraftLimit=true`), and automated processes
+  // (ramps, experiment linkages, reverts, reopens) ignore it entirely.
+  // 0 or absent = no cap.
+  maxConcurrentDrafts?: number;
   restApiBypassesReviews?: boolean;
   defaultDataSource?: string;
   testQueryDays?: number;

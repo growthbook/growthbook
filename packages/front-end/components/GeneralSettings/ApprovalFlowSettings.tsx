@@ -212,6 +212,22 @@ export default function ApprovalFlowSettings() {
                             )
                           }
                         />
+                        <Checkbox
+                          id={`toggle-autopublish-on-approval-${i}`}
+                          label="Allow approve & publish in one step"
+                          description="Adds an 'Approve & Publish' option so reviewers with publish access can approve and publish a draft together."
+                          value={
+                            !!form.watch(
+                              `requireReviews.${i}.autopublishOnApproval`,
+                            )
+                          }
+                          setValue={(v) =>
+                            form.setValue(
+                              `requireReviews.${i}.autopublishOnApproval`,
+                              v,
+                            )
+                          }
+                        />
                         <Box mt="2">
                           <Text
                             as="label"
@@ -275,6 +291,20 @@ export default function ApprovalFlowSettings() {
                                 form.setValue("restApiBypassesReviews", v)
                               }
                             />
+                            <Box mt="2">
+                              <Checkbox
+                                id="toggle-requireRebaseBeforePublish"
+                                label="Require drafts to be rebased with live before publishing"
+                                description="When enabled, a draft based on an older version (or whose approval is stale because changes were published since) must be rebased with the live version before it can be published."
+                                value={
+                                  form.watch("requireRebaseBeforePublish") ===
+                                  true
+                                }
+                                setValue={(v) =>
+                                  form.setValue("requireRebaseBeforePublish", v)
+                                }
+                              />
+                            </Box>
                           </Box>
                         )}
                       </Flex>
@@ -367,6 +397,22 @@ export default function ApprovalFlowSettings() {
                       setValue={(v) =>
                         form.setValue(
                           `approvalFlows.savedGroups.0.blockSelfApproval`,
+                          v,
+                        )
+                      }
+                    />
+                    <Checkbox
+                      id="toggle-saved-group-autopublish-on-approval"
+                      label="Allow approve & publish in one step"
+                      description="Adds an 'Approve & Publish' option so reviewers with publish access can approve and publish a saved group change together."
+                      value={
+                        !!form.watch(
+                          `approvalFlows.savedGroups.0.autopublishOnApproval`,
+                        )
+                      }
+                      setValue={(v) =>
+                        form.setValue(
+                          `approvalFlows.savedGroups.0.autopublishOnApproval`,
                           v,
                         )
                       }

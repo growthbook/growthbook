@@ -8,6 +8,7 @@ import {
   MergeResult,
   applyTopLevelPatchOps,
   isUserBlockedFromApproving,
+  isAutopublishOnApprovalEnabled,
 } from "shared/enterprise";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import Text from "@/ui/Text";
@@ -59,6 +60,7 @@ function RevisionDetail<T>({
     useUser();
   const { apiCall } = useAuth();
   const [bypassApproval, setBypassApproval] = useState(false);
+  const [requestAutoPublish, setRequestAutoPublish] = useState(false);
   const [confirmReopen, setConfirmReopen] = useState(false);
   const [showFixConflicts, setShowFixConflicts] = useState(false);
   const [mergeError, setMergeError] = useState<string | null>(null);
@@ -177,6 +179,23 @@ function RevisionDetail<T>({
       userId,
     });
 
+  const autopublishOnApproval =
+    isAutopublishOnApprovalEnabled(
+      organization?.settings?.approvalFlows,
+      revision.target.type,
+    ) && hasCommercialFeature("require-approvals");
+
+  const revisionAutoPublishArmed = !!revision.autoPublishOnApproval;
+
+  const canRequestAutoPublish =
+    autopublishOnApproval &&
+    requiresApproval &&
+    revision.status === "draft" &&
+    permissionsUtil.canUpdateSavedGroup(
+      currentState as SavedGroupInterface,
+      {},
+    );
+
   const {
     isSubmitting,
     setIsSubmitting,
@@ -189,6 +208,7 @@ function RevisionDetail<T>({
     setReviewDropdownOpen,
     submitForReview: handleSubmitForReview,
     submitReview: handleSubmitReview,
+    approveAndPublish: handleApproveAndPublish,
   } = useRevisionReview({
     revision,
     isRevisionAuthor,
@@ -354,6 +374,7 @@ function RevisionDetail<T>({
           revision={revision}
           currentState={currentState as Record<string, unknown>}
           close={() => setShowFixConflicts(false)}
+          onRebased={(updated) => setCurrentRevision(updated)}
           mutate={async () => {
             setShowFixConflicts(false);
             await mutate?.();
@@ -506,6 +527,15 @@ function RevisionDetail<T>({
             // For drafts: show either "Request Approval" or "Publish" based on approval requirement
             requiresApproval ? (
               <>
+                {canRequestAutoPublish && (
+                  <Flex align="center" mr="2">
+                    <Checkbox
+                      label="Auto-publish when approved"
+                      value={requestAutoPublish}
+                      setValue={(val) => setRequestAutoPublish(!!val)}
+                    />
+                  </Flex>
+                )}
                 <Tooltip
                   content={
                     diffs.length === 0 ? "No changes to submit" : undefined
@@ -516,7 +546,11 @@ function RevisionDetail<T>({
                     <Button
                       variant="solid"
                       color="violet"
-                      onClick={handleSubmitForReview}
+                      onClick={() =>
+                        handleSubmitForReview({
+                          autoPublishOnApproval: requestAutoPublish,
+                        })
+                      }
                       disabled={isSubmitting || diffs.length === 0}
                       style={
                         diffs.length === 0
@@ -654,19 +688,31 @@ function RevisionDetail<T>({
                       {reviewError}
                     </Text>
                   )}
-                  <Flex justify="end" mt="3">
+                  <Flex justify="end" mt="3" gap="2">
                     <Button
                       variant="solid"
                       color="violet"
                       onClick={() => {
-                        handleSubmitReview(
-                          requiresApproval ? reviewDecision : "comment",
-                          reviewComment,
-                        );
+                        if (
+                          reviewDecision === "approve" &&
+                          revisionAutoPublishArmed
+                        ) {
+                          handleApproveAndPublish(reviewComment);
+                        } else {
+                          handleSubmitReview(
+                            requiresApproval ? reviewDecision : "comment",
+                            reviewComment,
+                          );
+                        }
                       }}
                       disabled={isSubmitting || !reviewComment.trim()}
                     >
-                      {isSubmitting ? "Submitting..." : "Confirm"}
+                      {isSubmitting
+                        ? "Submitting..."
+                        : reviewDecision === "approve" &&
+                            revisionAutoPublishArmed
+                          ? "Submit and Publish"
+                          : "Confirm"}
                     </Button>
                   </Flex>
                 </Popover.Content>

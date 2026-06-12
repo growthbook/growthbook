@@ -14,6 +14,7 @@ import {
   mergeResultHasChanges,
   MergeStrategy,
   checkIfRevisionNeedsReview,
+  evaluatePublishGovernance,
   resetReviewOnChange,
   getAffectedEnvsForExperiment,
   getDependentExperiments,
@@ -27,6 +28,7 @@ import {
   fillRevisionFromFeature,
   getReviewSetting,
   namespacesToMap,
+  pruneOrphanedRampActions,
   assertSchemaMatchesValueType,
 } from "shared/util";
 import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
@@ -142,6 +144,9 @@ import {
   createInitialRevision,
   createRevision,
   discardRevision,
+  reopenRevision,
+  recallReview,
+  undoReview,
   getActiveDraft,
   getActiveDraftStates,
   DraftStatusCounts,
@@ -156,6 +161,7 @@ import {
   ReviewSubmittedType,
   submitReviewAndComments,
   updateRevision,
+  setAutoPublishOnApproval,
 } from "back-end/src/models/FeatureRevisionModel";
 import {
   buildFeatureLookups,
@@ -205,6 +211,10 @@ import {
 import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { UnrecoverableApiError } from "back-end/src/util/errors";
+import {
+  canEnableFeatureAutoPublishOnApproval,
+  maybeAutoPublishFeatureRevision,
+} from "back-end/src/api/features/autoPublishOnApproval";
 import {
   shouldValidateCustomFieldsOnUpdate,
   validateCustomFieldsForSection,
@@ -951,6 +961,12 @@ export async function postFeatureRebase(
     ? { ...featureMetadataSnapshot, ...mergeResult.result.metadata }
     : featureMetadataSnapshot;
 
+  // The merge can drop a rule that a pending ramp action targets (e.g. live
+  // deleted it). Prune those orphaned actions rather than carrying dead
+  // intent forward; the prune is recorded in the rebase log entry below.
+  const { kept: keptRampActions, pruned: prunedRampActions } =
+    pruneOrphanedRampActions(revision.rampActions, newRules);
+
   await updateRevision(
     context,
     feature,
@@ -968,12 +984,17 @@ export async function postFeatureRebase(
         "holdout" in mergeResult.result
           ? mergeResult.result.holdout
           : (feature.holdout ?? null),
+      ...(prunedRampActions.length > 0 ? { rampActions: keptRampActions } : {}),
     },
     {
       user: res.locals.eventAudit,
       action: "rebase",
       subject: `on top of revision #${live.version}`,
-      value: JSON.stringify(mergeResult.result),
+      value: JSON.stringify(
+        prunedRampActions.length > 0
+          ? { ...mergeResult.result, prunedRampActions }
+          : mergeResult.result,
+      ),
     },
     false,
   );
@@ -1017,6 +1038,7 @@ export async function postFeatureRequestReview(
   req: AuthRequest<
     {
       comment: string;
+      autoPublishOnApproval?: boolean;
     },
     { id: string; version: string }
   >,
@@ -1024,7 +1046,7 @@ export async function postFeatureRequestReview(
 ) {
   const context = getContextFromReq(req);
   const { id, version } = req.params;
-  const { comment } = req.body;
+  const { comment, autoPublishOnApproval } = req.body;
   const feature = await getFeature(context, id);
   if (!feature) {
     throw new Error("Could not find feature");
@@ -1046,11 +1068,16 @@ export async function postFeatureRequestReview(
   if (revision.status !== "draft") {
     throw new Error("Can only request review if is a draft");
   }
+  const enableAutoPublish =
+    autoPublishOnApproval &&
+    canEnableFeatureAutoPublishOnApproval(context, feature);
+
   await markRevisionAsReviewRequested(
     context,
     revision,
     res.locals.eventAudit,
     comment,
+    { autoPublishOnApproval: enableAutoPublish },
   );
 
   const updatedRevision = await getRevision({
@@ -1123,6 +1150,11 @@ export async function postFeatureReviewOrComment(
   }
   const createdByUser = revision.createdBy as EventUserLoggedIn;
 
+  // Verdicts may stand alone, but a plain comment must have a body.
+  if (review === "Comment" && !comment?.trim()) {
+    throw new Error("Comment cannot be empty");
+  }
+
   if (createdByUser?.id === context.userId && review !== "Comment") {
     throw Error("cannot submit a review for your self");
   }
@@ -1162,6 +1194,9 @@ export async function postFeatureReviewOrComment(
     res.locals.eventAudit,
     review,
     comment,
+    // Capture the live version the approval is made against so a later publish
+    // can detect when the approval has gone stale.
+    feature.version,
   );
 
   const updatedRevision = await getRevision({
@@ -1189,9 +1224,236 @@ export async function postFeatureReviewOrComment(
     reviewer,
   );
 
+  if (review === "Approved") {
+    await maybeAutoPublishFeatureRevision(context, feature, finalRevision);
+  }
+
   res.status(200).json({
     status: 200,
   });
+}
+
+export async function postFeatureApproveAndPublish(
+  req: AuthRequest<
+    {
+      comment: string;
+      mergeResultSerialized: string;
+      adminOverride?: boolean;
+      publishExperimentIds?: string[];
+    },
+    { id: string; version: string }
+  >,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id, version } = req.params;
+  const { comment } = req.body;
+  const feature = await getFeature(context, id);
+  if (!feature) throw new Error("Could not find feature");
+
+  if (!context.permissions.canReviewFeatureDrafts(feature)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const revision = await getRevision({
+    context,
+    organization: context.org.id,
+    featureId: feature.id,
+    feature,
+    version: parseInt(version),
+  });
+  if (!revision) throw new Error("Could not find feature revision");
+
+  const createdByUser = revision.createdBy as EventUserLoggedIn;
+  if (createdByUser?.id === context.userId) {
+    throw Error("Cannot approve a draft you created");
+  }
+
+  if (revision.contributors?.some((cid) => cid === context.userId)) {
+    const requireReviews = context.org.settings?.requireReviews;
+    const reviewSetting = Array.isArray(requireReviews)
+      ? getReviewSetting(requireReviews, feature)
+      : undefined;
+    if (reviewSetting?.blockSelfApproval) {
+      throw new Error("You cannot approve a draft you contributed to.");
+    }
+  }
+
+  if (
+    !["pending-review", "changes-requested", "approved"].includes(
+      revision.status,
+    )
+  ) {
+    throw new Error(
+      `Can only approve when review has been requested (status is "${revision.status}")`,
+    );
+  }
+
+  await submitReviewAndComments(
+    context,
+    revision,
+    res.locals.eventAudit,
+    "Approved",
+    comment,
+    feature.version,
+  );
+
+  const approvedRevision = await getRevision({
+    context,
+    organization: context.org.id,
+    featureId: feature.id,
+    feature,
+    version: parseInt(version),
+  });
+  const finalApproved = approvedRevision ?? revision;
+
+  const auditUser = context.auditUser;
+  const reviewer =
+    auditUser && auditUser.type !== "system"
+      ? { id: auditUser.id, name: auditUser.name, email: auditUser.email }
+      : {};
+
+  await dispatchRevisionReviewEvent(
+    context,
+    feature,
+    revision,
+    finalApproved,
+    "Approved",
+    comment,
+    reviewer,
+  );
+
+  await postFeaturePublish(req, res);
+}
+
+export async function postFeatureToggleAutoPublish(
+  req: AuthRequest<{ enabled: boolean }, { id: string; version: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id, version } = req.params;
+  const { enabled } = req.body;
+
+  const feature = await getFeature(context, id);
+  if (!feature) throw new Error("Could not find feature");
+
+  const revision = await getRevision({
+    context,
+    organization: context.org.id,
+    featureId: feature.id,
+    feature,
+    version: parseInt(version),
+  });
+  if (!revision) throw new Error("Could not find feature revision");
+
+  if (
+    !["draft", "pending-review", "changes-requested", "approved"].includes(
+      revision.status,
+    )
+  ) {
+    throw new Error(
+      "Cannot change auto-publish on a published or discarded draft",
+    );
+  }
+
+  if (enabled && !canEnableFeatureAutoPublishOnApproval(context, feature)) {
+    context.permissions.throwPermissionError();
+  }
+
+  await setAutoPublishOnApproval(revision, !!enabled, context.userId || null);
+
+  res.status(200).json({ status: 200 });
+}
+
+// Author retracts a review request: draft reverts from pending-review /
+// changes-requested / approved back to draft. Review log entries are kept.
+export async function postFeatureRecallReview(
+  req: AuthRequest<Record<string, never>, { id: string; version: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id, version } = req.params;
+  const feature = await getFeature(context, id);
+  if (!feature) throw new Error("Could not find feature");
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
+    context.permissions.throwPermissionError();
+  }
+  const revision = await getRevision({
+    context,
+    organization: context.org.id,
+    featureId: feature.id,
+    feature,
+    version: parseInt(version),
+  });
+  if (!revision) throw new Error("Could not find feature revision");
+  await recallReview(context, revision, res.locals.eventAudit);
+  res.status(200).json({ status: 200 });
+}
+
+// Reviewer retracts their own verdict: approved / changes-requested reverts to
+// pending-review. Review comments remain in the log.
+export async function postFeatureUndoReview(
+  req: AuthRequest<Record<string, never>, { id: string; version: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id, version } = req.params;
+  const feature = await getFeature(context, id);
+  if (!feature) throw new Error("Could not find feature");
+  if (!context.permissions.canReviewFeatureDrafts(feature)) {
+    context.permissions.throwPermissionError();
+  }
+  const revision = await getRevision({
+    context,
+    organization: context.org.id,
+    featureId: feature.id,
+    feature,
+    version: parseInt(version),
+  });
+  if (!revision) throw new Error("Could not find feature revision");
+  await undoReview(context, revision, res.locals.eventAudit);
+  res.status(200).json({ status: 200 });
+}
+
+// Edit the comment text in an owned revision log entry. The model enforces
+// that only the author of a plain `Comment` entry can mutate it; verdicts,
+// review requests, and other audit-trail entries are immutable. The helper
+// restricts the change to the `value.comment` field.
+export async function putFeatureRevisionLogComment(
+  req: AuthRequest<
+    { comment: string },
+    { id: string; version: string; logId: string }
+  >,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id, logId } = req.params;
+  const { comment } = req.body;
+  if (!comment?.trim()) {
+    throw new Error("Comment cannot be empty");
+  }
+  const feature = await getFeature(context, id);
+  if (!feature) throw new Error("Could not find feature");
+  await context.models.featureRevisionLogs.updateCommentText(logId, comment);
+  res.status(200).json({ status: 200 });
+}
+
+// Delete an owned revision log entry. The model enforces that only the
+// author of a plain `Comment` entry can delete; verdicts and other
+// audit-trail entries are immutable.
+export async function deleteFeatureRevisionLogEntry(
+  req: AuthRequest<
+    Record<string, never>,
+    { id: string; version: string; logId: string }
+  >,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id, logId } = req.params;
+  const feature = await getFeature(context, id);
+  if (!feature) throw new Error("Could not find feature");
+  await context.models.featureRevisionLogs.deleteOwnedEntry(logId);
+  res.status(200).json({ status: 200 });
 }
 
 // Detect drift between the live revision (source of truth) and the persisted
@@ -1412,10 +1674,11 @@ export async function postFeaturePublish(
     throw new Error("Can only publish Draft revisions");
   }
 
-  if (adminOverride && requiresReview) {
-    if (!context.permissions.canBypassApprovalChecks(feature)) {
-      context.permissions.throwPermissionError();
-    }
+  // adminOverride skips review requirements AND the rebase-required governance
+  // gate below, so it always demands the bypass permission — not just when
+  // reviews are required.
+  if (adminOverride && !context.permissions.canBypassApprovalChecks(feature)) {
+    context.permissions.throwPermissionError();
   }
   if (JSON.stringify(mergeResult) !== mergeResultSerialized) {
     throw new Error(
@@ -1425,6 +1688,24 @@ export async function postFeaturePublish(
 
   if (!mergeResult.success) {
     throw new Error("Please resolve conflicts before publishing");
+  }
+
+  // Governance: when the org requires same-base merges, block publishing a
+  // draft that is behind live (or whose approval has gone stale) until it is
+  // rebased. Admins with the bypass permission may override.
+  if (!adminOverride) {
+    const governance = evaluatePublishGovernance({
+      revisionStatus: revision.status,
+      baseVersion: revision.baseVersion,
+      liveVersion: feature.version,
+      mergeSuccess: mergeResult.success,
+      liveChanges: [],
+      approvedBaseVersion: revision.approvedBaseVersion ?? null,
+      requireRebaseBeforePublish: !!org.settings?.requireRebaseBeforePublish,
+    });
+    if (governance.rebaseRequired && governance.blockReason) {
+      throw new Error(governance.blockReason);
+    }
   }
 
   const envsToCheck = await getMergeResultPublishEnvs({
@@ -2148,6 +2429,80 @@ export async function postFeatureDiscard(
     feature,
     finalRevision,
     "revision.discarded",
+    {},
+  );
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function postFeatureReopen(
+  req: AuthRequest<never, { id: string; version: string }>,
+  res: Response<{ status: 200 }, EventUserForResponseLocals>,
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+  const { id, version } = req.params;
+
+  const feature = await getFeature(context, id);
+
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  const revision = await getRevision({
+    context,
+    organization: org.id,
+    featureId: feature.id,
+    feature,
+    version: parseInt(version),
+  });
+  if (!revision) {
+    throw new Error("Could not find feature revision");
+  }
+
+  if (revision.status !== "discarded") {
+    throw new Error(`Can only reopen discarded revisions`);
+  }
+
+  if (
+    !context.permissions.canUpdateFeature(feature, {}) ||
+    !context.permissions.canManageFeatureDrafts(feature)
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  await reopenRevision(context, revision, res.locals.eventAudit);
+
+  const reopened = await getRevision({
+    context,
+    organization: org.id,
+    featureId: feature.id,
+    feature,
+    version: parseInt(version),
+  });
+  const finalRevision = reopened ?? revision;
+
+  void req
+    .audit({
+      event: "feature.revision.reopen",
+      entity: { object: "feature", id: feature.id },
+      details: auditDetailsUpdate(
+        { status: revision.status },
+        { status: finalRevision.status },
+        { version: revision.version },
+      ),
+    })
+    .catch((e) =>
+      logger.error(e, "Failed to write audit log for revision.reopen"),
+    );
+
+  await dispatchFeatureRevisionEvent(
+    context,
+    feature,
+    finalRevision,
+    "revision.reopened",
     {},
   );
 
@@ -4635,6 +4990,7 @@ export async function getRevisionLog(
 
   // revisionLogs use dateCreated as the timestamp, so we need to convert it to a RevisionLog as that is what the front end expects
   const revisionLogsFormatted: RevisionLog[] = revisionLogs.map((log) => ({
+    id: log.id,
     timestamp: log.dateCreated,
     user: log.user,
     action: log.action,

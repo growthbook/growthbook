@@ -23,6 +23,7 @@
 | **[feature.revision.changesRequested](#featurerevisionchangesRequested)** | Triggered when a reviewer requests changes on a draft revision |
 | **[feature.revision.commented](#featurerevisioncommented)** | Triggered when a comment is added to a draft revision |
 | **[feature.revision.discarded](#featurerevisiondiscarded)** | Triggered when a draft revision is discarded |
+| **[feature.revision.reopened](#featurerevisionreopened)** | Triggered when a discarded draft revision is reopened as a draft |
 | **[feature.revision.rebased](#featurerevisionrebased)** | Triggered when a draft revision is rebased onto the latest published version |
 | **[feature.revision.published](#featurerevisionpublished)** | Triggered when a draft revision is published. Overlaps with `feature.updated` but provides revision-specific context (base version, comment, author). |
 | **[feature.revision.reverted](#featurerevisionreverted)** | Triggered when a feature is reverted to a previous published revision |
@@ -1291,6 +1292,72 @@ Triggered when a draft revision is discarded
     } | null;
     tags: string[];
     /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
+    environments: string[];
+    containsSecrets: boolean;
+}
+```
+</details>
+
+
+### feature.revision.reopened
+
+Triggered when a discarded draft revision is reopened as a draft
+
+<details>
+  <summary>Payload</summary>
+
+```typescript
+{
+    event: "feature.revision.reopened";
+    object: "feature";
+    api_version: string;
+    created: number;
+    data: {
+        object: {
+            /** The feature this revision belongs to */
+            featureId: string;
+            baseVersion: number;
+            version: number;
+            comment: string;
+            date: string;
+            status: string;
+            createdBy?: string | undefined;
+            publishedBy?: string | undefined;
+            /** The default value at the time this revision was created */
+            defaultValue?: string | undefined;
+            rules: Record<string, any[]>;
+            definitions?: Record<string, string> | undefined;
+            environmentsEnabled?: Record<string, boolean> | undefined;
+            envPrerequisites?: Record<string, {
+                /** Feature ID */
+                id: string;
+                condition: string;
+            }[]> | undefined;
+            prerequisites?: {
+                /** Feature ID */
+                id: string;
+                condition: string;
+            }[] | undefined;
+            metadata?: {} | undefined;
+        };
+    };
+    user: {
+        type: "dashboard";
+        id: string;
+        email: string;
+        name: string;
+    } | {
+        type: "api_key";
+        apiKey: string;
+        id?: string | undefined;
+        name?: string | undefined;
+        email?: string | undefined;
+    } | {
+        type: "system";
+        subtype?: string | undefined;
+        id?: string | undefined;
+    } | null;
+    tags: string[];
     environments: string[];
     containsSecrets: boolean;
 }
