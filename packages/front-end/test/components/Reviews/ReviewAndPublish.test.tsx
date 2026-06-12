@@ -151,6 +151,23 @@ describe("ReviewAndPublish", () => {
     ).toBeInTheDocument();
   });
 
+  it("hides comment composers without canReviewFeatureDrafts", () => {
+    render(
+      <ReviewAndPublish
+        feature={feature}
+        version={3}
+        setVersion={vi.fn()}
+        revisions={makeRevisions("draft")}
+        revisionList={[]}
+        mutate={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText("Add a comment")).not.toBeInTheDocument();
+    expect(
+      screen.queryByPlaceholderText("Leave a comment…"),
+    ).not.toBeInTheDocument();
+  });
+
   it("renders a Request Review CTA when approvals are required", () => {
     requireReviewsMock.current = true;
     render(

@@ -269,6 +269,8 @@ export default function ReviewAndPublish({
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const envIds = environments.map((e) => e.id);
   const permissionsUtil = usePermissionsUtil();
+  // POST /feature/:id/:version/comment requires canReviewFeatureDrafts.
+  const canCommentOnDraft = permissionsUtil.canReviewFeatureDrafts(feature);
   const { apiCall } = useAuth();
   const user = getCurrentUser();
   const {
@@ -631,11 +633,11 @@ export default function ReviewAndPublish({
   const diffComments = useMemo<DiffCommentsProps>(
     () => ({
       anchors: diffCommentAnchors,
-      // New comments only on active drafts — same gate as the timeline's
-      // composer. Existing markers stay visible (read-only) on published /
-      // discarded revisions.
+      // New comments only on active drafts when the user can review drafts.
+      // Existing markers stay visible (read-only) on published / discarded
+      // revisions, and when the user lacks canReviewFeatureDrafts.
       onSubmitNew:
-        isActiveDraft && revision
+        isActiveDraft && revision && canCommentOnDraft
           ? async (text: string) => {
               await apiCall(
                 `/feature/${feature.id}/${revision.version}/comment`,
@@ -650,6 +652,7 @@ export default function ReviewAndPublish({
       diffCommentAnchors,
       isActiveDraft,
       revision,
+      canCommentOnDraft,
       apiCall,
       feature.id,
       mutateAllLogs,
@@ -1041,7 +1044,7 @@ export default function ReviewAndPublish({
               (newest at the bottom), so new comments appear right above it.
               Your avatar + an "Add a comment" header sit above the input,
               aligned with the timeline's comment cards. */}
-        {isActiveDraft && (
+        {isActiveDraft && canCommentOnDraft && (
           <Flex align="start" gap="3" mt="4">
             <Box flexShrink="0">
               <EventUser
