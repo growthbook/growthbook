@@ -721,7 +721,14 @@ function ConditionAndGroupInput({
     },
   ];
 
-  const listOperators = ["$in", "$nin", "$ini", "$nini"];
+  const listOperators = [
+    "$in",
+    "$nin",
+    "$ini",
+    "$nini",
+    "$includesAnyOf",
+    "$notIncludesAnyOf",
+  ];
 
   const attributeSchema = useAttributeSchema(false, props.project);
 
@@ -986,7 +993,9 @@ function ConditionAndGroupInput({
             : attribute.array
               ? [
                   { label: "includes", value: "$includes" },
+                  { label: "includes any of", value: "$includesAnyOf" },
                   { label: "does not include", value: "$notIncludes" },
+                  { label: "includes none of", value: "$notIncludesAnyOf" },
                   { label: "is empty", value: "$empty" },
                   { label: "is not empty", value: "$notEmpty" },
                   { label: "is not NULL", value: "$exists" },
