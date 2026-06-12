@@ -157,8 +157,6 @@ export function useSavedGroupRevision(
     if (!data || !hasSelectionInUrl) return;
     if (urlVersion === liveVersion) return;
     if (selectedRevision) return;
-    // liveVersion is null while a refetch is in flight (e.g. a just-created
-    // draft before the backfilled baseline lands) — don't correct blindly.
     if (liveVersion === null) return;
     updateUrl(null, { replace: true });
   }, [
@@ -181,9 +179,8 @@ export function useSavedGroupRevision(
   // Selects it in the dropdown so the status callout appears.
   const onRevisionCreated = useCallback(
     async (revision: Revision) => {
-      // Await the cache refresh before updating the URL: for previously
-      // untracked groups the server backfills a merged baseline revision, and
-      // until it's fetched the URL-correction effect would bounce back to live.
+      // Optimistically update the revision in the SWR cache. If it exists, replace it.
+      // Otherwise, add it. This ensures the UI reflects the latest changes immediately.
       await mutateRevisions(
         (current) => {
           const existingIndex = (current?.revisions ?? []).findIndex(
