@@ -3,9 +3,7 @@ import { Flex } from "@radix-ui/themes";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Callout from "@/ui/Callout";
 
-// Global dialog shown when an API request returns soft warnings (HTTP 422).
-// The user can acknowledge them and proceed, or cancel. Generic on purpose so
-// it can surface warnings from any feature, not just custom hooks.
+// Global dialog for API soft warnings (HTTP 422) — acknowledge to proceed, or cancel.
 export default function ApiWarningModal({
   warnings,
   onConfirm,
@@ -15,8 +13,7 @@ export default function ApiWarningModal({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
-  // ModalStandard fires `submit` AND then `close` when the user confirms
-  // Report exactly one outcome to the caller — whichever fires first wins.
+  // ModalStandard fires submit then close on confirm; report exactly one outcome.
   const reported = useRef(false);
   const reportOnce = (report: () => void) => {
     if (reported.current) return;

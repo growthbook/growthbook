@@ -40,6 +40,9 @@ const bodySchema = z
     hashAttribute: z.string().min(1).max(100),
     hypothesis: z.string().max(2000).optional(),
     description: z.string().max(2000).optional(),
+    // Standard A/B experiment (default) or a multi-armed bandit. Bandits
+    // require the "multi-armed-bandits" premium feature (enforced below).
+    type: z.enum(["standard", "multi-armed-bandit"]).default("standard"),
   })
   .strict();
 
@@ -64,6 +67,7 @@ export const postCreateExperiment = createApiRequestHandler(validation)(async (
     hashAttribute,
     hypothesis,
     description,
+    type,
   } = req.body;
   const context = req.context;
   requireUserAuth(context);
@@ -77,11 +81,23 @@ export const postCreateExperiment = createApiRequestHandler(validation)(async (
     context.permissions.throwPermissionError();
   }
 
+  // Bandits are a premium feature. Gate here so the extension surfaces a
+  // clear message rather than silently downgrading to a standard test.
+  if (
+    type === "multi-armed-bandit" &&
+    !context.hasPremiumFeature("multi-armed-bandits")
+  ) {
+    throw new Error(
+      "Multi-armed bandits aren’t included in your plan. Upgrade to Pro or Enterprise to run bandits.",
+    );
+  }
+
   // "draft" so it doesn't fire until the user finishes setup in GrowthBook.
   const controlId = uniqid("var_");
   const variantId = uniqid("var_");
   const experimentToCreate: Partial<ExperimentInterface> = {
     name,
+    type,
     status: "draft",
     hashAttribute,
     trackingKey: "", // createExperiment auto-generates one
@@ -123,6 +139,19 @@ export const postCreateExperiment = createApiRequestHandler(validation)(async (
         seed: uuidv4(),
       },
     ],
+    // Bandit-specific settings. Bandits must use the Bayesian engine and
+    // need a reallocation schedule + burn-in. These mirror GrowthBook's
+    // defaults (1 day each) and can be tuned later in the web app; the
+    // user picks the single decision metric there before starting.
+    ...(type === "multi-armed-bandit"
+      ? {
+          statsEngine: "bayesian" as const,
+          banditScheduleValue: 1,
+          banditScheduleUnit: "days" as const,
+          banditBurnInValue: 1,
+          banditBurnInUnit: "days" as const,
+        }
+      : {}),
   };
 
   let experiment;

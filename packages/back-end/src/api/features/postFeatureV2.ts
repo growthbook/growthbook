@@ -113,7 +113,11 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       mapV2ApiRuleToFeatureRule(rule),
     );
 
-    const jsonSchema = parseApiJsonSchema(req.context.org, req.body.jsonSchema);
+    const jsonSchema = parseApiJsonSchema(
+      req.context.org,
+      req.body.jsonSchema,
+      feature.valueType,
+    );
     feature.jsonSchema = jsonSchema;
     feature.defaultValue = validateFeatureValue(feature, feature.defaultValue);
 

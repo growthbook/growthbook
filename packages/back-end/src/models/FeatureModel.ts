@@ -9,7 +9,7 @@ import {
   getApiFeatureAllEnvs,
   checkIfRevisionNeedsReview,
   autoMerge,
-  fillRevisionFromFeature,
+  liveRevisionFromFeature,
   PermissionError,
   stemRuleId,
 } from "shared/util";
@@ -97,7 +97,10 @@ import {
   deleteVercelExperimentationItemFromFeature,
 } from "back-end/src/services/vercel-native-integration.service";
 import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
-import { runValidateFeatureHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
+import {
+  runValidateFeatureHooks,
+  runValidateFeatureRevisionHooks,
+} from "back-end/src/enterprise/sandbox/sandbox-eval";
 import {
   createEvent,
   hasPreviousObject,
@@ -118,6 +121,7 @@ import {
   deleteAllRevisionsForFeature,
   getRevision,
   markRevisionAsPublished,
+  computeRevisionPublishChanges,
   updateRevision,
   createRevision,
 } from "./FeatureRevisionModel";
@@ -1479,13 +1483,17 @@ const updateSafeRolloutStatuses = async (
   });
 };
 
-// Apply a revision merge result to the feature document.
-export async function applyRevisionChanges(
+// Pure computation of the feature-doc changes a revision merge will produce; no writes
+export function computeRevisionMergeChanges(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
   result: MergeResultChanges,
-) {
+): {
+  changes: Partial<FeatureInterface>;
+  hasChanges: boolean;
+  removeHoldout: boolean;
+} {
   let hasChanges = false;
   const changes: Partial<FeatureInterface> = {};
   let removeHoldout = false;
@@ -1561,8 +1569,7 @@ export async function applyRevisionChanges(
   // revision behind a stale feature.version, which traps subsequent reverts.
   if (!hasChanges) {
     changes.version = revision.version;
-    changes.dateUpdated = new Date();
-    return await updateFeature(context, feature, changes);
+    return { changes, hasChanges, removeHoldout };
   }
 
   if (changes.rules !== undefined) {
@@ -1570,6 +1577,27 @@ export async function applyRevisionChanges(
   }
 
   changes.version = revision.version;
+
+  return { changes, hasChanges, removeHoldout };
+}
+
+// Apply a revision merge result to the feature document.
+export async function applyRevisionChanges(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  result: MergeResultChanges,
+) {
+  const { changes, hasChanges, removeHoldout } = computeRevisionMergeChanges(
+    context,
+    feature,
+    revision,
+    result,
+  );
+
+  if (!hasChanges) {
+    return await updateFeature(context, feature, changes);
+  }
 
   await updateSafeRolloutStatuses(context, feature, revision);
 
@@ -2200,6 +2228,51 @@ async function cleanupOrphanedRampSchedules(
   }
 }
 
+// Best-effort early hook run; updateFeature / markRevisionAsPublished re-run hooks authoritatively
+export async function prevalidatePublishRevision({
+  context,
+  feature,
+  revision,
+  result,
+  comment,
+}: {
+  context: ReqContext | ApiReqContext;
+  feature: FeatureInterface;
+  revision: FeatureRevisionInterface;
+  result: MergeResultChanges;
+  comment?: string;
+}) {
+  const { changes, removeHoldout } = computeRevisionMergeChanges(
+    context,
+    feature,
+    revision,
+    result,
+  );
+  const base = removeHoldout
+    ? (omit(feature, ["holdout"]) as FeatureInterface)
+    : feature;
+  const proposedFeature: FeatureInterface = {
+    ...base,
+    ...changes,
+    dateUpdated: new Date(),
+  };
+  proposedFeature.linkedExperiments = getLinkedExperiments(proposedFeature);
+  await runValidateFeatureHooks({
+    context,
+    feature: proposedFeature,
+    original: feature,
+  });
+  await runValidateFeatureRevisionHooks({
+    context,
+    feature,
+    revision: {
+      ...revision,
+      ...computeRevisionPublishChanges(revision, context.auditUser, comment),
+    },
+    original: revision,
+  });
+}
+
 export async function publishRevision({
   context,
   feature,
@@ -2222,6 +2295,15 @@ export async function publishRevision({
   if (!bypassLockdown) {
     await assertFeatureNotLockedByRamp(context, feature.id);
   }
+
+  // Run custom hooks before the side-effect writes below so a rejection doesn't orphan them
+  await prevalidatePublishRevision({
+    context,
+    feature,
+    revision,
+    result,
+    comment,
+  });
 
   // Create ramp schedules BEFORE writing the feature so that a schedule
   // creation failure gates the publish (atomicity: no published feature without
@@ -2364,16 +2446,24 @@ export async function createAndPublishRevision({
   });
   if (!liveRevision) throw new Error("Could not load live revision");
 
+  // Live baseline for the review check and the publish merge, built from the
+  // feature document (the canonical live state). Stored revision docs can be
+  // sparse or in legacy shapes, so they're not a reliable baseline.
+  const liveBase: FeatureRevisionInterface = {
+    ...liveRevision,
+    ...liveRevisionFromFeature(liveRevision, feature),
+  } as FeatureRevisionInterface;
+
   // Synthetic revision for the review check; caller-supplied rules replace
   // the live array wholesale (same as autoMerge).
   const syntheticRevision: FeatureRevisionInterface = {
-    ...liveRevision,
+    ...liveBase,
     ...(changes ?? {}),
-    rules: changes?.rules ?? liveRevision.rules ?? [],
+    rules: changes?.rules ?? liveBase.rules ?? [],
   };
   const requiresReview = checkIfRevisionNeedsReview({
     feature,
-    baseRevision: liveRevision,
+    baseRevision: liveBase,
     revision: syntheticRevision,
     allEnvironments,
     settings: org.settings,
@@ -2401,26 +2491,11 @@ export async function createAndPublishRevision({
     canBypassApprovalChecks,
   });
 
-  // Compute the merge result the same way postFeaturePublish does —
-  // filling sparse environmentsEnabled + holdout from the live feature.
-  const featureEnvs: Record<string, boolean> = Object.fromEntries(
-    Object.entries(feature.environmentSettings ?? {}).map(([envId, env]) => [
-      envId,
-      !!env.enabled,
-    ]),
-  );
-  const fillEnvs = (r: FeatureRevisionInterface) => ({
-    ...fillRevisionFromFeature(r, feature),
-    environmentsEnabled: {
-      ...featureEnvs,
-      ...(r.environmentsEnabled ?? {}),
-    },
-    holdout: feature.holdout ?? null,
-  });
-
+  // Merge the new revision against the live-feature baseline. base === live
+  // for a fresh revision off HEAD.
   const mergeResult = autoMerge(
-    fillEnvs(liveRevision),
-    fillEnvs(liveRevision), // base === live for a fresh revision off HEAD
+    liveBase,
+    liveBase,
     revision,
     allEnvironments,
     {},

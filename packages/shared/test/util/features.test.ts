@@ -8,6 +8,7 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { OrganizationSettings, RequireReview } from "shared/types/organization";
 import {
   validateFeatureValue,
+  assertSchemaMatchesValueType,
   getValidation,
   validateJSONFeatureValue,
   autoMerge,
@@ -1378,6 +1379,188 @@ describe("validateFeatureValue", () => {
         validateFeatureValue(feature, value, "testVal"),
       ).toThrowError();
     });
+  });
+
+  describe("string values with a schema", () => {
+    const stringFeature = (
+      schema: object,
+    ): Pick<FeatureInterface, "valueType" | "jsonSchema"> => ({
+      valueType: "string",
+      jsonSchema: {
+        schemaType: "schema",
+        schema: JSON.stringify(schema),
+        simple: { type: "primitive", fields: [] },
+        date: new Date(),
+        enabled: true,
+      },
+    });
+
+    it("accepts a string within maxLength and rejects one over it", () => {
+      const f = stringFeature({ type: "string", maxLength: 5 });
+      expect(validateFeatureValue(f, "hello", "testVal")).toEqual("hello");
+      expect(() =>
+        validateFeatureValue(f, "toolong", "testVal"),
+      ).toThrowError();
+    });
+
+    it("enforces an enum", () => {
+      const f = stringFeature({ type: "string", enum: ["a", "b"] });
+      expect(validateFeatureValue(f, "a", "testVal")).toEqual("a");
+      expect(() => validateFeatureValue(f, "c", "testVal")).toThrowError();
+    });
+  });
+
+  describe("number values with a schema", () => {
+    const numberFeature = (
+      schema: object,
+    ): Pick<FeatureInterface, "valueType" | "jsonSchema"> => ({
+      valueType: "number",
+      jsonSchema: {
+        schemaType: "schema",
+        schema: JSON.stringify(schema),
+        simple: { type: "primitive", fields: [] },
+        date: new Date(),
+        enabled: true,
+      },
+    });
+
+    it("enforces minimum and maximum", () => {
+      const f = numberFeature({ type: "number", minimum: 1, maximum: 10 });
+      expect(validateFeatureValue(f, "5", "testVal")).toEqual("5");
+      expect(() => validateFeatureValue(f, "0", "testVal")).toThrowError();
+      expect(() => validateFeatureValue(f, "50", "testVal")).toThrowError();
+    });
+
+    it("enforces integer type", () => {
+      const f = numberFeature({ type: "integer" });
+      expect(validateFeatureValue(f, "5", "testVal")).toEqual("5");
+      expect(() => validateFeatureValue(f, "5.5", "testVal")).toThrowError();
+    });
+  });
+});
+
+describe("assertSchemaMatchesValueType", () => {
+  const rawSchema = (schema: object, enabled = true) => ({
+    schemaType: "schema" as const,
+    schema: JSON.stringify(schema),
+    simple: { type: "primitive" as const, fields: [] },
+    enabled,
+  });
+
+  it("allows any schema for json flags", () => {
+    expect(() =>
+      assertSchemaMatchesValueType(rawSchema({ type: "object" }), "json"),
+    ).not.toThrow();
+  });
+
+  it("rejects any schema for boolean flags", () => {
+    expect(() =>
+      assertSchemaMatchesValueType(rawSchema({ type: "string" }), "boolean"),
+    ).toThrow();
+  });
+
+  it("requires a number/integer top-level type for number flags", () => {
+    expect(() =>
+      assertSchemaMatchesValueType(rawSchema({ type: "number" }), "number"),
+    ).not.toThrow();
+    expect(() =>
+      assertSchemaMatchesValueType(rawSchema({ type: "integer" }), "number"),
+    ).not.toThrow();
+    expect(() =>
+      assertSchemaMatchesValueType(rawSchema({ type: "object" }), "number"),
+    ).toThrow();
+  });
+
+  it("requires a string top-level type for string flags", () => {
+    expect(() =>
+      assertSchemaMatchesValueType(rawSchema({ type: "string" }), "string"),
+    ).not.toThrow();
+    expect(() =>
+      assertSchemaMatchesValueType(rawSchema({ type: "number" }), "string"),
+    ).toThrow();
+  });
+
+  it("allows type-less schemas with an enum matching the value type", () => {
+    expect(() =>
+      assertSchemaMatchesValueType(
+        rawSchema({ enum: ["red", "green", "blue"] }),
+        "string",
+      ),
+    ).not.toThrow();
+    expect(() =>
+      assertSchemaMatchesValueType(rawSchema({ enum: [1, 2, 3] }), "number"),
+    ).not.toThrow();
+  });
+
+  it("rejects type-less schemas whose enum values don't match the value type", () => {
+    expect(() =>
+      assertSchemaMatchesValueType(rawSchema({ enum: [1, 2, 3] }), "string"),
+    ).toThrow();
+    expect(() =>
+      assertSchemaMatchesValueType(rawSchema({ enum: ["red", 2] }), "string"),
+    ).toThrow();
+    expect(() =>
+      assertSchemaMatchesValueType(rawSchema({ enum: ["1", "2"] }), "number"),
+    ).toThrow();
+  });
+
+  it("rejects type-less schemas without an enum", () => {
+    expect(() =>
+      assertSchemaMatchesValueType(
+        rawSchema({ properties: { test: { type: "string" } } }),
+        "string",
+      ),
+    ).toThrow();
+    expect(() =>
+      assertSchemaMatchesValueType(
+        rawSchema({ items: { type: "number" } }),
+        "number",
+      ),
+    ).toThrow();
+    expect(() =>
+      assertSchemaMatchesValueType(
+        rawSchema({ anyOf: [{ const: "a" }, { const: "b" }] }),
+        "string",
+      ),
+    ).toThrow();
+  });
+
+  it("does not enforce anything when the schema is disabled", () => {
+    expect(() =>
+      assertSchemaMatchesValueType(
+        rawSchema({ type: "object" }, false),
+        "number",
+      ),
+    ).not.toThrow();
+  });
+
+  it("validates a simple primitive schema against the flag type", () => {
+    const simpleString = {
+      schemaType: "simple" as const,
+      schema: "",
+      simple: {
+        type: "primitive" as const,
+        fields: [
+          {
+            key: "",
+            type: "string" as const,
+            required: true,
+            default: "",
+            description: "",
+            enum: [],
+            min: 0,
+            max: 10,
+          },
+        ],
+      },
+      enabled: true,
+    };
+    expect(() =>
+      assertSchemaMatchesValueType(simpleString, "string"),
+    ).not.toThrow();
+    expect(() =>
+      assertSchemaMatchesValueType(simpleString, "number"),
+    ).toThrow();
   });
 });
 

@@ -4,14 +4,19 @@ import {
 } from "shared/types/experiment";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { FC, useState, useRef, useCallback } from "react";
-import { Box, Flex, Grid, Heading, Text } from "@radix-ui/themes";
-import { PiCameraLight, PiCameraPlusLight } from "react-icons/pi";
+import { Box, Flex, Grid, Heading, IconButton } from "@radix-ui/themes";
+import {
+  PiCameraLight,
+  PiCameraPlusLight,
+  PiPencilSimple,
+} from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { trafficSplitPercentages } from "@/services/utils";
 import Carousel from "@/components/Carousel";
 import ScreenshotUpload from "@/components/EditExperiment/ScreenshotUpload";
 import AuthorizedImage from "@/components/AuthorizedImage";
 import Button from "@/ui/Button";
+import Text from "@/ui/Text";
 import ExperimentCarouselModal from "@/components/Experiment/ExperimentCarouselModal";
 import useOrgSettings from "@/hooks/useOrgSettings";
 
@@ -60,9 +65,9 @@ const ScreenshotCarousel: FC<{
             color: "var(--slate-a9)",
           }}
         >
-          <Text size="8">
+          <Box>
             <PiCameraLight />
-          </Text>
+          </Box>
         </Flex>
       );
     },
@@ -110,6 +115,7 @@ interface Props {
   isPublic?: boolean;
   shareUid?: string;
   shareType?: "experiment" | "report";
+  onEditMetadata?: (variationIndex: number) => void;
 }
 
 function NoImageBox({
@@ -131,9 +137,13 @@ function NoImageBox({
         color: "var(--slate-a9)",
       }}
     >
-      <Text size="8">
-        {canEdit ? <PiCameraPlusLight /> : <PiCameraLight />}
-      </Text>
+      <Box>
+        {canEdit ? (
+          <PiCameraPlusLight size="32px" />
+        ) : (
+          <PiCameraLight size="32px" />
+        )}
+      </Box>
     </Flex>
   );
 }
@@ -154,6 +164,7 @@ export function VariationBox({
   isPublic = false,
   shareUid,
   shareType = "experiment",
+  onEditMetadata,
 }: {
   i: number;
   v: Variation;
@@ -170,6 +181,7 @@ export function VariationBox({
   isPublic?: boolean;
   shareUid?: string;
   shareType?: "experiment" | "report";
+  onEditMetadata?: (variationIndex: number) => void;
 }) {
   const { blockFileUploads } = useOrgSettings();
 
@@ -196,13 +208,26 @@ export function VariationBox({
       <Flex gap="2" direction="column" justify="between" height="100%">
         <Box>
           <Box mb="3">
-            <Flex gap="0">
-              <Box className="">
-                <span className="circle-label label">{i}</span>
-              </Box>
-              <Heading as="h4" size="3" mb="0">
-                {v.name}
-              </Heading>
+            <Flex gap="0" align="center" justify="between">
+              <Flex gap="0" align="center">
+                <Box className="">
+                  <span className="circle-label label">{i}</span>
+                </Box>
+                <Heading as="h4" size="3" mb="0">
+                  {v.name}
+                </Heading>
+              </Flex>
+              {canEdit && onEditMetadata ? (
+                <IconButton
+                  variant="ghost"
+                  size="1"
+                  color="gray"
+                  onClick={() => onEditMetadata(i)}
+                  aria-label="Edit variation"
+                >
+                  <PiPencilSimple />
+                </IconButton>
+              ) : null}
             </Flex>
           </Box>
           {allowImages && (
@@ -241,7 +266,9 @@ export function VariationBox({
           )}
         </Box>
         <Box>
-          {showDescription ? <Box>{v.description}</Box> : null}
+          {showDescription ? (
+            <Box>{v.description || <Text color="text-mid">--</Text>}</Box>
+          ) : null}
           {showIds ? <code className="small">ID: {v.key}</code> : null}
           <Flex align="center" justify="between">
             <Box>
@@ -253,7 +280,7 @@ export function VariationBox({
             {allowImages && (
               <Flex align="center" justify="end" gap="2">
                 {v.screenshots.length > 0 ? (
-                  <Text className="text-muted">
+                  <Text color="text-mid">
                     {v.screenshots.length} image
                     {v.screenshots.length > 1 ? "s" : ""}
                   </Text>
@@ -290,6 +317,7 @@ const VariationsTable: FC<Props> = ({
   isPublic = false,
   shareUid,
   shareType = "experiment",
+  onEditMetadata,
 }) => {
   const { apiCall } = useAuth();
   const variations = getLatestPhaseVariations(experiment);
@@ -311,7 +339,7 @@ const VariationsTable: FC<Props> = ({
   // set some variables for the display of the component - could make options
   const cols = variations.length > 4 ? 4 : variations.length;
   const gap = "4";
-  const maxImageHeight = hasAnyImages ? 200 : 110; // shrink the image height if there are no images
+  const maxImageHeight = hasAnyImages ? 200 : 72; // shrink the image height if there are no images
 
   return (
     <Box mx={noMargin ? "0" : "4"}>
@@ -344,6 +372,7 @@ const VariationsTable: FC<Props> = ({
               isPublic={isPublic}
               shareUid={shareUid}
               shareType={shareType}
+              onEditMetadata={onEditMetadata}
             />
           ),
         )}

@@ -9,11 +9,14 @@ import type { FeedbackState } from "@/enterprise/components/AIChat/AIChatFeedbac
 /**
  * Manages feedback state (thumbs up/down + comment) for AI chat messages.
  *
+ * `endpointBase` is the chat endpoint family (e.g. `/product-analytics/chat`
+ * or `/agent/chat`); feedback is POSTed to `${endpointBase}/${cid}/feedback`.
+ *
  * Uses a ref for conversationId so the hook can be called before `useAIChat`
  * (which provides conversationId) without a circular dependency. The consumer
  * keeps `conversationIdRef.current` in sync after `useAIChat` returns.
  */
-export function useChatFeedback() {
+export function useChatFeedback(endpointBase = "/product-analytics/chat") {
   const conversationIdRef = useRef("");
   const [feedbackMap, setFeedbackMap] = useState<Record<string, FeedbackState>>(
     {},
@@ -35,15 +38,12 @@ export function useChatFeedback() {
         return { ...prev, [messageId]: { rating, comment } };
       });
 
-      void apiCall(
-        `/product-analytics/chat/${conversationIdRef.current}/feedback`,
-        {
-          method: "POST",
-          body: JSON.stringify({ messageId, rating, comment }),
-        },
-      );
+      void apiCall(`${endpointBase}/${conversationIdRef.current}/feedback`, {
+        method: "POST",
+        body: JSON.stringify({ messageId, rating, comment }),
+      });
     },
-    [apiCall],
+    [apiCall, endpointBase],
   );
 
   const loadFeedbackFromConversation = useCallback((data: unknown) => {

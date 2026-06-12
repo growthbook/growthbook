@@ -308,6 +308,9 @@ tags:
   - name: Environment_model
     x-displayName: Environment
     description: <SchemaDefinition schemaRef="#/components/schemas/Environment" />
+  - name: EventUser_model
+    x-displayName: Event User
+    description: <SchemaDefinition schemaRef="#/components/schemas/EventUser" />
   - name: Experiment_model
     x-displayName: Experiment
     description: <SchemaDefinition schemaRef="#/components/schemas/Experiment" />
@@ -11243,6 +11246,27 @@ paths:
                 required:
                   - experiment
                 additionalProperties: false
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                description: One or more linked feature drafts could not be published
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - pending_draft_publish_failed
+                  details:
+                    $ref: >-
+                      #/components/schemas/ApiErrorPendingDraftPublishFailedDetails
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: |-
@@ -11355,6 +11379,59 @@ paths:
                 required:
                   - experiment
                 additionalProperties: false
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    description: Required checklist items are incomplete
+                    properties:
+                      message:
+                        type: string
+                      code:
+                        type: string
+                        enum:
+                          - checklist_incomplete
+                      details:
+                        $ref: >-
+                          #/components/schemas/ApiErrorChecklistIncompleteDetails
+                    required:
+                      - message
+                      - code
+                      - details
+                  - type: object
+                    description: One or more linked feature drafts could not be published
+                    properties:
+                      message:
+                        type: string
+                      code:
+                        type: string
+                        enum:
+                          - pending_draft_publish_failed
+                      details:
+                        $ref: >-
+                          #/components/schemas/ApiErrorPendingDraftPublishFailedDetails
+                    required:
+                      - message
+                      - code
+                      - details
+                  - type: object
+                    description: Resource is not in a valid status for this operation
+                    properties:
+                      message:
+                        type: string
+                      code:
+                        type: string
+                        enum:
+                          - invalid_status
+                      details:
+                        $ref: '#/components/schemas/ApiErrorInvalidStatusDetails'
+                    required:
+                      - message
+                      - code
+                      - details
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -11489,6 +11566,26 @@ paths:
                 required:
                   - experiment
                 additionalProperties: false
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Resource is not in a valid status for this operation
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - invalid_status
+                  details:
+                    $ref: '#/components/schemas/ApiErrorInvalidStatusDetails'
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -11539,6 +11636,26 @@ paths:
                 required:
                   - experiment
                 additionalProperties: false
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Resource is not in a valid status for this operation
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - invalid_status
+                  details:
+                    $ref: '#/components/schemas/ApiErrorInvalidStatusDetails'
+                required:
+                  - message
+                  - code
+                  - details
       x-codeSamples:
         - lang: cURL
           source: >-
@@ -19069,8 +19186,6 @@ paths:
                         additionalProperties: false
                     required:
                       - interval
-                      - actions
-                      - monitored
                     additionalProperties: false
                 startActions:
                   type: array
@@ -22890,12 +23005,6 @@ paths:
                   required:
                     - url
                     - title
-                    - structural
-                    - headings
-                    - buttons
-                    - links
-                    - inputs
-                    - images
                   additionalProperties: false
                 conversationHistory:
                   maxItems: 12
@@ -22924,7 +23033,6 @@ paths:
                   type: boolean
               required:
                 - prompt
-                - elementContext
                 - variationId
                 - visualChangesetId
               additionalProperties: false
@@ -23202,8 +23310,6 @@ paths:
                         minLength: 1
                         maxLength: 2000
                     required:
-                      - include
-                      - type
                       - pattern
                     additionalProperties: false
                 project:
@@ -23218,6 +23324,12 @@ paths:
                 description:
                   type: string
                   maxLength: 2000
+                type:
+                  default: standard
+                  type: string
+                  enum:
+                    - standard
+                    - multi-armed-bandit
               required:
                 - name
                 - pageUrl
@@ -23271,8 +23383,6 @@ paths:
                         minLength: 1
                         maxLength: 2000
                     required:
-                      - include
-                      - type
                       - pattern
                     additionalProperties: false
               required:
@@ -30943,7 +31053,6 @@ paths:
                         additionalProperties: false
                     required:
                       - interval
-                      - monitored
                     additionalProperties: false
                 startActions:
                   type: array
@@ -33494,15 +33603,13 @@ components:
               format: date-time
               type: string
             createdBy:
-              type: string
+              $ref: '#/components/schemas/EventUser'
             publishedBy:
-              type: string
+              $ref: '#/components/schemas/EventUser'
           required:
             - version
             - comment
             - date
-            - createdBy
-            - publishedBy
           additionalProperties: false
         customFields:
           type: object
@@ -33585,6 +33692,25 @@ components:
         - enabled
         - defaultValue
       additionalProperties: false
+    EventUser:
+      description: The user (or automated actor) responsible for an action
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+            - dashboard
+            - api_key
+            - system
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+      required:
+        - type
+      additionalProperties: false
     FeatureWithRevisionsV2:
       allOf:
         - $ref: '#/components/schemas/FeatureV2'
@@ -33613,9 +33739,9 @@ components:
         status:
           type: string
         createdBy:
-          type: string
+          $ref: '#/components/schemas/EventUser'
         publishedBy:
-          type: string
+          $ref: '#/components/schemas/EventUser'
         defaultValue:
           description: The default value at the time this revision was created
           type: string
@@ -43082,6 +43208,85 @@ components:
       required:
         - variation
       additionalProperties: false
+    ApiErrorConflictDetails:
+      type: object
+      properties:
+        conflicts:
+          type: array
+          items: {}
+      required:
+        - conflicts
+      additionalProperties: false
+    ApiErrorChecklistIncompleteDetails:
+      type: object
+      properties:
+        remainingChecklistItems:
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+              required:
+                type: boolean
+              status:
+                type: string
+                enum:
+                  - complete
+                  - incomplete
+              manual:
+                type: boolean
+              reason:
+                type: string
+            required:
+              - key
+              - required
+              - status
+              - manual
+              - reason
+            additionalProperties: false
+      required:
+        - remainingChecklistItems
+      additionalProperties: false
+    ApiErrorPendingDraftPublishFailedDetails:
+      type: object
+      properties:
+        failedFeatureDrafts:
+          type: array
+          items:
+            type: object
+            properties:
+              featureId:
+                type: string
+              revisionVersion:
+                type: number
+              reason:
+                type: string
+                enum:
+                  - merge-conflict
+                  - needs-approval
+                  - publish-error
+            required:
+              - featureId
+              - revisionVersion
+              - reason
+            additionalProperties: false
+      required:
+        - failedFeatureDrafts
+      additionalProperties: false
+    ApiErrorInvalidStatusDetails:
+      type: object
+      properties:
+        currentStatus:
+          type: string
+        expectedStatuses:
+          type: array
+          items:
+            type: string
+      required:
+        - currentStatus
+        - expectedStatuses
+      additionalProperties: false
     features:
       description: >-
         Map of feature ID to stale status. Only requested features that were
@@ -44540,6 +44745,7 @@ x-tagGroups:
       - DataSource_model
       - Dimension_model
       - Environment_model
+      - EventUser_model
       - Experiment_model
       - Experiment Rule_model
       - ExperimentAnalysisSettings_model
