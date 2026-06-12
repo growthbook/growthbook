@@ -781,6 +781,74 @@ export const patchTitle = async (
 
 // endregion PATCH /revision/:id/title
 
+// region PATCH /revision/:id/description
+
+type PatchDescriptionRequest = AuthRequest<
+  {
+    description: string;
+  },
+  { id: string }
+>;
+
+type PatchDescriptionResponse = {
+  status: 200;
+  revision: Revision;
+};
+
+/**
+ * PATCH /revision/:id/description
+ * Update the description of a revision (stored on the `comment` field —
+ * free-form markdown context shown as "Revision description" in the UI).
+ * Anyone who can update the underlying entity can edit it, so co-authors can
+ * keep a shared draft's description current.
+ */
+export const patchDescription = async (
+  req: PatchDescriptionRequest,
+  res: Response<PatchDescriptionResponse | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+  const { id } = req.params;
+  const { description } = req.body;
+
+  const revisionModel = context.models.revisions;
+
+  const existingRevision = await revisionModel.getById(id);
+  if (!existingRevision) {
+    return res.status(404).json({ message: "Revision not found" });
+  }
+
+  if (
+    existingRevision.authorId !== context.userId &&
+    !getAdapter(existingRevision.target.type).canUpdate(
+      context,
+      existingRevision.target.snapshot as Record<string, unknown>,
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  // Cannot update description of merged/discarded revisions
+  if (
+    existingRevision.status === "merged" ||
+    existingRevision.status === "discarded"
+  ) {
+    return res.status(400).json({
+      message: "Cannot update description of a merged or discarded revision",
+    });
+  }
+
+  const revision = await revisionModel.update(existingRevision, {
+    comment: description,
+  });
+
+  res.status(200).json({
+    status: 200,
+    revision,
+  });
+};
+
+// endregion PATCH /revision/:id/description
+
 // region POST /revision/:id/rebase
 
 type PostRebaseRequest = AuthRequest<

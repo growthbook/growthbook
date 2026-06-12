@@ -220,6 +220,24 @@ router.patch(
   revisionController.patchTitle,
 );
 
+// Update description of a revision (markdown; stored on `comment`)
+router.patch(
+  "/:id/description",
+  validateRequestMiddleware({
+    params: z
+      .object({
+        id: z.string(),
+      })
+      .strict(),
+    body: z
+      .object({
+        description: z.string(),
+      })
+      .strict(),
+  }),
+  revisionController.patchDescription,
+);
+
 // Merge a revision
 router.post(
   "/:id/merge",

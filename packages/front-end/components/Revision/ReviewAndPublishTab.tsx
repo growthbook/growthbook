@@ -9,7 +9,7 @@ import {
   isAutopublishOnApprovalEnabled,
 } from "shared/enterprise";
 import { BsThreeDotsVertical } from "react-icons/bs";
-import { PiCaretDownBold, PiGitDiff } from "react-icons/pi";
+import { PiCaretDownBold, PiGitDiff, PiPencilSimpleFill } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import useURLHash from "@/hooks/useURLHash";
@@ -28,6 +28,7 @@ import {
 } from "@/ui/DropdownMenu";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import EventUser from "@/components/Avatar/EventUser";
+import Markdown from "@/components/Markdown/Markdown";
 import CommentComposer from "@/components/Comments/CommentComposer";
 import ReviewCommentPopover from "@/components/Reviews/ReviewCommentPopover";
 import {
@@ -504,12 +505,12 @@ function ReviewAndPublishRevision<T>({
 
   const leftColumn = (
     <>
-      {subTab === "overview" && revision.comment?.trim() && (
-        <Box mb="4">
-          <Text as="p" color="text-mid">
-            {revision.comment}
-          </Text>
-        </Box>
+      {subTab === "overview" && (
+        <RevisionDescriptionSection
+          revision={revision}
+          canEdit={isActiveDraft && canEditEntity}
+          mutate={mutate}
+        />
       )}
 
       <Box className="appbox" p="4" mb="4">
@@ -967,6 +968,85 @@ function ReviewAndPublishRevision<T>({
           {isActiveDraft ? draftActionsColumn : readonlyActionsColumn}
         </Box>
       </Flex>
+    </Box>
+  );
+}
+
+// "Revision description" card (mirrors the feature tab's
+// RevisionCommentSection): free-form markdown context for the revision,
+// stored on the generic revision's `comment` field. Editable in place on
+// active drafts via the markdown composer; read-only revisions show the
+// rendered markdown only when a description exists.
+function RevisionDescriptionSection({
+  revision,
+  canEdit,
+  mutate,
+}: {
+  revision: Revision;
+  canEdit: boolean;
+  mutate: () => void | Promise<void>;
+}) {
+  const { apiCall } = useAuth();
+  const [editing, setEditing] = useState(false);
+  const description = revision.comment?.trim() || "";
+
+  // Exit edit mode when switching revisions.
+  useEffect(() => {
+    setEditing(false);
+  }, [revision.id]);
+
+  if (!description && !canEdit) return null;
+
+  return (
+    <Box mb="4" className="appbox">
+      <Flex
+        align="center"
+        gap="2"
+        px="4"
+        style={{ borderBottom: "1px solid var(--gray-a4)", minHeight: 40 }}
+      >
+        <Heading as="h5" size="small" color="text-mid" mb="0">
+          Revision description
+        </Heading>
+        {canEdit && !editing && (
+          <IconButton
+            variant="ghost"
+            color="violet"
+            size="2"
+            radius="full"
+            mx="1"
+            onClick={() => setEditing(true)}
+            aria-label="Edit description"
+          >
+            <PiPencilSimpleFill />
+          </IconButton>
+        )}
+      </Flex>
+      <Box p="4">
+        {editing ? (
+          <CommentComposer
+            cta="Save"
+            placeholder="Describe this revision…"
+            initialValue={description}
+            autofocus
+            onCancel={() => setEditing(false)}
+            onSubmit={async (next) => {
+              await apiCall(`/revision/${revision.id}/description`, {
+                method: "PATCH",
+                body: JSON.stringify({ description: next }),
+              });
+              setEditing(false);
+              await mutate();
+            }}
+          />
+        ) : description ? (
+          <Markdown className="speech-bubble">{description}</Markdown>
+        ) : (
+          <Text size="medium" as="div" color="text-low" fontStyle="italic">
+            No description yet.
+          </Text>
+        )}
+      </Box>
     </Box>
   );
 }
