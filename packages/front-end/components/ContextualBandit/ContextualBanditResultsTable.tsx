@@ -24,6 +24,7 @@ import { useContextualBanditResults } from "@/hooks/useContextualBandits";
 import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
+import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
 import styles from "./ContextualBanditResultsTable.module.scss";
 
 const numberFormatter = Intl.NumberFormat();
@@ -368,6 +369,24 @@ export default function ContextualBanditResultsTable({
             Update results
           </Button>
         ) : null}
+        <ResultMoreMenu
+          datasource={datasource}
+          project={cb.project}
+          hasData={hasTableData}
+          legacyQueries={queryLatest?.queries ?? []}
+          legacyQueryError={queryLatest?.error}
+          forceRefresh={
+            canRunQueries
+              ? async () => {
+                  await refresh();
+                  mutate();
+                }
+              : undefined
+          }
+          notebookUrl=""
+          notebookFilename={cb.trackingKey}
+          supportsNotebooks={false}
+        />
       </Flex>
       {refreshError ? (
         <Callout status="error" mb="3">
