@@ -42,18 +42,24 @@ export const clickHouseDialect: SqlDialect = {
     `quantile(${quantile})(${value})`,
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
     if (isNumeric) {
+      // ::String + toFloat64OrNull so a native-JSON path with mixed/off-type values
+      // (e.g. an attribute retyped string<->number) yields NULL instead of throwing
+      // at query time. toFloat64 alone errors on any non-numeric value in the path.
       return `
 if(
-  toTypeName(${jsonCol}) = 'JSON', 
-  toFloat64(${jsonCol}.${path}),
+  toTypeName(${jsonCol}) = 'JSON',
+  toFloat64OrNull(${jsonCol}.${path}::String),
   JSONExtractFloat(${jsonCol}, '${path}')
 )
       `;
     }
+    // ::Nullable(String) (not .:String): coerce bool/date/array/number values to
+    // their string form instead of NULLing them out, while keeping NULL for missing
+    // paths (.:String only surfaces String-typed values; IS NULL stays correct).
     return `
 if(
   toTypeName(${jsonCol}) = 'JSON',
-  ${jsonCol}.${path}.:String,
+  ${jsonCol}.${path}::Nullable(String),
   JSONExtractString(${jsonCol}, '${path}')
 )
       `;

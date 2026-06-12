@@ -3,6 +3,7 @@ import { OrganizationInterface } from "shared/types/organization";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsDelete } from "back-end/src/services/audit";
+import { syncManagedWarehouseIdentifiersOnAttributeChange } from "back-end/src/services/clickhouse";
 
 export const deleteAttribute = createApiRequestHandler(
   deleteAttributeValidator,
@@ -28,6 +29,12 @@ export const deleteAttribute = createApiRequestHandler(
   };
 
   await updateOrganization(org.id, updates);
+
+  await syncManagedWarehouseIdentifiersOnAttributeChange(
+    req.context,
+    updates.settings?.attributeSchema,
+    !!attribute.hashAttribute,
+  );
 
   await req.audit({
     event: "attribute.delete",

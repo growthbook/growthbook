@@ -1,4 +1,11 @@
+import { SDKAttributeSchema } from "../../types/organization";
 import {
+  buildManagedWarehouseEventsFactTableSql,
+  buildManagedWarehouseExposureQueries,
+  getManagedWarehouseCustomIdentifiers,
+  getManagedWarehouseEventsFactTableColumns,
+  getManagedWarehouseUserIdTypes,
+  getManagedWarehouseUserIdTypeSettings,
   isManagedWarehouse,
   isManagedWarehouseNoEventsGuidanceMessage,
   isManagedWarehousePendingQueryError,
@@ -64,5 +71,186 @@ describe("isManagedWarehouseNoEventsGuidanceMessage", () => {
     expect(isManagedWarehouseNoEventsGuidanceMessage("No tables found.")).toBe(
       false,
     );
+  });
+});
+
+// The default org attribute schema: a single `id` identifier (folds into the
+// built-in device_id column) plus non-identifier attributes.
+const defaultSchema: SDKAttributeSchema = [
+  { property: "id", datatype: "string", hashAttribute: true },
+  { property: "url", datatype: "string" },
+  { property: "browser", datatype: "enum", enum: "chrome,safari" },
+];
+
+describe("getManagedWarehouseCustomIdentifiers", () => {
+  it("returns no custom identifiers for the default schema (id folds into device_id)", () => {
+    expect(getManagedWarehouseCustomIdentifiers(defaultSchema)).toEqual([]);
+    expect(getManagedWarehouseCustomIdentifiers(undefined)).toEqual([]);
+  });
+
+  it("includes custom hashAttributes that live in context_json (sorted)", () => {
+    const schema: SDKAttributeSchema = [
+      { property: "id", datatype: "string", hashAttribute: true },
+      { property: "company_id", datatype: "string", hashAttribute: true },
+      { property: "account", datatype: "number", hashAttribute: true },
+    ];
+    expect(getManagedWarehouseCustomIdentifiers(schema)).toEqual([
+      "account",
+      "company_id",
+    ]);
+  });
+
+  it("excludes hashAttributes that collide with a real SELECT * column", () => {
+    const schema: SDKAttributeSchema = [
+      // These would clash with ingestor/standard columns -> duplicate column in SELECT *
+      { property: "geo_country", datatype: "string", hashAttribute: true },
+      { property: "event_name", datatype: "string", hashAttribute: true },
+      { property: "timestamp", datatype: "string", hashAttribute: true },
+      { property: "company_id", datatype: "string", hashAttribute: true },
+    ];
+    expect(getManagedWarehouseCustomIdentifiers(schema)).toEqual([
+      "company_id",
+    ]);
+  });
+
+  it("excludes array-typed hashAttributes (can't be scalar join keys)", () => {
+    const schema: SDKAttributeSchema = [
+      { property: "team_ids", datatype: "string[]", hashAttribute: true },
+      { property: "scores", datatype: "number[]", hashAttribute: true },
+      { property: "company_id", datatype: "string", hashAttribute: true },
+    ];
+    expect(getManagedWarehouseCustomIdentifiers(schema)).toEqual([
+      "company_id",
+    ]);
+  });
+
+  it("excludes reserved top-level keys, archived, and non-identifier attributes", () => {
+    const schema: SDKAttributeSchema = [
+      { property: "user_id", datatype: "string", hashAttribute: true },
+      { property: "device_id", datatype: "string", hashAttribute: true },
+      { property: "utmSource", datatype: "string", hashAttribute: true },
+      {
+        property: "archived_id",
+        datatype: "string",
+        hashAttribute: true,
+        archived: true,
+      },
+      { property: "not_an_id", datatype: "string" },
+    ];
+    expect(getManagedWarehouseCustomIdentifiers(schema)).toEqual([]);
+  });
+
+  it("de-dupes repeated properties", () => {
+    const schema: SDKAttributeSchema = [
+      { property: "company_id", datatype: "string", hashAttribute: true },
+      { property: "company_id", datatype: "string", hashAttribute: true },
+    ];
+    expect(getManagedWarehouseCustomIdentifiers(schema)).toEqual([
+      "company_id",
+    ]);
+  });
+});
+
+describe("getManagedWarehouseUserIdTypes", () => {
+  it("always includes the built-in identity columns", () => {
+    expect(getManagedWarehouseUserIdTypes(defaultSchema)).toEqual([
+      "user_id",
+      "device_id",
+    ]);
+  });
+
+  it("appends custom identifiers", () => {
+    const schema: SDKAttributeSchema = [
+      { property: "company_id", datatype: "string", hashAttribute: true },
+    ];
+    expect(getManagedWarehouseUserIdTypes(schema)).toEqual([
+      "user_id",
+      "device_id",
+      "company_id",
+    ]);
+  });
+
+  it("shapes userIdTypes for settings", () => {
+    expect(getManagedWarehouseUserIdTypeSettings(defaultSchema)).toEqual([
+      { userIdType: "user_id", description: "" },
+      { userIdType: "device_id", description: "" },
+    ]);
+  });
+});
+
+describe("buildManagedWarehouseEventsFactTableSql", () => {
+  it("selects all columns with no JSON aliases for the default schema", () => {
+    const sql = buildManagedWarehouseEventsFactTableSql(defaultSchema);
+    expect(sql).toContain("SELECT *");
+    expect(sql).toContain("FROM events");
+    expect(sql).toContain(
+      "WHERE timestamp BETWEEN '{{startDate}}' AND '{{endDate}}'",
+    );
+    expect(sql).not.toContain("attributes.");
+  });
+
+  it("aliases custom identifiers out of the attributes JSON column", () => {
+    const schema: SDKAttributeSchema = [
+      { property: "company_id", datatype: "string", hashAttribute: true },
+    ];
+    const sql = buildManagedWarehouseEventsFactTableSql(schema);
+    expect(sql).toContain("attributes.company_id::String AS company_id");
+  });
+
+  it("backtick-quotes identifiers that are not safe SQL identifiers", () => {
+    const schema: SDKAttributeSchema = [
+      { property: "company id", datatype: "string", hashAttribute: true },
+    ];
+    const sql = buildManagedWarehouseEventsFactTableSql(schema);
+    expect(sql).toContain("attributes.`company id`::String AS `company id`");
+  });
+});
+
+describe("buildManagedWarehouseExposureQueries", () => {
+  it("creates one exposure query per identifier reading from experiment_views", () => {
+    const queries = buildManagedWarehouseExposureQueries(defaultSchema);
+    expect(queries.map((q) => q.userIdType)).toEqual(["user_id", "device_id"]);
+    queries.forEach((q) => {
+      expect(q.query).toContain("FROM experiment_views");
+      expect(q.query).toContain("experiment_id LIKE '{{ experimentId }}'");
+      expect(q.dimensions).toContain("geo_country");
+    });
+  });
+
+  it("includes the custom identifier alias in every generated query", () => {
+    const schema: SDKAttributeSchema = [
+      { property: "company_id", datatype: "string", hashAttribute: true },
+    ];
+    const queries = buildManagedWarehouseExposureQueries(schema);
+    expect(queries.map((q) => q.userIdType)).toEqual([
+      "user_id",
+      "device_id",
+      "company_id",
+    ]);
+    queries.forEach((q) => {
+      expect(q.query).toContain("attributes.company_id::String AS company_id");
+    });
+  });
+});
+
+describe("getManagedWarehouseEventsFactTableColumns", () => {
+  it("always includes the attributes/properties JSON columns and standard fields", () => {
+    const columns = getManagedWarehouseEventsFactTableColumns(defaultSchema);
+    const byName = Object.fromEntries(columns.map((c) => [c.column, c]));
+    expect(byName["attributes"].datatype).toBe("json");
+    expect(byName["properties"].datatype).toBe("json");
+    expect(byName["user_id"].datatype).toBe("string");
+    expect(byName["device_id"].datatype).toBe("string");
+    expect(byName["event_name"].alwaysInlineFilter).toBe(true);
+    expect(byName["company_id"]).toBeUndefined();
+  });
+
+  it("appends a string column per custom identifier", () => {
+    const schema: SDKAttributeSchema = [
+      { property: "company_id", datatype: "string", hashAttribute: true },
+    ];
+    const columns = getManagedWarehouseEventsFactTableColumns(schema);
+    const company = columns.find((c) => c.column === "company_id");
+    expect(company).toEqual({ column: "company_id", datatype: "string" });
   });
 });

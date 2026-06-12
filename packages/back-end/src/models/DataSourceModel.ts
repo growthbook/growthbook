@@ -143,6 +143,18 @@ export async function getGrowthbookDatasource(context: ReqContext) {
     : null;
 }
 
+// WARNING: bypasses project-read permission. System-only (managed-warehouse sync):
+// the acting user may lack project read, and a checked lookup would silently desync.
+export async function dangerouslyGetGrowthbookDatasourceBypassPermission(
+  context: ReqContext | ApiReqContext,
+): Promise<DataSourceInterface | null> {
+  const doc: DataSourceDocument | null = await DataSourceModel.findOne({
+    type: "growthbook_clickhouse",
+    organization: context.org.id,
+  });
+  return doc ? toInterface(doc) : null;
+}
+
 export async function getDataSourceById(
   context: ReqContext | ApiReqContext,
   id: string,
@@ -300,12 +312,12 @@ export async function createDataSource(
     await testDataSourceConnection(context, datasource);
   }
 
-  // Add any missing exposure query ids and check query validity
+  // Add any missing exposure query ids and validate every query
   settings = await validateExposureQueriesAndAddMissingIds(
     context,
     datasource,
     settings,
-    true,
+    "all",
   );
 
   validatePipelineSettingsInvariants(settings.pipelineSettings);
@@ -329,30 +341,38 @@ export async function createDataSource(
   return datasourceInterface;
 }
 
-// Add any missing exposure query ids and validate any new, changed, or previously errored queries
+// Which exposure queries to run a live validity test against.
+export type ExposureQueryValidation =
+  | "changed" // only new, changed, or previously-errored queries (default)
+  | "all" // every query (used on datasource create)
+  | "skip"; // none — assign missing ids but don't run any test queries
+
+// Add any missing exposure query ids and validate queries per `validation`.
 export async function validateExposureQueriesAndAddMissingIds(
   context: ReqContext,
   datasource: DataSourceInterface,
   updates: Partial<DataSourceSettings>,
-  forceCheckValidity: boolean = false,
+  validation: ExposureQueryValidation = "changed",
 ): Promise<Partial<DataSourceSettings>> {
   const updatesCopy = cloneDeep(updates);
   if (updatesCopy.queries?.exposure) {
     await Promise.all(
       updatesCopy.queries.exposure.map(async (exposure) => {
+        if (!exposure.id) {
+          exposure.id = uniqid("exq_");
+        }
         if (isManagedWarehouseAwaitingProvisioning(datasource)) {
-          if (!exposure.id) {
-            exposure.id = uniqid("exq_");
-          }
           exposure.error = undefined;
           return;
         }
+        if (validation === "skip") {
+          return;
+        }
 
-        let checkValidity = forceCheckValidity;
-        if (!exposure.id) {
-          exposure.id = uniqid("exq_");
-          checkValidity = true;
-        } else if (!forceCheckValidity) {
+        // "all" validates everything; "changed" only validates queries that are
+        // new (no matching saved query), changed, or previously errored.
+        let checkValidity = validation === "all";
+        if (!checkValidity) {
           const existingQuery = datasource.settings.queries?.exposure?.find(
             (q) => q.id == exposure.id,
           );
@@ -364,6 +384,7 @@ export async function validateExposureQueriesAndAddMissingIds(
             checkValidity = true;
           }
         }
+
         if (checkValidity) {
           const integration = getSourceIntegrationObject(context, datasource);
           exposure.error = await testQueryValidity(
@@ -424,6 +445,9 @@ export async function updateDataSource(
   context: ReqContext | ApiReqContext,
   datasource: DataSourceInterface,
   updates: Partial<DataSourceInterface>,
+  {
+    skipExposureQueryValidation = false,
+  }: { skipExposureQueryValidation?: boolean } = {},
 ) {
   if (usingFileConfig()) {
     throw new Error("Cannot update. Data sources managed by config.yml");
@@ -434,6 +458,7 @@ export async function updateDataSource(
       context,
       datasource,
       updates.settings,
+      skipExposureQueryValidation ? "skip" : "changed",
     );
     validatePipelineSettingsInvariants(updates.settings.pipelineSettings);
   }

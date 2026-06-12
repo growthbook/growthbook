@@ -287,7 +287,7 @@ describe("dataSourceModel", () => {
       expect(new_updates).toEqual(updates);
     });
 
-    it("should revalidate unchanged queries if forceCheckValidation is true", async () => {
+    it('should revalidate unchanged queries when validation is "all"', async () => {
       mockedTestQueryValidity.mockResolvedValue("bad query");
       const updates: Partial<DataSourceSettings> = {
         queries: {
@@ -307,7 +307,7 @@ describe("dataSourceModel", () => {
         context,
         datasource,
         updates,
-        true,
+        "all",
       );
       expect(testQueryValidity).toHaveBeenCalled();
       const expected = updates;
