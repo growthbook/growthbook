@@ -912,7 +912,6 @@ export default function EditSavedGroupPage() {
 
                 if (res?.revision) {
                   onRevisionCreated(res.revision);
-                  selectFlow(res.revision);
                 }
 
                 setConfirmRevert(false);
