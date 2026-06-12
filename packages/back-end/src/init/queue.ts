@@ -24,7 +24,9 @@ import addExperimentStatusUpdateJob from "back-end/src/jobs/updateExperimentStat
 import updateAutoSlicesJob from "back-end/src/jobs/updateAutoSlices";
 import updateAggregatedFactTablesJob from "back-end/src/jobs/updateAggregatedFactTables";
 import addRampScheduleJob from "back-end/src/jobs/updateRampSchedules";
+import addCoalescedSdkPayloadRefreshJob from "back-end/src/jobs/coalescedSdkPayloadRefresh";
 import { initRampScheduleHooks } from "back-end/src/services/rampSchedule";
+import { ensureSdkPayloadRefreshPendingIndex } from "back-end/src/services/sdkPayloadRefreshCoalescer";
 
 export async function queueInit() {
   const agenda = getAgendaInstance();
@@ -49,6 +51,8 @@ export async function queueInit() {
   updateAutoSlicesJob(agenda);
   updateAggregatedFactTablesJob(agenda);
   addRampScheduleJob(agenda);
+  addCoalescedSdkPayloadRefreshJob(agenda);
+  await ensureSdkPayloadRefreshPendingIndex();
   initRampScheduleHooks();
   // Make sure we have index needed to delete efficiently
   agenda._collection
