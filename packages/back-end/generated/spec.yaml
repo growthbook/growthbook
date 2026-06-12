@@ -44101,6 +44101,7 @@ components:
                 type: string
                 enum:
                   - merge-conflict
+                  - needs-rebase
                   - needs-approval
                   - publish-error
             required:
