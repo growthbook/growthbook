@@ -1,6 +1,7 @@
 import React, {
   DetailedHTMLProps,
   HTMLAttributes,
+  ClipboardEvent,
   ReactElement,
   ReactNode,
   useState,
@@ -39,6 +40,24 @@ const ScreenshotUpload = ({
     );
 
   const onDrop = async (files: File[]) => {
+    await uploadScreenshots(files);
+  };
+
+  const onPaste = async (e: ClipboardEvent<HTMLDivElement>) => {
+    const files = Array.from(e.clipboardData.items || [])
+      .filter((item) => item.kind === "file" && item.type.startsWith("image/"))
+      .map((item) => item.getAsFile())
+      .filter((file): file is File => !!file);
+
+    if (!files.length) return;
+
+    e.preventDefault();
+    await uploadScreenshots(files);
+  };
+
+  const uploadScreenshots = async (files: File[]) => {
+    if (!files.length) return;
+
     setLoading((previous) => previous + files.length);
 
     for (const file of files) {
@@ -65,6 +84,7 @@ const ScreenshotUpload = ({
         });
       } catch (e) {
         alert(e.message);
+      } finally {
         setLoading((previous) => previous - 1);
       }
     }
@@ -82,6 +102,8 @@ const ScreenshotUpload = ({
     <>
       <div
         {...typedRootProps}
+        onPaste={onPaste}
+        tabIndex={0}
         className={clsx(styles.droparea, "my-1", {
           [styles.dragging]: isDragActive,
         })}
