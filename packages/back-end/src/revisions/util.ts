@@ -57,6 +57,11 @@ export async function ensureLiveRevisionExists(
   );
   if (alreadyExists) return;
 
+  // The baseline is attributed to the entity's owner (which may be a display
+  // name or email, not a user id), NOT the actor triggering this backfill —
+  // so the structured `author`/`resolution.user` fields are deliberately left
+  // unset here. Stamping context.auditUser would credit the baseline to
+  // whoever happened to touch the entity first after revisions were enabled.
   const authorId = entity.owner || context.userId;
   const snapshot = getAdapter(entityType).buildSnapshot(entity);
 

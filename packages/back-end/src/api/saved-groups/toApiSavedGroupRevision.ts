@@ -10,6 +10,10 @@ import { SavedGroupInterface } from "shared/types/saved-group";
 import { ApiReqContext } from "back-end/types/api";
 import { applyPatchToSnapshot } from "back-end/src/revisions/util";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
+import {
+  eventUserToApiEventUser,
+  legacyUserIdToApiEventUser,
+} from "back-end/src/services/event-user";
 
 /**
  * Convert internal Review documents into the API-facing shape, ISO-stringifying
@@ -104,15 +108,50 @@ export async function toApiSavedGroupRevisions(
   const flat = prepared.flatMap((p) => [p.baseApi, p.proposedApi]);
   const resolved = await resolveOwnerEmails(flat, context);
 
+  // Legacy revisions stored before the structured `author`/`resolution.user`
+  // fields existed only have raw user ids. Batch one lookup so the fallback
+  // can surface name/email for them; steady-state (new docs) skips this.
+  const legacyUserIds = [
+    ...new Set(
+      revisions.flatMap((r) => [
+        ...(!r.author && r.authorId.startsWith("u_") ? [r.authorId] : []),
+        ...(r.resolution &&
+        !r.resolution.user &&
+        r.resolution.userId.startsWith("u_")
+          ? [r.resolution.userId]
+          : []),
+      ]),
+    ),
+  ];
+  const legacyUsersById = new Map<string, { name?: string; email?: string }>();
+  if (legacyUserIds.length > 0) {
+    (await context.getUsersByIds(legacyUserIds)).forEach((u) => {
+      legacyUsersById.set(u.id, { name: u.name, email: u.email });
+    });
+  }
+
   return prepared.map(({ revision, proposedChanges }, i) => {
     const resolvedBase = resolved[i * 2];
     const resolvedProposed = resolved[i * 2 + 1];
+    const createdBy =
+      (revision.author ?? null) !== null
+        ? eventUserToApiEventUser(revision.author)
+        : legacyUserIdToApiEventUser(revision.authorId, legacyUsersById);
+    const resolutionUser = revision.resolution
+      ? (revision.resolution.user ?? null) !== null
+        ? eventUserToApiEventUser(revision.resolution.user)
+        : legacyUserIdToApiEventUser(
+            revision.resolution.userId,
+            legacyUsersById,
+          )
+      : undefined;
     return {
       id: revision.id,
       ...(revision.version !== undefined && { version: revision.version }),
       ...(revision.title ? { title: revision.title } : {}),
       status: revision.status,
       authorId: revision.authorId,
+      ...(createdBy ? { createdBy } : {}),
       ...(revision.contributors && revision.contributors.length > 0
         ? { contributors: revision.contributors }
         : {}),
@@ -124,6 +163,7 @@ export async function toApiSavedGroupRevisions(
             resolution: {
               action: revision.resolution.action,
               userId: revision.resolution.userId,
+              ...(resolutionUser ? { user: resolutionUser } : {}),
               dateCreated: toIsoString(revision.resolution.dateCreated),
             },
           }
