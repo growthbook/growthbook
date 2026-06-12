@@ -53,6 +53,10 @@ import {
   generateEmbeddings,
   simpleCompletion,
 } from "back-end/src/enterprise/services/ai";
+import {
+  shouldNotifyLicenseServer,
+  notifyLicenseServerEvent,
+} from "back-end/src/enterprise/licenseUtil";
 import { getObjectDiff } from "back-end/src/events/handlers/webhooks/event-webhooks-utils";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
@@ -2079,6 +2083,23 @@ const onExperimentUpdate = async ({
       experiment: newExperiment,
       organization: context.org,
     });
+
+  const licenseKey = context.org.licenseKey || process.env.LICENSE_KEY;
+
+  if (
+    oldExperiment.status !== "running" &&
+    newExperiment.status === "running" &&
+    shouldNotifyLicenseServer(licenseKey)
+  ) {
+    notifyLicenseServerEvent({
+      licenseKey,
+      eventName: "experiment_started",
+      uniqueId: newExperiment.id,
+      metadata: { experiment_id: newExperiment.id },
+    }).catch((e) => {
+      logger.error(e, "Failed to notify license server of experiment start");
+    });
+  }
 };
 
 const onExperimentDelete = async (
