@@ -7,17 +7,11 @@ import { getFeature } from "back-end/src/models/FeatureModel";
 import { createInitialRevision } from "back-end/src/models/FeatureRevisionModel";
 import { setupApp } from "../api.setup";
 
-// Regression tests for the 2026-06-11 incident: a sparse v1 env update
-// (POST /api/v1/features/:id with a single env in `environments`) must never
-// delete rules from environments the caller didn't touch.
-//
-// Two root causes covered:
-//  1. updateFeature.ts dropped any v2 rule whose env list intersected the
-//     touched envs (multi-env collapsed rules + inheritance-expanded rules),
-//     instead of splitting the rule and keeping the untouched envs.
-//  2. createAndPublishRevision diffed the draft against the STORED live
-//     revision doc; a sparse/legacy doc made the merge silently no-op while
-//     the bogus revision was still marked published.
+// Sparse v1 env updates (POST /api/v1/features/:id with a subset of envs in
+// `environments`) replace rules only for the envs in the payload. Rules in
+// other envs — including multi-env collapsed rules and rules expanded into
+// inheriting child envs at read time — are preserved, and the publish applies
+// consistently to both the feature document and the published revision.
 
 const FEATURE_ID = "feat_sparse_env_test";
 
@@ -114,7 +108,7 @@ describe("POST /api/v1/features/:id with sparse environments", () => {
     const org = makeOrg([
       { id: "production" },
       { id: "staging" },
-      { id: "azure-gov-staging" },
+      { id: "qa" },
     ]);
 
     async function setup() {
@@ -125,14 +119,14 @@ describe("POST /api/v1/features/:id with sparse environments", () => {
           {
             id: "fr_shared",
             allEnvironments: false,
-            environments: ["production", "staging", "azure-gov-staging"],
+            environments: ["production", "staging", "qa"],
             ...sharedRuleFields,
           },
         ],
         environmentSettings: {
           production: { enabled: true },
           staging: { enabled: true },
-          "azure-gov-staging": { enabled: false },
+          qa: { enabled: false },
         },
       });
       await seedPublishedRevisionFromFeature(context);
@@ -147,13 +141,13 @@ describe("POST /api/v1/features/:id with sparse environments", () => {
         .set("Authorization", "Bearer foo")
         .send({
           environments: {
-            "azure-gov-staging": { enabled: false, rules: [] },
+            qa: { enabled: false, rules: [] },
           },
         });
 
       expect(response.status).toBe(200);
 
-      // The shared rule must survive for production + staging; only the
+      // The shared rule remains in place for production + staging; only the
       // touched env is removed from its scope.
       const doc = await getFeatureDoc();
       expect(doc.version).toBe(2);
@@ -205,7 +199,7 @@ describe("POST /api/v1/features/:id with sparse environments", () => {
       expect(doc.rules[0].environments).toEqual([
         "production",
         "staging",
-        "azure-gov-staging",
+        "qa",
       ]);
 
       // The published revision snapshot must also retain the full rules.
@@ -218,15 +212,15 @@ describe("POST /api/v1/features/:id with sparse environments", () => {
     it("round-trips a copied rule into a single shared entry", async () => {
       await setup();
 
-      // Copy the same rule (same id + content) into the touched env — the
-      // v1 "copy env state" pattern. The rule already applies there, so this
-      // must be a no-op, not a delete + re-add.
+      // Send the same rule (same id + content) to an env it already applies
+      // to. This is a no-op: the rule stays a single shared entry rather
+      // than splitting into per-env copies.
       const response = await request(app)
         .post(`/api/v1/features/${FEATURE_ID}`)
         .set("Authorization", "Bearer foo")
         .send({
           environments: {
-            "azure-gov-staging": {
+            qa: {
               enabled: false,
               rules: [
                 {
@@ -251,7 +245,7 @@ describe("POST /api/v1/features/:id with sparse environments", () => {
       expect(doc.rules[0].environments).toEqual([
         "production",
         "staging",
-        "azure-gov-staging",
+        "qa",
       ]);
     });
   });
@@ -259,16 +253,16 @@ describe("POST /api/v1/features/:id with sparse environments", () => {
   describe("inheritance-expanded rules", () => {
     const org = makeOrg([
       { id: "production" },
-      { id: "azure-prod", parent: "production" },
+      { id: "production-eu", parent: "production" },
     ]);
 
     it("keeps the ancestor env's rules when updating an inheriting child env", async () => {
       const context = makeContext(org);
       setReqContext(context);
-      // azure-prod has NO explicit environmentSettings entry → it inherits
+      // production-eu has no explicit environmentSettings entry → it inherits
       // from production, and the JIT read expands the rule's env list to
-      // include it. Replacing azure-prod's rules must not delete the
-      // production rule.
+      // include it. Replacing production-eu's rules only affects that env;
+      // the production rule is preserved.
       await seedFeature({
         rules: [
           {
@@ -289,7 +283,7 @@ describe("POST /api/v1/features/:id with sparse environments", () => {
         .set("Authorization", "Bearer foo")
         .send({
           environments: {
-            "azure-prod": { enabled: false, rules: [] },
+            "production-eu": { enabled: false, rules: [] },
           },
         });
 
@@ -322,10 +316,10 @@ describe("POST /api/v1/features/:id with sparse environments", () => {
           staging: { enabled: true },
         },
       });
-      // Legacy live revision doc: rules stored as an empty v1 record. Before
-      // the fix, the publish merge used this as its baseline, concluded
-      // "no rule changes", skipped the feature write, and still marked the
-      // new revision published.
+      // Legacy live revision doc with rules stored as an empty v1 record.
+      // The publish merge must baseline against the feature document (the
+      // canonical live state), not this sparse doc, so the published change
+      // is applied to the feature consistently.
       await mongoose.connection.collection("featurerevisions").insertOne({
         organization: "org_sparse_env_test",
         featureId: FEATURE_ID,
@@ -355,7 +349,7 @@ describe("POST /api/v1/features/:id with sparse environments", () => {
 
       expect(response.status).toBe(200);
 
-      // The feature doc must actually reflect the published revision.
+      // The feature doc reflects the published revision.
       const doc = await getFeatureDoc();
       expect(doc.version).toBe(2);
       expect(doc.rules).toHaveLength(0);

@@ -2446,12 +2446,9 @@ export async function createAndPublishRevision({
   });
   if (!liveRevision) throw new Error("Could not load live revision");
 
-  // Live baseline for the review check and the publish merge. Built from the
-  // FEATURE document (the actual live state), never the stored revision doc:
-  // legacy revision docs can be sparse or store rules in pre-v2 shapes that
-  // read as empty, and a stale baseline makes the merge silently no-op (the
-  // revision gets marked published while the feature is never written) or
-  // skip required reviews.
+  // Live baseline for the review check and the publish merge, built from the
+  // feature document (the canonical live state). Stored revision docs can be
+  // sparse or in legacy shapes, so they're not a reliable baseline.
   const liveBase: FeatureRevisionInterface = {
     ...liveRevision,
     ...liveRevisionFromFeature(liveRevision, feature),

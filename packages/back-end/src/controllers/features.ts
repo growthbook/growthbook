@@ -1242,11 +1242,10 @@ async function repairFeatureDriftIfNeeded(
     });
     Object.assign(feature, repaired);
 
-    // Leave a trail in the audit history. These repairs previously ran
-    // silently, which made incidents hard to reconstruct (e.g. an audit
-    // entry showing rules deleted with no visible entry restoring them).
-    // `context.autoRepair` is the searchable marker. Non-fatal: an audit
-    // write failure must not abort a publish/revert whose repair succeeded.
+    // Record the repair in the audit history so automated rewrites are
+    // visible and searchable (`context.autoRepair` in details). Non-fatal:
+    // an audit write failure must not abort a publish/revert whose repair
+    // succeeded.
     try {
       await context.auditLog({
         event: "feature.update",

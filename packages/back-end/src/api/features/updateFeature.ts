@@ -274,9 +274,8 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     // Carry through rules for envs the caller didn't touch. A single v2 rule
     // can span several envs (content-identical rules collapse on migration,
     // and env inheritance expands rules into child envs at read time), so a
-    // rule whose envs intersect the touched set must be SPLIT — touched envs
-    // removed from its scope, untouched envs kept — never dropped wholesale.
-    // Dropping it would delete the rule from envs the caller never mentioned.
+    // rule whose envs intersect the touched set is split: touched envs are
+    // removed from its scope and untouched envs keep it unchanged.
     const preservedRules: FeatureRule[] = (feature.rules ?? []).flatMap((r) => {
       // Footprint mirrors `ruleFootprint`: allEnvironments / undefined =
       // every applicable env; explicit list = that list (orphan envs kept).
@@ -449,10 +448,9 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
       updates.version = revision.version;
 
       // The enabled flips were excluded from the direct-write `updates` above
-      // (frozen to their pre-update values) so they'd only apply via the
-      // revision publish. The direct write below runs AFTER the publish, so
-      // re-sync the frozen values from the published feature — otherwise the
-      // final $set reverts the kill-switch change the revision just applied.
+      // (frozen to their pre-update values) so they apply exactly once, via
+      // the revision publish. The direct write below runs after the publish,
+      // so re-sync the frozen values from the published feature state.
       if (updates.environmentSettings) {
         for (const env of Object.keys(changedEnvEnabled)) {
           updates.environmentSettings[env] = {
