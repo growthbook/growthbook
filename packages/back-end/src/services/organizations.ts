@@ -711,6 +711,7 @@ export async function acceptInvite(key: string, userId: string) {
       projectRoles: invite.projectRoles,
       teams: invite.teams,
       dateCreated: new Date(),
+      invitedBy: invite.invitedBy,
     },
   ];
 
