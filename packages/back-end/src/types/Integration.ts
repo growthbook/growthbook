@@ -18,6 +18,8 @@ import {
   DropOldIncrementalUnitsQueryParams,
   DropTableQueryParams,
   DropTableQueryResponse,
+  ContextualBanditSrmQueryParams,
+  ContextualBanditSrmQueryResponse,
   ExperimentAggregateUnitsQueryParams,
   ExperimentAggregateUnitsQueryResponse,
   ExperimentFactMetricsQueryParams,
@@ -147,6 +149,7 @@ export interface SourceIntegrationInterface {
   getExperimentAggregateUnitsQuery(
     params: ExperimentAggregateUnitsQueryParams,
   ): string;
+  getContextualBanditSrmQuery?(params: ContextualBanditSrmQueryParams): string;
   getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string;
   getCreateExperimentIncrementalUnitsQuery(
     params: CreateExperimentIncrementalUnitsQueryParams,
@@ -266,6 +269,11 @@ export interface SourceIntegrationInterface {
     setExternalId: ExternalIdCallback,
     queryMetadata?: QueryMetadata,
   ): Promise<ExperimentAggregateUnitsQueryResponse>;
+  runContextualBanditSrmQuery?(
+    query: string,
+    setExternalId: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
+  ): Promise<ContextualBanditSrmQueryResponse>;
   runExperimentUnitsQuery(
     query: string,
     setExternalId: ExternalIdCallback,

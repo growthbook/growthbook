@@ -4,15 +4,24 @@ import type { SDKAttributeSchema } from "shared/types/organization";
 /** Source of truth — these columns are interpolated as bare SQL identifiers, so injection-safety requires this exact shape. */
 export const SAFE_SQL_IDENTIFIER = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
+/** EAQ output column holding the snapshot/weight-update generation a row was assigned under. */
+export const CONTEXTUAL_BANDIT_EAQ_SNAPSHOT_UPDATE_COUNT_COLUMN =
+  "snapshot_update_count";
+/** EAQ output column identifying the policy tree leaf (context bucket) a row was assigned in. */
+export const CONTEXTUAL_BANDIT_EAQ_LEAF_ID_COLUMN = "leaf_id";
+/** EAQ output column holding the per-row variation assignment probabilities (array). */
+export const CONTEXTUAL_BANDIT_EAQ_VARIATION_WEIGHTS_COLUMN =
+  "variation_weights";
+
 /**
  * Extra columns a contextual-bandit assignment query must SELECT. Used later to compute
  * SRM in SQL for contextual bandits. `variation_weights` is an array column; validation
  * only checks the column is present, not its type.
  */
 export const CONTEXTUAL_BANDIT_EAQ_REQUIRED_COLUMNS = [
-  "snapshot_update_count",
-  "leaf_id",
-  "variation_weights",
+  CONTEXTUAL_BANDIT_EAQ_SNAPSHOT_UPDATE_COUNT_COLUMN,
+  CONTEXTUAL_BANDIT_EAQ_LEAF_ID_COLUMN,
+  CONTEXTUAL_BANDIT_EAQ_VARIATION_WEIGHTS_COLUMN,
 ] as const;
 
 /** A contextual-bandit EAQ is identified solely by the explicit `contextualBandit` flag. */

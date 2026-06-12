@@ -207,4 +207,7 @@ export const bigQueryDialect: SqlDialect = {
       valueExpr: "col.value",
     };
   },
+  // BigQuery arrays are 0-based; SAFE_OFFSET returns NULL instead of erroring out of bounds.
+  arrayElement: (arrayCol: string, index: number) =>
+    `${arrayCol}[SAFE_OFFSET(${index})]`,
 };

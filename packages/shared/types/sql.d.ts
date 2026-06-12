@@ -107,6 +107,12 @@ export interface SqlDialect {
     pairs: UnpivotLabeledPair[],
   ) => UnpivotLabeledPairsResult;
   stringLength: (column: string) => string;
+  /**
+   * Positional access into an array column, returning a numeric expression.
+   * `index` is 0-based logical; each dialect translates to its own array
+   * semantics (1-based vs 0-based, native array vs JSON).
+   */
+  arrayElement: (arrayCol: string, index: number) => string;
   /** Max distinct context tuples retained when bucketing contextual bandit attributes. */
   maxContextualBanditContexts: number;
 }

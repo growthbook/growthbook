@@ -75,4 +75,7 @@ export const databricksDialect: SqlDialect = {
       valueExpr: "__col.value",
     };
   },
+
+  // Spark/Databricks arrays are 0-based.
+  arrayElement: (arrayCol: string, index: number) => `${arrayCol}[${index}]`,
 };

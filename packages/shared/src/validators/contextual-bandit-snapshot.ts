@@ -59,6 +59,22 @@ export const contextualBanditSnapshotValidator = baseSchema
     contextualBanditEventId: z.string().nullable().optional(),
     weightsWereUpdated: z.boolean().optional(),
     triggeredBy: z.enum(["manual", "schedule"]).optional(),
+    /**
+     * Sample Ratio Mismatch computed per snapshot run. `statistic` is the
+     * chi-square sum SUM((observed - expected)^2 / expected) across all
+     * (leaf_id, snapshot_update_count, variation) cells, computed in SQL.
+     * `pValue` is derived from the statistic with degrees of freedom
+     * numLeaves * numUpdates * (numVariations - 1).
+     */
+    srm: z
+      .object({
+        statistic: z.number(),
+        pValue: z.number(),
+        numLeaves: z.number().int().nonnegative(),
+        numUpdates: z.number().int().nonnegative(),
+        numVariations: z.number().int().nonnegative(),
+      })
+      .optional(),
   })
   .strict();
 

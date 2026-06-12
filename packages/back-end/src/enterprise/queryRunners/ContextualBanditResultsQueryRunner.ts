@@ -11,7 +11,10 @@ import {
   ExperimentMetricInterface,
   isFactMetric,
 } from "shared/experiments";
-import { ExperimentMetricQueryResponseRows } from "shared/types/integrations";
+import {
+  ContextualBanditSrmQueryResponseRows,
+  ExperimentMetricQueryResponseRows,
+} from "shared/types/integrations";
 import { ExposureQuery } from "shared/types/datasource";
 import type { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
 import {
@@ -29,6 +32,7 @@ import {
   runContextualStatsEngine,
 } from "back-end/src/enterprise/services/contextualBanditStats";
 import { QueryMap, QueryRunner } from "back-end/src/queryRunners/QueryRunner";
+import { chi2pvalue } from "back-end/src/util/stats";
 
 /** Orchestrator-to-runner params; `variationNames` is separate because frozen settings only persist IDs/weights. */
 export type ContextualBanditResultsQueryParams = {
@@ -36,11 +40,25 @@ export type ContextualBanditResultsQueryParams = {
   variationNames: string[];
 };
 
-/** The successful output of one CB run. Returned from `runAnalysis`. */
-export type ContextualBanditQueryRunResult = ContextualBanditResult;
+/** SRM stored on the CB snapshot: SQL chi-square statistic, its derived p-value, and dof inputs. */
+export type ContextualBanditSrmResult = {
+  statistic: number;
+  pValue: number;
+  numLeaves: number;
+  numUpdates: number;
+  numVariations: number;
+};
 
-/** Name of the single sub-query this runner manages; shared by `startQueries` and `runAnalysis`. */
+/** The successful output of one CB run. Returned from `runAnalysis`. */
+export type ContextualBanditQueryRunResult = ContextualBanditResult & {
+  srm?: ContextualBanditSrmResult;
+};
+
+/** Name of the decision-metric sub-query; shared by `startQueries` and `runAnalysis`. */
 export const CONTEXTUAL_BANDIT_ROWS_QUERY_NAME = "contextual-bandit-rows";
+
+/** Name of the optional SQL SRM sub-query; shared by `startQueries` and `runAnalysis`. */
+export const CONTEXTUAL_BANDIT_SRM_QUERY_NAME = "contextual-bandit-srm";
 
 export class ContextualBanditResultsQueryRunner extends QueryRunner<
   ContextualBanditSnapshotInterface,
@@ -122,7 +140,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       factTableMap,
     });
 
-    return [
+    const queries: Queries = [
       await this.startQuery({
         name: CONTEXTUAL_BANDIT_ROWS_QUERY_NAME,
         query: sql,
@@ -138,6 +156,35 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
         queryType: "experimentResults",
       }),
     ];
+
+    // SRM is SQL-only and best-effort: skip it when the integration can't run it
+    // (e.g. non-SQL sources) rather than failing the whole snapshot run.
+    if (
+      this.integration.getContextualBanditSrmQuery &&
+      this.integration.runContextualBanditSrmQuery
+    ) {
+      const srmSql = this.integration.getContextualBanditSrmQuery({
+        settings: expSnapshotSettings,
+      });
+      queries.push(
+        await this.startQuery({
+          name: CONTEXTUAL_BANDIT_SRM_QUERY_NAME,
+          query: srmSql,
+          dependencies: [],
+          run: async (query, setExternalId, queryMetadata) => {
+            const res = await this.integration.runContextualBanditSrmQuery!(
+              query,
+              setExternalId,
+              queryMetadata,
+            );
+            return { rows: res.rows };
+          },
+          queryType: "experimentTraffic",
+        }),
+      );
+    }
+
+    return queries;
   }
 
   async runAnalysis(
@@ -159,6 +206,8 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
     const rows = (queryDoc.result ??
       queryDoc.rawResult ??
       []) as ExperimentMetricQueryResponseRows;
+
+    const srm = this.extractSrmResult(queryMap);
 
     const attributeColumns = this.snapshotSettings.contextualAttributes;
 
@@ -221,7 +270,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       1 / 24,
     );
 
-    return runContextualStatsEngine(statsSettings, tagged, {
+    const analysis = await runContextualStatsEngine(statsSettings, tagged, {
       snapshotId: this.model.id,
       sql: queryDoc.query,
       decisionMetricId,
@@ -236,6 +285,41 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       coverage,
       phaseLengthDays: windowLengthDays,
     });
+
+    return { ...analysis, srm };
+  }
+
+  /**
+   * Pulls the optional SQL SRM result from the query map and derives the p-value.
+   * Degrees of freedom = numLeaves * numUpdates * (numVariations - 1); when that is
+   * not positive (e.g. a single variation or no data) the SRM test is undefined.
+   */
+  private extractSrmResult(
+    queryMap: QueryMap,
+  ): ContextualBanditSrmResult | undefined {
+    const srmDoc = queryMap.get(CONTEXTUAL_BANDIT_SRM_QUERY_NAME);
+    if (!srmDoc) {
+      return undefined;
+    }
+    const srmRows = (srmDoc.result ??
+      srmDoc.rawResult ??
+      []) as ContextualBanditSrmQueryResponseRows;
+    const first = srmRows[0];
+    if (!first) {
+      return undefined;
+    }
+    const degreesOfFreedom =
+      first.num_leaves * first.num_updates * (first.num_variations - 1);
+    if (degreesOfFreedom <= 0) {
+      return undefined;
+    }
+    return {
+      statistic: first.statistic,
+      pValue: chi2pvalue(first.statistic, degreesOfFreedom),
+      numLeaves: first.num_leaves,
+      numUpdates: first.num_updates,
+      numVariations: first.num_variations,
+    };
   }
 
   async getLatestModel(): Promise<ContextualBanditSnapshotInterface> {
@@ -285,6 +369,9 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       );
       updates.contextualBanditEventId = cbe.id;
       updates.weightsWereUpdated = cbe.weightsWereUpdated;
+      if (result.srm) {
+        updates.srm = result.srm;
+      }
     }
 
     await this.context.models.contextualBanditSnapshots.updateById(

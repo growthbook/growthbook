@@ -50,4 +50,8 @@ export const mssqlDialect: SqlDialect = {
   },
 
   stringLength: (column: string) => `LEN(${column})`,
+
+  // SQL Server has no native array type; arrays are stored as JSON. Indexing is 0-based.
+  arrayElement: (arrayCol: string, index: number) =>
+    mssqlDialect.castToFloat(`JSON_VALUE(${arrayCol}, '$[${index}]')`),
 };

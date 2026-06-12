@@ -43,6 +43,8 @@ import {
   ExperimentUnitsQueryResponse,
   ExperimentAggregateUnitsQueryResponse,
   ExperimentAggregateUnitsQueryParams,
+  ContextualBanditSrmQueryParams,
+  ContextualBanditSrmQueryResponse,
   ExperimentDimension,
   ExternalIdCallback,
   DimensionSlicesQueryResponse,
@@ -143,6 +145,7 @@ import { getDropOldIncrementalUnitsQuery } from "back-end/src/integrations/sql/q
 import { getDropUnitsTableQuery } from "back-end/src/integrations/sql/queries/drop-units-table-query";
 import { encodeMetricIdForColumnName } from "back-end/src/integrations/sql/fact-metrics/encode-metric-id-for-column-name";
 import { getExperimentAggregateUnitsQuery as getExperimentAggregateUnitsQueryFromSql } from "back-end/src/integrations/sql/queries/experiment-aggregate-units-query";
+import { getContextualBanditSrmQuery as getContextualBanditSrmQueryFromSql } from "back-end/src/integrations/sql/queries/contextual-bandit-srm-query";
 import { getExperimentEndDate } from "back-end/src/integrations/sql/dates/experiment-end-date";
 import { getExperimentFactMetricStatisticsCTE } from "back-end/src/integrations/sql/ctes/experiment-fact-metric-statistics-cte";
 import { getExperimentFactMetricsQuery as getExperimentFactMetricsQueryFromSql } from "back-end/src/integrations/sql/queries/experiment-fact-metrics-query";
@@ -650,6 +653,27 @@ export default abstract class SqlIntegration
     };
   }
 
+  async runContextualBanditSrmQuery(
+    query: string,
+    setExternalId: ExternalIdCallback,
+    queryMetadata?: QueryMetadata,
+  ): Promise<ContextualBanditSrmQueryResponse> {
+    const { rows, statistics } = await this.runQuery(
+      query,
+      setExternalId,
+      queryMetadata,
+    );
+    return {
+      rows: rows.map((row) => ({
+        statistic: parseFloat(row.statistic) || 0,
+        num_leaves: parseInt(row.num_leaves, 10) || 0,
+        num_updates: parseInt(row.num_updates, 10) || 0,
+        num_variations: parseInt(row.num_variations, 10) || 0,
+      })),
+      statistics,
+    };
+  }
+
   async runExperimentUnitsQuery(
     query: string,
     setExternalId: ExternalIdCallback,
@@ -882,6 +906,14 @@ export default abstract class SqlIntegration
     params: ExperimentAggregateUnitsQueryParams,
   ): string {
     return getExperimentAggregateUnitsQueryFromSql(
+      this.getSqlDialect(),
+      this.datasource,
+      params,
+    );
+  }
+
+  getContextualBanditSrmQuery(params: ContextualBanditSrmQueryParams): string {
+    return getContextualBanditSrmQueryFromSql(
       this.getSqlDialect(),
       this.datasource,
       params,

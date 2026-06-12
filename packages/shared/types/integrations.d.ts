@@ -315,6 +315,10 @@ export interface ExperimentUnitsQueryParams extends ExperimentBaseQueryParams {
   includeIdJoins: boolean;
 }
 
+export interface ContextualBanditSrmQueryParams {
+  settings: SnapshotMetricRequest;
+}
+
 export interface CreateExperimentIncrementalUnitsQueryParams {
   settings: SnapshotMetricRequest;
   activationMetric: ExperimentMetricInterface | null;
@@ -735,6 +739,17 @@ export type DimensionSlicesQueryResponseRows = {
   total_units: number;
 }[];
 
+export type ContextualBanditSrmQueryResponseRows = {
+  /** Chi-square statistic: SUM((observed - expected)^2 / expected) over all cells. */
+  statistic: number;
+  /** Distinct policy leaves (leaf_id) present in the data. */
+  num_leaves: number;
+  /** Distinct weight-update generations (snapshot_update_count) present in the data. */
+  num_updates: number;
+  /** Number of experiment variations. */
+  num_variations: number;
+}[];
+
 export type MaxTimestampQueryResponseRow = {
   max_timestamp: string;
 };
@@ -780,6 +795,8 @@ export type ExperimentAggregateUnitsQueryResponse =
   QueryResponse<ExperimentAggregateUnitsQueryResponseRows>;
 export type DimensionSlicesQueryResponse =
   QueryResponse<DimensionSlicesQueryResponseRows>;
+export type ContextualBanditSrmQueryResponse =
+  QueryResponse<ContextualBanditSrmQueryResponseRows>;
 export type DropTableQueryResponse = QueryResponse;
 export type IncrementalWithNoOutputQueryResponse = QueryResponse;
 export type MaxTimestampQueryResponse = QueryResponse<
