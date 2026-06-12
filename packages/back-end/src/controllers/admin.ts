@@ -508,7 +508,7 @@ export async function _dangerousAdminFeatureRepairDryRun(
 }
 
 export async function _dangerousAdminFeatureRepairApply(
-  req: AuthRequest<{ featureIds?: string[] }, { orgId: string }>,
+  req: AuthRequest<{ featureIds?: string[]; mode?: string }, { orgId: string }>,
   res: Response,
 ) {
   if (!req.superAdmin) {
@@ -518,7 +518,7 @@ export async function _dangerousAdminFeatureRepairApply(
     });
   }
 
-  const { featureIds } = req.body;
+  const { featureIds, mode } = req.body;
   if (
     featureIds !== undefined &&
     (!Array.isArray(featureIds) ||
@@ -529,10 +529,17 @@ export async function _dangerousAdminFeatureRepairApply(
       message: "featureIds must be an array of strings",
     });
   }
+  if (mode !== "drift" && mode !== "corruptDrafts") {
+    return res.status(400).json({
+      status: 400,
+      message: 'mode must be "drift" or "corruptDrafts"',
+    });
+  }
 
   const context = await getContextForAgendaJobByOrgId(req.params.orgId);
   const results = await applyOrgFeatureRepairs(context, {
     featureIds,
+    mode,
     repairedBy: req.email || "unknown superadmin",
   });
 

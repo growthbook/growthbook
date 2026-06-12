@@ -33,7 +33,18 @@ interface RepairFinding {
     direction: "feature_from_revision" | "revision_from_feature";
   } | null;
   phantomPublishedVersions: number[];
-  corruptDrafts: { version: number; wipedEnvs: string[] }[];
+  corruptDrafts: {
+    version: number;
+    wipedEnvs: string[];
+    envPlans?: {
+      env: string;
+      source: "replay" | "live";
+      orderUncertain: boolean;
+      reason: string | null;
+      ruleCount: number;
+    }[];
+  }[];
+  emptiedDraftsWithHistory: { version: number; wipedEnvs: string[] }[];
 }
 
 interface RepairScanResult {
@@ -48,23 +59,18 @@ interface RepairScanResult {
     drift: number;
     phantomPublishedRevisions: number;
     corruptDrafts: number;
+    emptiedDraftsWithHistory: number;
   };
 }
+
+type RepairMode = "drift" | "corruptDrafts";
 
 interface RepairProposal {
   finding: RepairFinding;
   feature: {
     rules: { before: unknown; after: unknown } | null;
     defaultValue: { before: string; after: string } | null;
-    scrubEnvRules: string[];
   };
-  liveRevision: {
-    version: number;
-    rules: { before: unknown; after: unknown };
-    defaultValue: { before: unknown; after: string };
-  } | null;
-  createLiveRevision: { version: number } | null;
-  discardRevisions: number[];
   notes: string[];
 }
 
@@ -101,10 +107,13 @@ function findingIssues(
     });
   }
   for (const draft of f.corruptDrafts) {
+    const allReplayable =
+      (draft.envPlans?.length ?? 0) > 0 &&
+      (draft.envPlans ?? []).every((p) => p.source === "replay");
     issues.push({
       label: `draft v${draft.version} would empty: ${draft.wipedEnvs.join(
         ", ",
-      )}`,
+      )} — ${allReplayable ? "edits replayable from logs" : "restore from live"}`,
       version: draft.version,
     });
   }
@@ -120,6 +129,13 @@ function findingNoteLabels(f: RepairFinding): string[] {
   }
   if (f.nonV2TopLevelRules) labels.push("non-canonical top-level rules");
   if (f.legacyLiveRevisionDoc) labels.push("legacy live revision doc");
+  for (const draft of f.emptiedDraftsWithHistory) {
+    labels.push(
+      `draft v${draft.version} empties ${draft.wipedEnvs.join(
+        ", ",
+      )} (has delete history, likely intentional)`,
+    );
+  }
   return labels;
 }
 
@@ -178,6 +194,22 @@ const FeatureRepairModal: FC<{
     [scanResult],
   );
 
+  // Quick-select sets for the two repair actions
+  const driftFixableIds = useMemo(
+    () =>
+      (scanResult?.findings ?? [])
+        .filter((f) => f.drift?.direction === "feature_from_revision")
+        .map((f) => f.featureId),
+    [scanResult],
+  );
+  const corruptDraftIds = useMemo(
+    () =>
+      (scanResult?.findings ?? [])
+        .filter((f) => f.corruptDrafts.length > 0)
+        .map((f) => f.featureId),
+    [scanResult],
+  );
+
   useEffect(() => {
     runScan();
   }, [runScan]);
@@ -211,7 +243,7 @@ const FeatureRepairModal: FC<{
     setDryRunLoading(false);
   };
 
-  const runApply = async () => {
+  const runApply = async (mode: RepairMode) => {
     setRepairError("");
     try {
       const res = await apiCall<{ results: RepairApplyResult[] }>(
@@ -220,7 +252,7 @@ const FeatureRepairModal: FC<{
         )}/feature-repair/apply`,
         {
           method: "POST",
-          body: JSON.stringify({ featureIds: [...selectedIds] }),
+          body: JSON.stringify({ featureIds: [...selectedIds], mode }),
         },
       );
       setApplyResults(res.results);
@@ -230,6 +262,20 @@ const FeatureRepairModal: FC<{
       setRepairError(e.message);
     }
   };
+
+  // Per-action counts over the current selection. Drift fix only writes
+  // features whose live revision is the trustworthy side; corrupt-draft
+  // reset only touches features with flagged drafts.
+  const selectedFindings = (scanResult?.findings ?? []).filter((f) =>
+    selectedIds.has(f.featureId),
+  );
+  const driftFixCount = selectedFindings.filter(
+    (f) => f.drift?.direction === "feature_from_revision",
+  ).length;
+  const draftResetCount = selectedFindings.reduce(
+    (sum, f) => sum + f.corruptDrafts.length,
+    0,
+  );
 
   return (
     <Modal
@@ -275,18 +321,35 @@ const FeatureRepairModal: FC<{
             </div>
             <div className="col-auto">
               <ConfirmButton
-                onClick={runApply}
-                modalHeader="Apply feature repairs"
-                confirmationText={`This will repair the ${selectedIds.size} selected feature(s) in ${organizationId}, writing to feature and revision documents and emitting audit entries. Continue?`}
-                cta="Apply repairs"
+                onClick={() => runApply("drift")}
+                modalHeader="Fix drift"
+                confirmationText={`This rewrites ${driftFixCount} feature doc(s) in ${organizationId} from their live revisions — the exact same self-heal production runs on feature page load — and writes an audit entry for each. Features whose live revision looks sparse are skipped. Continue?`}
+                cta="Fix drift"
                 isDestructive={true}
-                disabled={selectedIds.size === 0}
+                disabled={driftFixCount === 0}
               >
                 <button
                   className="btn btn-danger"
-                  disabled={selectedIds.size === 0}
+                  disabled={driftFixCount === 0}
                 >
-                  Apply Fix ({selectedIds.size})
+                  Fix Drift ({driftFixCount})
+                </button>
+              </ConfirmButton>
+            </div>
+            <div className="col-auto">
+              <ConfirmButton
+                onClick={() => runApply("corruptDrafts")}
+                modalHeader="Repair corrupt drafts"
+                confirmationText={`This repairs ${draftResetCount} corrupt draft(s) in ${organizationId} by restoring rules ONLY in the wiped environments — replayed from the draft's edit logs when unambiguous, otherwise from the live state. Other draft edits are preserved. Status returns to "draft" and an explanatory comment is added. Review the dry run for each draft's plan first. Continue?`}
+                cta="Repair drafts"
+                isDestructive={true}
+                disabled={draftResetCount === 0}
+              >
+                <button
+                  className="btn btn-danger"
+                  disabled={draftResetCount === 0}
+                >
+                  Repair Corrupt Drafts ({draftResetCount})
                 </button>
               </ConfirmButton>
             </div>
@@ -364,23 +427,45 @@ const FeatureRepairModal: FC<{
                 expandable={false}
               />
               {selectableIds.length > 0 && (
-                <Checkbox
-                  mb="2"
-                  label={`Select all (${selectedIds.size}/${selectableIds.length} selected)`}
-                  weight="regular"
-                  value={
-                    selectedIds.size === selectableIds.length
-                      ? true
-                      : selectedIds.size === 0
-                        ? false
-                        : "indeterminate"
-                  }
-                  setValue={(checked) => {
-                    setSelectedIds(
-                      checked ? new Set(selectableIds) : new Set(),
-                    );
-                  }}
-                />
+                <div className="d-flex align-items-center mb-2">
+                  <Checkbox
+                    label={`Select all (${selectedIds.size}/${selectableIds.length} selected)`}
+                    weight="regular"
+                    value={
+                      selectedIds.size === selectableIds.length
+                        ? true
+                        : selectedIds.size === 0
+                          ? false
+                          : "indeterminate"
+                    }
+                    setValue={(checked) => {
+                      setSelectedIds(
+                        checked ? new Set(selectableIds) : new Set(),
+                      );
+                    }}
+                  />
+                  <span className="ml-3 text-muted">Select only:</span>
+                  <a
+                    href="#"
+                    className="ml-2"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setSelectedIds(new Set(driftFixableIds));
+                    }}
+                  >
+                    fixable drift ({driftFixableIds.length})
+                  </a>
+                  <a
+                    href="#"
+                    className="ml-3"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setSelectedIds(new Set(corruptDraftIds));
+                    }}
+                  >
+                    corrupt drafts ({corruptDraftIds.length})
+                  </a>
+                </div>
               )}
               <table className="table appbox">
                 <thead>
@@ -501,18 +586,6 @@ const FeatureRepairModal: FC<{
                   <li key={i}>{note}</li>
                 ))}
               </ul>
-              {p.feature.scrubEnvRules.length > 0 && (
-                <p>
-                  Legacy per-env rules scrubbed from disk for:{" "}
-                  <code>{p.feature.scrubEnvRules.join(", ")}</code>
-                </p>
-              )}
-              {p.discardRevisions.length > 0 && (
-                <p>
-                  Revisions to discard:{" "}
-                  <code>v{p.discardRevisions.join(", v")}</code>
-                </p>
-              )}
               {p.feature.defaultValue && (
                 <p>
                   Default value: <code>{p.feature.defaultValue.before}</code>{" "}
@@ -539,32 +612,6 @@ const FeatureRepairModal: FC<{
                       <Code
                         language="json"
                         code={stringify(p.feature.rules.after)}
-                      />
-                    </div>
-                  </div>
-                </Collapsible>
-              )}
-              {p.liveRevision && (
-                <Collapsible
-                  trigger={
-                    <div className="link-purple">
-                      <FaAngleRight /> Live revision (v{p.liveRevision.version})
-                      rules before / after
-                    </div>
-                  }
-                  transitionTime={100}
-                >
-                  <div className="row">
-                    <div className="col-6">
-                      <Code
-                        language="json"
-                        code={stringify(p.liveRevision.rules.before)}
-                      />
-                    </div>
-                    <div className="col-6">
-                      <Code
-                        language="json"
-                        code={stringify(p.liveRevision.rules.after)}
                       />
                     </div>
                   </div>
