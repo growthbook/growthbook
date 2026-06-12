@@ -28,6 +28,7 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import OrphanedUsersList from "@/components/Settings/Team/OrphanedUsersList";
 import { isCloud, isMultiOrg } from "@/services/env";
 import EditOrganization from "@/components/Admin/EditOrganization";
+import FeatureRepairModal from "@/components/Admin/FeatureRepairModal";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import CreateOrganization from "@/components/Admin/CreateOrganization";
 import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
@@ -84,6 +85,7 @@ function OrganizationRow({
     datasources.find((ds) => ds.type === "growthbook_clickhouse")?.id || null,
   );
   const [editSSOOpen, setEditSSOOpen] = useState(false);
+  const [featureRepairOpen, setFeatureRepairOpen] = useState(false);
 
   useEffect(() => {
     if (isCloud() && expanded && !license) {
@@ -176,6 +178,13 @@ function OrganizationRow({
             organization.restrictLoginMethod === ssoInfo?.id
           }
           onSave={onEdit}
+        />
+      )}
+      {featureRepairOpen && (
+        <FeatureRepairModal
+          organizationId={organization.id}
+          organizationName={organization.name}
+          close={() => setFeatureRepairOpen(false)}
         />
       )}
       <tr
@@ -311,6 +320,20 @@ function OrganizationRow({
                 <div className="col-2 text-right">Num Invited:</div>
                 <div className="col-auto font-weight-bold">
                   {organization.invites.length}
+                </div>
+              </div>
+              <div className="row">
+                <div className="col-2 text-right">Feature Repair:</div>
+                <div className="col-auto">
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setFeatureRepairOpen(true);
+                    }}
+                  >
+                    Scan &amp; repair features
+                  </a>
                 </div>
               </div>
               {isCloud() && (

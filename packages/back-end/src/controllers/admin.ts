@@ -26,10 +26,16 @@ import {
   updateOrganization,
 } from "back-end/src/models/OrganizationModel";
 import {
+  getContextForAgendaJobByOrgId,
   getContextFromReq,
   getOrganizationById,
   setLicenseKey,
 } from "back-end/src/services/organizations";
+import {
+  applyOrgFeatureRepairs,
+  planOrgFeatureRepairs,
+  scanOrgFeatureRepairs,
+} from "back-end/src/services/featureRepair";
 import {
   auditDetailsCreate,
   auditDetailsUpdate,
@@ -433,6 +439,106 @@ export async function _dangerousAdminPutMember(
 
   return res.status(200).json({
     status: 200,
+  });
+}
+
+// Feature repair tooling: detects and fixes features/revisions left in
+// inconsistent or legacy on-disk shapes for a single org. Superadmin-only.
+
+export async function _dangerousAdminFeatureRepairScan(
+  req: AuthRequest<never, { orgId: string }>,
+  res: Response,
+) {
+  if (!req.superAdmin) {
+    return res.status(403).json({
+      status: 403,
+      message: "Only superAdmins can scan org features",
+    });
+  }
+
+  const context = await getContextForAgendaJobByOrgId(req.params.orgId);
+  const result = await scanOrgFeatureRepairs(context);
+
+  return res.status(200).json({
+    status: 200,
+    ...result,
+  });
+}
+
+export async function _dangerousAdminFeatureRepairDryRun(
+  req: AuthRequest<
+    { featureIds?: string[]; page?: number; limit?: number },
+    { orgId: string }
+  >,
+  res: Response,
+) {
+  if (!req.superAdmin) {
+    return res.status(403).json({
+      status: 403,
+      message: "Only superAdmins can dry-run feature repairs",
+    });
+  }
+
+  const { featureIds, page, limit } = req.body;
+  if (
+    featureIds !== undefined &&
+    (!Array.isArray(featureIds) ||
+      featureIds.some((id) => typeof id !== "string"))
+  ) {
+    return res.status(400).json({
+      status: 400,
+      message: "featureIds must be an array of strings",
+    });
+  }
+
+  const context = await getContextForAgendaJobByOrgId(req.params.orgId);
+  const result = await planOrgFeatureRepairs(context, {
+    featureIds,
+    page: typeof page === "number" && page > 0 ? Math.floor(page) : 1,
+    limit:
+      typeof limit === "number" && limit > 0
+        ? Math.min(Math.floor(limit), 50)
+        : 10,
+  });
+
+  return res.status(200).json({
+    status: 200,
+    ...result,
+  });
+}
+
+export async function _dangerousAdminFeatureRepairApply(
+  req: AuthRequest<{ featureIds?: string[] }, { orgId: string }>,
+  res: Response,
+) {
+  if (!req.superAdmin) {
+    return res.status(403).json({
+      status: 403,
+      message: "Only superAdmins can apply feature repairs",
+    });
+  }
+
+  const { featureIds } = req.body;
+  if (
+    featureIds !== undefined &&
+    (!Array.isArray(featureIds) ||
+      featureIds.some((id) => typeof id !== "string"))
+  ) {
+    return res.status(400).json({
+      status: 400,
+      message: "featureIds must be an array of strings",
+    });
+  }
+
+  const context = await getContextForAgendaJobByOrgId(req.params.orgId);
+  const results = await applyOrgFeatureRepairs(context, {
+    featureIds,
+    repairedBy: req.email || "unknown superadmin",
+  });
+
+  return res.status(200).json({
+    status: 200,
+    results,
   });
 }
 
