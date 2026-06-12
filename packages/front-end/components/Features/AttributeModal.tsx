@@ -99,11 +99,16 @@ export default function AttributeModal({ close, attribute }: Props) {
         { projects: selectedProjects },
       )
     : permissionsUtil.canCreateAttribute({ projects: selectedProjects });
-  const ctaDisabledMessage = !hasProjectPermission
-    ? !selectedProjects.length && projectOptions.length > 0
-      ? "Select a project to continue."
-      : `You don't have permission to ${attribute ? "update" : "create"} attributes.`
-    : undefined;
+  let ctaDisabledMessage: string | undefined;
+  if (!hasProjectPermission) {
+    if (!selectedProjects.length && projectOptions.length > 0) {
+      ctaDisabledMessage = "Select a project to continue.";
+    } else {
+      ctaDisabledMessage = `You don't have permission to ${
+        attribute ? "update" : "create"
+      } attributes.`;
+    }
+  }
 
   return (
     <Modal
