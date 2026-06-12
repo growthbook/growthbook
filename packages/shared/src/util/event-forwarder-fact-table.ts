@@ -107,7 +107,9 @@ export function buildBigQueryEventForwarderTableReference(
   dataset: string,
   tableName: string,
 ): string {
-  return `\`${projectId.trim()}.${dataset.trim()}.${tableName.trim()}\``;
+  return [projectId, dataset, tableName]
+    .map((identifier) => quoteBigQueryIdentifier(identifier.trim()))
+    .join(".");
 }
 
 export function buildSnowflakeEventForwarderTableReference(
