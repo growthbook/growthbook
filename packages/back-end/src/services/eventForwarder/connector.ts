@@ -22,7 +22,10 @@ import {
   EventForwarderLicenseConnectorStatus,
   postEventForwarderStatusToLicenseServer,
 } from "back-end/src/enterprise/licenseUtil";
-import { decryptEventForwarderConfigModel } from "back-end/src/services/eventForwarder/config";
+import {
+  decryptEventForwarderConfigModel,
+  getBigQueryEventForwarderProjectId,
+} from "back-end/src/services/eventForwarder/config";
 import {
   ensureEventForwarderBigQueryTables,
   resolveBigQueryEventForwarderTablePrefix,
@@ -215,10 +218,14 @@ export async function provisionEventForwarderThroughLicenseServer(
         const bigqueryConnectionParams = datasourceParams as
           | BigQueryConnectionParams
           | undefined;
-        const projectId =
-          bigqueryConnectionParams?.defaultProject?.trim() ||
-          bigqueryConnectionParams?.projectId?.trim() ||
-          "";
+        const decrypted =
+          decryptEventForwarderConfigModel<BigQueryEventForwarderStoredConfig>(
+            eventForwarderConfig,
+          );
+        const projectId = getBigQueryEventForwarderProjectId(
+          decrypted,
+          bigqueryConnectionParams,
+        );
 
         if (!projectId) {
           throw new Error(
@@ -228,11 +235,6 @@ export async function provisionEventForwarderThroughLicenseServer(
 
         const tablePrefix =
           await resolveBigQueryEventForwarderTablePrefix(eventForwarderConfig);
-
-        const decrypted =
-          decryptEventForwarderConfigModel<BigQueryEventForwarderStoredConfig>(
-            eventForwarderConfig,
-          );
 
         assertEventForwarderWriteAccessResult(
           await testEventForwarderWriteAccess(context, {
@@ -422,10 +424,14 @@ export async function updateEventForwarderCredentialsThroughLicenseServer(
         const bigqueryConnectionParams = datasourceParams as
           | BigQueryConnectionParams
           | undefined;
-        const projectId =
-          bigqueryConnectionParams?.defaultProject?.trim() ||
-          bigqueryConnectionParams?.projectId?.trim() ||
-          "";
+        const decrypted =
+          decryptEventForwarderConfigModel<BigQueryEventForwarderStoredConfig>(
+            eventForwarderConfig,
+          );
+        const projectId = getBigQueryEventForwarderProjectId(
+          decrypted,
+          bigqueryConnectionParams,
+        );
 
         if (!projectId) {
           throw new Error(
@@ -435,11 +441,6 @@ export async function updateEventForwarderCredentialsThroughLicenseServer(
 
         const tablePrefix =
           await resolveBigQueryEventForwarderTablePrefix(eventForwarderConfig);
-
-        const decrypted =
-          decryptEventForwarderConfigModel<BigQueryEventForwarderStoredConfig>(
-            eventForwarderConfig,
-          );
 
         await postUpdateEventForwarderCredentialsToLicenseServer({
           organizationId: context.org.id,

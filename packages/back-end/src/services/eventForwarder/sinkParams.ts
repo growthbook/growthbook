@@ -7,6 +7,7 @@ import {
 import { EventForwarderConfigInterface } from "shared/validators";
 import {
   decryptEventForwarderConfigModel,
+  getBigQueryEventForwarderProjectId,
   getBigQueryEventForwarderTablePrefix,
   getSnowflakeEventForwarderTablePrefix,
 } from "back-end/src/services/eventForwarder/config";
@@ -34,18 +35,17 @@ export function buildSinkQueryConnectionParams(
       const bigqueryParams = connectionParams as
         | BigQueryConnectionParams
         | undefined;
-      const projectId =
-        bigqueryParams?.defaultProject?.trim() ||
-        bigqueryParams?.projectId?.trim() ||
-        "";
-      if (!projectId) {
-        return null;
-      }
-
       const decrypted =
         decryptEventForwarderConfigModel<BigQueryEventForwarderStoredConfig>(
           eventForwarderConfig,
         );
+      const projectId = getBigQueryEventForwarderProjectId(
+        decrypted,
+        bigqueryParams,
+      );
+      if (!projectId) {
+        return null;
+      }
 
       return {
         sinkType: "bigquery",

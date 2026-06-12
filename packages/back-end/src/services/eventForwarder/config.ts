@@ -15,14 +15,10 @@ import { EventForwarderConfigInterface } from "shared/validators";
 import {
   DEFAULT_EVENT_FORWARDER_TABLE_PREFIX,
   EventForwarderDatasourceParams,
-  formatBigQueryEventForwarderTablePrefix,
-  formatSnowflakeEventForwarderTablePrefix,
   getEventForwarderSinkTypeForDatasource,
   normalizeBigQueryTablePrefixForEventForwarder,
   normalizeSnowflakeEventForwarderAccessUrl,
   normalizeSnowflakeTablePrefixForEventForwarder,
-  parseBigQueryEventForwarderTablePrefix,
-  parseSnowflakeEventForwarderTablePrefix,
 } from "shared/util";
 import { ReqContext } from "back-end/types/request";
 import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
@@ -58,6 +54,18 @@ export function getBigQueryEventForwarderTablePrefix(
   config: BigQueryEventForwarderStoredConfig,
 ): string {
   return normalizeBigQueryTablePrefixForEventForwarder(config.tablePrefix);
+}
+
+export function getBigQueryEventForwarderProjectId(
+  config: BigQueryEventForwarderStoredConfig,
+  datasourceParams?: BigQueryConnectionParams,
+): string {
+  return (
+    config.projectId?.trim() ||
+    datasourceParams?.defaultProject?.trim() ||
+    datasourceParams?.projectId?.trim() ||
+    ""
+  );
 }
 
 export function getSnowflakeEventForwarderTablePrefix(
@@ -117,29 +125,20 @@ function buildBigQueryStoredConfigFromDraft(
         )
       : null;
 
-  let dataset = "";
-  let tablePrefix = DEFAULT_EVENT_FORWARDER_TABLE_PREFIX;
-
-  const qualifiedDestination = draft.tablePrefix?.trim();
-  if (qualifiedDestination) {
-    const parsed = parseBigQueryEventForwarderTablePrefix(qualifiedDestination);
-    dataset =
-      parsed.dataset ||
-      datasourceParams?.defaultDataset?.trim() ||
-      existingStored?.dataset?.trim() ||
-      "";
-    tablePrefix = normalizeBigQueryTablePrefixForEventForwarder(
-      parsed.tablePrefix,
-    );
-  } else if (existingStored?.dataset) {
-    dataset = existingStored.dataset;
-    tablePrefix = getBigQueryEventForwarderTablePrefix(existingStored);
-  } else {
-    dataset = datasourceParams?.defaultDataset?.trim() || "";
-    tablePrefix = normalizeBigQueryTablePrefixForEventForwarder(
-      DEFAULT_EVENT_FORWARDER_TABLE_PREFIX,
-    );
-  }
+  const projectId =
+    draft.projectId?.trim() ||
+    existingStored?.projectId?.trim() ||
+    datasourceParams?.defaultProject?.trim() ||
+    datasourceParams?.projectId?.trim() ||
+    "";
+  const dataset =
+    draft.dataset?.trim() ||
+    existingStored?.dataset?.trim() ||
+    datasourceParams?.defaultDataset?.trim() ||
+    "";
+  const tablePrefix = normalizeBigQueryTablePrefixForEventForwarder(
+    draft.tablePrefix ?? DEFAULT_EVENT_FORWARDER_TABLE_PREFIX,
+  );
 
   const serviceAccountKey =
     draft.serviceAccountKey?.trim() ||
@@ -151,6 +150,7 @@ function buildBigQueryStoredConfigFromDraft(
     "";
 
   return {
+    projectId,
     dataset,
     tablePrefix,
     serviceAccountKey,
@@ -182,30 +182,19 @@ function buildSnowflakeStoredConfigFromDraft(
         )
       : null;
 
-  let database = "";
-  let schema = "";
-  let tablePrefix = normalizeSnowflakeTablePrefixForEventForwarder(
-    DEFAULT_EVENT_FORWARDER_TABLE_PREFIX,
+  const database =
+    draft.database?.trim().toUpperCase() ||
+    existingStored?.database?.trim() ||
+    datasourceParams?.database?.trim() ||
+    "";
+  const schema =
+    draft.schema?.trim().toUpperCase() ||
+    existingStored?.schema?.trim() ||
+    datasourceParams?.schema?.trim() ||
+    "";
+  const tablePrefix = normalizeSnowflakeTablePrefixForEventForwarder(
+    draft.tablePrefix ?? DEFAULT_EVENT_FORWARDER_TABLE_PREFIX,
   );
-
-  const qualifiedDestination = draft.tablePrefix?.trim();
-  if (qualifiedDestination) {
-    const parsed =
-      parseSnowflakeEventForwarderTablePrefix(qualifiedDestination);
-    database = parsed.database;
-    schema = parsed.schema;
-    tablePrefix = parsed.tablePrefix;
-  } else if (existingStored?.database && existingStored?.schema) {
-    database = existingStored.database;
-    schema = existingStored.schema;
-    tablePrefix = getSnowflakeEventForwarderTablePrefix(existingStored);
-  } else {
-    database = datasourceParams?.database?.trim() || "";
-    schema = datasourceParams?.schema?.trim() || "";
-    tablePrefix = normalizeSnowflakeTablePrefixForEventForwarder(
-      DEFAULT_EVENT_FORWARDER_TABLE_PREFIX,
-    );
-  }
 
   let accessUrl: string | undefined;
   if (draft.accessUrl?.trim()) {
@@ -293,19 +282,15 @@ function validateNormalizedSinkPayload(
     const bigQueryParams = datasourceParams as
       | BigQueryConnectionParams
       | undefined;
-    const bqProject =
-      bigQueryParams?.defaultProject?.trim() ||
-      bigQueryParams?.projectId?.trim() ||
-      "";
     const bq = normalizedPayload as BigQueryEventForwarderStoredConfig;
     if (
-      !bqProject ||
+      !getBigQueryEventForwarderProjectId(bq, bigQueryParams) ||
       !bq.dataset?.trim() ||
       !getBigQueryEventForwarderTablePrefix(bq) ||
       !bq.serviceAccountKey
     ) {
       throw new Error(
-        "BigQuery event forwarder requires connector project (BigQuery Project ID), destination table prefix (dataset.prefix), and service account credentials",
+        "BigQuery event forwarder requires project, dataset, table prefix, and service account credentials",
       );
     }
   }
@@ -358,10 +343,9 @@ export function toEventForwarderConfigDraft(
       return {
         sinkType: "bigquery",
         config: {
-          tablePrefix: formatBigQueryEventForwarderTablePrefix({
-            dataset: decrypted.dataset || "",
-            tablePrefix: getBigQueryEventForwarderTablePrefix(decrypted),
-          }),
+          projectId: decrypted.projectId || "",
+          dataset: decrypted.dataset || "",
+          tablePrefix: getBigQueryEventForwarderTablePrefix(decrypted),
           serviceAccountKey: "",
         },
       };
@@ -373,11 +357,9 @@ export function toEventForwarderConfigDraft(
       return {
         sinkType: "snowflake",
         config: {
-          tablePrefix: formatSnowflakeEventForwarderTablePrefix({
-            database: decrypted.database || "",
-            schema: decrypted.schema || "",
-            tablePrefix: getSnowflakeEventForwarderTablePrefix(decrypted),
-          }),
+          database: decrypted.database || "",
+          schema: decrypted.schema || "",
+          tablePrefix: getSnowflakeEventForwarderTablePrefix(decrypted),
           accessUrl: decrypted.accessUrl || "",
           role: decrypted.role || "",
           warehouse: decrypted.warehouse || "",
@@ -401,8 +383,14 @@ export function stripEventForwarderConfigMetadata(
   if (draft === undefined || draft === null) {
     return draft;
   }
+  if (draft.sinkType === "bigquery") {
+    return {
+      sinkType: "bigquery",
+      config: draft.config,
+    };
+  }
   return {
-    sinkType: draft.sinkType,
+    sinkType: "snowflake",
     config: draft.config,
   };
 }

@@ -61,7 +61,7 @@ describe("event-forwarder-fact-table SQL", () => {
         "analytics_123",
         "gb_events",
       ),
-    ).toBe("`my-project`.`analytics_123`.`gb_events`");
+    ).toBe("`my-project.analytics_123.gb_events`");
   });
 
   it("builds BigQuery fact table SQL with received_at partition filter", () => {
@@ -73,7 +73,7 @@ describe("event-forwarder-fact-table SQL", () => {
     });
 
     expect(sql).toContain("SELECT\n  timestamp,\n  event_name");
-    expect(sql).toContain("`my-project`.`analytics_123`.`gb_events`");
+    expect(sql).toContain("`my-project.analytics_123.gb_events`");
     expect(sql).toContain(
       `${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{endDate}}'`,
     );
@@ -100,7 +100,7 @@ describe("event-forwarder-fact-table SQL", () => {
   -- Attributes
   JSON_VALUE(\`attributes\`, '$."user_id"') AS user_id,
   JSON_VALUE(\`attributes\`, '$."browser_type"') AS browser_type
-FROM \`my-project\`.\`analytics_123\`.\`gb_events\`
+FROM \`my-project.analytics_123.gb_events\`
 WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{endDate}}'`);
   });
 
