@@ -121,6 +121,10 @@ export function isActiveSubscriptionStatus(
 // what plan the organization is effectively on (taking into account downgrades)
 // use getEffectiveAccountPlan() instead.
 export function getAccountPlan(org: MinimalOrganization): AccountPlan {
+  // If the org has the enterprise flag, return enterprise
+  // Can remove this when all enterprise orgs are migrated to a license
+  if (org.enterprise) return "enterprise";
+
   if (stringToBoolean(process.env.IS_CLOUD)) {
     if (org.licenseKey) {
       return getLicense(org.licenseKey)?.plan || "starter";
