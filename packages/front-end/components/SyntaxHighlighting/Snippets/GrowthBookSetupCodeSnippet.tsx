@@ -583,12 +583,8 @@ require 'growthbook'
 # Fetch features from a GrowthBook instance
 # You should cache this in Redis or similar in production
 features_repository = Growthbook::FeatureRepository.new(
-  endpoint: '${featuresEndpoint}'${
-    encryptionKey
-      ? `,
-  decryption_key: '${encryptionKey}'`
-      : ""
-  }
+  endpoint: '${featuresEndpoint}',
+  decryption_key: ${encryptionKey ? `'${encryptionKey}'` : "nil"}
 )
 features = features_repository.fetch
             `.trim()}
