@@ -202,7 +202,7 @@ When setting up Auth0, please ensure that you've enabled offline access, and che
 
 :::note Registering an Application in Azure
 
-In Azure, register an Application, instead of Enterprise, as we use OpenID Connect, not SAML.
+In Azure, register an Application, instead of Enterprise, as we use OpenID Connect, not SAML. Ensure the Application has ID tokens enabled.
 
 :::
 
@@ -211,7 +211,7 @@ In Azure, register an Application, instead of Enterprise, as we use OpenID Conne
   <div>
     <ol>
       <li>
-        Register an Application (we use OpenID Connect, so choose regular app, not Enterprise)
+        Register an Application (we use OpenID Connect, so choose regular app, not Enterprise). Because GrowthBook uses OIDC, ensure ID tokens are enabled, as the Microsoft Graph permission `User.read` does not work with OIDC.
         <MaxWidthImage>![Register an Application](/images/guides/SSO-Azure-1.png)</MaxWidthImage>
       </li>
       <li>
