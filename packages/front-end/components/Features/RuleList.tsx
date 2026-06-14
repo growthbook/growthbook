@@ -285,15 +285,16 @@ export default function RuleList(props: RuleListProps) {
     // conflicts (union the consuming rules per attribute) across environments.
     const hard = new Map<
       string,
-      { ruleNumber?: number; label: string | null }
+      { ruleNumber?: number; attr: string | null; label: string | null }
     >();
     const softIds = new Map<string | null, Set<string>>();
     for (const reach of reaches) {
       for (const c of reach.hardConflicts) {
-        const key = `${c.consumingRuleId}|${c.label ?? ""}`;
+        const key = `${c.consumingRuleId}|${c.attr ?? ""}|${c.label ?? ""}`;
         if (!hard.has(key)) {
           hard.set(key, {
             ruleNumber: ruleNumber(c.consumingRuleId),
+            attr: c.attr,
             label: c.label,
           });
         }

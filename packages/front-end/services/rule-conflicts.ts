@@ -15,9 +15,20 @@ import { isRuleInactive } from "@/services/features";
 // "may not reach" warning when a rule above targets the same attribute.
 // ---------------------------------------------------------------------------
 
+type InAtom = {
+  op: "in";
+  values: Set<string>;
+  insensitive?: boolean; // $ini — values stored lower-cased
+};
+type NotInAtom = {
+  op: "notIn";
+  values: Set<string>;
+  insensitive?: boolean; // $nini — values stored lower-cased
+};
+
 type Atom =
-  | { op: "in"; values: Set<string> } // attr ∈ values  ($eq, $in, $ini)
-  | { op: "notIn"; values: Set<string> } // attr ∉ values  ($ne, $nin, $nini)
+  | InAtom // attr ∈ values  ($eq, $in, $ini)
+  | NotInAtom // attr ∉ values  ($ne, $nin, $nini)
   // numeric range ($gt/$gte/$lt/$lte)
   | {
       op: "num";
@@ -53,8 +64,10 @@ type ParsedTargeting = {
 // A precise conflict: a rule above fully serves a sub-population this rule targets.
 export type RuleHardConflict = {
   consumingRuleId: string;
-  // The consumed values (e.g. "Safari"), or null when the rule above is
-  // unconditional / covers the whole population.
+  // The attribute whose targeting overlaps (null for catch-all consumers).
+  attr: string | null;
+  // Human-readable value/range label (e.g. "Safari", "> 18, < 21"), or null when
+  // the rule above is unconditional / covers the whole population.
   label: string | null;
 };
 
@@ -97,20 +110,36 @@ function parseAttrConstraint(value: unknown): Atom | null {
   }
   if (keys.every((k) => k === "$in" || k === "$ini")) {
     const values = new Set<string>();
+    let insensitive = false;
     for (const k of keys) {
-      if (Array.isArray(ops[k]))
-        (ops[k] as unknown[]).forEach((v) => values.add(String(v)));
+      if (Array.isArray(ops[k])) {
+        if (k === "$ini") insensitive = true;
+        (ops[k] as unknown[]).forEach((v) => {
+          const str = String(v);
+          values.add(k === "$ini" ? str.toLowerCase() : str);
+        });
+      }
     }
-    return { op: "in", values };
+    return { op: "in", values, ...(insensitive ? { insensitive: true } : {}) };
   }
   if (keys.every((k) => k === "$ne" || k === "$nin" || k === "$nini")) {
     const values = new Set<string>();
+    let insensitive = false;
     for (const k of keys) {
       if (k === "$ne") values.add(String(ops[k]));
-      else if (Array.isArray(ops[k]))
-        (ops[k] as unknown[]).forEach((v) => values.add(String(v)));
+      else if (Array.isArray(ops[k])) {
+        if (k === "$nini") insensitive = true;
+        (ops[k] as unknown[]).forEach((v) => {
+          const str = String(v);
+          values.add(k === "$nini" ? str.toLowerCase() : str);
+        });
+      }
     }
-    return { op: "notIn", values };
+    return {
+      op: "notIn",
+      values,
+      ...(insensitive ? { insensitive: true } : {}),
+    };
   }
   if (keys.every((k) => ["$gt", "$gte", "$lt", "$lte"].includes(k))) {
     const lo = has("$gte")
@@ -232,13 +261,32 @@ function parseRuleTargeting(
   };
 }
 
+function setHasValue(atom: InAtom | NotInAtom, value: string): boolean {
+  if (atom.insensitive) {
+    const lv = value.toLowerCase();
+    return [...atom.values].some((v) => v.toLowerCase() === lv);
+  }
+  return atom.values.has(value);
+}
+
+function inSetsOverlap(a: InAtom, b: InAtom): boolean {
+  for (const va of a.values) {
+    for (const vb of b.values) {
+      if (a.insensitive || b.insensitive) {
+        if (va.toLowerCase() === vb.toLowerCase()) return true;
+      } else if (va === vb) return true;
+    }
+  }
+  return false;
+}
+
 // Does `atom` match a concrete attribute value?
 function atomMatchesValue(atom: Atom, value: string): boolean {
   switch (atom.op) {
     case "in":
-      return atom.values.has(value);
+      return setHasValue(atom, value);
     case "notIn":
-      return !atom.values.has(value);
+      return !setHasValue(atom, value);
     case "num": {
       const n = Number(value);
       if (isNaN(n)) return false;
@@ -274,7 +322,7 @@ function atomMatchesValue(atom: Atom, value: string): boolean {
 // entirely inside it (e.g. `country != US` covers `country not in [US, CA]`).
 function notInCovers(consumer: Atom, target: Atom): boolean {
   if (consumer.op !== "notIn" || target.op !== "notIn") return false;
-  for (const v of consumer.values) if (!target.values.has(v)) return false;
+  for (const v of consumer.values) if (!setHasValue(target, v)) return false;
   return true;
 }
 
@@ -295,18 +343,278 @@ function rangesOverlap<T>(
   return true;
 }
 
+type RangeBounds<T> = {
+  lo: T | null;
+  loInc: boolean;
+  hi: T | null;
+  hiInc: boolean;
+};
+
+// True when every value matching `inner` also matches `outer` (interval containment).
+function rangeContains<T>(
+  outer: RangeBounds<T>,
+  inner: RangeBounds<T>,
+  cmp: (a: T, b: T) => number,
+): boolean {
+  return (
+    lowerBoundLooserOrEqual(
+      outer.lo,
+      outer.loInc,
+      inner.lo,
+      inner.loInc,
+      cmp,
+    ) &&
+    upperBoundLooserOrEqual(outer.hi, outer.hiInc, inner.hi, inner.hiInc, cmp)
+  );
+}
+
+function lowerBoundLooserOrEqual<T>(
+  outerLo: T | null,
+  outerLoInc: boolean,
+  innerLo: T | null,
+  innerLoInc: boolean,
+  cmp: (a: T, b: T) => number,
+): boolean {
+  if (outerLo === null) return true;
+  if (innerLo === null) return false;
+  const c = cmp(outerLo, innerLo);
+  if (c < 0) return true;
+  if (c > 0) return false;
+  return outerLoInc || !innerLoInc;
+}
+
+function upperBoundLooserOrEqual<T>(
+  outerHi: T | null,
+  outerHiInc: boolean,
+  innerHi: T | null,
+  innerHiInc: boolean,
+  cmp: (a: T, b: T) => number,
+): boolean {
+  if (outerHi === null) return true;
+  if (innerHi === null) return false;
+  const c = cmp(outerHi, innerHi);
+  if (c > 0) return true;
+  if (c < 0) return false;
+  return outerHiInc || !innerHiInc;
+}
+
+function maxLowerBound<T>(
+  a: RangeBounds<T>,
+  b: RangeBounds<T>,
+  cmp: (x: T, y: T) => number,
+): { lo: T | null; loInc: boolean } {
+  if (a.lo === null) return { lo: b.lo, loInc: b.loInc };
+  if (b.lo === null) return { lo: a.lo, loInc: a.loInc };
+  const c = cmp(a.lo, b.lo);
+  if (c > 0) return { lo: a.lo, loInc: a.loInc };
+  if (c < 0) return { lo: b.lo, loInc: b.loInc };
+  return { lo: a.lo, loInc: a.loInc && b.loInc };
+}
+
+function minUpperBound<T>(
+  a: RangeBounds<T>,
+  b: RangeBounds<T>,
+  cmp: (x: T, y: T) => number,
+): { hi: T | null; hiInc: boolean } {
+  if (a.hi === null) return { hi: b.hi, hiInc: b.hiInc };
+  if (b.hi === null) return { hi: a.hi, hiInc: a.hiInc };
+  const c = cmp(a.hi, b.hi);
+  if (c < 0) return { hi: a.hi, hiInc: a.hiInc };
+  if (c > 0) return { hi: b.hi, hiInc: b.hiInc };
+  return { hi: a.hi, hiInc: a.hiInc && b.hiInc };
+}
+
+function rangeIntersection<T>(
+  a: RangeBounds<T>,
+  b: RangeBounds<T>,
+  cmp: (x: T, y: T) => number,
+): RangeBounds<T> | null {
+  if (!rangesOverlap(a, b, cmp)) return null;
+  const lo = maxLowerBound(a, b, cmp);
+  const hi = minUpperBound(a, b, cmp);
+  if (lo.lo !== null && hi.hi !== null) {
+    const c = cmp(lo.lo, hi.hi);
+    if (c > 0 || (c === 0 && !(lo.loInc && hi.hiInc))) return null;
+  }
+  return { lo: lo.lo, loInc: lo.loInc, hi: hi.hi, hiInc: hi.hiInc };
+}
+
+function isEmptyRange<T>(
+  r: RangeBounds<T>,
+  cmp: (a: T, b: T) => number,
+): boolean {
+  if (r.lo === null || r.hi === null) return false;
+  const c = cmp(r.lo, r.hi);
+  if (c > 0) return true;
+  if (c < 0) return false;
+  return !(r.loInc && r.hiInc);
+}
+
+// Points in `a` that are not in `b`.
+function subtractRangeBFromA<T>(
+  a: RangeBounds<T>,
+  b: RangeBounds<T>,
+  cmp: (x: T, y: T) => number,
+): RangeBounds<T>[] {
+  if (isEmptyRange(a, cmp)) return [];
+  if (!rangesOverlap(a, b, cmp)) return [a];
+  if (rangeContains(b, a, cmp)) return [];
+
+  const result: RangeBounds<T>[] = [];
+
+  if (b.lo !== null) {
+    if (a.lo === null) {
+      result.push({ lo: null, loInc: false, hi: b.lo, hiInc: !b.loInc });
+    } else {
+      const c = cmp(a.lo, b.lo);
+      if (c < 0) {
+        result.push({ lo: a.lo, loInc: a.loInc, hi: b.lo, hiInc: !b.loInc });
+      } else if (c === 0 && a.loInc && !b.loInc) {
+        result.push({ lo: a.lo, loInc: true, hi: a.lo, hiInc: true });
+      }
+    }
+  }
+
+  if (b.hi !== null) {
+    if (a.hi === null) {
+      result.push({ lo: b.hi, loInc: !b.hiInc, hi: null, hiInc: false });
+    } else {
+      const c = cmp(a.hi, b.hi);
+      if (c > 0) {
+        result.push({ lo: b.hi, loInc: !b.hiInc, hi: a.hi, hiInc: a.hiInc });
+      } else if (c === 0 && a.hiInc && !b.hiInc) {
+        result.push({ lo: a.hi, loInc: true, hi: a.hi, hiInc: true });
+      }
+    }
+  }
+
+  return result.filter((r) => !isEmptyRange(r, cmp));
+}
+
+function subtractUnionFromRange<T>(
+  target: RangeBounds<T>,
+  union: RangeBounds<T>[],
+  cmp: (x: T, y: T) => number,
+): RangeBounds<T>[] {
+  let remaining: RangeBounds<T>[] = [target];
+  for (const sub of union) {
+    remaining = remaining.flatMap((r) => subtractRangeBFromA(r, sub, cmp));
+  }
+  return remaining;
+}
+
+// True when every value in `target` is covered by at least one interval in `union`.
+function unionCoversTarget<T>(
+  union: RangeBounds<T>[],
+  target: RangeBounds<T>,
+  cmp: (x: T, y: T) => number,
+): boolean {
+  const clipped = union
+    .map((u) => rangeIntersection(u, target, cmp))
+    .filter((r): r is RangeBounds<T> => r !== null);
+  return subtractUnionFromRange(target, clipped, cmp).length === 0;
+}
+
+function formatNumRangeLabel(range: RangeBounds<number>): string {
+  const parts: string[] = [];
+  if (range.lo !== null) {
+    parts.push(range.loInc ? `≥ ${range.lo}` : `> ${range.lo}`);
+  }
+  if (range.hi !== null) {
+    parts.push(range.hiInc ? `≤ ${range.hi}` : `< ${range.hi}`);
+  }
+  return parts.join(", ");
+}
+
+function formatVerRangeLabel(range: RangeBounds<string>): string {
+  const parts: string[] = [];
+  if (range.lo !== null) {
+    parts.push(range.loInc ? `≥ ${range.lo}` : `> ${range.lo}`);
+  }
+  if (range.hi !== null) {
+    parts.push(range.hiInc ? `≤ ${range.hi}` : `< ${range.hi}`);
+  }
+  return parts.join(", ");
+}
+
+const versionCmp = (x: string, y: string) => {
+  const px = paddedVersionString(x);
+  const py = paddedVersionString(y);
+  return px < py ? -1 : px > py ? 1 : 0;
+};
+
+function rangeHardConflicts<T extends number | string>(
+  attr: string,
+  targetBounds: RangeBounds<T>,
+  singleAttr: {
+    id: string;
+    parsed: ParsedTargeting;
+  }[],
+  cmp: (a: T, b: T) => number,
+  format: (range: RangeBounds<T>) => string,
+  atomOp: "num" | "ver",
+): { unreachable: boolean; conflicts: RuleHardConflict[] } {
+  const portions: { id: string; portion: RangeBounds<T> }[] = [];
+
+  for (const c of singleAttr) {
+    const ca = c.parsed.constraints[0].atom;
+    if (ca.op !== atomOp) continue;
+    const consumerBounds: RangeBounds<T> = {
+      lo: ca.lo as T | null,
+      loInc: ca.loInc,
+      hi: ca.hi as T | null,
+      hiInc: ca.hiInc,
+    };
+
+    if (rangeContains(consumerBounds, targetBounds, cmp)) {
+      return {
+        unreachable: true,
+        conflicts: [
+          {
+            consumingRuleId: c.id,
+            attr,
+            label: format(targetBounds),
+          },
+        ],
+      };
+    }
+
+    const portion = rangeIntersection(consumerBounds, targetBounds, cmp);
+    if (portion) portions.push({ id: c.id, portion });
+  }
+
+  if (portions.length === 0) {
+    return { unreachable: false, conflicts: [] };
+  }
+
+  const conflicts: RuleHardConflict[] = portions.map(({ id, portion }) => ({
+    consumingRuleId: id,
+    attr,
+    label: format(portion),
+  }));
+
+  return {
+    unreachable: unionCoversTarget(
+      portions.map((p) => p.portion),
+      targetBounds,
+      cmp,
+    ),
+    conflicts,
+  };
+}
+
 // Can we *prove* two atoms target disjoint populations? Used for soft overlap:
 // when we can't prove they're disjoint, a rule above might consume some of this
 // rule's users. Unhandled combinations conservatively return false (might overlap).
 function provablyDisjoint(a: Atom, b: Atom): boolean {
   if (a.op === "in" && b.op === "in") {
-    return ![...a.values].some((v) => b.values.has(v));
+    return !inSetsOverlap(a, b);
   }
   if (a.op === "in" && b.op === "notIn") {
-    return [...a.values].every((v) => b.values.has(v));
+    return [...a.values].every((v) => setHasValue(b, v));
   }
   if (a.op === "notIn" && b.op === "in") {
-    return [...b.values].every((v) => a.values.has(v));
+    return [...b.values].every((v) => setHasValue(a, v));
   }
   if (a.op === "in") return ![...a.values].some((v) => atomMatchesValue(b, v));
   if (b.op === "in") return ![...b.values].some((v) => atomMatchesValue(a, v));
@@ -415,7 +723,11 @@ export function getRuleReachability(
     const catchAll = consumers.find((c) => c.parsed.catchAll);
     if (catchAll) {
       unreachable = true;
-      hardConflicts.push({ consumingRuleId: catchAll.id, label: null });
+      hardConflicts.push({
+        consumingRuleId: catchAll.id,
+        attr: null,
+        label: null,
+      });
     } else {
       for (const tc of target.constraints) {
         const singleAttr = consumers.filter(
@@ -457,14 +769,13 @@ export function getRuleReachability(
         for (const [id, values] of consumedByRule) {
           hardConflicts.push({
             consumingRuleId: id,
+            attr: tc.attr,
             label: [...values].join(", "),
           });
         }
 
         // Fully unreachable when every listed value is consumed (in-list), or
-        // when a rule above covers an open-ended (not-in) target. Numeric and
-        // version range targets can only be fully consumed by a catch-all
-        // (handled above); we don't compute partial sub-ranges for them.
+        // when a rule above covers an open-ended (not-in) or range target.
         if (tc.atom.op === "in") {
           if (
             tc.atom.values.size > 0 &&
@@ -479,8 +790,48 @@ export function getRuleReachability(
           if (cover) {
             unreachable = true;
             hardAttrs.add(tc.attr);
-            hardConflicts.push({ consumingRuleId: cover.id, label: null });
+            hardConflicts.push({
+              consumingRuleId: cover.id,
+              attr: tc.attr,
+              label: null,
+            });
           }
+        } else if (tc.atom.op === "num") {
+          const { unreachable: rangeUnreachable, conflicts } =
+            rangeHardConflicts(
+              tc.attr,
+              {
+                lo: tc.atom.lo,
+                loInc: tc.atom.loInc,
+                hi: tc.atom.hi,
+                hiInc: tc.atom.hiInc,
+              },
+              singleAttr,
+              (a, b) => a - b,
+              formatNumRangeLabel,
+              "num",
+            );
+          if (conflicts.length > 0) hardAttrs.add(tc.attr);
+          hardConflicts.push(...conflicts);
+          if (rangeUnreachable) unreachable = true;
+        } else if (tc.atom.op === "ver") {
+          const { unreachable: rangeUnreachable, conflicts } =
+            rangeHardConflicts(
+              tc.attr,
+              {
+                lo: tc.atom.lo,
+                loInc: tc.atom.loInc,
+                hi: tc.atom.hi,
+                hiInc: tc.atom.hiInc,
+              },
+              singleAttr,
+              versionCmp,
+              formatVerRangeLabel,
+              "ver",
+            );
+          if (conflicts.length > 0) hardAttrs.add(tc.attr);
+          hardConflicts.push(...conflicts);
+          if (rangeUnreachable) unreachable = true;
         }
       }
     }

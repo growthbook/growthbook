@@ -124,7 +124,9 @@ describe("getRuleReachability — hard conflicts", () => {
     });
     expect(result.get("r3")).toEqual({
       unreachable: false,
-      hardConflicts: [{ consumingRuleId: "r2", label: "Safari" }],
+      hardConflicts: [
+        { consumingRuleId: "r2", attr: "browser", label: "Safari" },
+      ],
       softConflicts: [],
     });
   });
@@ -137,7 +139,7 @@ describe("getRuleReachability — hard conflicts", () => {
     ]);
     expect(result.get("r2")).toEqual({
       unreachable: true,
-      hardConflicts: [{ consumingRuleId: "r1", label: "US" }],
+      hardConflicts: [{ consumingRuleId: "r1", attr: "country", label: "US" }],
       softConflicts: [],
     });
   });
@@ -149,7 +151,7 @@ describe("getRuleReachability — hard conflicts", () => {
     ]);
     expect(result.get("r2")).toEqual({
       unreachable: true,
-      hardConflicts: [{ consumingRuleId: "r1", label: null }],
+      hardConflicts: [{ consumingRuleId: "r1", attr: null, label: null }],
       softConflicts: [],
     });
   });
@@ -192,7 +194,7 @@ describe("getRuleReachability — $ne / $nin", () => {
     ]);
     expect(result.get("r2")).toEqual({
       unreachable: false,
-      hardConflicts: [{ consumingRuleId: "r1", label: "CA" }],
+      hardConflicts: [{ consumingRuleId: "r1", attr: "country", label: "CA" }],
       softConflicts: [],
     });
   });
@@ -205,7 +207,9 @@ describe("getRuleReachability — $ne / $nin", () => {
     ]);
     expect(result.get("r2")).toEqual({
       unreachable: true,
-      hardConflicts: [{ consumingRuleId: "r1", label: "US, CA" }],
+      hardConflicts: [
+        { consumingRuleId: "r1", attr: "country", label: "US, CA" },
+      ],
       softConflicts: [],
     });
   });
@@ -218,7 +222,7 @@ describe("getRuleReachability — $ne / $nin", () => {
     ]);
     expect(result.get("r2")).toEqual({
       unreachable: true,
-      hardConflicts: [{ consumingRuleId: "r1", label: null }],
+      hardConflicts: [{ consumingRuleId: "r1", attr: "country", label: null }],
       softConflicts: [],
     });
   });
@@ -231,7 +235,9 @@ describe("getRuleReachability — $ne / $nin", () => {
     ]);
     expect(result.get("r2")).toEqual({
       unreachable: false,
-      hardConflicts: [{ consumingRuleId: "r1", label: "chrome" }],
+      hardConflicts: [
+        { consumingRuleId: "r1", attr: "browser", label: "chrome" },
+      ],
       softConflicts: [],
     });
   });
@@ -250,6 +256,78 @@ describe("getRuleReachability — $ne / $nin", () => {
   });
 });
 
+describe("getRuleReachability — $ini / $nini (case-insensitive)", () => {
+  it("detects soft overlap when a partial rule above uses `$ini` with different casing", () => {
+    const result = analyze([
+      rollout("r1", 0.5, cond({ browser: { $ini: ["safari"] } })),
+      force("r2", { condition: cond({ browser: "Safari" }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [{ attr: "browser", consumingRuleIds: ["r1"] }],
+    });
+  });
+
+  it("hard-consumes when a force above matches an `$ini` target with different casing", () => {
+    const result = analyze([
+      force("r1", { condition: cond({ browser: "Safari" }) }),
+      force("r2", { condition: cond({ browser: { $ini: ["safari"] } }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: true,
+      hardConflicts: [
+        { consumingRuleId: "r1", attr: "browser", label: "Safari" },
+      ],
+      softConflicts: [],
+    });
+  });
+
+  it("detects partial hard conflict across mixed `$ini` and `$in` casing", () => {
+    const result = analyze([
+      force("r1", { condition: cond({ browser: { $ini: ["safari"] } }) }),
+      force("r2", {
+        condition: cond({
+          browser: { $in: ["Firefox", "Safari", "Chrome"] },
+        }),
+      }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [
+        { consumingRuleId: "r1", attr: "browser", label: "Safari" },
+      ],
+      softConflicts: [],
+    });
+  });
+
+  it("treats `$nini` as case-insensitive when covering a broader `$nin` rule", () => {
+    const result = analyze([
+      force("r1", { condition: cond({ country: { $ne: "US" } }) }),
+      force("r2", {
+        condition: cond({ country: { $nini: ["us", "ca"] } }),
+      }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: true,
+      hardConflicts: [{ consumingRuleId: "r1", attr: "country", label: null }],
+      softConflicts: [],
+    });
+  });
+
+  it("still treats case-sensitive `$in` as disjoint when only casing differs", () => {
+    const result = analyze([
+      force("r1", { condition: cond({ browser: { $in: ["safari"] } }) }),
+      force("r2", { condition: cond({ browser: "Safari" }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [],
+    });
+  });
+});
+
 describe("getRuleReachability — numeric & version ranges", () => {
   it("a numeric range above consumes matching listed values", () => {
     const result = analyze([
@@ -258,7 +336,7 @@ describe("getRuleReachability — numeric & version ranges", () => {
     ]);
     expect(result.get("r2")).toEqual({
       unreachable: false,
-      hardConflicts: [{ consumingRuleId: "r1", label: "21" }],
+      hardConflicts: [{ consumingRuleId: "r1", attr: "age", label: "21" }],
       softConflicts: [],
     });
   });
@@ -270,7 +348,7 @@ describe("getRuleReachability — numeric & version ranges", () => {
     ]);
     expect(result.get("r2")).toEqual({
       unreachable: true,
-      hardConflicts: [{ consumingRuleId: "r1", label: "20, 30" }],
+      hardConflicts: [{ consumingRuleId: "r1", attr: "age", label: "20, 30" }],
       softConflicts: [],
     });
   });
@@ -284,7 +362,107 @@ describe("getRuleReachability — numeric & version ranges", () => {
     ]);
     expect(result.get("r2")).toEqual({
       unreachable: false,
-      hardConflicts: [{ consumingRuleId: "r1", label: "2.1.0" }],
+      hardConflicts: [
+        { consumingRuleId: "r1", attr: "version", label: "2.1.0" },
+      ],
+      softConflicts: [],
+    });
+  });
+
+  it("marks a narrower numeric range below a wider one unreachable", () => {
+    const result = analyze([
+      force("r1", { condition: cond({ age: { $gt: 18 } }) }),
+      force("r2", { condition: cond({ age: { $gt: 21 } }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: true,
+      hardConflicts: [{ consumingRuleId: "r1", attr: "age", label: "> 21" }],
+      softConflicts: [],
+    });
+  });
+
+  it("reports a hard conflict for the overlapping sub-range of two numeric ranges", () => {
+    const result = analyze([
+      force("r1", { condition: cond({ age: { $gt: 18 } }) }),
+      force("r2", { condition: cond({ age: { $lt: 21 } }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [
+        { consumingRuleId: "r1", attr: "age", label: "> 18, < 21" },
+      ],
+      softConflicts: [],
+    });
+  });
+
+  it("marks a narrower version range below a wider one unreachable", () => {
+    const result = analyze([
+      force("r1", { condition: cond({ version: { $vgte: "2.0.0" } }) }),
+      force("r2", { condition: cond({ version: { $vgte: "3.0.0" } }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: true,
+      hardConflicts: [
+        { consumingRuleId: "r1", attr: "version", label: "≥ 3.0.0" },
+      ],
+      softConflicts: [],
+    });
+  });
+
+  it("reports a hard conflict for overlapping version ranges", () => {
+    const result = analyze([
+      force("r1", { condition: cond({ version: { $vgte: "2.0.0" } }) }),
+      force("r2", { condition: cond({ version: { $vlt: "3.0.0" } }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [
+        { consumingRuleId: "r1", attr: "version", label: "≥ 2.0.0, < 3.0.0" },
+      ],
+      softConflicts: [],
+    });
+  });
+
+  it("marks a rule unreachable when complementary ranges above fully cover it", () => {
+    const result = analyze([
+      force("r1", { condition: cond({ age: { $gt: 18 } }) }),
+      force("r2", { condition: cond({ age: { $lte: 18 } }) }),
+      force("r3", { condition: cond({ age: { $gte: 10 } }) }),
+    ]);
+    expect(result.get("r3")).toEqual({
+      unreachable: true,
+      hardConflicts: [
+        { consumingRuleId: "r1", attr: "age", label: "> 18" },
+        { consumingRuleId: "r2", attr: "age", label: "≥ 10, ≤ 18" },
+      ],
+      softConflicts: [],
+    });
+  });
+
+  it("marks any age-targeting rule unreachable after complementary ranges split the line", () => {
+    const result = analyze([
+      force("r1", { condition: cond({ age: { $gt: 18 } }) }),
+      force("r2", { condition: cond({ age: { $lte: 18 } }) }),
+      force("r3", { condition: cond({ age: { $gt: 21 } }) }),
+    ]);
+    expect(result.get("r3")).toEqual({
+      unreachable: true,
+      hardConflicts: [{ consumingRuleId: "r1", attr: "age", label: "> 21" }],
+      softConflicts: [],
+    });
+  });
+
+  it("does not mark unreachable when complementary ranges leave a gap in the target", () => {
+    const result = analyze([
+      force("r1", { condition: cond({ age: { $gt: 18 } }) }),
+      force("r2", { condition: cond({ age: { $lt: 10 } }) }),
+      force("r3", { condition: cond({ age: { $gte: 10, $lte: 20 } }) }),
+    ]);
+    expect(result.get("r3")).toEqual({
+      unreachable: false,
+      hardConflicts: [
+        { consumingRuleId: "r1", attr: "age", label: "> 18, ≤ 20" },
+      ],
       softConflicts: [],
     });
   });
@@ -394,7 +572,7 @@ describe("getRuleReachability — untargeted partial rollout above", () => {
     ]);
     expect(result.get("r2")).toEqual({
       unreachable: true,
-      hardConflicts: [{ consumingRuleId: "r1", label: null }],
+      hardConflicts: [{ consumingRuleId: "r1", attr: null, label: null }],
       softConflicts: [],
     });
   });
@@ -522,7 +700,7 @@ describe("getRuleReachability — experiment rules", () => {
     ]);
     expect(result.get("e2")).toEqual({
       unreachable: true,
-      hardConflicts: [{ consumingRuleId: "r1", label: "US" }],
+      hardConflicts: [{ consumingRuleId: "r1", attr: "country", label: "US" }],
       softConflicts: [],
     });
   });
@@ -568,7 +746,7 @@ describe("getRuleReachability — experiment-ref rules", () => {
     );
     expect(result.get("ref1")).toEqual({
       unreachable: true,
-      hardConflicts: [{ consumingRuleId: "r1", label: "US" }],
+      hardConflicts: [{ consumingRuleId: "r1", attr: "country", label: "US" }],
       softConflicts: [],
     });
   });
@@ -678,8 +856,8 @@ describe("getRuleReachability — compound & edge-case targeting", () => {
     expect(result.get("r3")).toEqual({
       unreachable: false,
       hardConflicts: [
-        { consumingRuleId: "r1", label: "Safari" },
-        { consumingRuleId: "r2", label: "Chrome" },
+        { consumingRuleId: "r1", attr: "browser", label: "Safari" },
+        { consumingRuleId: "r2", attr: "browser", label: "Chrome" },
       ],
       softConflicts: [],
     });
@@ -694,8 +872,8 @@ describe("getRuleReachability — compound & edge-case targeting", () => {
     expect(result.get("r3")).toEqual({
       unreachable: true,
       hardConflicts: [
-        { consumingRuleId: "r1", label: "US" },
-        { consumingRuleId: "r2", label: "CA" },
+        { consumingRuleId: "r1", attr: "country", label: "US" },
+        { consumingRuleId: "r2", attr: "country", label: "CA" },
       ],
       softConflicts: [],
     });
@@ -723,7 +901,7 @@ describe("getRuleReachability — compound & edge-case targeting", () => {
     ]);
     expect(result.get("r2")?.softConflicts).toEqual([]);
     expect(result.get("r2")?.hardConflicts).toEqual([
-      { consumingRuleId: "r1", label: "US" },
+      { consumingRuleId: "r1", attr: "country", label: "US" },
     ]);
   });
 
