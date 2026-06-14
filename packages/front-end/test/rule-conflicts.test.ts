@@ -1,0 +1,754 @@
+import { FeatureRule } from "shared/types/feature";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { getRuleReachability } from "@/services/rule-conflicts";
+
+const noExperiments = new Map<string, ExperimentInterfaceStringDates>();
+const cond = (obj: unknown) => JSON.stringify(obj);
+
+// Minimal rule builders — the analyzer only reads
+// id/type/enabled/condition/savedGroups/prerequisites/coverage.
+type Extra = {
+  condition?: string;
+  savedGroups?: { ids: string[]; match: "all" | "any" | "none" }[];
+  enabled?: boolean;
+};
+function force(id: string, extra: Extra = {}): FeatureRule {
+  return {
+    id,
+    type: "force",
+    value: "true",
+    description: "",
+    enabled: extra.enabled ?? true,
+    condition: extra.condition,
+    savedGroups: extra.savedGroups,
+  } as unknown as FeatureRule;
+}
+function rollout(
+  id: string,
+  coverage: number,
+  condition?: string,
+): FeatureRule {
+  return {
+    id,
+    type: "rollout",
+    value: "true",
+    coverage,
+    hashAttribute: "id",
+    description: "",
+    enabled: true,
+    condition,
+  } as unknown as FeatureRule;
+}
+function experiment(
+  id: string,
+  coverage: number,
+  condition?: string,
+  extra: Extra = {},
+): FeatureRule {
+  return {
+    id,
+    type: "experiment",
+    trackingKey: id,
+    hashAttribute: "id",
+    coverage,
+    values: [
+      { value: "control", weight: 0.5 },
+      { value: "treatment", weight: 0.5 },
+    ],
+    description: "",
+    enabled: extra.enabled ?? true,
+    condition,
+  } as unknown as FeatureRule;
+}
+function experimentRef(
+  id: string,
+  experimentId: string,
+  condition?: string,
+  extra: Extra = {},
+): FeatureRule {
+  return {
+    id,
+    type: "experiment-ref",
+    experimentId,
+    variations: [
+      { variationId: "v0", value: "control" },
+      { variationId: "v1", value: "treatment" },
+    ],
+    description: "",
+    enabled: extra.enabled ?? true,
+    condition,
+  } as unknown as FeatureRule;
+}
+function linkedExperiment(
+  id: string,
+  overrides: Partial<ExperimentInterfaceStringDates> = {},
+): ExperimentInterfaceStringDates {
+  return {
+    id,
+    status: "running",
+    archived: false,
+    ...overrides,
+  } as ExperimentInterfaceStringDates;
+}
+
+function analyze(
+  rules: FeatureRule[],
+  savedGroupAttributes?: Map<string, string[]>,
+) {
+  return getRuleReachability(rules, noExperiments, savedGroupAttributes);
+}
+function analyzeWithExperiments(
+  rules: FeatureRule[],
+  experiments: Map<string, ExperimentInterfaceStringDates>,
+  savedGroupAttributes?: Map<string, string[]>,
+) {
+  return getRuleReachability(rules, experiments, savedGroupAttributes);
+}
+
+describe("getRuleReachability — hard conflicts", () => {
+  it("flags a partial conflict when a value the rule targets is fully served above", () => {
+    // The Safari example: a `browser = Safari` force above consumes the Safari
+    // branch of `browser IN [Firefox, Safari, Chrome]`.
+    const result = analyze([
+      rollout("r1", 0.6, cond({ country: "US" })),
+      force("r2", { condition: cond({ browser: "Safari" }) }),
+      force("r3", {
+        condition: cond({ browser: { $in: ["Firefox", "Safari", "Chrome"] } }),
+      }),
+    ]);
+    // r1 (partial rollout) doesn't fully consume anyone, so r2 is clean.
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [],
+    });
+    expect(result.get("r3")).toEqual({
+      unreachable: false,
+      hardConflicts: [{ consumingRuleId: "r2", label: "Safari" }],
+      softConflicts: [],
+    });
+  });
+
+  it("treats a rule as unreachable when its targeting is fully covered above", () => {
+    // country = US below a country IN [US, CA] force — the false-negative case.
+    const result = analyze([
+      force("r1", { condition: cond({ country: { $in: ["US", "CA"] } }) }),
+      force("r2", { condition: cond({ country: "US" }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: true,
+      hardConflicts: [{ consumingRuleId: "r1", label: "US" }],
+      softConflicts: [],
+    });
+  });
+
+  it("marks all rules after an unconditional rule unreachable", () => {
+    const result = analyze([
+      force("r1"),
+      force("r2", { condition: cond({ browser: "Safari" }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: true,
+      hardConflicts: [{ consumingRuleId: "r1", label: null }],
+      softConflicts: [],
+    });
+  });
+
+  it("does not warn when a small segment is peeled off a broad rule above", () => {
+    // force ON for admins/beta, then roll out to everyone: the rollout doesn't
+    // target `role`, so consuming admins is expected, not a conflict.
+    const result = analyze([
+      force("r1", { condition: cond({ role: { $in: ["admin", "beta"] } }) }),
+      force("r2"),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [],
+    });
+  });
+
+  it("ignores disabled rules as consumers", () => {
+    const result = analyze([
+      force("r1", { enabled: false, condition: cond({ browser: "Safari" }) }),
+      force("r2", {
+        condition: cond({ browser: { $in: ["Safari", "Chrome"] } }),
+      }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [],
+    });
+  });
+});
+
+describe("getRuleReachability — $ne / $nin", () => {
+  it("a `$ne` rule above consumes the matching value of an in-list rule", () => {
+    // country != US consumes CA (which is not US); US still reaches.
+    const result = analyze([
+      force("r1", { condition: cond({ country: { $ne: "US" } }) }),
+      force("r2", { condition: cond({ country: { $in: ["US", "CA"] } }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [{ consumingRuleId: "r1", label: "CA" }],
+      softConflicts: [],
+    });
+  });
+
+  it("a `$nin` rule above can make a rule fully unreachable", () => {
+    // country not in [MX] consumes both US and CA.
+    const result = analyze([
+      force("r1", { condition: cond({ country: { $nin: ["MX"] } }) }),
+      force("r2", { condition: cond({ country: { $in: ["US", "CA"] } }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: true,
+      hardConflicts: [{ consumingRuleId: "r1", label: "US, CA" }],
+      softConflicts: [],
+    });
+  });
+
+  it("a `$ne` rule covers a broader `$nin` rule", () => {
+    // country != US covers country not in [US, CA] (a subset of non-US).
+    const result = analyze([
+      force("r1", { condition: cond({ country: { $ne: "US" } }) }),
+      force("r2", { condition: cond({ country: { $nin: ["US", "CA"] } }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: true,
+      hardConflicts: [{ consumingRuleId: "r1", label: null }],
+      softConflicts: [],
+    });
+  });
+
+  it("an `= value` rule above carves a value out of an open-ended `!=` rule", () => {
+    // browser = chrome consumes the chrome users that `browser != firefox` wanted.
+    const result = analyze([
+      force("r1", { condition: cond({ browser: "chrome" }) }),
+      force("r2", { condition: cond({ browser: { $ne: "firefox" } }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [{ consumingRuleId: "r1", label: "chrome" }],
+      softConflicts: [],
+    });
+  });
+
+  it("does not flag a value the open-ended rule itself excludes", () => {
+    // browser = firefox above doesn't conflict with `browser != firefox`.
+    const result = analyze([
+      force("r1", { condition: cond({ browser: "firefox" }) }),
+      force("r2", { condition: cond({ browser: { $ne: "firefox" } }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [],
+    });
+  });
+});
+
+describe("getRuleReachability — numeric & version ranges", () => {
+  it("a numeric range above consumes matching listed values", () => {
+    const result = analyze([
+      force("r1", { condition: cond({ age: { $gte: 18 } }) }),
+      force("r2", { condition: cond({ age: { $in: [15, 21] } }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [{ consumingRuleId: "r1", label: "21" }],
+      softConflicts: [],
+    });
+  });
+
+  it("a numeric range above can make a listed-value rule unreachable", () => {
+    const result = analyze([
+      force("r1", { condition: cond({ age: { $gt: 10 } }) }),
+      force("r2", { condition: cond({ age: { $in: [20, 30] } }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: true,
+      hardConflicts: [{ consumingRuleId: "r1", label: "20, 30" }],
+      softConflicts: [],
+    });
+  });
+
+  it("a version range above consumes matching listed versions", () => {
+    const result = analyze([
+      force("r1", { condition: cond({ version: { $vgte: "2.0.0" } }) }),
+      force("r2", {
+        condition: cond({ version: { $in: ["1.5.0", "2.1.0"] } }),
+      }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [{ consumingRuleId: "r1", label: "2.1.0" }],
+      softConflicts: [],
+    });
+  });
+});
+
+describe("getRuleReachability — soft conflicts (attribute overlap)", () => {
+  it("warns softly when a rule above targets the same attribute via regex", () => {
+    const result = analyze([
+      force("r1", { condition: cond({ browser: "Safari" }) }),
+      force("r2", { condition: cond({ browser: { $regex: "Saf.*" } }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [{ attr: "browser", consumingRuleIds: ["r1"] }],
+    });
+  });
+
+  it("warns softly when a rule above targets the same attribute inside an $or", () => {
+    const result = analyze([
+      force("r1", {
+        condition: cond({ $or: [{ country: "US" }, { browser: "Safari" }] }),
+      }),
+      force("r2", { condition: cond({ country: "CA" }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [{ attr: "country", consumingRuleIds: ["r1"] }],
+    });
+  });
+
+  it("warns softly when a rule above targets the attribute via a saved group", () => {
+    const savedGroupAttributes = new Map<string, string[]>([
+      ["grp_country", ["country"]],
+    ]);
+    const result = analyze(
+      [
+        force("r1", { savedGroups: [{ ids: ["grp_country"], match: "any" }] }),
+        force("r2", { condition: cond({ country: "CA" }) }),
+      ],
+      savedGroupAttributes,
+    );
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [{ attr: "country", consumingRuleIds: ["r1"] }],
+    });
+  });
+
+  it("includes partial-coverage rules above as soft consumers", () => {
+    // A 50% rollout above isn't a hard consumer, but it still overlaps.
+    const result = analyze([
+      rollout("r1", 0.5, cond({ browser: { $regex: "Saf" } })),
+      force("r2", { condition: cond({ browser: "Safari" }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [{ attr: "browser", consumingRuleIds: ["r1"] }],
+    });
+  });
+
+  it("does not warn when both rules model the attribute and are disjoint", () => {
+    const result = analyze([
+      force("r1", { condition: cond({ country: "US" }) }),
+      force("r2", { condition: cond({ country: "CA" }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [],
+    });
+  });
+
+  it("does not warn when an opaque rule above targets a different attribute", () => {
+    const result = analyze([
+      force("r1", { condition: cond({ country: "US" }) }),
+      force("r2", { condition: cond({ browser: { $regex: "Saf" } }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [],
+    });
+  });
+});
+
+describe("getRuleReachability — untargeted partial rollout above", () => {
+  it("warns softly when an untargeted partial rollout siphons traffic", () => {
+    // 95% rollout above takes most traffic; only ~5% reaches `country = US`.
+    const result = analyze([
+      rollout("r1", 0.95),
+      force("r2", { condition: cond({ country: "US" }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [{ attr: null, consumingRuleIds: ["r1"] }],
+    });
+  });
+
+  it("is unreachable (not soft) when the untargeted rollout is 100%", () => {
+    const result = analyze([
+      rollout("r1", 1),
+      force("r2", { condition: cond({ country: "US" }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: true,
+      hardConflicts: [{ consumingRuleId: "r1", label: null }],
+      softConflicts: [],
+    });
+  });
+
+  it("does not warn for a 0% (inactive) rollout", () => {
+    const result = analyze([
+      rollout("r1", 0),
+      force("r2", { condition: cond({ country: "US" }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [],
+    });
+  });
+
+  it("does not siphon when the partial rollout is targeted (not catch-all)", () => {
+    // A targeted 95% rollout only affects its own segment, not all traffic.
+    const result = analyze([
+      rollout("r1", 0.95, cond({ country: "US" })),
+      force("r2", { condition: cond({ browser: "chrome" }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [],
+    });
+  });
+});
+
+describe("getRuleReachability — partial overlap on a targeted attribute", () => {
+  it("warns softly when a partial rollout above overlaps the same targeting", () => {
+    // country = US @ 90% consumes most US users before `country = US` is reached.
+    const result = analyze([
+      rollout("r1", 0.9, cond({ country: "US" })),
+      force("r2", { condition: cond({ country: "US" }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [{ attr: "country", consumingRuleIds: ["r1"] }],
+    });
+  });
+
+  it("does not warn when the overlapping rules target disjoint values", () => {
+    const result = analyze([
+      rollout("r1", 0.9, cond({ country: "US" })),
+      force("r2", { condition: cond({ country: "CA" }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [],
+    });
+  });
+
+  it("does not warn when the overlapping rule above consumes no traffic", () => {
+    const result = analyze([
+      rollout("r1", 0, cond({ country: "US" })),
+      force("r2", { condition: cond({ country: "US" }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [],
+    });
+  });
+});
+
+describe("getRuleReachability — experiment rules", () => {
+  it("warns softly when a partial experiment above overlaps the same targeting", () => {
+    const result = analyze([
+      experiment("e1", 0.5, cond({ country: "US" })),
+      force("r2", { condition: cond({ country: "US" }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [{ attr: "country", consumingRuleIds: ["e1"] }],
+    });
+  });
+
+  it("warns softly when an untargeted partial experiment siphons traffic", () => {
+    const result = analyze([
+      experiment("e1", 0.5),
+      force("r2", { condition: cond({ country: "US" }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [{ attr: null, consumingRuleIds: ["e1"] }],
+    });
+  });
+
+  it("does not hard-consume even at 100% experiment coverage", () => {
+    // Experiments are treated conservatively — unlike a 100% rollout, they
+    // never count as fully consuming their matched population.
+    const result = analyze([
+      experiment("e1", 1, cond({ country: { $in: ["US", "CA"] } })),
+      force("r2", { condition: cond({ country: "US" }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [{ attr: "country", consumingRuleIds: ["e1"] }],
+    });
+  });
+
+  it("does not warn for a 0% (inactive) experiment", () => {
+    const result = analyze([
+      experiment("e1", 0, cond({ country: "US" })),
+      force("r2", { condition: cond({ country: "US" }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [],
+    });
+  });
+
+  it("flags a hard conflict when a force above fully serves the experiment's segment", () => {
+    const result = analyze([
+      force("r1", { condition: cond({ country: "US" }) }),
+      experiment("e2", 1, cond({ country: "US" })),
+    ]);
+    expect(result.get("e2")).toEqual({
+      unreachable: true,
+      hardConflicts: [{ consumingRuleId: "r1", label: "US" }],
+      softConflicts: [],
+    });
+  });
+
+  it("ignores disabled experiment rules as consumers", () => {
+    const result = analyze([
+      experiment("e1", 1, cond({ country: "US" }), { enabled: false }),
+      force("r2", { condition: cond({ country: "US" }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [],
+    });
+  });
+
+  it("does not siphon when the experiment is targeted (not catch-all)", () => {
+    const result = analyze([
+      experiment("e1", 0.95, cond({ country: "US" })),
+      force("r2", { condition: cond({ browser: "chrome" }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [],
+    });
+  });
+});
+
+describe("getRuleReachability — experiment-ref rules", () => {
+  const expMap = new Map([
+    ["exp1", linkedExperiment("exp1")],
+    ["exp_archived", linkedExperiment("exp_archived", { archived: true })],
+  ]);
+
+  it("marks an experiment-ref unreachable when a force above fully serves its segment", () => {
+    const result = analyzeWithExperiments(
+      [
+        force("r1", { condition: cond({ country: "US" }) }),
+        experimentRef("ref1", "exp1", cond({ country: "US" })),
+      ],
+      expMap,
+    );
+    expect(result.get("ref1")).toEqual({
+      unreachable: true,
+      hardConflicts: [{ consumingRuleId: "r1", label: "US" }],
+      softConflicts: [],
+    });
+  });
+
+  it("warns softly when an experiment-ref above overlaps the same attribute", () => {
+    const result = analyzeWithExperiments(
+      [
+        experimentRef("ref1", "exp1", cond({ country: "US" })),
+        force("r2", { condition: cond({ country: "US" }) }),
+      ],
+      expMap,
+    );
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [{ attr: "country", consumingRuleIds: ["ref1"] }],
+    });
+  });
+
+  it("does not treat experiment-ref rules as traffic siphons", () => {
+    const result = analyzeWithExperiments(
+      [
+        experimentRef("ref1", "exp1"),
+        force("r2", { condition: cond({ country: "US" }) }),
+      ],
+      expMap,
+    );
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [],
+    });
+  });
+
+  it("ignores inactive experiment-ref rules (archived linked experiment)", () => {
+    const result = analyzeWithExperiments(
+      [
+        experimentRef("ref1", "exp_archived", cond({ country: "US" })),
+        force("r2", { condition: cond({ country: "US" }) }),
+      ],
+      expMap,
+    );
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [],
+    });
+  });
+
+  it("ignores experiment-ref rules when the linked experiment is missing", () => {
+    const result = analyzeWithExperiments(
+      [
+        experimentRef("ref1", "exp_missing", cond({ country: "US" })),
+        force("r2", { condition: cond({ country: "US" }) }),
+      ],
+      expMap,
+    );
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [],
+    });
+  });
+});
+
+describe("getRuleReachability — compound & edge-case targeting", () => {
+  it("does not hard-consume when the rule above has a multi-attribute $and", () => {
+    // A two-attribute force isn't a reliable single-attr consumer, so it can't
+    // prove that `country = US` alone is fully served above.
+    const result = analyze([
+      force("r1", {
+        condition: cond({
+          $and: [{ country: "US" }, { browser: "Safari" }],
+        }),
+      }),
+      force("r2", { condition: cond({ country: "US" }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [{ attr: "country", consumingRuleIds: ["r1"] }],
+    });
+  });
+
+  it("warns softly when the target rule uses a top-level $or", () => {
+    const result = analyze([
+      force("r1", { condition: cond({ country: "US" }) }),
+      force("r2", {
+        condition: cond({ $or: [{ country: "US" }, { country: "CA" }] }),
+      }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [{ attr: "country", consumingRuleIds: ["r1"] }],
+    });
+  });
+
+  it("reports multiple hard conflicts from different consuming rules", () => {
+    const result = analyze([
+      force("r1", { condition: cond({ browser: "Safari" }) }),
+      force("r2", { condition: cond({ browser: "Chrome" }) }),
+      force("r3", {
+        condition: cond({ browser: { $in: ["Safari", "Chrome", "Firefox"] } }),
+      }),
+    ]);
+    expect(result.get("r3")).toEqual({
+      unreachable: false,
+      hardConflicts: [
+        { consumingRuleId: "r1", label: "Safari" },
+        { consumingRuleId: "r2", label: "Chrome" },
+      ],
+      softConflicts: [],
+    });
+  });
+
+  it("marks a rule unreachable when multiple forces consume every listed value", () => {
+    const result = analyze([
+      force("r1", { condition: cond({ country: "US" }) }),
+      force("r2", { condition: cond({ country: "CA" }) }),
+      force("r3", { condition: cond({ country: { $in: ["US", "CA"] } }) }),
+    ]);
+    expect(result.get("r3")).toEqual({
+      unreachable: true,
+      hardConflicts: [
+        { consumingRuleId: "r1", label: "US" },
+        { consumingRuleId: "r2", label: "CA" },
+      ],
+      softConflicts: [],
+    });
+  });
+
+  it("warns softly when prerequisites on the rule above prevent hard consumption", () => {
+    const result = analyze([
+      {
+        ...force("r1", { condition: cond({ country: "US" }) }),
+        prerequisites: [{ id: "feat-a", condition: cond({ loggedIn: true }) }],
+      } as FeatureRule,
+      force("r2", { condition: cond({ country: "US" }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [{ attr: "country", consumingRuleIds: ["r1"] }],
+    });
+  });
+
+  it("does not double-report soft conflicts when hard conflicts already cover the attribute", () => {
+    const result = analyze([
+      force("r1", { condition: cond({ country: "US" }) }),
+      force("r2", { condition: cond({ country: { $in: ["US", "CA"] } }) }),
+    ]);
+    expect(result.get("r2")?.softConflicts).toEqual([]);
+    expect(result.get("r2")?.hardConflicts).toEqual([
+      { consumingRuleId: "r1", label: "US" },
+    ]);
+  });
+
+  it("accumulates multiple soft consumers on the same attribute", () => {
+    const result = analyze([
+      rollout("r1", 0.5, cond({ country: "US" })),
+      experiment("e1", 0.5, cond({ country: "US" })),
+      force("r2", { condition: cond({ country: "US" }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [{ attr: "country", consumingRuleIds: ["r1", "e1"] }],
+    });
+  });
+
+  it("does not warn when disjoint $in lists share an attribute name only", () => {
+    const result = analyze([
+      force("r1", { condition: cond({ tier: { $in: ["gold", "platinum"] } }) }),
+      force("r2", { condition: cond({ tier: { $in: ["silver", "bronze"] } }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [],
+    });
+  });
+});

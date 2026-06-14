@@ -1094,45 +1094,6 @@ export function getDefaultRuleValue({
   throw new Error("Unknown Rule Type: " + ruleType);
 }
 
-export function getUnreachableRuleIndex(
-  rules: FeatureRule[],
-  experimentsMap: Map<string, ExperimentInterfaceStringDates>,
-) {
-  for (let i = 0; i < rules.length; i++) {
-    const rule = rules[i];
-
-    // Skip over inactive rules
-    if (isRuleInactive(rule, experimentsMap)) continue;
-
-    // Skip rules that are conditional based on a schedule
-    const upcomingScheduleRule = getUpcomingScheduleRule(rule);
-    if (upcomingScheduleRule && upcomingScheduleRule.timestamp) {
-      continue;
-    }
-
-    // Skip rules with targeting conditions
-    if (rule.condition && rule.condition !== "{}") {
-      continue;
-    }
-    if (rule.savedGroups?.length) {
-      continue;
-    }
-    if (rule.prerequisites?.length) {
-      continue;
-    }
-
-    // Only force rules and 100%-coverage rollouts consume all traffic
-    const isFullCoverage =
-      rule.type === "force" || (rule.type === "rollout" && rule.coverage >= 1);
-    if (!isFullCoverage) continue;
-
-    return i + 1;
-  }
-
-  // No unreachable rules
-  return 0;
-}
-
 export function jsonToConds(
   json: string,
   attributes?: Map<string, AttributeData>,

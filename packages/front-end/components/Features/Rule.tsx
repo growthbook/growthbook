@@ -189,6 +189,14 @@ import ExperimentRefSummary, {
   isExperimentRefRuleSkipped,
 } from "./ExperimentRefSummary";
 
+// Targeting conflicts resolved for display (rule ids → visible rule numbers).
+export type RuleConflictInfo = {
+  // Precise: a rule above fully serves these targeted values ("will not reach").
+  hard: { ruleNumber?: number; label: string | null }[];
+  // Soft: a rule above also targets this attribute ("may not reach").
+  soft: { attr: string | null; ruleNumbers: number[] }[];
+};
+
 interface SortableProps {
   // Global flat index into `feature.rules`; fallback addressing for the modal.
   i: number;
@@ -205,6 +213,9 @@ interface SortableProps {
     detachRampOnSave?: boolean;
   }) => void;
   unreachable?: boolean;
+  // Targeting conflicts for the callout (hard = "will not reach", soft = "may
+  // not reach"). For an unreachable rule, hard holds the rule(s) consuming it.
+  conflicts?: RuleConflictInfo;
   version: number;
   setVersion: (version: number) => void;
   locked: boolean;
@@ -281,6 +292,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       mutate,
       handle,
       unreachable,
+      conflicts,
       version,
       setVersion,
       locked,
@@ -429,6 +441,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       experimentsMap,
       isDraft,
       unreachable,
+      conflicts,
       rampSchedule,
     });
 
@@ -1633,6 +1646,81 @@ function SkippedPill() {
   );
 }
 
+function hardSentence(c: {
+  ruleNumber?: number;
+  label: string | null;
+}): string {
+  const ref = c.ruleNumber ? `Rule ${c.ruleNumber}` : "An earlier rule";
+  return c.label === null
+    ? `${ref} already serves all traffic before it reaches this rule.`
+    : `${ref} already serves all ${c.label} users.`;
+}
+
+function softSentence(c: {
+  attr: string | null;
+  ruleNumbers: number[];
+}): string {
+  const nums = c.ruleNumbers.filter((n) => n > 0);
+  const refs = nums.length
+    ? nums.map((n) => `Rule ${n}`).join(", ")
+    : "An earlier rule";
+  // `attr` null → an untargeted partial rollout above siphons traffic.
+  if (c.attr === null) {
+    const verb = nums.length > 1 ? "serve" : "serves";
+    return `${refs} ${verb} a share of all traffic before it reaches this rule, so some users may not reach it.`;
+  }
+  const verb = nums.length > 1 ? "target" : "targets";
+  return `${refs} also ${verb} the ${c.attr} attribute, so some users may be served there first.`;
+}
+
+// Generic warning that some/all targeted users won't (or may not) reach this
+// rule, with an expandable explanation of which rule(s) consume them.
+function ConflictCallout({
+  unreachable,
+  conflicts,
+}: {
+  unreachable: boolean;
+  conflicts: RuleConflictInfo;
+}) {
+  const [open, setOpen] = useState(false);
+  const hasHard = conflicts.hard.length > 0;
+  const hasSoft = conflicts.soft.length > 0;
+  const headline = unreachable
+    ? "No users will reach this rule."
+    : hasHard
+      ? "Some of the targeted users will not reach this rule."
+      : "Some of the targeted users may not reach this rule.";
+  const hasDetails = hasHard || hasSoft;
+  return (
+    <Callout status="warning" size="sm">
+      <Flex direction="column" gap="1">
+        <Flex align="center" gap="2" wrap="wrap">
+          <span>{headline}</span>
+          {hasDetails && (
+            <Link role="button" onClick={() => setOpen((o) => !o)}>
+              {open ? "Hide details" : "See details"}
+            </Link>
+          )}
+        </Flex>
+        {open && hasDetails && (
+          <Box mt="1">
+            {conflicts.hard.map((c, i) => (
+              <Text as="p" size="small" key={`h${i}`}>
+                {hardSentence(c)}
+              </Text>
+            ))}
+            {conflicts.soft.map((c, i) => (
+              <Text as="p" size="small" key={`s${i}`}>
+                {softSentence(c)}
+              </Text>
+            ))}
+          </Box>
+        )}
+      </Flex>
+    </Callout>
+  );
+}
+
 export type RuleMetaInfo = {
   pill?: ReactElement;
   callout?: ReactElement;
@@ -1644,12 +1732,14 @@ export function getRuleMetaInfo({
   experimentsMap,
   isDraft,
   unreachable,
+  conflicts,
   rampSchedule,
 }: {
   rule: FeatureRule;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
   isDraft: boolean;
   unreachable?: boolean;
+  conflicts?: RuleConflictInfo;
   rampSchedule?: RampScheduleInterface;
 }): RuleMetaInfo {
   const linkedExperiment =
@@ -1785,12 +1875,20 @@ export function getRuleMetaInfo({
         />
       ),
       callout: (
-        <Callout status="warning" size="sm">
-          Rules above will serve 100% of traffic and this rule will never be
-          used
-        </Callout>
+        <ConflictCallout
+          unreachable
+          conflicts={conflicts ?? { hard: [], soft: [] }}
+        />
       ),
       sideColor: "unreachable",
+    };
+  }
+
+  // Reachable, but a rule above targets some of what this rule targets.
+  if (conflicts && (conflicts.hard.length > 0 || conflicts.soft.length > 0)) {
+    return {
+      callout: <ConflictCallout unreachable={false} conflicts={conflicts} />,
+      sideColor: "active",
     };
   }
 
