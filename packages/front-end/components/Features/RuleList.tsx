@@ -34,11 +34,12 @@ import { useAuth } from "@/services/auth";
 import { getRules, isRuleInactive } from "@/services/features";
 import {
   getRuleReachability,
+  RuleConflictInfo,
   RuleReachability,
 } from "@/services/rule-conflicts";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { Rule, SortableRule, RuleConflictInfo } from "./Rule";
+import { Rule, SortableRule } from "./Rule";
 import { HoldoutRule } from "./HoldoutRule";
 
 type CommonProps = {

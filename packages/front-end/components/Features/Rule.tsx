@@ -53,6 +53,7 @@ import {
   getAttributesWithVersionStringMismatches,
 } from "@/services/features";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
+import { ConflictCallout, RuleConflictInfo } from "@/services/rule-conflicts";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -188,14 +189,6 @@ import ExperimentSummary from "./ExperimentSummary";
 import ExperimentRefSummary, {
   isExperimentRefRuleSkipped,
 } from "./ExperimentRefSummary";
-
-// Targeting conflicts resolved for display (rule ids → visible rule numbers).
-export type RuleConflictInfo = {
-  // Precise: a rule above fully serves these targeted values ("will not reach").
-  hard: { ruleNumber?: number; attr: string | null; label: string | null }[];
-  // Soft: a rule above also targets this attribute ("may not reach").
-  soft: { attr: string | null; ruleNumbers: number[] }[];
-};
 
 interface SortableProps {
   // Global flat index into `feature.rules`; fallback addressing for the modal.
@@ -1646,103 +1639,6 @@ function SkippedPill() {
   );
 }
 
-function hardTargetingPhrase(attr: string, label: string): string {
-  const trimmed = label.trim();
-  if (/^[>≥<≤]/.test(trimmed) || /, [<≥]/.test(label)) {
-    return `${attr} ${label}`;
-  }
-  if (label.includes(", ")) {
-    return `${attr} is one of ${label}`;
-  }
-  return `${attr} is ${label}`;
-}
-
-function hardSentence(c: {
-  ruleNumber?: number;
-  attr: string | null;
-  label: string | null;
-}): string {
-  const ref = c.ruleNumber ? `Rule ${c.ruleNumber}` : "An earlier rule";
-  if (c.label === null) {
-    return c.attr
-      ? `${ref} already serves all traffic matching this rule's ${c.attr} targeting before it reaches this rule.`
-      : `${ref} already serves all traffic before it reaches this rule.`;
-  }
-  if (c.attr) {
-    return `${ref} already serves traffic where ${hardTargetingPhrase(c.attr, c.label)} before it reaches this rule.`;
-  }
-  return `${ref} already serves traffic matching "${c.label}" before it reaches this rule.`;
-}
-
-function softSentence(c: {
-  attr: string | null;
-  ruleNumbers: number[];
-}): string {
-  const nums = c.ruleNumbers.filter((n) => n > 0);
-  const refs = nums.length
-    ? nums.map((n) => `Rule ${n}`).join(", ")
-    : "An earlier rule";
-  // `attr` null → an untargeted partial rollout above siphons traffic.
-  if (c.attr === null) {
-    const verb = nums.length > 1 ? "serve" : "serves";
-    return `${refs} ${verb} a share of all traffic before it reaches this rule, so some matching traffic may not reach it.`;
-  }
-  const verb = nums.length > 1 ? "target" : "targets";
-  return `${refs} also ${verb} ${c.attr}, so some matching traffic may be served there first.`;
-}
-
-// Generic warning that some/all targeted users won't (or may not) reach this
-// rule, with an expandable explanation of which rule(s) consume them.
-function ConflictCallout({
-  unreachable,
-  conflicts,
-}: {
-  unreachable: boolean;
-  conflicts: RuleConflictInfo;
-}) {
-  const [open, setOpen] = useState(false);
-  const hasHard = conflicts.hard.length > 0;
-  const hasSoft = conflicts.soft.length > 0;
-  const headline = unreachable
-    ? "No matching traffic will reach this rule."
-    : hasHard
-      ? "Some matching traffic will not reach this rule."
-      : "Some matching traffic may not reach this rule.";
-  const hasDetails = hasHard || hasSoft;
-  return (
-    <Callout
-      status={unreachable ? "error" : "warning"}
-      size="sm"
-      contentsAs="div"
-    >
-      <Flex direction="column" gap="1">
-        <Flex align="center" gap="2" wrap="wrap">
-          <span>{headline}</span>
-          {hasDetails && (
-            <Link role="button" onClick={() => setOpen((o) => !o)}>
-              {open ? "Hide details" : "See details"}
-            </Link>
-          )}
-        </Flex>
-        {open && hasDetails && (
-          <Flex mt="1" direction="column" gap="1">
-            {conflicts.hard.map((c, i) => (
-              <Text as="div" size="small" key={`h${i}`}>
-                - {hardSentence(c)}
-              </Text>
-            ))}
-            {conflicts.soft.map((c, i) => (
-              <Text as="div" size="small" key={`s${i}`}>
-                - {softSentence(c)}
-              </Text>
-            ))}
-          </Flex>
-        )}
-      </Flex>
-    </Callout>
-  );
-}
-
 export type RuleMetaInfo = {
   pill?: ReactElement;
   callout?: ReactElement;
@@ -1898,7 +1794,7 @@ export function getRuleMetaInfo({
       ),
       callout: (
         <ConflictCallout
-          unreachable
+          isUnreachable
           conflicts={conflicts ?? { hard: [], soft: [] }}
         />
       ),
@@ -1906,28 +1802,33 @@ export function getRuleMetaInfo({
     };
   }
 
-  // Reachable, but a rule above targets some of what this rule targets.
+  const callouts: ReactElement[] = [];
   if (conflicts && (conflicts.hard.length > 0 || conflicts.soft.length > 0)) {
-    return {
-      callout: <ConflictCallout unreachable={false} conflicts={conflicts} />,
-      sideColor: "active",
-    };
+    callouts.push(
+      <ConflictCallout
+        key="conflicts"
+        isUnreachable={false}
+        conflicts={conflicts}
+      />,
+    );
   }
-
   if (upcomingScheduleRule && upcomingScheduleRule.timestamp) {
-    return {
-      callout: (
-        <Callout status="info">
-          Will be disabled on{" "}
-          {new Date(upcomingScheduleRule.timestamp).toLocaleDateString()} at{" "}
-          {formatTimeZone(new Date(upcomingScheduleRule.timestamp), "h:mm a z")}
-        </Callout>
-      ),
-      sideColor: "active",
-    };
+    callouts.push(
+      <Callout key="schedule" status="info">
+        Will be disabled on{" "}
+        {new Date(upcomingScheduleRule.timestamp).toLocaleDateString()} at{" "}
+        {formatTimeZone(new Date(upcomingScheduleRule.timestamp), "h:mm a z")}
+      </Callout>,
+    );
   }
 
   return {
+    callout:
+      callouts.length > 0 ? (
+        <Flex direction="column" gap="2">
+          {callouts}
+        </Flex>
+      ) : undefined,
     sideColor: "active",
   };
 }
