@@ -466,6 +466,22 @@ describe("getRuleReachability — numeric & version ranges", () => {
       softConflicts: [],
     });
   });
+
+  it("keeps partial-overlap entries when a later rule fully contains the target", () => {
+    const result = analyze([
+      force("r1", { condition: cond({ age: { $gt: 18 } }) }),
+      force("r2", { condition: cond({ age: { $gte: 10 } }) }),
+      force("r3", { condition: cond({ age: { $gte: 15 } }) }),
+    ]);
+    expect(result.get("r3")).toEqual({
+      unreachable: true,
+      hardConflicts: [
+        { consumingRuleId: "r1", attr: "age", label: "> 18" },
+        { consumingRuleId: "r2", attr: "age", label: "≥ 15" },
+      ],
+      softConflicts: [],
+    });
+  });
 });
 
 describe("getRuleReachability — soft conflicts (attribute overlap)", () => {

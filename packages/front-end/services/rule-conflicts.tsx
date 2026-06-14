@@ -560,6 +560,7 @@ function rangeHardConflicts<T extends number | string>(
   atomOp: "num" | "ver",
 ): { unreachable: boolean; conflicts: RuleHardConflict[] } {
   const portions: { id: string; portion: RangeBounds<T> }[] = [];
+  let singleConsumerCoversTarget = false;
 
   for (const c of singleAttr) {
     const ca = c.parsed.constraints[0].atom;
@@ -572,16 +573,9 @@ function rangeHardConflicts<T extends number | string>(
     };
 
     if (rangeContains(consumerBounds, targetBounds, cmp)) {
-      return {
-        unreachable: true,
-        conflicts: [
-          {
-            consumingRuleId: c.id,
-            attr,
-            label: format(targetBounds),
-          },
-        ],
-      };
+      singleConsumerCoversTarget = true;
+      portions.push({ id: c.id, portion: targetBounds });
+      continue;
     }
 
     const portion = rangeIntersection(consumerBounds, targetBounds, cmp);
@@ -599,11 +593,13 @@ function rangeHardConflicts<T extends number | string>(
   }));
 
   return {
-    unreachable: unionCoversTarget(
-      portions.map((p) => p.portion),
-      targetBounds,
-      cmp,
-    ),
+    unreachable:
+      singleConsumerCoversTarget ||
+      unionCoversTarget(
+        portions.map((p) => p.portion),
+        targetBounds,
+        cmp,
+      ),
     conflicts,
   };
 }
