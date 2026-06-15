@@ -1,7 +1,9 @@
 import {
   EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
   attributeMatchesDatasourceProjects,
+  buildEventForwarderManagedIdentifierId,
   buildUserIdTypesFromAttributeSchema,
+  getEventForwarderManagedIdentifierSourceAttribute,
   getEventForwarderDatasourceParams,
   getEventForwarderSinkTypeForDatasource,
   getUserIdTypesToAdd,
@@ -157,6 +159,27 @@ describe("buildUserIdTypesFromAttributeSchema", () => {
 
     expect(result[0]?.description).toBe(
       EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
+    );
+  });
+});
+
+describe("buildEventForwarderManagedIdentifierId", () => {
+  it("prefixes the source attribute", () => {
+    expect(buildEventForwarderManagedIdentifierId("user_id")).toBe(
+      "ef_user_id",
+    );
+  });
+
+  it("double-prefixes an attribute that already starts with the prefix so it stays distinct from a user-created identifier", () => {
+    expect(buildEventForwarderManagedIdentifierId("ef_userId")).toBe(
+      "ef_ef_userId",
+    );
+  });
+
+  it("round-trips back to the source attribute by stripping exactly one prefix", () => {
+    const managedId = buildEventForwarderManagedIdentifierId("ef_userId");
+    expect(getEventForwarderManagedIdentifierSourceAttribute(managedId)).toBe(
+      "ef_userId",
     );
   });
 });

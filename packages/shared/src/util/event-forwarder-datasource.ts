@@ -30,6 +30,12 @@ export const EVENT_FORWARDER_MANAGED_IDENTIFIER_ID_PREFIX = "ef_";
 export function buildEventForwarderManagedIdentifierId(
   attributeProperty: string,
 ): string {
+  // The prefix is applied unconditionally — even when the source attribute
+  // already starts with "ef_". This is intentional: an attribute literally
+  // named "ef_userId" must not collapse into the same managed id a user could
+  // have created themselves, and the source attribute is recovered by stripping
+  // exactly one prefix (see getEventForwarderManagedIdentifierSourceAttribute),
+  // so "ef_userId" -> "ef_ef_userId" -> "ef_userId" round-trips correctly.
   return `${EVENT_FORWARDER_MANAGED_IDENTIFIER_ID_PREFIX}${attributeProperty}`;
 }
 
