@@ -12,7 +12,11 @@ import { getAdapter } from "back-end/src/revisions";
 import { buildMergeDesiredState } from "back-end/src/revisions/util";
 import { getRevisionWebhookAdapter } from "back-end/src/events/revisionWebhookAdapters";
 import { getContextForUserIdInOrg } from "back-end/src/services/organizations";
-import { BadRequestError, MergeConflictError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  ConflictError,
+  MergeConflictError,
+} from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 
 export async function approveRevision(
@@ -116,6 +120,21 @@ export async function publishRevision(
       "Merge conflicts exist — rebase before publishing",
       conflictResult.conflicts,
     );
+  }
+
+  // requireRebaseBeforePublish: a diverged revision must rebase first unless the
+  // caller can bypass. Gating here covers every internal publish path.
+  if (context.org.settings?.requireRebaseBeforePublish && !canBypass) {
+    const snapshot = revision.target.snapshot as Record<string, unknown>;
+    const diverged = [...adapter.getUpdatableFields()].some(
+      (key) => !isEqual(snapshot[key], entity[key]),
+    );
+    if (diverged) {
+      throw new ConflictError(
+        "This revision was created against an older version of the entity. " +
+          "Rebase the revision first.",
+      );
+    }
   }
 
   const desiredState = buildMergeDesiredState(

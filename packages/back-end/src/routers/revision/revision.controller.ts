@@ -12,7 +12,7 @@ import {
 } from "shared/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
-import { MergeConflictError } from "back-end/src/util/errors";
+import { ConflictError, MergeConflictError } from "back-end/src/util/errors";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   getAdapter,
@@ -1054,6 +1054,28 @@ export const postApproveAndPublish = async (
       "Merge conflicts exist — rebase before publishing",
       conflictResult.conflicts,
     );
+  }
+
+  // requireRebaseBeforePublish pre-flight: reject a diverged revision before
+  // writing the approval, so it can't get stuck "approved" but unpublished.
+  if (context.org.settings?.requireRebaseBeforePublish) {
+    const canBypass = adapter.canBypassApproval(
+      context,
+      entity as Record<string, unknown>,
+    );
+    if (!canBypass) {
+      const snapshot = revision.target.snapshot as Record<string, unknown>;
+      const liveEntity = entity as Record<string, unknown>;
+      const diverged = [...adapter.getUpdatableFields()].some(
+        (key) => !isEqual(snapshot[key], liveEntity[key]),
+      );
+      if (diverged) {
+        throw new ConflictError(
+          "This revision was created against an older version of the entity. " +
+            "Rebase the revision first.",
+        );
+      }
+    }
   }
 
   const approved = await approveRevision(
