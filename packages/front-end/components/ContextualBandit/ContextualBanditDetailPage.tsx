@@ -20,6 +20,7 @@ import Owner from "@/components/Avatar/Owner";
 import { tagLinkProps } from "@/services/search";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import {
   DetailSectionBox,
   DetailSectionColumn,
@@ -207,146 +208,164 @@ export default function ContextualBanditDetailPage({
         />
       </Flex>
 
-      {/* Overview */}
-      <h2>Overview</h2>
-      <Frame>
-        <Flex align="start" justify="between" mb="2" gap="3">
-          <Heading as="h4" size="small" mb="0">
-            Description
-          </Heading>
-          {editDescription ? (
-            <Button variant="ghost" onClick={editDescription}>
-              Edit
-            </Button>
-          ) : null}
-        </Flex>
-        {cb.description ? (
-          <Markdown>{cb.description}</Markdown>
-        ) : (
-          <Text color="text-low">
-            <em>Add context about this contextual bandit for your team</em>
-          </Text>
-        )}
-      </Frame>
+      <Tabs defaultValue="overview" persistInURL={true}>
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="results">Results</TabsTrigger>
+        </TabsList>
 
-      {/* Implementation */}
-      <h2 className="mt-4">Implementation</h2>
-      <DetailSectionBox
-        title="Variations & Values"
-        onEdit={editVariations}
-        editLabel="Edit Variations"
-      >
-        <Grid
-          columns={{ initial: "1", sm: String(Math.max(numVariations, 1)) }}
-          gap="3"
-        >
-          {cb.variations.map((v, i) => (
-            <Box key={v.id} className="appbox" p="3" mb="0">
-              <Text weight="medium">{v.name}</Text>
-              <Box mt="1">
-                <Text size="small" color="text-low">
-                  {v.key}
+        <TabsContent value="overview">
+          <Box pt="4">
+            {/* Overview */}
+            <Frame>
+              <Flex align="start" justify="between" mb="2" gap="3">
+                <Heading as="h4" size="small" mb="0">
+                  Description
+                </Heading>
+                {editDescription ? (
+                  <Button variant="ghost" onClick={editDescription}>
+                    Edit
+                  </Button>
+                ) : null}
+              </Flex>
+              {cb.description ? (
+                <Markdown>{cb.description}</Markdown>
+              ) : (
+                <Text color="text-low">
+                  <em>
+                    Add context about this contextual bandit for your team
+                  </em>
                 </Text>
-              </Box>
-              <Box mt="2">
-                <Text size="small" color="text-low">
-                  Initial weight: {formatWeight(weightForIndex(i))}
-                </Text>
-              </Box>
-            </Box>
-          ))}
-        </Grid>
-      </DetailSectionBox>
+              )}
+            </Frame>
 
-      {/* Traffic Allocation */}
-      <DetailSectionBox title="Traffic Allocation" onEdit={editTargeting}>
-        <div className="row">
-          <DetailSectionColumn label="Traffic">
-            {coveragePct}% included, {splitLabel} split
-          </DetailSectionColumn>
-          <DetailSectionColumn label="Assignment Attribute">
-            <div className="d-flex flex-wrap align-items-center gap-1">
-              <AttributeBadge attributeId={cb.hashAttribute || "id"} />
-              {cb.fallbackAttribute ? (
-                <>
-                  , <AttributeBadge attributeId={cb.fallbackAttribute} />
-                </>
-              ) : null}
-              <small className="text-muted ml-1">
-                (V{cb.hashVersion || 2} hashing)
-              </small>
-            </div>
-            {cb.disableStickyBucketing ? (
-              <div className="mt-1">
-                Sticky bucketing: <em>disabled</em>
+            {/* Implementation */}
+            <h2 className="mt-4">Implementation</h2>
+            <DetailSectionBox
+              title="Variations & Values"
+              onEdit={editVariations}
+              editLabel="Edit Variations"
+            >
+              <Grid
+                columns={{
+                  initial: "1",
+                  sm: String(Math.max(numVariations, 1)),
+                }}
+                gap="3"
+              >
+                {cb.variations.map((v, i) => (
+                  <Box key={v.id} className="appbox" p="3" mb="0">
+                    <Text weight="medium">{v.name}</Text>
+                    <Box mt="1">
+                      <Text size="small" color="text-low">
+                        {v.key}
+                      </Text>
+                    </Box>
+                    <Box mt="2">
+                      <Text size="small" color="text-low">
+                        Initial weight: {formatWeight(weightForIndex(i))}
+                      </Text>
+                    </Box>
+                  </Box>
+                ))}
+              </Grid>
+            </DetailSectionBox>
+
+            {/* Traffic Allocation */}
+            <DetailSectionBox title="Traffic Allocation" onEdit={editTargeting}>
+              <div className="row">
+                <DetailSectionColumn label="Traffic">
+                  {coveragePct}% included, {splitLabel} split
+                </DetailSectionColumn>
+                <DetailSectionColumn label="Assignment Attribute">
+                  <div className="d-flex flex-wrap align-items-center gap-1">
+                    <AttributeBadge attributeId={cb.hashAttribute || "id"} />
+                    {cb.fallbackAttribute ? (
+                      <>
+                        , <AttributeBadge attributeId={cb.fallbackAttribute} />
+                      </>
+                    ) : null}
+                    <small className="text-muted ml-1">
+                      (V{cb.hashVersion || 2} hashing)
+                    </small>
+                  </div>
+                  {cb.disableStickyBucketing ? (
+                    <div className="mt-1">
+                      Sticky bucketing: <em>disabled</em>
+                    </div>
+                  ) : null}
+                </DetailSectionColumn>
               </div>
-            ) : null}
-          </DetailSectionColumn>
-        </div>
-      </DetailSectionBox>
+            </DetailSectionBox>
 
-      {/* Targeting */}
-      <DetailSectionBox title="Targeting" onEdit={editTargeting}>
-        <div className="row">
-          <DetailSectionColumn label="Attribute Targeting">
-            {cb.condition && cb.condition !== "{}" ? (
-              <ConditionDisplay condition={cb.condition} />
-            ) : (
-              <em>None</em>
-            )}
-          </DetailSectionColumn>
-        </div>
-      </DetailSectionBox>
+            {/* Targeting */}
+            <DetailSectionBox title="Targeting" onEdit={editTargeting}>
+              <div className="row">
+                <DetailSectionColumn label="Attribute Targeting">
+                  {cb.condition && cb.condition !== "{}" ? (
+                    <ConditionDisplay condition={cb.condition} />
+                  ) : (
+                    <em>None</em>
+                  )}
+                </DetailSectionColumn>
+              </div>
+            </DetailSectionBox>
 
-      <DetailSectionBox
-        title="Analysis Configuration"
-        onEdit={editAnalysisSettings}
-        editLabel="Edit"
-      >
-        <div className="row">
-          <DetailSectionColumn label="Data Source">
-            {datasourceName || <em>none</em>}
-          </DetailSectionColumn>
-          <DetailSectionColumn label="Experiment Assignment Table">
-            {exposureQueryName || <em>none</em>}
-          </DetailSectionColumn>
-          <DetailSectionColumn label="Contextual Attributes">
-            {cb.contextualAttributes.length
-              ? cb.contextualAttributes.join(", ")
-              : "—"}
-          </DetailSectionColumn>
-        </div>
-        <div className="row mt-3">
-          <DetailSectionColumn label="Regression Adjustment">
-            {cb.regressionAdjustmentEnabled ? "On" : "Off"}
-          </DetailSectionColumn>
-          {cb.activationMetric ? (
-            <DetailSectionColumn label="Activation Metric">
-              <Link href={getMetricLink(cb.activationMetric)}>
-                {metricName(cb.activationMetric)}
-              </Link>
-            </DetailSectionColumn>
-          ) : null}
-        </div>
-      </DetailSectionBox>
+            <DetailSectionBox
+              title="Analysis Configuration"
+              onEdit={editAnalysisSettings}
+              editLabel="Edit"
+            >
+              <div className="row">
+                <DetailSectionColumn label="Data Source">
+                  {datasourceName || <em>none</em>}
+                </DetailSectionColumn>
+                <DetailSectionColumn label="Experiment Assignment Table">
+                  {exposureQueryName || <em>none</em>}
+                </DetailSectionColumn>
+                <DetailSectionColumn label="Contextual Attributes">
+                  {cb.contextualAttributes.length
+                    ? cb.contextualAttributes.join(", ")
+                    : "—"}
+                </DetailSectionColumn>
+              </div>
+              <div className="row mt-3">
+                <DetailSectionColumn label="Regression Adjustment">
+                  {cb.regressionAdjustmentEnabled ? "On" : "Off"}
+                </DetailSectionColumn>
+                {cb.activationMetric ? (
+                  <DetailSectionColumn label="Activation Metric">
+                    <Link href={getMetricLink(cb.activationMetric)}>
+                      {metricName(cb.activationMetric)}
+                    </Link>
+                  </DetailSectionColumn>
+                ) : null}
+              </div>
+            </DetailSectionBox>
 
-      <DetailSectionBox
-        title="Metrics"
-        onEdit={editMetrics}
-        editLabel="Edit Metrics"
-      >
-        <div className="row">
-          <DetailSectionColumn label="Decision Metric">
-            {renderMetricList(cb.goalMetrics.slice(0, 1))}
-          </DetailSectionColumn>
-        </div>
-      </DetailSectionBox>
+            <DetailSectionBox
+              title="Metrics"
+              onEdit={editMetrics}
+              editLabel="Edit Metrics"
+            >
+              <div className="row">
+                <DetailSectionColumn label="Decision Metric">
+                  {renderMetricList(cb.goalMetrics.slice(0, 1))}
+                </DetailSectionColumn>
+              </div>
+            </DetailSectionBox>
+          </Box>
+        </TabsContent>
 
-      {/* Current Results — leaf heatmap */}
-      <h2 className="mt-4">Results</h2>
-      <Frame>
-        <ContextualBanditResultsTable cb={cb} mutate={mutate} />
-      </Frame>
+        <TabsContent value="results">
+          <Box pt="4">
+            {/* Current Results — leaf heatmap */}
+            <Frame>
+              <ContextualBanditResultsTable cb={cb} mutate={mutate} />
+            </Frame>
+          </Box>
+        </TabsContent>
+      </Tabs>
 
       {confirmStop ? (
         <ConfirmDialog
