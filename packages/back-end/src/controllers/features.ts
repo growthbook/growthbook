@@ -1339,6 +1339,39 @@ export async function postFeatureApproveAndPublish(
     context.permissions.throwPermissionError();
   }
 
+  // Recompute the merge result and run the staleness/conflict checks BEFORE
+  // committing the approval. postFeaturePublish runs them only after the
+  // "approved" status is written and the review event fired, so a concurrent
+  // live publish in that window would fail the check and strand the revision
+  // in "approved". Mirrors postFeaturePublish's drift-repair → autoMerge.
+  const { live, base } = await getLiveAndBaseRevisionsForFeature({
+    context,
+    feature,
+    revision,
+  });
+  await repairFeatureDriftIfNeeded(
+    context,
+    feature,
+    live,
+    featureEnvironmentIds,
+    { throwOnFailure: true },
+  );
+  const mergeResult = autoMerge(
+    liveRevisionFromFeature(live, feature),
+    fillRevisionFromFeature(base, feature),
+    revision,
+    featureEnvironmentIds,
+    {},
+  );
+  if (JSON.stringify(mergeResult) !== req.body.mergeResultSerialized) {
+    throw new Error(
+      "Something seems to have changed while you were reviewing the draft. Please re-review with the latest changes and submit again.",
+    );
+  }
+  if (!mergeResult.success) {
+    throw new Error("Please resolve conflicts before publishing");
+  }
+
   // Mirror postFeaturePublish's adminOverride + rebase-governance gates BEFORE
   // committing the approval. postFeaturePublish runs them only after the
   // "approved" status is written, so a draft that's behind live (when the org
