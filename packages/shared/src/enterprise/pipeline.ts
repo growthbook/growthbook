@@ -202,3 +202,19 @@ export function getExperimentSourceSnapshotRef(
     dateCreated: getValidDate(snapshot.sourceSnapshotDateCreated),
   };
 }
+
+export function isNewerOverallResultsDataAvailable(
+  sourceSnapshot: SourceSnapshotRef | undefined,
+  latestSuccessfulOverallResultsSnapshot:
+    | Pick<ExperimentSnapshotInterface, "dateCreated">
+    | undefined,
+): boolean {
+  if (!sourceSnapshot || !latestSuccessfulOverallResultsSnapshot) {
+    return false;
+  }
+
+  return (
+    getValidDate(latestSuccessfulOverallResultsSnapshot.dateCreated).getTime() >
+    getValidDate(sourceSnapshot.dateCreated).getTime()
+  );
+}

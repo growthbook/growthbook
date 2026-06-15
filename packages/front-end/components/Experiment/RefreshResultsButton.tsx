@@ -40,6 +40,9 @@ export interface RefreshResultsButtonProps<
     datasourceType: string | null;
   };
   onSuccess?: () => void;
+  // Return false to abort the refresh (e.g. to open a confirmation modal
+  // instead). Mirrors Modal's customValidation. Side effects are allowed.
+  customValidation?: () => boolean | Promise<boolean>;
   // Experiment/holdout-specific props
   experiment?: ExperimentInterfaceStringDates;
   phase?: number;
@@ -67,6 +70,7 @@ export default function RefreshResultsButton<
   setRefreshError,
   experimentSnapshotTrackingProps,
   onSuccess,
+  customValidation,
   experiment,
   phase,
   dimension,
@@ -104,6 +108,65 @@ export default function RefreshResultsButton<
       ? `/safe-rollout/${entityId}/snapshot`
       : `/experiment/${entityId}/snapshot`;
 
+  // Precomputed dimensions are computed as part of a standard snapshot, so we
+  // don't need to pass them to the backend for a new snapshot query
+  const snapshotDimension = isDimensionPrecomputed(
+    dimension,
+    getHonoredPrecomputedUnitDimensionIds(
+      experiment?.precomputedUnitDimensionIds,
+      experiment?.datasource
+        ? getDatasourceById(experiment.datasource)
+        : undefined,
+      hasCommercialFeature("pipeline-mode"),
+    ),
+  )
+    ? ""
+    : (dimension ?? "");
+
+  // Kicks off a new snapshot query for the given dimension ("" = main results).
+  const runSnapshot = async (dimensionToUse: string) => {
+    const body =
+      entityType === "experiment" || entityType === "holdout"
+        ? JSON.stringify({
+            phase: phase ?? 0,
+            dimension: dimensionToUse,
+          })
+        : undefined;
+
+    try {
+      if (entityType === "safe-rollout") {
+        await apiCall<{ snapshot: SafeRolloutSnapshotInterface }>(
+          snapshotEndpoint,
+          { method: "POST" },
+        );
+      } else {
+        const res = await apiCall<{
+          snapshot: ExperimentSnapshotInterface;
+        }>(snapshotEndpoint, {
+          method: "POST",
+          ...(body && { body }),
+        });
+        if (experimentSnapshotTrackingProps) {
+          trackSnapshot(
+            "create",
+            experimentSnapshotTrackingProps.trackingSource,
+            experimentSnapshotTrackingProps.datasourceType,
+            res.snapshot,
+          );
+        }
+      }
+      onSuccess?.();
+      setRefreshError("");
+    } catch (e) {
+      setRefreshError(e.message);
+    } finally {
+      // Always refresh, regardless of success or failure
+      // to give the UI a chance to catch up
+      mutate();
+      mutateAdditional?.();
+    }
+  };
+
   return (
     <>
       {shouldUseRunQueriesButton ? (
@@ -122,60 +185,11 @@ export default function RefreshResultsButton<
           useRadixButton={true}
           radixVariant="outline"
           onSubmit={async () => {
-            // Precomputed dimensions are computed as part of a standard snapshot,
-            // so we don't need to pass them to the backend for a new snapshot query
-            const snapshotDimension = isDimensionPrecomputed(
-              dimension,
-              getHonoredPrecomputedUnitDimensionIds(
-                experiment?.precomputedUnitDimensionIds,
-                experiment?.datasource
-                  ? getDatasourceById(experiment.datasource)
-                  : undefined,
-                hasCommercialFeature("pipeline-mode"),
-              ),
-            )
-              ? ""
-              : (dimension ?? "");
-            const body =
-              entityType === "experiment" || entityType === "holdout"
-                ? JSON.stringify({
-                    phase: phase ?? 0,
-                    dimension: snapshotDimension,
-                  })
-                : undefined;
-
-            try {
-              if (entityType === "safe-rollout") {
-                await apiCall<{ snapshot: SafeRolloutSnapshotInterface }>(
-                  snapshotEndpoint,
-                  { method: "POST" },
-                );
-              } else {
-                const res = await apiCall<{
-                  snapshot: ExperimentSnapshotInterface;
-                }>(snapshotEndpoint, {
-                  method: "POST",
-                  ...(body && { body }),
-                });
-                if (experimentSnapshotTrackingProps) {
-                  trackSnapshot(
-                    "create",
-                    experimentSnapshotTrackingProps.trackingSource,
-                    experimentSnapshotTrackingProps.datasourceType,
-                    res.snapshot,
-                  );
-                }
-              }
-              onSuccess?.();
-              setRefreshError("");
-            } catch (e) {
-              setRefreshError(e.message);
-            } finally {
-              // Always refresh, regardless of success or failure
-              // to give the UI a chance to catch up
-              mutate();
-              mutateAdditional?.();
+            if (customValidation && !(await customValidation())) {
+              return;
             }
+
+            await runSnapshot(snapshotDimension);
           }}
         />
       ) : shouldRenderExperimentButton ? (
