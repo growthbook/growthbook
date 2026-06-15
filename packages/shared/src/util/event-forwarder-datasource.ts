@@ -19,6 +19,36 @@ export type EventForwarderDatasourceParams =
 export const EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION =
   "Managed by Event Forwarder.";
 
+// Event Forwarder managed identifier types (and the exposure queries that feed
+// them) are prefixed so they never collide with identifier types / queries a
+// user already created for the same hash attribute. The prefix is applied once,
+// here, when building the identifier type from the attribute. The underlying
+// source attribute is recoverable by stripping the prefix, which the SQL
+// generators use so extraction still reads the real attribute.
+export const EVENT_FORWARDER_MANAGED_IDENTIFIER_ID_PREFIX = "ef_";
+
+export function buildEventForwarderManagedIdentifierId(
+  attributeProperty: string,
+): string {
+  return `${EVENT_FORWARDER_MANAGED_IDENTIFIER_ID_PREFIX}${attributeProperty}`;
+}
+
+export function isEventForwarderManagedIdentifierId(
+  userIdType: string,
+): boolean {
+  return userIdType.startsWith(EVENT_FORWARDER_MANAGED_IDENTIFIER_ID_PREFIX);
+}
+
+// Resolves the source SDK attribute for a managed identifier id (e.g.
+// "ef_user_id" -> "user_id"). Non-managed identifier types are returned as-is.
+export function getEventForwarderManagedIdentifierSourceAttribute(
+  userIdType: string,
+): string {
+  return isEventForwarderManagedIdentifierId(userIdType)
+    ? userIdType.slice(EVENT_FORWARDER_MANAGED_IDENTIFIER_ID_PREFIX.length)
+    : userIdType;
+}
+
 export function getEventForwarderSinkTypeForDatasource(datasource: {
   type: DataSourceType;
 }): EventForwarderSinkType | null {
@@ -73,7 +103,7 @@ export function buildUserIdTypesFromAttributeSchema(
     .filter((a) => a.hashAttribute && !a.archived)
     .filter((a) => attributeMatchesDatasourceProjects(a, datasourceProjects))
     .map((a) => ({
-      userIdType: a.property,
+      userIdType: buildEventForwarderManagedIdentifierId(a.property),
       description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
       attributes: [a.property],
     }));
@@ -84,11 +114,15 @@ export function isHashAttributeUserIdType(
   attributeSchema: SDKAttributeSchema,
   datasourceProjects?: string[],
 ): boolean {
+  // Managed identifier types are prefixed (e.g. "ef_user_id"); resolve back to
+  // the source attribute so the hash-attribute lookup still matches.
+  const sourceAttribute =
+    getEventForwarderManagedIdentifierSourceAttribute(userIdType).toLowerCase();
   return attributeSchema.some(
     (attribute) =>
       attribute.hashAttribute &&
       !attribute.archived &&
-      attribute.property.toLowerCase() === userIdType.toLowerCase() &&
+      attribute.property.toLowerCase() === sourceAttribute &&
       attributeMatchesDatasourceProjects(attribute, datasourceProjects),
   );
 }

@@ -154,9 +154,11 @@ describe("buildEventForwarderExposureQuerySql", () => {
 });
 
 describe("generateEventForwarderExposureQueries", () => {
-  it("creates one exposure query per identifier type", () => {
+  it("creates one exposure query per managed identifier id", () => {
+    // Callers pass the prefixed managed identifier ids; id/userIdType/name mirror
+    // them, while the SQL extracts the real source attribute.
     const queries = generateEventForwarderExposureQueries(
-      ["user_id", "anonymous_id"],
+      ["ef_user_id", "ef_anonymous_id"],
       {
         sinkType: "bigquery",
         projectId: "proj",
@@ -167,10 +169,13 @@ describe("generateEventForwarderExposureQueries", () => {
 
     expect(queries).toHaveLength(2);
     expect(queries[0].id).toBe("ef_user_id");
-    expect(queries[0].userIdType).toBe("user_id");
-    expect(queries[0].name).toBe("Event Forwarder: user_id");
+    expect(queries[0].userIdType).toBe("ef_user_id");
+    expect(queries[0].name).toBe("ef_user_id");
     expect(queries[1].id).toBe("ef_anonymous_id");
-    expect(queries[1].userIdType).toBe("anonymous_id");
+    expect(queries[1].userIdType).toBe("ef_anonymous_id");
+    // Alias is the managed id; extraction reads the real attribute.
+    expect(queries[0].query).toContain("AS `ef_user_id`");
+    expect(queries[0].query).toContain('$."user_id"');
     expect(queries[0].description).toBe(
       EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
     );
@@ -241,26 +246,30 @@ describe("mergeEventForwarderExposureQueries", () => {
       },
     ];
 
-    const merged = mergeEventForwarderExposureQueries(existing, ["user_id"], {
-      sinkType: "snowflake",
-      database: "DB",
-      schema: "PUBLIC",
-      tablePrefix: "GB",
-    });
+    const merged = mergeEventForwarderExposureQueries(
+      existing,
+      ["ef_user_id"],
+      {
+        sinkType: "snowflake",
+        database: "DB",
+        schema: "PUBLIC",
+        tablePrefix: "GB",
+      },
+    );
 
     expect(merged).toHaveLength(2);
     // The user's own query is preserved untouched...
     expect(merged[0]).toEqual(existing[0]);
-    // ...and the managed query is added with a prefixed id so it doesn't collide.
+    // ...and the managed query is added with the prefixed id so it doesn't collide.
     expect(merged[1].id).toBe("ef_user_id");
-    expect(merged[1].userIdType).toBe("user_id");
+    expect(merged[1].userIdType).toBe("ef_user_id");
     expect(merged[1].managedBy).toBe("api");
   });
 });
 
 describe("refreshEventForwarderManagedExposureQuery", () => {
   it("renames managed exposure query and regenerates typed SQL", () => {
-    const existing = generateEventForwarderExposureQueries(["user_id"], {
+    const existing = generateEventForwarderExposureQueries(["ef_user_id"], {
       sinkType: "bigquery",
       projectId: "proj",
       dataset: "ds",
@@ -269,7 +278,7 @@ describe("refreshEventForwarderManagedExposureQuery", () => {
 
     const refreshed = refreshEventForwarderManagedExposureQuery(
       existing,
-      "user_id",
+      "ef_user_id",
       {
         property: "account_id",
         datatype: "number",
@@ -284,9 +293,11 @@ describe("refreshEventForwarderManagedExposureQuery", () => {
     );
 
     expect(refreshed[0].id).toBe("ef_account_id");
-    expect(refreshed[0].userIdType).toBe("account_id");
-    expect(refreshed[0].name).toBe("Event Forwarder: account_id");
-    expect(refreshed[0].query).toContain("account_id");
+    expect(refreshed[0].userIdType).toBe("ef_account_id");
+    expect(refreshed[0].name).toBe("ef_account_id");
+    // Alias is the managed id; extraction reads the real account_id attribute.
+    expect(refreshed[0].query).toContain("AS `ef_account_id`");
+    expect(refreshed[0].query).toContain('$."account_id"');
     expect(refreshed[0].query).toContain("AS FLOAT64");
   });
 });
@@ -294,7 +305,7 @@ describe("refreshEventForwarderManagedExposureQuery", () => {
 describe("reconcileEventForwarderManagedExposureQueries", () => {
   it("rebuilds managed queries from desired hash attributes", () => {
     const existing = [
-      ...generateEventForwarderExposureQueries(["user_id", "legacy_id"], {
+      ...generateEventForwarderExposureQueries(["ef_user_id", "ef_legacy_id"], {
         sinkType: "bigquery",
         projectId: "proj",
         dataset: "ds",
@@ -311,7 +322,7 @@ describe("reconcileEventForwarderManagedExposureQueries", () => {
 
     const reconciled = reconcileEventForwarderManagedExposureQueries({
       existing,
-      userIdTypes: ["account_id", "device_id"],
+      userIdTypes: ["ef_account_id", "ef_device_id"],
       params: {
         sinkType: "bigquery",
         projectId: "proj",
@@ -336,14 +347,15 @@ describe("reconcileEventForwarderManagedExposureQueries", () => {
     expect(reconciled[0].id).toBe("custom_query");
     expect(reconciled.map((query) => query.userIdType)).toEqual([
       "custom_id",
-      "account_id",
-      "device_id",
+      "ef_account_id",
+      "ef_device_id",
     ]);
     expect(reconciled[1].managedBy).toBe("api");
+    // account_id is a number attribute, resolved by stripping the ef_ prefix.
     expect(reconciled[1].query).toContain("AS FLOAT64");
-    expect(reconciled.some((query) => query.userIdType === "legacy_id")).toBe(
-      false,
-    );
+    expect(
+      reconciled.some((query) => query.userIdType === "ef_legacy_id"),
+    ).toBe(false);
   });
 
   it("preserves queries without the managed marker", () => {

@@ -17,6 +17,10 @@ import {
   EVENT_FORWARDER_AVRO_PARTITION_FIELD,
   quoteBigQueryIdentifier,
 } from "./event-forwarder-fact-table";
+import {
+  buildEventForwarderManagedIdentifierId,
+  getEventForwarderManagedIdentifierSourceAttribute,
+} from "./event-forwarder-datasource";
 
 export const EVENT_FORWARDER_EXPERIMENT_VIEWED_TABLE =
   EVENT_FORWARDER_EXPERIMENT_VIEWED_TABLE_SUFFIX;
@@ -26,24 +30,6 @@ export const EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION =
   "Managed by Event Forwarder and updated when the linked Identifier type changes.";
 export const EVENT_FORWARDER_MANAGED_FEATURE_USAGE_QUERY_DESCRIPTION =
   "Managed by Event Forwarder for feature usage events.";
-
-// Prefix the id/name of Event Forwarder managed exposure queries so they never
-// collide with queries a user already created for the same identifier. The
-// userIdType is left untouched so the managed query still resolves against the
-// same identifier type and attributes.
-export const EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_ID_PREFIX = "ef_";
-
-export function buildEventForwarderManagedExposureQueryId(
-  userIdType: string,
-): string {
-  return `${EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_ID_PREFIX}${userIdType}`;
-}
-
-export function buildEventForwarderManagedExposureQueryName(
-  userIdType: string,
-): string {
-  return `Event Forwarder: ${userIdType}`;
-}
 
 export type BuildEventForwarderExperimentViewedTableRefParams =
   | {
@@ -114,7 +100,10 @@ function findHashAttributeForUserIdType(
   userIdType: string,
   attributeSchema?: SDKAttributeSchema,
 ): SDKAttribute | undefined {
-  const normalized = userIdType.toLowerCase();
+  // userIdType is the managed identifier id (e.g. "ef_user_id"); resolve back to
+  // the source attribute before matching the schema.
+  const normalized =
+    getEventForwarderManagedIdentifierSourceAttribute(userIdType).toLowerCase();
   return attributeSchema?.find(
     (attribute) =>
       attribute.hashAttribute &&
@@ -157,9 +146,14 @@ export function buildEventForwarderExposureQuerySql({
   userIdType: string;
   attributeDatatype?: SDKAttributeType;
 }): string {
+  // The column alias / join key is the (prefixed) managed identifier id, but the
+  // value is extracted from the real source attribute (e.g. "ef_user_id" reads
+  // the "user_id" attribute).
+  const sourceAttribute =
+    getEventForwarderManagedIdentifierSourceAttribute(userIdType);
   const attributeValueSql = buildEventForwarderAttributeValueSql({
     sinkType,
-    userIdType,
+    userIdType: sourceAttribute,
     attributeDatatype,
   });
 
@@ -198,10 +192,12 @@ export function generateEventForwarderExposureQueries(
       attributeSchema,
     );
 
+    // userIdType is already the (prefixed) managed identifier id, so the
+    // exposure query id/name mirror it directly.
     return {
-      id: buildEventForwarderManagedExposureQueryId(userIdType),
+      id: userIdType,
       userIdType,
-      name: buildEventForwarderManagedExposureQueryName(userIdType),
+      name: userIdType,
       description: EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
       dimensions: [],
       managedBy: "api" as const,
@@ -279,13 +275,16 @@ export function refreshEventForwarderManagedExposureQuery(
     }
 
     found = true;
-    const userIdType = attribute.property;
+    // Re-derive the managed identifier id from the (possibly renamed) attribute.
+    const userIdType = buildEventForwarderManagedIdentifierId(
+      attribute.property,
+    );
 
     return {
       ...query,
-      id: buildEventForwarderManagedExposureQueryId(userIdType),
+      id: userIdType,
       userIdType,
-      name: buildEventForwarderManagedExposureQueryName(userIdType),
+      name: userIdType,
       query: buildEventForwarderExposureQuerySql({
         sinkType: params.sinkType,
         tableRef,

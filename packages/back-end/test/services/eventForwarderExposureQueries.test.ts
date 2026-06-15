@@ -113,7 +113,7 @@ describe("ensureEventForwarderExposureQueries", () => {
       privateKey: "key",
     };
     const raw = ds({
-      userIdTypes: [{ userIdType: "device_id", description: "" }],
+      userIdTypes: [{ userIdType: "ef_device_id", description: "" }],
       queries: { exposure: [] },
     });
     raw.params = encryptParams(bigqueryParams);
@@ -128,7 +128,7 @@ describe("ensureEventForwarderExposureQueries", () => {
     await ensureEventForwarderExposureQueries(
       context() as never,
       efConfig("bigquery"),
-      ["device_id"],
+      ["ef_device_id"],
     );
 
     expect(mockedUpdate).toHaveBeenCalledWith(
@@ -139,7 +139,7 @@ describe("ensureEventForwarderExposureQueries", () => {
           queries: {
             exposure: [
               expect.objectContaining({
-                userIdType: "device_id",
+                userIdType: "ef_device_id",
                 id: "ef_device_id",
                 managedBy: "api",
               }),
@@ -154,8 +154,8 @@ describe("ensureEventForwarderExposureQueries", () => {
   it("creates one exposure query per synced userIdType for BigQuery", async () => {
     const raw = ds({
       userIdTypes: [
-        { userIdType: "user_id", description: "" },
-        { userIdType: "device_id", description: "" },
+        { userIdType: "ef_user_id", description: "" },
+        { userIdType: "ef_device_id", description: "" },
       ],
       queries: { exposure: [] },
     });
@@ -170,7 +170,7 @@ describe("ensureEventForwarderExposureQueries", () => {
     await ensureEventForwarderExposureQueries(
       context() as never,
       efConfig("bigquery"),
-      ["user_id", "device_id"],
+      ["ef_user_id", "ef_device_id"],
       { defaultProject: "my-project" } as never,
     );
 
@@ -182,12 +182,12 @@ describe("ensureEventForwarderExposureQueries", () => {
           queries: {
             exposure: expect.arrayContaining([
               expect.objectContaining({
-                userIdType: "user_id",
+                userIdType: "ef_user_id",
                 id: "ef_user_id",
                 managedBy: "api",
               }),
               expect.objectContaining({
-                userIdType: "device_id",
+                userIdType: "ef_device_id",
                 id: "ef_device_id",
               }),
             ]),
@@ -249,7 +249,7 @@ describe("ensureEventForwarderExposureQueries", () => {
         exposure: [
           {
             id: "ef_user_id",
-            name: "Event Forwarder: user_id",
+            name: "ef_user_id",
             userIdType: "user_id",
             dimensions: [],
             managedBy: "api",
@@ -381,7 +381,7 @@ describe("ensureEventForwarderExposureQueries", () => {
 
   it("uses passed attributeSchema when context org schema is stale", async () => {
     const raw = ds({
-      userIdTypes: [{ userIdType: "device_id", description: "" }],
+      userIdTypes: [{ userIdType: "ef_device_id", description: "" }],
       queries: { exposure: [] },
     });
     mockedGetRaw.mockResolvedValue(raw);
@@ -403,7 +403,7 @@ describe("ensureEventForwarderExposureQueries", () => {
     await ensureEventForwarderExposureQueries(
       context([]) as never,
       efConfig("bigquery"),
-      ["device_id"],
+      ["ef_device_id"],
       { defaultProject: "my-project" } as never,
       updatedAttributeSchema,
     );
@@ -416,7 +416,7 @@ describe("ensureEventForwarderExposureQueries", () => {
           queries: {
             exposure: [
               expect.objectContaining({
-                userIdType: "device_id",
+                userIdType: "ef_device_id",
                 id: "ef_device_id",
                 managedBy: "api",
               }),

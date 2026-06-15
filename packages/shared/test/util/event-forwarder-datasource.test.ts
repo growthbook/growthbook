@@ -115,7 +115,7 @@ describe("buildUserIdTypesFromAttributeSchema", () => {
 
     expect(result).toEqual([
       {
-        userIdType: "id",
+        userIdType: "ef_id",
         description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
         attributes: ["id"],
       },
@@ -138,7 +138,7 @@ describe("buildUserIdTypesFromAttributeSchema", () => {
 
     expect(result).toEqual([
       {
-        userIdType: "id",
+        userIdType: "ef_id",
         description: EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION,
         attributes: ["id"],
       },
