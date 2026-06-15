@@ -412,6 +412,7 @@ export async function putDataSource(
     | {
         status: 200;
         datasource: DataSourceInterfaceWithParams;
+        eventForwarderWarning?: string;
       }
     | {
         status: 400 | 403 | 404;
@@ -590,17 +591,31 @@ export async function putDataSource(
       integration.params,
     );
 
-    await syncEventForwarderAfterDatasourceUpdate({
-      context,
-      datasource: updatedDatasource,
-      eventForwarderConfig,
-      datasourceParams: eventForwarderDatasourceParams,
-      didUpdateDatasourceParams: !!params,
-    });
+    // The datasource update above has already been committed. Run the Event
+    // Forwarder sync in its own try/catch so that a sync failure isn't reported
+    // back as a failed datasource update — the EF sync records its own "error"
+    // status on the Event Forwarder config, so we surface a non-blocking warning
+    // here instead of returning a misleading HTTP 400 for an operation that
+    // partially succeeded.
+    let eventForwarderWarning: string | undefined;
+    try {
+      await syncEventForwarderAfterDatasourceUpdate({
+        context,
+        datasource: updatedDatasource,
+        eventForwarderConfig,
+        datasourceParams: eventForwarderDatasourceParams,
+        didUpdateDatasourceParams: !!params,
+      });
+    } catch (e) {
+      req.log.error(e, "Data source updated, but Event Forwarder sync failed");
+      eventForwarderWarning =
+        e.message || "Event Forwarder sync failed. Please try again.";
+    }
 
     res.status(200).json({
       status: 200,
       datasource: await getDataSourceWithParams(context, integration),
+      ...(eventForwarderWarning ? { eventForwarderWarning } : {}),
     });
   } catch (e) {
     req.log.error(e, "Failed to update data source");
