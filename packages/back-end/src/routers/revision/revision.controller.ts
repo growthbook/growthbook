@@ -1054,6 +1054,66 @@ export const postApproveAndPublish = async (
 
 // endregion POST /revision/:id/approve-and-publish
 
+// region POST /revision/:id/toggle-auto-publish
+
+type PostToggleAutoPublishRequest = AuthRequest<
+  { enabled: boolean },
+  { id: string }
+>;
+
+type PostToggleAutoPublishResponse = {
+  status: 200;
+  revision: Revision;
+};
+
+export const postToggleAutoPublish = async (
+  req: PostToggleAutoPublishRequest,
+  res: Response<PostToggleAutoPublishResponse | ApiErrorResponse>,
+) => {
+  const context = getContextFromReq(req);
+  const { userId } = context;
+  const { id } = req.params;
+  const { enabled } = req.body;
+
+  const revisionModel = context.models.revisions;
+  const existing = await revisionModel.getById(id);
+  if (!existing) {
+    return res.status(404).json({ message: "Revision not found" });
+  }
+
+  // Same gate as submit-for-review: anyone who can edit the underlying entity
+  // can arm/disarm auto-publish (which for saved groups also implies publish).
+  if (
+    !getAdapter(existing.target.type).canUpdate(
+      context,
+      existing.target.snapshot as Record<string, unknown>,
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  if (
+    enabled &&
+    !canEnableAutoPublishOnApproval(
+      context,
+      existing.target.type,
+      existing.target.snapshot as Record<string, unknown>,
+    )
+  ) {
+    context.permissions.throwPermissionError();
+  }
+
+  const revision = await revisionModel.setAutoPublishOnApproval(
+    id,
+    userId,
+    !!enabled,
+  );
+
+  res.status(200).json({ status: 200, revision });
+};
+
+// endregion POST /revision/:id/toggle-auto-publish
+
 // region POST /revision/:id/close
 
 type PostCloseRequest = AuthRequest<

@@ -590,6 +590,31 @@ export class RevisionModel extends BaseClass {
     } as UpdateProps<Revision>);
   }
 
+  // Arm/disarm auto-publish-on-approval after a draft has already been
+  // submitted for review (the submit-for-review path handles the draft case).
+  async setAutoPublishOnApproval(id: string, userId: string, enabled: boolean) {
+    const existing = await this.getById(id);
+    if (!existing) throw new Error("Revision not found");
+
+    if (
+      !["draft", "pending-review", "changes-requested", "approved"].includes(
+        existing.status,
+      )
+    ) {
+      throw new Error(
+        "Cannot change auto-publish on a published or discarded revision",
+      );
+    }
+
+    // Auto-publish runs with the arming user's authority. A stale
+    // autoPublishEnabledBy left behind when disabling is harmless —
+    // autoPublishOnApproval gates everything.
+    return this.update(existing, {
+      autoPublishOnApproval: enabled,
+      ...(enabled && userId ? { autoPublishEnabledBy: userId } : {}),
+    } as UpdateProps<Revision>);
+  }
+
   async addReview(
     id: string,
     userId: string,

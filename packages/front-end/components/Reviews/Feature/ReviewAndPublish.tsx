@@ -593,6 +593,15 @@ export default function ReviewAndPublish({
   const doSubmitRef = useRef<() => void>(() => {});
   const revisionLogRef = useRef<MutateLog>(null);
 
+  // The revision loads asynchronously, so the initial useState above can be
+  // stale (e.g. unchecked on reload of an armed draft). Re-sync whenever the
+  // persisted value or version changes. Keyed on the persisted boolean (not
+  // object identity) so it won't clobber an unsaved draft toggle, which doesn't
+  // change revision.autoPublishOnApproval.
+  useEffect(() => {
+    setRequestAutoPublish(!!revision?.autoPublishOnApproval);
+  }, [revision?.autoPublishOnApproval, revision?.version]);
+
   // ── Sub-tabs ──
   // "Overview" (human-readable changes + review activity) vs "Changes" (JSON
   // diffs + full timeline). Reflected in the URL hash as `#review` /
@@ -1458,6 +1467,16 @@ export default function ReviewAndPublish({
     getAffectedRevisionEnvs(feature, revision, environments),
   );
 
+  // Publishing is currently blocked (merge conflict, required rebase/divergence,
+  // ramp lockdown, or nothing to publish). Used to suppress the reviewer's
+  // one-step "Submit and Publish" options — approving still works, but the
+  // publish half can't proceed, so we shouldn't offer it.
+  const reviewerPublishBlocked =
+    !mergeResult.success ||
+    !hasChanges ||
+    !(governance ? governance.canPublish : true) ||
+    featureLockedByRamp;
+
   // Determine whether approvals are required by diffing the merged result
   // against live (mirrors the feature overview's gating calculation).
   let requireReviews = false;
@@ -2137,6 +2156,8 @@ export default function ReviewAndPublish({
                 submitUrl={`/feature/${feature.id}/${revision.version}/submit-review`}
                 allowPublishOnApprove={autopublishOnApproval}
                 autoPublishArmed={revisionAutoPublishArmed}
+                canReviewerPublish={hasPublishPermission}
+                publishBlocked={reviewerPublishBlocked}
                 publishHasMoreSteps={hasChecklistStep}
                 isBlockedContributor={!!isBlockedContributor}
                 onSuccess={async (opts) => {

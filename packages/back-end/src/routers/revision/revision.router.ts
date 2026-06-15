@@ -238,6 +238,24 @@ router.post(
   revisionController.postApproveAndPublish,
 );
 
+// Arm/disarm auto-publish-on-approval after a revision is already in review
+router.post(
+  "/:id/toggle-auto-publish",
+  validateRequestMiddleware({
+    params: z
+      .object({
+        id: z.string(),
+      })
+      .strict(),
+    body: z
+      .object({
+        enabled: z.boolean(),
+      })
+      .strict(),
+  }),
+  revisionController.postToggleAutoPublish,
+);
+
 // Close a revision
 router.post(
   "/:id/close",

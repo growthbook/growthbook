@@ -19,6 +19,14 @@ interface Props {
   allowPublishOnApprove?: boolean;
   // Whether the auto-publish checkbox is checked on the revision.
   autoPublishArmed?: boolean;
+  // Whether the current reviewer can publish under their own authority. Gates
+  // the non-armed "Submit and Publish" option, which publishes as the reviewer.
+  // Irrelevant to armed drafts (those publish under the arming user's authority).
+  canReviewerPublish?: boolean;
+  // Publishing is currently blocked (merge conflict, required rebase, ramp
+  // lockdown, etc.). Suppresses every "Submit and Publish" affordance so a
+  // reviewer isn't offered a publish that can't go through.
+  publishBlocked?: boolean;
   // When true, publish CTAs use a trailing arrow to signal a follow-on step
   // (e.g. the pre-launch checklist before the final publish).
   publishHasMoreSteps?: boolean;
@@ -36,6 +44,8 @@ export default function ReviewCommentPopover({
   submitUrl,
   allowPublishOnApprove = false,
   autoPublishArmed = false,
+  canReviewerPublish = false,
+  publishBlocked = false,
   publishHasMoreSteps = false,
   trigger,
   isBlockedContributor = false,
@@ -61,9 +71,18 @@ export default function ReviewCommentPopover({
   const canSubmit = decision !== "Comment" || comment.trim().length > 0;
 
   const isApproval = decision === "Approved";
-  const willPublish = isApproval && autoPublishArmed && allowPublishOnApprove;
+  const willPublish =
+    isApproval && autoPublishArmed && allowPublishOnApprove && !publishBlocked;
+  // Non-armed publish-on-approve runs under the reviewer's own authority, so
+  // only offer it when they can actually publish — otherwise the approval lands
+  // but the follow-on publish is rejected by the backend. Also suppressed when
+  // publishing is blocked (conflicts, required rebase, etc.).
   const showPublishOption =
-    isApproval && !autoPublishArmed && allowPublishOnApprove;
+    isApproval &&
+    !autoPublishArmed &&
+    allowPublishOnApprove &&
+    canReviewerPublish &&
+    !publishBlocked;
 
   const publishCtaLabel = publishHasMoreSteps
     ? "Submit and Publish →"
