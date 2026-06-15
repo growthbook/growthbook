@@ -1398,27 +1398,32 @@ export async function submitReviewAndComments(
   // not override another reviewer's active changes-requested. Stale verdicts
   // don't count, and comments never change the status.
   if (newReview !== null) {
-    // Step 1: bake this reviewer's verdict into the array. Each reviewer only
-    // ever touches their own entry, so concurrent verdicts from different
-    // reviewers can't clobber each other — the array converges to one entry
-    // per reviewer regardless of interleaving.
+    // Step 1: bake this reviewer's verdict, scoped to their own entry so
+    // concurrent verdicts converge to one entry per reviewer.
+    // Legacy revision (no baked `reviews`): self-heal from the log, CAS-guarded
+    // on the field still being absent so concurrent first-verdicts don't clobber.
+    let seeded = false;
     if (revision.reviews === undefined) {
-      // Legacy revision predating the baked `reviews` field: seed it from log
-      // replay (one-time self-heal) so pre-deploy verdicts aren't lost.
       const priorReviews = await getActiveReviewsFromLog(context, revision);
-      await FeatureRevisionModel.updateOne(filter, {
-        $set: {
-          reviews: [
-            ...priorReviews.filter((r) => r.userId !== newReview.userId),
-            newReview,
-          ],
-          datePublished: null,
-          dateUpdated: new Date(),
-        },
-      });
-    } else {
-      // $pull then $push: Mongo can't $pull and $push the same field in one
-      // update, and each op is atomic and scoped to this reviewer's userId.
+      const outcome = await casUpdate(filter, ["reviews"], (current) =>
+        current.reviews === undefined
+          ? {
+              $set: {
+                reviews: [
+                  ...priorReviews.filter((r) => r.userId !== newReview.userId),
+                  newReview,
+                ],
+                datePublished: null,
+                dateUpdated: new Date(),
+              },
+            }
+          : null,
+      );
+      seeded = outcome === "applied";
+    }
+    if (!seeded) {
+      // $pull then $push (Mongo can't do both on one field at once); each op is
+      // atomic and scoped to this reviewer's userId.
       await FeatureRevisionModel.updateOne(filter, {
         $pull: { reviews: { userId: newReview.userId } },
       });
@@ -1428,9 +1433,9 @@ export async function submitReviewAndComments(
       });
     }
 
-    // Step 2: reconcile `status` from the *stored* reviews so it can't drift
-    // from a verdict another reviewer landed concurrently. The `approvedBaseVersion`
-    // is recorded so staleness detection works later (only when approved).
+    // Step 2: reconcile `status` from the stored reviews (CAS-guarded) so it
+    // can't drift from a concurrent verdict. Record approvedBaseVersion for
+    // later staleness detection when approved.
     const outcome = await casUpdate(filter, ["reviews"], (current) => {
       const reviews = current.reviews ?? [];
       const status = reviews.some((r) => r.status === "changes-requested")
