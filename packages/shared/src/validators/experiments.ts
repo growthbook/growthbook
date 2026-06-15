@@ -188,7 +188,7 @@ export const metricOverride = z
     properPriorOverride: z.boolean().optional(),
     properPriorEnabled: z.boolean().optional(),
     properPriorMean: z.number().optional(),
-    properPriorStdDev: z.number().optional(),
+    properPriorStdDev: z.number().gt(0).optional(),
     regressionAdjustmentOverride: z.boolean().optional(),
     regressionAdjustmentEnabled: z.boolean().optional(),
     regressionAdjustmentDays: z.number().optional(),
@@ -963,7 +963,7 @@ const apiMetricOverrideEntryInput = z
       .optional(),
     properPriorEnabled: z.boolean().optional(),
     properPriorMean: z.number().optional(),
-    properPriorStdDev: z.number().optional(),
+    properPriorStdDev: z.number().gt(0).optional(),
     regressionAdjustmentOverride: z
       .boolean()
       .describe(

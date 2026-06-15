@@ -10557,6 +10557,7 @@ paths:
                         type: number
                       properPriorStdDev:
                         type: number
+                        exclusiveMinimum: 0
                       regressionAdjustmentOverride:
                         description: >-
                           Must be true for the override to take effect. If true,
@@ -11159,6 +11160,7 @@ paths:
                         type: number
                       properPriorStdDev:
                         type: number
+                        exclusiveMinimum: 0
                       regressionAdjustmentOverride:
                         description: >-
                           Must be true for the override to take effect. If true,
@@ -22061,6 +22063,7 @@ paths:
                         type: number
                       properPriorStdDev:
                         type: number
+                        exclusiveMinimum: 0
                       regressionAdjustmentOverride:
                         type: boolean
                       regressionAdjustmentEnabled:
@@ -22328,6 +22331,7 @@ paths:
                         type: number
                       properPriorStdDev:
                         type: number
+                        exclusiveMinimum: 0
                       regressionAdjustmentOverride:
                         type: boolean
                       regressionAdjustmentEnabled:
@@ -36370,6 +36374,7 @@ components:
                     Must be > 0. The standard deviation of the prior
                     distribution of relative effects in proportion terms.
                   type: number
+                  exclusiveMinimum: 0
               required:
                 - override
                 - proper
@@ -39423,6 +39428,7 @@ components:
                     type: number
                   properPriorStdDev:
                     type: number
+                    exclusiveMinimum: 0
                   regressionAdjustmentOverride:
                     type: boolean
                   regressionAdjustmentEnabled:

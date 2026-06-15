@@ -146,6 +146,7 @@ import {
 } from "back-end/src/enterprise";
 import { getUsageFromCache } from "back-end/src/enterprise/billing";
 import { logger } from "back-end/src/util/logger";
+import { validatePriorSettings } from "back-end/src/util/priors";
 import {
   getInstallation,
   setInstallationName,
@@ -1673,6 +1674,8 @@ export async function putOrganization(
       orig.licenseKey = org.licenseKey;
       await setLicenseKey(org, updates.licenseKey);
     }
+
+    validatePriorSettings(updates.settings?.metricDefaults?.priorSettings);
 
     await updateOrganization(org.id, updates);
 

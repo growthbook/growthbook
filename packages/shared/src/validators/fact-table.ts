@@ -271,7 +271,9 @@ export const factMetricValidator = z
 
     cappingSettings: cappingSettingsValidator,
     windowSettings: windowSettingsValidator,
-    priorSettings: priorSettingsValidator,
+    priorSettings: priorSettingsValidator.extend({
+      stddev: z.number().gt(0),
+    }),
 
     maxPercentChange: z.number(),
     minPercentChange: z.number(),

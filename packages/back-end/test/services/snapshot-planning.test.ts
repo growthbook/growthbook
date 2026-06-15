@@ -672,4 +672,59 @@ describe("snapshot planning", () => {
     expect(plan.fullRefresh).toBe(false);
     expect(plan.fullRefreshReason).toBeNull();
   });
+
+  describe("getMetricSnapshotSettings read contract", () => {
+    it("applies a positive override stddev", () => {
+      const { metricSnapshotSettings } = getMetricSnapshotSettings({
+        metric: factMetricFactory.build({ id: "m1" }),
+        denominatorMetrics: [],
+        experimentRegressionAdjustmentEnabled: false,
+        metricOverrides: [
+          { id: "m1", properPriorOverride: true, properPriorStdDev: 0.5 },
+        ],
+      });
+      expect(metricSnapshotSettings.properPriorStdDev).toBe(0.5);
+    });
+
+    it("returns stored zero override stddev unchanged", () => {
+      const { metricSnapshotSettings } = getMetricSnapshotSettings({
+        metric: factMetricFactory.build({ id: "m1" }),
+        denominatorMetrics: [],
+        experimentRegressionAdjustmentEnabled: false,
+        metricOverrides: [
+          { id: "m1", properPriorOverride: true, properPriorStdDev: 0 },
+        ],
+      });
+      expect(metricSnapshotSettings.properPriorStdDev).toBe(0);
+    });
+
+    it("returns stored zero metric-level stddev unchanged", () => {
+      const { metricSnapshotSettings } = getMetricSnapshotSettings({
+        metric: factMetricFactory.build({
+          id: "m1",
+          priorSettings: { override: true, proper: true, mean: 0, stddev: 0 },
+        }),
+        denominatorMetrics: [],
+        experimentRegressionAdjustmentEnabled: false,
+      });
+      expect(metricSnapshotSettings.properPriorStdDev).toBe(0);
+    });
+
+    it("returns stored zero org-default stddev unchanged", () => {
+      const { metricSnapshotSettings } = getMetricSnapshotSettings({
+        metric: factMetricFactory.build({
+          id: "m1",
+          priorSettings: { override: false, proper: false, mean: 0, stddev: 1 },
+        }),
+        denominatorMetrics: [],
+        experimentRegressionAdjustmentEnabled: false,
+        organizationSettings: {
+          metricDefaults: {
+            priorSettings: { override: true, proper: true, mean: 0, stddev: 0 },
+          },
+        },
+      });
+      expect(metricSnapshotSettings.properPriorStdDev).toBe(0);
+    });
+  });
 });
