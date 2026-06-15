@@ -107,7 +107,16 @@ const propertyParams = z
 
 export const listAttributesValidator = {
   bodySchema: z.never(),
-  querySchema: z.never(),
+  querySchema: z
+    .object({
+      projectId: z
+        .string()
+        .optional()
+        .describe(
+          "Filter to attributes available in this project — includes org-wide attributes (no project restriction) and attributes explicitly scoped to this project.",
+        ),
+    })
+    .strict(),
   paramsSchema: z.never(),
   responseSchema: z
     .object({

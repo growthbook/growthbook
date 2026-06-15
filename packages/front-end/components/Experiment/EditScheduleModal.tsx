@@ -1,6 +1,7 @@
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Box } from "@radix-ui/themes";
+import { format as formatTimeZone } from "date-fns-tz";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import DatePicker from "@/components/DatePicker";
 import { useAuth } from "@/services/auth";
@@ -81,7 +82,10 @@ export default function EditScheduleModal({
     >
       <Box>
         <Text as="label" color="text-high" mb={hasSchedule ? "1" : "2"}>
-          Start Date & Time
+          Start Date & Time{" "}
+          <Text as="span" color="text-mid">
+            ({formatTimeZone(new Date(), "z")})
+          </Text>
         </Text>
         {hasSchedule && (
           <Text as="div" color="text-mid" mb="2">

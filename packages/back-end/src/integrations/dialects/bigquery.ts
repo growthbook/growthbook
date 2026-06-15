@@ -1,4 +1,5 @@
 import type { DataType } from "shared/types/integrations";
+import { createLikeStringMatchFn } from "shared/sql";
 import type { DateTruncGranularity, SqlDialect } from "shared/types/sql";
 import {
   defaultPercentileCapSelectClause,
@@ -101,6 +102,9 @@ function bigQueryPercentileCapSelectClause(
       `;
 }
 
+const bigQueryEscapeStringLiteral = (value: string) =>
+  value.replace(/(['\\])/g, "\\$1");
+
 export const bigQueryDialect: SqlDialect = {
   ...baseDialect,
   formatDialect: "bigquery",
@@ -120,31 +124,45 @@ export const bigQueryDialect: SqlDialect = {
   formatDate: (col: string) => `format_date("%F", ${col})`,
   formatDateTimeString: (col: string) => `format_datetime("%F %T", ${col})`,
   castToString: (col: string) => `cast(${col} as string)`,
-  escapeStringLiteral: (value: string) => value.replace(/(['\\])/g, "\\$1"),
+  stringMatch: createLikeStringMatchFn({
+    escapeStringLiteral: bigQueryEscapeStringLiteral,
+    emitEscapeClause: false,
+  }),
+  escapeStringLiteral: bigQueryEscapeStringLiteral,
   castUserDateCol: (column: string) => `CAST(${column} as DATETIME)`,
   hasCountDistinctHLL: () => true,
   hllAggregate: (col: string) => `HLL_COUNT.INIT(${col})`,
   hllReaggregate: (col: string) => `HLL_COUNT.MERGE_PARTIAL(${col})`,
   hllCardinality: (col: string) => `HLL_COUNT.EXTRACT(${col})`,
-  kllInit: (col: string) => `KLL_QUANTILES.INIT_FLOAT64(${col}, 1000)`,
-  kllMergePartial: (col: string) => `KLL_QUANTILES.MERGE_PARTIAL(${col})`,
-  kllExtractPoint: (col: string, quantile: number) =>
+  quantileSketchInit: (col: string) =>
+    `KLL_QUANTILES.INIT_FLOAT64(${col}, 1000)`,
+  quantileSketchMergePartial: (col: string) =>
+    `KLL_QUANTILES.MERGE_PARTIAL(${col})`,
+  quantileSketchExtractPoint: (col: string, quantile: number) =>
     `KLL_QUANTILES.EXTRACT_POINT_FLOAT64(${col}, ${quantile})`,
-  kllExtractQuantiles: (col: string, numQuantiles: number) =>
+  quantileSketchExtractQuantiles: (col: string, numQuantiles: number) =>
     `KLL_QUANTILES.EXTRACT_FLOAT64(${col}, ${numQuantiles})`,
-  kllRankApprox: (
+  quantileSketchRankApprox: (
     sketchCol: string,
     thresholdCol: string,
     nEventsCol: string,
     numQuantiles: number,
   ) => {
-    const cdfArray = bigQueryDialect.kllExtractQuantiles(
+    const cdfArray = bigQueryDialect.quantileSketchExtractQuantiles(
       sketchCol,
       numQuantiles,
     );
     const countBelow = `(SELECT COUNT(*) FROM UNNEST(${cdfArray}) AS p WHERE p < ${thresholdCol})`;
     return `COALESCE(${countBelow} * ${nEventsCol} / ${numQuantiles}.0, 0)`;
   },
+  hasArrayQuantileGrid: () => true,
+  // BigQuery rejects NULL containing arrays in a query result, so collapse the
+  // whole grid to NULL when an array would contain NULLs.
+  // The quantile-grid elements are all-or-nothing, so we can test the first element.
+  quantileGridArrayLiteral: (elements: string[]) =>
+    elements.length > 0
+      ? `IF(${elements[0]} IS NULL, NULL, [${elements.join(", ")}])`
+      : `[${elements.join(", ")}]`,
   percentileApprox: (value: string, quantile: string | number) => {
     const multiplier = APPROX_QUANTILES_MULTIPLIER;
     const quantileVal = Number(quantile)
@@ -172,7 +190,7 @@ export const bigQueryDialect: SqlDialect = {
         return "TIMESTAMP";
       case "hll":
         return "BYTES";
-      case "kll":
+      case "quantileSketch":
         return "BYTES";
       default: {
         const _: never = dataType;

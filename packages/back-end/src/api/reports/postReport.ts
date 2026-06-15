@@ -7,7 +7,7 @@ import { getAllVariations } from "shared/experiments";
 import { ExperimentReportAnalysisSettings } from "shared/types/report";
 import { getValidDate } from "shared/dates";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
-import { getLatestSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
+import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { createReport, updateReport } from "back-end/src/models/ReportModel";
@@ -56,7 +56,7 @@ export const postReport = createApiRequestHandler(postReportValidator)(async (
   }
 
   const phaseIndex = Math.max(experiment.phases.length - 1, 0);
-  const latestSnapshot = await getLatestSnapshot({
+  const latestSnapshot = await getLatestSuccessfulSnapshot({
     context: req.context,
     experiment: experiment.id,
     phase: phaseIndex,

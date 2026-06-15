@@ -76,9 +76,9 @@ export const FeatureEvaluationQueries: FC<FeatureEvaluationQueriesProps> = ({
           </Flex>
         </Box>
 
-        {canEdit && featureUsageQueries.length === 0 && (
+        {featureUsageQueries.length === 0 && (
           <Box>
-            <Button onClick={() => setUiMode("add")}>
+            <Button onClick={() => setUiMode("add")} disabled={!canEdit}>
               <FaPlus className="mr-1" /> Add
             </Button>
           </Box>

@@ -22,22 +22,29 @@ import {
   diag,
   metrics as otlMetrics,
   DiagConsoleLogger,
+  DiagLogLevel,
 } from "@opentelemetry/api";
 import {
   getNodeAutoInstrumentations,
   getResourceDetectors,
 } from "@opentelemetry/auto-instrumentations-node";
-import { Resource } from "@opentelemetry/resources";
-import { SemanticResourceAttributes } from "@opentelemetry/semantic-conventions";
+import { resourceFromAttributes } from "@opentelemetry/resources";
+import {
+  ATTR_SERVICE_NAME,
+  ATTR_SERVICE_NAMESPACE,
+  ATTR_SERVICE_VERSION,
+} from "@opentelemetry/semantic-conventions";
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-proto";
 import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
 import { getBuild } from "./util/build";
 import { setMetrics, Attributes } from "./util/metrics";
 
-diag.setLogger(
-  new DiagConsoleLogger(),
-  opentelemetry.core.getEnv().OTEL_LOG_LEVEL,
-);
+const envLevel = (process.env.OTEL_LOG_LEVEL ?? "").toUpperCase();
+const logLevel =
+  envLevel in DiagLogLevel && isNaN(Number(envLevel))
+    ? DiagLogLevel[envLevel as keyof typeof DiagLogLevel]
+    : DiagLogLevel.INFO;
+diag.setLogger(new DiagConsoleLogger(), logLevel);
 
 const metricReader = new PeriodicExportingMetricReader({
   exporter: new OTLPMetricExporter(),
@@ -51,12 +58,12 @@ const sdk = new opentelemetry.NodeSDK({
       : []),
   ],
   resourceDetectors: getResourceDetectors(),
-  logRecordProcessor: new BatchLogRecordProcessor(new OTLPLogExporter()),
-  metricReader,
-  resource: new Resource({
-    [SemanticResourceAttributes.SERVICE_NAME]: "growthbook",
-    [SemanticResourceAttributes.SERVICE_NAMESPACE]: "backend",
-    [SemanticResourceAttributes.SERVICE_VERSION]: getBuild().sha,
+  logRecordProcessors: [new BatchLogRecordProcessor(new OTLPLogExporter())],
+  metricReaders: [metricReader],
+  resource: resourceFromAttributes({
+    [ATTR_SERVICE_NAME]: "growthbook",
+    [ATTR_SERVICE_NAMESPACE]: "backend",
+    [ATTR_SERVICE_VERSION]: getBuild().sha,
   }),
 });
 

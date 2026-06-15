@@ -29,6 +29,7 @@ import {
   fillRevisionFromFeature,
   liveRevisionFromFeature,
   filterEnvironmentsByFeature,
+  getEnvsFromRampSchedule,
   getReviewSetting,
   draftDiffersFromLive,
 } from "shared/util";
@@ -102,7 +103,6 @@ import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
-import JSONValidation from "@/components/Features/JSONValidation";
 import {
   PrerequisiteStateResult,
   usePrerequisiteStates,
@@ -504,6 +504,14 @@ export default function FeaturesOverview({
     if (target) target.appendChild(draftCtaPortalHost);
   });
 
+  const featureLockedByRamp = useMemo(
+    () =>
+      rampSchedules?.some(
+        (rs) => rs.lockdownConfig?.mode === "locked" && rs.status === "running",
+      ) ?? false,
+    [rampSchedules],
+  );
+
   if (!baseFeature || !feature || !revision) return null;
 
   const hasConditionalState =
@@ -541,10 +549,14 @@ export default function FeaturesOverview({
       // v2 rules are a flat FeatureRule[]; the mergeResult carries either the
       // full replacement array (when rules changed) or nothing (when only
       // non-rule fields changed). Never object-spread an array.
+      // rampActions live on the draft; autoMerge doesn't carry them through
+      // MergeResultChanges, so re-attach them here so the review gate can
+      // detect that production environments are affected.
       effectiveRevision = {
         ...filledLive,
         ...mergeResult.result,
         rules: mergeResult.result.rules ?? filledLive.rules,
+        rampActions: revision?.rampActions,
       };
       effectiveBase = filledLive;
     }
@@ -556,6 +568,22 @@ export default function FeaturesOverview({
       allEnvironments: environments.map((e) => e.id),
       settings,
       requireApprovalsLicensed: hasCommercialFeature("require-approvals"),
+      liveRampScheduleEnvs: (() => {
+        const map = new Map<string, string[] | "all">();
+        for (const action of effectiveRevision.rampActions ?? []) {
+          if (action.mode !== "update") continue;
+          const liveSchedule = rampSchedules?.find(
+            (rs) => rs.id === action.rampScheduleId,
+          );
+          if (liveSchedule) {
+            map.set(
+              action.rampScheduleId,
+              getEnvsFromRampSchedule(liveSchedule),
+            );
+          }
+        }
+        return map;
+      })(),
     });
   }
   const isLive = revision?.version === feature.version;
@@ -602,13 +630,6 @@ export default function FeaturesOverview({
       ? ("draft" as const)
       : ("inactive" as const)
     : false;
-
-  const enabledEnvsSubtext =
-    isDraft || isPendingReview
-      ? "in this draft"
-      : !isLive
-        ? "in this revision"
-        : null;
 
   // TODO: support multiple per-project approval configs
   const featureReviewConfig = getReviewSetting(
@@ -659,6 +680,18 @@ export default function FeaturesOverview({
   };
 
   const renderDraftBannerCopy = () => {
+    if (featureLockedByRamp) {
+      return (
+        <>
+          <PiLockSimple />{" "}
+          {isPendingReview
+            ? "Review and Approve"
+            : approved
+              ? "Review and Publish"
+              : "Request Approval to Publish"}
+        </>
+      );
+    }
     if (isPendingReview) {
       return (
         <>
@@ -709,7 +742,7 @@ export default function FeaturesOverview({
             (r) =>
               r.status === "published" &&
               r.version !== feature.version &&
-              r.datePublished != null &&
+              !!r.datePublished &&
               new Date(r.datePublished).getTime() < livePublishedAt,
           )
           .sort((a, b) => {
@@ -816,6 +849,7 @@ export default function FeaturesOverview({
               >
                 <Button
                   disabled={!revisionHasChanges || !hasDraftPublishPermission}
+                  icon={featureLockedByRamp ? <PiLockSimple /> : undefined}
                   onClick={() => setDraftModal(true)}
                   style={nowrap}
                 >
@@ -1391,13 +1425,6 @@ export default function FeaturesOverview({
                       <span className="font-weight-bold">
                         Enabled Environments
                       </span>
-                      {enabledEnvsSubtext ? (
-                        <div style={{ marginBottom: -20 }}>
-                          <Text as="div" size="small" color="text-mid">
-                            {enabledEnvsSubtext}
-                          </Text>
-                        </div>
-                      ) : null}
                     </Box>
                     {envs.map((env) => (
                       <Box
@@ -1579,11 +1606,6 @@ export default function FeaturesOverview({
               <Flex align="center" justify="between" mb="2">
                 <span>
                   <span className="font-weight-bold">Enabled Environments</span>
-                  {enabledEnvsSubtext ? (
-                    <Text as="div" size="small" color="text-mid">
-                      {enabledEnvsSubtext}
-                    </Text>
-                  ) : null}
                 </span>
                 {!isReadOnly && (
                   <Button
@@ -1595,8 +1617,8 @@ export default function FeaturesOverview({
                   </Button>
                 )}
               </Flex>
-              <Separator size="4" mt="1" mb="3" />
               <Flex
+                mt="3"
                 mb="4"
                 justify="start"
                 align="center"
@@ -1728,6 +1750,7 @@ export default function FeaturesOverview({
             />
           )}
         </Frame>
+
         {dependents > 0 && (
           <Frame mb="4" px="6" py="4">
             <Flex mb="2" gap="2" align="center">
@@ -1811,17 +1834,6 @@ export default function FeaturesOverview({
                 )}
               </>
             )}
-          </Frame>
-        )}
-
-        {feature.valueType === "json" && (
-          <Frame mb="4" px="6" py="4">
-            <JSONValidation
-              feature={feature}
-              mutate={mutate}
-              setVersion={setVersion}
-              revisionList={revisionList || []}
-            />
           </Frame>
         )}
 

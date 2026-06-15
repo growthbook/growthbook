@@ -98,7 +98,9 @@ const ExperimentSearchFilters: FC<
         owners.add(getOwnerDisplay(e.owner));
       }
     });
-    return Array.from(owners);
+    return Array.from(owners).sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: "base" }),
+    );
   }, [experiments, getOwnerDisplay]);
 
   const availableExperimentTypes = useMemo(() => {

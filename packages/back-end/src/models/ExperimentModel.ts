@@ -373,6 +373,7 @@ const experimentSchema = new mongoose.Schema({
       ],
     },
   ],
+  precomputedUnitDimensionIds: [String],
 });
 
 // Compound indexes for API list filtering
@@ -461,6 +462,7 @@ export async function getAllExperiments(
     trackingKey,
     status,
     sortBy,
+    limit,
   }: {
     project?: string;
     includeArchived?: boolean;
@@ -469,6 +471,10 @@ export async function getAllExperiments(
     trackingKey?: string;
     status?: ExperimentStatus;
     sortBy?: SortFilter;
+    // Mongo-cursor-level cap; pair with `sortBy` to get top-N. Without
+    // it, large orgs materialize the full result set (each row carries
+    // a potentially large analysis blob).
+    limit?: number;
   } = {},
 ): Promise<ExperimentInterface[]> {
   const query: FilterQuery<ExperimentDocument> = {
@@ -505,7 +511,7 @@ export async function getAllExperiments(
     query.type = { $ne: "holdout" };
   }
 
-  return await findExperiments(context, query, undefined, sortBy);
+  return await findExperiments(context, query, limit, sortBy);
 }
 
 export async function hasArchivedExperiments(
@@ -1221,7 +1227,10 @@ export async function deleteExperimentByIdForOrganization(
       organization: context.org.id,
     });
 
-    await VisualChangesetModel.deleteMany({ experiment: experiment.id });
+    await VisualChangesetModel.deleteMany({
+      experiment: experiment.id,
+      organization: context.org.id,
+    });
 
     await onExperimentDelete(context, experiment);
   } catch (e) {
@@ -1253,7 +1262,10 @@ export async function deleteAllExperimentsForAProject({
       id: experiment.id,
       organization: context.org.id,
     });
-    await VisualChangesetModel.deleteMany({ experiment: experiment.id });
+    await VisualChangesetModel.deleteMany({
+      experiment: experiment.id,
+      organization: context.org.id,
+    });
     await onExperimentDelete(context, toInterface(experiment));
   }
 }

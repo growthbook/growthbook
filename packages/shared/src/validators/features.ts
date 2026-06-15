@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { statsEngines } from "shared/constants";
+import { statsEngines, MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { eventUser } from "./event-user";
 import {
   featurePrerequisite,
@@ -10,13 +10,19 @@ import {
   apiPaginationFieldsValidator,
 } from "./shared";
 import { safeRolloutStatusArray } from "./safe-rollout";
-import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
+import {
+  ownerEmailField,
+  ownerField,
+  ownerInputField,
+  optionalOwnerInputField,
+} from "./owner-field";
 import {
   featureRulePatch,
-  rampTrigger,
+  lockdownConfigSchema,
   rampStep,
   rampStepAction,
-  rampEndTrigger,
+  rampMonitoringConfig,
+  stepHoldConditions,
 } from "./ramp-schedule";
 
 import { namedSchema } from "./openapi-helpers";
@@ -26,7 +32,7 @@ export const simpleSchemaFieldValidator = z.object({
   type: z.enum(["integer", "float", "string", "boolean"]),
   required: z.boolean(),
   default: z.string().max(256),
-  description: z.string().max(256),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH),
   enum: z.array(z.string().max(256)).max(256),
   min: z.number(),
   max: z.number(),
@@ -57,7 +63,7 @@ export type ScheduleRule = z.infer<typeof scheduleRule>;
 
 export const baseRule = z
   .object({
-    description: z.string(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH),
     condition: z.string().optional(),
     // `fr_<uniqid>` for new rules; post-migration rules from a v1 collision
     // carry a `__<env>` suffix. REST emits the qualified id; SDK/UI stem-strip.
@@ -93,6 +99,7 @@ export const rolloutRule = baseRule
     coverage: z.number(),
     hashAttribute: z.string(),
     seed: z.string().optional(),
+    hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
   })
   .strict();
 
@@ -223,7 +230,7 @@ export const v1FeatureRule = z
     id: z.string(),
     type: z.string().optional(),
     enabled: z.boolean().optional(),
-    description: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   })
   .passthrough();
 
@@ -288,6 +295,65 @@ export type ActiveDraftStatus = z.infer<typeof activeDraftStatusSchema>;
 
 export const ACTIVE_DRAFT_STATUSES = activeDraftStatusSchema.options;
 
+/**
+ * Status filter for revision list endpoints. Accepts a single value
+ * (`draft`), comma-separated values (`draft,approved`), or the shorthand
+ * `all-drafts` (expands to draft, pending-review, approved,
+ * changes-requested). On v2 endpoints, omitting this parameter defaults to
+ * `all-drafts`. Parsing is handled at the handler layer via
+ * `parseRevisionStatusFilter`.
+ */
+export const revisionStatusFilterSchema = z
+  .union([z.string(), z.array(z.string())])
+  .describe(
+    "Filter by revision status. Single value, comma-separated list, repeated params (?status=draft&status=approved), or `all-drafts` shorthand for all active-draft statuses (draft, pending-review, approved, changes-requested).",
+  )
+  .optional();
+
+export type RevisionStatusFilter = z.infer<typeof revisionStatusFilterSchema>;
+
+/**
+ * Parse a raw status query-param value into the form expected by
+ * `getFeatureRevisionsByStatus`. Handles:
+ * - Single values:          "draft"
+ * - Comma-separated:        "draft,approved"
+ * - "all-drafts" shorthand: expands to all four active-draft statuses
+ * - Repeated query params:  ["all-drafts", "draft"] (from Express array parsing)
+ *
+ * Throws a plain Error (caught as 400 by createApiRequestHandler) if any
+ * token is not a recognised RevisionStatus or "all-drafts".
+ */
+export function parseRevisionStatusFilter(
+  val: string | string[] | undefined,
+): RevisionStatus | RevisionStatus[] | undefined {
+  if (!val || (Array.isArray(val) && val.length === 0)) return undefined;
+
+  const valid = new Set<string>([
+    ...revisionStatusSchema.options,
+    "all-drafts",
+  ]);
+
+  const expand = (token: string): RevisionStatus[] => {
+    if (!valid.has(token)) {
+      throw new Error(
+        `Invalid status value: "${token}". Must be one of: ${[...revisionStatusSchema.options, "all-drafts"].join(", ")}.`,
+      );
+    }
+    return token === "all-drafts"
+      ? [...ACTIVE_DRAFT_STATUSES]
+      : [token as RevisionStatus];
+  };
+
+  const tokens = Array.isArray(val)
+    ? val
+    : val.includes(",")
+      ? val.split(",").map((s) => s.trim())
+      : [val];
+
+  const expanded = [...new Set(tokens.flatMap(expand))]; // deduplicate
+  return expanded.length === 1 ? expanded[0] : expanded;
+}
+
 const minimalFeatureRevisionInterface = z
   .object({
     version: z.number(),
@@ -297,7 +363,7 @@ const minimalFeatureRevisionInterface = z
     status: revisionStatusSchema,
     comment: z.string(),
     title: z.string().optional(),
-    contributors: z.array(eventUser).optional(),
+    contributors: z.array(z.string()).optional(),
   })
   .strict();
 
@@ -306,7 +372,7 @@ export type MinimalFeatureRevisionInterface = z.infer<
 >;
 
 const revisionMetadataSchema = z.object({
-  description: z.string().optional(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   owner: ownerField.optional(),
   project: z.string().optional(),
   tags: z.array(z.string()).optional(),
@@ -321,10 +387,6 @@ export type RevisionMetadata = z.infer<typeof revisionMetadataSchema>;
 // Ramp schedule actions stored on a revision. Deferred until publish. Only
 // create/detach are revision-bound — state changes (pause, resume, …) run
 // real-time on the live ramp schedule.
-const revisionRampEndConditionSchema = z.object({
-  trigger: rampEndTrigger.optional(),
-});
-
 // API variant: targetType/targetId are inferred from the top-level ruleId
 // at publish time.
 const revisionApiRampStepAction = z.object({
@@ -334,56 +396,92 @@ const revisionApiRampStepAction = z.object({
 });
 
 const revisionApiRampStep = z.object({
-  trigger: rampTrigger,
+  interval: z.number().positive().nullable(),
   actions: z.array(revisionApiRampStepAction).optional(),
   approvalNotes: z.string().nullish(),
+  monitored: z.boolean().optional(),
+  holdConditions: stepHoldConditions.optional(),
 });
 
 // Stored type — requires targetType/targetId in actions.
 export const revisionRampCreateAction = z.object({
   mode: z.literal("create"),
-  /** Display name. Defaults to "Ramp schedule – {Month YYYY}" if omitted. */
   name: z.string().optional(),
-  /**
-   * @deprecated New ramp actions must omit this field and target exclusively
-   * by `ruleId`.  Retained as optional/nullable so pre-migration actions
-   * stored in the DB continue to deserialize and resolve correctly via
-   * `resolveRampTargets` in `flattenRules.ts`.
-   */
+  // @deprecated — target by ruleId only. Kept for pre-migration DB compat.
   environment: z.string().optional().nullable(),
-  /** Load steps and endActions from a saved template. Explicit steps/endActions take precedence. */
   templateId: z.string().optional(),
+  startActions: z.array(rampStepAction).optional(),
   steps: z.array(rampStep),
   endActions: z.array(rampStepAction).optional(),
-  /** ISO datetime string; absent/null means start immediately on publish. */
   startDate: z.string().optional().nullable(),
-  endCondition: revisionRampEndConditionSchema.optional(),
+  cutoffDate: z.string().optional().nullable(),
   ruleId: z.string(),
+  monitoringConfig: rampMonitoringConfig.optional(),
+  lockdownConfig: lockdownConfigSchema.optional(),
 });
 
 // API input variant — normalize to RevisionRampCreateAction before storing.
 export const apiRevisionRampCreateAction = revisionRampCreateAction.extend({
   steps: z.array(revisionApiRampStep).optional(),
+  startActions: z.array(revisionApiRampStepAction).optional(),
   endActions: z.array(revisionApiRampStepAction).optional(),
+  startDate: z
+    .string()
+    .datetime({ offset: true })
+    .optional()
+    .nullable()
+    .describe(
+      'ISO 8601 date-time, e.g. "2025-06-01T00:00:00Z". Absent or null means start immediately on publish.',
+    ),
+  cutoffDate: z
+    .string()
+    .datetime({ offset: true })
+    .optional()
+    .nullable()
+    .describe(
+      'ISO 8601 date-time, e.g. "2025-07-01T00:00:00Z". The ramp ends at this time.',
+    ),
 });
 
 export const revisionRampDetachAction = z.object({
   mode: z.literal("detach"),
   rampScheduleId: z.string(),
-  /** Rule ID being detached. Used at publish time to remove the right target. */
   ruleId: z.string(),
-  /** Delete the ramp schedule entirely if no targets remain after detach. */
   deleteScheduleWhenEmpty: z.boolean().optional(),
 });
 
+export const revisionRampUpdateAction = revisionRampCreateAction
+  .omit({ mode: true })
+  .extend({
+    mode: z.literal("update"),
+    rampScheduleId: z.string(),
+  });
+
+export const apiRevisionRampUpdateAction = apiRevisionRampCreateAction
+  .omit({ mode: true })
+  .extend({
+    mode: z.literal("update"),
+    rampScheduleId: z.string(),
+  });
+
 const revisionRampAction = z.discriminatedUnion("mode", [
   revisionRampCreateAction,
+  revisionRampUpdateAction,
+  revisionRampDetachAction,
+]);
+export const apiRevisionRampAction = z.discriminatedUnion("mode", [
+  apiRevisionRampCreateAction,
+  apiRevisionRampUpdateAction,
   revisionRampDetachAction,
 ]);
 
 export type RevisionRampCreateAction = z.infer<typeof revisionRampCreateAction>;
 export type ApiRevisionRampCreateAction = z.infer<
   typeof apiRevisionRampCreateAction
+>;
+export type RevisionRampUpdateAction = z.infer<typeof revisionRampUpdateAction>;
+export type ApiRevisionRampUpdateAction = z.infer<
+  typeof apiRevisionRampUpdateAction
 >;
 export type RevisionRampDetachAction = z.infer<typeof revisionRampDetachAction>;
 export type RevisionRampAction = z.infer<typeof revisionRampAction>;
@@ -413,9 +511,10 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
     // are NOT stored here — they operate directly on live ramp schedule documents.
     rampActions: z.array(revisionRampAction).optional(),
     log: z.array(revisionLog).optional(), // This is deprecated in favor of using FeatureRevisionLog due to it being too large
-    // Users (beyond the original author) who have made edits to this draft.
-    // Populated incrementally via updateRevision; used for the self-approval block.
-    contributors: z.array(eventUser).optional(),
+    // User IDs who have made edits to this draft. Populated incrementally via
+    // updateRevision's $addToSet; may be empty if no content edits have been made.
+    // Note: the revision author (createdBy) is NOT automatically seeded here.
+    contributors: z.array(z.string()).optional(),
   })
   .strict();
 
@@ -443,7 +542,7 @@ export const featureInterface = z
   .object({
     id: z.string(),
     archived: z.boolean().optional(),
-    description: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     organization: z.string(),
     nextScheduledUpdate: z.union([z.date(), z.null()]).optional(),
     owner: ownerField,
@@ -524,7 +623,7 @@ export const apiFeatureBaseRuleValidator = namedSchema(
   "FeatureBaseRule",
   z
     .object({
-      description: z.string(),
+      description: z.string().max(MAX_DESCRIPTION_LENGTH),
       condition: z.string().optional(),
       id: z.string(),
       enabled: z.boolean(),
@@ -536,6 +635,12 @@ export const apiFeatureBaseRuleValidator = namedSchema(
         .enum(["none", "schedule", "ramp"])
         .describe(
           "UI hint for which scheduling mode is active:\n- `none` \u2013 no schedule\n- `schedule` \u2013 simple time-based enable/disable via `scheduleRules`\n- `ramp` \u2013 multi-step ramp-up controlled by an associated RampSchedule document\n",
+        )
+        .optional(),
+      rampScheduleId: z
+        .string()
+        .describe(
+          "ID of the active RampSchedule document controlling this rule. Present when `scheduleType` is `ramp` and a live schedule exists.",
         )
         .optional(),
       savedGroupTargeting: z
@@ -595,6 +700,12 @@ export const apiFeatureRolloutRuleValidator = namedSchema(
         .string()
         .describe(
           "Optional seed for the hash function; defaults to the rule id",
+        )
+        .optional(),
+      hashVersion: z
+        .union([z.literal(1), z.literal(2)])
+        .describe(
+          "Hash algorithm version for bucketing. Defaults to 2 (preferred) when not specified.",
         )
         .optional(),
     }),
@@ -807,10 +918,19 @@ export const apiRevisionPrerequisite = z.object({
   condition: z.string(),
 });
 
+// v2 prerequisite shapes: condition is always {"value":true} and not exposed
+// as a settable field — only the prerequisite flag's ID is accepted/returned.
+export const apiRevisionPrerequisiteV2 = z.object({
+  id: z.string().describe("Feature ID of the prerequisite boolean flag"),
+});
+export type ApiRevisionPrerequisiteV2 = z.infer<
+  typeof apiRevisionPrerequisiteV2
+>;
+
 // Revision metadata sub-object
 export const apiRevisionMetadata = z
   .object({
-    description: z.string().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
     owner: ownerField.optional(),
     project: z.string().optional(),
     tags: z.array(z.string()).optional(),
@@ -830,6 +950,24 @@ export const apiRevisionMetadata = z
   .describe(
     "Metadata fields captured in this revision (only present when metadata gating is enabled)",
   );
+
+// ---- EventUser ----
+// API-safe projection of the internal EventUser union (see event-user.ts).
+// Deliberately excludes the api_key actor's `apiKey` field.
+export const apiEventUserValidator = namedSchema(
+  "EventUser",
+  z
+    .object({
+      type: z.enum(["dashboard", "api_key", "system"]),
+      id: z.string().optional(),
+      name: z.string().optional(),
+      email: z.string().optional(),
+    })
+    .strict()
+    .describe("The user (or automated actor) responsible for an action"),
+);
+
+export type ApiEventUser = z.infer<typeof apiEventUserValidator>;
 
 // ---- FeatureRevision (schemas/FeatureRevision.yaml) ----
 export const apiFeatureRevisionValidator = namedSchema(
@@ -878,6 +1016,12 @@ export const apiFeatureRevisionValidator = namedSchema(
         )
         .optional(),
       metadata: apiRevisionMetadata.optional(),
+      rampActions: z
+        .array(apiRevisionRampAction)
+        .describe(
+          "Pending ramp schedule actions that will be applied when this draft is published",
+        )
+        .optional(),
     })
     .strict(),
 );
@@ -891,7 +1035,7 @@ export const apiFeatureValidator = namedSchema(
       dateCreated: z.string().meta({ format: "date-time" }),
       dateUpdated: z.string().meta({ format: "date-time" }),
       archived: z.boolean(),
-      description: z.string(),
+      description: z.string().max(MAX_DESCRIPTION_LENGTH),
       owner: ownerField,
       ownerEmail: ownerEmailField,
       project: z.string(),
@@ -947,7 +1091,7 @@ const postFeaturePrerequisite = z.object({
 });
 
 const postFeatureForceRule = z.object({
-  description: z.string().optional(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   condition: z.string().describe("Applied to everyone by default.").optional(),
   savedGroupTargeting: z.array(postFeatureSavedGroupTargeting).optional(),
   prerequisites: z.array(apiRevisionPrerequisite).optional(),
@@ -959,7 +1103,7 @@ const postFeatureForceRule = z.object({
 });
 
 const postFeatureRolloutRule = z.object({
-  description: z.string().optional(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   condition: z.string().describe("Applied to everyone by default.").optional(),
   savedGroupTargeting: z.array(postFeatureSavedGroupTargeting).optional(),
   prerequisites: z.array(postFeaturePrerequisite).optional(),
@@ -974,10 +1118,17 @@ const postFeatureRolloutRule = z.object({
       "Percent of traffic included in this experiment. Users not included in the experiment will skip this rule.",
     ),
   hashAttribute: z.string(),
+  seed: z.string().optional(),
+  hashVersion: z
+    .union([z.literal(1), z.literal(2)])
+    .describe(
+      "Hash algorithm version for bucketing. Defaults to 2 (preferred) when not specified.",
+    )
+    .optional(),
 });
 
 const postFeatureExperimentRefRule = z.object({
-  description: z.string().optional(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   id: z.string().optional(),
   enabled: z.boolean().describe("Enabled by default").optional(),
   type: z.literal("experiment-ref"),
@@ -995,7 +1146,7 @@ const postFeatureExperimentRefRule = z.object({
 });
 
 const postFeatureExperimentRule = z.object({
-  description: z.string().optional(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   condition: z.string(),
   id: z.string().optional(),
   enabled: z.boolean().describe("Enabled by default").optional(),
@@ -1093,8 +1244,12 @@ const postFeatureBody = z
         "A unique key name for the feature. Feature keys can only include letters, numbers, hyphens, and underscores.",
       ),
     archived: z.boolean().optional(),
-    description: z.string().describe("Description of the feature").optional(),
-    owner: ownerInputField,
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe("Description of the feature")
+      .optional(),
+    owner: optionalOwnerInputField,
     project: z.string().describe("An associated project ID").optional(),
     valueType: z
       .enum(["boolean", "string", "number", "json"])
@@ -1128,7 +1283,11 @@ const postFeatureBody = z
 // ---- UpdateFeaturePayload ----
 const updateFeatureBody = z
   .object({
-    description: z.string().describe("Description of the feature").optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe("Description of the feature")
+      .optional(),
     archived: z.boolean().optional(),
     project: z.string().describe("An associated project ID").optional(),
     owner: ownerInputField.optional(),
@@ -1366,7 +1525,7 @@ export const getFeatureRevisionsValidator = {
     .object({
       ...paginationQueryFields,
       ...skipPaginationQueryField,
-      status: revisionStatusSchema.optional(),
+      status: revisionStatusFilterSchema,
       author: z.string().optional(),
     })
     .strict(),

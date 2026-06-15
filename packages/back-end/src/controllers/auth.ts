@@ -50,6 +50,10 @@ export async function getHasOrganizations(req: Request, res: Response) {
 
 const auth = getAuthConnection();
 
+function getSsoConnectionIdForResponse(req: Request) {
+  return SSOConnectionIdCookie.getValue(req) || undefined;
+}
+
 export async function postRefresh(req: Request, res: Response) {
   // First try getting the idToken from cookies. If the cookie has outlived
   // the JWT (e.g. provider access_token TTL > id_token TTL), drop it and
@@ -59,6 +63,7 @@ export async function postRefresh(req: Request, res: Response) {
     return res.json({
       status: 200,
       token: idToken,
+      ssoConnectionId: getSsoConnectionIdForResponse(req),
     });
   }
   if (idToken) {
@@ -93,6 +98,7 @@ export async function postRefresh(req: Request, res: Response) {
     return res.json({
       status: 200,
       token: idToken,
+      ssoConnectionId: getSsoConnectionIdForResponse(req),
     });
   } catch (e) {
     // Could not refresh

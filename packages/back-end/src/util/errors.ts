@@ -1,3 +1,60 @@
+import {
+  ApiErrorCode,
+  ApiErrorDetails,
+  apiErrorRegistry,
+} from "shared/validators";
+
+export abstract class ApiError<C extends ApiErrorCode> extends Error {
+  readonly code: C;
+  readonly status: number;
+  readonly details: ApiErrorDetails<C>;
+
+  constructor(code: C, message: string, details: ApiErrorDetails<C>) {
+    super(message);
+    this.code = code;
+    this.status = apiErrorRegistry[code].status;
+    this.details = details;
+    this.name = "ApiError";
+  }
+}
+
+export class ChecklistIncompleteError extends ApiError<"checklist_incomplete"> {
+  constructor(
+    message: string,
+    remainingChecklistItems: ApiErrorDetails<"checklist_incomplete">["remainingChecklistItems"],
+  ) {
+    super("checklist_incomplete", message, { remainingChecklistItems });
+    this.name = "ChecklistIncompleteError";
+  }
+}
+
+// Message is supplied by the caller (typically via formatPendingDraftFailureMessage
+// in services/experiment-feature) to keep this module free of back-end imports
+// — errors.ts is loaded by licenseUtil and other low-level modules.
+export class PendingDraftPublishFailedError extends ApiError<"pending_draft_publish_failed"> {
+  constructor(
+    message: string,
+    failedFeatureDrafts: ApiErrorDetails<"pending_draft_publish_failed">["failedFeatureDrafts"],
+  ) {
+    super("pending_draft_publish_failed", message, { failedFeatureDrafts });
+    this.name = "PendingDraftPublishFailedError";
+  }
+}
+
+export class InvalidStatusError extends ApiError<"invalid_status"> {
+  constructor(
+    message: string,
+    currentStatus: string,
+    expectedStatuses: string[],
+  ) {
+    super("invalid_status", message, {
+      currentStatus,
+      expectedStatuses,
+    });
+    this.name = "InvalidStatusError";
+  }
+}
+
 export class MissingDatasourceParamsError extends Error {
   constructor(message: string) {
     super(message);
@@ -72,13 +129,32 @@ export class NotFoundError extends Error {
   }
 }
 
+// Generic 409. Stays as a plain Error so the response body is just `{ message }`
+// — preserving the legacy shape for callers that don't have structured conflict
+// details (e.g. namespace endpoints). Use MergeConflictError for callers that
+// do have a list of conflicts to surface.
 export class ConflictError extends Error {
   status = 409;
-  conflicts?: unknown[];
-  constructor(message: string, conflicts?: unknown[]) {
+  constructor(message: string) {
     super(message);
     this.name = "ConflictError";
-    this.conflicts = conflicts;
+  }
+}
+
+export class MergeConflictError extends ApiError<"conflict"> {
+  constructor(message: string, conflicts: unknown[]) {
+    super("conflict", message, { conflicts });
+    this.name = "MergeConflictError";
+  }
+}
+
+export class SoftWarningError extends Error {
+  status = 422;
+  warnings: string[];
+  constructor(message: string, warnings: string[]) {
+    super(message);
+    this.name = "SoftWarningError";
+    this.warnings = warnings;
   }
 }
 
@@ -97,6 +173,21 @@ export class ConcurrentIncrementalRefreshError extends Error {
   }
 }
 
+export class IncrementalUpdateRequiresFullRefreshError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "IncrementalUpdateRequiresFullRefreshError";
+  }
+}
+
+// Snapshot failures that repeat on every retry; auto-updates get disabled, even for bandits
+export class UnrecoverableSnapshotError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "UnrecoverableSnapshotError";
+  }
+}
+
 // Some errors are part of normal operation and shouldn't pollute
 // error-level logs or Sentry. Add cases here as we identify them.
 export function shouldSkipErrorLog(err: unknown): boolean {
@@ -109,4 +200,16 @@ export function shouldSkipErrorLog(err: unknown): boolean {
   if (inner?.name === "TokenExpiredError") return true;
 
   return false;
+}
+
+export function getErrorMessage(error: unknown, fallback?: string): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  if (error && typeof error === "object" && "message" in error) {
+    const { message } = error as { message: unknown };
+    if (typeof message === "string") return message;
+    if (message != null) return String(message);
+  }
+  if (error == null) return fallback ?? "Unknown error";
+  return fallback ?? String(error);
 }

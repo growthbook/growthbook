@@ -5,11 +5,13 @@ import type { ReqContext } from "back-end/types/request";
 jest.mock("back-end/src/models/FeatureModel", () => ({
   getFeature: jest.fn(),
   publishRevision: jest.fn(),
+  prevalidatePublishRevision: jest.fn(),
   editFeatureRules: jest.fn(),
 }));
 
 jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
   getRevision: jest.fn(),
+  discardRevision: jest.fn(),
 }));
 
 jest.mock("back-end/src/models/ExperimentModel", () => ({
@@ -34,16 +36,30 @@ jest.mock("shared/util", () => ({
 }));
 
 import { publishPendingFeatureDraftsForExperiment } from "back-end/src/services/experiment-feature";
-import { getFeature, publishRevision } from "back-end/src/models/FeatureModel";
-import { getRevision } from "back-end/src/models/FeatureRevisionModel";
+import {
+  getFeature,
+  prevalidatePublishRevision,
+  publishRevision,
+} from "back-end/src/models/FeatureModel";
+import {
+  getRevision,
+  discardRevision,
+} from "back-end/src/models/FeatureRevisionModel";
 import { removePendingFeatureDraftFromExperiment } from "back-end/src/models/ExperimentModel";
 import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
 
 const mockGetFeature = getFeature as jest.MockedFunction<typeof getFeature>;
 const mockGetRevision = getRevision as jest.MockedFunction<typeof getRevision>;
+const mockDiscardRevision = discardRevision as jest.MockedFunction<
+  typeof discardRevision
+>;
 const mockPublishRevision = publishRevision as jest.MockedFunction<
   typeof publishRevision
 >;
+const mockPrevalidatePublish =
+  prevalidatePublishRevision as jest.MockedFunction<
+    typeof prevalidatePublishRevision
+  >;
 const mockRemovePending =
   removePendingFeatureDraftFromExperiment as jest.MockedFunction<
     typeof removePendingFeatureDraftFromExperiment
@@ -84,7 +100,11 @@ beforeEach(() => {
     live: { rules: [] },
     base: { rules: [] },
   } as never);
-  mockAutoMerge.mockReturnValue({ success: true, conflicts: [], result: {} });
+  mockAutoMerge.mockReturnValue({
+    success: true,
+    conflicts: [],
+    result: { rules: [] },
+  });
   mockCheckIfRevisionNeedsReview.mockReturnValue(false);
 });
 
@@ -135,6 +155,27 @@ describe("publishPendingFeatureDraftsForExperiment", () => {
     expect(mockPublishRevision).not.toHaveBeenCalled();
   });
 
+  it("fails the whole batch before publishing anything when hook prevalidation rejects", async () => {
+    mockGetRevision.mockImplementation(async ({ version }) => {
+      return { version, status: "draft", rules: [] } as never;
+    });
+    // First draft prevalidates fine, second is rejected by a custom hook.
+    mockPrevalidatePublish
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error("Blocked by custom hook"));
+
+    const experiment = makeExperiment([
+      { featureId: "feat_a", revisionVersion: 5 },
+      { featureId: "feat_b", revisionVersion: 6 },
+    ]);
+
+    await expect(
+      publishPendingFeatureDraftsForExperiment(ctx, experiment),
+    ).rejects.toThrow("Blocked by custom hook");
+
+    expect(mockPublishRevision).not.toHaveBeenCalled();
+  });
+
   it("publishes a single draft cleanly", async () => {
     mockGetRevision.mockResolvedValue({
       version: 6,
@@ -158,6 +199,55 @@ describe("publishPendingFeatureDraftsForExperiment", () => {
     expect(mockPublishRevision).toHaveBeenCalledTimes(1);
   });
 
+  it("fetches each feature/revision once instead of re-fetching per phase", async () => {
+    mockGetRevision.mockImplementation(async ({ version }) => {
+      return { version, status: "draft", rules: [] } as never;
+    });
+
+    const experiment = makeExperiment([
+      { featureId: "feat_a", revisionVersion: 5 },
+      { featureId: "feat_b", revisionVersion: 6 },
+    ]);
+
+    const result = await publishPendingFeatureDraftsForExperiment(
+      ctx,
+      experiment,
+    );
+
+    expect(result.published.length).toBe(2);
+    // One fetch per feature and one per draft revision across all phases.
+    expect(mockGetFeature).toHaveBeenCalledTimes(2);
+    expect(mockGetRevision).toHaveBeenCalledTimes(2);
+    expect(mockGetLiveAndBase).toHaveBeenCalledTimes(2);
+  });
+
+  it("re-fetches fresh state only for later drafts of an already-published feature", async () => {
+    mockGetRevision.mockImplementation(async ({ version }) => {
+      return { version, status: "draft", rules: [] } as never;
+    });
+
+    const experiment = makeExperiment([
+      { featureId: "feat_a", revisionVersion: 5 },
+      { featureId: "feat_a", revisionVersion: 7 },
+    ]);
+
+    const result = await publishPendingFeatureDraftsForExperiment(
+      ctx,
+      experiment,
+    );
+
+    expect(result.published).toEqual([
+      { featureId: "feat_a", revisionVersion: 5 },
+      { featureId: "feat_a", revisionVersion: 7 },
+    ]);
+    // Phase 1 fetches the feature once (cached across drafts) and each
+    // revision once; publishing v5 advances live state, so v7 re-fetches
+    // everything before re-merging.
+    expect(mockGetFeature).toHaveBeenCalledTimes(2);
+    expect(mockGetRevision).toHaveBeenCalledTimes(3);
+    expect(mockGetLiveAndBase).toHaveBeenCalledTimes(3);
+  });
+
   it("publishes multiple drafts of the same feature in version order", async () => {
     mockGetRevision.mockImplementation(async ({ version }) => {
       return { version, status: "draft", rules: [] } as never;
@@ -178,22 +268,60 @@ describe("publishPendingFeatureDraftsForExperiment", () => {
       { featureId: "feat_a", revisionVersion: 7 },
     ]);
     expect(mockPublishRevision).toHaveBeenCalledTimes(2);
-    expect(mockPublishRevision.mock.calls[0][2]).toMatchObject({ version: 5 });
-    expect(mockPublishRevision.mock.calls[1][2]).toMatchObject({ version: 7 });
+    expect(mockPublishRevision.mock.calls[0][0].revision).toMatchObject({
+      version: 5,
+    });
+    expect(mockPublishRevision.mock.calls[1][0].revision).toMatchObject({
+      version: 7,
+    });
+  });
+
+  it("discards a no-op draft without publishing or failing", async () => {
+    mockGetRevision.mockResolvedValue({
+      version: 6,
+      status: "draft",
+      rules: [],
+    } as never);
+    // Empty result means autoMerge found nothing to change — no-op path.
+    mockAutoMerge.mockReturnValue({ success: true, conflicts: [], result: {} });
+
+    const experiment = makeExperiment([
+      { featureId: "j2-test", revisionVersion: 6 },
+    ]);
+
+    const result = await publishPendingFeatureDraftsForExperiment(
+      ctx,
+      experiment,
+    );
+
+    expect(mockDiscardRevision).toHaveBeenCalledTimes(1);
+    expect(mockPublishRevision).not.toHaveBeenCalled();
+    expect(mockRemovePending).toHaveBeenCalledTimes(1);
+    expect(mockRemovePending).toHaveBeenCalledWith(ctx, "exp_1", "j2-test", 6);
+    expect(result.published).toEqual([]);
+    expect(result.failed).toEqual([]);
   });
 
   it("halts the train on first merge conflict (no further publishes)", async () => {
     mockGetRevision.mockImplementation(async ({ version }) => {
       return { version, status: "draft", rules: [] } as never;
     });
-    // First two drafts merge cleanly, third hits a conflict.
-    mockAutoMerge
-      .mockReturnValueOnce({ success: true, conflicts: [], result: {} })
-      .mockReturnValueOnce({ success: true, conflicts: [], result: {} })
-      .mockReturnValueOnce({
-        success: false,
-        conflicts: [{ key: "rules", base: "x", live: "y", revision: "z" }],
-      } as never);
+    // Keyed by revision version (not call order): feat_a's drafts (v5, v7) merge cleanly; feat_b's (v6) conflicts
+    mockAutoMerge.mockImplementation(
+      (live, base, revision) =>
+        ((revision as { version: number }).version === 6
+          ? {
+              success: false,
+              conflicts: [
+                { key: "rules", base: "x", live: "y", revision: "z" },
+              ],
+            }
+          : {
+              success: true,
+              conflicts: [],
+              result: { rules: [] },
+            }) as never,
+    );
 
     const experiment = makeExperiment([
       { featureId: "feat_a", revisionVersion: 5 },

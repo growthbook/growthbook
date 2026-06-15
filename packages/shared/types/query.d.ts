@@ -71,8 +71,15 @@ export type QueryType =
   | "experimentIncrementalRefreshDropMetricsCovariateTable"
   | "experimentIncrementalRefreshCreateMetricsCovariateTable"
   | "experimentIncrementalRefreshInsertMetricsCovariateData"
+  | "experimentIncrementalRefreshInsertMetricsCovariateDataFromAggregated"
   | "experimentIncrementalRefreshStatistics"
   | "experimentIncrementalRefreshHealth"
+
+  // Queries that maintain shared daily aggregated fact tables (materialization)
+  | "aggregatedFactTableDrop"
+  | "aggregatedFactTableCreate"
+  | "aggregatedFactTableInsertData"
+  | "aggregatedFactTableMaxTimestamp"
 
   // ---
   // Standalone analysis queries
@@ -147,6 +154,9 @@ export interface QueryInterface {
   cachedQueryUsed?: string;
   statistics?: QueryStatistics;
   externalId?: string;
+  // Integration-specific side-data for managing the external job (e.g.
+  // BigQuery job location). Passed back to cancelQuery.
+  externalIdMetadata?: Record<string, string>;
   hasChunkedResults?: boolean;
 }
 export type PopulationDataQuerySettings = Pick<

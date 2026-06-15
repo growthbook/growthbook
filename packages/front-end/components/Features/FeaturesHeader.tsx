@@ -5,7 +5,6 @@ import clsx from "clsx";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
 import { filterEnvironmentsByFeature, isDefined } from "shared/util";
-import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiEye, PiWarning } from "react-icons/pi";
 import { HoldoutInterface } from "shared/validators";
@@ -15,10 +14,10 @@ import Heading from "@/ui/Heading";
 import { useUser } from "@/services/UserContext";
 import useApi from "@/hooks/useApi";
 import Modal from "@/components/Modal";
-import { DeleteDemoDatasourceButton } from "@/components/DemoDataSourcePage/DemoDataSourcePage";
-import StaleFeatureIcon from "@/components/StaleFeatureIcon";
+import FeatureStatusBadge from "@/components/Features/FeatureStatusBadge";
 import { getEnabledEnvironments, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
+import { isCloud } from "@/services/env";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import SortedTags from "@/components/Tags/SortedTags";
@@ -33,7 +32,6 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Owner from "@/components/Avatar/Owner";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
-import Callout from "@/ui/Callout";
 import Metadata from "@/ui/Metadata";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import Link from "@/ui/Link";
@@ -85,7 +83,7 @@ export default function FeaturesHeader({
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [staleStatusOpen, setStaleStatusOpen] = useState(false);
   const [showImplementation, setShowImplementation] = useState(firstFeature);
-  const { organization, hasCommercialFeature, users } = useUser();
+  const { hasCommercialFeature, users } = useUser();
   const permissionsUtil = usePermissionsUtil();
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
@@ -382,33 +380,13 @@ export default function FeaturesHeader({
     <>
       <Box className="features-header contents container-fluid pagecontents pb-0">
         <Box>
-          {projectId ===
-            getDemoDatasourceProjectIdForOrganization(organization.id) && (
-            <Callout status="info" mb="3">
-              <Flex align="start" gap="6">
-                <Box>
-                  This feature is part of our sample dataset and shows how
-                  Feature Flags and Experiments can be linked together. You can
-                  delete this once you are done exploring.
-                </Box>
-                <Flex flexShrink="0">
-                  <DeleteDemoDatasourceButton
-                    onDelete={() => router.push("/features")}
-                    source="feature"
-                  />
-                </Flex>
-              </Flex>
-            </Callout>
-          )}
-
           <Flex align="start" justify="between" gap="2">
             <Flex align="center" mb="2" gap="3" style={{ marginTop: "-4px" }}>
               <Heading size="x-large" as="h1" mb="0">
                 {feature.id}
               </Heading>
-              <StaleFeatureIcon
-                neverStale={feature.neverStale}
-                valueType={feature.valueType}
+              <FeatureStatusBadge
+                feature={feature}
                 staleData={staleData}
                 fetchStaleData={handleRerunStale}
                 onDisable={canEdit ? () => setStaleFFModal(true) : undefined}
@@ -541,6 +519,10 @@ export default function FeaturesHeader({
                   <TabsTrigger value="test">Simulate</TabsTrigger>
                   <TabsTrigger value="stats">Code Refs</TabsTrigger>
                   <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
+                  {/* Hooks are self-hosted only and boolean flags have no schema, so Cloud booleans have nothing to validate */}
+                  {!(isCloud() && feature.valueType === "boolean") && (
+                    <TabsTrigger value="validation">Validation</TabsTrigger>
+                  )}
                   {/* Slot: revisionAndSettingsGroup portal mounts here when scrolled */}
                   <Box style={{ marginLeft: "auto", alignSelf: "center" }}>
                     <div ref={tabsSlotRef} />

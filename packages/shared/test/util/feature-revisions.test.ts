@@ -1227,6 +1227,56 @@ describe("getDraftAffectedEnvironments", () => {
     ).toBe("all");
   });
 
+  it("does not flag an environment that is missing on the base (added after base was published)", () => {
+    // base predates the "vertex" env → no key at all
+    const oldBase: RevisionFields = {
+      version: 3,
+      defaultValue: "false",
+      rules: { production: [], staging: [] },
+      environmentsEnabled: { production: true, staging: false },
+      prerequisites: [],
+    };
+    // draft snapshots all current envs; the user only changed staging rules
+    const revision: RevisionFields = {
+      ...oldBase,
+      version: 4,
+      rules: {
+        ...oldBase.rules,
+        staging: [{ type: "force", id: "r1", description: "", value: "x" }],
+      },
+      environmentsEnabled: { production: true, staging: false, vertex: false },
+    };
+    expect(
+      getDraftAffectedEnvironments(revision, oldBase, [
+        "production",
+        "staging",
+        "vertex",
+      ]),
+    ).toEqual(["staging"]);
+  });
+
+  it("still flags an environment missing on the base when the draft enables it", () => {
+    const oldBase: RevisionFields = {
+      version: 3,
+      defaultValue: "false",
+      rules: { production: [], staging: [] },
+      environmentsEnabled: { production: true, staging: false },
+      prerequisites: [],
+    };
+    const revision: RevisionFields = {
+      ...oldBase,
+      version: 4,
+      environmentsEnabled: { production: true, staging: false, vertex: true },
+    };
+    expect(
+      getDraftAffectedEnvironments(revision, oldBase, [
+        "production",
+        "staging",
+        "vertex",
+      ]),
+    ).toEqual(["vertex"]);
+  });
+
   it('collapses to "all" when every environment is affected', () => {
     const revision: RevisionFields = {
       ...base,
