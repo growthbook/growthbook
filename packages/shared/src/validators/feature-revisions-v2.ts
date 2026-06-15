@@ -650,7 +650,7 @@ export const postFeatureRevisionRecallReviewV2Validator = {
   operationId: "postFeatureRevisionRecallReviewV2",
   summary: "Recall a review request (revert to draft)",
   description:
-    "Author retracts the review request, returning the revision from `pending-review`, `changes-requested`, or `approved` back to `draft`. Existing review log entries are preserved as audit history but any in-flight reviewer verdicts (Approved / Requested Changes) submitted during this review cycle no longer count — submitting a fresh `request-review` starts a new cycle.",
+    "Retracts the review request, returning the revision from `pending-review`, `changes-requested`, or `approved` back to `draft`. Allowed for any user with draft-management permission on the feature (the same permission required to request review), not only the original requester. Existing review log entries are preserved as audit history but any in-flight reviewer verdicts (Approved / Requested Changes) submitted during this review cycle no longer count — submitting a fresh `request-review` starts a new cycle.",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z.object({}).strict(),

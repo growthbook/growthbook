@@ -1395,8 +1395,9 @@ export async function postFeatureToggleAutoPublish(
   res.status(200).json({ status: 200 });
 }
 
-// Author retracts a review request: draft reverts from pending-review /
-// changes-requested / approved back to draft. Review log entries are kept.
+// Retract a review request: draft reverts from pending-review /
+// changes-requested / approved back to draft. Gated on canManageFeatureDrafts
+// (any draft manager, not only the original requester). Review log entries are kept.
 export async function postFeatureRecallReview(
   req: AuthRequest<Record<string, never>, { id: string; version: string }>,
   res: Response,

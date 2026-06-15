@@ -1460,9 +1460,10 @@ export async function submitReviewAndComments(
     });
 }
 
-// Author retracts a review request: reverts pending-review / changes-requested
-// / approved back to draft. Review log entries are preserved; only the status
-// transitions.
+// Retract a review request: reverts pending-review / changes-requested /
+// approved back to draft. Gated by callers on canManageFeatureDrafts (not the
+// original requester), matching request-review. Review log entries are
+// preserved; only the status transitions.
 export async function recallReview(
   context: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,
@@ -1602,16 +1603,26 @@ export async function undoReview(
   // computation doesn't depend on the fire-and-forget log write below.
   const activeReviews =
     revision.reviews ?? (await getActiveReviewsFromLog(context, revision));
+
+  // Only a reviewer with an active verdict can undo one. Without this guard a
+  // caller with no verdict (or one without a stable reviewer key) would write a
+  // phantom "Undo Review" log entry, bump dateUpdated, and — for the keyless
+  // case — wrongly collapse the status to pending-review.
+  if (
+    retractingKey === null ||
+    !activeReviews.some((r) => r.userId === retractingKey)
+  ) {
+    throw new Error("You have no active review verdict to undo");
+  }
+
   const remaining = activeReviews.filter((r) => r.userId !== retractingKey);
 
   let status: "approved" | "changes-requested" | "pending-review" =
     "pending-review";
-  if (retractingKey !== null) {
-    if (remaining.some((r) => r.status === "changes-requested")) {
-      status = "changes-requested";
-    } else if (remaining.some((r) => r.status === "approved")) {
-      status = "approved";
-    }
+  if (remaining.some((r) => r.status === "changes-requested")) {
+    status = "changes-requested";
+  } else if (remaining.some((r) => r.status === "approved")) {
+    status = "approved";
   }
 
   await FeatureRevisionModel.updateOne(
