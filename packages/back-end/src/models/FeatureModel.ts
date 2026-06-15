@@ -70,6 +70,7 @@ import {
   ensureUniqueRuleIds,
   flattenV1ToV2Rules,
   getApplicableEnvIds,
+  hasNoV1EnvRules,
   isPlausibleFeatureRule,
   V1RulesByEnv,
 } from "back-end/src/util/flattenRules";
@@ -83,6 +84,7 @@ import {
 } from "back-end/src/util/features";
 import { applyPartialFeatureRuleUpdatesToRevision } from "back-end/src/util/featureRevision.util";
 import { logger } from "back-end/src/util/logger";
+import { metrics } from "back-end/src/util/metrics";
 import {
   getContextForAgendaJobByOrgId,
   getEnvironmentIdsFromOrg,
@@ -149,6 +151,11 @@ const featureSchema = new mongoose.Schema({
       condition: String,
     },
   ],
+  // Denormalized union of prerequisite ids across all three levels
+  // (top-level, rule-level, env-level). Disk-only — stripped on read in
+  // `toInterface`. Backs the indexed dependents lookup; stamped by the write
+  // chokepoints below and by the v2 backfill.
+  prerequisiteIds: [String],
   environmentSettings: {},
   draft: {},
   legacyDraftMigrated: Boolean,
@@ -165,6 +172,10 @@ const featureSchema = new mongoose.Schema({
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });
 featureSchema.index({ organization: 1, project: 1 });
+// Multikey index backing `getFeaturesUsingPrerequisites`. Only correct for
+// docs stamped with `prerequisiteIds` — callers must gate on the org-level
+// `migrations.featuresV2` marker (see backfillFeaturesV2).
+featureSchema.index({ organization: 1, prerequisiteIds: 1 });
 
 type FeatureDocument = mongoose.Document & LegacyFeatureInterface;
 
@@ -288,6 +299,16 @@ export function migrateRawFeatureToV2(
   }
 
   if (!topLevelRulesAreV2Shaped) {
+    // Tracks the per-read JIT migration tax for legacy docs. Rule-less v2
+    // docs also route through this branch (no v2 marker to detect) but carry
+    // no legacy material, so they're excluded. Should trend to ~0 once the
+    // v2 backfill has run (see backfillFeaturesV2).
+    if (!hasEnvSettings || !hasNoV1EnvRules(envSettings)) {
+      metrics.getCounter("features.jit_legacy_migration").increment({
+        generation: hasEnvSettings ? "v1" : "v0",
+      });
+    }
+
     // v1 path. Inheritance must run BEFORE flattening so a rule defined only
     // on a parent env reaches inheriting children — otherwise sparse legacy
     // docs silently lose rules in child envs (origin/main applied inheritance
@@ -381,13 +402,53 @@ function scrubEnvRules<T>(envSettings: Record<string, T>): Record<string, T> {
 }
 
 // Exported for round-trip integration tests.
+// `prerequisiteIds` is a disk-only denormalized field — strip it here so it
+// never leaks into API responses, SDK payloads, or audit/webhook diffs.
 export const toInterface = (
   doc: FeatureDocument,
   context: ReqContext | ApiReqContext,
 ): FeatureInterface => {
-  const raw = omit(doc.toJSON<FeatureDocument>(), ["__v", "_id"]);
+  const raw = omit(doc.toJSON<FeatureDocument>(), [
+    "__v",
+    "_id",
+    "prerequisiteIds",
+  ]);
   return migrateRawFeatureToV2(raw, context);
 };
+
+/**
+ * Denormalized union of prerequisite feature ids across all three levels:
+ * top-level `prerequisites`, rule-level `rules[].prerequisites`, and
+ * env-level `environmentSettings[env].prerequisites`. Persisted on the doc
+ * (sorted, deduped) so dependents lookups can use the
+ * `{organization, prerequisiteIds}` multikey index.
+ */
+export function computePrerequisiteIds(feature: {
+  prerequisites?: { id: string }[];
+  rules?: unknown;
+  environmentSettings?: Record<
+    string,
+    { prerequisites?: { id: string }[] } | undefined
+  >;
+}): string[] {
+  const ids = new Set<string>();
+  for (const p of feature.prerequisites ?? []) {
+    if (p?.id) ids.add(p.id);
+  }
+  if (Array.isArray(feature.rules)) {
+    for (const rule of feature.rules as FeatureRule[]) {
+      for (const p of rule?.prerequisites ?? []) {
+        if (p?.id) ids.add(p.id);
+      }
+    }
+  }
+  for (const env of Object.values(feature.environmentSettings ?? {})) {
+    for (const p of env?.prerequisites ?? []) {
+      if (p?.id) ids.add(p.id);
+    }
+  }
+  return [...ids].sort();
+}
 
 // ---------------------------------------------------------------------------
 // Write chokepoint
@@ -473,6 +534,31 @@ export async function getAllFeatures(
   return features.filter((feature) =>
     context.permissions.canReadSingleProjectResource(feature.project),
   );
+}
+
+/**
+ * Index-backed candidate lookup for dependents: features whose denormalized
+ * `prerequisiteIds` contains any of the given feature ids. Includes archived
+ * features (dependents checks always do).
+ *
+ * ONLY correct when every feature doc in the org is stamped with
+ * `prerequisiteIds` — gate on `org.migrations.featuresV2` before calling.
+ * Candidates still need env-aware re-validation via `getDependentFeatures`.
+ */
+export async function getFeaturesUsingPrerequisites(
+  context: ReqContext | ApiReqContext,
+  prerequisiteFeatureIds: string[],
+): Promise<FeatureInterface[]> {
+  if (!prerequisiteFeatureIds.length) return [];
+  const docs = await FeatureModel.find({
+    organization: context.org.id,
+    prerequisiteIds: { $in: prerequisiteFeatureIds },
+  });
+  return docs
+    .map((m) => toInterface(m, context))
+    .filter((feature) =>
+      context.permissions.canReadSingleProjectResource(feature.project),
+    );
 }
 
 function featureListQuery(
@@ -658,7 +744,10 @@ export async function createFeature(
     original: null,
   });
 
-  const feature = await FeatureModel.create(featureToCreate);
+  const feature = await FeatureModel.create({
+    ...featureToCreate,
+    prerequisiteIds: computePrerequisiteIds(featureToCreate),
+  });
 
   // Historically, we haven't properly removed revisions when deleting a feature
   // So, clean up any conflicting revisions first before creating a new one
@@ -1053,10 +1142,18 @@ export async function updateFeature(
     }
   }
 
+  // Keep the denormalized prerequisiteIds in sync whenever any of its three
+  // source fields could be part of this update. Computed from the merged
+  // post-write state (`projected`), not the partial update.
+  const prerequisiteIds = computePrerequisiteIds({
+    ...projected,
+    ...normalizedUpdates,
+  });
+
   await FeatureModel.updateOne(
     { organization: feature.organization, id: feature.id },
     {
-      $set: normalizedUpdates,
+      $set: { ...normalizedUpdates, prerequisiteIds },
     },
   );
 

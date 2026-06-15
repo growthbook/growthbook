@@ -107,6 +107,11 @@ export type V1FeatureRevisionInterface = Omit<
 // by the JIT upgrader in `FeatureModel.toInterface`.
 export type LegacyFeatureInterface = V1FeatureInterface & {
   environments?: string[];
+  // Disk-only denormalized union of prerequisite feature ids (top-level,
+  // rule-level, and env-level). Maintained by the write chokepoint and the
+  // v2 backfill so dependents lookups can use a multikey index instead of a
+  // full-corpus scan. Stripped from the in-memory FeatureInterface on read.
+  prerequisiteIds?: string[];
 };
 
 export interface FeatureDraftChanges {
