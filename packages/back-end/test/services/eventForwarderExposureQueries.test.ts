@@ -140,7 +140,7 @@ describe("ensureEventForwarderExposureQueries", () => {
             exposure: [
               expect.objectContaining({
                 userIdType: "device_id",
-                id: "device_id",
+                id: "ef_device_id",
                 managedBy: "api",
               }),
             ],
@@ -183,12 +183,12 @@ describe("ensureEventForwarderExposureQueries", () => {
             exposure: expect.arrayContaining([
               expect.objectContaining({
                 userIdType: "user_id",
-                id: "user_id",
+                id: "ef_user_id",
                 managedBy: "api",
               }),
               expect.objectContaining({
                 userIdType: "device_id",
-                id: "device_id",
+                id: "ef_device_id",
               }),
             ]),
           },
@@ -248,10 +248,11 @@ describe("ensureEventForwarderExposureQueries", () => {
       queries: {
         exposure: [
           {
-            id: "user_id",
-            name: "user_id",
+            id: "ef_user_id",
+            name: "Event Forwarder: user_id",
             userIdType: "user_id",
             dimensions: [],
+            managedBy: "api",
             query: "SELECT 1",
           },
         ],
@@ -416,7 +417,7 @@ describe("ensureEventForwarderExposureQueries", () => {
             exposure: [
               expect.objectContaining({
                 userIdType: "device_id",
-                id: "device_id",
+                id: "ef_device_id",
                 managedBy: "api",
               }),
             ],

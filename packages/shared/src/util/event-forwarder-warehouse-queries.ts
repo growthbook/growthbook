@@ -27,6 +27,24 @@ export const EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION =
 export const EVENT_FORWARDER_MANAGED_FEATURE_USAGE_QUERY_DESCRIPTION =
   "Managed by Event Forwarder for feature usage events.";
 
+// Prefix the id/name of Event Forwarder managed exposure queries so they never
+// collide with queries a user already created for the same identifier. The
+// userIdType is left untouched so the managed query still resolves against the
+// same identifier type and attributes.
+export const EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_ID_PREFIX = "ef_";
+
+export function buildEventForwarderManagedExposureQueryId(
+  userIdType: string,
+): string {
+  return `${EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_ID_PREFIX}${userIdType}`;
+}
+
+export function buildEventForwarderManagedExposureQueryName(
+  userIdType: string,
+): string {
+  return `Event Forwarder: ${userIdType}`;
+}
+
 export type BuildEventForwarderExperimentViewedTableRefParams =
   | {
       sinkType: "bigquery";
@@ -181,9 +199,9 @@ export function generateEventForwarderExposureQueries(
     );
 
     return {
-      id: userIdType,
+      id: buildEventForwarderManagedExposureQueryId(userIdType),
       userIdType,
-      name: userIdType,
+      name: buildEventForwarderManagedExposureQueryName(userIdType),
       description: EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
       dimensions: [],
       managedBy: "api" as const,
@@ -203,12 +221,16 @@ export function isEventForwarderManagedExposureQuery(
   return query.managedBy === "api";
 }
 
-export function exposureQueryExistsForUserIdType(
+export function eventForwarderManagedExposureQueryExistsForUserIdType(
   exposureQueries: ExposureQuery[],
   userIdType: string,
 ): boolean {
   const normalized = userIdType.toLowerCase();
-  return exposureQueries.some((q) => q.userIdType.toLowerCase() === normalized);
+  return exposureQueries.some(
+    (q) =>
+      isEventForwarderManagedExposureQuery(q) &&
+      q.userIdType.toLowerCase() === normalized,
+  );
 }
 
 export function mergeEventForwarderExposureQueries(
@@ -217,8 +239,15 @@ export function mergeEventForwarderExposureQueries(
   params: GenerateEventForwarderExposureQueriesParams,
   attributeSchema?: SDKAttributeSchema,
 ): ExposureQuery[] {
+  // Only skip identifiers that already have a managed query. A user's own
+  // (non-managed) query for the same identifier no longer blocks us, since the
+  // prefixed id keeps the managed query from colliding with theirs.
   const missing = userIdTypes.filter(
-    (userIdType) => !exposureQueryExistsForUserIdType(existing, userIdType),
+    (userIdType) =>
+      !eventForwarderManagedExposureQueryExistsForUserIdType(
+        existing,
+        userIdType,
+      ),
   );
 
   if (missing.length === 0) {
@@ -254,9 +283,9 @@ export function refreshEventForwarderManagedExposureQuery(
 
     return {
       ...query,
-      id: userIdType,
+      id: buildEventForwarderManagedExposureQueryId(userIdType),
       userIdType,
-      name: userIdType,
+      name: buildEventForwarderManagedExposureQueryName(userIdType),
       query: buildEventForwarderExposureQuerySql({
         sinkType: params.sinkType,
         tableRef,

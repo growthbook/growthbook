@@ -1,3 +1,4 @@
+import type { ExposureQuery } from "shared/types/datasource";
 import {
   buildEventForwarderAttributeValueSql,
   buildEventForwarderExperimentViewedTableReference,
@@ -7,8 +8,8 @@ import {
   buildEventForwarderFeatureUsageTableReference,
   EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
   EVENT_FORWARDER_MANAGED_FEATURE_USAGE_QUERY_DESCRIPTION,
+  eventForwarderManagedExposureQueryExistsForUserIdType,
   eventForwarderManagedFeatureUsageQueryExists,
-  exposureQueryExistsForUserIdType,
   generateEventForwarderExposureQueries,
   getActiveFeatureUsageQuery,
   isEventForwarderManagedExposureQuery,
@@ -165,8 +166,10 @@ describe("generateEventForwarderExposureQueries", () => {
     );
 
     expect(queries).toHaveLength(2);
-    expect(queries[0].id).toBe("user_id");
+    expect(queries[0].id).toBe("ef_user_id");
     expect(queries[0].userIdType).toBe("user_id");
+    expect(queries[0].name).toBe("Event Forwarder: user_id");
+    expect(queries[1].id).toBe("ef_anonymous_id");
     expect(queries[1].userIdType).toBe("anonymous_id");
     expect(queries[0].description).toBe(
       EVENT_FORWARDER_MANAGED_EXPOSURE_QUERY_DESCRIPTION,
@@ -210,7 +213,12 @@ describe("mergeEventForwarderExposureQueries", () => {
       tablePrefix: "GB",
     });
 
-    expect(exposureQueryExistsForUserIdType(existing, "user_id")).toBe(true);
+    expect(
+      eventForwarderManagedExposureQueryExistsForUserIdType(
+        existing,
+        "user_id",
+      ),
+    ).toBe(true);
 
     const merged = mergeEventForwarderExposureQueries(existing, ["user_id"], {
       sinkType: "snowflake",
@@ -220,6 +228,33 @@ describe("mergeEventForwarderExposureQueries", () => {
     });
 
     expect(merged).toHaveLength(1);
+  });
+
+  it("adds a managed query alongside a user's own query for the same identifier", () => {
+    const existing: ExposureQuery[] = [
+      {
+        id: "user_id",
+        name: "My custom query",
+        userIdType: "user_id",
+        dimensions: [],
+        query: "SELECT custom",
+      },
+    ];
+
+    const merged = mergeEventForwarderExposureQueries(existing, ["user_id"], {
+      sinkType: "snowflake",
+      database: "DB",
+      schema: "PUBLIC",
+      tablePrefix: "GB",
+    });
+
+    expect(merged).toHaveLength(2);
+    // The user's own query is preserved untouched...
+    expect(merged[0]).toEqual(existing[0]);
+    // ...and the managed query is added with a prefixed id so it doesn't collide.
+    expect(merged[1].id).toBe("ef_user_id");
+    expect(merged[1].userIdType).toBe("user_id");
+    expect(merged[1].managedBy).toBe("api");
   });
 });
 
@@ -248,8 +283,9 @@ describe("refreshEventForwarderManagedExposureQuery", () => {
       },
     );
 
-    expect(refreshed[0].id).toBe("account_id");
+    expect(refreshed[0].id).toBe("ef_account_id");
     expect(refreshed[0].userIdType).toBe("account_id");
+    expect(refreshed[0].name).toBe("Event Forwarder: account_id");
     expect(refreshed[0].query).toContain("account_id");
     expect(refreshed[0].query).toContain("AS FLOAT64");
   });

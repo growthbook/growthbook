@@ -252,7 +252,7 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
         query: "SELECT custom_id",
       },
       expect.objectContaining({
-        id: "device_id",
+        id: "ef_device_id",
         userIdType: "device_id",
         managedBy: "api",
       }),
@@ -294,7 +294,7 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
     ]);
     expect(settings?.queries?.exposure).toEqual([
       expect.objectContaining({
-        id: "id",
+        id: "ef_id",
         userIdType: "id",
         managedBy: "api",
       }),
@@ -335,7 +335,7 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
     const exposure = mockedUpdate.mock.calls[0][2].settings?.queries?.exposure;
     expect(exposure?.[0]).toEqual(
       expect.objectContaining({
-        id: "user_id",
+        id: "ef_user_id",
         userIdType: "user_id",
         query: expect.stringContaining("AS FLOAT64"),
       }),
@@ -424,7 +424,7 @@ describe("reconcileEventForwarderDatasourceUserIdTypesAndExposureQueries", () =>
     ]);
     expect(mockedUpdate.mock.calls[0][2].settings?.queries?.exposure).toEqual([
       expect.objectContaining({
-        id: "id",
+        id: "ef_id",
         userIdType: "id",
         managedBy: "api",
       }),
