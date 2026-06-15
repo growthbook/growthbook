@@ -19,6 +19,7 @@ const BaseClass = MakeModelClass({
     deleteEvent: "safeRollout.delete",
   },
   globallyUniquePrimaryKeys: true,
+  skipAuditLogFields: ["nextSnapshotAttempt", "lastSnapshotAttempt"],
   defaultValues: {
     autoSnapshots: true,
   },
