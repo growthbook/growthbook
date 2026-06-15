@@ -83,14 +83,6 @@ export async function maybeAutoPublishFeatureRevision(
   if (!revision.autoPublishOnApproval) return revision;
   if (revision.status !== "approved") return revision;
 
-  if (await revisionRequiresPreLaunchChecklist(context, feature, revision)) {
-    logger.info(
-      { featureId: feature.id, version: revision.version },
-      "auto-publish-on-approval skipped: pre-launch checklist required",
-    );
-    return revision;
-  }
-
   // Publish with the authority of whoever armed auto-publish. Fall back to
   // the draft author for revisions armed by actors without a user ID (API
   // keys) or before `autoPublishEnabledBy` existed.
@@ -116,6 +108,24 @@ export async function maybeAutoPublishFeatureRevision(
       logger.warn(
         { featureId: feature.id, version: revision.version, enablerId },
         "auto-publish-on-approval skipped: enabling user could not be resolved; revision left approved",
+      );
+      return revision;
+    }
+
+    // Run the checklist gate with the armer's context (the authority we publish
+    // with), not the caller's. A reviewer scoped out of a linked experiment's
+    // project would otherwise see no experiments and let a draft-experiment
+    // feature auto-publish.
+    if (
+      await revisionRequiresPreLaunchChecklist(
+        enablerContext,
+        feature,
+        revision,
+      )
+    ) {
+      logger.info(
+        { featureId: feature.id, version: revision.version },
+        "auto-publish-on-approval skipped: pre-launch checklist required",
       );
       return revision;
     }
