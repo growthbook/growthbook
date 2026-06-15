@@ -117,7 +117,7 @@ let generation = 0;
 // Crash-loop breaker state.
 let consecutiveBootFailures = 0;
 let circuitOpenUntil = 0;
-let replenishScheduled = false;
+let replenishTimer: ReturnType<typeof setTimeout> | null = null;
 
 // Matches the `--require`/`-r` preload that bootstraps a tracing SDK
 // (tracing.opentelemetry / tracing.datadog), in either spelling:
@@ -232,6 +232,12 @@ function spawnWorker(): Worker {
 // Mark a worker as having booted successfully. Since the boot path works, also reset
 // the crash-loop breaker and resume normal respawning.
 function confirmBoot(worker: Worker) {
+  // Clear the uptime fallback so it can't fire later and reset the breaker a second
+  // time (mid-streak) while other workers are crash-looping.
+  if (worker.bootTimer) {
+    clearTimeout(worker.bootTimer);
+    worker.bootTimer = undefined;
+  }
   worker.bootConfirmed = true;
   if (consecutiveBootFailures === 0 && circuitOpenUntil === 0) return;
   consecutiveBootFailures = 0;
@@ -310,7 +316,7 @@ function handleExit(
 // happening: back off between attempts and, once the breaker is open, wait out the
 // cooldown before a single half-open trial worker.
 function ensureCapacity() {
-  if (shuttingDown || !started || replenishScheduled) return;
+  if (shuttingDown || !started || replenishTimer) return;
   if (workers.length >= POOL_SIZE) return;
 
   const now = Date.now();
@@ -324,9 +330,8 @@ function ensureCapacity() {
     );
   }
 
-  replenishScheduled = true;
-  const timer = setTimeout(() => {
-    replenishScheduled = false;
+  replenishTimer = setTimeout(() => {
+    replenishTimer = null;
     if (shuttingDown || !started) return;
     if (workers.length < POOL_SIZE) {
       workers.push(spawnWorker());
@@ -338,7 +343,7 @@ function ensureCapacity() {
       ensureCapacity();
     }
   }, delay);
-  timer.unref();
+  replenishTimer.unref();
 }
 
 // Gracefully retire a worker; the exit handler removes and respawns it.
@@ -436,6 +441,10 @@ function ensureStarted() {
 
 function shutdown() {
   shuttingDown = true;
+  if (replenishTimer) {
+    clearTimeout(replenishTimer);
+    replenishTimer = null;
+  }
   for (const w of workers) {
     if (w.bootTimer) clearTimeout(w.bootTimer);
     if (w.current) clearTimeout(w.current.killTimer);
@@ -487,5 +496,4 @@ export function __shutdownSandboxPool() {
   started = false;
   consecutiveBootFailures = 0;
   circuitOpenUntil = 0;
-  replenishScheduled = false;
 }
