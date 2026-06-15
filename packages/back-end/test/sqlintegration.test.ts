@@ -1718,7 +1718,7 @@ describe("quantile grid array packing is BigQuery-only", () => {
 
 describe("getFeatureEvalDiagnosticsQuery", () => {
   beforeEach(() => {
-    jest.useFakeTimers("modern");
+    jest.useFakeTimers();
     jest.setSystemTime(new Date("2025-03-24T12:00:00.000Z"));
   });
 
