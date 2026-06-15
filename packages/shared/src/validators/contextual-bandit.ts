@@ -258,11 +258,6 @@ export type ApiCreateContextualBanditBody = z.infer<
   typeof apiCreateContextualBanditBody
 >;
 
-/**
- * Non-strict so shared experiment-edit modals can post their extras; filtering
- * happens in `ContextualBanditModel.processApiUpdateBody`.
- * TODO(pr-8): drop passthrough fields once CB-native edit modals exist.
- */
 export const apiUpdateContextualBanditBody = z.object({
   name: z.string().optional(),
   description: z.string().optional(),
@@ -307,20 +302,6 @@ export const apiUpdateContextualBanditBody = z.object({
   condition: z.string().optional(),
   seed: z.string().optional(),
   variationWeights: z.array(variationWeightPairValidator).optional(),
-
-  // Passthrough fields from shared experiment-edit modals; silently discarded server-side.
-  customMetricSlices: z.unknown().optional(),
-  winner: z.unknown().optional(),
-  results: z.unknown().optional(),
-  analysis: z.unknown().optional(),
-  releasedVariationId: z.unknown().optional(),
-  excludeFromPayload: z.unknown().optional(),
-  savedGroups: z.unknown().optional(),
-  prerequisites: z.unknown().optional(),
-  namespace: z.unknown().optional(),
-  bucketVersion: z.unknown().optional(),
-  minBucketVersion: z.unknown().optional(),
-  changeType: z.unknown().optional(),
 });
 
 export type ApiUpdateContextualBanditBody = z.infer<

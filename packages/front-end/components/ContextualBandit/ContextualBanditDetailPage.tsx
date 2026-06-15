@@ -44,7 +44,9 @@ export default function ContextualBanditDetailPage({
   cb,
   mutate,
   canRun = false,
+  editOverview,
   editMetrics,
+  editAnalysisSettings,
   editVariations,
   editTargeting,
   editTags,
@@ -55,7 +57,9 @@ export default function ContextualBanditDetailPage({
   cb: ApiContextualBanditInterface;
   mutate: () => void;
   canRun?: boolean;
+  editOverview?: () => void;
   editMetrics?: () => void;
+  editAnalysisSettings?: () => void;
   editVariations?: () => void;
   editTargeting?: () => void;
   editTags?: () => void;
@@ -71,17 +75,30 @@ export default function ContextualBanditDetailPage({
   const updateEndpoint = `/api/v1/contextual-bandits/${cb.id}`;
 
   const numVariations = cb.variations.length;
-  const weightForIndex = (i: number): number =>
-    cb.variationWeights?.find((w) => w.variationId === cb.variations[i]?.id)
-      ?.weight ?? (numVariations > 0 ? 1 / numVariations : 0);
+  const weightForIndex = (i: number): number => {
+    const fallback = numVariations > 0 ? 1 / numVariations : 0;
+    const weights = cb.variationWeights;
+    if (!weights) return fallback;
+    const variationId = cb.variations[i]?.id;
+    const match = weights.find(
+      (w) => typeof w === "object" && w.variationId === variationId,
+    );
+    if (match && typeof match === "object") return match.weight;
+    const positional = weights[i];
+    return typeof positional === "number" ? positional : fallback;
+  };
   const formatWeight = (w: number): string =>
     new Intl.NumberFormat(undefined, {
       style: "percent",
       maximumFractionDigits: 0,
     }).format(w);
 
-  const datasourceName =
-    (cb.datasource && getDatasourceById(cb.datasource)?.name) || cb.datasource;
+  const datasource = cb.datasource ? getDatasourceById(cb.datasource) : null;
+  const datasourceName = datasource?.name ?? cb.datasource;
+  const exposureQueryName =
+    datasource?.settings?.queries?.exposure?.find(
+      (q) => q.id === cb.exposureQueryId,
+    )?.name ?? cb.exposureQueryId;
   const projectName =
     projects.find((p) => p.id === cb.project)?.name ?? cb.project ?? "None";
   const metricName = (id: string) => getExperimentMetricById(id)?.name ?? id;
@@ -159,6 +176,11 @@ export default function ContextualBanditDetailPage({
           value={<Owner ownerId={cb.owner} gap="1" textColor="text-mid" />}
         />
         <Metadata label="Created" value={date(cb.dateCreated)} />
+        {editOverview ? (
+          <Button variant="ghost" onClick={editOverview}>
+            Edit name / key / owner
+          </Button>
+        ) : null}
       </Flex>
 
       {/* Header — tags */}
@@ -280,18 +302,17 @@ export default function ContextualBanditDetailPage({
         </div>
       </DetailSectionBox>
 
-      {/* Analysis Settings */}
       <DetailSectionBox
-        title="Analysis Settings"
-        onEdit={editMetrics}
-        editLabel="Edit Metrics"
+        title="Analysis Configuration"
+        onEdit={editAnalysisSettings}
+        editLabel="Edit"
       >
         <div className="row">
           <DetailSectionColumn label="Data Source">
             {datasourceName || <em>none</em>}
           </DetailSectionColumn>
-          <DetailSectionColumn label="Experiment Assignment Query">
-            {cb.exposureQueryId || <em>none</em>}
+          <DetailSectionColumn label="Experiment Assignment Table">
+            {exposureQueryName || <em>none</em>}
           </DetailSectionColumn>
           <DetailSectionColumn label="Contextual Attributes">
             {cb.contextualAttributes.length
@@ -299,7 +320,29 @@ export default function ContextualBanditDetailPage({
               : "—"}
           </DetailSectionColumn>
         </div>
-        <div className="row mt-4">
+        <div className="row mt-3">
+          <DetailSectionColumn label="Attribution Model">
+            {cb.attributionModel ?? "firstExposure"}
+          </DetailSectionColumn>
+          <DetailSectionColumn label="Regression Adjustment">
+            {cb.regressionAdjustmentEnabled ? "On" : "Off"}
+          </DetailSectionColumn>
+          {cb.activationMetric ? (
+            <DetailSectionColumn label="Activation Metric">
+              <Link href={getMetricLink(cb.activationMetric)}>
+                {metricName(cb.activationMetric)}
+              </Link>
+            </DetailSectionColumn>
+          ) : null}
+        </div>
+      </DetailSectionBox>
+
+      <DetailSectionBox
+        title="Metrics"
+        onEdit={editMetrics}
+        editLabel="Edit Metrics"
+      >
+        <div className="row">
           <DetailSectionColumn label="Decision Metric">
             {renderMetricList(cb.goalMetrics.slice(0, 1))}
           </DetailSectionColumn>

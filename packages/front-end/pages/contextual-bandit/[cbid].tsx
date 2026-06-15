@@ -17,6 +17,8 @@ import PremiumEmptyState from "@/components/PremiumEmptyState";
 import ContextualBanditDetailPage from "@/components/ContextualBandit/ContextualBanditDetailPage";
 import ContextualBanditDescriptionModal from "@/components/ContextualBandit/ContextualBanditDescriptionModal";
 import ContextualBanditMetricsModal from "@/components/ContextualBandit/ContextualBanditMetricsModal";
+import ContextualBanditOverviewModal from "@/components/ContextualBandit/ContextualBanditOverviewModal";
+import ContextualBanditAnalysisSettingsModal from "@/components/ContextualBandit/ContextualBanditAnalysisSettingsModal";
 import ContextualBanditTargetingModal from "@/components/ContextualBandit/ContextualBanditTargetingModal";
 import ContextualBanditVariationsModal from "@/components/ContextualBandit/ContextualBanditVariationsModal";
 
@@ -29,7 +31,10 @@ const ContextualBanditPage = (): ReactElement => {
   const environments = useEnvironments();
   const { apiCall } = useAuth();
 
+  const [overviewModalOpen, setOverviewModalOpen] = useState(false);
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
+  const [analysisSettingsModalOpen, setAnalysisSettingsModalOpen] =
+    useState(false);
   const [variationsModalOpen, setVariationsModalOpen] = useState(false);
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
   const [tagsModalOpen, setTagsModalOpen] = useState(false);
@@ -97,7 +102,11 @@ const ContextualBanditPage = (): ReactElement => {
           cb={cb}
           mutate={mutate}
           canRun={canRun}
+          editOverview={canEdit ? () => setOverviewModalOpen(true) : undefined}
           editMetrics={canEdit ? () => setMetricsModalOpen(true) : undefined}
+          editAnalysisSettings={
+            canEdit ? () => setAnalysisSettingsModalOpen(true) : undefined
+          }
           editVariations={
             canEdit ? () => setVariationsModalOpen(true) : undefined
           }
@@ -113,6 +122,13 @@ const ContextualBanditPage = (): ReactElement => {
         />
       </div>
 
+      {overviewModalOpen && (
+        <ContextualBanditOverviewModal
+          cb={cb}
+          mutate={mutate}
+          close={() => setOverviewModalOpen(false)}
+        />
+      )}
       {descriptionModalOpen && (
         <ContextualBanditDescriptionModal
           cb={cb}
@@ -125,6 +141,13 @@ const ContextualBanditPage = (): ReactElement => {
           cb={cb}
           mutate={mutate}
           close={() => setMetricsModalOpen(false)}
+        />
+      )}
+      {analysisSettingsModalOpen && (
+        <ContextualBanditAnalysisSettingsModal
+          cb={cb}
+          mutate={mutate}
+          close={() => setAnalysisSettingsModalOpen(false)}
         />
       )}
       {variationsModalOpen && (

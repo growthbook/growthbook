@@ -27130,18 +27130,6 @@ paths:
                       - variationId
                       - weight
                     additionalProperties: false
-                customMetricSlices: {}
-                winner: {}
-                results: {}
-                analysis: {}
-                releasedVariationId: {}
-                excludeFromPayload: {}
-                savedGroups: {}
-                prerequisites: {}
-                namespace: {}
-                bucketVersion: {}
-                minBucketVersion: {}
-                changeType: {}
               additionalProperties: false
       responses:
         '200':
