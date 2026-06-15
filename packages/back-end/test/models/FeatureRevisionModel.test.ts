@@ -702,7 +702,7 @@ describe("activeReviewsFromLog", () => {
   });
 
   it("clears all verdicts when a new review cycle starts", () => {
-    for (const reset of ["Review Requested", "Recall Review"]) {
+    for (const reset of ["Review Requested", "Recall Review", "reopen"]) {
       const reviews = activeReviewsFromLog([
         { action: "Approved", user: human("u1"), timestamp: at(1) },
         { action: reset, user: human("author"), timestamp: at(2) },

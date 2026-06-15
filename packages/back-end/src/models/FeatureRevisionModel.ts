@@ -1535,8 +1535,8 @@ export async function recallReview(
 }
 
 // Replay the review lifecycle from the merged log to find each reviewer's
-// active verdict. `Review Requested` / `Recall Review` start a new cycle
-// (clearing all verdicts); `Undo Review` removes that reviewer's verdict.
+// active verdict. `Review Requested` / `Recall Review` / `reopen` start a new
+// cycle (clearing all verdicts); `Undo Review` removes that reviewer's verdict.
 // Returns entries in the baked `reviews` shape so callers can use it as a
 // drop-in fallback for revisions that predate the denormalized field.
 export function activeReviewsFromLog(
@@ -1549,7 +1549,8 @@ export function activeReviewsFromLog(
   for (const entry of sorted) {
     if (
       entry.action === "Review Requested" ||
-      entry.action === "Recall Review"
+      entry.action === "Recall Review" ||
+      entry.action === "reopen"
     ) {
       byReviewer.clear();
       continue;
