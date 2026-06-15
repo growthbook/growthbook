@@ -537,8 +537,6 @@ export async function putDataSource(
           !isEventForwarderAllowedUserIdTypesChange(
             existingUserIdTypes,
             settings.userIdTypes,
-            org.settings?.attributeSchema ?? [],
-            datasource.projects,
           )
         ) {
           res.status(400).json({

@@ -130,15 +130,12 @@ export function isHashAttributeUserIdType(
 export function isEventForwarderAllowedUserIdTypesChange(
   existing: UserIdType[],
   updated: UserIdType[],
-  attributeSchema: SDKAttributeSchema,
-  datasourceProjects?: string[],
 ): boolean {
+  // Only Event Forwarder managed identifier types (prefixed with `ef_`) are
+  // locked. User-created identifier types that happen to use the same hash
+  // attribute remain editable / deletable.
   const lockedExisting = existing.filter((item) =>
-    isHashAttributeUserIdType(
-      item.userIdType,
-      attributeSchema,
-      datasourceProjects,
-    ),
+    isEventForwarderManagedIdentifierId(item.userIdType),
   );
 
   return lockedExisting.every((locked) => {
