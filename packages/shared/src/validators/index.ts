@@ -29,6 +29,7 @@ export * from "./saved-group-revision-notifications";
 export * from "./saved-queries";
 export * from "./segment";
 export * from "./shared";
+export * from "./signup-attribution";
 export * from "./snapshot-analysis-chunks";
 export * from "./webhook-secrets";
 export * from "./webhooks";
