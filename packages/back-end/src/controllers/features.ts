@@ -1339,6 +1339,33 @@ export async function postFeatureApproveAndPublish(
     context.permissions.throwPermissionError();
   }
 
+  // Mirror postFeaturePublish's adminOverride + rebase-governance gates BEFORE
+  // committing the approval. postFeaturePublish runs them only after the
+  // "approved" status is written, so a draft that's behind live (when the org
+  // enforces rebase-before-publish) — or an adminOverride without bypass rights
+  // — would otherwise throw there and leave the revision stuck "approved".
+  // Approving anchors approvedBaseVersion to the current live version, so model
+  // that post-approval state (staleApproval=false; only raw divergence blocks).
+  const adminOverride = !!req.body.adminOverride;
+  if (adminOverride && !context.permissions.canBypassApprovalChecks(feature)) {
+    context.permissions.throwPermissionError();
+  }
+  if (!adminOverride) {
+    const governance = evaluatePublishGovernance({
+      revisionStatus: "approved",
+      baseVersion: revision.baseVersion,
+      liveVersion: feature.version,
+      mergeSuccess: true,
+      liveChanges: [],
+      approvedBaseVersion: feature.version,
+      requireRebaseBeforePublish:
+        !!context.org.settings?.requireRebaseBeforePublish,
+    });
+    if (governance.rebaseRequired && governance.blockReason) {
+      throw new Error(governance.blockReason);
+    }
+  }
+
   await submitReviewAndComments(
     context,
     revision,
