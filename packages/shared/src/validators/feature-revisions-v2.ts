@@ -383,7 +383,7 @@ export const postFeatureRevisionPublishV2Validator = {
         .boolean()
         .optional()
         .describe(
-          "Required to publish when the org enforces same-base merges and the revision is behind the live version. Set to true to merge the stale draft anyway instead of rebasing first.",
+          "When the org enforces same-base merges and the revision is behind the live version, set to true to force-merge the stale draft instead of rebasing first. This only takes effect for callers with bypass-approval permission; otherwise it is ignored and the revision must be rebased.",
         ),
     })
     .strict(),
@@ -471,7 +471,7 @@ export const getFeatureRevisionMergeStatusV2Validator = {
     rebaseRequired: z
       .boolean()
       .describe(
-        "True when publishing this draft is blocked until it is rebased — either the merge has conflicts, or the draft is behind live (or its approval went stale) while the organization enforces rebase-before-publish. When true with no conflicts, publish can still proceed with `mergeNow: true`.",
+        "True when publishing this draft is blocked until it is rebased — either the merge has conflicts, or the draft is behind live (or its approval went stale) while the organization enforces rebase-before-publish. When true with no conflicts, callers with bypass-approval permission can still publish with `mergeNow: true`; others must rebase first.",
       ),
   }),
   version: "v2" as const,

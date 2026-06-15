@@ -342,7 +342,7 @@ export const postSavedGroupRevisionPublishValidator = {
         .boolean()
         .optional()
         .describe(
-          "Required to publish when the org enforces same-base merges and the saved group changed since this revision was created. Set to true to merge the stale revision anyway instead of rebasing first.",
+          "When the org enforces same-base merges and the saved group changed since this revision was created, set to true to force-merge the stale revision instead of rebasing first. This only takes effect for callers with bypass-approval permission; otherwise it is ignored and the revision must be rebased.",
         ),
     })
     .strict(),
