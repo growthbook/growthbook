@@ -34,6 +34,7 @@ import {
   MergeConflictError,
   NotFoundError,
 } from "back-end/src/util/errors";
+import { maybeAutoPublishFeatureRevision } from "./autoPublishOnApproval";
 import { isDraftStatus } from "./validations";
 
 export type RebaseRequestBody = {
@@ -258,7 +259,15 @@ export async function rebaseFeatureRevision(
     { baseVersion: live.version },
   );
 
-  return { feature, revision: finalRevision };
+  // A clean rebase (no review reset) keeps an approved+armed draft approved;
+  // re-fire auto-publish so it merges now it's rebased onto live.
+  const publishedRevision = await maybeAutoPublishFeatureRevision(
+    context,
+    feature,
+    finalRevision,
+  );
+
+  return { feature, revision: publishedRevision };
 }
 
 export const postFeatureRevisionRebase = createApiRequestHandler(

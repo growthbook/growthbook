@@ -1053,6 +1053,10 @@ export async function postFeatureRebase(
     { baseVersion: live.version },
   );
 
+  // A clean rebase (no review reset) keeps an approved+armed draft approved;
+  // re-fire auto-publish so it merges now it's rebased onto live.
+  await maybeAutoPublishFeatureRevision(context, feature, finalRevision);
+
   res.status(200).json({
     status: 200,
   });
