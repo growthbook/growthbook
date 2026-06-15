@@ -50,14 +50,18 @@ export function reissueAttributionCookie(
 ) {
   const raw = req.cookies?.[COOKIE_NAME];
   if (!raw) return;
-  res.cookie(COOKIE_NAME, raw, {
-    domain: ".growthbook.io",
-    path: "/",
-    maxAge: COOKIE_MAX_AGE_DAYS * 86400 * 1000,
-    sameSite: "lax",
-    secure: true,
-    httpOnly: false,
-  });
+  try {
+    res.cookie(COOKIE_NAME, raw, {
+      domain: ".growthbook.io",
+      path: "/",
+      maxAge: COOKIE_MAX_AGE_DAYS * 86400 * 1000,
+      sameSite: "lax",
+      secure: true,
+      httpOnly: false,
+    });
+  } catch (e) {
+    logger.warn("Failed to reissue attribution cookie", e);
+  }
 }
 
 /**
