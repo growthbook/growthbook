@@ -20,6 +20,7 @@ const BaseClass = MakeModelClass({
   },
   globallyUniquePrimaryKeys: true,
   skipAuditLogFields: ["nextSnapshotAttempt", "lastSnapshotAttempt"],
+  skipDateUpdatedFields: ["nextSnapshotAttempt", "lastSnapshotAttempt"],
   defaultValues: {
     autoSnapshots: true,
   },
