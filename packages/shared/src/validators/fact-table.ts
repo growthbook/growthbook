@@ -237,7 +237,7 @@ export const priorSettingsValidator = z.object({
   override: z.boolean(),
   proper: z.boolean(),
   mean: z.number(),
-  stddev: z.number(),
+  stddev: z.number().gt(0),
 });
 
 export const metricTypeValidator = z.enum([
@@ -271,9 +271,7 @@ export const factMetricValidator = z
 
     cappingSettings: cappingSettingsValidator,
     windowSettings: windowSettingsValidator,
-    priorSettings: priorSettingsValidator.extend({
-      stddev: z.number().gt(0),
-    }),
+    priorSettings: priorSettingsValidator,
 
     maxPercentChange: z.number(),
     minPercentChange: z.number(),

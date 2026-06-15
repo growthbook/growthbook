@@ -11,7 +11,10 @@ import { migrateExperimentReport } from "back-end/src/util/migrations";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { logger } from "back-end/src/util/logger";
-import { validateMetricOverrides } from "back-end/src/util/priors";
+import {
+  healMetricOverrides,
+  validateMetricOverrides,
+} from "back-end/src/util/priors";
 import { getAllExperiments } from "./ExperimentModel";
 import { queriesSchema } from "./QueryModel";
 
@@ -53,11 +56,16 @@ const toInterface = (doc: ReportDocument): ReportInterface => {
       return migrateExperimentReport(
         omit(doc.toJSON<ExperimentReportDocument>(), ["__v", "_id"]),
       );
-    case "experiment-snapshot":
-      return omit(doc.toJSON<ExperimentSnapshotReportDocument>(), [
-        "__v",
-        "_id",
-      ]);
+    case "experiment-snapshot": {
+      const snapshotReport = omit(
+        doc.toJSON<ExperimentSnapshotReportDocument>(),
+        ["__v", "_id"],
+      );
+      healMetricOverrides(
+        snapshotReport.experimentAnalysisSettings?.metricOverrides,
+      );
+      return snapshotReport;
+    }
     default:
       logger.error(
         `Invalid report type: [${
