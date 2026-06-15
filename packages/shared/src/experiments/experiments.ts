@@ -839,6 +839,16 @@ export function getMetricSnapshotSettings<T extends ExperimentMetricInterface>({
     }
   }
 
+  // Legacy data may carry a non-positive (or NaN) prior stddev which is invalid
+  // A proper prior with stddev <= 0 divides by zero in the Bayesian engine, so
+  // fall back to the default strength while keeping the prior the user enabled.
+  if (
+    metricPriorSettings.properPrior &&
+    !(metricPriorSettings.properPriorStdDev > 0)
+  ) {
+    metricPriorSettings.properPriorStdDev = DEFAULT_PROPER_PRIOR_STDDEV;
+  }
+
   // final gatekeeping for RA
   if (regressionAdjustmentEnabled) {
     if (metric && isFactMetric(metric) && quantileMetricType(metric)) {

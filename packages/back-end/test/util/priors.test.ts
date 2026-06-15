@@ -28,6 +28,12 @@ describe("priors util", () => {
         "Prior standard deviation must be greater than 0",
       );
     });
+
+    it("rejects NaN stddev", () => {
+      expect(() => validatePriorSettings({ stddev: NaN })).toThrow(
+        "Prior standard deviation must be greater than 0",
+      );
+    });
   });
 
   describe("validateMetricOverrides", () => {
@@ -70,6 +76,14 @@ describe("priors util", () => {
         validateMetricOverrides([{ id: "m1", properPriorStdDev: -0.5 }]),
       ).toThrow(
         "Prior standard deviation must be greater than 0 for metric m1",
+      );
+    });
+
+    it("rejects NaN stddev and names the metric", () => {
+      expect(() =>
+        validateMetricOverrides([{ id: "bad_metric", properPriorStdDev: NaN }]),
+      ).toThrow(
+        "Prior standard deviation must be greater than 0 for metric bad_metric",
       );
     });
   });

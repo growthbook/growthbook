@@ -2,6 +2,7 @@ import {
   ExperimentMetricInterface,
   getMetricSnapshotSettings,
 } from "shared/experiments";
+import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { ExperimentInterface } from "shared/types/experiment";
 import { DataSourceInterface } from "shared/types/datasource";
 import {
@@ -686,19 +687,27 @@ describe("snapshot planning", () => {
       expect(metricSnapshotSettings.properPriorStdDev).toBe(0.5);
     });
 
-    it("returns stored zero override stddev unchanged", () => {
+    it("corrects a legacy zero override stddev before analysis", () => {
       const { metricSnapshotSettings } = getMetricSnapshotSettings({
         metric: factMetricFactory.build({ id: "m1" }),
         denominatorMetrics: [],
         experimentRegressionAdjustmentEnabled: false,
         metricOverrides: [
-          { id: "m1", properPriorOverride: true, properPriorStdDev: 0 },
+          {
+            id: "m1",
+            properPriorOverride: true,
+            properPriorEnabled: true,
+            properPriorStdDev: 0,
+          },
         ],
       });
-      expect(metricSnapshotSettings.properPriorStdDev).toBe(0);
+      expect(metricSnapshotSettings.properPrior).toBe(true);
+      expect(metricSnapshotSettings.properPriorStdDev).toBe(
+        DEFAULT_PROPER_PRIOR_STDDEV,
+      );
     });
 
-    it("returns stored zero metric-level stddev unchanged", () => {
+    it("corrects a legacy zero metric-level stddev before analysis", () => {
       const { metricSnapshotSettings } = getMetricSnapshotSettings({
         metric: factMetricFactory.build({
           id: "m1",
@@ -707,10 +716,13 @@ describe("snapshot planning", () => {
         denominatorMetrics: [],
         experimentRegressionAdjustmentEnabled: false,
       });
-      expect(metricSnapshotSettings.properPriorStdDev).toBe(0);
+      expect(metricSnapshotSettings.properPrior).toBe(true);
+      expect(metricSnapshotSettings.properPriorStdDev).toBe(
+        DEFAULT_PROPER_PRIOR_STDDEV,
+      );
     });
 
-    it("returns stored zero org-default stddev unchanged", () => {
+    it("corrects a legacy zero org-default stddev before analysis", () => {
       const { metricSnapshotSettings } = getMetricSnapshotSettings({
         metric: factMetricFactory.build({
           id: "m1",
@@ -724,7 +736,10 @@ describe("snapshot planning", () => {
           },
         },
       });
-      expect(metricSnapshotSettings.properPriorStdDev).toBe(0);
+      expect(metricSnapshotSettings.properPrior).toBe(true);
+      expect(metricSnapshotSettings.properPriorStdDev).toBe(
+        DEFAULT_PROPER_PRIOR_STDDEV,
+      );
     });
   });
 });
