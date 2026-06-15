@@ -1,23 +1,18 @@
-import { useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { ReactNode, useState } from "react";
+import { Box, Flex, Grid, Separator } from "@radix-ui/themes";
+import { date } from "shared/dates";
 import { ApiContextualBanditInterface } from "shared/validators";
 import type { RadixColor } from "@/ui/HelperText";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
 import DataList, { DataListItem } from "@/ui/DataList";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import ConfirmDialog from "@/ui/ConfirmDialog";
-import Text from "@/ui/Text";
-import Table, {
-  TableBody,
-  TableCell,
-  TableColumnHeader,
-  TableHeader,
-  TableRow,
-} from "@/ui/Table";
+import SortedTags from "@/components/Tags/SortedTags";
 import ContextualBanditResultsTable from "@/components/ContextualBandit/ContextualBanditResultsTable";
 
 const STATUS_COLOR: Record<string, RadixColor> = {
@@ -26,10 +21,48 @@ const STATUS_COLOR: Record<string, RadixColor> = {
   stopped: "amber",
 };
 
+/** Titled section-card header with an optional Edit affordance on the right. */
+function SectionHeader({
+  title,
+  onEdit,
+  editLabel = "Edit",
+}: {
+  title: string;
+  onEdit?: () => void;
+  editLabel?: string;
+}) {
+  return (
+    <Flex justify="between" align="center" mb="3" gap="3">
+      <Heading as="h2" size="medium" mb="0">
+        {title}
+      </Heading>
+      {onEdit ? (
+        <Button variant="ghost" onClick={onEdit}>
+          {editLabel}
+        </Button>
+      ) : null}
+    </Flex>
+  );
+}
+
+/** One "Label: value" item in the header metadata row. */
+function MetaItem({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <Text size="small" color="text-mid">
+      <Text as="span" color="text-low">
+        {label}:{" "}
+      </Text>
+      {value}
+    </Text>
+  );
+}
+
 /**
- * Lean CB-native detail page. Consumes the CB API shape directly — no experiment
- * SnapshotProvider/TabbedPage, no phases, no experiment-shaped adapter. Start/stop live in the
- * header; refresh is owned by the results table. Edit affordances are rendered when their
+ * CB-native detail page. Consumes the CB API shape directly — no experiment
+ * SnapshotProvider/TabbedPage, no phases, no experiment-shaped adapter. Mirrors the experiment
+ * detail page visually (header + Overview-tab sections) using Radix Themes for layout/typography
+ * and @/ui wrappers for the mandated design-system components. Start/stop live in the header;
+ * the leaf heatmap is owned by ContextualBanditResultsTable. Edit affordances render when their
  * callbacks are supplied (wired to the CB-native modals).
  */
 export default function ContextualBanditDetailPage({
@@ -75,6 +108,11 @@ export default function ContextualBanditDetailPage({
     projects.find((p) => p.id === cb.project)?.name ?? cb.project ?? "None";
   const metricName = (id: string) => getExperimentMetricById(id)?.name ?? id;
 
+  const coveragePct = cb.coverage != null ? Math.round(cb.coverage * 100) : 100;
+  const splitLabel = cb.variations
+    .map((_, i) => formatWeight(weightForIndex(i)))
+    .join(" / ");
+
   const start = async () => {
     await apiCall(`${updateEndpoint}/start`, { method: "POST" });
     mutate();
@@ -84,36 +122,14 @@ export default function ContextualBanditDetailPage({
     mutate();
   };
 
-  const overviewData: DataListItem[] = [
-    { label: "Status", value: cb.status },
-    { label: "Owner", value: cb.ownerEmail || cb.owner || "—" },
-    { label: "Project", value: projectName },
-    { label: "Tags", value: cb.tags.length ? cb.tags.join(", ") : "—" },
-    { label: "Tracking Key", value: cb.trackingKey },
-    {
-      label: "Description",
-      value: cb.description || "—",
-    },
+  const trafficData: DataListItem[] = [
+    { label: "Traffic", value: `${coveragePct}% included · ${splitLabel}` },
+    { label: "Assignment Attribute", value: cb.hashAttribute || "—" },
   ];
 
-  const setupData: DataListItem[] = [
+  const analysisData: DataListItem[] = [
     { label: "Data Source", value: datasourceName || "—" },
-    { label: "Assignment Query", value: cb.exposureQueryId || "—" },
-    { label: "Hash Attribute", value: cb.hashAttribute || "—" },
-    {
-      label: "Coverage",
-      value: cb.coverage != null ? `${Math.round(cb.coverage * 100)}%` : "100%",
-    },
-    {
-      label: "Contextual Attributes",
-      value: cb.contextualAttributes.length
-        ? cb.contextualAttributes.join(", ")
-        : "—",
-    },
-    { label: "Targeting Condition", value: cb.condition || "—" },
-  ];
-
-  const metricsData: DataListItem[] = [
+    { label: "Experiment Assignment Query", value: cb.exposureQueryId || "—" },
     {
       label: "Decision Metric",
       value: cb.goalMetrics.length ? metricName(cb.goalMetrics[0]) : "—",
@@ -130,6 +146,12 @@ export default function ContextualBanditDetailPage({
         ? cb.guardrailMetrics.map(metricName).join(", ")
         : "—",
     },
+    {
+      label: "Contextual Attributes",
+      value: cb.contextualAttributes.length
+        ? cb.contextualAttributes.join(", ")
+        : "—",
+    },
   ];
 
   const banditSettingsData: DataListItem[] = [
@@ -141,7 +163,8 @@ export default function ContextualBanditDetailPage({
 
   return (
     <Box>
-      <Flex justify="between" align="center" mb="4" gap="3" wrap="wrap">
+      {/* Header — title, status, actions */}
+      <Flex justify="between" align="center" gap="3" wrap="wrap">
         <Flex align="center" gap="3">
           <Heading as="h1" size="x-large" mb="0">
             {cb.name}
@@ -170,108 +193,113 @@ export default function ContextualBanditDetailPage({
         </Flex>
       </Flex>
 
+      {/* Header — metadata line */}
+      <Flex gap="4" wrap="wrap" align="center" mt="2">
+        <MetaItem label="Project" value={projectName} />
+        {editProject ? (
+          <Button variant="ghost" onClick={editProject}>
+            Edit
+          </Button>
+        ) : null}
+        <MetaItem label="Experiment Key" value={cb.trackingKey} />
+        <MetaItem label="Created" value={date(cb.dateCreated)} />
+        <MetaItem label="Owner" value={cb.ownerEmail || cb.owner || "—"} />
+      </Flex>
+
+      {/* Header — tags */}
+      <Flex align="center" gap="2" mt="2" mb="4" wrap="wrap">
+        {cb.tags.length ? (
+          <SortedTags tags={cb.tags} />
+        ) : (
+          <Text size="small" color="text-low">
+            No tags
+          </Text>
+        )}
+        {editTags ? (
+          <Button variant="ghost" onClick={editTags}>
+            + Add
+          </Button>
+        ) : null}
+      </Flex>
+
+      {/* Overview */}
       <Frame>
-        <Flex justify="between" align="center" mb="3">
-          <Heading as="h2" size="medium" mb="0">
-            Overview
-          </Heading>
-          {editTags || editProject ? (
-            <Flex gap="2">
-              {editTags ? (
-                <Button variant="ghost" onClick={editTags}>
-                  Edit Tags
-                </Button>
-              ) : null}
-              {editProject ? (
-                <Button variant="ghost" onClick={editProject}>
-                  Edit Project
-                </Button>
-              ) : null}
-            </Flex>
-          ) : null}
-        </Flex>
-        <DataList data={overviewData} columns={3} />
+        <SectionHeader title="Overview" />
+        <DataList
+          data={[{ label: "Description", value: cb.description || "—" }]}
+          columns={1}
+        />
       </Frame>
 
+      {/* Implementation — Variations & Values */}
       <Frame>
-        <Flex justify="between" align="center" mb="3">
-          <Heading as="h2" size="medium" mb="0">
-            Setup
-          </Heading>
-          {editTargeting ? (
-            <Button variant="ghost" onClick={editTargeting}>
-              Edit Targeting
-            </Button>
-          ) : null}
-        </Flex>
-        <DataList data={setupData} columns={3} />
-      </Frame>
-
-      <Frame>
-        <Flex justify="between" align="center" mb="3">
-          <Heading as="h2" size="medium" mb="0">
-            Metrics
-          </Heading>
-          {editMetrics ? (
-            <Button variant="ghost" onClick={editMetrics}>
-              Edit Metrics
-            </Button>
-          ) : null}
-        </Flex>
-        <DataList data={metricsData} columns={3} />
-      </Frame>
-
-      <Frame>
-        <Flex justify="between" align="center" mb="3">
-          <Heading as="h2" size="medium" mb="0">
-            Variations
-          </Heading>
-          {editVariations ? (
-            <Button variant="ghost" onClick={editVariations}>
-              Edit Variations
-            </Button>
-          ) : null}
-        </Flex>
-        <Table variant="list">
-          <TableHeader>
-            <TableRow>
-              <TableColumnHeader>Variation</TableColumnHeader>
-              <TableColumnHeader>Key</TableColumnHeader>
-              <TableColumnHeader justify="end">
-                Initial Weight
-              </TableColumnHeader>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {cb.variations.map((v, i) => (
-              <TableRow key={v.id}>
-                <TableCell>
-                  <Text weight="medium">{v.name}</Text>
-                </TableCell>
-                <TableCell>
-                  <Text color="text-low">{v.key}</Text>
-                </TableCell>
-                <TableCell justify="end">
-                  <Text color="text-low">
-                    {formatWeight(weightForIndex(i))}
-                  </Text>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Frame>
-
-      <Frame>
-        <Heading as="h2" size="medium" mb="3">
-          Bandit Settings
+        <SectionHeader
+          title="Implementation"
+          onEdit={editVariations}
+          editLabel="Edit Variations"
+        />
+        <Heading as="h3" size="small" mb="2">
+          Variations &amp; Values
         </Heading>
+        <Grid
+          columns={{ initial: "1", sm: String(Math.max(numVariations, 1)) }}
+          gap="3"
+        >
+          {cb.variations.map((v, i) => (
+            <Box key={v.id} className="appbox" p="3" mb="0">
+              <Text weight="medium">{v.name}</Text>
+              <Box mt="1">
+                <Text size="small" color="text-low">
+                  {v.key}
+                </Text>
+              </Box>
+              <Box mt="2">
+                <Text size="small" color="text-low">
+                  Initial weight: {formatWeight(weightForIndex(i))}
+                </Text>
+              </Box>
+            </Box>
+          ))}
+        </Grid>
+      </Frame>
+
+      {/* Traffic Allocation */}
+      <Frame>
+        <SectionHeader title="Traffic Allocation" onEdit={editTargeting} />
+        <DataList data={trafficData} columns={2} />
+      </Frame>
+
+      {/* Targeting */}
+      <Frame>
+        <SectionHeader title="Targeting" onEdit={editTargeting} />
+        {cb.condition ? (
+          <DataList
+            data={[{ label: "Targeting Condition", value: cb.condition }]}
+            columns={1}
+          />
+        ) : (
+          <Text color="text-low">
+            No targeting; this contextual bandit will include all traffic.
+          </Text>
+        )}
+      </Frame>
+
+      {/* Analysis Settings */}
+      <Frame>
+        <SectionHeader
+          title="Analysis Settings"
+          onEdit={editMetrics}
+          editLabel="Edit Metrics"
+        />
+        <DataList data={analysisData} columns={3} />
+        <Separator my="4" size="4" />
         <DataList data={banditSettingsData} columns={4} />
       </Frame>
 
+      {/* Current Results — leaf heatmap */}
       <Frame>
         <Heading as="h2" size="medium" mb="3">
-          Results
+          Current Results
         </Heading>
         <ContextualBanditResultsTable cb={cb} mutate={mutate} />
       </Frame>
