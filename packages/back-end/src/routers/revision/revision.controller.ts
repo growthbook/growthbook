@@ -12,6 +12,7 @@ import {
 } from "shared/enterprise";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
+import { MergeConflictError } from "back-end/src/util/errors";
 import { getContextFromReq } from "back-end/src/services/organizations";
 import {
   getAdapter,
@@ -1033,6 +1034,26 @@ export const postApproveAndPublish = async (
   const entity = await entityModel.getById(revision.target.id);
   if (!entity) {
     return res.status(404).json({ message: "Entity not found" });
+  }
+
+  // Pre-flight publish feasibility BEFORE writing the approval. Otherwise a
+  // conflict (or missing publish permission) surfaces only inside
+  // publishRevisionAction, leaving the revision stuck in "approved" with no
+  // corresponding entity update. Mirrors postFeatureApproveAndPublish.
+  const adapter = getAdapter(revision.target.type);
+  if (!adapter.canUpdate(context, entity as Record<string, unknown>)) {
+    context.permissions.throwPermissionError();
+  }
+  const conflictResult = checkMergeConflicts(
+    revision.target.snapshot as Record<string, unknown>,
+    entity as Record<string, unknown>,
+    normalizeProposedChanges(revision.target.proposedChanges),
+  );
+  if (!conflictResult.success) {
+    throw new MergeConflictError(
+      "Merge conflicts exist — rebase before publishing",
+      conflictResult.conflicts,
+    );
   }
 
   const approved = await approveRevision(
