@@ -1818,24 +1818,28 @@ export function buildReverseDependencyIndex(
 ): ReverseDependencyIndex {
   const index: ReverseDependencyIndex = new Map();
 
+  const add = (prereqId: string, dependentId: string) => {
+    let set = index.get(prereqId);
+    if (!set) {
+      set = new Set();
+      index.set(prereqId, set);
+    }
+    set.add(dependentId);
+  };
+
   for (const f of features) {
     for (const p of f.prerequisites || []) {
-      let set = index.get(p.id);
-      if (!set) {
-        set = new Set();
-        index.set(p.id, set);
-      }
-      set.add(f.id);
+      add(p.id, f.id);
     }
     for (const rule of f.rules ?? []) {
       if (!rule?.enabled || !rule.prerequisites?.length) continue;
       for (const p of rule.prerequisites) {
-        let set = index.get(p.id);
-        if (!set) {
-          set = new Set();
-          index.set(p.id, set);
-        }
-        set.add(f.id);
+        add(p.id, f.id);
+      }
+    }
+    for (const env of Object.values(f.environmentSettings ?? {})) {
+      for (const p of env?.prerequisites ?? []) {
+        add(p.id, f.id);
       }
     }
   }
@@ -1852,6 +1856,15 @@ export function getDependentFeatures(
 ): string[] {
   const isDependent = (f: FeatureInterface) => {
     if ((f.prerequisites || []).some((p) => p.id === feature.id)) return true;
+    if (
+      Object.entries(f.environmentSettings || {}).some(
+        ([envId, env]) =>
+          environments.includes(envId) &&
+          (env?.prerequisites || []).some((p) => p.id === feature.id),
+      )
+    ) {
+      return true;
+    }
     return (
       getMatchingRules(
         f,
