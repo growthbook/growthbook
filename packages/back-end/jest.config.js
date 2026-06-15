@@ -12,10 +12,11 @@ module.exports = {
       "<rootDir>/../../node_modules/.pnpm/@typespec+ts-http-runtime@0.3.1/node_modules/@typespec/ts-http-runtime/dist/commonjs/$1/internal.js",
   },
   setupFilesAfterEnv: ["<rootDir>/test/jest.setup.ts"],
-  // Many tests spin up an in-memory mongod per worker. On CI's 16GB runner,
-  // unbounded workers + the 8GB heap ceiling exhaust RAM and the runner gets
-  // OOM-killed (SIGTERM / "lost communication"). Cap workers on CI and recycle
-  // any worker whose RSS balloons so peak memory stays bounded.
-  maxWorkers: process.env.CI ? 2 : "50%",
-  workerIdleMemoryLimit: "2GB",
+  // A worker occasionally leaks heap across files (esp. the heavier
+  // eventForwarder suites), creeping toward the 8GB --max-old-space-size
+  // ceiling and crashing the run with "JavaScript heap out of memory".
+  // Recycle a worker once its RSS passes 4GB so it resets well before the heap
+  // limit. The threshold sits above the normal ~2GB working set, so healthy
+  // workers are never restarted (a lower limit thrashes and stalls CI).
+  workerIdleMemoryLimit: "4GB",
 };
