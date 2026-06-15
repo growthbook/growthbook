@@ -4,4 +4,5 @@ module.exports = {
     "^.+\\.(ts|tsx)$": "@swc/jest",
   },
   testMatch: ["**/test/**/*.test.(ts|js)"],
+  maxWorkers: 2,
 };

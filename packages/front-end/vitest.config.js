@@ -9,6 +9,12 @@ export default defineConfig({
     coverage: {
       provider: "v8",
     },
+    poolOptions: {
+      forks: {
+        maxForks: 2,
+        minForks: 1,
+      },
+    },
   },
   resolve: {
     alias: {

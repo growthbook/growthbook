@@ -12,4 +12,5 @@ module.exports = {
       "<rootDir>/../../node_modules/.pnpm/@typespec+ts-http-runtime@0.3.1/node_modules/@typespec/ts-http-runtime/dist/commonjs/$1/internal.js",
   },
   setupFilesAfterEnv: ["<rootDir>/test/jest.setup.ts"],
+  maxWorkers: 2,
 };
