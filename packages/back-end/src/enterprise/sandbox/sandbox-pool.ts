@@ -123,9 +123,8 @@ const TRACING_MODULE_RE = /tracing\.(?:opentelemetry|datadog)/;
 // child (duplicate exporters/timers, child_process instrumentation nesting, slow
 // or failing boots). We want tracing only in the parent — the meaningful span is
 // the runInSandbox call there — so strip the tracing preload from the worker.
-function workerExecArgv(): string[] {
+export function workerExecArgv(parent: string[] = process.execArgv): string[] {
   const out: string[] = [];
-  const parent = process.execArgv;
   for (let i = 0; i < parent.length; i++) {
     const arg = parent[i];
     // Re-added below with the worker's own heap cap.
@@ -154,9 +153,11 @@ function workerExecArgv(): string[] {
 
 // Strip any tracing preload that came in via NODE_OPTIONS and hard-disable the
 // SDKs, so the worker can't bootstrap tracing by any path.
-function workerEnv(): NodeJS.ProcessEnv {
+export function workerEnv(
+  parentEnv: NodeJS.ProcessEnv = process.env,
+): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {
-    ...process.env,
+    ...parentEnv,
     OTEL_SDK_DISABLED: "true",
     DD_TRACE_ENABLED: "false",
   };
