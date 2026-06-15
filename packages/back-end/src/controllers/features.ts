@@ -1477,6 +1477,20 @@ export async function postFeatureToggleAutoPublish(
 
   await setAutoPublishOnApproval(revision, !!enabled, context.userId || null);
 
+  // Arming an already-approved draft must publish now — otherwise it waits for
+  // an approval event that never comes.
+  if (enabled && revision.status === "approved") {
+    const armed =
+      (await getRevision({
+        context,
+        organization: context.org.id,
+        featureId: feature.id,
+        feature,
+        version: parseInt(version),
+      })) ?? revision;
+    await maybeAutoPublishFeatureRevision(context, feature, armed);
+  }
+
   res.status(200).json({ status: 200 });
 }
 

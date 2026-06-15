@@ -1152,6 +1152,23 @@ export const postToggleAutoPublish = async (
     !!enabled,
   );
 
+  // Arming an already-approved revision must publish now — otherwise it waits
+  // for an approval event that never comes.
+  if (enabled && revision.status === "approved") {
+    const entityModel = getEntityModel(context, revision.target.type);
+    const entity = entityModel
+      ? await entityModel.getById(revision.target.id)
+      : null;
+    if (entity) {
+      const afterAutoPublish = await maybeAutoPublishRevision(
+        context,
+        revision,
+        entity as Record<string, unknown>,
+      );
+      return res.status(200).json({ status: 200, revision: afterAutoPublish });
+    }
+  }
+
   res.status(200).json({ status: 200, revision });
 };
 
