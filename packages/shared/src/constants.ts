@@ -224,6 +224,7 @@ export const entityEvents = {
     "revision.requestChanges",
     "revision.comment",
     "revision.discard",
+    "revision.reopen",
     "revision.rebase",
   ],
   featureRevisionLog: ["create", "update", "delete"],

@@ -428,6 +428,191 @@ pre {
   vertical-align: top !important;
 }
 
+// Comment anchors on diffs (see diffCommentRefs.ts). The renderGutter host
+// cell IS the carved-out icon column: the icon button renders in-flow inside
+// it and the column auto-sizes to the icon's width — react-diff-viewer-
+// continued uses `table-layout: auto`, so external width/min-width on the
+// <td> aren't reliably honored (it collapses to its widest content), but
+// the icon itself is real in-flow content and pegs the column at its size.
+// Existing comment markers stay visible; the add affordance appears on
+// gutter or cell hover (and stays while the composer popover is open).
+.diff-wrapper td.gb-diff-comment-cell {
+  width: 20px;
+  min-width: 20px;
+  padding: 0;
+  border: none;
+  position: relative;
+}
+
+// Match the adjacent line-number gutter's diff tint so the icon column reads
+// as part of the same band; context rows are intentionally unshaded so the
+// column visually disappears between changes. The preceding sibling is
+// always a gutter <td> (the library always renders one before renderGutter).
+[class*="-diff-added"] + .gb-diff-comment-cell {
+  background: var(--diff-added-background-highlight);
+}
+[class*="-diff-removed"] + .gb-diff-comment-cell {
+  background: var(--diff-removed-background-highlight);
+}
+
+.gb-diff-comment-trigger {
+  // Absolutely centered inside the host cell — the in-flow icon was forcing
+  // the cell wider than its 28px placeholder and bleeding the column into
+  // adjacent ones. Absolute positioning + translate(-50%, -50%) lets the
+  // cell hold its declared width while the icon (and its drop-shadow halo)
+  // floats over the center without affecting layout.
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translate(-60%, -10%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  padding: 0;
+  line-height: 1;
+  font-size: 20px;
+  cursor: pointer;
+  // Filled white chat-bubble glyph; the knock-out interior (chat lines)
+  // shows whatever's behind (the cell's red/green tint or background).
+  // Stacked drop-shadows give the glyph a thin dark edge for legibility on
+  // light backgrounds plus a softer ambient lift.
+  background: transparent;
+  color: #fff;
+  filter: drop-shadow(0 0 0.5px #000) drop-shadow(0 0 0.5px #000)
+    drop-shadow(0 2px 1px rgba(0, 0, 0, 0.6));
+  opacity: 0;
+  transition: opacity 0.15s ease-out;
+
+  // Existing comments and an open popover are always shown; the add
+  // affordance fades in on hover (rule below) — identical styling either way.
+  &.has-comment,
+  &.is-open {
+    opacity: 1;
+  }
+}
+
+// Reveal the add affordance on hover of the icon cell, the adjacent
+// line-number gutter, or the icon itself.
+[class*="-gutter"]:hover + .gb-diff-comment-cell .gb-diff-comment-trigger,
+.gb-diff-comment-cell:hover .gb-diff-comment-trigger,
+.gb-diff-comment-trigger:hover {
+  opacity: 1;
+}
+
+// The whole line-number gutter is a click target for comment anchors
+// (onLineNumberClick); advertise it. Empty gutters (the blank side of an
+// add/remove pair) have no handler and keep the default cursor.
+.gb-diff-commentable
+  [class*="-gutter"]:not([class*="-empty-gutter"]):not(.gb-diff-comment-cell) {
+  cursor: pointer;
+}
+
+// Flash highlight when a timeline diff-ref widget scrolls a diff row into
+// view (scrollToDiffRef adds/removes the class on the <tr>).
+@keyframes gb-diff-ref-flash {
+  0%,
+  55% {
+    box-shadow: inset 0 0 0 999px rgba(255, 200, 60, 0.3);
+  }
+  100% {
+    box-shadow: none;
+  }
+}
+tr.gb-diff-ref-flash > td {
+  animation: gb-diff-ref-flash 1.8s ease-out;
+}
+
+// Flash highlight when a gutter comment marker jumps to its timeline entry
+// (scrollToRevisionLogEntry adds/removes the class).
+@keyframes gb-log-entry-flash {
+  0%,
+  55% {
+    background: rgba(255, 200, 60, 0.25);
+  }
+  100% {
+    background: transparent;
+  }
+}
+.gb-log-entry-flash {
+  border-radius: 6px;
+  animation: gb-log-entry-flash 1.8s ease-out;
+}
+
+// Boxed rendering of a diff-ref block inside a timeline comment: header with
+// the referenced section + side/line, then the snapshot lines captured when
+// the comment was written (anchored line highlighted). The whole widget is a
+// button that scrolls back to the referenced diff line.
+.gb-diff-ref-widget {
+  display: block;
+  width: 100%;
+  margin: 8px 0;
+  padding: 0;
+  text-align: left;
+  background: var(--color-panel);
+  border: 1px solid var(--gray-5);
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--violet-7);
+
+    .gb-diff-ref-jump {
+      color: var(--violet-11);
+    }
+  }
+
+  .gb-diff-ref-widget-header {
+    padding: 4px 10px;
+    background: var(--gray-2);
+    border-bottom: 1px solid var(--gray-4);
+  }
+
+  .gb-diff-ref-jump {
+    color: var(--gray-10);
+    font-size: 12px;
+  }
+
+  .gb-diff-ref-widget-body {
+    padding: 4px 0;
+    font-family: var(--code-font-family, monospace);
+    font-size: 11px;
+    line-height: 1.6;
+    overflow-x: auto;
+    color: var(--gray-11);
+
+    .gb-diff-ref-line {
+      white-space: pre;
+      padding: 0 10px;
+    }
+
+    .gb-diff-ref-op {
+      display: inline-block;
+      width: 14px;
+      user-select: none;
+      opacity: 0.7;
+    }
+
+    // Mini before/after coloring matching the full diff viewer's palette.
+    .gb-diff-ref-del {
+      background: rgba(232, 88, 88, 0.12);
+      color: var(--red-11);
+    }
+
+    .gb-diff-ref-add {
+      background: rgba(70, 180, 100, 0.12);
+      color: var(--green-11);
+    }
+
+    .gb-diff-ref-anchor {
+      font-weight: 900;
+    }
+  }
+}
+
 .diff-wrapper-compact {
   pre,
   td {

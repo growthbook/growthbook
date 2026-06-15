@@ -69,7 +69,11 @@ const CustomFieldDisplay: FC<{
   );
 
   const [mode, setMode] = useState<DraftMode>(
-    canAutoPublish ? "publish" : "new",
+    canAutoPublish
+      ? "publish"
+      : latestActiveDraft !== null
+        ? "existing"
+        : "new",
   );
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     latestActiveDraft?.version ?? null,
