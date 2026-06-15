@@ -198,7 +198,12 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
                   },
                 )}
               >
-                <Link href={l.href} className="align-middle">
+                <Link
+                  href={l.href}
+                  className={clsx("align-middle", {
+                    [styles.betaLink]: l.beta,
+                  })}
+                >
                   {showSubMenuIcons && (
                     <>
                       {l.Icon && <l.Icon className={styles.icon} />}
@@ -211,7 +216,13 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
                   )}
                   {l.name}
                   {l.beta && (
-                    <Badge color="indigo" label="Beta" variant="solid" ml="2" />
+                    <Badge
+                      color="indigo"
+                      label="Beta"
+                      variant="solid"
+                      size="xs"
+                      ml="1"
+                    />
                   )}
                 </Link>
               </li>
