@@ -150,6 +150,10 @@ export async function publishRevision(
     return !isEqual(desiredState[key], entity[key]);
   });
 
+  // No net change vs the live entity: either a genuine no-op or a retry after a
+  // partial publish (changes applied, merge failed). Close it out as merged
+  // rather than erroring, so stranded drafts self-heal. Mirrors
+  // postSavedGroupRevisionPublish.
   if (!hasChanges) {
     const merged = await context.models.revisions.merge(
       revision.id,

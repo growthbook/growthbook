@@ -960,9 +960,9 @@ type PostMergeResponse = {
 
 /**
  * POST /revision/:id/merge
- * Merge a revision (apply the changes)
- * @param req
- * @param res
+ * Merge a revision (apply the changes). A revision with no net change vs the
+ * live entity is closed out as merged (200), not an error, to self-heal
+ * partial-failure retries.
  */
 export const postMerge = async (
   req: PostMergeRequest,
