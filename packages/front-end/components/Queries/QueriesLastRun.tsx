@@ -92,7 +92,7 @@ const QueriesLastRun: FC<{
                     </Box>
                     <Box>
                       <Text as="div" weight="bold">
-                        Overall Results
+                        Results as of (from Overall Results)
                       </Text>
                       <Text as="div">
                         {datetimeAt(sourceSnapshot.dateCreated)}
@@ -109,7 +109,8 @@ const QueriesLastRun: FC<{
             }
           >
             <Text weight="regular" style={{ color: "var(--color-text-mid)" }}>
-              Updated {abbreviateAgo(dataAsOf)}
+              {sourceSnapshot ? "Results as of" : "Updated"}{" "}
+              {abbreviateAgo(dataAsOf)}
             </Text>
           </Tooltip>
         ) : (
