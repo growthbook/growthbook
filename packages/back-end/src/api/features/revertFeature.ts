@@ -198,10 +198,8 @@ export async function revertFeatureCore(
     );
   }
 
-  // Validate the restored values against the schema/value-type that will be
-  // live after the revert. A revert to a config the current schema can no
-  // longer read isn't really a revert — surface it as a bypassable soft
-  // warning (?ignoreWarnings=true) rather than silently publishing it.
+  // Flag restored values the current schema/value-type can no longer read as a
+  // bypassable soft warning (?ignoreWarnings=true) instead of publishing blind.
   const valueWarnings = getRevertValueValidationWarnings(feature, changes);
   if (valueWarnings.length && !context.ignoreWarnings) {
     throw new SoftWarningError(

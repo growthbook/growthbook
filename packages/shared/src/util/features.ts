@@ -333,20 +333,15 @@ export function validateFeatureValue(
   return value;
 }
 
-// Validate the values restored by a revert against the value type / JSON schema
-// that will be live after the revert (the revert's own metadata changes win over
-// the current feature). Returns a human-readable warning per value that no longer
-// parses/validates — empty array means everything is fine. Callers surface these
-// as a bypassable soft warning so a revert to a config the current schema can no
-// longer read is flagged rather than silently published.
+// Validate the values a revert restores against the value type / JSON schema
+// that will be live afterward. Returns one warning per value that no longer
+// parses/validates; callers surface these as a bypassable soft warning.
 export function getRevertValueValidationWarnings(
   feature: Pick<FeatureInterface, "valueType" | "jsonSchema">,
   changes: Pick<MergeResultChanges, "defaultValue" | "rules" | "metadata">,
 ): string[] {
-  // If the revert also restores a different valueType, its schema is governed
-  // entirely by the revert's own metadata (the current feature's schema belongs
-  // to the old type and would be incoherent). Otherwise keep the current schema
-  // unless the revert explicitly restores one.
+  // When the revert also restores a different valueType, take the schema from
+  // the revert's metadata too (the current schema belongs to the old type).
   const revertsValueType = changes.metadata?.valueType !== undefined;
   const target: Pick<FeatureInterface, "valueType" | "jsonSchema"> = {
     valueType: changes.metadata?.valueType ?? feature.valueType,

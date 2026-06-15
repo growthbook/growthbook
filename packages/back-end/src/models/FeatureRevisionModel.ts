@@ -1439,11 +1439,9 @@ export async function submitReviewAndComments(
       },
     });
   }
-  // Plain comment (verdict === null): intentionally don't touch the revision.
-  // The comment is persisted as its own log entry below, and bumping
-  // `dateUpdated` here would make it look like the draft *content* changed —
-  // tripping the rebase optimistic-concurrency guard (expectedDraftDateUpdated)
-  // and "last modified" displays on comment-only activity.
+  // Plain comment (verdict === null): don't touch the revision. It's logged as
+  // its own entry below; bumping `dateUpdated` would falsely signal a content
+  // change to the rebase guard (expectedDraftDateUpdated) and "last modified" UI.
 
   // Fire and forget - no route that submits the review and comments expects the log to be there immediately
   context.models.featureRevisionLogs
@@ -1460,10 +1458,9 @@ export async function submitReviewAndComments(
     });
 }
 
-// Retract a review request: reverts pending-review / changes-requested /
-// approved back to draft. Gated by callers on canManageFeatureDrafts (not the
-// original requester), matching request-review. Review log entries are
-// preserved; only the status transitions.
+// Retract a review request: pending-review / changes-requested / approved back
+// to draft. Callers gate on canManageFeatureDrafts (any draft manager, not just
+// the requester), matching request-review. Log entries are preserved.
 export async function recallReview(
   context: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,
@@ -1604,10 +1601,9 @@ export async function undoReview(
   const activeReviews =
     revision.reviews ?? (await getActiveReviewsFromLog(context, revision));
 
-  // Only a reviewer with an active verdict can undo one. Without this guard a
-  // caller with no verdict (or one without a stable reviewer key) would write a
-  // phantom "Undo Review" log entry, bump dateUpdated, and — for the keyless
-  // case — wrongly collapse the status to pending-review.
+  // Only a reviewer with an active verdict can undo one — otherwise we'd write a
+  // phantom "Undo Review" entry, bump dateUpdated, and (keyless case) wrongly
+  // collapse the status to pending-review.
   if (
     retractingKey === null ||
     !activeReviews.some((r) => r.userId === retractingKey)

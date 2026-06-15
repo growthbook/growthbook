@@ -1312,6 +1312,33 @@ export async function postFeatureApproveAndPublish(
     );
   }
 
+  // Verify publish capability BEFORE committing the approval — postFeaturePublish
+  // only checks it after the "approved" status and review event are written, so a
+  // review-but-not-publish caller would leave the draft stuck "approved". These
+  // affected envs (same as the FE gate) are a superset of the precise
+  // merge-affected envs, so passing here guarantees the publish check passes.
+  const allEnvironments = getEnvironments(context.org);
+  const featureEnvironmentIds = filterEnvironmentsByFeature(
+    allEnvironments,
+    feature,
+  ).map((e) => e.id);
+  const enabledEnvs = Array.from(
+    getEnabledEnvironments(feature, featureEnvironmentIds),
+  );
+  const affectedEnvs =
+    revision.defaultValue !== feature.defaultValue
+      ? enabledEnvs
+      : enabledEnvs.filter(
+          (env) =>
+            !isEqual(
+              getRulesForEnvironment(feature.rules ?? [], env),
+              getRulesForEnvironment(revision.rules ?? [], env),
+            ),
+        );
+  if (!context.permissions.canPublishFeature(feature, affectedEnvs)) {
+    context.permissions.throwPermissionError();
+  }
+
   await submitReviewAndComments(
     context,
     revision,
@@ -1379,10 +1406,9 @@ export async function postFeatureToggleAutoPublish(
     );
   }
 
-  // Baseline: only someone who can manage this feature's drafts may change its
-  // auto-publish arming — otherwise any org member could silently disarm
-  // another approver's draft. Enabling additionally requires publish authority
-  // (the auto-publish runs with this user's authority).
+  // Baseline: only draft managers may change auto-publish arming (else any org
+  // member could disarm another's draft). Enabling additionally needs publish
+  // authority, since auto-publish runs under this user's authority.
   if (!context.permissions.canManageFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
@@ -1395,9 +1421,9 @@ export async function postFeatureToggleAutoPublish(
   res.status(200).json({ status: 200 });
 }
 
-// Retract a review request: draft reverts from pending-review /
-// changes-requested / approved back to draft. Gated on canManageFeatureDrafts
-// (any draft manager, not only the original requester). Review log entries are kept.
+// Retract a review request: reverts pending-review / changes-requested /
+// approved back to draft. Gated on canManageFeatureDrafts (any draft manager,
+// not only the original requester).
 export async function postFeatureRecallReview(
   req: AuthRequest<Record<string, never>, { id: string; version: string }>,
   res: Response,
@@ -2207,11 +2233,9 @@ export async function postFeatureRevert(
     );
   }
 
-  // Validate the restored values against the schema/value-type that will be
-  // live after the revert. Surfaced as a bypassable soft warning so the user
-  // can still revert (ignoreWarnings) to a config the current schema can no
-  // longer read. Runs before createRevision so a blocked attempt doesn't leave
-  // an orphaned draft.
+  // Flag restored values the current schema/value-type can no longer read as a
+  // bypassable soft warning. Runs before createRevision so a blocked attempt
+  // leaves no orphaned draft.
   const valueWarnings = getRevertValueValidationWarnings(feature, mergeChanges);
   if (valueWarnings.length && !context.ignoreWarnings) {
     throw new SoftWarningError(
