@@ -633,7 +633,7 @@ export const revertFeatureV2Validator = {
   responseSchema: featureV2ResponseSchema,
   summary: "Revert a feature to a specific revision",
   description:
-    'Creates a new revision whose rules and values match a previously-published revision, then immediately publishes it, leaving a clear audit trail of the revert in the revision history.\n\nReturns 403 if the API key lacks permission, or if approval rules are enabled for an affected environment and neither the "REST API always bypasses approval requirements" nor the "Allow reverts without approval" org setting is enabled.\n',
+    'Creates a new revision whose rules and values match a previously-published revision, then immediately publishes it, leaving a clear audit trail of the revert in the revision history.\n\nReturns 403 if the API key lacks permission, or if approval rules are enabled for an affected environment and neither the "REST API always bypasses approval requirements" nor the "Allow reverts without approval" org setting is enabled.\n\nReturns 422 with a list of `warnings` if the restored values no longer validate against the feature\'s current value type or JSON schema (e.g. reverting to a config the current schema can no longer read). Re-submit with `?ignoreWarnings=true` to revert anyway.\n',
   operationId: "revertFeatureV2",
   tags: ["features-v2"],
   method: "post" as const,

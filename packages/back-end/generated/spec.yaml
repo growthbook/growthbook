@@ -2285,6 +2285,11 @@ paths:
         enabled for an affected environment and neither the "REST API always
         bypasses approval requirements" nor the "Allow reverts without approval"
         org setting is enabled.
+
+
+        Returns 422 with a list of `warnings` if the restored values no longer
+        validate against the feature's current value type or JSON schema.
+        Re-submit with `?ignoreWarnings=true` to revert anyway.
       deprecated: true
       tags:
         - features
@@ -6872,6 +6877,12 @@ paths:
         enabled for an affected environment and neither the "REST API always
         bypasses approval requirements" nor the "Allow reverts without approval"
         org setting is enabled.
+
+
+        Returns 422 with a list of `warnings` if the restored values no longer
+        validate against the feature's current value type or JSON schema (e.g.
+        reverting to a config the current schema can no longer read). Re-submit
+        with `?ignoreWarnings=true` to revert anyway.
       tags:
         - features-v2
       parameters:

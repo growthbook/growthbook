@@ -19,6 +19,7 @@ import {
   getAffectedEnvsForExperiment,
   getDependentExperiments,
   getDependentFeatures,
+  getRevertValueValidationWarnings,
   getRulesForEnvironment,
   getEnvsFromRampSchedule,
   isFeatureStale,
@@ -210,7 +211,10 @@ import {
 } from "back-end/src/services/experiment-feature";
 import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
-import { UnrecoverableApiError } from "back-end/src/util/errors";
+import {
+  SoftWarningError,
+  UnrecoverableApiError,
+} from "back-end/src/util/errors";
 import {
   canEnableFeatureAutoPublishOnApproval,
   maybeAutoPublishFeatureRevision,
@@ -2199,6 +2203,20 @@ export async function postFeatureRevert(
   if (Object.keys(mergeChanges).length === 0) {
     throw new Error(
       `Nothing to revert: the live feature already matches revision #${revision.version}.`,
+    );
+  }
+
+  // Validate the restored values against the schema/value-type that will be
+  // live after the revert. Surfaced as a bypassable soft warning so the user
+  // can still revert (ignoreWarnings) to a config the current schema can no
+  // longer read. Runs before createRevision so a blocked attempt doesn't leave
+  // an orphaned draft.
+  const valueWarnings = getRevertValueValidationWarnings(feature, mergeChanges);
+  if (valueWarnings.length && !context.ignoreWarnings) {
+    throw new SoftWarningError(
+      "Reverting to this revision restores values that no longer pass validation:\n" +
+        valueWarnings.join("\n"),
+      valueWarnings,
     );
   }
 

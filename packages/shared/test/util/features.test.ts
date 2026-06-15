@@ -34,6 +34,7 @@ import {
   ruleAppliesToEnv,
   ruleFootprint,
   getRulesForEnvironment,
+  getRevertValueValidationWarnings,
   pruneOrphanedRampActions,
   toV2FeatureSnapshot,
 } from "../../src/util";
@@ -1974,6 +1975,75 @@ describe("validateFeatureValue", () => {
       expect(validateFeatureValue(f, "5", "testVal")).toEqual("5");
       expect(() => validateFeatureValue(f, "5.5", "testVal")).toThrowError();
     });
+  });
+});
+
+describe("getRevertValueValidationWarnings", () => {
+  const numberSchema: Pick<FeatureInterface, "valueType" | "jsonSchema"> = {
+    valueType: "number",
+    jsonSchema: {
+      schemaType: "schema",
+      schema: JSON.stringify({ type: "number", minimum: 1, maximum: 10 }),
+      simple: { type: "primitive", fields: [] },
+      date: new Date(),
+      enabled: true,
+    },
+  };
+
+  it("returns no warnings when all restored values are valid", () => {
+    expect(
+      getRevertValueValidationWarnings(numberSchema, {
+        defaultValue: "5",
+        rules: [
+          { id: "a", type: "force", value: "3" } as never,
+          {
+            id: "b",
+            type: "experiment-ref",
+            variations: [
+              { variationId: "0", value: "2" },
+              { variationId: "1", value: "9" },
+            ],
+          } as never,
+        ],
+      }),
+    ).toEqual([]);
+  });
+
+  it("flags a default value that no longer parses under the current schema", () => {
+    const warnings = getRevertValueValidationWarnings(numberSchema, {
+      defaultValue: "50",
+    });
+    expect(warnings.length).toBe(1);
+    expect(warnings[0]).toContain("Default value");
+  });
+
+  it("flags invalid values inside reverted rules", () => {
+    const warnings = getRevertValueValidationWarnings(numberSchema, {
+      rules: [
+        { id: "a", type: "force", value: "not-a-number" } as never,
+        {
+          id: "b",
+          type: "experiment",
+          values: [
+            { value: "5", weight: 0.5 },
+            { value: "999", weight: 0.5 },
+          ],
+        } as never,
+      ],
+    });
+    expect(warnings.length).toBe(2);
+    expect(warnings[0]).toContain("Rule #1");
+    expect(warnings[1]).toContain("Rule #2 variation #2");
+  });
+
+  it("validates against the revert's own metadata schema when it changes too", () => {
+    // Reverting valueType back to json: a value that fails as a number should
+    // pass once the schema is also reverted to json.
+    const warnings = getRevertValueValidationWarnings(numberSchema, {
+      defaultValue: '{"a":1}',
+      metadata: { valueType: "json", jsonSchema: undefined },
+    });
+    expect(warnings).toEqual([]);
   });
 });
 

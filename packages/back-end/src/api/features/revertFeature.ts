@@ -6,6 +6,7 @@ import {
   MergeResultChanges,
   PermissionError,
   checkIfRevisionNeedsReview,
+  getRevertValueValidationWarnings,
   getRulesForEnvironment,
 } from "shared/util";
 import { isEqual } from "lodash";
@@ -24,7 +25,7 @@ import {
 } from "back-end/src/services/features";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { getEnvironments } from "back-end/src/services/organizations";
-import { NotFoundError } from "back-end/src/util/errors";
+import { NotFoundError, SoftWarningError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getEnabledEnvironments } from "back-end/src/util/features";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
@@ -194,6 +195,19 @@ export async function revertFeatureCore(
   if (Object.keys(changes).length === 0) {
     throw new Error(
       `Nothing to revert: the live feature already matches revision #${version}.`,
+    );
+  }
+
+  // Validate the restored values against the schema/value-type that will be
+  // live after the revert. A revert to a config the current schema can no
+  // longer read isn't really a revert — surface it as a bypassable soft
+  // warning (?ignoreWarnings=true) rather than silently publishing it.
+  const valueWarnings = getRevertValueValidationWarnings(feature, changes);
+  if (valueWarnings.length && !context.ignoreWarnings) {
+    throw new SoftWarningError(
+      "Reverting to this revision restores values that no longer pass validation:\n" +
+        valueWarnings.join("\n"),
+      valueWarnings,
     );
   }
 
