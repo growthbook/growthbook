@@ -1,3 +1,7 @@
+:global(.rt-TableRootTable .rt-TableColumnHeaderCell) {
+  font-weight: 500;
+}
+
 // List table variant: sticky header, row hover (use same solid surface as surface variant)
 .wrapper[data-table-list] {
   max-width: 100%;
