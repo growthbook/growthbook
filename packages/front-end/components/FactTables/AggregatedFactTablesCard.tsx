@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { ApiAggregatedTableRefreshTrigger } from "shared/validators";
 import { FactTableInterface } from "shared/types/fact-table";
 import { QueryStatus } from "shared/types/query";
 import { dateOnly, timestamp } from "shared/dates";
@@ -30,9 +31,7 @@ export interface Props {
   factTable: FactTableInterface;
 }
 
-type RefreshResponse = {
-  queued: string[];
-};
+type RefreshResponse = { runs: ApiAggregatedTableRefreshTrigger[] };
 
 type AggregatedFactTableMaterializationStatus =
   | "running"
