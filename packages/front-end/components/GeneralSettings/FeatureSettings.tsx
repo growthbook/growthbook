@@ -180,9 +180,8 @@ export default function FeatureSettings() {
           </Box>
 
           <Box mb="6" width="100%">
-            {/* A cleared number input produces NaN via valueAsNumber; treat it
-                as "enabled" so the field doesn't unmount mid-edit. NaN is
-                normalized back to 0 (disabled) on save. */}
+            {/* TODO(UI): move to a neutral org-level "Revisions" section once
+                saved groups & others enforce this cap (it's not feature-only). */}
             <Checkbox
               id="toggle-maxConcurrentDrafts"
               label="Cap number of drafts allowed per feature"
