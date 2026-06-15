@@ -102,6 +102,11 @@ import {
   addGetStartedChecklistItem,
 } from "back-end/src/models/OrganizationModel";
 import { ConfigFile } from "back-end/src/init/config";
+import {
+  classifyEmail,
+  parseAttributionCookie,
+  postSignupAttributionToLicenseServer,
+} from "back-end/src/util/signup-attribution";
 import { usingOpenId } from "back-end/src/services/auth";
 import { getSSOConnectionSummary } from "back-end/src/models/SSOConnectionModel";
 import { getUserPermissions } from "back-end/src/util/organization.util";
@@ -1516,6 +1521,26 @@ export async function signup(
       externalId,
       demographicData,
     });
+
+    // Forward marketing attribution to central-license-server for the new
+    // org owner (best-effort, Cloud-only). Failures are logged and swallowed
+    // so attribution issues never block org creation.
+    if (IS_CLOUD) {
+      try {
+        await postSignupAttributionToLicenseServer({
+          organizationId: org.id,
+          userId: req.userId,
+          email: req.email,
+          emailType: classifyEmail(req.email),
+          attribution: parseAttributionCookie(req),
+        });
+      } catch (e) {
+        req.log.error(
+          e,
+          "Failed to forward signup attribution to license server",
+        );
+      }
+    }
 
     req.organization = org;
     const context = getContextFromReq(req);
