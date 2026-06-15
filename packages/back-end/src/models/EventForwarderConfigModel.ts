@@ -33,6 +33,9 @@ const BaseClass = MakeModelClass({
 });
 
 export class EventForwarderConfigModel extends BaseClass {
+  protected hasPremiumFeature(): boolean {
+    return this.context.hasPremiumFeature("events-forwarder");
+  }
   protected canCreate(doc: EventForwarderConfigInterface): boolean {
     return this.context.permissions.canCreateEventForwarderConfig(doc);
   }
