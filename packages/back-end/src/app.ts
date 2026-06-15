@@ -976,9 +976,41 @@ app.post(
 // Data Sources
 app.get("/datasources", datasourcesController.getDataSources);
 app.get("/datasource/:id", datasourcesController.getDataSource);
+app.get(
+  "/event-forwarder/connected",
+  datasourcesController.getEventForwarderConnected,
+);
 app.post("/datasources", datasourcesController.postDataSources);
+app.post(
+  "/datasources/event-forwarder/test-access",
+  datasourcesController.postTestEventForwarderAccessForCreate,
+);
 app.put("/datasource/:id", datasourcesController.putDataSource);
 app.delete("/datasource/:id", datasourcesController.deleteDataSource);
+app.put(
+  "/datasource/:id/event-forwarder",
+  datasourcesController.putEventForwarderForDataSource,
+);
+app.get(
+  "/datasource/:id/event-forwarder/status",
+  datasourcesController.getEventForwarderStatusForDataSource,
+);
+app.delete(
+  "/datasource/:id/event-forwarder",
+  datasourcesController.deleteEventForwarderForDataSource,
+);
+app.post(
+  "/datasource/:id/event-forwarder/test-access",
+  datasourcesController.postTestEventForwarderAccessForDatasource,
+);
+app.post(
+  "/datasource/:id/event-forwarder/pause",
+  datasourcesController.postPauseEventForwarder,
+);
+app.post(
+  "/datasource/:id/event-forwarder/resume",
+  datasourcesController.postResumeEventForwarder,
+);
 app.get("/datasource/:id/metrics", datasourcesController.getDataSourceMetrics);
 app.get("/datasource/:id/queries", datasourcesController.getDataSourceQueries);
 app.post(
