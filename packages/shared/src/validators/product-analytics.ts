@@ -309,7 +309,7 @@ export type ProductAnalyticsRunRequestBody = z.infer<
   typeof productAnalyticsRunRequestBodyValidator
 >;
 
-export const bigNumberComparisonTrendComputedValidator = z
+const bigNumberComparisonTrendComputedValidator = z
   .object({
     currentValue: z.number(),
     previousValue: z.number(),

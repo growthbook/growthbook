@@ -307,12 +307,10 @@ function ComparisonPreviousRangePicker({
         after.endDate,
       );
 
-      if (inBefore && inAfter) {
+      if (inAfter) {
         commitBounds(after);
       } else if (inBefore) {
         commitBounds(before);
-      } else if (inAfter) {
-        commitBounds(after);
       } else {
         const options = buildFixedSpanComparisonOptions(dayStr, spanDays);
         setChoosing({

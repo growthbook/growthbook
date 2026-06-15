@@ -176,18 +176,25 @@ export default function useExplorationTableData(
     return meta;
   }, [tableCompareActive, columns]);
 
+  const compareHeadings = useMemo(() => {
+    if (!tableCompareActive || !submittedExploreState) return null;
+    const currentDr = calculateProductAnalyticsDateRange(
+      submittedExploreState.dateRange,
+    );
+    const prevDr = submittedPreviousTimeFrame
+      ? calculateProductAnalyticsDateRange(submittedPreviousTimeFrame)
+      : calculateProductAnalyticsDateRange(
+          buildComparisonDateRange(submittedExploreState.dateRange),
+        );
+    return {
+      currHeading: formatExplorerDateRangeHeading(currentDr),
+      prevHeading: formatExplorerDateRangeHeading(prevDr),
+    };
+  }, [tableCompareActive, submittedExploreState, submittedPreviousTimeFrame]);
+
   const columnLabels = useMemo(() => {
-    if (tableCompareActive && submittedExploreState) {
-      const currentDr = calculateProductAnalyticsDateRange(
-        submittedExploreState.dateRange,
-      );
-      const prevDr = submittedPreviousTimeFrame
-        ? calculateProductAnalyticsDateRange(submittedPreviousTimeFrame)
-        : calculateProductAnalyticsDateRange(
-            buildComparisonDateRange(submittedExploreState.dateRange),
-          );
-      const prevHeading = formatExplorerDateRangeHeading(prevDr);
-      const currHeading = formatExplorerDateRangeHeading(currentDr);
+    if (submittedExploreState && compareHeadings) {
+      const { prevHeading, currHeading } = compareHeadings;
       const labels: string[] = [];
       for (const col of columns) {
         if (col.kind === "dimension") {
@@ -205,12 +212,7 @@ export default function useExplorationTableData(
       return labels;
     }
     return columns.map((c) => c.label);
-  }, [
-    tableCompareActive,
-    columns,
-    submittedExploreState,
-    submittedPreviousTimeFrame,
-  ]);
+  }, [columns, submittedExploreState, compareHeadings]);
 
   const csvColumnKeys = useMemo(
     () => (tableCompareActive ? orderedColumnKeys : undefined),
@@ -223,17 +225,8 @@ export default function useExplorationTableData(
   );
 
   const headerStructure = useMemo((): HeaderStructure | null => {
-    if (tableCompareActive && submittedExploreState) {
-      const currentDr = calculateProductAnalyticsDateRange(
-        submittedExploreState.dateRange,
-      );
-      const prevDr = submittedPreviousTimeFrame
-        ? calculateProductAnalyticsDateRange(submittedPreviousTimeFrame)
-        : calculateProductAnalyticsDateRange(
-            buildComparisonDateRange(submittedExploreState.dateRange),
-          );
-      const prevHeading = formatExplorerDateRangeHeading(prevDr);
-      const currHeading = formatExplorerDateRangeHeading(currentDr);
+    if (submittedExploreState && compareHeadings) {
+      const { prevHeading, currHeading } = compareHeadings;
       const row1: { label: string; colSpan?: number; rowSpan?: number }[] = [];
       const row2Labels: string[] = [];
       for (const col of columns) {
@@ -279,13 +272,7 @@ export default function useExplorationTableData(
       );
     }
     return { row1, row2Labels };
-  }, [
-    tableCompareActive,
-    hasAnyRatio,
-    columns,
-    submittedExploreState,
-    submittedPreviousTimeFrame,
-  ]);
+  }, [hasAnyRatio, columns, submittedExploreState, compareHeadings]);
 
   const resolvedGranularity = useMemo((): ResolvedGranularity | null => {
     if (!submittedExploreState) return null;

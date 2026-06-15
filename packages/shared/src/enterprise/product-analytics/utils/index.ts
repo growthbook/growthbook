@@ -467,7 +467,6 @@ export function getExplorationCellValue(
   });
 }
 
-/** Same meaning as the Explorer table / chart row sort inputs. */
 export type ExplorationRenderOpts = {
   showAs: ShowAs;
   isRatioByIndex: boolean[];
@@ -502,8 +501,8 @@ export function computeDimensionTotals(
   return totals;
 }
 
-/** Compute the sum of all metric values grouped by the "group key" (all dimensions after the first). */
-export function computeGroupTotals(
+/** Sum of all metric values grouped by the "group key" (all dimensions after the first). */
+function computeGroupTotals(
   rows: ProductAnalyticsResultRow[],
   opts: ExplorationRenderOpts,
 ): Record<string, number> {

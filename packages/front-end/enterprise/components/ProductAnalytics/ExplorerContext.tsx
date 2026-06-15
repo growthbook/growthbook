@@ -104,7 +104,7 @@ export interface ExplorerContextValue {
 }
 const ExplorerContext = createContext<ExplorerContextValue | null>(null);
 
-export const LOCALSTORAGE_EXPLORER_DATASOURCE_KEY =
+const LOCALSTORAGE_EXPLORER_DATASOURCE_KEY =
   "product-analytics:explorer:datasource" as const;
 
 export function useDefaultDataSourceId(): string | undefined {

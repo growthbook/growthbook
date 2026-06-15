@@ -365,12 +365,6 @@ export default function ExplorerChart({
       });
       seriesConfigs = built.series;
       categoryAxisValues = built.flatCategoryData;
-      if (comparisonPeriodLabels && seriesConfigs.length > 1) {
-        seriesConfigs = sortSeriesConfigsForCompareLegendOrder(
-          seriesConfigs,
-          comparisonPeriodLabels,
-        );
-      }
     } else {
       seriesConfigs = buildExplorerChartComparisonSeriesList({
         chartType,
@@ -409,13 +403,13 @@ export default function ExplorerChart({
           }),
         ];
       }
+    }
 
-      if (comparisonPeriodLabels && seriesConfigs.length > 1) {
-        seriesConfigs = sortSeriesConfigsForCompareLegendOrder(
-          seriesConfigs,
-          comparisonPeriodLabels,
-        );
-      }
+    if (comparisonPeriodLabels && seriesConfigs.length > 1) {
+      seriesConfigs = sortSeriesConfigsForCompareLegendOrder(
+        seriesConfigs,
+        comparisonPeriodLabels,
+      );
     }
 
     const legendShow = seriesConfigs.length > 0;

@@ -25,7 +25,6 @@ import {
 } from "shared/enterprise";
 export {
   getMetricMixClass,
-  inferShowAs,
   getEffectiveShowAs,
   clearInapplicableShowAs,
   getEffectiveMetricValue,
@@ -35,14 +34,9 @@ export {
   buildExplorationColumns,
   getExplorationCellValue,
   computeDimensionTotals,
-  computeGroupTotals,
   sortExplorationRows,
 } from "shared/enterprise";
-export type {
-  MetricMixClass,
-  ExplorationColumn,
-  ExplorationRenderOpts,
-} from "shared/enterprise";
+export type { MetricMixClass, ExplorationColumn } from "shared/enterprise";
 
 export type RenderOpts = import("shared/enterprise").ExplorationRenderOpts;
 
@@ -380,7 +374,7 @@ function cleanRowFilters<T extends ProductAnalyticsValue>(value: T): T {
 }
 
 /** Removes incomplete (partially configured) inputs (values, filters) from a dataset. (e.g. sum values without a value column) */
-export function removeIncompleteInputs(
+function removeIncompleteInputs(
   dataset: ExplorationDataset,
 ): ExplorationDataset {
   if (dataset.type === "metric") {
@@ -637,11 +631,11 @@ export function decodeExplorationConfig(encoded: string): DecodeConfigResult {
   }
 }
 
-export type DecodePreviousTimeFrameResult =
+type DecodePreviousTimeFrameResult =
   | { previousTimeFrame: ExplorationDateRange; error: null }
   | { previousTimeFrame: null; error: string };
 
-export function decodePreviousTimeFrameParam(
+function decodePreviousTimeFrameParam(
   encoded: string,
 ): DecodePreviousTimeFrameResult {
   try {

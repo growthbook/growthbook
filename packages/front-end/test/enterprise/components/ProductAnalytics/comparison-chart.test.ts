@@ -4,7 +4,6 @@ import type {
 } from "shared/validators";
 import {
   alignComparisonOverlayToCategories,
-  computeBigNumberComparisonTrend,
   computeBigNumberComparisonTrendForMetricIndex,
   computeBigNumberComparisonTrends,
   formatComparisonMetricLabel,
@@ -416,28 +415,5 @@ describe("computeBigNumberComparisonTrends", () => {
     expect(trends).toHaveLength(2);
     expect(trends[0]?.pctChange).toBe(0.25);
     expect(trends[1]?.pctChange).toBe(0.25);
-  });
-});
-
-describe("computeBigNumberComparisonTrend", () => {
-  it("matches metric index 0 helper", () => {
-    const current = explorationFromValues([cell(30), cell(2)]);
-    const previous = explorationFromValues([cell(20), cell(2)]);
-    expect(
-      computeBigNumberComparisonTrend(
-        current,
-        previous,
-        submittedExploreStateFixture,
-        getFactMetricById,
-      ),
-    ).toEqual(
-      computeBigNumberComparisonTrendForMetricIndex(
-        current,
-        previous,
-        submittedExploreStateFixture,
-        getFactMetricById,
-        0,
-      ),
-    );
   });
 });

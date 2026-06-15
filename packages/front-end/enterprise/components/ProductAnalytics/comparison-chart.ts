@@ -19,7 +19,7 @@ import {
   type ResolvedGranularity,
 } from "@/enterprise/components/ProductAnalytics/util";
 
-export type BigNumberComparisonTrend = {
+type BigNumberComparisonTrend = {
   currentValue: number;
   previousValue: number;
   /** Signed fractional change, e.g. -0.12 for −12%. */
@@ -57,7 +57,7 @@ export function formatComparisonMetricLabel(
   return `${name} (${periodLabel})`;
 }
 
-export type ComparisonTooltipSeriesPeriod = "current" | "previous" | "neutral";
+type ComparisonTooltipSeriesPeriod = "current" | "previous" | "neutral";
 
 /**
  * Splits a compare-overlay series name into metric/series base and period
@@ -145,7 +145,7 @@ export function sortProductAnalyticsTooltipAxisItems<
   });
 }
 
-export function getComparisonStackId(
+function getComparisonStackId(
   isPrevious: boolean,
   isStacked: boolean,
 ): string | undefined {
@@ -154,7 +154,7 @@ export function getComparisonStackId(
 }
 
 /** Previous-period area series stack together but not onto current `stack`. */
-export function getComparisonAreaPreviousStackId(): string {
+function getComparisonAreaPreviousStackId(): string {
   return "__pa_compare_area_prev__";
 }
 
@@ -345,19 +345,19 @@ export function buildComparisonOverlaySeriesMaps(
 // --- Explorer chart: ECharts compare overlay (constants + series builders) ---
 
 /** ECharts `z`: previous period draws under current bars/areas. */
-export const COMPARE_OVERLAY_Z_PREVIOUS_UNDER = 1;
+const COMPARE_OVERLAY_Z_PREVIOUS_UNDER = 1;
 /** ECharts `z`: current period sits above overlapped comparison. */
-export const COMPARE_OVERLAY_Z_CURRENT_OVER = 2;
+const COMPARE_OVERLAY_Z_CURRENT_OVER = 2;
 /** ECharts `z`: dashed comparison line on top of current line strokes. */
-export const COMPARE_OVERLAY_Z_PREVIOUS_LINE_ON_TOP = 3;
+const COMPARE_OVERLAY_Z_PREVIOUS_LINE_ON_TOP = 3;
 
-export const COMPARE_OVERLAY_BAR_GAP = "-100%";
+const COMPARE_OVERLAY_BAR_GAP = "-100%";
 /** Opacity applied on hover to the bar/area being hovered, so the overlapping
  * period underneath shows through. Defaults stay solid; only hover dims. */
-export const COMPARE_OVERLAY_CURRENT_BAR_HOVER_OPACITY = 0.72;
-export const COMPARE_OVERLAY_PREVIOUS_BAR_HOVER_OPACITY = 0.55;
-export const COMPARE_OVERLAY_AREA_HOVER_OPACITY = 0.38;
-export const COMPARE_OVERLAY_PREVIOUS_AREA_HOVER_OPACITY = 0.42;
+const COMPARE_OVERLAY_CURRENT_BAR_HOVER_OPACITY = 0.72;
+const COMPARE_OVERLAY_PREVIOUS_BAR_HOVER_OPACITY = 0.55;
+const COMPARE_OVERLAY_AREA_HOVER_OPACITY = 0.38;
+const COMPARE_OVERLAY_PREVIOUS_AREA_HOVER_OPACITY = 0.42;
 
 const EXPLORER_BAR_CHART_TYPES: ExplorationConfig["chartType"][] = [
   "bar",
@@ -404,7 +404,7 @@ export function buildAlignedComparisonOverlayForExplorer(args: {
   return { alignedMap, comparisonXValues };
 }
 
-export type ExplorerChartCompareSeriesMeta = {
+type ExplorerChartCompareSeriesMeta = {
   metricId: string;
   name: string;
 };
@@ -784,20 +784,6 @@ export function computeBigNumberComparisonTrends(
   );
 }
 
-export function computeBigNumberComparisonTrend(
-  exploration: ProductAnalyticsExploration | null,
-  comparisonExploration: ProductAnalyticsExploration | null,
-  submittedExploreState: ExplorationConfig,
-  getFactMetricById: (id: string) => FactMetricInterface | null,
-): BigNumberComparisonTrend | null {
-  return computeBigNumberComparisonTrendForMetricIndex(
-    exploration,
-    comparisonExploration,
-    submittedExploreState,
-    getFactMetricById,
-    0,
-  );
-}
 function escapeHtmlForProductAnalyticsTooltip(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
@@ -913,7 +899,7 @@ function buildGroupedLineAreaCompareTooltipRows(
   return blocks.join("");
 }
 
-export type BuildExplorerChartTooltipFormatterArgs = {
+type BuildExplorerChartTooltipFormatterArgs = {
   resolvedGranularity: ResolvedGranularity | null;
   /** When true, category axis labels are not raw dates (e.g. compare sparse-flat bars). */
   compositeCategoryAxisTooltip?: boolean;
