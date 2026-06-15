@@ -77,6 +77,7 @@ import { ContextualBanditEventModel } from "back-end/src/enterprise/models/Conte
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
 import { RevisionModel } from "back-end/src/models/RevisionModel";
 import { AIConversationModel } from "back-end/src/models/AIConversationModel";
+import { EventForwarderConfigModel } from "back-end/src/models/EventForwarderConfigModel";
 import { PresentationThemeModel } from "back-end/src/models/PresentationThemeModel";
 import { WatchModel } from "back-end/src/models/WatchModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
@@ -132,7 +133,8 @@ export type ModelName =
   | "aiConversations"
   | "contextualBandits"
   | "contextualBanditSnapshots"
-  | "contextualBanditEvents";
+  | "contextualBanditEvents"
+  | "eventForwarderConfigs";
 
 export const modelClasses = {
   agreements: AgreementModel,
@@ -177,6 +179,7 @@ export const modelClasses = {
   contextualBandits: ContextualBanditModel,
   contextualBanditSnapshots: ContextualBanditSnapshotModel,
   contextualBanditEvents: ContextualBanditEventModel,
+  eventForwarderConfigs: EventForwarderConfigModel,
 };
 export type ModelClass = (typeof modelClasses)[ModelName];
 type ModelInstances = {
@@ -231,6 +234,7 @@ export class ReqContextClass {
       contextualBandits: new ContextualBanditModel(this),
       contextualBanditSnapshots: new ContextualBanditSnapshotModel(this),
       contextualBanditEvents: new ContextualBanditEventModel(this),
+      eventForwarderConfigs: new EventForwarderConfigModel(this),
     };
   }
 
@@ -324,8 +328,7 @@ export class ReqContextClass {
     this.initModels();
   }
 
-  // Whether soft warnings should be ignored for this request
-  // Background jobs have no req and always ignore - users have no way to respond to the feedback.
+  // True to skip soft warnings; background jobs (no req) always ignore.
   public get ignoreWarnings(): boolean {
     if (!this.req) return true;
     const v = this.req.query?.ignoreWarnings;

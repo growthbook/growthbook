@@ -232,6 +232,7 @@ export const entityEvents = {
     "revision.requestChanges",
     "revision.comment",
     "revision.discard",
+    "revision.reopen",
     "revision.rebase",
   ],
   featureRevisionLog: ["create", "update", "delete"],
@@ -275,6 +276,7 @@ export const entityEvents = {
   ],
   rampScheduleTemplate: ["create", "update", "delete"],
   contextualBandit: ["create", "update", "delete", "start", "stop"],
+  eventForwarderConfig: ["create", "update", "delete", "teardownFailure"],
 } as const;
 
 export const entityTypes = Object.keys(entityEvents) as [keyof EntityEvents];

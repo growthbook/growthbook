@@ -48,7 +48,7 @@ import {
   StatsEngine,
 } from "shared/types/stats";
 import { MetricGroupInterface } from "shared/types/metric-groups";
-import { TemplateVariables } from "shared/types/sql";
+import { StringMatchFn, TemplateVariables } from "shared/types/sql";
 import { stringToBoolean } from "../util";
 
 export type ExperimentMetricInterface = MetricInterface | FactMetricInterface;
@@ -144,6 +144,7 @@ export function getColumnRefWhereClause({
   factTable,
   columnRef,
   escapeStringLiteral,
+  stringMatch,
   jsonExtract,
   evalBoolean,
   showSourceComment = false,
@@ -152,6 +153,7 @@ export function getColumnRefWhereClause({
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
   columnRef: ColumnRef;
   escapeStringLiteral: (s: string) => string;
+  stringMatch: StringMatchFn;
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;
   evalBoolean: (col: string, value: boolean) => string;
   showSourceComment?: boolean;
@@ -216,6 +218,7 @@ export function getColumnRefWhereClause({
       factTable,
       jsonExtract,
       escapeStringLiteral,
+      stringMatch,
       evalBoolean,
       showSourceComment,
     });
@@ -232,6 +235,7 @@ export function getRowFilterSQL({
   factTable,
   jsonExtract,
   escapeStringLiteral,
+  stringMatch,
   evalBoolean,
   showSourceComment = false,
 }: {
@@ -239,6 +243,7 @@ export function getRowFilterSQL({
   factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => string;
   escapeStringLiteral: (s: string) => string;
+  stringMatch: StringMatchFn;
   evalBoolean: (col: string, value: boolean) => string;
   showSourceComment?: boolean;
 }): string | null {
@@ -331,11 +336,6 @@ export function getRowFilterSQL({
     }
   }
 
-  const likeEscapedValue = escapeStringLiteral(rowFilter.values[0]).replace(
-    /([%_])/g,
-    "\\$1",
-  );
-
   // Handle remaining operators
   switch (operator) {
     case "=":
@@ -350,13 +350,10 @@ export function getRowFilterSQL({
     case "not_in":
       return `(${columnExpr} NOT IN (\n  ${escapedValues.join(",\n  ")}\n))`;
     case "starts_with":
-      return `(${columnExpr} LIKE '${likeEscapedValue}%')`;
     case "ends_with":
-      return `(${columnExpr} LIKE '%${likeEscapedValue}')`;
     case "contains":
-      return `(${columnExpr} LIKE '%${likeEscapedValue}%')`;
     case "not_contains":
-      return `(${columnExpr} NOT LIKE '%${likeEscapedValue}%')`;
+      return `(${stringMatch(columnExpr, operator, rowFilter.values[0])})`;
 
     // IMPORTANT: no default to ensure missing cases are caught by the compiler
   }

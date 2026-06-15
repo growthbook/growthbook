@@ -29,9 +29,13 @@ export * from "./saved-group-revision-notifications";
 export * from "./saved-queries";
 export * from "./segment";
 export * from "./shared";
+export * from "./signup-attribution";
 export * from "./snapshot-analysis-chunks";
 export * from "./webhook-secrets";
 export * from "./webhooks";
+export * from "./event-forwarder-config";
+export * from "./event-forwarder-access-test";
+export * from "./event-forwarder-status";
 export * from "./event-webhook";
 export * from "./feature-webhook-schemas";
 // Load watch before events - events imports base-types which imports validators, creating a cycle.
@@ -76,3 +80,4 @@ export * from "./openapi-helpers";
 export * from "./contextual-bandit";
 export * from "./contextual-bandit-snapshot";
 export * from "./contextual-bandit-event";
+export * from "./api-errors";

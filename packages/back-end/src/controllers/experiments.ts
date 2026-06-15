@@ -2752,7 +2752,12 @@ export async function postExperimentTargeting(
     context.permissions.throwPermissionError();
   }
 
-  // Opt-in attribute registration check (org-level setting).
+  // Opt-in attribute registration check (org-level setting). The targeting
+  // endpoint always receives the full payload (targeting + assignment), but a
+  // scoped modal only edited a subset. Pass the persisted values as
+  // `existingParts` so unchanged stale attributes don't block an unrelated
+  // save — only newly changed attributes are validated.
+  const lastPersistedPhase = experiment.phases[experiment.phases.length - 1];
   assertRegisteredAttributes(
     context,
     {
@@ -2761,7 +2766,11 @@ export async function postExperimentTargeting(
       condition,
     },
     "experiment",
-    undefined,
+    {
+      hashAttribute: experiment.hashAttribute || "id",
+      fallbackAttribute: experiment.fallbackAttribute,
+      condition: lastPersistedPhase?.condition,
+    },
     experiment.project,
   );
 

@@ -19,6 +19,7 @@ import DataList, { DataListItem } from "@/ui/DataList";
 import Button from "@/ui/Button";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
@@ -68,7 +69,11 @@ const CustomFieldDisplay: FC<{
   );
 
   const [mode, setMode] = useState<DraftMode>(
-    canAutoPublish ? "publish" : "new",
+    canAutoPublish
+      ? "publish"
+      : latestActiveDraft !== null
+        ? "existing"
+        : "new",
   );
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     latestActiveDraft?.version ?? null,
@@ -171,7 +176,7 @@ const CustomFieldDisplay: FC<{
     ) : cValue ? (
       cValue
     ) : (
-      <em className="text-muted">none</em>
+      <Text color="text-mid">--</Text>
     );
   };
 

@@ -1,3 +1,4 @@
+import { createLikeStringMatchFn } from "shared/sql";
 import type { DateTruncGranularity, SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
 import { baseDialect } from "./base";
@@ -54,4 +55,10 @@ export const mssqlDialect: SqlDialect = {
   // SQL Server has no native array type; arrays are stored as JSON. Indexing is 0-based.
   arrayElement: (arrayCol: string, index: number) =>
     mssqlDialect.castToFloat(`JSON_VALUE(${arrayCol}, '$[${index}]')`),
+
+  stringMatch: createLikeStringMatchFn({
+    escapeStringLiteral: baseDialect.escapeStringLiteral,
+    escapeWildcards: (value: string) => value.replace(/([%_[])/g, "[$1]"),
+    emitEscapeClause: false,
+  }),
 };

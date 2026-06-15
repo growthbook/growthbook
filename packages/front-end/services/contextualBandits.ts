@@ -57,12 +57,9 @@ export function useContextualBanditSearch({
         ? getProjectById(projectId)?.name
         : undefined;
       const projectIsDeReferenced = !!projectId && !projectName;
-      const metricIds = [
-        cb.decisionMetric ?? "",
-        ...cb.goalMetrics,
-        ...(cb.secondaryMetrics ?? []),
-        ...(cb.guardrailMetrics ?? []),
-      ].filter(Boolean);
+      const metricIds = [cb.decisionMetric ?? "", ...cb.goalMetrics].filter(
+        Boolean,
+      );
       const metricNames = Array.from(
         new Set(
           metricIds
@@ -128,8 +125,6 @@ export function useContextualBanditSearch({
           ...item.metricNames,
           item.decisionMetric ?? "",
           ...item.goalMetrics,
-          ...(item.secondaryMetrics ?? []),
-          ...(item.guardrailMetrics ?? []),
         ].filter(Boolean),
       project: (item) => [item.projectId ?? "", item.projectName ?? ""],
       datasource: (item) => item.datasource,

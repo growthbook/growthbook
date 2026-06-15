@@ -14,7 +14,10 @@ import {
   getSettingsForSnapshotMetrics,
   updateExperimentBanditSettings,
 } from "back-end/src/services/experiments";
-import { ConcurrentIncrementalRefreshError } from "back-end/src/util/errors";
+import {
+  ConcurrentIncrementalRefreshError,
+  UnrecoverableSnapshotError,
+} from "back-end/src/util/errors";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { notifyAutoUpdate } from "back-end/src/services/experimentNotifications";
@@ -225,8 +228,11 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
     }
 
     logger.error(e, "Failed to update experiment: " + experimentId);
-    // On failure, disable future auto-updates; MABs are exempt because they have their own retry/lifecycle handling.
-    if (experiment.type === "multi-armed-bandit") {
+    // Turn off auto-updating for the future (bandits keep retrying unless the failure is deterministic)
+    if (
+      experiment.type === "multi-armed-bandit" &&
+      !(e instanceof UnrecoverableSnapshotError)
+    ) {
       return;
     }
     try {

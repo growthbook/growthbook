@@ -180,16 +180,10 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
       hashAttribute: initialHashAttribute,
       hashVersion:
         initialValue?.hashVersion || (hasSDKWithNoBucketingV2 ? 1 : 2),
-      attributionModel:
-        initialValue?.attributionModel ??
-        settings?.attributionModel ??
-        "firstExposure",
       goalMetrics: initialValue?.goalMetrics || [],
-      secondaryMetrics: initialValue?.secondaryMetrics || [],
       tags: initialValue?.tags || [],
       targetURLRegex: initialValue?.targetURLRegex || "",
       description: initialValue?.description || "",
-      guardrailMetrics: initialValue?.guardrailMetrics || [],
       variations: initialExpVariations,
       coverage: initialValue?.coverage || 1,
       condition: initialValue?.condition,
@@ -347,8 +341,6 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
     }
 
     data.statsEngine = "bayesian";
-    data.secondaryMetrics = [];
-    data.guardrailMetrics = [];
     data.customMetricSlices = [];
 
     const ds = datasources.find((d) => d.id === data.datasource);
@@ -483,10 +475,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
       segment: data.segment || undefined,
       queryFilter: data.queryFilter || undefined,
       goalMetrics: data.goalMetrics ?? [],
-      secondaryMetrics: data.secondaryMetrics ?? [],
-      guardrailMetrics: data.guardrailMetrics ?? [],
       activationMetric: data.activationMetric || undefined,
-      attributionModel: data.attributionModel,
       skipPartialData: data.skipPartialData,
       regressionAdjustmentEnabled: data.regressionAdjustmentEnabled,
 
@@ -503,9 +492,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
     track("Create Contextual Bandit", {
       source,
       numTags: createBody.tags?.length || 0,
-      numMetrics:
-        (createBody.goalMetrics?.length || 0) +
-        (createBody.secondaryMetrics?.length || 0),
+      numMetrics: createBody.goalMetrics?.length || 0,
       numVariations: createBody.variations?.length || 0,
     });
     refreshWatching();

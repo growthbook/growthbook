@@ -1,14 +1,21 @@
 import type { DataType } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
+import { createLikeStringMatchFn } from "shared/sql";
 import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
 import { indicesTableUnpivot } from "back-end/src/integrations/sql/clauses/indices-table-unpivot";
 import { baseDialect } from "./base";
 
+const snowflakeEscapeStringLiteral = (value: string) =>
+  value.replace(/\\/g, "\\\\").replace(/'/g, "''");
+
 export const snowflakeDialect: SqlDialect = {
   ...baseDialect,
   formatDialect: "snowflake",
-  escapeStringLiteral: (value: string) =>
-    value.replace(/\\/g, "\\\\").replace(/'/g, "''"),
+  escapeStringLiteral: snowflakeEscapeStringLiteral,
+  stringMatch: createLikeStringMatchFn({
+    escapeStringLiteral: snowflakeEscapeStringLiteral,
+    emitEscapeClause: true,
+  }),
   formatDate: (col: string) => `TO_VARCHAR(${col}, 'YYYY-MM-DD')`,
   formatDateTimeString: (col: string) =>
     `TO_VARCHAR(${col}, 'YYYY-MM-DD HH24:MI:SS.MS')`,

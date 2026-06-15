@@ -321,9 +321,6 @@ export default function ContextualBanditDetailPage({
           </DetailSectionColumn>
         </div>
         <div className="row mt-3">
-          <DetailSectionColumn label="Attribution Model">
-            {cb.attributionModel ?? "firstExposure"}
-          </DetailSectionColumn>
           <DetailSectionColumn label="Regression Adjustment">
             {cb.regressionAdjustmentEnabled ? "On" : "Off"}
           </DetailSectionColumn>
@@ -345,12 +342,6 @@ export default function ContextualBanditDetailPage({
         <div className="row">
           <DetailSectionColumn label="Decision Metric">
             {renderMetricList(cb.goalMetrics.slice(0, 1))}
-          </DetailSectionColumn>
-          <DetailSectionColumn label="Secondary Metrics">
-            {renderMetricList(cb.secondaryMetrics)}
-          </DetailSectionColumn>
-          <DetailSectionColumn label="Guardrail Metrics">
-            {renderMetricList(cb.guardrailMetrics)}
           </DetailSectionColumn>
         </div>
       </DetailSectionBox>

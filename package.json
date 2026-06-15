@@ -97,7 +97,6 @@
       "form-data@3": "^3.0.4",
       "form-data@4": "^4.0.5",
       "brace-expansion@5": "^5.0.6",
-      "fast-xml-parser@4": "^4.5.5",
       "fast-xml-parser@5": "^5.7.0",
       "follow-redirects@1": "^1.16.0",
       "js-cookie@3": "^3.0.7",

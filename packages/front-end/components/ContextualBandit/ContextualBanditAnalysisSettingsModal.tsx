@@ -12,7 +12,6 @@ import Switch from "@/ui/Switch";
 type FormValues = {
   datasource: string;
   exposureQueryId: string;
-  attributionModel: "firstExposure" | "experimentDuration" | "lookbackOverride";
   regressionAdjustmentEnabled: boolean;
   activationMetric: string;
   segment: string;
@@ -38,7 +37,6 @@ export default function ContextualBanditAnalysisSettingsModal({
     defaultValues: {
       datasource: cb.datasource ?? "",
       exposureQueryId: cb.exposureQueryId ?? "",
-      attributionModel: cb.attributionModel ?? "firstExposure",
       regressionAdjustmentEnabled: cb.regressionAdjustmentEnabled ?? false,
       activationMetric: cb.activationMetric ?? "",
       segment: cb.segment ?? "",
@@ -116,7 +114,6 @@ export default function ContextualBanditAnalysisSettingsModal({
             datasource: data.datasource || undefined,
             exposureQueryId: data.exposureQueryId || undefined,
             contextualAttributes,
-            attributionModel: data.attributionModel,
             regressionAdjustmentEnabled: data.regressionAdjustmentEnabled,
             activationMetric: data.activationMetric || undefined,
             segment: data.segment || undefined,
@@ -187,19 +184,6 @@ export default function ContextualBanditAnalysisSettingsModal({
       ) : null}
 
       <hr className="my-4" />
-
-      <SelectField
-        label="Attribution Model"
-        value={form.watch("attributionModel")}
-        onChange={(v) =>
-          form.setValue("attributionModel", v as FormValues["attributionModel"])
-        }
-        options={[
-          { value: "firstExposure", label: "First Exposure" },
-          { value: "experimentDuration", label: "Experiment Duration" },
-        ]}
-        helpText="How to attribute conversions to exposure events."
-      />
 
       <Switch
         label="Use Regression Adjustment (CUPED)"

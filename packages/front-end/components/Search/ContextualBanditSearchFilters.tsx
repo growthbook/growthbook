@@ -64,8 +64,6 @@ const ContextualBanditSearchFilters: FC<
 
       if (cb.decisionMetric) enableMetric(cb.decisionMetric);
       cb.goalMetrics?.forEach(enableMetric);
-      cb.secondaryMetrics?.forEach(enableMetric);
-      cb.guardrailMetrics?.forEach(enableMetric);
     });
 
     return map;

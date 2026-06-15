@@ -2,7 +2,7 @@ import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { useState } from "react";
 import { useAuth } from "@/services/auth";
-import Field from "@/components/Forms/Field";
+import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 export interface Props {
@@ -26,7 +26,7 @@ export default function EditRevisionCommentModal({
       trackingEventModalType=""
       open={true}
       close={close}
-      header="Edit Revision Notes"
+      header="Edit Revision Description"
       cta="Save"
       submit={async () => {
         await apiCall(`/feature/${feature.id}/${revision.version}/comment`, {
@@ -38,13 +38,11 @@ export default function EditRevisionCommentModal({
         mutate();
       }}
     >
-      <Field
-        label="Revision Notes"
+      <MarkdownInput
         value={comment}
-        onChange={(e) => {
-          setComment(e.target.value);
-        }}
-        textarea
+        setValue={setComment}
+        placeholder="Describe this revision..."
+        showButtons={false}
       />
     </ModalStandard>
   );

@@ -16,12 +16,6 @@ export default function ContextualBanditMetricsModal({
 }) {
   const { apiCall } = useAuth();
   const [goalMetrics, setGoalMetrics] = useState<string[]>(cb.goalMetrics);
-  const [secondaryMetrics, setSecondaryMetrics] = useState<string[]>(
-    cb.secondaryMetrics,
-  );
-  const [guardrailMetrics, setGuardrailMetrics] = useState<string[]>(
-    cb.guardrailMetrics,
-  );
 
   return (
     <ModalStandard
@@ -35,8 +29,6 @@ export default function ContextualBanditMetricsModal({
           method: "PUT",
           body: JSON.stringify({
             goalMetrics,
-            secondaryMetrics,
-            guardrailMetrics,
           }),
         });
         mutate();
@@ -47,11 +39,9 @@ export default function ContextualBanditMetricsModal({
         exposureQueryId={cb.exposureQueryId}
         project={cb.project}
         goalMetrics={goalMetrics}
-        secondaryMetrics={secondaryMetrics}
-        guardrailMetrics={guardrailMetrics}
+        secondaryMetrics={[]}
+        guardrailMetrics={[]}
         setGoalMetrics={setGoalMetrics}
-        setSecondaryMetrics={setSecondaryMetrics}
-        setGuardrailMetrics={setGuardrailMetrics}
         forceSingleGoalMetric
         goalMetricsDescription="The single decision metric the bandit optimizes toward."
       />

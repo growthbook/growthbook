@@ -276,20 +276,10 @@ export default function ContextualBanditResultsTable({
   );
 
   const allExpandedMetrics = useMemo(() => {
-    const ids = [
-      ...(cb.goalMetrics ?? []),
-      ...(cb.secondaryMetrics ?? []),
-      ...(cb.guardrailMetrics ?? []),
-    ];
+    const ids = [...(cb.goalMetrics ?? [])];
     if (cb.activationMetric) ids.push(cb.activationMetric);
     return Array.from(new Set(expandMetricGroups(ids, metricGroups)));
-  }, [
-    cb.goalMetrics,
-    cb.secondaryMetrics,
-    cb.guardrailMetrics,
-    cb.activationMetric,
-    metricGroups,
-  ]);
+  }, [cb.goalMetrics, cb.activationMetric, metricGroups]);
 
   const canRunQueries =
     !!datasource &&
