@@ -1312,38 +1312,16 @@ export async function postFeatureApproveAndPublish(
     );
   }
 
-  // Verify publish capability BEFORE committing the approval — postFeaturePublish
-  // only checks it after the "approved" status and review event are written, so a
-  // review-but-not-publish caller would leave the draft stuck "approved". These
-  // affected envs (same as the FE gate) are a superset of the precise
-  // merge-affected envs, so passing here guarantees the publish check passes.
-  const allEnvironments = getEnvironments(context.org);
-  const featureEnvironmentIds = filterEnvironmentsByFeature(
-    allEnvironments,
-    feature,
-  ).map((e) => e.id);
-  const enabledEnvs = Array.from(
-    getEnabledEnvironments(feature, featureEnvironmentIds),
-  );
-  const affectedEnvs =
-    revision.defaultValue !== feature.defaultValue
-      ? enabledEnvs
-      : enabledEnvs.filter(
-          (env) =>
-            !isEqual(
-              getRulesForEnvironment(feature.rules ?? [], env),
-              getRulesForEnvironment(revision.rules ?? [], env),
-            ),
-        );
-  if (!context.permissions.canPublishFeature(feature, affectedEnvs)) {
-    context.permissions.throwPermissionError();
-  }
-
   // Recompute the merge result and run the staleness/conflict checks BEFORE
   // committing the approval. postFeaturePublish runs them only after the
   // "approved" status is written and the review event fired, so a concurrent
   // live publish in that window would fail the check and strand the revision
   // in "approved". Mirrors postFeaturePublish's drift-repair → autoMerge.
+  const allEnvironments = getEnvironments(context.org);
+  const featureEnvironmentIds = filterEnvironmentsByFeature(
+    allEnvironments,
+    feature,
+  ).map((e) => e.id);
   const { live, base } = await getLiveAndBaseRevisionsForFeature({
     context,
     feature,
@@ -1370,6 +1348,23 @@ export async function postFeatureApproveAndPublish(
   }
   if (!mergeResult.success) {
     throw new Error("Please resolve conflicts before publishing");
+  }
+
+  // Verify publish capability BEFORE committing the approval — postFeaturePublish
+  // only checks it after the "approved" status and review event are written, so a
+  // review-but-not-publish caller would otherwise leave the draft stuck "approved".
+  // Derive the affected envs from the post-drift-repair merge result, identical to
+  // postFeaturePublish's check, so this gate can't diverge from the actual publish.
+  const filledLive = { ...live, ...liveRevisionFromFeature(live, feature) };
+  const envsToCheck = await getMergeResultPublishEnvs({
+    context,
+    feature,
+    filledLiveRules: filledLive.rules ?? [],
+    result: mergeResult.result,
+    environmentIds: featureEnvironmentIds,
+  });
+  if (!context.permissions.canPublishFeature(feature, envsToCheck)) {
+    context.permissions.throwPermissionError();
   }
 
   // Mirror postFeaturePublish's adminOverride + rebase-governance gates BEFORE
