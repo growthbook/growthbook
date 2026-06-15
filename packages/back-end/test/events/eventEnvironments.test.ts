@@ -1,8 +1,9 @@
 import { ApiFeature, ApiFeatureForceRule } from "shared/validators";
 import {
   RELEVANT_KEYS_FOR_ALL_ENVS,
+  deriveLiveFeatureEventEnvironments,
   getChangedApiFeatureEnvironments,
-} from "back-end/src/events/handlers/utils";
+} from "back-end/src/events/eventEnvironments";
 
 describe("getChangedApiFeatureEnvironments", () => {
   const rule: ApiFeatureForceRule = {
@@ -176,5 +177,78 @@ describe("getChangedApiFeatureEnvironments", () => {
         getFeatureToTest(1, 1),
       ),
     ).toEqual([]);
+  });
+});
+
+describe("deriveLiveFeatureEventEnvironments", () => {
+  const rule: ApiFeatureForceRule = {
+    description: "",
+    enabled: true,
+    condition: "",
+    id: "",
+    type: "force",
+    value: "true",
+  };
+  const feature: ApiFeature = {
+    archived: false,
+    defaultValue: "default",
+    environments: {
+      dev: { enabled: true, defaultValue: "false", rules: [{ ...rule }] },
+      prod: { enabled: false, defaultValue: "false", rules: [{ ...rule }] },
+    },
+    prerequisites: [],
+    project: "project",
+    valueType: "string",
+    dateCreated: new Date().toISOString(),
+    dateUpdated: new Date().toISOString(),
+    description: "",
+    id: "id",
+    owner: "",
+    revision: {
+      comment: "",
+      date: new Date().toISOString(),
+      publishedBy: "",
+      version: 1,
+    },
+    tags: [],
+  };
+
+  it("uses changed envs when a previous snapshot exists (updated)", () => {
+    expect(
+      deriveLiveFeatureEventEnvironments({
+        previous: feature,
+        current: {
+          ...feature,
+          environments: {
+            ...feature.environments,
+            dev: {
+              ...feature.environments["dev"],
+              enabled: false,
+            } as ApiFeature["environments"][string],
+          },
+        },
+      }),
+    ).toEqual(["dev"]);
+  });
+
+  it("returns no envs for a metadata-only transition", () => {
+    expect(
+      deriveLiveFeatureEventEnvironments({
+        previous: feature,
+        current: { ...feature, description: "new description" },
+      }),
+    ).toEqual([]);
+  });
+
+  it("uses enabled envs when there is no previous snapshot (created)", () => {
+    expect(deriveLiveFeatureEventEnvironments({ current: feature })).toEqual([
+      "dev",
+    ]);
+  });
+
+  it("uses all configured envs for deletions", () => {
+    expect(
+      deriveLiveFeatureEventEnvironments({ current: feature, deleted: true }),
+    ).toEqual(["dev", "prod"]);
   });
 });

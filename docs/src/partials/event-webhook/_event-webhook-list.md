@@ -113,6 +113,7 @@ Triggered when a feature is created
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -217,6 +218,7 @@ Triggered when a feature is updated
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -286,6 +288,7 @@ Triggered when a feature is deleted
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -330,6 +333,7 @@ Triggered when a safe rollout is completed and safe to rollout to 100%.
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -374,6 +378,7 @@ Triggered when a safe rollout has a failing guardrail and should be reverted.
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -419,6 +424,7 @@ Triggered when a safe rollout is failing a health check and may not be working a
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -465,6 +471,7 @@ Triggered when a ramp schedule is created for a feature
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -509,6 +516,7 @@ Triggered when a ramp schedule is deleted from a feature
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -555,6 +563,7 @@ Triggered when a feature ramp schedule starts
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -601,6 +610,7 @@ Triggered when a feature ramp schedule completes all steps
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -648,6 +658,7 @@ Triggered when a feature ramp schedule is rolled back or reset to start
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -695,6 +706,7 @@ Triggered when a feature ramp schedule is jumped to a specific step
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -741,6 +753,7 @@ Triggered when a feature ramp schedule advances to the next step
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -788,6 +801,7 @@ Triggered when a feature ramp step is waiting for approval
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -854,6 +868,7 @@ Triggered when a new draft revision is created for a feature
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -922,6 +937,7 @@ Triggered when a draft revision is modified (rules, default value, toggles, prer
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -989,6 +1005,7 @@ Triggered when a draft revision is submitted for review
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -1061,6 +1078,7 @@ Triggered when a draft revision is approved by a reviewer
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -1133,6 +1151,7 @@ Triggered when a reviewer requests changes on a draft revision
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -1205,6 +1224,7 @@ Triggered when a comment is added to a draft revision
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -1271,6 +1291,7 @@ Triggered when a draft revision is discarded
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -1403,6 +1424,7 @@ Triggered when a draft revision is rebased onto the latest published version
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -1469,6 +1491,7 @@ Triggered when a draft revision is published. Overlaps with `feature.updated` bu
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -1536,6 +1559,7 @@ Triggered when a feature is reverted to a previous published revision
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -1793,6 +1817,7 @@ Triggered when an experiment is created
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -2273,6 +2298,7 @@ Triggered when an experiment is updated
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -2530,6 +2556,7 @@ Triggered when an experiment is deleted
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -2599,6 +2626,7 @@ Triggered when a warning condition is detected on an experiment
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -2649,6 +2677,7 @@ Triggered when a goal or guardrail metric reaches significance in an experiment 
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -2693,6 +2722,7 @@ Triggered when an experiment is ready to ship a variation.
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -2737,6 +2767,7 @@ Triggered when an experiment should be rolled back to the control.
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -2781,6 +2812,7 @@ Triggered when an experiment has reached the desired power point, but the result
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -2840,6 +2872,7 @@ Triggered when a saved group is created
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -2924,6 +2957,7 @@ Triggered when a saved group is updated
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -2983,6 +3017,7 @@ Triggered when a saved group is deleted
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -3096,6 +3131,7 @@ Triggered when a new draft revision is created for a saved group
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -3210,6 +3246,7 @@ Triggered when a draft revision's proposed changes are modified (values, conditi
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -3323,6 +3360,7 @@ Triggered when a draft revision is submitted for review
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -3442,6 +3480,7 @@ Triggered when a draft revision is approved by a reviewer
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -3561,6 +3600,7 @@ Triggered when a reviewer requests changes on a draft revision
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -3680,6 +3720,7 @@ Triggered when a comment is added to a draft revision
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -3793,6 +3834,7 @@ Triggered when a draft revision is discarded
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -3906,6 +3948,7 @@ Triggered when a draft revision is rebased onto the latest live state
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -4019,6 +4062,7 @@ Triggered when a draft revision is published. Overlaps with `savedGroup.updated`
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -4133,6 +4177,7 @@ Triggered when a saved group is reverted to a previous published revision
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -4246,6 +4291,7 @@ Triggered when a discarded revision is reopened
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }
@@ -4294,6 +4340,7 @@ Triggered when a user logs in
         id?: string | undefined;
     } | null;
     tags: string[];
+    /** The environments affected by the change described by this event. For live-state events (e.g. `feature.updated`) these are the environments whose effective configuration actually changed; for draft lifecycle events (`*.revision.*`) they are the environments the proposed changes would affect. Webhook environment filters match against this field. An empty array means the event has no environment-scoped impact (it will only be delivered to subscriptions without an environment filter). */
     environments: string[];
     containsSecrets: boolean;
 }

@@ -5,8 +5,6 @@ import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import {
   MergeResultChanges,
-  getApiFeatureEnabledEnvs,
-  getApiFeatureAllEnvs,
   checkIfRevisionNeedsReview,
   autoMerge,
   liveRevisionFromFeature,
@@ -89,7 +87,7 @@ import {
 } from "back-end/src/services/organizations";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { ApiReqContext } from "back-end/types/api";
-import { getChangedApiFeatureEnvironments } from "back-end/src/events/handlers/utils";
+import { deriveLiveFeatureEventEnvironments } from "back-end/src/events/eventEnvironments";
 import { determineNextSafeRolloutSnapshotAttempt } from "back-end/src/enterprise/saferollouts/safeRolloutUtils";
 import {
   createVercelExperimentationItemFromFeature,
@@ -777,10 +775,10 @@ export const createFeatureEvent = async <
         },
         projects: [currentApiFeature.project],
         tags: currentApiFeature.tags,
-        environments:
-          eventData.event === "deleted"
-            ? getApiFeatureAllEnvs(currentApiFeature)
-            : getApiFeatureEnabledEnvs(currentApiFeature),
+        environments: deriveLiveFeatureEventEnvironments({
+          current: currentApiFeature,
+          deleted: eventData.event === "deleted",
+        }),
         containsSecrets: false,
       } as CreateEventParams<"feature", Event>;
 
@@ -833,10 +831,10 @@ export const createFeatureEvent = async <
       tags: Array.from(
         new Set([...previousApiFeature.tags, ...currentApiFeature.tags]),
       ),
-      environments: getChangedApiFeatureEnvironments(
-        previousApiFeature,
-        currentApiFeature,
-      ),
+      environments: deriveLiveFeatureEventEnvironments({
+        previous: previousApiFeature,
+        current: currentApiFeature,
+      }),
       containsSecrets: false,
     } as CreateEventParams<"feature", Event>;
   })();
