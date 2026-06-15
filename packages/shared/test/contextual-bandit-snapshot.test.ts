@@ -16,7 +16,6 @@ function buildSettings(
     contextualAttributes: ["country", "device"],
 
     goalMetrics: ["met_g1"],
-    secondaryMetrics: [],
     metricSettings: {},
 
     variations: [
@@ -24,8 +23,6 @@ function buildSettings(
       { id: "1", weight: 0.5 },
     ],
 
-    maxContexts: 16,
-    treeModel: "regression_tree",
     minUsersPerLeaf: 100,
     maxLeaves: 8,
     canonicalFormVersion: 1,
@@ -43,7 +40,6 @@ function buildSettings(
 describe("contextualBanditSnapshotSettingsValidator", () => {
   it("round-trips a complete, well-formed settings object", () => {
     const original = buildSettings({
-      secondaryMetrics: ["met_s1"],
       metricSettings: {
         met_g1: { id: "met_g1", windowType: "conversion" },
       },
@@ -56,29 +52,6 @@ describe("contextualBanditSnapshotSettingsValidator", () => {
     expect(parsed.variations).toEqual(original.variations);
     expect(parsed.metricSettings).toEqual(original.metricSettings);
     expect(parsed.contextualAttributes).toEqual(original.contextualAttributes);
-  });
-
-  it("accepts both supported tree models", () => {
-    expect(() =>
-      contextualBanditSnapshotSettingsValidator.parse(
-        buildSettings({ treeModel: "regression_tree" }),
-      ),
-    ).not.toThrow();
-    expect(() =>
-      contextualBanditSnapshotSettingsValidator.parse(
-        buildSettings({ treeModel: "linear_thompson" }),
-      ),
-    ).not.toThrow();
-  });
-
-  it("rejects a foreign tree model name", () => {
-    const result = contextualBanditSnapshotSettingsValidator.safeParse(
-      buildSettings({
-        // @ts-expect-error -- intentional invalid enum value
-        treeModel: "linear_tree",
-      }),
-    );
-    expect(result.success).toBe(false);
   });
 
   it("rejects `guardrailMetrics` (strict mode forbids unknown keys)", () => {
@@ -107,17 +80,13 @@ describe("contextualBanditSnapshotSettingsValidator", () => {
 
   it("rejects a missing required field", () => {
     const partial = buildSettings();
-    delete (partial as Partial<ContextualBanditSnapshotSettings>).treeModel;
+    delete (partial as Partial<ContextualBanditSnapshotSettings>)
+      .minUsersPerLeaf;
     const result = contextualBanditSnapshotSettingsValidator.safeParse(partial);
     expect(result.success).toBe(false);
   });
 
-  it("rejects non-positive maxContexts / minUsersPerLeaf / maxLeaves", () => {
-    expect(
-      contextualBanditSnapshotSettingsValidator.safeParse(
-        buildSettings({ maxContexts: 0 }),
-      ).success,
-    ).toBe(false);
+  it("rejects non-positive minUsersPerLeaf / maxLeaves", () => {
     expect(
       contextualBanditSnapshotSettingsValidator.safeParse(
         buildSettings({ minUsersPerLeaf: -1 }),

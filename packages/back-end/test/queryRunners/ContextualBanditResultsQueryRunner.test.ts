@@ -75,7 +75,6 @@ function makeSnapshotSettings(
     contextualAttributes: ["country"],
 
     goalMetrics: ["fact__g1"],
-    secondaryMetrics: [],
     metricSettings: {},
 
     variations: [
@@ -83,8 +82,6 @@ function makeSnapshotSettings(
       { id: "v1", weight: 0.5 },
     ],
 
-    maxContexts: 16,
-    treeModel: "regression_tree",
     minUsersPerLeaf: 100,
     maxLeaves: 8,
     canonicalFormVersion: 1,
@@ -109,8 +106,6 @@ function makeCb(
     datasourceId: "ds_1",
     exposureQueryId: "eq_1",
     contextualAttributes: ["country"],
-    maxContexts: 16,
-    treeModel: "regression_tree",
     minUsersPerLeaf: 100,
     maxLeaves: 8,
     holdoutPercent: 0,

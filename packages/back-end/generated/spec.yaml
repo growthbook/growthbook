@@ -27026,14 +27026,6 @@ paths:
                   type: array
                   items:
                     type: string
-                secondaryMetrics:
-                  type: array
-                  items:
-                    type: string
-                guardrailMetrics:
-                  type: array
-                  items:
-                    type: string
                 activationMetric:
                   type: string
                 metricOverrides:
@@ -27074,12 +27066,6 @@ paths:
                     required:
                       - id
                     additionalProperties: false
-                attributionModel:
-                  type: string
-                  enum:
-                    - firstExposure
-                    - experimentDuration
-                    - lookbackOverride
                 skipPartialData:
                   type: boolean
                 regressionAdjustmentEnabled:
@@ -27089,11 +27075,6 @@ paths:
                   items:
                     type: string
                 decisionMetric:
-                  type: string
-                maxContexts:
-                  type: integer
-                  exclusiveMinimum: 0
-                treeModel:
                   type: string
                 minUsersPerLeaf:
                   type: integer
@@ -27227,22 +27208,8 @@ paths:
                   type: array
                   items:
                     type: string
-                secondaryMetrics:
-                  type: array
-                  items:
-                    type: string
-                guardrailMetrics:
-                  type: array
-                  items:
-                    type: string
                 activationMetric:
                   type: string
-                attributionModel:
-                  type: string
-                  enum:
-                    - firstExposure
-                    - experimentDuration
-                    - lookbackOverride
                 skipPartialData:
                   type: boolean
                 regressionAdjustmentEnabled:
@@ -27252,11 +27219,6 @@ paths:
                   items:
                     type: string
                 decisionMetric:
-                  type: string
-                maxContexts:
-                  type: integer
-                  exclusiveMinimum: 0
-                treeModel:
                   type: string
                 minUsersPerLeaf:
                   type: integer
@@ -42439,22 +42401,8 @@ components:
           type: array
           items:
             type: string
-        secondaryMetrics:
-          type: array
-          items:
-            type: string
-        guardrailMetrics:
-          type: array
-          items:
-            type: string
         activationMetric:
           type: string
-        attributionModel:
-          type: string
-          enum:
-            - firstExposure
-            - experimentDuration
-            - lookbackOverride
         skipPartialData:
           type: boolean
         regressionAdjustmentEnabled:
@@ -42513,11 +42461,6 @@ components:
             type: string
         decisionMetric:
           type: string
-        maxContexts:
-          type: integer
-          exclusiveMinimum: 0
-        treeModel:
-          type: string
         minUsersPerLeaf:
           type: integer
           exclusiveMinimum: 0
@@ -42548,13 +42491,9 @@ components:
         - datasource
         - exposureQueryId
         - goalMetrics
-        - secondaryMetrics
-        - guardrailMetrics
         - currentLeafWeights
         - snapshotUpdateCount
         - contextualAttributes
-        - maxContexts
-        - treeModel
         - minUsersPerLeaf
         - maxLeaves
         - holdoutPercent

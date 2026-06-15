@@ -49,16 +49,12 @@ function makeCb(
     datasourceId: "ds_1",
     exposureQueryId: "eq_1",
     contextualAttributes: ["country", "device"],
-    maxContexts: 16,
-    treeModel: "regression_tree",
     minUsersPerLeaf: 100,
     maxLeaves: 8,
     holdoutPercent: 0,
     disableStickyBucketing: false,
     canonicalFormVersion: 1,
     goalMetrics: ["met_g1"],
-    secondaryMetrics: ["met_s1"],
-    guardrailMetrics: ["met_guard"],
     metricOverrides: [],
     regressionAdjustmentEnabled: false,
     variations: [
@@ -139,13 +135,12 @@ function makeResult(
 }
 
 describe("buildContextualBanditSnapshotSettings", () => {
-  it("produces strict-valid settings with no `guardrailMetrics` even when the CB has them", () => {
-    const cb = makeCb({ guardrailMetrics: ["met_guard"] });
+  it("produces strict-valid settings", () => {
+    const cb = makeCb();
     const eaq = makeExposureQuery();
 
     const settings = buildContextualBanditSnapshotSettings(cb, eaq, false);
 
-    expect(settings).not.toHaveProperty("guardrailMetrics");
     expect(settings).not.toHaveProperty("activationMetric");
     expect(settings).not.toHaveProperty("phase");
     expect(settings.regressionAdjustmentEnabled).toBe(false);
@@ -158,12 +153,10 @@ describe("buildContextualBanditSnapshotSettings", () => {
     expect(settings.contextualBanditId).toBe("cb_1");
     expect(settings.banditWeightsSeed).toBe(0);
     expect(settings.goalMetrics).toEqual(["met_g1"]);
-    expect(settings.secondaryMetrics).toEqual(["met_s1"]);
     expect(settings.variations).toEqual([
       { id: "v0", weight: 0.4 },
       { id: "v1", weight: 0.6 },
     ]);
-    expect(settings.treeModel).toBe("regression_tree");
     expect(settings.contextualAttributes).toEqual(["country", "device"]);
   });
 
@@ -221,16 +214,6 @@ describe("buildContextualBanditSnapshotSettings", () => {
       { id: "v1", weight: 1 / 3 },
       { id: "v2", weight: 1 / 3 },
     ]);
-  });
-
-  it("narrows unrecognised CB tree models to `regression_tree`", () => {
-    const cb = makeCb({ treeModel: "some_legacy_value" });
-    const settings = buildContextualBanditSnapshotSettings(
-      cb,
-      makeExposureQuery(),
-      false,
-    );
-    expect(settings.treeModel).toBe("regression_tree");
   });
 
   it("threads CUPED into SQL settings without pooled theta", () => {

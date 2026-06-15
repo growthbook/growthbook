@@ -17,7 +17,6 @@ export const contextualBanditSnapshotSettingsValidator = z
     contextualAttributes: z.array(z.string()),
 
     goalMetrics: z.array(z.string()),
-    secondaryMetrics: z.array(z.string()),
     metricSettings: z.record(z.string(), z.unknown()),
 
     variations: z.array(
@@ -27,8 +26,6 @@ export const contextualBanditSnapshotSettingsValidator = z
       }),
     ),
 
-    maxContexts: z.number().int().positive(),
-    treeModel: z.enum(["regression_tree", "linear_thompson"]),
     minUsersPerLeaf: z.number().int().positive(),
     maxLeaves: z.number().int().positive(),
     canonicalFormVersion: z.number().int().nonnegative(),

@@ -295,7 +295,6 @@ export function buildContextualBanditSnapshotSettings(
       exposureQuery.targetingAttributeColumns ?? cb.contextualAttributes,
 
     goalMetrics: cb.goalMetrics ?? [],
-    secondaryMetrics: cb.secondaryMetrics ?? [],
     metricSettings: Object.fromEntries(
       (cb.metricOverrides ?? []).map((m) => [m.id, m]),
     ),
@@ -307,12 +306,6 @@ export function buildContextualBanditSnapshotSettings(
         1 / numVariations,
     })),
 
-    maxContexts: cb.maxContexts,
-    // Narrow defensively so the strict snapshot validator rejects stray legacy values.
-    treeModel:
-      cb.treeModel === "linear_thompson"
-        ? "linear_thompson"
-        : "regression_tree",
     minUsersPerLeaf: cb.minUsersPerLeaf,
     maxLeaves: cb.maxLeaves,
     canonicalFormVersion: cb.canonicalFormVersion,
@@ -342,7 +335,7 @@ export function buildSnapshotMetricRequestForCb(
     startDate: cbSnapshotSettings.startDate,
     endDate: cbSnapshotSettings.endDate ?? new Date(),
     goalMetrics: cbSnapshotSettings.goalMetrics,
-    secondaryMetrics: cbSnapshotSettings.secondaryMetrics,
+    secondaryMetrics: [],
     guardrailMetrics: [],
     activationMetric: null,
     // CB v1 doesn't apply per-metric overrides at SQL gen time; empty array is the safe default.
