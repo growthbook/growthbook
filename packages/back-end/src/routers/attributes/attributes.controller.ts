@@ -98,19 +98,6 @@ export const putAttribute = async (
         : {},
     )
   ) {
-    context.throwBadRequestError(
-      "Attribute name and data type can't be changed while an Event Forwarder is configured.",
-    );
-  }
-
-  if (
-    !context.permissions.canUpdateAttribute(
-      existing,
-      "projects" in attributeFields
-        ? { projects: attributeFields.projects }
-        : {},
-    )
-  ) {
     context.permissions.throwPermissionError();
   }
 
