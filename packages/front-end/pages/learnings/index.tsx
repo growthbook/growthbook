@@ -2,6 +2,7 @@ import React, { useCallback, useState } from "react";
 import { getValidDate } from "shared/dates";
 import { Box, Flex } from "@radix-ui/themes";
 import { ComputedExperimentInterface } from "shared/types/experiment";
+import { InsightWithCanManage } from "shared/validators";
 import { useRouter } from "next/router";
 import { PiSparkleFill } from "react-icons/pi";
 import Heading from "@/ui/Heading";
@@ -23,19 +24,6 @@ import useApi from "@/hooks/useApi";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import FindInsightsModal from "@/components/Insights/FindInsightsModal";
 import SavedInsightsList from "@/components/Insights/SavedInsightsList";
-
-type FrontEndInsight = {
-  id: string;
-  organization: string;
-  owner: string;
-  title: string;
-  text: string;
-  tags?: string[];
-  supportingExperimentIds: string[];
-  projects?: string[];
-  dateCreated: string;
-  dateUpdated: string;
-};
 
 const LearningsPage = (): React.ReactElement => {
   const router = useRouter();
@@ -106,8 +94,8 @@ const LearningsPage = (): React.ReactElement => {
   );
 
   const { data: insightsData, mutate: mutateInsights } = useApi<{
-    insights: FrontEndInsight[];
-  }>("/insights");
+    insights: InsightWithCanManage[];
+  }>(`/insights?project=${project || ""}`);
   const insights = insightsData?.insights || [];
 
   if (error) {

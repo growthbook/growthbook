@@ -10,7 +10,19 @@ const InsightsController = wrapController(rawInsightsController);
 
 const idParams = z.object({ id: z.string() }).strict();
 
-router.get("/", validateRequestMiddleware({}), InsightsController.getInsights);
+router.get(
+  "/",
+  validateRequestMiddleware({
+    query: z.object({ project: z.string().optional() }).strict(),
+  }),
+  InsightsController.getInsights,
+);
+
+router.get(
+  "/:id",
+  validateRequestMiddleware({ params: idParams }),
+  InsightsController.getInsight,
+);
 
 router.post(
   "/",
@@ -24,6 +36,7 @@ router.post(
         contraryEvidence: z.array(z.string()).optional(),
         projects: z.array(z.string()).optional(),
         status: z.string().optional(),
+        source: z.enum(["ai", "manual"]).optional(),
       })
       .strict(),
   }),

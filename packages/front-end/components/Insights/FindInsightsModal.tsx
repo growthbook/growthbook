@@ -7,12 +7,12 @@ import Markdown from "@/components/Markdown/Markdown";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
-import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Modal from "@/ui/Modal";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useAuth } from "@/services/auth";
+import ExperimentChips from "./ExperimentChips";
 
 type SuggestionState = {
   suggestion: AiInsightSuggestion;
@@ -32,6 +32,12 @@ const FindInsightsModal: FC<{
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<SuggestionState[]>([]);
+  // When the back-end caps very large sets, it analyzes the most recent N
+  // and reports both numbers so we can tell the user.
+  const [analyzedCounts, setAnalyzedCounts] = useState<{
+    requested: number;
+    analyzed: number;
+  } | null>(null);
 
   // Stable key derived from the actual experiment IDs. We depend on this
   // rather than the experiments array reference so that SWR-driven
@@ -68,6 +74,8 @@ const FindInsightsModal: FC<{
           status: number;
           insights?: AiInsightSuggestion[];
           message?: string;
+          numExperimentsRequested?: number;
+          numExperimentsAnalyzed?: number;
         }>("/insights/find", {
           method: "POST",
           body: JSON.stringify({
@@ -85,6 +93,18 @@ const FindInsightsModal: FC<{
               saving: false,
             })),
           );
+          if (
+            res.numExperimentsRequested !== undefined &&
+            res.numExperimentsAnalyzed !== undefined &&
+            res.numExperimentsAnalyzed < res.numExperimentsRequested
+          ) {
+            setAnalyzedCounts({
+              requested: res.numExperimentsRequested,
+              analyzed: res.numExperimentsAnalyzed,
+            });
+          } else {
+            setAnalyzedCounts(null);
+          }
         }
       } catch (e) {
         if (cancelled) return;
@@ -124,6 +144,7 @@ const FindInsightsModal: FC<{
           supportingExperimentIds: item.suggestion.supportingExperimentIds,
           contraryEvidence: item.suggestion.contraryExperimentIds || [],
           projects: saveProjects || [],
+          source: "ai",
         }),
       });
       setSuggestions((prev) =>
@@ -179,6 +200,15 @@ const FindInsightsModal: FC<{
             No meaningful cross-experiment patterns were found in this set. Try
             expanding the date range or including more experiments.
           </Callout>
+        )}
+        {!loading && !error && analyzedCounts && (
+          <Box mb="3">
+            <Callout status="info">
+              Analyzed the {analyzedCounts.analyzed} most recent experiments out
+              of the {analyzedCounts.requested} selected. Narrow your filters to
+              analyze a specific subset.
+            </Callout>
+          </Box>
         )}
         {!loading && !error && suggestions.length > 0 && (
           <Box>
@@ -236,80 +266,19 @@ const FindInsightsModal: FC<{
                       </Flex>
                     </Box>
                   )}
-                  {s.suggestion.supportingExperimentIds.length > 0 && (
-                    <Box
-                      mb={
-                        s.suggestion.contraryExperimentIds?.length ? "3" : "0"
-                      }
-                    >
-                      <Box mb="1">
-                        <Text
-                          size="small"
-                          weight="semibold"
-                          color="text-mid"
-                          as="div"
-                        >
-                          Supporting experiments (
-                          {s.suggestion.supportingExperimentIds.length})
-                        </Text>
-                      </Box>
-                      <Flex gap="2" wrap="wrap">
-                        {s.suggestion.supportingExperimentIds.map((id) => {
-                          const exp = experimentMap.get(id);
-                          return (
-                            <Link
-                              key={id}
-                              href={`/experiment/${id}`}
-                              style={{
-                                fontSize: 13,
-                                padding: "2px 8px",
-                                border: "1px solid var(--gray-a5)",
-                                borderRadius: 4,
-                              }}
-                            >
-                              {exp?.name || id}
-                            </Link>
-                          );
-                        })}
-                      </Flex>
-                    </Box>
-                  )}
-                  {s.suggestion.contraryExperimentIds &&
-                    s.suggestion.contraryExperimentIds.length > 0 && (
-                      <Box>
-                        <Box mb="1">
-                          <Text
-                            size="small"
-                            weight="semibold"
-                            color="text-mid"
-                            as="div"
-                          >
-                            Contrary evidence (
-                            {s.suggestion.contraryExperimentIds.length})
-                          </Text>
-                        </Box>
-                        <Flex gap="2" wrap="wrap">
-                          {s.suggestion.contraryExperimentIds.map((id) => {
-                            const exp = experimentMap.get(id);
-                            return (
-                              <Link
-                                key={id}
-                                href={`/experiment/${id}`}
-                                style={{
-                                  fontSize: 13,
-                                  padding: "2px 8px",
-                                  border: "1px solid var(--red-a5)",
-                                  borderRadius: 4,
-                                  color: "var(--red-11)",
-                                }}
-                              >
-                                {exp?.name || id}
-                              </Link>
-                            );
-                          })}
-                        </Flex>
-                      </Box>
-                    )}
+                  <Flex direction="column" gap="3">
+                    <ExperimentChips
+                      label="Supporting experiments"
+                      experimentIds={s.suggestion.supportingExperimentIds}
+                      experimentMap={experimentMap}
+                    />
+                    <ExperimentChips
+                      label="Contrary evidence"
+                      experimentIds={s.suggestion.contraryExperimentIds || []}
+                      experimentMap={experimentMap}
+                      variant="contrary"
+                    />
+                  </Flex>
                   {s.error && (
                     <Box mt="2">
                       <Callout status="error" size="sm">

@@ -4,6 +4,7 @@ import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   addComment,
   getDiscussionByParent,
+  getDiscussionCommentCounts,
   getLastNDiscussions,
   getProjectsByParentId,
 } from "back-end/src/services/discussions";
@@ -187,6 +188,32 @@ export async function getDiscussion(
     res.status(200).json({
       status: 200,
       discussion,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
+  }
+}
+
+export async function getDiscussionCounts(
+  req: AuthRequest<
+    null,
+    { parentType: DiscussionParentType },
+    { ids?: string }
+  >,
+  res: Response,
+) {
+  const { org } = getContextFromReq(req);
+  const { parentType } = req.params;
+  const ids = ((req.query?.ids as string) || "").split(",").filter(Boolean);
+
+  try {
+    const counts = await getDiscussionCommentCounts(org.id, parentType, ids);
+    res.status(200).json({
+      status: 200,
+      counts,
     });
   } catch (e) {
     res.status(400).json({

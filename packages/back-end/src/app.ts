@@ -1075,6 +1075,10 @@ app.delete(
   discussionsController.deleteComment,
 );
 app.get("/discussions/recent/:num", discussionsController.getRecentDiscussions);
+app.get(
+  "/discussions/counts/:parentType",
+  discussionsController.getDiscussionCounts,
+);
 app.use("/upload", uploadRouter);
 
 // Teams

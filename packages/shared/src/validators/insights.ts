@@ -19,15 +19,37 @@ export const insightValidator = z
     contraryEvidence: z.array(z.string()),
     projects: z.array(z.string()).optional(),
     // ID of a learning status configured at the org level
-    // (OrganizationSettings.learningStatuses). Empty / undefined means
-    // "no status".
+    // (OrganizationSettings.learningStatuses). "" is the explicit
+    // "no status" sentinel (undefined only appears on legacy docs and is
+    // normalized to "" by the model's migrate()).
     status: z.string().optional(),
+    // Provenance: whether this insight started life as an AI suggestion or
+    // was written by hand. Immutable after creation (undefined only appears
+    // on legacy docs and is normalized to "manual" by the model's migrate()).
+    source: z.enum(["ai", "manual"]).optional(),
     dateCreated: z.date(),
     dateUpdated: z.date(),
   })
   .strict();
 
 export type InsightInterface = z.infer<typeof insightValidator>;
+
+// JSON wire shape: Dates serialize to ISO strings. Use this on the
+// front-end instead of re-declaring the interface by hand.
+export type InsightInterfaceStringDates = Omit<
+  InsightInterface,
+  "dateCreated" | "dateUpdated"
+> & {
+  dateCreated: string;
+  dateUpdated: string;
+};
+
+// List/detail API responses decorate each insight with whether the
+// requesting user can edit or delete it (computed server-side from the
+// model's permission logic).
+export type InsightWithCanManage = InsightInterfaceStringDates & {
+  canManage: boolean;
+};
 
 export const createInsightValidator = insightValidator.omit({
   id: true,

@@ -13,12 +13,24 @@ const CollapsibleDiscussion: FC<{
   type: DiscussionParentType;
   id: string;
   projects: string[];
-}> = ({ type, id, projects }) => {
+  /**
+   * Comment count from a parent-level batch fetch (GET
+   * /discussions/counts/:parentType). When provided, this component does not
+   * fetch the discussion until expanded — pass it in list views so N cards
+   * don't fire N requests just to render counts.
+   */
+  commentCount?: number;
+}> = ({ type, id, projects, commentCount }) => {
   const [expanded, setExpanded] = useState(false);
+  // Same SWR key DiscussionThread uses, so once the thread is open the
+  // count updates live as comments are added or deleted.
   const { data } = useApi<{ discussion: DiscussionInterface | null }>(
     `/discussion/${type}/${id}`,
+    { shouldRun: () => expanded || commentCount === undefined },
   );
-  const count = data?.discussion?.comments?.length ?? 0;
+  const count = data
+    ? (data.discussion?.comments?.length ?? 0)
+    : (commentCount ?? 0);
 
   return (
     <Box>

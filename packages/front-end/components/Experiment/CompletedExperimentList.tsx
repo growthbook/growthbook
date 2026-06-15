@@ -3,7 +3,7 @@ import { RxDesktop } from "react-icons/rx";
 import { BsFlag } from "react-icons/bs";
 import { PiArrowSquareOutBold, PiShuffle } from "react-icons/pi";
 import { TbCloudOff } from "react-icons/tb";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { isFactMetricId, getAllVariations } from "shared/experiments";
 import { date } from "shared/dates";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -20,6 +20,7 @@ import { experimentDate } from "@/services/experiments";
 import { VariationBox } from "@/components/Experiment/VariationsTable";
 import ExperimentCarouselModal from "@/components/Experiment/ExperimentCarouselModal";
 import CollapsibleDiscussion from "@/components/CollapsibleDiscussion";
+import useApi from "@/hooks/useApi";
 
 const maxImageHeight = 200;
 const maxImageWidth = 300;
@@ -45,6 +46,23 @@ const CompletedExperimentList = ({
 
   const { getOwnerDisplay } = useUser();
   const { getMetricById, getFactMetricById } = useDefinitions();
+
+  // Batch-fetch comment counts for the current page of experiments so each
+  // card doesn't fire its own discussion fetch just to render a count.
+  const pageExperimentIdsKey = useMemo(
+    () =>
+      experiments
+        .slice(start, end)
+        .map((e) => e.id)
+        .sort()
+        .join(","),
+    [experiments, start, end],
+  );
+  const { data: commentCountsData } = useApi<{
+    counts: Record<string, number>;
+  }>(`/discussions/counts/experiment?ids=${pageExperimentIdsKey}`, {
+    shouldRun: () => pageExperimentIdsKey.length > 0,
+  });
 
   return (
     <>
@@ -339,6 +357,7 @@ const CompletedExperimentList = ({
                     type="experiment"
                     id={e.id}
                     projects={experimentProjects}
+                    commentCount={commentCountsData?.counts?.[e.id] ?? 0}
                   />
                 </Box>
               </Box>

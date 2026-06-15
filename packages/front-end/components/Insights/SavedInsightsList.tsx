@@ -1,7 +1,8 @@
 import { FC, useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiPencilSimple, PiTrash } from "react-icons/pi";
+import { PiPencilSimple, PiSparkleFill, PiTrash } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { InsightWithCanManage } from "shared/validators";
 import { date, getValidDate } from "shared/dates";
 import { DEFAULT_LEARNING_STATUSES } from "shared/constants";
 import EmptyState from "@/components/EmptyState";
@@ -22,40 +23,24 @@ import {
   SearchFiltersItem,
 } from "@/components/Search/SearchFilters";
 import { SyntaxFilter } from "@/services/search";
+import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import EditInsightModal from "./EditInsightModal";
-
-type FrontEndInsight = {
-  id: string;
-  organization: string;
-  owner: string;
-  authors?: string[];
-  title: string;
-  text: string;
-  tags?: string[];
-  supportingExperimentIds: string[];
-  contraryEvidence?: string[];
-  projects?: string[];
-  status?: string;
-  dateCreated: string;
-  dateUpdated: string;
-};
+import ExperimentChips from "./ExperimentChips";
 
 const SavedInsightsList: FC<{
-  insights: FrontEndInsight[];
+  insights: InsightWithCanManage[];
   experiments: ExperimentInterfaceStringDates[];
   /** Default projects to use for newly-created learnings. */
   newLearningProjects?: string[];
   mutate: () => void;
 }> = ({ insights, experiments, newLearningProjects, mutate }) => {
   const { apiCall } = useAuth();
-  const { userId, superAdmin, getOwnerDisplay } = useUser();
+  const { getOwnerDisplay } = useUser();
   const { projects: orgProjects, getProjectById } = useDefinitions();
-  const permissionsUtil = usePermissionsUtil();
   const orgSettings = useOrgSettings();
   const learningStatuses =
     orgSettings.learningStatuses ?? DEFAULT_LEARNING_STATUSES;
@@ -63,10 +48,11 @@ const SavedInsightsList: FC<{
     () => new Map(learningStatuses.map((s) => [s.id, s])),
     [learningStatuses],
   );
-  const [pendingDelete, setPendingDelete] = useState<FrontEndInsight | null>(
+  const [pendingDelete, setPendingDelete] =
+    useState<InsightWithCanManage | null>(null);
+  const [pendingEdit, setPendingEdit] = useState<InsightWithCanManage | null>(
     null,
   );
-  const [pendingEdit, setPendingEdit] = useState<FrontEndInsight | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -80,6 +66,22 @@ const SavedInsightsList: FC<{
   const [openFilter, setOpenFilter] = useState<string>("");
 
   const experimentMap = new Map(experiments.map((e) => [e.id, e]));
+
+  // Batch-fetch comment counts for all insights in one request so each card
+  // doesn't fire its own discussion fetch just to render a count.
+  const insightIdsKey = useMemo(
+    () =>
+      insights
+        .map((i) => i.id)
+        .sort()
+        .join(","),
+    [insights],
+  );
+  const { data: commentCountsData } = useApi<{
+    counts: Record<string, number>;
+  }>(`/discussions/counts/insight?ids=${insightIdsKey}`, {
+    shouldRun: () => insightIdsKey.length > 0,
+  });
 
   const allTags = useMemo(() => {
     const counts = new Map<string, number>();
@@ -269,12 +271,6 @@ const SavedInsightsList: FC<{
     !!startDate ||
     !!endDate;
 
-  const canManage = (insight: FrontEndInsight) => {
-    if (insight.owner && insight.owner === userId) return true;
-    if (superAdmin) return true;
-    return permissionsUtil.canManageOrgSettings();
-  };
-
   if (insights.length === 0) {
     return (
       <>
@@ -410,7 +406,7 @@ const SavedInsightsList: FC<{
       <Flex direction="column" gap="4">
         {filteredInsights.map((insight) => {
           const ownerName = getOwnerDisplay(insight.owner) || "Unknown";
-          const allowManage = canManage(insight);
+          const allowManage = insight.canManage;
           const edited =
             insight.dateUpdated &&
             insight.dateCreated &&
@@ -433,8 +429,25 @@ const SavedInsightsList: FC<{
               <Flex justify="between" align="start" gap="3" mb="2">
                 <Flex gap="2" align="center" wrap="wrap">
                   <Heading as="h4" size="medium">
-                    {insight.title}
+                    <Link
+                      href={`/learnings/${insight.id}`}
+                      style={{ color: "inherit" }}
+                    >
+                      {insight.title}
+                    </Link>
                   </Heading>
+                  {insight.source === "ai" && (
+                    <Badge
+                      label={
+                        <Flex gap="1" align="center">
+                          <PiSparkleFill /> AI-suggested
+                        </Flex>
+                      }
+                      color="violet"
+                      variant="soft"
+                      size="sm"
+                    />
+                  )}
                   {insight.status &&
                     (() => {
                       const s = statusMap.get(insight.status);
@@ -540,80 +553,25 @@ const SavedInsightsList: FC<{
                   </Flex>
                 </Box>
               )}
-              {insight.supportingExperimentIds.length > 0 && (
-                <Box mb="3">
-                  <Box mb="1">
-                    <Text
-                      size="small"
-                      weight="semibold"
-                      color="text-mid"
-                      as="div"
-                    >
-                      Supporting experiments (
-                      {insight.supportingExperimentIds.length})
-                    </Text>
-                  </Box>
-                  <Flex gap="2" wrap="wrap">
-                    {insight.supportingExperimentIds.map((id) => {
-                      const exp = experimentMap.get(id);
-                      return (
-                        <Link
-                          key={id}
-                          href={`/experiment/${id}`}
-                          style={{
-                            fontSize: 13,
-                            padding: "2px 8px",
-                            border: "1px solid var(--gray-a5)",
-                            borderRadius: 4,
-                          }}
-                        >
-                          {exp?.name || id}
-                        </Link>
-                      );
-                    })}
-                  </Flex>
-                </Box>
-              )}
-              {insight.contraryEvidence &&
-                insight.contraryEvidence.length > 0 && (
-                  <Box mb="4">
-                    <Box mb="1">
-                      <Text
-                        size="small"
-                        weight="semibold"
-                        color="text-mid"
-                        as="div"
-                      >
-                        Contrary evidence ({insight.contraryEvidence.length})
-                      </Text>
-                    </Box>
-                    <Flex gap="2" wrap="wrap">
-                      {insight.contraryEvidence.map((id) => {
-                        const exp = experimentMap.get(id);
-                        return (
-                          <Link
-                            key={id}
-                            href={`/experiment/${id}`}
-                            style={{
-                              fontSize: 13,
-                              padding: "2px 8px",
-                              border: "1px solid var(--red-a5)",
-                              borderRadius: 4,
-                              color: "var(--red-11)",
-                            }}
-                          >
-                            {exp?.name || id}
-                          </Link>
-                        );
-                      })}
-                    </Flex>
-                  </Box>
-                )}
+              <Flex direction="column" gap="3" mb="3">
+                <ExperimentChips
+                  label="Supporting experiments"
+                  experimentIds={insight.supportingExperimentIds}
+                  experimentMap={experimentMap}
+                />
+                <ExperimentChips
+                  label="Contrary evidence"
+                  experimentIds={insight.contraryEvidence || []}
+                  experimentMap={experimentMap}
+                  variant="contrary"
+                />
+              </Flex>
               <Box pt="3" style={{ borderTop: "1px solid var(--gray-a4)" }}>
                 <CollapsibleDiscussion
                   type="insight"
                   id={insight.id}
                   projects={insight.projects || []}
+                  commentCount={commentCountsData?.counts?.[insight.id] ?? 0}
                 />
               </Box>
             </Box>

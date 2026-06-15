@@ -169,9 +169,6 @@ const LearningStatusSettings: React.FC = () => {
                     variant="soft"
                     size="sm"
                   />
-                  <Text size="small" color="text-mid">
-                    id: {s.id}
-                  </Text>
                 </Flex>
                 <Flex gap="1">
                   <Button

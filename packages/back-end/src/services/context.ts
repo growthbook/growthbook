@@ -75,6 +75,7 @@ import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorat
 import { RevisionModel } from "back-end/src/models/RevisionModel";
 import { AIConversationModel } from "back-end/src/models/AIConversationModel";
 import { InsightModel } from "back-end/src/models/InsightModel";
+import { InsightsFindCacheModel } from "back-end/src/models/InsightsFindCacheModel";
 import { PresentationThemeModel } from "back-end/src/models/PresentationThemeModel";
 import { WatchModel } from "back-end/src/models/WatchModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
@@ -128,7 +129,8 @@ export type ModelName =
   | "rampSchedules"
   | "rampScheduleTemplates"
   | "aiConversations"
-  | "insights";
+  | "insights"
+  | "insightsFindCache";
 
 export const modelClasses = {
   agreements: AgreementModel,
@@ -171,6 +173,7 @@ export const modelClasses = {
   rampScheduleTemplates: RampScheduleTemplateModel,
   aiConversations: AIConversationModel,
   insights: InsightModel,
+  insightsFindCache: InsightsFindCacheModel,
 };
 export type ModelClass = (typeof modelClasses)[ModelName];
 type ModelInstances = {
@@ -223,6 +226,7 @@ export class ReqContextClass {
       rampScheduleTemplates: new RampScheduleTemplateModel(this),
       aiConversations: new AIConversationModel(this),
       insights: new InsightModel(this),
+      insightsFindCache: new InsightsFindCacheModel(this),
     };
   }
 

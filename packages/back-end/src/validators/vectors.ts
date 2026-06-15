@@ -5,7 +5,7 @@ export const vectors = z
     id: z.string(),
     joinId: z.string(),
     organization: z.string(),
-    type: z.enum(["experiment", "metric"]),
+    type: z.enum(["experiment", "metric", "insight"]),
     embeddings: z.array(z.number()),
     keywords: z.array(z.string()).optional(),
     dateCreated: z.date(),

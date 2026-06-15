@@ -1,6 +1,7 @@
 import { FC, useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { InsightInterfaceStringDates } from "shared/validators";
 import { DEFAULT_LEARNING_STATUSES } from "shared/constants";
 import Field from "@/components/Forms/Field";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
@@ -13,20 +14,9 @@ import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 
-type FrontEndInsight = {
-  id: string;
-  title: string;
-  text: string;
-  tags?: string[];
-  projects?: string[];
-  supportingExperimentIds: string[];
-  contraryEvidence?: string[];
-  status?: string;
-};
-
 const EditInsightModal: FC<{
   /** Undefined => create mode, otherwise edit existing. */
-  insight?: FrontEndInsight;
+  insight?: InsightInterfaceStringDates;
   experiments: ExperimentInterfaceStringDates[];
   /** Default projects to apply when creating from scratch (e.g. current project context). */
   defaultProjects?: string[];
