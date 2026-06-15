@@ -26,6 +26,11 @@ if (!process.send) {
 // Exit if the parent goes away, so we never become an orphan.
 process.on("disconnect", () => process.exit(0));
 
+// Reaching here means all imports (incl. isolated-vm) loaded, so the boot
+// succeeded. Tell the pool so it can tell a boot failure (crash before ready)
+// apart from a user-code crash (after ready) and gate its crash-loop breaker.
+process.send?.({ ready: true });
+
 process.on("message", async (job: WorkerJob) => {
   let result: SandboxEvalResult;
   try {

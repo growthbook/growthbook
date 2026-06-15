@@ -37,9 +37,9 @@ const KILL_GRACE_MS = parseEnvInt(process.env.CUSTOM_HOOK_KILL_GRACE_MS, 2000, {
   min: 1,
   name: "CUSTOM_HOOK_KILL_GRACE_MS",
 });
-// A worker that exits before handling a job and before this uptime is treated as a
-// boot failure (bad worker path, missing native module, OOM-on-load). Set above the
-// real boot time so a healthy-but-slow boot isn't misclassified.
+// Fallback boot confirmation: a worker that survives this long without sending its
+// "ready" handshake (e.g. an older worker build mid-deploy) is still treated as
+// booted. Set above the real boot time so a slow boot isn't misclassified.
 const MIN_HEALTHY_UPTIME_MS = parseEnvInt(
   process.env.CUSTOM_HOOK_MIN_HEALTHY_UPTIME_MS,
   2000,
@@ -87,14 +87,22 @@ interface Job {
   resolve: (result: SandboxEvalResult) => void;
 }
 
+// Messages a worker sends to the pool: a one-time boot handshake, then job results.
+type WorkerMessage =
+  | { ready: true }
+  | { id: number; result: SandboxEvalResult };
+
 interface Worker {
   proc: ChildProcess;
   busy: boolean;
   jobsHandled: number;
   generation: number;
-  spawnedAt: number;
-  // Fires once the worker has stayed up long enough to count as a healthy boot,
-  // which clears the crash-loop breaker.
+  // Set once the worker proves it booted (sent its "ready" signal, answered a job,
+  // or survived the uptime fallback). An exit before this is a boot failure, even
+  // if a job was in flight; an exit after it is a normal mid-job crash.
+  bootConfirmed: boolean;
+  // Uptime fallback that confirms boot if no "ready"/result arrives (e.g. an older
+  // worker build during a rolling deploy).
   bootTimer?: ReturnType<typeof setTimeout>;
   current?: { job: Job; killTimer: ReturnType<typeof setTimeout> };
 }
@@ -186,16 +194,21 @@ function spawnWorker(): Worker {
     busy: false,
     jobsHandled: 0,
     generation,
-    spawnedAt: Date.now(),
+    bootConfirmed: false,
   };
 
-  // Surviving a short uptime means the worker booted fine, so clear the breaker.
-  worker.bootTimer = setTimeout(markBootHealthy, MIN_HEALTHY_UPTIME_MS);
+  // Fallback in case "ready" never arrives: surviving the uptime window also counts
+  // as a healthy boot.
+  worker.bootTimer = setTimeout(
+    () => confirmBoot(worker),
+    MIN_HEALTHY_UPTIME_MS,
+  );
   worker.bootTimer.unref();
 
-  proc.on("message", (msg: { id: number; result: SandboxEvalResult }) => {
-    // Any response proves the worker is healthy, so clear the breaker.
-    markBootHealthy();
+  proc.on("message", (msg: WorkerMessage) => {
+    // The worker's "ready" handshake (or any job result) proves it booted.
+    confirmBoot(worker);
+    if ("ready" in msg) return;
     const cur = worker.current;
     if (!cur || cur.job.id !== msg.id) return; // stale/duplicate
     clearTimeout(cur.killTimer);
@@ -216,9 +229,10 @@ function spawnWorker(): Worker {
   return worker;
 }
 
-// A worker stayed up long enough (or answered a job): the boot path works, so reset
+// Mark a worker as having booted successfully. Since the boot path works, also reset
 // the crash-loop breaker and resume normal respawning.
-function markBootHealthy() {
+function confirmBoot(worker: Worker) {
+  worker.bootConfirmed = true;
   if (consecutiveBootFailures === 0 && circuitOpenUntil === 0) return;
   consecutiveBootFailures = 0;
   circuitOpenUntil = 0;
@@ -257,12 +271,12 @@ function handleExit(
         "Custom hook: sandbox terminated unexpectedly (possible crash, out-of-memory, or timeout)",
       warnings: [],
     });
-  } else if (
-    worker.jobsHandled === 0 &&
-    Date.now() - worker.spawnedAt < MIN_HEALTHY_UPTIME_MS
-  ) {
-    // Worker died during startup before doing any work — likely a boot failure that
-    // would repeat on respawn. Count it; respawns back off (see ensureCapacity).
+  }
+
+  if (!worker.bootConfirmed) {
+    // Worker exited before confirming boot — likely a boot failure that repeats on
+    // respawn (bad worker path, missing native module, OOM-on-load). Counting it even
+    // when a job was in flight means the breaker still opens under sustained load.
     consecutiveBootFailures++;
     logger.error(
       { code, signal, consecutiveBootFailures },
@@ -332,6 +346,10 @@ function recycle(worker: Worker) {
   if (worker.current) return; // only when idle
   // Remove now so dispatch() can't pick it between SIGTERM and the async exit.
   workers = workers.filter((w) => w !== worker);
+  if (worker.bootTimer) {
+    clearTimeout(worker.bootTimer);
+    worker.bootTimer = undefined;
+  }
   try {
     worker.proc.kill();
   } catch {
@@ -344,13 +362,21 @@ function dispatch() {
 
   let worker = workers.find((w) => !w.busy && w.proc.connected);
   if (!worker) {
-    // Don't spawn on demand while the breaker is open; respawns are throttled via
-    // ensureCapacity so we don't add to a fork→crash storm.
-    if (workers.length < POOL_SIZE && circuitOpenUntil <= Date.now()) {
+    // Only spawn on demand when healthy. While boot failures are happening (breaker
+    // open, or backing off before it opens) respawns go through ensureCapacity's
+    // throttle so we don't add to a fork→crash storm.
+    if (
+      workers.length < POOL_SIZE &&
+      circuitOpenUntil <= Date.now() &&
+      consecutiveBootFailures === 0
+    ) {
       worker = spawnWorker();
       workers.push(worker);
     } else {
-      return; // all busy / breaker open; a freeing or respawned worker re-dispatches
+      // All busy, or respawns are throttled; a freeing or respawned worker
+      // re-dispatches. Make sure a refill is scheduled so the queue drains.
+      ensureCapacity();
+      return;
     }
   }
 
