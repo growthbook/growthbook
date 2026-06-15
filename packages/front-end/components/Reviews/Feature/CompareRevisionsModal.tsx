@@ -33,12 +33,12 @@ import {
   DropdownMenuSeparator,
 } from "@/ui/DropdownMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import useApi from "@/hooks/useApi";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
+// eslint-disable-next-line no-restricted-imports
 import Modal from "@/components/Modal";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
@@ -50,33 +50,33 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import RevisionLabel, {
   revisionLabelText,
-} from "@/components/Features/RevisionLabel";
+} from "@/components/Reviews/RevisionLabel";
 import RevisionStatusBadge, {
   isRampGenerated,
-} from "@/components/Features/RevisionStatusBadge";
+} from "@/components/Reviews/RevisionStatusBadge";
 import {
   useFeatureRevisionDiff,
   FeatureRevisionDiffInput,
   FeatureRevisionDiff,
-  normalizeRevisionMetadata,
   featureToFeatureRevisionDiffInput,
+  revisionToFeatureRevisionDiffInput,
 } from "@/hooks/useFeatureRevisionDiff";
 import {
-  logBadgeColor,
   CreatedRampScheduleBody,
   RampActionLabel,
   formatSimpleWindow,
 } from "@/components/Features/FeatureDiffRenders";
 import { useHoldouts, holdoutOccupiesRuleSlot } from "@/hooks/useHoldouts";
-import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
+import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 import {
-  COMPACT_DIFF_STYLES,
-  dedupeDiffBadges,
-} from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
-import { ExpandableDiff } from "./DraftModal";
-import CoAuthors, { NON_CONTENT_ACTIONS } from "./CoAuthors";
+  ExpandableDiff,
+  RevisionCompareLabel,
+  DiffContent,
+} from "./RevisionDiffUtils";
+import { NON_CONTENT_ACTIONS } from "./CoAuthors";
+import { computeBeforeAfter } from "./revisionLogReplay";
 import styles from "./CompareRevisionsModal.module.scss";
 
 const STORAGE_KEY_PREFIX = "feature:compare-revisions";
@@ -95,415 +95,13 @@ export interface Props {
   rampSchedules?: RampScheduleInterface[];
 }
 
-// Backfill envelope fields from `fallback` (the parent feature's current
-// state) when the revision doesn't store them. Pre-snapshot legacy revisions
-// only persisted defaultValue/rules; comparing one against a freshly created
-// draft (which now snapshots the full envelope) would otherwise produce
-// phantom "added" diffs for metadata, env toggles, prerequisites, and holdout.
-function revisionToDiffInput(
-  r: FeatureRevisionInterface,
-  fallback?: FeatureRevisionDiffInput,
-): FeatureRevisionDiffInput {
-  return {
-    defaultValue: r.defaultValue,
-    rules: Array.isArray(r.rules) ? r.rules : [],
-    environmentsEnabled: r.environmentsEnabled ?? fallback?.environmentsEnabled,
-    prerequisites: r.prerequisites ?? fallback?.prerequisites,
-    archived: r.archived ?? fallback?.archived,
-    holdout: r.holdout !== undefined ? r.holdout : (fallback?.holdout ?? null),
-    metadata: normalizeRevisionMetadata(r.metadata) ?? fallback?.metadata,
-    rampActions: r.rampActions ?? undefined,
-  };
-}
+// Local alias kept for diff readability; logic moved to the diff hook so the
+// publish/review surface can use the same envelope backfill.
+const revisionToDiffInput = revisionToFeatureRevisionDiffInput;
 
-function RevisionCompareLabel({
-  versionA,
-  versionB,
-  revA,
-  revB,
-  liveVersion,
-  revAFailed = false,
-  revBFailed = false,
-  logsA,
-  logsB,
-  mb,
-  mt,
-}: {
-  versionA: number;
-  versionB: number;
-  revA: FeatureRevisionInterface | null;
-  revB: FeatureRevisionInterface | null;
-  liveVersion: number;
-  revAFailed?: boolean;
-  revBFailed?: boolean;
-  logsA?: RevisionLog[];
-  logsB?: RevisionLog[];
-  mb?: "1" | "2" | "3" | "4";
-  mt?: "1" | "2" | "3" | "4";
-}) {
-  return (
-    <Flex align="start" gap="4" wrap="nowrap" mb={mb} mt={mt}>
-      <Flex direction="column">
-        <Flex align="center" gap="4">
-          <Flex align="center" gap="1">
-            {revAFailed && (
-              <Tooltip body="Could not load revision">
-                <PiWarningBold
-                  style={{ color: "var(--red-9)", flexShrink: 0 }}
-                />
-              </Tooltip>
-            )}
-            <Text weight="semibold" size="large">
-              <OverflowText
-                maxWidth={250}
-                title={revisionLabelText(versionA, revA?.title)}
-              >
-                <RevisionLabel
-                  version={versionA}
-                  title={revA?.title}
-                  minWidth={0}
-                  numberSize="inherit"
-                />
-              </OverflowText>
-            </Text>
-          </Flex>
-          <RevisionStatusBadge revision={revA} liveVersion={liveVersion} />
-        </Flex>
-        {revA &&
-          revA.baseVersion !== 0 &&
-          (() => {
-            return DRAFT_REVISION_STATUSES.includes(revA.status) &&
-              revA.baseVersion !== liveVersion ? (
-              <HelperText status="info" size="sm">
-                based on: Revision {revA.baseVersion}
-              </HelperText>
-            ) : (
-              <Text as="div" size="small" color="text-low">
-                based on: Revision {revA.baseVersion}
-              </Text>
-            );
-          })()}
-        {revA && (
-          <Box mt="2">
-            <EventUser
-              user={revA.createdBy}
-              display="avatar-name-email"
-              size="sm"
-            />
-            <CoAuthors rev={revA} logs={logsA} />
-          </Box>
-        )}
-        {revA && (
-          <Text as="div" mt="2">
-            {datetime(
-              (revA.status === "published" ? revA.datePublished : null) ??
-                revA.dateUpdated,
-            )}
-          </Text>
-        )}
-      </Flex>
-      <PiArrowsLeftRightBold
-        size={16}
-        style={{ flexShrink: 0, marginTop: "var(--space-4)" }}
-      />
-      <Flex direction="column">
-        <Flex align="center" gap="4">
-          <Flex align="center" gap="1">
-            {revBFailed && (
-              <Tooltip body="Could not load revision">
-                <PiWarningBold
-                  style={{ color: "var(--red-9)", flexShrink: 0 }}
-                />
-              </Tooltip>
-            )}
-            <Text weight="semibold" size="large">
-              <OverflowText
-                maxWidth={250}
-                title={revisionLabelText(versionB, revB?.title)}
-              >
-                <RevisionLabel
-                  version={versionB}
-                  title={revB?.title}
-                  minWidth={0}
-                  numberSize="inherit"
-                />
-              </OverflowText>
-            </Text>
-          </Flex>
-          <RevisionStatusBadge revision={revB} liveVersion={liveVersion} />
-        </Flex>
-        {revB &&
-          revB.baseVersion !== 0 &&
-          (() => {
-            return DRAFT_REVISION_STATUSES.includes(revB.status) &&
-              revB.baseVersion !== liveVersion ? (
-              <HelperText status="info" size="sm">
-                based on: Revision {revB.baseVersion}
-              </HelperText>
-            ) : (
-              <Text as="div" size="small" color="text-low">
-                based on: Revision {revB.baseVersion}
-              </Text>
-            );
-          })()}
-        {revB && (
-          <Box mt="2">
-            <EventUser
-              user={revB.createdBy}
-              display="avatar-name-email"
-              size="sm"
-            />
-            <CoAuthors rev={revB} logs={logsB} />
-          </Box>
-        )}
-        {revB && (
-          <Text as="div" mt="2">
-            {datetime(
-              (revB.status === "published" ? revB.datePublished : null) ??
-                revB.dateUpdated,
-            )}
-          </Text>
-        )}
-      </Flex>
-    </Flex>
-  );
-}
-
-function badgesFromDiffs(diffs: FeatureRevisionDiff[]): DiffBadge[] {
-  const all = diffs.flatMap((d) => d.badges ?? []);
-
-  // For env-toggle badges, keep only the last occurrence to show the net result
-  const envTogglePrefix = "toggle environment ";
-  const envFinal = new Map<string, DiffBadge>();
-  const nonEnvBadges: DiffBadge[] = [];
-  for (const b of all) {
-    if (b.action.startsWith(envTogglePrefix)) {
-      const envId = b.action.slice(envTogglePrefix.length);
-      envFinal.set(envId, b); // overwrite → last write wins
-    } else {
-      nonEnvBadges.push(b);
-    }
-  }
-
-  return dedupeDiffBadges([...nonEnvBadges, ...envFinal.values()]);
-}
-
-function RevisionCommentItem({
-  featureId,
-  version,
-  revisionComment,
-  title,
-}: {
-  featureId: string;
-  version: number;
-  revisionComment?: string | null;
-  title?: string | null;
-}) {
-  const { data } = useApi<{ log: RevisionLog[] }>(
-    `/feature/${featureId}/${version}/log`,
-  );
-
-  const logEntry = useMemo(() => {
-    if (!data?.log) return null;
-    const sorted = [...data.log].sort(
-      (a, b) =>
-        getValidDate(b.timestamp).getTime() -
-        getValidDate(a.timestamp).getTime(),
-    );
-    for (const entry of sorted) {
-      if (entry.action === "edit comment") {
-        try {
-          const c = JSON.parse(entry.value)?.comment;
-          if (c)
-            return {
-              comment: c as string,
-              user: entry.user,
-              timestamp: entry.timestamp,
-            };
-        } catch {
-          // ignore
-        }
-      }
-    }
-    return null;
-  }, [data]);
-
-  const comment = revisionComment || logEntry?.comment;
-  if (!comment) return null;
-
-  return (
-    <Box>
-      <Flex align="center" gap="2" mb="1" wrap="wrap">
-        <Text size="medium" weight="medium" color="text-mid">
-          <OverflowText
-            maxWidth={200}
-            title={revisionLabelText(version, title)}
-          >
-            <RevisionLabel version={version} title={title} />
-          </OverflowText>{" "}
-          notes
-        </Text>
-        {logEntry?.user && (
-          <EventUser
-            user={logEntry.user}
-            display="avatar-name-email"
-            size="sm"
-          />
-        )}
-        {logEntry?.timestamp && (
-          <Text size="small" color="text-low">
-            {datetime(logEntry.timestamp)}
-          </Text>
-        )}
-      </Flex>
-      <Box pl="2" style={{ borderLeft: "2px solid var(--gray-a4)" }} mb="2">
-        <Text as="p" color="text-mid" mb="0">
-          {comment}
-        </Text>
-      </Box>
-    </Box>
-  );
-}
-
-function RevisionCommentSection({
-  featureId,
-  versions,
-}: {
-  featureId: string;
-  versions: Array<{
-    version: number;
-    revisionComment?: string | null;
-    title?: string | null;
-  }>;
-}) {
-  if (versions.length === 0) return null;
-  return (
-    <Flex direction="column" gap="3" mb="3" mt="4">
-      {versions.map(({ version, revisionComment, title }) => (
-        <RevisionCommentItem
-          key={version}
-          featureId={featureId}
-          version={version}
-          revisionComment={revisionComment}
-          title={title}
-        />
-      ))}
-    </Flex>
-  );
-}
-
-function DiffContent({
-  diffs,
-  commentVersions,
-  feature,
-  outOfOrderWarning,
-}: {
-  diffs: FeatureRevisionDiff[];
-  commentVersions: Array<{
-    version: number;
-    revisionComment?: string | null;
-    title?: string | null;
-  }>;
-  feature: FeatureInterface;
-  outOfOrderWarning: boolean;
-}) {
-  const diffsWithChanges = diffs.filter((d) => d.a !== d.b);
-  const withRender = diffsWithChanges.filter((d) => d.customRender);
-  const diffFallbackBadges = badgesFromDiffs(diffsWithChanges);
-  const hasSummary = diffFallbackBadges.length > 0 || withRender.length > 0;
-
-  const formatSectionTitle = (title: string) => {
-    if (title === "Default Value") return "Default value";
-    if (title.startsWith("Rules - ")) {
-      const env = title.slice("Rules - ".length);
-      return `${env.charAt(0).toUpperCase() + env.slice(1)} rules`;
-    }
-    return title;
-  };
-
-  return (
-    <>
-      <RevisionCommentSection
-        featureId={feature.id}
-        versions={commentVersions}
-      />
-
-      {hasSummary && (
-        <Box>
-          <Heading as="h5" size="small" color="text-mid" mt="4">
-            Summary of changes
-          </Heading>
-
-          {diffFallbackBadges.length > 0 && (
-            <Flex wrap="wrap" gap="2" mt="2" mb="2">
-              {diffFallbackBadges.map(({ label, action }) => (
-                <Badge
-                  key={label}
-                  color={logBadgeColor(action)}
-                  variant="soft"
-                  label={label}
-                />
-              ))}
-            </Flex>
-          )}
-
-          {withRender.length > 0 && (
-            <Flex direction="column" gap="0">
-              {withRender.map((d) => (
-                <Box key={d.title} p="3" my="3" className="rounded bg-light">
-                  <Flex align="center" gap="2" mb="2" wrap="wrap">
-                    <Heading as="h6" size="small" color="text-mid" mb="0">
-                      {formatSectionTitle(d.title)}
-                    </Heading>
-                    {d.titleSuffix}
-                  </Flex>
-                  {d.customRender}
-                </Box>
-              ))}
-            </Flex>
-          )}
-        </Box>
-      )}
-
-      {outOfOrderWarning && (
-        <Callout status="info" size="sm" mb="4">
-          A draft in this comparison is based on an older version than what is
-          currently live. When you publish, it will be merged with the live
-          version, so the result may differ from the diff shown here.
-        </Callout>
-      )}
-
-      {diffsWithChanges.length === 0 ? (
-        <Text color="text-low">No changes between these revisions.</Text>
-      ) : (
-        <>
-          {hasSummary && (
-            <Heading as="h5" size="small" color="text-mid" mt="4" mb="3">
-              Change details
-            </Heading>
-          )}
-          <Flex direction="column" gap="4">
-            {diffsWithChanges.map((d) => (
-              <ExpandableDiff
-                key={d.title}
-                title={d.title}
-                a={d.a}
-                b={d.b}
-                defaultOpen
-                styles={COMPACT_DIFF_STYLES}
-              />
-            ))}
-          </Flex>
-        </>
-      )}
-    </>
-  );
-}
-
-// Build FeatureRevisionDiff items for any ramp schedules linked to a given revision.
-// "newerRevision" is the revision being introduced on the right-hand side of the diff.
-// Unlike DraftModal (which only shows pending ramps), this is status-agnostic so it works
-// for both draft previews and historical published-revision comparisons.
+// FeatureRevisionDiff items for ramp schedules linked to `newerRevision` (the
+// right-hand side of the diff). Status-agnostic (unlike DraftModal's
+// pending-only view) so it covers both drafts and historical published revisions.
 function rampDiffsForRevision(
   newerRevision: FeatureRevisionInterface | null,
   featureId: string,
@@ -591,7 +189,7 @@ function rampDiffsForRevision(
     return idx ? `Rule #${idx}` : `Rule ${ruleId}`;
   };
 
-  // Pending ramp actions: display create/update/detach actions queued in the draft
+  // Pending ramp actions (create/update/detach) queued in the draft
   if (newerRevision.rampActions) {
     for (const action of newerRevision.rampActions) {
       if (action.mode === "create") {
@@ -704,282 +302,9 @@ function rampDiffsForRevision(
     }
   }
 
-  return diffs;
-}
-
-// Actions that are review/approval lifecycle events, not content changes.
-// Excluded from sub-rows and never shown with a diff.
-// ─── Log replay engine ────────────────────────────────────────────────────────
-// Each log entry is a patch on top of the base revision. We replay them in
-// order to reconstruct the exact full-field state before and after each edit,
-// so the diff shows the rule *in context* (whole env array) rather than in
-// isolation.
-
-// Internal per-env bucketed view used by the log replay engine. This is
-// decoupled from `FeatureRevisionInterface["rules"]` (which is v2-flat):
-// logs reference rules by env+index, so the replay bookkeeping reconstructs
-// the per-env state before projecting back to a flat v2 array for display.
-type ReplayState = {
-  rules: Record<string, FeatureRevisionRule[]>;
-  defaultValue: FeatureRevisionInterface["defaultValue"];
-  prerequisites: NonNullable<FeatureRevisionInterface["prerequisites"]>;
-  environmentsEnabled: NonNullable<
-    FeatureRevisionInterface["environmentsEnabled"]
-  >;
-};
-
-type FeatureRevisionRule = NonNullable<
-  FeatureRevisionInterface["rules"]
->[number];
-
-// Project a flat v2 rules array into per-env buckets for log replay. Revision
-// logs index rules by env+position (legacy format — see `envsFromSubject`),
-// so replay needs a per-env projection of the flat array.
-//
-// Bucketing rules:
-//   - allEnvironments:true      → appears in every env bucket (org envs derived
-//                                 from `environmentsEnabled` + any env
-//                                 explicitly mentioned by other rules).
-//   - environments:[a,b]        → appears in a's and b's buckets.
-//   - environments:[]           → pending rule, appears nowhere (unaddressable
-//                                 by env+position log format; only visible in
-//                                 the direct draft/live diff).
-//   - environments:undefined    → permissive fallback, same as
-//                                 allEnvironments:true.
-//
-// Preserves flat-array order within each bucket so positional replay remains
-// correct even when global and env-scoped rules are interleaved.
-function bucketRevisionRulesByEnv(
-  rules: FeatureRevisionInterface["rules"] | null | undefined,
-  knownEnvs: string[] = [],
-): Record<string, FeatureRevisionRule[]> {
-  const out: Record<string, FeatureRevisionRule[]> = {};
-  if (!Array.isArray(rules)) return out;
-
-  // Seed every known env so even envs with no explicitly-scoped rules still
-  // receive all-env rules.
-  for (const e of knownEnvs) out[e] = out[e] ?? [];
-
-  for (const r of rules) {
-    let envs: string[];
-    if (r.allEnvironments || r.environments === undefined) {
-      envs = Array.from(new Set([...knownEnvs, ...Object.keys(out)]));
-    } else {
-      envs = r.environments;
-    }
-    if (envs.length === 0) continue;
-    for (const e of envs) {
-      out[e] = out[e] ?? [];
-      out[e].push(r);
-    }
-  }
-  return out;
-}
-
-function initialReplayState(
-  base: FeatureRevisionInterface | null,
-): ReplayState {
-  // Seed the bucketing with every env that was referenced in the revision's
-  // own environmentsEnabled map so `allEnvironments: true` rules are placed
-  // into each bucket (otherwise they would only appear in envs referenced by
-  // some OTHER env-scoped rule).
-  const knownEnvs = Object.keys(base?.environmentsEnabled ?? {});
-  return {
-    rules: bucketRevisionRulesByEnv(base?.rules, knownEnvs),
-    defaultValue: base?.defaultValue ?? "",
-    prerequisites: base?.prerequisites ?? [],
-    environmentsEnabled: base?.environmentsEnabled ?? {},
-  };
-}
-
-/**
- * Extract all env names from a rule operation subject:
- *   edit rule:   "<env> rule <i>"        → [env]
- *   add rule:    "to <env1>, <env2>, …"  → [env1, env2, …]
- *   delete rule: "in <env> (position X)" → [env]
- *   move rule:   "in <env> from pos X→Y" → [env]
- */
-function envsFromSubject(action: string, subject: string): string[] {
-  if (action.startsWith("edit rule")) {
-    const m = subject.match(/^(.+?)\s+rule\s+\d+/);
-    return m ? [m[1]] : [];
-  }
-  if (action.startsWith("add rule")) {
-    const m = subject.match(/^to\s+(.+)$/);
-    return m ? m[1].split(",").map((e) => e.trim()) : [];
-  }
-  if (action === "delete rule" || action.startsWith("move rule")) {
-    const m = subject.match(/^in\s+(.+?)(?:\s+\(|\s+from)/);
-    return m ? [m[1].trim()] : [];
-  }
-  return [];
-}
-
-function applyLogEntry(state: ReplayState, log: RevisionLog): ReplayState {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(log.value);
-  } catch {
-    parsed = log.value;
-  }
-
-  const envs = envsFromSubject(log.action, log.subject);
-  const rules = { ...state.rules };
-
-  if (log.action.startsWith("add rule") && envs.length) {
-    for (const env of envs) {
-      rules[env] = [...(rules[env] ?? []), parsed as FeatureRevisionRule];
-    }
-    return { ...state, rules };
-  }
-
-  if (log.action === "delete rule" && envs.length) {
-    const env = envs[0];
-    // subject: "in <env> (position X)" — 1-indexed
-    const m = log.subject.match(/\(position (\d+)\)/);
-    const pos = m ? parseInt(m[1]) - 1 : -1;
-    if (pos >= 0) {
-      rules[env] = (rules[env] ?? []).filter((_, i) => i !== pos);
-    }
-    return { ...state, rules };
-  }
-
-  if (log.action.startsWith("edit rule") && envs.length) {
-    const env = envs[0];
-    // subject: "<env> rule X" — 0-indexed
-    const m = log.subject.match(/rule (\d+)$/);
-    const idx = m ? parseInt(m[1]) : -1;
-    if (idx >= 0) {
-      const arr = [...(rules[env] ?? [])];
-      arr[idx] = { ...arr[idx], ...(parsed as object) } as (typeof arr)[number];
-      rules[env] = arr;
-    }
-    return { ...state, rules };
-  }
-
-  if (log.action.startsWith("move rule") && envs.length) {
-    const env = envs[0];
-    // subject: "in <env> from position X to Y" — 1-indexed
-    const m = log.subject.match(/from position (\d+) to (\d+)/);
-    if (m) {
-      const from = parseInt(m[1]) - 1;
-      const to = parseInt(m[2]) - 1;
-      const arr = [...(rules[env] ?? [])];
-      const [item] = arr.splice(from, 1);
-      arr.splice(to, 0, item);
-      rules[env] = arr;
-    }
-    return { ...state, rules };
-  }
-
-  if (log.action === "edit defaultValue") {
-    return {
-      ...state,
-      defaultValue:
-        typeof parsed === "string" ? parsed : JSON.stringify(parsed),
-    };
-  }
-
-  if (log.action === "rebase") {
-    const r = parsed as Partial<ReplayState>;
-    return {
-      rules: r.rules ?? state.rules,
-      defaultValue: r.defaultValue ?? state.defaultValue,
-      prerequisites: r.prerequisites ?? state.prerequisites,
-      environmentsEnabled: r.environmentsEnabled ?? state.environmentsEnabled,
-    };
-  }
-
-  return state;
-}
-
-/**
- * Replay all content logs up to (exclusive) logIndex, then apply entry at
- * logIndex. Returns the a/b strings for ExpandableDiff scoped to the
- * affected field so the diff shows full context.
- */
-// Recursively parse JSON-string fields (condition, value, prerequisites[].condition)
-// so the diff viewer shows structured objects rather than escaped string blobs.
-function parseFeatureJsonFields(obj: unknown): unknown {
-  if (Array.isArray(obj)) return obj.map(parseFeatureJsonFields);
-  if (obj !== null && typeof obj === "object") {
-    const result: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
-      if ((k === "condition" || k === "value") && typeof v === "string") {
-        try {
-          result[k] = parseFeatureJsonFields(JSON.parse(v));
-        } catch {
-          result[k] = v;
-        }
-      } else {
-        result[k] = parseFeatureJsonFields(v);
-      }
-    }
-    return result;
-  }
-  return obj;
-}
-
-function computeBeforeAfter(
-  log: RevisionLog,
-  allLogs: RevisionLog[],
-  logIndex: number,
-  baseRevision: FeatureRevisionInterface | null,
-): { a: string; b: string; title: string } | null {
-  const title = log.subject ? `${log.action} · ${log.subject}` : log.action;
-
-  const contentLogs = allLogs.filter((l) => !NON_CONTENT_ACTIONS.has(l.action));
-  const priorContentIdx = contentLogs.indexOf(log);
-  const priorLogs =
-    priorContentIdx >= 0
-      ? contentLogs.slice(0, priorContentIdx)
-      : allLogs
-          .slice(0, logIndex)
-          .filter((l) => !NON_CONTENT_ACTIONS.has(l.action));
-
-  const stateBefore = priorLogs.reduce(
-    applyLogEntry,
-    initialReplayState(baseRevision),
-  );
-  const stateAfter = applyLogEntry(stateBefore, log);
-
-  const pp = (v: unknown) => JSON.stringify(parseFeatureJsonFields(v), null, 2);
-
-  const envs = envsFromSubject(log.action, log.subject);
-  const env = envs[0];
-
-  if (
-    log.action.startsWith("edit rule") ||
-    log.action.startsWith("add rule") ||
-    log.action === "delete rule" ||
-    log.action.startsWith("move rule")
-  ) {
-    if (!env) return null;
-    return {
-      a: pp(stateBefore.rules[env] ?? []),
-      b: pp(stateAfter.rules[env] ?? []),
-      title,
-    };
-  }
-
-  if (log.action === "edit defaultValue") {
-    return {
-      a: pp(stateBefore.defaultValue),
-      b: pp(stateAfter.defaultValue),
-      title,
-    };
-  }
-
-  if (log.action === "rebase") {
-    return { a: pp(stateBefore), b: pp(stateAfter), title };
-  }
-
-  // Fallback: just show the raw value as "after"
-  try {
-    return { a: "", b: pp(JSON.parse(log.value)), title };
-  } catch {
-    return { a: "", b: log.value, title };
-  }
+  // Ramp schedules / actions are separate top-level entities — flag them so the
+  // "Raw JSON" view renders one diff each alongside the whole-revision blob.
+  return diffs.map((d) => ({ ...d, supplemental: true }));
 }
 
 function LogEntryMeta({ log }: { log: RevisionLog }) {
@@ -1003,7 +328,9 @@ function LogEntryMeta({ log }: { log: RevisionLog }) {
   return (
     <Box>
       <Heading as="h4" size="small" mb="3">
-        {log.action === "edit comment" ? "Edit revision notes" : log.action}
+        {log.action === "edit comment"
+          ? "Edit revision description"
+          : log.action}
       </Heading>
       <Flex direction="column" gap="2">
         {rows.map(([label, value]) => (
@@ -1591,13 +918,15 @@ export default function CompareRevisionsModal({
     [liveBase],
   );
 
+  const stepBeforeInput: FeatureRevisionDiffInput = stepRevA
+    ? revisionToDiffInput(stepRevA, liveBaseInput)
+    : { defaultValue: "", rules: [] };
+  const stepAfterInput: FeatureRevisionDiffInput = stepRevB
+    ? revisionToDiffInput(stepRevB, liveBaseInput)
+    : { defaultValue: "", rules: [] };
   const stepDiffs = useFeatureRevisionDiff({
-    current: stepRevA
-      ? revisionToDiffInput(stepRevA, liveBaseInput)
-      : { defaultValue: "", rules: [] },
-    draft: stepRevB
-      ? revisionToDiffInput(stepRevB, liveBaseInput)
-      : { defaultValue: "", rules: [] },
+    current: stepBeforeInput,
+    draft: stepAfterInput,
   });
 
   const singleRevFirst =
@@ -1606,34 +935,38 @@ export default function CompareRevisionsModal({
     selectedSorted.length >= 2
       ? getFullRevision(selectedSorted[selectedSorted.length - 1])
       : null;
+  const mergedBeforeInput: FeatureRevisionDiffInput = singleRevFirst
+    ? revisionToDiffInput(singleRevFirst, liveBaseInput)
+    : { defaultValue: "", rules: [] };
+  const mergedAfterInput: FeatureRevisionDiffInput = singleRevLast
+    ? revisionToDiffInput(singleRevLast, liveBaseInput)
+    : { defaultValue: "", rules: [] };
   const mergedDiffs = useFeatureRevisionDiff({
-    current: singleRevFirst
-      ? revisionToDiffInput(singleRevFirst, liveBaseInput)
-      : { defaultValue: "", rules: [] },
-    draft: singleRevLast
-      ? revisionToDiffInput(singleRevLast, liveBaseInput)
-      : { defaultValue: "", rules: [] },
+    current: mergedBeforeInput,
+    draft: mergedAfterInput,
   });
 
   const previewLiveRev =
     previewDraftVersion !== null ? getFullRevision(liveVersion) : null;
   const previewDraftRev =
     previewDraftVersion !== null ? getFullRevision(previewDraftVersion) : null;
+  const previewBeforeInput: FeatureRevisionDiffInput =
+    previewDraftVersion !== null
+      ? liveBaseInput
+      : { defaultValue: "", rules: [] };
+  const previewAfterInput: FeatureRevisionDiffInput = previewDraftRev
+    ? {
+        // Merge environmentsEnabled on top of the live base so every env is explicit
+        ...revisionToDiffInput(previewDraftRev),
+        environmentsEnabled: {
+          ...liveBaseInput.environmentsEnabled,
+          ...(previewDraftRev.environmentsEnabled ?? {}),
+        },
+      }
+    : { defaultValue: "", rules: [] };
   const previewDiffs = useFeatureRevisionDiff({
-    current:
-      previewDraftVersion !== null
-        ? liveBaseInput
-        : { defaultValue: "", rules: [] },
-    draft: previewDraftRev
-      ? {
-          // Merge environmentsEnabled on top of the live base so every env is explicit
-          ...revisionToDiffInput(previewDraftRev),
-          environmentsEnabled: {
-            ...liveBaseInput.environmentsEnabled,
-            ...(previewDraftRev.environmentsEnabled ?? {}),
-          },
-        }
-      : { defaultValue: "", rules: [] },
+    current: previewBeforeInput,
+    draft: previewAfterInput,
   });
   const previewDisplayLoading =
     previewDraftVersion !== null &&
@@ -2322,6 +1655,7 @@ export default function CompareRevisionsModal({
                   ]}
                   feature={feature}
                   outOfOrderWarning={false}
+                  raw={{ before: previewBeforeInput, after: previewAfterInput }}
                 />
               )}
             </>
@@ -2465,6 +1799,11 @@ export default function CompareRevisionsModal({
                         isOutOfOrderDraft(singleRevLast)
                       : isOutOfOrderDraft(stepRevA) ||
                         isOutOfOrderDraft(stepRevB)
+                  }
+                  raw={
+                    diffViewMode === "single"
+                      ? { before: mergedBeforeInput, after: mergedAfterInput }
+                      : { before: stepBeforeInput, after: stepAfterInput }
                   }
                 />
               )}

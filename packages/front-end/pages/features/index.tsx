@@ -44,7 +44,7 @@ import { useFeatureStaleStates } from "@/hooks/useFeatureStaleStates";
 import {
   draftStatusDots,
   draftStatusTooltip,
-} from "@/components/Features/RevisionStatusBadge";
+} from "@/components/Reviews/RevisionStatusBadge";
 import { useFeatureContentSearch } from "@/hooks/useFeatureContentSearch";
 import type { ContentSearchParams } from "@/hooks/useFeatureContentSearch";
 import { useFeatureRampStates } from "@/hooks/useFeatureRampStates";

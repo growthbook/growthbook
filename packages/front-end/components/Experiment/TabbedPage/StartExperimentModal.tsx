@@ -2,6 +2,7 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
+import { ApiErrorDetails } from "shared/validators";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { format } from "date-fns-tz";
@@ -36,6 +37,9 @@ import {
 } from "@/components/Experiment/LinkedChanges/constants";
 import { CheckListItem } from "@/components/PreLaunchChecklist/PreLaunchChecklistItems";
 
+export type PendingDraftFailure =
+  ApiErrorDetails<"pending_draft_publish_failed">["failedFeatureDrafts"][number];
+
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   close: () => void;
@@ -48,7 +52,25 @@ export interface Props {
   visualChangesets?: VisualChangesetInterface[];
   urlRedirects?: URLRedirectInterface[];
   incompleteChecklistItems?: CheckListItem[];
+  // Per-feature failures from the last start attempt (structured details of
+  // the pending_draft_publish_failed error) — rendered as actionable links
+  // below the generic error message.
+  pendingDraftFailures?: PendingDraftFailure[];
 }
+
+// Short, action-oriented label per failure reason. "needs-rebase" is the
+// no-conflict case — the draft is merely behind live — and is deliberately
+// distinguished from a true merge conflict.
+const PENDING_DRAFT_FAILURE_LABELS: Record<
+  PendingDraftFailure["reason"],
+  string
+> = {
+  "merge-conflict":
+    "Merge conflict with live — open the draft to fix conflicts",
+  "needs-rebase": "Behind live, no conflicts — open the draft and rebase",
+  "needs-approval": "Awaiting approval",
+  "publish-error": "Publish failed unexpectedly",
+};
 
 function SubmitButton({ cta, disabled }: { cta: string; disabled: boolean }) {
   const { loading } = useModalForm();
@@ -153,6 +175,7 @@ export default function StartExperimentModal({
   visualChangesets = [],
   urlRedirects = [],
   incompleteChecklistItems = [],
+  pendingDraftFailures = [],
 }: Props) {
   const checklistIncomplete = checklistItemsRemaining > 0;
   const latestPhase = experiment.phases?.[experiment.phases.length - 1];
@@ -287,6 +310,41 @@ export default function StartExperimentModal({
         </Modal.Header>
         {subHeader && <Modal.Description>{subHeader}</Modal.Description>}
         <Modal.Body>
+          {pendingDraftFailures.length > 0 && (
+            <Box
+              mb="3"
+              p="3"
+              style={{
+                border: "1px solid var(--red-a6)",
+                borderRadius: "var(--radius-3)",
+              }}
+            >
+              <Text size="small" weight="semibold" color="text-high">
+                Linked feature drafts that could not be published
+              </Text>
+              <Flex direction="column" gap="2" mt="2">
+                {pendingDraftFailures.map((failure) => (
+                  <Flex
+                    key={`${failure.featureId}-${failure.revisionVersion}`}
+                    gap="2"
+                    align="baseline"
+                    wrap="wrap"
+                  >
+                    <Link
+                      href={`/features/${failure.featureId}?v=${failure.revisionVersion}`}
+                      target="_blank"
+                    >
+                      <Text weight="semibold">{failure.featureId}</Text>
+                      <PiArrowSquareOut className="ml-1" />
+                    </Link>
+                    <Text size="small" color="text-mid">
+                      {PENDING_DRAFT_FAILURE_LABELS[failure.reason]}
+                    </Text>
+                  </Flex>
+                ))}
+              </Flex>
+            </Box>
+          )}
           {scheduledStartDateIsInThePast && parsedScheduledDate && (
             <Callout status="warning" mb="3">
               The scheduled start date{" "}

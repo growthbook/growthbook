@@ -789,16 +789,23 @@ export const putSavedGroup = async (
     // metadata fields AND metadata review is disabled, or (b) the caller has
     // the admin bypass permission.
     if (autoPublish && approvalRequired && !canBypass) {
-      const isMetadataOnlyChange =
-        Object.keys(fieldsToUpdate).length > 0 &&
-        Object.keys(fieldsToUpdate).every((k) =>
-          SAVED_GROUP_METADATA_FIELDS.has(k),
-        );
-      const metadataReviewRequired =
-        getApprovalFlowSettings(org.settings?.approvalFlows, "saved-group")
-          ?.requireMetadataReview ?? true;
-      if (!isMetadataOnlyChange || metadataReviewRequired) {
-        context.permissions.throwPermissionError();
+      // Reverts restore an already-reviewed state. When the org enables
+      // "reverts bypass approval", any editor may publish a revert without
+      // approval (edit permission already enforced earlier in this handler).
+      const isRevertBypass =
+        !!revertedFrom && !!org.settings?.revertsBypassApproval;
+      if (!isRevertBypass) {
+        const isMetadataOnlyChange =
+          Object.keys(fieldsToUpdate).length > 0 &&
+          Object.keys(fieldsToUpdate).every((k) =>
+            SAVED_GROUP_METADATA_FIELDS.has(k),
+          );
+        const metadataReviewRequired =
+          getApprovalFlowSettings(org.settings?.approvalFlows, "saved-group")
+            ?.requireMetadataReview ?? true;
+        if (!isMetadataOnlyChange || metadataReviewRequired) {
+          context.permissions.throwPermissionError();
+        }
       }
     }
 

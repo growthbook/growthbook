@@ -82,7 +82,12 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
     );
   }
 
-  const strategy = req.body.strategy ?? "draft";
+  // When the org enables "reverts bypass approval", reverts don't require
+  // approval, so they publish by default (callers can still pass "draft").
+  const revertsBypassApproval =
+    !!req.organization.settings?.revertsBypassApproval;
+  const strategy =
+    req.body.strategy ?? (revertsBypassApproval ? "publish" : "draft");
   const isPublish = strategy === "publish";
 
   const patchOps: JsonPatchOperation[] = Object.entries(fieldsToUpdate).map(
@@ -101,11 +106,16 @@ export const postSavedGroupRevisionRevert = createApiRequestHandler(
   let approvalRequired = false;
   let canBypass = false;
   if (isPublish) {
-    approvalRequired = adapter.isApprovalRequiredForRevision
-      ? adapter.isApprovalRequiredForRevision(req.context, {
-          target: { proposedChanges: patchOps },
-        } as unknown as Revision)
-      : adapter.isApprovalRequired(req.context);
+    // With "reverts bypass approval" enabled, a revert restores an
+    // already-reviewed state and doesn't require approval at all, so it's a
+    // normal merge rather than a recorded bypass.
+    approvalRequired = revertsBypassApproval
+      ? false
+      : adapter.isApprovalRequiredForRevision
+        ? adapter.isApprovalRequiredForRevision(req.context, {
+            target: { proposedChanges: patchOps },
+          } as unknown as Revision)
+        : adapter.isApprovalRequired(req.context);
     canBypass =
       !!req.organization.settings?.restApiBypassesReviews ||
       adapter.canBypassApproval(

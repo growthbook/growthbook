@@ -215,6 +215,15 @@ type ExtractCrudSchema<
       : DefaultCrudValidators[Action][Slot]
     : DefaultCrudValidators[Action][Slot];
 
+// Thrown by `_updateOne` when a guarded write matches zero docs (the doc
+// changed between read and write). Caught only by `updateWithCas` to retry.
+class CasConflictError extends Error {
+  constructor() {
+    super("Compare-and-swap conflict");
+    this.name = "CasConflictError";
+  }
+}
+
 // Generic model class has everything but the actual data fetch implementation.
 // See BaseModel below for the class with explicit mongodb implementation.
 export abstract class BaseModel<
@@ -593,6 +602,75 @@ export abstract class BaseModel<
     }
     return this._updateOne(existing, updates, { writeOptions });
   }
+  /**
+   * Compare-and-swap update for read-modify-write hotspots (e.g. reconciling a
+   * denormalized status from an embedded array several writers touch at once).
+   * Re-reads, runs `compute`, and writes only if `guardFields` are unchanged,
+   * retrying up to `maxAttempts`. Application-level optimistic concurrency (no
+   * transactions), so it stays DocumentDB/CosmosDB compatible.
+   *
+   * Goes through canRead + `_updateOne` (canUpdate, validation, audit, hooks),
+   * which run only on the winning attempt — but `compute` may run several times,
+   * so keep it side-effect free. Returns the updated doc, or null if the doc is
+   * gone / not readable / `compute` aborts. Throws if attempts are exhausted.
+   */
+  public async updateWithCas(
+    id: string,
+    guardFields: (keyof z.infer<T>)[],
+    compute: (
+      existing: z.infer<T>,
+    ) =>
+      | PKeyUpdateProps<T, PKey, PK>
+      | null
+      | Promise<PKeyUpdateProps<T, PKey, PK> | null>,
+    options: { maxAttempts?: number; writeOptions?: WriteOptions } = {},
+  ): Promise<z.infer<T> | null> {
+    this._assertHasIdField();
+    if (!this.hasPremiumFeature()) {
+      throw new Error(
+        "Your organization does not have access to this feature.",
+      );
+    }
+    const maxAttempts = options.maxAttempts ?? 5;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      // Read raw so guard + compute share one snapshot of the stored doc.
+      const raw = (await this._dangerousGetCollection().findOne(
+        this.applyBaseQuery({ id }),
+      )) as Record<string, unknown> | null;
+      if (!raw) return null;
+
+      const existing = this.migrate(
+        this._removeMongooseFields(raw),
+      ) as z.infer<T>;
+
+      // Read gate mirrors getById/_findOne; canUpdate is enforced in _updateOne.
+      await this.populateForeignRefs([existing]);
+      if (!this.canRead(existing)) return null;
+
+      const updates = await compute(existing);
+      if (!updates) return null;
+
+      const guard = Object.fromEntries(
+        guardFields.map((f) => {
+          const v = raw[f as string];
+          return [f as string, v === undefined ? { $exists: false } : v];
+        }),
+      );
+
+      try {
+        return await this._updateOne(existing, updates, {
+          writeOptions: options.writeOptions,
+          guard,
+        });
+      } catch (e) {
+        if (e instanceof CasConflictError) continue;
+        throw e;
+      }
+    }
+    throw new Error(
+      `updateWithCas: exhausted ${maxAttempts} attempts for ${this.config.collectionName} ${id}`,
+    );
+  }
   public async delete(
     existing: z.infer<T>,
     writeOptions?: WriteOptions,
@@ -852,6 +930,9 @@ export abstract class BaseModel<
       auditEvent?: EventType;
       writeOptions?: WriteOptions;
       forceCanUpdate?: boolean;
+      // CAS guard: write only applies if the doc still matches these field
+      // values, else throws CasConflictError. Set via `updateWithCas`.
+      guard?: Record<string, unknown>;
     },
   ) {
     updates = this.updateValidator.parse(updates);
@@ -926,15 +1007,22 @@ export abstract class BaseModel<
 
     await this.customValidation(newDoc, doc, options?.writeOptions);
 
-    await this._dangerousGetCollection().updateOne(
+    const writeResult = await this._dangerousGetCollection().updateOne(
       {
         ...this.getPrimaryKeyFilter(doc),
         organization: this.context.org.id,
+        ...(options?.guard ?? {}),
       },
       {
         $set: allUpdates,
       },
     );
+
+    // CAS miss: guarded fields changed since the read. Bail before audit/hooks
+    // so the lost race is a true no-op.
+    if (options?.guard && writeResult.matchedCount === 0) {
+      throw new CasConflictError();
+    }
 
     // Skip audit logging if only operational fields are being updated
     const shouldSkipAuditLog =

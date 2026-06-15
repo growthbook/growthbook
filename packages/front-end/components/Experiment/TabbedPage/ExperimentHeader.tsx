@@ -54,7 +54,9 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import HelperText from "@/ui/HelperText";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
-import StartExperimentModal from "@/components/Experiment/TabbedPage/StartExperimentModal";
+import StartExperimentModal, {
+  PendingDraftFailure,
+} from "@/components/Experiment/TabbedPage/StartExperimentModal";
 import { usePreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import PhaseSelector from "@/components/Experiment/PhaseSelector";
@@ -224,6 +226,12 @@ export default function ExperimentHeader({
 
   const [showStartExperiment, setShowStartExperiment] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
+  // Structured per-feature failures from the last failed start attempt
+  // (pending_draft_publish_failed) — lets the start modal link each blocked
+  // feature draft instead of only showing the error string.
+  const [pendingDraftFailures, setPendingDraftFailures] = useState<
+    PendingDraftFailure[]
+  >([]);
 
   const hasMultiArmedBanditFeature = hasCommercialFeature(
     "multi-armed-bandits",
@@ -321,6 +329,7 @@ export default function ExperimentHeader({
       }
     }
 
+    setPendingDraftFailures([]);
     if (isHoldout) {
       await apiCall(`/holdout/${holdout?.id}/edit-status`, {
         method: "POST",
@@ -330,12 +339,23 @@ export default function ExperimentHeader({
         }),
       });
     } else {
-      await apiCall(`/experiment/${experiment.id}/status`, {
-        method: "POST",
-        body: JSON.stringify({
-          status: "running",
-        }),
-      });
+      await apiCall(
+        `/experiment/${experiment.id}/status`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            status: "running",
+          }),
+        },
+        (responseData) => {
+          if (
+            responseData?.code === "pending_draft_publish_failed" &&
+            Array.isArray(responseData?.details?.failedFeatureDrafts)
+          ) {
+            setPendingDraftFailures(responseData.details.failedFeatureDrafts);
+          }
+        },
+      );
     }
     await mutate();
     startCelebration();
@@ -678,8 +698,12 @@ export default function ExperimentHeader({
       {showStartExperiment && experiment.status === "draft" && (
         <StartExperimentModal
           experiment={experiment}
-          close={() => setShowStartExperiment(false)}
+          close={() => {
+            setShowStartExperiment(false);
+            setPendingDraftFailures([]);
+          }}
           startExperiment={startExperiment}
+          pendingDraftFailures={pendingDraftFailures}
           scheduleExperiment={approveScheduledExperimentStart}
           checklistItemsRemaining={checklistItemsRemaining || 0}
           checklistHardBlockerCount={checklistHardBlockerCount}
