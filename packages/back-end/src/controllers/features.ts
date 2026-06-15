@@ -86,6 +86,7 @@ import {
   getAllFeatures,
   getFeature,
   getFeaturesByIds,
+  getFeaturesUsingPrerequisites,
   getFeatureMetaInfoById,
   getFeatureMetaInfoByIds,
   getFeatureEnvStatus,
@@ -162,6 +163,7 @@ import {
   markSDKConnectionUsed,
 } from "back-end/src/models/SdkConnectionModel";
 import { logger } from "back-end/src/util/logger";
+import { metrics } from "back-end/src/util/metrics";
 import { yieldEventLoop } from "back-end/src/util/yield";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import {
@@ -5879,13 +5881,47 @@ export async function getFeaturesDependents(
 
   const allEnvIds = getEnvironments(context.org).map((e) => e.id);
 
-  const [allFeatures, allExperiments] = await Promise.all([
-    getAllFeatures(context, { includeArchived: true }),
-    getAllExperiments(context, { includeArchived: true }),
-  ]);
+  const start = Date.now();
+  // The index-backed candidate lookup is only correct once every feature doc
+  // in the org is on the v2 shape with `prerequisiteIds` stamped — the
+  // org-level marker is set by backfillFeaturesV2. Unmarked orgs fall back
+  // to the legacy full-corpus scan, which is always correct.
+  const useIndexedPath = context.org.migrations?.featuresV2 === true;
+
+  let targetFeatures: FeatureInterface[];
+  let candidateFeatures: FeatureInterface[];
+  let allExperiments;
+  if (useIndexedPath) {
+    [targetFeatures, candidateFeatures, allExperiments] = await Promise.all([
+      getFeaturesByIds(context, featureIds),
+      getFeaturesUsingPrerequisites(context, featureIds),
+      getAllExperiments(context, { includeArchived: true }),
+    ]);
+  } else {
+    const [allFeatures, exps] = await Promise.all([
+      getAllFeatures(context, { includeArchived: true }),
+      getAllExperiments(context, { includeArchived: true }),
+    ]);
+    targetFeatures = allFeatures;
+    candidateFeatures = allFeatures;
+    allExperiments = exps;
+  }
 
   const { featuresMap, reverseDependencyIndex, experiments } =
-    buildFeatureLookups(allFeatures, allExperiments);
+    buildFeatureLookups(candidateFeatures, allExperiments);
+  const targetFeaturesMap = useIndexedPath
+    ? new Map(targetFeatures.map((f) => [f.id, f]))
+    : featuresMap;
+
+  const metricAttributes = {
+    path: useIndexedPath ? "indexed" : "full_scan",
+  };
+  metrics
+    .getHistogram("features.dependents.features_loaded")
+    .record(
+      candidateFeatures.length + (useIndexedPath ? targetFeatures.length : 0),
+      metricAttributes,
+    );
 
   const dependents: Record<
     string,
@@ -5895,7 +5931,7 @@ export async function getFeaturesDependents(
   for (let i = 0; i < featureIds.length; i++) {
     await yieldEventLoop(i);
     const featureId = featureIds[i];
-    const feature = featuresMap.get(featureId);
+    const feature = targetFeaturesMap.get(featureId);
     if (!feature) {
       dependents[featureId] = { features: [], experiments: [] };
       continue;
@@ -5903,7 +5939,7 @@ export async function getFeaturesDependents(
     dependents[featureId] = {
       features: getDependentFeatures(
         feature,
-        allFeatures,
+        candidateFeatures,
         allEnvIds,
         reverseDependencyIndex,
         featuresMap,
@@ -5914,6 +5950,10 @@ export async function getFeaturesDependents(
       })),
     };
   }
+
+  metrics
+    .getHistogram("features.dependents.duration_ms")
+    .record(Date.now() - start, metricAttributes);
 
   return res.status(200).json({ status: 200, dependents });
 }
