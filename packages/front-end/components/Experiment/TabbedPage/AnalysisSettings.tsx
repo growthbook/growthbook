@@ -18,6 +18,7 @@ import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator
 import DecisionCriteriaSelectorModal from "@/components/DecisionCriteria/DecisionCriteriaSelectorModal";
 import TargetMDEModal from "@/components/Experiment/TabbedPage/TargetMDEModal";
 import Text from "@/ui/Text";
+import { DetailSectionBox } from "@/components/DetailSectionBox";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -202,22 +203,10 @@ export default function AnalysisSettings({
         />
       ) : null}
 
-      <div className="box p-4 my-4">
-        <div className="d-flex flex-row align-items-center justify-content-between text-dark mb-4">
-          <h4 className="m-0">Analysis Settings</h4>
-          <div className="flex-1" />
-          {canEditAnalysisSettings ? (
-            <button
-              className="btn p-0 link-purple"
-              onClick={() => {
-                setAnalysisModal(true);
-              }}
-            >
-              Edit
-            </button>
-          ) : null}
-        </div>
-
+      <DetailSectionBox
+        title="Analysis Settings"
+        onEdit={canEditAnalysisSettings ? () => setAnalysisModal(true) : null}
+      >
         {!isPublic && (
           <div className="row">
             <div className="col-4 mb-4">
@@ -409,7 +398,7 @@ export default function AnalysisSettings({
             </div>
           </div>
         )}
-      </div>
+      </DetailSectionBox>
     </>
   );
 }

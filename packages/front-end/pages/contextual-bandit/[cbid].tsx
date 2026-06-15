@@ -15,6 +15,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
 import ContextualBanditDetailPage from "@/components/ContextualBandit/ContextualBanditDetailPage";
+import ContextualBanditDescriptionModal from "@/components/ContextualBandit/ContextualBanditDescriptionModal";
 import ContextualBanditMetricsModal from "@/components/ContextualBandit/ContextualBanditMetricsModal";
 import ContextualBanditTargetingModal from "@/components/ContextualBandit/ContextualBanditTargetingModal";
 import ContextualBanditVariationsModal from "@/components/ContextualBandit/ContextualBanditVariationsModal";
@@ -33,6 +34,7 @@ const ContextualBanditPage = (): ReactElement => {
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
   const [tagsModalOpen, setTagsModalOpen] = useState(false);
   const [projectModalOpen, setProjectModalOpen] = useState(false);
+  const [descriptionModalOpen, setDescriptionModalOpen] = useState(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
 
   const rawId = typeof cbid === "string" ? cbid : "";
@@ -104,10 +106,20 @@ const ContextualBanditPage = (): ReactElement => {
           }
           editTags={canEdit ? () => setTagsModalOpen(true) : undefined}
           editProject={canEdit ? () => setProjectModalOpen(true) : undefined}
+          editDescription={
+            canEdit ? () => setDescriptionModalOpen(true) : undefined
+          }
           duplicate={canEdit ? () => setDuplicateModalOpen(true) : undefined}
         />
       </div>
 
+      {descriptionModalOpen && (
+        <ContextualBanditDescriptionModal
+          cb={cb}
+          mutate={mutate}
+          close={() => setDescriptionModalOpen(false)}
+        />
+      )}
       {metricsModalOpen && (
         <ContextualBanditMetricsModal
           cb={cb}

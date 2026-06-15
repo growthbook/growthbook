@@ -10,6 +10,10 @@ import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetin
 import { HashVersionTooltip } from "@/components/Experiment/HashVersionSelector";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { GBInfo } from "@/components/Icons";
+import {
+  DetailSectionBox,
+  DetailSectionColumn,
+} from "@/components/DetailSectionBox";
 
 export interface Props {
   phaseIndex?: number | null;
@@ -46,34 +50,30 @@ export default function TrafficAndTargeting({
   const isBandit = experiment.type === "multi-armed-bandit";
   const isHoldout = experiment.type === "holdout";
 
+  const canEditTargeting =
+    editTargeting && !(isBandit && experiment.status === "running")
+      ? editTargeting
+      : null;
+
   return (
     <>
       {phase ? (
         <>
-          <div className="box p-4 my-4">
-            <div className="d-flex flex-row align-items-center justify-content-between text-dark mb-4">
-              <h4 className="m-0">Traffic Allocation</h4>
-              <div className="flex-1" />
-              {editTargeting &&
-              !(isBandit && experiment.status === "running") ? (
-                <button className="btn p-0 link-purple" onClick={editTargeting}>
-                  Edit
-                </button>
-              ) : null}
-            </div>
-
+          <DetailSectionBox
+            title="Traffic Allocation"
+            onEdit={canEditTargeting}
+          >
             <div className="row">
-              <div className="col-4">
-                <div className="h5">Traffic</div>
+              <DetailSectionColumn label="Traffic">
                 {!isHoldout && (
-                  <div>
+                  <>
                     {Math.floor(phase.coverage * 100)}% included
                     {experiment.type !== "multi-armed-bandit" && (
                       <>
                         , {formatTrafficSplit(phase.variationWeights, 2)} split
                       </>
                     )}
-                  </div>
+                  </>
                 )}
                 {isHoldout && (
                   <>
@@ -98,19 +98,22 @@ export default function TrafficAndTargeting({
                     </div>
                   </>
                 )}
-              </div>
+              </DetailSectionColumn>
 
-              <div className="col-4">
-                <div className="h5">
-                  Assignment Attribute
-                  {experiment.fallbackAttribute ? "s" : ""}{" "}
-                  <Tooltip
-                    popperStyle={{ lineHeight: 1.5 }}
-                    body="This user attribute will be used to assign variations. This is typically either a logged-in user id or an anonymous id stored in a long-lived cookie."
-                  >
-                    <GBInfo />
-                  </Tooltip>
-                </div>
+              <DetailSectionColumn
+                label={
+                  <>
+                    Assignment Attribute
+                    {experiment.fallbackAttribute ? "s" : ""}{" "}
+                    <Tooltip
+                      popperStyle={{ lineHeight: 1.5 }}
+                      body="This user attribute will be used to assign variations. This is typically either a logged-in user id or an anonymous id stored in a long-lived cookie."
+                    >
+                      <GBInfo />
+                    </Tooltip>
+                  </>
+                }
+              >
                 <div className="d-flex flex-wrap align-items-center gap-1">
                   <AttributeBadge
                     attributeId={experiment.hashAttribute || "id"}
@@ -136,87 +139,66 @@ export default function TrafficAndTargeting({
                     Sticky bucketing: <em>disabled</em>
                   </div>
                 ) : null}
-              </div>
+              </DetailSectionColumn>
 
               {!isHoldout && (
-                <div className="col-4">
-                  <div className="h5">
-                    Namespace{" "}
-                    <Tooltip
-                      popperStyle={{ lineHeight: 1.5 }}
-                      body="Use namespaces to run mutually exclusive experiments. Manage namespaces under Experimentation → Namespaces"
-                    >
-                      <GBInfo />
-                    </Tooltip>
-                  </div>
-                  <div>
-                    {hasNamespace ? (
-                      <>
-                        {namespaceName}{" "}
-                        <span className="text-muted">
-                          ({percentFormatter.format(namespaceRange)})
-                        </span>
-                      </>
-                    ) : (
-                      <em>Global (all users)</em>
-                    )}
-                  </div>
-                </div>
+                <DetailSectionColumn
+                  label={
+                    <>
+                      Namespace{" "}
+                      <Tooltip
+                        popperStyle={{ lineHeight: 1.5 }}
+                        body="Use namespaces to run mutually exclusive experiments. Manage namespaces under Experimentation → Namespaces"
+                      >
+                        <GBInfo />
+                      </Tooltip>
+                    </>
+                  }
+                >
+                  {hasNamespace ? (
+                    <>
+                      {namespaceName}{" "}
+                      <span className="text-muted">
+                        ({percentFormatter.format(namespaceRange)})
+                      </span>
+                    </>
+                  ) : (
+                    <em>Global (all users)</em>
+                  )}
+                </DetailSectionColumn>
               )}
             </div>
-          </div>
+          </DetailSectionBox>
 
-          <div className="box p-4 my-4">
-            <div className="d-flex flex-row align-items-center justify-content-between text-dark mb-4">
-              <h4 className="m-0">Targeting</h4>
-              <div className="flex-1" />
-              {editTargeting &&
-              !(isBandit && experiment.status === "running") ? (
-                <button className="btn p-0 link-purple" onClick={editTargeting}>
-                  Edit
-                </button>
-              ) : null}
-            </div>
-
+          <DetailSectionBox title="Targeting" onEdit={canEditTargeting}>
             <div className="row">
-              <div className="col-4">
-                <div className="h5">Attribute Targeting</div>
-                <div>
-                  {phase.condition && phase.condition !== "{}" ? (
-                    <ConditionDisplay condition={phase.condition} />
-                  ) : (
-                    <em>None</em>
-                  )}
-                </div>
-              </div>
+              <DetailSectionColumn label="Attribute Targeting">
+                {phase.condition && phase.condition !== "{}" ? (
+                  <ConditionDisplay condition={phase.condition} />
+                ) : (
+                  <em>None</em>
+                )}
+              </DetailSectionColumn>
 
-              <div className="col-4">
-                <div className="h5">Saved Group Targeting</div>
-                <div>
-                  {phase.savedGroups?.length ? (
-                    <SavedGroupTargetingDisplay
-                      savedGroups={phase.savedGroups}
-                    />
-                  ) : (
-                    <em>None</em>
-                  )}
-                </div>
-              </div>
+              <DetailSectionColumn label="Saved Group Targeting">
+                {phase.savedGroups?.length ? (
+                  <SavedGroupTargetingDisplay savedGroups={phase.savedGroups} />
+                ) : (
+                  <em>None</em>
+                )}
+              </DetailSectionColumn>
 
               {!isHoldout && (
-                <div className="col-4">
-                  <div className="h5">Prerequisite Targeting</div>
-                  <div>
-                    {phase.prerequisites?.length ? (
-                      <ConditionDisplay prerequisites={phase.prerequisites} />
-                    ) : (
-                      <em>None</em>
-                    )}
-                  </div>
-                </div>
+                <DetailSectionColumn label="Prerequisite Targeting">
+                  {phase.prerequisites?.length ? (
+                    <ConditionDisplay prerequisites={phase.prerequisites} />
+                  ) : (
+                    <em>None</em>
+                  )}
+                </DetailSectionColumn>
               )}
             </div>
-          </div>
+          </DetailSectionBox>
         </>
       ) : (
         <div className="alert alert-warning my-4">
