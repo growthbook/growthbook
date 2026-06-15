@@ -1438,14 +1438,12 @@ export async function submitReviewAndComments(
           : {}),
       },
     });
-  } else {
-    // Plain comment: bump the activity timestamp but never touch `status` —
-    // writing the stale in-memory status back could clobber a verdict that
-    // landed concurrently.
-    await FeatureRevisionModel.updateOne(filter, {
-      $set: { dateUpdated: new Date() },
-    });
   }
+  // Plain comment (verdict === null): intentionally don't touch the revision.
+  // The comment is persisted as its own log entry below, and bumping
+  // `dateUpdated` here would make it look like the draft *content* changed —
+  // tripping the rebase optimistic-concurrency guard (expectedDraftDateUpdated)
+  // and "last modified" displays on comment-only activity.
 
   // Fire and forget - no route that submits the review and comments expects the log to be there immediately
   context.models.featureRevisionLogs
