@@ -77,15 +77,11 @@ export default function ContextualBanditDetailPage({
   const numVariations = cb.variations.length;
   const weightForIndex = (i: number): number => {
     const fallback = numVariations > 0 ? 1 / numVariations : 0;
-    const weights = cb.variationWeights;
-    if (!weights) return fallback;
     const variationId = cb.variations[i]?.id;
-    const match = weights.find(
-      (w) => typeof w === "object" && w.variationId === variationId,
+    const match = cb.variationWeights?.find(
+      (w) => w.variationId === variationId,
     );
-    if (match && typeof match === "object") return match.weight;
-    const positional = weights[i];
-    return typeof positional === "number" ? positional : fallback;
+    return match?.weight ?? fallback;
   };
   const formatWeight = (w: number): string =>
     new Intl.NumberFormat(undefined, {
