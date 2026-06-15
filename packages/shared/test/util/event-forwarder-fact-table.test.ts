@@ -182,6 +182,25 @@ WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{end
     );
   });
 
+  it("projects a prefixed managed identifier id, extracting its source attribute", () => {
+    const sql = buildEventForwarderEventsFactTableSql({
+      sinkType: "bigquery",
+      projectId: "my-project",
+      dataset: "analytics_123",
+      tablePrefix: "gb",
+      // Managed identifier id is prefixed; the column alias keeps the id while the
+      // value is read from the underlying "employee_id" attribute.
+      userIdTypes: ["ef_employee_id"],
+      attributeSchema: [
+        { property: "employee_id", datatype: "number", hashAttribute: true },
+      ],
+    });
+
+    expect(sql).toContain(
+      `SAFE_CAST(JSON_VALUE(\`attributes\`, '$."employee_id"') AS FLOAT64) AS ef_employee_id`,
+    );
+  });
+
   it("builds Snowflake table reference", () => {
     expect(
       buildSnowflakeEventForwarderTableReference(
