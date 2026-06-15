@@ -1195,9 +1195,7 @@ export async function markRevisionAsPublished(
   user: EventUser,
   comment?: string,
 ) {
-  // "re-publish" only applies to a revision that was already live; publishing
-  // an approved (or otherwise in-flight) draft for the first time is a "publish".
-  const action = revision.status === "published" ? "re-publish" : "publish";
+  const action = revision.status === "draft" ? "publish" : "re-publish";
 
   const changes = computeRevisionPublishChanges(revision, user, comment);
 
