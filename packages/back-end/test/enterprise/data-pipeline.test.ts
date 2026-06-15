@@ -150,7 +150,7 @@ describe("assertIncrementalRefreshPrerequisites experimentSettingsHash", () => {
     ).rejects.toThrow(IncrementalUpdateRequiresFullRefreshError);
   });
 
-  it("throws on exploratory when the stored hash differs", async () => {
+  it("skips hash validation on exploratory even when the stored hash differs", async () => {
     await expect(
       assertIncrementalRefreshPrerequisites({
         org,
@@ -163,7 +163,7 @@ describe("assertIncrementalRefreshPrerequisites experimentSettingsHash", () => {
         }),
         analysisType: "exploratory",
       }),
-    ).rejects.toThrow(IncrementalUpdateRequiresFullRefreshError);
+    ).resolves.toBeUndefined();
   });
 
   it("allows exploratory when the stored hash matches", async () => {
