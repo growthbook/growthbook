@@ -271,6 +271,11 @@ export interface OrganizationSettings {
   // live version (or whose approval has gone stale) must be rebased
   // ("Rebase with live") before it can be published.
   requireRebaseBeforePublish?: boolean;
+  // When enabled, anyone with publish permission can revert to a previously
+  // published revision and publish it immediately, even when approvals are
+  // otherwise required. Reverts restore an already-reviewed state, so the
+  // revert UI defaults to "Publish now". Applies to features and saved groups.
+  revertsBypassApproval?: boolean;
   // Soft cap on active (unpublished, non-discarded) drafts per feature.
   // Advisory only: the UI warns and asks for confirmation, REST returns an
   // escapable 409 (`overrideDraftLimit=true`), and automated processes

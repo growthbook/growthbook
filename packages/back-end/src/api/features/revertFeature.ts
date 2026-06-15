@@ -198,9 +198,13 @@ export async function revertFeatureCore(
   }
 
   // Bypass via restApiBypassesReviews (API keys/PATs only — JWT-backed REST
-  // calls should behave like dashboard actions) or bypassApprovalChecks.
+  // calls should behave like dashboard actions), bypassApprovalChecks, or the
+  // org-wide "reverts bypass approval" setting (publish perms already enforced
+  // per-change above, so any publisher may revert without approval).
   const canBypass =
-    canUseRestApiBypass || context.permissions.canBypassApprovalChecks(feature);
+    canUseRestApiBypass ||
+    context.permissions.canBypassApprovalChecks(feature) ||
+    !!organization.settings?.revertsBypassApproval;
 
   if (!canBypass) {
     const liveRevision = await getRevision({

@@ -1430,7 +1430,23 @@ export async function postFeatureUndoReview(
     version: parseInt(version),
   });
   if (!revision) throw new Error("Could not find feature revision");
-  await undoReview(context, revision, res.locals.eventAudit);
+  const newStatus = await undoReview(context, revision, res.locals.eventAudit);
+
+  // Undoing a "changes-requested" verdict can flip the revision to "approved"
+  // (another reviewer's approval still stands). Mirror the review path so an
+  // armed draft auto-publishes instead of getting stuck in approved limbo.
+  if (newStatus === "approved") {
+    const finalRevision =
+      (await getRevision({
+        context,
+        organization: context.org.id,
+        featureId: feature.id,
+        feature,
+        version: parseInt(version),
+      })) ?? revision;
+    await maybeAutoPublishFeatureRevision(context, feature, finalRevision);
+  }
+
   res.status(200).json({ status: 200 });
 }
 
@@ -2212,13 +2228,21 @@ export async function postFeatureRevert(
     comment: comment || `Revert to revision #${revision.version}`,
   });
 
-  await assertCanAutoPublish(context, feature, newRevision);
+  // Reverts restore a previously-published (already-reviewed) state. When the
+  // org enables "reverts bypass approval", any publisher may publish a revert
+  // without approval — publish perms were already enforced per-change above.
+  const revertBypass =
+    context.permissions.canBypassApprovalChecks(feature) ||
+    !!org.settings?.revertsBypassApproval;
+  if (!revertBypass) {
+    await assertCanAutoPublish(context, feature, newRevision);
+  }
   const updatedFeature = await publishRevision({
     context,
     feature,
     revision: newRevision,
     result: mergeChanges,
-    bypassLockdown: context.permissions.canBypassApprovalChecks(feature),
+    bypassLockdown: revertBypass,
   });
 
   await req.audit({

@@ -423,6 +423,23 @@ export default function ApprovalFlowSettings() {
             )}
           </Frame>
         </Box>
+
+        {hasRequireApprovals && (
+          <Box width="100%">
+            <Frame p="3" mb="0">
+              <Heading as="h4" size="small" weight="semibold" mb="4">
+                Reverts
+              </Heading>
+              <Checkbox
+                id="toggle-reverts-bypass-approval"
+                label="Allow reverts without approval"
+                description="When enabled, anyone with publish permission can revert to a previously published revision and publish it immediately, even when approvals are required for other changes. Reverts restore an already-reviewed state, so the revert dialog defaults to 'Publish now'. Applies to features and saved groups."
+                value={!!form.watch("revertsBypassApproval")}
+                setValue={(v) => form.setValue("revertsBypassApproval", v)}
+              />
+            </Frame>
+          </Box>
+        )}
       </Flex>
     </Frame>
   );

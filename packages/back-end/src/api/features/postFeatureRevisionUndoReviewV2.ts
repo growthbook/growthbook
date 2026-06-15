@@ -7,6 +7,7 @@ import {
   getRevision,
   undoReview,
 } from "back-end/src/models/FeatureRevisionModel";
+import { maybeAutoPublishFeatureRevision } from "./autoPublishOnApproval";
 
 export const postFeatureRevisionUndoReviewV2 = createApiRequestHandler(
   postFeatureRevisionUndoReviewV2Validator,
@@ -34,14 +35,28 @@ export const postFeatureRevisionUndoReviewV2 = createApiRequestHandler(
     );
   }
 
-  await undoReview(req.context, revision, req.context.auditUser);
+  const newStatus = await undoReview(
+    req.context,
+    revision,
+    req.context.auditUser,
+  );
 
-  const updated = await getRevision({
-    context: req.context,
-    organization: req.organization.id,
-    featureId: feature.id,
-    feature,
-    version: req.params.version,
-  });
-  return { revision: toApiRevisionV2(updated ?? revision) };
+  const updated =
+    (await getRevision({
+      context: req.context,
+      organization: req.organization.id,
+      featureId: feature.id,
+      feature,
+      version: req.params.version,
+    })) ?? revision;
+
+  // Undoing a "changes-requested" verdict can resolve the draft to "approved"
+  // (another reviewer's approval still stands); trigger auto-publish so an
+  // armed draft publishes instead of waiting for a manual publish.
+  const finalRevision =
+    newStatus === "approved"
+      ? await maybeAutoPublishFeatureRevision(req.context, feature, updated)
+      : updated;
+
+  return { revision: toApiRevisionV2(finalRevision) };
 });

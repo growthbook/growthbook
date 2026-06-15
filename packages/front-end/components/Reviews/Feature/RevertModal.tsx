@@ -79,6 +79,13 @@ export default function RevertModal({
     return !!reviewSetting?.requireReviewOn;
   }, [settings?.requireReviews, feature]);
 
+  // Reverts restore an already-reviewed state; when the org enables the bypass,
+  // approval isn't needed so the modal defaults to publishing (the draft option
+  // stays available for those who still want a review step).
+  const revertsBypassApproval = !!settings?.revertsBypassApproval;
+  const effectiveApprovalsRequired =
+    approvalsRequired && !revertsBypassApproval;
+
   const [targetVersion, setTargetVersion] = useState(() => {
     const inList = publishedRevisions.some(
       (r) => r.version === revision.version,
@@ -89,7 +96,7 @@ export default function RevertModal({
   });
   const [comment, setComment] = useState(`Revert from #${feature.version}`);
   const [mode, setMode] = useState<DraftMode>(() =>
-    approvalsRequired ? "new" : "publish",
+    effectiveApprovalsRequired ? "new" : "publish",
   );
 
   const targetRevisionFromCache = allRevisions.find(
@@ -126,8 +133,12 @@ export default function RevertModal({
     permissionsUtil.canUpdateFeature(feature, {}) &&
     permissionsUtil.canManageFeatureDrafts(feature);
 
-  const canAutoPublish = approvalsRequired ? canBypassApprovals : canPublish;
-  const gatedEnvSet: "all" | "none" = approvalsRequired ? "all" : "none";
+  const canAutoPublish = effectiveApprovalsRequired
+    ? canBypassApprovals
+    : canPublish;
+  const gatedEnvSet: "all" | "none" = effectiveApprovalsRequired
+    ? "all"
+    : "none";
 
   const canSubmit = mode === "new" ? canCreateDraft : canAutoPublish;
 

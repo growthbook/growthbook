@@ -1637,6 +1637,10 @@ export async function undoReview(
     .catch((e) => {
       logger.error(e, "Error creating revisionlog for undoReview");
     });
+
+  // Return the resolved status so callers can trigger auto-publish when undoing
+  // a "changes-requested" verdict flips the revision to "approved".
+  return status;
 }
 
 // Reopen a discarded revision as a plain draft. Any prior review state is

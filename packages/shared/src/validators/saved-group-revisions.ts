@@ -356,7 +356,7 @@ export const postSavedGroupRevisionRevertValidator = {
   operationId: "postSavedGroupRevisionRevert",
   summary: "Revert the saved group to a prior revision",
   description:
-    "Creates a new draft (or immediately publishes) whose content matches the specified historical revision.",
+    "Creates a new draft (or immediately publishes) whose content matches the specified historical revision. Defaults to creating a draft; when the org enables 'reverts bypass approval' it defaults to publishing immediately. Pass `strategy` to override.",
   tags: ["saved-group-revisions"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z

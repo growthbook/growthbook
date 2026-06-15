@@ -665,7 +665,7 @@ export const postFeatureRevisionUndoReviewV2Validator = {
   operationId: "postFeatureRevisionUndoReviewV2",
   summary: "Undo a reviewer's own review verdict",
   description:
-    "Reviewer retracts their own verdict. The revision status rewinds to the state implied by the remaining active verdicts from other reviewers: any outstanding `Requested Changes` → `changes-requested`, else any outstanding `Approved` → `approved`, else `pending-review`. Existing review comments are preserved.",
+    "Reviewer retracts their own verdict. The revision status rewinds to the state implied by the remaining active verdicts from other reviewers: any outstanding `Requested Changes` → `changes-requested`, else any outstanding `Approved` → `approved`, else `pending-review`. Existing review comments are preserved. If the retraction resolves the revision to `approved` and auto-publish-on-approval is armed, the revision is published.",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z.object({}).strict(),

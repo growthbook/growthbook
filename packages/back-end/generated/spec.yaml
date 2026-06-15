@@ -2281,9 +2281,10 @@ paths:
         leaves a clear audit trail of the revert action in the revision history.
 
 
-        Returns 403 if the API key lacks permission or if approval rules are
-        enabled for an affected environment and the org setting "REST API always
-        bypasses approval requirements" is off.
+        Returns 403 if the API key lacks permission, or if approval rules are
+        enabled for an affected environment and neither the "REST API always
+        bypasses approval requirements" nor the "Allow reverts without approval"
+        org setting is enabled.
       deprecated: true
       tags:
         - features
@@ -6861,6 +6862,16 @@ paths:
     post:
       operationId: revertFeatureV2
       summary: Revert a feature to a specific revision
+      description: >
+        Creates a new revision whose rules and values match a
+        previously-published revision, then immediately publishes it, leaving a
+        clear audit trail of the revert in the revision history.
+
+
+        Returns 403 if the API key lacks permission, or if approval rules are
+        enabled for an affected environment and neither the "REST API always
+        bypasses approval requirements" nor the "Allow reverts without approval"
+        org setting is enabled.
       tags:
         - features-v2
       parameters:
@@ -9914,7 +9925,9 @@ paths:
         state implied by the remaining active verdicts from other reviewers: any
         outstanding `Requested Changes` → `changes-requested`, else any
         outstanding `Approved` → `approved`, else `pending-review`. Existing
-        review comments are preserved.
+        review comments are preserved. If the retraction resolves the revision
+        to `approved` and auto-publish-on-approval is armed, the revision is
+        published.
       tags:
         - feature-revisions-v2
       parameters:
@@ -16715,7 +16728,9 @@ paths:
       summary: Revert the saved group to a prior revision
       description: >-
         Creates a new draft (or immediately publishes) whose content matches the
-        specified historical revision.
+        specified historical revision. Defaults to creating a draft; when the
+        org enables 'reverts bypass approval' it defaults to publishing
+        immediately. Pass `strategy` to override.
       tags:
         - saved-group-revisions
       parameters:
@@ -39391,6 +39406,8 @@ components:
         restApiBypassesReviews:
           type: boolean
         requireRebaseBeforePublish:
+          type: boolean
+        revertsBypassApproval:
           type: boolean
         maxConcurrentDrafts:
           type: number
