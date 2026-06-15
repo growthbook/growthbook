@@ -145,6 +145,9 @@ const organizationSchema = new mongoose.Schema({
   disabled: Boolean,
   setupEventTracker: String,
   trackingDisabled: Boolean,
+  migrations: {
+    featuresV2: Boolean,
+  },
 });
 
 organizationSchema.index({ "members.id": 1 });
@@ -244,9 +247,19 @@ export async function createOrganization({
     },
     getStartedChecklistItems: [],
     isVercelIntegration,
+    // New orgs only ever write v2 feature docs (with prerequisiteIds
+    // stamped), so index-backed feature queries are safe from day one.
+    migrations: { featuresV2: true },
     ...(restrictLoginMethod ? { restrictLoginMethod } : {}),
   });
   return toInterface(doc);
+}
+
+// Lightweight id-only listing for cross-org maintenance jobs (e.g. the
+// features v2 backfill). Intentionally skips toInterface/doc hydration.
+export async function getAllOrganizationIds(): Promise<string[]> {
+  const docs = await OrganizationModel.find({}, { id: 1, _id: 0 }).lean();
+  return docs.map((d) => d.id).filter(Boolean);
 }
 
 export async function findAllOrganizations(

@@ -403,6 +403,12 @@ export interface OrganizationInterface {
   deactivatedRoles?: string[];
   disabled?: boolean;
   setupEventTracker?: string;
+  // One-way data-migration markers. `featuresV2` means every feature doc in
+  // the org is on the v2 on-disk shape with `prerequisiteIds` stamped, so
+  // index-backed feature queries are safe (see backfillFeaturesV2).
+  migrations?: {
+    featuresV2?: boolean;
+  };
 }
 
 export type NamespaceUsage = Record<
