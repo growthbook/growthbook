@@ -26,6 +26,7 @@ import { useSessionStorage } from "@/hooks/useSessionStorage";
 import type { InitialPlanOptions } from "@/components/Auth/SelectInitialPlan";
 import { getApiHost, getAppOrigin, isCloud, isSentryEnabled } from "./env";
 import { useProject, LOCALSTORAGE_PROJECT_KEY } from "./DefinitionsContext";
+import { captureAttribution } from "./attribution-capture";
 
 export type UserOrganizations = { id: string; name: string }[];
 // eslint-disable-next-line
@@ -249,6 +250,12 @@ export const AuthProvider: React.FC<{
 
   async function init() {
     if (typeof window !== "undefined") {
+      // Capture marketing attribution into gb_attr cookie before any OAuth
+      // redirect. Handles direct app landings (e.g. paid ads pointing at
+      // app.growthbook.io). The Webflow site sets the same cookie for users
+      // arriving via the marketing funnel.
+      captureAttribution();
+
       const plan = new URLSearchParams(window.location.search).get("plan");
       if ((plan === "pro" || plan === "starter") && isCloud()) {
         setInitialPlanSelection(plan);
