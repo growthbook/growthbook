@@ -1114,6 +1114,13 @@ export async function updateRevision(
         ...normalizedChanges,
         status,
         dateUpdated: new Date(),
+        // A rebase (baseVersion advances) that keeps the approval standing
+        // (review not reset) re-anchors the approval to the new live version.
+        // Without this, staleApproval stays true forever and publishing
+        // deadlocks under requireRebaseBeforePublish — rebasing never clears it.
+        ...(normalizedChanges.baseVersion !== undefined && status === "approved"
+          ? { approvedBaseVersion: normalizedChanges.baseVersion }
+          : {}),
         // The edit invalidated standing verdicts — demote them to "-stale" so
         // policy hooks and the REST API don't count approvals made against
         // older content, while the UI can still attribute them.

@@ -1168,6 +1168,18 @@ export default function ReviewAndPublish({
     // pending merge.
     const status = isLive ? "live" : revision.status;
     const statusColor = revisionStatusColor(status);
+    // The actions-widget header reflects the review lifecycle, not deployment
+    // state — "Live"/"Locked" aren't lifecycle stages, so terminal revisions
+    // all read as "Published" here. Discarded stays (it can be reopened for
+    // review). The title badge above still shows the precise live/locked state.
+    const headerStatus = isDiscarded ? "discarded" : ("published" as const);
+    const headerStatusColor = revisionStatusColor(headerStatus);
+    const headerStatusLabel = isDiscarded ? "Discarded" : "Published";
+    const headerStatusIcon = isDiscarded ? (
+      revisionStatusIcon("discarded")
+    ) : (
+      <PiGitMergeBold />
+    );
     const headerTitle =
       revision.title?.trim() ||
       revision.comment?.trim() ||
@@ -1249,12 +1261,13 @@ export default function ReviewAndPublish({
         className="appbox"
         style={{ position: "sticky", top: 90, overflow: "hidden" }}
       >
-        {/* Status header – colored tint matching the revision badge */}
+        {/* Status header – lifecycle status (Published / Discarded), not the
+            deployment state (Live / Locked). */}
         <Flex
           align="center"
           px="4"
           style={{
-            background: `var(--${statusColor}-a3)`,
+            background: `var(--${headerStatusColor}-a3)`,
             borderBottom: "1px solid var(--gray-a4)",
             minHeight: 40,
           }}
@@ -1262,16 +1275,16 @@ export default function ReviewAndPublish({
           <Flex
             align="center"
             gap="2"
-            style={{ color: `var(--${statusColor}-11)` }}
+            style={{ color: `var(--${headerStatusColor}-11)` }}
           >
-            {revisionStatusIcon(status) && (
+            {headerStatusIcon && (
               <Box style={{ fontSize: 18, lineHeight: 1, display: "flex" }}>
-                {revisionStatusIcon(status)}
+                {headerStatusIcon}
               </Box>
             )}
             <Heading as="h4" size="small">
-              <span style={{ color: `var(--${statusColor}-11)` }}>
-                {revisionStatusLabel(status)}
+              <span style={{ color: `var(--${headerStatusColor}-11)` }}>
+                {headerStatusLabel}
               </span>
             </Heading>
           </Flex>
