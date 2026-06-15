@@ -13,7 +13,7 @@ import { MdPending } from "react-icons/md";
 import { cloneDeep, isEqual } from "lodash";
 import { Environment } from "shared/types/organization";
 import { getRulesForEnvironment } from "shared/util";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
+import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
 import Link from "@/ui/Link";
 import Field from "@/components/Forms/Field";
 import Tooltip from "@/components/Tooltip/Tooltip";

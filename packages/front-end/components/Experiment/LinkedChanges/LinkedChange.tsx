@@ -80,15 +80,19 @@ export default function LinkedChange({
             {changeType === "flag" ? (
               <Link href={`/features/${feature?.id}`}>
                 <Heading as="h4" size="small" weight="medium" mb="0">
-                  {heading}
-                  <PiArrowSquareOut className="ml-2" />
+                  <Flex align="center">
+                    {heading}
+                    <PiArrowSquareOut className="ml-2" />
+                  </Flex>
                 </Heading>
               </Link>
             ) : headingLink ? (
               <Link href={headingLink}>
                 <Heading as="h4" size="small" weight="medium" mb="0">
-                  {heading}
-                  <PiArrowSquareOut className="ml-2" />
+                  <Flex align="center">
+                    {heading}
+                    <PiArrowSquareOut className="ml-2" />
+                  </Flex>
                 </Heading>
               </Link>
             ) : (

@@ -3,9 +3,11 @@ import {
   autoMerge,
   checkIfRevisionNeedsReview,
   draftDiffersFromLive,
+  evaluatePublishGovernance,
   fillRevisionFromFeature,
   filterEnvironmentsByFeature,
   getEnvsFromRampSchedule,
+  getLiveChangesSinceBase,
   liveRevisionFromFeature,
 } from "shared/util";
 import type { ApiRequestLocals } from "back-end/types/api";
@@ -24,6 +26,7 @@ import { getEnvironments } from "back-end/src/util/organization.util";
 import {
   BadRequestError,
   ConflictError,
+  MergeConflictError,
   NotFoundError,
 } from "back-end/src/util/errors";
 import { canUseRestApiBypassSetting } from "./reviewBypass";
@@ -31,7 +34,7 @@ import { canUseRestApiBypassSetting } from "./reviewBypass";
 export async function publishFeatureRevision(
   req: Pick<ApiRequestLocals, "context" | "organization" | "audit"> & {
     params: { id: string; version: number };
-    body: { comment?: string };
+    body: { comment?: string; mergeNow?: boolean };
   },
   canUseRestApiBypass: boolean,
 ) {
@@ -93,10 +96,42 @@ export async function publishFeatureRevision(
   );
 
   if (!mergeResult.success) {
-    throw new ConflictError(
+    throw new MergeConflictError(
       "Merge conflicts exist — rebase before publishing",
       mergeResult.conflicts,
     );
+  }
+
+  // Governance friction: when the org enforces same-base merges, a stale or
+  // diverged draft can't be force-merged on publish without bypass authority.
+  // `mergeNow` is the explicit "merge anyway" opt-in but — like the dashboard's
+  // adminOverride — only takes effect for callers with bypass-approval
+  // permission; otherwise it's ignored and the draft must be rebased. Bypass
+  // callers remain exempt either way.
+  if (req.organization.settings?.requireRebaseBeforePublish) {
+    const canBypassGovernance =
+      req.context.permissions.canBypassApprovalChecks(feature);
+    const forceMerge = !!req.body.mergeNow && canBypassGovernance;
+    if (!forceMerge) {
+      const governance = evaluatePublishGovernance({
+        revisionStatus: revision.status,
+        baseVersion: revision.baseVersion,
+        liveVersion: feature.version,
+        mergeSuccess: mergeResult.success,
+        liveChanges: getLiveChangesSinceBase(
+          liveRevisionFromFeature(live, feature),
+          fillRevisionFromFeature(base, feature),
+          environmentIds,
+        ),
+        approvedBaseVersion: revision.approvedBaseVersion ?? null,
+        requireRebaseBeforePublish: true,
+      });
+      if (governance.rebaseRequired && !canBypassGovernance) {
+        throw new ConflictError(
+          `${governance.blockReason} Rebase the revision (POST .../rebase) first. ("mergeNow": true bypasses this only with bypass-approval permission.)`,
+        );
+      }
+    }
   }
 
   const filledLive = {

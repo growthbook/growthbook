@@ -125,6 +125,7 @@ export interface UserContextValue {
   roles: Role[];
   teams?: Team[];
   error?: string;
+  orgSuspended: boolean;
   hasCommercialFeature: (feature: CommercialFeature) => boolean;
   commercialFeatureLowestPlan?: Partial<Record<CommercialFeature, AccountPlan>>;
   permissionsUtil: Permissions;
@@ -184,6 +185,7 @@ export const UserContext = createContext<UserContextValue>({
   },
   canSubscribe: false,
   freeSeats: 3,
+  orgSuspended: false,
 });
 
 export function useUser() {
@@ -655,6 +657,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         seatsInUse: currentOrg?.seatsInUse || 0,
         teams,
         error: error?.message || orgLoadingError?.message,
+        orgSuspended: organization?.suspended === true && !data?.superAdmin,
         hasCommercialFeature: (feature) => commercialFeatures.has(feature),
         watching: watching,
         canSubscribe,

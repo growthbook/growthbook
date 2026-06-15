@@ -248,6 +248,11 @@ export class FactMetricModel extends BaseClass {
   public static migrateColumnRef(columnRef: LegacyColumnRef): ColumnRef {
     const { filters, inlineFilters, ...newColumnRef } = columnRef;
 
+    // The Mongo driver stores explicit `undefined` as null, which fails validation on later updates
+    if ((newColumnRef.aggregation ?? null) === null) {
+      delete newColumnRef.aggregation;
+    }
+
     // If row filters are already defined, do nothing
     if (newColumnRef.rowFilters !== undefined) {
       return newColumnRef;
