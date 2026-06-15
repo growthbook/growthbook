@@ -1375,6 +1375,13 @@ export async function postFeatureToggleAutoPublish(
     );
   }
 
+  // Baseline: only someone who can manage this feature's drafts may change its
+  // auto-publish arming — otherwise any org member could silently disarm
+  // another approver's draft. Enabling additionally requires publish authority
+  // (the auto-publish runs with this user's authority).
+  if (!context.permissions.canManageFeatureDrafts(feature)) {
+    context.permissions.throwPermissionError();
+  }
   if (enabled && !canEnableFeatureAutoPublishOnApproval(context, feature)) {
     context.permissions.throwPermissionError();
   }
