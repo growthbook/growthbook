@@ -206,11 +206,21 @@ export default function BanditDecisionMetricSettings({
   }, [contextualBandit, goalMetricId, goalMetricWindowKey, scheduleHours]);
 
   const conversionWindowWarning = showConversionWindowWarning && !disabled && (
-    <Callout status="warning" my="4">
+    <Callout status={contextualBandit ? "error" : "warning"} my="4">
       <Text>
-        Limit how many conversions are counted after a unit may have switched
-        variations by decreasing the metric conversion window to be &le; 10% of
-        the <Text weight="semibold">Update Cadence</Text>.
+        {contextualBandit ? (
+          <>
+            The decision metric conversion window must be at most 10% of the{" "}
+            <Text weight="semibold">Update Cadence</Text>. Decrease the
+            conversion window or increase the cadence to continue.
+          </>
+        ) : (
+          <>
+            Limit how many conversions are counted after a unit may have
+            switched variations by decreasing the metric conversion window to be
+            &le; 10% of the <Text weight="semibold">Update Cadence</Text>.
+          </>
+        )}
       </Text>
     </Callout>
   );

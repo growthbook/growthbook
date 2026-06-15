@@ -19,10 +19,7 @@ import Field from "@/components/Forms/Field";
 import Switch from "@/ui/Switch";
 import { useContextualBandits } from "@/hooks/useContextualBandits";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import TagsFilter, {
-  filterByTags,
-  useTagsFilter,
-} from "@/components/Tags/TagsFilter";
+import ContextualBanditSearchFilters from "@/components/Search/ContextualBanditSearchFilters";
 import { useWatching } from "@/services/WatchProvider";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
@@ -31,24 +28,25 @@ import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import ContextualBanditForm from "@/enterprise/components/ContextualBandit/ContextualBanditForm";
 import Button from "@/ui/Button";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import LinkButton from "@/ui/LinkButton";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
+import ContextualBanditEmptyState, {
+  ContextualBanditEmptyStateKind,
+} from "@/components/ContextualBandit/ContextualBanditEmptyState";
 import Callout from "@/ui/Callout";
 
 const NUM_PER_PAGE = 20;
 
 const ContextualBanditsPage = (): React.ReactElement => {
-  const { ready, project, projects } = useDefinitions();
+  const { ready, project, projects, datasources } = useDefinitions();
 
   const [tabs, setTabs] = useLocalStorage<string[]>(
     "contextual_bandit_tabs",
     [],
   );
 
-  const { contextualBandits, error, loading, hasArchived } =
+  const { contextualBandits, error, loading, hasArchived, mutate } =
     useContextualBandits(project, tabs.includes("archived"));
 
-  const tagsFilter = useTagsFilter("contextual-bandits");
   const [showMineOnly, setShowMineOnly] = useLocalStorage(
     "showMyContextualBanditsOnly",
     false,
@@ -71,20 +69,24 @@ const ContextualBanditsPage = (): React.ReactElement => {
         );
       }
 
-      items = filterByTags(items, tagsFilter.tags);
-
       return items;
     },
-    [showMineOnly, userId, tagsFilter.tags, watchedExperiments],
+    [showMineOnly, userId, watchedExperiments],
   );
 
-  const { items, searchInputProps, isFiltered, SortableTH, setSearchValue } =
-    useContextualBanditSearch({
-      contextualBandits,
-      filterResults,
-      localStorageKey: "contextual-bandits-page",
-      watchedIds: watchedExperiments,
-    });
+  const {
+    items,
+    searchInputProps,
+    isFiltered,
+    SortableTH,
+    setSearchValue,
+    syntaxFilters,
+  } = useContextualBanditSearch({
+    contextualBandits,
+    filterResults,
+    localStorageKey: "contextual-bandits-page",
+    watchedIds: watchedExperiments,
+  });
 
   const tabCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -120,6 +122,21 @@ const ContextualBanditsPage = (): React.ReactElement => {
 
   const canAdd = permissionsUtil.canViewExperimentModal(project, projects);
 
+  const exposureDataSources = datasources.filter(
+    (d) => d.properties?.exposureQueries,
+  );
+  const hasDataSource = exposureDataSources.length > 0;
+  const hasViableDataSource = exposureDataSources.some((d) =>
+    (d.settings?.queries?.exposure ?? []).some(
+      (q) => (q.targetingAttributeColumns?.length ?? 0) > 0,
+    ),
+  );
+  const emptyStateKind: ContextualBanditEmptyStateKind = !hasDataSource
+    ? "no-data-source"
+    : !hasViableDataSource
+      ? "no-assignment-table"
+      : "ready";
+
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
 
@@ -134,7 +151,7 @@ const ContextualBanditsPage = (): React.ReactElement => {
 
   if (!hasContextualBanditFeature) {
     return (
-      <Box className="contents pagecontents">
+      <Box className="contents container-fluid pagecontents">
         <PremiumEmptyState
           h1="Contextual Bandits"
           title="Run Context-Aware Adaptive Experiments with Contextual Bandits"
@@ -148,7 +165,7 @@ const ContextualBanditsPage = (): React.ReactElement => {
 
   return (
     <>
-      <Box className="contents experiments pagecontents">
+      <Box className="contents experiments container-fluid pagecontents">
         <Box mb="3" mt="2">
           <Flex
             className="filters md-form"
@@ -160,7 +177,7 @@ const ContextualBanditsPage = (): React.ReactElement => {
             <Flex align="center" flexGrow="1">
               <h1>Contextual Bandits</h1>
             </Flex>
-            {canAdd && (
+            {canAdd && hasExperiments && (
               <PremiumTooltip
                 tipPosition="left"
                 commercialFeature="contextual-bandits"
@@ -178,51 +195,17 @@ const ContextualBanditsPage = (): React.ReactElement => {
           </Flex>
           <CustomMarkdown page={"experimentList"} />
           {!hasExperiments ? (
-            <Box className="box" py="5" style={{ textAlign: "center" }}>
-              <Box mx="auto" style={{ maxWidth: 650 }}>
-                <h1>Adaptively experiment with contextual bandits.</h1>
-                <p>
-                  Run context-aware adaptive experiments with Contextual
-                  Bandits.
-                </p>
-              </Box>
-              <Flex justify="center" pt="2" gap="4">
-                <LinkButton
-                  href="/getstarted/experiment-guide"
-                  variant="outline"
-                >
-                  Setup Instructions
-                </LinkButton>
-                {canAdd && (
-                  <PremiumTooltip
-                    tipPosition="left"
-                    popperStyle={{ top: 15 }}
-                    commercialFeature="contextual-bandits"
-                  >
-                    <Button
-                      onClick={() => {
-                        setOpenNewModal(true);
-                      }}
-                      disabled={!hasContextualBanditFeature}
-                    >
-                      Add Contextual Bandit
-                    </Button>
-                  </PremiumTooltip>
-                )}
-              </Flex>
-              <Box mt="5">
-                <img
-                  src="/images/empty-states/bandits.png"
-                  alt="Contextual Bandits"
-                  style={{ width: "100%", maxWidth: "740px", height: "auto" }}
-                />
-              </Box>
-            </Box>
+            <ContextualBanditEmptyState
+              kind={emptyStateKind}
+              canAdd={canAdd}
+              hasContextualBanditFeature={hasContextualBanditFeature}
+              onCreate={() => setOpenNewModal(true)}
+            />
           ) : (
             <>
               <Flex align="center" mb="3" gap="3" wrap="wrap">
                 <Flex align="center">
-                  {["running", "drafts", "stopped", "archived"].map(
+                  {["running", "stopped", "drafts", "archived"].map(
                     (tab, i) => {
                       const active = tabs.includes(tab);
 
@@ -230,7 +213,7 @@ const ContextualBanditsPage = (): React.ReactElement => {
 
                       const isLast =
                         tab === "archived" ||
-                        (tab === "stopped" && !hasArchived);
+                        (tab === "drafts" && !hasArchived);
                       return (
                         <button
                           key={tab}
@@ -306,9 +289,12 @@ const ContextualBanditsPage = (): React.ReactElement => {
                     {...searchInputProps}
                   />
                 </Box>
-                <Box>
-                  <TagsFilter filter={tagsFilter} items={items} />
-                </Box>
+                <ContextualBanditSearchFilters
+                  searchInputProps={searchInputProps}
+                  syntaxFilters={syntaxFilters}
+                  setSearchValue={setSearchValue}
+                  contextualBandits={contextualBandits}
+                />
                 <Box style={{ marginLeft: "auto" }}>
                   <Switch
                     id="my-contextual-bandits-toggle"
@@ -479,6 +465,10 @@ const ContextualBanditsPage = (): React.ReactElement => {
       {openNewModal && (
         <ContextualBanditForm
           onClose={() => setOpenNewModal(false)}
+          onCreate={async () => {
+            await mutate();
+            setOpenNewModal(false);
+          }}
           source="contextual-bandits-list"
           isNewExperiment={true}
         />

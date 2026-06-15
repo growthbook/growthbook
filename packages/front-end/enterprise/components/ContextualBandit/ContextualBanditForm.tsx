@@ -14,7 +14,11 @@ import { useRouter } from "next/router";
 import { datetime, getValidDate } from "shared/dates";
 import { validateAndFixCondition } from "shared/util";
 import { getScopedSettings } from "shared/settings";
-import { generateTrackingKey, getEqualWeights } from "shared/experiments";
+import {
+  generateTrackingKey,
+  getEqualWeights,
+  getMetricWindowHours,
+} from "shared/experiments";
 import { kebabCase } from "lodash";
 import { Box } from "@radix-ui/themes";
 import Callout from "@/ui/Callout";
@@ -193,8 +197,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
       prerequisites: initialValue?.prerequisites,
       namespace: initialValue?.namespace,
       variationWeights:
-        initialValue?.variationWeights ??
-        toEqualWeights(initialExpVariations),
+        initialValue?.variationWeights ?? toEqualWeights(initialExpVariations),
       dateStarted: getValidDate(initialValue?.dateStarted ?? "")
         .toISOString()
         .substring(0, 16),
@@ -382,6 +385,35 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
         "The decision metric must belong to the selected data source",
       );
     }
+
+    const cadenceHours =
+      parseFloat(String(data.banditScheduleValue ?? "0")) *
+      (data.banditScheduleUnit === "days" ? 24 : 1);
+    const overrideConversionWindowHours =
+      data.banditConversionWindowValue && data.banditConversionWindowUnit
+        ? parseFloat(String(data.banditConversionWindowValue)) *
+          (data.banditConversionWindowUnit === "days" ? 24 : 1)
+        : null;
+    const goalMetricConversionWindow =
+      goalMetric?.windowSettings?.type === "conversion"
+        ? goalMetric.windowSettings
+        : null;
+    const effectiveConversionWindowHours =
+      overrideConversionWindowHours ??
+      (goalMetricConversionWindow
+        ? getMetricWindowHours(goalMetricConversionWindow)
+        : null);
+    if (
+      cadenceHours > 0 &&
+      effectiveConversionWindowHours != null &&
+      cadenceHours < effectiveConversionWindowHours * 10
+    ) {
+      setStep(2);
+      throw new Error(
+        "The decision metric conversion window must be at most 10% of the update cadence. Decrease the conversion window or increase the cadence.",
+      );
+    }
+
     const shouldIncludeConversionWindow =
       !disableBanditConversionWindow &&
       (!settings.useStickyBucketing || data.disableStickyBucketing);

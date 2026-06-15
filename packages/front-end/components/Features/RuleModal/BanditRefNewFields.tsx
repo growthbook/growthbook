@@ -51,7 +51,7 @@ import RuleEnvironmentScopeField, {
 import Checkbox from "@/ui/Checkbox";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
-import { EAQ_ANCHOR_ID } from "@/pages/datasources/[did]";
+import { EAQ_ANCHOR_ID } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/constants";
 
 export default function BanditRefNewFields({
   step,
@@ -150,6 +150,18 @@ export default function BanditRefNewFields({
   const selectedExposureQuery = useMemo(
     () => assignmentQueriesForPicker.find((q) => q.id === exposureQueryId),
     [assignmentQueriesForPicker, exposureQueryId],
+  );
+
+  const datasourcesForPicker = useMemo(
+    () =>
+      contextualBandit
+        ? datasources.filter((d) =>
+            (d.settings?.queries?.exposure ?? []).some(
+              (q) => (q.targetingAttributeColumns?.length ?? 0) > 0,
+            ),
+          )
+        : datasources,
+    [contextualBandit, datasources],
   );
 
   useEffect(() => {
@@ -373,6 +385,11 @@ export default function BanditRefNewFields({
             <SelectField
               label="Data Source"
               labelClassName="font-weight-bold"
+              helpText={
+                contextualBandit
+                  ? "Only data sources with an Experiment Assignment Table that has targeting attributes can power a Contextual Bandit."
+                  : undefined
+              }
               value={form.watch("datasource") ?? ""}
               onChange={(newDatasource) => {
                 form.setValue("datasource", newDatasource);
@@ -392,7 +409,7 @@ export default function BanditRefNewFields({
                   form.setValue("goalMetrics", goalMetrics);
                 }
               }}
-              options={datasources.map((d) => {
+              options={datasourcesForPicker.map((d) => {
                 const isDefaultDataSource = d.id === settings.defaultDataSource;
                 return {
                   value: d.id,

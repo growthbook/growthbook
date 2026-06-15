@@ -6,6 +6,7 @@ import { useUser } from "@/services/UserContext";
 /** Computed-fields shape the CB list page consumes, typed off `ApiContextualBanditInterface`. */
 export type ComputedContextualBanditInterface = ApiContextualBanditInterface & {
   ownerName: string;
+  metricNames: string[];
   projectId?: string;
   projectName?: string;
   projectIsDeReferenced?: string | boolean;
@@ -45,7 +46,7 @@ export function useContextualBanditSearch({
   localStorageKey: string;
   watchedIds?: string[];
 }) {
-  const { getProjectById } = useDefinitions();
+  const { getProjectById, getExperimentMetricById } = useDefinitions();
   const { getOwnerDisplay } = useUser();
 
   const items: ComputedContextualBanditInterface[] = useAddComputedFields(
@@ -56,8 +57,22 @@ export function useContextualBanditSearch({
         ? getProjectById(projectId)?.name
         : undefined;
       const projectIsDeReferenced = !!projectId && !projectName;
+      const metricIds = [
+        cb.decisionMetric ?? "",
+        ...cb.goalMetrics,
+        ...(cb.secondaryMetrics ?? []),
+        ...(cb.guardrailMetrics ?? []),
+      ].filter(Boolean);
+      const metricNames = Array.from(
+        new Set(
+          metricIds
+            .map((id) => getExperimentMetricById(id)?.name)
+            .filter((name): name is string => !!name),
+        ),
+      );
       return {
         ownerName: getOwnerDisplay(cb.owner),
+        metricNames,
         projectId,
         projectName,
         projectIsDeReferenced,
@@ -70,7 +85,7 @@ export function useContextualBanditSearch({
         isWatched: watchedIds?.includes(cb.id) ?? false,
       };
     },
-    [getProjectById, getOwnerDisplay],
+    [getProjectById, getOwnerDisplay, getExperimentMetricById],
   );
 
   return useSearch({
@@ -108,6 +123,14 @@ export function useContextualBanditSearch({
       status: (item) => item.status,
       owner: (item) => [item.owner, item.ownerName],
       tag: (item) => item.tags,
+      metric: (item) =>
+        [
+          ...item.metricNames,
+          item.decisionMetric ?? "",
+          ...item.goalMetrics,
+          ...(item.secondaryMetrics ?? []),
+          ...(item.guardrailMetrics ?? []),
+        ].filter(Boolean),
       project: (item) => [item.projectId ?? "", item.projectName ?? ""],
       datasource: (item) => item.datasource,
     },

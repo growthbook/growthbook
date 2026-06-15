@@ -60,6 +60,15 @@ export default function ContextualBanditDetailPage({
 
   const updateEndpoint = `/api/v1/contextual-bandits/${cb.id}`;
 
+  const numVariations = cb.variations.length;
+  const weightForIndex = (i: number): number =>
+    cb.variationWeights?.[i] ?? (numVariations > 0 ? 1 / numVariations : 0);
+  const formatWeight = (w: number): string =>
+    new Intl.NumberFormat(undefined, {
+      style: "percent",
+      maximumFractionDigits: 0,
+    }).format(w);
+
   const datasourceName =
     (cb.datasource && getDatasourceById(cb.datasource)?.name) || cb.datasource;
   const projectName =
@@ -228,16 +237,24 @@ export default function ContextualBanditDetailPage({
             <TableRow>
               <TableColumnHeader>Variation</TableColumnHeader>
               <TableColumnHeader>Key</TableColumnHeader>
+              <TableColumnHeader justify="end">
+                Initial Weight
+              </TableColumnHeader>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {cb.variations.map((v) => (
+            {cb.variations.map((v, i) => (
               <TableRow key={v.id}>
                 <TableCell>
                   <Text weight="medium">{v.name}</Text>
                 </TableCell>
                 <TableCell>
                   <Text color="text-low">{v.key}</Text>
+                </TableCell>
+                <TableCell justify="end">
+                  <Text color="text-low">
+                    {formatWeight(weightForIndex(i))}
+                  </Text>
                 </TableCell>
               </TableRow>
             ))}
