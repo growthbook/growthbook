@@ -3,8 +3,8 @@ import { cloneDeep } from "lodash";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import {
   experimentHasLinkedChanges,
-  getRulesForEnvironment,
   getNamespaceRanges,
+  getRulesForEnvironment,
   parseIntWithDefaultCapped,
 } from "shared/util";
 import {
@@ -55,10 +55,7 @@ import {
   revokeInvite,
   setLicenseKey,
 } from "back-end/src/services/organizations";
-import {
-  getNonSensitiveParams,
-  getSourceIntegrationObject,
-} from "back-end/src/services/datasource";
+import { getDataSourcesWithParams } from "back-end/src/services/datasourceResponse";
 import { updatePassword } from "back-end/src/services/users";
 import { getAllTags } from "back-end/src/models/TagModel";
 import {
@@ -196,22 +193,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
   return res.status(200).json({
     status: 200,
     metrics,
-    datasources: datasources.map((d) => {
-      const integration = getSourceIntegrationObject(context, d);
-      return {
-        id: d.id,
-        name: d.name,
-        description: d.description,
-        type: d.type,
-        settings: d.settings,
-        params: getNonSensitiveParams(integration),
-        projects: d.projects || [],
-        properties: integration.getSourceProperties(),
-        decryptionError: integration.decryptionError || false,
-        dateCreated: d.dateCreated,
-        dateUpdated: d.dateUpdated,
-      };
-    }),
+    datasources: await getDataSourcesWithParams(context, datasources),
     dimensions,
     segments,
     metricGroups,
