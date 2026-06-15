@@ -531,13 +531,10 @@ export default function FeaturesOverview({
     tags: feature.tags || [],
   };
 
-  // Draft CTA — defined once and rendered via a stable portal host. The host
-  // is physically moved between the revision card's ctaSlotRef and the sticky
-  // banner's bannerCtaSlotRef.
-  // A single navigation affordance (labeled after its destination tab): all
-  // lifecycle actions (request review, approve, publish, fix conflicts,
-  // discard) live on the review tab itself, which evaluates the full policy
-  // matrix. Visible to everyone — reviewers navigate there too.
+  // Draft CTA — defined once and rendered via a stable portal host moved
+  // between the revision card and sticky banner. Just a navigation affordance:
+  // all lifecycle actions (review, publish, fix conflicts, discard) live on the
+  // review tab, which evaluates the full policy matrix. Shown to everyone.
   const draftCtaGroup = isDraft ? (
     <Box>
       <Button

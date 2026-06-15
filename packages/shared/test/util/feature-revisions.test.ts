@@ -1992,10 +1992,6 @@ describe("getReviewSetting", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// getFeatureAutopublishOnApproval
-// ---------------------------------------------------------------------------
-
 describe("getFeatureAutopublishOnApproval", () => {
   const featureInProjA: FeatureInterface = {
     ...baseFeature,

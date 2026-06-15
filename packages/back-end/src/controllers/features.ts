@@ -967,6 +967,25 @@ export async function postFeatureRebase(
   const { kept: keptRampActions, pruned: prunedRampActions } =
     pruneOrphanedRampActions(revision.rampActions, newRules);
 
+  // A rebase that actually pulls in upstream changes must re-trigger review
+  // per org policy — the prior approval was for pre-rebase content. Mirrors
+  // the v2 REST rebase path (postFeatureRevisionRebase). The merged result
+  // carries rules as a whole array, so when the rebase produced a new one we
+  // treat every env the feature is in as potentially changed.
+  const rulesChanged = mergeResult.result.rules !== undefined;
+  const changedEnvsFromRebase = Array.from(
+    new Set([
+      ...(rulesChanged ? environmentIds : []),
+      ...Object.keys(mergeResult.result.environmentsEnabled ?? {}),
+    ]),
+  );
+  const resetReview = resetReviewOnChange({
+    feature,
+    changedEnvironments: changedEnvsFromRebase,
+    defaultValueChanged: mergeResult.result.defaultValue !== undefined,
+    settings: org.settings,
+  });
+
   await updateRevision(
     context,
     feature,
@@ -996,7 +1015,7 @@ export async function postFeatureRebase(
           : mergeResult.result,
       ),
     },
-    false,
+    resetReview,
   );
 
   const rebased = await getRevision({
@@ -1417,8 +1436,7 @@ export async function postFeatureUndoReview(
 
 // Edit the comment text in an owned revision log entry. The model enforces
 // that only the author of a plain `Comment` entry can mutate it; verdicts,
-// review requests, and other audit-trail entries are immutable. The helper
-// restricts the change to the `value.comment` field.
+// review requests, and other audit-trail entries are immutable.
 export async function putFeatureRevisionLogComment(
   req: AuthRequest<
     { comment: string },
@@ -1427,14 +1445,17 @@ export async function putFeatureRevisionLogComment(
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const { id, logId } = req.params;
+  const { id, version, logId } = req.params;
   const { comment } = req.body;
   if (!comment?.trim()) {
     throw new Error("Comment cannot be empty");
   }
   const feature = await getFeature(context, id);
   if (!feature) throw new Error("Could not find feature");
-  await context.models.featureRevisionLogs.updateCommentText(logId, comment);
+  await context.models.featureRevisionLogs.updateCommentText(logId, comment, {
+    featureId: feature.id,
+    version: parseInt(version),
+  });
   res.status(200).json({ status: 200 });
 }
 
@@ -1449,10 +1470,13 @@ export async function deleteFeatureRevisionLogEntry(
   res: Response,
 ) {
   const context = getContextFromReq(req);
-  const { id, logId } = req.params;
+  const { id, version, logId } = req.params;
   const feature = await getFeature(context, id);
   if (!feature) throw new Error("Could not find feature");
-  await context.models.featureRevisionLogs.deleteOwnedEntry(logId);
+  await context.models.featureRevisionLogs.deleteOwnedEntry(logId, {
+    featureId: feature.id,
+    version: parseInt(version),
+  });
   res.status(200).json({ status: 200 });
 }
 

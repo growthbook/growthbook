@@ -1432,7 +1432,6 @@ function RevisionCommentItem({
         )}
       </Flex>
 
-      {/* Body */}
       <Box p="4">
         {editing ? (
           <CommentComposer

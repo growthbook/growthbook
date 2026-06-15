@@ -9,10 +9,11 @@ export const deleteFeatureRevisionLogEntryV2 = createApiRequestHandler(
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  // Author-of-entry is enforced by the model's canDelete; nothing further to
-  // gate at the controller level beyond confirming the feature exists.
+  // Author-of-entry is enforced by the model's canDelete; the model also
+  // verifies the entry belongs to the feature+version in the URL.
   await req.context.models.featureRevisionLogs.deleteOwnedEntry(
     req.params.logId,
+    { featureId: feature.id, version: req.params.version },
   );
 
   return { status: 200 as const };

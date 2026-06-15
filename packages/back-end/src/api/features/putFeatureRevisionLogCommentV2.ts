@@ -9,11 +9,12 @@ export const putFeatureRevisionLogCommentV2 = createApiRequestHandler(
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
 
-  // Author-of-entry is enforced by the model's canUpdate; nothing further to
-  // gate at the controller level beyond confirming the feature exists.
+  // Author-of-entry is enforced by the model's canUpdate; the model also
+  // verifies the entry belongs to the feature+version in the URL.
   await req.context.models.featureRevisionLogs.updateCommentText(
     req.params.logId,
     req.body.comment,
+    { featureId: feature.id, version: req.params.version },
   );
 
   return { status: 200 as const };

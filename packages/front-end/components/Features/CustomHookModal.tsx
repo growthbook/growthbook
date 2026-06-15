@@ -60,7 +60,6 @@ const dummyRevision: FeatureRevisionInterface = {
   rules: [],
   datePublished: null,
   publishedBy: null,
-  // Active reviewer verdicts for the current review cycle
   reviews: [
     {
       userId: "user_456",

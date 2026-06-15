@@ -42,10 +42,9 @@ export type RebaseRequestBody = {
   expectedDraftDateUpdated?: string;
 };
 
-// Shared compute phase for the rebase and rebase-preview endpoints: loads the
-// feature/revision, validates permissions, the draft status, and the
-// optimistic-concurrency guard, and runs the three-way merge with the
-// supplied resolutions. Performs no writes.
+// Shared compute phase for the rebase and rebase-preview endpoints: loads,
+// validates permissions/status/concurrency guards, and runs the three-way
+// merge with the supplied resolutions. Performs no writes.
 export async function computeRebaseMerge(
   context: ApiReqContext,
   organization: OrganizationInterface,

@@ -967,10 +967,9 @@ export function computeRevisionUpdate(
   status: FeatureRevisionInterface["status"];
   proposedRevision: FeatureRevisionInterface;
   // True when the edit knocked a verdict-bearing status (approved /
-  // changes-requested) back to pending-review — standing reviewer verdicts no
-  // longer apply to the new content. They aren't deleted: they flip to their
-  // "-stale" variants (see `staleReviews`) so they stay attributable in the
-  // UI and visible to policy hooks, without counting as active verdicts.
+  // changes-requested) back to pending-review. Verdicts aren't deleted — they
+  // flip to "-stale" variants (see `staleReviews`) so they stay attributable
+  // without counting as active verdicts.
   clearReviews: boolean;
   // The `reviews` array to persist when `clearReviews` is true: prior active
   // verdicts demoted to "approved-stale" / "changes-requested-stale".
@@ -1347,65 +1346,98 @@ export async function submitReviewAndComments(
       ? { userId: reviewerKey, user, status: verdict, timestamp: new Date() }
       : null;
 
-  // The post-update verdict set (this reviewer's verdict replaces any prior
-  // one). For legacy revisions predating the baked field, backfill from log
-  // replay (one-time self-heal) so pre-deploy verdicts aren't lost.
-  let updatedReviews: RevisionReview[] | null = null;
-  if (newReview !== null) {
-    const priorReviews =
-      revision.reviews ?? (await getActiveReviewsFromLog(context, revision));
-    updatedReviews = [
-      ...priorReviews.filter((r) => r.userId !== newReview.userId),
-      newReview,
-    ];
-  }
-
   // `status` aggregates ALL standing verdicts — one reviewer's approval must
   // not override another reviewer's active changes-requested. Stale verdicts
   // don't count, and comments never change the status.
-  let status: string = revision.status;
-  if (updatedReviews !== null) {
-    status = updatedReviews.some((r) => r.status === "changes-requested")
-      ? "changes-requested"
-      : updatedReviews.some((r) => r.status === "approved")
-        ? "approved"
-        : "pending-review";
+  if (newReview !== null) {
+    // Step 1: bake this reviewer's verdict into the array. Each reviewer only
+    // ever touches their own entry, so concurrent verdicts from different
+    // reviewers can't clobber each other — the array converges to one entry
+    // per reviewer regardless of interleaving.
+    if (revision.reviews === undefined) {
+      // Legacy revision predating the baked `reviews` field: seed it from log
+      // replay (one-time self-heal) so pre-deploy verdicts aren't lost.
+      const priorReviews = await getActiveReviewsFromLog(context, revision);
+      await FeatureRevisionModel.updateOne(filter, {
+        $set: {
+          reviews: [
+            ...priorReviews.filter((r) => r.userId !== newReview.userId),
+            newReview,
+          ],
+          datePublished: null,
+          dateUpdated: new Date(),
+        },
+      });
+    } else {
+      // $pull then $push: Mongo can't $pull and $push the same field in one
+      // update, and each op is atomic and scoped to this reviewer's userId.
+      await FeatureRevisionModel.updateOne(filter, {
+        $pull: { reviews: { userId: newReview.userId } },
+      });
+      await FeatureRevisionModel.updateOne(filter, {
+        $push: { reviews: newReview },
+        $set: { datePublished: null, dateUpdated: new Date() },
+      });
+    }
+
+    // Step 2: reconcile `status` from the *stored* reviews so it can't drift
+    // from a verdict another reviewer landed concurrently. Done as a
+    // compare-and-swap loop guarded on the exact reviews array we derived from
+    // — not an aggregation-pipeline update, which AWS DocumentDB and Azure
+    // Cosmos DB for MongoDB (both supported deployment targets) reject.
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const current = await FeatureRevisionModel.findOne(filter, {
+        reviews: 1,
+      }).lean<{ reviews?: RevisionReview[] } | null>();
+      const reviews = current?.reviews ?? [];
+      const status = reviews.some((r) => r.status === "changes-requested")
+        ? "changes-requested"
+        : reviews.some((r) => r.status === "approved")
+          ? "approved"
+          : "pending-review";
+      // Guard on the array we computed from: if another reviewer mutated it
+      // between our read and write, matchedCount is 0 and we re-read.
+      const res = await FeatureRevisionModel.updateOne(
+        { ...filter, reviews },
+        {
+          $set: {
+            status,
+            // Record the version this approval was made against so staleness
+            // detection works later. Only meaningful when status is approved.
+            ...(status === "approved" && liveVersion !== undefined
+              ? { approvedBaseVersion: liveVersion }
+              : {}),
+          },
+        },
+      );
+      if (res.matchedCount > 0) break;
+      if (attempt === 4) {
+        logger.warn(
+          `submitReviewAndComments: status reconcile exhausted retries for ${revision.featureId}#${revision.version}`,
+        );
+      }
+    }
   } else if (verdict !== null) {
     // Verdict from a user without a stable reviewer key (e.g. system events)
     // can't be baked into `reviews`; fall back to latest-verdict-wins.
-    status = verdict === "approved" ? "approved" : "changes-requested";
-  }
-
-  const baseSet = {
-    status,
-    datePublished: null,
-    dateUpdated: new Date(),
-    // Record the version this approval was made against. Only meaningful
-    // for approvals; harmless to set otherwise.
-    ...(status === "approved" && liveVersion !== undefined
-      ? { approvedBaseVersion: liveVersion }
-      : {}),
-  };
-
-  if (newReview !== null && revision.reviews === undefined) {
-    // Legacy revision: persist the whole backfilled array.
+    const status = verdict === "approved" ? "approved" : "changes-requested";
     await FeatureRevisionModel.updateOne(filter, {
-      $set: { ...baseSet, reviews: updatedReviews },
-    });
-  } else if (newReview !== null) {
-    // Upsert = $pull any prior entry, then $push the new one. Mongo can't
-    // $pull and $push the same field in one update, so this is two ops —
-    // each atomic, so concurrent verdicts from different reviewers can't
-    // clobber each other.
-    await FeatureRevisionModel.updateOne(filter, {
-      $pull: { reviews: { userId: newReview.userId } },
-    });
-    await FeatureRevisionModel.updateOne(filter, {
-      $set: baseSet,
-      $push: { reviews: newReview },
+      $set: {
+        status,
+        datePublished: null,
+        dateUpdated: new Date(),
+        ...(status === "approved" && liveVersion !== undefined
+          ? { approvedBaseVersion: liveVersion }
+          : {}),
+      },
     });
   } else {
-    await FeatureRevisionModel.updateOne(filter, { $set: baseSet });
+    // Plain comment: bump the activity timestamp but never touch `status` —
+    // writing the stale in-memory status back could clobber a verdict that
+    // landed concurrently.
+    await FeatureRevisionModel.updateOne(filter, {
+      $set: { dateUpdated: new Date() },
+    });
   }
 
   // Fire and forget - no route that submits the review and comments expects the log to be there immediately
@@ -1625,7 +1657,16 @@ export async function reopenRevision(
       version: revision.version,
     },
     {
-      $set: { status: "draft", dateUpdated: new Date() },
+      // Reopening starts the review lifecycle over — clear baked verdicts,
+      // the recorded approval point, and the auto-publish opt-in so a stale
+      // approval can't carry over (mirrors recallReview).
+      $set: {
+        status: "draft",
+        dateUpdated: new Date(),
+        reviews: [],
+        autoPublishOnApproval: false,
+      },
+      $unset: { approvedBaseVersion: 1, autoPublishEnabledBy: 1 },
     },
   );
 

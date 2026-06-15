@@ -99,10 +99,9 @@ export interface Props {
 // publish/review surface can use the same envelope backfill.
 const revisionToDiffInput = revisionToFeatureRevisionDiffInput;
 
-// Build FeatureRevisionDiff items for any ramp schedules linked to a given revision.
-// "newerRevision" is the revision being introduced on the right-hand side of the diff.
-// Unlike DraftModal (which only shows pending ramps), this is status-agnostic so it works
-// for both draft previews and historical published-revision comparisons.
+// FeatureRevisionDiff items for ramp schedules linked to `newerRevision` (the
+// right-hand side of the diff). Status-agnostic (unlike DraftModal's
+// pending-only view) so it covers both drafts and historical published revisions.
 function rampDiffsForRevision(
   newerRevision: FeatureRevisionInterface | null,
   featureId: string,
@@ -190,7 +189,7 @@ function rampDiffsForRevision(
     return idx ? `Rule #${idx}` : `Rule ${ruleId}`;
   };
 
-  // Pending ramp actions: display create/update/detach actions queued in the draft
+  // Pending ramp actions (create/update/detach) queued in the draft
   if (newerRevision.rampActions) {
     for (const action of newerRevision.rampActions) {
       if (action.mode === "create") {

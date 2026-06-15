@@ -8,9 +8,8 @@ import Text from "@/ui/Text";
 export interface CommentCardProps {
   user?: EventUserType | null;
   /**
-   * Action phrase displayed after the user, e.g. `"commented on May 5, 2026"`
-   * or `"approved on Jun 9, 2026"`. Wrapped in small text-low styling by this
-   * component — callers should pass plain strings, not pre-styled <Text>.
+   * Action phrase after the user, e.g. `"commented on May 5, 2026"`. Rendered
+   * as small text-low — pass a plain string, not a pre-styled <Text>.
    */
   metadata: string;
   /**
@@ -35,14 +34,10 @@ export interface CommentCardProps {
    */
   stripeColor?: string;
   /**
-   * Override the leading avatar with a custom element (typically a colored
-   * icon avatar for non-human signals like verdicts). Should be sized to
-   * match `avatarSize` so the layout stays aligned.
+   * Override the leading avatar with a custom element. Size it to match
+   * `avatarSize` so the layout stays aligned.
    */
   leading?: React.ReactNode;
-  /**
-   * Size of the leading user avatar. Default `"sm"`.
-   */
   avatarSize?: Size;
 }
 

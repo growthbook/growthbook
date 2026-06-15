@@ -77,12 +77,10 @@ export const getFeatureRevisionDiffV2 = createApiRequestHandler(
     to: revision.version,
   };
 
-  // Both formats already handle the empty-change case (no `supplemental`
-  // emitted, empty `changes` array, identical before/after objects). The
-  // wrapper just adds version metadata so the response is self-describing.
-  // Because `before` / `after` are always populated here (we synthesize them
-  // from the loaded revisions), `buildFullJsonObject` will always take its
-  // raw branch — the `fields` form is impossible from this call site.
+  // `before`/`after` are always populated here (synthesized from the loaded
+  // revisions), so `buildFullJsonObject` always takes its raw branch — the
+  // `fields` form is impossible from this call site. Both formats already
+  // handle the empty-change case.
   const buildArgs = {
     entityName: feature.id,
     entityType: "feature",

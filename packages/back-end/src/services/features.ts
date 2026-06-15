@@ -1978,11 +1978,10 @@ export function revisionToApiInterfaceV2(
   };
 }
 
-// Diffable subset of a revision: the *content* fields, stripped of
+// Diffable subset of a revision: the content fields, stripped of
 // lifecycle/identity metadata that always differs across revisions (version,
 // baseVersion, status, comment, date, createdBy, publishedBy, featureId).
-// What's left — defaultValue, rules, environmentsEnabled, prerequisites,
-// metadata, rampActions — is exactly what the diff endpoint compares.
+// What's left is exactly what the diff endpoint compares.
 export function revisionToDiffableV2(
   rev: FeatureRevisionInterface,
 ): Record<string, unknown> {

@@ -7,11 +7,10 @@ import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "featurerevisionlog";
 
-// Author-editable entries: an author can rewrite the comment text in their
-// own entries for these actions. Verdicts (Approved / Requested Changes)
-// are included so reviewers can fix typos / clarify the rationale, but the
-// model only rewrites the `value.comment` field — the action itself is
-// immutable. To retract a verdict outright, use `undoReview`.
+// Author-editable entries: authors can rewrite the comment text on their own
+// entries for these actions. Verdicts (Approved / Requested Changes) are
+// editable too, but only `value.comment` changes — the action stays immutable.
+// To retract a verdict outright, use `undoReview`.
 const EDITABLE_AUTHOR_ACTIONS = new Set([
   "Comment",
   "Approved",
@@ -93,14 +92,35 @@ export class FeatureRevisionLogModel extends BaseClass {
     return await this._find({ featureId, version });
   }
 
+  // The route addresses an entry as feature/version/logId, but the document
+  // lookup is by logId alone — verify the entry actually belongs to the
+  // feature+revision in the URL so callers can't mutate entries on other
+  // features they happen to own comments on.
+  private assertEntryInScope(
+    existing: FeatureRevisionLogInterface,
+    scope: { featureId: string; version: number },
+  ): void {
+    if (
+      existing.featureId !== scope.featureId ||
+      existing.version !== scope.version
+    ) {
+      throw new Error("Could not find revision log entry");
+    }
+  }
+
   // Update only the `comment` field inside a log entry's `value` JSON. Keeps
   // the action/verdict intact so verdict-bearing entries (Approved, Requested
   // Changes) retain their semantics — only the comment text changes.
-  public async updateCommentText(id: string, newComment: string) {
+  public async updateCommentText(
+    id: string,
+    newComment: string,
+    scope: { featureId: string; version: number },
+  ) {
     const existing = await this.getById(id);
     if (!existing) {
       throw new Error("Could not find revision log entry");
     }
+    this.assertEntryInScope(existing, scope);
     let payload: Record<string, unknown> = {};
     try {
       const parsed = JSON.parse(existing.value);
@@ -118,9 +138,13 @@ export class FeatureRevisionLogModel extends BaseClass {
 
   // Delete an owned plain-comment entry. Verdict entries are not deletable
   // here — to retract a verdict, callers should use the `undoReview` flow.
-  public async deleteOwnedEntry(id: string) {
+  public async deleteOwnedEntry(
+    id: string,
+    scope: { featureId: string; version: number },
+  ) {
     const existing = await this.getById(id);
     if (!existing) return undefined;
+    this.assertEntryInScope(existing, scope);
     await this.delete(existing);
     return existing;
   }

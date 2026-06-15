@@ -1821,7 +1821,6 @@ export default function ReviewAndPublish({
     </ModalStandard>
   ) : null;
 
-  // ── Simple full-width states (no two-column layout) ──
   // Hard merge conflicts no longer short-circuit the page: keep the
   // two-column layout so reviewers can still see draft-vs-live changes
   // alongside a "Fix conflicts" CTA in the actions column.
@@ -2117,7 +2116,6 @@ export default function ReviewAndPublish({
           (approved || !requireReviews) &&
           renderExperimentSelection()}
 
-        {/* ─── Actions area ─── */}
         <Box mt="6">
           {/* Read-only auto-publish indicator for reviewers */}
           {showAutoPublishReadonly && (
@@ -2167,7 +2165,6 @@ export default function ReviewAndPublish({
             </Flex>
           )}
 
-          {/* ─── Publish footer ─── */}
           {(() => {
             // Step actions that come before publish (Request Review, Submit
             // Review, Next). Not gated on conflict state — requesting a review

@@ -616,11 +616,10 @@ export class RevisionModel extends BaseClass {
       comment: "commented",
     };
 
-    // Verdicts only stand for the current review cycle. Every transition
-    // that invalidates prior verdicts (submit for review, approval reset on
-    // content edit, reopen of a discarded revision) logs a "reopened"
-    // activity entry, so reviews submitted before the latest one are
-    // history, not active approvals/blocks.
+    // Verdicts only stand for the current review cycle. Transitions that
+    // invalidate prior verdicts (submit for review, approval reset on content
+    // edit, reopen) log a "reopened" activity entry, so reviews before the
+    // latest one are history, not active approvals/blocks.
     let cycleStart: Date | null = null;
     for (const entry of existing.activityLog) {
       if (

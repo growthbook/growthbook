@@ -411,14 +411,9 @@ export const postFeatureRevisionRevertV2Validator = {
   version: "v2" as const,
 };
 
-// Conflicts are keyed per field — and per rule for the rules array:
-// `defaultValue`, `prerequisites`, `archived`, `holdout`,
-// `environmentsEnabled.<env>`, `metadata.<field>`, `rules.<ruleId>` (the two
-// sides changed the same rule differently, including delete-vs-modify), and
-// `rules.order` (the two sides reordered rules differently). Each key is
-// resolved independently with `overwrite` (take the draft's version) or
-// `discard` (keep live's). The blanket `rules` key is also accepted and
-// applies to every rule-level conflict at once.
+// Per-field conflict keys, plus per-rule `rules.<ruleId>` (both sides changed
+// the same rule, including delete-vs-modify) and `rules.order` (competing
+// reorders). The blanket `rules` key resolves all rule-level conflicts at once.
 const conflictResolutionsDescription =
   "Map of conflict key → resolution. Keys come from the returned conflicts: `defaultValue`, `prerequisites`, `archived`, `holdout`, `environmentsEnabled.<env>`, `metadata.<field>`, `rules.<ruleId>`, and `rules.order`. `overwrite` keeps the draft's version of that item; `discard` keeps live's. The blanket `rules` key applies one strategy to all rule-level conflicts.";
 
@@ -484,13 +479,10 @@ export const getFeatureRevisionMergeStatusV2Validator = {
 
 // ---- Diff endpoint ----
 //
-// Shape mirrors the front-end's "Copy as → Minimal JSON" / "Full JSON"
-// outputs so a single source of truth describes both the in-app clipboard
-// formats and the REST contract. Lifecycle/identity fields (version,
-// baseVersion, status, comment, date, createdBy, publishedBy, featureId) are
-// not part of the diff body — they're echoed in `from`/`to` instead — so the
-// payload focuses on *content* changes (defaultValue, rules,
-// environmentsEnabled, prerequisites, metadata, rampActions).
+// Shape mirrors the front-end's "Copy as → Minimal/Full JSON" so one source of
+// truth covers both the in-app clipboard formats and the REST contract.
+// Lifecycle/identity fields are echoed in `from`/`to` rather than the diff
+// body, which focuses on content changes.
 const diffFormatParam = z
   .enum(["minimal", "full"])
   .optional()
@@ -498,11 +490,7 @@ const diffFormatParam = z
     "`minimal` (default) returns only what changed, with id-keyed arrays bucketed into added/removed/modified items. `full` returns the complete before/after content of the revision.",
   );
 
-// Either "baseVersion" (the revision's own baseVersion — what it was branched
-// from, mirrors the in-app review surface), "live" (the currently-live
-// revision — useful for pre-publish bots that want to see net effect on the
-// live state), or an integer version (compare against an arbitrary historical
-// revision).
+// `base=live` is handy for pre-publish bots that want the net effect on live.
 const diffBaseParam = z
   .union([z.literal("baseVersion"), z.literal("live"), z.coerce.number().int()])
   .optional()
