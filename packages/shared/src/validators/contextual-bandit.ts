@@ -11,9 +11,15 @@ import { priorSettingsValidator } from "./fact-table";
 import { namedSchema } from "./openapi-helpers";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 
+export const variationWeightPairValidator = z.object({
+  variationId: z.string(),
+  weight: z.number(),
+});
+export type VariationWeightPair = z.infer<typeof variationWeightPairValidator>;
+
 export const leafWeightValidator = z.object({
   contextId: z.string(),
-  weights: z.array(z.number()),
+  weights: z.array(variationWeightPairValidator),
 });
 export type LeafWeight = z.infer<typeof leafWeightValidator>;
 
@@ -69,7 +75,7 @@ export const contextualBanditValidator = baseSchema
     condition: z.string().optional(),
     seed: z.string().optional(),
     /** SDK fallback when no context match. */
-    variationWeights: z.array(z.number()).optional(),
+    variationWeights: z.array(variationWeightPairValidator).optional(),
     /** Per-context bandit weights. */
     currentLeafWeights: z.array(leafWeightValidator),
     /**
@@ -175,7 +181,7 @@ export const apiContextualBanditValidator = namedSchema(
     coverage: z.number().min(0).max(1).optional(),
     condition: z.string().optional(),
     seed: z.string().optional(),
-    variationWeights: z.array(z.number()).optional(),
+    variationWeights: z.array(variationWeightPairValidator).optional(),
     currentLeafWeights: z.array(leafWeightValidator),
     snapshotUpdateCount: z.number().int().nonnegative(),
 
@@ -300,7 +306,7 @@ export const apiUpdateContextualBanditBody = z.object({
   coverage: z.number().min(0).max(1).optional(),
   condition: z.string().optional(),
   seed: z.string().optional(),
-  variationWeights: z.array(z.number()).optional(),
+  variationWeights: z.array(variationWeightPairValidator).optional(),
 
   // Passthrough fields from shared experiment-edit modals; silently discarded server-side.
   customMetricSlices: z.unknown().optional(),
@@ -435,11 +441,7 @@ export const getCbCurrentValidator = {
   paramsSchema: cbIdOnlyParam,
   responseSchema: z
     .object({
-      currentLeafWeights: z
-        .array(
-          z.object({ contextId: z.string(), weights: z.array(z.number()) }),
-        )
-        .optional(),
+      currentLeafWeights: z.array(leafWeightValidator).optional(),
       latestEvent: cbEventResponseShape.nullable(),
     })
     .strict(),

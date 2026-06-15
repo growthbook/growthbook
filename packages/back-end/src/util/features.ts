@@ -29,7 +29,11 @@ import {
   FeatureMetadata,
 } from "shared/types/sdk";
 import { ProjectInterface } from "shared/types/project";
-import { HoldoutInterface, ContextualBanditInterface } from "shared/validators";
+import {
+  HoldoutInterface,
+  ContextualBanditInterface,
+  VariationWeightPair,
+} from "shared/validators";
 import {
   expandNestedSavedGroups,
   getJSONValue,
@@ -54,6 +58,15 @@ import { RampMonitoredRuleInfo } from "back-end/src/models/RampScheduleModel";
 import { logger } from "back-end/src/util/logger";
 import { getApplicableEnvIds } from "./flattenRules";
 import { getCurrentEnabledState } from "./scheduleRules";
+
+function pairedWeightsToPositional(
+  paired: VariationWeightPair[],
+  variations: { id: string }[],
+): number[] {
+  return variations.map(
+    (v) => paired.find((w) => w.variationId === v.id)?.weight ?? 0,
+  );
+}
 
 export interface FeatureLookups {
   featuresMap: Map<string, FeatureInterface>;
@@ -867,7 +880,9 @@ export function getFeatureDefinition({
               ? getJSONValue(feature.valueType, variation.value)
               : null;
           });
-          rule.weights = cb.variationWeights;
+          rule.weights = cb.variationWeights
+            ? pairedWeightsToPositional(cb.variationWeights, cb.variations)
+            : undefined;
 
           const cbCapable =
             capabilities === undefined ||

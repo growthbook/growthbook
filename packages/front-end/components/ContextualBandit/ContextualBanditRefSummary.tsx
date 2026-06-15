@@ -58,7 +58,10 @@ export default function ContextualBanditRefSummary({
     );
   }
 
-  const variationWeights = cb.variationWeights ?? [];
+  const variationWeights = cb.variations.map(
+    (v) =>
+      cb.variationWeights?.find((w) => w.variationId === v.id)?.weight ?? 0,
+  );
 
   return (
     <Box>

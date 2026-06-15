@@ -9,6 +9,7 @@ import {
   ContextualBanditInterface,
   ContextualBanditSnapshotInterface,
   ContextualBanditSnapshotSettings,
+  LeafWeight,
 } from "shared/validators";
 import { deriveContextId } from "shared/util";
 import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
@@ -165,12 +166,16 @@ export async function runContextualBanditSnapshot(
 export function leafWeightsFromContextualBanditResult(
   seed: string,
   result: ContextualBanditResult,
-): { contextId: string; weights: number[] }[] {
+  variations: { id: string }[],
+): LeafWeight[] {
   return result.responses
     .filter((r) => r.updatedWeights != null && r.updatedWeights.length > 0)
     .map((r) => ({
       contextId: deriveContextId(seed, r.context),
-      weights: r.updatedWeights!,
+      weights: r.updatedWeights!.map((weight, i) => ({
+        variationId: variations[i]?.id ?? String(i),
+        weight,
+      })),
     }));
 }
 
@@ -178,7 +183,7 @@ export function leafWeightsFromContextualBanditResult(
 export function contextualBanditWeightsWereUpdated(
   result: ContextualBanditResult,
   seed: string,
-  currentLeafWeights: { contextId: string; weights: number[] }[],
+  currentLeafWeights: LeafWeight[],
 ): boolean {
   const currentByContext = Object.fromEntries(
     currentLeafWeights.map((lw) => [lw.contextId, lw.weights]),
@@ -193,7 +198,8 @@ export function contextualBanditWeightsWereUpdated(
     if (!current) {
       return true;
     }
-    return JSON.stringify(current) !== JSON.stringify(r.updatedWeights);
+    const currentNumbers = current.map((p) => p.weight);
+    return JSON.stringify(currentNumbers) !== JSON.stringify(r.updatedWeights);
   });
 }
 
@@ -216,7 +222,11 @@ export async function persistContextualBanditEvent(
     cb.id,
     currentLeafWeights,
   );
-  const leafWeights = leafWeightsFromContextualBanditResult(cb.id, result);
+  const leafWeights = leafWeightsFromContextualBanditResult(
+    cb.id,
+    result,
+    cb.variations,
+  );
 
   const cbe = await context.models.contextualBanditEvents.create({
     contextualBandit: cb.id,
@@ -290,10 +300,11 @@ export function buildContextualBanditSnapshotSettings(
       (cb.metricOverrides ?? []).map((m) => [m.id, m]),
     ),
 
-    // Falls back to an even split when `variationWeights` hasn't been populated yet.
-    variations: (cb.variations ?? []).map((v, i) => ({
+    variations: (cb.variations ?? []).map((v) => ({
       id: v.id,
-      weight: cb.variationWeights?.[i] ?? 1 / numVariations,
+      weight:
+        cb.variationWeights?.find((w) => w.variationId === v.id)?.weight ??
+        1 / numVariations,
     })),
 
     maxContexts: cb.maxContexts,

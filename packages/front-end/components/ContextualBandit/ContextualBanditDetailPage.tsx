@@ -72,7 +72,8 @@ export default function ContextualBanditDetailPage({
 
   const numVariations = cb.variations.length;
   const weightForIndex = (i: number): number =>
-    cb.variationWeights?.[i] ?? (numVariations > 0 ? 1 / numVariations : 0);
+    cb.variationWeights?.find((w) => w.variationId === cb.variations[i]?.id)
+      ?.weight ?? (numVariations > 0 ? 1 / numVariations : 0);
   const formatWeight = (w: number): string =>
     new Intl.NumberFormat(undefined, {
       style: "percent",

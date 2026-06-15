@@ -425,9 +425,12 @@ const ContextualBanditsPage = (): React.ReactElement => {
                                     reason: "",
                                     coverage: e.coverage ?? 1,
                                     condition: e.condition ?? "",
-                                    variationWeights:
-                                      e.variationWeights ??
-                                      e.variations.map(() => 1),
+                                    variationWeights: e.variations.map(
+                                      (v) =>
+                                        e.variationWeights?.find(
+                                          (w) => w.variationId === v.id,
+                                        )?.weight ?? 1,
+                                    ),
                                     variations: e.variations.map((v) => ({
                                       id: v.id,
                                     })),

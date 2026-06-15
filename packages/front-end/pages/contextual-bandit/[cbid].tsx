@@ -204,7 +204,11 @@ const ContextualBanditPage = (): ReactElement => {
             regressionAdjustmentEnabled: cb.regressionAdjustmentEnabled,
             coverage: cb.coverage,
             condition: cb.condition,
-            variationWeights: cb.variationWeights,
+            variationWeights: cb.variations.map(
+              (v) =>
+                cb.variationWeights?.find((w) => w.variationId === v.id)
+                  ?.weight ?? 1 / cb.variations.length,
+            ),
             variations: cb.variations.map((v) => ({
               id: v.id,
               key: v.key,

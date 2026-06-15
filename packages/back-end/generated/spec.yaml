@@ -27120,7 +27120,16 @@ paths:
                 variationWeights:
                   type: array
                   items:
-                    type: number
+                    type: object
+                    properties:
+                      variationId:
+                        type: string
+                      weight:
+                        type: number
+                    required:
+                      - variationId
+                      - weight
+                    additionalProperties: false
                 customMetricSlices: {}
                 winner: {}
                 results: {}
@@ -42473,7 +42482,16 @@ components:
         variationWeights:
           type: array
           items:
-            type: number
+            type: object
+            properties:
+              variationId:
+                type: string
+              weight:
+                type: number
+            required:
+              - variationId
+              - weight
+            additionalProperties: false
         currentLeafWeights:
           type: array
           items:
@@ -42484,7 +42502,16 @@ components:
               weights:
                 type: array
                 items:
-                  type: number
+                  type: object
+                  properties:
+                    variationId:
+                      type: string
+                    weight:
+                      type: number
+                  required:
+                    - variationId
+                    - weight
+                  additionalProperties: false
             required:
               - contextId
               - weights
@@ -45270,7 +45297,16 @@ components:
         weights:
           type: array
           items:
-            type: number
+            type: object
+            properties:
+              variationId:
+                type: string
+              weight:
+                type: number
+            required:
+              - variationId
+              - weight
+            additionalProperties: false
       required:
         - contextId
         - weights
