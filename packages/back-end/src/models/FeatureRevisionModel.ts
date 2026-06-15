@@ -1433,25 +1433,38 @@ export async function submitReviewAndComments(
       });
     }
 
-    // Step 2: reconcile `status` from the stored reviews (CAS-guarded) so it
-    // can't drift from a concurrent verdict. Record approvedBaseVersion for
-    // later staleness detection when approved.
-    const outcome = await casUpdate(filter, ["reviews"], (current) => {
-      const reviews = current.reviews ?? [];
-      const status = reviews.some((r) => r.status === "changes-requested")
-        ? "changes-requested"
-        : reviews.some((r) => r.status === "approved")
-          ? "approved"
-          : "pending-review";
-      return {
-        $set: {
-          status,
-          ...(status === "approved" && liveVersion !== undefined
-            ? { approvedBaseVersion: liveVersion }
-            : {}),
-        },
-      };
-    });
+    // Step 2: reconcile `status` from the stored reviews (CAS-guarded on both
+    // `reviews` and `status`) so it can't drift from a concurrent verdict.
+    // Bail if a concurrent recall/discard moved us out of the review cycle —
+    // otherwise we'd resurrect "pending-review" over their "draft". Record
+    // approvedBaseVersion for later staleness detection when approved.
+    const outcome = await casUpdate(
+      filter,
+      ["reviews", "status"],
+      (current) => {
+        if (
+          !(
+            ["pending-review", "changes-requested", "approved"] as string[]
+          ).includes(current.status ?? "")
+        ) {
+          return null;
+        }
+        const reviews = current.reviews ?? [];
+        const status = reviews.some((r) => r.status === "changes-requested")
+          ? "changes-requested"
+          : reviews.some((r) => r.status === "approved")
+            ? "approved"
+            : "pending-review";
+        return {
+          $set: {
+            status,
+            ...(status === "approved" && liveVersion !== undefined
+              ? { approvedBaseVersion: liveVersion }
+              : {}),
+          },
+        };
+      },
+    );
     if (outcome === "exhausted") {
       logger.warn(
         `submitReviewAndComments: status reconcile exhausted retries for ${revision.featureId}#${revision.version}`,
