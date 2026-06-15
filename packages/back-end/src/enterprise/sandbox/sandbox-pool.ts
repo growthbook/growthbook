@@ -37,6 +37,39 @@ const KILL_GRACE_MS = parseEnvInt(process.env.CUSTOM_HOOK_KILL_GRACE_MS, 2000, {
   min: 1,
   name: "CUSTOM_HOOK_KILL_GRACE_MS",
 });
+// A worker that exits before handling a job and before this uptime is treated as a
+// boot failure (bad worker path, missing native module, OOM-on-load). Set above the
+// real boot time so a healthy-but-slow boot isn't misclassified.
+const MIN_HEALTHY_UPTIME_MS = parseEnvInt(
+  process.env.CUSTOM_HOOK_MIN_HEALTHY_UPTIME_MS,
+  2000,
+  { min: 1, name: "CUSTOM_HOOK_MIN_HEALTHY_UPTIME_MS" },
+);
+// Backoff between respawns after boot failures, to avoid a fork→crash→fork storm
+// that pegs CPU and starves the event loop (tripping liveness probes).
+const RESPAWN_BACKOFF_BASE_MS = parseEnvInt(
+  process.env.CUSTOM_HOOK_RESPAWN_BACKOFF_MS,
+  250,
+  { min: 1, name: "CUSTOM_HOOK_RESPAWN_BACKOFF_MS" },
+);
+const RESPAWN_BACKOFF_MAX_MS = parseEnvInt(
+  process.env.CUSTOM_HOOK_RESPAWN_BACKOFF_MAX_MS,
+  30000,
+  { min: 1, name: "CUSTOM_HOOK_RESPAWN_BACKOFF_MAX_MS" },
+);
+// Consecutive boot failures that trip the crash-loop breaker.
+const CRASH_LOOP_THRESHOLD = parseEnvInt(
+  process.env.CUSTOM_HOOK_CRASH_LOOP_THRESHOLD,
+  5,
+  { min: 1, name: "CUSTOM_HOOK_CRASH_LOOP_THRESHOLD" },
+);
+// While the breaker is open we stop respawning and fail jobs fast; after this cooldown
+// we allow a single half-open trial worker to test whether the issue has cleared.
+const CIRCUIT_COOLDOWN_MS = parseEnvInt(
+  process.env.CUSTOM_HOOK_CIRCUIT_COOLDOWN_MS,
+  30000,
+  { min: 1, name: "CUSTOM_HOOK_CIRCUIT_COOLDOWN_MS" },
+);
 
 // Worker sibling module, matching this file's extension (.ts dev / .js compiled).
 const WORKER_PATH =
@@ -59,6 +92,10 @@ interface Worker {
   busy: boolean;
   jobsHandled: number;
   generation: number;
+  spawnedAt: number;
+  // Fires once the worker has stayed up long enough to count as a healthy boot,
+  // which clears the crash-loop breaker.
+  bootTimer?: ReturnType<typeof setTimeout>;
   current?: { job: Job; killTimer: ReturnType<typeof setTimeout> };
 }
 
@@ -69,24 +106,95 @@ let started = false;
 let shuttingDown = false;
 // Bumped on (re)start so handleExit can ignore workers from a torn-down pool.
 let generation = 0;
+// Crash-loop breaker state.
+let consecutiveBootFailures = 0;
+let circuitOpenUntil = 0;
+let replenishScheduled = false;
+
+// Matches the `--require`/`-r` preload that bootstraps a tracing SDK
+// (tracing.opentelemetry / tracing.datadog), in either spelling:
+//   "--require <module>"  ->  the value is the module path
+//   "--require=<module>"  ->  flag and value combined
+const TRACING_MODULE_RE = /tracing\.(?:opentelemetry|datadog)/;
+
+// The parent boots a tracing SDK via `node --require .../tracing.*.js`. A forked
+// worker inherits that flag through process.execArgv, so without this it would
+// re-bootstrap a full OpenTelemetry/Datadog SDK + auto-instrumentation in every
+// child (duplicate exporters/timers, child_process instrumentation nesting, slow
+// or failing boots). We want tracing only in the parent — the meaningful span is
+// the runInSandbox call there — so strip the tracing preload from the worker.
+function workerExecArgv(): string[] {
+  const out: string[] = [];
+  const parent = process.execArgv;
+  for (let i = 0; i < parent.length; i++) {
+    const arg = parent[i];
+    // Re-added below with the worker's own heap cap.
+    if (arg.startsWith("--max-old-space-size")) continue;
+    if (arg === "--require" || arg === "-r") {
+      // Drop the flag and its value when the value is a tracing module; keep
+      // any other preload (e.g. a TS loader in dev).
+      if (TRACING_MODULE_RE.test(parent[i + 1] ?? "")) {
+        i++;
+        continue;
+      }
+      out.push(arg);
+      continue;
+    }
+    if (
+      (arg.startsWith("--require=") || arg.startsWith("-r=")) &&
+      TRACING_MODULE_RE.test(arg)
+    ) {
+      continue;
+    }
+    out.push(arg);
+  }
+  out.push(`--max-old-space-size=${WORKER_HEAP_MB}`);
+  return out;
+}
+
+// Strip any tracing preload that came in via NODE_OPTIONS and hard-disable the
+// SDKs, so the worker can't bootstrap tracing by any path.
+function workerEnv(): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    OTEL_SDK_DISABLED: "true",
+    DD_TRACE_ENABLED: "false",
+  };
+  if (env.NODE_OPTIONS) {
+    const scrubbed = env.NODE_OPTIONS.replace(
+      /(?:--require|-r)(?:=|\s+)\S*tracing\.(?:opentelemetry|datadog)\S*/g,
+      "",
+    ).trim();
+    if (scrubbed) env.NODE_OPTIONS = scrubbed;
+    else delete env.NODE_OPTIONS;
+  }
+  return env;
+}
 
 function spawnWorker(): Worker {
-  // Keep the parent's runtime flags but override the heap cap.
-  const execArgv = [
-    ...process.execArgv.filter((a) => !a.startsWith("--max-old-space-size")),
-    `--max-old-space-size=${WORKER_HEAP_MB}`,
-  ];
-
   const proc = fork(WORKER_PATH, [], {
-    execArgv,
+    execArgv: workerExecArgv(),
+    env: workerEnv(),
     serialization: "advanced",
     // Discard stdin/stdout; keep stderr so crashes surface in logs. ipc for jobs/results.
     stdio: ["ignore", "ignore", "inherit", "ipc"],
   });
 
-  const worker: Worker = { proc, busy: false, jobsHandled: 0, generation };
+  const worker: Worker = {
+    proc,
+    busy: false,
+    jobsHandled: 0,
+    generation,
+    spawnedAt: Date.now(),
+  };
+
+  // Surviving a short uptime means the worker booted fine, so clear the breaker.
+  worker.bootTimer = setTimeout(markBootHealthy, MIN_HEALTHY_UPTIME_MS);
+  worker.bootTimer.unref();
 
   proc.on("message", (msg: { id: number; result: SandboxEvalResult }) => {
+    // Any response proves the worker is healthy, so clear the breaker.
+    markBootHealthy();
     const cur = worker.current;
     if (!cur || cur.job.id !== msg.id) return; // stale/duplicate
     clearTimeout(cur.killTimer);
@@ -107,12 +215,31 @@ function spawnWorker(): Worker {
   return worker;
 }
 
+// A worker stayed up long enough (or answered a job): the boot path works, so reset
+// the crash-loop breaker and resume normal respawning.
+function markBootHealthy() {
+  if (consecutiveBootFailures === 0 && circuitOpenUntil === 0) return;
+  consecutiveBootFailures = 0;
+  circuitOpenUntil = 0;
+  ensureCapacity();
+}
+
+function failAllQueued(error: string) {
+  while (queue.length) {
+    queue.shift()?.resolve({ ok: false, error, warnings: [] });
+  }
+}
+
 function handleExit(
   worker: Worker,
   code: number | null,
   signal: NodeJS.Signals | null,
 ) {
   workers = workers.filter((w) => w !== worker);
+  if (worker.bootTimer) {
+    clearTimeout(worker.bootTimer);
+    worker.bootTimer = undefined;
+  }
 
   const cur = worker.current;
   if (cur) {
@@ -129,15 +256,74 @@ function handleExit(
         "Custom hook: sandbox terminated unexpectedly (possible crash, out-of-memory, or timeout)",
       warnings: [],
     });
+  } else if (
+    worker.jobsHandled === 0 &&
+    Date.now() - worker.spawnedAt < MIN_HEALTHY_UPTIME_MS
+  ) {
+    // Worker died during startup before doing any work — likely a boot failure that
+    // would repeat on respawn. Count it; respawns back off (see ensureCapacity).
+    consecutiveBootFailures++;
+    logger.error(
+      { code, signal, consecutiveBootFailures },
+      "Custom hook sandbox worker failed to boot",
+    );
+    if (
+      consecutiveBootFailures >= CRASH_LOOP_THRESHOLD &&
+      circuitOpenUntil <= Date.now()
+    ) {
+      circuitOpenUntil = Date.now() + CIRCUIT_COOLDOWN_MS;
+      logger.error(
+        { cooldownMs: CIRCUIT_COOLDOWN_MS },
+        "Custom hook sandbox crash-loop detected; pausing respawns and failing jobs fast",
+      );
+      failAllQueued(
+        "Custom hook: sandbox temporarily unavailable (worker keeps crashing)",
+      );
+    }
   }
 
   // Ignore exits from a torn-down generation (the job, if any, was failed above).
   if (worker.generation !== generation) return;
 
   if (!shuttingDown && started) {
-    if (workers.length < POOL_SIZE) workers.push(spawnWorker());
+    ensureCapacity();
     dispatch();
   }
+}
+
+// Refill the pool toward POOL_SIZE, but throttle respawns while boot failures are
+// happening: back off between attempts and, once the breaker is open, wait out the
+// cooldown before a single half-open trial worker.
+function ensureCapacity() {
+  if (shuttingDown || !started || replenishScheduled) return;
+  if (workers.length >= POOL_SIZE) return;
+
+  const now = Date.now();
+  let delay = 0;
+  if (circuitOpenUntil > now) {
+    delay = circuitOpenUntil - now;
+  } else if (consecutiveBootFailures > 0) {
+    delay = Math.min(
+      RESPAWN_BACKOFF_BASE_MS * 2 ** (consecutiveBootFailures - 1),
+      RESPAWN_BACKOFF_MAX_MS,
+    );
+  }
+
+  replenishScheduled = true;
+  const timer = setTimeout(() => {
+    replenishScheduled = false;
+    if (shuttingDown || !started) return;
+    if (workers.length < POOL_SIZE) {
+      workers.push(spawnWorker());
+      dispatch();
+    }
+    // While healthy, fill the rest of the pool immediately; while degraded, spawn one
+    // at a time and let each worker's outcome drive the next attempt.
+    if (workers.length < POOL_SIZE && consecutiveBootFailures === 0) {
+      ensureCapacity();
+    }
+  }, delay);
+  timer.unref();
 }
 
 // Gracefully retire a worker; the exit handler removes and respawns it.
@@ -157,11 +343,13 @@ function dispatch() {
 
   let worker = workers.find((w) => !w.busy && w.proc.connected);
   if (!worker) {
-    if (workers.length < POOL_SIZE) {
+    // Don't spawn on demand while the breaker is open; respawns are throttled via
+    // ensureCapacity so we don't add to a fork→crash storm.
+    if (workers.length < POOL_SIZE && circuitOpenUntil <= Date.now()) {
       worker = spawnWorker();
       workers.push(worker);
     } else {
-      return; // all busy; a freeing worker will re-dispatch
+      return; // all busy / breaker open; a freeing or respawned worker re-dispatches
     }
   }
 
@@ -222,6 +410,8 @@ function ensureStarted() {
 function shutdown() {
   shuttingDown = true;
   for (const w of workers) {
+    if (w.bootTimer) clearTimeout(w.bootTimer);
+    if (w.current) clearTimeout(w.current.killTimer);
     try {
       w.proc.kill("SIGKILL");
     } catch {
@@ -239,6 +429,16 @@ export function runInSandbox(
 ): Promise<SandboxEvalResult> {
   ensureStarted();
   return new Promise<SandboxEvalResult>((resolve) => {
+    // Breaker open: workers keep failing to boot, so fail fast instead of queueing.
+    if (circuitOpenUntil > Date.now()) {
+      resolve({
+        ok: false,
+        error:
+          "Custom hook: sandbox temporarily unavailable (worker keeps crashing), please try again shortly",
+        warnings: [],
+      });
+      return;
+    }
     if (queue.length >= MAX_QUEUE) {
       resolve({
         ok: false,
@@ -258,4 +458,7 @@ export function __shutdownSandboxPool() {
   // Allow a fresh start afterwards (used by tests).
   shuttingDown = false;
   started = false;
+  consecutiveBootFailures = 0;
+  circuitOpenUntil = 0;
+  replenishScheduled = false;
 }
