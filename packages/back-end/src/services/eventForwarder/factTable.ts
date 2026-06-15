@@ -23,7 +23,7 @@ import {
   createFactTable,
   getFactTable,
   deleteFactTable,
-  updateEventForwarderFactTableMetadata,
+  updateFactTable,
 } from "back-end/src/models/FactTableModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
@@ -232,7 +232,8 @@ export async function syncEventForwarderEventsFactTableMetadataAfterAttributeSch
           now,
         );
       });
-      await updateEventForwarderFactTableMetadata(
+      await updateFactTable(
+        context,
         factTable,
         {
           ...(hasMetadataChanges && {
@@ -243,7 +244,7 @@ export async function syncEventForwarderEventsFactTableMetadataAfterAttributeSch
             columnRefreshPending: true,
           }),
         },
-        context,
+        { bypassManagedByCheck: true },
       );
     }
 

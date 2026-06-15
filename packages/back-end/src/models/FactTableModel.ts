@@ -300,9 +300,15 @@ export async function updateFactTable(
   context: ReqContext | ApiReqContext,
   factTable: FactTableInterface,
   changes: UpdateFactTableProps,
+  {
+    bypassManagedByCheck,
+  }: {
+    bypassManagedByCheck?: boolean;
+  } = {},
 ) {
   // Allow changing columns even for API-managed fact tables
   if (
+    !bypassManagedByCheck &&
     factTable.managedBy === "api" &&
     context.auditUser?.type !== "api_key" &&
     Object.keys(changes).some((k) => k !== "columns")
@@ -355,12 +361,6 @@ const ALLOWED_COLUMN_UPDATE_FIELDS = [
   "userIdTypes",
 ] as const;
 
-const ALLOWED_EVENT_FORWARDER_METADATA_UPDATE_FIELDS = [
-  "columns",
-  "sql",
-  "columnRefreshPending",
-] as const;
-
 // This is called from a background cronjob to re-sync all of the columns
 // It doesn't need to check for 'managedBy' and doesn't need to set 'dateUpdated'
 export async function updateFactTableColumns(
@@ -403,40 +403,6 @@ export async function updateFactTableColumns(
       });
     }
   }
-}
-
-export async function updateEventForwarderFactTableMetadata(
-  factTable: FactTableInterface,
-  changes: Partial<
-    Pick<
-      FactTableInterface,
-      (typeof ALLOWED_EVENT_FORWARDER_METADATA_UPDATE_FIELDS)[number]
-    >
-  >,
-  context: ReqContext | ApiReqContext,
-) {
-  const safeChanges = Object.fromEntries(
-    Object.entries(changes).filter(([key]) =>
-      ALLOWED_EVENT_FORWARDER_METADATA_UPDATE_FIELDS.includes(
-        key as (typeof ALLOWED_EVENT_FORWARDER_METADATA_UPDATE_FIELDS)[number],
-      ),
-    ),
-  );
-
-  await FactTableModel.updateOne(
-    {
-      id: factTable.id,
-      organization: factTable.organization,
-    },
-    {
-      $set: {
-        ...safeChanges,
-        dateUpdated: new Date(),
-      },
-    },
-  );
-
-  await audit.logUpdate(context, factTable, { ...factTable, ...safeChanges });
 }
 
 // Detect columns that were removed or had auto slice disabled
