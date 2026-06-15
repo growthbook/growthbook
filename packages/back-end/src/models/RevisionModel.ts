@@ -621,17 +621,6 @@ export class RevisionModel extends BaseClass {
     decision: ReviewDecision,
     comment: string,
   ) {
-    const existing = await this.getById(id);
-    if (!existing) throw new Error("Revision not found");
-
-    const review = {
-      id: uniqid("rev_"),
-      userId,
-      decision,
-      ...(comment ? { comment } : {}),
-      dateCreated: new Date(),
-    };
-
     const actionMap: Record<
       ReviewDecision,
       "approved" | "requested-changes" | "commented"
@@ -641,55 +630,80 @@ export class RevisionModel extends BaseClass {
       comment: "commented",
     };
 
-    // Verdicts only stand for the current review cycle. Transitions that
-    // invalidate prior verdicts (submit for review, approval reset on content
-    // edit, reopen) log a "reopened" activity entry, so reviews before the
-    // latest one are history, not active approvals/blocks.
-    let cycleStart: Date | null = null;
-    for (const entry of existing.activityLog) {
-      if (
-        entry.action === "reopened" &&
-        (cycleStart === null || entry.dateCreated > cycleStart)
-      ) {
-        cycleStart = entry.dateCreated;
-      }
-    }
+    // Build these once so CAS retries re-base the same entry, not a duplicate.
+    const review = {
+      id: uniqid("rev_"),
+      userId,
+      decision,
+      ...(comment ? { comment } : {}),
+      dateCreated: new Date(),
+    };
+    const activityEntry: ActivityLogEntry = {
+      id: uniqid("act_"),
+      userId,
+      action: actionMap[decision],
+      ...(comment ? { description: comment } : {}),
+      dateCreated: new Date(),
+    };
 
-    // Latest verdict per reviewer within the cycle; comments carry no verdict.
-    const verdictByReviewer = new Map<string, ReviewDecision>();
-    for (const r of [...existing.reviews, review]) {
-      if (r.decision === "comment") continue;
-      if (cycleStart !== null && r.dateCreated < cycleStart) continue;
-      verdictByReviewer.set(r.userId, r.decision);
-    }
-    const verdicts = Array.from(verdictByReviewer.values());
+    // CAS-guard the status reconcile so a concurrent verdict can't be lost.
+    const updated = await this.updateWithCas(
+      id,
+      ["reviews", "status", "activityLog"],
+      (existing) => {
+        // Re-checked under CAS: a verdict must not resurrect a revision that was
+        // merged or discarded concurrently with this review.
+        if (existing.status === "merged" || existing.status === "discarded") {
+          throw new Error(`Cannot review a ${existing.status} revision`);
+        }
 
-    // Aggregate across reviewers — one reviewer's approval must not override
-    // another reviewer's standing request-changes. Comments leave the status
-    // unchanged.
-    const newStatus =
-      decision === "comment"
-        ? existing.status
-        : verdicts.includes("request-changes")
-          ? "changes-requested"
-          : verdicts.includes("approve")
-            ? "approved"
-            : existing.status;
+        // Verdicts only stand for the current review cycle. Transitions that
+        // invalidate prior verdicts (submit for review, approval reset on
+        // content edit, reopen) log a "reopened" activity entry, so reviews
+        // before the latest one are history, not active approvals/blocks.
+        let cycleStart: Date | null = null;
+        for (const entry of existing.activityLog) {
+          if (
+            entry.action === "reopened" &&
+            (cycleStart === null || entry.dateCreated > cycleStart)
+          ) {
+            cycleStart = entry.dateCreated;
+          }
+        }
 
-    return this.update(existing, {
-      reviews: [...existing.reviews, review],
-      status: newStatus,
-      activityLog: [
-        ...this.cleanActivityLog(existing.activityLog),
-        {
-          id: uniqid("act_"),
-          userId,
-          action: actionMap[decision],
-          ...(comment ? { description: comment } : {}),
-          dateCreated: new Date(),
-        },
-      ],
-    } as UpdateProps<Revision>);
+        // Latest verdict per reviewer within the cycle; comments carry none.
+        const verdictByReviewer = new Map<string, ReviewDecision>();
+        for (const r of [...existing.reviews, review]) {
+          if (r.decision === "comment") continue;
+          if (cycleStart !== null && r.dateCreated < cycleStart) continue;
+          verdictByReviewer.set(r.userId, r.decision);
+        }
+        const verdicts = Array.from(verdictByReviewer.values());
+
+        // Aggregate across reviewers — one reviewer's approval must not
+        // override another reviewer's standing request-changes. Comments leave
+        // the status unchanged.
+        const newStatus =
+          decision === "comment"
+            ? existing.status
+            : verdicts.includes("request-changes")
+              ? "changes-requested"
+              : verdicts.includes("approve")
+                ? "approved"
+                : existing.status;
+
+        return {
+          reviews: [...existing.reviews, review],
+          status: newStatus,
+          activityLog: [
+            ...this.cleanActivityLog(existing.activityLog),
+            activityEntry,
+          ],
+        } as UpdateProps<Revision>;
+      },
+    );
+    if (!updated) throw new Error("Revision not found");
+    return updated;
   }
 
   // Proposed changes

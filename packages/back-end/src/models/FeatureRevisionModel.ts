@@ -1320,6 +1320,47 @@ export async function setAutoPublishOnApproval(
   );
 }
 
+// Compare-and-swap update: read `guardFields`, derive an update from the
+// current doc, then write only if those fields are unchanged — retrying on a
+// lost race. `build` returning null aborts. Lets concurrent reviewers reconcile
+// shared fields without an aggregation-pipeline update (DocumentDB/Cosmos reject
+// those). Mirrors RevisionModel.casUpdate.
+async function casUpdate(
+  filter: mongoose.FilterQuery<FeatureRevisionInterface>,
+  guardFields: (keyof FeatureRevisionInterface)[],
+  build: (
+    current: Partial<FeatureRevisionInterface>,
+  ) =>
+    | mongoose.UpdateQuery<FeatureRevisionInterface>
+    | null
+    | Promise<mongoose.UpdateQuery<FeatureRevisionInterface> | null>,
+  maxAttempts = 5,
+): Promise<"applied" | "aborted" | "exhausted"> {
+  const projection = Object.fromEntries(guardFields.map((f) => [f, 1]));
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const current = await FeatureRevisionModel.findOne(
+      filter,
+      projection,
+    ).lean<Partial<FeatureRevisionInterface> | null>();
+    if (!current) return "aborted";
+    const update = await build(current);
+    if (!update) return "aborted";
+    // Missing fields guard on absence so legacy self-heal writes stay correct.
+    const guard = Object.fromEntries(
+      guardFields.map((f) => [
+        f,
+        current[f] === undefined ? { $exists: false } : current[f],
+      ]),
+    );
+    const res = await FeatureRevisionModel.updateOne(
+      { ...filter, ...guard },
+      update,
+    );
+    if (res.matchedCount > 0) return "applied";
+  }
+  return "exhausted";
+}
+
 export async function submitReviewAndComments(
   context: ReqContext | ApiReqContext,
   revision: FeatureRevisionInterface,
@@ -1388,41 +1429,28 @@ export async function submitReviewAndComments(
     }
 
     // Step 2: reconcile `status` from the *stored* reviews so it can't drift
-    // from a verdict another reviewer landed concurrently. Done as a
-    // compare-and-swap loop guarded on the exact reviews array we derived from
-    // — not an aggregation-pipeline update, which AWS DocumentDB and Azure
-    // Cosmos DB for MongoDB (both supported deployment targets) reject.
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const current = await FeatureRevisionModel.findOne(filter, {
-        reviews: 1,
-      }).lean<{ reviews?: RevisionReview[] } | null>();
-      const reviews = current?.reviews ?? [];
+    // from a verdict another reviewer landed concurrently. The `approvedBaseVersion`
+    // is recorded so staleness detection works later (only when approved).
+    const outcome = await casUpdate(filter, ["reviews"], (current) => {
+      const reviews = current.reviews ?? [];
       const status = reviews.some((r) => r.status === "changes-requested")
         ? "changes-requested"
         : reviews.some((r) => r.status === "approved")
           ? "approved"
           : "pending-review";
-      // Guard on the array we computed from: if another reviewer mutated it
-      // between our read and write, matchedCount is 0 and we re-read.
-      const res = await FeatureRevisionModel.updateOne(
-        { ...filter, reviews },
-        {
-          $set: {
-            status,
-            // Record the version this approval was made against so staleness
-            // detection works later. Only meaningful when status is approved.
-            ...(status === "approved" && liveVersion !== undefined
-              ? { approvedBaseVersion: liveVersion }
-              : {}),
-          },
+      return {
+        $set: {
+          status,
+          ...(status === "approved" && liveVersion !== undefined
+            ? { approvedBaseVersion: liveVersion }
+            : {}),
         },
+      };
+    });
+    if (outcome === "exhausted") {
+      logger.warn(
+        `submitReviewAndComments: status reconcile exhausted retries for ${revision.featureId}#${revision.version}`,
       );
-      if (res.matchedCount > 0) break;
-      if (attempt === 4) {
-        logger.warn(
-          `submitReviewAndComments: status reconcile exhausted retries for ${revision.featureId}#${revision.version}`,
-        );
-      }
     }
   } else if (verdict !== null) {
     // Verdict from a user without a stable reviewer key (e.g. system events)
@@ -1593,49 +1621,66 @@ export async function undoReview(
   }
 
   const retractingKey = reviewerKeyForEventUser(user);
-
-  // Prefer the baked verdicts; fall back to log replay for revisions that
-  // predate the `reviews` field. The retraction we're processing hasn't been
-  // logged/baked yet — remove this reviewer's verdict explicitly so the
-  // computation doesn't depend on the fire-and-forget log write below.
-  const activeReviews =
-    revision.reviews ?? (await getActiveReviewsFromLog(context, revision));
-
-  // Only a reviewer with an active verdict can undo one — otherwise we'd write a
-  // phantom "Undo Review" entry, bump dateUpdated, and (keyless case) wrongly
-  // collapse the status to pending-review.
-  if (
-    retractingKey === null ||
-    !activeReviews.some((r) => r.userId === retractingKey)
-  ) {
+  // Keyless callers (e.g. system events) never hold a baked verdict to undo.
+  if (retractingKey === null) {
     throw new Error("You have no active review verdict to undo");
   }
 
-  const remaining = activeReviews.filter((r) => r.userId !== retractingKey);
+  const filter = {
+    organization: revision.organization,
+    featureId: revision.featureId,
+    version: revision.version,
+  };
 
-  let status: "approved" | "changes-requested" | "pending-review" =
-    "pending-review";
-  if (remaining.some((r) => r.status === "changes-requested")) {
-    status = "changes-requested";
-  } else if (remaining.some((r) => r.status === "approved")) {
-    status = "approved";
-  }
-
-  await FeatureRevisionModel.updateOne(
-    {
-      organization: revision.organization,
-      featureId: revision.featureId,
-      version: revision.version,
-    },
-    {
-      // Writing `remaining` wholesale (rather than $pull) also self-heals
-      // legacy revisions whose verdicts only existed in the log.
-      $set: { status, dateUpdated: new Date(), reviews: remaining },
-      // An approval that still stands keeps its recorded base version so
-      // staleness detection continues to work.
-      ...(status === "approved" ? {} : { $unset: { approvedBaseVersion: 1 } }),
+  // Rewind to the state implied by the *remaining* verdicts, CAS-guarded on
+  // `reviews`+`status` so a verdict another reviewer landed concurrently isn't
+  // clobbered by the wholesale rewrite. Modern revisions store verdicts in
+  // `reviews`; legacy ones only in the log (the helper guards on the field's
+  // continued absence so we self-heal from the log just once).
+  let resolved: "approved" | "changes-requested" | "pending-review" | null =
+    null;
+  const outcome = await casUpdate(
+    filter,
+    ["reviews", "status"],
+    async (current) => {
+      if (!(allowed as readonly string[]).includes(current.status ?? "")) {
+        throw new Error(
+          `Can only undo a review on an approved or changes-requested draft (status is "${current.status}")`,
+        );
+      }
+      const activeReviews =
+        current.reviews ?? (await getActiveReviewsFromLog(context, revision));
+      // Only a reviewer with an active verdict can undo one — otherwise we'd
+      // write a phantom "Undo Review" entry and bump dateUpdated for nothing.
+      if (!activeReviews.some((r) => r.userId === retractingKey)) {
+        throw new Error("You have no active review verdict to undo");
+      }
+      const remaining = activeReviews.filter((r) => r.userId !== retractingKey);
+      resolved = remaining.some((r) => r.status === "changes-requested")
+        ? "changes-requested"
+        : remaining.some((r) => r.status === "approved")
+          ? "approved"
+          : "pending-review";
+      return {
+        // Writing `remaining` wholesale (rather than $pull) also self-heals
+        // legacy revisions whose verdicts only existed in the log.
+        $set: { status: resolved, dateUpdated: new Date(), reviews: remaining },
+        // An approval that still stands keeps its recorded base version.
+        ...(resolved === "approved"
+          ? {}
+          : { $unset: { approvedBaseVersion: 1 } }),
+      };
     },
   );
+  if (outcome === "aborted") {
+    throw new Error("Could not find feature revision");
+  }
+  if (outcome === "exhausted" || resolved === null) {
+    throw new Error(
+      "Could not undo review due to a concurrent update. Please retry.",
+    );
+  }
+  const status = resolved;
 
   context.models.featureRevisionLogs
     .create({
