@@ -7,7 +7,7 @@ import { FeatureInterface } from "shared/types/feature";
 import { filterEnvironmentsByFeature, isDefined } from "shared/util";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiEye, PiWarning } from "react-icons/pi";
-import { ACTIVE_DRAFT_STATUSES, HoldoutInterface } from "shared/validators";
+import { REVIEW_REQUESTED_STATUSES, HoldoutInterface } from "shared/validators";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
@@ -200,10 +200,11 @@ export default function FeaturesHeader({
   const canPublish = permissionsUtil.canPublishFeature(feature, enabledEnvs);
   const isArchived = feature.archived;
 
-  // Active-draft counts for the "Review and Publish" tab chip + its tooltip.
+  // Tab chip + tooltip count revisions at "request review" or beyond; drafts
+  // still being edited don't need reviewer/publisher attention.
   const draftStatusCounts: Partial<Record<string, number>> = {};
   revisions.forEach((r) => {
-    if ((ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status)) {
+    if ((REVIEW_REQUESTED_STATUSES as readonly string[]).includes(r.status)) {
       draftStatusCounts[r.status] = (draftStatusCounts[r.status] ?? 0) + 1;
     }
   });

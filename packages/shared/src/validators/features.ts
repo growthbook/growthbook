@@ -299,6 +299,17 @@ export type ActiveDraftStatus = z.infer<typeof activeDraftStatusSchema>;
 
 export const ACTIVE_DRAFT_STATUSES = activeDraftStatusSchema.options;
 
+// Revisions at "request review" or beyond — excludes drafts still being edited
+// (and terminal/ramp statuses). Used for "needs attention" counts and gates.
+export const reviewRequestedStatusSchema = revisionStatusSchema.exclude([
+  "draft",
+  "published",
+  "discarded",
+  "pending-parent",
+]);
+
+export const REVIEW_REQUESTED_STATUSES = reviewRequestedStatusSchema.options;
+
 /**
  * Status filter for revision list endpoints. Accepts a single value
  * (`draft`), comma-separated values (`draft,approved`), or the shorthand

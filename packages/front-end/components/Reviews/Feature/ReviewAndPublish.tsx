@@ -2258,6 +2258,18 @@ export default function ReviewAndPublish({
                 ? "Schedule to Start"
                 : "Publish";
 
+            // Hide the publish section (divider, admin-bypass checkbox, Publish
+            // button) for not-yet-approved drafts — unless an admin can bypass
+            // checks. There, Request Review is the only relevant action.
+            const adminCanBypassNow =
+              canAdminPublish &&
+              mergeResult.success &&
+              (blockInfo?.overridable || adminPublish);
+            const showPublishSection =
+              state.submitAction === "publish" ||
+              continueToPublish ||
+              adminCanBypassNow;
+
             return (
               <>
                 {/* Auto-publish toggle (editable by requestor) */}
@@ -2288,122 +2300,129 @@ export default function ReviewAndPublish({
                 )}
 
                 {/* Publish section: divider, optional admin bypass, the
-                  primary publish button. All status displays related to
-                  publish state render uniformly below. */}
-                <Box
-                  mt="4"
-                  pt="4"
-                  style={{ borderTop: "1px solid var(--gray-a5)" }}
-                >
-                  {/* Divergence/rebase notice renders above the publish button
+                  primary publish button. Hidden for not-yet-approved drafts
+                  unless an admin can bypass — then Request Review stands alone. */}
+                {showPublishSection && (
+                  <Box
+                    mt="4"
+                    pt="4"
+                    style={{ borderTop: "1px solid var(--gray-a5)" }}
+                  >
+                    {/* Divergence/rebase notice renders above the publish button
                     so users consider rebasing before reaching for Publish. */}
-                  {governance && (
-                    <DivergenceNotice
-                      governance={governance}
-                      liveVersion={feature.version}
-                      baseVersion={revision.baseVersion}
-                      onUpdateFromLive={onUpdateFromLive}
-                      updating={rebasing}
-                      canRebase={permissionsUtil.canManageFeatureDrafts(
-                        feature,
-                      )}
-                      onResolveConflicts={() => setResolveConflicts(true)}
-                      approvedAt={approvedAt}
-                      revisionsSinceApproval={revisionsSinceApproval}
-                    />
-                  )}
-
-                  {/* Merge conflicts are never admin-overridable — hide the
-                    bypass checkbox entirely while one exists. */}
-                  {canAdminPublish &&
-                    mergeResult.success &&
-                    (blockInfo?.overridable || adminPublish) && (
-                      <Box mb="3">
-                        <Checkbox
-                          label="Admin: bypass checks and publish now"
-                          weight="regular"
-                          value={adminPublish}
-                          setValue={(val) => {
-                            setAdminPublish(!!val);
-                            if (!val) {
-                              checklistStateRef.current.clear();
-                              setChecklistBlocked(false);
-                              setExperimentsStep(false);
-                            }
-                          }}
-                        />
-                      </Box>
+                    {governance && (
+                      <DivergenceNotice
+                        governance={governance}
+                        liveVersion={feature.version}
+                        baseVersion={revision.baseVersion}
+                        onUpdateFromLive={onUpdateFromLive}
+                        updating={rebasing}
+                        canRebase={permissionsUtil.canManageFeatureDrafts(
+                          feature,
+                        )}
+                        onResolveConflicts={() => setResolveConflicts(true)}
+                        approvedAt={approvedAt}
+                        revisionsSinceApproval={revisionsSinceApproval}
+                      />
                     )}
 
-                  <Button
-                    onClick={primaryFooterEnabled ? doSubmit : undefined}
-                    loading={
-                      submitting &&
-                      (state.submitAction === "publish" || continueToPublish)
-                    }
-                    disabled={!primaryFooterEnabled}
-                    icon={state.ctaLocked ? <PiLockSimple /> : undefined}
-                    style={{ width: "100%" }}
-                  >
-                    {primaryFooterLabel}
-                  </Button>
+                    {/* Merge conflicts are never admin-overridable — hide the
+                    bypass checkbox entirely while one exists. */}
+                    {canAdminPublish &&
+                      mergeResult.success &&
+                      (blockInfo?.overridable || adminPublish) && (
+                        <Box mb="3">
+                          <Checkbox
+                            label="Admin: bypass checks and publish now"
+                            weight="regular"
+                            value={adminPublish}
+                            setValue={(val) => {
+                              setAdminPublish(!!val);
+                              if (!val) {
+                                checklistStateRef.current.clear();
+                                setChecklistBlocked(false);
+                                setExperimentsStep(false);
+                              }
+                            }}
+                          />
+                        </Box>
+                      )}
 
-                  {/* ── Uniform status displays for the publish state ──
+                    <Button
+                      onClick={primaryFooterEnabled ? doSubmit : undefined}
+                      loading={
+                        submitting &&
+                        (state.submitAction === "publish" || continueToPublish)
+                      }
+                      disabled={!primaryFooterEnabled}
+                      icon={state.ctaLocked ? <PiLockSimple /> : undefined}
+                      style={{ width: "100%" }}
+                    >
+                      {primaryFooterLabel}
+                    </Button>
+
+                    {/* ── Uniform status displays for the publish state ──
                     All callouts use the same size, spacing, and chrome so
                     the column doesn't read as a pile of differently-styled
                     messages. Stacked in priority order: ramps, errors, and
                     finally the "no approval necessary" note. */}
-                  <Flex direction="column" gap="2" mt="3">
-                    {linkedRamps.map((ramp) => (
-                      <Callout key={ramp.id} status="info" size="sm">
-                        Publishing this draft will activate ramp schedule{" "}
-                        <strong>{ramp.name}</strong>. The ramp will begin once
-                        this revision is live.
-                      </Callout>
-                    ))}
+                    <Flex direction="column" gap="2" mt="3">
+                      {linkedRamps.map((ramp) => (
+                        <Callout key={ramp.id} status="info" size="sm">
+                          Publishing this draft will activate ramp schedule{" "}
+                          <strong>{ramp.name}</strong>. The ramp will begin once
+                          this revision is live.
+                        </Callout>
+                      ))}
 
+                      {!hasChanges && (
+                        <Callout status="info" size="sm">
+                          No changes to publish. Discard the draft or add
+                          changes first.
+                        </Callout>
+                      )}
+
+                      {!requireReviews && !experimentsStep && !blockInfo && (
+                        <Text size="small" color="text-mid" as="p">
+                          No approval necessary — these changes can be published
+                          directly.
+                        </Text>
+                      )}
+                    </Flex>
+
+                    {experimentsStep && (
+                      <Box mt="2">
+                        <LinkButton
+                          color="link"
+                          onClick={() => {
+                            checklistStateRef.current.clear();
+                            setChecklistBlocked(false);
+                            setExperimentsStep(false);
+                          }}
+                        >
+                          <FaArrowLeft /> Back
+                        </LinkButton>
+                      </Box>
+                    )}
+                  </Box>
+                )}
+
+                {/* Errors render outside the publish section so request-review
+                  failures stay visible even when that section is hidden. */}
+                {(submitError || secondaryError) && (
+                  <Flex direction="column" gap="2" mt="3">
                     {submitError && (
                       <Callout status="error" size="sm">
                         {submitError}
                       </Callout>
                     )}
-
                     {secondaryError && (
                       <Callout status="error" size="sm">
                         {secondaryError}
                       </Callout>
                     )}
-
-                    {!hasChanges && (
-                      <Callout status="info" size="sm">
-                        No changes to publish. Discard the draft or add changes
-                        first.
-                      </Callout>
-                    )}
-
-                    {!requireReviews && !experimentsStep && !blockInfo && (
-                      <Text size="small" color="text-mid" as="p">
-                        No approval necessary — these changes can be published
-                        directly.
-                      </Text>
-                    )}
                   </Flex>
-
-                  {experimentsStep && (
-                    <Box mt="2">
-                      <LinkButton
-                        color="link"
-                        onClick={() => {
-                          checklistStateRef.current.clear();
-                          setChecklistBlocked(false);
-                          setExperimentsStep(false);
-                        }}
-                      >
-                        <FaArrowLeft /> Back
-                      </LinkButton>
-                    </Box>
-                  )}
-                </Box>
+                )}
               </>
             );
           })()}
