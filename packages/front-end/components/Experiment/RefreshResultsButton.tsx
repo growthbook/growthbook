@@ -204,11 +204,13 @@ export default function RefreshResultsButton<
           setError={(error) => setRefreshError(error ?? "")}
           useRadixButton={true}
           radixVariant="outline"
+          customValidation={customValidation}
         />
       ) : shouldRenderSafeRolloutButton ? (
         <SafeRolloutRefreshSnapshotButton
           mutate={mutate}
           safeRollout={safeRollout}
+          customValidation={customValidation}
         />
       ) : null}
     </>
