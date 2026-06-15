@@ -9,6 +9,11 @@ process.send({ ready: true });
 process.on("message", (job) => {
   process.send({
     id: job.id,
-    result: { ok: true, returnVal: job.args ? job.args.n : null, log: "", warnings: [] },
+    result: {
+      ok: true,
+      returnVal: job.args ? job.args.n : null,
+      log: "",
+      warnings: [],
+    },
   });
 });
