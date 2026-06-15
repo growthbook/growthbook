@@ -18,7 +18,10 @@ import {
 } from "back-end/src/services/experiments";
 import { planMetricFanOut } from "back-end/src/services/experimentQueries/planMetricFanOut";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
-import { createExperimentSnapshotModel } from "back-end/src/models/ExperimentSnapshotModel";
+import {
+  createExperimentSnapshotModel,
+  findSnapshotById,
+} from "back-end/src/models/ExperimentSnapshotModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
@@ -33,6 +36,7 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
 
 jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
   createExperimentSnapshotModel: jest.fn(),
+  findSnapshotById: jest.fn(),
 }));
 
 jest.mock("back-end/src/models/DataSourceModel", () => ({
@@ -73,6 +77,9 @@ const createExperimentSnapshotModelMock =
   createExperimentSnapshotModel as jest.MockedFunction<
     typeof createExperimentSnapshotModel
   >;
+const findSnapshotByIdMock = findSnapshotById as jest.MockedFunction<
+  typeof findSnapshotById
+>;
 const getDataSourceByIdMock = getDataSourceById as jest.MockedFunction<
   typeof getDataSourceById
 >;
@@ -671,5 +678,89 @@ describe("snapshot planning", () => {
     expect(plan.incrementalFallbackReason).toBe("metric not compatible");
     expect(plan.fullRefresh).toBe(false);
     expect(plan.fullRefreshReason).toBeNull();
+  });
+
+  it("records exploratory provenance from materializedBySnapshotId when present", async () => {
+    wireIncrementalIntegration(makeIncrementalDatasource());
+    assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
+      undefined as never,
+    );
+
+    const materializedBySnapshotId = "snap_pipeline_producer";
+    const producerDateCreated = new Date("2025-01-10T12:00:00.000Z");
+    findSnapshotByIdMock.mockResolvedValue({
+      id: materializedBySnapshotId,
+      dateCreated: producerDateCreated,
+    } as never);
+
+    const context = makeContext();
+    context.models.incrementalRefresh = {
+      getByExperimentId: jest.fn().mockResolvedValue({
+        unitsTableFullName: "db.schema.units_exp_123",
+        experimentSettingsHash: "current_hash",
+        materializedBySnapshotId,
+      }),
+    } as never;
+
+    const plan = await planSnapshot({
+      experiment: makeExperiment(),
+      context,
+      type: "exploratory",
+      triggeredBy: "manual-dashboard",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings({
+        dimensions: ["dim_country"],
+      }),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    expect(plan.runnerKind).toBe("incremental-exploratory");
+    expect(findSnapshotByIdMock).toHaveBeenCalledWith(
+      context,
+      materializedBySnapshotId,
+    );
+    expect(plan.snapshot.sourceSnapshotId).toBe(materializedBySnapshotId);
+    expect(plan.snapshot.sourceSnapshotDateCreated).toBe(producerDateCreated);
+  });
+
+  it("leaves exploratory provenance unset when materializedBySnapshotId is null", async () => {
+    wireIncrementalIntegration(makeIncrementalDatasource());
+    assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
+      undefined as never,
+    );
+
+    const context = makeContext();
+    context.models.incrementalRefresh = {
+      getByExperimentId: jest.fn().mockResolvedValue({
+        unitsTableFullName: "db.schema.units_exp_123",
+        experimentSettingsHash: "current_hash",
+        materializedBySnapshotId: null,
+      }),
+    } as never;
+
+    const plan = await planSnapshot({
+      experiment: makeExperiment(),
+      context,
+      type: "exploratory",
+      triggeredBy: "manual-dashboard",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings({
+        dimensions: ["dim_country"],
+      }),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    expect(plan.runnerKind).toBe("incremental-exploratory");
+    expect(findSnapshotByIdMock).not.toHaveBeenCalled();
+    expect(plan.snapshot.sourceSnapshotId).toBeUndefined();
+    expect(plan.snapshot.sourceSnapshotDateCreated).toBeUndefined();
   });
 });

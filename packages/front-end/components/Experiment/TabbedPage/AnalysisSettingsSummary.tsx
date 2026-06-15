@@ -144,6 +144,7 @@ export default function AnalysisSettingsSummary({
     analysis,
     dimension: _snapshotDimension,
     precomputedDimensions,
+    sourceSnapshot,
     mutate,
     setAnalysisSettings,
     setSnapshotType,
@@ -653,6 +654,7 @@ export default function AnalysisSettingsSummary({
               <QueriesLastRun
                 status={status}
                 dateCreated={snapshot?.dateCreated}
+                sourceSnapshot={sourceSnapshot}
                 latestQueryDate={latest?.dateCreated}
                 nextUpdate={experiment.nextSnapshotAttempt}
                 autoUpdateEnabled={
