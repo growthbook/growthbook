@@ -2,16 +2,17 @@ import {
   ExperimentInterfaceStringDates,
   Variation,
 } from "shared/types/experiment";
-import { getLatestPhaseVariations } from "shared/experiments";
+import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
 import { FC, useState, useRef, useCallback } from "react";
-import { Box, Flex, Grid, Heading, IconButton } from "@radix-ui/themes";
+import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import {
   PiCameraLight,
   PiCameraPlusLight,
   PiPencilSimple,
+  PiTrash,
 } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
-import { trafficSplitPercentages } from "@/services/utils";
+import { distributeWeights, trafficSplitPercentages } from "@/services/utils";
 import Carousel from "@/components/Carousel";
 import ScreenshotUpload from "@/components/EditExperiment/ScreenshotUpload";
 import AuthorizedImage from "@/components/AuthorizedImage";
@@ -19,8 +20,35 @@ import Button from "@/ui/Button";
 import Text from "@/ui/Text";
 import ExperimentCarouselModal from "@/components/Experiment/ExperimentCarouselModal";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import track from "@/services/track";
+import Heading from "@/ui/Heading";
+import ConfirmButton from "@/components/Modal/ConfirmButton";
 
 const imageCache = {};
+
+function getDeleteVariationData(
+  experiment: ExperimentInterfaceStringDates,
+  variationId: string,
+  currentWeights: number[],
+) {
+  const remainingVariations = experiment.variations.filter(
+    (v) => v.id !== variationId,
+  );
+  const remainingWeights = currentWeights.filter(
+    (_, i) => experiment.variations[i]?.id !== variationId,
+  );
+  const newVariationWeights =
+    experiment.type === "multi-armed-bandit"
+      ? getEqualWeights(remainingVariations.length, 4)
+      : distributeWeights(remainingWeights, false);
+  const newSplitPercentages = trafficSplitPercentages(newVariationWeights);
+
+  return {
+    remainingVariations,
+    newVariationWeights,
+    newSplitPercentages,
+  };
+}
 
 const ScreenshotCarousel: FC<{
   variation: Variation;
@@ -165,6 +193,8 @@ export function VariationBox({
   shareUid,
   shareType = "experiment",
   onEditMetadata,
+  canDelete,
+  currentWeights,
 }: {
   i: number;
   v: Variation;
@@ -182,8 +212,16 @@ export function VariationBox({
   shareUid?: string;
   shareType?: "experiment" | "report";
   onEditMetadata?: (variationIndex: number) => void;
+  canDelete?: boolean;
+  currentWeights?: number[];
 }) {
+  const { apiCall } = useAuth();
   const { blockFileUploads } = useOrgSettings();
+  const showActions = canEdit && (onEditMetadata || canDelete);
+  const deleteData =
+    canDelete && currentWeights
+      ? getDeleteVariationData(experiment, v.id, currentWeights)
+      : null;
 
   return (
     <Box
@@ -213,20 +251,65 @@ export function VariationBox({
                 <Box className="">
                   <span className="circle-label label">{i}</span>
                 </Box>
-                <Heading as="h4" size="3" mb="0">
+                <Heading as="h4" size="small" mb="0">
                   {v.name}
                 </Heading>
               </Flex>
-              {canEdit && onEditMetadata ? (
-                <IconButton
-                  variant="ghost"
-                  size="1"
-                  color="gray"
-                  onClick={() => onEditMetadata(i)}
-                  aria-label="Edit variation"
-                >
-                  <PiPencilSimple />
-                </IconButton>
+              {showActions ? (
+                <Flex align="start" gap="3">
+                  {onEditMetadata ? (
+                    <IconButton
+                      variant="ghost"
+                      size="1"
+                      color="purple"
+                      onClick={() => onEditMetadata(i)}
+                      aria-label="Edit variation"
+                    >
+                      <PiPencilSimple />
+                    </IconButton>
+                  ) : null}
+                  {canDelete && deleteData ? (
+                    <ConfirmButton
+                      modalHeader={`Delete ${v.name}?`}
+                      confirmationText={
+                        <Flex direction="column" gap="3">
+                          <Text as="p" mb="0">
+                            This will remove the variation from the experiment
+                            and all linked Feature Flag rules.
+                          </Text>
+                          <Box>
+                            The remaining variations will be rebalanced to equal
+                            splits
+                          </Box>
+                        </Flex>
+                      }
+                      cta="Delete variation"
+                      isDestructive
+                      onClick={async () => {
+                        await apiCall(`/experiment/${experiment.id}`, {
+                          method: "POST",
+                          body: JSON.stringify({
+                            variations: deleteData.remainingVariations,
+                            variationWeights: deleteData.newVariationWeights,
+                          }),
+                        });
+                        mutate?.();
+                        track("deleted-variation", {
+                          source: "experiment-variations",
+                        });
+                      }}
+                    >
+                      <IconButton
+                        variant="ghost"
+                        size="1"
+                        color="red"
+                        aria-label="Delete variation"
+                      >
+                        <PiTrash />
+                      </IconButton>
+                    </ConfirmButton>
+                  ) : null}
+                </Flex>
               ) : null}
             </Flex>
           </Box>
@@ -331,10 +414,18 @@ const VariationsTable: FC<Props> = ({
     variationId: string;
     index: number;
   } | null>(null);
-
   const hasDescriptions = variations.some((v) => !!v.description?.trim());
   const hasUniqueIDs = variations.some((v, i) => v.key !== i + "");
   const hasAnyImages = variations.some((v) => v.screenshots.length > 0);
+  const canDeleteVariations =
+    canEditExperiment &&
+    !isPublic &&
+    experiment.status !== "running" &&
+    variations.length > 2 &&
+    !!mutate;
+  const currentWeights =
+    lastPhase?.variationWeights ??
+    getEqualWeights(experiment.variations.length, 4);
 
   // set some variables for the display of the component - could make options
   const cols = variations.length > 4 ? 4 : variations.length;
@@ -373,6 +464,8 @@ const VariationsTable: FC<Props> = ({
               shareUid={shareUid}
               shareType={shareType}
               onEditMetadata={onEditMetadata}
+              canDelete={canDeleteVariations}
+              currentWeights={currentWeights}
             />
           ),
         )}
