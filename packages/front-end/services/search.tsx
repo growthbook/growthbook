@@ -80,6 +80,10 @@ export function tagFilterOnClick(
   };
 }
 
+// Whitespace + punctuation (incl. underscores), matching MiniSearch's default
+// tokenizer. Used to split indexed fields into searchable parts.
+const wordSeparators = /[\n\r\p{Z}\p{P}]+/u;
+
 const searchTermOperators = [">", "<", "^", "=", "~", ""] as const;
 
 export type SyntaxFilter = {
@@ -227,10 +231,23 @@ export function useSearch<T extends { id: string }>({
     const miniSearchInstance = new MiniSearch({
       idField: internalSearchIdField,
       fields,
+      // Index each field as its punctuation-split parts AND its whole
+      // whitespace-delimited form. The parts let a query like "bar" find
+      // "foo_bar_baz"; the whole form lets an underscore-containing query
+      // ("foo_bar") prefix-match the full key instead of being split into
+      // separate tokens that would each OR-match (so "foo_bar" would wrongly
+      // match a feature named "foo").
+      tokenize: (text) => [
+        ...new Set(
+          [...text.split(/\s+/), ...text.split(wordSeparators)].filter(Boolean),
+        ),
+      ],
       searchOptions: {
         boost: keys,
         fuzzy: true,
         prefix: true,
+        // Split the query on whitespace only so "foo_bar" stays a single term.
+        tokenize: (text) => text.split(/\s+/).filter(Boolean),
       },
     });
 
