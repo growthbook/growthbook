@@ -7,6 +7,8 @@ describe("getOrgScopedPath", () => {
     // Legitimate paths resolve unchanged
     [`${ORG}/2025-06/img_uuid.jpeg`, `${ORG}/2025-06/img_uuid.jpeg`],
     [`/${ORG}/2025-06/img_uuid.jpeg`, `${ORG}/2025-06/img_uuid.jpeg`],
+    // Multiple leading slashes are all stripped (else normalize stays absolute)
+    [`//${ORG}/2025-06/img.jpeg`, `${ORG}/2025-06/img.jpeg`],
     // Harmless "." segments collapse but stay in-org
     [`${ORG}/./2025-06/img.jpeg`, `${ORG}/2025-06/img.jpeg`],
   ])("accepts %p", (input, expected) => {

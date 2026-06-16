@@ -8,9 +8,7 @@ export function getOrgScopedPath(
   rawPath: string,
   orgId: string,
 ): string | null {
-  const normalized = posix.normalize(
-    rawPath[0] === "/" ? rawPath.slice(1) : rawPath,
-  );
+  const normalized = posix.normalize(rawPath.replace(/^\/+/, ""));
   if (normalized !== orgId && !normalized.startsWith(`${orgId}/`)) {
     return null;
   }
