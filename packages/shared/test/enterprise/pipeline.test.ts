@@ -1,4 +1,8 @@
-import { isExperimentIncrementalEnabled } from "shared/enterprise";
+import {
+  getExperimentSourceSnapshotRef,
+  isExperimentIncrementalEnabled,
+  isNewerOverallResultsDataAvailable,
+} from "shared/enterprise";
 import type { DataSourcePipelineSettings } from "shared/types/datasource";
 
 const makeSettings = (
@@ -144,5 +148,85 @@ describe("isExperimentIncrementalEnabled", () => {
         ),
       ).toBe(false);
     });
+  });
+});
+
+describe("getExperimentSourceSnapshotRef", () => {
+  const mainDate = new Date("2024-06-01T12:00:00Z");
+
+  it("returns undefined when no basis was persisted", () => {
+    expect(getExperimentSourceSnapshotRef({})).toBeUndefined();
+  });
+
+  it("returns undefined when only the id is present", () => {
+    expect(
+      getExperimentSourceSnapshotRef({ sourceSnapshotId: "main" }),
+    ).toBeUndefined();
+  });
+
+  it("returns undefined when only the date is present", () => {
+    expect(
+      getExperimentSourceSnapshotRef({ sourceSnapshotDateCreated: mainDate }),
+    ).toBeUndefined();
+  });
+
+  it("returns the persisted ref when both id and date are present", () => {
+    expect(
+      getExperimentSourceSnapshotRef({
+        sourceSnapshotId: "main",
+        sourceSnapshotDateCreated: mainDate,
+      }),
+    ).toEqual({ id: "main", dateCreated: mainDate });
+  });
+});
+
+describe("isNewerOverallResultsDataAvailable", () => {
+  const source = {
+    id: "main_old",
+    dateCreated: new Date("2024-06-01T12:00:00Z"),
+  };
+
+  it("returns false when there is no source snapshot", () => {
+    expect(
+      isNewerOverallResultsDataAvailable(undefined, {
+        dateCreated: new Date("2024-06-02T12:00:00Z"),
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false when there is no latest main snapshot", () => {
+    expect(isNewerOverallResultsDataAvailable(source, undefined)).toBe(false);
+  });
+
+  it("returns false when the latest main snapshot is the same age", () => {
+    expect(
+      isNewerOverallResultsDataAvailable(source, {
+        dateCreated: source.dateCreated,
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false when the latest main snapshot is older", () => {
+    expect(
+      isNewerOverallResultsDataAvailable(source, {
+        dateCreated: new Date("2024-05-01T12:00:00Z"),
+      }),
+    ).toBe(false);
+  });
+
+  it("returns true when a newer main snapshot exists", () => {
+    expect(
+      isNewerOverallResultsDataAvailable(source, {
+        dateCreated: new Date("2024-06-02T12:00:00Z"),
+      }),
+    ).toBe(true);
+  });
+
+  it("handles string dates from the API", () => {
+    expect(
+      isNewerOverallResultsDataAvailable(source, {
+        dateCreated: "2024-06-02T12:00:00Z" as unknown as Date,
+      }),
+    ).toBe(true);
   });
 });
