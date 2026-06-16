@@ -65,7 +65,7 @@ const AddVariationModal: FC<{
             id: generateVariationId(),
             name,
             description: value.description.trim(),
-            key: `${experiment.variations.length}`,
+            key: "",
             screenshots: [],
           },
         ];
