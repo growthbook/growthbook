@@ -356,11 +356,10 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   isDefaultPrompt: boolean;
   zodObjectSchema: T;
   overrideModel?: AIModel;
-  // Retry once on NoObjectGeneratedError (see the generation block). Set
-  // false from callers that are THEMSELVES a retry, so the retry doesn't
-  // stack (e.g. postAIEdit's selector-correction runRetry — otherwise a
-  // single request could fan out to the main call's 2 attempts + the
-  // correction call's 2 = 4 LLM invocations).
+  // Retry once on NoObjectGeneratedError. Pass false from callers that
+  // are themselves a retry so attempts don't stack (e.g. postAIEdit's
+  // selector-correction retry — otherwise one request could fan out to
+  // 4 LLM calls).
   retryOnNoObject?: boolean;
   // Optional tool-calling: when present, the model may emit tool calls
   // across up to `maxSteps` LLM round-trips before producing the final
@@ -434,18 +433,15 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
       ...(onStepFinish ? { onStepFinish } : {}),
     });
 
-  // Structured-output adherence is probabilistic, especially on providers
-  // without native JSON-schema enforcement (e.g. Anthropic, which the AI
-  // SDK emulates via a forced tool call) and even more so when tools +
-  // multi-step are in play. When the model fails to emit a schema-valid
-  // object the SDK throws NoObjectGeneratedError ("No object generated:
-  // response did not match schema."). That's almost always transient, so
-  // retry once before surfacing a clear error rather than the raw SDK
-  // string.
-  // A failed first attempt still consumes tokens (NoObjectGeneratedError
-  // carries the usage of the call that produced the unparseable output).
-  // Track it so cloud billing / rate-limiting below counts it — otherwise
-  // every transient retry under-counts by a full call.
+  // Output.object steers the model toward the schema but doesn't
+  // grammar-constrain it, so conformance is probabilistic: a complex
+  // schema, a smaller model, or mixing in tools + multi-step all raise
+  // the chance it returns something the schema rejects
+  // (NoObjectGeneratedError). It's almost always transient, so retry
+  // once before surfacing a clear error. The durable fix for a high
+  // rate is a simpler schema or a stronger model; this is just a cheap
+  // backstop. A failed attempt still bills tokens (the error carries its
+  // usage), so track them or the retry under-counts on Cloud.
   let retriedTokens = 0;
   let response: Awaited<ReturnType<typeof generateOnce>>;
   try {
@@ -464,8 +460,8 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     } catch (retryErr) {
       if (!NoObjectGeneratedError.isInstance(retryErr)) throw retryErr;
       retriedTokens += retryErr.usage?.totalTokens ?? 0;
-      // Bill the tokens both failed attempts consumed before surfacing the
-      // error, so the rate-limiter doesn't under-count a double failure.
+      // Bill both failed attempts before surfacing the error so Cloud
+      // rate-limiting doesn't under-count a double failure.
       if (IS_CLOUD && retriedTokens > 0) {
         await updateTokenUsage({
           numTokensUsed: retriedTokens,

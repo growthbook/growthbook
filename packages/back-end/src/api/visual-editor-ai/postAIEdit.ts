@@ -558,12 +558,10 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       zodObjectSchema: outputSchema,
       overrideModel: visualEditorAIModel,
       cacheSystemPrompt: true,
-      // This IS a retry (selector self-correction). Disable parsePrompt's
-      // own NoObjectGeneratedError auto-retry so a single user request
-      // can't fan out to 4 LLM calls (main call's 2 attempts + this
-      // correction call's 2). Worst case is now 3: main(≤2) + correction(1).
-      // If this correction call itself returns no object, finalizeOutput's
-      // try/catch keeps the original result.
+      // This is itself a retry (selector self-correction), so disable
+      // parsePrompt's no-object retry — otherwise one request could fan
+      // out to 4 LLM calls. finalizeOutput's try/catch already keeps the
+      // original result if this correction returns no object.
       retryOnNoObject: false,
     });
 
@@ -682,15 +680,14 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
   // client; non-streaming mode runs without DOM tools so the race only
   // ever resolves to "final".
   const streamingMode = !!req.body.streamingMode;
-  // The streaming tool loop keeps an in-memory job (a paused, mid-flight
-  // generation) and resumes it via a follow-up /edit/resume request. That
-  // only works when the resume lands on the SAME process. On Cloud
-  // (multi-instance, no session affinity) a resume can hit a different
-  // instance → "AI edit session not found". An in-flight generation can't
-  // be serialized/shared either, so the fix is to NOT use the DOM-side
-  // tool loop on Cloud: run a single-shot generation (server-side tools
-  // only) and answer immediately. We still return the streaming-shaped
-  // {kind:"final"} envelope below so the extension's handling is unchanged.
+  // The streaming tool loop parks an in-memory job and resumes it via a
+  // follow-up /edit/resume request — which only works if the resume hits
+  // the SAME process. On Cloud (multi-instance, no affinity) it can hit
+  // another instance → "AI edit session not found", and an in-flight
+  // generation can't be shared. So skip the DOM-side tool loop on Cloud:
+  // run a single-shot generation (server-side tools only) and answer
+  // immediately, still returning the {kind:"final"} envelope so the
+  // extension's handling is unchanged.
   const useToolLoop = streamingMode && !IS_CLOUD;
   const job = aiEditJobStore.create();
   const tools = buildVisualEditorTools({
