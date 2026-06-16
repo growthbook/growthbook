@@ -477,6 +477,12 @@ The response body will be a JSON object with the following properties:
       {
         url: "https://{domain}/api",
         description: "Self-hosted GrowthBook",
+        variables: {
+          domain: {
+            default: "localhost:3100",
+            description: "Your self-hosted GrowthBook host (and port)",
+          },
+        },
       },
     ],
     tags: openApiTags.map((id) => ({
