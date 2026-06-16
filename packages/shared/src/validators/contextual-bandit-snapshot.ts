@@ -58,18 +58,17 @@ export const contextualBanditSnapshotValidator = baseSchema
     triggeredBy: z.enum(["manual", "schedule"]).optional(),
     /**
      * Sample Ratio Mismatch computed per snapshot run. `statistic` is the
-     * chi-square sum SUM((observed - expected)^2 / expected) across all
-     * (leaf_id, snapshot_update_count, variation) cells, computed in SQL.
-     * `pValue` is derived from the statistic with degrees of freedom
-     * numLeaves * numUpdates * (numVariations - 1).
+     * chi-square sum SUM((observed - expected)^2 / expected) over the usable
+     * cells of the kept (leaf_id, snapshot_update_count) groups, computed in SQL.
+     * `degreesOfFreedom` is computed in SQL as
+     * (sum of usable cells across kept groups) - (number of kept groups), and
+     * `pValue` is derived from the statistic with those degrees of freedom.
      */
     srm: z
       .object({
         statistic: z.number(),
         pValue: z.number(),
-        numLeaves: z.number().int().nonnegative(),
-        numUpdates: z.number().int().nonnegative(),
-        numVariations: z.number().int().nonnegative(),
+        degreesOfFreedom: z.number().int().nonnegative(),
       })
       .optional(),
   })

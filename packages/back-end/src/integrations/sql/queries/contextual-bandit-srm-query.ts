@@ -10,6 +10,11 @@ import type { SqlDialect } from "shared/types/sql";
 import { compileSqlTemplate } from "back-end/src/util/sql";
 import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure-query";
 
+/** Minimum expected count for a (group, variation) cell to be usable in the test. */
+const MIN_EXPECTED_PER_CELL = 5;
+/** A (leaf_id, snapshot_update_count) group is only kept when it has at least this many usable cells. */
+const MIN_VALID_CELLS_PER_GROUP = 2;
+
 /**
  * Sample Ratio Mismatch (SRM) for contextual bandits, computed in SQL.
  *
@@ -18,11 +23,17 @@ import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure
  * For every (leaf_id, snapshot_update_count) group we compare, per variation:
  *   - observed = number of users assigned to that variation, and
  *   - expected = sum of that variation's per-user weights.
- * The result is the chi-square statistic SUM((observed - expected)^2 / expected)
- * across all (group, variation) cells, plus the distinct leaf count, distinct
- * weight-update-generation count, and variation count. The caller derives the
- * degrees of freedom as numLeaves * numUpdates * (numVariations - 1) and the
- * p-value from the statistic.
+ *
+ * Cells whose expected count is below MIN_EXPECTED_PER_CELL (5) are dropped and
+ * contribute to neither the statistic nor the degrees of freedom. A
+ * (leaf_id, snapshot_update_count) group is only kept when at least
+ * MIN_VALID_CELLS_PER_GROUP (2) of its cells survive that filter.
+ *
+ * The query returns the chi-square statistic
+ * SUM((observed - expected)^2 / expected) over the usable cells of the kept
+ * groups, and the degrees of freedom computed directly in SQL as
+ * (sum of usable cells across kept groups) - (number of kept groups). The caller
+ * derives the p-value from the statistic and these degrees of freedom.
  *
  * Within each (leaf_id, snapshot_update_count) cell a user contributes a single
  * observation: their first (earliest-timestamp) exposure in that cell. A user can
@@ -80,11 +91,12 @@ export function getContextualBanditSrmQuery(
     )
     .join("\n          ");
 
-  // Unpivot the k (observed, expected) pairs into one row per cell-variation.
+  // Unpivot the k (observed, expected) pairs into one row per cell-variation,
+  // carrying the group keys so downstream filtering can work per group.
   const cellRows = variations
     .map(
       (_, i) =>
-        `SELECT observed_${i} AS observed, expected_${i} AS expected FROM __cbCellAgg`,
+        `SELECT leaf_id, snapshot_update_count, observed_${i} AS observed, expected_${i} AS expected FROM __cbCellAgg`,
     )
     .join("\n        UNION ALL\n        ");
 
@@ -165,30 +177,48 @@ export function getContextualBanditSrmQuery(
       , __cbCells AS (
         ${cellRows}
       )
-      , __cbStatistic AS (
+      , __cbValidCells AS (
+        -- Drop cells without enough expected data to be usable in the test.
         SELECT
-          COALESCE(SUM(POW(observed - expected, 2) / expected), 0) AS statistic
+          leaf_id
+          , snapshot_update_count
+          , observed
+          , expected
         FROM
           __cbCells
         WHERE
-          expected > 0
+          expected >= ${MIN_EXPECTED_PER_CELL}
       )
-      , __cbDims AS (
-        -- Distinct policy leaves and weight-update generations present in the data.
+      , __cbGroups AS (
+        -- Per (leaf_id, snapshot_update_count): count usable cells and accumulate
+        -- their chi-square contribution. Keep only groups with at least 2 cells.
         SELECT
-          COUNT(DISTINCT leaf_id) AS num_leaves
-          , COUNT(DISTINCT snapshot_update_count) AS num_updates
+          leaf_id
+          , snapshot_update_count
+          , COUNT(*) AS num_valid_cells
+          , SUM(POW(observed - expected, 2) / expected) AS group_statistic
         FROM
-          __cbCellAgg
+          __cbValidCells
+        GROUP BY
+          leaf_id
+          , snapshot_update_count
+        HAVING
+          COUNT(*) >= ${MIN_VALID_CELLS_PER_GROUP}
+      )
+      , __cbResult AS (
+        -- Statistic summed across kept groups, plus degrees of freedom computed
+        -- as (sum of usable cells across kept groups) - (number of kept groups).
+        SELECT
+          COALESCE(SUM(group_statistic), 0) AS statistic
+          , COALESCE(SUM(num_valid_cells), 0) - COUNT(*) AS degrees_of_freedom
+        FROM
+          __cbGroups
       )
     SELECT
-      s.statistic AS statistic
-      , d.num_leaves AS num_leaves
-      , d.num_updates AS num_updates
-      , ${variations.length} AS num_variations
+      statistic AS statistic
+      , degrees_of_freedom AS degrees_of_freedom
     FROM
-      __cbStatistic s
-      CROSS JOIN __cbDims d
+      __cbResult
     `,
     dialect.formatDialect,
   );

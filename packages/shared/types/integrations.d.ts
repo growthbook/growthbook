@@ -740,14 +740,17 @@ export type DimensionSlicesQueryResponseRows = {
 }[];
 
 export type ContextualBanditSrmQueryResponseRows = {
-  /** Chi-square statistic: SUM((observed - expected)^2 / expected) over all cells. */
+  /**
+   * Chi-square statistic: SUM((observed - expected)^2 / expected) over the
+   * usable cells (expected >= 5) of the kept (leaf_id, snapshot_update_count)
+   * groups (those with at least 2 usable cells).
+   */
   statistic: number;
-  /** Distinct policy leaves (leaf_id) present in the data. */
-  num_leaves: number;
-  /** Distinct weight-update generations (snapshot_update_count) present in the data. */
-  num_updates: number;
-  /** Number of experiment variations. */
-  num_variations: number;
+  /**
+   * Degrees of freedom computed in SQL as
+   * (sum of usable cells across kept groups) - (number of kept groups).
+   */
+  degrees_of_freedom: number;
 }[];
 
 export type MaxTimestampQueryResponseRow = {

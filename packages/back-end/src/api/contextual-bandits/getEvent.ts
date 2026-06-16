@@ -22,6 +22,7 @@ export const getCbEvent = createApiRequestHandler(getCbEventValidator)(async (
       contextualBandit: event.contextualBandit,
       snapshotId: event.snapshotId,
       weightsWereUpdated: event.weightsWereUpdated,
+      degreesOfFreedom: event.degreesOfFreedom,
       dateCreated: event.dateCreated.toISOString(),
     },
   };

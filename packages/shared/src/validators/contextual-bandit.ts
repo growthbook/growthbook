@@ -387,6 +387,12 @@ const cbEventResponseShape = z.object({
   contextualBandit: z.string(),
   snapshotId: z.string(),
   weightsWereUpdated: z.boolean(),
+  /**
+   * Degrees of freedom of the contextual SRM test for this event's snapshot run.
+   * Absent when the SRM test could not be run (e.g. no group had enough usable
+   * cells, or a non-SQL data source).
+   */
+  degreesOfFreedom: z.number().int().nonnegative().optional(),
   dateCreated: z.string(),
 });
 

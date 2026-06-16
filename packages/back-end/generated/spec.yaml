@@ -12772,6 +12772,9 @@ paths:
                             type: string
                           weightsWereUpdated:
                             type: boolean
+                          degreesOfFreedom:
+                            type: integer
+                            minimum: 0
                           dateCreated:
                             type: string
                         required:
@@ -46723,6 +46726,9 @@ components:
           type: string
         weightsWereUpdated:
           type: boolean
+        degreesOfFreedom:
+          type: integer
+          minimum: 0
         dateCreated:
           type: string
       required:

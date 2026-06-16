@@ -81,9 +81,7 @@ function toCsv(headers: string[], rows: unknown[][]): string {
 export type ContextualBanditSrmDebugValues = {
   statistic: number;
   pValue: number;
-  numLeaves: number;
-  numUpdates: number;
-  numVariations: number;
+  degreesOfFreedom: number;
 };
 
 /**
@@ -208,19 +206,12 @@ export function writeContextualBanditDebugCsvs(
     fs.writeFileSync(path.join(dir, fileName("leaf_results")), leafResultsCsv);
 
     // srm_<n>.csv: the contextual SRM object (chi-square statistic, derived
-    // p-value, and the dof inputs). Only emitted when an SRM result exists.
+    // p-value, and the SQL-computed degrees of freedom). Only emitted when an
+    // SRM result exists.
     if (srm) {
       const srmCsv = toCsv(
-        ["statistic", "pValue", "numLeaves", "numUpdates", "numVariations"],
-        [
-          [
-            srm.statistic,
-            srm.pValue,
-            srm.numLeaves,
-            srm.numUpdates,
-            srm.numVariations,
-          ],
-        ],
+        ["statistic", "pValue", "degreesOfFreedom"],
+        [[srm.statistic, srm.pValue, srm.degreesOfFreedom]],
       );
       fs.writeFileSync(path.join(dir, fileName("srm")), srmCsv);
     }

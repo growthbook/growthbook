@@ -40,13 +40,11 @@ export type ContextualBanditResultsQueryParams = {
   variationNames: string[];
 };
 
-/** SRM stored on the CB snapshot: SQL chi-square statistic, its derived p-value, and dof inputs. */
+/** SRM stored on the CB snapshot: SQL chi-square statistic, its derived p-value, and the SQL-computed dof. */
 export type ContextualBanditSrmResult = {
   statistic: number;
   pValue: number;
-  numLeaves: number;
-  numUpdates: number;
-  numVariations: number;
+  degreesOfFreedom: number;
 };
 
 /** The successful output of one CB run. Returned from `runAnalysis`. */
@@ -298,8 +296,9 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
 
   /**
    * Pulls the optional SQL SRM result from the query map and derives the p-value.
-   * Degrees of freedom = numLeaves * numUpdates * (numVariations - 1); when that is
-   * not positive (e.g. a single variation or no data) the SRM test is undefined.
+   * The degrees of freedom are computed in SQL; when they are not positive (e.g.
+   * no kept (leaf_id, snapshot_update_count) group has enough usable cells) the
+   * SRM test is undefined.
    */
   private extractSrmResult(
     queryMap: QueryMap,
@@ -315,17 +314,14 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
     if (!first) {
       return undefined;
     }
-    const degreesOfFreedom =
-      first.num_leaves * first.num_updates * (first.num_variations - 1);
-    if (degreesOfFreedom <= 0) {
+    const degreesOfFreedom = first.degrees_of_freedom;
+    if (!(degreesOfFreedom > 0)) {
       return undefined;
     }
     return {
       statistic: first.statistic,
       pValue: chi2pvalue(first.statistic, degreesOfFreedom),
-      numLeaves: first.num_leaves,
-      numUpdates: first.num_updates,
-      numVariations: first.num_variations,
+      degreesOfFreedom,
     };
   }
 

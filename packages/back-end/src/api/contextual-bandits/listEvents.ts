@@ -17,6 +17,7 @@ export const listCbEvents = createApiRequestHandler(listCbEventsValidator)(
         contextualBandit: e.contextualBandit,
         snapshotId: e.snapshotId,
         weightsWereUpdated: e.weightsWereUpdated,
+        degreesOfFreedom: e.degreesOfFreedom,
         dateCreated: e.dateCreated.toISOString(),
       })),
     };

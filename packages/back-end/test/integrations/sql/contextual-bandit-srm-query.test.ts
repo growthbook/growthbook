@@ -77,14 +77,26 @@ describe("getContextualBanditSrmQuery", () => {
     expect(c).toContain("ASobserved_1");
     expect(c).toContain("ASexpected_1");
 
-    // Cells unpivoted, then chi-square statistic + dof inputs
+    // Cells unpivoted carrying the group keys
     expect(c).toContain("UNIONALL");
+    expect(c).toContain(
+      "SELECTleaf_id,snapshot_update_count,observed_0ASobserved,expected_0ASexpected",
+    );
+
+    // Cells with expected < 5 are dropped before the test
+    expect(c).toContain("WHEREexpected>=5");
+
+    // Groups need at least 2 usable cells to be kept
+    expect(c).toContain("HAVINGCOUNT(*)>=2");
+
+    // Chi-square statistic accumulated per kept group
     expect(c).toContain("POW(observed-expected,2)/expected");
-    expect(c).toContain("expected>0");
-    expect(c).toContain("COUNT(DISTINCTleaf_id)ASnum_leaves");
-    expect(c).toContain("COUNT(DISTINCTsnapshot_update_count)ASnum_updates");
-    expect(c).toContain("2ASnum_variations");
-    expect(c).not.toContain("num_cells");
+
+    // Degrees of freedom computed in SQL: (sum usable cells) - (num kept groups)
+    expect(c).toContain(
+      "COALESCE(SUM(num_valid_cells),0)-COUNT(*)ASdegrees_of_freedom",
+    );
+    expect(c).toContain("ASdegrees_of_freedom");
   });
 
   it("emits one observed/expected pair and array index per variation", () => {
@@ -102,7 +114,7 @@ describe("getContextualBanditSrmQuery", () => {
     expect(c).toContain("e.variation_weights[3]ASw_2");
     expect(c).toContain("ASobserved_2");
     expect(c).toContain("ASexpected_2");
-    expect(c).toContain("3ASnum_variations");
+    expect(c).not.toContain("num_variations");
     // 3 variations => 3 UNION ALL'd cell rows (2 separators)
     expect(sql.match(/UNION ALL/gi)?.length).toBe(2);
   });

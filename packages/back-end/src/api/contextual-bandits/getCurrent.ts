@@ -17,6 +17,7 @@ export const getCbCurrent = createApiRequestHandler(getCbCurrentValidator)(
             contextualBandit: latestCBE.contextualBandit,
             snapshotId: latestCBE.snapshotId,
             weightsWereUpdated: latestCBE.weightsWereUpdated,
+            degreesOfFreedom: latestCBE.degreesOfFreedom,
             dateCreated: latestCBE.dateCreated.toISOString(),
           }
         : null,

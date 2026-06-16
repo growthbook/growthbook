@@ -666,9 +666,7 @@ export default abstract class SqlIntegration
     return {
       rows: rows.map((row) => ({
         statistic: parseFloat(row.statistic) || 0,
-        num_leaves: parseInt(row.num_leaves, 10) || 0,
-        num_updates: parseInt(row.num_updates, 10) || 0,
-        num_variations: parseInt(row.num_variations, 10) || 0,
+        degrees_of_freedom: parseInt(row.degrees_of_freedom, 10) || 0,
       })),
       statistics,
     };

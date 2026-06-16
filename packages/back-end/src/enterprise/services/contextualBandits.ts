@@ -20,7 +20,10 @@ import { getSettingsForSnapshotMetrics } from "back-end/src/services/experiments
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { getPayloadKeysForContextualBandit } from "back-end/src/services/contextualBanditChanges";
-import { ContextualBanditResultsQueryRunner } from "back-end/src/enterprise/queryRunners/ContextualBanditResultsQueryRunner";
+import {
+  ContextualBanditResultsQueryRunner,
+  ContextualBanditSrmResult,
+} from "back-end/src/enterprise/queryRunners/ContextualBanditResultsQueryRunner";
 import {
   ContextualBanditResult,
   ContextualBanditSettingsForStatsEngine,
@@ -207,7 +210,7 @@ export function contextualBanditWeightsWereUpdated(
 export async function persistContextualBanditEvent(
   context: ReqContext,
   cbs: ContextualBanditSnapshotInterface,
-  result: ContextualBanditResult,
+  result: ContextualBanditResult & { srm?: ContextualBanditSrmResult },
 ): Promise<ContextualBanditEventInterface> {
   const cb = await context.models.contextualBandits.getById(
     cbs.contextualBandit,
@@ -236,6 +239,7 @@ export async function persistContextualBanditEvent(
     leaf_map: result.leaf_map,
     leaf_stats: result.leaf_stats,
     weightsWereUpdated,
+    ...(result.srm ? { degreesOfFreedom: result.srm.degreesOfFreedom } : {}),
   });
 
   // Always patch on a successful snapshot so `snapshotUpdateCount` advances once per CBE, even when
