@@ -77,6 +77,15 @@ function toCsv(headers: string[], rows: unknown[][]): string {
   return lines.join("\n") + "\n";
 }
 
+/** SRM values dumped to the debug `srm_<n>.csv` file. */
+export type ContextualBanditSrmDebugValues = {
+  statistic: number;
+  pValue: number;
+  numLeaves: number;
+  numUpdates: number;
+  numVariations: number;
+};
+
 /**
  * Debug helper: dump the TypeScript contextual-bandit weight output to CSVs on
  * disk so a run can be eyeballed against the gbstats (Python) output. Mirrors
@@ -88,12 +97,19 @@ function toCsv(headers: string[], rows: unknown[][]): string {
  */
 export function writeContextualBanditDebugCsvs(
   snapshot: ContextualBanditSnapshot,
+  snapshotUpdateCount: number,
   rows?: ExperimentMetricQueryResponseRows,
   metricSettings?: MetricSettingsForStatsEngine,
+  srm?: ContextualBanditSrmDebugValues,
 ): void {
   try {
     const dir = path.join(os.homedir(), "Desktop");
     if (!fs.existsSync(dir)) return;
+
+    // Suffix every file with the CB's weight-update generation so successive
+    // runs don't overwrite each other (e.g. "context_results_2.csv").
+    const fileName = (base: string): string =>
+      `${base}_${snapshotUpdateCount}.csv`;
 
     const attributes = snapshot.attributes ?? [];
     const leafMap = snapshot.leaf_map ?? [];
@@ -184,9 +200,30 @@ export function writeContextualBanditDebugCsvs(
         }),
     );
 
-    fs.writeFileSync(path.join(dir, "leaf-map.csv"), leafMapCsv);
-    fs.writeFileSync(path.join(dir, "context-results.csv"), contextResultsCsv);
-    fs.writeFileSync(path.join(dir, "leaf-results.csv"), leafResultsCsv);
+    fs.writeFileSync(path.join(dir, fileName("leaf_map")), leafMapCsv);
+    fs.writeFileSync(
+      path.join(dir, fileName("context_results")),
+      contextResultsCsv,
+    );
+    fs.writeFileSync(path.join(dir, fileName("leaf_results")), leafResultsCsv);
+
+    // srm_<n>.csv: the contextual SRM object (chi-square statistic, derived
+    // p-value, and the dof inputs). Only emitted when an SRM result exists.
+    if (srm) {
+      const srmCsv = toCsv(
+        ["statistic", "pValue", "numLeaves", "numUpdates", "numVariations"],
+        [
+          [
+            srm.statistic,
+            srm.pValue,
+            srm.numLeaves,
+            srm.numUpdates,
+            srm.numVariations,
+          ],
+        ],
+      );
+      fs.writeFileSync(path.join(dir, fileName("srm")), srmCsv);
+    }
 
     // queries_modal_results.csv: the raw decision-metric query rows that feed the
     // weight engine, structured like the "Queries" modal. The leading row index
@@ -213,7 +250,7 @@ export function writeContextualBanditDebugCsvs(
         }),
       );
       fs.writeFileSync(
-        path.join(dir, "queries_modal_results.csv"),
+        path.join(dir, fileName("queries_modal_results")),
         queriesModalCsv,
       );
     }
