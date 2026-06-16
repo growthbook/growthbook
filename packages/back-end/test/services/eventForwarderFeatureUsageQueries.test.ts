@@ -6,10 +6,6 @@ import * as EventForwarderConfig from "back-end/src/services/eventForwarder/conf
 jest.mock("back-end/src/models/DataSourceModel");
 jest.mock("back-end/src/services/eventForwarder/config");
 
-const mockedGetRaw =
-  DataSourceModel.getRawDataSourceById as jest.MockedFunction<
-    typeof DataSourceModel.getRawDataSourceById
-  >;
 const mockedGetById = DataSourceModel.getDataSourceById as jest.MockedFunction<
   typeof DataSourceModel.getDataSourceById
 >;
@@ -89,7 +85,6 @@ describe("ensureEventForwarderFeatureUsageQuery", () => {
 
   it("creates a managed feature usage query for BigQuery", async () => {
     const raw = ds({ queries: { featureUsage: [] } });
-    mockedGetRaw.mockResolvedValue(raw);
     mockedGetById.mockResolvedValue(raw);
     mockedDecrypt.mockReturnValue({
       dataset: "analytics_123",
@@ -135,7 +130,6 @@ describe("ensureEventForwarderFeatureUsageQuery", () => {
         featureUsage: [{ id: "manual", query: "SELECT 1" }],
       },
     });
-    mockedGetRaw.mockResolvedValue(raw);
     mockedGetById.mockResolvedValue(raw);
     mockedDecrypt.mockReturnValue({
       dataset: "analytics_123",
@@ -163,7 +157,7 @@ describe("ensureEventForwarderFeatureUsageQuery", () => {
         featureUsage: [{ id: "managed", query: "SELECT 2", managedBy: "api" }],
       },
     });
-    mockedGetRaw.mockResolvedValue(raw);
+    mockedGetById.mockResolvedValue(raw);
 
     const ids = await ensureEventForwarderFeatureUsageQuery(
       context() as never,
@@ -176,7 +170,6 @@ describe("ensureEventForwarderFeatureUsageQuery", () => {
 
   it("creates Snowflake feature usage query without WHERE clause", async () => {
     const raw = ds({ queries: { featureUsage: [] } });
-    mockedGetRaw.mockResolvedValue(raw);
     mockedGetById.mockResolvedValue({ ...raw, type: "snowflake" });
     mockedDecrypt.mockReturnValue({
       database: "MY_DB",

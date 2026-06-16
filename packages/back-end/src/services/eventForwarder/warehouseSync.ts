@@ -5,7 +5,6 @@ import {
 import { ReqContext } from "back-end/types/request";
 import {
   getDataSourceById,
-  getRawDataSourceById,
   updateDataSource,
   validateExposureQueriesAndAddMissingIds,
 } from "back-end/src/models/DataSourceModel";
@@ -19,18 +18,13 @@ export async function revalidateManagedEventForwarderDataSourceQueries(
   context: ReqContext,
   datasourceId: string,
 ): Promise<void> {
-  const raw = await getRawDataSourceById(context, datasourceId);
-  if (!raw) {
-    return;
-  }
-
   const datasource = await getDataSourceById(context, datasourceId);
   if (!datasource) {
     return;
   }
 
-  const exposure = raw.settings?.queries?.exposure ?? [];
-  const featureUsage = raw.settings?.queries?.featureUsage ?? [];
+  const exposure = datasource.settings?.queries?.exposure ?? [];
+  const featureUsage = datasource.settings?.queries?.featureUsage ?? [];
   const hasManagedExposure = exposure.some(
     isEventForwarderManagedExposureQuery,
   );
@@ -46,9 +40,9 @@ export async function revalidateManagedEventForwarderDataSourceQueries(
     context,
     datasource,
     {
-      ...raw.settings,
+      ...datasource.settings,
       queries: {
-        ...raw.settings?.queries,
+        ...datasource.settings?.queries,
         exposure,
         featureUsage,
       },
