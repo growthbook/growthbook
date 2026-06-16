@@ -238,14 +238,16 @@ export function useSearch<T extends { id: string }>({
       // separate tokens that would each OR-match (so "foo_bar" would wrongly
       // match a feature named "foo").
       tokenize: (text) => [
-        ...new Set([...text.split(/\s+/), ...text.split(wordSeparators)]),
+        ...new Set(
+          [...text.split(/\s+/), ...text.split(wordSeparators)].filter(Boolean),
+        ),
       ],
       searchOptions: {
         boost: keys,
         fuzzy: true,
         prefix: true,
         // Split the query on whitespace only so "foo_bar" stays a single term.
-        tokenize: (text) => text.split(/\s+/),
+        tokenize: (text) => text.split(/\s+/).filter(Boolean),
       },
     });
 
