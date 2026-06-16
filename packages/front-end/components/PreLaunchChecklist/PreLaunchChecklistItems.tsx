@@ -15,7 +15,7 @@ import Link from "@/ui/Link";
 import {
   revisionStatusColor,
   revisionStatusLabel,
-} from "@/components/Features/RevisionStatusBadge";
+} from "@/components/Reviews/RevisionStatusBadge";
 
 export type CheckListItem = {
   display: string | ReactElement;
@@ -50,6 +50,9 @@ export function getChecklistItems({
   checklist,
   checkLinkedChanges,
   setShowScheduleModal,
+  /** When publishing from a feature draft page, waive the unrelated-edits gate
+   *  for that feature — the user is explicitly reviewing the full draft. */
+  publishingFeatureId,
 }: {
   experiment: ExperimentInterfaceStringDates;
   linkedFeatures: LinkedFeatureInfo[];
@@ -63,6 +66,7 @@ export function getChecklistItems({
   checklist?: ExperimentLaunchChecklistInterface;
   checkLinkedChanges: boolean;
   setShowScheduleModal?: (value: boolean) => void;
+  publishingFeatureId?: string;
 }) {
   const isBandit = experiment.type === "multi-armed-bandit";
 
@@ -241,7 +245,8 @@ export function getChecklistItems({
           (f) =>
             f.state === "draft" &&
             f.hasUnrelatedDraftChanges &&
-            !f.hasMergeConflict,
+            !f.hasMergeConflict &&
+            f.feature.id !== publishingFeatureId,
         )
         .forEach((f) => {
           items.push({

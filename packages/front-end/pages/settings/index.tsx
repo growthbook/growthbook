@@ -165,6 +165,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
         },
       ],
       restApiBypassesReviews: settings.restApiBypassesReviews ?? false,
+      requireRebaseBeforePublish: settings.requireRebaseBeforePublish ?? false,
+      revertsBypassApproval: settings.revertsBypassApproval ?? false,
+      maxConcurrentDrafts: settings.maxConcurrentDrafts ?? 0,
       defaultDataSource: settings.defaultDataSource || "",
       testQueryDays: DEFAULT_TEST_QUERY_DAYS,
       disablePrecomputedDimensions:
@@ -421,6 +424,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
       multipleExposureMinPercent:
         (value.multipleExposureMinPercent ?? 0.01) / 100,
       preferredEnvironment: value.preferredEnvironment || null,
+      // A cleared number input yields NaN — normalize to 0 (cap disabled)
+      maxConcurrentDrafts: value.maxConcurrentDrafts || 0,
       approvalFlows: applyApprovalFlowEntitlements(
         value.approvalFlows,
         hasRequireApprovals,

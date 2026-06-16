@@ -8,7 +8,10 @@ import {
 import {
   AggregatedFactTableInterface,
   AggregatedFactTableMetricStateInterface,
+  AggregatedFactTableRunInterface,
+  AggregatedTableRefreshSkipReason,
 } from "shared/validators";
+import { QueryStatus } from "shared/types/query";
 import { ReqContext } from "back-end/types/request";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
@@ -193,6 +196,80 @@ export function buildAggregatedFactTableStatus({
   };
 }
 
+export function deriveAggregatedFactTableRunStatus(
+  queries: { status: QueryStatus }[],
+  error: string | null,
+): QueryStatus {
+  // A recorded error is terminal; surface as failed even if query pointers are
+  // stale (e.g. a run finalized out-of-process by the expireOldQueries reaper).
+  if (error) return "failed";
+
+  const total = queries.length;
+  if (!total) return "queued";
+
+  const failed = queries.filter((q) => q.status === "failed").length;
+  const running = queries.filter((q) => q.status === "running").length;
+  const queued = queries.filter((q) => q.status === "queued").length;
+
+  if (queued + running > 0) return "running";
+  if (failed > 0) return "failed";
+  return "succeeded";
+}
+
+export function toAggregatedTableRunSummaryApiInterface(
+  run: AggregatedFactTableRunInterface,
+) {
+  return {
+    id: run.id,
+    idType: run.idType,
+    mode: run.mode,
+    status: deriveAggregatedFactTableRunStatus(run.queries, run.error),
+    runStarted: run.runStarted?.toISOString() ?? null,
+    dateCreated: run.dateCreated.toISOString(),
+    finishedAt: run.finishedAt?.toISOString() ?? null,
+    error: run.error,
+    queryIds: run.queries.map((q) => q.query),
+  };
+}
+
+export function toAggregatedTableRunApiInterface(
+  run: AggregatedFactTableRunInterface,
+) {
+  return {
+    ...toAggregatedTableRunSummaryApiInterface(run),
+    factTableId: run.factTableId,
+    datasourceId: run.datasourceId,
+    result: run.result
+      ? {
+          lastMaxTimestamp: run.result.lastMaxTimestamp?.toISOString() ?? null,
+          firstEventDate: run.result.firstEventDate?.toISOString() ?? null,
+          lastEventDate: run.result.lastEventDate?.toISOString() ?? null,
+        }
+      : null,
+  };
+}
+
+export type AggregatedFactTableUpdateOutcome =
+  | { status: "started"; runId: string }
+  | { status: "failed"; runId: string; error: string }
+  | { status: "skipped"; reason: AggregatedTableRefreshSkipReason };
+
+export function toAggregatedTableRefreshTriggerResult(
+  idType: string,
+  outcome: AggregatedFactTableUpdateOutcome,
+) {
+  return {
+    idType,
+    runId:
+      outcome.status === "started" || outcome.status === "failed"
+        ? outcome.runId
+        : null,
+    status: outcome.status,
+    reason: outcome.status === "skipped" ? outcome.reason : null,
+    error: outcome.status === "failed" ? outcome.error : null,
+  };
+}
+
 export async function runAggregatedFactTableUpdate(
   context: ReqContext,
   factTable: FactTableInterface,
@@ -202,16 +279,18 @@ export async function runAggregatedFactTableUpdate(
     // true (nightly worker): block until queries finish. false (manual UI trigger): return after creating the run and finish in the background.
     awaitResults = false,
   }: { forceRestate: boolean; awaitResults?: boolean },
-): Promise<void> {
+): Promise<AggregatedFactTableUpdateOutcome> {
   const datasource = await getDataSourceById(context, factTable.datasource);
-  if (!datasource) return;
+  if (!datasource) {
+    return { status: "skipped", reason: "datasource-not-found" };
+  }
 
   const pipelineSettings = datasource.settings.pipelineSettings;
   if (!pipelineSettings?.writeDataset) {
     logger.warn(
       `Skipping aggregated fact table update for ${factTable.id}/${idType}: data source ${datasource.id} has no pipeline write dataset configured`,
     );
-    return;
+    return { status: "skipped", reason: "pipeline-not-configured" };
   }
 
   const integration = getSourceIntegrationObject(context, datasource, true);
@@ -219,7 +298,7 @@ export async function runAggregatedFactTableUpdate(
     logger.warn(
       `Skipping aggregated fact table update for ${factTable.id}/${idType}: data source ${datasource.id} does not support writing tables`,
     );
-    return;
+    return { status: "skipped", reason: "unsupported-datasource" };
   }
 
   const factMetrics = await context.models.factMetrics.getAll();
@@ -228,7 +307,7 @@ export async function runAggregatedFactTableUpdate(
     logger.debug(
       `Skipping aggregated fact table update for ${factTable.id}/${idType}: no regression-adjusted fact metrics reference this fact table`,
     );
-    return;
+    return { status: "skipped", reason: "no-eligible-metrics" };
   }
 
   const key = {
@@ -246,7 +325,7 @@ export async function runAggregatedFactTableUpdate(
     logger.debug(
       `Aggregated fact table update for ${factTable.id}/${idType} already in progress; skipping`,
     );
-    return;
+    return { status: "skipped", reason: "already-in-progress" };
   }
 
   const registry = await context.models.aggregatedFactTables.getByKey(key);
@@ -328,6 +407,7 @@ export async function runAggregatedFactTableUpdate(
         `Failed to record error for aggregated fact table ${factTable.id}/${idType}`,
       );
     }
+    return message;
   };
 
   const runner = new AggregatedFactTableQueryRunner(
@@ -351,8 +431,8 @@ export async function runAggregatedFactTableUpdate(
         factTable.aggregatedFactTableSettings?.lookbackWindow ?? 60,
     });
   } catch (e) {
-    await handleFailure(e);
-    return;
+    const error = await handleFailure(e);
+    return { status: "failed", runId: run.id, error };
   }
 
   const waitForCompletion = async () => {
@@ -372,4 +452,6 @@ export async function runAggregatedFactTableUpdate(
   } else {
     void waitForCompletion();
   }
+
+  return { status: "started", runId: run.id };
 }
