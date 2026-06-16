@@ -4,8 +4,11 @@ import {
   assertContextualBanditExperimentFieldsValid,
   assertContextualBanditExposureQueriesValid,
   assertExposureQueriesTargetingAttributeColumnsValid,
+  CONTEXTUAL_BANDIT_EAQ_REQUIRED_COLUMNS,
+  formatContextualBanditMissingSqlColumnMessages,
   formatInvalidTargetingAttributeColumnMessages,
   getAllowedTargetingAttributePropertyNames,
+  getContextualBanditRequiredColumnsMissingFromSql,
   getInvalidTargetingAttributeColumnsForExposureQueries,
   getMalformedTargetingAttributeColumnsForExposureQueries,
   isContextualBanditExposureQuery,
@@ -182,6 +185,70 @@ describe("exposure query targeting attribute columns", () => {
     ).toBe(
       `planet is not a saved targeting attribute. Column aliases in your assignment query must match organization targeting attributes (Settings → Attributes).\n\nx is not a saved targeting attribute. Column aliases in your assignment query must match organization targeting attributes (Settings → Attributes).`,
     );
+  });
+
+  describe("getContextualBanditRequiredColumnsMissingFromSql", () => {
+    it("returns no missing columns when all are present in the SQL", () => {
+      const sql = `SELECT
+        user_id as user_id,
+        timestamp as timestamp,
+        experiment_id as experiment_id,
+        variation_id as variation_id,
+        bandit_version as bandit_version,
+        leaf_id as leaf_id,
+        variation_weights as variation_weights
+      FROM bandit_assignments`;
+      expect(getContextualBanditRequiredColumnsMissingFromSql(sql)).toEqual([]);
+    });
+
+    it("lists every required column missing from the SQL", () => {
+      expect(
+        getContextualBanditRequiredColumnsMissingFromSql("SELECT 1"),
+      ).toEqual([...CONTEXTUAL_BANDIT_EAQ_REQUIRED_COLUMNS]);
+    });
+
+    it("lists only the columns that are absent", () => {
+      const sql = "SELECT leaf_id, variation_weights FROM t";
+      expect(getContextualBanditRequiredColumnsMissingFromSql(sql)).toEqual([
+        "bandit_version",
+      ]);
+    });
+
+    it("matches whole-word tokens, not substrings", () => {
+      // `my_leaf_id` / `variation_weights_raw` must not satisfy the required columns.
+      const sql =
+        "SELECT bandit_version, my_leaf_id, variation_weights_raw FROM t";
+      expect(getContextualBanditRequiredColumnsMissingFromSql(sql)).toEqual([
+        "leaf_id",
+        "variation_weights",
+      ]);
+    });
+
+    it("treats undefined SQL as missing everything", () => {
+      expect(
+        getContextualBanditRequiredColumnsMissingFromSql(undefined),
+      ).toEqual([...CONTEXTUAL_BANDIT_EAQ_REQUIRED_COLUMNS]);
+    });
+  });
+
+  describe("formatContextualBanditMissingSqlColumnMessages", () => {
+    it("uses singular phrasing for one column", () => {
+      expect(formatContextualBanditMissingSqlColumnMessages(["leaf_id"])).toBe(
+        "Your contextual bandit assignment query SQL is missing required column: leaf_id. Add them to your SELECT clause (used to compute SRM for contextual bandits).",
+      );
+    });
+
+    it("dedupes and uses plural phrasing for multiple columns", () => {
+      expect(
+        formatContextualBanditMissingSqlColumnMessages([
+          "leaf_id",
+          "leaf_id",
+          "variation_weights",
+        ]),
+      ).toBe(
+        "Your contextual bandit assignment query SQL is missing required columns: leaf_id, variation_weights. Add them to your SELECT clause (used to compute SRM for contextual bandits).",
+      );
+    });
   });
 
   describe("isContextualBanditExposureQuery", () => {

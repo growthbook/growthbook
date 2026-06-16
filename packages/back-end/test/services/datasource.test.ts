@@ -263,7 +263,7 @@ describe("testQueryValidity", () => {
       );
 
       expect(result).toBe(
-        "Missing required columns in response: snapshot_update_count, leaf_id, variation_weights",
+        "Missing required columns in response: bandit_version, leaf_id, variation_weights",
       );
     });
 
@@ -278,7 +278,7 @@ describe("testQueryValidity", () => {
             experiment_id: 1,
             variation_id: 1,
             timestamp: "2022-01-01",
-            snapshot_update_count: 1,
+            bandit_version: 1,
             leaf_id: "leaf-1",
             variation_weights: [0.5, 0.5],
           },

@@ -59,7 +59,7 @@ export const contextualBanditSnapshotValidator = baseSchema
     /**
      * Sample Ratio Mismatch computed per snapshot run. `statistic` is the
      * chi-square sum SUM((observed - expected)^2 / expected) over the usable
-     * cells of the kept (leaf_id, snapshot_update_count) groups, computed in SQL.
+     * cells of the kept (leaf_id, bandit_version) groups, computed in SQL.
      * `degreesOfFreedom` is computed in SQL as
      * (sum of usable cells across kept groups) - (number of kept groups), and
      * `pValue` is derived from the statistic with those degrees of freedom.

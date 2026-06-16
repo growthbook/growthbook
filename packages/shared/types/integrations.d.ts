@@ -742,7 +742,7 @@ export type DimensionSlicesQueryResponseRows = {
 export type ContextualBanditSrmQueryResponseRows = {
   /**
    * Chi-square statistic: SUM((observed - expected)^2 / expected) over the
-   * usable cells (expected >= 5) of the kept (leaf_id, snapshot_update_count)
+   * usable cells (expected >= 5) of the kept (leaf_id, bandit_version)
    * groups (those with at least 2 usable cells).
    */
   statistic: number;

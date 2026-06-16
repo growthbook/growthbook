@@ -4,9 +4,8 @@ import type { SDKAttributeSchema } from "shared/types/organization";
 /** Source of truth — these columns are interpolated as bare SQL identifiers, so injection-safety requires this exact shape. */
 export const SAFE_SQL_IDENTIFIER = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
-/** EAQ output column holding the snapshot/weight-update generation a row was assigned under. */
-export const CONTEXTUAL_BANDIT_EAQ_SNAPSHOT_UPDATE_COUNT_COLUMN =
-  "snapshot_update_count";
+/** EAQ output column holding the bandit version (weight-update generation) a row was assigned under. */
+export const CONTEXTUAL_BANDIT_EAQ_BANDIT_VERSION_COLUMN = "bandit_version";
 /** EAQ output column identifying the policy tree leaf (context bucket) a row was assigned in. */
 export const CONTEXTUAL_BANDIT_EAQ_LEAF_ID_COLUMN = "leaf_id";
 /** EAQ output column holding the per-row variation assignment probabilities (array). */
@@ -19,7 +18,7 @@ export const CONTEXTUAL_BANDIT_EAQ_VARIATION_WEIGHTS_COLUMN =
  * only checks the column is present, not its type.
  */
 export const CONTEXTUAL_BANDIT_EAQ_REQUIRED_COLUMNS = [
-  CONTEXTUAL_BANDIT_EAQ_SNAPSHOT_UPDATE_COUNT_COLUMN,
+  CONTEXTUAL_BANDIT_EAQ_BANDIT_VERSION_COLUMN,
   CONTEXTUAL_BANDIT_EAQ_LEAF_ID_COLUMN,
   CONTEXTUAL_BANDIT_EAQ_VARIATION_WEIGHTS_COLUMN,
 ] as const;
@@ -29,6 +28,32 @@ export function isContextualBanditExposureQuery(
   query: Pick<ExposureQuery, "contextualBandit">,
 ): boolean {
   return query.contextualBandit === true;
+}
+
+/**
+ * Static save-time guard: which of the CB-required output columns are absent from the SQL text.
+ * Matches each column as a whole-word token (column names are safe SQL identifiers). The
+ * authoritative presence check still happens when the test query runs; this just gives immediate
+ * feedback before any query executes so a CB assignment query can't be saved without them.
+ */
+export function getContextualBanditRequiredColumnsMissingFromSql(
+  sql: string | undefined,
+): string[] {
+  const haystack = sql ?? "";
+  return CONTEXTUAL_BANDIT_EAQ_REQUIRED_COLUMNS.filter(
+    (col) => !new RegExp(`\\b${col}\\b`).test(haystack),
+  );
+}
+
+export function formatContextualBanditMissingSqlColumnMessages(
+  columns: string[],
+): string {
+  const unique = [...new Set(columns)];
+  return `Your contextual bandit assignment query SQL is missing required column${
+    unique.length === 1 ? "" : "s"
+  }: ${unique.join(
+    ", ",
+  )}. Add them to your SELECT clause (used to compute SRM for contextual bandits).`;
 }
 
 /** Invariant: a contextual-bandit EAQ must declare at least one targeting attribute column. */

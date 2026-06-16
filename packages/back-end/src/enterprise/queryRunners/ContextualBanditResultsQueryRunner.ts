@@ -297,7 +297,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
   /**
    * Pulls the optional SQL SRM result from the query map and derives the p-value.
    * The degrees of freedom are computed in SQL; when they are not positive (e.g.
-   * no kept (leaf_id, snapshot_update_count) group has enough usable cells) the
+   * no kept (leaf_id, bandit_version) group has enough usable cells) the
    * SRM test is undefined.
    */
   private extractSrmResult(

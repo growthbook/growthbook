@@ -13,7 +13,7 @@ function makeDatasource(): DataSourceInterface {
             name: "EAQ",
             userIdType: "user_id",
             query:
-              "SELECT user_id, timestamp, experiment_id, variation_id, leaf_id, snapshot_update_count, variation_weights FROM exposures",
+              "SELECT user_id, timestamp, experiment_id, variation_id, leaf_id, bandit_version, variation_weights FROM exposures",
             dimensions: [],
             contextualBandit: true,
             targetingAttributeColumns: ["country"],
@@ -63,7 +63,7 @@ describe("getContextualBanditSrmQuery", () => {
 
     // First-exposure-per-cell selection
     expect(c).toContain(
-      "ROW_NUMBER()OVER(PARTITIONBYuid,leaf_id,snapshot_update_countORDERBYtimestampASC)",
+      "ROW_NUMBER()OVER(PARTITIONBYuid,leaf_id,bandit_versionORDERBYtimestampASC)",
     );
     expect(c).toContain("__rn=1");
 
@@ -80,7 +80,7 @@ describe("getContextualBanditSrmQuery", () => {
     // Cells unpivoted carrying the group keys
     expect(c).toContain("UNIONALL");
     expect(c).toContain(
-      "SELECTleaf_id,snapshot_update_count,observed_0ASobserved,expected_0ASexpected",
+      "SELECTleaf_id,bandit_version,observed_0ASobserved,expected_0ASexpected",
     );
 
     // Cells with expected < 5 are dropped before the test

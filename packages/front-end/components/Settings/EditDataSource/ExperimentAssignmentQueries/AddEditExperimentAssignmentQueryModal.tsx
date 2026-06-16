@@ -7,8 +7,10 @@ import {
 } from "shared/types/datasource";
 import {
   CONTEXTUAL_BANDIT_EAQ_REQUIRED_COLUMNS,
+  formatContextualBanditMissingSqlColumnMessages,
   formatInvalidTargetingAttributeColumnMessages,
   formatMalformedTargetingAttributeColumnMessages,
+  getContextualBanditRequiredColumnsMissingFromSql,
   getInvalidTargetingAttributeColumnsForExposureQueries,
   getMalformedTargetingAttributeColumnsForExposureQueries,
 } from "shared/validators";
@@ -200,6 +202,14 @@ export const AddEditExperimentAssignmentQueryModal: FC<
       if (invalid.length > 0) {
         throw targetingAttributeColumnsValidationError(
           invalid.map((i) => i.column),
+        );
+      }
+      // Ensure the system columns the SRM computation depends on are present in the SQL.
+      const missingSqlColumns =
+        getContextualBanditRequiredColumnsMissingFromSql(value.query);
+      if (missingSqlColumns.length > 0) {
+        throw new Error(
+          formatContextualBanditMissingSqlColumnMessages(missingSqlColumns),
         );
       }
     }

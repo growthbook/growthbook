@@ -1,7 +1,7 @@
 import { format } from "shared/sql";
 import {
+  CONTEXTUAL_BANDIT_EAQ_BANDIT_VERSION_COLUMN,
   CONTEXTUAL_BANDIT_EAQ_LEAF_ID_COLUMN,
-  CONTEXTUAL_BANDIT_EAQ_SNAPSHOT_UPDATE_COUNT_COLUMN,
   CONTEXTUAL_BANDIT_EAQ_VARIATION_WEIGHTS_COLUMN,
 } from "shared/validators";
 import type { DataSourceInterface } from "shared/types/datasource";
@@ -12,21 +12,22 @@ import { getExposureQuery } from "back-end/src/integrations/sql/queries/exposure
 
 /** Minimum expected count for a (group, variation) cell to be usable in the test. */
 const MIN_EXPECTED_PER_CELL = 5;
-/** A (leaf_id, snapshot_update_count) group is only kept when it has at least this many usable cells. */
+/** A (leaf_id, bandit_version) group is only kept when it has at least this many usable cells. */
 const MIN_VALID_CELLS_PER_GROUP = 2;
 
 /**
  * Sample Ratio Mismatch (SRM) for contextual bandits, computed in SQL.
  *
  * Each assignment-query row carries the per-row variation weights, the policy
- * leaf (`leaf_id`), and the weight-update generation (`snapshot_update_count`).
- * For every (leaf_id, snapshot_update_count) group we compare, per variation:
+ * leaf (`leaf_id`), and the bandit version / weight-update generation
+ * (`bandit_version`).
+ * For every (leaf_id, bandit_version) group we compare, per variation:
  *   - observed = number of users assigned to that variation, and
  *   - expected = sum of that variation's per-user weights.
  *
  * Cells whose expected count is below MIN_EXPECTED_PER_CELL (5) are dropped and
  * contribute to neither the statistic nor the degrees of freedom. A
- * (leaf_id, snapshot_update_count) group is only kept when at least
+ * (leaf_id, bandit_version) group is only kept when at least
  * MIN_VALID_CELLS_PER_GROUP (2) of its cells survive that filter.
  *
  * The query returns the chi-square statistic
@@ -35,7 +36,7 @@ const MIN_VALID_CELLS_PER_GROUP = 2;
  * (sum of usable cells across kept groups) - (number of kept groups). The caller
  * derives the p-value from the statistic and these degrees of freedom.
  *
- * Within each (leaf_id, snapshot_update_count) cell a user contributes a single
+ * Within each (leaf_id, bandit_version) cell a user contributes a single
  * observation: their first (earliest-timestamp) exposure in that cell. A user can
  * still appear in multiple cells (e.g. across leaves or weight-update generations).
  */
@@ -64,7 +65,7 @@ export function getContextualBanditSrmQuery(
   const endDate: Date | undefined = settings.endDate;
 
   const leafCol = CONTEXTUAL_BANDIT_EAQ_LEAF_ID_COLUMN;
-  const updateCountCol = CONTEXTUAL_BANDIT_EAQ_SNAPSHOT_UPDATE_COUNT_COLUMN;
+  const banditVersionCol = CONTEXTUAL_BANDIT_EAQ_BANDIT_VERSION_COLUMN;
   const weightsCol = CONTEXTUAL_BANDIT_EAQ_VARIATION_WEIGHTS_COLUMN;
 
   // One scalar weight column per variation, extracted from the per-row array.
@@ -77,7 +78,7 @@ export function getContextualBanditSrmQuery(
     .map((_, i) => `, w_${i}`)
     .join("\n          ");
 
-  // observed_i / expected_i per (leaf_id, snapshot_update_count) cell.
+  // observed_i / expected_i per (leaf_id, bandit_version) cell.
   // The assignment query logs the variation key (0-based index, e.g. "0"/"1"),
   // not the GrowthBook variation id, so match on the index.
   const cellAggCols = variations
@@ -96,7 +97,7 @@ export function getContextualBanditSrmQuery(
   const cellRows = variations
     .map(
       (_, i) =>
-        `SELECT leaf_id, snapshot_update_count, observed_${i} AS observed, expected_${i} AS expected FROM __cbCellAgg`,
+        `SELECT leaf_id, bandit_version, observed_${i} AS observed, expected_${i} AS expected FROM __cbCellAgg`,
     )
     .join("\n        UNION ALL\n        ");
 
@@ -120,7 +121,7 @@ export function getContextualBanditSrmQuery(
         SELECT
           e.${userIdType} AS uid
           , e.${leafCol} AS leaf_id
-          , e.${updateCountCol} AS snapshot_update_count
+          , e.${banditVersionCol} AS bandit_version
           , ${dialect.castToString("e.variation_id")} AS variation
           , ${timestampColumn} AS timestamp
           ${weightSelectCols}
@@ -136,15 +137,15 @@ export function getContextualBanditSrmQuery(
           }
       )
       , __cbRankedExposures AS (
-        -- Rank a user's rows within each (leaf_id, snapshot_update_count) cell by time
+        -- Rank a user's rows within each (leaf_id, bandit_version) cell by time
         SELECT
           uid
           , leaf_id
-          , snapshot_update_count
+          , bandit_version
           , variation
           ${weightPassCols}
           , ROW_NUMBER() OVER (
-              PARTITION BY uid, leaf_id, snapshot_update_count
+              PARTITION BY uid, leaf_id, bandit_version
               ORDER BY timestamp ASC
             ) AS __rn
         FROM
@@ -155,7 +156,7 @@ export function getContextualBanditSrmQuery(
         SELECT
           uid
           , leaf_id
-          , snapshot_update_count
+          , bandit_version
           , variation
           ${weightPassCols}
         FROM
@@ -166,13 +167,13 @@ export function getContextualBanditSrmQuery(
       , __cbCellAgg AS (
         SELECT
           leaf_id
-          , snapshot_update_count
+          , bandit_version
           ${cellAggCols}
         FROM
           __cbUnits
         GROUP BY
           leaf_id
-          , snapshot_update_count
+          , bandit_version
       )
       , __cbCells AS (
         ${cellRows}
@@ -181,7 +182,7 @@ export function getContextualBanditSrmQuery(
         -- Drop cells without enough expected data to be usable in the test.
         SELECT
           leaf_id
-          , snapshot_update_count
+          , bandit_version
           , observed
           , expected
         FROM
@@ -190,18 +191,18 @@ export function getContextualBanditSrmQuery(
           expected >= ${MIN_EXPECTED_PER_CELL}
       )
       , __cbGroups AS (
-        -- Per (leaf_id, snapshot_update_count): count usable cells and accumulate
+        -- Per (leaf_id, bandit_version): count usable cells and accumulate
         -- their chi-square contribution. Keep only groups with at least 2 cells.
         SELECT
           leaf_id
-          , snapshot_update_count
+          , bandit_version
           , COUNT(*) AS num_valid_cells
           , SUM(POW(observed - expected, 2) / expected) AS group_statistic
         FROM
           __cbValidCells
         GROUP BY
           leaf_id
-          , snapshot_update_count
+          , bandit_version
         HAVING
           COUNT(*) >= ${MIN_VALID_CELLS_PER_GROUP}
       )
