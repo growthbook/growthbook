@@ -15,11 +15,10 @@ export const getQuery = createApiRequestHandler(getQueryValidator)(async (
     throw new Error(`A query with id ${id} does not exist`);
   }
 
+  // getDataSourceById enforces readData on the datasource's projects and
+  // returns null if the caller lacks access, so this gates query reads too.
   const datasource = await getDataSourceById(req.context, query.datasource);
-  if (
-    !datasource ||
-    !req.context.permissions.canReadMultiProjectResource(datasource.projects)
-  ) {
+  if (!datasource) {
     req.context.permissions.throwPermissionError();
   }
 
