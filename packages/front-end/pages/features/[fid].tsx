@@ -1,5 +1,5 @@
 import { useRouter } from "next/router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FeatureEvalDiagnosticsQueryResponseRows } from "shared/types/integrations";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -64,6 +64,12 @@ export default function FeaturePage() {
     version,
     setVersion,
   } = useFeaturePageData(fid, router.query.v, userId);
+
+  // Always reflects the current live version — read inside the post-publish
+  // callback to avoid the stale closure capture of `baseFeature.version`, which
+  // still holds the previously-live version at the time the tab rendered.
+  const liveVersionRef = useRef<number | null>(null);
+  liveVersionRef.current = baseFeature?.version ?? null;
 
   const queryV = router.query.v;
   useEffect(() => {
@@ -220,7 +226,16 @@ export default function FeaturePage() {
             experiments={experiments}
             rampSchedules={rampSchedules}
             mutate={refreshData}
-            onPublish={() => setVersion(baseFeature.version)}
+            onPublish={() => {
+              // After publish, snap to whatever is now live. mutate() has
+              // already refreshed the data, but liveVersionRef only updates on
+              // the next render, so defer the read until after that re-render.
+              setTimeout(() => {
+                if (liveVersionRef.current !== null) {
+                  setVersion(liveVersionRef.current);
+                }
+              }, 300);
+            }}
             onCompareRevisions={
               (data.revisionList?.length ?? 0) >= 2
                 ? () => setCompareRevisionsOpen(true)
