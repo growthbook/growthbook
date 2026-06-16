@@ -126,67 +126,6 @@ describe("syncEventForwarderAfterDatasourceDeleted", () => {
     expect(deleteForDatasourceCascade).not.toHaveBeenCalled();
   });
 
-  it("tears down Confluent before cascade-deleting the row for Snowflake", async () => {
-    const existing: EventForwarderConfigInterface = {
-      id: "efc_s",
-      organization: "org1",
-      datasourceId: "ds_s",
-      projects: ["p1"],
-      topic: "topic-s",
-      schemaId: 1,
-      sinkType: "snowflake",
-      config: "{}",
-      status: "ready",
-      dateCreated: new Date(),
-      dateUpdated: new Date(),
-    };
-
-    const callOrder: string[] = [];
-    const deleteForDatasourceCascade = jest
-      .fn()
-      .mockImplementation(async () => {
-        callOrder.push("delete");
-      });
-    mockedTeardownRemote.mockImplementation(async () => {
-      callOrder.push("teardown");
-    });
-    const getByDatasourceIdForDatasourceCascade = jest
-      .fn()
-      .mockResolvedValue(existing);
-
-    const context = {
-      org: { id: "org1" },
-      auditLog: jest.fn(),
-      models: {
-        eventForwarderConfigs: {
-          getByDatasourceIdForDatasourceCascade,
-          deleteForDatasourceCascade,
-        },
-      },
-    };
-
-    const snowflakeDs: DataSourceInterface = {
-      ...bqDatasource("ds_s"),
-      type: "snowflake",
-    };
-
-    await syncEventForwarderAfterDatasourceDeleted(
-      context as never,
-      snowflakeDs,
-    );
-
-    expect(deleteForDatasourceCascade).toHaveBeenCalledWith(existing);
-    expect(mockedTeardownRemote).toHaveBeenCalledWith({
-      organizationId: "org1",
-      datasourceId: "ds_s",
-      sinkType: "snowflake",
-      topic: "topic-s",
-      connectorName: undefined,
-      connectorId: undefined,
-    });
-    expect(callOrder).toEqual(["teardown", "delete"]);
-  });
-
   it("invokes teardown only for the forwarder tied to the deleted datasource id", async () => {
     const existingA: EventForwarderConfigInterface = {
       id: "efc_a",

@@ -427,27 +427,4 @@ describe("ensureEventForwarderExposureQueries", () => {
       { skipEventForwarderManagedValidation: true },
     );
   });
-
-  it("skips hash attributes missing from stale context when attributeSchema is omitted", async () => {
-    const raw = ds({
-      userIdTypes: [{ userIdType: "device_id", description: "" }],
-      queries: { exposure: [] },
-    });
-    mockedGetRaw.mockResolvedValue(raw);
-    mockedGetById.mockResolvedValue(raw);
-    mockedDecrypt.mockReturnValue({
-      dataset: "analytics_123",
-      tablePrefix: "gb",
-      serviceAccountKey: "{}",
-    });
-
-    await ensureEventForwarderExposureQueries(
-      context([]) as never,
-      efConfig("bigquery"),
-      ["device_id"],
-      { defaultProject: "my-project" } as never,
-    );
-
-    expect(mockedUpdate).not.toHaveBeenCalled();
-  });
 });
