@@ -602,7 +602,7 @@ describe("useSearch", () => {
     });
   });
 
-  describe("underscore tokenization", () => {
+  describe("underscore/hyphen tokenization", () => {
     type SearchItem = {
       id: string;
       name: string;
@@ -611,6 +611,10 @@ describe("useSearch", () => {
     const items: SearchItem[] = [
       { id: "1", name: "foo" },
       { id: "2", name: "foo_bar_baz" },
+      { id: "3", name: "other_search_key" },
+      { id: "4", name: "search_test_key" },
+      { id: "5", name: "search-test-key" },
+      { id: "6", name: "test-my-key" },
     ];
 
     const setup = () =>
@@ -623,24 +627,38 @@ describe("useSearch", () => {
         }),
       );
 
-    it("matches a feature on an inner token", () => {
+    const search = (value: string): string[] => {
       const { result } = setup();
       act(() => {
-        result.current.setSearchValue("bar");
+        result.current.setSearchValue(value);
       });
-      expect(result.current.filteredItems.map((i) => i.name)).toContain(
-        "foo_bar_baz",
-      );
+      return result.current.filteredItems.map((i) => i.name);
+    };
+
+    it("matches a feature on an inner token", () => {
+      expect(search("bar")).toContain("foo_bar_baz");
     });
 
     it("requires the full multi-token query, not a partial subset", () => {
-      const { result } = setup();
-      act(() => {
-        result.current.setSearchValue("foo_bar");
-      });
-      const names = result.current.filteredItems.map((i) => i.name);
+      const names = search("foo_bar");
       expect(names).toContain("foo_bar_baz");
       expect(names).not.toContain("foo");
+    });
+
+    it("matches a multi-token substring in the middle of a key", () => {
+      const names = search("test_key");
+      expect(names).toEqual(
+        expect.arrayContaining(["search_test_key", "search-test-key"]),
+      );
+      // tokens must be contiguous: test-my-key has "test" and "key" but not "test_key"
+      expect(names).not.toContain("test-my-key");
+      expect(names).not.toContain("other_search_key");
+    });
+
+    it("treats hyphens and underscores interchangeably", () => {
+      expect(search("test-key")).toEqual(
+        expect.arrayContaining(["search_test_key", "search-test-key"]),
+      );
     });
   });
 
