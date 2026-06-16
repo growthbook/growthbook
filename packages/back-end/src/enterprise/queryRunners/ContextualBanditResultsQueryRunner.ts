@@ -287,7 +287,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       })),
       coverage,
       phaseLengthDays: windowLengthDays,
-      snapshotUpdateCount: cb.snapshotUpdateCount,
+      banditVersion: cb.banditVersion,
       srm,
     });
 

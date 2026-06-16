@@ -95,7 +95,7 @@ export type ContextualBanditSrmDebugValues = {
  */
 export function writeContextualBanditDebugCsvs(
   snapshot: ContextualBanditSnapshot,
-  snapshotUpdateCount: number,
+  banditVersion: number,
   rows?: ExperimentMetricQueryResponseRows,
   metricSettings?: MetricSettingsForStatsEngine,
   srm?: ContextualBanditSrmDebugValues,
@@ -106,8 +106,7 @@ export function writeContextualBanditDebugCsvs(
 
     // Suffix every file with the CB's weight-update generation so successive
     // runs don't overwrite each other (e.g. "context_results_2.csv").
-    const fileName = (base: string): string =>
-      `${base}_${snapshotUpdateCount}.csv`;
+    const fileName = (base: string): string => `${base}_${banditVersion}.csv`;
 
     const attributes = snapshot.attributes ?? [];
     const leafMap = snapshot.leaf_map ?? [];

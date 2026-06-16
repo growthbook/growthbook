@@ -40,7 +40,7 @@ const BaseClass = MakeModelClass({
     maxLeaves: 12,
     canonicalFormVersion: 1,
     currentLeafWeights: [],
-    snapshotUpdateCount: 0,
+    banditVersion: 0,
   },
   auditLog: {
     entity: "contextualBandit",
@@ -175,7 +175,7 @@ export function toApiContextualBandit(
     maxLeaves: doc.maxLeaves,
     holdoutPercent: doc.holdoutPercent,
     canonicalFormVersion: doc.canonicalFormVersion,
-    snapshotUpdateCount: doc.snapshotUpdateCount ?? 0,
+    banditVersion: doc.banditVersion ?? 0,
   };
 }
 
@@ -239,7 +239,7 @@ export class ContextualBanditModel extends BaseClass {
       status: "draft" as const,
       // First successful snapshot writes the leaf weights; `dateStarted` is set by the `start` action.
       currentLeafWeights: [],
-      snapshotUpdateCount: 0,
+      banditVersion: 0,
       defaultMetricPriorSettings: orgPrior ?? {
         override: false,
         proper: false,
@@ -291,7 +291,7 @@ export class ContextualBanditModel extends BaseClass {
   }
 
   /**
-   * Atomically replace `currentLeafWeights` and `$inc` `snapshotUpdateCount` in one write so they
+   * Atomically replace `currentLeafWeights` and `$inc` `banditVersion` in one write so they
    * can't drift. Empty `leafWeights` leaves the weights untouched but still advances the counter and
    * `dateUpdated`. Callers MUST keep the snapshot-success write ordering (CBE → CB-patch → CBS-success).
    */
@@ -322,7 +322,7 @@ export class ContextualBanditModel extends BaseClass {
       },
       {
         $set: set,
-        $inc: { snapshotUpdateCount: 1 },
+        $inc: { banditVersion: 1 },
       },
     );
     if (res.matchedCount === 0) {

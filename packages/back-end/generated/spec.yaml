@@ -43768,7 +43768,7 @@ components:
               - contextId
               - weights
             additionalProperties: false
-        snapshotUpdateCount:
+        banditVersion:
           type: integer
           minimum: 0
         contextualAttributes:
@@ -43808,7 +43808,7 @@ components:
         - exposureQueryId
         - goalMetrics
         - currentLeafWeights
-        - snapshotUpdateCount
+        - banditVersion
         - contextualAttributes
         - minUsersPerLeaf
         - maxLeaves

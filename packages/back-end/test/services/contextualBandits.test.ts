@@ -64,7 +64,7 @@ function makeCb(
     dateStarted: new Date("2025-01-02T00:00:00Z"),
     variationWeights: [0.4, 0.6],
     currentLeafWeights: [{ contextId: "ctx_catchall", weights: [0.5, 0.5] }],
-    snapshotUpdateCount: 0,
+    banditVersion: 0,
     linkedFeatures: [],
     ...overrides,
   } as unknown as ContextualBanditInterface;
@@ -311,7 +311,7 @@ describe("persistContextualBanditEvent", () => {
     );
   });
 
-  it("still patches once with empty weights so snapshotUpdateCount advances on a no-weight run", async () => {
+  it("still patches once with empty weights so banditVersion advances on a no-weight run", async () => {
     const cb = makeCb();
     const cbs = makeCbs();
     // Empty responses => leafWeightsFromContextualBanditResult returns [].
@@ -346,7 +346,7 @@ describe("persistContextualBanditEvent", () => {
     await persistContextualBanditEvent(context, cbs, result);
 
     // The patch must run exactly once with an empty array: patchLeafWeights skips the
-    // currentLeafWeights write but still $inc's snapshotUpdateCount.
+    // currentLeafWeights write but still $inc's banditVersion.
     expect(patchLeafWeightsMock).toHaveBeenCalledTimes(1);
     const [cbIdArg, leafWeightsArg] = patchLeafWeightsMock.mock.calls[0];
     expect(cbIdArg).toBe(cb.id);

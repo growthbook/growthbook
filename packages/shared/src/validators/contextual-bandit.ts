@@ -80,7 +80,7 @@ export const contextualBanditValidator = baseSchema
      * weight patch runs), regardless of whether the new weights actually differ from
      * the previous ones. Use `weightsWereUpdated` on the CBE to know if weights changed.
      */
-    snapshotUpdateCount: z.number().int().nonnegative(),
+    banditVersion: z.number().int().nonnegative(),
 
     /** Aliased as `targetingAttributeColumns` so SQL builders don't have to translate. */
     contextualAttributes: z.array(z.string()),
@@ -174,7 +174,7 @@ export const apiContextualBanditValidator = namedSchema(
     seed: z.string().optional(),
     variationWeights: z.array(variationWeightPairValidator).optional(),
     currentLeafWeights: z.array(leafWeightValidator),
-    snapshotUpdateCount: z.number().int().nonnegative(),
+    banditVersion: z.number().int().nonnegative(),
 
     contextualAttributes: z.array(z.string()),
     decisionMetric: z.string().optional(),

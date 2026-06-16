@@ -242,7 +242,7 @@ export async function persistContextualBanditEvent(
     ...(result.srm ? { degreesOfFreedom: result.srm.degreesOfFreedom } : {}),
   });
 
-  // Always patch on a successful snapshot so `snapshotUpdateCount` advances once per CBE, even when
+  // Always patch on a successful snapshot so `banditVersion` advances once per CBE, even when
   // there are no leaf weights to write. `patchLeafWeights` leaves `currentLeafWeights` untouched
   // when `leafWeights` is empty, so this can't wipe existing weights.
   await context.models.contextualBandits.patchLeafWeights(cb.id, leafWeights);

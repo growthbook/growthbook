@@ -56,7 +56,7 @@ export type RunContextualStatsEngineOptions = {
   coverage: number;
   phaseLengthDays: number;
   /** Current weight-update generation of the CB; used to suffix debug CSV filenames. */
-  snapshotUpdateCount: number;
+  banditVersion: number;
   /** Optional SRM values dumped to the debug `srm_<n>.csv` file. */
   srm?: ContextualBanditSrmDebugValues;
 };
@@ -99,7 +99,7 @@ export async function runContextualStatsEngine(
     // DEBUG CSV (gitignored): uncomment to dump weight-update output to CSVs.
     writeContextualBanditDebugCsvs(
       result,
-      runParams.snapshotUpdateCount,
+      runParams.banditVersion,
       rows,
       input.metricSettings,
       runParams.srm,
