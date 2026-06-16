@@ -614,12 +614,7 @@ export function computeExplorationComparisonPayload(
     });
 
     if (previousValue === 0) {
-      return {
-        currentValue,
-        previousValue,
-        pctChangeFraction: 0,
-        pctChangePercent: 0,
-      };
+      return null;
     }
 
     const pctChangeFraction =
@@ -660,10 +655,8 @@ export function computeExplorationComparisonPayload(
     isTimeseries,
   );
 
-  const tableTrendsByRow = sortedRows.map((row, idx) => {
-    const cmpRow = isTimeseries
-      ? getAlignedCmpRow(String(row.dimensions[0] ?? ""))
-      : (cmpSorted[idx] ?? null);
+  const tableTrendsByRow = sortedRows.map((row) => {
+    const cmpRow = getAlignedCmpRow(String(row.dimensions[0] ?? ""));
     const trendRecord: Record<string, number | null> = {};
     for (const col of columns) {
       if (col.kind !== "metric" || col.sub !== "single") continue;
