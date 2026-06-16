@@ -3105,14 +3105,16 @@ async function collectHoldoutAffectedEnvs(
   return [...envs];
 }
 
-// Throws if the draft requires approval and the caller cannot bypass.
-export async function assertCanAutoPublish(
-  context: ReqContext,
+// Whether a draft requires approval before it can be published (accounts for
+// the org's review settings, environment scoping, and the require-approvals
+// license). Returns false when the base can't be resolved (legacy/missing base)
+// so callers treat it as a no-approval change.
+export async function revisionRequiresReview(
+  context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   draft: FeatureRevisionInterface,
-): Promise<void> {
-  const { org } = context;
-  const allEnvironments = getEnvironmentIdsFromOrg(org);
+): Promise<boolean> {
+  const allEnvironments = getEnvironmentIdsFromOrg(context.org);
 
   const baseRevision = await getRevision({
     context,
@@ -3121,16 +3123,25 @@ export async function assertCanAutoPublish(
     feature,
     version: draft.baseVersion,
   });
-  if (!baseRevision) return; // can't determine — allow (legacy/missing base)
+  if (!baseRevision) return false;
 
-  const requiresReview = checkIfRevisionNeedsReview({
+  return checkIfRevisionNeedsReview({
     feature,
     baseRevision,
     revision: draft,
     allEnvironments,
-    settings: org.settings,
+    settings: context.org.settings,
     requireApprovalsLicensed: context.hasPremiumFeature("require-approvals"),
   });
+}
+
+// Throws if the draft requires approval and the caller cannot bypass.
+export async function assertCanAutoPublish(
+  context: ReqContext,
+  feature: FeatureInterface,
+  draft: FeatureRevisionInterface,
+): Promise<void> {
+  const requiresReview = await revisionRequiresReview(context, feature, draft);
 
   if (requiresReview && !context.permissions.canBypassApprovalChecks(feature)) {
     context.permissions.throwPermissionError();

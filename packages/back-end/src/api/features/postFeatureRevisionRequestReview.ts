@@ -15,12 +15,22 @@ import {
   markRevisionAsReviewRequested,
 } from "back-end/src/models/FeatureRevisionModel";
 import { getEnvironments } from "back-end/src/util/organization.util";
-import { canEnableFeatureAutoPublishOnApproval } from "./autoPublishOnApproval";
+import {
+  canEnableFeatureAutoPublishOnApproval,
+  canScheduleFeaturePublish,
+  parseScheduledPublishDate,
+} from "./autoPublishOnApproval";
 
 export async function requestReview(
   req: Pick<ApiRequestLocals, "context" | "organization" | "audit"> & {
     params: { id: string; version: number };
-    body: { comment?: string; autoPublishOnApproval?: boolean };
+    body: {
+      comment?: string;
+      autoPublishOnApproval?: boolean;
+      scheduledPublishAt?: string | null;
+      scheduledPublishLockEdits?: boolean;
+      scheduledPublishLockOthers?: boolean;
+    };
   },
 ) {
   const feature = await getFeature(req.context, req.params.id);
@@ -75,12 +85,25 @@ export async function requestReview(
     req.body.autoPublishOnApproval &&
     canEnableFeatureAutoPublishOnApproval(req.context, feature);
 
+  const scheduledDate = parseScheduledPublishDate(req.body.scheduledPublishAt);
+  if (
+    scheduledDate !== null &&
+    !canScheduleFeaturePublish(req.context, feature)
+  ) {
+    req.context.permissions.throwPermissionError();
+  }
+
   await markRevisionAsReviewRequested(
     req.context,
     revision,
     req.context.auditUser,
     req.body.comment ?? "",
-    { autoPublishOnApproval: enableAutoPublish },
+    {
+      autoPublishOnApproval: enableAutoPublish,
+      scheduledPublishAt: scheduledDate,
+      scheduledPublishLockEdits: req.body.scheduledPublishLockEdits,
+      scheduledPublishLockOthers: req.body.scheduledPublishLockOthers,
+    },
   );
 
   const updated = await getRevision({

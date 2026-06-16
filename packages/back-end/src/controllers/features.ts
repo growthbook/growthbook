@@ -118,6 +118,7 @@ import {
   getLiveRevisionForFeature,
   getDraftRevision,
   assertCanAutoPublish,
+  revisionRequiresReview,
 } from "back-end/src/services/features";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
@@ -163,6 +164,7 @@ import {
   submitReviewAndComments,
   updateRevision,
   setAutoPublishOnApproval,
+  setRevisionScheduledPublish,
 } from "back-end/src/models/FeatureRevisionModel";
 import {
   buildFeatureLookups,
@@ -217,7 +219,10 @@ import {
 } from "back-end/src/util/errors";
 import {
   canEnableFeatureAutoPublishOnApproval,
+  canPublishFeatureRevision,
+  canScheduleFeaturePublish,
   maybeAutoPublishFeatureRevision,
+  parseScheduledPublishDate,
 } from "back-end/src/api/features/autoPublishOnApproval";
 import {
   shouldValidateCustomFieldsOnUpdate,
@@ -1020,6 +1025,8 @@ export async function postFeatureRebase(
       ),
     },
     resetReview,
+    // Rebase is permitted while a "lock edits" schedule is active.
+    { bypassScheduleLock: true },
   );
 
   const rebased = await getRevision({
@@ -1061,11 +1068,15 @@ export async function postFeatureRebase(
     status: 200,
   });
 }
-export async function postFeatureRequestReview(
+// Arm or cancel a deferred publish on an existing draft. Cancel by sending
+// scheduledPublishAt: null. The Agenda poller (updateScheduledPublishes) fires
+// the publish once the date arrives and governance allows.
+export async function postFeatureScheduledPublish(
   req: AuthRequest<
     {
-      comment: string;
-      autoPublishOnApproval?: boolean;
+      scheduledPublishAt: string | null;
+      lockEdits?: boolean;
+      lockOthers?: boolean;
     },
     { id: string; version: string }
   >,
@@ -1073,7 +1084,96 @@ export async function postFeatureRequestReview(
 ) {
   const context = getContextFromReq(req);
   const { id, version } = req.params;
-  const { comment, autoPublishOnApproval } = req.body;
+  const { scheduledPublishAt, lockEdits, lockOthers } = req.body;
+
+  const feature = await getFeature(context, id);
+  if (!feature) throw new Error("Could not find feature");
+
+  const revision = await getRevision({
+    context,
+    organization: context.org.id,
+    featureId: feature.id,
+    feature,
+    version: parseInt(version),
+  });
+  if (!revision) throw new Error("Could not find feature revision");
+
+  if (
+    !["draft", "pending-review", "changes-requested", "approved"].includes(
+      revision.status,
+    )
+  ) {
+    throw new Error(
+      "Cannot schedule publish on a published or discarded revision",
+    );
+  }
+
+  const date = parseScheduledPublishDate(scheduledPublishAt);
+  // Arming requires the premium feature + publish authority. Cancelling a
+  // pending schedule needs only publish authority — anyone who can publish the
+  // feature can call off (or take over) the deferred publish, leaving the
+  // revision at its current (approved) status.
+  const allowed = date
+    ? canScheduleFeaturePublish(context, feature)
+    : canPublishFeatureRevision(context, feature);
+  if (!allowed) {
+    context.permissions.throwPermissionError();
+  }
+
+  // Committing a schedule directly on a draft is the no-approval path: the draft
+  // is locked in and fires on its date without a review cycle. Only allow it
+  // when the change doesn't actually require review (or the caller can bypass
+  // approvals). Review-required drafts must arm the schedule through the
+  // request-review flow instead, so they stay gated on approval.
+  if (date && revision.status === "draft") {
+    const requiresReview = await revisionRequiresReview(
+      context,
+      feature,
+      revision,
+    );
+    if (
+      requiresReview &&
+      !context.permissions.canBypassApprovalChecks(feature)
+    ) {
+      throw new Error(
+        "This change requires approval — request review to schedule its publish.",
+      );
+    }
+  }
+
+  await setRevisionScheduledPublish(
+    context,
+    revision,
+    { scheduledPublishAt: date, lockEdits, lockOthers },
+    context.userId || null,
+  );
+
+  res.status(200).json({ status: 200 });
+}
+
+export async function postFeatureRequestReview(
+  req: AuthRequest<
+    {
+      comment: string;
+      autoPublishOnApproval?: boolean;
+      // Optional deferred-publish schedule armed alongside the review request.
+      scheduledPublishAt?: string | null;
+      scheduledPublishLockEdits?: boolean;
+      scheduledPublishLockOthers?: boolean;
+    },
+    { id: string; version: string }
+  >,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id, version } = req.params;
+  const {
+    comment,
+    autoPublishOnApproval,
+    scheduledPublishAt,
+    scheduledPublishLockEdits,
+    scheduledPublishLockOthers,
+  } = req.body;
   const feature = await getFeature(context, id);
   if (!feature) {
     throw new Error("Could not find feature");
@@ -1099,12 +1199,22 @@ export async function postFeatureRequestReview(
     autoPublishOnApproval &&
     canEnableFeatureAutoPublishOnApproval(context, feature);
 
+  const scheduledDate = parseScheduledPublishDate(scheduledPublishAt);
+  if (scheduledDate !== null && !canScheduleFeaturePublish(context, feature)) {
+    context.permissions.throwPermissionError();
+  }
+
   await markRevisionAsReviewRequested(
     context,
     revision,
     res.locals.eventAudit,
     comment,
-    { autoPublishOnApproval: enableAutoPublish },
+    {
+      autoPublishOnApproval: enableAutoPublish,
+      scheduledPublishAt: scheduledDate,
+      scheduledPublishLockEdits,
+      scheduledPublishLockOthers,
+    },
   );
 
   const updatedRevision = await getRevision({

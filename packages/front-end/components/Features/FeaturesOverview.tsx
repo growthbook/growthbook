@@ -20,9 +20,16 @@ import {
   PiPencil,
   PiLockSimple,
   PiProhibit,
+  PiClockFill,
 } from "react-icons/pi";
 import { ago, datetime } from "shared/dates";
-import { filterEnvironmentsByFeature, getReviewSetting } from "shared/util";
+import {
+  filterEnvironmentsByFeature,
+  getReviewSetting,
+  isScheduledPublishPending,
+  isScheduledPublishLockActive,
+  isRevisionEditLockedBySchedule,
+} from "shared/util";
 import { BiHide, BiShow } from "react-icons/bi";
 import Collapsible from "react-collapsible";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -473,9 +480,18 @@ export default function FeaturesOverview({
   const projectId = feature.project;
 
   const isDiscarded = revision.status === "discarded";
-  // True when browsing a read-only historical snapshot: an old published revision or a discarded one.
+  // This draft's content is frozen because it has a pending scheduled publish
+  // with "lock edits" armed (parallel to a ramp-schedule lockdown). Cancel the
+  // schedule to edit. Rebase is still allowed (handled in the publish modal).
+  const editLockedBySchedule =
+    isDraft && isRevisionEditLockedBySchedule(revision);
+  const scheduledPublishPending = isScheduledPublishPending(revision);
+  // True when the revision's content can't be edited here: an old published
+  // revision, a discarded one, or a draft frozen for a scheduled publish.
   const isReadOnly =
-    isDiscarded || (revision.status === "published" && !isLive);
+    isDiscarded ||
+    (revision.status === "published" && !isLive) ||
+    editLockedBySchedule;
 
   const envAndSummaryTooltipNonLiveDisclaimer = !isLive
     ? isDraft
@@ -693,19 +709,60 @@ export default function FeaturesOverview({
         {(() => {
           const bannerProps =
             isDraft || isPendingReview
-              ? {
-                  icon: <PiPencil size={18} />,
-                  color: "var(--amber-11)",
-                  bgColor: "var(--amber-a3)",
-                  message: (
-                    <>
-                      Viewing a <strong>draft</strong> —{" "}
-                      {isPendingReview
-                        ? "changes will not go live until approved and published"
-                        : "changes will not go live until published"}
-                    </>
-                  ),
-                }
+              ? scheduledPublishPending
+                ? (() => {
+                    // Scheduled-publish state mirrors a ramp lockdown: amber
+                    // chrome, naming the target date. Locks (and the publish)
+                    // only take effect once the schedule is committed and no
+                    // longer awaiting approval. While in review we say "once
+                    // approved" and omit the lock clauses (editing stays open).
+                    const lockActive = isScheduledPublishLockActive(revision);
+                    const awaitingApproval =
+                      revision.status === "pending-review" ||
+                      revision.status === "changes-requested";
+                    const lockOthersActive =
+                      lockActive && !!revision.scheduledPublishLockOthers;
+                    const lockClauses = [
+                      editLockedBySchedule ? "edits are locked" : null,
+                      lockOthersActive
+                        ? "publishing other drafts is locked"
+                        : null,
+                    ].filter((c): c is string => c !== null);
+                    return {
+                      icon: lockClauses.length ? (
+                        <PiLockSimple size={18} />
+                      ) : (
+                        <PiClockFill size={18} />
+                      ),
+                      color: "var(--amber-11)",
+                      bgColor: "var(--amber-a3)",
+                      message: (
+                        <>
+                          This <strong>draft</strong> is scheduled to publish on{" "}
+                          <strong>
+                            {datetime(revision.scheduledPublishAt as Date)}
+                          </strong>
+                          {awaitingApproval ? " once approved" : ""}
+                          {lockClauses.length
+                            ? ` — ${lockClauses.join(" and ")}`
+                            : ""}
+                        </>
+                      ),
+                    };
+                  })()
+                : {
+                    icon: <PiPencil size={18} />,
+                    color: "var(--amber-11)",
+                    bgColor: "var(--amber-a3)",
+                    message: (
+                      <>
+                        Viewing a <strong>draft</strong> —{" "}
+                        {isPendingReview
+                          ? "changes will not go live until approved and published"
+                          : "changes will not go live until published"}
+                      </>
+                    ),
+                  }
               : isDiscarded
                 ? {
                     icon: <PiProhibit size={18} />,
@@ -824,7 +881,15 @@ export default function FeaturesOverview({
                       gap="2"
                       style={{ gridColumn: 2 }}
                     >
-                      {bannerProps.icon}
+                      <span
+                        style={{
+                          display: "flex",
+                          flexGrow: 0,
+                          flexShrink: 0,
+                        }}
+                      >
+                        {bannerProps.icon}
+                      </span>
                       <span style={{ fontSize: "var(--font-size-2)" }}>
                         {bannerProps.message}
                       </span>
@@ -1583,6 +1648,7 @@ export default function FeaturesOverview({
                       feature={feature}
                       baseFeature={baseFeature}
                       isLocked={isReadOnly}
+                      lockedBySchedule={editLockedBySchedule}
                       canEditDrafts={canEditDrafts}
                       experimentsMap={experimentsMap}
                       mutate={mutate}

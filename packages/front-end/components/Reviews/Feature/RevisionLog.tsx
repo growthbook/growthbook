@@ -17,6 +17,7 @@ import {
   PiPlusMinusBold,
   PiProhibitFill,
   PiRocketLaunch,
+  PiSpinnerGap,
 } from "react-icons/pi";
 import { date, datetime } from "shared/dates";
 import React, {
@@ -81,6 +82,10 @@ export const REVIEW_ACTIVITY_ACTIONS = new Set([
   "revert",
   "discard",
   "reopen",
+  // Deferred (scheduled) publish lifecycle
+  "schedule publish",
+  "update scheduled publish",
+  "cancel scheduled publish",
 ]);
 
 // Action sets must mirror EDITABLE_AUTHOR_ACTIONS / DELETABLE_AUTHOR_ACTIONS
@@ -138,6 +143,9 @@ const AUDIT_ACTION_VERBS: Record<string, string> = {
   "edit metadata": "edited the revision metadata",
   "set ramp schedule": "set a ramp schedule",
   "clear ramp schedule": "cleared a ramp schedule",
+  "schedule publish": "scheduled this revision to publish",
+  "update scheduled publish": "updated the publish schedule",
+  "cancel scheduled publish": "canceled the publish schedule",
   "Recall Review": "recalled their review request",
   "Undo Review": "withdrew their review",
 };
@@ -186,7 +194,10 @@ function rowVisual(action: string): RowVisual {
       return {
         color: "orange",
         verb: "requested a review",
-        icon: <PiClockFill />,
+        // Spinner glyph (not a clock) to read as "awaiting review" and stay
+        // distinct from the scheduled-publish clock. Not animated here since
+        // this is a historical timeline entry.
+        icon: <PiSpinnerGap />,
         showCommentBody: false,
         showAuditDetails: false,
       };
@@ -244,6 +255,24 @@ function rowVisual(action: string): RowVisual {
         color: "indigo",
         verb: "reopened this revision as a draft",
         icon: <PiArrowCounterClockwiseFill />,
+        showCommentBody: false,
+        showAuditDetails: false,
+      };
+    case "schedule publish":
+    case "update scheduled publish":
+      return {
+        color: "amber",
+        verb: auditVerb(action),
+        icon: <PiClockFill />,
+        showCommentBody: false,
+        // Keep the Details disclosure so the date + lock payload is inspectable.
+        showAuditDetails: true,
+      };
+    case "cancel scheduled publish":
+      return {
+        color: "gray",
+        verb: auditVerb(action),
+        icon: <PiProhibitFill />,
         showCommentBody: false,
         showAuditDetails: false,
       };

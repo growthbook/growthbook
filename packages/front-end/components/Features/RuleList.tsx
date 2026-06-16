@@ -54,6 +54,9 @@ type CommonProps = {
   version: number;
   setVersion: (version: number) => void;
   locked: boolean;
+  // True when `locked` is caused specifically by a pending scheduled publish.
+  // Ramp runtime controls remain interactive in this case.
+  lockedBySchedule?: boolean;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
   hideInactive?: boolean;
   isDraft: boolean;
@@ -91,6 +94,7 @@ export default function RuleList(props: RuleListProps) {
     version,
     setVersion,
     locked,
+    lockedBySchedule,
     experimentsMap,
     hideInactive,
     isDraft,
@@ -326,6 +330,7 @@ export default function RuleList(props: RuleListProps) {
                 version={version}
                 setVersion={setVersion}
                 locked={locked}
+                lockedBySchedule={lockedBySchedule}
                 experimentsMap={experimentsMap}
                 hideInactive={hideInactive}
                 isDraft={isDraft}
@@ -375,6 +380,7 @@ export default function RuleList(props: RuleListProps) {
               version={version}
               setVersion={setVersion}
               locked={locked}
+              lockedBySchedule={lockedBySchedule}
               experimentsMap={experimentsMap}
               hideInactive={hideInactive}
               unreachable={isUnreachable(

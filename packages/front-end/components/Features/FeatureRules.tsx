@@ -40,6 +40,7 @@ export default function FeatureRules({
   environments,
   feature,
   isLocked,
+  lockedBySchedule,
   canEditDrafts,
   experimentsMap,
   mutate,
@@ -59,6 +60,10 @@ export default function FeatureRules({
   feature: FeatureInterface;
   baseFeature: FeatureInterface;
   isLocked: boolean;
+  // True when isLocked is caused specifically by a pending scheduled publish.
+  // Ramp runtime controls stay interactive in this case (they act on live
+  // runtime state, not the frozen draft content).
+  lockedBySchedule?: boolean;
   canEditDrafts: boolean;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
   mutate: () => Promise<unknown>;
@@ -485,6 +490,7 @@ export default function FeatureRules({
                 version={currentVersion}
                 setVersion={setVersion}
                 locked={isLocked}
+                lockedBySchedule={lockedBySchedule}
                 experimentsMap={experimentsMap}
                 hideInactive={hideInactive}
                 isDraft={isDraft}
@@ -537,6 +543,7 @@ export default function FeatureRules({
                 version={currentVersion}
                 setVersion={setVersion}
                 locked={isLocked}
+                lockedBySchedule={lockedBySchedule}
                 experimentsMap={experimentsMap}
                 hideInactive={hideInactive}
                 isDraft={isDraft}

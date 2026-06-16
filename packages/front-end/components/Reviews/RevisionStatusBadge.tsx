@@ -1,16 +1,17 @@
 import React from "react";
 import {
   PiCheckBold,
-  PiClockFill,
   PiLockSimpleFill,
   PiPencil,
   PiPlusMinusBold,
+  PiSpinnerGap,
   PiXCircleFill,
 } from "react-icons/pi";
 import type { RevisionStatus, ActiveDraftStatus } from "shared/validators";
 import type { EventUser } from "shared/types/events/event-types";
 import Badge from "@/ui/Badge";
 import { RadixColor } from "@/ui/HelperText";
+import spinnerStyles from "@/components/LoadingSpinner.module.scss";
 
 // Entity-agnostic revision identity — enough to render status badges, labels,
 // and icons without depending on FeatureRevisionInterface.
@@ -76,7 +77,9 @@ export function revisionStatusIcon(
       // surrounding chip/band provides the container.
       return <PiCheckBold />;
     case "pending-review":
-      return <PiClockFill />;
+      // Spinner (not a clock) reads as "in progress / awaiting review" and
+      // keeps it visually distinct from the scheduled-publish clock.
+      return <PiSpinnerGap className={spinnerStyles.spin} />;
     case "changes-requested":
       return <PiPlusMinusBold />;
     case "discarded":

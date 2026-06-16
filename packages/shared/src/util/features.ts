@@ -1246,6 +1246,113 @@ export function evaluatePublishGovernance({
   };
 }
 
+// ── Scheduled / deferred publish ────────────────────────────────────────────
+// A revision is "armed" (autoPublishOnApproval) when it should publish itself as
+// soon as governance allows. `scheduledPublishAt` defers that auto-publish to a
+// target date. These helpers are pure so they're shared by the publish UI, the
+// edit/publish lockdown gates, and the Agenda poller's due-predicate.
+
+const SCHEDULE_PENDING_STATUSES = new Set<FeatureRevisionInterface["status"]>([
+  "draft",
+  "pending-review",
+  "approved",
+  "changes-requested",
+]);
+
+type ScheduledRevisionFields = Pick<
+  FeatureRevisionInterface,
+  | "version"
+  | "status"
+  | "autoPublishOnApproval"
+  | "scheduledPublishAt"
+  | "scheduledPublishLockEdits"
+  | "scheduledPublishLockOthers"
+>;
+
+// A deferred-publish schedule is "pending" when the revision is armed, carries a
+// target date, and is still an active draft (not yet published/discarded).
+export function isScheduledPublishPending(
+  revision: Pick<
+    ScheduledRevisionFields,
+    "status" | "autoPublishOnApproval" | "scheduledPublishAt"
+  >,
+): boolean {
+  return (
+    !!revision.autoPublishOnApproval &&
+    (revision.scheduledPublishAt ?? null) !== null &&
+    SCHEDULE_PENDING_STATUSES.has(revision.status)
+  );
+}
+
+// True once a pending schedule's target date has arrived. Coerces the date so it
+// works on both Date (back-end) and ISO-string (front-end JSON) shapes.
+export function isScheduledPublishDue(
+  revision: Pick<
+    ScheduledRevisionFields,
+    "status" | "autoPublishOnApproval" | "scheduledPublishAt"
+  >,
+  now: Date = new Date(),
+): boolean {
+  if (!isScheduledPublishPending(revision)) return false;
+  const at = new Date(revision.scheduledPublishAt as Date | string);
+  return at.getTime() <= now.getTime();
+}
+
+// A scheduled publish's locks (and the publish itself) only take effect once the
+// schedule is committed AND no longer awaiting approval:
+//  - "approved": the approval flow finished.
+//  - "draft": the no-approval flow. The schedule-publish endpoint only commits a
+//    schedule on a draft when the change doesn't require review (or an admin
+//    bypassed), so a draft carrying a pending schedule is locked in and will
+//    fire on its date.
+// "pending-review" / "changes-requested" mean the schedule is armed but still
+// awaiting approval, so edits stay open and sibling publishes aren't blocked —
+// the author can keep iterating and address feedback until it's approved.
+export function isScheduledPublishLockActive(
+  revision: Pick<
+    ScheduledRevisionFields,
+    "status" | "autoPublishOnApproval" | "scheduledPublishAt"
+  >,
+): boolean {
+  return (
+    isScheduledPublishPending(revision) &&
+    revision.status !== "pending-review" &&
+    revision.status !== "changes-requested"
+  );
+}
+
+// Content edits to this draft are frozen while a lock-edits schedule is active
+// (armed AND approved). Pending-approval drafts remain editable.
+export function isRevisionEditLockedBySchedule(
+  revision: Pick<
+    ScheduledRevisionFields,
+    | "status"
+    | "autoPublishOnApproval"
+    | "scheduledPublishAt"
+    | "scheduledPublishLockEdits"
+  >,
+): boolean {
+  return (
+    !!revision.scheduledPublishLockEdits &&
+    isScheduledPublishLockActive(revision)
+  );
+}
+
+// Among a feature's revisions, find one (other than `excludeVersion`) whose
+// active (armed AND approved) schedule blocks publishing sibling drafts.
+export function findPublishLockingScheduledRevision<
+  T extends ScheduledRevisionFields,
+>(revisions: T[], excludeVersion?: number): T | null {
+  return (
+    revisions.find(
+      (r) =>
+        r.version !== excludeVersion &&
+        !!r.scheduledPublishLockOthers &&
+        isScheduledPublishLockActive(r),
+    ) ?? null
+  );
+}
+
 // True if publishing the draft would change anything outside the target
 // experiment's experiment-ref rule(s). Compares effective post-publish state
 // (live overlaid with draft-set fields) vs live, sidestepping autoMerge's

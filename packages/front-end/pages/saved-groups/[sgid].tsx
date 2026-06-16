@@ -1449,7 +1449,15 @@ export default function EditSavedGroupPage() {
                         backgroundColor: bannerProps.bgColor,
                       }}
                     >
-                      {bannerProps.icon}
+                      <span
+                        style={{
+                          display: "flex",
+                          flexGrow: 0,
+                          flexShrink: 0,
+                        }}
+                      >
+                        {bannerProps.icon}
+                      </span>
                       <span style={{ fontSize: "var(--font-size-2)" }}>
                         {bannerProps.message}
                       </span>

@@ -9778,6 +9778,14 @@ paths:
         requires the org to have auto-publish-on-approval enabled for the
         feature and the caller to have publish permission; the auto-publish then
         executes with the caller's authority.
+
+
+        Set `scheduledPublishAt` to a future ISO date-time to defer the
+        auto-publish until that date (it still also requires approval when
+        review is required). Use `scheduledPublishLockEdits` to freeze edits to
+        this draft while the schedule is pending, and
+        `scheduledPublishLockOthers` to block publishing other drafts of this
+        feature in the meantime.
       tags:
         - feature-revisions-v2
       parameters:
@@ -9799,6 +9807,15 @@ paths:
                   type: string
                 autoPublishOnApproval:
                   type: boolean
+                scheduledPublishAt:
+                  anyOf:
+                    - format: date-time
+                      type: string
+                    - type: 'null'
+                scheduledPublishLockEdits:
+                  type: boolean
+                scheduledPublishLockOthers:
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -9817,6 +9834,70 @@ paths:
           source: >-
             curl -X POST
             'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/request-review'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v2/features/{id}/revisions/{version}/schedule-publish:
+    post:
+      operationId: postFeatureRevisionSchedulePublishV2
+      summary: Schedule (or cancel) a deferred publish for a draft revision
+      description: >-
+        Arms a deferred publish: the revision publishes automatically on/after
+        `scheduledPublishAt` (and, when review is required, only once also
+        approved). Send `scheduledPublishAt: null` to cancel the schedule.
+
+
+        Use `lockEdits` to freeze content edits to this draft while the schedule
+        is pending (rebasing is still allowed), and `lockOthers` to block
+        publishing other drafts of this feature until the schedule fires or is
+        canceled. Requires publish permission; the publish executes with the
+        caller's authority. An admin with bypass-approval permission can
+        schedule even without approval.
+      tags:
+        - feature-revisions-v2
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - $ref: '#/components/parameters/version'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                scheduledPublishAt:
+                  anyOf:
+                    - format: date-time
+                      type: string
+                    - type: 'null'
+                lockEdits:
+                  type: boolean
+                lockOthers:
+                  type: boolean
+              required:
+                - scheduledPublishAt
+              additionalProperties: false
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/FeatureRevisionV2'
+                required:
+                  - revision
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v2/features/{id}/revisions/{version}/schedule-publish'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v2/features/{id}/revisions/{version}/submit-review:

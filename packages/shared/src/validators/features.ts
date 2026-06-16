@@ -379,6 +379,12 @@ const minimalFeatureRevisionInterface = z
     comment: z.string(),
     title: z.string().optional(),
     contributors: z.array(z.string()).optional(),
+    // Scheduled-publish state — surfaced so revision lists/dropdowns can show a
+    // "Scheduled" status + lock indicators without fetching full revisions.
+    autoPublishOnApproval: z.boolean().optional(),
+    scheduledPublishAt: z.union([z.null(), z.date()]).optional(),
+    scheduledPublishLockEdits: z.boolean().optional(),
+    scheduledPublishLockOthers: z.boolean().optional(),
   })
   .strict();
 
@@ -584,6 +590,18 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
     // an actor without a user ID (e.g. an API key), in which case the
     // publish falls back to `createdBy`.
     autoPublishEnabledBy: z.string().optional(),
+    // Deferred publish: when set, an armed revision (autoPublishOnApproval) does
+    // not publish until on/after this date — and, if review is required, only once
+    // also approved. `null`/absent keeps today's "publish as soon as approved"
+    // behavior. The Agenda poller (updateScheduledPublishes) fires it.
+    scheduledPublishAt: z.union([z.null(), z.date()]).optional(),
+    // While a schedule is pending, freeze content edits to this draft. Rebase is
+    // still permitted (to keep it mergeable) unless it would invalidate a required
+    // approval. Lets authors "set and forget" without drift.
+    scheduledPublishLockEdits: z.boolean().optional(),
+    // While a schedule is pending, block publishing OTHER drafts of this feature so
+    // the live version can't advance out from under the scheduled change.
+    scheduledPublishLockOthers: z.boolean().optional(),
     // Active reviewer verdicts for the current review cycle (one entry per
     // reviewer). Kept in sync by the review lifecycle mutations:
     // submit review upserts, undo review removes, request/recall review

@@ -1,6 +1,9 @@
 import mongoose from "mongoose";
 import omit from "lodash/omit";
-import { checkIfRevisionNeedsReview } from "shared/util";
+import {
+  checkIfRevisionNeedsReview,
+  isRevisionEditLockedBySchedule,
+} from "shared/util";
 import {
   FeatureInterface,
   FeatureRule,
@@ -111,6 +114,9 @@ const featureRevisionSchema = new mongoose.Schema({
   requiresReview: Boolean,
   autoPublishOnApproval: Boolean,
   autoPublishEnabledBy: String,
+  scheduledPublishAt: Date,
+  scheduledPublishLockEdits: Boolean,
+  scheduledPublishLockOthers: Boolean,
   log: [
     {
       _id: false,
@@ -128,6 +134,9 @@ featureRevisionSchema.index(
   { unique: true },
 );
 featureRevisionSchema.index({ organization: 1, status: 1 });
+// Sparse: only armed, deferred-publish revisions carry scheduledPublishAt, so the
+// cross-org due-poller (dangerouslyFindRevisionsDueToPublish) scans a tiny set.
+featureRevisionSchema.index({ scheduledPublishAt: 1 }, { sparse: true });
 
 type FeatureRevisionDocument = mongoose.Document & FeatureRevisionInterface;
 
@@ -335,7 +344,7 @@ export async function getMinimalRevisions(
     featureId,
   })
     .select(
-      "version datePublished dateUpdated createdBy status comment title contributors",
+      "version datePublished dateUpdated createdBy status comment title contributors autoPublishOnApproval scheduledPublishAt scheduledPublishLockEdits scheduledPublishLockOthers",
     )
     .sort({ version: -1 })
     .limit(200);
@@ -354,6 +363,18 @@ export async function getMinimalRevisions(
             m.contributors as unknown as unknown[],
           ),
         }
+      : {}),
+    ...(m.autoPublishOnApproval
+      ? { autoPublishOnApproval: m.autoPublishOnApproval }
+      : {}),
+    ...(m.scheduledPublishAt
+      ? { scheduledPublishAt: m.scheduledPublishAt }
+      : {}),
+    ...(m.scheduledPublishLockEdits
+      ? { scheduledPublishLockEdits: m.scheduledPublishLockEdits }
+      : {}),
+    ...(m.scheduledPublishLockOthers
+      ? { scheduledPublishLockOthers: m.scheduledPublishLockOthers }
       : {}),
   }));
 }
@@ -1081,7 +1102,17 @@ export async function updateRevision(
   changes: RevisionChanges,
   log: Omit<RevisionLog, "timestamp">,
   resetReview: boolean,
+  // Rebase is the one content-mutating path allowed while a schedule's
+  // "lock edits" is active (it keeps the scheduled draft mergeable). All other
+  // edits are frozen until the schedule is canceled.
+  { bypassScheduleLock = false }: { bypassScheduleLock?: boolean } = {},
 ) {
+  if (!bypassScheduleLock && isRevisionEditLockedBySchedule(revision)) {
+    throw new Error(
+      "This draft is locked for a scheduled publish. Cancel the schedule before editing.",
+    );
+  }
+
   const {
     normalizedChanges,
     status,
@@ -1219,6 +1250,9 @@ export async function markRevisionAsPublished(
     },
     {
       $set: changes,
+      // A published revision's schedule is spent — drop it (also keeps it out of
+      // the scheduledPublishAt sparse index).
+      $unset: { ...SCHEDULED_PUBLISH_UNSET },
     },
   );
 
@@ -1247,15 +1281,34 @@ export async function markRevisionAsReviewRequested(
   revision: FeatureRevisionInterface,
   user: EventUser,
   comment?: string,
-  { autoPublishOnApproval }: { autoPublishOnApproval?: boolean } = {},
+  {
+    autoPublishOnApproval,
+    scheduledPublishAt = null,
+    scheduledPublishLockEdits,
+    scheduledPublishLockOthers,
+  }: {
+    autoPublishOnApproval?: boolean;
+    // When set, arm a deferred publish for this date (implies auto-publish).
+    scheduledPublishAt?: Date | null;
+    scheduledPublishLockEdits?: boolean;
+    scheduledPublishLockOthers?: boolean;
+  } = {},
 ) {
   const action = "Review Requested";
+
+  // A target date implies the unified "armed" auto-publish flag.
+  const scheduled = scheduledPublishAt !== null;
+  const armed = !!autoPublishOnApproval || scheduled;
 
   // The auto-publish later runs with the arming user's authority, so record
   // who that was. Actors without a user ID (e.g. API keys) can still arm —
   // the publish then falls back to `createdBy`.
-  const enabledBy =
-    autoPublishOnApproval && user && "id" in user ? user.id : null;
+  const enabledBy = armed && user && "id" in user ? user.id : null;
+
+  const unset: Record<string, 1> = {};
+  if (enabledBy === null) unset.autoPublishEnabledBy = 1;
+  // Re-requesting review without a (new) schedule clears any stale one.
+  if (!scheduled) Object.assign(unset, SCHEDULED_PUBLISH_UNSET);
 
   await FeatureRevisionModel.updateOne(
     {
@@ -1269,13 +1322,20 @@ export async function markRevisionAsReviewRequested(
         datePublished: null,
         dateUpdated: new Date(),
         comment: comment,
-        autoPublishOnApproval: !!autoPublishOnApproval,
+        autoPublishOnApproval: armed,
+        ...(scheduled
+          ? {
+              scheduledPublishAt,
+              scheduledPublishLockEdits: !!scheduledPublishLockEdits,
+              scheduledPublishLockOthers: !!scheduledPublishLockOthers,
+            }
+          : {}),
         ...(enabledBy !== null ? { autoPublishEnabledBy: enabledBy } : {}),
         // Requesting review starts a new review cycle — prior verdicts no
         // longer stand (mirrors the revision-log replay semantics).
         reviews: [],
       },
-      ...(enabledBy === null ? { $unset: { autoPublishEnabledBy: 1 } } : {}),
+      ...(Object.keys(unset).length > 0 ? { $unset: unset } : {}),
     },
   );
 
@@ -1292,6 +1352,17 @@ export async function markRevisionAsReviewRequested(
     .catch((e) => {
       logger.error(e, "Error creating revisionlog");
     });
+
+  // A schedule armed alongside the review request is a separate, inspectable
+  // event in the timeline (carries the date + lock details).
+  if (scheduled) {
+    logScheduledPublishChange(context, revision, {
+      action: "schedule publish",
+      scheduledPublishAt: scheduledPublishAt as Date,
+      lockEdits: !!scheduledPublishLockEdits,
+      lockOthers: !!scheduledPublishLockOthers,
+    });
+  }
 }
 
 export async function setAutoPublishOnApproval(
@@ -1314,11 +1385,193 @@ export async function setAutoPublishOnApproval(
             autoPublishOnApproval: true,
             autoPublishEnabledBy: enabledBy,
           },
+          // Arming the "publish when approved" mode is mutually exclusive with a
+          // deferred date — clear any existing schedule so the two modes can't
+          // both be set at once.
+          $unset: { ...SCHEDULED_PUBLISH_UNSET },
         }
       : {
           $set: { autoPublishOnApproval: enabled },
-          $unset: { autoPublishEnabledBy: 1 },
+          // Disarming also drops any pending schedule so a dangling
+          // scheduledPublishAt can't linger (the unified armed flag is off).
+          $unset: { autoPublishEnabledBy: 1, ...SCHEDULED_PUBLISH_UNSET },
         },
+  );
+}
+
+// Fields that make up a deferred-publish schedule. Cleared together when the
+// schedule is canceled or the revision leaves the active review cycle.
+const SCHEDULED_PUBLISH_UNSET = {
+  scheduledPublishAt: 1,
+  scheduledPublishLockEdits: 1,
+  scheduledPublishLockOthers: 1,
+} as const;
+
+export type ScheduledPublishInput = {
+  // Target publish date, or null to cancel the schedule (also disarms auto-publish).
+  scheduledPublishAt: Date | null;
+  lockEdits?: boolean;
+  lockOthers?: boolean;
+};
+
+// Arm (or cancel) a deferred publish on a revision. Scheduling implies the
+// unified "armed" auto-publish flag; canceling disarms it. The publish later
+// runs with `enabledBy`'s authority (falls back to the draft author when null).
+// Append a revision-log entry for a deferred-publish change so additions,
+// changes, and cancellations show up in the review tab's timeline (and the
+// revision audit trail). Fire-and-forget, matching the other log writers here.
+export function logScheduledPublishChange(
+  context: ReqContext | ApiReqContext,
+  revision: Pick<FeatureRevisionInterface, "featureId" | "version">,
+  {
+    action,
+    scheduledPublishAt,
+    lockEdits,
+    lockOthers,
+  }: {
+    action:
+      | "schedule publish"
+      | "update scheduled publish"
+      | "cancel scheduled publish";
+    scheduledPublishAt?: Date;
+    lockEdits?: boolean;
+    lockOthers?: boolean;
+  },
+) {
+  context.models.featureRevisionLogs
+    .create({
+      featureId: revision.featureId,
+      version: revision.version,
+      action,
+      subject: "",
+      user: context.auditUser,
+      value: JSON.stringify(
+        action === "cancel scheduled publish"
+          ? {}
+          : {
+              scheduledPublishAt,
+              lockEdits: !!lockEdits,
+              lockOthers: !!lockOthers,
+            },
+      ),
+    })
+    .catch((e) => {
+      logger.error(e, "Error creating revisionlog for schedule change");
+    });
+}
+
+export async function setRevisionScheduledPublish(
+  context: ReqContext | ApiReqContext,
+  revision: FeatureRevisionInterface,
+  { scheduledPublishAt, lockEdits, lockOthers }: ScheduledPublishInput,
+  enabledBy: string | null,
+) {
+  const filter = {
+    organization: revision.organization,
+    featureId: revision.featureId,
+    version: revision.version,
+  };
+
+  if (scheduledPublishAt === null) {
+    await FeatureRevisionModel.updateOne(filter, {
+      $set: { autoPublishOnApproval: false, dateUpdated: new Date() },
+      $unset: { ...SCHEDULED_PUBLISH_UNSET, autoPublishEnabledBy: 1 },
+    });
+    logScheduledPublishChange(context, revision, {
+      action: "cancel scheduled publish",
+    });
+    return;
+  }
+
+  await FeatureRevisionModel.updateOne(filter, {
+    $set: {
+      autoPublishOnApproval: true,
+      scheduledPublishAt,
+      scheduledPublishLockEdits: !!lockEdits,
+      scheduledPublishLockOthers: !!lockOthers,
+      dateUpdated: new Date(),
+      ...(enabledBy !== null ? { autoPublishEnabledBy: enabledBy } : {}),
+    },
+    ...(enabledBy === null ? { $unset: { autoPublishEnabledBy: 1 } } : {}),
+  });
+
+  logScheduledPublishChange(context, revision, {
+    // Distinguish a first-time arm from an edit to an already-armed schedule.
+    action: revision.scheduledPublishAt
+      ? "update scheduled publish"
+      : "schedule publish",
+    scheduledPublishAt,
+    lockEdits: !!lockEdits,
+    lockOthers: !!lockOthers,
+  });
+}
+
+// Cross-org poller query for the scheduled-publish Agenda job. Returns the
+// identifying tuple for every armed revision whose target date has arrived and
+// is still in an active review cycle. Deliberately org-agnostic — the job
+// resolves per-org context downstream — so the projection stays tiny.
+export async function dangerouslyFindRevisionsDueToPublish(
+  now: Date,
+): Promise<{ organization: string; featureId: string; version: number }[]> {
+  const docs = await FeatureRevisionModel.find(
+    {
+      autoPublishOnApproval: true,
+      scheduledPublishAt: { $lte: now },
+      status: { $in: [...ACTIVE_DRAFT_STATUSES] },
+    },
+    { organization: 1, featureId: 1, version: 1 },
+  ).lean();
+  return docs
+    .filter((d) => d.version !== undefined && d.version !== null)
+    .map((d) => ({
+      organization: d.organization,
+      featureId: d.featureId,
+      version: d.version as number,
+    }));
+}
+
+// True if another active revision of this feature has a pending schedule that
+// blocks publishing sibling drafts (scheduledPublishLockOthers). Used to enforce
+// the lock at the publish choke point. The lock only applies once the scheduled
+// sibling is committed and no longer awaiting approval — i.e. "approved" (the
+// approval flow finished) or "draft" (the no-approval flow, where a schedule is
+// only committed on a draft when the change doesn't require review). An armed
+// schedule still in "pending-review"/"changes-requested" doesn't freeze others.
+export async function hasPublishLockingScheduledSibling(
+  organization: string,
+  featureId: string,
+  excludeVersion: number,
+): Promise<boolean> {
+  const doc = await FeatureRevisionModel.findOne({
+    organization,
+    featureId,
+    version: { $ne: excludeVersion },
+    autoPublishOnApproval: true,
+    scheduledPublishLockOthers: true,
+    status: { $in: ["approved", "draft"] },
+  }).select("_id");
+  return !!doc;
+}
+
+// Cancel every pending deferred publish across a feature's revisions. Used by
+// feature lifecycle events (e.g. archive) where a scheduled publish must no
+// longer fire. Disarms and clears the schedule/locks; safe to call when none
+// are pending. (Deletion drops the revisions outright, so it needs no call.)
+export async function cancelScheduledPublishesForFeature(
+  organization: string,
+  featureId: string,
+) {
+  await FeatureRevisionModel.updateMany(
+    {
+      organization,
+      featureId,
+      autoPublishOnApproval: true,
+      scheduledPublishAt: { $exists: true },
+    },
+    {
+      $set: { autoPublishOnApproval: false, dateUpdated: new Date() },
+      $unset: { ...SCHEDULED_PUBLISH_UNSET, autoPublishEnabledBy: 1 },
+    },
   );
 }
 
@@ -1491,6 +1744,19 @@ export async function submitReviewAndComments(
   // its own entry below; bumping `dateUpdated` would falsely signal a content
   // change to the rebase guard (expectedDraftDateUpdated) and "last modified" UI.
 
+  // A changes-requested verdict invalidates any pending deferred publish — the
+  // revision is no longer on track to publish, so cancel the schedule (and its
+  // edit/feature locks) and disarm so it can't fire on a stale approval.
+  if (
+    verdict === "changes-requested" &&
+    (revision.scheduledPublishAt ?? null)
+  ) {
+    await FeatureRevisionModel.updateOne(filter, {
+      $set: { autoPublishOnApproval: false, dateUpdated: new Date() },
+      $unset: { ...SCHEDULED_PUBLISH_UNSET, autoPublishEnabledBy: 1 },
+    });
+  }
+
   // Fire and forget - no route that submits the review and comments expects the log to be there immediately
   context.models.featureRevisionLogs
     .create({
@@ -1529,9 +1795,20 @@ export async function recallReview(
     },
     {
       // Recalling starts the review lifecycle over — clear baked verdicts
-      // (mirrors the revision-log replay semantics).
-      $set: { status: "draft", dateUpdated: new Date(), reviews: [] },
-      $unset: { approvedBaseVersion: 1 },
+      // (mirrors the revision-log replay semantics) and disarm any auto/deferred
+      // publish: arming is re-specified on the next Request Review, and a pending
+      // schedule must not fire on a draft that's no longer up for review.
+      $set: {
+        status: "draft",
+        dateUpdated: new Date(),
+        reviews: [],
+        autoPublishOnApproval: false,
+      },
+      $unset: {
+        approvedBaseVersion: 1,
+        autoPublishEnabledBy: 1,
+        ...SCHEDULED_PUBLISH_UNSET,
+      },
     },
   );
 
@@ -1748,7 +2025,11 @@ export async function reopenRevision(
         reviews: [],
         autoPublishOnApproval: false,
       },
-      $unset: { approvedBaseVersion: 1, autoPublishEnabledBy: 1 },
+      $unset: {
+        approvedBaseVersion: 1,
+        autoPublishEnabledBy: 1,
+        ...SCHEDULED_PUBLISH_UNSET,
+      },
     },
   );
 
@@ -1805,6 +2086,7 @@ export async function discardRevision(
     },
     {
       $set: { status: "discarded", dateUpdated: new Date() },
+      $unset: { ...SCHEDULED_PUBLISH_UNSET },
     },
   );
 
