@@ -165,9 +165,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
         },
       ],
       restApiBypassesReviews: settings.restApiBypassesReviews ?? false,
+      requireRebaseBeforePublish: settings.requireRebaseBeforePublish ?? false,
+      revertsBypassApproval: settings.revertsBypassApproval ?? false,
+      maxConcurrentDrafts: settings.maxConcurrentDrafts ?? 0,
       defaultDataSource: settings.defaultDataSource || "",
       testQueryDays: DEFAULT_TEST_QUERY_DAYS,
-      disableMultiMetricQueries: false,
       disablePrecomputedDimensions:
         settings.disablePrecomputedDimensions ?? true,
       useStickyBucketing: false,
@@ -210,6 +212,14 @@ const GeneralSettingsPage = (): React.ReactElement => {
       aiEnabled: settings.aiEnabled ?? false,
       defaultAIModel: settings.defaultAIModel || "gpt-4o-mini",
       embeddingModel: settings.embeddingModel || "text-embedding-ada-002",
+      // `undefined` represents "use default" — the back-end's resolver
+      // (getAISettingsForOrg) falls back to defaultAIModel for text and
+      // the GEMINI_IMAGE_MODEL env var for image when these are unset.
+      // We can't use empty string here because visualEditorAIModel is
+      // typed as the AIModel union (which doesn't include "").
+      visualEditorAIModel: settings.visualEditorAIModel,
+      visualEditorImageModel: settings.visualEditorImageModel || "",
+      visualEditorAIContext: settings.visualEditorAIContext || "",
       disableLegacyMetricCreation:
         settings.disableLegacyMetricCreation ?? false,
       defaultFeatureRulesInAllEnvs:
@@ -272,6 +282,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
     aiEnabled: form.watch("aiEnabled"),
     defaultAIModel: form.watch("defaultAIModel"),
     embeddingModel: form.watch("embeddingModel"),
+    // Empty string from the form → undefined on the wire so we don't
+    // pollute the saved settings doc with empty values. The back-end's
+    // resolver treats both unset and empty-string as "no override".
+    visualEditorAIModel: form.watch("visualEditorAIModel") || undefined,
+    visualEditorImageModel: form.watch("visualEditorImageModel") || undefined,
+    visualEditorAIContext: form.watch("visualEditorAIContext") || undefined,
     disableLegacyMetricCreation: form.watch("disableLegacyMetricCreation"),
     defaultFeatureRulesInAllEnvs: form.watch("defaultFeatureRulesInAllEnvs"),
     preferredEnvironment: form.watch("preferredEnvironment") || "",
@@ -408,6 +424,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
       multipleExposureMinPercent:
         (value.multipleExposureMinPercent ?? 0.01) / 100,
       preferredEnvironment: value.preferredEnvironment || null,
+      // A cleared number input yields NaN — normalize to 0 (cap disabled)
+      maxConcurrentDrafts: value.maxConcurrentDrafts || 0,
       approvalFlows: applyApprovalFlowEntitlements(
         value.approvalFlows,
         hasRequireApprovals,

@@ -2977,7 +2977,6 @@ export default function RampScheduleSection({
             project={feature.project ?? ""}
             includeFacts
             includeGroups
-            excludeQuantiles
             selected={state.monitoring.guardrailMetricIds}
             disabled={!state.monitoring.exposureQueryId}
             onChange={(v) => patchMonitoring({ guardrailMetricIds: v })}
@@ -2999,7 +2998,6 @@ export default function RampScheduleSection({
             project={feature.project ?? ""}
             includeFacts
             includeGroups
-            excludeQuantiles
             selected={state.monitoring.signalMetricIds}
             disabled={!state.monitoring.exposureQueryId}
             onChange={(v) => patchMonitoring({ signalMetricIds: v })}
@@ -3508,15 +3506,10 @@ export default function RampScheduleSection({
         Disable on date
         <Tooltip
           body={
-            <>
-              <Text as="div" mb="2">
-                Automatically disables the rule on this date.
-              </Text>
-              <Text as="div">
-                If the ramp-up is incomplete, it is automatically completed on
-                this date.
-              </Text>
-            </>
+            <Text as="div">
+              Automatically disables the rule on this date, whether or not the
+              ramp-up has finished.
+            </Text>
           }
         >
           <PiInfo color="var(--color-text-low)" className="ml-1" />
@@ -3532,15 +3525,10 @@ export default function RampScheduleSection({
           </Text>
           <Tooltip
             body={
-              <>
-                <Text as="div" mb="2">
-                  Automatically disables the rule on this date.
-                </Text>
-                <Text as="div">
-                  If the ramp-up is incomplete, it is automatically completed on
-                  this date.
-                </Text>
-              </>
+              <Text as="div">
+                Automatically disables the rule on this date, whether or not the
+                ramp-up has finished.
+              </Text>
             }
           >
             <PiInfo color="var(--color-text-low)" />

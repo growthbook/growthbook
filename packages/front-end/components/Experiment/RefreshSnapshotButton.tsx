@@ -21,6 +21,8 @@ const RefreshSnapshotButton: FC<{
   useRadixButton?: boolean;
   radixVariant?: "outline" | "solid" | "soft";
   setError: (e: string | undefined) => void;
+  // Return false to abort the refresh
+  customValidation?: () => boolean | Promise<boolean>;
 }> = ({
   mutate,
   experiment,
@@ -29,6 +31,7 @@ const RefreshSnapshotButton: FC<{
   useRadixButton = false,
   radixVariant = "outline",
   setError,
+  customValidation,
 }) => {
   const [loading, setLoading] = useState(false);
   const [longResult, setLongResult] = useState(false);
@@ -38,6 +41,9 @@ const RefreshSnapshotButton: FC<{
   const { apiCall } = useAuth();
 
   const refreshSnapshot = async () => {
+    if (customValidation && !(await customValidation())) {
+      return;
+    }
     // Precomputed dimensions are computed as part of a standard snapshot,
     // so we don't need to pass them to the backend for a new snapshot query
     const snapshotDimension = isDimensionPrecomputed(

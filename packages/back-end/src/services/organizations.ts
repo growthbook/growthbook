@@ -54,7 +54,12 @@ import {
   findOrganizationsByDomain,
   updateOrganization,
 } from "back-end/src/models/OrganizationModel";
-import { APP_ORIGIN, IS_CLOUD, IS_MULTI_ORG } from "back-end/src/util/secrets";
+import {
+  APP_ORIGIN,
+  GEMINI_IMAGE_MODEL,
+  IS_CLOUD,
+  IS_MULTI_ORG,
+} from "back-end/src/util/secrets";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext, ExperimentOverride } from "back-end/types/api";
@@ -77,12 +82,13 @@ import {
 import { logger } from "back-end/src/util/logger";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { addTags } from "back-end/src/models/TagModel";
-import { getUsersByIds } from "back-end/src/models/UserModel";
+import { getUserById, getUsersByIds } from "back-end/src/models/UserModel";
 import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
 import { getLicense, licenseInit } from "back-end/src/enterprise";
+import { TeamModel } from "back-end/src/models/TeamModel";
 import { findVercelInstallationByInstallationId } from "back-end/src/models/VercelNativeIntegrationModel";
 import {
   encryptParams,
@@ -90,7 +96,12 @@ import {
   mergeParams,
 } from "./datasource";
 import { createMetric } from "./experiments";
-import { isEmailEnabled, sendInviteEmail, sendNewMemberEmail } from "./email";
+import {
+  isEmailEnabled,
+  sendInviteEmail,
+  sendNewMemberEmail,
+  sendPendingMemberEmail,
+} from "./email";
 import { ReqContextClass } from "./context";
 
 export {
@@ -260,12 +271,20 @@ export function getAISettingsForOrg(
   googleAPIKey: string;
   defaultAIModel: AIModel;
   embeddingModel: EmbeddingModel;
+  // Resolved Visual Editor overrides — both already fall back to a
+  // sensible default so callers don't need their own resolution logic.
+  visualEditorAIModel: AIModel;
+  visualEditorImageModel: string;
+  // Free-text brand guidelines appended to the AI system prompt.
+  visualEditorAIContext: string;
 } {
   const openAIKey = process.env.OPENAI_API_KEY || "";
   const anthropicKey = process.env.ANTHROPIC_API_KEY || "";
   const xaiKey = process.env.XAI_API_KEY || "";
   const mistralKey = process.env.MISTRAL_API_KEY || "";
-  const googleKey = process.env.GOOGLE_AI_API_KEY || "";
+  // GEMINI_API_KEY is the legacy name; GOOGLE_AI_API_KEY is preferred.
+  const googleKey =
+    process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY || "";
 
   const hasValidKey = !!(
     openAIKey ||
@@ -279,6 +298,18 @@ export function getAISettingsForOrg(
     ? !!context.org.settings?.aiEnabled
     : !!(context.org.settings?.aiEnabled && hasValidKey);
 
+  const defaultAIModel: AIModel = IS_CLOUD
+    ? "claude-haiku-4-5-20251001"
+    : context.org.settings?.defaultAIModel ||
+      context.org.settings?.openAIDefaultModel ||
+      "gpt-5.4-mini";
+
+  // Per-surface override outranks the cloud-managed default — intentional.
+  const visualEditorAIModel: AIModel =
+    context.org.settings?.visualEditorAIModel || defaultAIModel;
+  const visualEditorImageModel: string =
+    context.org.settings?.visualEditorImageModel || GEMINI_IMAGE_MODEL;
+
   return {
     aiEnabled,
     openAIAPIKey: includeKey ? openAIKey : "",
@@ -286,13 +317,14 @@ export function getAISettingsForOrg(
     xaiAPIKey: includeKey ? xaiKey : "",
     mistralAPIKey: includeKey ? mistralKey : "",
     googleAPIKey: includeKey ? googleKey : "",
-    defaultAIModel: IS_CLOUD
-      ? "claude-haiku-4-5-20251001"
-      : context.org.settings?.defaultAIModel ||
-        context.org.settings?.openAIDefaultModel ||
-        "gpt-5.4-mini",
+    defaultAIModel,
     embeddingModel:
       context.org.settings?.embeddingModel || "text-embedding-ada-002",
+    visualEditorAIModel,
+    visualEditorImageModel,
+    visualEditorAIContext: (
+      context.org.settings?.visualEditorAIContext || ""
+    ).trim(),
   };
 }
 
@@ -1189,6 +1221,36 @@ export async function addMemberFromSSOConnection(
   }
   if (!organization) return null;
 
+  // If the org has explicitly disabled autoApproveMembers, add the user as a pending member
+  // This differs from the non-SSO path (`undefined` is auto-approved there) to preserve existing behavior
+  if (organization.autoApproveMembers === false) {
+    const alreadyPending = organization.pendingMembers?.some(
+      (m) => m.id === req.userId,
+    );
+    if (!alreadyPending) {
+      await addPendingMemberToOrg({
+        organization,
+        name: req.name || "",
+        email: req.email || "",
+        userId: req.userId,
+        ...getDefaultRole(organization),
+      });
+      try {
+        const teamUrl = APP_ORIGIN + "/settings/team/?org=" + organization.id;
+        await sendPendingMemberEmail(
+          req.name || "",
+          req.email || "",
+          organization.name,
+          organization.ownerEmail,
+          teamUrl,
+        );
+      } catch (e) {
+        req.log.error(e, "Failed to send pending member email");
+      }
+    }
+    return null;
+  }
+
   await addMemberToOrg({
     organization,
     userId: req.userId,
@@ -1320,4 +1382,34 @@ export async function getContextForAgendaJobByOrgId(
   }
 
   return getContextForAgendaJobByOrgObject(organization);
+}
+
+export async function getContextForUserIdInOrg(
+  org: OrganizationInterface,
+  userId: string,
+): Promise<ApiReqContext | null> {
+  const user = await getUserById(userId);
+  if (!user) return null;
+
+  const isMember = org.members.some((m) => m.id === user.id);
+  if (!isMember) return null;
+
+  const teams = await TeamModel.dangerousGetTeamsForOrganization(org.id);
+
+  return new ReqContextClass({
+    org,
+    auditUser: {
+      type: "dashboard",
+      id: user.id,
+      email: user.email,
+      name: user.name || "",
+    },
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name || "",
+      superAdmin: user.superAdmin,
+    },
+    teams,
+  });
 }

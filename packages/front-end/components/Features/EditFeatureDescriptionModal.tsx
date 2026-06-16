@@ -5,7 +5,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { getReviewSetting } from "shared/util";
-import { useDefaultDraft } from "@/hooks/useDefaultDraft";
+import { useDefaultDraftMode } from "@/hooks/useDefaultDraft";
 import Text from "@/ui/Text";
 import { useAuth } from "@/services/auth";
 import Link from "@/ui/Link";
@@ -49,11 +49,12 @@ export default function EditFeatureDescriptionModal({
 
   const canAutoPublish = isAdmin || !metadataGated;
 
-  const defaultDraft = useDefaultDraft(revisionList);
-
-  const [mode, setMode] = useState<DraftMode>(
-    metadataGated ? "new" : "publish",
+  const { mode: initialMode, defaultDraft } = useDefaultDraftMode(
+    revisionList,
+    canAutoPublish,
   );
+
+  const [mode, setMode] = useState<DraftMode>(initialMode);
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,
   );
