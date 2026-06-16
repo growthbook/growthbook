@@ -439,7 +439,7 @@ describe("getIncrementalPipelineUnsupportedReason", () => {
         metrics: [makeLegacyMetric()],
       }),
     ).toBe(
-      "Legacy metrics aren't supported with Incremental Pipeline mode. Convert or remove non-Fact Metrics.",
+      "Legacy metrics aren't supported with Incremental Pipeline mode. Convert them or remove non-Fact Metrics.",
     );
   });
 
@@ -479,6 +479,7 @@ describe("getIncrementalPipelineUnsupportedReason", () => {
         skipPartialData: true,
         activationMetric: "fact_m1",
         metrics: [],
+        experimentType: undefined,
       }),
     ).toBe("Organization does not have access to Incremental Pipeline mode.");
   });
@@ -516,7 +517,7 @@ describe("getIncrementalPipelineUnsupportedReason", () => {
         metrics: [makeLegacyMetric()],
       }),
     ).toBe(
-      "Legacy metrics aren't supported with Incremental Pipeline mode. Convert or remove non-Fact Metrics.",
+      "Legacy metrics aren't supported with Incremental Pipeline mode. Convert them or remove non-Fact Metrics.",
     );
   });
 });

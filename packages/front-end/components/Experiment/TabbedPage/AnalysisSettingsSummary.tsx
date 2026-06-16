@@ -1,6 +1,12 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FactTableColumnType } from "shared/types/fact-table";
-import React, { useMemo, useState, useEffect, useRef } from "react";
+import React, {
+  useCallback,
+  useMemo,
+  useState,
+  useEffect,
+  useRef,
+} from "react";
 import { OrganizationSettings } from "shared/types/organization";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
@@ -360,13 +366,13 @@ export default function AnalysisSettingsSummary({
   // available, and the fallback confirm only fires when they are not. Sequencing
   // them in one gate keeps them from competing over the button's single
   // customValidation slot.
-  const confirmRefresh = async (): Promise<boolean> => {
+  const confirmRefresh = useCallback(async (): Promise<boolean> => {
     if (needsDimensionRefreshConfirm) {
       setUpdateDimensionBreakdownModalOpen(true);
       return false;
     }
     return confirmIncrementalPipelineFallback();
-  };
+  }, [needsDimensionRefreshConfirm, confirmIncrementalPipelineFallback]);
 
   const ds = getDatasourceById(experiment.datasource);
 
