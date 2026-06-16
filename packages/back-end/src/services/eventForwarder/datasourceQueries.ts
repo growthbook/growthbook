@@ -11,7 +11,6 @@ import {
 import uniqid from "uniqid";
 import {
   getDataSourceById,
-  getRawDataSourceById,
   updateDataSource,
 } from "back-end/src/models/DataSourceModel";
 import {
@@ -35,11 +34,11 @@ export async function ensureEventForwarderExposureQueries(
     return;
   }
 
-  const raw = await getRawDataSourceById(
+  const datasource = await getDataSourceById(
     context,
     eventForwarderConfig.datasourceId,
   );
-  if (!raw) {
+  if (!datasource) {
     return;
   }
 
@@ -49,25 +48,18 @@ export async function ensureEventForwarderExposureQueries(
     isHashAttributeUserIdType(
       userIdType,
       resolvedAttributeSchema,
-      raw.projects,
+      datasource.projects,
     ),
   );
   if (syncedUserIdTypes.length === 0) {
     return;
   }
 
-  const datasource = await getDataSourceById(
-    context,
-    eventForwarderConfig.datasourceId,
-  );
-
   const connectionParams =
     datasourceParams ??
-    (datasource
-      ? (getSourceIntegrationObject(context, datasource).params as
-          | BigQueryConnectionParams
-          | SnowflakeConnectionParams)
-      : undefined);
+    (getSourceIntegrationObject(context, datasource).params as
+      | BigQueryConnectionParams
+      | SnowflakeConnectionParams);
 
   const sqlParams = buildExposureQueryParams(
     eventForwarderConfig,
@@ -76,7 +68,7 @@ export async function ensureEventForwarderExposureQueries(
   if (!sqlParams) {
     logger.warn(
       {
-        datasourceId: raw.id,
+        datasourceId: datasource.id,
         organizationId: context.org.id,
         sinkType: eventForwarderConfig.sinkType,
       },
@@ -85,7 +77,7 @@ export async function ensureEventForwarderExposureQueries(
     return;
   }
 
-  const existing = raw.settings?.queries?.exposure ?? [];
+  const existing = datasource.settings?.queries?.exposure ?? [];
   const merged = mergeEventForwarderExposureQueries(
     existing,
     syncedUserIdTypes,
@@ -97,26 +89,14 @@ export async function ensureEventForwarderExposureQueries(
     return;
   }
 
-  if (!datasource) {
-    logger.warn(
-      {
-        datasourceId: raw.id,
-        organizationId: context.org.id,
-        sinkType: eventForwarderConfig.sinkType,
-      },
-      "Skipping event forwarder exposure queries: datasource unavailable for update",
-    );
-    return;
-  }
-
   await updateDataSource(
     context,
     datasource,
     {
       settings: {
-        ...raw.settings,
+        ...datasource.settings,
         queries: {
-          ...raw.settings?.queries,
+          ...datasource.settings?.queries,
           exposure: merged,
         },
       },
@@ -137,15 +117,15 @@ export async function ensureEventForwarderFeatureUsageQuery(
   eventForwarderConfig: EventForwarderConfigInterface,
   datasourceParams?: BigQueryConnectionParams | SnowflakeConnectionParams,
 ): Promise<string[]> {
-  const raw = await getRawDataSourceById(
+  const datasource = await getDataSourceById(
     context,
     eventForwarderConfig.datasourceId,
   );
-  if (!raw) {
+  if (!datasource) {
     return [];
   }
 
-  const existing = raw.settings?.queries?.featureUsage ?? [];
+  const existing = datasource.settings?.queries?.featureUsage ?? [];
   const existingManaged = existing.filter(
     isEventForwarderManagedFeatureUsageQuery,
   );
@@ -153,18 +133,11 @@ export async function ensureEventForwarderFeatureUsageQuery(
     return existingManaged.map((query) => query.id);
   }
 
-  const datasource = await getDataSourceById(
-    context,
-    eventForwarderConfig.datasourceId,
-  );
-
   const connectionParams =
     datasourceParams ??
-    (datasource
-      ? (getSourceIntegrationObject(context, datasource).params as
-          | BigQueryConnectionParams
-          | SnowflakeConnectionParams)
-      : undefined);
+    (getSourceIntegrationObject(context, datasource).params as
+      | BigQueryConnectionParams
+      | SnowflakeConnectionParams);
 
   const sqlParams = buildFeatureUsageQueryParams(
     eventForwarderConfig,
@@ -173,23 +146,11 @@ export async function ensureEventForwarderFeatureUsageQuery(
   if (!sqlParams) {
     logger.warn(
       {
-        datasourceId: raw.id,
+        datasourceId: datasource.id,
         organizationId: context.org.id,
         sinkType: eventForwarderConfig.sinkType,
       },
       "Skipping event forwarder feature usage query: missing sink connection params",
-    );
-    return [];
-  }
-
-  if (!datasource) {
-    logger.warn(
-      {
-        datasourceId: raw.id,
-        organizationId: context.org.id,
-        sinkType: eventForwarderConfig.sinkType,
-      },
-      "Skipping event forwarder feature usage query: datasource unavailable for update",
     );
     return [];
   }
@@ -204,9 +165,9 @@ export async function ensureEventForwarderFeatureUsageQuery(
     datasource,
     {
       settings: {
-        ...raw.settings,
+        ...datasource.settings,
         queries: {
-          ...raw.settings?.queries,
+          ...datasource.settings?.queries,
           featureUsage: [...existing, managedQuery],
         },
       },
