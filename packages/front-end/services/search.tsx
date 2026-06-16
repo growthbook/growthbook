@@ -80,9 +80,28 @@ export function tagFilterOnClick(
   };
 }
 
-// Whitespace + punctuation (incl. underscores), matching MiniSearch's default
-// tokenizer. Used to split indexed fields into searchable parts.
-const wordSeparators = /[\n\r\p{Z}\p{P}]+/u;
+// Whitespace separates distinct words; punctuation (incl. _ and -) separates
+// sub-tokens within a word.
+const wordBoundary = /[\n\r\p{Z}]+/u;
+const tokenSeparators = /\p{P}+/u;
+
+// Split a string into normalized words. MiniSearch can only match terms by
+// prefix/fuzzy (no substring search), so for indexing we emit every
+// "boundary suffix" of each word — e.g. "search_test_key" -> ["search_test_key",
+// "test_key", "key"] — which turns a prefix query into a substring-at-word-
+// boundary match. For queries we keep each word whole (one normalized term), so
+// "test_key" / "test-key" both prefix-match the "test_key" suffix of
+// "search_test_key" but never match "test-my-key".
+function tokenizeFields(text: string, expandSuffixes: boolean): string[] {
+  return text.split(wordBoundary).flatMap((word) => {
+    const parts = word.split(tokenSeparators).filter(Boolean);
+    return expandSuffixes
+      ? parts.map((_, i) => parts.slice(i).join("_"))
+      : parts.length
+        ? [parts.join("_")]
+        : [];
+  });
+}
 
 const searchTermOperators = [">", "<", "^", "=", "~", ""] as const;
 
@@ -231,23 +250,12 @@ export function useSearch<T extends { id: string }>({
     const miniSearchInstance = new MiniSearch({
       idField: internalSearchIdField,
       fields,
-      // Index each field as its punctuation-split parts AND its whole
-      // whitespace-delimited form. The parts let a query like "bar" find
-      // "foo_bar_baz"; the whole form lets an underscore-containing query
-      // ("foo_bar") prefix-match the full key instead of being split into
-      // separate tokens that would each OR-match (so "foo_bar" would wrongly
-      // match a feature named "foo").
-      tokenize: (text) => [
-        ...new Set(
-          [...text.split(/\s+/), ...text.split(wordSeparators)].filter(Boolean),
-        ),
-      ],
+      tokenize: (text) => tokenizeFields(text, true),
       searchOptions: {
         boost: keys,
         fuzzy: true,
         prefix: true,
-        // Split the query on whitespace only so "foo_bar" stays a single term.
-        tokenize: (text) => text.split(/\s+/).filter(Boolean),
+        tokenize: (text) => tokenizeFields(text, false),
       },
     });
 
