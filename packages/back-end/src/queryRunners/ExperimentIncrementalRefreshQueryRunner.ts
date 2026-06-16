@@ -1373,6 +1373,21 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
     // Release the incremental refresh lock on any terminal status
     // TODO: Properly handle partially-succeeded status that also becomes terminal??
     if (snapshotStatus !== "running") {
+      if (snapshotStatus === "success") {
+        await this.context.models.incrementalRefresh
+          .updateByExperimentIdIfCurrentExecution(
+            this.model.experiment,
+            this.model.id,
+            { materializedBySnapshotId: this.model.id },
+          )
+          .catch((e) =>
+            this.context.logger.warn(
+              e,
+              "Failed to record pipeline tables snapshot id on success",
+            ),
+          );
+      }
+
       await this.context.models.incrementalRefresh
         .releaseLock(this.model.experiment, this.model.id)
         .catch((e) =>

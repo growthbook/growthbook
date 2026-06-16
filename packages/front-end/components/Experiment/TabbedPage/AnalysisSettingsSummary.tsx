@@ -15,6 +15,7 @@ import {
   ExperimentMetricInterface,
   getLatestPhaseVariations,
 } from "shared/experiments";
+import { isNewerOverallResultsDataAvailable } from "shared/enterprise";
 import { getSnapshotAnalysis } from "shared/util";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { getValidDate } from "shared/dates";
@@ -50,6 +51,7 @@ import { filterMetricsByTags } from "@/hooks/useExperimentTableRows";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import Link from "@/ui/Link";
 import MigrateResultsToDashboardModal from "@/components/Experiment/ResultsFilter/MigrateResultsToDashboardModal";
+import UpdateDimensionBreakdownModal from "@/components/Experiment/UpdateDimensionBreakdownModal";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -140,10 +142,12 @@ export default function AnalysisSettingsSummary({
 
   const {
     snapshot,
+    dimensionless,
     latestSummary: latest,
     analysis,
     dimension: _snapshotDimension,
     precomputedDimensions,
+    sourceSnapshot,
     mutate,
     setAnalysisSettings,
     setSnapshotType,
@@ -174,6 +178,10 @@ export default function AnalysisSettingsSummary({
   const [queriesModalOpen, setQueriesModalOpen] = useState(false);
   const [migrateToDashboardModalOpen, setMigrateToDashboardModalOpen] =
     useState(false);
+  const [
+    updateDimensionBreakdownModalOpen,
+    setUpdateDimensionBreakdownModalOpen,
+  ] = useState(false);
 
   const datasource = experiment
     ? getDatasourceById(experiment.datasource)
@@ -215,6 +223,40 @@ export default function AnalysisSettingsSummary({
       datasource ?? undefined,
       experiment.id,
     );
+
+  const newerOverallResultsAvailable = isNewerOverallResultsDataAvailable(
+    sourceSnapshot,
+    dimensionless,
+  );
+
+  const runSnapshot = async (
+    dimensionToRun: string,
+    opts?: { force?: boolean; trackingSource?: string },
+  ) => {
+    const force = opts?.force ?? false;
+    const trackingSource = opts?.trackingSource ?? "RunQueriesButton";
+    try {
+      const res = await apiCall<{ snapshot: ExperimentSnapshotInterface }>(
+        `/experiment/${experiment.id}/snapshot${force ? "?force=true" : ""}`,
+        {
+          method: "POST",
+          body: JSON.stringify({ phase, dimension: dimensionToRun }),
+        },
+      );
+      trackSnapshot(
+        "create",
+        trackingSource,
+        datasource?.type || null,
+        res.snapshot,
+      );
+      setRefreshError("");
+    } catch (e) {
+      setRefreshError(e.message);
+    } finally {
+      mutate();
+      mutateExperiment();
+    }
+  };
 
   const handleDisableIncrementalRefresh = async () => {
     if (!datasource || !isExperimentIncludedInIncrementalRefresh) return;
@@ -297,7 +339,15 @@ export default function AnalysisSettingsSummary({
     phase,
     unjoinableMetrics,
     conversionWindowMetrics,
+    newerOverallResultsAvailable,
   });
+
+  // For Incremental Pipeline mode, dimension results are built on top
+  // of overall results (dimensionless snapshot)
+  // So if the user is clicking 'Update' on a scenario that we know there's no
+  // newer overall results available, we show a confirmation modal explaining why.
+  const needsDimensionRefreshConfirm =
+    !!sourceSnapshot && !newerOverallResultsAvailable;
 
   const ds = getDatasourceById(experiment.datasource);
 
@@ -445,6 +495,7 @@ export default function AnalysisSettingsSummary({
     phase: currentPhase,
     unjoinableMetrics: unjoinable,
     conversionWindowMetrics: conversion,
+    newerOverallResultsAvailable,
   }: {
     experiment?: ExperimentInterfaceStringDates;
     snapshot?: ExperimentSnapshotInterface;
@@ -458,6 +509,7 @@ export default function AnalysisSettingsSummary({
     phase?: number;
     unjoinableMetrics?: Set<string>;
     conversionWindowMetrics?: Set<string>;
+    newerOverallResultsAvailable?: boolean;
   }): { outdated: boolean; reasons: string[] } {
     const snapshotSettings = snap?.settings;
     const analysisSettings = snap ? getSnapshotAnalysis(snap)?.settings : null;
@@ -599,6 +651,12 @@ export default function AnalysisSettingsSummary({
       reasons.push("Sequential testing settings changed");
     }
 
+    // For incremental-refresh dimension breakdowns: the breakdown reads from
+    // the overall results, so newer overall data makes it outdated too.
+    if (newerOverallResultsAvailable) {
+      reasons.push("Newer Overall Results are available");
+    }
+
     return { outdated: reasons.length > 0, reasons };
   }
 
@@ -653,6 +711,7 @@ export default function AnalysisSettingsSummary({
               <QueriesLastRun
                 status={status}
                 dateCreated={snapshot?.dateCreated}
+                sourceSnapshot={sourceSnapshot}
                 latestQueryDate={latest?.dateCreated}
                 nextUpdate={experiment.nextSnapshotAttempt}
                 autoUpdateEnabled={
@@ -679,7 +738,7 @@ export default function AnalysisSettingsSummary({
               />
               {hasData && outdated && status !== "running" ? (
                 <OutdatedBadge
-                  label={`Analysis settings have changed since last run. Click "Update" to re-run the analysis.`}
+                  label={`These results are outdated. Click "Update" to re-run the analysis.`}
                   reasons={reasons}
                   hasData={hasData && hasValidStatsEngine}
                 />
@@ -718,6 +777,13 @@ export default function AnalysisSettingsSummary({
                 phase={phase}
                 dimension={dimension}
                 setAnalysisSettings={setAnalysisSettings}
+                customValidation={() => {
+                  if (needsDimensionRefreshConfirm) {
+                    setUpdateDimensionBreakdownModalOpen(true);
+                    return false;
+                  }
+                  return true;
+                }}
               />
             ) : null}
 
@@ -727,34 +793,10 @@ export default function AnalysisSettingsSummary({
               forceRefresh={
                 allMetrics.length > 0
                   ? async () => {
-                      await apiCall<{
-                        snapshot: ExperimentSnapshotInterface;
-                      }>(`/experiment/${experiment.id}/snapshot?force=true`, {
-                        method: "POST",
-                        body: JSON.stringify({
-                          phase,
-                          dimension,
-                        }),
-                      })
-                        .then((res) => {
-                          trackSnapshot(
-                            "create",
-                            "ForceRerunQueriesButton",
-                            datasource?.type || null,
-                            res.snapshot,
-                          );
-                          // POST creates a brand-new snapshot id, so the
-                          // provider will auto-upgrade the heavy fetch once
-                          // status reports the new successful id — the
-                          // default cheap mutate is sufficient here.
-                          mutate();
-                          mutateExperiment();
-                          setRefreshError("");
-                        })
-                        .catch((e) => {
-                          console.error(e);
-                          setRefreshError(e.message);
-                        });
+                      await runSnapshot(dimension ?? "", {
+                        force: true,
+                        trackingSource: "ForceRerunQueriesButton",
+                      });
                     }
                   : undefined
               }
@@ -895,6 +937,31 @@ export default function AnalysisSettingsSummary({
         sortDirection={sortDirection ?? null}
         differenceType={differenceType}
       />
+      {updateDimensionBreakdownModalOpen && sourceSnapshot && (
+        <UpdateDimensionBreakdownModal
+          sourceSnapshot={sourceSnapshot}
+          close={() => setUpdateDimensionBreakdownModalOpen(false)}
+          handleUpdateDimensionOnlyClick={async () => {
+            await runSnapshot(dimension ?? "", {
+              trackingSource: "UpdateDimensionBreakdownModal",
+            });
+          }}
+          handleGoToOverallResultsClick={() => {
+            // Kick-off overall results refresh.
+            void runSnapshot("", {
+              trackingSource: "UpdateDimensionBreakdownModal",
+            });
+
+            setUpdateDimensionBreakdownModalOpen(false);
+
+            // Show the overall results
+            // FIXME: this feels fragile, it should be only 1 state call
+            setSnapshotDimension("");
+            setAnalysisSettings(null);
+            setDimension?.("", true);
+          }}
+        />
+      )}
     </Box>
   );
 }
