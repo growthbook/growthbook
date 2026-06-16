@@ -25,7 +25,7 @@ jest.mock("shared/util", () => ({
 jest.mock("back-end/src/services/datasource");
 jest.mock("back-end/src/jobs/refreshFactTableColumns");
 jest.mock("back-end/src/services/organizations", () => ({
-  getSystemContextForOrgObject: jest.fn(),
+  getContextForAgendaJobByOrgObject: jest.fn(),
 }));
 
 const mockedGetDataSourceById =
@@ -47,16 +47,16 @@ const mockedUpdateFactTable =
   FactTableModel.updateFactTable as jest.MockedFunction<
     typeof FactTableModel.updateFactTable
   >;
-const mockedGetSystemContextForOrgObject =
-  Organizations.getSystemContextForOrgObject as jest.MockedFunction<
-    typeof Organizations.getSystemContextForOrgObject
+const mockedGetContextForAgendaJobByOrgObject =
+  Organizations.getContextForAgendaJobByOrgObject as jest.MockedFunction<
+    typeof Organizations.getContextForAgendaJobByOrgObject
   >;
-// Sentinel returned by the mocked system-context factory. The event forwarder
-// sync passes this to updateFactTable so it can bypass the managedBy === "api"
-// guard; the tests assert it is threaded through unchanged.
-const systemContext = {
+// Sentinel returned by the mocked background-job context factory. The event
+// forwarder sync passes this to updateFactTable so it can bypass the
+// managedBy === "api" guard; the tests assert it is threaded through unchanged.
+const agendaContext = {
   org: { id: "org1" },
-  auditUser: { type: "system", subtype: "event-forwarder" },
+  auditUser: null,
 } as never;
 const mockedDecrypt =
   EventForwarderConfig.decryptEventForwarderConfigModel as jest.MockedFunction<
@@ -319,7 +319,7 @@ describe("syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange", 
     jest.clearAllMocks();
     mockedGetBigQueryTablePrefix.mockReturnValue("gb");
     mockedGetSnowflakeTablePrefix.mockReturnValue("GB");
-    mockedGetSystemContextForOrgObject.mockReturnValue(systemContext);
+    mockedGetContextForAgendaJobByOrgObject.mockReturnValue(agendaContext);
   });
 
   it("updates managed fact table attribute jsonFields and queues delayed refresh", async () => {
@@ -377,11 +377,10 @@ describe("syncEventForwarderEventsFactTableMetadataAfterAttributeSchemaChange", 
       ],
     );
 
-    expect(mockedGetSystemContextForOrgObject).toHaveBeenCalledWith(
+    expect(mockedGetContextForAgendaJobByOrgObject).toHaveBeenCalledWith(
       ctx.org,
-      "event-forwarder",
     );
-    expect(mockedUpdateFactTable).toHaveBeenCalledWith(systemContext, ft, {
+    expect(mockedUpdateFactTable).toHaveBeenCalledWith(agendaContext, ft, {
       columns: [
         expect.objectContaining({
           column: "attributes",
@@ -466,7 +465,7 @@ WHERE received_at BETWEEN '{{startDate}}' AND '{{endDate}}'`;
       [{ property: "user_id", datatype: "string", hashAttribute: true }],
     );
 
-    expect(mockedUpdateFactTable).toHaveBeenCalledWith(systemContext, ft, {
+    expect(mockedUpdateFactTable).toHaveBeenCalledWith(agendaContext, ft, {
       columnRefreshPending: true,
     });
     expect(mockedQueueFactTableColumnsRefreshAt).toHaveBeenCalledWith(
