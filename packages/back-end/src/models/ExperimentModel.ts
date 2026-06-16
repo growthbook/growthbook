@@ -30,6 +30,7 @@ import {
 } from "back-end/src/services/experiments";
 import { logger } from "back-end/src/util/logger";
 import { upgradeExperimentDoc } from "back-end/src/util/migrations";
+import { validateMetricOverrides } from "back-end/src/util/priors";
 import {
   queueSDKPayloadRefresh,
   URLRedirectExperiment,
@@ -603,6 +604,8 @@ export async function createExperiment({
     context.org.settings?.updateSchedule || null,
   );
 
+  validateMetricOverrides(data.metricOverrides);
+
   const exp = await ExperimentModel.create({
     id: uniqid("exp_"),
     uid: uuidv4().replace(/-/g, ""),
@@ -671,6 +674,8 @@ export async function updateExperiment({
   };
   if (allChanges.name === "")
     throw new Error("Cannot set empty name for experiment!");
+
+  validateMetricOverrides(allChanges.metricOverrides);
 
   await ExperimentModel.updateOne(
     {

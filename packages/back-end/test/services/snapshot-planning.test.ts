@@ -672,4 +672,18 @@ describe("snapshot planning", () => {
     expect(plan.fullRefresh).toBe(false);
     expect(plan.fullRefreshReason).toBeNull();
   });
+
+  describe("getMetricSnapshotSettings read contract", () => {
+    it("applies a positive override stddev", () => {
+      const { metricSnapshotSettings } = getMetricSnapshotSettings({
+        metric: factMetricFactory.build({ id: "m1" }),
+        denominatorMetrics: [],
+        experimentRegressionAdjustmentEnabled: false,
+        metricOverrides: [
+          { id: "m1", properPriorOverride: true, properPriorStdDev: 0.5 },
+        ],
+      });
+      expect(metricSnapshotSettings.properPriorStdDev).toBe(0.5);
+    });
+  });
 });
