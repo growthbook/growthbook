@@ -25,10 +25,15 @@ export default function VariationUsersTable({ variations, users, srm }: Props) {
 
   return (
     <>
-      <table className="table mx-2 mt-0 mb-2">
+      <table
+        className="table mx-2 mt-0 mb-2"
+        style={{ tableLayout: "fixed", width: "100%" }}
+      >
         <thead>
           <tr>
-            <th className="border-top-0">Variation</th>
+            <th className="border-top-0" style={{ width: "40%" }}>
+              Variation
+            </th>
             <th className="border-top-0">Actual Units</th>
             <th className="border-top-0">Expected Units</th>
             <th className="border-top-0">Actual %</th>
@@ -42,7 +47,10 @@ export default function VariationUsersTable({ variations, users, srm }: Props) {
                 <td
                   className={`border-right variation with-variation-label variation${v.index}`}
                 >
-                  <div className="d-flex align-items-center">
+                  <div
+                    className="d-flex align-items-center"
+                    style={{ minWidth: 0 }}
+                  >
                     <span
                       className="label"
                       style={{
@@ -52,7 +60,13 @@ export default function VariationUsersTable({ variations, users, srm }: Props) {
                     >
                       {v.index}
                     </span>{" "}
-                    {v.name}
+                    <span
+                      className="d-inline-block text-ellipsis"
+                      title={v.name}
+                      style={{ minWidth: 0, maxWidth: "100%" }}
+                    >
+                      {v.name}
+                    </span>
                   </div>
                 </td>
                 <td>
