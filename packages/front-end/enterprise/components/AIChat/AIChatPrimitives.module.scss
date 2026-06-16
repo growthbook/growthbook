@@ -110,14 +110,28 @@
   }
 }
 
+// Superseded active-turn items fade and blur into the background before
+// being moved into the "Completed N steps" drawer. The opacity passes
+// through ~0.4 with a slight blur (the "recede into the background"
+// midpoint) and finishes at 0 so removal from the layout is invisible.
+//
+// Keep the duration in sync with `DEFAULT_FADE_MS` in
+// `useCollapsibleActiveTurnItems.ts`.
 @keyframes gb-ai-collapse-out {
-  from {
+  0% {
     opacity: 1;
+    filter: blur(0);
     transform: translateY(0);
   }
-  to {
+  60% {
+    opacity: 0.4;
+    filter: blur(2px);
+    transform: translateY(-1px);
+  }
+  100% {
     opacity: 0;
-    transform: translateY(-4px);
+    filter: blur(3px);
+    transform: translateY(-3px);
   }
 }
 
@@ -127,7 +141,7 @@
 }
 
 .collapsingItem {
-  animation: gb-ai-collapse-out 350ms ease-out forwards;
+  animation: gb-ai-collapse-out 250ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
   pointer-events: none;
 }
 

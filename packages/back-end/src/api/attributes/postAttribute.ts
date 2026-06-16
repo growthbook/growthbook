@@ -4,6 +4,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { updateOrganization } from "back-end/src/models/OrganizationModel";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import { addTags } from "back-end/src/models/TagModel";
+import { syncEventForwarderAfterAttributeSchemaChange } from "back-end/src/services/eventForwarder/attributeSync";
 import { validatePayload } from "./validations";
 
 export const postAttribute = createApiRequestHandler(postAttributeValidator)(
@@ -33,14 +34,23 @@ export const postAttribute = createApiRequestHandler(postAttributeValidator)(
       await addTags(org.id, tags);
     }
 
+    const updatedAttributeSchema = [
+      ...(org.settings?.attributeSchema || []),
+      attribute,
+    ];
+
     const updates: Partial<OrganizationInterface> = {
       settings: {
         ...org.settings,
-        attributeSchema: [...(org.settings?.attributeSchema || []), attribute],
+        attributeSchema: updatedAttributeSchema,
       },
     };
 
     await updateOrganization(org.id, updates);
+
+    await syncEventForwarderAfterAttributeSchemaChange(req.context, {
+      attributeSchema: updatedAttributeSchema,
+    });
 
     await req.audit({
       event: "attribute.create",

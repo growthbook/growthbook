@@ -2977,7 +2977,6 @@ export default function RampScheduleSection({
             project={feature.project ?? ""}
             includeFacts
             includeGroups
-            excludeQuantiles
             selected={state.monitoring.guardrailMetricIds}
             disabled={!state.monitoring.exposureQueryId}
             onChange={(v) => patchMonitoring({ guardrailMetricIds: v })}
@@ -2999,7 +2998,6 @@ export default function RampScheduleSection({
             project={feature.project ?? ""}
             includeFacts
             includeGroups
-            excludeQuantiles
             selected={state.monitoring.signalMetricIds}
             disabled={!state.monitoring.exposureQueryId}
             onChange={(v) => patchMonitoring({ signalMetricIds: v })}

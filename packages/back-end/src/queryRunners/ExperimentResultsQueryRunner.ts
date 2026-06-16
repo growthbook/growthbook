@@ -36,6 +36,7 @@ import {
   QueryStatus,
 } from "shared/types/query";
 import { BanditResult } from "shared/types/experiment";
+import { UnrecoverableSnapshotError } from "back-end/src/util/errors";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -110,7 +111,9 @@ export const startExperimentResultQueries = async (
     .map((m) => metricMap.get(m.id))
     .filter((m) => m) as ExperimentMetricInterface[];
   if (!selectedMetrics.length) {
-    throw new Error("Experiment must have at least 1 metric selected.");
+    throw new UnrecoverableSnapshotError(
+      "Experiment must have at least 1 metric selected.",
+    );
   }
 
   let segmentObj: SegmentInterface | null = null;
@@ -670,7 +673,9 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       .map((m) => metricMap.get(m))
       .filter((m) => m) as ExperimentMetricInterface[];
     if (!selectedMetrics.length) {
-      throw new Error("Experiment must have at least 1 metric selected.");
+      throw new UnrecoverableSnapshotError(
+        "Experiment must have at least 1 metric selected.",
+      );
     }
 
     const dimensionObj = await parseDimension(
