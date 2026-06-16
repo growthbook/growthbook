@@ -1258,6 +1258,105 @@ export type RuleConflictInfo = {
   soft: { attr: string | null; ruleNumbers: number[] }[];
 };
 
+// The single status a rule has in one environment, worst-first.
+type ReachLevel = "unreachable" | "hard" | "soft" | "clean";
+function reachLevel(r: RuleReachability): ReachLevel {
+  if (r.unreachable) return "unreachable";
+  if (r.hardConflicts.length > 0) return "hard";
+  if (r.softConflicts.length > 0) return "soft";
+  return "clean";
+}
+
+// Combine several environments' reachability into one display object, resolving
+// consuming rule ids to visible rule numbers and de-duping across environments.
+function mergeConflicts(
+  reaches: RuleReachability[],
+  ruleNumber: (consumingRuleId: string) => number | undefined,
+): RuleConflictInfo {
+  const hard = new Map<
+    string,
+    { ruleNumber?: number; attr: string | null; label: string | null }
+  >();
+  const softIds = new Map<string | null, Set<string>>();
+  for (const reach of reaches) {
+    for (const c of reach.hardConflicts) {
+      const key = `${c.consumingRuleId}|${c.attr ?? ""}|${c.label ?? ""}`;
+      if (!hard.has(key)) {
+        hard.set(key, {
+          ruleNumber: ruleNumber(c.consumingRuleId),
+          attr: c.attr,
+          label: c.label,
+        });
+      }
+    }
+    for (const s of reach.softConflicts) {
+      const ids = softIds.get(s.attr) ?? new Set<string>();
+      s.consumingRuleIds.forEach((id) => ids.add(id));
+      softIds.set(s.attr, ids);
+    }
+  }
+  return {
+    hard: [...hard.values()],
+    soft: [...softIds.entries()].map(([attr, ids]) => ({
+      attr,
+      ruleNumbers: [...ids]
+        .map(ruleNumber)
+        .filter((n): n is number => n !== undefined)
+        .sort((a, b) => a - b),
+    })),
+  };
+}
+
+// One conflict banner to render for a rule. In the all-environments view a rule
+// can produce several — e.g. unreachable in production but only a soft conflict
+// in dev — each covering the environments that share that status. `environments`
+// is the list to name ([] = don't name them, e.g. the single-env view); when
+// `allEnvironments` is set the banner spans every environment the rule applies
+// to and is phrased "in all environments" instead.
+export type ConflictBanner = {
+  isUnreachable: boolean;
+  conflicts: RuleConflictInfo;
+  environments: string[];
+  allEnvironments: boolean;
+};
+
+// Group a rule's per-environment reachability into banners — one per distinct
+// status (unreachable / "will not reach" hard / "may not reach" soft), each
+// listing the environments that share it. Environments with no conflict produce
+// no banner. When `nameEnvironments` is false (single-env view) env names are
+// omitted. Pass environments in the order they should be displayed.
+export function buildConflictBanners(
+  perEnv: { env: string; reach: RuleReachability }[],
+  ruleNumber: (consumingRuleId: string) => number | undefined,
+  nameEnvironments: boolean,
+): ConflictBanner[] {
+  const order: Exclude<ReachLevel, "clean">[] = ["unreachable", "hard", "soft"];
+  const envsByLevel = new Map<ReachLevel, string[]>();
+  const reachesByLevel = new Map<ReachLevel, RuleReachability[]>();
+  for (const { env, reach } of perEnv) {
+    const level = reachLevel(reach);
+    if (level === "clean") continue;
+    pushToBucket(envsByLevel, level, env);
+    pushToBucket(reachesByLevel, level, reach);
+  }
+  const total = perEnv.length;
+  const banners: ConflictBanner[] = [];
+  for (const level of order) {
+    const envs = envsByLevel.get(level);
+    const reaches = reachesByLevel.get(level);
+    if (!envs?.length || !reaches?.length) continue;
+    banners.push({
+      isUnreachable: level === "unreachable",
+      conflicts: mergeConflicts(reaches, ruleNumber),
+      environments: nameEnvironments ? envs : [],
+      // "in all environments" reads better than listing them, but only when the
+      // banner truly spans every env the rule applies to (and there's >1).
+      allEnvironments: nameEnvironments && total > 1 && envs.length === total,
+    });
+  }
+  return banners;
+}
+
 function hardTargetingPhrase(attr: string, label: string): string {
   const trimmed = label.trim();
   if (/^[>≥<≤]/.test(trimmed) || /, [<≥]/.test(label)) {
@@ -1303,30 +1402,67 @@ function softSentence(c: {
   return `${refs} also ${verb} ${c.attr}, so some matching traffic may be served there first.`;
 }
 
+// Join environment names into a bolded, grammatical list ("a", "a and b",
+// "a, b, and c").
+function joinEnvNames(names: string[]): ReactElement {
+  return (
+    <>
+      {names.map((name, i) => (
+        <span key={name}>
+          {i > 0 &&
+            (i === names.length - 1
+              ? names.length > 2
+                ? ", and "
+                : " and "
+              : ", ")}
+          <strong>{name}</strong>
+        </span>
+      ))}
+    </>
+  );
+}
+
 // Generic warning that some/all targeted traffic won't (or may not) reach this
-// rule, with an expandable explanation of which rule(s) consume it.
+// rule, with an expandable explanation of which rule(s) consume it. In the
+// all-environments view `environments` / `allEnvironments` scope the banner to
+// the environments that share this status.
 export function ConflictCallout({
   isUnreachable,
   conflicts,
+  environments = [],
+  allEnvironments = false,
 }: {
   isUnreachable: boolean;
   conflicts: RuleConflictInfo;
+  environments?: string[];
+  allEnvironments?: boolean;
 }): ReactElement {
   const [open, setOpen] = useState(false);
   const hasHard = conflicts.hard.length > 0;
   const hasSoft = conflicts.soft.length > 0;
-  const headline = isUnreachable
-    ? "No matching traffic will reach this rule."
+  const base = isUnreachable
+    ? "No matching traffic will reach this rule"
     : hasHard
-      ? "Some matching traffic will not reach this rule."
-      : "Some matching traffic may not reach this rule.";
+      ? "Some matching traffic will not reach this rule"
+      : "Some matching traffic may not reach this rule";
+  const envSuffix = allEnvironments ? (
+    <> in all environments</>
+  ) : environments.length > 0 ? (
+    <> in {joinEnvNames(environments)}</>
+  ) : null;
+  const headline = (
+    <span>
+      {base}
+      {envSuffix}.
+    </span>
+  );
   const hasDetails = hasHard || hasSoft;
   const status = isUnreachable ? "error" : "warning";
   return (
     <Callout status={status} size="sm" contentsAs="div">
       <Flex direction="column" gap="1">
         <Flex align="center" gap="2" wrap="wrap">
-          <span>{headline}</span>
+          {headline}
           {hasDetails && (
             <Link role="button" onClick={() => setOpen((o) => !o)}>
               {open ? "Hide details" : "See details"}

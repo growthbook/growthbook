@@ -1,7 +1,9 @@
 import { FeatureRule } from "shared/types/feature";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
+  buildConflictBanners,
   getRuleReachability,
+  RuleReachability,
   SavedGroupForConflicts,
 } from "@/services/rule-conflicts";
 
@@ -1211,5 +1213,183 @@ describe("getRuleReachability — saved groups (condition groups)", () => {
       hardConflicts: [],
       softConflicts: [{ attr: "country", consumingRuleIds: ["r1"] }],
     });
+  });
+});
+
+describe("buildConflictBanners — per-environment grouping", () => {
+  const reach = (over: Partial<RuleReachability> = {}): RuleReachability => ({
+    unreachable: false,
+    hardConflicts: [],
+    softConflicts: [],
+    ...over,
+  });
+  const num = (id: string) => (id === "r1" ? 1 : undefined);
+
+  it("single-env view: one banner, no environment naming", () => {
+    const banners = buildConflictBanners(
+      [
+        {
+          env: "production",
+          reach: reach({
+            unreachable: true,
+            hardConflicts: [{ consumingRuleId: "r1", attr: null, label: null }],
+          }),
+        },
+      ],
+      num,
+      false,
+    );
+    expect(banners).toEqual([
+      {
+        isUnreachable: true,
+        conflicts: {
+          hard: [{ ruleNumber: 1, attr: null, label: null }],
+          soft: [],
+        },
+        environments: [],
+        allEnvironments: false,
+      },
+    ]);
+  });
+
+  it('collapses to "all environments" when every env shares the status', () => {
+    const r = reach({
+      unreachable: true,
+      hardConflicts: [{ consumingRuleId: "r1", attr: "id", label: "1, 2" }],
+    });
+    const banners = buildConflictBanners(
+      [
+        { env: "dev", reach: r },
+        { env: "staging", reach: r },
+        { env: "production", reach: r },
+      ],
+      num,
+      true,
+    );
+    expect(banners).toEqual([
+      {
+        isUnreachable: true,
+        conflicts: {
+          hard: [{ ruleNumber: 1, attr: "id", label: "1, 2" }],
+          soft: [],
+        },
+        environments: ["dev", "staging", "production"],
+        allEnvironments: true,
+      },
+    ]);
+  });
+
+  it("splits into separate banners when environments disagree", () => {
+    // Unreachable in production, soft conflict in dev + staging.
+    const banners = buildConflictBanners(
+      [
+        {
+          env: "dev",
+          reach: reach({
+            softConflicts: [{ attr: "country", consumingRuleIds: ["r1"] }],
+          }),
+        },
+        {
+          env: "staging",
+          reach: reach({
+            softConflicts: [{ attr: "country", consumingRuleIds: ["r1"] }],
+          }),
+        },
+        {
+          env: "production",
+          reach: reach({
+            unreachable: true,
+            hardConflicts: [
+              { consumingRuleId: "r1", attr: "id", label: "1, 2" },
+            ],
+          }),
+        },
+      ],
+      num,
+      true,
+    );
+    expect(banners).toEqual([
+      {
+        isUnreachable: true,
+        conflicts: {
+          hard: [{ ruleNumber: 1, attr: "id", label: "1, 2" }],
+          soft: [],
+        },
+        environments: ["production"],
+        allEnvironments: false,
+      },
+      {
+        isUnreachable: false,
+        conflicts: {
+          hard: [],
+          soft: [{ attr: "country", ruleNumbers: [1] }],
+        },
+        environments: ["dev", "staging"],
+        allEnvironments: false,
+      },
+    ]);
+  });
+
+  it("orders banners unreachable → hard → soft", () => {
+    const banners = buildConflictBanners(
+      [
+        {
+          env: "dev",
+          reach: reach({
+            softConflicts: [{ attr: "x", consumingRuleIds: ["r1"] }],
+          }),
+        },
+        {
+          env: "staging",
+          reach: reach({
+            hardConflicts: [{ consumingRuleId: "r1", attr: "y", label: "v" }],
+          }),
+        },
+        {
+          env: "production",
+          reach: reach({
+            unreachable: true,
+            hardConflicts: [{ consumingRuleId: "r1", attr: null, label: null }],
+          }),
+        },
+      ],
+      num,
+      true,
+    );
+    expect(banners.map((b) => [b.isUnreachable, b.environments])).toEqual([
+      [true, ["production"]],
+      [false, ["staging"]],
+      [false, ["dev"]],
+    ]);
+  });
+
+  it("produces no banners when every environment is clean", () => {
+    const banners = buildConflictBanners(
+      [
+        { env: "dev", reach: reach() },
+        { env: "production", reach: reach() },
+      ],
+      num,
+      true,
+    );
+    expect(banners).toEqual([]);
+  });
+
+  it('does not say "all environments" when only one env applies', () => {
+    const banners = buildConflictBanners(
+      [
+        {
+          env: "production",
+          reach: reach({
+            unreachable: true,
+            hardConflicts: [{ consumingRuleId: "r1", attr: null, label: null }],
+          }),
+        },
+      ],
+      num,
+      true,
+    );
+    expect(banners[0].environments).toEqual(["production"]);
+    expect(banners[0].allEnvironments).toBe(false);
   });
 });

@@ -53,7 +53,7 @@ import {
   getAttributesWithVersionStringMismatches,
 } from "@/services/features";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
-import { ConflictCallout, RuleConflictInfo } from "@/services/rule-conflicts";
+import { ConflictBanner, ConflictCallout } from "@/services/rule-conflicts";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -206,9 +206,10 @@ interface SortableProps {
     detachRampOnSave?: boolean;
   }) => void;
   unreachable?: boolean;
-  // Targeting conflicts for the callout (hard = "will not reach", soft = "may
-  // not reach"). For an unreachable rule, hard holds the rule(s) consuming it.
-  conflicts?: RuleConflictInfo;
+  // Conflict banners for the callout. One per shared status; in the all-envs
+  // view each names the environments it covers (hard = "will not reach", soft =
+  // "may not reach", unreachable = the rule(s) consuming it).
+  conflictBanners?: ConflictBanner[];
   version: number;
   setVersion: (version: number) => void;
   locked: boolean;
@@ -285,7 +286,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       mutate,
       handle,
       unreachable,
-      conflicts,
+      conflictBanners,
       version,
       setVersion,
       locked,
@@ -434,7 +435,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       experimentsMap,
       isDraft,
       unreachable,
-      conflicts,
+      conflictBanners,
       rampSchedule,
     });
 
@@ -1650,14 +1651,14 @@ export function getRuleMetaInfo({
   experimentsMap,
   isDraft,
   unreachable,
-  conflicts,
+  conflictBanners,
   rampSchedule,
 }: {
   rule: FeatureRule;
   experimentsMap: Map<string, ExperimentInterfaceStringDates>;
   isDraft: boolean;
   unreachable?: boolean;
-  conflicts?: RuleConflictInfo;
+  conflictBanners?: ConflictBanner[];
   rampSchedule?: RampScheduleInterface;
 }): RuleMetaInfo {
   const linkedExperiment =
@@ -1778,6 +1779,18 @@ export function getRuleMetaInfo({
     };
   }
 
+  // One callout per conflict banner (in the all-envs view there can be several,
+  // each scoped to the environments that share a status).
+  const callouts: ReactElement[] = (conflictBanners ?? []).map((banner, i) => (
+    <ConflictCallout
+      key={`conflict-${i}`}
+      isUnreachable={banner.isUnreachable}
+      conflicts={banner.conflicts}
+      environments={banner.environments}
+      allEnvironments={banner.allEnvironments}
+    />
+  ));
+
   if (unreachable) {
     return {
       pill: (
@@ -1792,26 +1805,16 @@ export function getRuleMetaInfo({
           }
         />
       ),
-      callout: (
-        <ConflictCallout
-          isUnreachable
-          conflicts={conflicts ?? { hard: [], soft: [] }}
-        />
-      ),
+      callout:
+        callouts.length > 0 ? (
+          <Flex direction="column" gap="2">
+            {callouts}
+          </Flex>
+        ) : undefined,
       sideColor: "unreachable",
     };
   }
 
-  const callouts: ReactElement[] = [];
-  if (conflicts && (conflicts.hard.length > 0 || conflicts.soft.length > 0)) {
-    callouts.push(
-      <ConflictCallout
-        key="conflicts"
-        isUnreachable={false}
-        conflicts={conflicts}
-      />,
-    );
-  }
   if (upcomingScheduleRule && upcomingScheduleRule.timestamp) {
     callouts.push(
       <Callout key="schedule" status="info">

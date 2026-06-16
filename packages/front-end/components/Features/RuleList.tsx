@@ -33,8 +33,9 @@ import { buildRuleRampScheduleMap } from "@/services/rampScheduleHelpers";
 import { useAuth } from "@/services/auth";
 import { getRules, isRuleInactive } from "@/services/features";
 import {
+  buildConflictBanners,
+  ConflictBanner,
   getRuleReachability,
-  RuleConflictInfo,
   RuleReachability,
   SavedGroupForConflicts,
 } from "@/services/rule-conflicts";
@@ -223,11 +224,11 @@ export default function RuleList(props: RuleListProps) {
 
   // Reachability & targeting-conflict detection.
   //   single-env: per-rule analysis of `items` in evaluation order.
-  //   all-envs: analyze each environment separately. A rule is unreachable iff
-  //     it's unreachable in *every* env it applies to; its conflict banner is
-  //     the union of conflicts across environments (shown if *any* env has one).
-  //     Rules with no env footprint (allEnvironments:false, environments:[])
-  //     never apply anywhere and are surfaced via the "No environments" badge.
+  //   all-envs: analyze each environment separately, then group a rule's
+  //     environments by the status they share into one banner each — so a rule
+  //     unreachable in production but only soft-conflicting in dev shows both,
+  //     each naming its environments. Rules with no env footprint never apply
+  //     anywhere and are surfaced via the "No environments" badge.
   const reachabilityByRule = useMemo<Map<string, RuleReachability>>(
     () =>
       allEnvsView
@@ -258,20 +259,53 @@ export default function RuleList(props: RuleListProps) {
     savedGroupConflictMap,
   ]);
 
-  const unreachableRuleIds = useMemo<Set<string>>(() => {
-    if (!allEnvsView) return new Set();
-    const envIds = props.environments.map((e) => e.id);
-    const out = new Set<string>();
-    for (const rule of items) {
-      const applicable = ruleFootprint(rule, envIds);
-      if (applicable.length === 0) continue;
-      const blockedEverywhere = applicable.every(
-        (envId) => reachByEnv.get(envId)?.get(rule.id)?.unreachable ?? false,
-      );
-      if (blockedEverywhere) out.add(rule.id);
+  // Per-rule conflict banners. Single-env → at most one banner (env unnamed);
+  // all-envs → one banner per status, each naming the environments that share
+  // it. The "rule number" shown in the details maps a consuming rule's id to its
+  // 1-based position (offset by 1 for the holdout row when present).
+  const bannersByRule = useMemo<Map<string, ConflictBanner[]>>(() => {
+    const flat = feature.rules ?? [];
+    const offset = holdout ? 2 : 1;
+    const ruleNumber = (id: string) => {
+      const idx = flat.findIndex((r) => r.id === id);
+      return idx === -1 ? undefined : idx + offset;
+    };
+    const out = new Map<string, ConflictBanner[]>();
+    if (!allEnvsView) {
+      for (const rule of items) {
+        const reach = reachabilityByRule.get(rule.id);
+        if (!reach) continue;
+        out.set(
+          rule.id,
+          buildConflictBanners(
+            [{ env: props.environment, reach }],
+            ruleNumber,
+            false,
+          ),
+        );
+      }
+    } else {
+      const envIds = props.environments.map((e) => e.id);
+      for (const rule of items) {
+        const perEnv = ruleFootprint(rule, envIds)
+          .map((env) => ({ env, reach: reachByEnv.get(env)?.get(rule.id) }))
+          .filter(
+            (x): x is { env: string; reach: RuleReachability } => !!x.reach,
+          );
+        out.set(rule.id, buildConflictBanners(perEnv, ruleNumber, true));
+      }
     }
     return out;
-  }, [allEnvsView, items, reachByEnv, props.environments]);
+  }, [
+    allEnvsView,
+    items,
+    reachabilityByRule,
+    reachByEnv,
+    props.environment,
+    props.environments,
+    feature.rules,
+    holdout,
+  ]);
 
   const inactiveRules = items.filter((r) => isRuleInactive(r, experimentsMap));
 
@@ -308,69 +342,12 @@ export default function RuleList(props: RuleListProps) {
     return idx === -1 ? fallback : idx;
   }
 
-  function isUnreachable(ruleId: string): boolean {
-    if (allEnvsView) return unreachableRuleIds.has(ruleId);
-    return reachabilityByRule.get(ruleId)?.unreachable ?? false;
+  function ruleConflictBanners(ruleId: string): ConflictBanner[] {
+    return bannersByRule.get(ruleId) ?? [];
   }
 
-  // Resolve a rule's targeting conflicts for display, mapping each consuming
-  // rule id to its visible number (matching the RuleCard index). In all-envs
-  // mode the conflicts are the union across every environment, so the banner
-  // appears if any environment has a conflict.
-  function ruleConflicts(ruleId: string): RuleConflictInfo {
-    const reaches: RuleReachability[] = [];
-    if (allEnvsView) {
-      for (const envReach of reachByEnv.values()) {
-        const r = envReach.get(ruleId);
-        if (r) reaches.push(r);
-      }
-    } else {
-      const r = reachabilityByRule.get(ruleId);
-      if (r) reaches.push(r);
-    }
-    if (!reaches.length) return { hard: [], soft: [] };
-
-    const flat = feature.rules ?? [];
-    const offset = holdout ? 2 : 1;
-    const ruleNumber = (id: string) => {
-      const flatIdx = flat.findIndex((r) => r.id === id);
-      return flatIdx === -1 ? undefined : flatIdx + offset;
-    };
-
-    // Union hard conflicts (dedupe by consuming rule + consumed values) and soft
-    // conflicts (union the consuming rules per attribute) across environments.
-    const hard = new Map<
-      string,
-      { ruleNumber?: number; attr: string | null; label: string | null }
-    >();
-    const softIds = new Map<string | null, Set<string>>();
-    for (const reach of reaches) {
-      for (const c of reach.hardConflicts) {
-        const key = `${c.consumingRuleId}|${c.attr ?? ""}|${c.label ?? ""}`;
-        if (!hard.has(key)) {
-          hard.set(key, {
-            ruleNumber: ruleNumber(c.consumingRuleId),
-            attr: c.attr,
-            label: c.label,
-          });
-        }
-      }
-      for (const s of reach.softConflicts) {
-        const ids = softIds.get(s.attr) ?? new Set<string>();
-        s.consumingRuleIds.forEach((id) => ids.add(id));
-        softIds.set(s.attr, ids);
-      }
-    }
-    return {
-      hard: [...hard.values()],
-      soft: [...softIds.entries()].map(([attr, ids]) => ({
-        attr,
-        ruleNumbers: [...ids]
-          .map(ruleNumber)
-          .filter((n): n is number => n !== undefined)
-          .sort((a, b) => a - b),
-      })),
-    };
+  function isUnreachable(ruleId: string): boolean {
+    return ruleConflictBanners(ruleId).some((b) => b.isUnreachable);
   }
 
   const activeRule = activeId ? items[getRuleIndex(activeId)] : null;
@@ -473,7 +450,7 @@ export default function RuleList(props: RuleListProps) {
                 mutate={mutate}
                 setRuleModal={setRuleModal}
                 unreachable={isUnreachable(rule.id)}
-                conflicts={ruleConflicts(rule.id)}
+                conflictBanners={ruleConflictBanners(rule.id)}
                 version={version}
                 setVersion={setVersion}
                 locked={locked}
@@ -529,7 +506,7 @@ export default function RuleList(props: RuleListProps) {
               experimentsMap={experimentsMap}
               hideInactive={hideInactive}
               unreachable={isUnreachable(activeId as string)}
-              conflicts={ruleConflicts(activeId as string)}
+              conflictBanners={ruleConflictBanners(activeId as string)}
               isDraft={isDraft}
               safeRolloutsMap={safeRolloutsMap}
               holdout={holdout}
