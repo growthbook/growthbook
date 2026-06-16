@@ -1,4 +1,5 @@
 import path from "path";
+import crypto from "crypto";
 import { existsSync, readFileSync } from "fs";
 import bodyParser from "body-parser";
 import cookieParser from "cookie-parser";
@@ -180,6 +181,22 @@ if (stringToBoolean(process.env.PYTHON_SERVER_MODE)) {
   app.use(httpLogger);
   app.post(
     "/stats",
+    // When a shared secret is configured, require it before parsing the (large) body
+    (req, res, next) => {
+      const expected = process.env.PYTHON_SERVER_AUTH_TOKEN;
+      if (expected) {
+        const provided = (req.get("authorization") || "").replace(
+          /^Bearer\s+/i,
+          "",
+        );
+        const a = Buffer.from(provided);
+        const b = Buffer.from(expected);
+        if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+          return res.status(401).json({ error: "Unauthorized" });
+        }
+      }
+      next();
+    },
     // increase max payload json size to 50mb as a single query can return up to 3000 rows
     // and we pass the results of all queries at once into python
     bodyParser.json({
