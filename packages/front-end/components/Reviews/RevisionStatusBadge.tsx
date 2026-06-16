@@ -1,42 +1,92 @@
 import React from "react";
-import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
-import { ActiveDraftStatus } from "shared/validators";
+import {
+  PiCheckBold,
+  PiClockFill,
+  PiLockSimpleFill,
+  PiPencil,
+  PiPlusMinusBold,
+  PiXCircleFill,
+} from "react-icons/pi";
+import type { RevisionStatus, ActiveDraftStatus } from "shared/validators";
+import type { EventUser } from "shared/types/events/event-types";
 import Badge from "@/ui/Badge";
 import { RadixColor } from "@/ui/HelperText";
 
-export function isRampGenerated(
-  r: Pick<MinimalFeatureRevisionInterface, "createdBy">,
-): boolean {
+// Entity-agnostic revision identity — enough to render status badges, labels,
+// and icons without depending on FeatureRevisionInterface.
+export interface RevisionLike {
+  version: number;
+  status: RevisionStatus;
+  createdBy?: EventUser | null;
+}
+
+export function isRampGenerated(r: Pick<RevisionLike, "createdBy">): boolean {
   return (
     r.createdBy?.type === "system" && r.createdBy.subtype === "ramp-schedule"
   );
 }
 
 export interface Props {
-  revision: MinimalFeatureRevisionInterface | null | undefined;
+  revision: RevisionLike | null | undefined;
   liveVersion: number;
 }
 
 export function revisionStatusColor(
-  status: MinimalFeatureRevisionInterface["status"] | "live",
+  status: RevisionStatus | "live",
 ): RadixColor {
   switch (status) {
     case "live":
-      return "teal";
+      return "green";
     case "draft":
-      return "plum";
+      return "amber";
 
     case "pending-review":
       return "orange";
     case "approved":
-      return "grass";
+      return "green";
     case "changes-requested":
-      return "amber";
-    case "discarded":
       return "red";
+    case "discarded":
+      // Same gray as Locked; distinguished by the solid (inverted) badge
+      // variant — see revisionStatusBadgeVariant.
+      return "gray";
     case "published":
     default:
       return "gray";
+  }
+}
+
+// Discarded renders as a solid (inverted) gray badge so it reads as muted
+// but stays distinguishable from Locked's soft gray.
+export function revisionStatusBadgeVariant(
+  status: RevisionStatus | "live",
+): "solid" | "soft" {
+  if (status === "discarded" || status === "live") return "solid";
+  return "soft";
+}
+
+export function revisionStatusIcon(
+  status: RevisionStatus | "live",
+): React.ReactNode {
+  switch (status) {
+    case "live":
+      return null;
+    case "approved":
+      // Standalone bold glyph (matching the timeline's verdict icon) — the
+      // surrounding chip/band provides the container.
+      return <PiCheckBold />;
+    case "pending-review":
+      return <PiClockFill />;
+    case "changes-requested":
+      return <PiPlusMinusBold />;
+    case "discarded":
+      return <PiXCircleFill />;
+    case "published":
+      // Label is "Locked" — a previously-published, now-immutable revision
+      return <PiLockSimpleFill />;
+    case "draft":
+    default:
+      return <PiPencil />;
   }
 }
 
@@ -138,7 +188,7 @@ export function draftStatusTooltip(
 }
 
 export function revisionStatusLabel(
-  status: MinimalFeatureRevisionInterface["status"] | "live" | "merged",
+  status: RevisionStatus | "live" | "merged",
 ): string {
   switch (status) {
     case "live":
@@ -170,6 +220,7 @@ export default function RevisionStatusBadge({ revision, liveVersion }: Props) {
       label={revisionStatusLabel(status)}
       radius="full"
       color={revisionStatusColor(status)}
+      variant={revisionStatusBadgeVariant(status)}
     />
   );
 }

@@ -212,6 +212,22 @@ export default function ApprovalFlowSettings() {
                             )
                           }
                         />
+                        <Checkbox
+                          id={`toggle-autopublish-on-approval-${i}`}
+                          label="Allow approve & publish in one step"
+                          description="Adds an 'Approve & Publish' option so reviewers with publish access can approve and publish a draft together."
+                          value={
+                            !!form.watch(
+                              `requireReviews.${i}.autopublishOnApproval`,
+                            )
+                          }
+                          setValue={(v) =>
+                            form.setValue(
+                              `requireReviews.${i}.autopublishOnApproval`,
+                              v,
+                            )
+                          }
+                        />
                         <Box mt="2">
                           <Text
                             as="label"
@@ -275,6 +291,20 @@ export default function ApprovalFlowSettings() {
                                 form.setValue("restApiBypassesReviews", v)
                               }
                             />
+                            <Box mt="2">
+                              <Checkbox
+                                id="toggle-requireRebaseBeforePublish"
+                                label="Require drafts to be rebased with live before publishing"
+                                description="When enabled, a draft based on an older version (or whose approval is stale because changes were published since) must be rebased with the live version before it can be published."
+                                value={
+                                  form.watch("requireRebaseBeforePublish") ===
+                                  true
+                                }
+                                setValue={(v) =>
+                                  form.setValue("requireRebaseBeforePublish", v)
+                                }
+                              />
+                            </Box>
                           </Box>
                         )}
                       </Flex>
@@ -371,12 +401,45 @@ export default function ApprovalFlowSettings() {
                         )
                       }
                     />
+                    <Checkbox
+                      id="toggle-saved-group-autopublish-on-approval"
+                      label="Allow approve & publish in one step"
+                      description="Adds an 'Approve & Publish' option so reviewers with publish access can approve and publish a saved group change together."
+                      value={
+                        !!form.watch(
+                          `approvalFlows.savedGroups.0.autopublishOnApproval`,
+                        )
+                      }
+                      setValue={(v) =>
+                        form.setValue(
+                          `approvalFlows.savedGroups.0.autopublishOnApproval`,
+                          v,
+                        )
+                      }
+                    />
                   </Flex>
                 )}
               </>
             )}
           </Frame>
         </Box>
+
+        {hasRequireApprovals && (
+          <Box width="100%">
+            <Frame p="3" mb="0">
+              <Heading as="h4" size="small" weight="semibold" mb="4">
+                Reverts
+              </Heading>
+              <Checkbox
+                id="toggle-reverts-bypass-approval"
+                label="Allow reverts without approval"
+                description="When enabled, anyone with publish permission can revert to a previously published revision and publish it immediately, even when approvals are required for other changes. Reverts restore an already-reviewed state, so the revert dialog defaults to 'Publish now'. Applies to features and saved groups."
+                value={!!form.watch("revertsBypassApproval")}
+                setValue={(v) => form.setValue("revertsBypassApproval", v)}
+              />
+            </Frame>
+          </Box>
+        )}
       </Flex>
     </Frame>
   );

@@ -30,6 +30,7 @@ import {
   featureRevisionChangesRequestedPayload,
   featureRevisionCommentedPayload,
   featureRevisionDiscardedPayload,
+  featureRevisionReopenedPayload,
   featureRevisionRebasedPayload,
   featureRevisionPublishedPayload,
   featureRevisionRevertedPayload,
@@ -177,6 +178,11 @@ export const notificationEvents = {
     "revision.discarded": {
       schema: featureRevisionDiscardedPayload,
       description: "Triggered when a draft revision is discarded",
+    },
+    "revision.reopened": {
+      schema: featureRevisionReopenedPayload,
+      description:
+        "Triggered when a discarded draft revision is reopened as a draft",
     },
     "revision.rebased": {
       schema: featureRevisionRebasedPayload,

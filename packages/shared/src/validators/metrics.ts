@@ -89,6 +89,7 @@ export const apiMetricValidator = namedSchema(
               ),
             stddev: z.coerce
               .number()
+              .gt(0)
               .describe(
                 "Must be > 0. The standard deviation of the prior distribution of relative effects in proportion terms.",
               ),
