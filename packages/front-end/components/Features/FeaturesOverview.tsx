@@ -10,12 +10,11 @@ import {
   useRef,
   useCallback,
 } from "react";
-import { FaExclamationTriangle } from "react-icons/fa";
+import { FaArrowRight } from "react-icons/fa";
 import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
 import {
   PiPlusCircleBold,
   PiPlus,
-  PiGitDiff,
   PiPencilSimpleFill,
   PiCaretRightBold,
   PiPencil,
@@ -23,32 +22,23 @@ import {
   PiProhibit,
 } from "react-icons/pi";
 import { ago, datetime } from "shared/dates";
-import {
-  autoMerge,
-  checkIfRevisionNeedsReview,
-  fillRevisionFromFeature,
-  liveRevisionFromFeature,
-  filterEnvironmentsByFeature,
-  getEnvsFromRampSchedule,
-  getReviewSetting,
-  draftDiffersFromLive,
-} from "shared/util";
-import { MdRocketLaunch } from "react-icons/md";
+import { filterEnvironmentsByFeature, getReviewSetting } from "shared/util";
 import { BiHide, BiShow } from "react-icons/bi";
 import Collapsible from "react-collapsible";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { BsClock } from "react-icons/bs";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
 import {
+  ACTIVE_DRAFT_STATUSES,
   SafeRolloutInterface,
   HoldoutInterface,
   MinimalFeatureRevisionInterface,
   RampScheduleInterface,
 } from "shared/validators";
 import EventUser from "@/components/Avatar/EventUser";
-import CoAuthors from "@/components/Features/CoAuthors";
+import CoAuthors from "@/components/Reviews/Feature/CoAuthors";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
 import { useAuth } from "@/services/auth";
 import ForceSummary from "@/components/Features/ForceSummary";
 import track from "@/services/track";
@@ -58,32 +48,28 @@ import EditProjectForm from "@/components/Experiment/EditProjectForm";
 import {
   getFeatureDefaultValue,
   useEnvironments,
-  getAffectedRevisionEnvs,
   getPrerequisites,
   getRules,
 } from "@/services/features";
 import { useFeatureDefaultValues } from "@/hooks/useFeatureDefaultValues";
 import { useFeatureDependents } from "@/hooks/useFeatureDependents";
+// eslint-disable-next-line no-restricted-imports -- legacy Modal still backs the new-draft modal; migrate to @/ui/Modal in a follow-up
 import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
-import DraftModal from "@/components/Features/DraftModal";
 import DiscussionThread from "@/components/DiscussionThread";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
-import RevertModal from "@/components/Features/RevertModal";
 import {
   FeatureUsageSparkline,
   useFeatureUsage,
 } from "@/components/Features/FeatureUsageGraph";
 import EditRevisionCommentModal from "@/components/Features/EditRevisionCommentModal";
-import FeatureFixConflictsModal from "@/components/Features/FeatureFixConflictsModal";
-import CompareRevisionsModal from "@/components/Features/CompareRevisionsModal";
-import RevisionStatusBadge from "@/components/Features/RevisionStatusBadge";
+import RevisionStatusBadge from "@/components/Reviews/RevisionStatusBadge";
 import RevisionLabel, {
   revisionLabelText,
-} from "@/components/Features/RevisionLabel";
+} from "@/components/Reviews/RevisionLabel";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
@@ -103,13 +89,13 @@ import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
 import Metadata from "@/ui/Metadata";
 import Link from "@/ui/Link";
+import { FeatureTab } from "@/pages/features/[fid]";
 import {
   PrerequisiteStateResult,
   usePrerequisiteStates,
 } from "@/hooks/usePrerequisiteStates";
 import PrerequisiteAlerts from "./PrerequisiteAlerts";
 import PrerequisiteModal from "./PrerequisiteModal";
-import RequestReviewModal from "./RequestReviewModal";
 import FeatureRules from "./FeatureRules";
 
 export const featureStatusColors = {
@@ -212,6 +198,7 @@ export default function FeaturesOverview({
   safeRollouts,
   holdout,
   rampSchedules,
+  setTab,
 }: {
   baseFeature: FeatureInterface;
   feature: FeatureInterface;
@@ -227,13 +214,10 @@ export default function FeaturesOverview({
   setEditProjectModal: (b: boolean) => void;
   version: number | null;
   setVersion: (v: number) => void;
+  setTab: (tab: FeatureTab) => void;
 }) {
   const settings = useOrgSettings();
   const [edit, setEdit] = useState(false);
-  const [draftModal, setDraftModal] = useState(false);
-  const [reviewModal, setReviewModal] = useState(false);
-  const [conflictModal, setConflictModal] = useState(false);
-  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [confirmNewDraft, setConfirmNewDraft] = useState(false);
   // Always reflects the current live version — used in async callbacks to avoid
   // stale closure captures when ramp actions auto-publish new revisions.
@@ -257,16 +241,12 @@ export default function FeaturesOverview({
   const [showDependents, setShowDependents] = useState(false);
   const permissionsUtil = usePermissionsUtil();
 
-  const [revertIndex, setRevertIndex] = useState(0);
-
   const [editCommentModel, setEditCommentModal] = useState(false);
   const [commentExpanded, setCommentExpanded] = useState(false);
   useEffect(() => {
     setCommentExpanded(false);
   }, [revision?.version]);
   const [showDescriptionModal, setShowDescriptionModal] = useState(false);
-  const [compareRevisionsModalOpen, setCompareRevisionsModalOpen] =
-    useState(false);
   const [killSwitchTarget, setKillSwitchTarget] = useState<{
     envId?: string;
     desiredState?: boolean;
@@ -298,25 +278,6 @@ export default function FeaturesOverview({
   const dependentFeatures = dependentsData?.features ?? [];
   const dependentExperiments = dependentsData?.experiments ?? [];
   const dependents = dependentFeatures.length + dependentExperiments.length;
-
-  const mergeResult = useMemo(() => {
-    if (!feature || !revision) return null;
-    const baseRevision = revisions.find(
-      (r) => r.version === revision?.baseVersion,
-    );
-    const liveRevision = revisions.find((r) => r.version === feature.version);
-    if (!revision || !baseRevision || !liveRevision) return null;
-
-    // Fill sparse revisions from baseFeature to avoid false-positive env diffs.
-    const result = autoMerge(
-      liveRevisionFromFeature(liveRevision, baseFeature),
-      fillRevisionFromFeature(baseRevision, baseFeature),
-      revision,
-      environments.map((e) => e.id),
-      {},
-    );
-    return result;
-  }, [revisions, revision, feature, baseFeature, environments]);
 
   const prerequisites = feature?.prerequisites || [];
 
@@ -411,37 +372,6 @@ export default function FeaturesOverview({
 
   const allCustomFields = useCustomFields();
 
-  const revisionHasChanges = useMemo(() => {
-    if (
-      !revision ||
-      revision.status === "published" ||
-      revision.status === "discarded"
-    )
-      return false;
-    const liveRevision = revisions.find((r) => r.version === feature.version);
-    if (!liveRevision) return false;
-    if (
-      draftDiffersFromLive(
-        revision,
-        liveRevision,
-        baseFeature,
-        environments.map((e) => e.id),
-      )
-    )
-      return true;
-    // A draft that only activates a ramp schedule (no feature content changes)
-    // still has meaningful changes and should be publishable.
-    const hasLinkedRamp = rampSchedules?.some((rs) =>
-      rs.targets.some((t) => t.activatingRevisionVersion === revision.version),
-    );
-    if (hasLinkedRamp) return true;
-
-    // Also check for pending ramp actions in the draft (create/detach)
-    const hasPendingRampActions =
-      revision.rampActions && revision.rampActions.length > 0;
-    return !!hasPendingRampActions;
-  }, [revision, revisions, feature, baseFeature, environments, rampSchedules]);
-
   const bannerRef = useRef<HTMLDivElement>(null);
   const [bannerPinned, setBannerPinned] = useState(false);
 
@@ -481,7 +411,7 @@ export default function FeaturesOverview({
     bannerSentinelObserver.current = observer;
   }, []);
 
-  // Slot refs for the draft CTA portal (Discard / Review & Publish / Fix conflicts).
+  // Slot refs for the draft CTA portal ("Open review" navigation).
   // The portal host migrates between the revision card slot and the sticky banner
   // slot so the same DOM node is reused without duplicating handler logic.
   const ctaSlotRef = useRef<HTMLDivElement>(null);
@@ -504,13 +434,10 @@ export default function FeaturesOverview({
     if (target) target.appendChild(draftCtaPortalHost);
   });
 
-  const featureLockedByRamp = useMemo(
-    () =>
-      rampSchedules?.some(
-        (rs) => rs.lockdownConfig?.mode === "locked" && rs.status === "running",
-      ) ?? false,
-    [rampSchedules],
-  );
+  // Per-modal acknowledgment of the soft draft cap: creating past the cap
+  // requires ticking the checkbox in the warning callout. Resets whenever the
+  // modal closes.
+  const [draftCapAcknowledged, setDraftCapAcknowledged] = useState(false);
 
   if (!baseFeature || !feature || !revision) return null;
 
@@ -525,103 +452,28 @@ export default function FeaturesOverview({
 
   const baseVersion = revision?.baseVersion || feature.version;
   const baseRevision = revisions.find((r) => r.version === baseVersion);
-  let requireReviews = false;
-  if (baseRevision) {
-    // Fill sparse revisions before diffing (same as autoMerge).
-    const filledBaseRevision = {
-      ...baseRevision,
-      ...fillRevisionFromFeature(baseRevision, baseFeature),
-    };
-    const filledRevision = {
-      ...revision,
-      ...fillRevisionFromFeature(revision, baseFeature),
-    };
-
-    // If the draft has diverged, diff the merged result against live rather than the raw base.
-    let effectiveRevision: typeof filledRevision = filledRevision;
-    let effectiveBase: typeof filledBaseRevision = filledBaseRevision;
-    const liveRevision = revisions.find((r) => r.version === feature.version);
-    if (mergeResult?.success && liveRevision) {
-      const filledLive = {
-        ...liveRevision,
-        ...liveRevisionFromFeature(liveRevision, baseFeature),
-      };
-      // v2 rules are a flat FeatureRule[]; the mergeResult carries either the
-      // full replacement array (when rules changed) or nothing (when only
-      // non-rule fields changed). Never object-spread an array.
-      // rampActions live on the draft; autoMerge doesn't carry them through
-      // MergeResultChanges, so re-attach them here so the review gate can
-      // detect that production environments are affected.
-      effectiveRevision = {
-        ...filledLive,
-        ...mergeResult.result,
-        rules: mergeResult.result.rules ?? filledLive.rules,
-        rampActions: revision?.rampActions,
-      };
-      effectiveBase = filledLive;
-    }
-
-    requireReviews = checkIfRevisionNeedsReview({
-      feature: baseFeature,
-      baseRevision: effectiveBase,
-      revision: effectiveRevision,
-      allEnvironments: environments.map((e) => e.id),
-      settings,
-      requireApprovalsLicensed: hasCommercialFeature("require-approvals"),
-      liveRampScheduleEnvs: (() => {
-        const map = new Map<string, string[] | "all">();
-        for (const action of effectiveRevision.rampActions ?? []) {
-          if (action.mode !== "update") continue;
-          const liveSchedule = rampSchedules?.find(
-            (rs) => rs.id === action.rampScheduleId,
-          );
-          if (liveSchedule) {
-            map.set(
-              action.rampScheduleId,
-              getEnvsFromRampSchedule(liveSchedule),
-            );
-          }
-        }
-        return map;
-      })(),
-    });
-  }
   const isLive = revision?.version === feature.version;
   const isPendingReview =
     revision?.status === "pending-review" ||
     revision?.status === "changes-requested";
-  const approved = revision?.status === "approved";
 
-  const isDraft = revision?.status === "draft" || isPendingReview || approved;
+  const isDraft =
+    !!revision &&
+    (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(revision.status);
+
+  // Soft per-feature draft cap (org setting). Purely advisory in the UI:
+  // a warning dot + tooltip on "New Draft" and a callout in the confirm
+  // modal — creating the draft is never blocked.
+  const activeDraftCount = revisions.filter((r) =>
+    (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
+  ).length;
+  const maxDrafts = settings.maxConcurrentDrafts || 0;
+  const atDraftCap = maxDrafts > 0 && activeDraftCount >= maxDrafts;
 
   const projectId = feature.project;
 
-  const hasDraftPublishPermission =
-    (approved &&
-      permissionsUtil.canPublishFeature(
-        feature,
-        getAffectedRevisionEnvs(feature, revision, environments),
-      )) ||
-    (isDraft &&
-      !requireReviews &&
-      permissionsUtil.canPublishFeature(
-        feature,
-        getAffectedRevisionEnvs(feature, revision, environments),
-      ));
-
-  const drafts = revisions.filter(
-    (r) =>
-      r.status === "draft" ||
-      r.status === "pending-review" ||
-      r.status === "changes-requested" ||
-      r.status === "approved",
-  );
-  const isLocked =
-    (revision.status === "published" || revision.status === "discarded") &&
-    (!isLive || drafts.length > 0);
   const isDiscarded = revision.status === "discarded";
   // True when browsing a read-only historical snapshot: an old published revision or a discarded one.
-  // Distinct from isLocked, which also fires for the live revision when active drafts exist.
   const isReadOnly =
     isDiscarded || (revision.status === "published" && !isLive);
 
@@ -679,205 +531,22 @@ export default function FeaturesOverview({
     tags: feature.tags || [],
   };
 
-  const renderDraftBannerCopy = () => {
-    if (featureLockedByRamp) {
-      return (
-        <>
-          <PiLockSimple />{" "}
-          {isPendingReview
-            ? "Review and Approve"
-            : approved
-              ? "Review and Publish"
-              : "Request Approval to Publish"}
-        </>
-      );
-    }
-    if (isPendingReview) {
-      return (
-        <>
-          <BsClock /> Review and Approve
-        </>
-      );
-    }
-    if (approved) {
-      return (
-        <>
-          <MdRocketLaunch /> Review and Publish
-        </>
-      );
-    }
-    return (
-      <>
-        <MdRocketLaunch /> Request Approval to Publish
-      </>
-    );
-  };
-
-  const renderRevisionCTA = () => {
-    const actions: JSX.Element[] = [];
-    const nowrap = { whiteSpace: "nowrap" as const };
-
-    if (canEditDrafts) {
-      if (isLocked && !isLive && !isDiscarded) {
-        actions.push(
-          <Button
-            variant="ghost"
-            color="red"
-            onClick={() => setRevertIndex(revision.version)}
-            title="Create a new Draft based on this revision"
-            style={nowrap}
-          >
-            Revert to this version
-          </Button>,
-        );
-      } else if (revision.version > 1 && isLive) {
-        const liveRevision = revisions.find(
-          (r) => r.version === feature.version,
-        );
-        const livePublishedAt = liveRevision?.datePublished
-          ? new Date(liveRevision.datePublished).getTime()
-          : Infinity;
-        const previousRevision = revisions
-          .filter(
-            (r) =>
-              r.status === "published" &&
-              r.version !== feature.version &&
-              !!r.datePublished &&
-              new Date(r.datePublished).getTime() < livePublishedAt,
-          )
-          .sort((a, b) => {
-            const bt = b.datePublished
-              ? new Date(b.datePublished).getTime()
-              : 0;
-            const at = a.datePublished
-              ? new Date(a.datePublished).getTime()
-              : 0;
-            return bt - at;
-          })[0];
-
-        if (previousRevision) {
-          actions.push(
-            <Button
-              variant="ghost"
-              color="red"
-              onClick={() => {
-                setRevertIndex(previousRevision.version);
-              }}
-              style={nowrap}
-            >
-              Revert to Previous
-            </Button>,
-          );
-        }
-      }
-
-      if (!isDraft) {
-        actions.push(
-          <Button
-            key="new-draft"
-            loading={creatingDraft}
-            onClick={() => setConfirmNewDraft(true)}
-            variant="soft"
-            style={nowrap}
-          >
-            New Draft
-          </Button>,
-        );
-      }
-
-      if (isDraft) {
-        // Slot: draftCtaGroup portal mounts here when not scrolled past the revision card
-        actions.push(<div key="draft-cta-slot" ref={ctaSlotRef} />);
-      }
-    }
-
-    return (
-      <>
-        {actions.map((el, i) => (
-          <Box key={"cta-" + i}>{el}</Box>
-        ))}
-      </>
-    );
-  };
-
-  // Draft CTA group — defined once and rendered via a stable portal host.
-  // The portal host is physically moved between the revision card's ctaSlotRef
-  // and the sticky banner's bannerCtaSlotRef so CTAs only need to be defined here.
-  const nowrap = { whiteSpace: "nowrap" as const };
-  const draftCtaGroup =
-    isDraft && canEditDrafts ? (
-      <Flex align="center" gap="4">
-        <Box>
-          <Button
-            variant="ghost"
-            color="red"
-            onClick={() => setConfirmDiscard(true)}
-            style={nowrap}
-          >
-            Discard draft
-          </Button>
-        </Box>
-        {mergeResult?.success ? (
-          requireReviews ? (
-            <Box>
-              <Tooltip
-                body={
-                  !revisionHasChanges
-                    ? "Draft is identical to the live version. Make changes first before requesting review"
-                    : ""
-                }
-              >
-                <Button
-                  disabled={!revisionHasChanges}
-                  onClick={() => setReviewModal(true)}
-                  style={nowrap}
-                >
-                  {renderDraftBannerCopy()}
-                </Button>
-              </Tooltip>
-            </Box>
-          ) : (
-            <Box>
-              <Tooltip
-                body={
-                  !revisionHasChanges
-                    ? "Draft is identical to the live version. Make changes first before publishing"
-                    : !hasDraftPublishPermission
-                      ? "You do not have permission to publish this draft."
-                      : ""
-                }
-              >
-                <Button
-                  disabled={!revisionHasChanges || !hasDraftPublishPermission}
-                  icon={featureLockedByRamp ? <PiLockSimple /> : undefined}
-                  onClick={() => setDraftModal(true)}
-                  style={nowrap}
-                >
-                  Review &amp; Publish
-                </Button>
-              </Tooltip>
-            </Box>
-          )
-        ) : mergeResult ? (
-          <Box>
-            <Tooltip body="There have been new conflicting changes published since this draft was created that must be resolved before you can publish">
-              <Button
-                variant="ghost"
-                onClick={() => setConflictModal(true)}
-                style={nowrap}
-              >
-                Fix conflicts
-              </Button>
-            </Tooltip>
-          </Box>
-        ) : null}
-      </Flex>
-    ) : null;
-
-  const onCompareRevisions =
-    (revisionList?.length ?? 0) >= 2
-      ? () => setCompareRevisionsModalOpen(true)
-      : undefined;
+  // Draft CTA — defined once and rendered via a stable portal host moved
+  // between the revision card and sticky banner. Just a navigation affordance:
+  // all lifecycle actions (review, publish, fix conflicts, discard) live on the
+  // review tab, which evaluates the full policy matrix. Shown to everyone.
+  const draftCtaGroup = isDraft ? (
+    <Box>
+      <Button
+        icon={<FaArrowRight />}
+        iconPosition="right"
+        onClick={() => setTab("review")}
+        style={{ whiteSpace: "nowrap" as const }}
+      >
+        Review and Publish
+      </Button>
+    </Box>
+  ) : null;
 
   const renderRevisionInfo = () => {
     return (
@@ -939,30 +608,34 @@ export default function FeaturesOverview({
         <CoAuthors rev={revision} mt="3" mb="3" />
         <Flex align="start" gap="2" style={{ width: "fit-content" }}>
           <Text weight="semibold" color="text-high">
-            Revision notes:
+            Revision description:
           </Text>{" "}
           {revision.comment ? (
             <Flex align="start" gap="1">
               <Box>
-                {!commentExpanded && revision.comment.length > 80
-                  ? revision.comment.slice(0, 80) + "…"
-                  : revision.comment}
-                {revision.comment.length > 80 && !commentExpanded && (
-                  <Link
-                    onClick={() => setCommentExpanded((v) => !v)}
-                    ml="1"
-                    style={{ whiteSpace: "nowrap" }}
-                  >
-                    show more
-                  </Link>
-                )}
-                {revision.comment.length > 80 && commentExpanded && (
-                  <Box mt="1">
+                <Box
+                  style={
+                    !commentExpanded
+                      ? {
+                          display: "-webkit-box",
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: "vertical",
+                          overflow: "hidden",
+                        }
+                      : undefined
+                  }
+                >
+                  <Markdown className="speech-bubble">
+                    {revision.comment}
+                  </Markdown>
+                </Box>
+                {revision.comment.length > 80 && (
+                  <Box mt={commentExpanded ? "1" : "0"}>
                     <Link
                       onClick={() => setCommentExpanded((v) => !v)}
                       style={{ whiteSpace: "nowrap" }}
                     >
-                      show less
+                      {commentExpanded ? "show less" : "show more"}
                     </Link>
                   </Box>
                 )}
@@ -1269,28 +942,49 @@ export default function FeaturesOverview({
                       </Text>
                     )}
                 </Flex>
-
-                {onCompareRevisions && (
-                  <>
-                    <Separator
-                      orientation="vertical"
-                      style={{ marginTop: 2 }}
-                    />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      icon={<PiGitDiff />}
-                      onClick={onCompareRevisions}
-                      style={{ position: "relative", top: -5 }}
-                    >
-                      Compare revisions
-                    </Button>
-                  </>
-                )}
               </Flex>
 
               <Flex align="center" justify="end" gap="4" flexGrow="1">
-                {renderRevisionCTA()}
+                {/* Lifecycle actions (revert, discard, publish) live in the
+                    Review and Publish tab — the card only offers "New Draft"
+                    and navigation into the review surface. */}
+                {canEditDrafts && !isDraft && (
+                  <Box position="relative">
+                    <Tooltip
+                      shouldDisplay={atDraftCap}
+                      body={`This feature has ${activeDraftCount} active draft${
+                        activeDraftCount === 1 ? "" : "s"
+                      }, at your organization's cap of ${maxDrafts} per feature. You can still create one after acknowledging the cap.`}
+                    >
+                      <Button
+                        loading={creatingDraft}
+                        onClick={() => setConfirmNewDraft(true)}
+                        variant="soft"
+                        style={{ whiteSpace: "nowrap" }}
+                      >
+                        New Draft
+                      </Button>
+                      {atDraftCap && (
+                        <span
+                          style={{
+                            position: "absolute",
+                            top: -3,
+                            right: -3,
+                            width: 10,
+                            height: 10,
+                            borderRadius: "50%",
+                            backgroundColor: "var(--amber-9)",
+                            border: "2px solid var(--color-panel-solid)",
+                            pointerEvents: "none",
+                          }}
+                        />
+                      )}
+                    </Tooltip>
+                  </Box>
+                )}
+                {/* Slot: draftCtaGroup portal mounts here when not scrolled
+                    past the revision card */}
+                {isDraft && <div ref={ctaSlotRef} />}
               </Flex>
             </Flex>
             <Separator size="4" my="3" />
@@ -1695,17 +1389,16 @@ export default function FeaturesOverview({
                     );
                   })
                 ) : (
-                  <div className="alert alert-warning pt-3 pb-2 w-100">
-                    <div className="h4 mb-3">
-                      <FaExclamationTriangle /> This feature has no associated
-                      environments
-                    </div>
-                    <div className="mb-2">
+                  <Box width="100%">
+                    <Callout status="warning">
+                      <strong>
+                        This feature has no associated environments.
+                      </strong>{" "}
                       Ensure that this feature&apos;s project is included in at
                       least one environment to use it.{" "}
                       <Link href="/environments">Manage Environments</Link>
-                    </div>
-                  </div>
+                    </Callout>
+                  </Box>
                 )}
               </Flex>
               {canEdit && canEditDrafts && !isReadOnly && (
@@ -1968,101 +1661,12 @@ export default function FeaturesOverview({
             method="PUT"
             current={feature.project}
             additionalMessage={
-              <div className="alert alert-danger">
+              <Callout status="error" mb="3">
                 Changing the project may prevent this Feature and any linked
                 Experiments from being sent to users.
-              </div>
+              </Callout>
             }
           />
-        )}
-        {revertIndex > 0 && (
-          <RevertModal
-            close={() => setRevertIndex(0)}
-            feature={baseFeature}
-            revision={
-              revisions.find(
-                (r) => r.version === revertIndex,
-              ) as FeatureRevisionInterface
-            }
-            revisionList={revisionList}
-            allRevisions={revisions}
-            mutate={mutate}
-            setVersion={setVersion}
-          />
-        )}
-        {reviewModal && revision && (
-          <RequestReviewModal
-            feature={baseFeature}
-            revisions={revisions}
-            version={revision.version}
-            close={() => setReviewModal(false)}
-            mutate={mutate}
-            onPublish={() => {
-              setVersion(revision.version);
-              setTimeout(() => setVersion(liveVersionRef.current), 300);
-            }}
-            experimentsMap={experimentsMap}
-            rampSchedules={rampSchedules}
-          />
-        )}
-        {draftModal && revision && (
-          <DraftModal
-            feature={baseFeature}
-            revisions={revisions}
-            version={revision.version}
-            close={() => setDraftModal(false)}
-            mutate={mutate}
-            onPublish={() => {
-              setVersion(revision.version);
-              // Ramp steps fire synchronously on the backend and may publish
-              // additional revisions. After React processes the mutate response,
-              // snap to whatever is actually live now.
-              setTimeout(() => setVersion(liveVersionRef.current), 300);
-            }}
-            experimentsMap={experimentsMap}
-            rampSchedules={rampSchedules}
-          />
-        )}
-        {conflictModal && revision && (
-          <FeatureFixConflictsModal
-            feature={baseFeature}
-            revisions={revisions}
-            version={revision.version}
-            close={() => setConflictModal(false)}
-            mutate={mutate}
-          />
-        )}
-        {confirmDiscard && (
-          <Modal
-            trackingEventModalType=""
-            open={true}
-            close={() => setConfirmDiscard(false)}
-            header="Discard Draft"
-            cta={"Discard"}
-            submitColor="danger"
-            closeCta={"Cancel"}
-            useRadixButton={true}
-            submit={async () => {
-              try {
-                await apiCall(
-                  `/feature/${feature.id}/${revision.version}/discard`,
-                  {
-                    method: "POST",
-                  },
-                );
-              } catch (e) {
-                await mutate();
-                throw e;
-              }
-              await mutate();
-              setVersion(feature.version);
-            }}
-          >
-            <p>
-              Are you sure you want to discard this draft? This action cannot be
-              undone.
-            </p>
-          </Modal>
         )}
         {confirmNewDraft && (
           <Modal
@@ -2075,9 +1679,12 @@ export default function FeaturesOverview({
               setEditingNewDraftTitle(false);
               setNewDraftNotes("");
               setShowNewDraftNotes(false);
+              setDraftCapAcknowledged(false);
             }}
             header="Create New Draft"
             cta="Create Draft"
+            ctaEnabled={!atDraftCap || draftCapAcknowledged}
+            disabledMessage="Acknowledge the draft cap warning to continue"
             loading={creatingDraft}
             useRadixButton={true}
             submit={async () => {
@@ -2105,6 +1712,24 @@ export default function FeaturesOverview({
             }}
           >
             <Flex direction="column" gap="2">
+              {atDraftCap && (
+                <Callout status="warning" mb="2">
+                  <Flex direction="column" gap="2" align="start">
+                    <Text>
+                      This feature already has {activeDraftCount} active draft
+                      {activeDraftCount === 1 ? "" : "s"} — your organization
+                      recommends keeping it to {maxDrafts} per feature.
+                    </Text>
+                    <Checkbox
+                      id="acknowledge-draft-cap"
+                      label="Acknowledge and override"
+                      weight="regular"
+                      value={draftCapAcknowledged}
+                      setValue={setDraftCapAcknowledged}
+                    />
+                  </Flex>
+                </Callout>
+              )}
               <Text>
                 Creating a <Text weight="semibold">new draft</Text> based on{" "}
                 <span
@@ -2225,7 +1850,7 @@ export default function FeaturesOverview({
               </Box>
               {showNewDraftNotes ? (
                 <Field
-                  label="Notes"
+                  label="Description"
                   labelClassName="font-weight-bold"
                   textarea
                   value={newDraftNotes}
@@ -2240,7 +1865,7 @@ export default function FeaturesOverview({
                 >
                   <Flex align="center" gap="1" mb="3">
                     <PiPlus />
-                    <Text weight="medium">Add notes</Text>
+                    <Text weight="medium">Add description</Text>
                   </Flex>
                 </Link>
               )}
@@ -2263,19 +1888,6 @@ export default function FeaturesOverview({
             i={prerequisiteModal.i}
             mutate={mutate}
             setVersion={setVersion}
-          />
-        )}
-        {compareRevisionsModalOpen && (
-          <CompareRevisionsModal
-            feature={feature}
-            baseFeature={baseFeature}
-            revisionList={revisionList || []}
-            revisions={revisions}
-            currentVersion={version ?? feature.version}
-            onClose={() => setCompareRevisionsModalOpen(false)}
-            initialPreviewDraft={isDraft ? (version ?? undefined) : undefined}
-            initialMode={isLive && !isDraft ? "most-recent-live" : undefined}
-            rampSchedules={rampSchedules}
           />
         )}
         {showKillSwitchManager && (

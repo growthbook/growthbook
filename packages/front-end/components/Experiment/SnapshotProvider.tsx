@@ -13,6 +13,10 @@ import {
   ExperimentSnapshotInterface,
   SnapshotStatusSummary,
 } from "shared/types/experiment-snapshot";
+import {
+  getExperimentSourceSnapshotRef,
+  SourceSnapshotRef,
+} from "shared/enterprise";
 import { getSnapshotAnalysis } from "shared/util";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
@@ -49,6 +53,7 @@ const snapshotContext = React.createContext<{
     analysisSettings: ExperimentSnapshotAnalysisSettings | null,
   ) => void;
   setSnapshotType: (snapshotType: SnapshotType | undefined) => void;
+  sourceSnapshot?: SourceSnapshotRef;
   loading?: boolean;
   error?: Error;
 }>({
@@ -257,12 +262,21 @@ export default function SnapshotProvider({
   const [analysisSettings, setAnalysisSettings] = useState(
     defaultAnalysisSettings,
   );
+
+  const dimensionlessSnapshot = data?.dimensionless ?? data?.snapshot;
+  const precomputedUnitDimensionIds = getPrecomputedUnitDimensionIds(
+    experiment,
+    data?.snapshot,
+    dimensionlessSnapshot,
+  );
+  const sourceSnapshot = getExperimentSourceSnapshotRef(data?.snapshot);
+
   return (
     <snapshotContext.Provider
       value={{
         experiment,
         snapshot: data?.snapshot,
-        dimensionless: data?.dimensionless ?? data?.snapshot,
+        dimensionless: dimensionlessSnapshot,
         latestSummary: latest,
         analysis: data?.snapshot
           ? ((getSnapshotAnalysis(
@@ -276,13 +290,10 @@ export default function SnapshotProvider({
         analysisSettings,
         precomputedDimensions: getPrecomputedDimensions(
           data?.snapshot,
-          data?.dimensionless,
+          dimensionlessSnapshot,
         ),
-        precomputedUnitDimensionIds: getPrecomputedUnitDimensionIds(
-          experiment,
-          data?.snapshot,
-          data?.dimensionless,
-        ),
+        precomputedUnitDimensionIds,
+        sourceSnapshot,
         setPhase,
         setDimension,
         setAnalysisSettings,

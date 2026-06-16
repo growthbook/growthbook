@@ -74,6 +74,7 @@ import { TeamModel } from "back-end/src/models/TeamModel";
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
 import { RevisionModel } from "back-end/src/models/RevisionModel";
 import { AIConversationModel } from "back-end/src/models/AIConversationModel";
+import { EventForwarderConfigModel } from "back-end/src/models/EventForwarderConfigModel";
 import { PresentationThemeModel } from "back-end/src/models/PresentationThemeModel";
 import { WatchModel } from "back-end/src/models/WatchModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
@@ -126,7 +127,8 @@ export type ModelName =
   | "apiKeys"
   | "rampSchedules"
   | "rampScheduleTemplates"
-  | "aiConversations";
+  | "aiConversations"
+  | "eventForwarderConfigs";
 
 export const modelClasses = {
   agreements: AgreementModel,
@@ -168,6 +170,7 @@ export const modelClasses = {
   rampSchedules: RampScheduleModel,
   rampScheduleTemplates: RampScheduleTemplateModel,
   aiConversations: AIConversationModel,
+  eventForwarderConfigs: EventForwarderConfigModel,
 };
 export type ModelClass = (typeof modelClasses)[ModelName];
 type ModelInstances = {
@@ -219,6 +222,7 @@ export class ReqContextClass {
       rampSchedules: new RampScheduleModel(this),
       rampScheduleTemplates: new RampScheduleTemplateModel(this),
       aiConversations: new AIConversationModel(this),
+      eventForwarderConfigs: new EventForwarderConfigModel(this),
     };
   }
 

@@ -893,4 +893,148 @@ describe("BaseModel", () => {
       });
     });
   });
+
+  describe("skipAuditLogFields", () => {
+    const ModelWithSkipAuditLog = MakeModelClass({
+      schema: z
+        .object({
+          id: z.string(),
+          organization: z.string(),
+          dateCreated: z.date(),
+          dateUpdated: z.date(),
+          name: z.string(),
+          operationalField: z.string().optional(),
+          regularField: z.string().optional(),
+        })
+        .strict(),
+      collectionName: "test_skip_audit",
+      idPrefix: "tsa_",
+      auditLog: {
+        entity: "metric",
+        createEvent: "metric.create",
+        updateEvent: "metric.update",
+        deleteEvent: "metric.delete",
+      },
+      skipAuditLogFields: ["operationalField"],
+    });
+
+    class TestSkipAuditLogModel extends ModelWithSkipAuditLog {
+      public canReadMock: jest.Mock;
+      public canCreateMock: jest.Mock;
+      public canUpdateMock: jest.Mock;
+      public dangerousGetCollectionMock: jest.Mock;
+      public populateForeignRefsMock: jest.Mock;
+
+      public constructor(context: Context) {
+        super(context);
+        this.canReadMock = jest.fn(() => true);
+        this.canCreateMock = jest.fn(() => true);
+        this.canUpdateMock = jest.fn(() => true);
+        this.dangerousGetCollectionMock = jest.fn();
+        this.populateForeignRefsMock = jest.fn();
+      }
+
+      protected canRead(...args): boolean {
+        return this.canReadMock(...args);
+      }
+
+      protected canCreate(...args): boolean {
+        return this.canCreateMock(...args);
+      }
+
+      protected canUpdate(...args): boolean {
+        return this.canUpdateMock(...args);
+      }
+
+      protected canDelete(): boolean {
+        return true;
+      }
+
+      protected _dangerousGetCollection(...args): Collection {
+        return this.dangerousGetCollectionMock(...args);
+      }
+
+      protected populateForeignRefs(...args) {
+        return this.populateForeignRefsMock(...args);
+      }
+
+      protected updateIndexes() {
+        // no-op
+      }
+    }
+
+    beforeEach(() => {
+      auditLogMock.mockClear();
+    });
+
+    it("skips audit log when only skipAuditLogFields are updated", async () => {
+      const model = new TestSkipAuditLogModel(defaultContext);
+      const updateOneMock = jest.fn();
+      model.dangerousGetCollectionMock.mockReturnValue({
+        updateOne: updateOneMock,
+      });
+
+      const existing = {
+        id: "test1",
+        organization: "a",
+        name: "test",
+        operationalField: "old-value",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+      };
+
+      await model.update(existing, { operationalField: "new-value" });
+
+      expect(updateOneMock).toHaveBeenCalled();
+      expect(auditLogMock).not.toHaveBeenCalled();
+    });
+
+    it("creates audit log when regular fields are updated", async () => {
+      const model = new TestSkipAuditLogModel(defaultContext);
+      const updateOneMock = jest.fn();
+      model.dangerousGetCollectionMock.mockReturnValue({
+        updateOne: updateOneMock,
+      });
+
+      const existing = {
+        id: "test1",
+        organization: "a",
+        name: "test",
+        regularField: "old-value",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+      };
+
+      await model.update(existing, { regularField: "new-value" });
+
+      expect(updateOneMock).toHaveBeenCalled();
+      expect(auditLogMock).toHaveBeenCalled();
+    });
+
+    it("creates audit log when both skipAuditLogFields and regular fields are updated", async () => {
+      const model = new TestSkipAuditLogModel(defaultContext);
+      const updateOneMock = jest.fn();
+      model.dangerousGetCollectionMock.mockReturnValue({
+        updateOne: updateOneMock,
+      });
+
+      const existing = {
+        id: "test1",
+        organization: "a",
+        name: "test",
+        operationalField: "old-op",
+        regularField: "old-regular",
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+      };
+
+      await model.update(existing, {
+        operationalField: "new-op",
+        regularField: "new-regular",
+      });
+
+      expect(updateOneMock).toHaveBeenCalled();
+      expect(auditLogMock).toHaveBeenCalled();
+    });
+  });
 });

@@ -4,6 +4,11 @@ import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
 import { namedSchema } from "./openapi-helpers";
+import {
+  apiAggregatedTableRefreshTriggerValidator,
+  apiAggregatedTableRunSummaryValidator,
+  apiAggregatedTableRunValidator,
+} from "./aggregated-fact-table-run";
 
 // If you change these types, also update the factTableColumnTypeValidator to match
 export const factTableColumnTypes = [
@@ -237,7 +242,7 @@ export const priorSettingsValidator = z.object({
   override: z.boolean(),
   proper: z.boolean(),
   mean: z.number(),
-  stddev: z.number(),
+  stddev: z.number().gt(0),
 });
 
 export const metricTypeValidator = z.enum([
@@ -946,9 +951,9 @@ export const refreshAggregatedFactTableValidator = {
   paramsSchema: idParams,
   responseSchema: z
     .object({
-      queued: z
-        .array(z.string())
-        .describe("The id types for which a materialization run was queued"),
+      runs: z
+        .array(apiAggregatedTableRefreshTriggerValidator)
+        .describe("One entry per id type refreshed"),
     })
     .strict(),
   summary:
@@ -960,5 +965,64 @@ export const refreshAggregatedFactTableValidator = {
   exampleRequest: {
     params: { id: "abc123" },
     body: { fullRestate: false },
+  },
+};
+
+const aggregatedTableRunParams = z
+  .object({
+    id: z.string().describe("The id of the fact table"),
+    runId: z
+      .string()
+      .describe("The id of the aggregated table run (e.g. aftr_...)"),
+  })
+  .strict();
+
+export const getAggregatedTableRunValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: aggregatedTableRunParams,
+  responseSchema: z
+    .object({
+      run: apiAggregatedTableRunValidator,
+    })
+    .strict(),
+  summary: "Get a single aggregated table run",
+  operationId: "getAggregatedTableRun",
+  tags: ["fact-tables"],
+  method: "get" as const,
+  path: "/fact-tables/:id/aggregated-tables/runs/:runId",
+  exampleRequest: { params: { id: "abc123", runId: "aftr_abc123" } },
+};
+
+export const listAggregatedTableRunsValidator = {
+  bodySchema: z.never(),
+  querySchema: z
+    .object({
+      idType: z
+        .string()
+        .describe(
+          "Only return runs for this id type. When omitted, runs for all id types are returned.",
+        )
+        .optional(),
+      ...paginationQueryFields,
+    })
+    .strict(),
+  paramsSchema: idParams,
+  responseSchema: z.intersection(
+    z.object({
+      runs: z
+        .array(apiAggregatedTableRunSummaryValidator)
+        .describe("A list of the aggregated table runs for the fact table"),
+    }),
+    apiPaginationFieldsValidator,
+  ),
+  summary: "List aggregated table runs",
+  operationId: "listAggregatedTableRuns",
+  tags: ["fact-tables"],
+  method: "get" as const,
+  path: "/fact-tables/:id/aggregated-tables/runs",
+  exampleRequest: {
+    params: { id: "ftb_123" },
+    query: { idType: "user_id" },
   },
 };

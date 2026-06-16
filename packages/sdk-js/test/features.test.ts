@@ -7,6 +7,16 @@ global.TextEncoder = TextEncoder;
 (global as any).TextDecoder = TextDecoder;
 /* eslint-enable */
 
+// jsdom defines `crypto` as a read-only accessor, so a plain assignment is
+// silently ignored. Use defineProperty so tests can swap the global crypto.
+const setGlobalCrypto = (value: unknown) => {
+  Object.defineProperty(globalThis, "crypto", {
+    value,
+    configurable: true,
+    writable: true,
+  });
+};
+
 const mockCallback = (context: Context) => {
   const onFeatureUsage = jest.fn((a) => {
     return a;
@@ -42,8 +52,7 @@ describe("features", () => {
 
     // Make sure it's not using the built-in crypto implementation
     const originalCrypto = globalThis.crypto;
-    // eslint-disable-next-line
-    (globalThis.crypto as any) = undefined;
+    setGlobalCrypto(undefined);
 
     await growthbook.setEncryptedFeatures(
       encryptedFeatures,
@@ -64,14 +73,14 @@ describe("features", () => {
     });
 
     growthbook.destroy();
-    globalThis.crypto = originalCrypto;
+    setGlobalCrypto(originalCrypto);
   });
 
   it("decrypts features using the native SubtleCrypto implementation", async () => {
     const growthbook = new GrowthBook();
 
     const originalCrypto = globalThis.crypto;
-    globalThis.crypto = webcrypto;
+    setGlobalCrypto(webcrypto);
 
     const keyString = "Ns04T5n9+59rl2x3SlNHtQ==";
     const encryptedFeatures =
@@ -93,7 +102,7 @@ describe("features", () => {
     growthbook.destroy();
 
     // Reset
-    globalThis.crypto = originalCrypto;
+    setGlobalCrypto(originalCrypto);
   });
 
   it("throws when decrypting features with invalid key", async () => {
@@ -140,15 +149,14 @@ describe("features", () => {
       "vMSg2Bj/IurObDsWVmvkUg==.L6qtQkIzKDoE2Dix6IAKDcVel8PHUnzJ7JjmLjFZFQDqidRIoCxKmvxvUj2kTuHFTQ3/NJ3D6XhxhXXv2+dsXpw5woQf0eAgqrcxHrbtFORs18tRXRZza7zqgzwvcznx";
 
     const originalCrypto = globalThis.crypto;
-    // eslint-disable-next-line
-    (globalThis.crypto as any) = undefined;
+    setGlobalCrypto(undefined);
 
     await expect(
       growthbook.setEncryptedFeatures(encryptedFeatures, keyString),
     ).rejects.toThrow("No SubtleCrypto implementation found");
 
     growthbook.destroy();
-    globalThis.crypto = originalCrypto;
+    setGlobalCrypto(originalCrypto);
   });
 
   it("can set features asynchronously", () => {

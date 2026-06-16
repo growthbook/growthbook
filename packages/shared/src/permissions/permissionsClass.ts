@@ -29,6 +29,7 @@ import { IdeaInterface } from "shared/types/idea";
 import { ArchetypeInterface } from "shared/types/archetype";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import { CustomHookInterface } from "../validators/custom-hooks";
+import { EventForwarderConfigInterface } from "../validators/event-forwarder-config";
 import { HoldoutInterface } from "../validators/holdout";
 import { PermissionError } from "../util/";
 import { READ_ONLY_PERMISSIONS } from "./permissions.constants";
@@ -1381,6 +1382,38 @@ export class Permissions {
     feature: Pick<FeatureInterface, "project">,
   ): boolean => {
     return this.canUpdateFeature(feature, {});
+  };
+
+  public canCreateEventForwarderConfig = (
+    config: Pick<EventForwarderConfigInterface, "projects">,
+  ): boolean => {
+    return (
+      this.checkProjectFilterPermission(config, "editDatasourceSettings") &&
+      this.checkProjectFilterPermission(config, "runQueries")
+    );
+  };
+
+  public canUpdateEventForwarderConfig = (
+    existing: Pick<EventForwarderConfigInterface, "projects">,
+    updates: Pick<EventForwarderConfigInterface, "projects">,
+  ): boolean => {
+    return (
+      this.checkProjectFilterUpdatePermission(
+        existing,
+        updates,
+        "editDatasourceSettings",
+      ) &&
+      this.checkProjectFilterUpdatePermission(existing, updates, "runQueries")
+    );
+  };
+
+  public canDeleteEventForwarderConfig = (
+    config: Pick<EventForwarderConfigInterface, "projects">,
+  ): boolean => {
+    return (
+      this.checkProjectFilterPermission(config, "editDatasourceSettings") &&
+      this.checkProjectFilterPermission(config, "runQueries")
+    );
   };
 
   public throwPermissionError(message?: string): void {

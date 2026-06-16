@@ -42,7 +42,7 @@ import Badge from "@/ui/Badge";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import RevisionLabel, {
   revisionLabelText,
-} from "@/components/Features/RevisionLabel";
+} from "@/components/Reviews/RevisionLabel";
 import UserAvatar from "@/components/Avatar/UserAvatar";
 import { useUser } from "@/services/UserContext";
 import { RevisionDiff } from "@/components/Revision/RevisionDiff";
