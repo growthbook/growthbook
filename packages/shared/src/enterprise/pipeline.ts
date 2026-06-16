@@ -105,7 +105,7 @@ export function getIncrementalPipelineUnsupportedReason(params: {
   }
 
   if (params.metrics.some((m) => !isFactMetric(m))) {
-    return "Legacy metrics aren't supported with Incremental Pipeline mode. Convert or remove non-Fact Metrics.";
+    return "Legacy metrics aren't supported with Incremental Pipeline mode. Convert them or remove non-Fact Metrics.";
   }
 
   // Unit quantiles store a float and re-aggregate via SUM, so they work on

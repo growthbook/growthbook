@@ -1,6 +1,5 @@
-import { Flex } from "@radix-ui/themes";
-import ConfirmDialog from "@/ui/ConfirmDialog";
 import Text from "@/ui/Text";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 export default function IncrementalPipelineFallbackDialog({
   reason,
@@ -12,27 +11,22 @@ export default function IncrementalPipelineFallbackDialog({
   onCancel: () => void;
 }) {
   return (
-    <ConfirmDialog
-      title="Update without Incremental Pipeline mode"
-      yesText="Update anyway"
-      noText="Cancel"
-      onConfirm={onConfirm}
-      onCancel={onCancel}
-      content={
-        <Flex direction="column" gap="3">
-          <div>
-            This update will rescan all the experiment data, from start to
-            today, which is potentially slower and more costly than an
-            incremental update.
-          </div>
-          <div>
-            <Text weight="semibold">
-              Current reason preventing the use of Incremental Pipeline:
-            </Text>
-            <div>{reason}</div>
-          </div>
-        </Flex>
-      }
-    />
+    <ModalStandard
+      open={true}
+      header="Update without Incremental Pipeline"
+      subheader="This re-scans all experiment data from the start instead of only new data, so it may take longer and cost more."
+      cta="Update anyway"
+      trackingEventModalType="incremental-pipeline-fallback"
+      submit={onConfirm}
+      close={onCancel}
+    >
+      <Text size="medium" color="text-high" as="p">
+        <Text size="medium" weight="semibold" color="text-high">
+          Why incremental updates are unavailable:
+        </Text>
+        <br />
+        {reason}
+      </Text>
+    </ModalStandard>
   );
 }
