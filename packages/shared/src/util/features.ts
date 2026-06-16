@@ -585,6 +585,7 @@ interface IsFeatureStaleInterface {
   featuresMap?: Map<string, FeatureInterface>;
   experimentMap?: Map<string, ExperimentInterfaceStringDates>;
   reverseDependencyIndex?: ReverseDependencyIndex;
+  experimentDependencyIndex?: ExperimentDependencyIndex;
   mostRecentDraftDate?: Date | null;
 }
 
@@ -737,6 +738,7 @@ export function isFeatureStale({
   featuresMap: prebuiltFeaturesMap,
   experimentMap: prebuiltExperimentMap,
   reverseDependencyIndex,
+  experimentDependencyIndex,
   mostRecentDraftDate,
 }: IsFeatureStaleInterface): IsFeatureStaleResult {
   const featuresMap =
@@ -774,7 +776,12 @@ export function isFeatureStale({
         return !f || !visit(f).stale;
       });
       dependentExperiments =
-        dependentExperiments ?? getDependentExperiments(feature, experiments);
+        dependentExperiments ??
+        getDependentExperiments(
+          feature,
+          experiments,
+          experimentDependencyIndex,
+        );
 
       const envResults = buildEnvResults(
         feature,
@@ -2314,10 +2321,40 @@ export function getDependentFeatures(
   return features.filter(isDependent).map((f) => f.id);
 }
 
+export type ExperimentDependencyIndex = Map<
+  string,
+  ExperimentInterfaceStringDates[]
+>;
+
+export function buildExperimentDependencyIndex(
+  experiments: ExperimentInterfaceStringDates[],
+): ExperimentDependencyIndex {
+  const index: ExperimentDependencyIndex = new Map();
+  for (const e of experiments) {
+    const phase = e.phases.slice(-1)?.[0] ?? null;
+    const seen = new Set<string>();
+    for (const p of phase?.prerequisites ?? []) {
+      if (seen.has(p.id)) continue;
+      seen.add(p.id);
+      let arr = index.get(p.id);
+      if (!arr) {
+        arr = [];
+        index.set(p.id, arr);
+      }
+      arr.push(e);
+    }
+  }
+  return index;
+}
+
 export function getDependentExperiments(
   feature: FeatureInterface,
   experiments: ExperimentInterfaceStringDates[],
+  experimentDependencyIndex?: ExperimentDependencyIndex,
 ): ExperimentInterfaceStringDates[] {
+  if (experimentDependencyIndex) {
+    return experimentDependencyIndex.get(feature.id) ?? [];
+  }
   return experiments.filter((e) => {
     const phase = e.phases.slice(-1)?.[0] ?? null;
     return phase?.prerequisites?.some((p) => p.id === feature.id);
