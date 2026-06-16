@@ -275,11 +275,10 @@ export function VariationBox({
                         <Flex direction="column" gap="3">
                           <Text as="p" mb="0">
                             This will remove the variation from the experiment
-                            and all linked Feature Flag rules.
+                            and all linked implementations.
                           </Text>
                           <Box>
-                            The remaining variations will be rebalanced to equal
-                            splits
+                            The remaining variations will be rebalanced.
                           </Box>
                         </Flex>
                       }

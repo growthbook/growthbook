@@ -15,6 +15,7 @@ import {
 } from "@/components/Features/AttributeOptionTooltip";
 import HelperText from "@/ui/HelperText";
 import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -31,11 +32,13 @@ import { getDefaultVariations } from "@/components/Experiment/NewExperimentForm"
 export type SimpleNewExperimentFormProps = {
   onClose?: () => void;
   source: string;
+  onSwitchToLegacy?: () => void;
 };
 
 const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
   onClose,
   source,
+  onSwitchToLegacy,
 }) => {
   const router = useRouter();
   const { apiCall } = useAuth();
@@ -255,6 +258,13 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       close={() => onClose?.()}
       trackingEventModalType="simple-new-experiment-create"
       trackingEventModalSource={source}
+      headerAction={
+        onSwitchToLegacy ? (
+          <Link onClick={onSwitchToLegacy} color="gray">
+            Switch to old experience
+          </Link>
+        ) : undefined
+      }
     >
       <Field
         label="Experiment Name"
@@ -267,11 +277,31 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
         <SelectField
           label={
             <PremiumTooltip commercialFeature="templates">
-              Select Template
+              Template
             </PremiumTooltip>
           }
           value={form.watch("templateId") ?? ""}
-          onChange={(t) => form.setValue("templateId", t)}
+          onChange={(t) => {
+            form.setValue("templateId", t);
+            if (!t) {
+              // Clearing the template — restore form defaults
+              form.setValue("hypothesis", "");
+              form.setValue("hashAttribute", defaultHashAttribute);
+              return;
+            }
+            const template = templatesMap.get(t);
+            if (!template) return;
+            const templateAsExperiment = convertTemplateToExperiment(template);
+            if (templateAsExperiment.hypothesis) {
+              form.setValue("hypothesis", templateAsExperiment.hypothesis);
+            }
+            if (templateAsExperiment.hashAttribute) {
+              form.setValue(
+                "hashAttribute",
+                templateAsExperiment.hashAttribute,
+              );
+            }
+          }}
           name="template"
           initialOption="None"
           options={availableTemplates}
@@ -318,8 +348,9 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       />
 
       <SelectField
-        label="Assign Variation by Attribute"
+        label="Hash Attribute"
         value={form.watch("hashAttribute") ?? ""}
+        helpText="Will be hashed together with the Tracking Key to determine which variation to assign"
         onChange={(v) => form.setValue("hashAttribute", v)}
         options={attributeSchema
           .filter((s) => !hasHashAttributes || s.hashAttribute)

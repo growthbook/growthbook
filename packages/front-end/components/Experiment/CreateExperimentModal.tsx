@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, useState } from "react";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import SimpleNewExperimentForm from "@/components/Experiment/SimpleNewExperimentForm";
@@ -17,9 +17,16 @@ const CreateExperimentModal: FC<CreateExperimentModalProps> = ({
   source,
 }) => {
   const simpleFlow = useFeatureIsOn("simple-experiment-flow");
+  const [useOldFlow, setUseOldFlow] = useState(false);
 
-  if (simpleFlow) {
-    return <SimpleNewExperimentForm onClose={onClose} source={source} />;
+  if (simpleFlow && !useOldFlow) {
+    return (
+      <SimpleNewExperimentForm
+        onClose={onClose}
+        source={source}
+        onSwitchToLegacy={() => setUseOldFlow(true)}
+      />
+    );
   }
 
   return (

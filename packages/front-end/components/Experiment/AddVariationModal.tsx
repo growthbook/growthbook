@@ -34,7 +34,7 @@ const AddVariationModal: FC<{
     <ModalStandard
       open
       header="Add Variation"
-      subheader="Variation details be reflected on all linked Feature Flag rules"
+      subheader="Variation details be reflected on all linked implementations"
       cta="Add"
       size="lg"
       close={close}
