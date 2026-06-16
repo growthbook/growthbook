@@ -217,17 +217,21 @@ Position-move rules (critical):
 SELECTOR GROUNDING — this is critical:
 - You will be given a "Page elements" catalog with the actual selectors present on the page. It includes a "Page structure" section (html, body, header, main, footer, etc.) plus catalogs of headings, buttons, links, inputs, and images.
 - You MUST pick selectors verbatim from this catalog or from the user's picked elementContext. Do NOT invent selectors like ".cta", ".hero-cta", "h1.headline" unless you can see them in the catalog.
+- EXCEPTION — selectors the USER names explicitly: when the user's own message contains a concrete class, id, or attribute selector (e.g. "elements with the \`section_bg-gradient-2\` class", "the \`#pricing\` section", "everything matching \`[data-card]\`"), treat it as ground truth and use it verbatim — even if it is NOT in the catalog. The catalog is a NON-EXHAUSTIVE sample: it only lists structural nodes (html/body/header/main/footer…) plus headings, buttons, links, inputs, and images. A class on a \`<section>\`, \`<div>\`, \`<li>\`, etc. will routinely be absent from it. Never refuse or ask for clarification just because a user-supplied class/id isn't in the catalog. The grounding rule above exists to stop you HALLUCINATING selectors from vague descriptions — not to override a selector the user handed you directly.
+- Apply any "style every element matching this class / id / attribute" request through GLOBAL CSS (the \`css\` field), not DOM mutations. A CSS rule targets any selector regardless of catalog membership, and styling a whole class of elements is exactly what global CSS is for.
 - When the user's request matches a semantic concept (e.g. "the hero CTA", "the signup button"), find the closest match by text content or position in the catalog and use that exact selector.
 - "Title" / "the title" / "page title" / "headline" → ALWAYS interpret this as the visible main heading on the page — pick the first \`h1\` from the catalog (or the most prominent heading if no h1 is present). NEVER target the \`<title>\` element in \`<head>\`, \`document.title\`, or set the HTML "title" attribute (tooltip) for these requests. Users running an A/B test want to test what readers see on the page, not the browser tab text. The same applies to "subtitle" / "subheading" → the visible \`h2\` (or first heading below the h1), not anything in \`<head>\`.
 - For "the page", "the background", "the whole site", "globally", and similar broad requests, prefer "body" or "html" from the Page structure section. These are always valid targets — never refuse a global styling request because the more-specific catalogs only list components.
 - "html" and "body" are ALWAYS valid selectors even if the Page structure section is missing (e.g. older content scripts). Treat them as if they were in the catalog.
-- If no element in the catalog plausibly matches AND the request isn't a global styling change, say so in the explanation and return mutations = []. Do not guess.
+- If no element in the catalog plausibly matches, the user named no explicit selector, AND the request isn't a global styling change, say so in the explanation and return mutations = []. Do not guess invented selectors.
+- Prefer PARTIAL completion over wholesale refusal. When a request has several targets and only some are grounded, fulfill the parts you can — the global/body portion, and any user-named class via global CSS — and note any genuinely unverifiable target in the explanation. Do not refuse the entire request because one target couldn't be confirmed.
 
 Other rules:
 - Prefer the smallest, most targeted mutation.
 - Reuse selectors from elementContext when relevant.
 - When asked to change color/size/spacing, prefer "style" mutations over global CSS.
-- Use global CSS only for sweeping changes (e.g. "make all buttons green") or for ::pseudo-element edits.
+- Use global CSS for sweeping changes (e.g. "make all buttons green", styling every element matching a class/attribute), for ::pseudo-element edits, and for any CSS \`@keyframes\` animation.
+- "Animated" effects are CSS, not images: an animated gradient, shimmering/pulsing/rotating background, "psychedelic rainbow", etc. is a global-CSS \`@keyframes\` + \`animation\` rule (often a \`linear-gradient\` with oversized \`background-size\` animating its \`background-position\`). Do NOT reach for \`generateImage\` for these — it only produces a STATIC image. Reserve \`generateImage\` for requests that genuinely want a photographic/illustrated picture.
 - Never produce destructive JS. Only emit JS when the request cannot be done declaratively.
 
 Selector durability — critical for variations that survive future deploys:
@@ -600,11 +604,11 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
         .filter((s) => !trustedSelectors.has(s));
       if (misses.length > 0) {
         const uniqueMisses = Array.from(new Set(misses));
-        const retryHint = `RETRY: Your previous attempt used selectors that are NOT on the page: ${uniqueMisses
+        const retryHint = `RETRY: Your previous attempt used selectors that are NOT in the page-elements catalog: ${uniqueMisses
           .map((s) => `\`${s}\``)
           .join(
             ", ",
-          )}. Pick selectors verbatim from the "Page elements" catalog above. For position moves, the parent and insert-before targets count too — they must also be in the catalog. If no catalog entry plausibly matches a target, return mutations = [] and explain why.`;
+          )}. For position moves, the parent and insert-before targets count too — they must be in the catalog. Resolve this ONE of two ways: (1) if the user NAMED one of these selectors explicitly in their request (a class/id/attribute), it's valid — don't drop it, move that change into the global \`css\` field instead (a CSS rule can target selectors the catalog doesn't list); (2) otherwise pick a matching selector verbatim from the catalog. Only return mutations = [] if neither applies and no catalog entry plausibly matches — and even then, still complete any global/body or user-named-class portion via \`css\`.`;
         try {
           result = await runRetry(retryHint);
         } catch (e) {
