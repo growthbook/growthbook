@@ -602,6 +602,48 @@ describe("useSearch", () => {
     });
   });
 
+  describe("underscore tokenization", () => {
+    type SearchItem = {
+      id: string;
+      name: string;
+    };
+
+    const items: SearchItem[] = [
+      { id: "1", name: "foo" },
+      { id: "2", name: "foo_bar_baz" },
+    ];
+
+    const setup = () =>
+      renderHook(() =>
+        useSearch<SearchItem>({
+          items,
+          searchFields: ["name"],
+          localStorageKey: "search-service-test-underscore",
+          defaultSortField: "name",
+        }),
+      );
+
+    it("matches a feature on an inner token", () => {
+      const { result } = setup();
+      act(() => {
+        result.current.setSearchValue("bar");
+      });
+      expect(result.current.filteredItems.map((i) => i.name)).toContain(
+        "foo_bar_baz",
+      );
+    });
+
+    it("requires the full multi-token query, not a partial subset", () => {
+      const { result } = setup();
+      act(() => {
+        result.current.setSearchValue("foo_bar");
+      });
+      const names = result.current.filteredItems.map((i) => i.name);
+      expect(names).toContain("foo_bar_baz");
+      expect(names).not.toContain("foo");
+    });
+  });
+
   describe("filterSearchTerm", () => {
     it("should filter with default operator", () => {
       // Strings (exact default)
