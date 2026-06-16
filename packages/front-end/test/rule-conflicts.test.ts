@@ -1,6 +1,9 @@
 import { FeatureRule } from "shared/types/feature";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { getRuleReachability } from "@/services/rule-conflicts";
+import {
+  getRuleReachability,
+  SavedGroupForConflicts,
+} from "@/services/rule-conflicts";
 
 const noExperiments = new Map<string, ExperimentInterfaceStringDates>();
 const cond = (obj: unknown) => JSON.stringify(obj);
@@ -93,16 +96,16 @@ function linkedExperiment(
 
 function analyze(
   rules: FeatureRule[],
-  savedGroupAttributes?: Map<string, string[]>,
+  savedGroups?: Map<string, SavedGroupForConflicts>,
 ) {
-  return getRuleReachability(rules, noExperiments, savedGroupAttributes);
+  return getRuleReachability(rules, noExperiments, savedGroups);
 }
 function analyzeWithExperiments(
   rules: FeatureRule[],
   experiments: Map<string, ExperimentInterfaceStringDates>,
-  savedGroupAttributes?: Map<string, string[]>,
+  savedGroups?: Map<string, SavedGroupForConflicts>,
 ) {
-  return getRuleReachability(rules, experiments, savedGroupAttributes);
+  return getRuleReachability(rules, experiments, savedGroups);
 }
 
 describe("getRuleReachability — hard conflicts", () => {
@@ -269,17 +272,18 @@ describe("getRuleReachability — $ini / $nini (case-insensitive)", () => {
     });
   });
 
-  it("hard-consumes when a force above matches an `$ini` target with different casing", () => {
+  it("downgrades to a soft conflict when a case-sensitive force sits above an `$ini` target", () => {
+    // The force matches only "Safari" exactly, so it can't be proven to fully
+    // serve the case-insensitive target. Insensitive matching is best-effort,
+    // so this surfaces as a soft overlap rather than hard unreachable.
     const result = analyze([
       force("r1", { condition: cond({ browser: "Safari" }) }),
       force("r2", { condition: cond({ browser: { $ini: ["safari"] } }) }),
     ]);
     expect(result.get("r2")).toEqual({
-      unreachable: true,
-      hardConflicts: [
-        { consumingRuleId: "r1", attr: "browser", label: "Safari" },
-      ],
-      softConflicts: [],
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [{ attr: "browser", consumingRuleIds: ["r1"] }],
     });
   });
 
@@ -512,15 +516,17 @@ describe("getRuleReachability — soft conflicts (attribute overlap)", () => {
   });
 
   it("warns softly when a rule above targets the attribute via a saved group", () => {
-    const savedGroupAttributes = new Map<string, string[]>([
-      ["grp_country", ["country"]],
+    // List group whose values aren't loaded — opaque, but its attribute is
+    // tracked, so we still surface soft overlap with a rule below on `country`.
+    const savedGroups = new Map<string, SavedGroupForConflicts>([
+      ["grp_country", { type: "list", attributeKey: "country" }],
     ]);
     const result = analyze(
       [
         force("r1", { savedGroups: [{ ids: ["grp_country"], match: "any" }] }),
         force("r2", { condition: cond({ country: "CA" }) }),
       ],
-      savedGroupAttributes,
+      savedGroups,
     );
     expect(result.get("r2")).toEqual({
       unreachable: false,
@@ -943,6 +949,267 @@ describe("getRuleReachability — compound & edge-case targeting", () => {
       unreachable: false,
       hardConflicts: [],
       softConflicts: [],
+    });
+  });
+});
+
+describe("getRuleReachability — saved groups (ID lists)", () => {
+  const listGroup = (
+    attributeKey: string,
+    values?: string[],
+  ): SavedGroupForConflicts => ({ type: "list", attributeKey, values });
+
+  it("marks a rule unreachable when an ID-list group above covers every targeted id", () => {
+    // Example 1: an ID-list group [1,2,3] above, then a rule targeting a subset.
+    const groups = new Map<string, SavedGroupForConflicts>([
+      ["grp_ids", listGroup("id", ["1", "2", "3"])],
+    ]);
+    const result = analyze(
+      [
+        force("r1", { savedGroups: [{ ids: ["grp_ids"], match: "any" }] }),
+        force("r2", { condition: cond({ id: { $in: ["1", "2"] } }) }),
+      ],
+      groups,
+    );
+    expect(result.get("r2")).toEqual({
+      unreachable: true,
+      hardConflicts: [{ consumingRuleId: "r1", attr: "id", label: "1, 2" }],
+      softConflicts: [],
+    });
+  });
+
+  it("flags a partial hard conflict when the rule targets ids outside the group", () => {
+    // Subset includes id "4" which isn't in the group → not fully unreachable.
+    const groups = new Map<string, SavedGroupForConflicts>([
+      ["grp_ids", listGroup("id", ["1", "2", "3"])],
+    ]);
+    const result = analyze(
+      [
+        force("r1", { savedGroups: [{ ids: ["grp_ids"], match: "all" }] }),
+        force("r2", { condition: cond({ id: { $in: ["1", "2", "4"] } }) }),
+      ],
+      groups,
+    );
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [{ consumingRuleId: "r1", attr: "id", label: "1, 2" }],
+      softConflicts: [],
+    });
+  });
+
+  it("detects the conflict between two ID-list groups (superset then subset)", () => {
+    const groups = new Map<string, SavedGroupForConflicts>([
+      ["grp_big", listGroup("id", ["1", "2", "3"])],
+      ["grp_small", listGroup("id", ["1", "2"])],
+    ]);
+    const result = analyze(
+      [
+        force("r1", { savedGroups: [{ ids: ["grp_big"], match: "any" }] }),
+        force("r2", { savedGroups: [{ ids: ["grp_small"], match: "any" }] }),
+      ],
+      groups,
+    );
+    expect(result.get("r2")).toEqual({
+      unreachable: true,
+      hardConflicts: [{ consumingRuleId: "r1", attr: "id", label: "1, 2" }],
+      softConflicts: [],
+    });
+  });
+
+  it("detects the same conflict expressed as a plain $in condition (example 2)", () => {
+    const result = analyze([
+      force("r1", { condition: cond({ id: { $in: ["1", "2", "3"] } }) }),
+      force("r2", { condition: cond({ id: { $in: ["1", "2"] } }) }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: true,
+      hardConflicts: [{ consumingRuleId: "r1", attr: "id", label: "1, 2" }],
+      softConflicts: [],
+    });
+  });
+
+  it("two-pass: an ID-list group with unloaded values yields only a soft warning", () => {
+    // First render pass — values not fetched yet, so the group is opaque and we
+    // can only tell that both rules touch the `id` attribute.
+    const groups = new Map<string, SavedGroupForConflicts>([
+      ["grp_ids", listGroup("id")], // no values
+    ]);
+    const result = analyze(
+      [
+        force("r1", { savedGroups: [{ ids: ["grp_ids"], match: "any" }] }),
+        force("r2", { condition: cond({ id: { $in: ["1", "2"] } }) }),
+      ],
+      groups,
+    );
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [{ attr: "id", consumingRuleIds: ["r1"] }],
+    });
+  });
+
+  it('treats "any" across multiple groups as an OR — unreachable only when every branch is covered', () => {
+    const groups = new Map<string, SavedGroupForConflicts>([
+      ["grp_a", listGroup("id", ["1", "2"])],
+      ["grp_b", listGroup("id", ["3", "4"])],
+    ]);
+    const result = analyze(
+      [
+        force("r1", { condition: cond({ id: { $in: ["1", "2"] } }) }),
+        force("r2", { condition: cond({ id: { $in: ["3", "4"] } }) }),
+        force("r3", {
+          savedGroups: [{ ids: ["grp_a", "grp_b"], match: "any" }],
+        }),
+      ],
+      groups,
+    );
+    // Both OR branches are fully served above, so r3 is unreachable.
+    expect(result.get("r3")).toEqual({
+      unreachable: true,
+      hardConflicts: [],
+      softConflicts: [],
+    });
+  });
+
+  it('does not mark "any" unreachable when only one branch is covered', () => {
+    const groups = new Map<string, SavedGroupForConflicts>([
+      ["grp_a", listGroup("id", ["1", "2"])],
+      ["grp_b", listGroup("id", ["3", "4"])],
+    ]);
+    const result = analyze(
+      [
+        force("r1", { condition: cond({ id: { $in: ["1", "2"] } }) }),
+        force("r2", {
+          savedGroups: [{ ids: ["grp_a", "grp_b"], match: "any" }],
+        }),
+      ],
+      groups,
+    );
+    // Only the grp_a branch is covered; the grp_b branch can still be reached.
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [{ attr: "id", consumingRuleIds: ["r1"] }],
+    });
+  });
+
+  it("does not flag a conflict for NONE OF a condition group equivalent to an earlier ID list", () => {
+    // Rule 1: ANY OF an ID list {1..10}. Rule 2: NONE OF a condition group that
+    // is {id ∈ 1-5} OR {id ∈ 6-10} (i.e. the same {1..10}). Rule 2 targets
+    // everyone NOT in {1..10}, which is disjoint from Rule 1 — no conflict.
+    const groups = new Map<string, SavedGroupForConflicts>([
+      [
+        "grp_list",
+        listGroup("id", ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]),
+      ],
+      [
+        "grp_cond",
+        {
+          type: "condition",
+          condition: cond({
+            $or: [
+              { id: { $in: ["1", "2", "3", "4", "5"] } },
+              { id: { $in: ["6", "7", "8", "9", "10"] } },
+            ],
+          }),
+        },
+      ],
+    ]);
+    const result = analyze(
+      [
+        force("r1", { savedGroups: [{ ids: ["grp_list"], match: "any" }] }),
+        force("r2", { savedGroups: [{ ids: ["grp_cond"], match: "none" }] }),
+      ],
+      groups,
+    );
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [],
+    });
+  });
+
+  it("intersects same-attribute not-in constraints from a De-Morgan'd $nor", () => {
+    // Rule 2 = NOT(id ∈ {1-5} OR id ∈ {6-10}) = id ∉ {1..10}; disjoint from the
+    // id ∈ {1-5} rule above, so no conflict (and no false hard conflict on the
+    // {6-10} the first not-in conjunct alone would appear to leave open).
+    const result = analyze([
+      force("r1", {
+        condition: cond({ id: { $in: ["1", "2", "3", "4", "5"] } }),
+      }),
+      force("r2", {
+        condition: cond({
+          $nor: [
+            { id: { $in: ["1", "2", "3", "4", "5"] } },
+            { id: { $in: ["6", "7", "8", "9", "10"] } },
+          ],
+        }),
+      }),
+    ]);
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [],
+    });
+  });
+
+  it('models "none" of an ID-list group as a not-in constraint', () => {
+    // r2 targets everyone NOT in [1,2]; a force for id=5 above carves out id 5.
+    const groups = new Map<string, SavedGroupForConflicts>([
+      ["grp_ids", listGroup("id", ["1", "2"])],
+    ]);
+    const result = analyze(
+      [
+        force("r1", { condition: cond({ id: "5" }) }),
+        force("r2", { savedGroups: [{ ids: ["grp_ids"], match: "none" }] }),
+      ],
+      groups,
+    );
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [{ consumingRuleId: "r1", attr: "id", label: "5" }],
+      softConflicts: [],
+    });
+  });
+});
+
+describe("getRuleReachability — saved groups (condition groups)", () => {
+  it("resolves a condition group to its condition (no values fetch needed)", () => {
+    const groups = new Map<string, SavedGroupForConflicts>([
+      ["grp_cond", { type: "condition", condition: cond({ country: "US" }) }],
+    ]);
+    const result = analyze(
+      [
+        force("r1", { savedGroups: [{ ids: ["grp_cond"], match: "any" }] }),
+        force("r2", { condition: cond({ country: "US" }) }),
+      ],
+      groups,
+    );
+    expect(result.get("r2")).toEqual({
+      unreachable: true,
+      hardConflicts: [{ consumingRuleId: "r1", attr: "country", label: "US" }],
+      softConflicts: [],
+    });
+  });
+
+  it("warns softly when a condition group above shares an attribute opaquely", () => {
+    const groups = new Map<string, SavedGroupForConflicts>([
+      [
+        "grp_cond",
+        { type: "condition", condition: cond({ country: { $regex: "U.*" } }) },
+      ],
+    ]);
+    const result = analyze(
+      [
+        force("r1", { savedGroups: [{ ids: ["grp_cond"], match: "any" }] }),
+        force("r2", { condition: cond({ country: "US" }) }),
+      ],
+      groups,
+    );
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [{ attr: "country", consumingRuleIds: ["r1"] }],
     });
   });
 });

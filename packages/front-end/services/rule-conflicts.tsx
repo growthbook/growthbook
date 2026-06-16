@@ -2,7 +2,6 @@ import { useState, type ReactElement } from "react";
 import { Flex } from "@radix-ui/themes";
 import { FeatureRule } from "shared/types/feature";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { extractConditionAttributeKeys } from "shared/util";
 import { paddedVersionString } from "@growthbook/growthbook";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
@@ -13,11 +12,18 @@ import { isRuleInactive } from "@/services/features";
 // ---------------------------------------------------------------------------
 // Rule reachability & conflict detection
 //
-// We model a rule's targeting as an AND of per-attribute "atoms" (in / not-in
-// value sets, numeric ranges, version ranges). Operators we can't model
-// precisely (regex, $exists, saved groups, nested $or, …) produce no atom, but
-// the attributes they reference are still tracked so we can surface a *soft*
-// "may not reach" warning when a rule above targets the same attribute.
+// A rule's full targeting (condition + saved groups + prerequisites) is first
+// collapsed into a boolean tree of per-attribute "atoms" (in / not-in value
+// sets, numeric ranges, version ranges) combined with and/or/not, then
+// simplified. Saved groups expand into this tree the same way the SDK payload
+// builds them (list group → `attr ∈ values`, condition group → its condition;
+// match all → AND, any → OR, none → NOT). The flat top-level AND of atoms
+// drives precise per-attribute conflicts; the full tree drives reachability for
+// shapes a flat AND can't express (an OR across groups, a negated group, …).
+// Operators we can't model precisely (regex, $exists, an ID-list group whose
+// values aren't loaded yet, …) become "opaque" nodes that still track the
+// attributes they reference, so we can surface a *soft* "may not reach" warning
+// when a rule above targets the same attribute.
 // ---------------------------------------------------------------------------
 
 type InAtom = {
@@ -52,18 +58,22 @@ type Atom =
     };
 
 type ParsedTargeting = {
-  // Precisely-modeled AND constraints (one atom per attribute).
+  // Precisely-modeled top-level AND constraints (one atom per conjunct).
   constraints: { attr: string; atom: Atom }[];
   // Attributes that have a modeled atom.
   modeledAttrs: Set<string>;
   // Every attribute the rule targets, including ones referenced only opaquely
-  // (regex, $exists, saved groups, nested $or, …). Used for soft overlap.
+  // (regex, $exists, an unloaded list group, nested $or, …). Used for soft
+  // overlap.
   attributes: Set<string>;
   // True when the rule targets everyone (no condition / groups / prerequisites).
   catchAll: boolean;
   // True when `constraints` completely represent the targeting (no opaque parts),
   // so a single-attribute rule can be treated as fully consuming its match.
   reliable: boolean;
+  // The full simplified boolean tree, for reachability of OR/NOT shapes that the
+  // flat `constraints` can't express.
+  expr: Expr;
 };
 
 // A precise conflict: a rule above fully serves a sub-population this rule targets.
@@ -114,29 +124,31 @@ function parseAttrConstraint(value: unknown): Atom | null {
     return { op: "in", values: new Set([String(ops.$eq)]) };
   }
   if (keys.every((k) => k === "$in" || k === "$ini")) {
+    // Invariant: when an atom is case-insensitive, every stored value is
+    // lower-cased, so membership tests stay O(1) (just lower-case the probe).
+    const insensitive = keys.includes("$ini");
     const values = new Set<string>();
-    let insensitive = false;
     for (const k of keys) {
       if (Array.isArray(ops[k])) {
-        if (k === "$ini") insensitive = true;
         (ops[k] as unknown[]).forEach((v) => {
           const str = String(v);
-          values.add(k === "$ini" ? str.toLowerCase() : str);
+          values.add(insensitive ? str.toLowerCase() : str);
         });
       }
     }
     return { op: "in", values, ...(insensitive ? { insensitive: true } : {}) };
   }
   if (keys.every((k) => k === "$ne" || k === "$nin" || k === "$nini")) {
+    const insensitive = keys.includes("$nini");
     const values = new Set<string>();
-    let insensitive = false;
     for (const k of keys) {
-      if (k === "$ne") values.add(String(ops[k]));
-      else if (Array.isArray(ops[k])) {
-        if (k === "$nini") insensitive = true;
+      if (k === "$ne") {
+        const str = String(ops[k]);
+        values.add(insensitive ? str.toLowerCase() : str);
+      } else if (Array.isArray(ops[k])) {
         (ops[k] as unknown[]).forEach((v) => {
           const str = String(v);
-          values.add(k === "$nini" ? str.toLowerCase() : str);
+          values.add(insensitive ? str.toLowerCase() : str);
         });
       }
     }
@@ -181,106 +193,323 @@ function parseAttrConstraint(value: unknown): Atom | null {
   return null;
 }
 
-function parseConditionObject(obj: Record<string, unknown>): {
-  constraints: { attr: string; atom: Atom }[];
-  reliable: boolean;
-} {
-  const constraints: { attr: string; atom: Atom }[] = [];
-  let reliable = true;
+// A boolean targeting tree. Atoms are the precisely-modeled leaves; `opaque`
+// leaves are targeting we can't model but still want to track attributes for.
+type Expr =
+  | { type: "atom"; attr: string; atom: Atom }
+  | { type: "and"; children: Expr[] }
+  | { type: "or"; children: Expr[] }
+  | { type: "not"; child: Expr }
+  | { type: "opaque"; attrs: string[] };
 
-  for (const [key, value] of Object.entries(obj)) {
-    // A top-level $and flattens into more AND constraints; anything else
-    // ($or, $nor, $not, …) can't be represented as a flat AND of atoms.
-    if (key.startsWith("$")) {
-      if (key === "$and" && Array.isArray(value)) {
-        for (const sub of value) {
-          if (sub && typeof sub === "object" && !Array.isArray(sub)) {
-            const parsed = parseConditionObject(sub as Record<string, unknown>);
-            constraints.push(...parsed.constraints);
-            reliable = reliable && parsed.reliable;
-          } else {
-            reliable = false;
-          }
-        }
-      } else {
-        reliable = false;
-      }
-      continue;
-    }
+// Minimal saved-group shape the analyzer needs. `values` is optional because
+// the front-end loads ID-list values lazily — until they arrive a list group is
+// opaque (its attribute is still tracked for soft overlap).
+export type SavedGroupForConflicts = {
+  type: "list" | "condition";
+  attributeKey?: string;
+  values?: string[];
+  condition?: string;
+};
 
-    const atom = parseAttrConstraint(value);
-    if (atom) constraints.push({ attr: key, atom });
-    else reliable = false;
+// Targets everyone.
+const TRUE_EXPR: Expr = { type: "and", children: [] };
+
+const opaque = (attrs: string[] = []): Expr => ({ type: "opaque", attrs });
+const and = (children: Expr[]): Expr => ({ type: "and", children });
+const or = (children: Expr[]): Expr => ({ type: "or", children });
+const not = (child: Expr): Expr => ({ type: "not", child });
+
+// Negate an in/notIn atom (clean set complement). Ranges have no single-atom
+// negation, so callers fall back to a `not` node.
+function negateAtom(e: Expr): Expr | null {
+  if (e.type !== "atom") return null;
+  if (e.atom.op === "in") {
+    return {
+      type: "atom",
+      attr: e.attr,
+      atom: {
+        op: "notIn",
+        values: e.atom.values,
+        ...(e.atom.insensitive ? { insensitive: true } : {}),
+      },
+    };
   }
+  if (e.atom.op === "notIn") {
+    return {
+      type: "atom",
+      attr: e.attr,
+      atom: {
+        op: "in",
+        values: e.atom.values,
+        ...(e.atom.insensitive ? { insensitive: true } : {}),
+      },
+    };
+  }
+  return null;
+}
 
-  return { constraints, reliable };
+// Flatten nested and/or, collapse single-child nodes, and push `not` through
+// atoms (set complement) and through and/or (De Morgan), so negated saved
+// groups surface as ordinary notIn/in constraints where possible.
+function simplify(e: Expr): Expr {
+  switch (e.type) {
+    case "and": {
+      const kids = e.children
+        .map(simplify)
+        .flatMap((k) => (k.type === "and" ? k.children : [k]));
+      return kids.length === 1 ? kids[0] : and(kids);
+    }
+    case "or": {
+      const kids = e.children
+        .map(simplify)
+        .flatMap((k) => (k.type === "or" ? k.children : [k]));
+      return kids.length === 1 ? kids[0] : or(kids);
+    }
+    case "not": {
+      const c = simplify(e.child);
+      if (c.type === "not") return c.child; // ¬¬x = x
+      const negated = negateAtom(c);
+      if (negated) return negated;
+      if (c.type === "and") return simplify(or(c.children.map(not)));
+      if (c.type === "or") return simplify(and(c.children.map(not)));
+      return not(c);
+    }
+    default:
+      return e;
+  }
+}
+
+// Every attribute referenced anywhere in the tree (for soft overlap).
+function collectAttrs(e: Expr, acc: Set<string> = new Set()): Set<string> {
+  switch (e.type) {
+    case "atom":
+      acc.add(e.attr);
+      break;
+    case "opaque":
+      e.attrs.forEach((a) => acc.add(a));
+      break;
+    case "not":
+      collectAttrs(e.child, acc);
+      break;
+    case "and":
+    case "or":
+      e.children.forEach((c) => collectAttrs(c, acc));
+      break;
+  }
+  return acc;
+}
+
+// `{ attr: { $inGroup: id } }` / `$notInGroup` → an in/notIn atom built from the
+// group's loaded values, or opaque when the values aren't available.
+function groupOperatorExpr(
+  attr: string,
+  op: "$inGroup" | "$notInGroup",
+  groupId: unknown,
+  savedGroups: Map<string, SavedGroupForConflicts>,
+): Expr {
+  const group =
+    typeof groupId === "string" ? savedGroups.get(groupId) : undefined;
+  if (group?.type === "list" && group.values?.length) {
+    const e: Expr = {
+      type: "atom",
+      attr,
+      atom: { op: "in", values: new Set(group.values.map(String)) },
+    };
+    return op === "$inGroup" ? e : not(e);
+  }
+  return opaque([attr]);
+}
+
+// One attribute clause from a condition object → atom or opaque.
+function attrToExpr(
+  attr: string,
+  value: unknown,
+  savedGroups: Map<string, SavedGroupForConflicts>,
+): Expr {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const ops = value as Record<string, unknown>;
+    const keys = Object.keys(ops);
+    if (
+      keys.length === 1 &&
+      (keys[0] === "$inGroup" || keys[0] === "$notInGroup")
+    ) {
+      return groupOperatorExpr(
+        attr,
+        keys[0] as "$inGroup" | "$notInGroup",
+        ops[keys[0]],
+        savedGroups,
+      );
+    }
+  }
+  const atom = parseAttrConstraint(value);
+  return atom ? { type: "atom", attr, atom } : opaque([attr]);
+}
+
+// A parsed MongoDB-style condition object → boolean tree.
+function conditionToExpr(
+  cond: unknown,
+  savedGroups: Map<string, SavedGroupForConflicts>,
+): Expr {
+  if (!cond || typeof cond !== "object" || Array.isArray(cond)) {
+    return opaque();
+  }
+  const children: Expr[] = [];
+  for (const [key, value] of Object.entries(cond as Record<string, unknown>)) {
+    if (key === "$and" && Array.isArray(value)) {
+      children.push(and(value.map((v) => conditionToExpr(v, savedGroups))));
+    } else if (key === "$or" && Array.isArray(value)) {
+      children.push(or(value.map((v) => conditionToExpr(v, savedGroups))));
+    } else if (key === "$nor" && Array.isArray(value)) {
+      children.push(not(or(value.map((v) => conditionToExpr(v, savedGroups)))));
+    } else if (key === "$not") {
+      children.push(not(conditionToExpr(value, savedGroups)));
+    } else if (key.startsWith("$")) {
+      // Unknown / opaque top-level operator.
+      children.push(opaque());
+    } else {
+      children.push(attrToExpr(key, value, savedGroups));
+    }
+  }
+  return and(children);
+}
+
+// A single saved group → boolean tree (list → in atom, condition → its tree).
+function savedGroupToExpr(
+  group: SavedGroupForConflicts | undefined,
+  savedGroups: Map<string, SavedGroupForConflicts>,
+): Expr {
+  if (!group) return opaque();
+  if (group.type === "list") {
+    if (group.attributeKey && group.values?.length) {
+      return {
+        type: "atom",
+        attr: group.attributeKey,
+        atom: { op: "in", values: new Set(group.values.map(String)) },
+      };
+    }
+    // Values not loaded yet (or empty) — opaque, but track the attribute.
+    return opaque(group.attributeKey ? [group.attributeKey] : []);
+  }
+  if (
+    group.type === "condition" &&
+    group.condition &&
+    group.condition !== "{}"
+  ) {
+    try {
+      return conditionToExpr(JSON.parse(group.condition), savedGroups);
+    } catch {
+      return opaque();
+    }
+  }
+  return opaque();
+}
+
+// A `savedGroups` targeting entry → boolean tree, mirroring getParsedCondition:
+// all → AND, any → OR, none → NOT(OR).
+function savedGroupTargetingToExpr(
+  sg: { match: "all" | "any" | "none"; ids: string[] },
+  savedGroups: Map<string, SavedGroupForConflicts>,
+): Expr {
+  const exprs = sg.ids.map((id) =>
+    savedGroupToExpr(savedGroups.get(id), savedGroups),
+  );
+  if (sg.match === "all") return and(exprs);
+  if (sg.match === "any") return or(exprs);
+  return not(or(exprs)); // none
 }
 
 function parseRuleTargeting(
   rule: FeatureRule,
-  savedGroupAttributes: Map<string, string[]>,
+  savedGroups: Map<string, SavedGroupForConflicts>,
 ): ParsedTargeting {
-  let constraints: { attr: string; atom: Atom }[] = [];
-  let reliable = true;
-  let condObj: Record<string, unknown> | null = null;
+  const parts: Expr[] = [];
 
   if (rule.condition && rule.condition !== "{}") {
     try {
-      const obj: unknown = JSON.parse(rule.condition);
-      if (obj && typeof obj === "object" && !Array.isArray(obj)) {
-        condObj = obj as Record<string, unknown>;
-        const parsed = parseConditionObject(condObj);
-        constraints = parsed.constraints;
-        reliable = parsed.reliable;
-      } else {
-        reliable = false;
-      }
+      parts.push(conditionToExpr(JSON.parse(rule.condition), savedGroups));
     } catch {
+      parts.push(opaque());
+    }
+  }
+
+  for (const sg of rule.savedGroups ?? []) {
+    parts.push(savedGroupTargetingToExpr(sg, savedGroups));
+  }
+
+  // Prerequisites gate the rule on another flag's value — opaque to us.
+  if (rule.prerequisites?.length) parts.push(opaque());
+
+  const expr = parts.length ? simplify(and(parts)) : TRUE_EXPR;
+
+  // Top-level AND conjuncts that are atoms become precise constraints; anything
+  // else (OR, NOT, opaque) is reasoned about only via the full tree + attrs.
+  // Multiple atoms on the same attribute are intersected into one so the
+  // per-attribute analysis sees the rule's true projection: e.g. a "none of" a
+  // condition group De-Morgans into `id ∉ A AND id ∉ B`, which must be read as
+  // `id ∉ (A ∪ B)`. Analyzing the conjuncts independently would falsely flag the
+  // values one conjunct excludes but the other allows.
+  const top = expr.type === "and" ? expr.children : [expr];
+  let reliable = true;
+  const byAttr = new Map<string, Atom>();
+  const opaqueAttrs = new Set<string>();
+  for (const c of top) {
+    if (c.type !== "atom") {
+      reliable = false;
+      continue;
+    }
+    if (opaqueAttrs.has(c.attr)) continue;
+    const existing = byAttr.get(c.attr);
+    if (existing === undefined) {
+      byAttr.set(c.attr, c.atom);
+      continue;
+    }
+    const merged = intersectAtoms(existing, c.atom);
+    if (merged) {
+      byAttr.set(c.attr, merged);
+    } else {
+      // Can't express the combination as one atom — drop to opaque (soft
+      // overlap still applies via `attributes`) rather than risk a false
+      // hard conflict.
+      byAttr.delete(c.attr);
+      opaqueAttrs.add(c.attr);
       reliable = false;
     }
   }
-
-  // All targeted attributes, including those referenced only opaquely.
-  const attributes = new Set<string>(
-    condObj ? extractConditionAttributeKeys(condObj) : [],
-  );
-  for (const sg of rule.savedGroups ?? []) {
-    reliable = false; // saved groups aren't modeled as atoms
-    for (const id of sg.ids) {
-      (savedGroupAttributes.get(id) ?? []).forEach((a) => attributes.add(a));
-    }
-  }
-  if (rule.prerequisites?.length) reliable = false;
-
-  const catchAll =
-    attributes.size === 0 &&
-    !rule.savedGroups?.length &&
-    !rule.prerequisites?.length;
+  const constraints = [...byAttr.entries()].map(([attr, atom]) => ({
+    attr,
+    atom,
+  }));
 
   return {
     constraints,
     modeledAttrs: new Set(constraints.map((c) => c.attr)),
-    attributes,
-    catchAll,
+    attributes: collectAttrs(expr),
+    catchAll: expr.type === "and" && expr.children.length === 0,
     reliable,
+    expr,
   };
 }
 
 function setHasValue(atom: InAtom | NotInAtom, value: string): boolean {
-  if (atom.insensitive) {
-    const lv = value.toLowerCase();
-    return [...atom.values].some((v) => v.toLowerCase() === lv);
-  }
-  return atom.values.has(value);
+  // Insensitive atoms store lower-cased values (see parseAttrConstraint), so a
+  // single Set lookup on the lower-cased probe suffices — no O(n) scan.
+  return atom.values.has(atom.insensitive ? value.toLowerCase() : value);
 }
 
 function inSetsOverlap(a: InAtom, b: InAtom): boolean {
-  for (const va of a.values) {
-    for (const vb of b.values) {
-      if (a.insensitive || b.insensitive) {
-        if (va.toLowerCase() === vb.toLowerCase()) return true;
-      } else if (va === vb) return true;
-    }
+  const insensitive = a.insensitive || b.insensitive;
+  // Probe the larger set with the smaller for O(min) lookups instead of O(n·m).
+  const [small, large] = a.values.size <= b.values.size ? [a, b] : [b, a];
+  // For an insensitive comparison the probed set must be lower-cased too; an
+  // insensitive atom already is, a sensitive one (mixed comparison) is rebuilt.
+  const largeSet =
+    insensitive && !large.insensitive
+      ? new Set([...large.values].map((v) => v.toLowerCase()))
+      : large.values;
+  for (const v of small.values) {
+    const key = insensitive && !small.insensitive ? v.toLowerCase() : v;
+    if (largeSet.has(key)) return true;
   }
   return false;
 }
@@ -633,10 +862,213 @@ function provablyDisjoint(a: Atom, b: Atom): boolean {
   return false; // notIn/notIn, mismatched range types, … → can't prove disjoint
 }
 
+// Intersect two atoms on the same attribute into a single atom meaning "matches
+// both". Returns null when the result can't be expressed as one atom of our
+// types (not-in ∩ range, numeric ∩ version) — the caller then treats that
+// attribute as opaque rather than risk reasoning about it imprecisely.
+function intersectAtoms(x: Atom, y: Atom): Atom | null {
+  // Put the `in` atom first when exactly one side is an `in`.
+  const [a, b] = x.op === "in" || y.op !== "in" ? [x, y] : [y, x];
+
+  if (a.op === "in") {
+    // in ∩ b: keep a's values that also satisfy b.
+    const insensitive =
+      !!a.insensitive ||
+      ((b.op === "in" || b.op === "notIn") && !!b.insensitive);
+    const values = new Set<string>();
+    for (const v of a.values) {
+      if (atomMatchesValue(b, v)) values.add(insensitive ? v.toLowerCase() : v);
+    }
+    return { op: "in", values, ...(insensitive ? { insensitive: true } : {}) };
+  }
+
+  if (a.op === "notIn" && b.op === "notIn") {
+    // not-in ∩ not-in excludes the union of both value sets.
+    const insensitive = !!a.insensitive || !!b.insensitive;
+    const values = new Set<string>();
+    for (const v of a.values) values.add(insensitive ? v.toLowerCase() : v);
+    for (const v of b.values) values.add(insensitive ? v.toLowerCase() : v);
+    return {
+      op: "notIn",
+      values,
+      ...(insensitive ? { insensitive: true } : {}),
+    };
+  }
+
+  if (a.op === "num" && b.op === "num") {
+    const r = rangeIntersection(a, b, (m, n) => m - n);
+    // Empty intersection → matches nobody; an empty `in` set models that.
+    return r
+      ? { op: "num", lo: r.lo, loInc: r.loInc, hi: r.hi, hiInc: r.hiInc }
+      : { op: "in", values: new Set() };
+  }
+
+  if (a.op === "ver" && b.op === "ver") {
+    const r = rangeIntersection(a, b, versionCmp);
+    return r
+      ? { op: "ver", lo: r.lo, loInc: r.loInc, hi: r.hi, hiInc: r.hiInc }
+      : { op: "in", values: new Set() };
+  }
+
+  // not-in ∩ num/ver, num ∩ ver → not representable as a single atom.
+  return null;
+}
+
 // A rule whose modeled constraints fully describe exactly one attribute, so it
 // consumes every user matching that attribute's atom.
 function isReliableSingleAttr(p: ParsedTargeting): boolean {
   return p.reliable && p.constraints.length === 1;
+}
+
+type Consumer = { id: string; parsed: ParsedTargeting };
+
+// Append to a Map of arrays, creating the array on first use.
+function pushToBucket<K, T>(map: Map<K, T[]>, key: K, value: T): void {
+  const list = map.get(key);
+  if (list) list.push(value);
+  else map.set(key, [value]);
+}
+
+// For one target atom, which values/ranges are served by single-attribute rules
+// above, whether that fully covers the atom (`unreachable`), and whether any of
+// the atom's attribute was consumed at all (`consumed`, → suppresses the soft
+// warning for that attribute).
+function analyzeConstraint(
+  tc: { attr: string; atom: Atom },
+  singleAttr: Consumer[],
+): { unreachable: boolean; conflicts: RuleHardConflict[]; consumed: boolean } {
+  const conflicts: RuleHardConflict[] = [];
+  let unreachable = false;
+  let consumed = false;
+
+  // Concrete values worth naming. For an `in` target these are exactly the
+  // values it lists, so we skip unioning consumer values — keeping this O(v)
+  // instead of O(consumers·v) when many rules stack on one attribute. (A
+  // case-insensitive `in` target can match a consumer value whose casing
+  // differs, so it won't hard-consume it precisely and instead downgrades to a
+  // soft overlap — fine, since insensitive matching is best-effort.) For an
+  // open-ended (not-in) target we fold in consumer values to name the slice
+  // they carve out — e.g. a `browser = chrome` force above consuming the chrome
+  // users a `browser != firefox` rule wanted.
+  const candidates = new Set<string>();
+  if (tc.atom.op === "in") {
+    tc.atom.values.forEach((v) => candidates.add(v));
+  } else {
+    for (const c of singleAttr) {
+      const a = c.parsed.constraints[0].atom;
+      if (a.op === "in") a.values.forEach((v) => candidates.add(v));
+    }
+  }
+
+  // A candidate value is consumed when the target targets it AND a single-
+  // attribute rule above also matches it.
+  const consumedByRule = new Map<string, Set<string>>();
+  const consumedValues = new Set<string>();
+  for (const v of candidates) {
+    if (!atomMatchesValue(tc.atom, v)) continue;
+    const c = singleAttr.find((c) =>
+      atomMatchesValue(c.parsed.constraints[0].atom, v),
+    );
+    if (c) {
+      consumedValues.add(v);
+      const set = consumedByRule.get(c.id) ?? new Set<string>();
+      set.add(v);
+      consumedByRule.set(c.id, set);
+    }
+  }
+  if (consumedValues.size > 0) consumed = true;
+  for (const [id, values] of consumedByRule) {
+    conflicts.push({
+      consumingRuleId: id,
+      attr: tc.attr,
+      label: [...values].join(", "),
+    });
+  }
+
+  // Fully unreachable when every listed value is consumed (in-list), or when a
+  // rule above covers an open-ended (not-in) or range target.
+  if (tc.atom.op === "in") {
+    if (
+      tc.atom.values.size > 0 &&
+      consumedValues.size === tc.atom.values.size
+    ) {
+      unreachable = true;
+    }
+  } else if (tc.atom.op === "notIn") {
+    const cover = singleAttr.find((c) =>
+      notInCovers(c.parsed.constraints[0].atom, tc.atom),
+    );
+    if (cover) {
+      unreachable = true;
+      consumed = true;
+      conflicts.push({ consumingRuleId: cover.id, attr: tc.attr, label: null });
+    }
+  } else if (tc.atom.op === "num") {
+    const { unreachable: rangeUnreachable, conflicts: rangeConflicts } =
+      rangeHardConflicts(
+        tc.attr,
+        {
+          lo: tc.atom.lo,
+          loInc: tc.atom.loInc,
+          hi: tc.atom.hi,
+          hiInc: tc.atom.hiInc,
+        },
+        singleAttr,
+        (a, b) => a - b,
+        formatNumRangeLabel,
+        "num",
+      );
+    if (rangeConflicts.length > 0) consumed = true;
+    conflicts.push(...rangeConflicts);
+    if (rangeUnreachable) unreachable = true;
+  } else if (tc.atom.op === "ver") {
+    const { unreachable: rangeUnreachable, conflicts: rangeConflicts } =
+      rangeHardConflicts(
+        tc.attr,
+        {
+          lo: tc.atom.lo,
+          loInc: tc.atom.loInc,
+          hi: tc.atom.hi,
+          hiInc: tc.atom.hiInc,
+        },
+        singleAttr,
+        versionCmp,
+        formatVerRangeLabel,
+        "ver",
+      );
+    if (rangeConflicts.length > 0) consumed = true;
+    conflicts.push(...rangeConflicts);
+    if (rangeUnreachable) unreachable = true;
+  }
+
+  return { unreachable, conflicts, consumed };
+}
+
+// Is the entire population matching `expr` served by the consumers above? Sound
+// (never over-claims): an AND is consumed when *any* child is (its population is
+// a subset of that child's); an OR only when *every* child is; NOT/opaque are
+// never provably consumed.
+function exprFullyConsumed(
+  e: Expr,
+  consumersByAttr: Map<string, Consumer[]>,
+): boolean {
+  switch (e.type) {
+    case "atom":
+      return analyzeConstraint(
+        { attr: e.attr, atom: e.atom },
+        consumersByAttr.get(e.attr) ?? [],
+      ).unreachable;
+    case "and":
+      return e.children.some((c) => exprFullyConsumed(c, consumersByAttr));
+    case "or":
+      return (
+        e.children.length > 0 &&
+        e.children.every((c) => exprFullyConsumed(c, consumersByAttr))
+      );
+    case "not":
+    case "opaque":
+      return false;
+  }
 }
 
 // Does the rule serve any traffic at all? (A 0%-coverage rollout/experiment is
@@ -689,19 +1121,22 @@ function ruleConsumesPartialTraffic(rule: FeatureRule): boolean {
 export function getRuleReachability(
   rules: FeatureRule[],
   experimentsMap: Map<string, ExperimentInterfaceStringDates>,
-  savedGroupAttributes: Map<string, string[]> = new Map(),
+  savedGroups: Map<string, SavedGroupForConflicts> = new Map(),
 ): Map<string, RuleReachability> {
   const result = new Map<string, RuleReachability>();
-  // Active rules seen so far. `fullCoverage` rules can hard-consume traffic; all
-  // of them count toward soft attribute overlap; `partialCatchAll` rules siphon
-  // a share of all traffic regardless of attributes.
-  const rulesAbove: {
-    id: string;
-    parsed: ParsedTargeting;
-    fullCoverage: boolean;
-    partialCatchAll: boolean;
-    consumesTraffic: boolean;
-  }[] = [];
+  // Incremental indices over the active rules seen so far, so each rule's
+  // analysis scales with the rules it actually shares an attribute with rather
+  // than re-scanning every rule above it (which would be O(R²) for R rules):
+  //  - catchAllConsumerId: first full-coverage catch-all rule (consumes everyone)
+  //  - consumersByAttr: full-coverage single-attribute consumers, by attribute —
+  //    the only rules that can precisely hard-consume an atom
+  //  - trafficByAttr: every traffic-serving rule above, by each attribute it
+  //    references — drives soft overlap
+  //  - siphonIds: untargeted partial rollouts/experiments that siphon all traffic
+  let catchAllConsumerId: string | null = null;
+  const consumersByAttr = new Map<string, Consumer[]>();
+  const trafficByAttr = new Map<string, Consumer[]>();
+  const siphonIds: string[] = [];
 
   for (const rule of rules) {
     if (isRuleInactive(rule, experimentsMap)) {
@@ -713,127 +1148,37 @@ export function getRuleReachability(
       continue;
     }
 
-    const target = parseRuleTargeting(rule, savedGroupAttributes);
-    const consumers = rulesAbove.filter((r) => r.fullCoverage);
+    const target = parseRuleTargeting(rule, savedGroups);
 
     let unreachable = false;
     const hardConflicts: RuleHardConflict[] = [];
     const hardAttrs = new Set<string>();
 
     // A catch-all rule above consumes everyone.
-    const catchAll = consumers.find((c) => c.parsed.catchAll);
-    if (catchAll) {
+    if (catchAllConsumerId !== null) {
       unreachable = true;
       hardConflicts.push({
-        consumingRuleId: catchAll.id,
+        consumingRuleId: catchAllConsumerId,
         attr: null,
         label: null,
       });
     } else {
+      // Precise per-attribute conflicts from the flat top-level AND of atoms.
       for (const tc of target.constraints) {
-        const singleAttr = consumers.filter(
-          (c) =>
-            isReliableSingleAttr(c.parsed) &&
-            c.parsed.constraints[0].attr === tc.attr,
-        );
+        const {
+          unreachable: u,
+          conflicts,
+          consumed,
+        } = analyzeConstraint(tc, consumersByAttr.get(tc.attr) ?? []);
+        if (consumed) hardAttrs.add(tc.attr);
+        hardConflicts.push(...conflicts);
+        if (u) unreachable = true;
+      }
 
-        // Concrete values worth naming: the values the target lists, plus the
-        // values single-attribute rules above list. The latter lets us name the
-        // slice a rule above carves out of an open-ended target — e.g. a
-        // `browser = chrome` force above consumes the chrome users a
-        // `browser != firefox` rule wanted.
-        const candidates = new Set<string>();
-        if (tc.atom.op === "in")
-          tc.atom.values.forEach((v) => candidates.add(v));
-        for (const c of singleAttr) {
-          const a = c.parsed.constraints[0].atom;
-          if (a.op === "in") a.values.forEach((v) => candidates.add(v));
-        }
-
-        // A candidate value is consumed when the target targets it AND a single-
-        // attribute rule above also matches it.
-        const consumedByRule = new Map<string, Set<string>>();
-        const consumedValues = new Set<string>();
-        for (const v of candidates) {
-          if (!atomMatchesValue(tc.atom, v)) continue;
-          const c = singleAttr.find((c) =>
-            atomMatchesValue(c.parsed.constraints[0].atom, v),
-          );
-          if (c) {
-            consumedValues.add(v);
-            const set = consumedByRule.get(c.id) ?? new Set<string>();
-            set.add(v);
-            consumedByRule.set(c.id, set);
-          }
-        }
-        if (consumedValues.size > 0) hardAttrs.add(tc.attr);
-        for (const [id, values] of consumedByRule) {
-          hardConflicts.push({
-            consumingRuleId: id,
-            attr: tc.attr,
-            label: [...values].join(", "),
-          });
-        }
-
-        // Fully unreachable when every listed value is consumed (in-list), or
-        // when a rule above covers an open-ended (not-in) or range target.
-        if (tc.atom.op === "in") {
-          if (
-            tc.atom.values.size > 0 &&
-            consumedValues.size === tc.atom.values.size
-          ) {
-            unreachable = true;
-          }
-        } else if (tc.atom.op === "notIn") {
-          const cover = singleAttr.find((c) =>
-            notInCovers(c.parsed.constraints[0].atom, tc.atom),
-          );
-          if (cover) {
-            unreachable = true;
-            hardAttrs.add(tc.attr);
-            hardConflicts.push({
-              consumingRuleId: cover.id,
-              attr: tc.attr,
-              label: null,
-            });
-          }
-        } else if (tc.atom.op === "num") {
-          const { unreachable: rangeUnreachable, conflicts } =
-            rangeHardConflicts(
-              tc.attr,
-              {
-                lo: tc.atom.lo,
-                loInc: tc.atom.loInc,
-                hi: tc.atom.hi,
-                hiInc: tc.atom.hiInc,
-              },
-              singleAttr,
-              (a, b) => a - b,
-              formatNumRangeLabel,
-              "num",
-            );
-          if (conflicts.length > 0) hardAttrs.add(tc.attr);
-          hardConflicts.push(...conflicts);
-          if (rangeUnreachable) unreachable = true;
-        } else if (tc.atom.op === "ver") {
-          const { unreachable: rangeUnreachable, conflicts } =
-            rangeHardConflicts(
-              tc.attr,
-              {
-                lo: tc.atom.lo,
-                loInc: tc.atom.loInc,
-                hi: tc.atom.hi,
-                hiInc: tc.atom.hiInc,
-              },
-              singleAttr,
-              versionCmp,
-              formatVerRangeLabel,
-              "ver",
-            );
-          if (conflicts.length > 0) hardAttrs.add(tc.attr);
-          hardConflicts.push(...conflicts);
-          if (rangeUnreachable) unreachable = true;
-        }
+      // Reachability for shapes the flat AND can't express — an OR across saved
+      // groups, a negated group, … — by walking the full boolean tree.
+      if (!unreachable && exprFullyConsumed(target.expr, consumersByAttr)) {
+        unreachable = true;
       }
     }
 
@@ -853,9 +1198,9 @@ export function getRuleReachability(
         const targetAtom = target.constraints.find(
           (c) => c.attr === attr,
         )?.atom;
-        for (const r of rulesAbove) {
-          if (!r.consumesTraffic) continue;
-          if (!r.parsed.attributes.has(attr)) continue;
+        // Only traffic-serving rules above that also reference this attribute
+        // can overlap — every other rule is irrelevant, so we never scan them.
+        for (const r of trafficByAttr.get(attr) ?? []) {
           const consumerOpaque = !r.parsed.modeledAttrs.has(attr);
           // Can't prove this rule above leaves our targeted users alone?
           let overlaps = targetOpaque || consumerOpaque;
@@ -866,17 +1211,10 @@ export function getRuleReachability(
             overlaps =
               !!consumerAtom && !provablyDisjoint(targetAtom, consumerAtom);
           }
-          if (overlaps) {
-            const ids = softByAttr.get(attr) ?? [];
-            if (!ids.includes(r.id)) ids.push(r.id);
-            softByAttr.set(attr, ids);
-          }
+          if (overlaps) pushToBucket(softByAttr, attr, r.id);
         }
       }
-      const siphons = rulesAbove
-        .filter((r) => r.partialCatchAll)
-        .map((r) => r.id);
-      if (siphons.length > 0) softByAttr.set(null, siphons);
+      if (siphonIds.length > 0) softByAttr.set(null, [...siphonIds]);
     }
     const softConflicts: RuleSoftConflict[] = [...softByAttr.entries()].map(
       ([attr, consumingRuleIds]) => ({ attr, consumingRuleIds }),
@@ -884,13 +1222,25 @@ export function getRuleReachability(
 
     result.set(rule.id, { unreachable, hardConflicts, softConflicts });
 
-    rulesAbove.push({
-      id: rule.id,
-      parsed: target,
-      fullCoverage: ruleConsumesAllMatched(rule, experimentsMap),
-      partialCatchAll: target.catchAll && ruleConsumesPartialTraffic(rule),
-      consumesTraffic: ruleConsumesTraffic(rule, experimentsMap),
-    });
+    // Fold this rule into the indices for the rules below it. `fullCoverage`
+    // rules can hard-consume traffic; every traffic-serving rule counts toward
+    // soft attribute overlap; untargeted partial rollouts siphon all traffic.
+    const consumer: Consumer = { id: rule.id, parsed: target };
+    if (ruleConsumesAllMatched(rule, experimentsMap)) {
+      if (target.catchAll) {
+        if (catchAllConsumerId === null) catchAllConsumerId = rule.id;
+      } else if (isReliableSingleAttr(target)) {
+        pushToBucket(consumersByAttr, target.constraints[0].attr, consumer);
+      }
+    }
+    if (ruleConsumesTraffic(rule, experimentsMap)) {
+      for (const attr of target.attributes) {
+        pushToBucket(trafficByAttr, attr, consumer);
+      }
+    }
+    if (target.catchAll && ruleConsumesPartialTraffic(rule)) {
+      siphonIds.push(rule.id);
+    }
   }
 
   return result;

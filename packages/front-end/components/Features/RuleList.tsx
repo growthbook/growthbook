@@ -28,7 +28,7 @@ import {
   MinimalFeatureRevisionInterface,
 } from "shared/types/feature-revision";
 import { Environment } from "shared/types/organization";
-import { ruleFootprint, extractConditionAttributeKeys } from "shared/util";
+import { ruleFootprint } from "shared/util";
 import { buildRuleRampScheduleMap } from "@/services/rampScheduleHelpers";
 import { useAuth } from "@/services/auth";
 import { getRules, isRuleInactive } from "@/services/features";
@@ -36,6 +36,7 @@ import {
   getRuleReachability,
   RuleConflictInfo,
   RuleReachability,
+  SavedGroupForConflicts,
 } from "@/services/rule-conflicts";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -112,23 +113,77 @@ export default function RuleList(props: RuleListProps) {
   const { savedGroups } = useDefinitions();
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  // The attribute(s) each saved group targets, so conflict detection can spot
-  // soft overlap when a rule targets a group on an attribute another rule uses.
-  const savedGroupAttributes = useMemo<Map<string, string[]>>(() => {
-    const map = new Map<string, string[]>();
+  // Saved group definitions for conflict detection. Condition groups carry
+  // their `condition` in the definitions payload, but ID-list `values` are
+  // stripped from it (for size), so we fetch those lazily below. Until they
+  // arrive, a list group is opaque — conflict detection still surfaces soft
+  // overlap on its attribute, then upgrades to precise conflicts once values
+  // load and this map (and the memos below) recompute.
+  const savedGroupDefs = useMemo<Map<string, SavedGroupForConflicts>>(() => {
+    const map = new Map<string, SavedGroupForConflicts>();
     for (const g of savedGroups) {
-      if (g.attributeKey) {
-        map.set(g.id, [g.attributeKey]); // list-type group
-      } else if (g.condition) {
-        try {
-          map.set(g.id, extractConditionAttributeKeys(JSON.parse(g.condition)));
-        } catch {
-          map.set(g.id, []);
-        }
-      }
+      map.set(g.id, {
+        type: g.type,
+        attributeKey: g.attributeKey,
+        condition: g.condition,
+      });
     }
     return map;
   }, [savedGroups]);
+
+  // ID-list saved group ids referenced by this feature's rules (any env).
+  const referencedListGroupIds = useMemo<string[]>(() => {
+    const ids = new Set<string>();
+    for (const r of feature.rules ?? []) {
+      for (const sg of r.savedGroups ?? []) {
+        for (const id of sg.ids) {
+          if (savedGroupDefs.get(id)?.type === "list") ids.add(id);
+        }
+      }
+    }
+    return [...ids];
+  }, [feature.rules, savedGroupDefs]);
+
+  // Lazily-fetched ID-list values, keyed by saved group id.
+  const [listGroupValues, setListGroupValues] = useState<Map<string, string[]>>(
+    new Map(),
+  );
+
+  useEffect(() => {
+    const toFetch = referencedListGroupIds.filter(
+      (id) => !listGroupValues.has(id),
+    );
+    if (!toFetch.length) return;
+    let cancelled = false;
+    Promise.all(
+      toFetch.map((id) =>
+        apiCall<{ savedGroup?: { values?: string[] } }>(`/saved-groups/${id}`)
+          .then((res) => ({ id, values: res.savedGroup?.values ?? [] }))
+          .catch(() => ({ id, values: [] as string[] })),
+      ),
+    ).then((results) => {
+      if (cancelled) return;
+      setListGroupValues((prev) => {
+        const next = new Map(prev);
+        for (const { id, values } of results) next.set(id, values);
+        return next;
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [referencedListGroupIds, listGroupValues, apiCall]);
+
+  const savedGroupConflictMap = useMemo<
+    Map<string, SavedGroupForConflicts>
+  >(() => {
+    const map = new Map<string, SavedGroupForConflicts>();
+    for (const [id, def] of savedGroupDefs) {
+      const values = listGroupValues.get(id);
+      map.set(id, values ? { ...def, values } : def);
+    }
+    return map;
+  }, [savedGroupDefs, listGroupValues]);
 
   // allEnvsView: flat feature.rules narrowed by hiddenRuleIds.
   // single-env: project via getRules to honor env applicability + inheritance.
@@ -177,8 +232,8 @@ export default function RuleList(props: RuleListProps) {
     () =>
       allEnvsView
         ? new Map()
-        : getRuleReachability(items, experimentsMap, savedGroupAttributes),
-    [allEnvsView, items, experimentsMap, savedGroupAttributes],
+        : getRuleReachability(items, experimentsMap, savedGroupConflictMap),
+    [allEnvsView, items, experimentsMap, savedGroupConflictMap],
   );
 
   const reachByEnv = useMemo<Map<string, Map<string, RuleReachability>>>(() => {
@@ -190,7 +245,7 @@ export default function RuleList(props: RuleListProps) {
         getRuleReachability(
           getRules(feature, e.id),
           experimentsMap,
-          savedGroupAttributes,
+          savedGroupConflictMap,
         ),
       );
     }
@@ -200,7 +255,7 @@ export default function RuleList(props: RuleListProps) {
     feature,
     experimentsMap,
     props.environments,
-    savedGroupAttributes,
+    savedGroupConflictMap,
   ]);
 
   const unreachableRuleIds = useMemo<Set<string>>(() => {
