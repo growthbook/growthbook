@@ -638,6 +638,7 @@ export default function RequestReviewModal({
                       <PreLaunchChecklistForDraftFeature
                         experiment={experiment}
                         feature={feature}
+                        draftRevision={revision}
                         mutateExperiment={mutate}
                         onReady={(failed, loading) =>
                           handleChecklistReady(experiment.id, failed, loading)

@@ -572,6 +572,7 @@ export default function DraftModal({
                   <PreLaunchChecklistForDraftFeature
                     experiment={experiment}
                     feature={feature}
+                    draftRevision={revision}
                     mutateExperiment={mutate}
                   />
                 </Box>

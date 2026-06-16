@@ -2,7 +2,12 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
-import { FeatureInterface } from "shared/types/feature";
+import {
+  ExperimentRefRule,
+  ExperimentRefVariation,
+  FeatureInterface,
+} from "shared/types/feature";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FaCheck } from "react-icons/fa";
 import { PiCaretDown, PiCaretUp } from "react-icons/pi";
@@ -235,11 +240,13 @@ function PreLaunchChecklistFeatureExpRule({
 export function PreLaunchChecklistForDraftFeature({
   experiment,
   feature,
+  draftRevision,
   mutateExperiment,
   onReady,
 }: {
   experiment: ExperimentInterfaceStringDates;
   feature: FeatureInterface;
+  draftRevision?: FeatureRevisionInterface;
   mutateExperiment: () => unknown | Promise<unknown>;
   onReady?: (failedRequired: boolean, loading: boolean) => void;
 }) {
@@ -256,19 +263,31 @@ export function PreLaunchChecklistForDraftFeature({
     (c) => !c.projects.length || c.projects.includes(experiment.project || ""),
   );
 
+  // The synthetic feature stands in for the feature being published, so its
+  // variation values come from the draft revision's experiment-ref rule rather
+  // than the live feature. Otherwise the "Fill in missing variation values"
+  // check would always fail (empty values look like every variation is missing).
+  const draftValues: ExperimentRefVariation[] = useMemo(() => {
+    const match = draftRevision?.rules?.find(
+      (rule): rule is ExperimentRefRule =>
+        rule.type === "experiment-ref" && rule.experimentId === experiment.id,
+    );
+    return match?.variations ?? [];
+  }, [draftRevision, experiment.id]);
+
   // Synthetic entry for the current feature: treat as "live" so the checklist
   // passes the "Add at least one linked change" item.
   const syntheticLinkedFeature: LinkedFeatureInfo = useMemo(
     () => ({
       feature,
       state: "live",
-      values: [],
+      values: draftValues,
       valuesFrom: "",
       inconsistentValues: false,
       rulesAbove: false,
       environmentStates: {},
     }),
-    [feature],
+    [feature, draftValues],
   );
 
   const linkedFeatures: LinkedFeatureInfo[] = useMemo(() => {
