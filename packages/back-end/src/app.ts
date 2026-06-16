@@ -189,9 +189,10 @@ if (stringToBoolean(process.env.PYTHON_SERVER_MODE)) {
           /^Bearer\s+/i,
           "",
         );
-        const a = Buffer.from(provided);
-        const b = Buffer.from(expected);
-        if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+        // Hash both to fixed-length digests so the compare leaks no length info
+        const hash = (s: string) =>
+          crypto.createHash("sha256").update(s).digest();
+        if (!crypto.timingSafeEqual(hash(provided), hash(expected))) {
           return res.status(401).json({ error: "Unauthorized" });
         }
       }
