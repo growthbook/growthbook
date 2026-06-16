@@ -284,7 +284,7 @@ export function getDefaultExperimentAnalysisSettingsForSafeRollout(
   };
 }
 
-function getSafeRolloutSnapshotSettings({
+export function getSafeRolloutSnapshotSettings({
   safeRollout,
   trackingKey,
   settings,
@@ -366,10 +366,26 @@ function getSafeRolloutSnapshotSettings({
     defaultMetricPriorSettings: defaultPriorSettings,
     exposureQueryId: safeRollout.exposureQueryId,
     metricSettings,
-    variations: [
-      { id: "0", weight: 0.5 },
-      { id: "1", weight: 0.5 },
-    ],
+    // SDK-emitted variation_id mapping depends on the safe rollout's mode:
+    //   v1 (rule.type === "safe-rollout"):
+    //     "0" = controlValue (baseline), "1" = variationValue (treatment)
+    //   v2 (monitored rollout rule, signalled by safeRollout.rampScheduleId):
+    //     "0" = rule.value (the new rollout value, treatment)
+    //     "1" = defaultValue passthrough (the baseline arm)
+    // The analysis pipeline universally treats `variations[0]` as the
+    // baseline (computeResultsStatus, /status endpoint, results UI). Place
+    // the warehouse id for the baseline arm first here so positional indexing
+    // downstream lines up with semantic roles for both v1 and v2 without any
+    // further special-casing.
+    variations: safeRollout.rampScheduleId
+      ? [
+          { id: "1", weight: 0.5 },
+          { id: "0", weight: 0.5 },
+        ]
+      : [
+          { id: "0", weight: 0.5 },
+          { id: "1", weight: 0.5 },
+        ],
     coverage: 1, //hardcoded for now
   };
 }

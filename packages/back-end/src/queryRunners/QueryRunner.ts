@@ -25,6 +25,10 @@ import { logger } from "back-end/src/util/logger";
 import { promiseAllChunks } from "back-end/src/util/promise";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
+import {
+  ExperimentUpdateExecutionLogger,
+  ExperimentUpdateTimingPhase,
+} from "back-end/src/services/experimentUpdateExecutionLogger";
 
 export type QueryMap = Map<string, QueryInterface>;
 
@@ -75,6 +79,24 @@ const FINISH_EVENT = "finish";
 // Wait is doubled on subsequent retries, capped at the maximum
 const INITIAL_CONCURRENCY_TIMEOUT = 250;
 const MAX_CONCURRENCY_TIMEOUT = 4000;
+
+const GENERIC_QUERY_FAILURE_ERROR =
+  "Failed to run a majority of the database queries";
+
+// Pick the most useful error to surface for a failed runner. Prefer a real
+// failing query's error (e.g. the warehouse's invalid-SQL message) over the
+// "Dependencies failed: ..." cascade messages the runner writes onto queries
+// whose upstream failed, and fall back to a generic message when no query
+// carries a usable error.
+export function getQueryFailureError(queryMap: QueryMap): string {
+  const failed = Array.from(queryMap.values()).filter(
+    (q) => q.status === "failed" && q.error,
+  );
+  const rootCause = failed.find(
+    (q) => !q.error?.startsWith("Dependencies failed"),
+  );
+  return (rootCause ?? failed[0])?.error || GENERIC_QUERY_FAILURE_ERROR;
+}
 
 export async function getQueryMap(
   context: ReqContext,
@@ -135,6 +157,8 @@ export abstract class QueryRunner<
   private pendingTimers: Record<string, NodeJS.Timeout> = {};
   private lockHeartbeatTimer: null | NodeJS.Timeout = null;
   private finishedQueryMapCache: QueryMap = new Map();
+  protected experimentUpdateExecutionLogger: ExperimentUpdateExecutionLogger | null =
+    null;
 
   public constructor(
     context: ReqContext | ApiReqContext,
@@ -280,12 +304,32 @@ export abstract class QueryRunner<
     return getQueryMap(this.context, pointers, this.finishedQueryMapCache);
   }
 
+  setExperimentUpdateExecutionLogger(
+    logger: ExperimentUpdateExecutionLogger | null,
+  ): void {
+    this.experimentUpdateExecutionLogger = logger;
+  }
+
+  withExperimentUpdateTiming<T>(
+    phase: ExperimentUpdateTimingPhase,
+    fn: () => Promise<T> | T,
+  ): Promise<T> | T {
+    if (!this.experimentUpdateExecutionLogger) {
+      return fn();
+    }
+    return this.experimentUpdateExecutionLogger.withTiming(phase, fn);
+  }
+
   public async startAnalysis(params: Params): Promise<Model> {
     logger.debug(this.model.id + " runner: Starting queries");
-    const queries = await this.startQueries(params);
+    const queries = await this.withExperimentUpdateTiming("generateSql", () =>
+      this.startQueries(params),
+    );
+    this.experimentUpdateExecutionLogger?.startPhase("runQueries");
     this.model.queries = queries;
 
     if (queries.length === 0) {
+      this.experimentUpdateExecutionLogger?.endPhase("runQueries");
       const noQueriesError = "No queries were generated for this analysis";
       logger.debug(this.model.id + " runner: " + noQueriesError);
       const newModel = await this.updateModel({
@@ -308,19 +352,23 @@ export abstract class QueryRunner<
       logger.debug(this.model.id + " runner: Query already succeeded (cached)");
       const queryMap = await this.getQueryMap(queries);
       try {
-        result = await this.runAnalysis(queryMap);
+        this.experimentUpdateExecutionLogger?.endPhase("runQueries");
+        result = await this.withExperimentUpdateTiming("analyze", () =>
+          this.runAnalysis(queryMap),
+        );
         logger.debug(this.model.id + " runner: Ran analysis successfully");
       } catch (e) {
         logger.error(e, this.model.id + " runner: Error running analysis");
         error = "Error running analysis: " + e.message;
       }
     } else if (queryStatus === "failed") {
+      this.experimentUpdateExecutionLogger?.endPhase("runQueries");
       logger.debug(this.model.id + " runner: Query failed immediately");
       error = "Error running one or more database queries";
     }
 
     const newModel = await this.updateModel({
-      status: queryStatus,
+      status: error ? "failed" : queryStatus,
       queries,
       runStarted: new Date(),
       result: result,
@@ -539,27 +587,28 @@ export abstract class QueryRunner<
     let error: string | undefined = undefined;
     let result: Result | undefined = undefined;
 
-    if (oldStatus === "running" && newStatus === "failed") {
-      error = "Failed to run a majority of the database queries";
+    if (newStatus === "failed") {
+      error = getQueryFailureError(queryMap);
 
-      // If there's just a single query, use the error from the query itself
-      if (queryMap.size === 1) {
-        const query = Array.from(queryMap.values())[0];
-        error = query.error || error;
+      if (oldStatus === "running") {
+        this.experimentUpdateExecutionLogger?.endPhase("runQueries");
+
+        logger.debug(
+          "Query failed for " +
+            this.model.id +
+            " runner, transitioning to error state",
+        );
       }
-
-      logger.debug(
-        "Query failed for " +
-          this.model.id +
-          " runner, transitioning to error state",
-      );
     }
     if (
       oldStatus === "running" &&
       (newStatus === "succeeded" || newStatus === "partially-succeeded")
     ) {
       try {
-        result = await this.runAnalysis(queryMap);
+        this.experimentUpdateExecutionLogger?.endPhase("runQueries");
+        result = await this.withExperimentUpdateTiming("analyze", () =>
+          this.runAnalysis(queryMap),
+        );
         logger.debug(`Queries ${newStatus}, ran analysis successfully`);
       } catch (e) {
         error = "Error running analysis: " + e.message;
@@ -568,7 +617,7 @@ export abstract class QueryRunner<
     }
 
     const newModel = await this.updateModel({
-      status: newStatus,
+      status: error ? "failed" : newStatus,
       queries: this.model.queries,
       result,
       error,
@@ -997,7 +1046,7 @@ export abstract class QueryRunner<
     return numRunningQueries >= numericConcurrencyLimit;
   }
 
-  private getOverallQueryStatus(): QueryStatus {
+  protected getOverallQueryStatus(): QueryStatus {
     const failedQueries = this.model.queries.filter(
       (q) => q.status === "failed",
     );

@@ -9,10 +9,10 @@ import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import RevisionLabel, {
   revisionLabelText,
-} from "@/components/Features/RevisionLabel";
+} from "@/components/Reviews/RevisionLabel";
 import RevisionStatusBadge, {
   isRampGenerated,
-} from "@/components/Features/RevisionStatusBadge";
+} from "@/components/Reviews/RevisionStatusBadge";
 import {
   DropdownMenu,
   DropdownMenuItem,

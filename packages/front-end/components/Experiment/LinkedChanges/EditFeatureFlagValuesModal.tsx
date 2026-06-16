@@ -51,6 +51,7 @@ import {
 import Link from "@/ui/Link";
 import { getDefaultVariationValue } from "@/services/features";
 import Button from "@/ui/Button";
+import track from "@/services/track";
 
 export interface Props {
   feature: FeatureInterface;
@@ -244,6 +245,29 @@ export default function EditFeatureFlagValuesModal({
     setSelectedDraft(initialSelectedDraft);
   }, [data, initialMode, initialSelectedDraft]);
 
+  const handleSetMode = (newMode: DraftMode) => {
+    if (newMode !== mode) {
+      track("Edit Feature Flag Values: Draft Mode Change", {
+        fromMode: mode,
+        toMode: newMode,
+        valueType: feature.valueType,
+        eligibleDraftCount: eligibleDraftVersions.size,
+      });
+    }
+    setMode(newMode);
+  };
+
+  const handleSetSelectedDraft = (v: number | null) => {
+    if (v !== selectedDraft) {
+      track("Edit Feature Flag Values: Selected Draft Revision Change", {
+        changedFromInitial: v !== initialSelectedDraft,
+        valueType: feature.valueType,
+        eligibleDraftCount: eligibleDraftVersions.size,
+      });
+    }
+    setSelectedDraft(v);
+  };
+
   const watchedVariations = form.watch("variations");
 
   const weights = (watchedVariations ?? []).map((v) => Number(v?.weight) || 0);
@@ -276,6 +300,11 @@ export default function EditFeatureFlagValuesModal({
       currentWeights.length > 0 &&
       currentWeights.every((w) => Math.abs(w - currentWeights[0]) < 0.0001);
 
+    track("Edit Feature Flag Values: Remove Variation", {
+      valueType: feature.valueType,
+      variationCountBefore: fields.length,
+    });
+
     remove(i);
 
     const remainingWeights = currentWeights.filter((_, j) => j !== i);
@@ -294,6 +323,11 @@ export default function EditFeatureFlagValuesModal({
     const wasEqualWeights =
       currentWeights.length > 0 &&
       currentWeights.every((w) => Math.abs(w - currentWeights[0]) < 0.0001);
+
+    track("Edit Feature Flag Values: Add Variation", {
+      valueType: feature.valueType,
+      variationCountBefore: fields.length,
+    });
 
     append({
       id: generateVariationId(),
@@ -327,9 +361,9 @@ export default function EditFeatureFlagValuesModal({
           feature={feature}
           revisionList={revisionList}
           mode={mode}
-          setMode={setMode}
+          setMode={handleSetMode}
           selectedDraft={selectedDraft}
-          setSelectedDraft={setSelectedDraft}
+          setSelectedDraft={handleSetSelectedDraft}
           canAutoPublish={false}
           gatedEnvSet={gatedEnvSet}
           locked={ruleOnlyOnDraft}
@@ -401,6 +435,15 @@ export default function EditFeatureFlagValuesModal({
             }),
           },
         );
+
+        track("Edit Feature Flag Values: Save", {
+          draftMode: mode,
+          valueType: feature.valueType,
+          numVariations: rows.length,
+          hasNewVariations: rows.some((r) => !existingVariationIds.has(r.id)),
+          eligibleDraftCount: eligibleDraftVersions.size,
+          dropdownLocked: ruleOnlyOnDraft,
+        });
 
         await mutate();
       })}
@@ -576,6 +619,12 @@ export default function EditFeatureFlagValuesModal({
                     >
                       <DropdownMenuItem
                         onClick={() => {
+                          track(
+                            "Edit Feature Flag Values: Enter Edit Variation Mode",
+                            {
+                              valueType: feature.valueType,
+                            },
+                          );
                           setIsEditingVariations(true);
                         }}
                       >

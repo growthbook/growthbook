@@ -9,12 +9,18 @@ import {
 } from "shared/types/fact-table";
 import { ExposureQuery } from "shared/types/datasource";
 import { SqlDialect } from "shared/types/sql";
+import { getRowFilterSQL } from "shared/experiments";
 import BigQuery from "back-end/src/integrations/BigQuery";
 import Snowflake from "back-end/src/integrations/Snowflake";
 import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
 import { mysqlDialect } from "back-end/src/integrations/dialects/mysql";
 import { clickHouseDialect } from "back-end/src/integrations/dialects/clickhouse";
 import { snowflakeDialect } from "back-end/src/integrations/dialects/snowflake";
+import { redshiftDialect } from "back-end/src/integrations/dialects/redshift";
+import { databricksDialect } from "back-end/src/integrations/dialects/databricks";
+import { mssqlDialect } from "back-end/src/integrations/dialects/mssql";
+import { postgresDialect } from "back-end/src/integrations/dialects/postgres";
+import { verticaDialect } from "back-end/src/integrations/dialects/vertica";
 import { addCaseWhenTimeFilter } from "back-end/src/integrations/sql/clauses/add-case-when-time-filter";
 import { getAggregateMetricColumnLegacyMetrics } from "back-end/src/integrations/sql/columns/aggregate-metric-column-legacy-metrics";
 import { getMaxHoursToConvert } from "back-end/src/integrations/sql/dates/max-hours-to-convert";
@@ -271,6 +277,115 @@ describe("bigquery integration", () => {
     expect(snowflakeDialect.escapeStringLiteral(`test\\'string`)).toEqual(
       `test\\\\''string`,
     );
+  });
+
+  it("escapes backslash and single quotes for Redshift", () => {
+    expect(redshiftDialect.escapeStringLiteral(`test\\'string`)).toEqual(
+      `test\\\\''string`,
+    );
+  });
+
+  describe("LIKE row filters with real dialects", () => {
+    const factTable = factTableFactory.build({
+      columns: [
+        {
+          column: "event_name",
+          datatype: "string",
+          dateCreated: new Date(),
+          dateUpdated: new Date(),
+          description: "",
+          numberFormat: "",
+          name: "Event Name",
+          deleted: false,
+        },
+      ],
+    });
+
+    const likeSQL = (dialect: SqlDialect, value: string) =>
+      getRowFilterSQL({
+        factTable,
+        rowFilter: {
+          column: "event_name",
+          operator: "starts_with",
+          values: [value],
+        },
+        escapeStringLiteral: dialect.escapeStringLiteral,
+        jsonExtract: dialect.jsonExtract,
+        evalBoolean: dialect.evalBoolean,
+        stringMatch: dialect.stringMatch,
+      });
+
+    it("emits a valid BigQuery pattern with no ESCAPE clause", () => {
+      expect(likeSQL(bigQueryDialect, "foo_bar")).toEqual(
+        String.raw`(event_name LIKE 'foo\\_bar%')`,
+      );
+    });
+
+    it("emits a valid ClickHouse pattern with no ESCAPE clause", () => {
+      expect(likeSQL(clickHouseDialect, "foo_bar")).toEqual(
+        String.raw`(event_name LIKE 'foo\\_bar%')`,
+      );
+    });
+
+    it("emits a Snowflake pattern with a doubled-backslash ESCAPE clause", () => {
+      expect(likeSQL(snowflakeDialect, "foo_bar")).toEqual(
+        String.raw`(event_name LIKE 'foo\\_bar%' ESCAPE '\\')`,
+      );
+    });
+
+    it("emits a Redshift pattern with a doubled-backslash ESCAPE clause", () => {
+      expect(likeSQL(redshiftDialect, "foo_bar")).toEqual(
+        String.raw`(event_name LIKE 'foo\\_bar%' ESCAPE '\\')`,
+      );
+    });
+
+    it("matches a literal backslash on Redshift", () => {
+      expect(likeSQL(redshiftDialect, String.raw`a\b`)).toEqual(
+        String.raw`(event_name LIKE 'a\\\\b%' ESCAPE '\\')`,
+      );
+    });
+
+    it("emits a valid MySQL pattern with no ESCAPE clause", () => {
+      expect(likeSQL(mysqlDialect, "foo_bar")).toEqual(
+        String.raw`(event_name LIKE 'foo\\_bar%')`,
+      );
+    });
+
+    it("emits a valid Databricks pattern with no ESCAPE clause", () => {
+      expect(likeSQL(databricksDialect, "foo_bar")).toEqual(
+        String.raw`(event_name LIKE 'foo\\_bar%')`,
+      );
+    });
+
+    it("emits a valid Postgres pattern with no ESCAPE clause", () => {
+      expect(likeSQL(postgresDialect, "foo_bar")).toEqual(
+        String.raw`(event_name LIKE 'foo\_bar%')`,
+      );
+    });
+
+    it("emits a valid Vertica pattern with no ESCAPE clause", () => {
+      expect(likeSQL(verticaDialect, "foo_bar")).toEqual(
+        String.raw`(event_name LIKE 'foo\_bar%')`,
+      );
+    });
+
+    it("brackets wildcards for SQL Server instead of an ESCAPE clause", () => {
+      expect(likeSQL(mssqlDialect, "foo_bar")).toEqual(
+        `(event_name LIKE 'foo[_]bar%')`,
+      );
+    });
+
+    it("brackets the [ metacharacter for SQL Server", () => {
+      expect(likeSQL(mssqlDialect, "a[b")).toEqual(
+        `(event_name LIKE 'a[[]b%')`,
+      );
+    });
+
+    it("leaves ] bare for SQL Server", () => {
+      expect(likeSQL(mssqlDialect, "a]b[c")).toEqual(
+        `(event_name LIKE 'a]b[[]c%')`,
+      );
+    });
   });
 
   function trimLeadingWhitespace(str: string) {
@@ -1603,7 +1718,7 @@ describe("quantile grid array packing is BigQuery-only", () => {
 
 describe("getFeatureEvalDiagnosticsQuery", () => {
   beforeEach(() => {
-    jest.useFakeTimers("modern");
+    jest.useFakeTimers();
     jest.setSystemTime(new Date("2025-03-24T12:00:00.000Z"));
   });
 

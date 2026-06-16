@@ -18,6 +18,7 @@ import { ExperimentInterface } from "shared/types/experiment";
 import { DataSourceInterface } from "shared/types/datasource";
 import { FeatureInterface } from "shared/types/feature";
 import { UserInterface } from "shared/types/user";
+import { stringToBoolean } from "shared/util";
 import {
   BadRequestError,
   UnauthorizedError,
@@ -50,6 +51,8 @@ import { ExperimentTemplatesModel } from "back-end/src/models/ExperimentTemplate
 import { SafeRolloutModel } from "back-end/src/models/SafeRolloutModel";
 import { SafeRolloutSnapshotModel } from "back-end/src/models/SafeRolloutSnapshotModel";
 import { IncrementalRefreshModel } from "back-end/src/models/IncrementalRefreshModel";
+import { AggregatedFactTableModel } from "back-end/src/models/AggregatedFactTableModel";
+import { AggregatedFactTableRunModel } from "back-end/src/models/AggregatedFactTableRunModel";
 import { DecisionCriteriaModel } from "back-end/src/enterprise/models/DecisionCriteriaModel";
 import { MetricTimeSeriesModel } from "back-end/src/models/MetricTimeSeriesModel";
 import { WebhookSecretDataModel } from "back-end/src/models/WebhookSecretModel";
@@ -72,6 +75,7 @@ import { TeamModel } from "back-end/src/models/TeamModel";
 import { AnalyticsExplorationModel } from "back-end/src/models/AnalyticsExplorationModel";
 import { RevisionModel } from "back-end/src/models/RevisionModel";
 import { AIConversationModel } from "back-end/src/models/AIConversationModel";
+import { EventForwarderConfigModel } from "back-end/src/models/EventForwarderConfigModel";
 import { PresentationThemeModel } from "back-end/src/models/PresentationThemeModel";
 import { WatchModel } from "back-end/src/models/WatchModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
@@ -109,6 +113,8 @@ export type ModelName =
   | "dashboards"
   | "customHooks"
   | "incrementalRefresh"
+  | "aggregatedFactTables"
+  | "aggregatedFactTableRuns"
   | "experimentSnapshotAnalysisChunks"
   | "sqlResultChunks"
   | "sdkConnectionCache"
@@ -123,7 +129,8 @@ export type ModelName =
   | "rampSchedules"
   | "rampScheduleTemplates"
   | "aiConversations"
-  | "sessionReplays";
+  | "sessionReplays"
+  | "eventForwarderConfigs";
 
 export const modelClasses = {
   agreements: AgreementModel,
@@ -149,6 +156,8 @@ export const modelClasses = {
   dashboards: DashboardModel,
   customHooks: CustomHookModel,
   incrementalRefresh: IncrementalRefreshModel,
+  aggregatedFactTables: AggregatedFactTableModel,
+  aggregatedFactTableRuns: AggregatedFactTableRunModel,
   experimentSnapshotAnalysisChunks: ExperimentSnapshotAnalysisChunkModel,
   sqlResultChunks: SqlResultChunkModel,
   sdkConnectionCache: SdkConnectionCacheModel,
@@ -164,6 +173,7 @@ export const modelClasses = {
   rampScheduleTemplates: RampScheduleTemplateModel,
   aiConversations: AIConversationModel,
   sessionReplays: SessionReplayModel,
+  eventForwarderConfigs: EventForwarderConfigModel,
 };
 // ModelClass narrows to only BaseModel-derived model constructors (those
 // expose a static `getModelConfig`). Non-BaseModel context models — e.g.
@@ -206,6 +216,8 @@ export class ReqContextClass {
       dashboards: new DashboardModel(this),
       customHooks: new CustomHookModel(this),
       incrementalRefresh: new IncrementalRefreshModel(this),
+      aggregatedFactTables: new AggregatedFactTableModel(this),
+      aggregatedFactTableRuns: new AggregatedFactTableRunModel(this),
       experimentSnapshotAnalysisChunks:
         new ExperimentSnapshotAnalysisChunkModel(this),
       sqlResultChunks: new SqlResultChunkModel(this),
@@ -222,6 +234,7 @@ export class ReqContextClass {
       rampScheduleTemplates: new RampScheduleTemplateModel(this),
       aiConversations: new AIConversationModel(this),
       sessionReplays: new SessionReplayModel(this),
+      eventForwarderConfigs: new EventForwarderConfigModel(this),
     };
   }
 
@@ -313,6 +326,14 @@ export class ReqContextClass {
     this.permissions = new Permissions(this.userPermissions);
 
     this.initModels();
+  }
+
+  // True to skip soft warnings; background jobs (no req) always ignore.
+  public get ignoreWarnings(): boolean {
+    if (!this.req) return true;
+    const v = this.req.query?.ignoreWarnings;
+    if (typeof v !== "string") return false;
+    return stringToBoolean(v);
   }
 
   public throwBadRequestError(message: string): never {

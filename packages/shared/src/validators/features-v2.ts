@@ -1,12 +1,14 @@
 import { z } from "zod";
+import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import {
   apiPaginationFieldsValidator,
   booleanQueryField,
   paginationQueryFields,
   skipPaginationQueryField,
 } from "./shared";
-import { ownerInputField } from "./owner-field";
+import { ownerInputField, optionalOwnerInputField } from "./owner-field";
 import {
+  apiEventUserValidator,
   apiFeatureRuleValidator,
   apiRevisionPrerequisiteV2,
   apiRevisionMetadata,
@@ -86,8 +88,8 @@ export const apiFeatureRevisionV2Validator = namedSchema(
       comment: z.string(),
       date: z.string().meta({ format: "date-time" }),
       status: z.string(),
-      createdBy: z.string().optional(),
-      publishedBy: z.string().optional(),
+      createdBy: apiEventUserValidator.optional(),
+      publishedBy: apiEventUserValidator.optional(),
       defaultValue: z
         .string()
         .describe("The default value at the time this revision was created")
@@ -132,6 +134,30 @@ export const apiFeatureRevisionV2Validator = namedSchema(
           "Pending ramp schedule actions that will be applied when this draft is published",
         )
         .optional(),
+      reviews: z
+        .array(
+          z
+            .object({
+              userId: z
+                .string()
+                .describe(
+                  "Stable reviewer identifier: the user ID for dashboard users, or the API key ID for service accounts",
+                ),
+              user: apiEventUserValidator.optional(),
+              status: z.enum([
+                "approved",
+                "changes-requested",
+                "approved-stale",
+                "changes-requested-stale",
+              ]),
+              timestamp: z.string().meta({ format: "date-time" }),
+            })
+            .strict(),
+        )
+        .describe(
+          "Reviewer verdicts for the current review cycle (one entry per reviewer). Verdicts flip to their -stale variants when draft content changes after submission; the list is cleared when a new review cycle starts. Absent on revisions that predate this field.",
+        )
+        .optional(),
     })
     .strict(),
 );
@@ -150,7 +176,7 @@ export const apiFeatureV2Validator = namedSchema(
       dateCreated: z.string().meta({ format: "date-time" }),
       dateUpdated: z.string().meta({ format: "date-time" }),
       archived: z.boolean(),
-      description: z.string(),
+      description: z.string().max(MAX_DESCRIPTION_LENGTH),
       owner: ownerInputField,
       project: z.string(),
       valueType: z.enum(["boolean", "string", "number", "json"]),
@@ -174,8 +200,8 @@ export const apiFeatureV2Validator = namedSchema(
         version: z.coerce.number().int(),
         comment: z.string(),
         date: z.string().meta({ format: "date-time" }),
-        createdBy: z.string(),
-        publishedBy: z.string(),
+        createdBy: apiEventUserValidator.optional(),
+        publishedBy: apiEventUserValidator.optional(),
       }),
       customFields: z.record(z.string(), z.any()).optional(),
       holdout: apiFeatureHoldout,
@@ -259,7 +285,7 @@ const apiScheduleRule = z.object({
 });
 
 const v2RuleForceBase = z.object({
-  description: z.string().optional(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   condition: z.string().optional(),
   savedGroupTargeting: z.array(postFeatureSavedGroupTargeting).optional(),
   prerequisites: z.array(postFeaturePrerequisite).optional(),
@@ -271,7 +297,7 @@ const v2RuleForceBase = z.object({
 });
 
 const v2RuleRolloutBase = z.object({
-  description: z.string().optional(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   condition: z.string().optional(),
   savedGroupTargeting: z.array(postFeatureSavedGroupTargeting).optional(),
   prerequisites: z.array(postFeaturePrerequisite).optional(),
@@ -286,7 +312,7 @@ const v2RuleRolloutBase = z.object({
 });
 
 const v2RuleExperimentRefBase = z.object({
-  description: z.string().optional(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   id: z.string().optional(),
   enabled: z.boolean().optional(),
   type: z.literal("experiment-ref"),
@@ -307,7 +333,7 @@ const v2RuleExperimentRefBase = z.object({
 // at an existing safe-rollout on the same feature. The handler rejects any
 // safeRolloutId that isn't already on the feature.
 const v2RuleSafeRolloutBase = z.object({
-  description: z.string().optional(),
+  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   id: z.string().optional(),
   enabled: z.boolean().optional(),
   type: z.literal("safe-rollout"),
@@ -349,8 +375,12 @@ export const postFeatureBodyV2 = z
         "A unique key name for the feature. Feature keys can only include letters, numbers, hyphens, and underscores.",
       ),
     archived: z.boolean().optional(),
-    description: z.string().describe("Description of the feature").optional(),
-    owner: ownerInputField,
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe("Description of the feature")
+      .optional(),
+    owner: optionalOwnerInputField,
     project: z.string().describe("An associated project ID").optional(),
     valueType: z
       .enum(["boolean", "string", "number", "json"])
@@ -390,7 +420,11 @@ export const postFeatureBodyV2 = z
 // ---- V2 UpdateFeaturePayload ----
 export const updateFeatureBodyV2 = z
   .object({
-    description: z.string().describe("Description of the feature").optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe("Description of the feature")
+      .optional(),
     archived: z.boolean().optional(),
     project: z.string().describe("An associated project ID").optional(),
     owner: ownerInputField.optional(),
@@ -598,6 +632,8 @@ export const revertFeatureV2Validator = {
   paramsSchema: idParams,
   responseSchema: featureV2ResponseSchema,
   summary: "Revert a feature to a specific revision",
+  description:
+    'Creates a new revision whose rules and values match a previously-published revision, then immediately publishes it, leaving a clear audit trail of the revert in the revision history.\n\nReturns 403 if the API key lacks permission, or if approval rules are enabled for an affected environment and neither the "REST API always bypasses approval requirements" nor the "Allow reverts without approval" org setting is enabled.\n\nReturns 422 with a list of `warnings` if the restored values no longer validate against the feature\'s current value type or JSON schema (e.g. reverting to a config the current schema can no longer read). Re-submit with `?ignoreWarnings=true` to revert anyway.\n',
   operationId: "revertFeatureV2",
   tags: ["features-v2"],
   method: "post" as const,
