@@ -127,6 +127,14 @@ export class AggregatedFactTableQueryRunner extends QueryRunner<
     );
   }
 
+  protected override getOverallQueryStatus(): QueryStatus {
+    const queries = this.model.queries;
+    if (queries.some((q) => q.status === "running" || q.status === "queued")) {
+      return "running";
+    }
+    return queries.some((q) => q.status === "failed") ? "failed" : "succeeded";
+  }
+
   private getKey(): AggregatedFactTableKey {
     return {
       datasourceId: this.model.datasourceId,

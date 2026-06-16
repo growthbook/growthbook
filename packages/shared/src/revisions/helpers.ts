@@ -99,6 +99,14 @@ export const isUserBlockedFromApproving = ({
   return contributors.includes(userId);
 };
 
+export const isAutopublishOnApprovalEnabled = (
+  approvalFlows: ApprovalFlowConfigurations | undefined,
+  entityType: RevisionTargetType,
+): boolean => {
+  return !!getApprovalFlowSettings(approvalFlows, entityType)
+    ?.autopublishOnApproval;
+};
+
 /**
  * Map entity types to a key used for logging/identification.
  *

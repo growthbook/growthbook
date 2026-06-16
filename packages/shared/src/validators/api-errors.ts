@@ -15,7 +15,12 @@ const checklistItemSchema = z.object({
 const pendingDraftFailureSchema = z.object({
   featureId: z.string(),
   revisionVersion: z.number(),
-  reason: z.enum(["merge-conflict", "needs-approval", "publish-error"]),
+  reason: z.enum([
+    "merge-conflict",
+    "needs-rebase",
+    "needs-approval",
+    "publish-error",
+  ]),
 });
 
 export const apiErrorRegistry = {

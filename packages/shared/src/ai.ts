@@ -460,6 +460,7 @@ export const AI_PROMPT_TYPES = [
   "visual-editor-ai-image-gen",
   "visual-editor-ai-figma",
   "product-analytics-chat",
+  "general-chat",
 ] as const;
 export type AIPromptType = (typeof AI_PROMPT_TYPES)[number];
 
@@ -497,6 +498,7 @@ export const AI_PROMPT_DEFAULTS: Record<AIPromptType, string> = {
   "visual-editor-ai-image-gen": "", // Image generation does not currently use a text prompt template
   "visual-editor-ai-figma": "", // Always uses the default prompt set in postFigmaToVariant.ts
   "product-analytics-chat": "",
+  "general-chat": "",
 };
 
 // Prompt types that have default values and can be customized by users

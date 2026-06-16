@@ -96,6 +96,110 @@ export type WrappedRequestHandler<
   z.infer<QuerySchema>
 >;
 
+/**
+ * The "raw" business-logic handler an API endpoint is defined with: it reads a
+ * request-shaped object and resolves to the response body. This is the function
+ * passed into the curried `createApiRequestHandler(...)(handler)` call — the one
+ * the Express wrapper closes over. We expose its type so callers that drive the
+ * handler without Express (see `runApiHandler` + the in-process dispatcher) get
+ * the same contract.
+ */
+export type RawApiRequestHandler<
+  ParamsSchema extends ZodType = ZodType<never>,
+  BodySchema extends ZodType = ZodType<never>,
+  QuerySchema extends ZodType = ZodType<never>,
+  ResponseSchema extends ZodType = ZodType<never>,
+> = (
+  req: ApiRequest<
+    z.infer<ResponseSchema>,
+    ParamsSchema,
+    BodySchema,
+    QuerySchema
+  >,
+) => Promise<z.infer<ResponseSchema>>;
+
+/**
+ * The single source of truth for "validate the three inputs, run the business
+ * handler, shape success/error into `{status, body}`". Both the Express wrapper
+ * (`createApiRequestHandler`) and the in-process dispatcher call this, so there
+ * is exactly one copy of the validation + response/error contract and the two
+ * surfaces can never drift.
+ *
+ * Notes:
+ *  - Validation writes the *parsed* (Zod-transformed/coerced/defaulted) output
+ *    back onto `req`, so the handler reads the same values it would over HTTP.
+ *  - The returned `body` is the in-memory object; callers are responsible for
+ *    serialization (`res.json` over HTTP, `JSON.stringify` round-trip for the
+ *    dispatcher's on-the-wire fidelity).
+ */
+export async function runApiHandler(
+  req: { params: unknown; query: unknown; body: unknown },
+  schemas: {
+    params?: ZodType;
+    body?: ZodType;
+    query?: ZodType;
+  },
+  handler: (req: never) => Promise<unknown>,
+): Promise<{ status: number; body: unknown }> {
+  const allErrors: string[] = [];
+  if (schemas.params && !(schemas.params instanceof ZodNever)) {
+    const validated = validate(schemas.params, req.params);
+    if (!validated.success) {
+      allErrors.push(`Request params: ` + validated.errors.join(", "));
+    } else {
+      req.params = validated.data;
+    }
+  }
+  if (schemas.query && !(schemas.query instanceof ZodNever)) {
+    const validated = validate(schemas.query, req.query);
+    if (!validated.success) {
+      allErrors.push(`Querystring: ` + validated.errors.join(", "));
+    } else {
+      req.query = validated.data;
+    }
+  }
+  if (schemas.body && !(schemas.body instanceof ZodNever)) {
+    const validated = validate(schemas.body, req.body);
+    if (!validated.success) {
+      allErrors.push(`Request body: ` + validated.errors.join(", "));
+    } else {
+      req.body = validated.data;
+    }
+  }
+  if (allErrors.length > 0) {
+    return { status: 400, body: { message: allErrors.join("\n") } };
+  }
+
+  try {
+    const result = await handler(req as never);
+    return { status: 200, body: result };
+  } catch (e) {
+    const body: ApiErrorResponse = { message: e.message };
+    if (e instanceof ApiError) {
+      body.code = e.code;
+      body.details = e.details;
+      // Transitional back-compat: mirror conflicts to top level so existing
+      // external clients of feature-revision publish/rebase don't break.
+      // TODO: remove once clients are reading `details.conflicts` instead.
+      if (e instanceof MergeConflictError) {
+        body.conflicts = e.details.conflicts;
+      }
+    }
+    // Surface soft warnings so clients can re-submit with `?ignoreWarnings=true`
+    if (e instanceof SoftWarningError) {
+      body.warnings = e.warnings;
+      // Front-end shows a "Save anyway" dialog and doesn't need a querystring hint
+      const isJwtAuth = (req as unknown as ApiRequestLocals).isJwtAuth;
+      if (!isJwtAuth) {
+        body.message =
+          e.message +
+          "\n\nEither address the warnings or append '?ignoreWarnings=true' to the URL to proceed.";
+      }
+    }
+    return { status: e.status || 400, body };
+  }
+}
+
 export type OpenApiRoute<
   ParamsSchema extends ZodType = ZodType<unknown>,
   BodySchema extends ZodType = ZodType<unknown>,
@@ -106,6 +210,18 @@ export type OpenApiRoute<
   path: string;
   operationId: string;
   handler: WrappedRequestHandler<
+    ParamsSchema,
+    BodySchema,
+    QuerySchema,
+    ResponseSchema
+  >;
+  /**
+   * The unwrapped business-logic handler, exposed so in-process callers (the
+   * dispatcher) can run it via `runApiHandler` without an Express `res`/`next`.
+   * Same function the Express `handler` wraps — so both paths share validation
+   * and response/error shaping.
+   */
+  rawHandler: RawApiRequestHandler<
     ParamsSchema,
     BodySchema,
     QuerySchema,
@@ -190,72 +306,18 @@ export function createApiRequestHandler<
       ResponseSchema
     > = async (req, res, next) => {
       try {
-        const allErrors: string[] = [];
-        if (paramsSchema && !(paramsSchema instanceof ZodNever)) {
-          const validated = validate(paramsSchema, req.params);
-          if (!validated.success) {
-            allErrors.push(`Request params: ` + validated.errors.join(", "));
-          } else {
-            req.params = validated.data as z.output<ParamsSchema>;
-          }
-        }
-        if (querySchema && !(querySchema instanceof ZodNever)) {
-          const validated = validate(querySchema, req.query);
-          if (!validated.success) {
-            allErrors.push(`Querystring: ` + validated.errors.join(", "));
-          } else {
-            req.query = validated.data;
-          }
-        }
-        if (bodySchema && !(bodySchema instanceof ZodNever)) {
-          const validated = validate(bodySchema, req.body);
-          if (!validated.success) {
-            allErrors.push(`Request body: ` + validated.errors.join(", "));
-          } else {
-            req.body = validated.data;
-          }
-        }
-        if (allErrors.length > 0) {
-          return res.status(400).json({
-            message: allErrors.join("\n"),
-          });
-        }
-
-        try {
-          const result = await handler(
-            req as ApiRequest<
-              ApiErrorResponse | z.infer<ResponseSchema>,
-              ParamsSchema,
-              BodySchema,
-              QuerySchema
-            >,
-          );
-          return res.status(200).json(result);
-        } catch (e) {
-          const body: ApiErrorResponse = { message: e.message };
-          if (e instanceof ApiError) {
-            body.code = e.code;
-            body.details = e.details;
-            // Transitional back-compat: mirror conflicts to top level so existing
-            // external clients of feature-revision publish/rebase don't break.
-            // TODO: remove once clients are reading `details.conflicts` instead.
-            if (e instanceof MergeConflictError) {
-              body.conflicts = e.details.conflicts;
-            }
-          }
-          // Surface soft warnings so clients can re-submit with `?ignoreWarnings=true`
-          if (e instanceof SoftWarningError) {
-            body.warnings = e.warnings;
-            // Front-end shows a "Save anyway" dialong and doesn't need a querystring hint
-            const isJwtAuth = (req as unknown as ApiRequestLocals).isJwtAuth;
-            if (!isJwtAuth) {
-              body.message =
-                e.message +
-                "\n\nEither address the warnings or append '?ignoreWarnings=true' to the URL to proceed.";
-            }
-          }
-          return res.status(e.status || 400).json(body);
-        }
+        const { status, body } = await runApiHandler(
+          req,
+          {
+            params: paramsSchema,
+            body: bodySchema,
+            query: querySchema,
+          },
+          handler,
+        );
+        return res
+          .status(status)
+          .json(body as ApiErrorResponse | z.infer<ResponseSchema>);
       } catch (e) {
         next(e);
       }
@@ -285,6 +347,7 @@ export function createApiRequestHandler<
         response: responseSchema,
       },
       handler: wrappedHandler,
+      rawHandler: handler,
       excludeFromSpec,
       possibleErrors,
     };

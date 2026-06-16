@@ -1,12 +1,19 @@
+import { createLikeStringMatchFn } from "shared/sql";
 import type { DateTruncGranularity, SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "back-end/src/integrations/sql/clauses/percentile-cap-select-clause";
 import { baseDialect } from "./base";
 
+const clickHouseEscapeStringLiteral = (value: string) =>
+  value.replace(/\\/g, "\\\\").replace(/'/g, "''");
+
 export const clickHouseDialect: SqlDialect = {
   ...baseDialect,
   formatDialect: "clickhouse",
-  escapeStringLiteral: (value: string) =>
-    value.replace(/\\/g, "\\\\").replace(/'/g, "''"),
+  escapeStringLiteral: clickHouseEscapeStringLiteral,
+  stringMatch: createLikeStringMatchFn({
+    escapeStringLiteral: clickHouseEscapeStringLiteral,
+    emitEscapeClause: false,
+  }),
   toTimestamp: (date: Date) =>
     `toDateTime('${date
       .toISOString()

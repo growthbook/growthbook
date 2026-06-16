@@ -7,13 +7,16 @@ import { FeatureInterface } from "shared/types/feature";
 import { filterEnvironmentsByFeature, isDefined } from "shared/util";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { PiEye, PiWarning } from "react-icons/pi";
-import { HoldoutInterface } from "shared/validators";
+import { REVIEW_REQUESTED_STATUSES, HoldoutInterface } from "shared/validators";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
+import Badge from "@/ui/Badge";
 import { useUser } from "@/services/UserContext";
 import useApi from "@/hooks/useApi";
+// eslint-disable-next-line no-restricted-imports -- legacy Modal still backs the watchers modal; migrate to @/ui/Modal in a follow-up
 import Modal from "@/components/Modal";
+import Callout from "@/ui/Callout";
 import FeatureStatusBadge from "@/components/Features/FeatureStatusBadge";
 import { getEnabledEnvironments, useEnvironments } from "@/services/features";
 import { useAuth } from "@/services/auth";
@@ -44,6 +47,7 @@ import {
 } from "@/ui/DropdownMenu";
 import { useFeatureStaleStates } from "@/hooks/useFeatureStaleStates";
 import { useScrollPosition } from "@/hooks/useScrollPosition";
+import { draftStatusTooltip } from "@/components/Reviews/RevisionStatusBadge";
 import FeatureArchiveModal from "./FeatureArchiveModal";
 import FeatureDeleteModal from "./FeatureDeleteModal";
 import AddToHoldoutModal from "./AddToHoldoutModal";
@@ -58,6 +62,7 @@ export default function FeaturesHeader({
   setEditFeatureInfoModal,
   holdout,
   isReadOnly = false,
+  onCompareRevisions,
 }: {
   feature: FeatureInterface;
   mutate: () => Promise<unknown>;
@@ -69,6 +74,7 @@ export default function FeaturesHeader({
   setEditFeatureInfoModal: (open: boolean) => void;
   holdout: HoldoutInterface | undefined;
   isReadOnly?: boolean;
+  onCompareRevisions?: () => void;
 }) {
   const router = useRouter();
   const projectId = feature?.project;
@@ -194,6 +200,19 @@ export default function FeaturesHeader({
   const canPublish = permissionsUtil.canPublishFeature(feature, enabledEnvs);
   const isArchived = feature.archived;
 
+  // Tab chip + tooltip count revisions at "request review" or beyond; drafts
+  // still being edited don't need reviewer/publisher attention.
+  const draftStatusCounts: Partial<Record<string, number>> = {};
+  revisions.forEach((r) => {
+    if ((REVIEW_REQUESTED_STATUSES as readonly string[]).includes(r.status)) {
+      draftStatusCounts[r.status] = (draftStatusCounts[r.status] ?? 0) + 1;
+    }
+  });
+  const activeDraftCount = Object.values(draftStatusCounts).reduce<number>(
+    (sum, n) => sum + (n ?? 0),
+    0,
+  );
+
   // Rendered once via a stable portal host (see above).
   const revisionAndSettingsGroup = (
     <Flex align="center" gap="4" pr="2">
@@ -247,6 +266,16 @@ export default function FeaturesHeader({
           >
             Audit history
           </DropdownMenuItem>
+          {onCompareRevisions && (
+            <DropdownMenuItem
+              onClick={() => {
+                onCompareRevisions();
+                setDropdownOpen(false);
+              }}
+            >
+              Compare revisions
+            </DropdownMenuItem>
+          )}
           <DropdownSubMenu
             trigger={
               <Flex
@@ -485,14 +514,12 @@ export default function FeaturesHeader({
               </Box>
             ) : null}
           </Box>
-          <div>
-            {isArchived && (
-              <div className="alert alert-secondary mb-2">
-                <strong>This feature is archived.</strong> It will not be
-                included in SDK Endpoints or Webhook payloads.
-              </div>
-            )}
-          </div>
+          {isArchived && (
+            <Callout status="info" mb="2">
+              <strong>This feature is archived.</strong> It will not be included
+              in SDK Endpoints or Webhook payloads.
+            </Callout>
+          )}
         </Box>
       </Box>
       <>
@@ -516,6 +543,21 @@ export default function FeaturesHeader({
               <Tabs value={tab} onValueChange={setTab}>
                 <TabsList size="3" style={{ width: "100%" }}>
                   <TabsTrigger value="overview">Overview</TabsTrigger>
+                  <TabsTrigger value="review">
+                    Review and Publish
+                    {activeDraftCount > 0 && (
+                      <Tooltip body={draftStatusTooltip(draftStatusCounts)}>
+                        <Badge
+                          label={String(activeDraftCount)}
+                          color="red"
+                          variant="solid"
+                          radius="full"
+                          ml="2"
+                          style={{ minWidth: 18, height: 18 }}
+                        />
+                      </Tooltip>
+                    )}
+                  </TabsTrigger>
                   <TabsTrigger value="test">Simulate</TabsTrigger>
                   <TabsTrigger value="stats">Code Refs</TabsTrigger>
                   <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>

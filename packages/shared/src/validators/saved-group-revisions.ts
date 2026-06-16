@@ -336,7 +336,16 @@ export const postSavedGroupRevisionPublishValidator = {
     "Publishes a draft revision, making it the live state of the saved group. Blocked if the org requires approvals and the revision is not approved (callers with the bypass-approval permission may still publish).",
   tags: ["saved-group-revisions"],
   paramsSchema: revisionParamsStrict,
-  bodySchema: z.object({}).strict(),
+  bodySchema: z
+    .object({
+      mergeNow: z
+        .boolean()
+        .optional()
+        .describe(
+          "When the org enforces same-base merges and the saved group changed since this revision was created, set to true to force-merge the stale revision instead of rebasing first. This only takes effect for callers with bypass-approval permission; otherwise it is ignored and the revision must be rebased.",
+        ),
+    })
+    .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
@@ -347,7 +356,7 @@ export const postSavedGroupRevisionRevertValidator = {
   operationId: "postSavedGroupRevisionRevert",
   summary: "Revert the saved group to a prior revision",
   description:
-    "Creates a new draft (or immediately publishes) whose content matches the specified historical revision.",
+    "Creates a new draft (or immediately publishes) whose content matches the specified historical revision. Defaults to creating a draft; when the org enables 'reverts bypass approval' it defaults to publishing immediately. Pass `strategy` to override.",
   tags: ["saved-group-revisions"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z
@@ -395,10 +404,14 @@ export const postSavedGroupRevisionRequestReviewValidator = {
   operationId: "postSavedGroupRevisionRequestReview",
   summary: "Request review for a draft revision",
   description:
-    "Moves the draft from `draft` into `pending-review`. Notifies reviewers per the org's approval-flow settings.",
+    "Moves the draft from `draft` into `pending-review`. Notifies reviewers per the org's approval-flow settings.\n\nSet `autoPublishOnApproval` to `true` to publish the revision automatically the moment it is approved (GitHub auto-merge model). This requires the org to have auto-publish-on-approval enabled and the caller to have publish permission on the saved group; the auto-publish then executes with the caller's authority.",
   tags: ["saved-group-revisions"],
   paramsSchema: revisionParamsStrict,
-  bodySchema: z.object({}).strict(),
+  bodySchema: z
+    .object({
+      autoPublishOnApproval: z.boolean().optional(),
+    })
+    .strict(),
   querySchema: z.never(),
   responseSchema: revisionResponse,
 };
@@ -409,17 +422,20 @@ export const postSavedGroupRevisionSubmitReviewValidator = {
   operationId: "postSavedGroupRevisionSubmitReview",
   summary: "Submit a review on a draft revision",
   description:
-    "Submits an `approve`, `request-changes`, or `comment` review on the revision. Authors and contributors cannot submit `approve` reviews on their own drafts when the org has `blockSelfApproval` enabled.",
+    "Submits an `approve`, `request-changes`, or `comment` review on the revision. Authors and contributors cannot submit `approve` reviews on their own drafts when the org has `blockSelfApproval` enabled.\n\nWhen `decision` is `approve` and the revision has `autoPublishOnApproval` enabled, the revision is automatically published after approval. The response includes `autoPublished: true` when this happens. Pass `skipAutoPublish: true` to approve without triggering auto-publish.",
   tags: ["saved-group-revisions"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
       decision: z.enum(reviewDecision),
       comment: z.string().optional(),
+      skipAutoPublish: z.boolean().optional(),
     })
     .strict(),
   querySchema: z.never(),
-  responseSchema: revisionResponse,
+  responseSchema: revisionResponse.extend({
+    autoPublished: z.boolean().optional(),
+  }),
 };
 
 // ---- Field-edit endpoint validators ----

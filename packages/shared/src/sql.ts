@@ -1,8 +1,41 @@
 import { format as sqlFormat } from "sql-formatter";
 import { SqlResultChunkInterface } from "../types/query";
-import { FormatDialect } from "../types/sql";
+import { FormatDialect, StringMatchFn } from "../types/sql";
 import { FormatError } from "../types/error";
 import { parseEnvInt } from "./util/numbers";
+
+/**
+ * Creates a function that builds a string-match condition (LIKE or a warehouse-native equivalent).
+ *
+ * This is needed because in some dialects, _ and \ are treated as wildcard characters for LIKE,
+ * and we want to escape them correctly to we can match them literally.
+ */
+export function createLikeStringMatchFn({
+  escapeStringLiteral,
+  escapeWildcards = (value: string) => value.replace(/([%_\\])/g, "\\$1"),
+  emitEscapeClause,
+}: {
+  escapeStringLiteral: (s: string) => string;
+  escapeWildcards?: (s: string) => string;
+  emitEscapeClause: boolean;
+}): StringMatchFn {
+  return (columnExpr, operator, value) => {
+    const pattern = escapeStringLiteral(escapeWildcards(value));
+    const escapeClause = emitEscapeClause
+      ? ` ESCAPE '${escapeStringLiteral("\\")}'`
+      : "";
+    switch (operator) {
+      case "starts_with":
+        return `${columnExpr} LIKE '${pattern}%'${escapeClause}`;
+      case "ends_with":
+        return `${columnExpr} LIKE '%${pattern}'${escapeClause}`;
+      case "contains":
+        return `${columnExpr} LIKE '%${pattern}%'${escapeClause}`;
+      case "not_contains":
+        return `${columnExpr} NOT LIKE '%${pattern}%'${escapeClause}`;
+    }
+  };
+}
 
 export const SQL_ROW_LIMIT = 1000;
 
