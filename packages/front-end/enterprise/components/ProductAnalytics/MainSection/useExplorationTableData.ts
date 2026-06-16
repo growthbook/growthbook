@@ -315,9 +315,10 @@ export default function useExplorationTableData(
         isTimeseries,
       );
       return sortedRows.map((row, idx) => {
-        const cmpRow = isTimeseries
-          ? getAlignedCmpRow(String(row.dimensions[0] ?? ""))
-          : (cmpSorted[idx] ?? null);
+        // Pair by dimension key for both timeseries and categorical charts.
+        // Positional pairing (cmpSorted[idx]) would mis-match categories when
+        // the two periods sort differently (e.g. "USA" current vs "Canada" prev).
+        const cmpRow = getAlignedCmpRow(String(row.dimensions[0] ?? ""));
         const entries: [string, unknown][] = [];
         for (const col of columns) {
           if (col.kind === "dimension") {

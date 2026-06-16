@@ -668,6 +668,75 @@ describe("computeExplorationComparisonPayload", () => {
     expect(
       out.exploration?.result.rows.every((r) => r.values[0]?.numerator === 0),
     ).toBe(true);
-    expect(out.bigNumberTrends[0]?.previousValue).toBe(0);
+    // Previous period is all zeros, so the percent change is undefined
+    // (division by zero) and the trend must be null rather than "0% / no change".
+    expect(out.bigNumberTrends[0]).toBeNull();
+  });
+
+  it("returns a null big-number trend when the previous value is zero", () => {
+    const primary = explorationOneRow(50, 10, "2024-01-01");
+    const comparison = explorationOneRow(0, 10, "2023-01-01");
+    const config = metricConfig("m1");
+
+    const out = computeExplorationComparisonPayload(
+      primary,
+      comparison,
+      config,
+      prevFrame,
+      getFactMetricById,
+    );
+
+    expect(out.bigNumberTrends[0]).toBeNull();
+  });
+
+  it("pairs categorical rows by dimension key, not sort position, for tableTrendsByRow", () => {
+    const config: ExplorationConfig = {
+      ...metricConfig("m1", { showAs: "total" }),
+      dimensions: [
+        { dimensionType: "dynamic", column: "country", maxValues: 10 },
+      ],
+    };
+
+    const categoricalExploration = (
+      rows: { dim: string; numerator: number }[],
+    ): ProductAnalyticsExploration => ({
+      ...explorationOneRow(0, null, "x", config),
+      config,
+      result: {
+        rows: rows.map((r) => ({
+          dimensions: [r.dim],
+          values: [
+            { metricId: "m1", numerator: r.numerator, denominator: null },
+          ],
+        })),
+      },
+    });
+
+    // Current period totals: USA (100) outranks Canada (50).
+    const primary = categoricalExploration([
+      { dim: "USA", numerator: 100 },
+      { dim: "Canada", numerator: 50 },
+    ]);
+    // Previous period totals are in the opposite order: Canada (200), USA (80).
+    // Positional pairing would mis-match USA->Canada; key pairing is correct.
+    const comparison = categoricalExploration([
+      { dim: "Canada", numerator: 200 },
+      { dim: "USA", numerator: 80 },
+    ]);
+
+    const out = computeExplorationComparisonPayload(
+      primary,
+      comparison,
+      config,
+      prevFrame,
+      getFactMetricById,
+    );
+
+    // sortedRows is ordered by current totals desc: [USA, Canada].
+    expect(out.tableTrendsByRow).toHaveLength(2);
+    // USA: (100 - 80) / 80 = +25%
+    expect(out.tableTrendsByRow[0]["__metric_0____trend"]).toBe(25);
+    // Canada: (50 - 200) / 200 = -75%
+    expect(out.tableTrendsByRow[1]["__metric_0____trend"]).toBe(-75);
   });
 });
