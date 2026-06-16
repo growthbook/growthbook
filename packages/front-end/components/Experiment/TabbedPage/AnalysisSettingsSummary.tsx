@@ -4,7 +4,7 @@ import React, { useMemo, useState, useEffect, useRef } from "react";
 import { OrganizationSettings } from "shared/types/organization";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { DifferenceType, StatsEngine } from "shared/types/stats";
-import { Box, Flex, Text, Separator } from "@radix-ui/themes";
+import { Box, Flex, Separator } from "@radix-ui/themes";
 import {
   expandMetricGroups,
   getAllMetricIdsFromExperiment,
@@ -28,14 +28,16 @@ import {
 import { startCase } from "lodash";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
-import { trackSnapshot } from "@/services/track";
+import { useExperimentSnapshotUpdate } from "@/hooks/useExperimentSnapshotUpdate";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
+import { useIncrementalPipelineFallbackConfirm } from "@/hooks/useIncrementalPipelineFallbackConfirm";
 import { useUser } from "@/services/UserContext";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import RefreshResultsButton from "@/components/Experiment/RefreshResultsButton";
+import IncrementalPipelineFallbackDialog from "@/components/Experiment/IncrementalPipelineFallbackDialog";
 import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import OutdatedBadge from "@/components/OutdatedBadge";
@@ -50,6 +52,7 @@ import ResultsFilter from "@/components/Experiment/ResultsFilter/ResultsFilter";
 import { filterMetricsByTags } from "@/hooks/useExperimentTableRows";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 import MigrateResultsToDashboardModal from "@/components/Experiment/ResultsFilter/MigrateResultsToDashboardModal";
 import UpdateDimensionBreakdownModal from "@/components/Experiment/UpdateDimensionBreakdownModal";
 
@@ -218,10 +221,27 @@ export default function AnalysisSettingsSummary({
   const { apiCall } = useAuth();
   const { status } = getQueryStatus(latest?.queries || [], latest?.error);
 
+  const {
+    customValidation: confirmIncrementalPipelineFallback,
+    reason: incrementalPipelineUnsupportedReason,
+    isConfirmOpen: incrementalPipelineConfirmOpen,
+    onConfirm: onConfirmIncrementalPipelineFallback,
+    onCancel: onCancelIncrementalPipelineFallback,
+  } = useIncrementalPipelineFallbackConfirm({
+    experiment,
+    latestStatus: latest?.status,
+  });
+  // When the next update would fall back to a full (non-incremental) rescan, the
+  // incremental "dimension results are built on overall results" model no longer
+  // holds. The stale-dimension modal and the "newer overall results" outdated
+  // reason are both incremental-only concerns, so they don't apply here.
+  const incrementalUpdatesUnavailable = !!incrementalPipelineUnsupportedReason;
+
   const isExperimentIncludedInIncrementalRefresh =
     getIsExperimentIncludedInIncrementalRefresh(
       datasource ?? undefined,
       experiment.id,
+      experiment.type,
     );
 
   const newerOverallResultsAvailable = isNewerOverallResultsDataAvailable(
@@ -229,34 +249,14 @@ export default function AnalysisSettingsSummary({
     dimensionless,
   );
 
-  const runSnapshot = async (
-    dimensionToRun: string,
-    opts?: { force?: boolean; trackingSource?: string },
-  ) => {
-    const force = opts?.force ?? false;
-    const trackingSource = opts?.trackingSource ?? "RunQueriesButton";
-    try {
-      const res = await apiCall<{ snapshot: ExperimentSnapshotInterface }>(
-        `/experiment/${experiment.id}/snapshot${force ? "?force=true" : ""}`,
-        {
-          method: "POST",
-          body: JSON.stringify({ phase, dimension: dimensionToRun }),
-        },
-      );
-      trackSnapshot(
-        "create",
-        trackingSource,
-        datasource?.type || null,
-        res.snapshot,
-      );
-      setRefreshError("");
-    } catch (e) {
-      setRefreshError(e.message);
-    } finally {
-      mutate();
-      mutateExperiment();
-    }
-  };
+  const { runSnapshot } = useExperimentSnapshotUpdate({
+    experiment,
+    phase,
+    dimension,
+    mutate,
+    mutateAdditional: mutateExperiment,
+    setRefreshError,
+  });
 
   const handleDisableIncrementalRefresh = async () => {
     if (!datasource || !isExperimentIncludedInIncrementalRefresh) return;
@@ -339,15 +339,34 @@ export default function AnalysisSettingsSummary({
     phase,
     unjoinableMetrics,
     conversionWindowMetrics,
-    newerOverallResultsAvailable,
+    newerOverallResultsAvailable:
+      newerOverallResultsAvailable && !incrementalUpdatesUnavailable,
   });
 
-  // For Incremental Pipeline mode, dimension results are built on top
-  // of overall results (dimensionless snapshot)
-  // So if the user is clicking 'Update' on a scenario that we know there's no
-  // newer overall results available, we show a confirmation modal explaining why.
+  // In Incremental Pipeline mode, dimension results are built on top of overall
+  // results (the dimensionless snapshot). When the user clicks 'Update' while
+  // viewing a dimension breakdown that already covers the latest overall results
+  // (no newer overall data available), re-running won't fetch anything new, so we
+  // confirm and point them at updating overall results instead. This only applies
+  // when incremental updates are available — under a full-rescan fallback there is
+  // no overall/dimension split to reconcile.
   const needsDimensionRefreshConfirm =
-    !!sourceSnapshot && !newerOverallResultsAvailable;
+    !!sourceSnapshot &&
+    !newerOverallResultsAvailable &&
+    !incrementalUpdatesUnavailable;
+
+  // Single gate for the "Update" button. The two confirms are mutually exclusive
+  // by construction: the dimension modal only fires when incremental updates are
+  // available, and the fallback confirm only fires when they are not. Sequencing
+  // them in one gate keeps them from competing over the button's single
+  // customValidation slot.
+  const confirmRefresh = async (): Promise<boolean> => {
+    if (needsDimensionRefreshConfirm) {
+      setUpdateDimensionBreakdownModalOpen(true);
+      return false;
+    }
+    return confirmIncrementalPipelineFallback();
+  };
 
   const ds = getDatasourceById(experiment.datasource);
 
@@ -777,13 +796,7 @@ export default function AnalysisSettingsSummary({
                 phase={phase}
                 dimension={dimension}
                 setAnalysisSettings={setAnalysisSettings}
-                customValidation={() => {
-                  if (needsDimensionRefreshConfirm) {
-                    setUpdateDimensionBreakdownModalOpen(true);
-                    return false;
-                  }
-                  return true;
-                }}
+                customValidation={confirmRefresh}
               />
             ) : null}
 
@@ -894,14 +907,32 @@ export default function AnalysisSettingsSummary({
         </Box>
       )}
 
+      {latest?.status !== "running" && incrementalUpdatesUnavailable && (
+        <Callout status="warning" mt="2">
+          <Text weight="semibold" size="medium">
+            Updates will rescan full experiment data.
+          </Text>{" "}
+          {incrementalPipelineUnsupportedReason}
+        </Callout>
+      )}
+
+      {incrementalPipelineConfirmOpen &&
+      incrementalPipelineUnsupportedReason ? (
+        <IncrementalPipelineFallbackDialog
+          reason={incrementalPipelineUnsupportedReason}
+          onConfirm={onConfirmIncrementalPipelineFallback}
+          onCancel={onCancelIncrementalPipelineFallback}
+        />
+      ) : null}
+
       {refreshError && (
         <>
           <Callout status="error" mt="2">
             <strong>Error updating data: </strong> {refreshError}
           </Callout>
           {isExperimentIncludedInIncrementalRefresh && (
-            <Box mt="2" mb="2" style={{ color: "var(--color-text-low)" }}>
-              <Text size="1">
+            <Box mt="2" mb="2">
+              <Text size="small" color="text-low">
                 If this error persists, you can try disabling Incremental
                 Refresh for this experiment by{" "}
                 <Link onClick={handleDisableIncrementalRefresh}>

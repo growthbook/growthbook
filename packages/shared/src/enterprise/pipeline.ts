@@ -1,47 +1,129 @@
 import { getValidDate } from "shared/dates";
+import {
+  isFactMetric,
+  quantileMetricType,
+  ExperimentMetricInterface,
+} from "shared/experiments";
 import type {
   DataSourceType,
   DataSourcePipelineMode,
   DataSourcePipelineSettings,
 } from "shared/types/datasource";
 import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type { ExperimentInterface } from "shared/types/experiment";
 import type { PipelineIntegration } from "shared/types/integrations";
 
 /**
- * Single source of truth for whether an experiment runs with incremental
- * refresh on a given data source. Used at snapshot planning time
- * (`isIncrementalRefreshEnabledForSnapshot`) and validation time
- * (`assertIncrementalRefreshPrerequisites`).
+ * Whether an experiment is *covered* by a data source's Incremental Pipeline
+ * configuration: incremental writing is enabled, the experiment is in scope,
+ * and its type is supported. Coverage is the first stage of incremental
+ * resolution.
  *
- * Resolution order:
- * 1. If `mode === "incremental"`, apply include/exclude semantics. Opt-in is
- *    ignored here — every experiment is already incremental by default, so
- *    `excludedExperimentIds` is the only meaningful per-experiment override.
- * 2. Else if the experiment is in `incrementalOptInExperimentIds`, it runs
- *    incremental (e.g. opting specific experiments into incremental while
- *    the default mode stays ephemeral).
- * 3. Otherwise, not incremental.
+ * The later stages live elsewhere: per-experiment *support*
+ * (`getIncrementalPipelineUnsupportedReason`) checks whether the experiment's
+ * own configuration works with incremental, and a supported experiment may
+ * still need a full (non-incremental) rescan to rebuild its units table.
+ *
+ * Used at snapshot planning time (`resolveSnapshotRunner`) and validation time
+ * (`assertIncrementalRefreshPrerequisites`).
  */
 export function isExperimentIncrementalEnabled(
   settings: DataSourcePipelineSettings | undefined,
   experimentId: string,
+  experimentType: ExperimentInterface["type"],
 ): boolean {
   if (!settings || !settings.allowWriting) return false;
 
-  if (settings.mode === "incremental") {
-    if (settings.excludedExperimentIds?.includes(experimentId)) return false;
-    if (
-      settings.includedExperimentIds !== undefined &&
-      !settings.includedExperimentIds.includes(experimentId)
-    ) {
-      return false;
-    }
-    return true;
+  const coveredByDataSource =
+    settings.mode === "incremental"
+      ? !settings.excludedExperimentIds?.includes(experimentId) &&
+        (settings.includedExperimentIds === undefined ||
+          settings.includedExperimentIds.includes(experimentId))
+      : (settings.incrementalOptInExperimentIds?.includes(experimentId) ??
+        false);
+
+  if (!coveredByDataSource) return false;
+
+  // Bandit and holdout experiments aren't supported yet.
+  if (experimentType !== undefined && experimentType !== "standard") {
+    return false;
   }
 
-  return (
-    settings.incrementalOptInExperimentIds?.includes(experimentId) ?? false
-  );
+  return true;
+}
+
+/**
+ * The highest-priority reason this experiment can't run in Incremental Pipeline
+ * mode, or null when it can. Combines coverage (delegated to
+ * `isExperimentIncrementalEnabled`) with the per-experiment support checks
+ * (in-progress conversions, activation metric, metrics, quantile sketches),
+ * returning the first reason that applies.
+ */
+export function getIncrementalPipelineUnsupportedReason(params: {
+  datasourceProperties:
+    | {
+        hasIncrementalRefresh?: boolean;
+        hasQuantileSketch?: boolean;
+      }
+    | undefined;
+  pipelineSettings: DataSourcePipelineSettings | undefined;
+  experimentId: string;
+  orgHasIncrementalPipelineFeature: boolean;
+  skipPartialData: boolean;
+  activationMetric: string | null | undefined;
+  metrics: ExperimentMetricInterface[];
+  experimentType: ExperimentInterface["type"];
+}): string | null {
+  if (!params.orgHasIncrementalPipelineFeature) {
+    return "Organization does not have access to Incremental Pipeline mode.";
+  }
+
+  if (!params.datasourceProperties?.hasIncrementalRefresh) {
+    return "The data source does not support Incremental Pipeline mode.";
+  }
+
+  if (
+    !isExperimentIncrementalEnabled(
+      params.pipelineSettings,
+      params.experimentId,
+      params.experimentType,
+    )
+  ) {
+    return "Incremental Pipeline mode is not enabled for this experiment.";
+  }
+
+  if (params.skipPartialData) {
+    return "'Exclude In-Progress Conversions' is not supported with Incremental Pipeline mode while in beta. Please select 'Include' in the Analysis Settings for Metric Conversion Windows.";
+  }
+
+  if (params.activationMetric) {
+    return "Activation metrics are not supported with Incremental Pipeline mode while in beta. Please remove the Activation Metric in the Analysis Settings.";
+  }
+
+  if (params.metrics.length === 0) {
+    return "Experiment must have at least 1 metric.";
+  }
+
+  if (params.metrics.some((m) => !isFactMetric(m))) {
+    return "Legacy metrics aren't supported with Incremental Pipeline mode. Convert or remove non-Fact Metrics.";
+  }
+
+  // Unit quantiles store a float and re-aggregate via SUM, so they work on
+  // any incremental-capable warehouse. Only event quantiles need a quantile
+  // sketch (the quantile must be computed over raw event values, which
+  // requires a mergeable sketch for incremental aggregation).
+  if (
+    params.metrics.some(
+      (metric) =>
+        isFactMetric(metric) &&
+        quantileMetricType(metric) === "event" &&
+        !params.datasourceProperties?.hasQuantileSketch,
+    )
+  ) {
+    return "Event quantile metrics are not supported with Incremental Pipeline mode on this data source.";
+  }
+
+  return null;
 }
 
 export type PipelineValidationResult = {

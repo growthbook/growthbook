@@ -1237,9 +1237,13 @@ function isIncrementalRefreshEnabledForSnapshot({
   datasource: DataSourceInterface;
   experiment: ExperimentInterface;
 }): boolean {
+  // Pass undefined for the type so the type gate is skipped here:
+  // resolveSnapshotRunner checks it separately to surface a descriptive
+  // fallback reason for unsupported types.
   return isExperimentIncrementalEnabled(
     datasource.settings.pipelineSettings,
     experiment.id,
+    undefined,
   );
 }
 

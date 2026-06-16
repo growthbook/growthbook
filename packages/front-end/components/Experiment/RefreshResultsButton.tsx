@@ -1,23 +1,16 @@
 import React from "react";
 import { Queries } from "shared/types/query";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { isDimensionPrecomputed } from "shared/experiments";
-import {
-  ExperimentSnapshotAnalysisSettings,
-  ExperimentSnapshotInterface,
-} from "shared/types/experiment-snapshot";
+import { ExperimentSnapshotAnalysisSettings } from "shared/types/experiment-snapshot";
 import {
   SafeRolloutInterface,
   SafeRolloutSnapshotInterface,
 } from "shared/validators";
 import { useAuth } from "@/services/auth";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { useUser } from "@/services/UserContext";
-import { getHonoredPrecomputedUnitDimensionIds } from "@/services/experiments";
-import { trackSnapshot } from "@/services/track";
 import RunQueriesButton from "@/components/Queries/RunQueriesButton";
 import ExperimentRefreshSnapshotButton from "@/components/Experiment/RefreshSnapshotButton";
 import SafeRolloutRefreshSnapshotButton from "@/components/SafeRollout/RefreshSnapshotButton";
+import { useExperimentSnapshotUpdate } from "@/hooks/useExperimentSnapshotUpdate";
 
 export type EntityType = "experiment" | "holdout" | "safe-rollout";
 
@@ -40,7 +33,7 @@ export interface RefreshResultsButtonProps<
     datasourceType: string | null;
   };
   onSuccess?: () => void;
-  // Return false to abort the refresh (e.g. to open a confirmation modal
+  // Return false to abort the refresh (e.g. to open a confirmation dialog
   // instead). Mirrors Modal's customValidation. Side effects are allowed.
   customValidation?: () => boolean | Promise<boolean>;
   // Experiment/holdout-specific props
@@ -50,7 +43,6 @@ export interface RefreshResultsButtonProps<
   setAnalysisSettings?: (
     settings: ExperimentSnapshotAnalysisSettings | null,
   ) => void;
-  // SafeRollout-specific props
   safeRollout?: SafeRolloutInterface;
 }
 
@@ -77,27 +69,32 @@ export default function RefreshResultsButton<
   safeRollout,
 }: RefreshResultsButtonProps<T>) {
   const { apiCall } = useAuth();
-  const { getDatasourceById } = useDefinitions();
-  const { hasCommercialFeature } = useUser();
+
+  const { submitUpdate } = useExperimentSnapshotUpdate({
+    experiment,
+    phase: phase ?? 0,
+    dimension,
+    mutate,
+    mutateAdditional,
+    setRefreshError,
+    onSuccess,
+    customValidation,
+    experimentSnapshotTrackingProps,
+  });
 
   const hasQueries = latest?.queries && latest.queries.length > 0;
-
-  // Determine which button to render
   const shouldUseRunQueriesButton = datasourceId && latest && hasQueries;
-
   const shouldRenderExperimentButton =
     !shouldUseRunQueriesButton &&
     (entityType === "experiment" || entityType === "holdout") &&
     experiment &&
     phase !== undefined;
-
   const shouldRenderSafeRolloutButton =
     !shouldUseRunQueriesButton &&
     !shouldRenderExperimentButton &&
     entityType === "safe-rollout" &&
     safeRollout;
 
-  // Endpoints for the various buttons
   const cancelEndpoint =
     entityType === "safe-rollout"
       ? `/safe-rollout/snapshot/${latest?.id}/cancel`
@@ -108,60 +105,18 @@ export default function RefreshResultsButton<
       ? `/safe-rollout/${entityId}/snapshot`
       : `/experiment/${entityId}/snapshot`;
 
-  // Precomputed dimensions are computed as part of a standard snapshot, so we
-  // don't need to pass them to the backend for a new snapshot query
-  const snapshotDimension = isDimensionPrecomputed(
-    dimension,
-    getHonoredPrecomputedUnitDimensionIds(
-      experiment?.precomputedUnitDimensionIds,
-      experiment?.datasource
-        ? getDatasourceById(experiment.datasource)
-        : undefined,
-      hasCommercialFeature("pipeline-mode"),
-    ),
-  )
-    ? ""
-    : (dimension ?? "");
-
-  // Kicks off a new snapshot query for the given dimension ("" = main results).
-  const runSnapshot = async (dimensionToUse: string) => {
-    const body =
-      entityType === "experiment" || entityType === "holdout"
-        ? JSON.stringify({
-            phase: phase ?? 0,
-            dimension: dimensionToUse,
-          })
-        : undefined;
-
+  const runSafeRolloutUpdate = async () => {
+    if (!latest) return;
     try {
-      if (entityType === "safe-rollout") {
-        await apiCall<{ snapshot: SafeRolloutSnapshotInterface }>(
-          snapshotEndpoint,
-          { method: "POST" },
-        );
-      } else {
-        const res = await apiCall<{
-          snapshot: ExperimentSnapshotInterface;
-        }>(snapshotEndpoint, {
-          method: "POST",
-          ...(body && { body }),
-        });
-        if (experimentSnapshotTrackingProps) {
-          trackSnapshot(
-            "create",
-            experimentSnapshotTrackingProps.trackingSource,
-            experimentSnapshotTrackingProps.datasourceType,
-            res.snapshot,
-          );
-        }
-      }
+      await apiCall<{ snapshot: SafeRolloutSnapshotInterface }>(
+        snapshotEndpoint,
+        { method: "POST" },
+      );
       onSuccess?.();
       setRefreshError("");
     } catch (e) {
       setRefreshError(e.message);
     } finally {
-      // Always refresh, regardless of success or failure
-      // to give the UI a chance to catch up
       mutate();
       mutateAdditional?.();
     }
@@ -184,13 +139,9 @@ export default function RefreshResultsButton<
           icon="refresh"
           useRadixButton={true}
           radixVariant="outline"
-          onSubmit={async () => {
-            if (customValidation && !(await customValidation())) {
-              return;
-            }
-
-            await runSnapshot(snapshotDimension);
-          }}
+          onSubmit={
+            entityType === "safe-rollout" ? runSafeRolloutUpdate : submitUpdate
+          }
         />
       ) : shouldRenderExperimentButton ? (
         <ExperimentRefreshSnapshotButton
@@ -205,6 +156,8 @@ export default function RefreshResultsButton<
           useRadixButton={true}
           radixVariant="outline"
           customValidation={customValidation}
+          onSuccess={onSuccess}
+          experimentSnapshotTrackingProps={experimentSnapshotTrackingProps}
         />
       ) : shouldRenderSafeRolloutButton ? (
         <SafeRolloutRefreshSnapshotButton
