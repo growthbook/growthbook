@@ -1,4 +1,7 @@
-import { isExperimentIncrementalEnabled } from "shared/enterprise";
+import {
+  getExperimentSourceSnapshotRef,
+  isExperimentIncrementalEnabled,
+} from "shared/enterprise";
 import type { DataSourcePipelineSettings } from "shared/types/datasource";
 
 const makeSettings = (
@@ -144,5 +147,34 @@ describe("isExperimentIncrementalEnabled", () => {
         ),
       ).toBe(false);
     });
+  });
+});
+
+describe("getExperimentSourceSnapshotRef", () => {
+  const mainDate = new Date("2024-06-01T12:00:00Z");
+
+  it("returns undefined when no basis was persisted", () => {
+    expect(getExperimentSourceSnapshotRef({})).toBeUndefined();
+  });
+
+  it("returns undefined when only the id is present", () => {
+    expect(
+      getExperimentSourceSnapshotRef({ sourceSnapshotId: "main" }),
+    ).toBeUndefined();
+  });
+
+  it("returns undefined when only the date is present", () => {
+    expect(
+      getExperimentSourceSnapshotRef({ sourceSnapshotDateCreated: mainDate }),
+    ).toBeUndefined();
+  });
+
+  it("returns the persisted ref when both id and date are present", () => {
+    expect(
+      getExperimentSourceSnapshotRef({
+        sourceSnapshotId: "main",
+        sourceSnapshotDateCreated: mainDate,
+      }),
+    ).toEqual({ id: "main", dateCreated: mainDate });
   });
 });

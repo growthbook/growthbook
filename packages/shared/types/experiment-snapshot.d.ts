@@ -233,6 +233,10 @@ export interface ExperimentSnapshotInterface {
   // Status and meta info about the snapshot run
   error?: string;
   dateCreated: Date;
+  // For incremental-pipeline exploratory snapshots as their analysis
+  // is built on top of the overall results snapshot
+  sourceSnapshotId?: string;
+  sourceSnapshotDateCreated?: Date;
   runStarted: Date | null;
   status: "running" | "success" | "error";
   settings: ExperimentSnapshotSettings;
