@@ -10,7 +10,6 @@ import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { filterEnvironmentsByFeature, getReviewSetting } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { RiAlertLine } from "react-icons/ri";
 import { RxCircleBackslash } from "react-icons/rx";
 import {
   PiArrowBendRightDown,
@@ -26,6 +25,7 @@ import {
   PiLockSimple,
   PiCaretDoubleUp,
   PiCaretDoubleDown,
+  PiSpinnerGapBold,
 } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { format as formatTimeZone } from "date-fns-tz";
@@ -53,7 +53,11 @@ import {
   getAttributesWithVersionStringMismatches,
 } from "@/services/features";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
-import { ConflictBanner, ConflictCallout } from "@/services/rule-conflicts";
+import {
+  ConflictBanner,
+  ConflictCallout,
+  getConflictBadge,
+} from "@/services/rule-conflicts";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -1335,7 +1339,13 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             isReadyForApproval(rampSchedule) &&
             rampSchedule.steps[rampSchedule.currentStepIndex]
               ?.approvalNotes && (
-              <Callout status="info" mt="3" color="orange" size="sm">
+              <Callout
+                status="info"
+                mt="3"
+                color="orange"
+                size="sm"
+                icon={<PiSpinnerGapBold />}
+              >
                 <strong>Approval Notes:</strong>{" "}
                 {
                   rampSchedule.steps[rampSchedule.currentStepIndex]
@@ -1791,20 +1801,26 @@ export function getRuleMetaInfo({
     />
   ));
 
+  // The status badge is derived from the same banners as the callouts, so its
+  // colour + icon always mirror the callout: orange/octagon for unreachable,
+  // amber/triangle for a softer "may not reach" conflict.
+  const conflictBadge = getConflictBadge(conflictBanners);
+  const conflictPill = conflictBadge ? (
+    <Badge
+      color={conflictBadge.color}
+      title={conflictBadge.title}
+      label={
+        <>
+          {conflictBadge.icon}
+          {conflictBadge.label}
+        </>
+      }
+    />
+  ) : undefined;
+
   if (unreachable) {
     return {
-      pill: (
-        <Badge
-          color="orange"
-          title="Rule not reachable"
-          label={
-            <>
-              <RiAlertLine />
-              Unreachable
-            </>
-          }
-        />
-      ),
+      pill: conflictPill,
       callout:
         callouts.length > 0 ? (
           <Flex direction="column" gap="2">
@@ -1826,6 +1842,7 @@ export function getRuleMetaInfo({
   }
 
   return {
+    pill: conflictPill,
     callout:
       callouts.length > 0 ? (
         <Flex direction="column" gap="2">

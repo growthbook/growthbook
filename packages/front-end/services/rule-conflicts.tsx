@@ -6,6 +6,7 @@ import { paddedVersionString } from "@growthbook/growthbook";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
+import { RadixColor, RadixStatusIcon } from "@/ui/HelperText";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { isRuleInactive } from "@/services/features";
 
@@ -1467,6 +1468,42 @@ function joinEnvNames(names: string[]): ReactElement {
   );
 }
 
+// The orange shared by the unreachable status badge and its callout. "error"
+// semantics (alert role + octagon icon) are kept, only the colour is overridden.
+const CONFLICT_UNREACHABLE_COLOR: RadixColor = "orange";
+
+// The status badge for a rule's conflicts, mirroring the colour + icon of the
+// callout it summarizes so the top-right pill and the detail banner can never
+// disagree. Unreachable is the strongest tier (orange + the error/octagon icon);
+// any lesser conflict ("will not reach" / "may not reach") is an amber warning.
+// Returns null when the rule has no conflicts (no badge).
+export type ConflictBadge = {
+  color: RadixColor;
+  icon: ReactElement;
+  label: string;
+  title: string;
+};
+
+export function getConflictBadge(
+  banners: ConflictBanner[] | undefined,
+): ConflictBadge | null {
+  if (!banners?.length) return null;
+  if (banners.some((b) => b.isUnreachable)) {
+    return {
+      color: CONFLICT_UNREACHABLE_COLOR,
+      icon: <RadixStatusIcon status="error" size="sm" />,
+      label: "Unreachable",
+      title: "No matching traffic will reach this rule",
+    };
+  }
+  return {
+    color: "amber",
+    icon: <RadixStatusIcon status="warning" size="sm" />,
+    label: "Conflict",
+    title: "Some matching traffic may not reach this rule",
+  };
+}
+
 // Generic warning that some/all targeted traffic won't (or may not) reach this
 // rule, with an expandable explanation of which rule(s) consume it. In the
 // all-environments view `environments` / `allEnvironments` scope the banner to
@@ -1502,9 +1539,13 @@ export function ConflictCallout({
     </span>
   );
   const hasDetails = hasHard || hasSoft;
+  // Unreachable keeps "error" semantics (role=alert + the octagon icon) but is
+  // recoloured to the same orange the status badge uses, so the badge and this
+  // callout never disagree. Lesser conflicts stay amber "warning".
   const status = isUnreachable ? "error" : "warning";
+  const color = isUnreachable ? CONFLICT_UNREACHABLE_COLOR : undefined;
   return (
-    <Callout status={status} size="sm" contentsAs="div">
+    <Callout status={status} color={color} size="sm" contentsAs="div">
       <Flex direction="column" gap="1">
         <Flex align="center" gap="2" wrap="wrap">
           {headline}
