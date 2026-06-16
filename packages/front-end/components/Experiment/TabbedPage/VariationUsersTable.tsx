@@ -77,9 +77,14 @@ export default function VariationUsersTable({
                   className={`border-right${hideVariationIndex ? "" : ` variation with-variation-label variation${v.index}`}`}
                 >
                   {hideVariationIndex ? (
-                    v.name
+                    <span className="d-block text-ellipsis" title={v.name}>
+                      {v.name}
+                    </span>
                   ) : (
-                    <div className="d-flex align-items-center">
+                    <div
+                      className="d-flex align-items-center"
+                      style={{ minWidth: 0 }}
+                    >
                       <span
                         className="label"
                         style={{
@@ -89,7 +94,13 @@ export default function VariationUsersTable({
                       >
                         {v.index}
                       </span>{" "}
-                      {v.name}
+                      <span
+                        className="text-ellipsis"
+                        title={v.name}
+                        style={{ flex: "1 1 auto", minWidth: 0 }}
+                      >
+                        {v.name}
+                      </span>
                     </div>
                   )}
                 </td>
