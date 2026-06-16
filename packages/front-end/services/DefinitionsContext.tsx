@@ -178,8 +178,10 @@ export const useProject = () => {
 export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
   children,
 }) => {
+  const { orgSuspended, organization } = useUser();
   const { data, error, mutate } = useApi<Definitions & { status: 200 }>(
     "/organization/definitions",
+    { shouldRun: () => !orgSuspended && !!organization?.id },
   );
 
   const [project, setProject] = useProject();

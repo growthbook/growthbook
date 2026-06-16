@@ -25,6 +25,8 @@ import {
 import { HoldoutInterfaceStringDates } from "../validators/holdout";
 import { featureHasEnvironment } from "./features";
 
+export * from "./strings";
+export * from "./event-forwarder-destination";
 export * from "./features";
 export * from "./managedWarehouse";
 export * from "./saved-groups";
@@ -35,6 +37,10 @@ export * from "./types";
 export * from "./errors";
 export * from "./namespaces";
 export * from "./custom-fields";
+export * from "./diffFormats";
+export * from "./datasource";
+export * from "./event-forwarder-fact-table";
+export * from "./event-forwarder-warehouse-queries";
 
 export const DEFAULT_ENVIRONMENT_IDS = ["production", "dev", "staging", "test"];
 

@@ -281,6 +281,7 @@ You can also send events directly to our ingestion API. Pass an array of event o
 - **event_name**: The name of the event (e.g., "Purchase", "Button Click")
 - **properties**: Optional key-value pairs with properties of the event itself
 - **attributes**: Optional key-value pairs with attributes of the user or context at the time of the event
+- **timestamp**: Optional ISO timestamp of when the event occurred. Only used when batching events with a `sentAt` field (see [Event timestamps](#event-timestamps) below).
 
 ```bash
 curl -X POST "https://us1.gb-ingest.com/track?client_key=YOUR_CLIENT_KEY" \
@@ -297,6 +298,33 @@ curl -X POST "https://us1.gb-ingest.com/track?client_key=YOUR_CLIENT_KEY" \
 ```
 
 Make sure you do not include any sensitive information in your events (or if you do, anonymize it first).
+
+#### Event timestamps
+
+By default, events are timestamped with the time they are received by the ingestion API. If you batch events before sending, you can preserve each event's original timing by adding a per-event `timestamp` along with a top-level `sentAt` field:
+
+```bash
+curl -X POST "https://us1.gb-ingest.com/track?client_key=YOUR_CLIENT_KEY" \
+-H "Content-Type: application/json" \
+-d '{
+  "sentAt": "2025-06-01T12:00:05.000Z",
+  "events": [{
+    "event_name": "Purchase",
+    "timestamp": "2025-06-01T12:00:00.000Z",
+    "properties": {
+      "amount": 100
+    },
+    "attributes": {
+      "user_id": "12345"
+    }
+  }]
+}'
+```
+
+- **sentAt**: ISO timestamp of when the request was sent, from the same clock used for the event timestamps
+- **timestamp**: ISO timestamp of when the event occurred. Must be earlier than `sentAt`, otherwise it is ignored.
+
+We don't trust client timestamps directly. Instead, we subtract the difference between `sentAt` and each event's `timestamp` from our own server time when the request is received. This preserves the relative timing of your events while correcting for client clock skew.
 
 #### Experiment view events
 

@@ -26,7 +26,6 @@ import {
   parseSliceQueryString,
   generateSliceString,
   expandMetricGroups,
-  isDimensionPrecomputed,
 } from "../../experiments/experiments";
 import { DataVizConfig } from "../../../validators";
 import { getInitialConfigByBlockType } from "../product-analytics/utils";
@@ -131,19 +130,14 @@ export function snapshotSatisfiesBlock(
     return snapshot.dimension === blockSettings.dimensionId;
   }
   if (!blockSettings.dimensionId) return true;
-  // If snapshot doesn't have a dimension, check whether the requested dimension
-  // is precomputed. Precomputed experiment dimensions live in settings.dimensions
-  // (as `precomputed:<id>`); precomputed unit dimensions live in
-  // settings.precomputedUnitDimensionIds. Both are analyzed eagerly on the
-  // dimensionless snapshot, so it satisfies the block without a separate fetch.
+  // If snapshot doesn't have a dimension, check whether the requested dimension is precomputed
+  // Check both regular precomputed dimensions and precomputed unit dimensions
+  const precomputedDimIds = snapshot.settings.dimensions.map(({ id }) => id);
+  const precomputedUnitDimIds =
+    snapshot.settings.precomputedUnitDimensionIds ?? [];
   return (
-    snapshot.settings.dimensions.some(
-      ({ id }) => blockSettings.dimensionId === id,
-    ) ||
-    isDimensionPrecomputed(
-      blockSettings.dimensionId,
-      snapshot.settings.precomputedUnitDimensionIds ?? [],
-    )
+    precomputedDimIds.includes(blockSettings.dimensionId) ||
+    precomputedUnitDimIds.includes(blockSettings.dimensionId)
   );
 }
 

@@ -70,7 +70,7 @@ export default function BlockDimensionFields({
         onChange={(value) => {
           // Clearing the dimension also clears any selected levels.
           if (
-            !value &&
+            value !== block.dimensionId &&
             blockHasFieldOfType(block, "dimensionValues", isStringArray)
           ) {
             setBlock({ ...block, dimensionId: value, dimensionValues: [] });

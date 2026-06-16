@@ -31,7 +31,7 @@ import Table, {
 import {
   draftStatusDotColor,
   revisionStatusLabel,
-} from "@/components/Features/RevisionStatusBadge";
+} from "@/components/Reviews/RevisionStatusBadge";
 import Text from "@/ui/Text";
 
 const ITEMS_PER_PAGE = 10;
