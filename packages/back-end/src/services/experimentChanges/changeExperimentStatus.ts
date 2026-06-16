@@ -229,6 +229,43 @@ export async function getExperimentStartChecklistStatus(
     reason: "Add an SDK connection before starting.",
   });
 
+  // Bandits already enforce a data source and goal metric at creation time and
+  // surface their own banditGoalMetric item, so these only apply to standard
+  // experiments.
+  if (!isBandit) {
+    const hasDatasource = !!experiment.datasource;
+    const hasAssignmentTable = !!experiment.exposureQueryId;
+
+    items.push({
+      key: "datasource",
+      required: true,
+      status: hasDatasource ? "complete" : "incomplete",
+      manual: false,
+      reason: "Select a data source for this experiment before starting.",
+    });
+
+    items.push({
+      key: "exposureQuery",
+      required: true,
+      status: hasAssignmentTable ? "complete" : "incomplete",
+      manual: false,
+      reason: "Select an experiment assignment table before starting.",
+    });
+
+    // Goal metrics are scoped to the data source, so this only applies once a
+    // data source and assignment table have been selected.
+    if (hasDatasource && hasAssignmentTable) {
+      items.push({
+        key: "goalMetric",
+        required: true,
+        status:
+          (experiment.goalMetrics?.length ?? 0) > 0 ? "complete" : "incomplete",
+        manual: false,
+        reason: "Add at least one goal metric before starting.",
+      });
+    }
+  }
+
   const latestVariations = getLatestPhaseVariations(experiment);
   linkedFeatures
     .filter((f) => f.state !== "discarded" && f.state !== "archived")

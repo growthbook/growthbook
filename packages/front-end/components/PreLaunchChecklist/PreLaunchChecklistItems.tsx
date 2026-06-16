@@ -115,6 +115,87 @@ export function getChecklistItems({
   }
   const items: CheckListItem[] = [];
 
+  // Bandits enforce a data source and decision metric through their own flow,
+  // so these only apply to standard experiments.
+  if (!isBandit) {
+    const hasDatasource = !!experiment.datasource;
+    const hasAssignmentTable = !!experiment.exposureQueryId;
+
+    items.push({
+      type: "auto",
+      key: "datasource",
+      required: true,
+      status: hasDatasource ? "complete" : "incomplete",
+      display: (
+        <>
+          {setAnalysisModal ? (
+            <a
+              className="a link-purple"
+              role="button"
+              onClick={() => setAnalysisModal(true)}
+            >
+              Select
+            </a>
+          ) : (
+            "Select"
+          )}{" "}
+          a Data Source for this experiment
+        </>
+      ),
+    });
+
+    items.push({
+      type: "auto",
+      key: "exposureQuery",
+      required: true,
+      status: hasAssignmentTable ? "complete" : "incomplete",
+      display: (
+        <>
+          {setAnalysisModal ? (
+            <a
+              className="a link-purple"
+              role="button"
+              onClick={() => setAnalysisModal(true)}
+            >
+              Select
+            </a>
+          ) : (
+            "Select"
+          )}{" "}
+          an Experiment Assignment Table
+        </>
+      ),
+    });
+
+    // Goal metrics are scoped to the data source, so this only shows once a
+    // data source and assignment table have been selected.
+    if (hasDatasource && hasAssignmentTable) {
+      items.push({
+        type: "auto",
+        key: "goalMetric",
+        required: true,
+        status:
+          (experiment.goalMetrics?.length ?? 0) > 0 ? "complete" : "incomplete",
+        display: (
+          <>
+            {setAnalysisModal ? (
+              <a
+                className="a link-purple"
+                role="button"
+                onClick={() => setAnalysisModal(true)}
+              >
+                Add
+              </a>
+            ) : (
+              "Add"
+            )}{" "}
+            at least one goal metric
+          </>
+        ),
+      });
+    }
+  }
+
   if (checkLinkedChanges) {
     const hasLiveLinkedChanges = experimentHasLiveLinkedChanges(
       experiment,
