@@ -114,7 +114,7 @@ export type AppFeatures = {
   "test-feature": boolean;
   "pro-signup-flow": boolean;
   "kb-ff": boolean;
-  "events-forwarder": boolean;
+  "events-forwarder-multi-step": "OFF" | "VISIBLE" | "ENABLED";
   "enable-error-tracking": boolean;
   "managed-warehouse-diagnostics": boolean;
 };

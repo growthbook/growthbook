@@ -80,6 +80,29 @@ export function tagFilterOnClick(
   };
 }
 
+// Whitespace separates distinct words; punctuation (incl. _ and -) separates
+// sub-tokens within a word.
+const wordBoundary = /[\n\r\p{Z}]+/u;
+const tokenSeparators = /\p{P}+/u;
+
+// Split a string into normalized words. MiniSearch can only match terms by
+// prefix/fuzzy (no substring search), so for indexing we emit every
+// "boundary suffix" of each word — e.g. "search_test_key" -> ["search_test_key",
+// "test_key", "key"] — which turns a prefix query into a substring-at-word-
+// boundary match. For queries we keep each word whole (one normalized term), so
+// "test_key" / "test-key" both prefix-match the "test_key" suffix of
+// "search_test_key" but never match "test-my-key".
+function tokenizeFields(text: string, expandSuffixes: boolean): string[] {
+  return text.split(wordBoundary).flatMap((word) => {
+    const parts = word.split(tokenSeparators).filter(Boolean);
+    return expandSuffixes
+      ? parts.map((_, i) => parts.slice(i).join("_"))
+      : parts.length
+        ? [parts.join("_")]
+        : [];
+  });
+}
+
 const searchTermOperators = [">", "<", "^", "=", "~", ""] as const;
 
 export type SyntaxFilter = {
@@ -227,10 +250,12 @@ export function useSearch<T extends { id: string }>({
     const miniSearchInstance = new MiniSearch({
       idField: internalSearchIdField,
       fields,
+      tokenize: (text) => tokenizeFields(text, true),
       searchOptions: {
         boost: keys,
         fuzzy: true,
         prefix: true,
+        tokenize: (text) => tokenizeFields(text, false),
       },
     });
 

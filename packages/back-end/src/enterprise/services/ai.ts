@@ -5,6 +5,7 @@ import {
   Output,
   tool as aiTool,
   stepCountIs,
+  NoObjectGeneratedError,
 } from "ai";
 import type { ToolSet, ModelMessage } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
@@ -345,6 +346,7 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   maxSteps = 1,
   cacheSystemPrompt = false,
   onStepFinish,
+  retryOnNoObject = true,
 }: {
   context: ReqContext | ApiReqContext;
   instructions?: string;
@@ -354,6 +356,11 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   isDefaultPrompt: boolean;
   zodObjectSchema: T;
   overrideModel?: AIModel;
+  // Retry once on NoObjectGeneratedError. Pass false from callers that
+  // are themselves a retry so attempts don't stack (e.g. postAIEdit's
+  // selector-correction retry — otherwise one request could fan out to
+  // 4 LLM calls).
+  retryOnNoObject?: boolean;
   // Optional tool-calling: when present, the model may emit tool calls
   // across up to `maxSteps` LLM round-trips before producing the final
   // structured output. Default of 1 keeps the no-tools shape identical.
@@ -412,18 +419,60 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     ? undefined
     : temperature;
 
-  const response = await generateText({
-    model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
-    messages: messages,
-    output: Output.object({
-      schema: zodObjectSchema,
-    }),
-    ...(effectiveTemperature != null
-      ? { temperature: effectiveTemperature }
-      : {}),
-    ...(tools ? { tools, stopWhen: stepCountIs(maxSteps) } : {}),
-    ...(onStepFinish ? { onStepFinish } : {}),
-  });
+  const generateOnce = () =>
+    generateText({
+      model: aiProvider(model) as Parameters<typeof generateText>[0]["model"],
+      messages: messages,
+      output: Output.object({
+        schema: zodObjectSchema,
+      }),
+      ...(effectiveTemperature != null
+        ? { temperature: effectiveTemperature }
+        : {}),
+      ...(tools ? { tools, stopWhen: stepCountIs(maxSteps) } : {}),
+      ...(onStepFinish ? { onStepFinish } : {}),
+    });
+
+  // Output.object steers the model toward the schema but doesn't
+  // grammar-constrain it, so conformance is probabilistic: a complex
+  // schema, a smaller model, or mixing in tools + multi-step all raise
+  // the chance it returns something the schema rejects
+  // (NoObjectGeneratedError). It's almost always transient, so retry
+  // once before surfacing a clear error. The durable fix for a high
+  // rate is a simpler schema or a stronger model; this is just a cheap
+  // backstop. A failed attempt still bills tokens (the error carries its
+  // usage), so track them or the retry under-counts on Cloud.
+  let retriedTokens = 0;
+  let response: Awaited<ReturnType<typeof generateOnce>>;
+  try {
+    response = await generateOnce();
+  } catch (err) {
+    if (!NoObjectGeneratedError.isInstance(err)) throw err;
+    // Don't stack retries when the caller is already a retry path.
+    if (!retryOnNoObject) throw err;
+    retriedTokens += err.usage?.totalTokens ?? 0;
+    logger.warn(
+      { type, model },
+      "parsePrompt: model returned no schema-valid object; retrying once",
+    );
+    try {
+      response = await generateOnce();
+    } catch (retryErr) {
+      if (!NoObjectGeneratedError.isInstance(retryErr)) throw retryErr;
+      retriedTokens += retryErr.usage?.totalTokens ?? 0;
+      // Bill both failed attempts before surfacing the error so Cloud
+      // rate-limiting doesn't under-count a double failure.
+      if (IS_CLOUD && retriedTokens > 0) {
+        await updateTokenUsage({
+          numTokensUsed: retriedTokens,
+          organization: context.org,
+        });
+      }
+      throw new Error(
+        "The AI couldn't format a valid response for this request. Please try again, or rephrase/simplify the request.",
+      );
+    }
+  }
 
   if (IS_CLOUD) {
     // Fire and forget
@@ -438,7 +487,8 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
     });
 
     const numTokensUsed =
-      response.usage?.totalTokens ?? numTokensFromMessages(messages, model);
+      (response.usage?.totalTokens ?? numTokensFromMessages(messages, model)) +
+      retriedTokens;
     await updateTokenUsage({ numTokensUsed, organization: context.org });
   }
 

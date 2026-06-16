@@ -8,6 +8,7 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import {
   BadRequestError,
   ConflictError,
+  MergeConflictError,
   NotFoundError,
 } from "back-end/src/util/errors";
 import { getAdapter } from "back-end/src/revisions";
@@ -91,13 +92,35 @@ export const postSavedGroupRevisionPublish = createApiRequestHandler(
     normalizeProposedChanges(revision.target.proposedChanges),
   );
   if (!conflictResult.success) {
-    throw new ConflictError(
+    throw new MergeConflictError(
       "Merge conflicts exist — rebase before publishing",
       conflictResult.conflicts,
     );
   }
 
   const updatableFields = adapter.getUpdatableFields();
+
+  // Governance friction (parity with features): when the org enforces same-base
+  // merges, a revision created against a snapshot that no longer matches the
+  // live saved group must be rebased first. `mergeNow` is the explicit "merge
+  // anyway" opt-in but only takes effect for bypass-approval callers; otherwise
+  // it's ignored and the revision must be rebased. Bypass callers stay exempt.
+  if (req.organization.settings?.requireRebaseBeforePublish) {
+    const forceMerge = !!req.body.mergeNow && canBypass;
+    if (!forceMerge) {
+      const snapshot = revision.target.snapshot as Record<string, unknown>;
+      const liveEntity = savedGroup as unknown as Record<string, unknown>;
+      const diverged = [...updatableFields].some(
+        (key) => !isEqual(snapshot[key], liveEntity[key]),
+      );
+      if (diverged && !canBypass) {
+        throw new ConflictError(
+          "This revision was created against an older version of the saved group. " +
+            'Rebase the revision first. ("mergeNow": true bypasses this only with bypass-approval permission.)',
+        );
+      }
+    }
+  }
   const hasChanges = Object.keys(desiredState).some((key) => {
     if (!updatableFields.has(key)) return false;
     return !isEqual(

@@ -51,6 +51,7 @@ interface Props
   currentMetricTotal?: number;
   pValueAdjustmentEnabled?: boolean;
   statusLabels?: StatusLabels;
+  oneSided?: boolean;
 }
 
 export default function PercentGraph({
@@ -86,6 +87,7 @@ export default function PercentGraph({
   currentMetricTotal = 0,
   pValueAdjustmentEnabled,
   statusLabels,
+  oneSided = false,
 }: Props) {
   const { metricDefaults: _metricDefaults } = useOrganizationMetricDefaults();
 
@@ -160,6 +162,7 @@ export default function PercentGraph({
         className={className}
         isHovered={isHovered}
         percent={percent}
+        oneSided={oneSided}
         onMouseMove={onMouseMove}
         onMouseLeave={onMouseLeave}
         onClick={onClick}

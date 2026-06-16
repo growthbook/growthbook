@@ -95,6 +95,23 @@ export function getUploadsDir() {
   return path.join(__dirname, "..", "..", "uploads");
 }
 
+// Join an upload key onto the uploads dir, rejecting anything that escapes it.
+// The separator-aware boundary check (vs. a bare prefix match) is what stops a
+// sibling like "uploads-evil" or a "../" traversal from slipping through.
+export function resolveUploadPath(key: string): string {
+  const rootDirectory = getUploadsDir();
+  const fullPath = path.join(rootDirectory, key);
+  if (
+    fullPath !== rootDirectory &&
+    !fullPath.startsWith(rootDirectory + path.sep)
+  ) {
+    throw new Error(
+      "Error: Path must not escape out of the 'uploads' directory.",
+    );
+  }
+  return fullPath;
+}
+
 export async function uploadFile(
   filePath: string,
   contentType: string,
@@ -177,16 +194,7 @@ export async function uploadFile(
     fileURL =
       cfg.gcsDomain + (cfg.gcsDomain.endsWith("/") ? "" : "/") + filePath;
   } else {
-    const rootDirectory = getUploadsDir();
-    const fullPath = path.join(rootDirectory, filePath);
-
-    // Prevent directory traversal
-    if (fullPath.indexOf(rootDirectory) !== 0) {
-      throw new Error(
-        "Error: Path must not escape out of the 'uploads' directory.",
-      );
-    }
-
+    const fullPath = resolveUploadPath(filePath);
     const dir = path.dirname(fullPath);
     await fs.promises.mkdir(dir, { recursive: true });
     await fs.promises.writeFile(fullPath, contents);
@@ -201,15 +209,7 @@ export function getImageData(filePath: string) {
     throw new Error("Error: Filename must not contain null bytes");
   }
 
-  const rootDirectory = getUploadsDir();
-  const fullPath = path.join(rootDirectory, filePath);
-
-  // Prevent directory traversal
-  if (fullPath.indexOf(rootDirectory) !== 0) {
-    throw new Error(
-      "Error: Path must not escape out of the 'uploads' directory.",
-    );
-  }
+  const fullPath = resolveUploadPath(filePath);
 
   if (!fs.existsSync(fullPath)) {
     throw new Error("File not found");
@@ -444,17 +444,8 @@ export async function promoteFile(
     return cfg.gcsDomain + (cfg.gcsDomain.endsWith("/") ? "" : "/") + destKey;
   } else {
     // Local filesystem (dev): just rename.
-    const rootDirectory = getUploadsDir();
-    const srcPath = path.join(rootDirectory, srcKey);
-    const destPath = path.join(rootDirectory, destKey);
-    if (
-      srcPath.indexOf(rootDirectory) !== 0 ||
-      destPath.indexOf(rootDirectory) !== 0
-    ) {
-      throw new Error(
-        "Error: Path must not escape out of the 'uploads' directory.",
-      );
-    }
+    const srcPath = resolveUploadPath(srcKey);
+    const destPath = resolveUploadPath(destKey);
     await fs.promises.mkdir(path.dirname(destPath), { recursive: true });
     await fs.promises.rename(srcPath, destPath);
     return `/upload/${destKey}`;
@@ -514,11 +505,7 @@ export async function listFiles(
     }));
   } else {
     // Local filesystem (dev).
-    const rootDirectory = getUploadsDir();
-    const dir = path.join(rootDirectory, prefix);
-    if (dir.indexOf(rootDirectory) !== 0) {
-      throw new Error("Error: Prefix must not escape the uploads directory.");
-    }
+    const dir = resolveUploadPath(prefix);
     let entries: import("fs").Dirent[];
     try {
       entries = await fs.promises.readdir(dir, { withFileTypes: true });

@@ -401,3 +401,20 @@ export async function queueFactTableColumnsRefresh(
   job.schedule(new Date());
   await job.save();
 }
+
+/** Same job as queueFactTableColumnsRefresh, but scheduled for a future runAt. */
+export async function queueFactTableColumnsRefreshAt(
+  factTable: Pick<FactTableInterface, "id" | "organization">,
+  runAt: Date,
+) {
+  const job = agenda.create(JOB_NAME, {
+    organization: factTable.organization,
+    factTableId: factTable.id,
+  }) as RefreshFactTableColumnsJob;
+  job.unique({
+    organization: factTable.organization,
+    factTableId: factTable.id,
+  });
+  job.schedule(runAt);
+  await job.save();
+}

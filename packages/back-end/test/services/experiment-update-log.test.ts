@@ -2,7 +2,7 @@ import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimen
 
 describe("ExperimentUpdateExecutionLogger", () => {
   beforeEach(() => {
-    jest.useFakeTimers("modern");
+    jest.useFakeTimers();
     jest.setSystemTime(0);
   });
 
