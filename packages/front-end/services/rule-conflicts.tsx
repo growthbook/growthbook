@@ -86,6 +86,17 @@ export type RuleHardConflict = {
   label: string | null;
 };
 
+// Stable identity for a hard conflict, for de-duping within a rule (the same
+// consuming rule can surface via both the flat-AND pass and the tree pass) and
+// across environments.
+function hardConflictKey(c: {
+  consumingRuleId: string;
+  attr: string | null;
+  label: string | null;
+}): string {
+  return `${c.consumingRuleId}|${c.attr ?? ""}|${c.label ?? ""}`;
+}
+
 // A soft conflict: traffic may be served above before reaching this rule, but
 // we can't prove how much. Either a rule above also targets one of this rule's
 // attributes (`attr` set), or an untargeted partial rollout above siphons a
@@ -1047,27 +1058,48 @@ function analyzeConstraint(
 // Is the entire population matching `expr` served by the consumers above? Sound
 // (never over-claims): an AND is consumed when *any* child is (its population is
 // a subset of that child's); an OR only when *every* child is; NOT/opaque are
-// never provably consumed.
+// never provably consumed. When consumed, `conflicts` explains why — the
+// consuming rules for the child (AND) or every child (OR) that proves it — so a
+// rule made unreachable through an OR/NOT shape the flat AND can't express still
+// gets a "will not reach" detail instead of a bare, unexplained banner.
 function exprFullyConsumed(
   e: Expr,
   consumersByAttr: Map<string, Consumer[]>,
-): boolean {
+): { consumed: boolean; conflicts: RuleHardConflict[] } {
   switch (e.type) {
-    case "atom":
-      return analyzeConstraint(
+    case "atom": {
+      const { unreachable, conflicts } = analyzeConstraint(
         { attr: e.attr, atom: e.atom },
         consumersByAttr.get(e.attr) ?? [],
-      ).unreachable;
-    case "and":
-      return e.children.some((c) => exprFullyConsumed(c, consumersByAttr));
-    case "or":
-      return (
-        e.children.length > 0 &&
-        e.children.every((c) => exprFullyConsumed(c, consumersByAttr))
       );
+      return unreachable
+        ? { consumed: true, conflicts }
+        : { consumed: false, conflicts: [] };
+    }
+    case "and": {
+      // Subset of each child: consumed as soon as one child is, and that child's
+      // conflicts are enough to explain it.
+      for (const c of e.children) {
+        const r = exprFullyConsumed(c, consumersByAttr);
+        if (r.consumed) return r;
+      }
+      return { consumed: false, conflicts: [] };
+    }
+    case "or": {
+      // Union of children: consumed only when every branch is, and we collect
+      // the conflicts that cover each branch.
+      if (e.children.length === 0) return { consumed: false, conflicts: [] };
+      const conflicts: RuleHardConflict[] = [];
+      for (const c of e.children) {
+        const r = exprFullyConsumed(c, consumersByAttr);
+        if (!r.consumed) return { consumed: false, conflicts: [] };
+        conflicts.push(...r.conflicts);
+      }
+      return { consumed: true, conflicts };
+    }
     case "not":
     case "opaque":
-      return false;
+      return { consumed: false, conflicts: [] };
   }
 }
 
@@ -1176,9 +1208,22 @@ export function getRuleReachability(
       }
 
       // Reachability for shapes the flat AND can't express — an OR across saved
-      // groups, a negated group, … — by walking the full boolean tree.
-      if (!unreachable && exprFullyConsumed(target.expr, consumersByAttr)) {
-        unreachable = true;
+      // groups, a negated group, … — by walking the full boolean tree. When it
+      // fires we also surface the consuming rules so the banner explains itself
+      // (deduped against any partial conflicts the flat pass already reported).
+      if (!unreachable) {
+        const tree = exprFullyConsumed(target.expr, consumersByAttr);
+        if (tree.consumed) {
+          unreachable = true;
+          const seen = new Set(hardConflicts.map(hardConflictKey));
+          for (const c of tree.conflicts) {
+            const key = hardConflictKey(c);
+            if (!seen.has(key)) {
+              seen.add(key);
+              hardConflicts.push(c);
+            }
+          }
+        }
       }
     }
 
@@ -1280,7 +1325,7 @@ function mergeConflicts(
   const softIds = new Map<string | null, Set<string>>();
   for (const reach of reaches) {
     for (const c of reach.hardConflicts) {
-      const key = `${c.consumingRuleId}|${c.attr ?? ""}|${c.label ?? ""}`;
+      const key = hardConflictKey(c);
       if (!hard.has(key)) {
         hard.set(key, {
           ruleNumber: ruleNumber(c.consumingRuleId),

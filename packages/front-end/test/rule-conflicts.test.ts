@@ -1065,10 +1065,14 @@ describe("getRuleReachability — saved groups (ID lists)", () => {
       ],
       groups,
     );
-    // Both OR branches are fully served above, so r3 is unreachable.
+    // Both OR branches are fully served above, so r3 is unreachable — and the
+    // tree pass names the rule consuming each branch.
     expect(result.get("r3")).toEqual({
       unreachable: true,
-      hardConflicts: [],
+      hardConflicts: [
+        { consumingRuleId: "r1", attr: "id", label: "1, 2" },
+        { consumingRuleId: "r2", attr: "id", label: "3, 4" },
+      ],
       softConflicts: [],
     });
   });
@@ -1212,6 +1216,117 @@ describe("getRuleReachability — saved groups (condition groups)", () => {
       unreachable: false,
       hardConflicts: [],
       softConflicts: [{ attr: "country", consumingRuleIds: ["r1"] }],
+    });
+  });
+});
+
+describe("getRuleReachability — $inGroup / $notInGroup operators", () => {
+  const listGroup = (
+    attributeKey: string,
+    values?: string[],
+  ): SavedGroupForConflicts => ({ type: "list", attributeKey, values });
+
+  it("resolves $inGroup against a loaded list group to a precise in-constraint", () => {
+    const groups = new Map<string, SavedGroupForConflicts>([
+      ["grp_ids", listGroup("id", ["1", "2", "3"])],
+    ]);
+    const result = analyze(
+      [
+        force("r1", { condition: cond({ id: { $inGroup: "grp_ids" } }) }),
+        force("r2", { condition: cond({ id: { $in: ["1", "2"] } }) }),
+      ],
+      groups,
+    );
+    expect(result.get("r2")).toEqual({
+      unreachable: true,
+      hardConflicts: [{ consumingRuleId: "r1", attr: "id", label: "1, 2" }],
+      softConflicts: [],
+    });
+  });
+
+  it("treats $inGroup as opaque (soft) until the list group's values load", () => {
+    const groups = new Map<string, SavedGroupForConflicts>([
+      ["grp_ids", listGroup("id")], // values not fetched yet
+    ]);
+    const result = analyze(
+      [
+        force("r1", { condition: cond({ id: { $inGroup: "grp_ids" } }) }),
+        force("r2", { condition: cond({ id: { $in: ["1", "2"] } }) }),
+      ],
+      groups,
+    );
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [{ attr: "id", consumingRuleIds: ["r1"] }],
+    });
+  });
+
+  it("resolves $notInGroup against a loaded list group to a not-in constraint", () => {
+    // r1 serves country ∉ {US, CA}; r2 serves country ∉ {US, CA, DE} — a subset
+    // of r1's population, so r2 is unreachable.
+    const groups = new Map<string, SavedGroupForConflicts>([
+      ["grp_excluded", listGroup("country", ["US", "CA"])],
+    ]);
+    const result = analyze(
+      [
+        force("r1", {
+          condition: cond({ country: { $notInGroup: "grp_excluded" } }),
+        }),
+        force("r2", {
+          condition: cond({ country: { $nin: ["US", "CA", "DE"] } }),
+        }),
+      ],
+      groups,
+    );
+    expect(result.get("r2")).toEqual({
+      unreachable: true,
+      hardConflicts: [{ consumingRuleId: "r1", attr: "country", label: null }],
+      softConflicts: [],
+    });
+  });
+
+  it("treats $notInGroup as opaque (soft) until the list group's values load", () => {
+    const groups = new Map<string, SavedGroupForConflicts>([
+      ["grp_excluded", listGroup("country")], // values not fetched yet
+    ]);
+    const result = analyze(
+      [
+        force("r1", {
+          condition: cond({ country: { $notInGroup: "grp_excluded" } }),
+        }),
+        force("r2", { condition: cond({ country: "US" }) }),
+      ],
+      groups,
+    );
+    expect(result.get("r2")).toEqual({
+      unreachable: false,
+      hardConflicts: [],
+      softConflicts: [{ attr: "country", consumingRuleIds: ["r1"] }],
+    });
+  });
+
+  it("expands $inGroup nested inside a condition saved group", () => {
+    // A condition group whose condition itself references an ID-list group via
+    // $inGroup should still resolve to that list's values.
+    const groups = new Map<string, SavedGroupForConflicts>([
+      ["grp_ids", listGroup("id", ["1", "2", "3"])],
+      [
+        "grp_cond",
+        { type: "condition", condition: cond({ id: { $inGroup: "grp_ids" } }) },
+      ],
+    ]);
+    const result = analyze(
+      [
+        force("r1", { savedGroups: [{ ids: ["grp_cond"], match: "any" }] }),
+        force("r2", { condition: cond({ id: { $in: ["1", "2"] } }) }),
+      ],
+      groups,
+    );
+    expect(result.get("r2")).toEqual({
+      unreachable: true,
+      hardConflicts: [{ consumingRuleId: "r1", attr: "id", label: "1, 2" }],
+      softConflicts: [],
     });
   });
 });
