@@ -1370,6 +1370,25 @@ export function getContextForAgendaJobByOrgObject(
   });
 }
 
+// Admin context that acts as the system actor. Use for system-initiated
+// updates to API-managed resources (e.g. event forwarder fact tables) so they
+// pass both the permission check (admin role) and the `managedBy === "api"`
+// guard (which lets the `system` audit user type through). Audit logs attribute
+// the change to SYSTEM.
+export function getSystemContextForOrgObject(
+  organization: OrganizationInterface,
+  subtype?: string,
+): ApiReqContext {
+  return new ReqContextClass({
+    org: organization,
+    auditUser: {
+      type: "system",
+      ...(subtype ? { subtype } : {}),
+    },
+    role: "admin",
+  });
+}
+
 export async function getContextForAgendaJobByOrgId(
   orgId: string,
 ): Promise<ApiReqContext> {
