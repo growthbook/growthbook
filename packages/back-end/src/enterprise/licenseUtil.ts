@@ -132,7 +132,6 @@ export function getAccountPlan(org: MinimalOrganization): AccountPlan {
     }
     // Vercel starter orgs have the `restrictLoginMethod` set, but they're not pro_sso
     if (org.isVercelIntegration) return "starter";
-    if (org.enterprise) return "enterprise";
     if (org.restrictAuthSubPrefix || org.restrictLoginMethod) return "pro_sso";
     return "starter";
   }
@@ -958,6 +957,10 @@ export function isAirGappedLicenseKey(licenseKey: string | undefined): boolean {
 }
 
 export function getEffectiveAccountPlan(org: MinimalOrganization): AccountPlan {
+  // If the org has the enterprise flag, return enterprise
+  // Can remove this when all enterprise orgs are migrated to a license
+  if (org.enterprise) return "enterprise";
+
   let basicPlan: AccountPlan;
 
   if (stringToBoolean(process.env.IS_CLOUD)) {
