@@ -157,9 +157,11 @@ WHERE ${EVENT_FORWARDER_AVRO_PARTITION_FIELD} BETWEEN '{{startDate}}' AND '{{end
     });
 
     expect(sql).toContain(
-      'TRY_TO_DOUBLE(ATTRIBUTES:"employee_id") AS employee_id',
+      'TRY_TO_DOUBLE(ATTRIBUTES:"employee_id"::STRING) AS employee_id',
     );
-    expect(sql).not.toContain('ATTRIBUTES:"employee_id"::STRING');
+    expect(sql).not.toContain(
+      'ATTRIBUTES:"employee_id"::STRING AS employee_id',
+    );
   });
 
   it("uses typed casts for userIdTypes backed by hash attributes", () => {
@@ -295,13 +297,17 @@ FROM MY_DB.PUBLIC.GB_EVENTS`);
       ],
     });
 
-    expect(sql).toContain('TRY_TO_DOUBLE(ATTRIBUTES:"age") AS age');
+    expect(sql).toContain('TRY_TO_DOUBLE(ATTRIBUTES:"age"::STRING) AS age');
     expect(sql).toContain(
-      'TRY_TO_BOOLEAN(ATTRIBUTES:"is_active") AS is_active',
+      'TRY_TO_BOOLEAN(ATTRIBUTES:"is_active"::STRING) AS is_active',
     );
-    expect(sql).toContain('TRY_PARSE_JSON(ATTRIBUTES:"tags") AS tags');
-    expect(sql).toContain('TRY_PARSE_JSON(ATTRIBUTES:"scores") AS scores');
-    expect(sql).toContain('TRY_PARSE_JSON(ATTRIBUTES:"secrets") AS secrets');
+    expect(sql).toContain('TRY_PARSE_JSON(ATTRIBUTES:"tags"::STRING) AS tags');
+    expect(sql).toContain(
+      'TRY_PARSE_JSON(ATTRIBUTES:"scores"::STRING) AS scores',
+    );
+    expect(sql).toContain(
+      'TRY_PARSE_JSON(ATTRIBUTES:"secrets"::STRING) AS secrets',
+    );
   });
 });
 
