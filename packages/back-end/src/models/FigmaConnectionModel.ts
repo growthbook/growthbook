@@ -19,20 +19,27 @@ type FigmaTokenFields = Pick<
 >;
 
 export class FigmaConnectionModel extends BaseClass {
-  // A Figma connection belongs to a single user. The endpoints always
-  // scope reads/writes to context.userId, and the tokens are encrypted at
-  // rest, so blanket-allow here (mirrors WatchModel's per-user records).
-  protected canCreate(): boolean {
-    return true;
+  // A Figma connection is private to the user who created it: records are
+  // keyed by (userId, organization) and the tokens are encrypted at rest.
+  // Every gate requires an authenticated end-user context whose id matches
+  // the record's userId — so one user can never read or mutate another
+  // user's connection, and org-level API keys (which have no userId) are
+  // locked out entirely. BaseModel applies these on every read/write, so
+  // even a mis-scoped query can't leak a record across users.
+  private ownedByCurrentUser(doc: FigmaConnectionInterface): boolean {
+    return !!this.context.userId && doc.userId === this.context.userId;
   }
-  protected canRead(): boolean {
-    return true;
+  protected canCreate(doc: FigmaConnectionInterface): boolean {
+    return this.ownedByCurrentUser(doc);
   }
-  protected canUpdate(): boolean {
-    return true;
+  protected canRead(doc: FigmaConnectionInterface): boolean {
+    return this.ownedByCurrentUser(doc);
   }
-  protected canDelete(): boolean {
-    return true;
+  protected canUpdate(existing: FigmaConnectionInterface): boolean {
+    return this.ownedByCurrentUser(existing);
+  }
+  protected canDelete(existing: FigmaConnectionInterface): boolean {
+    return this.ownedByCurrentUser(existing);
   }
 
   public getByUserId(userId: string): Promise<FigmaConnectionInterface | null> {

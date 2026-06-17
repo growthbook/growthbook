@@ -19,10 +19,13 @@ const validation = {
   bodySchema,
   querySchema: z.never(),
   paramsSchema: z.never(),
-  responseSchema: z.any(),
+  responseSchema: z.object({ connected: z.boolean() }),
   method: "post" as const,
   path: "/visual-editor/figma/oauth/exchange",
   operationId: "postVisualEditorFigmaOAuthExchange",
+  // Internal endpoint used only by the Visual Editor extension — keep it
+  // out of the public OpenAPI spec.
+  excludeFromSpec: true,
 };
 
 export const postFigmaOAuthExchange = createApiRequestHandler(validation)(

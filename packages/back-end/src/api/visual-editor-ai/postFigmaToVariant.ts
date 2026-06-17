@@ -64,14 +64,44 @@ const bodySchema = z
   })
   .strict();
 
+// HTTP response shape. "Replace contents" returns a single dom-mutator
+// `html`/`set` mutation; insert modes return an empty `mutations` array
+// plus an `insert` descriptor + the idempotent `js`. `css`/`js`/`insert`/
+// `tooLargeWarning` are each present only in the relevant branch.
+const responseSchema = z.object({
+  mutations: z.array(
+    z.object({
+      selector: z.string(),
+      action: z.literal("set"),
+      attribute: z.literal("html"),
+      value: z.string(),
+    }),
+  ),
+  explanation: z.string(),
+  insert: z
+    .object({
+      targetSelector: z.string(),
+      position: z.enum(["beforeend", "beforebegin", "afterend"]),
+      html: z.string(),
+      scopeToken: z.string(),
+    })
+    .optional(),
+  js: z.string().optional(),
+  css: z.string().optional(),
+  tooLargeWarning: z.string().optional(),
+});
+
 const validation = {
   bodySchema,
   querySchema: z.never(),
   paramsSchema: z.never(),
-  responseSchema: z.any(),
+  responseSchema,
   method: "post" as const,
   path: "/visual-editor/ai/figma-to-variant",
   operationId: "postVisualEditorAIFigmaToVariant",
+  // Internal endpoint used only by the Visual Editor extension — keep it
+  // out of the public OpenAPI spec.
+  excludeFromSpec: true,
 };
 
 // OpenAI strict JSON mode rejects `.optional()` — use `.nullable()` and

@@ -11,14 +11,29 @@ import { requireUserAuth } from "./requireUserAuth";
 // connection, and hands back the public client_id it needs to launch the
 // OAuth consent flow (the secret stays server-side). `configured` is false
 // when the deployment hasn't set the Figma OAuth env vars at all.
+const responseSchema = z.object({
+  // False when the deployment hasn't set the Figma OAuth env vars.
+  configured: z.boolean(),
+  connected: z.boolean(),
+  // Token expiry epoch (ms), or null when not connected.
+  expiresAt: z.number().nullable(),
+  // Public OAuth client_id (empty when not configured); the secret stays
+  // server-side.
+  clientId: z.string(),
+  scope: z.string(),
+});
+
 const validation = {
   bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: z.never(),
-  responseSchema: z.any(),
+  responseSchema,
   method: "get" as const,
   path: "/visual-editor/figma/status",
   operationId: "getVisualEditorFigmaStatus",
+  // Internal endpoint used only by the Visual Editor extension — keep it
+  // out of the public OpenAPI spec.
+  excludeFromSpec: true,
 };
 
 export const getFigmaStatus = createApiRequestHandler(validation)(async (
