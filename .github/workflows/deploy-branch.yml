@@ -30,7 +30,7 @@ jobs:
       # Required to pull the hardened base image (FROM dhi.io/...) in the Dockerfile.
       # Depot forwards these credentials to its remote builder.
       - name: Login to Docker Hardened Images
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: dhi.io
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
